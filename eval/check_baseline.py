@@ -9,7 +9,7 @@ the baseline's own repetitions produced.
 Three properties follow, and `09` names them: a deterministic system records a zero-width
 interval and admits no drift at all, which is correct and strict; a noisy one records a wide
 interval and says so honestly; and a baseline that skipped the repetition cannot be built at all
-(`eval/metrics.py`'s `MetricRecord`), so it fails V3 rather than producing an unfalsifiable
+(`weft_eval.baseline.MetricRecord`), so it fails V3 rather than producing an unfalsifiable
 criterion.
 
 **A comparison against the wrong baseline is refused, not scored.** V3's failure clause is *"a
@@ -38,7 +38,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from run_baseline import BaselineReport, load_run
+from weft_eval.baseline import BaselineReport, load_baseline_report
 
 
 class IncomparableRunsError(Exception):
@@ -110,8 +110,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     """Print what fell outside, and exit non-zero if anything did."""
     args = build_parser().parse_args(argv)
-    baseline = load_run(Path(args.baseline))
-    later = load_run(Path(args.later))
+    baseline = load_baseline_report(Path(args.baseline))
+    later = load_baseline_report(Path(args.later))
     try:
         failures = regressions(baseline, later)
     except IncomparableRunsError as exc:

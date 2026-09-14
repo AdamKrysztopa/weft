@@ -72,8 +72,8 @@ module's docstring gives.
 **`kind` — ledger task 11.12, `modality`'s twin.** `eval/questions/*.toml` has carried a `kind`
 per question since V2 — `definitional`, `cross-document` and five more, measured 2026-09-09 — and
 this is where it is finally read. `kind` is a `str`, an open vocabulary, never an `Enum`: this
-repository's own question set has a closed seven-member schema (`eval/check_questions.py`'s own
-`Kind` `StrEnum`), but that script owns *this repository's* corpus, and the model here is loaded
+repository's own question set has a closed seven-member schema (`weft_eval.question_set`'s own
+`Kind` `StrEnum`), but that module owns *this repository's* corpus, and the model here is loaded
 from a file a third party writes about their own — `Channel`'s own settled reasoning applies
 unchanged: "a vocabulary, not a field type — a closed enum would force a core edit every time
 somebody added a base." Both `GenerationSample` and `RetrievalSample` default `kind` to `""`,

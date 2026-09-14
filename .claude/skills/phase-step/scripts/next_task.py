@@ -229,14 +229,14 @@ NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
 #: mentioned later in prose (this row routinely explains why some other repair is closed) and
 #: fail on a correct tree, the loosening `_phase_agreement_failures` above records as how a
 #: check earns the slack that then hides real drift.
-NEXT_ACTION_REPAIR = re.compile(r"[Rr]epairs?\s+[*`]{0,2}(?P<identifier>R\d+\.\d+)")
+NEXT_ACTION_REPAIR = re.compile(r"[Rr]epairs?\s+[*`]{0,2}(?P<identifier>R\d+\.\d+[a-z]?)")
 
 #: One more id in the same named group: `, `R9.6`` / ` and `R9.6`` / ` together with `R9.6``.
 #: No `\G` — Python's `re` has none; `named_repairs` calls `.match(text, position)`, which
 #: anchors at exactly that offset and is what makes the run contiguous.
 NEXT_ACTION_REPAIR_MORE = re.compile(
     r"[*`]{0,2}(?:\s*(?:,|and|together with|taken together with)\s*)+[*`]{0,2}"
-    r"(?P<identifier>R\d+\.\d+)"
+    r"(?P<identifier>R\d+\.\d+[a-z]?)"
 )
 
 #: The Status block's **Carried repairs** row must open with its two cardinalities.
@@ -248,8 +248,9 @@ NEXT_ACTION_REPAIR_MORE = re.compile(
 REPAIR_COUNTS_IN_STATUS = re.compile(r"^(?P<open>\d+)\s+open,\s*(?P<closed>\d+)\s+closed\b")
 
 #: One carried-repair line, ticked or not — `- [ ] **R11.6** …`. `TASK_ID` deliberately does not
-#: match these (its id is `\d+(\.\d+)?`), so they are parsed here and nowhere else.
-REPAIR_LINE = re.compile(r"^- \[([ xX])\]\s+\*\*(?P<identifier>R\d+\.\d+)\*\*", re.MULTILINE)
+#: match these (its id is `\d+(\.\d+)?`), so they are parsed here and nowhere else. A repair split
+#: into tasks carries a letter (`R22.4a`), which `L21.2` had already widened for phase ids.
+REPAIR_LINE = re.compile(r"^- \[([ xX])\]\s+\*\*(?P<identifier>R\d+\.\d+[a-z]?)\*\*", re.MULTILINE)
 
 #: One `### L<id> — <title>` entry in `docs/internal/lessons.md`'s own `## Queue` section — the
 #: identical shape `.claude/hooks/lessons_context.py` counts, so the two cannot disagree about what

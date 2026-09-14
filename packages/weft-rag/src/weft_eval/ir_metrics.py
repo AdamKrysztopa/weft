@@ -213,7 +213,7 @@ class MRRAtK:
     """One over the rank of the first relevant result within the top `k`, or zero if none is.
 
     **A zero here is a measurement, not a failure** — nothing relevant came back — and the two
-    are kept apart the way `eval/metrics.py`'s own `reciprocal_rank_at_k` docstring already
+    are kept apart the way `weft_eval.baseline`'s own `reciprocal_rank_at_k` docstring already
     states for the identical arithmetic. `NothingToProduce` is the absence: a sample with no
     relevant ids has nothing to be first.
 

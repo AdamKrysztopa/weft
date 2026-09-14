@@ -1,11 +1,13 @@
 """Prerequisite **V3** (`docs/09-release.md` §4.3) — what a baseline number means.
 
 V3 wants *"the numbers produced before any technique: single-vector top-k, no fusion, no rerank,
-no enhancement"*, repeated, *"and each metric carries the interval its own repetitions produced"*.
-This module is the arithmetic and the vocabulary; `eval/run_baseline.py` is the measurement and
-`eval/check_baseline.py` is the comparison. Nothing here talks to a store, a model or a CLI, so
-every rule below is checkable without a corpus — which matters, because an evaluation package can
-fail on precisely these rules while its plumbing works (`09` §4.2).
+no enhancement"*, repeated, *"and each metric carries the interval its own repetitions
+produced"*. This module is the arithmetic, the vocabulary and — since repair **R22.4a** — the
+published run's own shape: `eval/run_baseline.py` is the measurement and `eval/check_baseline.py`
+is the comparison, but what a baseline *is* now lives here, importable from the installed
+`weft-rag` wheel with no checkout. Nothing here talks to a store, a model or a CLI, so every rule
+below is checkable without a corpus — which matters, because an evaluation package can fail on
+precisely these rules while its plumbing works (`09` §4.2).
 
 **Four failure modes are refused here rather than documented.**
 
@@ -17,7 +19,7 @@ fail on precisely these rules while its plumbing works (`09` §4.2).
 * **A mean with no dispersion beside it.** `MetricRecord` cannot be built from one repetition,
   and its `low`/`high` are refused unless they are exactly the span its own values cover.
 * **Ground truth accepted and never read.** A judgement is a literal span
-  (`eval/check_questions.py`), and it is resolved against the text that came back — so a quote
+  (`weft_eval.question_set`), and it is resolved against the text that came back — so a quote
   that no longer occurs anywhere scores zero visibly rather than being quietly dropped.
 
 **Two granularities, reported side by side, neither a fallback for the other.** Scoring a
@@ -35,6 +37,17 @@ retrieved passage and scores as a miss. That is a floor on `quote-*`, not a bug,
 `document-*` is recorded next to it rather than replaced by it. Resolving spans by offset would
 need the extracted text of every document, which is an `Extractor` call, which is `async` — and
 `eval/` gets no second `asyncio.run` (fitness function 7(a)).
+
+**`BaselineReport`, carried from `eval/run_baseline.py` at R22.4a.** One baseline: what was
+measured, over what, how many times, and the persisted run it measured against. `record` is a
+real `weft_eval.run_record.RunRecord` — the same type `weft eval run`, `weft eval compare` and
+`weft trace` all read — so a later `weft eval compare` between this run and one taken through the
+shipped CLI is comparing two instances of one type, not two shapes that happen to look similar.
+Refuses fewer than two repetitions at construction, which is V3's own failure clause — *"or the
+baseline was run once, in which case it records no interval and no later run can be judged
+against it"* — enforced where the file is built, so the file cannot exist. `load_baseline_report`
+is the reader, renamed from `eval/run_baseline.py`'s own `load_run` so its name says what it
+reads now that it is a public entry point rather than a hand-run script's own helper.
 """
 
 from __future__ import annotations
@@ -42,10 +55,14 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from enum import StrEnum
 from math import fsum, isclose, log2
+from pathlib import Path
 from typing import Final
 
-from check_questions import Question
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from weft_eval.question_set import Question
+from weft_eval.run_record import RunRecord
+from weft_kernel.errors import WeftError
 
 #: How close a recorded `mean` must be to the mean of its own `values` to be believed. Floats
 #: written to JSON and read back do not compare equal to the sum that produced them, and a
@@ -55,16 +72,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 _MEAN_TOLERANCE: Final[float] = 1e-9
 
 
-class MetricsError(Exception):
+class BaselineScoringError(WeftError):
     """Something the harness was asked to measure cannot be measured as asked.
 
-    Not a `WeftError`: nothing under `eval/` is part of the engine, and importing the kernel's
-    error base here would be the first thread of the subsystem `tests/architecture/
-    test_eval_is_not_a_subsystem.py` exists to keep out.
+    A `WeftError`, since R22.4a: this module is part of the installed `weft-rag` wheel, scored by
+    any caller holding it — not only `eval/run_baseline.py`'s own subprocess — so a refusal here
+    reaches a CLI able to render it the same way as any other engine failure, rather than an
+    exception type a caller has to know to special-case.
     """
 
 
-class DepthTooShallowError(MetricsError):
+class DepthTooShallowError(BaselineScoringError):
     """A metric was asked for at a `k` deeper than the retrieval that would feed it.
 
     Reporting `ndcg_at_10` over four candidates is exactly this mistake. V4 states the rule —
@@ -231,6 +249,68 @@ class MetricRecord(BaseModel):
         return not self.low <= value <= self.high
 
 
+class BaselineReport(BaseModel):
+    """One baseline: what was measured, over what, how many times, and the persisted run it
+    measured against.
+
+    `record` is a real `weft_eval.run_record.RunRecord` — the same type `weft eval run`,
+    `weft eval compare` and `weft trace` all read — so a later `weft eval compare` between this
+    run and one taken through the shipped CLI is comparing two instances of one type, not two
+    shapes that happen to look similar. Refuses fewer than two repetitions at construction, which
+    is V3's own failure clause — *"or the baseline was run once, in which case it records no
+    interval and no later run can be judged against it"* — enforced where the file is built, so
+    the file cannot exist.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    recorded_at: str = Field(min_length=1)
+    #: The corpus name and manifest tiers this run selected — harness bookkeeping that sits
+    #: beside `record.corpus` rather than duplicating it: `record.corpus.digest` is the one
+    #: digest (`test_baseline_shape.py` recomputes it from `documents` below through the same
+    #: `weft_eval.run_record.corpus_identity` this harness calls), and `tiers`/`documents` are
+    #: what let a reader — and a gate test — say *which* manifest entries it is a digest of.
+    corpus_name: str = Field(min_length=1)
+    tiers: tuple[str, ...]
+    #: The one `Extractor` this baseline's pipeline named — see `eval/run_baseline.py`'s
+    #: `EXTRACTOR_SUFFIXES`.
+    extractor: str = Field(min_length=1)
+    documents: tuple[str, ...]
+    #: Derived from the tiers, never declared: false the moment an `operator` document is in.
+    reproducible: bool
+    record: RunRecord
+    questions: tuple[str, ...]
+    repeats: int = Field(ge=2)
+    #: What the store was asked for per question. Every `@k` metric's `k` is within it.
+    retrieval_depth: int = Field(ge=1)
+    wall_clock_seconds: float = Field(ge=0.0)
+    metrics: tuple[MetricRecord, ...]
+    #: Every measurement that produced no value, with the reason it produced none.
+    excluded: tuple[Excluded, ...] = ()
+
+    @model_validator(mode="after")
+    def _every_metrics_exclusions_are_the_ones_this_run_gave_reasons_for(self) -> BaselineReport:
+        """V4's *"aggregates... report how many were excluded"*, joined back to the reasons."""
+        disagreeing = sorted(
+            record.metric for record in self.metrics if record.n_excluded != len(self.excluded)
+        )
+        if disagreeing:
+            raise ValueError(
+                f"metrics whose n_excluded is not the {len(self.excluded)} exclusion(s) this run "
+                f"recorded reasons for: {disagreeing}"
+            )
+        return self
+
+    def metric(self, name: str) -> MetricRecord | None:
+        """The record for `name`, or `None` when this run did not measure it."""
+        return next((record for record in self.metrics if record.metric == name), None)
+
+
+def load_baseline_report(path: Path) -> BaselineReport:
+    """One written baseline, refused if anything in it disagrees with itself."""
+    return BaselineReport.model_validate_json(path.read_text(encoding="utf-8"))
+
+
 def mean_of(values: Sequence[float]) -> float:
     """The arithmetic mean, kept inside the range of its own values.
 
@@ -244,7 +324,7 @@ def mean_of(values: Sequence[float]) -> float:
     """
     if not values:
         message = "the mean of no values is not a number; the caller must exclude instead"
-        raise MetricsError(message)
+        raise BaselineScoringError(message)
     computed = fsum(values) / len(values)
     return min(max(computed, min(values)), max(values))
 
@@ -258,7 +338,7 @@ def recall_at_k(first_rank: Sequence[int | None], k: int) -> float:
     """
     if not first_rank:
         message = "recall over no judgements is not a number; the caller must exclude instead"
-        raise MetricsError(message)
+        raise BaselineScoringError(message)
     found = sum(1 for rank in first_rank if rank is not None and rank <= k)
     return found / len(first_rank)
 

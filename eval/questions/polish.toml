@@ -1,8 +1,9 @@
 # V2 question set (`docs/09-release.md` §4.3) — the Polish round: written from the Wikipedia
 # subset, in Polish, because non-English language handling is otherwise untested.
 #
-# `eval/check_questions.py` owns the schema, every rule these entries are refused by, and
-# the argument for why nothing written here may be believed until
+# `weft_eval.question_set` owns the schema and every rule these entries are refused by;
+# `eval/check_questions.py` owns the quote checks and the argument for why nothing written
+# here may be believed until
 # `tests/docs/test_question_set.py` has read it back out of the corpus. This file holds
 # questions and no design.
 #

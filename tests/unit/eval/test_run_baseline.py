@@ -13,10 +13,8 @@ from pathlib import Path
 
 import pytest
 from fetch_corpus import Document, Tier
-from metrics import Excluded, ExclusionKind, MetricRecord
 from run_baseline import (
     BaselineError,
-    BaselineReport,
     aggregate,
     hits_of,
     main,
@@ -26,6 +24,7 @@ from run_baseline import (
 )
 
 from weft_cli.ask import AskHit, AskResult
+from weft_eval.baseline import BaselineReport, Excluded, ExclusionKind, MetricRecord
 from weft_eval.run_record import CorpusIdentity, RunRecord
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 

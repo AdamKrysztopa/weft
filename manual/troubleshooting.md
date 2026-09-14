@@ -3042,6 +3042,65 @@ ci-checks` — they refuse loudly instead.
 
 ---
 
+## Scoring a published baseline — `weft_eval.baseline`, `weft_eval.question_set`, `weft_eval.corpus_manifest`
+
+Repair **R22.4a**, `docs/09-release.md` §4.3 V2–V4. What a published baseline measures, the
+question set it is scored against and the corpus manifest it names are read by these three
+modules, from the installed wheel, so a reproduction needs no checkout. Each refusal below was
+produced by calling the module with the input described.
+
+### `QuestionSetError`
+
+**What it looks like** — a question file under the directory handed to `load_questions` that is
+not valid TOML:
+
+```text
+QuestionSetError: round-2.toml: Expected ']]' at the end of an array declaration (at line 1, column 11)
+```
+
+A question that breaks its own invariant names its file and index the same way —
+*`round-2.toml, question 0: … definitional but carries no supporting quote`*. **What to do:** fix the
+named file. The question set is ground truth, so nothing is skipped: one bad question refuses the
+whole set rather than scoring a smaller one under the same name.
+
+### `CorpusManifestError`
+
+**What it looks like** — a manifest entry declaring a tier that does not exist:
+
+```text
+CorpusManifestError: document 'doc-a' in …/manifest.toml declares tier 'borrowed', which is not a tier. Valid tiers are: gate, fetch, operator.
+```
+
+The same class refuses an absent manifest, an entry missing `id`, `path`, `format`, `language`,
+`sha256` or `tier`, and a `path` resolving outside the manifest's own directory, each naming the
+entry. **What to do:** correct the entry the message names. `scripts/fetch_corpus.py` reads the same
+file and refuses the same mistakes.
+
+### `BaselineScoringError`
+
+**What it looks like** — a mean asked of no values:
+
+```text
+BaselineScoringError: the mean of no values is not a number; the caller must exclude instead
+```
+
+The base of the scoring refusals. **What to do:** a caller that reaches this passed a question with
+no judgement, or a repetition that scored nothing, to arithmetic that has no answer for it — exclude
+it with a reason (`Unscoreable`, `Excluded`) rather than averaging a zero.
+
+### `DepthTooShallowError`
+
+**What it looks like** — a metric asked for at a `k` deeper than the retrieval that fed it:
+
+```text
+DepthTooShallowError: metrics were asked for at depth(s) [10] over a retrieval of 5. A metric's name must state the k it computed
+```
+
+V4's rule, *"the `k` in a metric's name equals the `k` it computed"*. **What to do:** retrieve at
+least as deep as the deepest metric you report, or drop that depth.
+
+---
+
 ## Project configuration — `weft_engine.registry_bootstrap`
 
 ### `ConfigFileError`

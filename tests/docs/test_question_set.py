@@ -47,20 +47,23 @@ from typing import Final, cast
 
 import pytest
 from check_questions import (
-    Difficulty,
-    Kind,
-    Question,
-    Quote,
+    QUESTIONS_DIR,
     QuoteCoverage,
-    load_questions,
     misplaced_quotes,
     quote_coverage,
-    reproducible_questions,
     unmatched_quotes,
 )
 from fetch_corpus import Document, Status, Tier, load_manifest, verify_one
 
 from tests.discovery import discover_for_tests
+from weft_eval.question_set import (
+    Difficulty,
+    Kind,
+    Question,
+    Quote,
+    load_questions,
+    reproducible_questions,
+)
 from weft_extract.contract import Extractor, SourceDoc
 from weft_extract.payload import PageSpan
 from weft_kernel.context import Context
@@ -118,7 +121,7 @@ class PartialCorpus(UserWarning):
 @pytest.fixture(scope="module")
 def questions() -> tuple[Question, ...]:
     """Every tracked question, refused at load if it is malformed."""
-    return load_questions()
+    return load_questions(QUESTIONS_DIR)
 
 
 @pytest.fixture(scope="module")

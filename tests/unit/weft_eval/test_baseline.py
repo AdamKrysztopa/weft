@@ -1,17 +1,18 @@
-"""Unit tests for `eval/metrics.py` — what a number means before any of them is measured.
+"""Unit tests for `weft_eval.baseline` — what a number means before any of them is measured.
 
-Mirrors `eval/metrics.py`. The corpus, the store and the CLI are all absent here on purpose:
-every rule these tests pin is a rule about *scoring*, not plumbing — a metric named `ndcg_at_10`
-computed over four candidates, a failure scored as `0.0` and averaged into a mean, a ground truth
-the harness accepted and never read (`docs/09-release.md` §4.2). The measurement itself is
-`eval/run_baseline.py`'s, against the real thing.
+Mirrors `weft_eval.baseline`, which carried `eval/metrics.py` into the wheel at repair `R22.4a`.
+The corpus, the store and the CLI are all absent here on purpose: every rule these tests pin is a
+rule about *scoring*, not plumbing — a metric named `ndcg_at_10` computed over four candidates, a
+failure scored as `0.0` and averaged into a mean, a ground truth the harness accepted and never
+read (`docs/09-release.md` §4.2).
 """
 
 from math import log2
 
 import pytest
-from check_questions import Difficulty, Kind, Question, Quote
-from metrics import (
+
+from weft_eval.baseline import (
+    BaselineScoringError,
     DepthTooShallowError,
     ExclusionKind,
     Granularity,
@@ -23,6 +24,8 @@ from metrics import (
     recall_at_k,
     reciprocal_rank_at_k,
 )
+from weft_eval.question_set import Difficulty, Kind, Question, Quote
+from weft_kernel.errors import WeftError
 
 
 def _question(**overrides: object) -> Question:
@@ -217,3 +220,18 @@ def test_the_granularity_of_every_metric_name_is_one_of_the_two_that_exist() -> 
     assert not isinstance(scored, Unscoreable)
     prefixes = {name.split("-", 1)[0] for name in scored.values}
     assert prefixes == {member.value for member in Granularity}
+
+
+def test_a_scoring_refusal_is_a_weft_error_the_cli_can_render() -> None:
+    # A command that scores a baseline reaches this refusal, and the CLI renders a `WeftError`
+    # with its exit code and troubleshooting entry — anything else arrives as a traceback.
+    # Arrange
+    question = _question()
+
+    # Act
+    with pytest.raises(DepthTooShallowError) as caught:
+        measure(question, (_hit(1),), depths=(10,), retrieval_depth=5)
+
+    # Assert
+    assert isinstance(caught.value, BaselineScoringError)
+    assert isinstance(caught.value, WeftError)

@@ -242,7 +242,7 @@ class Question(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     #: Task 16.4. Optional because every `--questions` file written before this task has none —
-    #: this is `weft_cli.eval_scoring.Question`, not `eval/check_questions.py`'s own, separate
+    #: this is `weft_cli.eval_scoring.Question`, not `weft_eval.question_set`'s own, separate
     #: `Question`; the two never meet (`L17.16`, and this module's own docstring).
     id: str | None = None
     query: str = Field(min_length=1)
@@ -522,7 +522,7 @@ async def score_pipeline(
     resolving per question would raise the same refusal N times and redo the same work N times.
     Each `RetrievalSample.relevant_ids` is then the frozenset of *resolved document ids*, never
     of labels, so every metric downstream goes on doing exact set membership on document ids
-    exactly as it does today. This lives here and not inside a metric for `eval/metrics.py`'s
+    exactly as it does today. This lives here and not inside a metric for `weft_eval.baseline`'s
     own reason, one layer up: `Hit`'s docstring already argues "a metric that had to know about
     file paths would be a metric that stops working the day the corpus moves" — the identical
     argument against teaching a metric a path-matching rule instead of a plain set comparison.

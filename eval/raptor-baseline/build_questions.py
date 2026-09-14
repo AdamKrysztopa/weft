@@ -9,7 +9,7 @@ is a *new* measurement rather than a replay.
 
 What this writes is derivable, and therefore re-derivable by anyone:
 
-- **Which questions.** `eval/check_questions.py`'s own `reproducible_questions` over the tiers a
+- **Which questions.** `weft_eval.question_set`'s own `reproducible_questions` over the tiers a
   stranger can obtain — `fetch` — so no question resting on a paper under publisher copyright is
   in it. That function is the published baseline's own selector and is reused rather than a second
   rule invented here.
@@ -31,9 +31,10 @@ Run it as `uv run python eval/raptor-baseline/build_questions.py`. It writes
 from __future__ import annotations
 
 import json
-import sys
 import tomllib
 from pathlib import Path
+
+from weft_eval.question_set import load_questions, reproducible_questions
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parents[1]
@@ -46,20 +47,14 @@ OUTPUT = _HERE / "questions.json"
 
 
 def main() -> int:
-    # Imported inside the function rather than at module scope. `eval/` is not a package, so
-    # `check_questions` is reached by putting that directory on the path first — which at module
-    # scope is an import after a statement, and ruff's `E402` refuses it. A lint suppression
-    # bought to save four lines is the wrong trade; `eval/run_baseline.py` reaches the same
-    # module the same way.
-    sys.path.insert(0, str(_REPO_ROOT / "eval"))
-    from check_questions import load_questions, reproducible_questions
-
     manifest = tomllib.loads((_REPO_ROOT / "corpus" / "manifest.toml").read_text(encoding="utf-8"))
     documents = manifest["document"]
     tiers = {entry["id"]: entry["tier"] for entry in documents}
     paths = {entry["id"]: entry["path"] for entry in documents}
 
-    subset = reproducible_questions(load_questions(), tiers=tiers, reproducible=REPRODUCIBLE)
+    subset = reproducible_questions(
+        load_questions(_REPO_ROOT / "eval" / "questions"), tiers=tiers, reproducible=REPRODUCIBLE
+    )
     written: list[dict[str, object]] = []
     for question in subset:
         labels = [paths[name] for name in question.relevant_documents if name in paths]

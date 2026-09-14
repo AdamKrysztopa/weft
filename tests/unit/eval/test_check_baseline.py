@@ -8,9 +8,8 @@ comparison against a run that measured something else is refused rather than sco
 
 import pytest
 from check_baseline import IncomparableRunsError, regressions
-from metrics import MetricRecord
-from run_baseline import BaselineReport
 
+from weft_eval.baseline import BaselineReport, MetricRecord
 from weft_eval.run_record import CorpusIdentity, RunRecord
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 

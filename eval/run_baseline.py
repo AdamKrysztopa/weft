@@ -96,8 +96,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, cast
 
-from check_questions import Question, load_questions, reproducible_questions
-from metrics import (
+from pydantic import BaseModel
+
+from weft_cli.ask import AskResult
+from weft_cli.compile import contracts_for
+from weft_cli.pipeline_catalogue import full_catalogue
+from weft_engine.registry_bootstrap import build_dependencies
+from weft_eval.baseline import (
+    BaselineReport,
     Excluded,
     ExclusionKind,
     Hit,
@@ -107,12 +113,7 @@ from metrics import (
     mean_of,
     measure,
 )
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from weft_cli.ask import AskResult
-from weft_cli.compile import contracts_for
-from weft_cli.pipeline_catalogue import full_catalogue
-from weft_engine.registry_bootstrap import build_dependencies
+from weft_eval.question_set import Question, load_questions, reproducible_questions
 from weft_eval.run_record import RunRecord, build_run_record, corpus_identity
 from weft_kernel.resolution import ResolvedPipeline, resolve
 
@@ -162,67 +163,6 @@ _ASK_TIMEOUT_SECONDS: Final[int] = 180
 
 class BaselineError(Exception):
     """The run cannot be taken as asked, and taking a different one silently would be worse."""
-
-
-class BaselineReport(BaseModel):
-    """One baseline: what was measured, over what, how many times, and the persisted run it
-    measured against.
-
-    `record` is a real `weft_eval.run_record.RunRecord` — the same type `weft eval run`,
-    `weft eval compare` and `weft trace` all read — so a later `weft eval compare` between this
-    run and one taken through the shipped CLI is comparing two instances of one type, not two
-    shapes that happen to look similar. Refuses fewer than two repetitions at construction, which
-    is V3's own failure clause — *"or the baseline was run once, in which case it records no
-    interval and no later run can be judged against it"* — enforced where the file is built, so
-    the file cannot exist.
-    """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    recorded_at: str = Field(min_length=1)
-    #: The corpus name and manifest tiers this run selected — harness bookkeeping that sits
-    #: beside `record.corpus` rather than duplicating it: `record.corpus.digest` is the one
-    #: digest (`test_baseline_shape.py` recomputes it from `documents` below through the same
-    #: `weft_eval.run_record.corpus_identity` this harness calls), and `tiers`/`documents` are
-    #: what let a reader — and a gate test — say *which* manifest entries it is a digest of.
-    corpus_name: str = Field(min_length=1)
-    tiers: tuple[str, ...]
-    #: The one `Extractor` this baseline's pipeline named — see `EXTRACTOR_SUFFIXES`.
-    extractor: str = Field(min_length=1)
-    documents: tuple[str, ...]
-    #: Derived from the tiers, never declared: false the moment an `operator` document is in.
-    reproducible: bool
-    record: RunRecord
-    questions: tuple[str, ...]
-    repeats: int = Field(ge=2)
-    #: What the store was asked for per question. Every `@k` metric's `k` is within it.
-    retrieval_depth: int = Field(ge=1)
-    wall_clock_seconds: float = Field(ge=0.0)
-    metrics: tuple[MetricRecord, ...]
-    #: Every measurement that produced no value, with the reason it produced none.
-    excluded: tuple[Excluded, ...] = ()
-
-    @model_validator(mode="after")
-    def _every_metrics_exclusions_are_the_ones_this_run_gave_reasons_for(self) -> BaselineReport:
-        """V4's *"aggregates... report how many were excluded"*, joined back to the reasons."""
-        disagreeing = sorted(
-            record.metric for record in self.metrics if record.n_excluded != len(self.excluded)
-        )
-        if disagreeing:
-            raise ValueError(
-                f"metrics whose n_excluded is not the {len(self.excluded)} exclusion(s) this run "
-                f"recorded reasons for: {disagreeing}"
-            )
-        return self
-
-    def metric(self, name: str) -> MetricRecord | None:
-        """The record for `name`, or `None` when this run did not measure it."""
-        return next((record for record in self.metrics if record.metric == name), None)
-
-
-def load_run(path: Path) -> BaselineReport:
-    """One written baseline, refused if anything in it disagrees with itself."""
-    return BaselineReport.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def selected_documents(
@@ -639,7 +579,7 @@ def _run(args: argparse.Namespace) -> int:
     questions = tuple(
         question
         for question in reproducible_questions(
-            load_questions(),
+            load_questions(REPO_ROOT / "eval" / "questions"),
             tiers={document.id: document.tier.value for document in declared},
             reproducible=frozenset(tier.value for tier in tiers),
         )

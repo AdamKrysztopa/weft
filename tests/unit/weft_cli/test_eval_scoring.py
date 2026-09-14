@@ -208,7 +208,7 @@ def test_a_question_may_carry_an_id_and_a_file_without_one_still_loads(tmp_path:
 
     The ledger's own line for this task said the id was *"already carried and dropped"* by this
     loader. It was not: `eval/questions/*.toml` carries ids and is read by
-    `eval/check_questions.py`'s own, separate `Question` into `eval/run_baseline.py`; this
+    `weft_eval.question_set`'s own, separate `Question`; this
     loader reads **JSON** and has `extra="forbid"`, so an `id` key would have been *refused*,
     not dropped. Two `Question` classes, two loaders, and they never meet (`L17.16`).
     """
@@ -327,7 +327,7 @@ def test_a_corpus_relative_label_finds_its_document_wherever_it_is_staged() -> N
     """The property, and it is about two machines rather than one.
 
     Ground truth is written once and read wherever the corpus is staged, so a label cannot
-    carry a root. `eval/metrics.py`'s own `Hit` docstring states the principle this resolves
+    carry a root. `weft_eval.baseline.Hit`'s own docstring states the principle this resolves
     under: *"a metric that had to know about file paths would be a metric that stops working
     the day the corpus moves"* — so the resolution happens once, here, and every metric goes on
     comparing document ids exactly.

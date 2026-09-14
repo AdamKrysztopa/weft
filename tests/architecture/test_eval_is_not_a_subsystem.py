@@ -70,7 +70,7 @@ def test_the_walk_found_the_harness_and_the_packages() -> None:
     # Task 1.18's floor: every check below is "no violations", which is true of an empty walk.
     # A renamed directory would otherwise turn this whole file green by finding nothing.
     # Assert
-    assert {"metrics", "run_baseline", "check_baseline", "check_questions"} <= EVAL_MODULES, (
+    assert {"run_baseline", "check_baseline", "check_questions"} <= EVAL_MODULES, (
         f"the harness modules this file exists to fence are not under {EVAL_ROOT}: found "
         f"{sorted(EVAL_MODULES)}"
     )
@@ -132,6 +132,44 @@ def test_no_distribution_imports_the_harness() -> None:
         + "\n  ".join(violations)
         + "\nThe harness measures the engine; the engine may not depend on the harness, or the "
         "measurement is part of what is being measured."
+    )
+
+
+#: The classes carried into `weft_eval` at repair `R22.4a`, so a stranger holding the wheel and
+#: the release archive can score a baseline. A second definition under `eval/` would be a copy of
+#: the scorer that the published number no longer runs through.
+_SCORED_IN_THE_WHEEL: Final[frozenset[str]] = frozenset(
+    {
+        "BaselineReport",
+        "Difficulty",
+        "Excluded",
+        "ExclusionKind",
+        "Granularity",
+        "Hit",
+        "Judged",
+        "Kind",
+        "MetricRecord",
+        "Question",
+        "Quote",
+        "Scores",
+        "Unscoreable",
+    }
+)
+
+
+def test_the_harness_defines_nothing_the_wheel_scores_with() -> None:
+    # Act
+    copies = sorted(
+        f"{path.relative_to(REPO_ROOT)} defines {node.name}"
+        for path in EVAL_ROOT.glob("*.py")
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(node, ast.ClassDef) and node.name in _SCORED_IN_THE_WHEEL
+    )
+
+    # Assert
+    assert not copies, (
+        f"{copies} — these ship in `weft_eval.baseline` and `weft_eval.question_set` since "
+        f"R22.4a. Import them from there."
     )
 
 

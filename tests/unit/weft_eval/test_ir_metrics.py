@@ -188,7 +188,7 @@ async def test_mrr_at_k_is_one_over_the_rank_of_the_first_relevant_result() -> N
 
 async def test_mrr_at_k_is_zero_when_nothing_relevant_came_back_within_k() -> None:
     """A zero here is a measurement — nothing relevant was retrieved — not a failure, and the
-    two are kept apart the way `eval/metrics.py`'s own `reciprocal_rank_at_k` docstring already
+    two are kept apart the way `weft_eval.baseline.reciprocal_rank_at_k`'s own docstring already
     states for the identical arithmetic.
     """
     # Arrange

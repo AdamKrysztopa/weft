@@ -24,7 +24,12 @@ argument and for why no threshold, multiplier or sigma appears anywhere in it. N
 capability of its own — nothing under this file's `register()` call publishes any of them — because
 folding observations into a report, folding a run's own facts into a record, reading which metrics
 are gate-safe, pricing a set of calls, and judging a difference against a baseline's own spread are
-not themselves plugin points any pack or third party needs to swap.
+not themselves plugin points any pack or third party needs to swap. `baseline.py`, `question_set.py`
+and `corpus_manifest.py` (repair **R22.4a**) join that unregistered set for the identical reason:
+scoring one hand-run harness's own baseline, reading its question set and reading the corpus
+manifest are not capabilities any pack or third party needs to swap either — they are `eval/`'s own
+scoring glue, carried into the wheel so a stranger holding only the wheel and the release archive
+can run it.
 
 **No unregistered category, no dummy, no silent skip.** Every metric this pack ships is
 registered in the one `register()` call below, so there is no second import path a caller

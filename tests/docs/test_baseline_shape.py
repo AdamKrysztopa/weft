@@ -28,11 +28,12 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from check_questions import load_questions, reproducible_questions
+from check_questions import QUESTIONS_DIR
 from fetch_corpus import Document, Tier, load_manifest
-from metrics import MetricRecord
-from run_baseline import BASELINES_DIR, EXTRACTOR_SUFFIXES, BaselineReport, load_run
+from run_baseline import BASELINES_DIR, EXTRACTOR_SUFFIXES
 
+from weft_eval.baseline import BaselineReport, MetricRecord, load_baseline_report
+from weft_eval.question_set import load_questions, reproducible_questions
 from weft_eval.run_record import corpus_identity
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
@@ -42,7 +43,9 @@ MANIFEST: Final[Path] = REPO_ROOT / "corpus" / "manifest.toml"
 @pytest.fixture(scope="module")
 def runs() -> tuple[tuple[Path, BaselineReport], ...]:
     """Every committed baseline, refused at load if anything in it disagrees with itself."""
-    return tuple((path, load_run(path)) for path in sorted(BASELINES_DIR.glob("*.json")))
+    return tuple(
+        (path, load_baseline_report(path)) for path in sorted(BASELINES_DIR.glob("*.json"))
+    )
 
 
 @pytest.fixture(scope="module")
@@ -190,7 +193,7 @@ def test_every_baseline_scored_the_questions_its_tiers_actually_allow(
     # reconstruct; one that measured more rests on documents it did not index.
     # Arrange
     tiers = {entry.id: entry.tier.value for entry in documents}
-    questions = load_questions()
+    questions = load_questions(QUESTIONS_DIR)
 
     # Act / Assert
     for path, run in runs:
