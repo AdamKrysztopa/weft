@@ -214,6 +214,11 @@ one session by the author who had just written the rule down).
     dispatch. The sites are keyed on **two markers at once** — the exception family and the
     exit-code mechanism — so the search term is an existing member's name
     (`UnknownQuestionKindError` finds both lists in one grep); the family's own name finds one.
+    **And write what the new name owes outside the code before you dispatch, because the agent
+    may not** (`L22.15`). A new `WeftError` needs a `manual/troubleshooting.md` entry
+    (`tests/docs/test_troubleshooting_coverage.py`), `ci-no-tests` does not run `tests/docs`, and
+    inserting the entry moves every citation below it (check 13). `R22.8` and `R22.7` each spent
+    two full gate runs finding that after a green return.
 
 16. **A fixture the code cannot reach becomes a specification the agent must satisfy.** `L17.17`,
     and it recurred four times in one phase. A double written from a contract's prose rather than
@@ -303,7 +308,10 @@ the work. Run these against the brief, not against the code.
    **in bold** that all 23 pre-existing type errors were the task's own missing import, checked with
    an inverted `grep` piped through `head -3` — which cannot prove a negative. Two were an invented
    field in the dispatcher's own fixture. Group and count by file; never `head` a search whose
-   conclusion is "there are no others".
+   conclusion is "there are no others". **When the file expected to be red is one you just wrote,
+   group its errors by message as well** (`L22.13`): a missing-module cascade has one shape
+   (`could not be resolved`, `is unknown`), and seven errors of another shape once sat inside
+   *"all 80 are the import"*, in the dispatcher's own helper.
 
 5. **Does the change land in a function already near a ceiling?** `L10.32`. A brief added two
    branches to a method one below ruff's `max-complexity`, and said nothing — silently delegating

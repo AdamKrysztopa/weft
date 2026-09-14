@@ -86,7 +86,12 @@ claim sat in `hybrid-then-generate.yaml`, inside those roots, saying it in diffe
 was propagated into a *new* file before anyone noticed, because the neighbouring document was
 copied. So a sweep supporting "one left" searches for the **subject** (`qdrant`, `TextSearch`) and
 reads the hits, never for the sentence being corrected. A cardinality of one looks too small to be
-worth checking, which is exactly why it is not.
+worth checking, which is exactly why it is not. *(c)* **A repair's `owner` is where the raise is,
+and an error message names only its subject.** `L22.17`: `R22.9` was filed against
+`weft_kernel.resolution.resolve`, and framed as a gate question, because *"stage 'store' names
+plugin 'pgvector'"* reads like resolution. The raise was one layer up, in
+`weft_cli.compile.contracts_for`, and the fix needed no decision. Grep the message's literal text,
+read the function that raises it, then write the `owner`.
 
 **3. A list in a document is where to start looking, not a census.** *"The five known sites"* stops
 where its author's reading stopped — task 5.2b was given five and found nine. Grep for the thing
@@ -633,6 +638,11 @@ crashes on the exact state its own non-vacuity exercise produces.
    that happened to be up kept two green local gates over a defect that made `weft index` exit 1
    on any machine without one, and CI found it in minutes. If a change alters the set of services
    a run touches, stop the ones it should not need and run it again.
+   **A page whose job is a transcript is run whole, against the artefact it names** (`L22.10`).
+   `docs/REPRODUCING.md` said it carried only commands that were run, while one block held
+   `<pipeline>` placeholders and a count on it had been measured against a local copy of the
+   archive with two files added. Run every fenced command from the published asset, not a copy;
+   a block you did not run is marked as a shape.
 
 5. **The ledger box is ticked with its commit sha**, `docs/internal/README.md`'s Status block still reads
    true, and any document whose content the work changed is edited **in the same commit**. The plan

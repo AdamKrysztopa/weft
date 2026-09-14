@@ -137,6 +137,11 @@ a field several rows shared, and it passed a type check because the shape was ri
 meaning was wrong (`L7.4`). A derivation agreed with the tree until the tree grew a second thing of
 that kind (`L7.7`). So for any key: name the field, then find the case where two things share it.
 If you cannot construct that case today, say so — that is the assumption, and it will expire.
+**And tell identity from provenance** (`L22.11`). A field that moves when packaging does — a
+distribution name, a contract version, a grammar field that did not exist yet — is reported beside
+a comparison, never refused on. After a gate that renames or re-versions, re-run each equality over
+a record written *before* it: `G19` made every earlier baseline and run record incomparable with
+every later one, and nobody asked until a reproduction was refused.
 
 **A threat model is not a fault model, and "not exploitable" ends the wrong investigation.**
 `Node`'s id is a content digest that excludes both tenant and source. Asked as a security question

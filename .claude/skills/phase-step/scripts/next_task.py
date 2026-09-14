@@ -212,6 +212,11 @@ QUEUE_DEPTH_IN_STATUS = re.compile(r"^(?P<count>\d+)\b")
 #: was in. A regex is a claim about a document's shape and is checked against the document.
 NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
 
+#: A carried-repair id, `R22.4` or a task-split `R22.4b` — one fragment every repair pattern below
+#: composes, so the vocabulary cannot widen in one and not its siblings (`docs/internal/lessons.md`
+#: `L22.12`, `L21.2`'s shape one pattern over).
+REPAIR_ID = r"R\d+\.\d+[a-z]?"
+
 #: A **carried repair** the Next action row may point at instead of a task —
 #: `build-ledger.md` → *Carried repairs*, whose own heading says they are "owned by no phase's
 #: content". Added 2026-09-10 at Phase 11's close, the first time the project's position was a
@@ -229,14 +234,14 @@ NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
 #: mentioned later in prose (this row routinely explains why some other repair is closed) and
 #: fail on a correct tree, the loosening `_phase_agreement_failures` above records as how a
 #: check earns the slack that then hides real drift.
-NEXT_ACTION_REPAIR = re.compile(r"[Rr]epairs?\s+[*`]{0,2}(?P<identifier>R\d+\.\d+[a-z]?)")
+NEXT_ACTION_REPAIR = re.compile(r"[Rr]epairs?\s+[*`]{0,2}(?P<identifier>" + REPAIR_ID + ")")
 
 #: One more id in the same named group: `, `R9.6`` / ` and `R9.6`` / ` together with `R9.6``.
 #: No `\G` — Python's `re` has none; `named_repairs` calls `.match(text, position)`, which
 #: anchors at exactly that offset and is what makes the run contiguous.
 NEXT_ACTION_REPAIR_MORE = re.compile(
     r"[*`]{0,2}(?:\s*(?:,|and|together with|taken together with)\s*)+[*`]{0,2}"
-    r"(?P<identifier>R\d+\.\d+[a-z]?)"
+    r"(?P<identifier>" + REPAIR_ID + ")"
 )
 
 #: The Status block's **Carried repairs** row must open with its two cardinalities.
@@ -250,7 +255,9 @@ REPAIR_COUNTS_IN_STATUS = re.compile(r"^(?P<open>\d+)\s+open,\s*(?P<closed>\d+)\
 #: One carried-repair line, ticked or not — `- [ ] **R11.6** …`. `TASK_ID` deliberately does not
 #: match these (its id is `\d+(\.\d+)?`), so they are parsed here and nowhere else. A repair split
 #: into tasks carries a letter (`R22.4a`), which `L21.2` had already widened for phase ids.
-REPAIR_LINE = re.compile(r"^- \[([ xX])\]\s+\*\*(?P<identifier>R\d+\.\d+[a-z]?)\*\*", re.MULTILINE)
+REPAIR_LINE = re.compile(
+    r"^- \[([ xX])\]\s+\*\*(?P<identifier>" + REPAIR_ID + r")\*\*", re.MULTILINE
+)
 
 #: One `### L<id> — <title>` entry in `docs/internal/lessons.md`'s own `## Queue` section — the
 #: identical shape `.claude/hooks/lessons_context.py` counts, so the two cannot disagree about what
@@ -931,6 +938,13 @@ def _repair_clause_failures(
     mentioned = named_repairs("**Carried repair `R9.1`.** Note `R11.6` closed, which is why.")
     if mentioned != ["R9.1"]:
         failures.append(f"a repair mentioned in passing was collected into the group: {mentioned}")
+    # `docs/internal/lessons.md` L22.12: a task-split repair id, read whole on both surfaces.
+    lettered = named_repairs("**Repair `R22.4b`**, the second of four.")
+    if lettered != ["R22.4b"]:
+        failures.append(f"a lettered repair in a Next action parsed as {lettered}")
+    split_line = [m.group("identifier") for m in REPAIR_LINE.finditer("- [ ] **R22.4b** a split")]
+    if split_line != ["R22.4b"]:
+        failures.append(f"a lettered repair line parsed as {split_line}")
     return failures
 
 
