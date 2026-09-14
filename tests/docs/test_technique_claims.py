@@ -30,7 +30,10 @@ technique, measured rather than assumed. So clause (a) carries a planted self-te
 waiver is non-empty and real — it names the two passages in `manual/` that quote the rule, so the
 sweep is demonstrably finding things rather than matching nothing.
 
-**Why the sweep is over `manual/` and `README.md` and not over `docs/`.** `08` §1 defines the
+**Why the sweep is over `manual/`, `README.md`, `CHANGELOG.md` and `docs/10`, and not over the
+rest of `docs/`.** The changelog and the technique catalogue joined at carried repair `R22.14`:
+both publish numbers about shipped techniques, and a claim there reaches a reader exactly as one
+in a manual does. `08` §1 defines the
 shipped documentation set, and `09` §5's own clause sits under *"Security, licensing,
 documentation"* — the published artefacts. `docs/` is the plan, where the rule is stated,
 discussed and quoted at length; sweeping it would make every discussion of the rule a violation of
@@ -47,6 +50,8 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
 MANUAL: Final[Path] = REPO_ROOT / "manual"
 README: Final[Path] = REPO_ROOT / "README.md"
+CHANGELOG: Final[Path] = REPO_ROOT / "CHANGELOG.md"
+TECHNIQUE_CATALOGUE: Final[Path] = REPO_ROOT / "docs" / "10-technique-catalogue.md"
 BASELINES: Final[Path] = REPO_ROOT / "eval" / "baselines"
 
 #: A claim block: ` ```text id=claim:<technique> `, the same shape FF11's pipeline blocks take.
@@ -89,7 +94,7 @@ CLAIM_PROSE_WAIVED: Final[frozenset[str]] = frozenset(
 
 
 def _shipped_documents() -> list[Path]:
-    return sorted([*MANUAL.glob("*.md"), README])
+    return sorted([*MANUAL.glob("*.md"), README, CHANGELOG, TECHNIQUE_CATALOGUE])
 
 
 def _claim_blocks() -> list[tuple[Path, str, str]]:
