@@ -1447,7 +1447,11 @@ second collection — enforced by Postgres roles or a collection-scoped token, o
 it.** **An application embedding Weft does not move this** (G23, 2026-09-14): `weft_engine.api.Weft`
 opens the operator's own `weft.toml`, so its caller *is* the operator, and a tenant that caller could
 choose would separate blob paths while every node stayed shared — a label, which is what this
-paragraph refuses to ship as a control. Writing this down is the same act as the paragraph above it: a control that looks like
+paragraph refuses to ship as a control. **It reopens on one trigger, the one `01` → *Multi-tenancy
+in the core* states:** a commit that makes the tenant something a caller can choose — a `tenant=` on
+`Weft.open`, a client-named tenant in an HTTP adapter — which fitness function 32 turns into a red
+`ci-checks` naming Phase 22b; or an operator who needs two parties that do not trust each other on
+one `dsn`. Writing this down is the same act as the paragraph above it: a control that looks like
 enforcement but is not is worse than an acknowledged gap, and an unstated boundary is the version of
 that failure with nothing to point at.
 
