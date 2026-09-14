@@ -368,9 +368,15 @@ that is already red and you have silently handed over a diagnostic assignment in
 And while it runs: **do not edit the tree, and do not run the gate either.** One container, one
 lockfile, one `.venv` — two concurrent suites truncate each other's tables and produce a result
 about neither, which arrives as three unrelated red tests rather than as anything naming the cause
-(`L6.22`). If there is genuinely parallel work, `isolation: "worktree"` gives the agent its own
-checkout — but *not* its own container, so a task needing the database is serial whatever the
-isolation.
+(`L6.22`). **Every green-phase dispatch passes `isolation: "worktree"`** — **G14**, settled
+2026-09-14 — so that rule is unreachable rather than only forbidden: `L9.57`'s version of it was
+broken five times in one session. Measured 2026-09-14: the worktree lands at
+`.claude/worktrees/agent-<id>`, holds no `.venv`, no `docs/internal/` and no `WEFT_DATABASE_URL`,
+is locked while the agent runs, and is removed by the harness if the agent changed nothing. **One
+the agent changed is yours to remove at *Verify***: read its diff, bring it into this checkout
+(`git -C <worktree> diff` plus any file it created), then `git worktree remove` it and delete its
+branch; `next_task.py --check-live` fails while an unlocked `agent-*` worktree is left. A worktree
+is its own checkout and *not* its own container, so a task needing the database is still serial.
 
 **Do it yourself instead when the change is smaller than its brief** — a one-line repair, a rename,
 something where writing *Already decided* would take longer than the edit. The split buys

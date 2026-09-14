@@ -192,7 +192,7 @@ once need **two worktrees**: the same checkout serialises them whether or not th
 because the thing they share is not the files, it is the *test suite*, the one `.venv` and the one
 container. Two agents running `pytest` against the same tree truncate each other's tables and get a
 result about neither — three unrelated red tests, naming nothing (`docs/internal/lessons.md` `L9.61`,
-`L6.22`). `isolation: "worktree"` gives an agent its own checkout; it does **not** give it its own
+`L6.22`). `isolation: "worktree"`, every dispatch's default since **G14**, gives an agent its own checkout; it does **not** give it its own
 container, so anything touching the database is serial whatever the isolation.
 
 In practice parallelism is rare inside one ledger task — the tasks are ordered so each is one

@@ -31,10 +31,13 @@ is wrong, that is a finding to report — never an edit to make.
   `PreToolUse` hook will refuse most of these; the rule is here so you do not spend a turn
   discovering it. Making the check agree with the code is the failure the hook exists for.
 - **Do not run a command that changes the tree beyond your own edits.** No `git stash`, no
-  `git reset`, no `git checkout --`, no `git clean`. **This checkout is shared** — the session that
-  dispatched you is very likely editing it while you work, so those commands silently revert and
-  restore *other people's* uncommitted changes, and everything that happens in between is a lie,
-  including test results and anything the binary does. It has already cost this project two
+  `git reset`, no `git checkout --`, no `git clean`. **What you run in is shared.** You normally get your
+  own worktree (**G14**) — it holds no `.venv`, so `uv sync` before the first `uv run`, and no
+  `docs/internal/`, so checks keyed on it skip naming it — but the database container is shared
+  with the session that dispatched you, and a dispatch without isolation shares the checkout
+  itself. Those commands silently revert and restore *other people's* uncommitted changes, and
+  everything that happens in between is a lie, including test results and anything the binary
+  does. It has already cost this project two
   unexplained anomalies in one session: a binary run that showed the exact defect its task had just
   repaired, and a gate run that came back red on three unrelated tests, both of them landing inside
   a `git stash` window (`docs/internal/lessons.md` L6.26). If you need to know whether a failure is

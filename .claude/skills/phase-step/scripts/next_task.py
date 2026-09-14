@@ -36,6 +36,7 @@ import argparse
 import json
 import re
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -556,6 +557,50 @@ def _queue_depth_failures(path: Path, status: dict[str, str]) -> list[str]:
     return failures
 
 
+def _leftover_worktree_failures(git_dir: Path) -> list[str]:
+    """A dispatched agent's worktree still on disk after its dispatch ended — **G14**.
+
+    Settled 2026-09-14: a green-phase dispatch runs in its own worktree, and the dispatcher removes
+    one the agent changed. The harness holds a `locked` file while the agent runs, and removes an
+    unchanged worktree itself (measured 2026-09-14), so an unlocked `agent-*` entry is one somebody
+    changed and nobody brought back. `L9.24` found three such orphans holding 95% of the Python
+    files every tree walk reads. Worktrees not named `agent-*` were made by hand and are not this
+    clause's to judge.
+    """
+    worktrees = git_dir / "worktrees"
+    if not worktrees.is_dir():
+        return []
+    leftover = sorted(
+        entry.name
+        for entry in worktrees.iterdir()
+        if entry.name.startswith("agent-") and not (entry / "locked").exists()
+    )
+    if not leftover:
+        return []
+    return [
+        f"{len(leftover)} dispatched agent worktree(s) outlived their dispatch: "
+        f"{', '.join(leftover)} — bring each one's diff back, then `git worktree remove` it and "
+        "delete its branch (G14)"
+    ]
+
+
+def _worktree_clause_failures() -> list[str]:
+    """G14's clause, planted both ways against a throwaway git directory."""
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory() as scratch:
+        git_dir = Path(scratch)
+        running = git_dir / "worktrees" / "agent-running"
+        running.mkdir(parents=True)
+        (running / "locked").write_text("", encoding="utf-8")
+        (git_dir / "worktrees" / "phase2-group-e").mkdir()
+        if _leftover_worktree_failures(git_dir):
+            failures.append("a running agent's worktree, or a hand-made one, was called leftover")
+        (git_dir / "worktrees" / "agent-finished").mkdir()
+        if not any("agent-finished" in f for f in _leftover_worktree_failures(git_dir)):
+            failures.append("an agent worktree left behind after its dispatch was not reported")
+    return failures
+
+
 def live_checks(
     path: Path,
     tasks: list[Task],
@@ -602,6 +647,7 @@ def live_checks(
         failures.extend(_queue_depth_failures(path, status))
         failures.extend(_repair_count_failures(path, status))
     failures.extend(_documents_manifest_failures(path))
+    failures.extend(_leftover_worktree_failures(path.parents[2] / ".git"))
 
     # L6.4's own defect, made checkable. A mark is only readable when the phase preamble says
     # what happened to the gate behind it; without that, a reader can only guess whether a
@@ -964,6 +1010,7 @@ def self_test() -> int:
 
     failures = _fixture_failures(tasks, phases, first_unticked, ids)
     failures += _live_check_failures(tasks, phases, first_unticked)
+    failures += _worktree_clause_failures()
 
     # 9.2 has 9.3 unticked behind it; 9.3 is the phase's last. Both directions, so neither a
     # hardwired True nor a hardwired False would pass.
