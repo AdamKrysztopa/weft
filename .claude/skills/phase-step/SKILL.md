@@ -91,7 +91,12 @@ and an error message names only its subject.** `L22.17`: `R22.9` was filed again
 `weft_kernel.resolution.resolve`, and framed as a gate question, because *"stage 'store' names
 plugin 'pgvector'"* reads like resolution. The raise was one layer up, in
 `weft_cli.compile.contracts_for`, and the fix needed no decision. Grep the message's literal text,
-read the function that raises it, then write the `owner`.
+read the function that raises it, then write the `owner`. *(d)* **Before filing, search the open
+repairs for the defect's subject, never its id.** `L22.18`: `R22.8` was filed, built and closed
+for an untranslated pydantic error on `--repeats 1`, while `R19.16`, filed a day earlier, named the
+same message from `--batch-size 0` and said every bounded field inherits it. Grep the open lines for
+the exception, the flag class and the message's literal text; a duplicate splits the evidence and
+leaves one line open after the defect is gone.
 
 **3. A list in a document is where to start looking, not a census.** *"The five known sites"* stops
 where its author's reading stopped — task 5.2b was given five and found nine. Grep for the thing
@@ -377,6 +382,11 @@ the agent changed is yours to remove at *Verify***: read its diff, bring it into
 (`git -C <worktree> diff` plus any file it created), then `git worktree remove` it and delete its
 branch; `next_task.py --check-live` fails while an unlocked `agent-*` worktree is left. A worktree
 is its own checkout and *not* its own container, so a task needing the database is still serial.
+**And it is built from `HEAD`, where the red tests are not** (`L22.19`): *Red* leaves them
+uncommitted here, so write them to a patch in the scratchpad (`git diff` for edited files,
+`git diff --no-index /dev/null <file>` for new ones — `git add -N` needs a `git reset` to undo)
+and make applying it the brief's **Step 0**, with the agent confirming the tests fail before it
+edits anything. Bring back its non-test diff only; the tests stay yours and land in the one commit.
 
 **Do it yourself instead when the change is smaller than its brief** — a one-line repair, a rename,
 something where writing *Already decided* would take longer than the edit. The split buys

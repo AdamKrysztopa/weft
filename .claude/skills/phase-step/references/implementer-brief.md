@@ -195,6 +195,12 @@ result about neither — three unrelated red tests, naming nothing (`docs/intern
 `L6.22`). `isolation: "worktree"`, every dispatch's default since **G14**, gives an agent its own checkout; it does **not** give it its own
 container, so anything touching the database is serial whatever the isolation.
 
+**A worktree brief opens with *Step 0 — apply the red tests*** (`docs/internal/lessons.md`
+`L22.19`): the worktree is built from `HEAD` and the failing tests are uncommitted in the
+dispatcher's checkout, so the brief names a patch path, says to `git apply` it, and asks for the
+failure to be confirmed before any edit. A brief without it sends the agent to make pass a test
+that does not exist in its tree.
+
 In practice parallelism is rare inside one ledger task — the tasks are ordered so each is one
 property — and the merge costs more than the sequence saved. Default to one.
 
@@ -219,6 +225,10 @@ one session by the author who had just written the rule down).
     (`tests/docs/test_troubleshooting_coverage.py`), `ci-no-tests` does not run `tests/docs`, and
     inserting the entry moves every citation below it (check 13). `R22.8` and `R22.7` each spent
     two full gate runs finding that after a green return.
+    **And a name the brief moves, renames or stops importing has callers no call graph shows**
+    (`L22.20`): grep the tests for `setattr(<module>, "<name>"` as well as for calls. `R19.17`
+    sized its refactor at 72 direct calls, told the agent to drop `commands.run_index`, and 11
+    tests stubbing that attribute turned a finished task into a blocked return.
 
 16. **A fixture the code cannot reach becomes a specification the agent must satisfy.** `L17.17`,
     and it recurred four times in one phase. A double written from a contract's prose rather than
