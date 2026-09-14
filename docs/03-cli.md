@@ -603,7 +603,7 @@ running the same command.
 ## Plugin-contributed commands
 
 A pack registers commands against the `Command` contract exactly as it registers a retriever. They
-appear in `weft --help`, in REPL completion, and in `weft plugins info`, namespaced under the pack:
+appear in `weft --help` and in REPL completion, namespaced under the pack:
 
 ```
 weft graph build
