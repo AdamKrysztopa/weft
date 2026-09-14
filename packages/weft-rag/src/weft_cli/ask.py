@@ -40,13 +40,14 @@ from typing import cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_cli.closing import CloseTarget, close_each
 from weft_embed import Embedder
 from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node, Outcome, Produced
 from weft_kernel.registry import Registry
-from weft_kernel.seam import aclose, wrap
+from weft_kernel.seam import wrap
 from weft_store import NodeStore, Scored, VectorSearch
 
 
@@ -112,15 +113,24 @@ async def run_ask(
         stage="ask:embed",
     )
     query_node = Node.synthetic(content=question, media_type=MediaType.TEXT, reason="ask query")
+    in_flight: BaseException | None = None
     try:
         outcome: Outcome[Sequence[Node]] = await wrapped_embed([query_node], ctx)
+    except BaseException as failure:
+        in_flight = failure
+        raise
     finally:
-        await aclose(
-            instance,
-            distribution=embedder_entry.distribution,
-            contract="Embedder",
-            plugin=embedder,
-            stage="ask:embed",
+        await close_each(
+            (
+                CloseTarget(
+                    instance=instance,
+                    distribution=embedder_entry.distribution,
+                    contract="Embedder",
+                    plugin=embedder,
+                    stage="ask:embed",
+                ),
+            ),
+            in_flight=in_flight,
         )
     if not isinstance(outcome, Produced):
         raise EmbeddingFailedError(
@@ -137,14 +147,23 @@ async def run_ask(
             f"the registered '{store}' NodeStore does not satisfy VectorSearch; "
             f"weft ask has nothing to search."
         )
+    in_flight = None
     try:
         return tuple(await instance_store.search_vector(embedded.embedding, top_k))
+    except BaseException as failure:
+        in_flight = failure
+        raise
     finally:
-        await aclose(
-            instance_store,
-            distribution=store_entry.distribution,
-            contract="NodeStore",
-            plugin=store,
+        await close_each(
+            (
+                CloseTarget(
+                    instance=instance_store,
+                    distribution=store_entry.distribution,
+                    contract="NodeStore",
+                    plugin=store,
+                ),
+            ),
+            in_flight=in_flight,
         )
 
 

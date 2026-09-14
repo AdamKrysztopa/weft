@@ -26,6 +26,7 @@ a real `pipelines/` directory — that lookup's own logic is `test_pipeline_cata
 not this file's.
 """
 
+import asyncio
 import hashlib
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -874,3 +875,40 @@ async def test_a_stage_that_fails_to_close_is_reported_against_its_own_pack(
         "acme",
         "store",
     )
+
+
+class _CancelledExtractorThatWillNotClose(_PassThroughStage):
+    """Cancelled while extracting, and its close fails on the way out."""
+
+    async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+        del payload, ctx
+        raise asyncio.CancelledError
+
+    async def aclose(self) -> None:
+        raise RuntimeError("the parser would not release its file")
+
+
+async def test_a_cancelled_index_stays_cancelled_and_still_closes_every_stage(
+    tmp_path: Path,
+) -> None:
+    """`R18.1`: `run_index`'s `finally` closed stages one at a time, so a failing close both
+    replaced the propagating `CancelledError` and left every later stage, the store among them,
+    unclosed.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    registry, store = _registry_with_fakes()
+    registry.add(
+        Extractor, "cancelled", _CancelledExtractorThatWillNotClose, distribution="acme-extract"
+    )
+
+    # Act
+    with pytest.raises(asyncio.CancelledError) as excinfo:
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="cancelled")
+
+    # Assert
+    notes: list[str] = getattr(excinfo.value, "__notes__", [])
+    assert any(
+        "close failed during cleanup" in note and "would not release" in note for note in notes
+    ), notes
+    assert store.closed is True

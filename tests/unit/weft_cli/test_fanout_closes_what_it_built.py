@@ -24,6 +24,8 @@ close runs in a `finally`, so a cancelled fan-out still releases what it opened 
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from weft_cli.deletion import delete_everywhere
@@ -235,3 +237,25 @@ async def test_a_participant_that_fails_to_close_is_named_by_its_own_pack() -> N
         "graph",
         "NodeStore:graph",
     )
+
+
+async def test_a_cancelled_fanout_stays_cancelled_when_the_close_also_fails() -> None:
+    """`R18.1`: a close failure in `built`'s `finally` must not replace a `CancelledError`."""
+    # Arrange
+    target = Participant(
+        contract="NodeStore",
+        name="graph",
+        distribution="weft-rag",
+        build=_StoreThatWillNotClose,
+    )
+
+    # Act
+    with pytest.raises(asyncio.CancelledError) as excinfo:
+        async with built(target):
+            raise asyncio.CancelledError
+
+    # Assert
+    notes: list[str] = getattr(excinfo.value, "__notes__", [])
+    assert any(
+        "close failed during cleanup" in note and "would not drain" in note for note in notes
+    ), notes

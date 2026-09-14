@@ -114,6 +114,7 @@ from typing import Final, cast
 from pydantic import BaseModel
 
 from weft_chunk import Chunker
+from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
 from weft_embed import Embedder
@@ -148,7 +149,6 @@ from weft_kernel.runner import (
     RunSummary,
     StageSpec,
 )
-from weft_kernel.seam import aclose
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_store import NodeStore
@@ -662,6 +662,7 @@ async def run_index(
         ),
     )
 
+    in_flight: BaseException | None = None
     try:
         identity = (
             pipeline_identity(resolved_pipeline)
@@ -729,15 +730,23 @@ async def run_index(
             pipeline_identity=identity,
             documents_indexed=len(work),
         )
+    except BaseException as failure:
+        in_flight = failure
+        raise
     finally:
-        for stage in runnable.stages:
-            await aclose(
-                stage.instance,
-                distribution=stage.distribution,
-                contract=stage.contract_name,
-                plugin=stage.plugin_name,
-                stage=stage.id,
-            )
+        await close_each(
+            tuple(
+                CloseTarget(
+                    instance=stage.instance,
+                    distribution=stage.distribution,
+                    contract=stage.contract_name,
+                    plugin=stage.plugin_name,
+                    stage=stage.id,
+                )
+                for stage in runnable.stages
+            ),
+            in_flight=in_flight,
+        )
 
 
 def corpus_documents(

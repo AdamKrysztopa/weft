@@ -10,6 +10,7 @@ not satisfy `VectorSearch` is refused loudly, and an embedder that fails is
 never silently treated as "no results".
 """
 
+import asyncio
 from collections.abc import Sequence
 
 import pytest
@@ -323,3 +324,32 @@ async def test_a_store_that_fails_to_close_is_reported_against_its_own_pack() ->
         "pgvector",
         "NodeStore:pgvector",
     )
+
+
+class _EmbedderCancelledThatWillNotClose(_EmbedderThatWillNotClose):
+    """Cancelled mid-embed, and its close fails on the way out."""
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        del payload, ctx
+        raise asyncio.CancelledError
+
+
+async def test_a_cancelled_ask_stays_cancelled_when_the_close_also_fails() -> None:
+    """`R18.1`: the close ran in a bare `finally`, so its `WeftError` replaced the `CancelledError`
+    already propagating. `Runner._flush_all` keeps the in-flight exception and attaches the cleanup
+    failure as a note, and so must every close.
+    """
+    # Arrange
+    registry = Registry()
+    registry.add(Embedder, "model", _EmbedderCancelledThatWillNotClose, distribution="acme-embed")
+    registry.add(NodeStore, "pgvector", _FakeVectorSearchStore, distribution="weft-store")
+
+    # Act
+    with pytest.raises(asyncio.CancelledError) as excinfo:
+        await run_ask("what changed?", registry=registry, ctx=_ctx(), top_k=3, embedder="model")
+
+    # Assert
+    notes: list[str] = getattr(excinfo.value, "__notes__", [])
+    assert any(
+        "close failed during cleanup" in note and "would not close" in note for note in notes
+    ), notes

@@ -51,9 +51,9 @@ from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+from weft_cli.closing import CloseTarget, close_each
 from weft_engine.run_services import class_provides
 from weft_kernel.registry import Registry, unwrap_factory
-from weft_kernel.seam import aclose
 from weft_store import NodeStore
 
 
@@ -118,25 +118,34 @@ async def built(target: Participant) -> AsyncGenerator[object]:
     third-party pack has to write in order to be reaped.
 
     **The close is inside the block's own `finally`, so a close that fails is the caller's to
-    report rather than this helper's to swallow.** Each of the three callers wraps its whole turn
-    in `except Exception` and turns a failure into *data* about that participant — so a backend
-    that cannot release its connection becomes one named, reported participant failure and the
-    fan-out carries on, which is the same answer those callers already give for a backend that
-    cannot do the work. Swallowing it here would make a half-closed backend indistinguishable
-    from a clean one.
+    report rather than this helper's to swallow** — when nothing is already propagating. Each of
+    the three callers wraps its whole turn in `except Exception` and turns a failure into *data*
+    about that participant — so a backend that cannot release its connection becomes one named,
+    reported participant failure and the fan-out carries on, which is the same answer those
+    callers already give for a backend that cannot do the work. Swallowing it here would make a
+    half-closed backend indistinguishable from a clean one.
 
-    **`CancelledError` passes through untouched**, and the connection is still released on the
-    way: `finally` runs on cancellation, the callers re-raise per G6, and nothing here catches it.
+    **`CancelledError` passes through untouched, and so does anything else already propagating
+    when the close itself fails** — the close failure becomes a note on it (`R18.1`).
     """
     instance = target.build(None)
+    in_flight: BaseException | None = None
     try:
         yield instance
+    except BaseException as failure:
+        in_flight = failure
+        raise
     finally:
-        await aclose(
-            instance,
-            distribution=target.distribution,
-            contract=target.contract,
-            plugin=target.name,
+        await close_each(
+            (
+                CloseTarget(
+                    instance=instance,
+                    distribution=target.distribution,
+                    contract=target.contract,
+                    plugin=target.name,
+                ),
+            ),
+            in_flight=in_flight,
         )
 
 
