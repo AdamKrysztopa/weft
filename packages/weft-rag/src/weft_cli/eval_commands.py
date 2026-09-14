@@ -31,7 +31,7 @@ positional... a field with a default is an optional flag" — a value with no ho
 spelled as a **second positional**, `weft_cli.pipeline_commands.PipelineDeriveArgs`'s own
 `<parent> <name>` shape, never as a `--pipeline` flag pretending to be optional when it is not.
 
-**`weft eval run` reuses `weft_cli.ingest.run_index` unchanged, rather than re-deriving pipeline
+**`weft eval run` reuses `weft_cli.ingest.run_index_for` unchanged, rather than re-deriving pipeline
 resolution or extraction.** Task 4.0 already built the bridge from a named document to a real
 run (`_specs_from_document`, `PipelineMissingExtractStageError`, every accepted-extension
 derivation); this module's own contribution is two facts `run_index`'s `IndexResult` did not use
@@ -213,7 +213,7 @@ from typing import ClassVar, Final, cast
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_cli.eval_scoring import load_questions, score_pipeline
-from weft_cli.ingest import content_hashes_of, corpus_documents, run_index
+from weft_cli.ingest import content_hashes_of, corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
 from weft_command.contract import Command, CommandResult
@@ -1013,37 +1013,14 @@ class EvalRunCommand:
 
         # Task 4.7, V5's wall-clock half: measured around the real work, never estimated.
         started = time.monotonic()
-        result = await run_index(
+        result = await run_index_for(
+            deps,
             Path(run_args.path),
-            registry=deps.registry,
             ctx=ctx,
             pipeline=run_args.pipeline,
-            reports=deps.reports,
-            # **`llm` and `sink`, added 2026-09-06 at Phase 8's close review.** `IndexCommand.run`
-            # passes both; this call passed neither, so `run_index` fell back to an empty
-            # `LLMSection()` and every ingest rung that makes a model call —
-            # `index-with-questions`, `index-with-raptor` — refused here with *"no [llm.roles]
-            # entry maps role 'index'"* while `weft index` ran it fine from the same directory
-            # and the same `weft.toml`. The falsification instrument's whole subject set was
-            # silently narrowed to pipelines that never call a model, which is most of what it
-            # was built to compare. This module's docstring says it "reuses `run_index`
-            # unchanged", which was true and is how the argument went missing: a concern passed
-            # by hand at each call site is one an author has to remember, and one of two did.
-            llm=deps.llm,
-            sink=deps.token_sink,
-            # Ledger task **9.0** — the identical concern the comment above already names for
-            # `llm`/`sink`: a role `[services]` selected must reach this call too, or the same
-            # silent narrowing repeats one field over.
-            services=deps.services,
-            roles=deps.roles,
-            # Ledger task **17.0**, and `L8.24`'s third instance at this exact pair of call
-            # sites after `llm`/`sink` and `services`/`roles` above. `run_index` skips a
-            # document whose bytes and pipeline have not moved, which is right for `weft index`
-            # and wrong for a command that wraps the call in `time.monotonic()` and persists the
-            # result as `RunDurations.ingest_seconds`: a second run over the same corpus would
-            # record an ingest that took no time, then be compared against one that did the
-            # whole job. `--reuse-index` is how a caller says *do not ingest*, and it says so in
-            # the record; an implicit skip says nothing.
+            # `--reuse-index` is how a caller says *do not ingest*, and it says so in the
+            # record; a wall-clock-timed run must not silently skip an unchanged document and
+            # be compared against one that did the whole job (ledger task 17.0).
             reprocess=True,
         )
         wall_clock_seconds = time.monotonic() - started

@@ -97,7 +97,7 @@ from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.explain import ScoreExplanation, explanations_for, incomparable_note
 from weft_cli.fanout import Participant
-from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index
+from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index_for
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
 from weft_cli.output import AskFormat
 from weft_cli.pack_new import PackNewCommand
@@ -765,28 +765,12 @@ class IndexCommand:
                 )
             _raise_for_plugin_refusal(plugin_refusal)
 
-        result = await run_index(
+        result = await run_index_for(
+            deps,
             Path(index_args.path),
-            registry=deps.registry,
             ctx=ctx,
-            extractor=index_args.extract,
-            embedder=deps.services.embed,
-            store=deps.services.store,
             pipeline=index_args.pipeline,
-            reports=deps.reports,
-            contributions=deps.contributions,
-            # Task 8.10: an ingest stage may ask a model — `raptor` summarises a cluster,
-            # `hypothetical-questions` writes questions per chunk — so the roles an operator
-            # mapped in `[llm.roles]` have to reach the ingest run, exactly as they already
-            # reach a query one through `run_routed_ask`. Before this, `run_index` assembled
-            # no services at all and both plugins failed at run time.
-            llm=deps.llm,
-            sink=deps.token_sink,
-            # Ledger task **9.0** — every declared role `[services]` selected reaches this run
-            # exactly as `deps.llm` above already does; see `weft_engine.run_services.
-            # build_index_services`'s own docstring for the exclusion this makes possible.
-            services=deps.services,
-            roles=deps.roles,
+            extractor=index_args.extract,
             reprocess=index_args.reprocess,
             batch_size=index_args.batch_size,
         )

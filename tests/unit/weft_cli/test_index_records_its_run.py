@@ -37,6 +37,7 @@ from pathlib import Path
 import pytest
 
 from weft_cli import commands
+from weft_cli import ingest as ingest_module
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, all_run_records
 from weft_cli.ingest import IndexResult
 from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records
@@ -143,7 +144,7 @@ def _patch_run_index(
             content_hashes=content_hashes,
         )
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
 
 
 async def test_an_index_that_resolved_a_document_persists_a_run_record(

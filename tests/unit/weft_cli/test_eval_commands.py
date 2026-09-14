@@ -62,6 +62,7 @@ from weft_cli.render import render_outcome
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
+from weft_enhance.contract import Enhancer
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import GenerationMetric
 from weft_eval.falsify import BaselineSpread, TooFewRepetitionsError, Verdict
@@ -84,9 +85,9 @@ from weft_extract import Extractor
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
-from weft_kernel.pipeline import Pipeline, StageDeclaration
+from weft_kernel.pipeline import Pipeline, SlotDeclaration, StageDeclaration
 from weft_kernel.registry import Registry
-from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
+from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage
 from weft_llm.roles import LLMRoles, RoleMapping
 from weft_store import NodeStore
 
@@ -238,6 +239,49 @@ def in_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # --- EvalRunCommand -----------------------------------------------------------------------
+
+
+async def test_eval_run_places_a_pack_contribution_exactly_as_weft_index_does(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`R19.17`: `run_index` took every ingest concern by hand, and `weft eval run` passed all of
+    them but `contributions`, so a pack's contributed stage ran under `weft index` and silently
+    did not under `weft eval run` — measuring a pipeline that is not the one an operator indexes.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    document = Pipeline(
+        name="index",
+        stages=(
+            StageDeclaration(id="extract", use="text"),
+            StageDeclaration(id="chunk", use="fixed-size"),
+            StageDeclaration(id="embed", use="hash"),
+            StageDeclaration(id="store", use="pgvector"),
+        ),
+        slots=(SlotDeclaration(id="enrich", after="chunk"),),
+    )
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue({"index": document}))
+    registry = _registry_with_fakes()
+    registry.add(Enhancer, "wordcount", _PassThroughStage, distribution="weft-kg")
+    contribution = Contribution(
+        slot="enrich",
+        distribution="weft-kg",
+        stage=StageDeclaration(id="wordcount", use="wordcount"),
+    )
+    deps = Dependencies(
+        registry=registry, reports=(), services=ServiceSelection(), contributions=(contribution,)
+    )
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalRunCommandResult)
+    assert "weft-kg:wordcount" in [stage.id for stage in result.record.resolved_pipeline.stages]
 
 
 async def test_eval_run_persists_a_run_record_that_round_trips(
@@ -1184,7 +1228,7 @@ async def test_reuse_index_scores_against_what_is_already_stored(
     assert isinstance(baseline, Produced)
 
     # Act — the same directory, scored without ingesting.
-    monkeypatch.setattr(eval_commands_module, "run_index", _spy)
+    monkeypatch.setattr(ingest_module, "run_index", _spy)
     reused = await EvalRunCommand().run(
         EvalRunArgs(path=str(tmp_path), pipeline="index", reuse_index=True), _ctx(_deps())
     )
@@ -1808,17 +1852,15 @@ async def test_eval_run_always_does_the_ingest_work_it_then_reports_the_duration
         ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
     )
     captured: list[dict[str, object]] = []
+    real_run_index = ingest_module.run_index
 
     async def _spy(path: Path, **kwargs: Any) -> object:
-        # `ingest_module.run_index` rather than the name bound in `eval_commands`: the latter is
-        # a re-export and reading it is `reportPrivateImportUsage`. The patch below still has to
-        # name the module that *calls* it, which is why both spellings appear here. `Any` on the
-        # forwarded kwargs because a spy that passes them straight through cannot narrow them
-        # and `object` makes every one of the fourteen an error.
+        # `Any` on the forwarded kwargs because a spy that passes them straight through cannot
+        # narrow them and `object` makes every one of the fourteen an error.
         captured.append(dict(kwargs))
-        return await ingest_module.run_index(path, **kwargs)
+        return await real_run_index(path, **kwargs)
 
-    monkeypatch.setattr(eval_commands_module, "run_index", _spy)
+    monkeypatch.setattr(ingest_module, "run_index", _spy)
 
     # Act
     outcome = await EvalRunCommand().run(

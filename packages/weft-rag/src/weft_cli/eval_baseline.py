@@ -53,7 +53,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from weft_cli.ask import run_ask
 from weft_cli.eval_commands import model_versions_of
 from weft_cli.eval_scoring import PipelineNotRetrievableError
-from weft_cli.ingest import corpus_documents, run_index
+from weft_cli.ingest import corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
@@ -494,18 +494,10 @@ class EvalBaselineCommand:
         extractor_use = _extractor_use(resolved)
 
         ingest_started = time.monotonic()
-        await run_index(
-            corpus_dir,
-            registry=deps.registry,
-            ctx=ctx,
-            pipeline=baseline_args.pipeline,
-            reports=deps.reports,
-            contributions=deps.contributions,
-            llm=deps.llm,
-            sink=deps.token_sink,
-            services=deps.services,
-            roles=deps.roles,
-            reprocess=True,
+        # A wall-clock-timed ingest must not silently skip an unchanged document (ledger task
+        # 17.0).
+        await run_index_for(
+            deps, corpus_dir, ctx=ctx, pipeline=baseline_args.pipeline, reprocess=True
         )
         ingest_seconds = time.monotonic() - ingest_started
 

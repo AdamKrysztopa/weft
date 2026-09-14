@@ -119,6 +119,7 @@ from weft_cli.compile import contracts_for, to_specs
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
+from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.run_services import build_index_services
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE, ServiceSelection
@@ -747,6 +748,46 @@ async def run_index(
             ),
             in_flight=in_flight,
         )
+
+
+async def run_index_for(
+    deps: Dependencies,
+    directory: Path,
+    *,
+    ctx: Context,
+    pipeline: str | None,
+    extractor: str | None = None,
+    reprocess: bool = False,
+    batch_size: int | None = None,
+) -> IndexResult:
+    """The one production caller of `run_index` — `R19.17`.
+
+    Every other ingest concern `run_index` takes by keyword — `contributions`, `llm`, `sink`,
+    `services`, `roles` — is read off `deps` here, in one place, rather than passed by hand at
+    each call site: `L8.24` fired three times before this existed, each time because one of
+    those concerns was forgotten at one caller and not another (most recently, `weft eval run`
+    dropped `contributions`, so a pack's contributed stage ran under `weft index` and silently
+    did not under it). `tests/unit/weft_cli/test_run_index_has_one_production_caller.py` holds
+    this the only production caller of `run_index`; a test may still call `run_index` directly
+    with doubles.
+    """
+    return await run_index(
+        directory,
+        registry=deps.registry,
+        ctx=ctx,
+        extractor=extractor,
+        embedder=deps.services.embed,
+        store=deps.services.store,
+        pipeline=pipeline,
+        reports=deps.reports,
+        contributions=deps.contributions,
+        llm=deps.llm,
+        sink=deps.token_sink,
+        services=deps.services,
+        roles=deps.roles,
+        reprocess=reprocess,
+        batch_size=batch_size,
+    )
 
 
 def corpus_documents(

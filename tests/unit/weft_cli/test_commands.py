@@ -27,6 +27,7 @@ import pytest
 from pydantic import ValidationError
 
 from weft_cli import commands
+from weft_cli import ingest as ingest_module
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult
 from weft_cli.reconcile import participants as reconcile_module_participants
@@ -278,7 +279,7 @@ async def test_index_command_raises_a_refusal_before_running_when_a_pack_is_refu
     async def _boom(*_args: object, **_kwargs: object) -> object:
         raise AssertionError("run_index must not run when a required pack is refused")
 
-    monkeypatch.setattr(commands, "run_index", _boom)
+    monkeypatch.setattr(ingest_module, "run_index", _boom)
     reports = (
         PackReport(
             pack="extract",
@@ -317,7 +318,7 @@ async def test_index_command_produces_a_result_carrying_the_run_summary(
     async def _fake_run_index(*_args: object, **_kwargs: object) -> IndexResult:
         return IndexResult(summary=summary, stored_count=3)
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
     args = commands.IndexArgs(path=str(tmp_path))
 
     # Act
@@ -366,7 +367,7 @@ async def test_index_command_with_pipeline_skips_the_default_path_s_plugin_check
         calls.append(kwargs)
         return IndexResult(summary=summary, stored_count=1)
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
     args = commands.IndexArgs(path=str(tmp_path), pipeline="custom")
 
     # Act
@@ -1027,7 +1028,7 @@ async def test_index_command_runs_an_automatic_repair_pass_after_a_successful_ru
     async def _fake_run_index(*_args: object, **_kwargs: object) -> IndexResult:
         return IndexResult(summary=summary, stored_count=1)
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
     args = commands.IndexArgs(path=str(tmp_path))
 
     # Act
@@ -1060,7 +1061,7 @@ async def test_index_command_reconcile_full_flag_opts_this_run_into_backfill(
     async def _fake_run_index(*_args: object, **_kwargs: object) -> IndexResult:
         return IndexResult(summary=summary, stored_count=1)
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
     args = commands.IndexArgs(path=str(tmp_path), reconcile=ReconcileMode.FULL)
 
     # Act
@@ -1095,7 +1096,7 @@ async def test_the_reprocess_flag_reaches_run_index(
         calls.append(kwargs)
         return IndexResult(summary=summary, stored_count=1)
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
 
     # Act — the flag given, and the flag omitted.
     await commands.IndexCommand().run(
@@ -1131,7 +1132,7 @@ async def test_index_command_copies_both_document_counts_onto_its_result(
             documents_indexed=1,
         )
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
 
     # Act
     outcome = await commands.IndexCommand().run(
@@ -1163,7 +1164,7 @@ async def test_the_batch_size_flag_reaches_run_index(
         calls.append(kwargs)
         return IndexResult(summary=summary, stored_count=1)
 
-    monkeypatch.setattr(commands, "run_index", _fake_run_index)
+    monkeypatch.setattr(ingest_module, "run_index", _fake_run_index)
 
     # Act
     await commands.IndexCommand().run(
