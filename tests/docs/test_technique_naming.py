@@ -313,10 +313,10 @@ def names_registered_by(distributions: tuple[str, ...]) -> frozenset[str]:
     `discover(..., allow=distributions)` is the same open-by-default mechanism `weft.toml`'s
     `[packs] allow` drives: every other installed distribution's entry point is refused
     outright and never imported, so a fresh `Registry` built this way holds only what
-    `distributions` themselves contributed. No `Registry` API maps a registered name back
-    to its distribution — there isn't one, and inventing it for one test would be exactly
-    the kind of surface CLAUDE.md's registration-seam rule reserves for the kernel to own,
-    not a docs test to demand.
+    `distributions` themselves contributed. `Registry.entry(contract, name).distribution` does
+    name a registration's distribution, but since **G19** every first-party pack's is `weft-rag`,
+    so no `Registry` API says which *pack* registered a name — and inventing one for a docs test
+    would be surface CLAUDE.md's registration-seam rule reserves for the kernel (`R19.2`).
     """
     registry = Registry()
     discover(registry, allow=distributions)
