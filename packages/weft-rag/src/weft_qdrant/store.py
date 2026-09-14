@@ -130,6 +130,20 @@ class VectorWidthMismatchError(WeftError):
     """
 
 
+class CollectionSchemaMismatchError(WeftError):
+    """An existing collection lacks a named vector this store writes.
+
+    Unlike `VectorWidthMismatchError`, this is not something a node triggers — it is
+    read off the collection itself, once, in `_connection`, before any point is
+    written or queried. Named rather than left to the driver for the same reason:
+    Qdrant answers with a 400 naming the missing vector inside an upsert, which is a
+    write-path detail, not a schema fact an operator can act on. A collection's
+    vector set cannot be widened in place, so the remedy — a new `collection`, or a
+    delete-and-re-index — is the operator's decision, exactly as it is for
+    `VectorWidthMismatchError`.
+    """
+
+
 class QdrantStore:
     """Every tier of the store family over a Qdrant deployment, since ledger task 21.8.
 
@@ -217,12 +231,43 @@ class QdrantStore:
                     _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
                 },
             )
+        else:
+            await self._refuse_if_schema_mismatch(client)
         if not await client.collection_exists(self._sources):
             # No vectors at all: a source record has nothing to be similar to, and Qdrant
             # is content to hold a payload-only collection.
             await client.create_collection(self._sources, vectors_config={})
         self._client = client
         return client
+
+    async def _refuse_if_schema_mismatch(self, client: AsyncQdrantClient) -> None:
+        """Read the nodes collection's own layout and refuse before any point is touched.
+
+        Run once per `_connection` call, before `self._client` is set — every method goes
+        through `_connection`, so a refusal here reaches `add`, `search_text` and the rest
+        alike, and none of them ever asks the backend to upsert or query against a vector
+        it does not have.
+        """
+        info = await client.get_collection(self._nodes)
+        params = info.config.params
+        missing: list[str] = []
+        if not isinstance(params.vectors, dict) or _VECTOR not in params.vectors:
+            missing.append(_VECTOR)
+        if params.sparse_vectors is None or _LEXICAL not in params.sparse_vectors:
+            missing.append(_LEXICAL)
+        if not missing:
+            return
+        await client.close()
+        named = " ".join(
+            f"collection '{self._nodes}' has no vector named '{name}'." for name in missing
+        )
+        raise CollectionSchemaMismatchError(
+            f"{named} It was written by an earlier release of this store, or by "
+            f"something else, before this store wrote that vector. Point "
+            f"[packs.qdrant] collection at a new name, or delete the collection and "
+            f"re-index.",
+            pack="weft-qdrant",
+        )
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         """Store `payload` and pass it through — the narrowing `NodeStore` records."""

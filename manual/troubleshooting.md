@@ -1480,6 +1480,27 @@ the collection belongs to a different corpus and the `collection` name is what t
 You will only meet this if `[services] store` names `qdrant`; the settings under
 `[packs.qdrant]` configure the pack, and that key is what selects it.
 
+### `CollectionSchemaMismatchError`
+
+**What it looks like** — the collection `[packs.qdrant] collection` names already exists, but
+lacks a vector this store writes. The usual cause is a collection an earlier release wrote: the
+sparse `lexical` vector that serves Qdrant's text search arrived in `2.6.0`, so a collection
+indexed by `2.4.0` has only the dense `content` vector:
+
+```text
+collection 'weft_nodes' has no vector named 'lexical'. It was written by an earlier release of
+this store, or by something else, before this store wrote that vector. Point [packs.qdrant]
+collection at a new name, or delete the collection and re-index.
+```
+
+Raised on the store's first use, before anything is written or searched. Before carried repair
+`R22.7`, the same collection failed mid-index with Qdrant's own `400 (Bad Request) … Not existing
+vector name error: lexical`.
+
+**What to do:** Qdrant cannot add a vector to an existing collection, so the choice is yours:
+set `[packs.qdrant] collection` to a new name and run `weft index` again, or delete the old
+collection (and its `__sources` sibling) and re-index into the same name.
+
 ### `Bm25NotAvailableError`
 
 **What it looks like** — `[packs.store] text_mode` asks for `bm25` on a database that has no

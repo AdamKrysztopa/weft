@@ -30,7 +30,7 @@ from weft_kernel.payload import MediaType, Node, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.seam import wrap
 from weft_qdrant import NAME, QdrantSettings, QdrantStore, register, to_qdrant_filter
-from weft_qdrant.store import VectorWidthMismatchError
+from weft_qdrant.store import CollectionSchemaMismatchError, VectorWidthMismatchError
 from weft_store.contract import (
     Filter,
     FilterOp,
@@ -124,6 +124,69 @@ async def test_an_embedding_of_the_wrong_width_is_refused_naming_both(
     message = str(raised.value)
     assert "3-component" in message
     assert "vector_size" in message
+
+
+@pytest.fixture(params=["lexical", "content"])
+async def legacy_collection(
+    request: pytest.FixtureRequest, store: QdrantStore
+) -> AsyncIterator[tuple[str, QdrantSettings]]:
+    """A collection missing one of the two named vectors this store writes, the way `v2.4.0` left
+    one before the lexical vector existed — skipped with `store` when Qdrant is absent. Yields
+    the missing vector's name and settings pointing at that collection.
+    """
+    del store
+    missing = str(request.param)
+    settings = QdrantSettings(url=_URL, collection=f"weft_legacy_{uuid4().hex[:12]}", vector_size=2)
+    dense = {"content": models.VectorParams(size=2, distance=models.Distance.COSINE)}
+    sparse = {"lexical": models.SparseVectorParams(modifier=models.Modifier.IDF)}
+    client = AsyncQdrantClient(url=_URL)
+    await client.create_collection(
+        settings.collection,
+        vectors_config={} if missing == "content" else dense,
+        sparse_vectors_config=None if missing == "lexical" else sparse,
+    )
+    yield missing, settings
+    for name in (settings.collection, f"{settings.collection}__sources"):
+        if await client.collection_exists(name):
+            await client.delete_collection(name)
+    await client.close()
+
+
+async def test_a_collection_missing_a_vector_this_store_writes_is_refused_naming_the_remedy(
+    legacy_collection: tuple[str, QdrantSettings],
+) -> None:
+    """`R22.7`: writing to such a collection failed with the backend's raw 400."""
+    # Arrange
+    missing, settings = legacy_collection
+    legacy = QdrantStore(settings)
+    node = _node("the kestrel hovers").with_embedding(Vector(values=(1.0, 0.0)))
+
+    # Act
+    with pytest.raises(CollectionSchemaMismatchError) as raised:
+        await legacy.add([node])
+    await legacy.aclose()
+
+    # Assert
+    message = str(raised.value)
+    assert f"collection '{settings.collection}' has no vector named '{missing}'" in message
+    assert "[packs.qdrant] collection" in message
+    assert "re-index" in message
+
+
+async def test_a_search_on_such_a_collection_is_refused_before_the_backend_answers(
+    legacy_collection: tuple[str, QdrantSettings],
+) -> None:
+    # Arrange
+    missing, settings = legacy_collection
+    legacy = QdrantStore(settings)
+
+    # Act
+    with pytest.raises(CollectionSchemaMismatchError) as raised:
+        await legacy.search_text("kestrel", top_k=1)
+    await legacy.aclose()
+
+    # Assert
+    assert f"has no vector named '{missing}'" in str(raised.value)
 
 
 async def test_the_registered_plugin_advertises_all_four_capabilities() -> None:
