@@ -1444,7 +1444,10 @@ place it reaches storage is the first segment of a blob key, where it separates 
 enforces nothing, which is why `weft_blob.keys` refuses one containing `/` or `..` rather than
 trusting it. **A second tenant is therefore a second deployment surface — a second `dsn`, or a
 second collection — enforced by Postgres roles or a collection-scoped token, outside Weft and above
-it.** Writing this down is the same act as the paragraph above it: a control that looks like
+it.** **An application embedding Weft does not move this** (G23, 2026-09-14): `weft_engine.api.Weft`
+opens the operator's own `weft.toml`, so its caller *is* the operator, and a tenant that caller could
+choose would separate blob paths while every node stayed shared — a label, which is what this
+paragraph refuses to ship as a control. Writing this down is the same act as the paragraph above it: a control that looks like
 enforcement but is not is worse than an acknowledged gap, and an unstated boundary is the version of
 that failure with nothing to point at.
 
