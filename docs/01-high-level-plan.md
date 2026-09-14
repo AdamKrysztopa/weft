@@ -772,8 +772,8 @@ plugins registered into pipeline positions — so the promise "naive to advanced
 of the engine and false of the product, and a user met ten techniques and had to write YAML from
 scratch to reach the rest.
 
-**It runs before Phase 7, and the numbering is deliberate rather than an accident.** Phase 7 is
-gated by **G12**, which is open; this phase has no gate at all. The number records where it was
+**It runs before Phase 7, and the numbering is deliberate rather than an accident.** Phase 7 was
+gated by **G12**, since settled; this phase had no gate at all. The number records where it was
 added to the plan, not where it sits in the queue — `docs/internal/README.md`'s **Next action** row is the
 mechanism that carries an ordering the ledger's own sequence does not express, and it is pointed
 here. `scripts/next_task.py` will still print `7.1` as the first unticked box, which is why that
