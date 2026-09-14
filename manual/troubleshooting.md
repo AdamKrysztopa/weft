@@ -3099,6 +3099,24 @@ DepthTooShallowError: metrics were asked for at depth(s) [10] over a retrieval o
 V4's rule, *"the `k` in a metric's name equals the `k` it computed"*. **What to do:** retrieve at
 least as deep as the deepest metric you report, or drop that depth.
 
+### `IncomparableBaselinesError`
+
+**What it looks like** — a later run whose chunk stage was configured differently from the
+published baseline's, judged against it:
+
+```text
+IncomparableBaselinesError: these two baselines measure different things, so neither reproduces the other: stage 'chunk' config differs ({'size': 512, 'overlap': 50} vs {'size': 256, 'overlap': 50})
+```
+
+`09` §4.3 V3 refuses a baseline *"from a different corpus, pipeline or model version"*. Refused
+here: any difference a pipeline document states (a stage's `contract`, `use`, `config`,
+`fallback`, `provenance`, or the stage list itself) and any difference in the corpus, model
+versions, retrieval depth or question set. Every difference is named, not the first. **Not
+refused:** a stage's `distribution`, `contract_version` or `applies_to`. Those describe the
+installation, so they are reported beside the verdict, and any effect they have on retrieval shows
+up in the metric intervals. **What to do:** run the pipeline the published baseline names, over its
+corpus and question set, at its retrieval depth.
+
 ---
 
 ## Project configuration — `weft_engine.registry_bootstrap`

@@ -1,137 +1,83 @@
-"""Unit tests for `eval/check_baseline.py` — the judgement nobody chose a number for.
+"""Unit tests for `eval/check_baseline.py` — the hand-run judge, over the real published baseline.
 
-Mirrors `eval/check_baseline.py`. Every case here is one sentence of `docs/09-release.md` §4.3
-made executable: a later run reproduces the baseline when every metric falls inside the interval
-the baseline's own repetitions spanned, a deterministic baseline admits no drift at all, and a
-comparison against a run that measured something else is refused rather than scored.
+Since repair `R22.4b` it decides nothing itself: `weft_eval.baseline.judge_reproduction` does, and
+this file checks that the script's exit code and output say what that judgement found. The inputs
+are the published `v2.6.0` baseline and its 2026-09-14 re-run, which differ in distribution names
+and agree in every metric — the pair the previous judge refused.
 """
 
+from pathlib import Path
+
 import pytest
-from check_baseline import IncomparableRunsError, regressions
+from check_baseline import main
 
-from weft_eval.baseline import BaselineReport, MetricRecord
-from weft_eval.run_record import CorpusIdentity, RunRecord
-from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
+from weft_eval.baseline import BaselineReport, MetricRecord, load_baseline_report
 
-
-def _record(*, corpus_digest: str = "a" * 64) -> RunRecord:
-    return RunRecord(
-        recorded_at="2026-08-20T12:00:00+00:00",
-        resolved_pipeline=ResolvedPipeline(
-            name="baseline",
-            stages=(
-                ResolvedStage(
-                    id="embed",
-                    contract="Embedder",
-                    use="openai",
-                    distribution="weft-openai",
-                    provenance="baseline",
-                ),
-            ),
-        ),
-        corpus=CorpusIdentity(name="pl-wiki-v1", digest=corpus_digest),
-        model_versions={"embed": "openai:text-embedding-3-small"},
-        active_distributions=("weft-cli", "weft-eval"),
-    )
+_REPO = Path(__file__).resolve().parents[3]
+_PUBLISHED = _REPO / "eval" / "baselines" / "8854c33f71ea-2026-08-25.json"
+_RERUN = _REPO / "tests" / "unit" / "weft_eval" / "fixtures" / "baseline-rerun-2026-09-14.json"
 
 
-def _run(*, metrics: tuple[MetricRecord, ...], corpus_digest: str = "a" * 64) -> BaselineReport:
-    return BaselineReport(
-        recorded_at="2026-08-20T12:00:00+00:00",
-        corpus_name="pl-wiki-v1",
-        tiers=("fetch",),
-        extractor="text",
-        documents=("doc-a",),
-        reproducible=True,
-        record=_record(corpus_digest=corpus_digest),
-        questions=("q001",),
-        repeats=len(metrics[0].values),
-        retrieval_depth=10,
-        wall_clock_seconds=1.0,
-        metrics=metrics,
-    )
+def _written(report: BaselineReport, directory: Path) -> Path:
+    path = directory / "later.json"
+    path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    return path
 
 
-def _metric(name: str, values: tuple[float, ...]) -> MetricRecord:
-    return MetricRecord(
-        metric=name,
-        depth=10,
-        values=values,
-        mean=sum(values) / len(values),
-        low=min(values),
-        high=max(values),
-        n_scored=len(values),
-        n_excluded=0,
-    )
-
-
-def test_a_later_run_inside_the_interval_reproduces_the_baseline() -> None:
-    # Arrange
-    baseline = _run(metrics=(_metric("quote-recall@10", (0.40, 0.50)),))
-    later = _run(metrics=(_metric("quote-recall@10", (0.44, 0.46)),))
-
+def test_a_reproduction_exits_zero_and_reports_what_the_installation_changed(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     # Act
-    failures = regressions(baseline, later)
+    code = main([str(_PUBLISHED), str(_RERUN)])
 
     # Assert
-    assert failures == ()
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "12 metric(s) inside" in out
+    assert "weft-qdrant" in out
+    assert "weft-rag" in out
 
 
-def test_a_later_run_outside_the_interval_is_named_with_both_bounds() -> None:
-    # The message has to carry the interval, because the reader's next question is always "by
-    # how much" — and a tolerance that is derived rather than declared is only readable if the
-    # bounds travel with the failure.
+def test_a_metric_outside_its_interval_exits_one_naming_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     # Arrange
-    baseline = _run(metrics=(_metric("quote-recall@10", (0.40, 0.50)),))
-    later = _run(metrics=(_metric("quote-recall@10", (0.30, 0.30)),))
-
-    # Act
-    (failure,) = regressions(baseline, later)
-
-    # Assert
-    assert "quote-recall@10" in failure
-    assert "0.4" in failure and "0.5" in failure
-
-
-def test_a_zero_width_interval_admits_no_drift_at_all() -> None:
-    # `09` §4.3 names this and calls it correct: "a system that is deterministic records a
-    # zero-width interval and admits no drift at all, which is correct and strict."
-    # Arrange
-    baseline = _run(metrics=(_metric("document-mrr@10", (0.75, 0.75)),))
-    later = _run(metrics=(_metric("document-mrr@10", (0.75, 0.7500001)),))
-
-    # Act
-    failures = regressions(baseline, later)
-
-    # Assert
-    assert len(failures) == 1
-
-
-def test_a_metric_the_later_run_stopped_measuring_is_a_failure_not_a_silence() -> None:
-    # A suite that quietly compares only the metrics both runs happen to have shrinks to the
-    # ones that still pass. The baseline decides what must be reproduced.
-    # Arrange
-    baseline = _run(
-        metrics=(_metric("quote-recall@10", (0.4, 0.5)), _metric("quote-ndcg@10", (0.3, 0.4)))
+    rerun = load_baseline_report(_RERUN)
+    shifted = tuple(
+        record
+        if record.metric != "document-recall@10"
+        else MetricRecord(
+            metric=record.metric,
+            depth=record.depth,
+            values=(0.5, 0.5, 0.5),
+            mean=0.5,
+            low=0.5,
+            high=0.5,
+            n_scored=record.n_scored,
+            n_excluded=record.n_excluded,
+        )
+        for record in rerun.metrics
     )
-    later = _run(metrics=(_metric("quote-recall@10", (0.45, 0.45)),))
+    later = _written(rerun.model_copy(update={"metrics": shifted}), tmp_path)
 
     # Act
-    (failure,) = regressions(baseline, later)
+    code = main([str(_PUBLISHED), str(later)])
 
     # Assert
-    assert "quote-ndcg@10" in failure
-    assert "did not measure it" in failure
+    assert code == 1
+    assert "document-recall@10" in capsys.readouterr().err
 
 
-def test_a_run_over_a_different_corpus_is_refused_rather_than_compared() -> None:
-    # V3's failure clause: an improvement "reported against a baseline from a different corpus,
-    # pipeline or model version". A number that came out of that comparison would look ordinary,
-    # which is what makes refusing better than scoring.
+def test_a_different_measurement_exits_two_naming_what_differs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     # Arrange
-    baseline = _run(metrics=(_metric("quote-recall@10", (0.4, 0.5)),))
-    later = _run(metrics=(_metric("quote-recall@10", (0.45, 0.45)),), corpus_digest="c" * 64)
+    rerun = load_baseline_report(_RERUN)
+    later = _written(rerun.model_copy(update={"retrieval_depth": 5}), tmp_path)
 
-    # Act / Assert
-    with pytest.raises(IncomparableRunsError, match="corpus"):
-        regressions(baseline, later)
+    # Act
+    code = main([str(_PUBLISHED), str(later)])
+
+    # Assert
+    assert code == 2
+    assert "retrieval_depth" in capsys.readouterr().err

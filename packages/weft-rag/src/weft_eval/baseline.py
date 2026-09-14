@@ -52,6 +52,7 @@ reads now that it is a public entry point rather than a hand-run script's own he
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from enum import StrEnum
 from math import fsum, isclose, log2
@@ -63,6 +64,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from weft_eval.question_set import Question
 from weft_eval.run_record import RunRecord
 from weft_kernel.errors import WeftError
+from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 
 #: How close a recorded `mean` must be to the mean of its own `values` to be believed. Floats
 #: written to JSON and read back do not compare equal to the sum that produced them, and a
@@ -309,6 +311,249 @@ class BaselineReport(BaseModel):
 def load_baseline_report(path: Path) -> BaselineReport:
     """One written baseline, refused if anything in it disagrees with itself."""
     return BaselineReport.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+class IncomparableBaselinesError(BaselineScoringError):
+    """Two runs did not measure the same thing, so a reproduction verdict would mean nothing.
+
+    `reasons` carries every identity difference found — never only the first — because a
+    reader deciding whether to re-run needs to know everything that changed, not just
+    whichever field this module happened to check first.
+    """
+
+    def __init__(self, message: str, *, reasons: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.reasons = reasons
+
+
+class ProvenanceField(StrEnum):
+    """What an installation says about itself — never refused on, always reported."""
+
+    DISTRIBUTION = "distribution"
+    CONTRACT_VERSION = "contract_version"
+    APPLIES_TO = "applies_to"
+
+
+class ProvenanceDifference(BaseModel):
+    """One stage's installation differing between two runs that otherwise measure the same thing.
+
+    Reported beside the verdict rather than refused on: `09` §4.3's V3 judges reproduction by
+    the metric intervals, and any behavioural effect a renamed distribution, a bumped contract
+    version or a widened `applies_to` actually has is caught there, not here.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    stage: str
+    field: ProvenanceField
+    published: str | None
+    later: str | None
+
+
+class MetricVerdict(BaseModel):
+    """One published metric, judged against what the later run measured for the same name."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    metric: str
+    low: float
+    high: float
+    later: float | None
+    inside: bool
+
+
+class Reproduction(BaseModel):
+    """What `judge_reproduction` found: a verdict per published metric, plus what moved beside it.
+
+    `reproduced` requires at least one verdict — an empty `verdicts` is not vacuously a
+    reproduction, it is a published baseline that recorded no metrics at all.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    verdicts: tuple[MetricVerdict, ...]
+    provenance: tuple[ProvenanceDifference, ...]
+    published_distributions: tuple[str, ...]
+    later_distributions: tuple[str, ...]
+
+    @property
+    def reproduced(self) -> bool:
+        """Whether every published metric fell inside the interval its repetitions spanned."""
+        return bool(self.verdicts) and all(verdict.inside for verdict in self.verdicts)
+
+
+#: Per-stage fields a pipeline document states, and a reproduction is refused if any differs.
+#: `distribution`, `contract_version` and `applies_to` are deliberately absent — those are what
+#: an installation says about itself, reported through `ProvenanceDifference` instead of refused
+#: on, because any effect they have must still land inside the metric intervals V3 checks.
+_IDENTITY_STAGE_FIELDS: Final[tuple[str, ...]] = (
+    "contract",
+    "use",
+    "config",
+    "fallback",
+    "provenance",
+)
+
+_IDENTITY_PIPELINE_FIELDS: Final[tuple[str, ...]] = (
+    "name",
+    "vars",
+    "unapplied_operators",
+    "unplaced_contributions",
+)
+
+_IDENTITY_RECORD_FIELDS: Final[tuple[str, ...]] = ("corpus", "model_versions")
+
+_IDENTITY_REPORT_FIELDS: Final[tuple[str, ...]] = ("retrieval_depth", "questions")
+
+
+def judge_reproduction(published: BaselineReport, later: BaselineReport) -> Reproduction:
+    """Whether `later` reproduces `published` — `09` §4.3's V3, plus what installation moved.
+
+    Refuses the comparison, naming every reason, when the two runs did not measure the same
+    thing: a different corpus, stage, config, model, depth or question set. What the installed
+    plugin says about itself is never a refusal reason — it is carried onto the returned
+    `Reproduction` instead, because whatever behavioural effect it has is exactly what the
+    metric intervals would catch.
+    """
+    published_pipeline = published.record.resolved_pipeline
+    later_pipeline = later.record.resolved_pipeline
+    reasons = (
+        *_stage_identity_reasons(published_pipeline, later_pipeline),
+        *_field_reasons(
+            published_pipeline.model_dump(mode="json"),
+            later_pipeline.model_dump(mode="json"),
+            _IDENTITY_PIPELINE_FIELDS,
+            prefix="pipeline ",
+        ),
+        *_field_reasons(
+            published.record.model_dump(mode="json"),
+            later.record.model_dump(mode="json"),
+            _IDENTITY_RECORD_FIELDS,
+        ),
+        *_field_reasons(
+            published.model_dump(mode="json"),
+            later.model_dump(mode="json"),
+            _IDENTITY_REPORT_FIELDS,
+        ),
+    )
+    if reasons:
+        message = (
+            "these two baselines measure different things, so neither reproduces the other: "
+            + "; ".join(reasons)
+        )
+        raise IncomparableBaselinesError(message, reasons=reasons)
+    return Reproduction(
+        verdicts=_metric_verdicts(published, later),
+        provenance=_provenance_differences(published_pipeline, later_pipeline),
+        published_distributions=tuple(published.record.active_distributions),
+        later_distributions=tuple(later.record.active_distributions),
+    )
+
+
+def _field_reasons(
+    published: Mapping[str, object],
+    later: Mapping[str, object],
+    fields: tuple[str, ...],
+    *,
+    prefix: str = "",
+) -> tuple[str, ...]:
+    """`f"{prefix}{field} differs (...)"` for every field of `fields` that disagrees."""
+    return tuple(
+        f"{prefix}{field} differs ({published[field]!r} vs {later[field]!r})"
+        for field in fields
+        if published[field] != later[field]
+    )
+
+
+def _stage_identity_reasons(
+    published: ResolvedPipeline, later: ResolvedPipeline
+) -> tuple[str, ...]:
+    """Every stage-level identity reason: presence, order, and the fields a document states."""
+    published_by_id = {stage.id: stage for stage in published.stages}
+    later_by_id = {stage.id: stage for stage in later.stages}
+    reasons = [
+        f"stage '{stage_id}' is only in the published run"
+        for stage_id in published_by_id
+        if stage_id not in later_by_id
+    ]
+    reasons += [
+        f"stage '{stage_id}' is only in the later run"
+        for stage_id in later_by_id
+        if stage_id not in published_by_id
+    ]
+    published_ids = tuple(stage.id for stage in published.stages)
+    later_ids = tuple(stage.id for stage in later.stages)
+    if set(published_ids) == set(later_ids) and published_ids != later_ids:
+        reasons.append(f"stage order differs ({published_ids} vs {later_ids})")
+    for stage_id, published_stage in published_by_id.items():
+        later_stage = later_by_id.get(stage_id)
+        if later_stage is None:
+            continue
+        reasons.extend(_stage_field_reasons(stage_id, published_stage, later_stage))
+    return tuple(reasons)
+
+
+def _stage_field_reasons(
+    stage_id: str, published: ResolvedStage, later: ResolvedStage
+) -> tuple[str, ...]:
+    """Every identity field (never a provenance field) that differs between two matched stages."""
+    published_dump = published.model_dump(mode="json")
+    later_dump = later.model_dump(mode="json")
+    return tuple(
+        f"stage '{stage_id}' {field} differs ({published_dump[field]!r} vs {later_dump[field]!r})"
+        for field in _IDENTITY_STAGE_FIELDS
+        if published_dump[field] != later_dump[field]
+    )
+
+
+def _provenance_differences(
+    published: ResolvedPipeline, later: ResolvedPipeline
+) -> tuple[ProvenanceDifference, ...]:
+    """Every reported (never refused-on) installation difference, in published stage order."""
+    later_by_id = {stage.id: stage for stage in later.stages}
+    differences: list[ProvenanceDifference] = []
+    for stage in published.stages:
+        counterpart = later_by_id.get(stage.id)
+        if counterpart is not None:
+            differences.extend(_stage_provenance_differences(stage, counterpart))
+    return tuple(differences)
+
+
+def _stage_provenance_differences(
+    published: ResolvedStage, later: ResolvedStage
+) -> tuple[ProvenanceDifference, ...]:
+    """`DISTRIBUTION`, `CONTRACT_VERSION`, then `APPLIES_TO`, only where the two disagree."""
+    published_applies = json.dumps(published.model_dump(mode="json")["applies_to"], sort_keys=True)
+    later_applies = json.dumps(later.model_dump(mode="json")["applies_to"], sort_keys=True)
+    candidates = (
+        (ProvenanceField.DISTRIBUTION, published.distribution, later.distribution),
+        (ProvenanceField.CONTRACT_VERSION, published.contract_version, later.contract_version),
+        (ProvenanceField.APPLIES_TO, published_applies, later_applies),
+    )
+    return tuple(
+        ProvenanceDifference(stage=published.id, field=field, published=before, later=after)
+        for field, before, after in candidates
+        if before != after
+    )
+
+
+def _metric_verdicts(published: BaselineReport, later: BaselineReport) -> tuple[MetricVerdict, ...]:
+    """One `MetricVerdict` per metric `published` recorded, in the order it recorded them."""
+    verdicts: list[MetricVerdict] = []
+    for record in published.metrics:
+        found = later.metric(record.metric)
+        later_mean = found.mean if found is not None else None
+        inside = later_mean is not None and not record.outside(later_mean)
+        verdicts.append(
+            MetricVerdict(
+                metric=record.metric,
+                low=record.low,
+                high=record.high,
+                later=later_mean,
+                inside=inside,
+            )
+        )
+    return tuple(verdicts)
 
 
 def mean_of(values: Sequence[float]) -> float:
