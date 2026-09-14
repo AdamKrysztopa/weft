@@ -61,9 +61,12 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import sys
 from functools import cache
 from pathlib import Path
 from typing import Final
+
+import pytest
 
 from tests.conftest import UNTRACKED_BY_DESIGN
 
@@ -198,8 +201,15 @@ def _owned_by_this_repo(path: Path) -> bool:
     Factored out of the walk so it can be self-tested against synthetic paths. Testing the
     exclusion by asserting a known worktree file is absent would be vacuous on a clean checkout,
     which is the shape `phase-step` → *Finish* item 3 refuses.
+
+    Judged below `REPO_ROOT`, never on the absolute path: a dispatched worktree's own root is
+    `.claude/worktrees/agent-…`, and reading every part disowned that whole checkout (`R22.16`).
     """
-    return not any(part in _NOT_THIS_REPO for part in path.parts)
+    try:
+        parts = path.relative_to(REPO_ROOT).parts
+    except ValueError:
+        parts = path.parts
+    return not any(part in _NOT_THIS_REPO for part in parts)
 
 
 def _basename_exists(basename: str) -> bool:
@@ -391,6 +401,26 @@ def test_a_second_checkout_under_this_root_does_not_answer_for_this_repository()
     # Act / Assert
     assert not _owned_by_this_repo(smuggled)
     assert _owned_by_this_repo(ours)
+
+
+def test_a_checkout_whose_own_root_is_a_worktree_still_owns_its_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`R22.16`: G14 runs every dispatched implementer in `.claude/worktrees/agent-…`, and the
+    exclusion above read the absolute path, so that checkout disowned its own files and reported
+    every citation in the tree dangling. What belongs to a second checkout is decided below the
+    root that is running, never by the directory that root happens to sit in.
+    """
+    # Arrange
+    module = sys.modules[__name__]
+    worktree_root = Path("/checkout/weft/.claude/worktrees/agent-a3145fb010f0dcd65")
+    monkeypatch.setattr(module, "REPO_ROOT", worktree_root)
+    ours = worktree_root / "docs" / "01-high-level-plan.md"
+    nested = worktree_root / ".claude" / "worktrees" / "old" / "docs" / "01-high-level-plan.md"
+
+    # Act / Assert
+    assert _owned_by_this_repo(ours)
+    assert not _owned_by_this_repo(nested)
 
 
 def test_the_waiver_is_empty() -> None:
