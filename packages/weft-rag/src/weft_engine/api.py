@@ -58,10 +58,11 @@ if TYPE_CHECKING:
 
 
 def new_context() -> Context:
-    """One `Context` per invocation. Phase 0 has no multi-tenancy surface, so `tenant_id`
-    is a fixed default rather than a flag — see `docs/01-high-level-plan.md` → *The least-
-    architecture check*, "carry a tenant identifier... build no isolation machinery until
-    it is real."
+    """One `Context` per invocation, at tenant `"default"`, and it takes no tenant. G23: an
+    in-process caller is the operator and the deployment is the boundary
+    (`docs/02-extension-model.md` §2), so a tenant a caller could choose here would be a label
+    enforcing nothing. Fitness function 32 holds this as the only place a shipped module mints a
+    `Context`, and fails naming Phase 22b when a commit makes the tenant choosable.
 
     Lifted verbatim from `weft_cli.cli._context`, which now calls this rather than carrying its
     own copy — one context builder for both driving adapters, not two that could disagree.
