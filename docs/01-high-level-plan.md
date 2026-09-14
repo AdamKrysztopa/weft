@@ -521,8 +521,8 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > and **eight** were built. The ninth, **language-aware reranker selection**, was deliberately not
 > built: `weft-retrieve` ships `llm-rerank`, `graded-retrieval` and `collapse-to-parent`, and
 > `cross-encoder-rerank` is absent for a reason recorded at the point of the decision
-> (`weft_retrieve/rerank.py`'s module docstring and `build-ledger.md` → 2.7 — a model download `09`
-> §4.4 keeps out of the gate, and `10` §1.2 files the technique on the index path). It is also
+> (`weft_retrieve/rerank.py`'s module docstring and `build-ledger.md` → 2.7 — a model download whose
+> cost `10` §1.2 records, and `10` §1.2 files the technique on the index path). It is also
 > blocked independently of that: an audited codebase selected its reranker from the collection's
 > language (Polish → a Polish-specific reranker model, everything else → a general cross-encoder),
 > and **no stage in Weft produces a `Language` fact yet** — `weft-clean` is its interim owner and

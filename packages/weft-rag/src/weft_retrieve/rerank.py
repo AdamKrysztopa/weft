@@ -17,8 +17,8 @@ That is what "not a ladder" means mechanically: the sequence is data in a docume
 `tests/unit/weft_retrieve/test_init.py` resolves four of those documents to prove it.
 
 **`cross-encoder-rerank` is deliberately not what ships here.** `.phase2-design.md` §10 states
-the reason rather than dropping the row quietly: it needs a model download, which `09` §4.4's
-argument keeps out of the gate, and `10` §1.2 files it on the index path anyway. `llm-rerank`
+the reason rather than dropping the row quietly: it downloads a model on first use, which
+`10` §1.2 records as the cost, and `10` §1.2 files it on the index path anyway. `llm-rerank`
 adds no dependency — it asks the model an operator has already configured, under a role they
 already map.
 
