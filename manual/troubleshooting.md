@@ -60,6 +60,31 @@ gives you something new — the full traceback instead of one line, because `_re
 always means the database is unreachable (check the container and the `dsn`); for anything else,
 re-run with `WEFT_TRACEBACK=1` and read the traceback for which library raised it and from where.
 
+### `CommandArgumentsError`
+
+**What it looks like** — an argument parsed, but breaks a bound or a check its command declares: a
+count below its minimum, an empty name, a pack name that is not a distribution name. One line per
+broken argument, spelled as the command line spells it, exit `2` like any other usage error.
+Reproduced from the built wheel:
+
+```text
+$ weft index ./corpus --batch-size 0
+argument --batch-size: Input should be greater than 0
+$ echo $?
+2
+$ weft pack new "Bad Name"
+argument name: 'Bad Name' is not a distribution name. Use lowercase letters, digits and single
+hyphens, starting with a letter — 'acme-shouty'. …
+$ echo $?
+2
+```
+
+Under `--json` the same refusal is the error envelope, `"error":"CommandArgumentsError"`,
+`"exit_code":2`. Before carried repair `R22.8` this reached you as pydantic's `ValidationError`
+under *An error weft did not translate*, exit `1`.
+**What to do:** change the named argument; `weft <command> --help` lists every argument the command
+takes.
+
 ---
 
 ## Registration and lookup — `weft_kernel.registry`

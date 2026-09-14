@@ -75,9 +75,9 @@ import sys
 from importlib import metadata
 from typing import TYPE_CHECKING, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
-from weft_cli.argparse_gen import add_model_arguments
+from weft_cli.argparse_gen import add_model_arguments, build_command_arguments_error
 from weft_cli.exit_codes import ExitCode
 from weft_cli.sinks import JsonSink, PrintingSink
 from weft_command.contract import Command
@@ -575,12 +575,17 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     instance = cast(Command, entry.factory(None))
     args_model = instance.args_model
     payload = {field: getattr(args, field) for field in args_model.model_fields}
-    args_instance = args_model(**payload)
     yes = cast(bool, getattr(args, "yes", False))
 
     succeeded = False
     failure_reason: str | None = None
     try:
+        # Inside the `try`, so a broken bound is a usage refusal for a one-shot run and a REPL
+        # turn alike (carried repair `R22.8`), not `_report_unexpected`'s exit 1.
+        try:
+            args_instance = args_model(**payload)
+        except ValidationError as exc:
+            raise build_command_arguments_error(args_model, exc) from exc
         # **Task 7.0.** The gate and the seam wrap used to be assembled here, and that was the
         # defect G12 found: this function was the *only* caller, so `weft_cli.confirm.gate` was
         # documented as "the invocation seam" while `Command.run` itself was reachable — ungated —

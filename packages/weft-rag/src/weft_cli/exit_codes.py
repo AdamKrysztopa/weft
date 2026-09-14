@@ -33,6 +33,7 @@ check having passed.
 
 from typing import Final
 
+from weft_cli.argparse_gen import CommandArgumentsError
 from weft_cli.pipeline_catalogue import (
     ContributedPipelineNameCollisionError,
     DuplicatePipelineNameError,
@@ -148,6 +149,8 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     import chain (`weft_embed`/`weft_store`/`weft_retrieve`/`weft_llm`) `weft_cli.eval_commands`
     already does, so this rides the same local import rather than adding a second one.
     """
+    if isinstance(exc, CommandArgumentsError):
+        return ExitCode.BAD_USAGE
     if isinstance(exc, (PipelineResolutionError, *_ALSO_RESOLUTION_FAILED)):
         return ExitCode.RESOLUTION_FAILED
     # `weft_cli.compile.RefusedStagePluginError`, carried repair R11.3 — a local import,

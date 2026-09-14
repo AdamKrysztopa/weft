@@ -49,7 +49,7 @@ import typing
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
 
 from weft_kernel.errors import WeftError
@@ -61,10 +61,28 @@ class UnsupportedArgumentTypeError(WeftError):
     """
 
 
+class CommandArgumentsError(WeftError):
+    """A parsed `Namespace` broke its `Command.args_model`'s own constraint — a `Field` bound
+    or a `field_validator`/`model_validator` — reported as a usage error rather than the raw
+    `pydantic.ValidationError`. See `build_command_arguments_error` for how the message is built.
+    """
+
+
 def add_model_arguments(parser: argparse.ArgumentParser, model: type[BaseModel]) -> None:
     """Every field of `model` becomes one argument on `parser` — see the module docstring."""
     for field_name, field_info in model.model_fields.items():
         _add_field(parser, field_name, field_info)
+
+
+def field_spelling(field_name: str, field_info: FieldInfo) -> str:
+    """How `field_name` is spelled on the generated command line — the bare name for a
+    required positional, `--` plus the name with `_` -> `-` for a defaulted flag. The one
+    function `_add_field`, `_add_bool_field` and `build_command_arguments_error` all call, so
+    the grammar and a refused argument's own name cannot drift apart.
+    """
+    if field_info.is_required():
+        return field_name
+    return "--" + field_name.replace("_", "-")
 
 
 def _add_field(parser: argparse.ArgumentParser, field_name: str, field_info: FieldInfo) -> None:
@@ -96,12 +114,13 @@ def _add_field(parser: argparse.ArgumentParser, field_name: str, field_info: Fie
         )
 
     if field_info.is_required():
-        parser.add_argument(field_name, **kwargs)
+        parser.add_argument(field_spelling(field_name, field_info), **kwargs)
         return
 
-    flag = "--" + field_name.replace("_", "-")
     default = field_info.get_default(call_default_factory=True)
-    parser.add_argument(flag, dest=field_name, default=default, **kwargs)
+    parser.add_argument(
+        field_spelling(field_name, field_info), dest=field_name, default=default, **kwargs
+    )
 
 
 def _add_bool_field(
@@ -126,8 +145,9 @@ def _add_bool_field(
             f"field '{field_name}' is a bool defaulting to {default!r} — only a "
             f"`False`-defaulting bool (`action='store_true'`) is supported today."
         )
-    flag = "--" + field_name.replace("_", "-")
-    parser.add_argument(flag, dest=field_name, action="store_true", **help_kwargs)
+    parser.add_argument(
+        field_spelling(field_name, field_info), dest=field_name, action="store_true", **help_kwargs
+    )
 
 
 def _scalar_type(annotation: object, *, field_name: str) -> type:
@@ -148,3 +168,25 @@ def _scalar_type(annotation: object, *, field_name: str) -> type:
         f"field '{field_name}' has annotation {annotation!r}, which is not a class — no "
         f"generated argument grammar knows how to parse that from the command line."
     )
+
+
+def build_command_arguments_error(
+    model: type[BaseModel], exc: ValidationError
+) -> CommandArgumentsError:
+    """`exc`, raised by `model(**payload)`, translated into a `CommandArgumentsError` — one
+    line per pydantic error, `argument <spelling>: <msg>`, `<spelling>` from `field_spelling`
+    so it cannot say anything `add_model_arguments` did not also generate. An error whose
+    `loc` names no field — a `model_validator` — is reported as `arguments: <msg>` instead.
+    """
+    lines: list[str] = []
+    for error in exc.errors():
+        msg = error["msg"].removeprefix("Value error, ")
+        loc = error["loc"]
+        if not loc:
+            lines.append(f"arguments: {msg}")
+            continue
+        field_name = str(loc[0])
+        field_info = model.model_fields.get(field_name)
+        spelling = field_spelling(field_name, field_info) if field_info is not None else field_name
+        lines.append(f"argument {spelling}: {msg}")
+    return CommandArgumentsError("\n".join(lines))

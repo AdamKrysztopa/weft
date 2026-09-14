@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Protocol, cast
 
 import pytest
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from weft_cli import cli
 from weft_cli.exit_codes import ExitCode
@@ -428,6 +428,107 @@ async def test_run_command_emits_a_structured_envelope_when_the_real_sink_is_jso
     dumped = json.loads(rendered.stdout or "")
     assert dumped["error"] == "WeftError"
     assert dumped["rendered"] == "something in the library refused"
+
+
+class _BoundedArgs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    repeats: int = Field(default=3, ge=2)
+
+    @field_validator("name")
+    @classmethod
+    def _lower_case(cls, value: str) -> str:
+        if value != value.lower():
+            raise ValueError("a pack name is lower-case")
+        return value
+
+
+class _BoundedCommand(_EchoCommand):
+    """Records whether it ran, so a refusal is proven by the side effect it did not have."""
+
+    args_model: ClassVar[type[BaseModel]] = _BoundedArgs
+    ran: ClassVar[bool] = False
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del ctx
+        assert isinstance(args, _BoundedArgs)
+        _BoundedCommand.ran = True
+        return Produced(value=_EchoResult(seen=args.name))
+
+
+def _bounded_deps(**kwargs: Any) -> Dependencies:
+    registry = Registry()
+    registry.add(Command, "bounded", _BoundedCommand, distribution="acme-cmd")
+    return Dependencies(registry=registry, reports=(), services=ServiceSelection(), **kwargs)
+
+
+async def test_run_command_refuses_a_flag_breaking_its_bound_as_a_usage_error() -> None:
+    """`R22.8`: `--repeats 1` reached the user as pydantic's `ValidationError` and exit 1."""
+    # Arrange
+    _BoundedCommand.ran = False
+    args = argparse.Namespace(name="acme", repeats=1)
+
+    # Act
+    rendered = await cli.run_command("bounded", args, _bounded_deps())
+
+    # Assert
+    assert rendered.exit_code is ExitCode.BAD_USAGE
+    assert "argument --repeats: Input should be greater than or equal to 2" in (
+        rendered.stderr or ""
+    )
+    assert _BoundedCommand.ran is False
+
+
+async def test_run_command_names_a_positional_its_validator_refused() -> None:
+    # Arrange
+    _BoundedCommand.ran = False
+    args = argparse.Namespace(name="Acme", repeats=3)
+
+    # Act
+    rendered = await cli.run_command("bounded", args, _bounded_deps())
+
+    # Assert
+    assert rendered.exit_code is ExitCode.BAD_USAGE
+    assert "argument name: a pack name is lower-case" in (rendered.stderr or "")
+    assert _BoundedCommand.ran is False
+
+
+async def test_run_command_refuses_a_broken_argument_in_the_json_envelope() -> None:
+    # Arrange
+    from weft_cli.sinks import JsonSink
+
+    deps = _bounded_deps(token_sink=JsonSink(stream=io.StringIO()))
+    args = argparse.Namespace(name="acme", repeats=1)
+
+    # Act
+    rendered = await cli.run_command("bounded", args, deps)
+
+    # Assert
+    assert rendered.exit_code is ExitCode.BAD_USAGE
+    dumped = json.loads(rendered.stdout or "")
+    assert dumped["error"] == "CommandArgumentsError"
+    assert "argument --repeats: Input should be greater than or equal to 2" in dumped["rendered"]
+
+
+async def test_the_shipped_index_command_refuses_a_zero_batch_size_naming_its_flag() -> None:
+    """The real `IndexArgs` through the real generated grammar, since a hand-built double
+    cannot say which constraints the shipped models carry.
+    """
+    # Arrange
+    from weft_cli.commands import IndexCommand
+
+    registry = Registry()
+    registry.add(Command, "index", IndexCommand, distribution="weft-rag")
+    deps = Dependencies(registry=registry, reports=(), services=ServiceSelection())
+    args = cli.build_parser(registry).parse_args(["index", "corpus", "--batch-size", "0"])
+
+    # Act
+    rendered = await cli.run_command("index", args, deps)
+
+    # Assert
+    assert rendered.exit_code is ExitCode.BAD_USAGE
+    assert "argument --batch-size: Input should be greater than 0" in (rendered.stderr or "")
 
 
 async def test_run_command_hands_the_json_sink_down_to_a_successful_render() -> None:
