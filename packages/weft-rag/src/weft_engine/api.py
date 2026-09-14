@@ -244,13 +244,15 @@ class Weft:
         question: str,
         *,
         pipeline: str | None = None,
-        retrieve_only: bool = False,
         top_k: int = 5,
         token_sink: TokenSink | None = None,
     ) -> Answer:
         """Resolve the `Command` registered as `"ask"` and run it, returning its `Answer`.
 
-        `token_sink` is where this call's tokens stream, as `run` describes.
+        `token_sink` is where this call's tokens stream, as `run` describes. Ranked passages
+        with no answer are `run("ask", {"question": ..., "retrieve_only": True})`'s result: a
+        retrieve-only run fills `hits` and never `answer`, so it has no place behind `-> Answer`
+        (carried repair `R22.6`).
 
         Raises `WeftError` if the command produced no answer — an application handed `None`
         cannot tell "no answer for this question" from "the command does not answer at all",
@@ -261,7 +263,6 @@ class Weft:
             {
                 "question": question,
                 "pipeline": pipeline,
-                "retrieve_only": retrieve_only,
                 "top_k": top_k,
             },
             token_sink=token_sink,
@@ -270,7 +271,7 @@ class Weft:
         if answer is None:
             raise WeftError(
                 f"'ask' produced no answer for question={question!r}, pipeline={pipeline!r}, "
-                f"retrieve_only={retrieve_only!r}, top_k={top_k!r}."
+                f"top_k={top_k!r}."
             )
         return cast("Answer", answer)
 

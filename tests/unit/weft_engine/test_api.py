@@ -31,6 +31,7 @@ refuses, which would fail these tests for a reason that has nothing to do with t
 from __future__ import annotations
 
 import asyncio
+import inspect
 from pathlib import Path
 from typing import ClassVar
 
@@ -243,6 +244,21 @@ async def test_ask_passes_the_pipeline_name_it_was_given_to_the_command() -> Non
     assert isinstance(recorded, _AskArgs)
     assert recorded.pipeline == "retrieve-then-generate"
     assert recorded.retrieve_only is False
+
+
+def test_ask_offers_no_mode_whose_result_is_not_an_answer() -> None:
+    """`R22.6`: retrieve-only fills `hits` and never `answer`, so `ask(retrieve_only=True)` raised
+    on every call. Ranked passages are `run("ask", {...})`'s to return.
+    """
+    # Arrange
+    offered = inspect.signature(Weft.ask).parameters
+
+    # Act
+    names = set(offered)
+
+    # Assert
+    assert "retrieve_only" not in names
+    assert {"question", "pipeline", "top_k", "token_sink"} <= names
 
 
 async def test_ask_raises_when_the_command_did_not_produce_rather_than_answering_none() -> None:
