@@ -1032,6 +1032,16 @@ def check_live(path: Path) -> int:
         )
     elif pointed is not None:
         subject = f"its phase agrees with {pointed.group('identifier')}, the task that row names"
+    elif "ledger order" not in next_action:
+        # L22.7: a row this cannot read used to fall back to ledger order and print "ok", which
+        # passed whenever ledger order happened to agree with what the row meant. Unreadable is
+        # a failure unless the row itself says ledger order governs.
+        print(
+            "FAIL  the Status block's Next action row names neither a task (`Task 22.0`) nor a "
+            "repair (`Repair R22.4`), and does not say ledger order governs — so there is no "
+            "position to compare the phase against. Name one, or say ledger order (L22.7)."
+        )
+        return 3
     else:
         subject = (
             f"its Next action row names neither a task nor a repair, so the phase was compared "

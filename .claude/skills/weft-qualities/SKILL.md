@@ -123,6 +123,13 @@ for is `L5.6`'s one-source shape arriving in the *name* rather than in a value, 
 per-name tests can tell the two apart. The falsifying move is arithmetic: `len(registry.names_for(
 Contract))` against what the surface exposes.
 
+**Then count the same way one level down: every parameter on that surface, at a value other than
+its default.** `L22.9`. `Weft.ask(retrieve_only=True)` shipped at Phase 24a and could never succeed
+— the command fills `hits`, `ask` demands an `answer` — and no test, example or manual page ever
+passed the flag, so every green run verified one of its two values. Phase 22a's exit found it
+because the script reached for the flag to avoid needing an LLM (`R22.6`). A signature is a
+published claim for each of its values; ask which of them anything has executed.
+
 **What identity does this surface key on, and is it actually unique?** A comparison, a
 deduplication or a lookup rests on a field somebody chose as the identity, and that choice is
 invisible while the cardinality is 1. Twelve rows collapsed into one because a mapping was keyed on
