@@ -868,8 +868,8 @@ with only the noun changed.
       `weft eval compare` read run ids only. `weft eval baseline` and
       `weft eval compare <published report> <later report>` are that procedure on the installed
       binary. *Fails if reproducing the published number requires cloning.* *(Held 2026-09-14: `v2.7.0`'s attached archive, fetched and verified, reproduced 12 of 12 published metrics from `weft-rag` 2.7.0 installed from PyPI.)*
-- [ ] Every shipped technique's claimed improvement is a delta against V3 on the same corpus, pipeline
-      and model versions. *Fails if any claim in the documentation has no run behind it.* *(Fails 2026-09-14: the claims check sweeps `manual/` and `README.md` only, and `CHANGELOG.md`'s published recall figures are against another arm, not V3 — carried repair `R22.14`.)*
+- [x] Every shipped technique's claimed improvement is a delta against V3 on the same corpus, pipeline
+      and model versions. *Fails if any claim in the documentation has no run behind it.* *(Held 2026-09-14, `4e81df7`: the claims check sweeps `CHANGELOG.md` and `docs/10` beside `manual/` and `README.md`, and finds no unmeasured claim — closed with the owner by widening the check rather than re-measuring.)*
 - [x] The offline evaluation subset runs in `ci-checks`. *Fails if quality is checked only manually.* *(Held 2026-09-14: `weft eval metrics`' gate split is tested in `ci-checks`' `test` step.)*
 
 **Compatibility**
@@ -893,9 +893,9 @@ with only the noun changed.
 
 - [x] `SECURITY.md` states a reporting path and the trust posture appears in the published README, in
       the words `02` §2 uses. *Fails if the package page implies isolation the design refused to claim.* *(Held 2026-09-14; `tests/docs/test_published_trust_posture.py` guards the wording.)*
-- [ ] `LICENSE` and `NOTICE` are in every built artefact, and the originality rule in `CLAUDE.md` is
+- [x] `LICENSE` and `NOTICE` are in every built artefact, and the originality rule in `CLAUDE.md` is
       re-checked for the release. *Fails if any file in the release cannot be accounted for as
-      original work.* *(Half holds 2026-09-14: both licence files ship in every artefact, checked; no release-time originality re-check exists — carried repair `R22.15`.)*
+      original work.* *(Held 2026-09-14, `66bbff3`: both licence files ship in every artefact, checked, and `release-preflight` now scans for the marks another codebase leaves before any tag.)*
 - [x] A newcomer can install, index and ask from the README alone, without opening `docs/`. *(Held 2026-09-14: `tests/docs/test_readme_is_enough.py` executes the README's blocks, and Phase 28 walked them from the index.)*
 
 **Explicitly not on this list, and why.** Uptime, SLAs, a support rota, multi-tenant isolation testing
