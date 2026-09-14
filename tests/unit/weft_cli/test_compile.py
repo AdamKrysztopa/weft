@@ -434,6 +434,71 @@ def test_an_inherited_stage_id_is_in_the_mapping_resolve_demands() -> None:
     assert set(contracts) == {"hyde", "fanout", "retrieve", "fuse", "rerank", "pack", "generate"}
 
 
+def test_a_parents_plugin_the_child_replaces_is_never_looked_up() -> None:
+    """`R22.9`: `index-qdrant` replaces `index-text`'s `store: pgvector`, and was refused for
+    `pgvector` in any project whose `store` pack could not register it.
+    """
+    # Arrange
+    registry = _registry()
+    parent = _document(
+        "base",
+        ("retrieve", "vector-top-k"),
+        ("fuse", "no-such-fuser"),
+        ("pack", "repack"),
+        ("generate", "cited-answer"),
+    )
+    child = Pipeline(
+        name="child", extends="base", replace=(StageDeclaration(id="fuse", use="single-list"),)
+    )
+    parents = {"base": parent}
+
+    # Act
+    contracts = contracts_for(child, registry=registry, reports=(), parents=parents)
+    specs = _specs_for(child, registry, parents)
+
+    # Assert
+    assert contracts["fuse"] is Fuser
+    assert [(spec.id, spec.name) for spec in specs][1] == ("fuse", "single-list")
+
+
+def test_a_parents_plugin_the_child_removes_is_never_looked_up() -> None:
+    # Arrange
+    registry = _registry()
+    parent = _document(
+        "base",
+        ("retrieve", "vector-top-k"),
+        ("fuse", "single-list"),
+        ("rerank", "no-such-reranker"),
+        ("pack", "repack"),
+        ("generate", "cited-answer"),
+    )
+    child = Pipeline(name="child", extends="base", remove=("rerank",))
+    parents = {"base": parent}
+
+    # Act
+    specs = _specs_for(child, registry, parents)
+
+    # Assert
+    assert [spec.id for spec in specs] == ["retrieve", "fuse", "pack", "generate"]
+
+
+def test_a_replacement_naming_nothing_registered_is_still_refused_by_name() -> None:
+    # Arrange
+    registry = _registry()
+    child = Pipeline(
+        name="child",
+        extends="retrieve-then-generate",
+        replace=(StageDeclaration(id="fuse", use="no-such-fuser"),),
+    )
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(
+            child, registry=registry, reports=(), parents={"retrieve-then-generate": _baseline()}
+        )
+    assert "stage 'fuse' names plugin 'no-such-fuser'" in str(caught.value)
+
+
 def _report(pack: str | None, status: PackStatus, *, reason: str = "") -> PackReport:
     """One `weft plugins doctor` row, built the way discovery builds it.
 

@@ -217,14 +217,17 @@ def contracts_for(
     plugins doctor` already can. Required and keyword-only, with no default: a default would
     let a call site abstain silently, which is the exact defect this repair closes
     (`docs/internal/lessons.md` `L6.21`).
+
+    A contract is looked up only for the `use` that survives the chain: a parent's plugin a
+    descendant replaces or removes is never looked up, so `index-qdrant` resolves without the
+    `pgvector` it swaps out (carried repair `R22.9`).
     """
     ancestry = _ancestors_first(pipeline, parents)
     contracts: dict[str, type[object]] = {}
-    for document in ancestry:
-        for stage_id, use in _stage_use_pairs(document):
-            contracts[stage_id] = _contract_for(
-                registry, use, pipeline=pipeline, stage=stage_id, reports=reports
-            )
+    for stage_id, use in _surviving_stage_uses(ancestry).items():
+        contracts[stage_id] = _contract_for(
+            registry, use, pipeline=pipeline, stage=stage_id, reports=reports
+        )
 
     declared_slots = {slot.id for document in ancestry for slot in document.slots}
     for contribution in contributions:
@@ -411,14 +414,25 @@ def _ancestors_first(pipeline: Pipeline, parents: Mapping[str, Pipeline]) -> lis
     return chain
 
 
-def _stage_use_pairs(pipeline: Pipeline) -> list[tuple[str, str]]:
-    """Every `(stage id, plugin name)` this one document introduces on its own.
+def _surviving_stage_uses(ancestry: list[Pipeline]) -> dict[str, str]:
+    """The `stage id -> use` mapping that survives `ancestry`, root-most first.
 
-    `replace:` reuses `StageDeclaration` — its own `id` *is* the target — so it carries a
-    `use:` exactly as `stages:` and an `insert:`'s own stage do. `remove:` and `set:` name
-    no plugin. `fallback:` is deliberately excluded, per `UnknownStagePluginError`.
+    Operators fold in each document's `operator_order`, the order
+    `weft_kernel.resolution._apply_operators` applies them in. A stale `replace` or `remove`
+    target is not raised here: `resolve` names it. `fallback:` is deliberately excluded, per
+    `UnknownStagePluginError`.
     """
-    pairs = [(stage.id, stage.use) for stage in pipeline.stages]
-    pairs += [(op.stage.id, op.stage.use) for op in pipeline.insert]
-    pairs += [(stage.id, stage.use) for stage in pipeline.replace]
-    return pairs
+    root, *descendants = ancestry
+    uses: dict[str, str] = {stage.id: stage.use for stage in root.stages}
+    for document in descendants:
+        for key in document.operator_order:
+            if key == "insert":
+                for op in document.insert:
+                    uses[op.stage.id] = op.stage.use
+            elif key == "replace":
+                for stage in document.replace:
+                    uses[stage.id] = stage.use
+            elif key == "remove":
+                for target in document.remove:
+                    uses.pop(target, None)
+    return uses
