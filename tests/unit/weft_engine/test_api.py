@@ -30,6 +30,7 @@ refuses, which would fail these tests for a reason that has nothing to do with t
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import ClassVar
 
@@ -47,6 +48,8 @@ from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, MediaType, Node, Outcome, Produced, SourceId
 from weft_kernel.registry import Registry, UnknownPluginError
+from weft_llm.contract import TokenSink
+from weft_llm.payload import TokenChunk
 from weft_retrieve.payload import Passage, Query
 from weft_store import Scored
 
@@ -199,6 +202,8 @@ def clear_recorded_calls() -> None:
     """Class-level `calls` lists are shared across tests; each starts from empty."""
     for cls in (_RecordingCommand, _RefusingCommand, _DestructiveCommand):
         cls.calls.clear()
+    _StreamingCommand.emitted.clear()
+    _StreamThenFailCommand.emitted.clear()
 
 
 async def test_ask_runs_the_command_the_registry_holds_and_returns_its_answer() -> None:
@@ -427,3 +432,145 @@ async def test_run_asks_consent_for_a_destructive_command_reached_by_name() -> N
             await w.run("graph wipe", {"source_id": "doc-1"})
 
     assert _DestructiveCommand.calls == []
+
+
+# --- Repair `R22.5` — a token sink belongs to a call, not only to a session.
+#
+# G23's measurement (`05` → G23, *"The measurement the gate owed"*): `Weft._invoke` built every
+# call's services with the session's own sink, and `TokenChunk` carries no run id, so two
+# concurrent `ask`s on one `Weft` interleaved into one sink with nothing to separate them.
+
+
+class _RecordingSink:
+    """A `TokenSink` that keeps every chunk it was given, in order, and every close."""
+
+    def __init__(self) -> None:
+        self.chunks: list[TokenChunk] = []
+        self.closed_with: list[str | None] = []
+
+    async def emit(self, chunk: TokenChunk) -> None:
+        self.chunks.append(chunk)
+
+    async def close(self, *, reason: str | None = None) -> None:
+        self.closed_with.append(reason)
+
+
+class _StreamingCommand(_RecordingCommand):
+    """Streams three chunks through `ctx.require(TokenSink)` and yields between each, so two
+    concurrent calls interleave the way two generations on one event loop do. `emitted` records
+    the order across both calls, which is what shows the interleaving happened at all.
+    """
+
+    emitted: ClassVar[list[str]] = []
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        assert isinstance(args, _AskArgs)
+        sink = ctx.require(TokenSink)
+        for index in range(3):
+            text = f"{args.question}:{index}"
+            type(self).emitted.append(text)
+            await sink.emit(TokenChunk(role="generate", text=text))
+            await asyncio.sleep(0)
+        return Produced(value=_AskResult(question=args.question, answer=_an_answer()))
+
+
+class _StreamThenFailCommand(_RecordingCommand):
+    """Streams one chunk, then answers `Failed` — a model stopping mid-answer."""
+
+    emitted: ClassVar[list[str]] = []
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        assert isinstance(args, _AskArgs)
+        type(self).emitted.append(args.question)
+        await ctx.require(TokenSink).emit(TokenChunk(role="generate", text=f"{args.question}:0"))
+        return Failed(reason="the model stopped mid-answer")
+
+
+def _session(command: type[_RecordingCommand], sink: _RecordingSink, *, name: str = "ask") -> Weft:
+    registry = Registry()
+    registry.add(Command, name, command, distribution="weft-rag")
+    return Weft(
+        Dependencies(registry=registry, reports=(), services=ServiceSelection(), token_sink=sink)
+    )
+
+
+async def test_two_concurrent_asks_on_one_session_stream_into_the_sinks_each_was_given() -> None:
+    # Arrange
+    session_sink, alpha_sink, beta_sink = _RecordingSink(), _RecordingSink(), _RecordingSink()
+    weft = _session(_StreamingCommand, session_sink)
+
+    # Act
+    async with weft as w:
+        await asyncio.gather(
+            w.ask("alpha", token_sink=alpha_sink), w.ask("beta", token_sink=beta_sink)
+        )
+
+    # Assert
+    assert _StreamingCommand.emitted[:2] == ["alpha:0", "beta:0"]
+    assert [chunk.text for chunk in alpha_sink.chunks] == ["alpha:0", "alpha:1", "alpha:2"]
+    assert [chunk.text for chunk in beta_sink.chunks] == ["beta:0", "beta:1", "beta:2"]
+    assert session_sink.chunks == []
+
+
+async def test_a_call_given_no_sink_streams_into_the_sessions_own() -> None:
+    # Arrange
+    session_sink = _RecordingSink()
+    weft = _session(_StreamingCommand, session_sink)
+
+    # Act
+    async with weft as w:
+        await w.ask("alpha")
+        closed_during_the_session = list(session_sink.closed_with)
+
+    # Assert
+    assert [chunk.text for chunk in session_sink.chunks] == ["alpha:0", "alpha:1", "alpha:2"]
+    assert closed_during_the_session == []
+
+
+async def test_a_call_closes_the_sink_it_was_given_once_when_it_ends() -> None:
+    # Arrange
+    call_sink = _RecordingSink()
+    weft = _session(_StreamingCommand, _RecordingSink())
+
+    # Act
+    async with weft as w:
+        await w.ask("alpha", token_sink=call_sink)
+        closed_before_the_block_exits = list(call_sink.closed_with)
+
+    # Assert
+    assert closed_before_the_block_exits == [None]
+    assert call_sink.closed_with == [None]
+
+
+async def test_a_call_that_fails_closes_its_sink_saying_why_and_still_raises() -> None:
+    # Arrange
+    call_sink = _RecordingSink()
+    weft = _session(_StreamThenFailCommand, _RecordingSink())
+
+    # Act
+    with pytest.raises(WeftError) as caught:
+        async with weft as w:
+            await w.ask("alpha", token_sink=call_sink)
+
+    # Assert
+    assert "the model stopped mid-answer" in str(caught.value)
+    assert [chunk.text for chunk in call_sink.chunks] == ["alpha:0"]
+    assert len(call_sink.closed_with) == 1
+    reason = call_sink.closed_with[0]
+    assert reason is not None
+    assert "the model stopped mid-answer" in reason
+
+
+async def test_a_command_reached_by_name_takes_a_sink_for_the_call_too() -> None:
+    # Arrange
+    session_sink, call_sink = _RecordingSink(), _RecordingSink()
+    weft = _session(_StreamingCommand, session_sink, name="graph show")
+
+    # Act
+    async with weft as w:
+        await w.run("graph show", {"question": "alpha"}, token_sink=call_sink)
+
+    # Assert
+    assert [chunk.text for chunk in call_sink.chunks] == ["alpha:0", "alpha:1", "alpha:2"]
+    assert call_sink.closed_with == [None]
+    assert session_sink.chunks == []

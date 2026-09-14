@@ -711,6 +711,12 @@ says `ask`: there is nobody to ask. So an `overwrite`- or `destroy`-class comman
 you passed `yes=True` or `[permissions]` already said `allow` — never silently, and the refusal
 names `yes=True` rather than `--yes`, because that is the thing you can actually pass.
 
+**Streaming belongs to a call when you say so.** `Weft.open(token_sink=...)` sets the sink every
+call on the session streams into. `ask`, `index` and `run` also take `token_sink=` for one call:
+that call streams into it alone and closes it when it ends, with `reason=None` on success and the
+failure's message otherwise. Two concurrent calls on one session need this. A `TokenChunk` carries
+no run id, so without it their tokens arrive in one sink with nothing to separate them.
+
 **This section needs the container.** It indexes into a real store and reads back from it, so
 `WEFT_DATABASE_URL` must point at a running Postgres — `docker compose up -d` from the repository
 root, or your own. Every other example on this page runs against nothing at all.

@@ -246,8 +246,11 @@ class Weft:
         pipeline: str | None = None,
         retrieve_only: bool = False,
         top_k: int = 5,
+        token_sink: TokenSink | None = None,
     ) -> Answer:
         """Resolve the `Command` registered as `"ask"` and run it, returning its `Answer`.
+
+        `token_sink` is where this call's tokens stream, as `run` describes.
 
         Raises `WeftError` if the command produced no answer — an application handed `None`
         cannot tell "no answer for this question" from "the command does not answer at all",
@@ -261,6 +264,7 @@ class Weft:
                 "retrieve_only": retrieve_only,
                 "top_k": top_k,
             },
+            token_sink=token_sink,
         )
         answer = getattr(result, "answer", None)
         if answer is None:
@@ -270,8 +274,17 @@ class Weft:
             )
         return cast("Answer", answer)
 
-    async def index(self, directory: Path | str, *, yes: bool = False) -> CommandResult:
+    async def index(
+        self,
+        directory: Path | str,
+        *,
+        yes: bool = False,
+        token_sink: TokenSink | None = None,
+    ) -> CommandResult:
         """Resolve the `Command` registered as `"index"` and run it against `directory`.
+
+        `token_sink` is where this call's tokens stream, as `run` describes: an ingest rung that
+        calls a model emits them too.
 
         The key is `path` because that is what `weft_cli.commands.IndexArgs` calls the field,
         and `_invoke` projects through the model's own names: a key the model does not declare
@@ -280,7 +293,7 @@ class Weft:
         unit tests could not see it, because their `Command` doubles declared the names this
         method was passing rather than the names the shipped commands declare (`L12.11`).
         """
-        return await self._invoke("index", {"path": str(directory)}, yes=yes)
+        return await self._invoke("index", {"path": str(directory)}, yes=yes, token_sink=token_sink)
 
     async def delete(self, source: SourceId | str | Path, *, yes: bool = False) -> CommandResult:
         """Resolve the `Command` registered as `"delete"` and run it against `source`.
@@ -304,6 +317,7 @@ class Weft:
         fields: Mapping[str, object] | None = None,
         *,
         yes: bool = False,
+        token_sink: TokenSink | None = None,
     ) -> CommandResult:
         """Run any registered `Command` by name — the general verb the three below are wrappers of.
 
@@ -321,11 +335,23 @@ class Weft:
         unknown one. `yes` answers the permission gate for an `overwrite`/`destroy`-class command
         exactly as it does for `delete`: reaching a command by string is not a way around a
         refusal the same command makes by method.
+
+        **`token_sink` belongs to this call** (carried repair `R22.5`). Omitted, the call streams
+        into the sink `Weft.open` was given, which every call on the session shares. Given, the
+        call streams into it alone and closes it when the call ends, exactly once: `reason=None`
+        on success, the failure's message otherwise — the rule `weft_cli.cli.run_command` applies
+        to a terminal run's sink. `TokenChunk` carries no run id, so this is the only way two
+        concurrent calls on one session can be told apart.
         """
-        return await self._invoke(command_name, fields or {}, yes=yes)
+        return await self._invoke(command_name, fields or {}, yes=yes, token_sink=token_sink)
 
     async def _invoke(
-        self, command_name: str, fields: Mapping[str, object], *, yes: bool = False
+        self,
+        command_name: str,
+        fields: Mapping[str, object],
+        *,
+        yes: bool = False,
+        token_sink: TokenSink | None = None,
     ) -> CommandResult:
         """Resolve `command_name` from the registry, project `fields` through its own
         `args_model`, and run it through `weft_command.invocation.invoke` — the one seam both
@@ -352,19 +378,44 @@ class Weft:
         }
         args = instance.args_model(**payload)
 
+        sink = self.dependencies.token_sink if token_sink is None else token_sink
         ctx = dataclasses.replace(
             new_context(),
-            services=command_path_services(self.dependencies, sink=self.dependencies.token_sink),
+            services=command_path_services(self.dependencies, sink=sink),
         )
 
-        outcome = await invoke(
-            command_name=command_name,
-            instance=instance,
-            args=args,
-            ctx=ctx,
-            consent=LibraryConsent(yes=yes, policy=self.dependencies.permissions),
-            distribution=entry.distribution,
-        )
-        if not isinstance(outcome, Produced):
-            raise WeftError(f"'{command_name}' did not produce a result: {outcome.reason}")
+        try:
+            outcome = await invoke(
+                command_name=command_name,
+                instance=instance,
+                args=args,
+                ctx=ctx,
+                consent=LibraryConsent(yes=yes, policy=self.dependencies.permissions),
+                distribution=entry.distribution,
+            )
+            if not isinstance(outcome, Produced):
+                raise WeftError(f"'{command_name}' did not produce a result: {outcome.reason}")
+        except WeftError as failure:
+            if token_sink is not None:
+                await _close_after_failure(token_sink, reason=str(failure), failure=failure)
+            raise
+        except BaseException as failure:
+            if token_sink is not None:
+                await _close_after_failure(
+                    token_sink, reason="command did not complete", failure=failure
+                )
+            raise
+        if token_sink is not None:
+            await token_sink.close(reason=None)
         return outcome.value
+
+
+async def _close_after_failure(sink: TokenSink, *, reason: str, failure: BaseException) -> None:
+    """Close a call's own sink while `failure` propagates, attaching a failed close to it as a
+    note rather than letting it replace `failure` — carried repair `R18.1`'s rule, which
+    `Weft.__aexit__` also follows.
+    """
+    try:
+        await sink.close(reason=reason)
+    except Exception as close_failure:
+        failure.add_note(f"closing the call's token sink failed: {close_failure}")
