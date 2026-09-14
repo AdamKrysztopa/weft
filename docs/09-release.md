@@ -832,32 +832,32 @@ with only the noun changed.
 
 **Install path**
 
-- [ ] Fitness function 1 holds for **every** published distribution, not only the kernel — each installs
+- [x] Fitness function 1 holds for **every** published distribution, not only the kernel — each installs
       alone into a clean environment and imports. *Fails if any distribution needs the workspace, a path
-      dependency, or an environment variable to import.*
-- [ ] The release set installs by name on a machine that has never seen the repository, on the minimum
+      dependency, or an environment variable to import.* *(Held 2026-09-14: CI's "every distribution imports standalone" job green on `dd1b25d`, the `v2.7.0` release commit, run 34856203011.)*
+- [x] The release set installs by name on a machine that has never seen the repository, on the minimum
       supported Python, and `weft --version` runs — which is fitness function 8(b) observed from an
-      index rather than from the tree.
-- [ ] A third-party pack, built as its own wheel outside this tree, installs beside the release set
-      installed from the index, and is discovered. *Fails if it needs anything the release set did not publish.*
-- [ ] The sdist builds and its tests pass from the sdist. *Fails if a data file, locale catalogue or
-      entry-point declaration is present in the checkout and absent from the artefact.*
+      index rather than from the tree. *(Held 2026-09-14: `weft-rag[qdrant]==2.7.0` from PyPI into a fresh Python 3.12 venv outside the repository; `weft --version` → `weft 2.7.0`.)*
+- [x] A third-party pack, built as its own wheel outside this tree, installs beside the release set
+      installed from the index, and is discovered. *Fails if it needs anything the release set did not publish.* *(Held 2026-09-14: `weft-example-chunker`'s wheel beside `weft-rag==2.7.0` from PyPI; `weft plugins list` → `example-chunker (weft-example-chunker): active`.)*
+- [x] The sdist builds and its tests pass from the sdist. *Fails if a data file, locale catalogue or
+      entry-point declaration is present in the checkout and absent from the artefact.* *(Held 2026-09-14: CI's "every sdist carries what the checkout has" job, which runs the suite from the sdists, green on `dd1b25d`, run 34856203011.)*
 
 **Operability**
 
-- [ ] `weft plugins doctor` answers, on a broken installation, *why* — using the status vocabulary in
-      `02` §2, with no status reported that is not in it.
-- [ ] A cancelled run leaves the store durable to its last finished batch, per `02` §1's `flush`
+- [x] `weft plugins doctor` answers, on a broken installation, *why* — using the status vocabulary in
+      `02` §2, with no status reported that is not in it. *(Held 2026-09-14: `PackStatus`'s five members are `02` §2's five statuses; ambient and deprecated render as flags, not statuses.)*
+- [x] A cancelled run leaves the store durable to its last finished batch, per `02` §1's `flush`
       guarantee, and a resumable delete finishes on the next command. *Fails if a crash mid-delete leaves
-      a store that no later command repairs.*
-- [ ] The cost and wall-clock of indexing the validation corpus are recorded, and re-indexing an
-      unchanged corpus is measurably cheaper (`SourceRecord` change detection, `02` §1).
-- [ ] An upgrade path exists and was executed once: a store written by release *n* is read by release
-      *n+1*. *Fails if this has never been run.*
+      a store that no later command repairs.* *(Held 2026-09-14: both halves in `tests/integration/test_operability.py`, green in `ci-checks` and when run alone.)*
+- [x] The cost and wall-clock of indexing the validation corpus are recorded, and re-indexing an
+      unchanged corpus is measurably cheaper (`SourceRecord` change detection, `02` §1). *(Held 2026-09-14, `weft-rag` 2.7.0, `baseline` with `openai-embeddings`: 9 documents, 107 chunks, 18,171 tokens — $0.00036 at OpenAI's published $0.02 per 1M — in 5.55 s, and 1.01 s re-indexing it unchanged.)*
+- [x] An upgrade path exists and was executed once: a store written by release *n* is read by release
+      *n+1*. *Fails if this has never been run.* *(Held 2026-09-14: pgvector and Qdrant stores written by `weft-rag` 2.6.0 from PyPI, read by 2.7.0 from PyPI — retrieval answers and a re-index reports every document unchanged. A 2.4.0 Qdrant collection is refused naming its remedy, a re-index.)*
 
 **Quality**
 
-- [ ] V1–V6 exist (§4.3), and the baseline run is published with the release — **attached to it**,
+- [x] V1–V6 exist (§4.3), and the baseline run is published with the release — **attached to it**,
       which is what "with" had to be made to mean. Task 6.13 installed the whole product from an
       index into a clean environment and found `eval/baselines/`, `eval/questions/` and
       `corpus/manifest.toml` reachable only from a git checkout, so the sentence was true of a
@@ -867,36 +867,36 @@ with only the noun changed.
       was not: the procedure that produced the baseline was a checkout script, and
       `weft eval compare` read run ids only. `weft eval baseline` and
       `weft eval compare <published report> <later report>` are that procedure on the installed
-      binary. *Fails if reproducing the published number requires cloning.*
+      binary. *Fails if reproducing the published number requires cloning.* *(Held 2026-09-14: `v2.7.0`'s attached archive, fetched and verified, reproduced 12 of 12 published metrics from `weft-rag` 2.7.0 installed from PyPI.)*
 - [ ] Every shipped technique's claimed improvement is a delta against V3 on the same corpus, pipeline
-      and model versions. *Fails if any claim in the documentation has no run behind it.*
-- [ ] The offline evaluation subset runs in `ci-checks`. *Fails if quality is checked only manually.*
+      and model versions. *Fails if any claim in the documentation has no run behind it.* *(Fails 2026-09-14: the claims check sweeps `manual/` and `README.md` only, and `CHANGELOG.md`'s published recall figures are against another arm, not V3 — carried repair `R22.14`.)*
+- [x] The offline evaluation subset runs in `ci-checks`. *Fails if quality is checked only manually.* *(Held 2026-09-14: `weft eval metrics`' gate split is tested in `ci-checks`' `test` step.)*
 
 **Compatibility**
 
-- [ ] G9's policy is implemented, not only written, and `doctor` behaves as G9 specified on skew —
-      report or refusal (§2.3, dependency 1). *Fails if the policy exists only as prose.*
-- [ ] Whatever deprecation clock G9 states is running and observable: every currently deprecated surface
-      names the release or date at which it is removed, in the unit G9 chose (§2.3, dependency 3).
-- [ ] Fitness function 10 is green; `weft-canary` is not on the index.
-- [ ] `CHANGELOG.md` covers every published distribution, and every removal carries a migration line.
+- [x] G9's policy is implemented, not only written, and `doctor` behaves as G9 specified on skew —
+      report or refusal (§2.3, dependency 1). *Fails if the policy exists only as prose.* *(Held 2026-09-14: `weft plugins doctor` reports skew — `weft_cli/skew.py`, tested.)*
+- [x] Whatever deprecation clock G9 states is running and observable: every currently deprecated surface
+      names the release or date at which it is removed, in the unit G9 chose (§2.3, dependency 3). *(Held 2026-09-14: the one deprecated surface, `keybert`, names its removal in `weft-rag` 3.0.0, and doctor prints it.)*
+- [x] Fitness function 10 is green; `weft-canary` is not on the index. *(Held 2026-09-14: FF10 green; `release.yml`'s publish set excludes the canary.)*
+- [x] `CHANGELOG.md` covers every published distribution, and every removal carries a migration line. *(Held 2026-09-14, once `v2.7.0` added the missing 2.6.0 migration line.)*
 - [ ] The release set pins **no** distribution below 1.0 (§2.2). *Fails if the set is numbered 1.0 or
-      above while any pin reads `0.x` — the set would promise what its parts reserve the right to break.*
-- [ ] The support window in §3 is published where an operator reads it, not only here, and names the
+      above while any pin reads `0.x` — the set would promise what its parts reserve the right to break.* *(Fails 2026-09-14 and stays open under Phase 26c, by the owner's decision: `weft-rag` 2.x pins `weft-kernel>=0.2.1,<1.0.0`.)*
+- [x] The support window in §3 is published where an operator reads it, not only here, and names the
       current major and the date or set-major at which the previous one stops receiving fixes. *Fails if
-      "how long is this supported" has no answer outside `docs/`.*
-- [ ] The release set's pins and the workspace's own distributions agree, read from the two files that
+      "how long is this supported" has no answer outside `docs/`.* *(Held 2026-09-14: `SECURITY.md` → *Supported versions*, from `v2.7.0`.)*
+- [x] The release set's pins and the workspace's own distributions agree, read from the two files that
       can genuinely disagree — fitness function 10(a). *Fails if the set is assembled from the same
-      source it is checked against, which is a check that cannot fail (`lessons.md` L5.6).*
+      source it is checked against, which is a check that cannot fail (`lessons.md` L5.6).* *(Held 2026-09-14: FF10(a) reads `release.yml` against the workspace `pyproject.toml`.)*
 
 **Security, licensing, documentation**
 
-- [ ] `SECURITY.md` states a reporting path and the trust posture appears in the published README, in
-      the words `02` §2 uses. *Fails if the package page implies isolation the design refused to claim.*
+- [x] `SECURITY.md` states a reporting path and the trust posture appears in the published README, in
+      the words `02` §2 uses. *Fails if the package page implies isolation the design refused to claim.* *(Held 2026-09-14; `tests/docs/test_published_trust_posture.py` guards the wording.)*
 - [ ] `LICENSE` and `NOTICE` are in every built artefact, and the originality rule in `CLAUDE.md` is
       re-checked for the release. *Fails if any file in the release cannot be accounted for as
-      original work.*
-- [ ] A newcomer can install, index and ask from the README alone, without opening `docs/`.
+      original work.* *(Half holds 2026-09-14: both licence files ship in every artefact, checked; no release-time originality re-check exists — carried repair `R22.15`.)*
+- [x] A newcomer can install, index and ask from the README alone, without opening `docs/`. *(Held 2026-09-14: `tests/docs/test_readme_is_enough.py` executes the README's blocks, and Phase 28 walked them from the index.)*
 
 **Explicitly not on this list, and why.** Uptime, SLAs, a support rota, multi-tenant isolation testing
 and a service tier. The first three require an operator this project does not have; multi-tenancy is
