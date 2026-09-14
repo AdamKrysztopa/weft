@@ -223,12 +223,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `docs/internal/lessons.md` `L6.34` one level in. v2.6.0 attached the baselines, the
+      # questions and the corpus *manifest*, and a stranger holding all three still could not
+      # reproduce anything: the manifest names nine documents by sha and pinned revision, and the
+      # only thing that turns it into bytes is `scripts/fetch_corpus.py`, which lives in a git
+      # checkout. The data was attached and the fetcher was not.
+      #
+      # **Two files, not one, and the second was found by running it**: `fetch_corpus.py` imports
+      # `wikitext` for the render half, so the archive without it fails at
+      # `ModuleNotFoundError: No module named 'wikitext'` before a single document is retrieved.
+      # Both are standard-library-only, so the kit stays install-free. Measured from the v2.6.0
+      # archive: with both present, `fetch` retrieves **19 of 25** documents and reports the other
+      # six as operator-tier and therefore permitted, which is the tier the baseline scores
+      # excluded anyway.
       - name: Collect the artefacts a reproduction needs
         run: |
           mkdir -p reproduction
           cp -R eval/baselines reproduction/baselines
           cp -R eval/questions reproduction/questions
           cp corpus/manifest.toml reproduction/corpus-manifest.toml
+          cp scripts/fetch_corpus.py reproduction/fetch_corpus.py
+          cp scripts/wikitext.py reproduction/wikitext.py
+          cp docs/REPRODUCING.md reproduction/REPRODUCING.md
           tar -czf weft-reproduction-${{ github.ref_name }}.tar.gz -C reproduction .
 
       # `docs/internal/lessons.md` L13.2. A tag push does not create a Release, and

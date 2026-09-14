@@ -676,3 +676,43 @@ def test_no_public_page_calls_a_literal_date_today() -> None:
         + "\n\nSay the property instead — *what is true*, not *when it became true*. A dated "
         "correction is fine and is the house style; a deictic beside a date is not"
     )
+
+
+#: The release workflow's own collect step, and every path it copies into the reproduction
+#: archive. Read from the workflow rather than listed here: a second list would be the two-lists
+#: bug aimed at the one artefact nobody sees until after a tag is pushed.
+_RELEASE_WORKFLOW: Final[Path] = REPO_ROOT / ".github" / "workflows" / "release.yml"
+_COPIED: Final[re.Pattern[str]] = re.compile(
+    r"^\s*cp (?:-R )?(?P<source>[A-Za-z0-9_./-]+) reproduction/", re.MULTILINE
+)
+
+
+def test_every_path_the_reproduction_archive_collects_exists() -> None:
+    """The reproduction kit is assembled after a tag is pushed, which is after every check has run.
+
+    `v2.6.0`'s archive carried the baselines, the questions and the corpus manifest, and a stranger
+    holding all three could not reproduce anything: the manifest names documents by digest and
+    pinned revision, and the only thing that turns it into bytes is `scripts/fetch_corpus.py` — in
+    a git checkout. `L6.34`'s shape one level in, the data attached and the fetcher not.
+
+    A rename is the way that happens again: `cp` of a path that no longer exists fails the job
+    *after* both wheels have published, and a version number on PyPI is not reusable. This reads
+    the workflow's own `cp` lines, so the list cannot drift from what the release actually does.
+    """
+    # Arrange
+    workflow = _RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    sources = _COPIED.findall(workflow)
+    assert len(sources) >= 4, (
+        f"only {len(sources)} paths parsed out of the release workflow's collect step — the step "
+        f"has moved and this check is reading nothing, which is the vacuous pass a floor refuses"
+    )
+
+    # Act
+    missing = sorted(source for source in sources if not (REPO_ROOT / source).exists())
+
+    # Assert
+    assert not missing, (
+        f"the release workflow collects {missing} into the reproduction archive, and this tree "
+        f"does not have them. The job that copies them runs *after* both distributions have "
+        f"published, so this fails a release that has already happened"
+    )
