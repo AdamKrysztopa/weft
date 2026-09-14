@@ -159,7 +159,7 @@ reference = ["ruff>=0.16.0"]
 # extra would be a knob that does nothing.
 pdf = ["pypdf>=6.16", "pdfplumber>=0.11.10"]
 openai = ["openai>=3.1", "pillow>=10.0"]
-qdrant = ["qdrant-client>=1.12"]
+qdrant = ["qdrant-client>=1.12,<1.14"]
 otel = ["opentelemetry-sdk>=1.28"]
 docling = ["docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]>=2.55"]
 # `all` lists the libraries rather than referring to this distribution's own extras. A
@@ -172,7 +172,7 @@ all = [
     "pdfplumber>=0.11.10",
     "openai>=3.1",
     "pillow>=10.0",
-    "qdrant-client>=1.12",
+    "qdrant-client>=1.12,<1.14",
     "opentelemetry-sdk>=1.28",
     "docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]>=2.55",
 ]
