@@ -34,7 +34,7 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
-## [2.6.0] - 2026-09-13
+## [2.6.0] - 2026-09-14
 
 **`weft-kernel` moves `0.1.0` → `0.2.0` with this release** — purely additive (`carry_forward` on
 the payload package, `aclose` at the seam), nothing removed, which under **G9** is a minor for a
@@ -44,6 +44,13 @@ caller and for an implementer alike.
 between releases while nothing was cut, so `2.6.0` is the first published release since `2.4.0`
 and carries everything below. A version number on PyPI is not reusable and a skipped one is not
 recoverable; it is recorded here rather than quietly renumbered.
+
+*(This entry was dated 2026-09-13 and nothing was published under it — the same "prepared but not
+cut" state that produced the missing 2.5.0, one release later. Rather than let it become a second
+unreachable number, `2.6.0` stayed unclaimed on the index and **grew**: everything Phase 28 added
+on 2026-09-13 and 2026-09-14 is in the lists below, and the heading now carries the day it was
+actually cut. Phase 28's own exit is what found it — the route it wrote is true of a clone and was
+false of every wheel a stranger could install.)*
 
 ### Added
 
@@ -92,6 +99,27 @@ recoverable; it is recorded here rather than quietly renumbered.
   representable, so local embeddings with a hosted chat model stops being one endpoint pretending
   to be two.
 
+- **A lexical retrieval rung that needs no account, no model and no download.**
+  `weft ask "<question>" --pipeline lexical-retrieve --retrieve-only` searches the store's text
+  arm — real BM25-class ranking, `ts_rank_cd` in pgvector by default — and prints the passages.
+  Until now the only route to that arm was `hybrid-*`, every one of which ends in a generated
+  answer and so needs a model configured; the capability shipped in 2.6.0's own work and could not
+  be reached. This is what a first hour looks like on a machine with no credentials: a question
+  turning on an exact token — a name, an identifier, an error code — answered correctly.
+- **`--retrieve-only` accepts `--pipeline`.** The two flags were refused together; they are only
+  contradictory when the named pipeline would call a model. Naming one that ends in retrieval now
+  runs it and stops at the passages, which is `--retrieve-only`'s own contract asked of a document
+  you chose rather than of the hardwired vector search. A pipeline that *would* generate is still
+  refused by name, before anything is constructed, and the refusal lists the ones that would work.
+- **`embedding_model` on `[packs.openai]` and `[packs.openai-compatible]`.** Which model an account
+  serves when no pipeline stage names one — and the only surface the *query* side could ever
+  reach, since `weft ask` builds its embedder from `[services] embed` and never from a document.
+  Without it a corpus embedded by one model was queried against another, which against a server you
+  run is usually a model name that does not exist. A stage's own `with: {model = "..."}` still
+  wins.
+- **`weft plugins doctor` says what the default embedder is**, when nothing chose one — the same
+  sentence `weft index` prints and `weft init` scaffolds, in one place rather than four wordings.
+
 ### Changed
 
 - `weft index` counts **documents**, in documents, and says so. It previously printed a number
@@ -101,6 +129,10 @@ recoverable; it is recorded here rather than quietly renumbered.
   `STORE_CONTRACT_VERSION` moves `2.4.0` → `2.6.0`.
 - A pack's resource closing happens at the seam, so no caller reaches for a `getattr` to find out
   whether a plugin has a `close`.
+- The public pages hand to each other by name and none of them links into a directory that is not
+  in your clone. `README.md` → the quickstart → the user manual → the pack author guide, with
+  `docs/08-manuals.md` §1 owning that order and a check failing the build when a hand-off, a shared
+  block or a sentence beside an unexecuted block stops being true.
 
 ### Deprecated
 
