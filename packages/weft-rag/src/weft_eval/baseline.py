@@ -2,9 +2,10 @@
 
 V3 wants *"the numbers produced before any technique: single-vector top-k, no fusion, no rerank,
 no enhancement"*, repeated, *"and each metric carries the interval its own repetitions
-produced"*. This module is the arithmetic, the vocabulary and — since repair **R22.4a** — the
-published run's own shape: `eval/run_baseline.py` is the measurement and `eval/check_baseline.py`
-is the comparison, but what a baseline *is* now lives here, importable from the installed
+produced"*. This module is the arithmetic, the vocabulary and — since repair **R22.4a**, and
+taken in-process by `weft eval baseline` (`weft_cli.eval_baseline`) since **R22.4c** — the
+published run's own shape: `weft_cli.eval_baseline` is the measurement and `eval/check_baseline.py`
+is the comparison, but what a baseline *is* lives here, importable from the installed
 `weft-rag` wheel with no checkout. Nothing here talks to a store, a model or a CLI, so every rule
 below is checkable without a corpus — which matters, because an evaluation package can fail on
 precisely these rules while its plumbing works (`09` §4.2).
@@ -38,7 +39,8 @@ retrieved passage and scores as a miss. That is a floor on `quote-*`, not a bug,
 need the extracted text of every document, which is an `Extractor` call, which is `async` — and
 `eval/` gets no second `asyncio.run` (fitness function 7(a)).
 
-**`BaselineReport`, carried from `eval/run_baseline.py` at R22.4a.** One baseline: what was
+**`BaselineReport`, carried from the deleted `eval/run_baseline.py` at R22.4a and built
+directly, in process, by `weft eval baseline` since R22.4c.** One baseline: what was
 measured, over what, how many times, and the persisted run it measured against. `record` is a
 real `weft_eval.run_record.RunRecord` — the same type `weft eval run`, `weft eval compare` and
 `weft trace` all read — so a later `weft eval compare` between this run and one taken through the
@@ -46,8 +48,9 @@ shipped CLI is comparing two instances of one type, not two shapes that happen t
 Refuses fewer than two repetitions at construction, which is V3's own failure clause — *"or the
 baseline was run once, in which case it records no interval and no later run can be judged
 against it"* — enforced where the file is built, so the file cannot exist. `load_baseline_report`
-is the reader, renamed from `eval/run_baseline.py`'s own `load_run` so its name says what it
-reads now that it is a public entry point rather than a hand-run script's own helper.
+is the reader, renamed at R22.4a from the deleted `eval/run_baseline.py`'s own `load_run` so its
+name says what it reads now that it is a public entry point rather than a hand-run script's own
+helper.
 """
 
 from __future__ import annotations
@@ -78,9 +81,9 @@ class BaselineScoringError(WeftError):
     """Something the harness was asked to measure cannot be measured as asked.
 
     A `WeftError`, since R22.4a: this module is part of the installed `weft-rag` wheel, scored by
-    any caller holding it — not only `eval/run_baseline.py`'s own subprocess — so a refusal here
-    reaches a CLI able to render it the same way as any other engine failure, rather than an
-    exception type a caller has to know to special-case.
+    any caller holding it — `weft eval baseline` (`weft_cli.eval_baseline`, R22.4c) foremost
+    among them — so a refusal here reaches a CLI able to render it the same way as any other
+    engine failure, rather than an exception type a caller has to know to special-case.
     """
 
 
@@ -119,8 +122,8 @@ class Hit(BaseModel):
     """One retrieved passage, as the thing being scored rather than as the store returned it.
 
     `documents` is already resolved to manifest ids by the caller: which corpus document a
-    `SourceId` names is the harness's own staging decision (`eval/run_baseline.py`), and a
-    metric that had to know about file paths would be a metric that stops working the day the
+    `SourceId` names is the caller's own staging decision (`weft_cli.eval_baseline`, R22.4c), and
+    a metric that had to know about file paths would be a metric that stops working the day the
     corpus moves.
     """
 
@@ -214,9 +217,9 @@ class MetricRecord(BaseModel):
     high: float
     n_scored: int = Field(ge=0)
     #: How many measurements this metric took no value from. The reasons live once on the run
-    #: that holds this record (`eval/run_baseline.py`), which asserts the two agree — a count
-    #: here and a list there is the shape that keeps a file of a hundred metrics readable
-    #: without letting either become a number nothing backs.
+    #: that holds this record (`weft_cli.eval_baseline`, R22.4c), which asserts the two agree —
+    #: a count here and a list there is the shape that keeps a file of a hundred metrics
+    #: readable without letting either become a number nothing backs.
     n_excluded: int = Field(ge=0)
 
     @model_validator(mode="after")
@@ -274,8 +277,8 @@ class BaselineReport(BaseModel):
     #: what let a reader — and a gate test — say *which* manifest entries it is a digest of.
     corpus_name: str = Field(min_length=1)
     tiers: tuple[str, ...]
-    #: The one `Extractor` this baseline's pipeline named — see `eval/run_baseline.py`'s
-    #: `EXTRACTOR_SUFFIXES`.
+    #: The one `Extractor` the resolved pipeline's own `extract` stage names — see
+    #: `weft_cli.eval_baseline.EvalBaselineCommand` (R22.4c).
     extractor: str = Field(min_length=1)
     documents: tuple[str, ...]
     #: Derived from the tiers, never declared: false the moment an `operator` document is in.
@@ -572,6 +575,46 @@ def mean_of(values: Sequence[float]) -> float:
         raise BaselineScoringError(message)
     computed = fsum(values) / len(values)
     return min(max(computed, min(values)), max(values))
+
+
+def aggregate_repetitions(
+    per_repetition: Sequence[Mapping[str, float]],
+    *,
+    excluded: Sequence[Excluded],
+    depths: Sequence[int],
+    scored_counts: Sequence[int],
+) -> tuple[MetricRecord, ...]:
+    """Turn per-repetition means into one record per metric, carrying the interval they span.
+
+    Carried from the deleted `eval/run_baseline.py`'s own `aggregate`, verbatim, at repair
+    **R22.4c** — `weft eval baseline` (`weft_cli.eval_baseline`) is its one caller now.
+
+    The mean of a repetition is a mean over the questions that *were* scored in it; a question
+    excluded in one repetition and scored in another therefore moves the value, which is
+    correct — it is variability of the measurement, and hiding it inside a fixed denominator
+    is how a noisy system reports a narrow interval.
+    """
+    names = sorted({name for values in per_repetition for name in values})
+    records: list[MetricRecord] = []
+    for name in names:
+        values = tuple(repetition[name] for repetition in per_repetition if name in repetition)
+        depth = int(name.rsplit("@", 1)[1])
+        if depth not in depths:
+            message = f"metric {name!r} was produced at a depth this run did not ask for"
+            raise BaselineScoringError(message)
+        records.append(
+            MetricRecord(
+                metric=name,
+                depth=depth,
+                values=values,
+                mean=mean_of(values),
+                low=min(values),
+                high=max(values),
+                n_scored=sum(scored_counts),
+                n_excluded=len(excluded),
+            )
+        )
+    return tuple(records)
 
 
 def recall_at_k(first_rank: Sequence[int | None], k: int) -> float:

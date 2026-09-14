@@ -6,7 +6,7 @@ the interval its own repetitions produced"*, and it fails when *"the baseline wa
 which case it records no interval and no later run can be judged against it."* Since task **4.8**,
 V6 also applies: *"the baseline is one of Phase 4's persisted runs... The baseline exists only as
 terminal output"* is its failure condition, so every committed baseline's `record` field must be
-a real `weft_eval.run_record.RunRecord`. `eval/run_baseline.py` refuses to build a report that
+a real `weft_eval.run_record.RunRecord`. `weft eval baseline` refuses to build a report that
 breaks either rule; this file checks the **files that are actually committed**, because the
 artefact is what Phase 4 inherits and Phase 6 republishes.
 
@@ -17,7 +17,7 @@ whoever next spends money on a measurement.
 **The one thing this file guards that nothing else can.** A baseline says which corpus it was
 measured over; whether that claim is true is a comparison against the manifest, and it is made
 here by recomputing the corpus identity from `corpus/manifest.toml` — through the identical
-`weft_eval.run_record.corpus_identity` convention `eval/run_baseline.py` itself calls — rather
+`weft_eval.run_record.corpus_identity` convention `weft eval baseline` itself calls — rather
 than by trusting the digest the run wrote about itself. `.phase2-findings.md` §15 is why: a
 figure over the operator tier reported as though it were reproducible would be exactly the
 failure mode that section names — *"a benchmark whose headline figure cannot be
@@ -30,14 +30,16 @@ from typing import Final
 import pytest
 from check_questions import QUESTIONS_DIR
 from fetch_corpus import Document, Tier, load_manifest
-from run_baseline import BASELINES_DIR, EXTRACTOR_SUFFIXES
 
+from tests.discovery import discover_for_tests
 from weft_eval.baseline import BaselineReport, MetricRecord, load_baseline_report
 from weft_eval.question_set import load_questions, reproducible_questions
 from weft_eval.run_record import corpus_identity
+from weft_extract.accept import claimed_extensions
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MANIFEST: Final[Path] = REPO_ROOT / "corpus" / "manifest.toml"
+BASELINES_DIR: Final[Path] = REPO_ROOT / "eval" / "baselines"
 
 
 @pytest.fixture(scope="module")
@@ -67,7 +69,7 @@ def test_a_baseline_exists_and_one_of_them_may_be_published(
     # Assert
     assert runs, (
         f"no baseline under {BASELINES_DIR}. V3 is an artefact that must exist as a file: "
-        f"`uv run python eval/run_baseline.py --tiers fetch --repeats 3`"
+        f"`weft eval baseline corpus/manifest.toml eval/questions --out eval/baselines/<name>.json`"
     )
     assert publishable, (
         "every committed baseline rests on the operator tier, so none of them may be published: "
@@ -142,10 +144,11 @@ def test_the_corpus_a_baseline_names_is_the_corpus_the_manifest_declares(
     # V3 cannot verify — "a baseline from a different corpus".
     # Arrange
     by_tier = {tier: [entry for entry in documents if entry.tier is tier] for tier in Tier}
+    claims = claimed_extensions(discover_for_tests())
 
     # Act / Assert
     for path, run in runs:
-        suffixes = EXTRACTOR_SUFFIXES[run.extractor]
+        suffixes = {suffix for suffix, names in claims.items() if run.extractor in names}
         declared = [
             entry
             for tier in run.tiers
@@ -169,7 +172,7 @@ def test_a_run_resting_on_the_operator_tier_says_it_cannot_be_reproduced(
     runs: tuple[tuple[Path, BaselineReport], ...],
 ) -> None:
     # `.phase2-findings.md` §15: two artefacts, never one. The label is derived from the tiers
-    # here, exactly as `eval/run_baseline.py` derives it when it writes the file — so a run that
+    # here, exactly as `weft eval baseline` derives it when it writes the file — so a run that
     # said `reproducible: true` over papers under publisher copyright is caught by the same rule
     # that should have set it, rather than by a reader noticing.
     # Act / Assert
@@ -186,9 +189,10 @@ def test_every_baseline_scored_the_questions_its_tiers_actually_allow(
     runs: tuple[tuple[Path, BaselineReport], ...], documents: tuple[Document, ...]
 ) -> None:
     # The subset is derived from the manifest's tiers and *the documents this run actually
-    # indexed* — task 2.2's tier rule, narrowed further by `run_baseline._run`'s own
-    # `indexed_ids` filter (task 4.8): a run over one extractor's documents must not be scored
-    # against a question resting on a document a different extractor would have staged. A run
+    # indexed* — task 2.2's tier rule, narrowed further to the documents the run's own pipeline
+    # read (task 4.8; `weft eval baseline` since R22.4c): a run over one extractor's documents
+    # must not be scored against a question resting on a document a different extractor would
+    # have staged. A run
     # that measured *fewer* questions than this allows reports a number over a set nobody can
     # reconstruct; one that measured more rests on documents it did not index.
     # Arrange

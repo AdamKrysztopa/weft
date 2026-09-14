@@ -1,0 +1,11 @@
+name: baseline
+# `09` §4.3 V3's baseline: single-vector top-k, no fusion, no rerank, no enhancement — the
+# number a shipped technique is measured against. Repair R22.4c: `weft eval baseline` resolves
+# this document to select its extractor, embedder and store, exactly as `weft eval run`/`weft
+# index --pipeline` resolve any other named document. No `route.summary`, deliberately: an
+# ingest document is never a routing target (`index-text.yaml`'s own paragraph on why).
+stages:
+  - {id: extract, use: text}
+  - {id: chunk,   use: fixed-size}
+  - {id: embed,   use: hash}
+  - {id: store,   use: qdrant}

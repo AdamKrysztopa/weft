@@ -24,8 +24,9 @@ baseline became one of Phase 4's own persisted runs** (`eval/run_baseline.py`'s 
 record` is a real `weft_eval.run_record.RunRecord`, built through that pack's own
 `corpus_identity`/`build_run_record` rather than a second, hand-rolled copy of the same shape) —
 which is the one part of the original prediction that *did* come true, just later and by adoption
-rather than by deletion. `eval/` is smaller and more honest for it, but it still exists, and it
-still runs `weft` as a subprocess to take a real, credentialed measurement no gate can take for it.
+rather than by deletion. Repair `R22.4` finished the adoption: the scorer, the question set and
+the runner moved into `weft_eval` and `weft eval baseline`, so a stranger holding the wheel can
+take the measurement. `eval/` keeps the hand-run checks over this repository's own corpus.
 
 **So what this file guards changes from "prove the deletion happens" to "prove `eval/` never
 grows the shape that would force one."** Being extensible is precisely what would make it a
@@ -40,11 +41,9 @@ that used to justify it turns out to have been too strong.
 
 The third check is the one that would otherwise rot silently: a pack importing the harness would
 make the *measurement* part of the engine, so a change to how a baseline is scored would change
-what the engine does. The dependency is one-way by design — `eval/` drives `weft` as a
-subprocess and imports the CLI's own result models (`weft_cli.ask.AskResult`) and, since 4.8,
-`weft_eval.run_record`/`weft_kernel.resolution`/`weft_cli.compile`/`weft_engine.registry_bootstrap`
-to build a real `RunRecord` in-process — reading what those modules publish, never the reverse,
-and this is the direction that must never appear.
+what the engine does. The dependency is one-way by design — `eval/` imports what the wheel
+publishes (`weft_eval.baseline`, `weft_eval.question_set`), never the reverse, and this is the
+direction that must never appear.
 """
 
 import ast
@@ -70,7 +69,7 @@ def test_the_walk_found_the_harness_and_the_packages() -> None:
     # Task 1.18's floor: every check below is "no violations", which is true of an empty walk.
     # A renamed directory would otherwise turn this whole file green by finding nothing.
     # Assert
-    assert {"run_baseline", "check_baseline", "check_questions"} <= EVAL_MODULES, (
+    assert {"check_baseline", "check_questions"} <= EVAL_MODULES, (
         f"the harness modules this file exists to fence are not under {EVAL_ROOT}: found "
         f"{sorted(EVAL_MODULES)}"
     )

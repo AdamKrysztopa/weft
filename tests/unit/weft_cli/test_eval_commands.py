@@ -493,8 +493,8 @@ async def test_the_corpus_digest_does_not_move_when_a_document_is_renamed(
 
     A corpus is the documents it holds. Where a file sits in a filesystem is not a property of
     the corpus, and a digest that moves with it makes a published baseline irreproducible for
-    anyone who staged the same bytes under another name — which is what `eval/run_baseline.py`'s
-    own module docstring has said since task 4.8 while routing around it.
+    anyone who staged the same bytes under another name — which the baseline runner's own
+    docstring said from task 4.8 while routing around it.
     """
     # Arrange
     corpus = tmp_path / "corpus"
@@ -1060,7 +1060,7 @@ def _run_record_with(*, model_versions: dict[str, str]) -> RunRecord:
 def test_model_versions_records_what_a_role_resolved_to_not_only_stage_config() -> None:
     """Carried repair **R10.3** (`docs/internal/lessons.md` `L10.5`).
 
-    `_model_versions` reads each resolved stage's own `config` for a `model` field, generically,
+    `model_versions_of` reads each resolved stage's own `config` for a `model` field, generically,
     and that is right as far as it goes — `OpenAIEmbedderConfig.model` is pinned by it and
     `hash`/`pgvector` contribute nothing without a table anywhere naming which stages carry a
     model. **What it cannot see is a model named in `[llm.roles]`.** A summarising or judging
@@ -1087,7 +1087,7 @@ def test_model_versions_records_what_a_role_resolved_to_not_only_stage_config() 
     )
 
     # Act
-    versions = _private_member(eval_commands_module, "_model_versions")(resolved, roles=roles)
+    versions = eval_commands_module.model_versions_of(resolved, roles=roles)
 
     # Assert — the stage half is unchanged, and the role half is new.
     assert versions["role:index"] == "openai:gpt-4o-mini"
@@ -1105,7 +1105,7 @@ def test_two_arms_differing_only_by_a_roles_model_are_refused_as_incomparable() 
     """The property `R10.3` states, at the seam that acts on it.
 
     Without this the repair is a field nothing reads — `L5.15`'s shape, and the reason
-    `_incomparable_reasons` is driven here rather than `_model_versions` alone.
+    `_incomparable_reasons` is driven here rather than `model_versions_of` alone.
     """
     a = _run_record_with(model_versions={"role:index": "openai:gpt-4o-mini"})
     b = _run_record_with(model_versions={"role:index": "openai:gpt-4o"})
@@ -1127,8 +1127,8 @@ def _private_member(module: object, name: str) -> Any:
 
     Importing a `_`-prefixed name trips pyright's `reportPrivateUsage`; a `getattr` with a
     literal trips ruff's `B009`. Taking the name as a parameter is neither. The subject really is
-    the private function: `_model_versions` is where carried repair `R10.3`'s derivation lives,
-    and there is no public seam that answers the narrower question this test asks.
+    the private function: `_incomparable_reasons` is where the comparability rule lives, and
+    there is no public seam that answers the narrower question this test asks.
     """
     return getattr(module, name)
 

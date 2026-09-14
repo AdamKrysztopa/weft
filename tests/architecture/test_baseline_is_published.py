@@ -35,7 +35,7 @@ RELEASE_WORKFLOW: Final[Path] = REPO_ROOT / ".github" / "workflows" / "release.y
 
 #: The three artefacts a stranger needs to reproduce the published number, and why each is here.
 #: Named rather than globbed, because the question *"what does a reproduction need"* is answered by
-#: `eval/run_baseline.py`'s own reads and not by whatever happens to sit in a directory.
+#: `weft eval baseline`'s own reads and not by whatever happens to sit in a directory.
 REPRODUCTION_ARTEFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("eval/baselines", "the persisted baseline runs themselves — V6's own artefact"),
     ("eval/questions", "the question set with its relevance judgements and quotes — V2"),

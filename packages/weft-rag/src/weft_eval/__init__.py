@@ -238,6 +238,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Prompt, AnswerCorrectnessJudgePrompt.name, AnswerCorrectnessJudgePrompt)
     registrar.add(Prompt, AnswerCompletenessJudgePrompt.name, AnswerCompletenessJudgePrompt)
 
+    # Repair R22.4c — the shipped document `weft eval baseline` resolves by default. See
+    # `pipelines/baseline.yaml`'s own header for what it deliberately is and is not.
+    registrar.add_pipeline_resource("weft_eval", "pipelines/baseline.yaml")
+
 
 __all__ = [
     "ACCURACY_NAME",

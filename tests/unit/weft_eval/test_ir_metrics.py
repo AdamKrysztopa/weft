@@ -170,7 +170,7 @@ async def test_recall_and_ndcg_refuse_on_the_same_condition() -> None:
 
 async def test_mrr_at_k_is_one_over_the_rank_of_the_first_relevant_result() -> None:
     """Task 16.7's third defect: `mrr@k` existed only in the repo-level `eval/metrics.py`, which
-    `eval/run_baseline.py` uses and no shipped pipeline can reach. A registered metric is what
+    the baseline runner used and no shipped pipeline could reach. A registered metric is what
     makes it available to `weft eval run`.
     """
     # Arrange — the relevant document is third of five.

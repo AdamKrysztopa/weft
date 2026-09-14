@@ -849,12 +849,10 @@ shipped technique's improvement... reported against a baseline from a different 
 or model version") applied at the CLI, and it names which of the three facts differs rather than
 printing a pipeline diff that would misattribute a metric delta to the pipeline change alone.
 
-**A hand-run harness writes a second kind of run record, to a second directory — not the one
-above.** `eval/run_baseline.py`, covered next, is not a `weft` command: it drives `weft` as a
-subprocess and writes its own JSON under `eval/baselines/`, wrapping an identical `RunRecord`
-inside its own report (`BaselineReport.record`). Same type, same `load_run_record` reads either
-one — but `runs/` and `eval/baselines/` are two different directories with two different
-purposes, and neither command looks in the other's for you.
+**A baseline report is a second kind of file, in a second directory — not the one above.**
+`weft eval baseline`, covered next, writes under `baselines/`, wrapping an identical `RunRecord`
+inside its own report (`BaselineReport.record`). `runs/` and `baselines/` are two directories with
+two purposes, and neither command looks in the other's for you.
 
 ### `weft trace`
 
@@ -891,69 +889,65 @@ is the whole run, measured rather than estimated — not a stage, and not a subs
 
 ## Measuring a baseline, and judging a later run against it
 
-Weft's numbers are measured by a hand-run harness under `eval/`, and the runs it writes are
-committed under `eval/baselines/`. Nothing about this is a `weft` command: the harness drives
-`weft` as a subprocess, exactly as you would.
+`weft eval baseline` takes the measurement Weft's published numbers come from. It selects a corpus
+manifest's tiers, verifies every selected document against its sha256, stages them under
+`--workdir`, indexes them through a named pipeline, retrieves every question it can score more than
+once, and writes one report. All of it happens in the `weft` process.
 
 ```bash
-# the corpus first — the harness refuses to measure a set it cannot verify byte for byte
-uv run python scripts/fetch_corpus.py fetch
+# the corpus first — the fetcher refuses to keep bytes that do not match their pin
+python3 scripts/fetch_corpus.py fetch        # standard library only, Python 3.11 or later
 
-uv run python eval/run_baseline.py --tiers fetch --repeats 3
+weft eval baseline corpus/manifest.toml eval/questions
 ```
 
-It stages the corpus, writes the `weft.toml` **and a project-local pipeline document**
-(`--pipeline`, task 4.0) it measures through, indexes, asks every question the tiers allow,
-repeats the whole pass, and writes one JSON file whose `record` field is a real
-`weft_eval.run_record.RunRecord` — the identical type `weft eval run`/`weft trace` persist and
-read (task 4.8), carrying the resolved pipeline, the corpus identity, the model versions and the
-active distribution set fitness function 8(c) checks.
+With no flags that is the published measurement: `--tiers fetch`, `--repeats 3`, `--top-k 10`,
+`--depths 5,10`, and the shipped `baseline` pipeline. Run from an install of the two wheels, outside
+this repository, against an empty Qdrant collection (2026-09-14), it exited `0` and wrote
+`baselines/8854c33f71ea-2026-09-14.json` — the same corpus digest the published file carries.
 
-**One `--extractor` per baseline, and no `OPENAI_API_KEY` needed by default.** A resolved
-pipeline names exactly one stage under the `Extractor` contract, so a baseline names one —
-`--extractor text` (the default) covers the `.md`/`.txt` corpus, `--extractor pdf-text` covers
-the PDFs, and a run mixing formats needs two baselines rather than one. `--embedder` defaults to
-`hash`, not `openai-embeddings`, and that is a reproducibility choice rather than a workaround.
-**The name collision this paragraph used to describe is gone** — `weft-openai` registered one
-client as `"openai"` under both `Embedder` and `LLMProvider`, so a document's bare `use: openai`
-could not say which contract it meant and `weft index --pipeline` refused with
-`AmbiguousStageContractError`. Ledger task 8.15 split the two: the embedder is
-`openai-embeddings`, the chat provider keeps `openai`, and both `use: openai-embeddings` and
-`[services] embed = "openai-embeddings"` work. `hash` costs nothing to
-run and needs no vendor account, which also makes the published baseline reproducible by a
-stranger with none.
+**The pipeline is a shipped document, and the store has to hold nothing else.** `baseline` is
+`text` → `fixed-size` → `hash` → `qdrant`: single-vector top-k with no fusion, rerank or
+enhancement, which is what `09` §4.3 V3 asks a baseline to be. `hash` needs no vendor account, so
+anyone can reproduce the number. `--pipeline` names a different document; its extractor decides
+which staged documents are read, and a question resting on a document it does not read is not
+scored. The store's collection is `weft.toml`'s `[packs.qdrant] collection`. A retrieved passage from
+any document this run did not stage refuses the run (`BaselineStoreNotIsolatedError`), because
+other documents change every rank while the result still reads as ordinary retrieval.
 
-**Why `--repeats` has no default below 2.** A baseline records, per metric, the **interval its own
+**Why `--repeats` has no value below 2.** A baseline records, per metric, the **interval its own
 repetitions spanned**, and that interval is the only tolerance a later run is judged by. Nobody
-picks a number:
+picks a number. The judge is still a checkout script:
 
-```bash
-uv run python eval/check_baseline.py eval/baselines/<baseline>.json <later-run>.json
+```text
+$ uv run python eval/check_baseline.py eval/baselines/8854c33f71ea-2026-08-25.json baselines/8854c33f71ea-2026-09-14.json
+installation differs at stage 'extract': distribution weft-extract -> weft-rag
+installation differs at stage 'chunk': distribution weft-chunk -> weft-rag
+installation differs at stage 'chunk': applies_to [] -> [{"constraints": [], "fact": null, "media_type": ["text"]}]
+installation differs at stage 'embed': distribution weft-embed -> weft-rag
+installation differs at stage 'store': distribution weft-qdrant -> weft-rag
+installation differs at stage 'store': contract_version 2.0.0 -> 2.6.0
+12 metric(s) inside the interval 3 repetitions of the baseline spanned
 ```
 
-Every metric inside its interval, and the run reproduced the baseline; anything outside, and the
-command names the metric and both bounds and exits `1`. A run over a different corpus, resolved
-pipeline or model versions is refused outright with exit `2` rather than compared — the
-comparison would produce an ordinary-looking number that means nothing.
+Every metric inside its interval, and the run reproduced the baseline; anything outside, and it
+names the metric and both bounds and exits `1`. A run over a different corpus, stage configuration,
+model version, retrieval depth or question set is refused with exit `2` rather than compared. The
+*installation differs* lines are not refusals: they describe what was installed, and any effect it
+had on retrieval would show up in the intervals.
 
-**Two baselines, and only one of them may be published.** `--tiers fetch` (the default) measures
-over documents anybody can obtain from a pinned, checksummed source; that run is marked
-`"reproducible": true` and is the number to report. Adding the `operator` tier —
-`--tiers fetch,operator --extractor pdf-text`, since every operator-tier document is a PDF —
-includes papers held under publisher copyright, which nobody else can fetch at any price; that
-run is written with `"reproducible": false`, its file name says `unreproducible`, and the label
-belongs with the number every time it is quoted.
+**Two baselines, and only one of them may be published.** `--tiers fetch` measures over documents
+anybody can obtain from a pinned, checksummed source; that report says `"reproducible": true`.
+Adding the `operator` tier includes papers held under publisher copyright, which nobody else can
+fetch at any price, and every one of them is a PDF, so the pipeline has to name a PDF extractor.
+That report says `"reproducible": false`, its file name says `unreproducible`, and the label goes
+with the number every time it is quoted.
 
-**What is measured, and what is not.** This baseline drives `weft ask --retrieve-only` (task
-3.11 made `weft ask` route to a generated answer by default; `--retrieve-only` is Phase 0's own
-contract, kept reachable for exactly this measurement — see `eval/run_baseline.py`'s own module
-docstring). So the baseline is a retrieval measurement — recall, nDCG and MRR at two depths, at
-two granularities: a
-`quote-…` metric counts a passage that contains the ground-truth span, a `document-…` metric counts
-one drawn from the right paper. The unanswerable questions carry no retrieval judgement at all;
-they are **excluded and counted**, with the reason recorded in the file, never scored as zero —
-and so is any question whose ground truth names a document outside what this run's own
-`--extractor` staged, so a single-format baseline is never blamed for documents it never indexed.
+**What is measured, and what is not.** A retrieval measurement: recall, nDCG and MRR at each
+depth, at two granularities. A `quote-…` metric counts a passage containing the ground-truth span;
+a `document-…` metric counts one drawn from the right document. Unanswerable questions carry no
+retrieval judgement and are **excluded and counted**, with the reason recorded in the file, never
+scored as zero.
 
 ## The deterministic subset, and pricing a run
 

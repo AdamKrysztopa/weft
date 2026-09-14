@@ -3119,6 +3119,58 @@ corpus and question set, at its retrieval depth.
 
 ---
 
+## Taking a baseline — `weft_cli.eval_baseline`
+
+Repair **R22.4c**. `weft eval baseline <manifest> <questions>` verifies, stages, indexes and scores
+in one process. Each refusal below was produced by the installed binary, from a directory outside
+this repository, over the tracked corpus manifest and question set.
+
+### `BaselineRunError`
+
+**What it looks like** — a tier the manifest does not declare:
+
+```text
+$ weft eval baseline corpus/manifest.toml eval/questions --tiers fetch,borrowed
+'borrowed' is not a corpus tier. The manifest declares ['gate', 'fetch', 'operator'].
+$ echo $?
+1
+```
+
+The same class refuses a `--depths` piece that is not an integer, a selected document that is
+missing or does not match its manifest digest (each named with its status), a pipeline that reads
+none of the staged documents, and a run with no question it can score. All of these except the
+last two are refused before anything is staged. **What to do:** the message names the input. For
+missing documents, run `fetch_corpus.py fetch` first; the operator tier is placed by hand.
+
+### `BaselineOutputExistsError`
+
+**What it looks like** — a report path that is already taken:
+
+```text
+$ weft eval baseline corpus/manifest.toml eval/questions --out baselines/8854c33f71ea-2026-09-14.json
+'baselines/8854c33f71ea-2026-09-14.json' already exists. 'weft eval baseline' refuses to overwrite a published run — remove it first, or point --out somewhere else.
+```
+
+An explicit `--out` is checked before anything runs. The default name,
+`baselines/<corpus digest>-<date>.json`, is only known once the corpus is, so a second run on the
+same day in the same directory is refused at the end. **What to do:** pass `--out`.
+
+### `BaselineStoreNotIsolatedError`
+
+**What it looks like** — a store that already held a document this run did not stage (here one
+indexed first with `weft index foreign --pipeline baseline` into the same collection):
+
+```text
+$ weft eval baseline corpus/manifest.toml eval/questions --out polluted.json
+a retrieved passage traces to '…/foreign/doc-z.md', which this run did not stage — the 'qdrant' store holds at least one document outside this run's own corpus, which changes every question's ranks. Point it at a collection holding nothing but this run's corpus (for Qdrant, '[packs.qdrant] collection').
+```
+
+No report is written. A passage from another corpus changes the ranks, and so every number, while
+reading as ordinary retrieval, which is why this refuses rather than dropping the passage. **What
+to do:** set `[packs.qdrant] collection` in `weft.toml` to a collection nothing else writes to.
+
+---
+
 ## Project configuration — `weft_engine.registry_bootstrap`
 
 ### `ConfigFileError`

@@ -63,11 +63,11 @@ no second command to know about, `docs/03-cli.md`'s own already-published *Comma
 read literally ("query, streaming the answer with citations" — no `route` entry ever existed in that
 table). `--pipeline` is what a caller naming a specific pipeline uses instead of the router's own
 choice; `--retrieve-only` is Phase 0's own contract, kept reachable rather than deleted, because
-`manual/quickstart.md`'s own zero-configuration walkthrough and `eval/
-run_baseline.py`'s V3 baseline (`docs/09-release.md` §4.3) both depend on a deterministic,
-credential-free, network-free measurement that routing cannot honestly offer once generation is a
-real model call resolved from `[llm.roles]` — see `docs/internal/build-ledger.md`'s 3.11 entry for
-the full argument.
+`manual/quickstart.md`'s own zero-configuration walkthrough and `weft eval baseline`'s V3
+baseline (`docs/09-release.md` §4.3, `weft_cli.eval_baseline`, repair R22.4c) both depend on a
+deterministic, credential-free, network-free measurement that routing cannot honestly offer once
+generation is a real model call resolved from `[llm.roles]` — see `docs/internal/build-ledger.md`'s
+3.11 entry for the full argument.
 
 **Task 4.0 gives `IndexCommand` the identical `--pipeline` surface `AskArgs` already has.**
 `weft_cli.ingest.run_index`'s own module docstring carries the argument (Q3, settled:
@@ -92,6 +92,7 @@ from weft_cli.ask import AskHit, hits_for, run_ask
 from weft_cli.config_commands import register_config_commands
 from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
+from weft_cli.eval_baseline import register_eval_baseline_command
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
 from weft_cli.explain import ScoreExplanation, explanations_for, incomparable_note
@@ -778,8 +779,8 @@ class IndexCommand:
             # Carried repair R11.2's second half: `stores_in_use`'s run-record source only ever
             # sees a store a `--pipeline` run named if this run wrote one down. `model_versions`
             # is deliberately left at its default — the derivation lives in
-            # `weft_cli.eval_commands._model_versions`, is private to that module, and reaches
-            # only `_incomparable_reasons`, which an index record never does; copying it here
+            # `weft_cli.eval_commands.model_versions_of`, and reaches only
+            # `_incomparable_reasons`, which an index record never does; copying it here
             # to fill a field nothing reads would be a second implementation of it. The default
             # four-stage path resolves no document, so it writes nothing: `RunRecord.
             # resolved_pipeline` is mandatory, and the only store that path writes to is
@@ -865,10 +866,10 @@ class AskCommand:
     catalogue `weft pipeline show` resolves names against.
 
     **`--retrieve-only` keeps Phase 0's own contract reachable**, deliberately not deleted:
-    `manual/quickstart.md`'s zero-configuration walkthrough and `eval/run_baseline.py`'s V3
-    baseline (`docs/09-release.md` §4.3) both need a deterministic, credential-free,
-    network-free measurement — a `weft.toml` with no `[llm.roles]` table maps nothing
-    (`weft_llm.roles.LLMRoles`'s own "no silent default" clause), so routed generation
+    `manual/quickstart.md`'s zero-configuration walkthrough and `weft eval baseline`'s V3
+    baseline (`docs/09-release.md` §4.3, `weft_cli.eval_baseline`) both need a deterministic,
+    credential-free, network-free measurement — a `weft.toml` with no `[llm.roles]` table maps
+    nothing (`weft_llm.roles.LLMRoles`'s own "no silent default" clause), so routed generation
     refuses loudly rather than running with nothing configured, exactly the gap `--retrieve-
     only` closes for a caller who wants no model call at all.
     """
@@ -1503,7 +1504,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     second registered name for the same behaviour would be exactly the "two commands, know
     which one" surface this task closes. Task **4.6** adds `register_eval_commands` beside them
     — `eval run`/`eval compare`/`trace`, `weft_cli.eval_commands`'s own three — on the identical
-    "compose from more than one function" footing, not a fourth entry point.
+    "compose from more than one function" footing, not a fourth entry point. Repair **R22.4c**
+    adds `register_eval_baseline_command` right after it, for `eval baseline` —
+    `weft_cli.eval_baseline`'s own single command — the identical footing one module over.
 
     **Task 6.20 (G13) adds `weft_cli.render.register_renderers(registrar)`** — the same
     "compose from more than one function" footing again, this time on the renderer axis
@@ -1530,6 +1533,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     register_pipeline_commands(registrar)
     register_config_commands(registrar)
     register_eval_commands(registrar)
+    register_eval_baseline_command(registrar)
     register_renderers(registrar)
 
 

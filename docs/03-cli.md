@@ -373,7 +373,7 @@ they are visible.
 > set, so a pipeline scaffolded by `weft pipeline derive` and never published as a pack is
 > reachable). **`weft ask <question> --retrieve-only`** is Phase 0's own contract, kept
 > reachable rather than deleted: `manual/quickstart.md`'s zero-configuration walkthrough and
-> `eval/run_baseline.py`'s V3 baseline (`09` §4.3) both need a deterministic, credential-free,
+> the V3 baseline (`09` §4.3) both need a deterministic, credential-free,
 > network-free measurement, which routed generation cannot offer once a real model is involved
 > — a `weft.toml` naming no `[llm.roles]` maps nothing (`weft_llm.roles.LLMRoles`'s own "no
 > silent default" clause), so the routed default refuses loudly rather than guessing at a
@@ -1007,9 +1007,10 @@ the reader who can use an unbounded float correctly.
 > newline-delimited events while a pipeline runs — Phase 3's shape, unchanged. `--format` is one
 > command choosing what its finished result looks like: `text` ranks the passages for a person,
 > `json` emits a single line carrying each passage's node id, its `lineage.sources` and the raw
-> score this section withholds from a human. It exists because prerequisite V3 (`09` §4.3) is
-> measured **through the shipped command** — fitness function 7(a) permits no second `asyncio.run`,
-> so `eval/run_baseline.py` drives `weft` as a subprocess and has to read what it printed. The
+> score this section withholds from a human. It was added so prerequisite V3 (`09` §4.3) could be
+> measured through the shipped command by a checkout script reading what `weft ask` printed; since
+> repair `R22.4c` that measurement is `weft eval baseline`, in process, and `--format json` stays
+> for any caller reading `weft ask`'s output. The
 > enum lives in `weft_cli.output`, away from `weft_cli.ask`, because `build_parser` runs for
 > `weft --version` too and that command may execute no pack code (fitness function 8(b)).
 

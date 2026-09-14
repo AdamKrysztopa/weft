@@ -7,12 +7,14 @@ had it — `0`, no length normalisation at all. This is the measurement that wou
 
 **It drives `weft_engine.api.Weft`, and that is the point of the file as much as the numbers.**
 `fix-plans/06` argued for taking Phase 24a before this one on exactly one claim: that 21a's sweeps
-stop being a subprocess and a parsed stdout and become ordinary Python. `eval/run_baseline.py` is
-what that claim was made against — it runs the binary and reads its output back, *for fitness
-function 7(a)'s reason*, because the tree may hold exactly one `asyncio.run` and it is the CLI's.
-Here there is no subprocess: `Weft.run("eval run", …)` reaches the same `Command` the terminal
-reaches, through the same registry, and what comes back is a typed `EvalRunCommandResult` carrying
-its own `RunRecord`. Nothing is parsed.
+stop being a subprocess and a parsed stdout and become ordinary Python. The deleted
+`eval/run_baseline.py` was what that claim was made against — it ran the binary and read its
+output back, *for fitness function 7(a)'s reason*, because the tree may hold exactly one
+`asyncio.run` and it is the CLI's; repair R22.4c's `weft_cli.eval_baseline` carries the identical
+claim further, taking the published baseline itself in process. Here there is no subprocess:
+`Weft.run("eval run", …)` reaches the same `Command` the terminal reaches, through the same
+registry, and what comes back is a typed `EvalRunCommandResult` carrying its own `RunRecord`.
+Nothing is parsed.
 
 **So this module exposes `async def main()` and starts no loop.** The bridge is the caller's, the
 way `examples/weft-example-app/app.py` settled it at task 24.3 — which keeps 7(a) true without

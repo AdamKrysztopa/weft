@@ -20,8 +20,9 @@ extension — and no more:**
   describing, aimed at pipelines instead of documentation.
 - `corpus` — **which corpus**, `CorpusIdentity`: a name and a digest over what the caller
   identifies each document by — each document's own content hash, since task 16.0 — so "a
-  different corpus" (V3's own failure clause, already proven at `eval/run_baseline.py`'s
-  `corpus_id()`) is a comparison two runs can make, not a promise two operators have to trust.
+  different corpus" (V3's own failure clause, already proven at `weft_cli.eval_baseline`'s own
+  `corpus_identity` call, R22.4c) is a comparison two runs can make, not a promise two operators
+  have to trust.
 - `model_versions` — **what a role resolved to**, e.g. `{"embed": "openai:text-embedding-3-small"}`.
   Taken as given, never derived here: `weft-eval` has no way to know what an `Embedder` or an
   `LLM` role resolved to at run time — only whoever drove the pipeline does — and inventing a
@@ -92,12 +93,19 @@ _NO_METRICS: Final[Mapping[str, Outcome[MetricAggregate]]] = MappingProxyType({}
 class CorpusDigestBasis(StrEnum):
     """What a `CorpusIdentity.digest` was computed over.
 
-    One member, because one basis is writable. A record that names none was written before
-    ledger task 16.0, when every caller digested resolved filesystem paths — and that absence
-    is a fact, not a gap: see `RunRecord.corpus_digest_basis`.
+    Two members. A record that names none was written before ledger task 16.0, when every
+    caller digested resolved filesystem paths — and that absence is a fact, not a gap: see
+    `RunRecord.corpus_digest_basis`.
     """
 
     DOCUMENT_BYTES = "document-bytes"
+    #: Repair **R22.4c** — `weft eval baseline`'s own basis. The digest is over each manifest
+    #: document's `f"{id}\t{sha256}"`, those bytes having been verified against that sha256
+    #: before the run: a manifest id is stable across a re-staging that `DOCUMENT_BYTES`'
+    #: resolved-path predecessor was not, and the sha256 is the corpus's own tracked identity
+    #: (`weft_eval.corpus_manifest.ManifestDocument.sha256`) rather than a digest this module
+    #: would otherwise have to re-read the bytes to recompute.
+    MANIFEST_DIGESTS = "manifest-digests"
 
 
 class CorpusIdentity(BaseModel):

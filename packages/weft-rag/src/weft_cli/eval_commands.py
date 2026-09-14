@@ -104,7 +104,7 @@ So the id is required, and `03`'s command surface line is corrected in the same 
 
 **Task 4.7 fills two gaps this module's own docstring named rather than invented.**
 `model_versions` is derived from the resolved pipeline itself, never from `[services]` (Q3
-still holds — a named pipeline never reads it): `_model_versions` reads each stage's own
+still holds — a named pipeline never reads it): `model_versions_of` reads each stage's own
 resolved `config` for a `model` field, generically, the same `getattr`-defensive idiom
 `weft_kernel.resolution`/`weft_kernel.runner` already use for `requires`/`provides` — a stage
 whose plugin declares no `model` field (`hash`, `pgvector`) contributes nothing, and one that
@@ -711,13 +711,13 @@ def _model_field(config: object) -> str | None:
     return None
 
 
-#: `_model_versions`' default when no caller supplies one — a run with no `[llm.roles]` block
+#: `model_versions_of`' default when no caller supplies one — a run with no `[llm.roles]` block
 #: contributes no role entries, which is a fact rather than an omission. Module-level so the
 #: default is one shared instance rather than a mutable built per call.
 _NO_ROLES: Final[LLMRoles] = LLMRoles()
 
 
-def _model_versions(
+def model_versions_of(
     resolved_pipeline: ResolvedPipeline, *, roles: LLMRoles = _NO_ROLES
 ) -> Mapping[str, str]:
     """Every model this run actually used — **two sources, carried repair `R10.3`.**
@@ -897,7 +897,7 @@ class EvalRunCommand:
             corpus=corpus_identity(corpus_name, content_hashes_of(documents)),
             corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
             query_rung=query_rung,
-            model_versions=_model_versions(_resolved, roles=deps.llm.roles),
+            model_versions=model_versions_of(_resolved, roles=deps.llm.roles),
             reports=deps.reports,
             distribution_versions=active_distribution_versions(deps.reports),
             metrics=metrics,
@@ -1018,8 +1018,8 @@ class EvalRunCommand:
             corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
             query_rung=query_rung,
             # Task 4.7's own gap to fill — see the module docstring's paragraph on
-            # `_model_versions`. Derived from what actually ran, never from `[services]`.
-            model_versions=_model_versions(resolved_pipeline, roles=deps.llm.roles),
+            # `model_versions_of`. Derived from what actually ran, never from `[services]`.
+            model_versions=model_versions_of(resolved_pipeline, roles=deps.llm.roles),
             reports=deps.reports,
             distribution_versions=active_distribution_versions(deps.reports),
             metrics=metrics,
@@ -1273,5 +1273,6 @@ __all__ = [
     "UnknownQuestionKindError",
     "UnknownRunIdError",
     "metrics_comparison_for_kind",
+    "model_versions_of",
     "register_eval_commands",
 ]

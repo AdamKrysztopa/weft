@@ -153,6 +153,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "eval run",
         "eval compare",
         "eval metrics",
+        "eval baseline",
         "trace",
     }
     expected_permissions = {
@@ -185,6 +186,9 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         # `eval metrics` only reads the registry already built at process start — `read`,
         # `weft_cli.eval_commands`'s own module docstring.
         "eval metrics": PermissionClass.READ,
+        # `eval baseline` stages a corpus, indexes it into a store and writes a report it refuses
+        # to overwrite — a create, on `eval run`'s footing.
+        "eval baseline": PermissionClass.WRITE,
         "trace": PermissionClass.READ,
     }
     for name, permission in expected_permissions.items():

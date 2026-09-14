@@ -12,20 +12,25 @@ from math import log2
 import pytest
 
 from weft_eval.baseline import (
+    BaselineReport,
     BaselineScoringError,
     DepthTooShallowError,
+    Excluded,
     ExclusionKind,
     Granularity,
     Hit,
     MetricRecord,
     Unscoreable,
+    aggregate_repetitions,
     measure,
     ndcg_at_k,
     recall_at_k,
     reciprocal_rank_at_k,
 )
 from weft_eval.question_set import Difficulty, Kind, Question, Quote
+from weft_eval.run_record import CorpusIdentity, RunRecord
 from weft_kernel.errors import WeftError
+from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 
 
 def _question(**overrides: object) -> Question:
@@ -235,3 +240,151 @@ def test_a_scoring_refusal_is_a_weft_error_the_cli_can_render() -> None:
     # Assert
     assert isinstance(caught.value, BaselineScoringError)
     assert isinstance(caught.value, WeftError)
+
+
+def _record() -> RunRecord:
+    return RunRecord(
+        recorded_at="2026-08-20T12:00:00+00:00",
+        resolved_pipeline=ResolvedPipeline(
+            name="baseline",
+            stages=(
+                ResolvedStage(
+                    id="embed",
+                    contract="Embedder",
+                    use="hash",
+                    distribution="weft-rag",
+                    provenance="baseline",
+                ),
+            ),
+        ),
+        corpus=CorpusIdentity(name="pl-wiki-v1", digest="a" * 64),
+        model_versions={},
+        active_distributions=("weft-rag",),
+    )
+
+
+def _report(**overrides: object) -> BaselineReport:
+    """A written run with one metric, as a real pass would build it."""
+    fields: dict[str, object] = {
+        "recorded_at": "2026-08-20T12:00:00+00:00",
+        "corpus_name": "pl-wiki-v1",
+        "tiers": ("fetch",),
+        "extractor": "text",
+        "documents": ("doc-a",),
+        "reproducible": True,
+        "record": _record(),
+        "questions": ("q001",),
+        "repeats": 2,
+        "retrieval_depth": 10,
+        "wall_clock_seconds": 1.0,
+        "metrics": (
+            MetricRecord(
+                metric="quote-recall@10",
+                depth=10,
+                values=(0.4, 0.6),
+                mean=0.5,
+                low=0.4,
+                high=0.6,
+                n_scored=2,
+                n_excluded=0,
+            ),
+        ),
+        "excluded": (),
+    }
+    return BaselineReport.model_validate(fields | overrides)
+
+
+def test_the_recorded_interval_is_the_one_the_repetitions_spanned() -> None:
+    # V3: "a later run reproduces the baseline when every metric falls inside that recorded
+    # interval". Nobody chooses the bounds — they are min and max of what happened.
+    # Arrange
+    per_repetition = ({"quote-recall@5": 0.4}, {"quote-recall@5": 0.55}, {"quote-recall@5": 0.5})
+
+    # Act
+    (record,) = aggregate_repetitions(
+        per_repetition, excluded=(), depths=(5,), scored_counts=(90, 90, 90)
+    )
+
+    # Assert
+    assert (record.low, record.high) == (0.4, 0.55)
+    assert record.mean == pytest.approx(0.48333333, abs=1e-6)
+    assert record.depth == 5
+
+
+def test_a_deterministic_pass_records_a_zero_width_interval_rather_than_room_to_move() -> None:
+    # `docs/09-release.md` §4.3: a deterministic system "records a zero-width interval and admits
+    # no drift at all". Widening it "to be safe" would be choosing the tolerance after all.
+    # Arrange
+    per_repetition = ({"document-mrr@10": 0.75}, {"document-mrr@10": 0.75})
+
+    # Act
+    (record,) = aggregate_repetitions(
+        per_repetition, excluded=(), depths=(10,), scored_counts=(95, 95)
+    )
+
+    # Assert
+    assert (record.low, record.high) == (0.75, 0.75)
+    assert record.outside(0.7500001)
+
+
+def test_a_metric_at_a_depth_the_run_did_not_ask_for_is_refused() -> None:
+    # Arrange
+    per_repetition = ({"quote-recall@7": 0.4}, {"quote-recall@7": 0.5})
+
+    # Act
+    with pytest.raises(BaselineScoringError) as caught:
+        aggregate_repetitions(per_repetition, excluded=(), depths=(5, 10), scored_counts=(2, 2))
+
+    # Assert
+    assert "quote-recall@7" in str(caught.value)
+
+
+def test_a_run_whose_exclusion_count_no_reason_backs_is_refused() -> None:
+    # V4: "aggregates exclude errored metrics and report how many were excluded". The count is on
+    # the metric and the reasons are on the run, and this is what stops the two drifting.
+    # Act / Assert
+    with pytest.raises(ValueError, match="n_excluded"):
+        _report(
+            metrics=(
+                MetricRecord(
+                    metric="quote-recall@10",
+                    depth=10,
+                    values=(0.4, 0.6),
+                    mean=0.5,
+                    low=0.4,
+                    high=0.6,
+                    n_scored=2,
+                    n_excluded=4,
+                ),
+            )
+        )
+
+
+def test_a_run_whose_exclusion_count_its_reasons_back_is_accepted() -> None:
+    # The complement, so the refusal above is not passing for the wrong reason.
+    # Act
+    report = _report(
+        excluded=(
+            Excluded(
+                question_id="q001",
+                repetition=1,
+                kind=ExclusionKind.NO_JUDGEMENT,
+                detail="unanswerable",
+            ),
+        ),
+        metrics=(
+            MetricRecord(
+                metric="quote-recall@10",
+                depth=10,
+                values=(0.4, 0.6),
+                mean=0.5,
+                low=0.4,
+                high=0.6,
+                n_scored=2,
+                n_excluded=1,
+            ),
+        ),
+    )
+
+    # Assert
+    assert report.metrics[0].n_excluded == len(report.excluded) == 1
