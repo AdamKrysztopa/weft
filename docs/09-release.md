@@ -259,7 +259,7 @@ facts about a file or the index, and the script says so rather than pretending t
    with a one-line description as its whole project page — silent, because the wheel builds and the
    upload succeeds and the defect is visible only on a page nobody in this repository reads.
 5. **`uv run poe ci-checks` is green in the environment the release runs in** — the committed
-   lockfile, the container up, the expected skip count, the lint cache cold. `CLAUDE.md` → *Quality
+   lockfile, the container up, every skip naming a known cause, the lint cache cold. `CLAUDE.md` → *Quality
    gates* owns why each of those four is named separately.
 6. **The working tree is committed.** A tag points at a commit; anything uncommitted is not in the
    release, and the wheel is built from the tag rather than from the desk.

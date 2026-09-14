@@ -5,17 +5,17 @@ every subsequent run, and every one of those runs reported green. Nothing read p
 count, so a suite that quietly stopped covering a large part of what it covers looked identical to
 one that passed.
 
-**No threshold is chosen here, and that is the design.** "More than N skips is suspicious" is a
-number nobody can defend, and `09` §4.4's argument against inventing one applies to a gate as well
-as to a quality target. What is checked instead is an **agreement between two things the operator
-already stated**: if `WEFT_DATABASE_URL` is set to a non-empty value, the operator is claiming a
-database is there. A test that then skips *because that database is unreachable* means the claim is
-false and every test that skipped proved nothing. That is a contradiction the run can detect about
-itself, with nothing to tune.
+**No threshold is chosen here, and no count either.** Two things are checked. Every skip names a
+cause this file knows — `SkipCause` — so a new reason to skip fails on the machine that introduces
+it. And no skip contradicts a service the environment claims: `WEFT_DATABASE_URL` or
+`WEFT_QDRANT_URL` set means that service is up, so a test skipping because it is unreachable
+proved nothing. Unset, those skips are expected — a laptop with no container still runs the unit
+suite.
 
-With no `WEFT_DATABASE_URL` set, container skips are correct and expected — a laptop with no
-container should still run the unit suite — so nothing fires. The check speaks only when the
-environment contradicts itself.
+**A pinned expected total, `WEFT_TEST_EXPECTED_SKIPS`, was retired on 2026-09-14.** It summed
+causes that move independently — untracked documents, a Qdrant and a BM25 server CI deliberately
+does not run — so it moved seven times in five days (48 to 96), and only a clean checkout could
+measure it, which meant after the push.
 
 Hooks rather than a test: this is a fact about the *run*, and a test asserting it would be a test
 whose subject is the other tests. The work is split across two hooks so that neither has to reach
@@ -26,6 +26,8 @@ for anything private — `pytest_terminal_summary` owns pytest's reporting chann
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable, Mapping
+from enum import Enum
 from functools import cache
 from pathlib import Path
 from typing import Final
@@ -60,22 +62,9 @@ _UNTRACKED_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 def _pretending_untracked() -> bool:
     """Whether to answer as a clean checkout would, however this working tree looks.
 
-    **`WEFT_PRETEND_UNTRACKED=1` exists so the number in CI can be measured before it is pushed.**
-    `WEFT_TEST_EXPECTED_SKIPS` is a fact about an environment (`L12.1`) and CI's environment has
-    none of the eight files `UNTRACKED_BY_DESIGN` names — so a developer's machine, which has all
-    eight, cannot produce that number and a test that skips only there is invisible locally. It
-    went wrong exactly that way on 2026-09-13: five new tests in `tests/docs/
-    test_roadmap_matches_the_ledger.py` skip on a clean checkout and run here, the local gate was
-    green, and CI reported *claimed 73 and produced 77* three minutes after the push.
-
-    So, before pushing a test that reads one of those files:
-
-        WEFT_PRETEND_UNTRACKED=1 uv run poe test
-
-    and read the skip count out of pytest's own summary. It is exact for the docs half and it does
-    not touch the files, which is why it is an environment variable rather than moving them aside —
-    `docs/internal/` is the source of truth for the phase in progress and a suite that renamed it
-    would be one interrupt away from losing it.
+    `WEFT_PRETEND_UNTRACKED=1 uv run poe test` takes the path CI's clean checkout takes, without
+    moving `docs/internal/` aside — the source of truth for the phase in progress, which a suite
+    that renamed it would be one interrupt away from losing.
     """
     return os.environ.get("WEFT_PRETEND_UNTRACKED", "") not in {"", "0"}
 
@@ -99,146 +88,98 @@ def untracked_reason(repo_relative: str) -> str | None:
     )
 
 
-#: The substring a container-dependent skip puts in its own reason — `tests/integration`'s skip
-#: helper reports `WEFT_DATABASE_URL (<dsn>) is unreachable: <driver error>`. Matched loosely on
-#: purpose (`docs/internal/lessons.md` L6.9): the driver's half of that sentence is not ours and
-#: changes between versions, while the first half is written here.
-_UNREACHABLE: Final[str] = "is unreachable"
+class SkipCause(Enum):
+    """Why a test may skip. A skip whose reason names none of these fails the run, everywhere.
 
-#: Every environment variable whose non-empty value is the operator's claim that a container is up.
-#: **Two, since `docs/internal/lessons.md` `L11.22`** — this was `WEFT_DATABASE_URL` alone, and with
-#: Qdrant stopped a gate run reported 44 skips against an expected 9 and still exited `0`, because
-#: nothing here made a claim about the second container. The asymmetry was visible in this very
-#: file: `_CONTAINER_TOKENS` below has listed **both** variables since it was written, so the
-#: scheduling half knew about two containers while the shrink guard knew about one.
-_CLAIM_ENVS: Final[tuple[str, ...]] = ("WEFT_DATABASE_URL", "WEFT_QDRANT_URL")
-
-#: The operator's claim about how many tests *should* skip — `docs/internal/lessons.md` `L11.22`,
-#: the other half. The two variables above only catch a container the operator explicitly named, and
-#: both have working defaults, so a laptop that never exports `WEFT_QDRANT_URL` claims nothing about
-#: Qdrant and a stopped container is invisible to them. `CLAUDE.md` has stated the expected count in
-#: **prose** — *"Expected skip count is 9; more means a container is down"* — which is exactly the
-#: shape this repository keeps discovering is not a check. **This is not the invented threshold the
-#: module docstring refuses**, and the difference is who chooses the number. *"More than N skips is
-#: suspicious"* is a constant nobody can defend. A count the **operator states**, in the same breath
-#: as the DSN, is a claim the run can contradict — the identical mechanism one variable over. **And
-#: it is set by `.github/workflows/ci.yml`, not by `pyproject.toml`, because a skip count is a fact
-#: about an *environment*.** The first version of this check pinned `9` in the `test` task; 9 was a
-#: fact about the machine it was measured on, which had Qdrant running. CI — which provisions
-#: Postgres alone, matching what `docker compose up -d` starts — produced **48** and went red on the
-#: first push. The same tree with Qdrant unreachable locally produces **44**. Three numbers, three
-#: environments, and only one of them is declared in a file. So the claim lives beside the services
-#: that determine it, and a local run makes none: nothing here fires unless someone states a number,
-#: and the container half above still speaks whenever a named service is down. `L11.21`'s rule —
-#: every running service is an assumption the local gate is making — arriving in the check written
-#: to answer its sibling.
-_EXPECTED_SKIPS_ENV: Final[str] = "WEFT_EXPECTED_SKIPS"
-
-_container_skips: list[str] = []
-
-#: Every skip this run produced, counted where pytest itself counts them — in the per-report hook,
-#: which the controller runs for every worker's reports under `-n auto`. **Counted here rather than
-#: read off `TerminalReporter.stats`, and that was measured.** The first version of this check read
-#: `stats["skipped"]` inside `pytest_terminal_summary` and set a flag for `pytest_sessionfinish` to
-#: act on. It printed a correct, red "gate shrank" banner and the process exited **0**:
-#: `pytest_sessionfinish` runs *before* `pytest_terminal_summary`, so the flag was always empty when
-#: the exit status was decided. A guard against a silent shrink that silently could not fail —
-#: `docs/internal/lessons.md` `L11.11` happening to the check written to answer `L11.11`, caught
-#: only because `phase-step` → *Finish* item 3 requires planting a disagreeing case and watching it
-#: go red.
-_skips_seen: list[str] = []
-
-
-def _claimed_containers() -> tuple[str, ...]:
-    """Every claim variable the operator actually set to something."""
-    return tuple(env for env in _CLAIM_ENVS if os.environ.get(env, "").strip())
-
-
-def _expected_skips() -> int | None:
-    """The operator's stated skip count, or `None` when they stated none.
-
-    A value that is not an integer is treated as no claim rather than as a failure: this is a
-    guard against a silent shrink, and turning a typo in an environment variable into a red gate
-    would be a guard that fails runs for a reason unrelated to what it watches.
+    A new reason to skip is a new member, added in the commit that introduces it — which fails on
+    the machine making that commit, where a pinned total could only fail in CI after the push.
     """
-    raw = os.environ.get(_EXPECTED_SKIPS_ENV, "").strip()
-    if not raw:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
+
+    UNTRACKED_BY_DESIGN = "a document this repository keeps untracked by design is absent"
+    POSTGRES_UNREACHABLE = "the Postgres WEFT_DATABASE_URL names is unreachable"
+    QDRANT_UNREACHABLE = "the Qdrant WEFT_QDRANT_URL names is unreachable"
+    BM25_UNREACHABLE = "no BM25-capable Postgres is running"
+    LIVE_API_NOT_OPTED_IN = "a live API test was not opted into"
+    CORPUS_NETWORK_NOT_OPTED_IN = "a corpus network test was not opted into"
+    CORPUS_NOT_MATERIALISED = "the corpus documents are not on this machine"
+
+
+#: The fragment of our own sentence each cause's skip reason carries. Matched on the half this tree
+#: writes, never on a driver's error text, which changes between versions (`L6.9`).
+_CAUSE_FRAGMENTS: Final[Mapping[SkipCause, tuple[str, ...]]] = {
+    SkipCause.UNTRACKED_BY_DESIGN: ("is untracked by design",),
+    SkipCause.POSTGRES_UNREACHABLE: ("WEFT_DATABASE_URL (", "WEFT_DATABASE_URL names no reachable"),
+    SkipCause.QDRANT_UNREACHABLE: ("WEFT_QDRANT_URL (",),
+    SkipCause.BM25_UNREACHABLE: ("no BM25 database at",),
+    SkipCause.LIVE_API_NOT_OPTED_IN: ("WEFT_LIVE_API_TESTS is unset", "OPENAI_API_KEY is unset"),
+    SkipCause.CORPUS_NETWORK_NOT_OPTED_IN: ("WEFT_CORPUS_NETWORK=1",),
+    SkipCause.CORPUS_NOT_MATERIALISED: (
+        "no corpus document is materialised",
+        "corpus fixture missing",
+    ),
+}
+
+#: A service whose variable, when set, is the operator's claim that it is up (`L7.8`, `L11.22`).
+_CLAIMED_BY: Final[Mapping[SkipCause, str]] = {
+    SkipCause.POSTGRES_UNREACHABLE: "WEFT_DATABASE_URL",
+    SkipCause.QDRANT_UNREACHABLE: "WEFT_QDRANT_URL",
+}
+
+
+def skip_cause(reason: str) -> SkipCause | None:
+    """The cause `reason` names, or `None` when it names none this file knows."""
+    for cause, fragments in _CAUSE_FRAGMENTS.items():
+        if any(fragment in reason for fragment in fragments):
+            return cause
+    return None
+
+
+def skip_problems(skips: Iterable[tuple[str, str]], *, environ: Mapping[str, str]) -> list[str]:
+    """Every `(nodeid, reason)` skip this run should not have produced."""
+    problems: list[str] = []
+    for nodeid, reason in skips:
+        cause = skip_cause(reason)
+        if cause is None:
+            problems.append(
+                f"{nodeid} skipped for a reason no SkipCause recognises: {reason.strip()!r}. "
+                f"Make the test run, or add the cause to tests/conftest.py's SkipCause."
+            )
+            continue
+        claim = _CLAIMED_BY.get(cause)
+        if claim is not None and environ.get(claim, "").strip():
+            problems.append(
+                f"{nodeid} skipped because {cause.value}, while {claim} is set, claiming it is "
+                f"up — so the test proved nothing. Start it (`docker compose up -d`), or unset "
+                f"{claim} to run offline deliberately."
+            )
+    return problems
+
+
+#: Collected per report, not read off `TerminalReporter.stats`: `pytest_sessionfinish` runs before
+#: `pytest_terminal_summary`, and a flag set in the latter never reached the exit status (`L11.11`).
+_skips_seen: list[tuple[str, str]] = []
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    """Record every skip whose reason says the database was unreachable."""
-    if report.skipped and isinstance(report.longrepr, tuple):
-        reason = report.longrepr[2]
-        # **A skip only contradicts the operator's claim when it names the variable that
-        # carried it**, which is why this matches the reason against the claim variables rather
-        # than against the word "container". That was found by watching an earlier version fire
-        # on the wrong one: `tests/integration/test_store_conformance.py` skips when *qdrant* is
-        # down, and `WEFT_DATABASE_URL` makes no claim about qdrant. `L11.22` is the same
-        # observation from the other side — qdrant carries its own claim, and it was not read.
-        claimed = _claimed_containers()
-        if _UNREACHABLE in reason and any(env in reason for env in claimed):
-            _container_skips.append(f"{report.nodeid} — {reason.strip()}")
-    # `when != "teardown"` matches what pytest's own summary counts: a `skipif` reports at
-    # `setup` and a `pytest.skip()` call at `call`, and a teardown skip would double-count a
-    # test already tallied.
-    if report.skipped and report.when != "teardown":
-        _skips_seen.append(report.nodeid)
+    # A teardown skip would record a test already recorded at setup or call.
+    if report.skipped and report.when != "teardown" and isinstance(report.longrepr, tuple):
+        _skips_seen.append((report.nodeid, report.longrepr[2]))
 
 
 def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
-    """Say what shrank, through pytest's own reporting channel.
-
-    Two independent checks, reported together: a skip that contradicts a named container's own
-    claim, and a total skip count that contradicts the operator's stated one. Either alone is
-    enough to fail the run — see `pytest_sessionfinish`.
-    """
-    expected = _expected_skips()
-    if expected is not None:
-        actual = len(_skips_seen)
-        if actual != expected:
-            terminalreporter.section("gate shrank", red=True)
-            terminalreporter.write_line(
-                f"This run claimed {expected} skip(s) via {_EXPECTED_SKIPS_ENV} and produced "
-                f"{actual}. More usually means a service this environment provisions did not "
-                f"come up — `docker compose up -d`, then run it again. Fewer means a test that "
-                f"used to skip now runs, which is good news that has to be recorded. The number "
-                f"is a fact about an environment, so it lives where that environment is "
-                f"declared: `WEFT_TEST_EXPECTED_SKIPS` in .github/workflows/ci.yml, forwarded "
-                f"by pyproject.toml's `test` task. Move it in the commit that changed it "
-                f"(docs/internal/lessons.md L11.22, L12.1)."
-            )
-
-    if not _claimed_containers() or not _container_skips:
+    problems = skip_problems(_skips_seen, environ=os.environ)
+    if not problems:
         return
-
     terminalreporter.section("gate shrank", red=True)
-    terminalreporter.write_line(
-        f"{', '.join(_claimed_containers())} is set, so this run claimed a container — and "
-        f"{len(_container_skips)} test(s) skipped because it was unreachable. Those tests proved "
-        f"nothing, and the run would otherwise have reported green (lessons-archive L7.8, "
-        f"ledger 8.20; L11.22 for the second container)."
-    )
-    for skipped in _container_skips[:5]:
-        terminalreporter.write_line(f"  {skipped}")
-    if len(_container_skips) > 5:
-        terminalreporter.write_line(f"  … and {len(_container_skips) - 5} more")
-    terminalreporter.write_line(
-        "Start the container (`docker compose up -d`), or unset "
-        f"{' / '.join(_claimed_containers())} to run the offline suite deliberately."
-    )
+    for problem in problems[:10]:
+        terminalreporter.write_line(problem)
+    if len(problems) > 10:
+        terminalreporter.write_line(f"… and {len(problems) - 10} more")
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Turn that contradiction into a non-zero exit, so the gate reports it as a failure."""
     del exitstatus
-    expected = _expected_skips()
-    shrank = expected is not None and len(_skips_seen) != expected
-    if (_claimed_containers() and _container_skips) or shrank:
+    if skip_problems(_skips_seen, environ=os.environ):
         session.exitstatus = 1
 
 

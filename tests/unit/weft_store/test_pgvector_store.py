@@ -712,7 +712,7 @@ def test_the_bm25_refusal_is_not_in_the_unresolved_name_family() -> None:
 #
 # **These need a database the floor container is not**, so they skip exactly the way the Qdrant
 # suite already does — `docker compose --profile bm25 up -d`, port 5434. CI runs the floor image
-# and no BM25 service, so these skip there, and `WEFT_TEST_EXPECTED_SKIPS` carries the count. That
+# and no BM25 service, so these skip there as `SkipCause.BM25_UNREACHABLE`. That
 # is the established shape for an opt-in backend in this tree, not a new one.
 
 _BM25_DSN = os.environ.get("WEFT_BM25_DATABASE_URL", "postgresql://weft:weft@localhost:5434/weft")

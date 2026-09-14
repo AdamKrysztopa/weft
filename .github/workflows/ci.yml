@@ -31,8 +31,7 @@ jobs:
     # one. That is not drift: Qdrant sits behind a `conformance` profile precisely so that
     # `docker compose up -d` still means "the one container, and it is the database", and this job
     # matches that default deliberately. What was wrong was a sentence claiming parity with a file
-    # that had grown a second service. Corrected 2026-09-10, when `WEFT_EXPECTED_SKIPS` below made
-    # the difference between the two environments a number for the first time.
+    # that had grown a second service. Corrected 2026-09-10.
     #
     # **Whether this job should also run the conformance backend is a real question and not one
     # this comment settles.** G4's two-backend proof is what `compose.yaml`'s qdrant service
@@ -100,78 +99,11 @@ jobs:
         run: uv run poe ci-checks
         env:
           WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
-          # **The operator's claim about how many tests should skip — `docs/internal/lessons.md` `L11.22`,
-          # and it lives here rather than in `pyproject.toml` because a skip count is a fact about
-          # an *environment*.** This job declares its services and its install steps above, so it
-          # is the one environment in this project that can honestly state the number. A
-          # developer's machine declares nothing: measured on the author's, with Qdrant running,
-          # the same tree skips 9; with Qdrant unreachable, 44; here, 48. A default pinned in
-          # `pyproject.toml` would be red for everyone whose machine differs from whoever set it.
-          #
-          # **Named `WEFT_TEST_EXPECTED_SKIPS`, not `WEFT_EXPECTED_SKIPS`, and the difference is
-          # the suite.** A step env applies to every task in the `ci-checks` sequence, and the
-          # first version of this set the count the conftest reads directly — so `arch`, which
-          # runs 286 tests and skips none, claimed 48 and killed the gate before the tests ran.
-          # `pyproject.toml`'s `test` task forwards this into `WEFT_EXPECTED_SKIPS`, which puts
-          # the suite boundary in the file that defines the suite and the environment's number
-          # here, where the services are declared.
-          #
-          # `tests/conftest.py` fails the run when the count disagrees and says which direction.
-          # **More** usually means a service this job provisions did not come up. **Fewer** means a
-          # test that used to skip now runs, which is good news that has to be recorded — move this
-          # number in the commit that changed it, the same ratchet discipline every waiver constant
-          # in `tests/architecture/` uses.
-          #
-          # Before this existed, this job ran **39 fewer tests than a local gate** and reported
-          # green on every push since Qdrant was added, which is `docs/internal/lessons-archive.md` `L7.8`
-          # living in CI rather than on a laptop.
-          # **48 -> 66 on 2026-09-11**, when `docs/internal/` left version control. Measured
-          # rather than reasoned: the same suite locally skips 9 with those files present and
-          # 27 without them, so every environment gains exactly 18. A clean checkout is what
-          # this job is, which is why the number moves here and not in `pyproject.toml`.
-          #
-          # **66 -> 73 on 2026-09-12**, read from this job rather than guessed at. The drift
-          # predates Phase 16a — every run on `main` from 2026-09-12 12:44 onwards failed on
-          # this guard while the suite itself was green — and 16a's own ~50 new tests skip
-          # none of them here, which is why the number did not move again when they landed.
-          # It is set from the first run after they did, which is the only environment that
-          # can state it: this one.
-          # **73 -> 78 on 2026-09-13.** `tests/docs/test_roadmap_matches_the_ledger.py` reads two
-          # files that are untracked by design, so its five tests run on a developer's machine and
-          # skip here — the local gate was green and this guard reported *claimed 73 and produced
-          # 77* three minutes after the push, which is the guard doing exactly its job and me not
-          # doing mine. **The number can now be measured before it is pushed**:
-          # `WEFT_PRETEND_UNTRACKED=1 uv run poe test` answers as a clean checkout would, without
-          # moving `docs/internal/` aside — see `tests/conftest._pretending_untracked`. Locally
-          # that reads 33 against an ordinary 9; this environment adds 45 of its own.
-          # **78 -> 82 on 2026-09-13**, measured before the push with the command above, and it
-          # is now a hook that says to: `.claude/hooks/guard_skip_count.py` refuses a commit that
-          # adds an `untracked_reason(...)` skip without staging this file
-          # (`docs/internal/lessons.md` L19.1, which is L11.22 and L12.1 for the third time).
-          # Phase 21a's close added four such tests across two files —
-          # `test_settled_gates_are_not_cited_as_open.py` reads the decision log, and
-          # `test_roadmap_matches_the_ledger.py` gained the section check from L19.5 and L19.6 — so local
-          # reads 37 against the 33 that set 78.
-          #
-          # **82 -> 86 on 2026-09-13, at Phase 21b task `21.7`, and this one is not about untracked
-          # files at all.** BM25 needs `timescale/pg_textsearch`, which needs PostgreSQL 17 or 18;
-          # the floor image this job runs is `pg16` and there is deliberately no BM25 service here,
-          # exactly as there is deliberately no Qdrant one — an opt-in backend's tests skip in CI,
-          # which is the shape Qdrant set and 44 of this number already come from. Measured rather
-          # than reasoned: `WEFT_BM25_DATABASE_URL=postgresql://weft:weft@localhost:5499/weft uv run
-          # pytest tests/unit/weft_store/ -q` reads **92 passed, 4 skipped** against 96 passed with
-          # the profile up, so the delta is exactly four. Running them here would mean pulling a
-          # 3.86 GB image into every gate for a capability the floor does not carry.
-          #
-          # **86 -> 94 on 2026-09-13, at Phase 21b task `21.8`, and this one reached `main` red.**
-          # Eight tests gave `weft-qdrant` a `TextSearch` arm and every one of them needs a Qdrant,
-          # which this job does not provision — so all eight skip here and the local gate, run with
-          # the container up, could not see it. **The hook did not fire**: `guard_skip_count.py`
-          # refuses a commit that adds an `untracked_reason(...)` skip without staging this file,
-          # and these skip on a *service* being unreachable, which is the other half of how this
-          # number moves (`docs/internal/lessons.md` `L21.9`). Counted from CI's own message —
-          # claimed 86, produced 94 — which is the only environment that can answer.
-          WEFT_TEST_EXPECTED_SKIPS: "94"
+          # Setting this is the claim that Postgres is up, so a test that skips because it is
+          # unreachable fails the run. There is no expected skip count: every skip must name a cause
+          # `tests/conftest.py`'s `SkipCause` knows, and Qdrant and BM25 are absent here by design.
+          # The pinned total this replaced moved seven times in five days (48 -> 96), each time
+          # visible only after a push, because it summed causes that change independently.
 
   # Fast feedback on a pull request, and **not a gate**. The `gate` job above is the canonical
   # full run and this job cannot stand in for it: it runs only the tests the diff can have

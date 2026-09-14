@@ -147,7 +147,8 @@ that has this shape?* — and the cost of not asking is paid by the one party fo
 *The mechanical form was sized and declined for the registration half: `registrar.add(` appears in
 **32 of the last 40 commits**, so a hook there fires on 80% of correct work and is one people learn
 to route around (`R10.2`). The skip-count half of the same drain measured **13 of 60** and was
-mechanised — see `.claude/hooks/guard_skip_count.py`.*
+mechanised as a hook, retired 2026-09-14 with the pinned count it guarded — `tests/conftest.py`'s
+`SkipCause` asks for a cause instead of a number, so there is nothing left to move.*
 
 **On "Already decided".** This is the section that decides whether the dispatch succeeds. Every name
 the test asserts on is already a decision you made; write it down. A brief that says "implement the

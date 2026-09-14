@@ -155,14 +155,16 @@ gates (`L7.2`); a metadata API answered one way under an editable install and an
 real one, which is where it actually runs (`L7.6`); and a container brought down mid-task silently
 dropped 51 tests out of every run afterwards, green each time (`L7.8`). None of the three is a bad
 check — each is a correct check asked in the wrong environment. So before a green means anything:
-**the lockfile is the committed one, the container is up, the skip count is the one you
-expect, and the lint cache is cold.** And **a container that is reachable is not one that still
+**the lockfile is the committed one, the container is up, every skip names a known cause, and
+the lint cache is cold.** And **a container that is reachable is not one that still
 holds what you put in it** — `L8.30`: a close-review measurement read `nodes now stored: 70` and
 minutes later the table held one row, because a second process in the same session truncated it,
 silently inverting a retrieval comparison. A measurement against `compose.yaml` asserts its own row
 count immediately before *and* after, and nothing else touches that container while a suite runs. A skip is not a pass, and a suite that quietly shrank is
 the failure mode with no symptom — `poe ci-checks` now fails a run whose `WEFT_DATABASE_URL`
-claims a database that then turns out to be unreachable, and clears ruff's cache before it
+claims a database that then turns out to be unreachable, or whose skip names no
+`tests/conftest.py` `SkipCause` — a pinned skip total moved seven times in five days and could only
+be measured after a push, so it was retired on 2026-09-14 — and clears ruff's cache before it
 starts. That last one is `L9.1` and it was the fourth instance: ruff caches per file, import
 classification is a fact about the tree, and two real errors sat under a green gate for four
 runs because the file whose verdict changed was not the file that changed.
