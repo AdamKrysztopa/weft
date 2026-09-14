@@ -55,18 +55,17 @@ task's record look more complete than it is.
 apples to apples — `09-release.md` §4's own V3 failure clause, applied at the CLI seam.** "A
 shipped technique's improvement is reported against... a baseline from a different corpus,
 pipeline or model version" is the exact shape a comparison across two persisted runs can produce
-by accident if it only ever prints a pipeline diff: two runs over different corpora, or with a
-different active distribution set (`weft_eval.run_record`'s own docstring: "`weft eval compare`
-across two pipelines is meaningless if the installed pack set differed between them" — this is
-FF8(c)'s reason to exist, restated here at its first real caller), differ by more than the
-pipeline, and a caller who only reads a stage-by-stage diff would misattribute a metric delta to
-the pipeline change alone. So `EvalCompareCommand` checks `corpus`/`model_versions`/
-`active_distributions` for exact equality **before** it ever computes a pipeline diff, and raises
-`IncomparableRunsError`, naming which facts differ, rather than silently reporting a diff that is
-true but is not the fact a caller is actually asking about — CLAUDE.md's rule: "a silent fallback
-is worse than a failure." When all three agree, `weft_cli.pipeline_diff.diff_resolved` — already
-proven exact by `weft pipeline diff` (task 3.7) — is reused unchanged for the pipeline half; this
-module writes no second comparison logic.
+by accident if it only ever prints a pipeline diff: two runs over different corpora, or with
+different model versions, differ by more than the pipeline, and a caller who only reads a
+stage-by-stage diff would misattribute a metric delta to the pipeline change alone. So
+`EvalCompareCommand` checks `corpus`/`model_versions`/`question_set` for exact equality **before**
+it ever computes a pipeline diff, and raises `IncomparableRunsError`, naming which facts differ,
+rather than silently reporting a diff that is true but is not the fact a caller is actually asking
+about — CLAUDE.md's rule: "a silent fallback is worse than a failure." Packaging is reported
+beside that comparison instead (see the R22.11 paragraph below). When corpus, model versions and
+question set agree,
+`weft_cli.pipeline_diff.diff_resolved` — already proven exact by `weft pipeline diff` (task 3.7)
+— is reused unchanged for the pipeline half; this module writes no second comparison logic.
 
 **Run ids are filenames, and `runs/` is a project-local directory, on `weft_cli.pipeline_catalogue.
 DEFAULT_PIPELINES_DIR`'s own footing** — a single, obvious, cwd-relative default, no new
@@ -141,8 +140,8 @@ name nothing under `runs/` ran, naming every pipeline that actually did. Each ke
 checked against `run_a` with the identical `_incomparable_reasons` this module already uses for
 `run_a`/`run_b` themselves — **the pipeline is deliberately not part of that check**: a baseline
 is a different pipeline from the rung being judged by construction, which is the entire point,
-and corpus, model versions and active distributions are what make its variability a measurement
-of the same system. `weft_eval.falsify.baseline_spreads`'s own `TooFewRepetitionsError`
+and corpus and model versions are what make its variability a measurement of the same system.
+`weft_eval.falsify.baseline_spreads`'s own `TooFewRepetitionsError`
 propagates unchanged when only one repetition is found — reaching the operator as V3's own
 refusal, never as a manufactured verdict. With no `--baseline`, this command returns exactly what
 it always has, plus the three new fields at their empty/`None` defaults — it must not start
@@ -193,6 +192,12 @@ side that never scored a metric at all already gets. A `kind` **neither** run re
 deliberate divergence from the evaluation layer that contributed the idea (`weft_eval.aggregate`'s
 own module docstring on `by_question_kind`, and `tests/unit/weft_eval/test_question_kind.py`'s
 own module docstring, record the same divergence one layer down).
+
+**Packaging is provenance, not identity — repair `R22.11`.** Which distributions were active, and
+at which versions, is reported beside a comparison (`_packaging_differences`) and never refuses
+it: 24 pairs of runs had been refused with a version bump as their only reason. Corpus,
+digest basis, model versions and question set stay identity, the rule `R22.4b` set for published
+baselines.
 """
 
 from __future__ import annotations
@@ -274,9 +279,9 @@ _EVAL_RUN_HELP = (
 
 _EVAL_COMPARE_HELP = (
     "the exact, structural difference between two persisted runs' pipelines, and their "
-    "per-metric aggregates side by side — refuses if the two ran over a different corpus, "
-    "model versions or active distribution set, rather than reporting a diff that is not "
-    "apples to apples"
+    "per-metric aggregates side by side — refuses if the two ran over a different corpus or "
+    "model versions, rather than reporting a diff that is not apples to apples; a different "
+    "active distribution set or distribution versions is reported beside it, never refused"
 )
 
 _TRACE_HELP = (
@@ -676,6 +681,11 @@ class EvalCompareCommandResult(CommandResult):
     so a published baseline and a re-run naming the wheel it moved into are exactly the case this
     field exists to say "differs, and reproduced anyway"), and `metrics_comparison` is `{}`
     because the per-metric verdicts already live on `reproduction`.
+
+    `packaging_differences` is repair `R22.11`'s own addition: every fact `_packaging_
+    differences` found between the two runs, reported beside the comparison rather than a
+    reason to refuse it — `()` for two runs packaged identically, the plain default so every
+    existing construction site keeps working.
     """
 
     run_a: str
@@ -692,6 +702,7 @@ class EvalCompareCommandResult(CommandResult):
     baseline_selection: BaselineSelection | None = None
     paired_differences: Mapping[str, PairedDifference] = {}
     reproduction: Reproduction | None = None
+    packaging_differences: tuple[str, ...] = ()
 
 
 class TraceCommandResult(CommandResult):
@@ -811,8 +822,13 @@ def model_versions_of(
 
 
 def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
-    """Which of the three facts a comparison depends on actually differ — see
+    """Which of the identity facts a comparison depends on actually differ — see
     `IncomparableRunsError`'s own docstring. Empty means the two runs are comparable.
+
+    **Packaging — which distributions were active, and at which versions — is not identity,
+    repair `R22.11`.** It moved to `_packaging_differences`, reported beside a comparison
+    rather than refusing it: see that function's own docstring and the module docstring's
+    R22.11 paragraph.
     """
     reasons: list[str] = []
     if a.corpus != b.corpus:
@@ -831,10 +847,6 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
         reasons.append(
             f"model versions differ ({dict(a.model_versions)} vs {dict(b.model_versions)})"
         )
-    if a.active_distributions != b.active_distributions:
-        reasons.append(
-            f"active distributions differ ({a.active_distributions} vs {b.active_distributions})"
-        )
     if (
         a.question_set_digest is not None
         and b.question_set_digest is not None
@@ -845,16 +857,29 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
             f"{b.question_set_digest[:12]}…) — a metric delta between two runs scored on two "
             f"sets of questions is a fact about the questions, not about the pipelines"
         )
+    return tuple(reasons)
+
+
+def _packaging_differences(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
+    """Which distributions were active, and at which versions, differ between `a` and `b` —
+    repair `R22.11`. Reported beside a comparison, never a reason to refuse it: see the module
+    docstring's own R22.11 paragraph. Empty means packaging did not move.
+    """
+    differences: list[str] = []
+    if a.active_distributions != b.active_distributions:
+        differences.append(
+            f"active distributions differ ({a.active_distributions} vs {b.active_distributions})"
+        )
     if (
         a.distribution_versions is not None
         and b.distribution_versions is not None
         and a.distribution_versions != b.distribution_versions
     ):
-        reasons.append(
+        differences.append(
             f"distribution versions differ ({dict(a.distribution_versions)} vs "
             f"{dict(b.distribution_versions)})"
         )
-    return tuple(reasons)
+    return tuple(differences)
 
 
 def _basis_of(record: RunRecord) -> str:
@@ -1159,16 +1184,14 @@ def _falsify_against_baseline(
 
     for run_id, repetition in repetitions:
         # Deliberately not checking the pipeline here — a baseline is a different pipeline
-        # from the rung being judged by construction, which is the entire point. Corpus, model
-        # versions and active distributions are what make its variability a measurement of the
-        # same system.
+        # from the rung being judged by construction, which is the entire point. Corpus and
+        # model versions are what make its variability a measurement of the same system.
         baseline_reasons = _incomparable_reasons(record_a, repetition)
         if baseline_reasons:
             raise IncomparableRunsError(
                 f"baseline run '{run_id}' ('{baseline}') is not comparable to '{run_a_id}': "
                 f"{'; '.join(baseline_reasons)}. A baseline's spread only measures this "
-                "system's own variability when the corpus, model versions and active "
-                "distribution set agree.",
+                "system's own variability when the corpus and model versions agree.",
                 run_a=run_a_id,
                 run_b=run_id,
                 reasons=baseline_reasons,
@@ -1286,9 +1309,11 @@ class EvalCompareCommand:
             raise IncomparableRunsError(
                 f"'{compare_args.a}' and '{compare_args.b}' are not comparable as a change of "
                 f"pipeline alone: {'; '.join(reasons)}. A comparison is only meaningful when "
-                f"the corpus, model versions and active distribution set agree and only the "
-                f"pipeline differs — otherwise a metric delta cannot be attributed to the "
-                f"pipeline change ('09-release.md' §4, V3's own failure clause).",
+                f"the corpus, model versions and question set agree and only the pipeline "
+                f"differs — otherwise a metric delta cannot be attributed to the pipeline "
+                f"change ('09-release.md' §4, V3's own failure clause). Which distributions "
+                f"were active, and at which versions, is reported beside a comparison and "
+                f"never refused on.",
                 run_a=compare_args.a,
                 run_b=compare_args.b,
                 reasons=reasons,
@@ -1319,7 +1344,8 @@ class EvalCompareCommand:
                 run_b=compare_args.b,
                 corpus_matches=True,
                 model_versions_match=True,
-                active_distributions_match=True,
+                active_distributions_match=record_a.active_distributions
+                == record_b.active_distributions,
                 pipeline_diff=diff,
                 metrics_comparison=metrics_comparison_for_kind(
                     record_a, record_b, kind=compare_args.kind
@@ -1330,6 +1356,7 @@ class EvalCompareCommand:
                 query_rungs=query_rungs,
                 baseline_selection=baseline_selection,
                 paired_differences=paired_differences(record_a, record_b),
+                packaging_differences=_packaging_differences(record_a, record_b),
             )
         )
 

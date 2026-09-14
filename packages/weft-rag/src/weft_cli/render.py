@@ -1021,9 +1021,11 @@ def _baseline_selection_line(selection: BaselineSelection) -> str:
 
 def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     """`weft eval compare` — reached only once `weft_cli.eval_commands.EvalCompareCommand`
-    has already confirmed corpus, model versions and active distributions all agree
-    (`IncomparableRunsError` otherwise), so this prints that confirmation, the pipeline diff
-    itself (reusing `_pipeline_diff_lines` rather than a second formatter), and — task 4.9 —
+    has already confirmed corpus and model versions agree (`IncomparableRunsError` otherwise;
+    packaging — the active distribution set and their versions — is reported beside the
+    comparison rather than confirmed to agree, repair `R22.11`), so this prints that
+    confirmation, the pipeline diff itself (reusing `_pipeline_diff_lines` rather than a second
+    formatter), and — task 4.9 —
     the per-metric comparison the tool generates itself: what the two pipelines *produced*,
     not only how they resolve. Task 16.1 adds one more line — see
     `_query_rung_difference_lines` — printed only when the two runs' query rungs actually
@@ -1047,8 +1049,12 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         return _render_reproduction(result, result.reproduction)
 
     lines = [
-        f"'{result.run_a}' vs '{result.run_b}' — same corpus, model versions and active "
-        f"distributions; pipeline is the only fact that may differ:",
+        f"'{result.run_a}' vs '{result.run_b}' — same corpus and model versions; pipeline is "
+        f"the only fact that may differ:",
+        *(
+            f"packaging differs, reported not refused: {difference}"
+            for difference in result.packaging_differences
+        ),
         *_pipeline_diff_lines(result.pipeline_diff),
         *_query_rung_difference_lines(result.query_rungs),
         *_metrics_comparison_lines(result.metrics_comparison),

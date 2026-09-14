@@ -1484,10 +1484,10 @@ allow = ["weft-extract", "weft-chunk", "weft-store", "weft-kg"]
 Two things run **always**, opted in or not, and they carry most of the practical weight:
 
 - **The executed pack set is recorded on every run.** Not as a security feature: **Phase 4 requires it
-  anyway.** `weft eval compare` across two pipelines is meaningless if the installed pack set differed
-  between them, and `weft trace` prints it as one of the facts a persisted run carries. The record
-  therefore has an owner and a user outside security, which is what keeps it correct — and the trust
-  model gets its answer to *"what was in this process?"* for free.
+  anyway.** `weft eval compare` prints it beside a comparison, so a delta across two installed pack
+  sets says so (reported, never refused on, since carried repair `R22.11`), and `weft trace` prints it.
+  The record therefore has an owner and a user outside security, which is what keeps it correct — and
+  the trust model gets its answer to *"what was in this process?"* for free.
   > **Corrected by task 4.6 (2026-08-20):** this bullet previously said `weft trace` "claims to
   > replay what a run actually did" — Phase 4 ships no exporter pack (`01` → *The kernel boundary*:
   > exporting a span is a pack's job), so nothing here persists a stage-level trace to replay.

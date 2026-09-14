@@ -589,7 +589,7 @@ running the same command.
 > **pipeline**, not a run id: every persisted run under `runs/` whose own resolved pipeline
 > carries that name is one of its repetitions, with the two runs being compared excluded, since
 > a rung is not one of its own baseline's repetitions. Each repetition is checked against run
-> `<a>` for the same corpus, model versions and active distribution set this command already
+> `<a>` for the same corpus and model versions this command already
 > requires of `<a>`/`<b>` — **and deliberately not for the same pipeline.** A baseline is a
 > different pipeline from the rung being judged by construction; requiring pipeline equality
 > here would make the flag unusable, and the three facts that *are* checked are exactly the ones

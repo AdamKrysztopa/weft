@@ -2861,21 +2861,21 @@ run 3f9c...-2 persisted (corpus-b -> pipeline 'index'). produced 1, nothing to p
 $ weft eval compare 3f9c...-1 3f9c...-2
 '3f9c...-1' and '3f9c...-2' are not comparable as a change of pipeline alone: corpus differs
 ('corpus-a' a1b2c3d4e5f6… vs 'corpus-b' f6e5d4c3b2a1…). A comparison is only meaningful when the
-corpus, model versions and active distribution set agree and only the pipeline differs —
-otherwise a metric delta cannot be attributed to the pipeline change ('09-release.md' §4, V3's
-own failure clause).
+corpus, model versions and question set agree and only the pipeline differs — otherwise a metric
+delta cannot be attributed to the pipeline change ('09-release.md' §4, V3's own failure clause).
+Which distributions were active, and at which versions, is reported beside a comparison and never
+refused on.
 $ echo $?
 1
 ```
 
 This is `09-release.md` §4's V3 failure clause, enforced at the CLI seam rather than left for a
 reader to misattribute a number later: "a shipped technique's improvement is reported against...
-a baseline from a different corpus, pipeline or model version." `weft_eval.run_record`'s own
-module docstring gives the identical reason for the active-distribution-set clause: "`weft eval
-compare` across two pipelines is meaningless if the installed pack set differed between them" —
-this is fitness function 8(c)'s reason to exist, checked here at its first real caller. **What to
-do:** the message names every fact that differed. Compare two runs over the identical corpus,
-with the identical active distribution set, produced by the identical installed environment —
+a baseline from a different corpus, pipeline or model version." Which distributions were active,
+and at which versions, is not on that list: since carried repair `R22.11` a difference there is
+printed beside the comparison as `packaging differs, reported not refused: …`, because a version
+bump alone had been refusing comparisons. **What to do:** the message names every fact that
+differed. Compare two runs over the identical corpus, model versions and question set —
 `weft eval run` twice against the *same* `--path`, once per pipeline, is 4.9's own exit
 demonstration and the shape this error exists to hold every other caller to as well.
 

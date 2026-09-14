@@ -30,12 +30,12 @@ extension — and no more:**
 - `active_distributions` — **the active distribution set**, `active_distribution_set`'s own
   output. This is fitness function 8(c)'s subject: "the run record names the active distribution
   set, equal to what `plugins doctor` reports as `active`" (`01` -> *Fitness functions* item 8(c)).
-  `docs/02-extension-model.md` §2 already states why this is recorded on every run "not as a
-  security feature: Phase 4 requires it anyway... `weft eval compare` across two pipelines is
-  meaningless if the installed pack set differed between them."
+  `docs/02-extension-model.md` §2 states why this is recorded on every run, "not as a security
+  feature": a comparison has to be able to say what was installed. Since repair `R22.11`
+  `weft eval compare` reports a difference here beside the comparison rather than refusing it.
 - `distribution_versions` — **task 16.3's own addition**: what version of each active
-  distribution was installed, so two runs on `weft-rag` 2.4.0 and 2.5.0 do not compare as one
-  environment. Taken as given, exactly like `model_versions` one field over: `weft_cli` owns
+  distribution was installed, so a comparison between runs on `weft-rag` 2.4.0 and 2.5.0 says
+  so. Taken as given, exactly like `model_versions` one field over: `weft_cli` owns
   `installed_versions`/`active_distribution_versions`, and deriving the mapping inside
   `build_run_record` would put an arrow from this pack into the CLI that calls it. `None` is
   *not recorded* — every record written before this task; `{}` is *measured, and no active

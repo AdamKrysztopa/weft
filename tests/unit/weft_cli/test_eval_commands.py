@@ -58,6 +58,7 @@ from weft_cli.eval_commands import (
 )
 from weft_cli.eval_scoring import ScoredRun
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
+from weft_cli.render import render_outcome
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
@@ -588,6 +589,8 @@ def _write_record(
     distribution_versions: dict[str, str] | None = None,
     question_set_digest: str | None = None,
     question_scores: dict[str, PerQuestionScores] | None = None,
+    active_distributions: tuple[str, ...] | None = None,
+    model_versions: dict[str, str] | None = None,
 ) -> None:
     """`corpus_digest_basis` defaults to `None` because that is what every record already
     committed carries — task 16.0's own constraint. A test wanting a record written *after*
@@ -603,7 +606,10 @@ def _write_record(
         distribution_versions=distribution_versions,
         question_set_digest=question_set_digest,
         question_scores=question_scores,
+        model_versions=model_versions or {},
     )
+    if active_distributions is not None:
+        record = record.model_copy(update={"active_distributions": active_distributions})
     write_run_record(record, directory / "runs" / f"{run_id}.json")
 
 
@@ -1422,18 +1428,17 @@ async def test_a_run_that_named_no_rung_is_not_a_repetition_of_one_that_did(
     assert result.baseline_selection is BaselineSelection.INGEST_AND_QUERY_RUNG
 
 
-# --- Task 16.3 — two runs on two builds of one distribution are not one environment.
+# --- Repair R22.11 — packaging is provenance: reported beside a comparison, never refused on.
 
 
-async def test_eval_compare_refuses_two_runs_whose_distribution_versions_differ(
+async def test_eval_compare_reports_rather_than_refuses_runs_whose_distribution_versions_differ(
     tmp_path: Path,
 ) -> None:
-    """The gap `active_distributions` alone leaves open.
+    """Task 16.3 refused this pair; `R22.11` reports it instead, settled with the owner.
 
-    Fitness function 8(c) makes a record name the active distribution *set*, and two runs of the
-    same set compare as the same environment — which is exactly what `2.4.0` and `2.5.0` of
-    `weft-rag` are not. A metric delta between them is attributable to a wheel, and nothing said
-    so.
+    Measured over the 56 run records on disk: 24 pairs were refused with a `weft-rag` version
+    bump as their only reason. The versions stay on screen, so a delta a wheel caused is still
+    attributable by a reader.
     """
     # Arrange
     _write_record(
@@ -1452,13 +1457,74 @@ async def test_eval_compare_refuses_two_runs_whose_distribution_versions_differ(
     )
     deps = _deps()
 
+    # Act
+    outcome = await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced), "a version bump alone was refused"
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    named = [d for d in result.packaging_differences if "2.4.0" in d and "2.5.0" in d]
+    assert len(named) == 1, (
+        f"the report does not name both versions: {result.packaging_differences}"
+    )
+    stdout = render_outcome(outcome).stdout or ""
+    assert "packaging differs, reported not refused: distribution versions differ" in stdout
+
+
+async def test_eval_compare_reports_rather_than_refuses_runs_whose_active_distributions_differ(
+    tmp_path: Path,
+) -> None:
+    # Arrange — a record from before G19 named four distributions where one after names one.
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="base",
+        corpus_name="corpus",
+        active_distributions=("weft-openai", "weft-pdf", "weft-qdrant", "weft-rag"),
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="base",
+        corpus_name="corpus",
+        active_distributions=("weft-rag",),
+    )
+    deps = _deps()
+
+    # Act
+    outcome = await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
+
+    # Assert
+    assert isinstance(outcome, Produced), "an active distribution set alone was refused"
+    result = outcome.value
+    assert isinstance(result, EvalCompareCommandResult)
+    assert result.active_distributions_match is False
+    assert [d for d in result.packaging_differences if d.startswith("active distributions differ")]
+
+
+async def test_eval_compare_still_refuses_runs_whose_model_versions_differ(tmp_path: Path) -> None:
+    # Arrange — the identity half `R22.11` left alone: a model changes behaviour.
+    _write_record(
+        tmp_path,
+        "run-a",
+        pipeline_name="base",
+        corpus_name="corpus",
+        model_versions={"embed": "hash"},
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="base",
+        corpus_name="corpus",
+        model_versions={"embed": "openai-embeddings:text-embedding-3-small"},
+    )
+    deps = _deps()
+
     # Act / Assert
     with pytest.raises(IncomparableRunsError) as excinfo:
         await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(deps))
-    named = [reason for reason in excinfo.value.reasons if "2.4.0" in reason and "2.5.0" in reason]
-    assert len(named) == 1, (
-        f"the refusal does not name the two versions that differ: {excinfo.value.reasons}"
-    )
+    assert [r for r in excinfo.value.reasons if r.startswith("model versions differ")]
 
 
 async def test_eval_compare_does_not_refuse_a_run_that_recorded_no_versions(

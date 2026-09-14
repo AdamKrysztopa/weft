@@ -953,7 +953,8 @@ def test_render_eval_compare_confirms_the_environment_matched_before_the_diff() 
 
     assert rendered.stdout is not None
     assert "'run-a' vs 'run-b'" in rendered.stdout
-    assert "same corpus, model versions and active distributions" in rendered.stdout
+    assert "same corpus and model versions; pipeline is the only fact" in rendered.stdout
+    assert "packaging differs" not in rendered.stdout
     assert "metrics: (none scored on either run" in rendered.stdout
 
 

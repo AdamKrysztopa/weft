@@ -844,9 +844,11 @@ $ weft trace does-not-exist
 
 `weft eval compare` additionally refuses outright — before it ever computes a pipeline diff —
 when the two runs are not apples to apples: a different corpus, different `model_versions`, or a
-different `active_distributions` set. This is `09-release.md` §4's own V3 failure clause ("a
-shipped technique's improvement... reported against a baseline from a different corpus, pipeline
-or model version") applied at the CLI, and it names which of the three facts differs rather than
+different question set. A different `active_distributions` set or distribution versions is printed
+beside the comparison as `packaging differs, reported not refused: …` and never refuses it
+(carried repair `R22.11`: a version bump alone had been refusing comparisons). This is
+`09-release.md` §4's own V3 failure clause ("a shipped technique's improvement... reported against
+a baseline from a different corpus, pipeline or model version") applied at the CLI, and it names which fact differs rather than
 printing a pipeline diff that would misattribute a metric delta to the pipeline change alone.
 
 **A baseline report is a second kind of file, in a second directory — not the one above.**
@@ -1056,8 +1058,8 @@ apples-to-apples check passes:
 
 ```bash
 $ weft eval compare 3f9c...-1 3f9c...-2
-'3f9c...-1' vs '3f9c...-2' — same corpus, model versions and active distributions; pipeline is the
-only fact that may differ:
+'3f9c...-1' vs '3f9c...-2' — same corpus and model versions; pipeline is the only fact that may
+differ:
 'index' vs 'specific':
   ~ chunk: fixed-size -> fixed-size
 metrics:
@@ -1117,7 +1119,7 @@ difference an operator would go looking for:
 
 ```bash
 $ weft eval compare 214c9582-60b6-49e6-b668-e1057ae056cc 00000000-0000-0000-0000-00000000old0 ; echo "exit=$?"
-'214c9582-60b6-49e6-b668-e1057ae056cc' and '00000000-0000-0000-0000-00000000old0' are not comparable as a change of pipeline alone: corpus digests are not over the same thing (document-bytes vs not recorded) — a record that names no basis was written before ledger task 16.0, when the digest was over each document's resolved path rather than its bytes, so these two digests cannot be compared even over a corpus that never changed. A comparison is only meaningful when the corpus, model versions and active distribution set agree and only the pipeline differs — otherwise a metric delta cannot be attributed to the pipeline change ('09-release.md' §4, V3's own failure clause).
+'214c9582-60b6-49e6-b668-e1057ae056cc' and '00000000-0000-0000-0000-00000000old0' are not comparable as a change of pipeline alone: corpus digests are not over the same thing (document-bytes vs not recorded) — a record that names no basis was written before ledger task 16.0, when the digest was over each document's resolved path rather than its bytes, so these two digests cannot be compared even over a corpus that never changed. A comparison is only meaningful when the corpus, model versions and question set agree and only the pipeline differs — otherwise a metric delta cannot be attributed to the pipeline change ('09-release.md' §4, V3's own failure clause). Which distributions were active, and at which versions, is reported beside a comparison and never refused on.
 exit=1
 ```
 
