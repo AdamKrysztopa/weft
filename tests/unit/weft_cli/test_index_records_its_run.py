@@ -282,6 +282,71 @@ async def test_index_reports_no_defaulted_embedder_when_the_file_chose_one(
     assert result.defaulted_embedder is None
 
 
+def _resolved_embedding_with(embedder: str) -> ResolvedPipeline:
+    return ResolvedPipeline(
+        name="baseline-openai",
+        stages=(
+            ResolvedStage(
+                id="embed",
+                contract="Embedder",
+                use=embedder,
+                distribution="weft-rag",
+                provenance="baseline-openai",
+            ),
+            ResolvedStage(
+                id="store",
+                contract="NodeStore",
+                use="pgvector",
+                distribution="weft-rag",
+                provenance="baseline",
+            ),
+        ),
+    )
+
+
+async def test_a_pipeline_naming_a_real_embedder_reports_no_defaulted_embedder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`R22.12`: `--pipeline baseline-openai` wrote 1536-wide OpenAI vectors and printed
+    *"you did not choose an embedder — this ran with 'hash'"*, read off `[services] embed` alone.
+    """
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _patch_run_index(monkeypatch, resolved=_resolved_embedding_with("openai-embeddings"))
+    deps = _deps()
+
+    # Act
+    outcome = await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="baseline-openai"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.defaulted_embedder is None
+
+
+async def test_a_pipeline_whose_embed_stage_is_the_default_still_discloses_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange — a document naming the default embedder ran it, and it still means nothing.
+    monkeypatch.chdir(tmp_path)
+    deps = _deps()
+    _patch_run_index(monkeypatch, resolved=_resolved_embedding_with(deps.services.embed))
+
+    # Act
+    outcome = await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), pipeline="baseline-openai"), _ctx(deps)
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.IndexCommandResult)
+    assert result.defaulted_embedder == deps.services.embed
+
+
 # --- Task 16.0 — the third caller that turns a run into a corpus identity.
 
 

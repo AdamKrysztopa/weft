@@ -153,7 +153,7 @@ from weft_kernel.discovery import PackRegistrar, PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome, Produced, SourceId
 from weft_kernel.registry import DisplacedRegistration, unwrap_factory
-from weft_kernel.resolution import Contribution
+from weft_kernel.resolution import Contribution, ResolvedPipeline
 from weft_kernel.runner import RunSummary
 from weft_retrieve.contract import ContextPacker, Retriever
 from weft_store import NodeStore, ReconcileMode
@@ -678,6 +678,21 @@ class PluginsDoctorCommandResult(CommandResult):
     defaulted_embedder: str | None = None
 
 
+def _defaulted_embedder(deps: Dependencies, resolved: ResolvedPipeline | None) -> str | None:
+    """The embedder a `weft index` run used without anyone choosing it, or `None` — `R17.6`.
+
+    A `--pipeline` document names its own embed stage, so the default ran only if that stage names
+    it too. Reading `[services] embed` alone told a run that embedded through OpenAI it had used
+    `hash` (carried repair `R22.12`).
+    """
+    if deps.embed_was_selected:
+        return None
+    if resolved is None:
+        return deps.services.embed
+    ran = {stage.use for stage in resolved.stages if stage.contract == "Embedder"}
+    return deps.services.embed if deps.services.embed in ran else None
+
+
 class IndexCommand:
     """`weft index` — see the module docstring for what moved and what did not.
 
@@ -795,7 +810,7 @@ class IndexCommand:
             )
             write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
         reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)
-        defaulted_embedder = None if deps.embed_was_selected else deps.services.embed
+        defaulted_embedder = _defaulted_embedder(deps, result.resolved_pipeline)
         return Produced(
             value=IndexCommandResult(
                 summary=result.summary,
