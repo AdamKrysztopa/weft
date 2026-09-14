@@ -236,7 +236,11 @@ def unsupported_checks(store: object) -> tuple[tuple[Callable[..., Awaitable[Non
 
 
 def register_conformance_ext_models() -> None:
-    """Make this kit's `ConformanceFact` reconstructable by `rehydrate_ext`, and `BlobRef` too.
+    """Make every `ExtModel` this kit's own checks attach reconstructable by `rehydrate_ext`.
+
+    `PageSpan` and `TableGrid` are attached by the multimodal round-trip checks, and were missing
+    until repair `R22.10`: the kit passed only in a process where discovery had already registered
+    them, so a store author running it alone met 44 failures.
 
     **A function a caller runs, not a side effect of importing.** A store's checks attach ext
     models and read them back, so the models have to be registered before the round-trip checks
@@ -247,7 +251,7 @@ def register_conformance_ext_models() -> None:
     Idempotent here rather than at the registry: calling it twice is a no-op, because a caller who
     runs two suites in one process should not have to remember which one registered first.
     """
-    for model in (ConformanceFact, BlobRef):
+    for model in (ConformanceFact, BlobRef, PageSpan, TableGrid):
         try:
             register_ext_model(model)
         except DuplicateRegistrationError:

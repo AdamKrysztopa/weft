@@ -32,6 +32,7 @@ from pydantic import SecretStr
 from weft_chunk import Chunker, FixedSizeChunker
 from weft_embed import Embedder, HashEmbedder
 from weft_extract.contract import Extractor, SourceDoc
+from weft_extract.payload import PageSpan
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, SourceId
 from weft_kernel.registry import Registry
@@ -104,6 +105,7 @@ async def test_the_corpus_pdf_carrying_nul_bytes_indexes_into_the_real_store(
 ) -> None:
     # Arrange — the exact document 2.34's own note measured, read as `weft index` would.
     _ensure_rehydrates(PdfPages)
+    _ensure_rehydrates(PageSpan)
     if not _PDF_PATH.is_file():
         pytest.skip(f"corpus fixture missing: {_PDF_PATH}")
     content = _PDF_PATH.read_bytes()

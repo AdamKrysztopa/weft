@@ -161,8 +161,12 @@ default = ""
 help = "Extra arguments forwarded to pytest, as one string."
 
 [tool.poe.tasks.ci-checks]
-sequence = ["cold-lint-cache", "fmt", "lint", "types", "arch", "test", "examples-tests"]
+sequence = ["cold-lint-cache", "fmt", "lint", "types", "arch", "test", "integration-alone", "examples-tests"]
 help = "The canonical full gate. Every architecture check must be reachable from here, and it starts from a cold lint cache — see cold-lint-cache."
+
+[tool.poe.tasks.integration-alone]
+help = "Repair R22.10: every tests/integration file passes when it is the only file in its process."
+cmd = "python scripts/check_integration_files_alone.py"
 
 [tool.poe.tasks.kernel-isolated]
 help = "Fitness function 1, primary half: install weft-kernel alone and import it."

@@ -130,10 +130,11 @@ def _discover_and_wire_ext_models() -> None:
     docstring's own paragraph on the test below.
 
     Imported lazily so this module's own top-level imports stay narrow — nothing else here
-    needs `weft_kernel.discovery` or `weft_store.rehydrate`. `allow` is restricted to
-    `weft-index` and the packs its own `register()` needs to import cleanly, rather than
-    left open, for the identical reason `test_ff2_no_privileged_builtins.py` restricts it:
-    an open `discover()` would also import `weft-canary`.
+    needs `weft_kernel.discovery` or `weft_store.rehydrate`. `allow` names distributions, and is
+    restricted rather than left open for the identical reason `test_ff2_no_privileged_builtins.py`
+    restricts it: an open `discover()` would also import `weft-canary`. It named `weft-index`,
+    `weft-store` and `weft-prompts` until repair `R22.10`; **G19** folded all three into
+    `weft-rag`, so it matched nothing and passed only on another file's registration.
     """
     from weft_kernel.discovery import discover
     from weft_kernel.registry import Registry
@@ -141,7 +142,7 @@ def _discover_and_wire_ext_models() -> None:
     registry = Registry()
     reports = discover(
         registry,
-        allow=frozenset({"weft-index", "weft-store", "weft-prompts"}),
+        allow=frozenset({"weft-rag"}),
         pack_settings={"store": {"dsn": _DSN}},
     )
     register_from_reports(reports)
