@@ -34,6 +34,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+### Deprecated
+
+- **`Language`, the `weft_clean` ext model, is deprecated.** Nothing in Weft writes it: no shipped
+  stage attaches a `Language` to a node, so no store holds one, and importing the class is the only
+  thing that stops working. `weft plugins doctor` prints the notice. **Removed in `weft-rag`
+  3.0.0.**
+
 ## [2.7.0] - 2026-09-14
 
 **`weft-kernel` moves `0.2.0` → `0.2.1` with no change to its code.** It is republished only

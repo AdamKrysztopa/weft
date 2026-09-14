@@ -101,15 +101,18 @@ def test_the_installed_tree_marks_exactly_what_it_has_retired() -> None:
     `test_every_real_deprecation_has_a_changelog_entry` above stops being vacuous and starts
     being asked something. It fired exactly once, at ledger task `21.10`, when `weft-enhance`
     retired `keybert` for `term-frequency-keywords` (`R19.15`).
+    It fired a second time at carried repair `R19.12`, when `weft_clean` deprecated `Language`,
+    the ext model nothing in Weft writes.
 
     **So it is pinned rather than deleted.** An equality against a named set keeps doing the job
     the empty one did: a second deprecation arriving without a `CHANGELOG.md` entry, or a
     deprecation quietly disappearing, both fail here. Widening it to a `>=` or dropping it would
     retire the check on the day it first had a subject.
     """
-    assert _real_deprecations() == frozenset({"keybert"}), (
+    assert _real_deprecations() == frozenset({"keybert", "Language"}), (
         "the set of retired first-party surfaces moved. If something was retired, add its "
-        "CHANGELOG.md entry and name it here; if `keybert` stopped being marked, either the "
+        "CHANGELOG.md entry and name it here; if `keybert` or `Language` stopped being marked, "
+        "either the "
         "rename was reverted or the old name was removed outright, and 09 §2.2's 'never "
         "silently' is what decides whether that was allowed."
     )

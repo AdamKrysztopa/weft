@@ -59,3 +59,22 @@ def test_settings_refuses_an_unknown_field() -> None:
     # Act / Assert
     with pytest.raises(ValidationError):
         Settings.model_validate({"bogus": "x"})
+
+
+def test_language_is_marked_deprecated_because_nothing_writes_it() -> None:
+    """`R19.12`, settled with the owner: `Language` is the one registered `ExtModel` with no
+    production writer, and removing a published class under G9 needs a deprecation first — the
+    `keybert` precedent. `weft plugins doctor` prints the notice and its removal.
+    """
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-rag")
+
+    # Act
+    register(registrar, Settings())
+    registrar.commit()
+
+    # Assert
+    marked = {deprecation.surface: deprecation.reason for deprecation in registrar.deprecations}
+    assert "Language" in marked, f"Language is not marked: {sorted(marked)}"
+    assert "nothing in Weft writes it" in marked["Language"]

@@ -49,6 +49,13 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Cleaner, "polish-dictionary-spacing", PolishFusedWordFixer)
     registrar.add(Cleaner, "whitespace", WhitespaceNormalizer)
     registrar.add_ext_model(Language)
+    registrar.deprecate(
+        "Language",
+        reason=(
+            "nothing in Weft writes it: no shipped stage attaches a Language to a node, so a "
+            "store can never hold one, and it is removed rather than kept as an empty promise"
+        ),
+    )
 
 
 __all__ = [
