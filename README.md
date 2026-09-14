@@ -16,7 +16,7 @@ The warp is the fixed frame on a loom; the weft is every thread through it.
 > the property and not a count of it — a number here could only ever be right on the day it was
 > written.) **The one debt every closed phase shared — a stranger installing the release from a
 > real package index rather than a checkout — is discharged:** `weft-kernel` and `weft-rag` are on
-> PyPI, first published 2026-09-11 and current at `weft-rag 2.6.0` / `weft-kernel 0.2.0`. The four
+> PyPI, first published 2026-09-11 and current at `weft-rag 2.7.0` / `weft-kernel 0.2.1`. The four
 > names published 2026-09-05 (`weft-generate`, `weft-embed`, `weft-command`, `weft-llm`) are yanked;
 > the code they named ships inside `weft-rag` now. The phase-by-phase record, the decision log and the lessons queue are
 > developer-local and not in this repository — see *Layout* for what that means when a

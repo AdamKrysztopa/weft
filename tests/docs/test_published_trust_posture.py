@@ -8,7 +8,7 @@ not only in the plan.** A design that refused to simulate a control it cannot en
 undone by a package page that lets a reader assume one exists."
 
 **The gap this closes is exactly the one that sentence predicts.** The repository's own
-`README.md` has carried the posture since Phase 0. `packages/weft/README.md` — the `readme` the
+`README.md` has carried the posture since Phase 0. `packages/weft-rag/README.md` — the `readme` the
 release set declares, and therefore the page a reader sees on an index — carried none of it: no
 privileges, no trusting, no list of what is out of reach. Everything a stranger would read before
 installing said nothing about the one thing `02` §2 spent a section refusing to simulate.
@@ -25,7 +25,7 @@ installing said nothing about the one thing `02` §2 spent a section refusing to
   the one sentence that matters.
 
 **What "published" means here**, and why it is not every `.md` in the tree: the pages an index
-renders. That is `packages/weft/README.md` (the release set's declared `readme`), the repository
+renders. That is `packages/weft-rag/README.md` (the release set's declared `readme`), the repository
 `README.md` that GitHub renders beside it, and every distribution's own one-line `description`,
 which is what a search result shows. `docs/` is the plan and argues about the posture at length;
 sweeping it would flag the argument for containing the words it is about.

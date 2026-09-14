@@ -826,9 +826,9 @@ Each item states the condition that **fails** it. An item with no failure condit
 Items that restate a fitness function say so and link, rather than describing the check again.
 
 **Where an item says *the release set*, it now means one thing.** G10 settled the unit on 2026-08-22
-(§1): a code-free distribution `weft-rag` pinning an exactly-tested combination. The checklist was written
-against that noun while it was still a recommendation, and every item survived all three positions
-with only the noun changed; nothing needed rewording when the session closed.
+(§1), and **G19** reshaped it on 2026-09-09: `weft-rag` carries every pack's code and pins `weft-kernel`
+by a compatible range. The checklist was written against the earlier noun, and every item survived
+with only the noun changed.
 
 **Install path**
 
@@ -838,8 +838,8 @@ with only the noun changed; nothing needed rewording when the session closed.
 - [ ] The release set installs by name on a machine that has never seen the repository, on the minimum
       supported Python, and `weft --version` runs — which is fitness function 8(b) observed from an
       index rather than from the tree.
-- [ ] A third-party pack installs beside the release set and is discovered — Phase 5's pack, from the
-      index, not from a path. *Fails if it needs anything the release set did not publish.*
+- [ ] A third-party pack, built as its own wheel outside this tree, installs beside the release set
+      installed from the index, and is discovered. *Fails if it needs anything the release set did not publish.*
 - [ ] The sdist builds and its tests pass from the sdist. *Fails if a data file, locale catalogue or
       entry-point declaration is present in the checkout and absent from the artefact.*
 

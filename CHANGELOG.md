@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) **per distribution** — `weft`
-ships as several packages (`docs/internal/README.md` → *Where things are*), not one, and each carries its own
+ships as two packages (`docs/internal/README.md` → *Where things are*), not one, and each carries its own
 version, tracked in its own `pyproject.toml`. This file does not repeat those numbers — a second,
 hand-copied list of them is exactly the two-lists bug `docs/internal/README.md` opens with, aimed at version
 digits instead of prose — it records what changed, and why, for someone using the software.
@@ -33,6 +33,56 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 > current here in the commit that prepares the first release.
 
 ## [Unreleased]
+
+## [2.7.0] - 2026-09-14
+
+**`weft-kernel` moves `0.2.0` → `0.2.1` with no change to its code.** It is republished only
+because the release publishes both distributions and a version on PyPI is not reusable.
+
+### Added
+
+- **`weft eval baseline`** takes the published baseline measurement from an installed wheel —
+  staging a corpus manifest's tiers, verifying their bytes, indexing through a named pipeline
+  (default: the shipped `baseline` document) and retrieving every scoreable question more than
+  once — with no checkout and no `weft` subprocess.
+- **`weft eval compare <published report> <later report>`** judges a reproduction: every published
+  metric inside its own repetition interval, on what the pipeline states rather than on how it was
+  packaged. `docs/REPRODUCING.md` is a transcript of doing exactly that, and the release's
+  reproduction archive carries the corpus fetcher it needs.
+- **A token sink per call.** `Weft.ask`, `Weft.index` and `Weft.run` take `token_sink=`, so two
+  concurrent calls on one session stream into separate sinks; each is closed once when its call
+  ends. Omitted, a call streams into the session's sink as before.
+
+### Changed
+
+- **An argument that breaks its command's own constraint is a usage error.** `weft index … --batch-size
+  0` prints `argument --batch-size: Input should be greater than 0` and exits `2`, as any other usage
+  error does; it used to exit `1` with the validation library's own untranslated message. Under
+  `--json` the refusal is the error envelope, `"error": "CommandArgumentsError"`.
+- **`weft eval compare` reports which distributions were active, and at which versions, beside a
+  comparison instead of refusing it** — `packaging differs, reported not refused: …`. A version bump
+  alone had been refusing comparisons of runs on the same corpus and model versions. Corpus, digest
+  basis, model versions and question set still refuse. *A script that branched on exit `1` for a
+  packaging-only difference now sees `0` and the reported line.*
+- **A Qdrant collection missing a vector this store writes is refused on first use, naming the
+  remedy**, instead of failing mid-write with Qdrant's own `400 (Bad Request)`. A collection indexed
+  by `2.4.0` has no sparse `lexical` vector; point `[packs.qdrant] collection` at a new name and
+  re-index, or delete the collection and re-index into the same name.
+
+### Removed
+
+- **`Weft.ask(..., retrieve_only=...)`.** A retrieve-only run produces ranked passages and no
+  answer, so behind `ask`'s `-> Answer` it raised on every call. **Migration:**
+  `await weft.run("ask", {"question": question, "retrieve_only": True})` returns the passages.
+
+### Fixed
+
+- **`weft index --pipeline index-qdrant` works in a project with no Postgres `dsn`.** A pipeline
+  that extends another no longer needs a plugin its own changes replaced.
+- **`weft_store.conformance.register_conformance_ext_models()` registers every ext model the kit's
+  own checks attach**, so a store author running the kit alone no longer meets failures that only
+  a full `weft` installation's discovery had been hiding.
+- **The README stopped calling a three-day-old date "today".**
 
 ## [2.6.0] - 2026-09-14
 
@@ -174,7 +224,8 @@ false of every wheel a stranger could install.)*
 - **A page number is a fact about a node**, not a character offset into text a cleaner is about to
   rewrite. Measured against 1024 real chunks, **72 of them (7.0%)** carried the wrong page; the
   coordinate system is retired rather than tracked. A stored node written before this release is
-  **loudly unreadable** rather than quietly wrong.
+  **loudly unreadable** rather than quietly wrong. **Migration:** re-index the corpus with
+  `weft index <directory> --reprocess`, which rewrites every node under the new coordinates.
 - **The pages a stranger reads first stop overstating what the default does.** The README and the quickstart
   now say that the default embedder is a smoke test whose ranking carries no meaning, `weft index`
   says when the embedder was a default rather than a choice, and `weft plugins doctor` discloses

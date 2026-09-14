@@ -39,8 +39,9 @@ and a planted bare requirement is watched going red.
 
 **What a bound means is not this clause's to choose.** `01`: *"a floor, a compatible range, or an
 exact pin — is G9's and this clause does not choose: a floor is the weakest of the three and is
-implied by all of them"*. So this check asks only for a lower bound, and the release set's exact
-pins (`weft-kernel==0.1.0`) satisfy it as readily as a pack's `>=0.1.0,<1.0.0`. **Do not tighten
+implied by all of them"*. So this check asks only for a lower bound, and an exact pin
+(`weft-kernel==0.1.0`, the release set's shape before **G19**) satisfies it as readily as today's
+range (`>=0.2.1,<1.0.0`). **Do not tighten
 this into G9's rule** — G9 settled that ranges are `>=X,<MAJOR+1` *and never exact pins*, which is
 true of a pack depending on a contract publisher and deliberately false of the release set, whose
 entire purpose is to pin what was tested together (`09` §1). Those are two rules with two subjects;

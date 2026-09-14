@@ -3356,7 +3356,7 @@ requires-dist = [
 
 [[package]]
 name = "weft-kernel"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "packages/weft-kernel" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -3371,7 +3371,7 @@ requires-dist = [
 
 [[package]]
 name = "weft-rag"
-version = "2.6.0"
+version = "2.7.0"
 source = { editable = "packages/weft-rag" }
 dependencies = [
     { name = "ftfy" },

@@ -90,7 +90,9 @@ name = "weft-rag"
 # function 6 binds a contract minor to at least a distribution minor.
 # **2.5.0 → 2.6.0 at ledger task 17.1** — `STORE_CONTRACT_VERSION` moved a minor again
 # (`SourceStatus` gains `INDEXING`), the same fitness-function-6 binding.
-version = "2.6.0"
+# **2.6.0 → 2.7.0 for release `v2.7.0`** — no contract moved; a minor, because the release adds
+# commands and changes two behaviours (`CHANGELOG.md` → 2.7.0).
+version = "2.7.0"
 description = "Weft — a RAG engine built as a microkernel. The default install: the kernel's packs, and the weft command."
 requires-python = ">=3.12"
 license = "MIT"
@@ -116,7 +118,7 @@ readme = "README.md"
 #     Declared explicitly rather than left to arrive through `weft-kernel`.
 #   * `packaging` — `weft_cli.skew` parses PEP 508 requirements and version specifiers.
 dependencies = [
-    "weft-kernel>=0.2.0,<1.0.0",
+    "weft-kernel>=0.2.1,<1.0.0",
     "ftfy>=6.2",
     "rouge-score>=0.1",
     "psycopg[binary]>=3.2",

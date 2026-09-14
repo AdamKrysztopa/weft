@@ -9,8 +9,15 @@ Include what you did, what happened, and what you expected. A proof of concept h
 will get an acknowledgement, and if the report is valid you will be credited in the release notes
 unless you ask not to be.
 
-Weft is pre-alpha and unreleased, so there is no supported-version table yet. When there is a
-release, this section will name the versions that receive fixes.
+## Supported versions
+
+| Distribution | Current major — receives fixes | Previous major |
+|---|---|---|
+| `weft-rag` | `2.x` (latest `2.7.0`) | none published: `2.4.0` was the first release |
+| `weft-kernel` | `0.x` (latest `0.2.1`) | none published |
+
+When a new major ships, the previous one keeps receiving fixes — never new capabilities — for one
+release-set major or six months, whichever is longer, and this table names the date it stops.
 
 ## What Weft's plugin model does and does not protect you from
 
