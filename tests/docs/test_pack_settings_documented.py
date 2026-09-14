@@ -25,10 +25,11 @@ edit to this file — the derivation, not an inventory (`L8.8`).
 from __future__ import annotations
 
 import importlib
+import inspect
 import re
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Final
+from typing import Final, get_type_hints
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 CONFIG_EXAMPLE: Final[Path] = REPO_ROOT / "weft.toml.example"
@@ -70,7 +71,11 @@ def _settings_fields_of(module_name: str) -> tuple[str, ...]:
         module = importlib.import_module(module_name)
     except ImportError:
         return ()
-    settings = getattr(module, "Settings", None)
+    register = getattr(module, "register", None)
+    if register is None:
+        return ()
+    parameters = list(inspect.signature(register).parameters.values())
+    settings = get_type_hints(register).get(parameters[1].name) if len(parameters) == 2 else None
     fields = getattr(settings, "model_fields", None)
     return tuple(fields) if fields else ()
 

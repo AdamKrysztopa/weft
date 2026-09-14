@@ -164,6 +164,15 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # api_key = "${env:QDRANT_API_KEY}"
 # collection = "weft_nodes"
 # vector_size = 64
+#
+# `timeout_seconds` is how long the driver waits on one request, in whole seconds. Unset
+# leaves the driver's own default in force, which is not the same as no timeout.
+# `bm25_avg_doc_len` is the average document length the lexical arm's BM25 weights
+# assume; a point's weight is computed once, when it is written, so this is a number
+# an operator sees rather than one inherited silently.
+#
+# timeout_seconds = 30
+# bm25_avg_doc_len = 256.0
 
 # --- Services ----------------------------------------------------------------
 # Which registered plugin fills a role a command needs. One line changes which
@@ -373,3 +382,17 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # away unbounded.
 #
 # max_steps = 10
+
+# [packs.otel]
+# Where spans go. `exporter = "none"` (the default) records nothing beyond the process;
+# "console" prints them; "otlp" sends them to `endpoint`, and without an endpoint or the
+# `weft-rag[otel]` extra it falls back to "console", loudly, rather than failing a run.
+# `service_name` is the
+# `service.name` every span carries, worth setting even for the console exporter so two
+# projects' spans stay distinguishable. `api_key` is sent as the literal `Authorization`
+# header value, so name the whole bearer value.
+#
+# exporter = "none"
+# service_name = "weft"
+# endpoint = "http://localhost:4318"
+# api_key = "${env:OTEL_API_KEY}"
