@@ -38,6 +38,121 @@ _UNRELEASED_HEADING: Final[str] = "## [Unreleased]"
 _RELEASE_SET: Final[str] = "weft-rag"
 
 
+#: Roots the provenance scan reads — everything a release ships or documents.
+PROVENANCE_ROOTS: Final[tuple[str, ...]] = (
+    "packages",
+    "tests",
+    "docs",
+    "manual",
+    "scripts",
+    "examples",
+    "testing",
+    ".github",
+    "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "compose.yaml",
+)
+_PROVENANCE_SKIPPED_PARTS: Final[frozenset[str]] = frozenset(
+    {".venv", "__pycache__", "internal", "worktrees", ".git", "dist", "build"}
+)
+_PROVENANCE_SKIPPED_SUFFIXES: Final[frozenset[str]] = frozenset(
+    {".pdf", ".png", ".jpg", ".gz", ".whl", ".pyc", ".json"}
+)
+_COPYRIGHT_LINE: Final[re.Pattern[str]] = re.compile(
+    r"copyright\s*(?:\(c\)|©)[^\n]*", re.IGNORECASE
+)
+_SOURCED_FROM_A_URL: Final[re.Pattern[str]] = re.compile(
+    r"\b(?:adapted|copied|ported|vendored|taken|derived)\s+from\b[^\n]{0,100}?"
+    r"(?:https?://|github\.com|gitlab\.com)\S*",
+    re.IGNORECASE,
+)
+
+#: The scanner and its own test hold these markers as data, by construction.
+_PROVENANCE_SELF: Final[frozenset[str]] = frozenset(
+    {"scripts/release_preflight.py", "tests/unit/scripts/test_release_preflight_provenance.py"}
+)
+
+#: Markers judged acceptable, keyed by `waiver_key` — the path and the start of the matched text,
+#: never a line number, so an edit above one cannot re-point it. **Carried repair `R22.15`.**
+PROVENANCE_WAIVED: Final[dict[str, str]] = {
+    "tests/architecture/test_release_licensing.py: Copyright (c) 2026": (
+        "a fixture string the licence check plants, not a claim about any file"
+    ),
+    "docs/11-multimodal.md: Copyright (c) 2024": (
+        "Docling's licence, quoted with attribution where 11 weighs taking the dependency"
+    ),
+    "docs/11-multimodal.md: Copyright (c) 2024 International Busines": (
+        "the same attributed quotation, where 11 records the upstream licence verbatim"
+    ),
+}
+
+
+def waiver_key(hit: str) -> str:
+    """`hit` cut to its path and the start of its match, stopping at a quote or a backslash so a
+    key never has to spell an escape."""
+    path, _, match = hit.partition(": ")
+    readable = re.split(r"[\\\"']", match, maxsplit=1)[0]
+    return f"{path}: {readable[:40].rstrip()}"
+
+
+def _copyright_holder() -> str:
+    """The holder named on `LICENSE`'s own copyright line."""
+    for line in (REPO_ROOT / "LICENSE").read_text(encoding="utf-8").splitlines():
+        if _COPYRIGHT_LINE.match(line.strip()):
+            return re.sub(
+                r"^copyright\s*(?:\(c\)|©)?\s*[\d\-–, ]*", "", line.strip(), flags=re.IGNORECASE
+            )
+    raise PreflightError("LICENSE names no copyright holder, so no line can be judged against it")
+
+
+def provenance_markers(path: Path, text: str, *, holder: str) -> list[str]:
+    """The marks another codebase leaves in `text`: a copyright line naming someone other than
+    `holder`, and a claim to have been adapted or copied from a URL. It cannot prove a line is
+    original — a transcribed function carries neither mark — and is named for what it detects.
+    """
+    found = [
+        f"{path}: {match.group(0).strip()}"
+        for match in _COPYRIGHT_LINE.finditer(text)
+        if holder not in match.group(0)
+    ]
+    found += [f"{path}: {match.group(0).strip()}" for match in _SOURCED_FROM_A_URL.finditer(text)]
+    return found
+
+
+def provenance_hits() -> list[str]:
+    """Every provenance marker in the tree the release ships, waived or not."""
+    holder = _copyright_holder()
+    hits: list[str] = []
+    for root in PROVENANCE_ROOTS:
+        base = REPO_ROOT / root
+        paths = [base] if base.is_file() else sorted(p for p in base.rglob("*") if p.is_file())
+        for path in paths:
+            relative = path.relative_to(REPO_ROOT)
+            if str(relative) in _PROVENANCE_SELF:
+                continue
+            if _PROVENANCE_SKIPPED_PARTS & set(relative.parts):
+                continue
+            if path.suffix in _PROVENANCE_SKIPPED_SUFFIXES:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            hits += provenance_markers(relative, text, holder=holder)
+    return hits
+
+
+def provenance_failures() -> list[str]:
+    """No unwaived provenance marker in the tree — `09` §5.2's release-time originality re-check."""
+    return [
+        f"{hit} — a mark of another codebase; account for it, or waive it with a reason"
+        for hit in provenance_hits()
+        if waiver_key(hit) not in PROVENANCE_WAIVED
+    ]
+
+
 class PreflightError(Exception):
     """One precondition that does not hold. Collected, never raised — every one is reported."""
 
@@ -182,6 +297,8 @@ def main(argv: list[str]) -> int:
     checks.append(("changelog", _changelog_failures(version)))
     print("project pages:")
     checks.append(("readmes", _readme_failures()))
+    print("provenance:")
+    checks.append(("provenance", provenance_failures()))
 
     failures = [(name, failure) for name, group in checks for failure in group]
     if failures:
