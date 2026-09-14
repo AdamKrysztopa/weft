@@ -632,3 +632,47 @@ def test_every_poe_task_a_public_page_names_exists() -> None:
         + "\n  ".join(unknown)
         + f"\n\nDeclared in `pyproject.toml` `[tool.poe.tasks]`: {sorted(_poe_tasks())}"
     )
+
+
+#: *"today"*, *"currently"*, *"right now"* standing next to a literal date. A page that dates
+#: itself is wrong the day after it is written, and no other clause here can see it: the route
+#: check reads link syntax, the agreement check reads blocks, the waived-prose check reads names.
+#:
+#: `README.md` carried *"published for the first time today, 2026-09-11"* **twice** through the
+#: whole of Phase 28 — across a release that made it false a second time — and the pages were
+#: otherwise green throughout. `L6.1`: a present-tense claim expires the moment a phase could have
+#: changed it, and the durable repair is to state the property, not to re-date the sentence.
+_DATES_ITSELF: Final[re.Pattern[str]] = re.compile(
+    r"\b(?:today|yesterday|currently|right now|at the moment)\b[^.\n]{0,40}?\b\d{4}-\d{2}-\d{2}\b"
+    r"|\b\d{4}-\d{2}-\d{2}\b[^.\n]{0,15}?\b(?:today|yesterday)\b",
+    re.IGNORECASE,
+)
+
+
+def test_no_public_page_calls_a_literal_date_today() -> None:
+    """A page that says *"today, 2026-09-11"* is a page nobody re-read on 2026-09-12.
+
+    **Not a ban on dates.** A dated correction — *"this said X until 2026-09-09"* — is this
+    project's house style and the thing that makes a stale sentence traceable; what this refuses is
+    a date wearing a **deictic**, which is the one form that cannot age gracefully. Walks 12 pages
+    and fails 0.
+    """
+    # Arrange
+    swept = [page for page in PUBLIC_PAGES if page not in PAGES_WAIVED_FROM_STRUCTURE]
+    assert swept, "every public page was waived — nothing was read"
+
+    # Act
+    dating = [
+        f"{page}:{text.count(chr(10), 0, match.start()) + 1} — {match.group(0).strip()!r}"
+        for page in swept
+        for text in [(REPO_ROOT / page).read_text(encoding="utf-8")]
+        for match in _DATES_ITSELF.finditer(text)
+    ]
+
+    # Assert
+    assert not dating, (
+        "a public page dates itself, so it is wrong the day after it was written:\n  "
+        + "\n  ".join(dating)
+        + "\n\nSay the property instead — *what is true*, not *when it became true*. A dated "
+        "correction is fine and is the house style; a deictic beside a date is not"
+    )
