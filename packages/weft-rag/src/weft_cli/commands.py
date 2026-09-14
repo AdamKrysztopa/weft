@@ -1046,7 +1046,27 @@ class AskCommand:
     ) -> Outcome[CommandResult]:
         """The default: route through the installed router, or run `--pipeline`'s own
         named pipeline directly — either way, a generated, cited `Answer`.
+
+        `[services]` is checked first, as the retrieve-only path checks it: `build_services`
+        resolves both roles unconditionally, and without this a failed pack surfaced as a bare
+        `UnknownPluginError` with no reason attached (carried repair `R18.2`).
         """
+        refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=Embedder,
+            name=deps.services.embed,
+            setting="[services] embed",
+        )
+        if refusal is None:
+            refusal = require_plugin(
+                deps.reports,
+                registry=deps.registry,
+                contract=NodeStore,
+                name=deps.services.store,
+                setting="[services] store",
+            )
+        _raise_for_plugin_refusal(refusal)
         if ask_args.pipeline is not None:
             pipeline_name = ask_args.pipeline
             answer = await run_named_ask(

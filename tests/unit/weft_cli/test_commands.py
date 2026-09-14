@@ -465,10 +465,26 @@ async def test_ask_command_retrieve_only_ranks_hits_from_run_ask(
     assert result.hits[0].rank == 1
 
 
+def _registry_with_default_services() -> Registry:
+    """The two `[services]` defaults a real installation always registers, as null factories.
+
+    The generating path refuses an unresolvable `[services] embed` or `store` before it runs
+    (`R18.2`), so a test double that registers neither would be refused for a gap no shipped
+    installation has.
+    """
+    registry = Registry()
+    selection = ServiceSelection()
+    registry.add(Embedder, selection.embed, _null_factory, distribution="weft-rag")
+    registry.add(NodeStore, selection.store, _null_factory, distribution="weft-rag")
+    return registry
+
+
 async def test_ask_command_routes_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     # Arrange — task 3.11: `weft ask` reaches the pipeline the router names with no
     # second command to know about; `RouteCommand`'s own former body, folded in here.
-    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+    deps = Dependencies(
+        registry=_registry_with_default_services(), reports=(), services=ServiceSelection()
+    )
     query = Query(text="what changed?")
     answer = Answer(
         origin=query,
@@ -502,7 +518,9 @@ async def test_ask_command_with_pipeline_names_one_directly_and_skips_the_router
 ) -> None:
     # Arrange — `--pipeline` is what a caller who wants a specific pipeline uses now that
     # `route` no longer exists as a separate command; it must never reach the router.
-    deps = Dependencies(registry=Registry(), reports=(), services=ServiceSelection())
+    deps = Dependencies(
+        registry=_registry_with_default_services(), reports=(), services=ServiceSelection()
+    )
     query = Query(text="what changed?")
     answer = Answer(
         origin=query,
@@ -553,7 +571,10 @@ async def test_ask_command_passes_the_run_s_own_token_sink(
 
     chosen = _MarkedSink()
     deps = Dependencies(
-        registry=Registry(), reports=(), services=ServiceSelection(), token_sink=chosen
+        registry=_registry_with_default_services(),
+        reports=(),
+        services=ServiceSelection(),
+        token_sink=chosen,
     )
     query = Query(text="what changed?")
     answer = Answer(
@@ -1164,3 +1185,49 @@ async def test_a_batch_size_below_one_is_refused_at_the_flag(tmp_path: Path) -> 
     # Act / Assert
     with pytest.raises(ValidationError):
         commands.IndexArgs(path=str(tmp_path), batch_size=0)
+
+
+async def test_ask_command_generating_raises_a_refusal_for_an_unregistered_embedder() -> None:
+    """`R18.2`: the generating path resolved `[services]` inside `build_services` with a bare
+    `Registry.entry`, so a failed pack surfaced as `UnknownPluginError` with no reason attached,
+    on the CLI and through `weft_engine.api.Weft` alike. The retrieve-only path already refused
+    through `require_plugin`, naming why.
+    """
+    # Arrange
+    reports = (
+        PackReport(
+            pack="embed",
+            distribution="weft-embed",
+            status=PackStatus.PARTIAL,
+            reason="optional missing",
+        ),
+        PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),
+    )
+    deps = Dependencies(registry=Registry(), reports=reports, services=ServiceSelection())
+    args = commands.AskArgs(question="what changed?", pipeline="retrieve-then-generate")
+
+    # Act / Assert
+    with pytest.raises(commands.CommandRefusalError) as excinfo:
+        await commands.AskCommand().run(args, _ctx(deps))
+    assert excinfo.value.exit_code is ExitCode.RESOLUTION_FAILED
+
+
+async def test_ask_command_generating_names_the_stores_for_an_unresolvable_name() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
+    registry.add(NodeStore, "pgvector", _null_factory, distribution="weft-store")
+    reports = (
+        PackReport(pack="embed", distribution="weft-embed", status=PackStatus.ACTIVE),
+        PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),
+    )
+    deps = Dependencies(
+        registry=registry, reports=reports, services=ServiceSelection(store="acme-vector")
+    )
+    args = commands.AskArgs(question="what changed?", pipeline="retrieve-then-generate")
+
+    # Act / Assert
+    with pytest.raises(commands.UnresolvedPluginNameError) as excinfo:
+        await commands.AskCommand().run(args, _ctx(deps))
+    assert excinfo.value.exit_code is ExitCode.RESOLUTION_FAILED
+    assert excinfo.value.valid_options == ("pgvector",)
