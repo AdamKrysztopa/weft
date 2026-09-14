@@ -49,7 +49,7 @@ forbids, and `10` §5 records what this catalogue has not searched.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -136,6 +136,14 @@ class Hybrid:
         "a reciprocal-rank fusion score, not a similarity — it combines the arms' rankings "
         "rather than their numbers, which is why the arms' own scores are not comparable"
     )
+
+    #: Which store attribute names each arm's own scale — task **R21.2**. Each arm calls one
+    #: store capability, and the store, not this retriever, knows what that capability's number
+    #: means; `vector_arm`/`text_arm` rename the label an arm is fused under, not the arm itself.
+    arm_score_attributes: ClassVar[Mapping[str, str]] = {
+        Channel.VECTOR.value: "vector_score_semantics",
+        Channel.TEXT.value: "text_score_semantics",
+    }
 
     config_model: ClassVar[type[HybridConfig]] = HybridConfig
     needs_store: ClassVar[tuple[type, ...]] = (VectorSearch, TextSearch)

@@ -34,8 +34,16 @@ from typing import ClassVar
 
 from pydantic import SecretStr
 
-from weft_cli.explain import ScoreExplanation, explanations_for, incomparable_note
+from weft_cli.explain import (
+    ScoreExplanation,
+    arm_explanations,
+    explanations_for,
+    incomparable_note,
+)
+from weft_qdrant.store import QdrantStore
+from weft_retrieve.hybrid import Hybrid
 from weft_store import PgVectorSettings, PgVectorStore
+from weft_store.pgvector_store import TextMode
 
 
 class _DeclaringRetriever:
@@ -189,3 +197,78 @@ def test_a_fan_out_arm_label_resolves_to_the_plugin_behind_it() -> None:
     # Assert — two arms, both resolved, and both still named by their arm.
     assert [explanation.produced_by for explanation in built] == ["hybrid:vector", "hybrid:text"]
     assert all(explanation.semantics is not None for explanation in built)
+
+
+class _TwoArmRetriever:
+    """A fan-out whose arms each call one store capability, the way `hybrid`'s do."""
+
+    score_semantics: ClassVar[str] = "a reciprocal-rank fusion score"
+    arm_score_attributes: ClassVar[dict[str, str]] = {
+        "vector": "vector_score_semantics",
+        "text": "text_score_semantics",
+    }
+
+
+def _bm25_store() -> PgVectorStore:
+    return PgVectorStore(
+        PgVectorSettings(
+            dsn=SecretStr("postgresql://weft:weft@localhost/weft"), text_mode=TextMode.BM25
+        )
+    )
+
+
+def test_a_fan_out_arm_says_what_the_store_it_searched_ranked_by() -> None:
+    """Carried repair `R21.2`, measured through the shipped wheel.
+
+    `weft ask --pipeline hybrid-then-generate --explain` against a `bm25` store printed the fused
+    column's meaning and nothing from the store, so `text_score_semantics` had no production
+    reader. The fused line is right about the column; what was missing is each arm's own scale,
+    and only the configured store instance knows it — `text_mode` decides the text arm's sentence.
+    """
+    # Arrange
+    store = _bm25_store()
+
+    # Act
+    built = arm_explanations(
+        ("hybrid:vector", "hybrid:text", "hybrid:vector"),
+        producers={"hybrid": _TwoArmRetriever()},
+        store=store,
+    )
+
+    # Assert
+    assert [explanation.produced_by for explanation in built] == [
+        "hybrid:vector's own ranking",
+        "hybrid:text's own ranking",
+    ]
+    assert built[0].semantics == store.vector_score_semantics
+    assert built[1].semantics == store.text_score_semantics
+    assert "BM25" in built[1].rendered()
+
+
+def test_an_arm_its_retriever_does_not_map_adds_no_arm_line() -> None:
+    # Arrange — a retriever with no per-arm declaration, and an arm name `hybrid` does not map.
+    producers = {"vector-top-k": _DeclaringRetriever(), "hybrid": _TwoArmRetriever()}
+
+    # Act
+    built = arm_explanations(
+        ("vector-top-k", "hybrid:renamed"), producers=producers, store=_bm25_store()
+    )
+
+    # Assert — the fused line already covers the column; an arm line would be a guess.
+    assert built == ()
+
+
+def test_hybrid_maps_each_channel_to_a_sentence_both_shipped_stores_declare() -> None:
+    # Arrange
+    attributes = Hybrid.arm_score_attributes
+
+    # Assert
+    assert set(attributes) == {"vector", "text"}
+    for store_class in (PgVectorStore, QdrantStore):
+        for attribute in attributes.values():
+            declared = (
+                getattr(_bm25_store(), attribute)
+                if store_class is PgVectorStore
+                else getattr(store_class, attribute)
+            )
+            assert isinstance(declared, str) and declared, (store_class.__name__, attribute)

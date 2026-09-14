@@ -95,7 +95,12 @@ from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.exit_codes import ExitCode
-from weft_cli.explain import ScoreExplanation, explanations_for, incomparable_note
+from weft_cli.explain import (
+    ScoreExplanation,
+    arm_explanations,
+    explanations_for,
+    incomparable_note,
+)
 from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index_for
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
@@ -1096,9 +1101,18 @@ class AskCommand:
                 for name in wanted
                 if name in registered
             }
+            # Built the way a query run builds it (`weft_engine.run_services`): a store
+            # instance, not its class, because `text_score_semantics` since ledger **21.7** is
+            # a fact about `text_mode`, which only a configured instance carries.
+            store = cast(
+                NodeStore, deps.registry.entry(NodeStore, deps.services.store).factory(None)
+            )
             explanations = tuple(
                 explanation.rendered()
                 for explanation in explanations_for(produced_by, producers=producers)
+            ) + tuple(
+                explanation.rendered()
+                for explanation in arm_explanations(produced_by, producers=producers, store=store)
             )
             note = incomparable_note(produced_by)
         return Produced(

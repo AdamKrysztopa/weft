@@ -40,6 +40,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 #: What a producer that declared nothing renders as. **An absence, stated.** `01` requirement 5's
 #: posture for an unknown name applied to an undeclared fact: say what was wanted and why it is
@@ -121,6 +122,41 @@ def _producer_for(label: str, producers: Mapping[str, object]) -> object:
     return producers.get(plugin)
 
 
+def arm_explanations(
+    produced_by: Sequence[str], *, producers: Mapping[str, object], store: object
+) -> tuple[ScoreExplanation, ...]:
+    """One line per fan-out arm whose retriever names the store capability it called.
+
+    **Carried repair `R21.2`.** `explanations_for` reports the fused column's own meaning;
+    it does not say what each arm's underlying search returned, because that number is the
+    *store's*, not the retriever's — `Hybrid.arm_score_attributes` is the retriever saying
+    which store attribute each arm read. An arm whose retriever declares no such mapping, or
+    whose name the mapping does not recognise, gets no line: the fused line already covers the
+    column, and a guessed one would be worse than silence.
+    """
+    explanations: list[ScoreExplanation] = []
+    seen: set[str] = set()
+    for label in produced_by:
+        if label in seen:
+            continue
+        seen.add(label)
+        plugin, sep, arm = label.partition(":")
+        if not sep:
+            continue
+        producer = producers.get(plugin)
+        declared = getattr(producer, "arm_score_attributes", None)
+        if not isinstance(declared, Mapping):
+            continue
+        mapping = cast(Mapping[str, object], declared)
+        attribute = mapping.get(arm)
+        if not isinstance(attribute, str):
+            continue
+        explanations.append(
+            ScoreExplanation.of(store, produced_by=f"{label}'s own ranking", attribute=attribute)
+        )
+    return tuple(explanations)
+
+
 def incomparable_note(produced_by: Sequence[str]) -> str | None:
     """`None` when every score came from one producer; otherwise the sentence saying they did not.
 
@@ -143,4 +179,4 @@ def incomparable_note(produced_by: Sequence[str]) -> str | None:
     )
 
 
-__all__ = ["ScoreExplanation", "explanations_for", "incomparable_note"]
+__all__ = ["ScoreExplanation", "arm_explanations", "explanations_for", "incomparable_note"]
