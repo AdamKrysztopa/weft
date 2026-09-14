@@ -4,9 +4,10 @@
 against V3 on the same corpus, pipeline and model versions. *Fails if any claim in the
 documentation has no run behind it.*"
 
-**Half of this was already built and the other half had nothing.** `eval/check_baseline.py`
-(task 4.8) answers *"did this run reproduce the baseline"* — intervals derived from the baseline's
-own repetitions, `IncomparableRunsError` when the corpus, pipeline or model versions differ. What
+**Half of this was already built and the other half had nothing.** `weft eval compare` (task 4.8's
+`eval/check_baseline.py` until R22.4d) answers *"did this run reproduce the baseline"* — intervals
+derived from the baseline's own repetitions, and a refusal when the corpus, pipeline or model
+versions differ. What
 nothing checked is the sentence's actual subject: the **documentation**. A number in a manual is
 what a reader acts on, and it is reachable by anyone with a text editor and no run at all.
 

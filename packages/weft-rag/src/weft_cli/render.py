@@ -113,6 +113,7 @@ from weft_command import ExitCode
 from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
 from weft_engine.services import DEFAULT_EMBEDDER_MEANING
+from weft_eval.baseline import Reproduction
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDifference
 from weft_eval.run_record import (
@@ -1037,7 +1038,14 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     non-empty** — *beside* the falsification block, before it, never instead of it: the two
     intervals answer different questions (this system's own repetition noise, and whether the
     difference generalises across the questions), and a reader given one cannot infer the other.
+
+    **`result.reproduction`, repair `R22.4d`** — `--a`/`--b` both named a baseline report file
+    rather than a persisted run, so nothing above applies: `_render_reproduction` is the whole
+    answer, and none of the header, pipeline-diff or metrics-comparison lines below are printed.
     """
+    if result.reproduction is not None:
+        return _render_reproduction(result, result.reproduction)
+
     lines = [
         f"'{result.run_a}' vs '{result.run_b}' — same corpus, model versions and active "
         f"distributions; pipeline is the only fact that may differ:",
@@ -1054,6 +1062,30 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         )
         if result.baseline_selection is not None:
             lines.append(_baseline_selection_line(result.baseline_selection))
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_reproduction(result: EvalCompareCommandResult, reproduction: Reproduction) -> Rendered:
+    """`weft eval compare` over two baseline report files — repair `R22.4d`. Reached only once
+    `weft_cli.eval_commands.EvalCompareCommand` has already judged every published metric inside
+    the interval its own repetitions spanned (`BaselineNotReproducedError` otherwise, so a
+    `Reproduction` reaches this function only when every verdict is `inside`).
+    """
+    inside = sum(1 for verdict in reproduction.verdicts if verdict.inside)
+    total = len(reproduction.verdicts)
+    lines = [
+        f"'{result.run_b}' reproduces '{result.run_a}': {inside} of {total} metric(s) inside "
+        f"the intervals '{result.run_a}' recorded",
+        *(
+            f"installation differs at stage '{difference.stage}': {difference.field.value} "
+            f"{difference.published} -> {difference.later}"
+            for difference in reproduction.provenance
+        ),
+        *(
+            f"  {verdict.metric}: {verdict.later} inside [{verdict.low}, {verdict.high}]"
+            for verdict in reproduction.verdicts
+        ),
+    ]
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 

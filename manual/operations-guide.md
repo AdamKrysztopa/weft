@@ -917,22 +917,25 @@ other documents change every rank while the result still reads as ordinary retri
 
 **Why `--repeats` has no value below 2.** A baseline records, per metric, the **interval its own
 repetitions spanned**, and that interval is the only tolerance a later run is judged by. Nobody
-picks a number. The judge is still a checkout script:
+picks a number. `weft eval compare` judges two baseline report files:
 
 ```text
-$ uv run python eval/check_baseline.py eval/baselines/8854c33f71ea-2026-08-25.json baselines/8854c33f71ea-2026-09-14.json
+$ weft eval compare archive/baselines/8854c33f71ea-2026-08-25.json mine.json
+'mine.json' reproduces 'archive/baselines/8854c33f71ea-2026-08-25.json': 12 of 12 metric(s) inside the intervals 'archive/baselines/8854c33f71ea-2026-08-25.json' recorded
 installation differs at stage 'extract': distribution weft-extract -> weft-rag
 installation differs at stage 'chunk': distribution weft-chunk -> weft-rag
 installation differs at stage 'chunk': applies_to [] -> [{"constraints": [], "fact": null, "media_type": ["text"]}]
 installation differs at stage 'embed': distribution weft-embed -> weft-rag
 installation differs at stage 'store': distribution weft-qdrant -> weft-rag
 installation differs at stage 'store': contract_version 2.0.0 -> 2.6.0
-12 metric(s) inside the interval 3 repetitions of the baseline spanned
+  document-mrr@10: 0.26875 inside [0.26875, 0.26875]
+  …
 ```
 
 Every metric inside its interval, and the run reproduced the baseline; anything outside, and it
-names the metric and both bounds and exits `1`. A run over a different corpus, stage configuration,
-model version, retrieval depth or question set is refused with exit `2` rather than compared. The
+names the metric and both bounds and exits `1` (`BaselineNotReproducedError`). A run over a
+different corpus, stage configuration, model version, retrieval depth or question set is refused
+with exit `1`, naming every difference, rather than compared. The
 *installation differs* lines are not refusals: they describe what was installed, and any effect it
 had on retrieval would show up in the intervals.
 

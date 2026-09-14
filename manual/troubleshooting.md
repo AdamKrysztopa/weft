@@ -3169,6 +3169,39 @@ No report is written. A passage from another corpus changes the ranks, and so ev
 reading as ordinary retrieval, which is why this refuses rather than dropping the passage. **What
 to do:** set `[packs.qdrant] collection` in `weft.toml` to a collection nothing else writes to.
 
+### `BaselineNotReproducedError`
+
+**What it looks like** — `weft eval compare` given a published baseline and a later report whose
+`document-recall@10` falls outside the interval the published run's repetitions spanned (repair
+**R22.4d**, produced by the installed binary):
+
+```text
+$ weft eval compare archive/baselines/8854c33f71ea-2026-08-25.json shifted.json
+'shifted.json' does not reproduce 'archive/baselines/8854c33f71ea-2026-08-25.json': document-recall@10: 0.5 is outside [0.5416666666666666, 0.5416666666666666]
+$ echo $?
+1
+```
+
+Every metric that did not reproduce is named, with the later value and the published interval; a
+metric the later run did not measure at all is named as not measured. No tolerance is chosen
+anywhere: the interval is what the published repetitions produced. **What to do:** if the later
+run used the same corpus, pipeline, model versions and depth (otherwise `IncomparableBaselinesError`
+would have refused first), the difference is real. Look at what changed in the installation before
+treating the published number as wrong.
+
+### `NotABaselineReportError`
+
+**What it looks like** — `weft eval compare` given a file that is not a baseline report:
+
+```text
+$ weft eval compare archive/baselines/8854c33f71ea-2026-08-25.json notes.json
+'notes.json' is not a baseline report: 13 validation errors for BaselineReport
+```
+
+An argument that names a file on disk is read as a baseline report, whatever it is called; one that
+names no file is read as a run id. **What to do:** pass the report `weft eval baseline` wrote, or a
+file from the release archive's `baselines/`.
+
 ---
 
 ## Project configuration — `weft_engine.registry_bootstrap`

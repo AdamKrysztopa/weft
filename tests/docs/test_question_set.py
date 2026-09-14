@@ -166,7 +166,7 @@ def test_the_question_set_is_non_empty_and_names_each_question_once(
     questions: tuple[Question, ...],
 ) -> None:
     # Floor A. The walk is over tracked TOML, which an unfetched corpus cannot empty. The id is
-    # how a baseline reports a per-question error and how `check_baseline` names a regression, so
+    # how a baseline reports a per-question error and how `weft eval compare` names a regression, so
     # two questions sharing one make the run unreadable at exactly the moment it matters.
     # Arrange
     identifiers = [question.id for question in questions]

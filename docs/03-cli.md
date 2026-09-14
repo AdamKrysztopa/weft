@@ -79,6 +79,7 @@ weft eval run <path> <pipeline> [--query-pipeline <name>] [--questions <file>] [
                                     run a pipeline over a corpus, persist a run record; with
                                     --questions, also retrieve and score the gate-safe metric
                                     subset, folded into the record
+weft eval baseline <manifest> <questions> [--pipeline <name>] [--tiers <list>] [--out <file>]
 weft eval compare <a> <b> [--baseline <pipeline>]
                                     diff two persisted runs' pipelines and their per-metric
                                     aggregates, refusing if anything but the pipeline differs;

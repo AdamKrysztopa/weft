@@ -159,6 +159,24 @@ what closes Phase 4's own exit criterion: two derived pipelines that genuinely d
 they retrieve now produce a comparison naming the difference in scores, not only in
 stage-by-stage structure.
 
+**`weft eval compare <a> <b>` over two baseline report files — ledger repair `R22.4d`.** `01` →
+Phase 6's Exit asks that "`weft eval compare` against the published baseline run reports every
+metric inside the interval that baseline recorded". A published baseline
+(`weft_eval.baseline.BaselineReport`) is not a persisted run — `_incomparable_reasons` above
+compares `active_distributions` for exact equality, and G19 renamed every one of them, so that
+check can never answer this question for a published file. When `--a`/`--b` both name a file on
+disk, `EvalCompareCommand` takes a second path entirely: it loads each as a `BaselineReport` and
+asks `weft_eval.baseline.judge_reproduction` (`R22.4b`'s own judge) rather than reusing the
+run-id comparison. `--baseline`/`--kind` both select among *persisted runs* and mean nothing for
+two reports, so either given alongside two files refuses rather than being silently ignored.
+Naming exactly one of `--a`/`--b` a file refuses too — a baseline report is judged only against
+another baseline report, never against a run id, because the two shapes answer different
+questions. A file that fails to parse as a `BaselineReport` — `pydantic.ValidationError` —
+becomes `NotABaselineReportError`, naming the path; a reproduction that fails — some published
+metric's mean lands outside the interval its own repetitions spanned, or the later report never
+measured it at all — becomes `BaselineNotReproducedError`, naming every metric that did not
+reproduce. `weft_cli.render` is where a reader actually meets each verdict's text and exit code.
+
 **`weft eval compare --kind <kind>` — task 11.12, `_metrics_comparison`'s restriction to one
 class of question.** `09` §4 asks that a rung's claim about one class of question be a number
 over that class, and a per-`kind` slice on `MetricAggregate` (`weft_eval.aggregate.
@@ -187,7 +205,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import ClassVar, Final, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft_cli.eval_scoring import load_questions, score_pipeline
 from weft_cli.ingest import content_hashes_of, corpus_documents, run_index
@@ -197,6 +215,12 @@ from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
 from weft_eval.aggregate import MetricAggregate, PartitionSlice
+from weft_eval.baseline import (
+    BaselineReport,
+    Reproduction,
+    judge_reproduction,
+    load_baseline_report,
+)
 from weft_eval.falsify import (
     DifferenceJudgement,
     PairedDifference,
@@ -299,6 +323,19 @@ class IncomparableRunsError(WeftError):
         self.run_a = run_a
         self.run_b = run_b
         self.reasons = reasons
+
+
+class NotABaselineReportError(WeftError):
+    """`weft eval compare` was given a file that does not parse as a `weft_eval.baseline.
+    BaselineReport` — repair `R22.4d`. See the module docstring's own R22.4d paragraph.
+    """
+
+
+class BaselineNotReproducedError(WeftError):
+    """`weft eval compare` judged one baseline report against another and at least one
+    published metric fell outside the interval its own repetitions spanned — repair `R22.4d`.
+    See the module docstring's own R22.4d paragraph.
+    """
 
 
 class UnknownRunIdError(WeftError, UnresolvedNameError):
@@ -412,8 +449,18 @@ class EvalCompareArgs(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    a: str = Field(description="the first run id, printed by 'weft eval run'")
-    b: str = Field(description="the second run id")
+    a: str = Field(
+        description=(
+            "a run id printed by 'weft eval run', or the path to a baseline report file "
+            "('weft eval baseline' writes one; the release archive ships the published ones)."
+        )
+    )
+    b: str = Field(
+        description=(
+            "a run id printed by 'weft eval run', or the path to a baseline report file "
+            "('weft eval baseline' writes one; the release archive ships the published ones)."
+        )
+    )
     baseline: str | None = Field(
         default=None,
         description=(
@@ -618,6 +665,17 @@ class EvalCompareCommandResult(CommandResult):
     computed from what `--a`/`--b` already carry, so `EvalCompareCommand.run` always fills it,
     and `{}` — the plain default, never `None` — is the honest answer for two records that
     carry no per-question scores to pair (every record written before task 16.4).
+
+    `reproduction` is repair `R22.4d`'s own addition, defaulted like every field above: `None`
+    for the ordinary two-run-id comparison, and `weft_eval.baseline.judge_reproduction`'s own
+    answer when `--a`/`--b` both named a baseline report file instead. Every other field on this
+    result keeps its plain, non-report meaning in that case — `corpus_matches`/`model_versions_
+    match` are `True` by construction (`judge_reproduction` refuses rather than returning a
+    `Reproduction` when they do not agree), `active_distributions_match` is the one fact that
+    can genuinely differ between two reports and still reproduce (G19 renamed every distribution,
+    so a published baseline and a re-run naming the wheel it moved into are exactly the case this
+    field exists to say "differs, and reproduced anyway"), and `metrics_comparison` is `{}`
+    because the per-metric verdicts already live on `reproduction`.
     """
 
     run_a: str
@@ -633,6 +691,7 @@ class EvalCompareCommandResult(CommandResult):
     query_rungs: QueryRungDifference | None = None
     baseline_selection: BaselineSelection | None = None
     paired_differences: Mapping[str, PairedDifference] = {}
+    reproduction: Reproduction | None = None
 
 
 class TraceCommandResult(CommandResult):
@@ -1121,6 +1180,85 @@ def _falsify_against_baseline(
     return baseline_runs, falsification, selection
 
 
+def _load_baseline_report_or_refuse(path: Path) -> BaselineReport:
+    """`load_baseline_report(path)`, or `NotABaselineReportError` naming `path` for a file that
+    does not parse as a `weft_eval.baseline.BaselineReport` — repair `R22.4d`.
+    """
+    try:
+        return load_baseline_report(path)
+    except ValidationError as exc:
+        first_line = str(exc).splitlines()[0] if str(exc) else str(exc)
+        raise NotABaselineReportError(f"'{path}' is not a baseline report: {first_line}") from exc
+
+
+def _compare_baseline_reports(
+    compare_args: EvalCompareArgs, *, a_is_file: bool, b_is_file: bool
+) -> Outcome[CommandResult]:
+    """`weft eval compare <a> <b>` where at least one names a baseline report file rather than
+    a persisted run id — repair `R22.4d`. See the module docstring's own R22.4d paragraph.
+    """
+    a, b = compare_args.a, compare_args.b
+    if a_is_file != b_is_file:
+        file_arg, other_arg = (a, b) if a_is_file else (b, a)
+        reason = f"'{other_arg}' is not a file"
+        raise IncomparableRunsError(
+            f"'{file_arg}' is a baseline report and '{other_arg}' is not a file — a baseline "
+            f"report is judged against another baseline report, never against a run id.",
+            run_a=a,
+            run_b=b,
+            reasons=(reason,),
+        )
+    if compare_args.baseline is not None:
+        raise IncomparableRunsError(
+            "--baseline selects a pipeline's own repetitions among persisted runs, and means "
+            "nothing when comparing two baseline report files.",
+            run_a=a,
+            run_b=b,
+            reasons=("--baseline was given",),
+        )
+    if compare_args.kind is not None:
+        raise IncomparableRunsError(
+            "--kind restricts the comparison to one question kind among persisted runs, and "
+            "means nothing when comparing two baseline report files.",
+            run_a=a,
+            run_b=b,
+            reasons=("--kind was given",),
+        )
+
+    published = _load_baseline_report_or_refuse(Path(a))
+    later = _load_baseline_report_or_refuse(Path(b))
+    reproduction = judge_reproduction(published, later)
+    if not reproduction.reproduced:
+        parts = tuple(
+            f"{verdict.metric}: {verdict.later} is outside [{verdict.low}, {verdict.high}]"
+            if verdict.later is not None
+            else (
+                f"{verdict.metric}: not measured (the baseline records "
+                f"[{verdict.low}, {verdict.high}])"
+            )
+            for verdict in reproduction.verdicts
+            if not verdict.inside
+        )
+        raise BaselineNotReproducedError(f"'{b}' does not reproduce '{a}': " + "; ".join(parts))
+
+    return Produced(
+        value=EvalCompareCommandResult(
+            run_a=a,
+            run_b=b,
+            corpus_matches=True,
+            model_versions_match=True,
+            active_distributions_match=(
+                reproduction.published_distributions == reproduction.later_distributions
+            ),
+            pipeline_diff=diff_resolved(
+                published.record.resolved_pipeline, later.record.resolved_pipeline
+            ),
+            metrics_comparison={},
+            reproduction=reproduction,
+        )
+    )
+
+
 class EvalCompareCommand:
     """`weft eval compare` — see the module docstring."""
 
@@ -1135,6 +1273,11 @@ class EvalCompareCommand:
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         del ctx
         compare_args = cast(EvalCompareArgs, args)
+        a_is_file = Path(compare_args.a).is_file()
+        b_is_file = Path(compare_args.b).is_file()
+        if a_is_file or b_is_file:
+            return _compare_baseline_reports(compare_args, a_is_file=a_is_file, b_is_file=b_is_file)
+
         record_a = _load_or_refuse(compare_args.a)
         record_b = _load_or_refuse(compare_args.b)
 
@@ -1251,6 +1394,7 @@ def register_eval_commands(registrar: PackRegistrar) -> None:
 
 
 __all__ = [
+    "BaselineNotReproducedError",
     "BaselineSelection",
     "DEFAULT_RUNS_DIR",
     "EmptyCorpusError",
@@ -1266,6 +1410,7 @@ __all__ = [
     "IncomparableRunsError",
     "MetricComparison",
     "NoBaselineRunsError",
+    "NotABaselineReportError",
     "QueryRungDifference",
     "TraceArgs",
     "TraceCommand",

@@ -4,11 +4,12 @@ V3 wants *"the numbers produced before any technique: single-vector top-k, no fu
 no enhancement"*, repeated, *"and each metric carries the interval its own repetitions
 produced"*. This module is the arithmetic, the vocabulary and — since repair **R22.4a**, and
 taken in-process by `weft eval baseline` (`weft_cli.eval_baseline`) since **R22.4c** — the
-published run's own shape: `weft_cli.eval_baseline` is the measurement and `eval/check_baseline.py`
-is the comparison, but what a baseline *is* lives here, importable from the installed
-`weft-rag` wheel with no checkout. Nothing here talks to a store, a model or a CLI, so every rule
-below is checkable without a corpus — which matters, because an evaluation package can fail on
-precisely these rules while its plumbing works (`09` §4.2).
+published run's own shape: `weft_cli.eval_baseline` is the measurement and `weft eval compare`
+(`weft_cli.eval_commands`, repair **R22.4d**) is the comparison, but what a baseline *is* lives
+here, importable from the installed `weft-rag` wheel with no checkout. Nothing here talks to a
+store, a model or a CLI, so every rule below is checkable without a corpus — which matters,
+because an evaluation package can fail on precisely these rules while its plumbing works
+(`09` §4.2).
 
 **Four failure modes are refused here rather than documented.**
 

@@ -19,7 +19,7 @@ the answer for the pins themselves without circularity — the manifest is what 
 architectural change, and puts the three artefacts exactly where somebody holding a release looks.
 
 **What this checks is that the release job carries them, not that they are correct.** Whether the
-baseline reproduces is `eval/check_baseline.py`'s question and task 6.30's; whether every quote is
+baseline reproduces is `weft eval compare`'s question and task 6.30's; whether every quote is
 a literal span is `tests/docs/test_question_set.py`'s. This is the reachability half, and it is the
 half that was silently false.
 """

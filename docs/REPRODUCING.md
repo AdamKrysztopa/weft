@@ -1,76 +1,123 @@
 # Reproducing the published baseline
 
 This file ships inside `weft-reproduction-v*.tar.gz`, attached to every release. It assumes you
-hold that archive and nothing else — no clone of this repository.
+hold that archive and an installed `weft-rag`, and nothing else — no clone of this repository.
 
 `docs/09-release.md` §5.2: *"Fails if reproducing the published number requires cloning."* This
-page is what that clause costs, and it is honest about the part that still does.
+page is the procedure that clause asks for. Every command and every transcript below was run as
+written on 2026-09-14, from a directory outside the repository, against wheels built from the tree.
+
+**Which release.** The procedure needs `weft eval baseline` and a `weft eval compare` that reads a
+baseline report, both added after `v2.6.0`. It also needs the fetcher, and `v2.6.0`'s archive
+predates it: that asset was uploaded before the release job learned to copy `fetch_corpus.py`,
+`wikitext.py` and this page. Use the archive and the `weft-rag` of one release, the first after
+`v2.6.0` or later.
 
 ## What is in the archive
 
 | | |
 |---|---|
-| `baselines/` | the published runs, one JSON each: the resolved pipeline stage by stage, the corpus identity, the active distribution set, and per-metric aggregates over repeated passes |
-| `questions/` | the question sets the metrics are scored against, one file per tier |
+| `baselines/` | the published runs, one JSON each: the resolved pipeline stage by stage, the corpus identity, the active distribution set, and per-metric intervals over repeated passes |
+| `questions/` | the question sets the metrics are scored against |
 | `corpus-manifest.toml` | every corpus document named, with the sha256 that identifies it and the pinned revision that returns it |
-| `fetch_corpus.py`, `wikitext.py` | turn that manifest into bytes. Standard library only — nothing to install |
+| `fetch_corpus.py`, `wikitext.py` | turn that manifest into bytes. Standard library only, Python 3.11 or later |
 
 **The corpus bytes are deliberately not here.** Some documents are published under publisher
-copyright, so redistributing them is not this project's to do. What is distributable is the
-manifest: names, digests and version pins, which is what makes the fetch reproducible
-byte-for-byte rather than merely repeatable.
+copyright, so redistributing them is not this project's to do. The manifest is distributable, and
+its names, digests and revision pins are what make the fetch reproducible byte-for-byte.
 
-## Materialise the corpus
-
-```bash
-python fetch_corpus.py --manifest corpus-manifest.toml fetch
-python fetch_corpus.py --manifest corpus-manifest.toml verify
-```
-
-Documents land beside the manifest, at the paths it declares. Run against the `v2.6.0` archive
-this retrieves **19 of 25** and reports six as `missing`; all six are `operator`-tier — published
-under copyright, named and checksummed so a local copy can be *verified* and never fetched — and
-the summary says so. That is the expected outcome, not a partial failure: the baselines below
-score the `fetch` tier alone.
-
-`verify` re-checks what is on disk against the digests. A document whose pin returns different
-bytes than it did when the manifest was written is reported as `corrupt` rather than accepted,
-which is the whole reason the pins are revisions rather than titles.
-
-## Read the baseline before running anything
-
-Every fact you need to match is in the JSON, and reading it beats trusting this page:
-
-- `record.resolved_pipeline.stages` — every stage, its plugin **and** its config. The `v2.6.0`
-  baselines run `text` → `fixed-size` (512/50) → `hash` → `qdrant`. The `hash` embedder needs no
-  account, so reproducing these costs no credentials; `qdrant` means you need one running.
-- `repeats`, `retrieval_depth`, `questions` — the shape of the pass.
-- `metrics[]` — each metric's `values` across those repeats, with `mean`, `low` and `high`. **The
-  interval is part of the published number.** A run landing inside it has reproduced the baseline;
-  one landing outside has found something.
-
-## Run it
+## 1. Materialise the corpus
 
 ```bash
-uv pip install 'weft-rag[qdrant]'
-export WEFT_DATABASE_URL="postgresql://weft:weft@localhost:5433/weft"
-weft eval run <pipeline> <corpus directory> --questions questions/fetch.toml
+python3 fetch_corpus.py --manifest corpus-manifest.toml fetch
+python3 fetch_corpus.py --manifest corpus-manifest.toml verify
 ```
 
-`weft eval run --help` names every flag; `weft pipeline list` names every pipeline the install
-offers.
+```text
+corpus mrmr-v1: 25 documents — 19 verified, 0 fetched, 0 corrupt, 6 missing (6 of them operator-tier and therefore permitted)
+```
 
-## What you cannot do from this archive yet, and what it costs
+The six `missing` documents are all `operator`-tier: named and checksummed so a local copy can be
+verified, never fetched. The published baselines score the `fetch` tier alone, so this is the
+expected outcome. A document whose pin now returns different bytes is reported `corrupt`, never
+accepted.
 
-**Two of the artefacts the published baselines were produced by are not here**, and saying so is
-cheaper than letting you find out:
+## 2. Install, and give the store an empty collection
 
-- the **runner** that produced them — it composes the pipeline the records call `baseline`,
-  repeats the pass and writes the JSON, and it lives in this project's `eval/` directory;
-- a **comparison command that takes a baseline file**. `weft eval compare` takes two *run ids*
-  from your own `runs/` directory and diffs them; it has no argument for a published baseline.
+```bash
+uv venv && uv pip install 'weft-rag[qdrant]'
+docker run -d -p 6333:6333 qdrant/qdrant:v1.12.4
+```
 
-So the comparison this archive supports today is by eye: run the pipeline whose stages the record
-names, then check your metric against that metric's `low`/`high`. That is a real reproduction of
-the *number* and not yet a reproduction of the *procedure*, and the difference is tracked as a
-carried repair rather than papered over here.
+and a `weft.toml` in the directory you run from:
+
+```toml
+[packs.qdrant]
+url = "http://localhost:6333"
+collection = "weft_reproduction"
+vector_size = 64
+```
+
+**The collection has to hold nothing else.** A passage from any document this run did not stage
+changes every rank while still looking like ordinary retrieval, so `weft eval baseline` refuses the
+run and names the passage. `vector_size = 64` is the `hash` embedder's width. The published
+pipeline embeds with `hash`, so reproducing it needs no vendor account.
+
+## 3. Take the baseline
+
+```bash
+weft eval baseline corpus-manifest.toml questions --out mine.json
+```
+
+```text
+{"path":"mine.json","report":{"recorded_at":"2026-09-14T11:34:28+00:00","corpus_name":"mrmr-v1","tiers":["fetch"],"extractor":"text", …
+```
+
+It prints the report it wrote. With no other flags this is the published measurement: the `fetch`
+tier, three repetitions, `--top-k 10`, depths 5 and 10, and the shipped `baseline` pipeline
+(`text` → `fixed-size` → `hash` → `qdrant`). It indexes once, then retrieves and scores every
+question three times, all in one process.
+
+## 4. Judge it against the published baseline
+
+```bash
+weft eval compare baselines/8854c33f71ea-2026-08-25.json mine.json
+```
+
+```text
+'mine.json' reproduces 'baselines/8854c33f71ea-2026-08-25.json': 12 of 12 metric(s) inside the intervals 'baselines/8854c33f71ea-2026-08-25.json' recorded
+installation differs at stage 'extract': distribution weft-extract -> weft-rag
+installation differs at stage 'chunk': distribution weft-chunk -> weft-rag
+installation differs at stage 'chunk': applies_to [] -> [{"constraints": [], "fact": null, "media_type": ["text"]}]
+installation differs at stage 'embed': distribution weft-embed -> weft-rag
+installation differs at stage 'store': distribution weft-qdrant -> weft-rag
+installation differs at stage 'store': contract_version 2.0.0 -> 2.6.0
+  document-mrr@10: 0.26875 inside [0.26875, 0.26875]
+  document-mrr@5: 0.25 inside [0.25, 0.25]
+  document-ndcg@10: 0.3275977762880931 inside [0.3275977762880931, 0.3275977762880931]
+  document-ndcg@5: 0.2819344072873667 inside [0.2819344072873667, 0.2819344072873667]
+  document-recall@10: 0.5416666666666666 inside [0.5416666666666666, 0.5416666666666666]
+  document-recall@5: 0.4166666666666667 inside [0.4166666666666667, 0.4166666666666667]
+  quote-mrr@10: 0.0 inside [0.0, 0.0]
+  quote-mrr@5: 0.0 inside [0.0, 0.0]
+  quote-ndcg@10: 0.0 inside [0.0, 0.0]
+  quote-ndcg@5: 0.0 inside [0.0, 0.0]
+  quote-recall@10: 0.0 inside [0.0, 0.0]
+  quote-recall@5: 0.0 inside [0.0, 0.0]
+```
+
+**Every metric inside the interval the published run's own repetitions spanned** is a reproduction.
+No tolerance is chosen anywhere: the interval is what three passes produced, and this pipeline is
+deterministic, so every interval has zero width. The *installation differs* lines are not failures.
+They report that the plugins now ship in one distribution, `weft-rag`, with a newer declared
+contract version. Anything that changed retrieval would have moved a metric.
+
+A metric outside its interval, or one your run did not measure, exits `1` and names each:
+
+```text
+$ weft eval compare baselines/8854c33f71ea-2026-08-25.json shifted.json
+'shifted.json' does not reproduce 'baselines/8854c33f71ea-2026-08-25.json': document-recall@10: 0.5 is outside [0.5416666666666666, 0.5416666666666666]
+```
+
+A run over a different corpus, stage configuration, model version, retrieval depth or question set
+is refused with exit `1`, naming every difference, rather than compared.

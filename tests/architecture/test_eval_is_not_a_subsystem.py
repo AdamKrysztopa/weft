@@ -69,7 +69,7 @@ def test_the_walk_found_the_harness_and_the_packages() -> None:
     # Task 1.18's floor: every check below is "no violations", which is true of an empty walk.
     # A renamed directory would otherwise turn this whole file green by finding nothing.
     # Assert
-    assert {"check_baseline", "check_questions"} <= EVAL_MODULES, (
+    assert {"check_questions"} <= EVAL_MODULES, (
         f"the harness modules this file exists to fence are not under {EVAL_ROOT}: found "
         f"{sorted(EVAL_MODULES)}"
     )

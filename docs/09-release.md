@@ -718,8 +718,9 @@ runs scored**, where the absent side is never read as a zero.
 
 Where it is: `weft eval compare <a> <b> --baseline <pipeline>`, where the named pipeline's
 persisted runs under `runs/` *are* its repetitions. `weft_eval.falsify` holds the rule.
-`eval/check_baseline.py` is untouched and still answers the different question it was built for —
-*did this run reproduce the baseline* — against this repository's own published V3 artefact.
+The different question — *did this run reproduce the baseline* — is `weft eval compare` given two
+baseline report files (`eval/check_baseline.py` until `R22.4d`), judged by
+`weft_eval.baseline.judge_reproduction`.
 
 ---
 
@@ -861,9 +862,12 @@ with only the noun changed; nothing needed rewording when the session closed.
       index into a clean environment and found `eval/baselines/`, `eval/questions/` and
       `corpus/manifest.toml` reachable only from a git checkout, so the sentence was true of a
       directory and false of anything a stranger holds (`lessons.md` L6.34). The release job
-      attaches all three as one archive (task 6.35); the shipped CLI already does the work, with
-      `weft eval run` and `weft eval compare` both on the installed binary, so what was missing
-      was never capability. *Fails if reproducing the published number requires cloning.*
+      attaches all three as one archive (task 6.35), and the fetcher and `REPRODUCING.md` with them
+      since `R22.3`. Capability was missing too, although this sentence said until `R22.4` that it
+      was not: the procedure that produced the baseline was a checkout script, and
+      `weft eval compare` read run ids only. `weft eval baseline` and
+      `weft eval compare <published report> <later report>` are that procedure on the installed
+      binary. *Fails if reproducing the published number requires cloning.*
 - [ ] Every shipped technique's claimed improvement is a delta against V3 on the same corpus, pipeline
       and model versions. *Fails if any claim in the documentation has no run behind it.*
 - [ ] The offline evaluation subset runs in `ci-checks`. *Fails if quality is checked only manually.*
