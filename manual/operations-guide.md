@@ -1060,6 +1060,8 @@ apples-to-apples check passes:
 $ weft eval compare 3f9c...-1 3f9c...-2
 '3f9c...-1' vs '3f9c...-2' — same corpus and model versions; pipeline is the only fact that may
 differ:
+not compared: pack settings ([packs.*]) — a run record does not carry them, so two runs differing
+only there read as identical
 'index' vs 'specific':
   ~ chunk: fixed-size -> fixed-size
 metrics:

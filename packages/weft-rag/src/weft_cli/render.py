@@ -1051,6 +1051,8 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     lines = [
         f"'{result.run_a}' vs '{result.run_b}' — same corpus and model versions; pipeline is "
         f"the only fact that may differ:",
+        "not compared: pack settings ([packs.*]) — a run record does not carry them, so two runs "
+        "differing only there read as identical",
         *(
             f"packaging differs, reported not refused: {difference}"
             for difference in result.packaging_differences

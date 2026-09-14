@@ -958,6 +958,42 @@ def test_render_eval_compare_confirms_the_environment_matched_before_the_diff() 
     assert "metrics: (none scored on either run" in rendered.stdout
 
 
+def test_render_eval_compare_names_what_it_did_not_compare() -> None:
+    """`R19.6`: two arms of `21.3`'s sweep differed only in `[packs.store] text_rank_normalization`
+    and compare printed that the pipeline was the only fact that may differ, which was true of
+    everything a run record carries and silent about the setting that actually varied. A record
+    carries no pack settings, so the comparison says so rather than implying it checked them.
+    """
+    from weft_cli.eval_commands import EvalCompareCommandResult
+    from weft_cli.pipeline_diff import PipelineDiff
+
+    diff = PipelineDiff(
+        a_name="index-pdf-text",
+        b_name="index-pdf-text",
+        identical=True,
+        added_stages=(),
+        removed_stages=(),
+        changed_stages=(),
+        var_changes=(),
+        unapplied_operators_changed=False,
+        unplaced_contributions_changed=False,
+    )
+    result = EvalCompareCommandResult(
+        run_a="arm-a",
+        run_b="arm-b",
+        corpus_matches=True,
+        model_versions_match=True,
+        active_distributions_match=True,
+        pipeline_diff=diff,
+        metrics_comparison={},
+    )
+
+    rendered = render.render_outcome(Produced(value=result))
+
+    assert rendered.stdout is not None
+    assert "not compared: pack settings ([packs.*])" in rendered.stdout
+
+
 def test_render_eval_compare_reports_a_per_metric_delta() -> None:
     # Task 4.9 — the comparison the tool generates itself: not only that the pipelines
     # differ, but what they scored.
