@@ -142,7 +142,8 @@ def skip_problems(skips: Iterable[tuple[str, str]], *, environ: Mapping[str, str
         if cause is None:
             problems.append(
                 f"{nodeid} skipped for a reason no SkipCause recognises: {reason.strip()!r}. "
-                f"Make the test run, or add the cause to tests/conftest.py's SkipCause."
+                f"Make the test run, or add the cause to tests/conftest.py's SkipCause. "
+                f"Known causes: {', '.join(known.name for known in SkipCause)}."
             )
             continue
         claim = _CLAIMED_BY.get(cause)

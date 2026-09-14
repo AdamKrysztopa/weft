@@ -18,7 +18,9 @@ So, over every tracked module under the two shipped source roots:
 - **(a)** `weft_engine.api.new_context` is the only function that calls `Context(...)`; it takes no
   parameter at all, and passes `tenant_id` as the literal `"default"` by keyword.
 - **(b)** no call to `replace` — `dataclasses.replace`, `copy.replace`, a bare import of either, or
-  `__replace__` — passes `tenant_id`, and no `setattr` or `__setattr__` names it.
+  `__replace__` — passes `tenant_id` or expands `**` keywords that could carry it unseen, and no
+  `setattr` or `__setattr__` names it. None of the 20 shipped `replace` calls expands `**`
+  (measured 2026-09-14), so the second clause refuses nothing that exists.
 
 **Structural, not textual, and this was decided first because the population forces it.**
 `weft_cli/pack_new.py` carries `Context(tenant_id="t", ...)` inside a template string: the test
@@ -147,6 +149,11 @@ def _violations(path: str, source: str) -> list[str]:
         callee = _callee_name(node)
         if callee in _REPLACERS and any(k.arg == "tenant_id" for k in node.keywords):
             found.append(f"{path}:{node.lineno} replaces tenant_id on a Context already built")
+        if callee in _REPLACERS and any(k.arg is None for k in node.keywords):
+            found.append(
+                f"{path}:{node.lineno} replaces fields by ** expansion, "
+                "which could carry tenant_id unseen"
+            )
         if callee in _SETTERS and any(
             isinstance(arg, ast.Constant) and arg.value == "tenant_id" for arg in node.args
         ):
@@ -232,6 +239,11 @@ def test_the_check_can_actually_fail() -> None:
         'trace_id="t", locale="en")\n'
     )
     forced = 'def _invoke(ctx, tenant):\n    object.__setattr__(ctx, "tenant_id", tenant)\n'
+    starred = (
+        "import dataclasses\n"
+        "def _invoke(ctx, overrides):\n"
+        "    return dataclasses.replace(ctx, **overrides)\n"
+    )
 
     # Act
     results = {
@@ -239,6 +251,7 @@ def test_the_check_can_actually_fail() -> None:
         "replaced": _violations(api, replaced),
         "adapter": _violations(adapter_path, adapter),
         "forced": _violations(api, forced),
+        "starred": _violations(api, starred),
     }
 
     # Assert
@@ -247,4 +260,7 @@ def test_the_check_can_actually_fail() -> None:
     assert results["replaced"] == [f"{api}:3 replaces tenant_id on a Context already built"]
     assert results["adapter"] == [f"{adapter_path}:3 mints a Context in handle, not in new_context"]
     assert results["forced"] == [f"{api}:2 sets tenant_id on a Context already built"]
+    assert results["starred"] == [
+        f"{api}:3 replaces fields by ** expansion, which could carry tenant_id unseen"
+    ]
     assert "Phase 22b" in _WHY

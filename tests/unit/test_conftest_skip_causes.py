@@ -91,6 +91,7 @@ def test_an_unrecognised_skip_fails_the_run_naming_the_test_and_its_reason() -> 
     assert "tests/unit/test_x.py::test_y" in problems[0]
     assert "flaky on Tuesdays" in problems[0]
     assert "SkipCause" in problems[0]
+    assert all(cause.name in problems[0] for cause in SkipCause)
 
 
 def test_a_service_the_environment_claims_fails_the_run_when_it_skips() -> None:
