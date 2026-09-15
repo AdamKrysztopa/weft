@@ -239,6 +239,8 @@ from weft_eval.run_record import (
     MetricRunResult,
     NotAggregated,
     PerQuestionScores,
+    PerQuestionSeconds,
+    RoleTokens,
     RunDurations,
     RunRecord,
     ScoredQueryRung,
@@ -951,6 +953,8 @@ class EvalRunCommand:
         query_rung: ScoredQueryRung | None = None
         question_scores: Mapping[str, PerQuestionScores] | None = None
         question_set: str | None = None
+        question_seconds: PerQuestionSeconds | None = None
+        token_usage: Mapping[str, RoleTokens] | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
             scored = await score_pipeline(
@@ -972,6 +976,8 @@ class EvalRunCommand:
             query_rung = scored.query_rung
             question_scores = scored.question_scores
             question_set = scored.question_set or None
+            question_seconds = scored.question_seconds
+            token_usage = scored.token_usage
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -988,6 +994,8 @@ class EvalRunCommand:
             durations=RunDurations(ingest_seconds=0.0, query_seconds=query_seconds),
             question_scores=question_scores,
             question_set_digest=question_set,
+            question_seconds=question_seconds,
+            token_usage=token_usage,
         )
         run_id = str(uuid.uuid4())
         write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
@@ -1047,6 +1055,8 @@ class EvalRunCommand:
         query_rung: ScoredQueryRung | None = None
         question_scores: Mapping[str, PerQuestionScores] | None = None
         question_set: str | None = None
+        question_seconds: PerQuestionSeconds | None = None
+        token_usage: Mapping[str, RoleTokens] | None = None
         if run_args.questions is not None:
             questions = load_questions(Path(run_args.questions))
             scored = await score_pipeline(
@@ -1068,6 +1078,8 @@ class EvalRunCommand:
             query_rung = scored.query_rung
             question_scores = scored.question_scores
             question_set = scored.question_set or None
+            question_seconds = scored.question_seconds
+            token_usage = scored.token_usage
         query_seconds = time.monotonic() - query_started
 
         corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
@@ -1087,6 +1099,8 @@ class EvalRunCommand:
             durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
             question_scores=question_scores,
             question_set_digest=question_set,
+            question_seconds=question_seconds,
+            token_usage=token_usage,
         )
         run_id = str(uuid.uuid4())
         write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")

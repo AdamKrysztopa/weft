@@ -78,7 +78,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from weft_eval.aggregate import MetricAggregate
 from weft_kernel.discovery import PackReport, PackStatus
@@ -268,6 +268,42 @@ class PerQuestionScores(BaseModel):
     scores: Mapping[str, QuestionOutcome]
 
 
+class PerQuestionSeconds(BaseModel):
+    """How long each question's own retrieval took — task **33.7**, keyed identically to
+    `PerQuestionScores` above so a reader pairing a score with its latency never has to guess
+    at a second vocabulary. `RunDurations.query_seconds` is the run's total; this is the tail
+    hiding inside it.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    keyed_by: QuestionKey
+    seconds: Mapping[str, float]
+
+    @field_validator("seconds")
+    @classmethod
+    def _no_negative_seconds(cls, value: Mapping[str, float]) -> Mapping[str, float]:
+        for question_key, elapsed in value.items():
+            if elapsed < 0:
+                raise ValueError(f"seconds['{question_key}'] is negative: {elapsed}")
+        return value
+
+
+class RoleTokens(BaseModel):
+    """What one `[llm.roles]` role spent across a run — task **33.7**, folded from
+    `weft_llm.usage.UsageEntry`. `calls_not_reporting` is how a reader tells a role that made
+    calls a provider does not meter apart from a role that made none at all — the module
+    docstring's own distinction, one level up.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    calls: int = Field(ge=0)
+    calls_not_reporting: int = Field(ge=0)
+
+
 class RunDurations(BaseModel):
     """Ledger task 10.22 — how long the two halves of a run took, kept apart on purpose.
 
@@ -333,6 +369,17 @@ class RunRecord(BaseModel):
     #: task carries the means and not the observations under them, so a paired comparison
     #: against it is not computable and says so rather than inventing one.
     question_scores: Mapping[str, PerQuestionScores] | None = None
+    #: Task 33.7 — each question's own retrieval latency, keyed identically to
+    #: `question_scores`. `None` means *not recorded*: `durations.query_seconds` one field
+    #: over is the run's total, but a record written before this task never split it out per
+    #: question, so a comparison against it is not computable and says so rather than
+    #: inventing one.
+    question_seconds: PerQuestionSeconds | None = None
+    #: Task 33.7 — what each model role spent across the run, keyed by role. `None` means
+    #: *not recorded*, the identical distinction `distribution_versions` draws from `{}`: a
+    #: record that scored no question through a model has `{}`, a record written before this
+    #: task measured nothing at all and has `None`.
+    token_usage: Mapping[str, RoleTokens] | None = None
 
 
 def build_run_record(
@@ -349,6 +396,8 @@ def build_run_record(
     durations: RunDurations | None = None,
     question_scores: Mapping[str, PerQuestionScores] | None = None,
     question_set_digest: str | None = None,
+    question_seconds: PerQuestionSeconds | None = None,
+    token_usage: Mapping[str, RoleTokens] | None = None,
 ) -> RunRecord:
     """Assemble one `RunRecord`. `active_distributions` is always derived from `reports`
     through `active_distribution_set` — never accepted directly — so there is no second,
@@ -381,6 +430,10 @@ def build_run_record(
     `question_scores` — task 16.4 — is passed straight through too, on the identical footing:
     only the caller that paired samples to outcomes (`weft_cli.eval_scoring.score_pipeline`,
     through `weft_eval.harness.score_retrieval_gate_subset`) knows what each question scored.
+
+    `question_seconds`/`token_usage` — task 33.7 — are passed straight through as well, on the
+    identical footing one field over: only the caller that ran the question loop
+    (`weft_cli.eval_scoring.score_pipeline`) measured either.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -395,6 +448,8 @@ def build_run_record(
         metrics={name: _as_run_result(outcome) for name, outcome in metrics.items()},
         question_scores=question_scores,
         question_set_digest=question_set_digest,
+        question_seconds=question_seconds,
+        token_usage=token_usage,
     )
 
 

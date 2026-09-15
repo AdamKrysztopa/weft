@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePath
@@ -61,8 +62,10 @@ from weft_eval.harness import score_retrieval_gate_subset
 from weft_eval.run_record import (
     NoQueryRung,
     PerQuestionScores,
+    PerQuestionSeconds,
     QueryRung,
     QuestionKey,
+    RoleTokens,
     ScoredQueryRung,
 )
 from weft_kernel.context import Context
@@ -73,6 +76,7 @@ from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage, pipeline_identity
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
+from weft_llm.usage import UsageEntry, recording_usage
 from weft_retrieve.payload import Passage
 from weft_store import NodeStore, Scored
 
@@ -435,6 +439,34 @@ def _deduplicated_by_document(
 #: shared empty mapping rather than a bare `{}` at every default site.
 _NO_QUESTION_SCORES: Final[Mapping[str, PerQuestionScores]] = MappingProxyType({})
 
+#: `ScoredRun.token_usage`'s own default — `role_tokens`'s own reasoning one level up: a run
+#: that asked no model has `{}`, never `None` (`None` is `RunRecord.token_usage`'s own,
+#: different claim: *not recorded at all*).
+_NO_TOKEN_USAGE: Final[Mapping[str, RoleTokens]] = MappingProxyType({})
+
+
+def role_tokens(entries: Sequence[UsageEntry]) -> Mapping[str, RoleTokens]:
+    """`entries`, folded to one `RoleTokens` per `UsageEntry.role` — task **33.7**.
+
+    `calls` counts every entry for the role, whether or not its provider reported usage;
+    `calls_not_reporting` counts the ones whose `usage` is `None`. Token sums are taken only
+    over entries that did report — the module docstring's own rule: a role a provider cannot
+    meter is a call not reporting, never a call that cost zero tokens.
+    """
+    totals: dict[str, dict[str, int]] = {}
+    for entry in entries:
+        bucket = totals.setdefault(
+            entry.role,
+            {"prompt_tokens": 0, "completion_tokens": 0, "calls": 0, "calls_not_reporting": 0},
+        )
+        bucket["calls"] += 1
+        if entry.usage is None:
+            bucket["calls_not_reporting"] += 1
+        else:
+            bucket["prompt_tokens"] += entry.usage.prompt_tokens
+            bucket["completion_tokens"] += entry.usage.completion_tokens
+    return {role: RoleTokens(**counts) for role, counts in totals.items()}
+
 
 @dataclass(frozen=True)
 class ScoredRun:
@@ -460,6 +492,14 @@ class ScoredRun:
     #: nothing has no question set, and `RunRecord.question_set_digest` is where the *record's*
     #: three-state absence lives; two nullable layers would say the same thing twice.
     question_set: str = ""
+    #: Task **33.7** — each question's own retrieval latency, keyed identically to
+    #: `question_scores`. `score_pipeline` always measures, so this is `None` only for a
+    #: construction site written before this task (`ScoredRun.question_seconds`'s own,
+    #: different absence claim lives on `RunRecord`, one layer up).
+    question_seconds: PerQuestionSeconds | None = None
+    #: Task **33.7** — what each model role spent across the run. `{}` for a run that asked
+    #: no model, `role_tokens`'s own default one level up.
+    token_usage: Mapping[str, RoleTokens] = _NO_TOKEN_USAGE
 
 
 async def score_pipeline(
@@ -567,46 +607,51 @@ async def score_pipeline(
     resolved_labels = resolve_labels(all_labels, corpus_document_ids=corpus_document_ids)
 
     samples: list[RetrievalSample] = []
-    for index, question in enumerate(questions):
-        question_key = question.id if question.id is not None else str(index)
-        hits: Sequence[Scored[Node]]
-        if query_pipeline is not None:
-            answer = await run_named_ask(
-                question.query,
-                pipeline_name=query_pipeline,
-                registry=registry,
-                reports=reports,
-                ctx=ctx,
-                llm=llm if llm is not None else LLMSection(),
-                services=services if services is not None else ServiceSelection(),
-                roles=roles if roles is not None else RoleTable(),
-                sink=sink if sink is not None else NullSink(),
-                contributions=contributions,
+    seconds: dict[str, float] = {}
+    with recording_usage() as tally:
+        for index, question in enumerate(questions):
+            question_key = question.id if question.id is not None else str(index)
+            hits: Sequence[Scored[Node]]
+            started = time.monotonic()
+            if query_pipeline is not None:
+                answer = await run_named_ask(
+                    question.query,
+                    pipeline_name=query_pipeline,
+                    registry=registry,
+                    reports=reports,
+                    ctx=ctx,
+                    llm=llm if llm is not None else LLMSection(),
+                    services=services if services is not None else ServiceSelection(),
+                    roles=roles if roles is not None else RoleTable(),
+                    sink=sink if sink is not None else NullSink(),
+                    contributions=contributions,
+                )
+                seconds[question_key] = time.monotonic() - started
+                hits = [passage.scored for passage in passages_for_scoring(answer)]
+            else:
+                hits = await run_ask(
+                    question.query,
+                    registry=registry,
+                    ctx=ctx,
+                    top_k=top_k * _OVERSAMPLE_FACTOR,
+                    embedder=embed_stage.use,
+                    store=store_stage.use,
+                    embedder_config=_factory_config(embed_stage.config),
+                    store_config=_factory_config(store_stage.config),
+                )
+                seconds[question_key] = time.monotonic() - started
+            samples.append(
+                RetrievalSample(
+                    query=question.query,
+                    question_key=question_key,
+                    retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
+                    relevant_ids=frozenset(
+                        resolved_labels[label] for label in question.relevant_documents
+                    ),
+                    modality=question.modality,
+                    kind=question.kind,
+                )
             )
-            hits = [passage.scored for passage in passages_for_scoring(answer)]
-        else:
-            hits = await run_ask(
-                question.query,
-                registry=registry,
-                ctx=ctx,
-                top_k=top_k * _OVERSAMPLE_FACTOR,
-                embedder=embed_stage.use,
-                store=store_stage.use,
-                embedder_config=_factory_config(embed_stage.config),
-                store_config=_factory_config(store_stage.config),
-            )
-        samples.append(
-            RetrievalSample(
-                query=question.query,
-                question_key=question_key,
-                retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
-                relevant_ids=frozenset(
-                    resolved_labels[label] for label in question.relevant_documents
-                ),
-                modality=question.modality,
-                kind=question.kind,
-            )
-        )
 
     scores = await score_retrieval_gate_subset(registry, samples, top_k=top_k, ctx=ctx)
     question_scores = {
@@ -618,6 +663,8 @@ async def score_pipeline(
         query_rung=query_rung,
         question_scores=question_scores,
         question_set=question_set_digest(questions),
+        question_seconds=PerQuestionSeconds(keyed_by=keyed_by, seconds=seconds),
+        token_usage=role_tokens(tally.entries),
     )
 
 
@@ -632,5 +679,6 @@ __all__ = [
     "load_questions",
     "passages_for_scoring",
     "resolve_labels",
+    "role_tokens",
     "score_pipeline",
 ]
