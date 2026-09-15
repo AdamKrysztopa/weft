@@ -116,9 +116,11 @@ from weft_engine.services import DEFAULT_EMBEDDER_MEANING
 from weft_eval.baseline import Reproduction
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDifference
+from weft_eval.latency import LatencySummary, latency_summary
 from weft_eval.run_record import (
     MetricRunResult,
     NoQueryRung,
+    NotAggregated,
     NotScored,
     PerQuestionScores,
     QueryRung,
@@ -879,11 +881,38 @@ def _render_config_get(result: ConfigGetCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _percentile_text(label: str, percentile: Produced[float] | NotAggregated, samples: int) -> str:
+    """One nearest-rank percentile, task 33.8 — `weft_eval.latency.LatencySummary`'s own field,
+    for a human. `samples` is the summary's own count, not anything parsed from `NotAggregated.
+    reason`, so the printed text does not depend on that string's exact wording.
+    """
+    if isinstance(percentile, Produced):
+        return f"{label}: {percentile.value:.2f}s"
+    return f"{label}: not aggregated ({samples} samples)"
+
+
+def _latency_summary_text(summary: LatencySummary) -> str:
+    """`p50: …, p95: …, p99: …` — the three percentiles task 33.8 prints beside a run's other
+    metrics, never gated and never compared for comparability (the module docstring's own
+    "reported, never a reason to refuse").
+    """
+    return ", ".join(
+        _percentile_text(label, percentile, summary.samples)
+        for label, percentile in (
+            ("p50", summary.p50),
+            ("p95", summary.p95),
+            ("p99", summary.p99),
+        )
+    )
+
+
 def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
     """`weft eval run` — the run id first, since that is what `weft eval compare`/`weft trace`
     need next, then `weft_cli.render._render_index`'s own summary line, then the corpus this
     record now carries, then task 4.7's own wall-clock measurement — V5's half of a priced run
-    an operator can see without opening the persisted file.
+    an operator can see without opening the persisted file. Task 33.8 appends the query latency
+    percentiles when the record carries `question_seconds`, and prints nothing about latency for
+    a record that does not — never a fabricated `p50:` for a run that measured none.
     """
     summary = result.summary
     stored = "unknown" if result.stored_count is None else str(result.stored_count)
@@ -895,6 +924,9 @@ def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
         f"{stored}. corpus: '{corpus.name}' ({corpus.digest[:12]}…). "
         f"wall clock: {result.wall_clock_seconds:.2f}s."
     )
+    summary_latency = latency_summary(result.record.question_seconds)
+    if summary_latency is not None:
+        stdout += f" query latency: {_latency_summary_text(summary_latency)}."
     stderr = (
         "\n".join(f"  failed: {reason}" for reason in summary.failed_reasons)
         if summary.failed_reasons
@@ -1056,6 +1088,17 @@ def _baseline_selection_line(selection: BaselineSelection) -> str:
     return f"baseline selection: {selection.value}"
 
 
+def _run_latency_line(run_id: str, summary: LatencySummary | None) -> str:
+    """One run's own query latency line — task 33.8. `None` for a record written before task
+    33.7 says so rather than refusing the comparison: latency depends on the machine it ran on
+    and is not identity, so it is reported beside a comparison the way packaging is (repair
+    `R22.11`), never a reason to refuse one.
+    """
+    if summary is None:
+        return f"latency '{run_id}': not recorded (written before task 33.7)"
+    return f"latency '{run_id}': {_latency_summary_text(summary)}"
+
+
 def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     """`weft eval compare` — reached only once `weft_cli.eval_commands.EvalCompareCommand`
     has already confirmed corpus and model versions agree (`IncomparableRunsError` otherwise;
@@ -1081,6 +1124,9 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     **`result.reproduction`, repair `R22.4d`** — `--a`/`--b` both named a baseline report file
     rather than a persisted run, so nothing above applies: `_render_reproduction` is the whole
     answer, and none of the header, pipeline-diff or metrics-comparison lines below are printed.
+
+    **Task 33.8's own two latency lines, one per run, always printed** — see `_run_latency_line`.
+    Latency is reported beside the comparison, never gated and never part of `metrics_comparison`.
     """
     if result.reproduction is not None:
         return _render_reproduction(result, result.reproduction)
@@ -1097,6 +1143,8 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         *_pipeline_diff_lines(result.pipeline_diff),
         *_query_rung_difference_lines(result.query_rungs),
         *_metrics_comparison_lines(result.metrics_comparison),
+        _run_latency_line(result.run_a, result.latency_a),
+        _run_latency_line(result.run_b, result.latency_b),
     ]
     if result.paired_differences:
         lines.extend(_paired_difference_lines(result.paired_differences))

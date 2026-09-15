@@ -233,6 +233,7 @@ from weft_eval.falsify import (
     judge_differences,
     paired_differences,
 )
+from weft_eval.latency import LatencySummary, latency_summary
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
 from weft_eval.run_record import (
     CorpusDigestBasis,
@@ -705,6 +706,9 @@ class EvalCompareCommandResult(CommandResult):
     paired_differences: Mapping[str, PairedDifference] = {}
     reproduction: Reproduction | None = None
     packaging_differences: tuple[str, ...] = ()
+    #: Task 33.8 — each run's own query latency, `None` for a record written before task 33.7.
+    latency_a: LatencySummary | None = None
+    latency_b: LatencySummary | None = None
 
 
 class TraceCommandResult(CommandResult):
@@ -1348,6 +1352,8 @@ class EvalCompareCommand:
                 baseline_selection=baseline_selection,
                 paired_differences=paired_differences(record_a, record_b),
                 packaging_differences=_packaging_differences(record_a, record_b),
+                latency_a=latency_summary(record_a.question_seconds),
+                latency_b=latency_summary(record_b.question_seconds),
             )
         )
 
