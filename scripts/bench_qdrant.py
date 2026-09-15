@@ -250,23 +250,26 @@ def _ingest(dsn: str, client: QdrantClient, collection: str) -> float:
     """
     started = time.monotonic()
     batch: list[models.PointStruct] = []
-    with psycopg.connect(dsn) as conn, conn.cursor(name="bench_qdrant_ingest") as cur:
-        cur.itersize = 2000
-        cur.execute("SELECT id, content, embedding FROM weft_nodes ORDER BY id")
-        for node_id, content, raw_embedding in cur:
-            embedding = raw_embedding.to_numpy()
-            batch.append(
-                models.PointStruct(
-                    id=str(uuid.uuid5(uuid.NAMESPACE_URL, node_id)),
-                    vector=embedding.tolist(),
-                    payload=point_payload(node_id, content=content),
+    with psycopg.connect(dsn) as conn:
+        # Without this the stream yields pgvector's text form, and `to_numpy` is not on `str`.
+        register_vector(conn)
+        with conn.cursor(name="bench_qdrant_ingest") as cur:
+            cur.itersize = 2000
+            cur.execute("SELECT id, content, embedding FROM weft_nodes ORDER BY id")
+            for node_id, content, raw_embedding in cur:
+                embedding = raw_embedding.to_numpy()
+                batch.append(
+                    models.PointStruct(
+                        id=str(uuid.uuid5(uuid.NAMESPACE_URL, node_id)),
+                        vector=embedding.tolist(),
+                        payload=point_payload(node_id, content=content),
+                    )
                 )
-            )
-            if len(batch) >= 500:
+                if len(batch) >= 500:
+                    client.upsert(collection, points=batch, wait=True)
+                    batch = []
+            if batch:
                 client.upsert(collection, points=batch, wait=True)
-                batch = []
-        if batch:
-            client.upsert(collection, points=batch, wait=True)
     return time.monotonic() - started
 
 
