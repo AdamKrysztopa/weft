@@ -348,7 +348,11 @@ thing it described moved**. Nine entries, five genres, and none of them failed a
   way to validate a resolved document's stage arrangement, when `Property` + `intact`/`destroys` +
   `IntactViolationError` have done exactly that since task 1.2 (`L10.33`). **Nothing fails when this
   is wrong** — the reader simply builds a second seam. An absence is a claim about the whole tree
-  and needs a counted search exactly as a presence does (`L10.34` for how not to count one).
+  and needs a counted search exactly as a presence does (`L10.34` for how not to count one). **An
+  empty search is evidence only beside a control that hits** (`L22.21`). Run the same command, with
+  the same paths and filters, for a term known to be present. A quoted path list or a mismatched
+  `--include` matches nothing and looks exactly like absence; Phase 33 caught it twice, once in a
+  reviewer's classification and once in the dispatcher's own repair search.
 
 **And the same shape reaches a gate's own outcome.** G15 settled that a `Revisable` reaches the
 corpus through `ctx.require(NodeStore)`, having written down in its own *Read* face the objection

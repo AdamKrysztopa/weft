@@ -199,7 +199,10 @@ container, so anything touching the database is serial whatever the isolation.
 `L22.19`): the worktree is built from `HEAD` and the failing tests are uncommitted in the
 dispatcher's checkout, so the brief names a patch path, says to `git apply` it, and asks for the
 failure to be confirmed before any edit. A brief without it sends the agent to make pass a test
-that does not exist in its tree.
+that does not exist in its tree. **Before the patch, Step 0 runs `git merge --ff-only main` and names
+one symbol from the newest commit it depends on to confirm** (`L22.24`). The harness builds a
+worktree from the session's *first* commit, so anything committed since is absent, and the patch
+applies cleanly over a tree that lacks the contract the brief was written against.
 
 In practice parallelism is rare inside one ledger task — the tasks are ordered so each is one
 property — and the merge costs more than the sequence saved. Default to one.

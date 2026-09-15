@@ -71,7 +71,11 @@ as *"three distributions and two source roots"*, which **G19 falsified three day
 folding every pack into one wheel — a sentence inside a check, about the tree, that the check
 cannot make fail (`L16.1`). So: **re-run the measurement when you act on a count, before you act on
 it, however many places agree** — and when a gate changes the tree's shape, the sentences
-*justifying* a check's subjects are as stale as any assertion.
+*justifying* a check's subjects are as stale as any assertion. **A count offered as a decision's
+price is measured before the question is asked** (`L22.23`): Phase 33's recorder was priced at
+*"at most 45 kernel lines"* from its field list and approved on that number, and the honest build
+measured +87 under FF3's own counter. Sketch it and count it with the project's counter and type
+checker, then ask.
 
 **Two places this keeps landing that are not documents, and one sweep shape that lies.** `L22.2`
 and `L22.5`, both paid for in Phase 28. *(a)* **A repair entry is not a document and nothing routes
@@ -218,6 +222,11 @@ assertion it touched rather than trusting that lint would have said something.
 thing in exactly the dimension under test, and every assertion over that dimension is then
 vacuous.** Four shapes, all of them cheap to check once named:
 
+- **A failure arrives two ways, and a double that raises tests one.** A stage fails by raising
+  or by *returning* `Failed`; the runner lets the second through as a normal return, so code after
+  `runner.run` only ever sees that one. Task 17.1's tests modelled failure as a raise, and
+  `_record_sources` went on writing a failed batch `ACTIVE` until the binary lost a document
+  (`L22.22`, repair `R36.0`). A test of what happens on failure covers both.
 - **One row cannot collide with itself.** Six tests of an operator-facing message each held one
   `PackReport`; the shipped binary printed seven rows reading `weft-rag (failed)` because the
   message keyed on `distribution` and **G19** had put fourteen packs in one. Where the thing under
@@ -387,6 +396,11 @@ uncommitted here, so write them to a patch in the scratchpad (`git diff` for edi
 `git diff --no-index /dev/null <file>` for new ones — `git add -N` needs a `git reset` to undo)
 and make applying it the brief's **Step 0**, with the agent confirming the tests fail before it
 edits anything. Bring back its non-test diff only; the tests stay yours and land in the one commit.
+**And `HEAD` means the session's first commit, not the current one** (`L22.24`). Measured at Phase
+33: once commits land in a session, every new worktree still starts at the commit the session
+opened on, and two dispatches came back blocked on a contract committed an hour earlier. So Step 0
+opens with `git merge --ff-only main` and a check that a named symbol of that commit exists, before
+the patch is applied.
 
 **Do it yourself instead when the change is smaller than its brief** — a one-line repair, a rename,
 something where writing *Already decided* would take longer than the edit. The split buys
