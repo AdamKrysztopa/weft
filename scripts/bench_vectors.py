@@ -137,6 +137,28 @@ def select_prefix(counts: Sequence[tuple[str, int]], *, target: int) -> tuple[st
     return tuple(chosen)
 
 
+def distinct_prefix(
+    pairs: Iterable[tuple[str, str]], order: Sequence[str], *, target: int
+) -> tuple[str, ...]:
+    nodes_by_paper: dict[str, set[str]] = {}
+    for node_id, paper in frozenset(pairs):
+        nodes_by_paper.setdefault(paper, set()).add(node_id)
+
+    chosen: list[str] = []
+    union: set[str] = set()
+    for paper in order:
+        if len(union) >= target:
+            break
+        chosen.append(paper)
+        union |= nodes_by_paper.get(paper, set())
+    if len(union) < target:
+        message = (
+            f"the fetched PDFs make {len(union):,} chunks, fewer than the {target:,} the set needs"
+        )
+        raise InsufficientCorpusError(message)
+    return tuple(chosen)
+
+
 # --- naming ------------------------------------------------------------------------------------
 
 
@@ -582,8 +604,7 @@ def subset_vector_set(
         for paper in papers
     )
 
-    counts = chunks_per_paper(pairs)
-    chosen = select_prefix([(d.id, counts.get(d.id, 0)) for d in documents], target=target)
+    chosen = distinct_prefix(pairs, [d.id for d in documents], target=target)
     chosen_set = frozenset(chosen)
 
     kept = [
@@ -1160,9 +1181,8 @@ def cmd_sketch(args: argparse.Namespace) -> int:
                         raise InsufficientCorpusError(message)
                 chosen = tuple(document.id for document in documents)
             else:
-                chosen = select_prefix(
-                    [(document.id, counts.get(document.id, 0)) for document in documents],
-                    target=args.target,
+                chosen = distinct_prefix(
+                    pairs, [document.id for document in documents], target=args.target
                 )
             chosen_set = frozenset(chosen)
 

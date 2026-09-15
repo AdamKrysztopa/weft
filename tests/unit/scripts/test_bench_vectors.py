@@ -616,3 +616,79 @@ def test_a_paper_is_done_only_when_its_source_record_is_active() -> None:
 
     # Act / Assert
     assert bench_vectors.active_papers(rows) == frozenset({"2401.00001v1"})
+
+
+# --- a prefix counts a shared node once toward its target ---------------------------------------
+
+
+def test_the_prefix_counts_a_shared_node_once_toward_the_target() -> None:
+    # Arrange — n1 belongs to A and B, so A+B hold 4 per-paper counts but only 3 distinct nodes.
+    pairs = (("n0", "A"), ("n1", "A"), ("n1", "B"), ("n2", "B"), ("n3", "C"))
+    order = ("A", "B", "C")
+
+    # Act / Assert
+    assert bench_vectors.distinct_prefix(pairs, order, target=3) == ("A", "B")
+    assert bench_vectors.distinct_prefix(pairs, order, target=4) == ("A", "B", "C")
+    with pytest.raises(bench_vectors.InsufficientCorpusError, match=r"4 chunks.*6"):
+        bench_vectors.distinct_prefix(pairs, order, target=6)
+
+
+def test_a_subset_keeps_adding_papers_until_its_distinct_rows_reach_the_target(
+    tmp_path: Path,
+) -> None:
+    # Arrange — A and B share n1: their per-paper counts reach 4, their distinct rows only 3.
+    a, b, c = "2401.00001v1", "2401.00002v1", "2401.00003v1"
+    nodes = bench_vectors.TableDump(
+        name="weft_nodes",
+        columns=("id", "parents", "sources", "content", "media_type", "ext"),
+        rows=(
+            _node_row("n0", a),
+            _shared_row("n1", (a, b)),
+            _node_row("n2", b),
+            _node_row("n3", c),
+        ),
+    )
+    sources = bench_vectors.TableDump(
+        name="weft_sources",
+        columns=(
+            "id",
+            "uri",
+            "content_hash",
+            "indexed_at",
+            "pipeline",
+            "status",
+            "pipeline_identity",
+        ),
+        rows=(_source_row(a), _source_row(b), _source_row(c)),
+    )
+    vectors = np.arange(12, dtype=np.float32).reshape(4, 3)
+    parent = bench_vectors.write_vector_set(
+        tmp_path / "full",
+        input_digest="f" * 64,
+        model=bench_vectors.EmbeddingModel.LARGE,
+        width=3,
+        day=date(2026, 9, 16),
+        billed_tokens=999,
+        pdfs=3,
+        tables=(nodes, sources),
+        vectors=vectors,
+    )
+    documents = tuple(
+        bench_vectors.BenchDocument(
+            id=paper, source=f"https://arxiv.org/pdf/{paper}", sha256=paper[-3] * 64
+        )
+        for paper in (a, b, c)
+    )
+
+    # Act
+    subset = bench_vectors.subset_vector_set(
+        tmp_path / "full" / parent.meta.name,
+        tmp_path / "subset",
+        documents=documents,
+        target=4,
+        day=date(2026, 9, 16),
+    )
+
+    # Assert
+    assert subset.meta.rows == 4
+    assert subset.meta.pdfs == 3
