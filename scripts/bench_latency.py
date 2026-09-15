@@ -573,7 +573,9 @@ def main(argv: list[str] | None = None) -> int:
         with tempfile.TemporaryDirectory() as raw_workdir:
             workdir = Path(raw_workdir)
             _run_index(binary, arguments.corpus, database_dsn, arguments.chunks, workdir)
-            with psycopg.connect(database_dsn) as conn:
+            # Autocommit: `weft ask` provisions the store's schema with `ALTER TABLE` on every
+            # connection, and it waits forever behind a read this session leaves in a transaction.
+            with psycopg.connect(database_dsn, autocommit=True) as conn:
                 register_vector(conn)
                 assert_rows(label="indexed", expected=arguments.chunks, found=_row_count(conn))
                 pgvector_version, server_version = _versions(conn)
