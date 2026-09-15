@@ -39,9 +39,7 @@ RAG_SOURCE: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "src"
 #: Every plugin method call made around the seam, as `<path under src> <function> <name>.<method>`.
 #: **Emptied by task 33.3**, and pinned empty after it: an entry is a call whose time no record
 #: shows, so adding one is a visible act in a diff.
-UNWRAPPED_PLUGIN_CALLS: Final[frozenset[str]] = frozenset(
-    {"weft_cli/ask.py run_ask instance_store.search_vector"}
-)
+UNWRAPPED_PLUGIN_CALLS: Final[frozenset[str]] = frozenset()
 
 _LIFECYCLE: Final[frozenset[str]] = frozenset({"close", "aclose", "flush"})
 

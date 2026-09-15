@@ -139,6 +139,7 @@ async def run_ask(
     (embedded,) = outcome.value
     if embedded.embedding is None:
         raise EmbeddingFailedError("the embedder produced a node with no embedding attached")
+    question_vector = embedded.embedding
 
     store_entry = registry.entry(NodeStore, store)
     instance_store = store_entry.factory(store_config)
@@ -147,9 +148,20 @@ async def run_ask(
             f"the registered '{store}' NodeStore does not satisfy VectorSearch; "
             f"weft ask has nothing to search."
         )
+
+    async def _search() -> Outcome[tuple[Scored[Node], ...]]:
+        return Produced(value=tuple(await instance_store.search_vector(question_vector, top_k)))
+
+    wrapped_search = wrap(
+        _search,
+        distribution=store_entry.distribution,
+        contract="NodeStore",
+        plugin=store,
+        stage="ask:search",
+    )
     in_flight = None
     try:
-        return tuple(await instance_store.search_vector(embedded.embedding, top_k))
+        search_outcome = await wrapped_search()
     except BaseException as failure:
         in_flight = failure
         raise
@@ -165,6 +177,7 @@ async def run_ask(
             ),
             in_flight=in_flight,
         )
+    return cast(Produced[tuple[Scored[Node], ...]], search_outcome).value
 
 
 def render_results(results: Sequence[Scored[Node]]) -> str:
