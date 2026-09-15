@@ -129,6 +129,14 @@ class MyStage:
     async def run(self, payload: In, ctx: Context) -> Outcome[Out]: ...
 ```
 
+- **Timing is never a plugin's job.** Inside a `weft_kernel.seam.recording()` scope, every `wrap`
+  call leaves one frozen `StageRecord`: label, position, pack, contract, plugin, the parent call,
+  wall seconds, how it finished (raised included), and list or tuple item counts in and out. A
+  plugin imports no clock and writes no span to be counted (Phase 33, task 33.1). Fitness function
+  33 checks both halves: that every position is recorded, and that no plugin method is called
+  around the seam. A store method a retriever calls inside its own `run` is timed only as part of
+  that retriever's record. The numbers are wall-clock seconds on the machine that ran them, never a
+  property of the plugin.
 - **Configuration arrives at construction.** The kernel validates the stage's `with:` block against
   the Pydantic model the plugin declares, *before* instantiation, and fails naming the stage and the
   field. A contract whose registration API carries no typed configuration model is decorative.

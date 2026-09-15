@@ -813,7 +813,7 @@ Task **4.4**, `01` → Phase 4 *Exit*, fitness function 8(c). Every `weft index 
 4.0) and every `weft eval run` persists a **run record** — a plain JSON file, never a row in your
 store: `weft eval run` mints a fresh `uuid4`, `weft index --pipeline` mints one the same way, and
 each writes `runs/<id>.json` under the current directory, the identical project-local footing
-`pipelines/` already has. A `RunRecord` carries five facts, and each one earns its place because a
+`pipelines/` already has. A `RunRecord` carries these facts, and each one earns its place because a
 later comparison needs it, not because more is better:
 
 - **`resolved_pipeline`** — what actually ran, not the document name that asked for it. This is
@@ -832,6 +832,27 @@ later comparison needs it, not because more is better:
   wrong experiment; fitness function 8(c) is exactly this equality, checked.
 - **`metrics`** — task 4.9's own addition: every metric this run actually scored, when `weft eval
   run` was given `--questions`; `{}`, honestly, when it was not.
+- **`question_seconds`** (Phase 33, task 33.7): how long each question's retrieval took, keyed the
+  same way as that question's scores. The run's total in `durations` cannot show whether one question
+  was a hundred times slower than the rest; this can. `None` means the record was written before
+  33.7. `weft eval run` prints its p50, p95 and p99 (task 33.8), each one a real observation at
+  nearest rank. A percentile whose rank is the last sample prints as
+  `not aggregated (N samples)`, because it would be the maximum under another name: with 66
+  questions, p99 is withheld and p95 is not. `weft eval compare` prints one latency line per run,
+  and says `not recorded` for an older record rather than refusing the comparison. Latency depends
+  on the machine, so it is reported beside a comparison and never gated.
+- **`token_usage`** (task 33.7): what each model role spent, as prompt and completion tokens over the
+  calls that reported them, plus a count of calls whose provider reports nothing, such as the
+  scripted one. A role that cannot be metered shows as calls not reporting, never as zero tokens.
+  `{}` means no model was asked, and `None` means not recorded. `weft eval run` prints each
+  role's tokens (task 33.10) as `generate: 9104 in / 681 out`, and a role whose provider reports
+  nothing as `not reported (N calls)`.
+
+**A run record is not `weft ask --explain`.** `weft trace` reads a record `weft eval run` wrote
+to disk earlier. `--explain` describes the one `ask` in front of you and persists nothing. Its
+`stages:` block gives the milliseconds each call through the registration seam took, so
+`ask:search` shows the store's time apart from `ask:embed`'s. Those milliseconds are measured on
+your machine, so compare them only against runs on the same machine.
 
 **Read one back with `weft eval compare <a> <b>` or `weft trace <run-id>`** — both name a run by
 the id `weft eval run` printed (the file's own stem under `runs/`), and both refuse loudly, naming

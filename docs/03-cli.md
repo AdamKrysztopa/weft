@@ -839,6 +839,21 @@ one, which fitness function 7 asserts by path.
 `--json` switches to newline-delimited JSON events and disables every decoration, including
 spinners and colour. `--quiet` suppresses progress but keeps the result.
 
+**`weft ask --explain` answers *why this ranking* and *where the time went*.** Without the flag,
+`ask` prints what it always has. With it, two blocks follow the answer or the passages:
+- **`score:`** (task 21.1) states what each score means, in the words of whatever produced it.
+- **`stages:`** (Phase 33, task 33.5) gives one line per call the command made through the
+  registration seam: label, milliseconds, and item counts in and out, indented under the call that
+  made it. A retrieve-only ask prints `ask:embed` and `ask:search` separately, so a slow store is
+  told apart from a slow embedder. The block closes with the call's total and the time spent
+  outside every top-level stage (task 33.10), so the records can be checked against the clock
+  rather than trusted.
+
+Stage records are collected only under the flag, so a transcript without it is byte-identical, and
+under `--json` they arrive as the result's `stages` field. The milliseconds depend on the machine
+and are never compared against a threshold. This is not `weft trace`, which prints a *persisted*
+run record. `--explain` describes the one call in front of you and writes nothing.
+
 > **What `--json` does not do today, stated because this section promised it did.** It swaps the
 > **sink** — the stream of tokens a generating stage emits — and nothing else. The command's
 > *result* is still rendered by the same prose renderer a human gets, so stdout under `--json` is
