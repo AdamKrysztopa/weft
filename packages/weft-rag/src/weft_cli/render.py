@@ -129,6 +129,7 @@ from weft_kernel.errors import WeftError
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.payload.applicability import Applies
 from weft_kernel.registry import Registry, UnknownPluginError
+from weft_kernel.seam import StageRecord
 
 
 def render_outcome(
@@ -685,7 +686,7 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
             lines.append(result.answer.text)
         lines.extend(_citation_line(citation) for citation in result.answer.citations)
         return Rendered(
-            stdout="\n".join([*lines, *_explain_lines(result)]),
+            stdout="\n".join([*lines, *_explain_lines(result), *_stage_lines(result)]),
             stderr=None,
             exit_code=ExitCode.SUCCESS,
         )
@@ -711,7 +712,9 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
 
     lines = [f"{hit.rank}. {hit.content}" for hit in result.hits]
     return Rendered(
-        stdout="\n".join([*lines, *_explain_lines(result)]), stderr=None, exit_code=ExitCode.SUCCESS
+        stdout="\n".join([*lines, *_explain_lines(result), *_stage_lines(result)]),
+        stderr=None,
+        exit_code=ExitCode.SUCCESS,
     )
 
 
@@ -732,6 +735,40 @@ def _explain_lines(result: AskCommandResult) -> list[str]:
     lines.extend(f"  {explanation}" for explanation in result.explanations)
     if result.score_note is not None:
         lines.extend(["", f"  {result.score_note}"])
+    return lines
+
+
+def _stage_lines(result: AskCommandResult) -> list[str]:
+    """`--explain`'s stage block, or nothing at all — ledger task **33.5**.
+
+    Empty unless `--explain` populated `result.stages`, so a transcript without the flag is
+    byte-identical to before this task, exactly as `_explain_lines` already guarantees for the
+    score block. Depth is read off `parent`, not off any traversal order: a record whose parent
+    id is not itself in `result.stages` counts as top level, which is what keeps a nested
+    `gather`'s records indented under the call that opened the scope without this function
+    needing to know anything about what ran.
+    """
+    if not result.stages:
+        return []
+    records = sorted(result.stages, key=lambda record: record.id)
+    by_id = {record.id: record for record in records}
+
+    def depth_of(record: StageRecord) -> int:
+        depth = 0
+        parent = record.parent
+        while parent is not None and parent in by_id:
+            depth += 1
+            parent = by_id[parent].parent
+        return depth
+
+    lines = ["", "stages:"]
+    for record in records:
+        text = f"{record.label}  {record.seconds * 1000:.0f} ms"
+        if record.items_in is not None:
+            text += f"  in {record.items_in}"
+        if record.items_out is not None:
+            text += f"  out {record.items_out}"
+        lines.append(f"{'  ' * (depth_of(record) + 1)}{text}")
     return lines
 
 

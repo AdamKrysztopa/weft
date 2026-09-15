@@ -160,6 +160,7 @@ from weft_kernel.payload import Outcome, Produced, SourceId
 from weft_kernel.registry import DisplacedRegistration, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline
 from weft_kernel.runner import RunSummary
+from weft_kernel.seam import StageRecord, recording
 from weft_retrieve.contract import ContextPacker, Retriever
 from weft_store import NodeStore, ReconcileMode
 
@@ -544,6 +545,8 @@ class AskCommandResult(CommandResult):
     #: The sentence saying these numbers are not comparable, when they came from more than one
     #: retriever. `None` when they came from one, which is the ordinary case.
     score_note: str | None = None
+    #: Ledger task **33.5** — every `wrap`-ed call this run made, populated only under `--explain`.
+    stages: tuple[StageRecord, ...] = ()
 
 
 _RENDER_HELP: Final[str] = (
@@ -891,10 +894,20 @@ class AskCommand:
         deps = ctx.require(Dependencies)
 
         if ask_args.retrieve_only and ask_args.pipeline is not None:
-            return await self._run_retrieve_only_named(ask_args, deps=deps, ctx=ctx)
-        if ask_args.retrieve_only:
-            return await self._run_retrieve_only(ask_args, deps=deps, ctx=ctx)
-        return await self._run_generating(ask_args, deps=deps, ctx=ctx)
+            branch = self._run_retrieve_only_named(ask_args, deps=deps, ctx=ctx)
+        elif ask_args.retrieve_only:
+            branch = self._run_retrieve_only(ask_args, deps=deps, ctx=ctx)
+        else:
+            branch = self._run_generating(ask_args, deps=deps, ctx=ctx)
+
+        if not ask_args.explain:
+            return await branch
+
+        with recording() as scope:
+            outcome = await branch
+        if isinstance(outcome, Produced) and isinstance(outcome.value, AskCommandResult):
+            return Produced(value=outcome.value.model_copy(update={"stages": scope.records}))
+        return outcome
 
     async def _run_retrieve_only_named(
         self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context
