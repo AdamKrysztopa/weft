@@ -334,6 +334,35 @@ container and it is the database. The second backend exists so the store contrac
 two engines of genuinely different shapes rather than fitted to one — see the *Capabilities differ
 between backends* note below for what that difference costs you.
 
+**How large a corpus the default store serves before a search passes 100 ms.** `pgvector` builds
+no vector index. Every search is an exact scan over the stored vectors, so it gets slower as the
+corpus grows, and faster or slower with the width of the embedder that filled it. These numbers
+come from one machine: an Apple M4 Pro with 24 GiB running macOS 26.6.2, PostgreSQL 16.15 and
+pgvector 0.8.6. Each row is the store's own search statement at `top_k` 10, taken over 200
+queries in a database that nothing else was writing to:
+
+| chunks | width | p50 | p95 |
+|---|---|---|---|
+| 10,000 | 64 | 2.8 ms | 3.3 ms |
+| 100,000 | 64 | 15.1 ms | 18.4 ms |
+| 10,000 | 1536 | 23.4 ms | 26.4 ms |
+| 50,000 | 1536 | 82.2 ms | 93.9 ms |
+| 60,000 | 1536 | 99.0 ms | 108.8 ms |
+| 100,000 | 1536 | 149.3 ms | 168.1 ms |
+
+At width 1536, the width `openai-embeddings` returns by default, **p95 passes 100 ms between
+50,000 and 60,000 chunks**. At `hash`'s width of 64 it stays under 20 ms at 100,000. The 1536 rows
+were timed on synthetic unit vectors, which an exact scan reads exactly as it reads a model's: its
+cost depends on how many vectors there are and how wide they are, not on what they mean. These are
+the store's numbers, not `weft ask`'s. On the same machine a `weft ask --retrieve-only` took about
+three seconds end to end, almost all of it starting the process.
+
+**Above that, choose the Qdrant backend.** Set `[services] store = "qdrant"` as shown at the top of
+this section and index the corpus into it. Qdrant keeps a vector index of its own, where the
+default store scans every stored vector on every search. This guide states no Qdrant latency,
+because none has been measured on the machine above. The reindexing note above still applies: the
+corpus does not move with the key.
+
 **Capabilities differ between backends, and a run that needs a missing one is refused before it
 starts.** `pgvector` and `qdrant` both provide vector search, lexical text search and metadata
 filtering; the in-memory store provides vector search and metadata filtering and no text search at
