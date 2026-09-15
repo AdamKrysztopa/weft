@@ -526,19 +526,31 @@ def open_vectors(directory: Path, meta: VectorSetMeta) -> npt.NDArray[np.float32
 
 
 class UnattributableRowError(ValueError):
-    """A row's `sources` does not name exactly one paper, so it cannot be attributed to one."""
+    """A row's `sources` names no paper, so it cannot be attributed to any."""
 
 
-def paper_of_sources(rendered: str | None) -> str:
+def papers_of_sources(rendered: str | None) -> tuple[str, ...]:
     if rendered is None:
         message = f"0 sources: {rendered!r}"
         raise UnattributableRowError(message)
     inner = rendered.removeprefix("{").removesuffix("}")
     elements = inner.split(",") if inner else []
-    if len(elements) != 1:
-        message = f"{len(elements)} sources: {rendered!r}"
+    if not elements:
+        message = f"0 sources: {rendered!r}"
         raise UnattributableRowError(message)
-    return PurePosixPath(elements[0]).stem
+    return tuple(PurePosixPath(element).stem for element in elements)
+
+
+def chunks_per_paper(pairs: Iterable[tuple[str, str]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for pair in frozenset(pairs):
+        paper = pair[1]
+        counts[paper] = counts.get(paper, 0) + 1
+    return counts
+
+
+def distinct_chunks(pairs: Iterable[tuple[str, str]], papers: frozenset[str]) -> int:
+    return len({node_id for node_id, paper in pairs if paper in papers})
 
 
 def subset_vector_set(
@@ -559,16 +571,22 @@ def subset_vector_set(
             raise ValueError(message)
 
     nodes = _table_named(parent, "weft_nodes")
+    id_index = nodes.columns.index("id")
     sources_index = nodes.columns.index("sources")
-    row_papers = tuple(paper_of_sources(row[sources_index]) for row in nodes.rows)
+    row_papers = tuple(papers_of_sources(row[sources_index]) for row in nodes.rows)
+    pairs = tuple(
+        (row[id_index] or "", paper)
+        for row, papers in zip(nodes.rows, row_papers, strict=True)
+        for paper in papers
+    )
 
-    counts: dict[str, int] = {}
-    for paper in row_papers:
-        counts[paper] = counts.get(paper, 0) + 1
+    counts = chunks_per_paper(pairs)
     chosen = select_prefix([(d.id, counts.get(d.id, 0)) for d in documents], target=target)
     chosen_set = frozenset(chosen)
 
-    kept = [i for i, paper in enumerate(row_papers) if paper in chosen_set]
+    kept = [
+        i for i, papers in enumerate(row_papers) if any(paper in chosen_set for paper in papers)
+    ]
     subset_nodes = TableDump(
         name="weft_nodes",
         columns=nodes.columns,
@@ -1058,6 +1076,20 @@ def cmd_exclude(args: argparse.Namespace) -> int:
 # --- sketch ------------------------------------------------------------------------------------
 
 
+def _chunk_target(value: str) -> int | None:
+    if value == "all":
+        return None
+    try:
+        target = int(value)
+    except ValueError as exc:
+        message = f"{value!r} is not a chunk count or 'all'"
+        raise argparse.ArgumentTypeError(message) from exc
+    if target <= 0:
+        message = f"{value!r} is not a positive chunk count"
+        raise argparse.ArgumentTypeError(message)
+    return target
+
+
 def _stage_documents(documents: Sequence[BenchDocument], pdfs_dir: Path, staged: Path) -> None:
     for document in documents:
         if not (pdfs_dir / f"{document.id}.pdf").exists():
@@ -1107,20 +1139,30 @@ def cmd_sketch(args: argparse.Namespace) -> int:
                 )
                 raise ValueError(message)
 
-            cur.execute("SELECT s, count(*) FROM weft_nodes, unnest(sources) AS s GROUP BY s")
-            source_rows = cur.fetchall()
+            cur.execute("SELECT id, s FROM weft_nodes, unnest(sources) AS s")
+            pair_rows = cur.fetchall()
 
-            counts_by_stem: dict[str, int] = {}
-            sources_by_stem: dict[str, str] = {}
-            for source, count in source_rows:
-                stem = Path(str(source)).stem
-                counts_by_stem[stem] = counts_by_stem.get(stem, 0) + int(count)
-                sources_by_stem[stem] = str(source)
+            pairs = tuple((str(node_id), Path(str(source)).stem) for node_id, source in pair_rows)
+            sources_by_stem: dict[str, str] = {
+                Path(str(source)).stem: str(source) for _node_id, source in pair_rows
+            }
+            counts = chunks_per_paper(pairs)
 
-            counts = tuple(
-                (document.id, counts_by_stem.get(document.id, 0)) for document in documents
-            )
-            chosen = select_prefix(counts, target=args.target)
+            if args.target is None:
+                for document in documents:
+                    if counts.get(document.id, 0) == 0:
+                        message = (
+                            f"{document.id} produced no chunks, so a set of all papers "
+                            "cannot include it"
+                        )
+                        raise InsufficientCorpusError(message)
+                chosen = tuple(document.id for document in documents)
+            else:
+                chosen = select_prefix(
+                    [(document.id, counts.get(document.id, 0)) for document in documents],
+                    target=args.target,
+                )
+            chosen_set = frozenset(chosen)
 
             chosen_sources = [
                 sources_by_stem[identifier]
@@ -1135,7 +1177,13 @@ def cmd_sketch(args: argparse.Namespace) -> int:
             content_rows = cur.fetchall()
 
         tokens = _count_tokens_cl100k([str(content) for _id, content in content_rows])
-        chosen_chunks = sum(counts_by_stem.get(identifier, 0) for identifier in chosen)
+        chosen_chunks = distinct_chunks(pairs, chosen_set)
+
+        papers_by_node: dict[str, set[str]] = {}
+        for node_id, paper in frozenset(pairs):
+            papers_by_node.setdefault(node_id, set()).add(paper)
+        shared_nodes = sum(1 for papers in papers_by_node.values() if len(papers) >= 2)
+        print(f"shared nodes: {shared_nodes}")
 
         sketch = sketch_cost(pdfs=len(chosen), chunks=chosen_chunks, tokens=tokens, model=model)
         print_sketch(sketch)
@@ -1373,7 +1421,12 @@ def _build_parser() -> argparse.ArgumentParser:
     sketch.add_argument("--manifest", type=Path, required=True)
     sketch.add_argument("--pdfs", type=Path, required=True)
     sketch.add_argument("--work", type=Path, required=True)
-    sketch.add_argument("--target", type=int, default=100_000)
+    sketch.add_argument(
+        "--target",
+        type=_chunk_target,
+        default=100_000,
+        help="a chunk count, or `all` for every manifest paper",
+    )
     sketch.add_argument("--model", default=EmbeddingModel.LARGE.value)
     _add_admin_dsn(sketch)
     sketch.set_defaults(func=cmd_sketch)

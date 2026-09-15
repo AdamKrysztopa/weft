@@ -437,12 +437,6 @@ def _source_row(paper: str) -> tuple[str | None, ...]:
     return (f"{_PDFS}/{paper}.pdf", f"file://{_PDFS}/{paper}.pdf", "h", "t", "p", "active", "i")
 
 
-def test_a_row_is_attributed_to_the_paper_its_one_source_names() -> None:
-    assert bench_vectors.paper_of_sources(f"{{{_PDFS}/2410.14077v2.pdf}}") == "2410.14077v2"
-    with pytest.raises(bench_vectors.UnattributableRowError, match="2 sources"):
-        bench_vectors.paper_of_sources(f"{{{_PDFS}/a.pdf,{_PDFS}/b.pdf}}")
-
-
 def test_a_subset_keeps_whole_papers_in_manifest_order_with_their_own_vectors(
     tmp_path: Path,
 ) -> None:
@@ -512,3 +506,87 @@ def test_a_subset_keeps_whole_papers_in_manifest_order_with_their_own_vectors(
     assert reloaded.meta.billed_tokens == 0
     assert reloaded.meta.derived_from == parent.meta.name
     assert reloaded.meta.input_digest == bench_vectors.input_digest(("A" * 64, "B" * 64))
+
+
+def test_a_row_is_attributed_to_every_paper_its_sources_name() -> None:
+    # Two papers carrying an identical page share one node, and weft lists both as its sources.
+    assert bench_vectors.papers_of_sources(f"{{{_PDFS}/2410.14077v2.pdf}}") == ("2410.14077v2",)
+    assert bench_vectors.papers_of_sources(f"{{{_PDFS}/a.pdf,{_PDFS}/b.pdf}}") == ("a", "b")
+    with pytest.raises(bench_vectors.UnattributableRowError, match="0 sources"):
+        bench_vectors.papers_of_sources("{}")
+    with pytest.raises(bench_vectors.UnattributableRowError, match="0 sources"):
+        bench_vectors.papers_of_sources(None)
+
+
+def test_a_node_shared_by_two_papers_counts_for_each_paper_but_once_in_the_set() -> None:
+    # Arrange — (node, paper) pairs as `SELECT id, s FROM weft_nodes, unnest(sources) s` yields.
+    pairs = (("n1", "A"), ("n2", "A"), ("n2", "B"), ("n3", "B"))
+
+    # Act / Assert — per paper the shared node counts twice; in any set of papers, once.
+    assert bench_vectors.chunks_per_paper(pairs) == {"A": 2, "B": 2}
+    assert bench_vectors.distinct_chunks(pairs, frozenset({"A", "B"})) == 3
+    assert bench_vectors.distinct_chunks(pairs, frozenset({"A"})) == 2
+
+
+def _shared_row(node_id: str, papers: tuple[str, ...]) -> tuple[str | None, ...]:
+    rendered = ",".join(f"{_PDFS}/{paper}.pdf" for paper in papers)
+    return (node_id, "{}", f"{{{rendered}}}", f"text of {node_id}", "text/plain", "{}")
+
+
+def test_a_subset_keeps_a_node_shared_with_a_paper_it_left_out(tmp_path: Path) -> None:
+    # Arrange — n1 belongs to both A and C; only A is chosen.
+    a, c = "2401.00001v1", "2401.00003v1"
+    nodes = bench_vectors.TableDump(
+        name="weft_nodes",
+        columns=("id", "parents", "sources", "content", "media_type", "ext"),
+        rows=(_node_row("n0", a), _shared_row("n1", (a, c)), _node_row("n2", c)),
+    )
+    sources = bench_vectors.TableDump(
+        name="weft_sources",
+        columns=(
+            "id",
+            "uri",
+            "content_hash",
+            "indexed_at",
+            "pipeline",
+            "status",
+            "pipeline_identity",
+        ),
+        rows=(_source_row(a), _source_row(c)),
+    )
+    vectors = np.arange(9, dtype=np.float32).reshape(3, 3)
+    parent = bench_vectors.write_vector_set(
+        tmp_path / "full",
+        input_digest="f" * 64,
+        model=bench_vectors.EmbeddingModel.LARGE,
+        width=3,
+        day=date(2026, 9, 15),
+        billed_tokens=999,
+        pdfs=2,
+        tables=(nodes, sources),
+        vectors=vectors,
+    )
+    documents = tuple(
+        bench_vectors.BenchDocument(
+            id=paper, source=f"https://arxiv.org/pdf/{paper}", sha256=paper[-2] * 64
+        )
+        for paper in (a, c)
+    )
+
+    # Act — A holds n0 and the shared n1, so a target of 2 takes A alone.
+    subset = bench_vectors.subset_vector_set(
+        tmp_path / "full" / parent.meta.name,
+        tmp_path / "subset",
+        documents=documents,
+        target=2,
+        day=date(2026, 9, 16),
+    )
+
+    # Assert
+    directory = tmp_path / "subset" / subset.meta.name
+    reloaded = bench_vectors.read_vector_set(directory)
+    subset_nodes = next(t for t in reloaded.tables if t.name == "weft_nodes")
+    assert [row[0] for row in subset_nodes.rows] == ["n0", "n1"]
+    assert np.array_equal(bench_vectors.open_vectors(directory, reloaded.meta), vectors[[0, 1]])
+    assert reloaded.meta.rows == 2
+    assert reloaded.meta.pdfs == 1
