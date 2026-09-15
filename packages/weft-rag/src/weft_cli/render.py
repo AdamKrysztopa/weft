@@ -1120,13 +1120,17 @@ def _baseline_selection_line(selection: BaselineSelection) -> str:
 
 
 def _run_latency_line(run_id: str, summary: LatencySummary | None) -> str:
-    """One run's own query latency line — task 33.8. `None` for a record written before task
-    33.7 says so rather than refusing the comparison: latency depends on the machine it ran on
-    and is not identity, so it is reported beside a comparison the way packaging is (repair
-    `R22.11`), never a reason to refuse one.
+    """One run's own query latency line — task 33.8. `None` is a record with no per-question
+    timing (written before task 33.7, or run without `--questions`), and says so rather than
+    refusing the comparison: latency depends on the machine it ran on and is not identity, so it
+    is reported beside a comparison the way packaging is (repair `R22.11`), never a reason to
+    refuse one.
     """
     if summary is None:
-        return f"latency '{run_id}': not recorded (written before task 33.7)"
+        return (
+            f"latency '{run_id}': not recorded "
+            "(written before task 33.7, or run without --questions)"
+        )
     return f"latency '{run_id}': {_latency_summary_text(summary)}"
 
 

@@ -706,7 +706,7 @@ class EvalCompareCommandResult(CommandResult):
     paired_differences: Mapping[str, PairedDifference] = {}
     reproduction: Reproduction | None = None
     packaging_differences: tuple[str, ...] = ()
-    #: Task 33.8 — each run's own query latency, `None` for a record written before task 33.7.
+    #: Task 33.8 — each run's query latency; `None` when its record has no per-question timing.
     latency_a: LatencySummary | None = None
     latency_b: LatencySummary | None = None
 
