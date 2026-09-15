@@ -102,6 +102,7 @@ class SkipCause(Enum):
     LIVE_API_NOT_OPTED_IN = "a live API test was not opted into"
     CORPUS_NETWORK_NOT_OPTED_IN = "a corpus network test was not opted into"
     CORPUS_NOT_MATERIALISED = "the corpus documents are not on this machine"
+    BENCH_DATABASE_NOT_NAMED = "no benchmark database was named for a Phase 29 measurement"
 
 
 #: The fragment of our own sentence each cause's skip reason carries. Matched on the half this tree
@@ -117,6 +118,7 @@ _CAUSE_FRAGMENTS: Final[Mapping[SkipCause, tuple[str, ...]]] = {
         "no corpus document is materialised",
         "corpus fixture missing",
     ),
+    SkipCause.BENCH_DATABASE_NOT_NAMED: ("WEFT_BENCH_DATABASE_URL is unset",),
 }
 
 #: A service whose variable, when set, is the operator's claim that it is up (`L7.8`, `L11.22`).
