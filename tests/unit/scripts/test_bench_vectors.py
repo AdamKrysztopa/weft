@@ -420,3 +420,95 @@ def test_exclusions_and_their_reasons_round_trip_through_the_manifest(tmp_path: 
     # Assert
     assert bench_vectors.load_manifest(manifest) == documents
     assert bench_vectors.load_exclusions(manifest) == exclusions
+
+
+# --- a whole-paper subset of a vector set -------------------------------------------------------
+
+#: How `sources::text` renders for a PDF node, read 2026-09-15 from a throwaway database indexed
+#: through a staged symlink: weft stores the link's target, one element, unquoted.
+_PDFS = "/Users/adamkrysztopa/projects/weft/corpus/open_ragbench/pdfs"
+
+
+def _node_row(node_id: str, paper: str) -> tuple[str | None, ...]:
+    return (node_id, "{}", f"{{{_PDFS}/{paper}.pdf}}", f"text of {node_id}", "text/plain", "{}")
+
+
+def _source_row(paper: str) -> tuple[str | None, ...]:
+    return (f"{_PDFS}/{paper}.pdf", f"file://{_PDFS}/{paper}.pdf", "h", "t", "p", "active", "i")
+
+
+def test_a_row_is_attributed_to_the_paper_its_one_source_names() -> None:
+    assert bench_vectors.paper_of_sources(f"{{{_PDFS}/2410.14077v2.pdf}}") == "2410.14077v2"
+    with pytest.raises(bench_vectors.UnattributableRowError, match="2 sources"):
+        bench_vectors.paper_of_sources(f"{{{_PDFS}/a.pdf,{_PDFS}/b.pdf}}")
+
+
+def test_a_subset_keeps_whole_papers_in_manifest_order_with_their_own_vectors(
+    tmp_path: Path,
+) -> None:
+    # Arrange — rows interleave three papers, so row order and paper order disagree.
+    papers_in_row_order = ["A", "B", "A", "C", "B", "C", "B"]
+    ids = {"A": "2401.00001v1", "B": "2401.00002v1", "C": "2401.00003v1"}
+    nodes = bench_vectors.TableDump(
+        name="weft_nodes",
+        columns=("id", "parents", "sources", "content", "media_type", "ext"),
+        rows=tuple(_node_row(f"n{i}", ids[p]) for i, p in enumerate(papers_in_row_order)),
+    )
+    sources = bench_vectors.TableDump(
+        name="weft_sources",
+        columns=(
+            "id",
+            "uri",
+            "content_hash",
+            "indexed_at",
+            "pipeline",
+            "status",
+            "pipeline_identity",
+        ),
+        rows=tuple(_source_row(ids[p]) for p in ("A", "B", "C")),
+    )
+    vectors = np.arange(21, dtype=np.float32).reshape(7, 3)
+    parent = bench_vectors.write_vector_set(
+        tmp_path / "full",
+        input_digest="f" * 64,
+        model=bench_vectors.EmbeddingModel.LARGE,
+        width=3,
+        day=date(2026, 9, 15),
+        billed_tokens=999,
+        pdfs=3,
+        tables=(nodes, sources),
+        vectors=vectors,
+    )
+    documents = tuple(
+        bench_vectors.BenchDocument(
+            id=ids[p], source=f"https://arxiv.org/pdf/{ids[p]}", sha256=p * 64
+        )
+        for p in ("B", "A", "C")
+    )
+
+    # Act — B holds 3 rows and A holds 2, so a target of 4 takes B then A and stops.
+    subset = bench_vectors.subset_vector_set(
+        tmp_path / "full" / parent.meta.name,
+        tmp_path / "subset",
+        documents=documents,
+        target=4,
+        day=date(2026, 9, 16),
+    )
+
+    # Assert
+    kept = [i for i, p in enumerate(papers_in_row_order) if p in {"A", "B"}]
+    directory = tmp_path / "subset" / subset.meta.name
+    reloaded = bench_vectors.read_vector_set(directory)
+    subset_nodes = next(t for t in reloaded.tables if t.name == "weft_nodes")
+    subset_sources = next(t for t in reloaded.tables if t.name == "weft_sources")
+    assert [row[0] for row in subset_nodes.rows] == [f"n{i}" for i in kept]
+    assert np.array_equal(bench_vectors.open_vectors(directory, reloaded.meta), vectors[kept])
+    assert {row[0] for row in subset_sources.rows} == {
+        f"{_PDFS}/{ids['A']}.pdf",
+        f"{_PDFS}/{ids['B']}.pdf",
+    }
+    assert reloaded.meta.rows == 5
+    assert reloaded.meta.pdfs == 2
+    assert reloaded.meta.billed_tokens == 0
+    assert reloaded.meta.derived_from == parent.meta.name
+    assert reloaded.meta.input_digest == bench_vectors.input_digest(("A" * 64, "B" * 64))

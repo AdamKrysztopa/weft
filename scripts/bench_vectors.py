@@ -2,7 +2,7 @@
 
 About 970 pinned PDFs, embedded once through `text-embedding-3-large` into 100,000 chunks, so
 every later latency and recall measurement (29.1, 29.7-29.11) runs against the same fixed corpus
-with no API call and no network. Six subcommands, each a step in that pipeline:
+with no API call and no network. Seven subcommands, each a step in that pipeline:
 
 - `select`  pins which PDFs make the set — from `vectara/open_ragbench`'s 1,000 arXiv papers at a
             pinned revision (the default), or from the PMC Open Access bucket on AWS Open Data.
@@ -14,6 +14,8 @@ with no API call and no network. Six subcommands, each a step in that pipeline:
 - `embed`   refuses without `--yes`. With it, indexes the chosen PDFs through
             `openai-embeddings` and dumps the result to a vector set on disk.
 - `load`    restores a vector set into a new throwaway database with no API call.
+- `subset`  cuts a vector set down to the manifest-order prefix of whole papers that reaches a
+            chunk target, and writes it as its own checksummed vector set.
 
 Everything below the subcommands is pure and unit-tested
 (`tests/unit/scripts/test_bench_vectors.py`): the vector set's name, the price sketch, which PDFs
@@ -43,7 +45,7 @@ from collections.abc import Iterable, Sequence
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
 import fetch_corpus
@@ -401,6 +403,7 @@ class VectorSetMeta(BaseModel):
     pdfs: int
     vectors_sha256: str
     tables_sha256: str
+    derived_from: str | None = None
 
 
 class VectorSet(BaseModel):
@@ -443,6 +446,7 @@ def write_vector_set(
     pdfs: int,
     tables: Sequence[TableDump],
     vectors: npt.NDArray[np.float32],
+    derived_from: str | None = None,
 ) -> VectorSet:
     if vectors.ndim != 2:
         message = f"the set's vectors must be 2-D, got shape {vectors.shape}"
@@ -482,6 +486,7 @@ def write_vector_set(
         pdfs=pdfs,
         vectors_sha256=vectors_sha256,
         tables_sha256=hashlib.sha256(tables_bytes).hexdigest(),
+        derived_from=derived_from,
     )
     (directory / "meta.json").write_text(meta.model_dump_json(), encoding="utf-8")
 
@@ -517,6 +522,83 @@ def open_vectors(directory: Path, meta: VectorSetMeta) -> npt.NDArray[np.float32
     caller who wants both calls it first and hands this function the `meta` it returned."""
     return np.memmap(
         directory / "vectors.f32", dtype="<f4", mode="r", shape=(meta.rows, meta.width)
+    )
+
+
+class UnattributableRowError(ValueError):
+    """A row's `sources` does not name exactly one paper, so it cannot be attributed to one."""
+
+
+def paper_of_sources(rendered: str | None) -> str:
+    if rendered is None:
+        message = f"0 sources: {rendered!r}"
+        raise UnattributableRowError(message)
+    inner = rendered.removeprefix("{").removesuffix("}")
+    elements = inner.split(",") if inner else []
+    if len(elements) != 1:
+        message = f"{len(elements)} sources: {rendered!r}"
+        raise UnattributableRowError(message)
+    return PurePosixPath(elements[0]).stem
+
+
+def subset_vector_set(
+    set_dir: Path,
+    root: Path,
+    *,
+    documents: Sequence[BenchDocument],
+    target: int,
+    day: date,
+) -> VectorSet:
+    parent = read_vector_set(set_dir)
+    vectors = open_vectors(set_dir, parent.meta)
+
+    known_table_names = frozenset({"weft_nodes", "weft_sources"})
+    for table in parent.tables:
+        if table.name not in known_table_names:
+            message = f"the vector set carries a table this subset does not know: {table.name!r}"
+            raise ValueError(message)
+
+    nodes = _table_named(parent, "weft_nodes")
+    sources_index = nodes.columns.index("sources")
+    row_papers = tuple(paper_of_sources(row[sources_index]) for row in nodes.rows)
+
+    counts: dict[str, int] = {}
+    for paper in row_papers:
+        counts[paper] = counts.get(paper, 0) + 1
+    chosen = select_prefix([(d.id, counts.get(d.id, 0)) for d in documents], target=target)
+    chosen_set = frozenset(chosen)
+
+    kept = [i for i, paper in enumerate(row_papers) if paper in chosen_set]
+    subset_nodes = TableDump(
+        name="weft_nodes",
+        columns=nodes.columns,
+        rows=tuple(nodes.rows[i] for i in kept),
+    )
+    subset_vectors = np.asarray(vectors[kept], dtype=np.float32)
+
+    sources = _table_named(parent, "weft_sources")
+    source_id_index = sources.columns.index("id")
+    subset_sources = TableDump(
+        name="weft_sources",
+        columns=sources.columns,
+        rows=tuple(
+            row
+            for row in sources.rows
+            if PurePosixPath(str(row[source_id_index])).stem in chosen_set
+        ),
+    )
+
+    return write_vector_set(
+        root,
+        input_digest=input_digest(d.sha256 for d in documents if d.id in chosen_set),
+        model=parent.meta.model,
+        width=parent.meta.width,
+        day=day,
+        billed_tokens=0,
+        pdfs=len(chosen),
+        tables=(subset_nodes, subset_sources),
+        vectors=subset_vectors,
+        derived_from=parent.meta.name,
     )
 
 
@@ -1224,6 +1306,25 @@ def cmd_load(args: argparse.Namespace) -> int:
     return 0
 
 
+# --- subset -----------------------------------------------------------------------------------
+
+
+def cmd_subset(args: argparse.Namespace) -> int:
+    documents = load_manifest(Path(args.manifest))
+    written = subset_vector_set(
+        Path(args.set_dir),
+        Path(args.out),
+        documents=documents,
+        target=args.target,
+        day=date.today(),
+    )
+    print(f"subset: {Path(args.out) / written.meta.name}")
+    print(f"rows: {written.meta.rows:,}")
+    print(f"papers: {written.meta.pdfs}")
+    print(f"derived from: {written.meta.derived_from}")
+    return 0
+
+
 # --- argparse ----------------------------------------------------------------------------------
 
 
@@ -1291,6 +1392,15 @@ def _build_parser() -> argparse.ArgumentParser:
     load.add_argument("--rows", type=int, default=None)
     _add_admin_dsn(load)
     load.set_defaults(func=cmd_load)
+
+    subset = subparsers.add_parser(
+        "subset", help="cut a vector set down to a manifest-order prefix of whole papers"
+    )
+    subset.add_argument("--set", dest="set_dir", type=Path, required=True)
+    subset.add_argument("--manifest", type=Path, required=True)
+    subset.add_argument("--out", type=Path, required=True)
+    subset.add_argument("--target", type=int, default=100_000)
+    subset.set_defaults(func=cmd_subset)
 
     return parser
 
