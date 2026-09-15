@@ -45,6 +45,9 @@ longer matches what ships:
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    # Docker's default /dev/shm is 64 MB. pgvector's parallel HNSW build keeps its shared build
+    # state there, and it failed at 100,142 rows of vector(1536) on 2026-09-16 (Phase 29).
+    shm_size: 1gb
     environment:
       POSTGRES_USER: weft
       POSTGRES_PASSWORD: weft
@@ -127,6 +130,8 @@ services:
   postgres-bm25:
     image: timescale/timescaledb-ha:pg17
     profiles: ["bm25"]
+    # The same 64 MB /dev/shm limit, and this image sets maintenance_work_mem to ~980 MB.
+    shm_size: 1gb
     environment:
       POSTGRES_USER: weft
       POSTGRES_PASSWORD: weft
