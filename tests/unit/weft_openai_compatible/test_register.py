@@ -44,7 +44,6 @@ from weft_llm.contract import LLMProvider
 from weft_llm.payload import Conversation, Message, MessageRole
 from weft_openai.embedder import OpenAIEmbedder, build_client
 from weft_openai.llm import DEFAULT_MODEL as DEFAULT_LLM_MODEL
-from weft_openai.llm import OpenAILLMProvider
 from weft_openai.settings import Settings
 from weft_vision import Describer
 
@@ -260,7 +259,7 @@ async def _refusal_message(plugin: Any) -> str:
     with pytest.raises(WeftError) as raised:
         if isinstance(plugin, OpenAIEmbedder):
             await plugin.run([node], ctx)
-        elif isinstance(plugin, OpenAILLMProvider):
+        elif isinstance(plugin, LLMProvider):
             await plugin.complete(
                 Conversation(messages=(Message(role=MessageRole.USER, content="hi"),)),
                 model=DEFAULT_LLM_MODEL,

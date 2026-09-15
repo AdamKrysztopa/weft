@@ -125,6 +125,13 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # `[services] embed` to "openai-compatible-embeddings" and leave `[llm.roles] generate`
 # on `provider = "openai"`; `manual/operations-guide.md` shows the whole file.
 #
+# `stream_usage` asks the server to report token usage on a streamed answer
+# (`stream_options.include_usage`). It is off by default for this account: OpenAI documents the field
+# for its own API, and a local server that rejects an unknown request field would refuse every
+# answer. With it off, this account's calls count as *not reported*, never as zero. Turn it on
+# once your server accepts the field. Carried repair `R33.1`.
+#
+# stream_usage = false
 # api_key = "${env:LOCAL_API_KEY}"
 # base_url = "http://localhost:11434/v1"
 # organization = "org-..."
