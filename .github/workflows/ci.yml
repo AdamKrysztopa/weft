@@ -33,9 +33,10 @@ jobs:
     # matches that default deliberately. What was wrong was a sentence claiming parity with a file
     # that had grown a second service. Corrected 2026-09-10.
     #
-    # **Whether this job should also run the conformance backend is a real question and not one
-    # this comment settles.** G4's two-backend proof is what `compose.yaml`'s qdrant service
-    # exists for, and today it is proven on a developer's machine and never here.
+    # **And Qdrant is provisioned here too, since carried repair `R29.0`**: G4's two-backend proof
+    # is what `compose.yaml`'s qdrant service exists for, and until then it ran on a developer's
+    # machine and never here. Same image tag as `compose.yaml`. It has no health check because
+    # the image carries no curl; the step before the gate waits for `/readyz` instead.
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -50,6 +51,10 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 20
+      qdrant:
+        image: qdrant/qdrant:v1.12.4
+        ports:
+          - 6333:6333
     steps:
       # `fetch-depth: 0` because part of this gate's subject **is** the git history.
       # `tests/docs/test_ledger_records_a_sha.py` asks whether the shas the ledger records name
@@ -95,13 +100,20 @@ jobs:
       - name: Sync
         run: uv sync --frozen
 
+      # `/readyz` rather than `/healthz`: readiness waits for the shards, and a store that answers
+      # before it can search is the race an integration test would hit.
+      - name: Wait for Qdrant to be ready
+        run: curl --silent --show-error --fail --retry 30 --retry-delay 2 --retry-all-errors http://localhost:6333/readyz
+
       - name: Run the canonical gate
         run: uv run poe ci-checks
         env:
           WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
-          # Setting this is the claim that Postgres is up, so a test that skips because it is
-          # unreachable fails the run. There is no expected skip count: every skip must name a cause
-          # `tests/conftest.py`'s `SkipCause` knows, and Qdrant and BM25 are absent here by design.
+          WEFT_QDRANT_URL: http://localhost:6333
+          # Setting these is the claim that Postgres and Qdrant are up, so a test that skips
+          # because either is unreachable fails the run. There is no expected skip count: every
+          # skip must name a cause `tests/conftest.py`'s `SkipCause` knows, and BM25 is absent here
+          # by design.
           # The pinned total this replaced moved seven times in five days (48 -> 96), each time
           # visible only after a push, because it summed causes that change independently.
 
