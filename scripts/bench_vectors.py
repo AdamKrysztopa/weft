@@ -2,11 +2,12 @@
 
 About 970 pinned PDFs, embedded once through `text-embedding-3-large` into 100,000 chunks, so
 every later latency and recall measurement (29.1, 29.7-29.11) runs against the same fixed corpus
-with no API call and no network. Five subcommands, each a step in that pipeline:
+with no API call and no network. Six subcommands, each a step in that pipeline:
 
 - `select`  pins which PDFs make the set — from `vectara/open_ragbench`'s 1,000 arXiv papers at a
             pinned revision (the default), or from the PMC Open Access bucket on AWS Open Data.
 - `fetch`   downloads and pins their bytes.
+- `exclude` drops a paper from the set by id, recording the reason in the manifest itself.
 - `sketch`  indexes them once with the free `hash` embedder to learn exact chunk counts, picks
             the prefix reaching the target, counts billed tokens and prints the price. Nothing
             is spent.
@@ -280,17 +281,54 @@ def ragbench_documents(pdf_urls_body: bytes, golden: frozenset[str]) -> tuple[Be
     return tuple(documents[identifier] for identifier in (*golden_ids, *rest_ids))
 
 
+class Exclusion(BaseModel):
+    """A paper left out of the set, and why."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    reason: str
+
+
+class UnknownExclusionError(ValueError):
+    """An exclusion names a paper the manifest's documents do not hold — a typo, or an id already
+    excluded."""
+
+
+def exclude_documents(
+    documents: Sequence[BenchDocument], exclusions: Sequence[Exclusion]
+) -> tuple[BenchDocument, ...]:
+    known_ids = {document.id for document in documents}
+    for exclusion in exclusions:
+        if exclusion.id not in known_ids:
+            message = f"{exclusion.id} is not in the manifest, so it cannot be excluded"
+            raise UnknownExclusionError(message)
+    excluded_ids = {exclusion.id for exclusion in exclusions}
+    return tuple(document for document in documents if document.id not in excluded_ids)
+
+
 def _toml_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def write_manifest(path: Path, documents: Sequence[BenchDocument], *, query: str) -> None:
+def write_manifest(
+    path: Path,
+    documents: Sequence[BenchDocument],
+    *,
+    query: str,
+    excluded: Sequence[Exclusion] = (),
+) -> None:
     lines = [f'query = "{_toml_escape(query)}"', ""]
     for document in documents:
         lines.append("[[document]]")
         lines.append(f'id = "{_toml_escape(document.id)}"')
         lines.append(f'source = "{_toml_escape(document.source)}"')
         lines.append(f'sha256 = "{_toml_escape(document.sha256)}"')
+        lines.append("")
+    for exclusion in excluded:
+        lines.append("[[excluded]]")
+        lines.append(f'id = "{_toml_escape(exclusion.id)}"')
+        lines.append(f'reason = "{_toml_escape(exclusion.reason)}"')
         lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -303,6 +341,13 @@ def load_manifest(path: Path) -> tuple[BenchDocument, ...]:
         BenchDocument(id=str(entry["id"]), source=str(entry["source"]), sha256=str(entry["sha256"]))
         for entry in entries
     )
+
+
+def load_exclusions(path: Path) -> tuple[Exclusion, ...]:
+    with path.open("rb") as handle:
+        raw = tomllib.load(handle)
+    entries = raw.get("excluded", [])
+    return tuple(Exclusion(id=str(entry["id"]), reason=str(entry["reason"])) for entry in entries)
 
 
 def _manifest_query(path: Path) -> str:
@@ -858,6 +903,7 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     manifest = Path(args.manifest)
     documents = list(load_manifest(manifest))
     query = _manifest_query(manifest)
+    exclusions = load_exclusions(manifest)
     dest = Path(args.dest)
     dest.mkdir(parents=True, exist_ok=True)
 
@@ -898,15 +944,49 @@ def cmd_fetch(args: argparse.Namespace) -> int:
             time.sleep(args.delay_seconds)
 
         if since_checkpoint >= _MANIFEST_CHECKPOINT:
-            write_manifest(manifest, tuple(updated) + tuple(documents[len(updated) :]), query=query)
+            write_manifest(
+                manifest,
+                tuple(updated) + tuple(documents[len(updated) :]),
+                query=query,
+                excluded=exclusions,
+            )
             since_checkpoint = 0
 
-    write_manifest(manifest, tuple(updated), query=query)
+    write_manifest(manifest, tuple(updated), query=query, excluded=exclusions)
     print(f"fetched {fetched}, already present {present}, failed {failed}")
     return 1 if failed > 0 else 0
 
 
+# --- exclude ----------------------------------------------------------------------------------
+
+
+def cmd_exclude(args: argparse.Namespace) -> int:
+    manifest = Path(args.manifest)
+    documents = load_manifest(manifest)
+    query = _manifest_query(manifest)
+    existing = load_exclusions(manifest)
+    new = Exclusion(id=args.id, reason=args.reason)
+
+    kept = exclude_documents(documents, (new,))
+    write_manifest(manifest, kept, query=query, excluded=(*existing, new))
+    print(f"excluded {new.id} ({new.reason}); {len(kept)} documents remain")
+    return 0
+
+
 # --- sketch ------------------------------------------------------------------------------------
+
+
+def _stage_documents(documents: Sequence[BenchDocument], pdfs_dir: Path, staged: Path) -> None:
+    for document in documents:
+        if not (pdfs_dir / f"{document.id}.pdf").exists():
+            message = f"{document.id}'s PDF is missing from {pdfs_dir}"
+            raise FileNotFoundError(message)
+    staged.mkdir(parents=True, exist_ok=True)
+    # A link left by an earlier run would index a paper excluded since.
+    for stale in staged.glob("*.pdf"):
+        stale.unlink()
+    for document in documents:
+        (staged / f"{document.id}.pdf").symlink_to(pdfs_dir / f"{document.id}.pdf")
 
 
 def cmd_sketch(args: argparse.Namespace) -> int:
@@ -917,6 +997,9 @@ def cmd_sketch(args: argparse.Namespace) -> int:
     work.mkdir(parents=True, exist_ok=True)
     model = model_named(args.model)
 
+    staged = work / "sketch-staged"
+    _stage_documents(documents, pdfs_dir, staged)
+
     full_digest = input_digest(document.sha256 for document in documents if document.sha256)
     db_name = f"weft_bench_sketch_{full_digest[:12]}"
     dsn = _fresh_database(admin_dsn, db_name)
@@ -925,7 +1008,7 @@ def cmd_sketch(args: argparse.Namespace) -> int:
         env = os.environ.copy()
         env["WEFT_DATABASE_URL"] = dsn
         result = _run_weft(
-            ["index", str(pdfs_dir), "--pipeline", "index-pdf-text"], cwd=work, env=env
+            ["index", str(staged), "--pipeline", "index-pdf-text"], cwd=work, env=env
         )
         print(result.stdout)
         if result.stderr:
@@ -1178,6 +1261,12 @@ def _build_parser() -> argparse.ArgumentParser:
     fetch.add_argument("--dest", type=Path, required=True)
     fetch.add_argument("--delay-seconds", type=float, default=0.0)
     fetch.set_defaults(func=cmd_fetch)
+
+    exclude = subparsers.add_parser("exclude", help="drop a paper from the set, by id")
+    exclude.add_argument("--manifest", type=Path, required=True)
+    exclude.add_argument("--id", required=True)
+    exclude.add_argument("--reason", required=True)
+    exclude.set_defaults(func=cmd_exclude)
 
     sketch = subparsers.add_parser("sketch", help="index once for free and price the target")
     sketch.add_argument("--manifest", type=Path, required=True)

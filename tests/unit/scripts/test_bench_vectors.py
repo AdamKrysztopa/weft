@@ -370,3 +370,53 @@ def test_a_paper_whose_bytes_could_change_under_its_id_is_refused_by_name(
 ) -> None:
     with pytest.raises(bench_vectors.UnpinnablePaperError, match=named):
         bench_vectors.ragbench_documents(pdf_urls, frozenset())
+
+
+# --- documents excluded from the set ------------------------------------------------------------
+
+
+def _pinned(identifier: str) -> bench_vectors.BenchDocument:
+    return bench_vectors.BenchDocument(
+        id=identifier, source=f"https://arxiv.org/pdf/{identifier}", sha256=identifier[-1] * 64
+    )
+
+
+def test_an_excluded_paper_leaves_the_set_and_the_rest_keep_their_order_and_pins() -> None:
+    # Arrange
+    documents = (_pinned("2410.14077v2"), _pinned("2407.07009v2"), _pinned("2301.00001v1"))
+    exclusion = bench_vectors.Exclusion(
+        id="2407.07009v2", reason="pdf-text: page 16 has no text layer"
+    )
+
+    # Act
+    kept = bench_vectors.exclude_documents(documents, (exclusion,))
+
+    # Assert
+    assert kept == (_pinned("2410.14077v2"), _pinned("2301.00001v1"))
+
+
+def test_an_exclusion_naming_a_paper_the_manifest_does_not_hold_is_refused_by_name() -> None:
+    documents = (_pinned("2410.14077v2"),)
+    exclusion = bench_vectors.Exclusion(id="2412.99999v1", reason="typo")
+
+    with pytest.raises(bench_vectors.UnknownExclusionError, match=r"2412\.99999v1"):
+        bench_vectors.exclude_documents(documents, (exclusion,))
+
+
+def test_exclusions_and_their_reasons_round_trip_through_the_manifest(tmp_path: Path) -> None:
+    # Arrange
+    manifest = tmp_path / "open-ragbench-pdfs.toml"
+    documents = (_pinned("2410.14077v2"), _pinned("2301.00001v1"))
+    exclusions = (
+        bench_vectors.Exclusion(id="2407.07009v2", reason="pdf-text: page 16 has no text layer"),
+        bench_vectors.Exclusion(
+            id="2412.15576v4", reason="pdf-text: extracted text holds an unpaired surrogate"
+        ),
+    )
+
+    # Act
+    bench_vectors.write_manifest(manifest, documents, query="q", excluded=exclusions)
+
+    # Assert
+    assert bench_vectors.load_manifest(manifest) == documents
+    assert bench_vectors.load_exclusions(manifest) == exclusions
