@@ -307,3 +307,66 @@ def test_vectors_whose_width_disagrees_with_the_set_are_refused_with_both_widths
             tables=_tables(),
             vectors=np.array([[0.5, -0.25], [0.125, 0.0]], dtype=np.float32),
         )
+
+
+# --- the open_ragbench corpus -------------------------------------------------------------------
+
+#: The shape of `vectara/open_ragbench`'s `pdf/arxiv/pdf_urls.json` and `qrels.json` at revision
+#: `63f6b052ff83508b08e242db42263ee708815c26`, read 2026-09-15: paper id to its arXiv PDF, and
+#: query UUID to the paper and section it is labelled against. Ids copied from those files.
+_PDF_URLS = b"""{
+  "2407.01528v3": "https://arxiv.org/pdf/2407.01528v3",
+  "2412.00651v1": "https://arxiv.org/pdf/2412.00651v1",
+  "2410.14077v2": "https://arxiv.org/pdf/2410.14077v2",
+  "2301.00001v1": "https://arxiv.org/pdf/2301.00001v1"
+}"""
+
+_QRELS = b"""{
+  "852703f0-8373-43a2-a18a-eb5908ad0779": {"doc_id": "2410.14077v2", "section_id": 1},
+  "0b1c2d3e-0000-4000-8000-000000000001": {"doc_id": "2412.00651v1", "section_id": 0},
+  "0b1c2d3e-0000-4000-8000-000000000002": {"doc_id": "2410.14077v2", "section_id": 4}
+}"""
+
+
+def test_open_ragbench_files_are_read_at_a_pinned_revision() -> None:
+    assert bench_vectors.ragbench_file_url("qrels.json") == (
+        "https://huggingface.co/datasets/vectara/open_ragbench/resolve/"
+        "63f6b052ff83508b08e242db42263ee708815c26/pdf/arxiv/qrels.json"
+    )
+
+
+def test_the_golden_papers_are_every_paper_a_query_is_labelled_against() -> None:
+    assert bench_vectors.golden_papers(_QRELS) == frozenset({"2410.14077v2", "2412.00651v1"})
+
+
+def test_golden_papers_come_first_so_the_sketch_prefix_cannot_cut_one() -> None:
+    # Arrange — lexical order would put a hard negative (`2301…`, `2407…`) before both golden ones.
+    golden = bench_vectors.golden_papers(_QRELS)
+
+    # Act
+    documents = bench_vectors.ragbench_documents(_PDF_URLS, golden)
+
+    # Assert
+    assert [document.id for document in documents] == [
+        "2410.14077v2",
+        "2412.00651v1",
+        "2301.00001v1",
+        "2407.01528v3",
+    ]
+    assert documents[0] == bench_vectors.BenchDocument(
+        id="2410.14077v2", source="https://arxiv.org/pdf/2410.14077v2", sha256=""
+    )
+
+
+@pytest.mark.parametrize(
+    ("pdf_urls", "named"),
+    [
+        (b'{"2407.01528": "https://arxiv.org/pdf/2407.01528"}', "2407.01528"),
+        (b'{"2407.01528v3": "https://arxiv.org/pdf/2407.01528v2"}', "2407.01528v3"),
+    ],
+)
+def test_a_paper_whose_bytes_could_change_under_its_id_is_refused_by_name(
+    pdf_urls: bytes, named: str
+) -> None:
+    with pytest.raises(bench_vectors.UnpinnablePaperError, match=named):
+        bench_vectors.ragbench_documents(pdf_urls, frozenset())

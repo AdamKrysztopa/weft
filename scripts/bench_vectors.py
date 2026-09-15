@@ -1,10 +1,11 @@
 """Builds and reloads the real-embedder vector set — Phase 29 task **29.6**.
 
-About 970 pinned PMC Open Access PDFs, embedded once through `text-embedding-3-large` into
-100,000 chunks, so every later latency and recall measurement (29.1, 29.7-29.11) runs against the
-same fixed corpus with no API call and no network. Five subcommands, each a step in that pipeline:
+About 970 pinned PDFs, embedded once through `text-embedding-3-large` into 100,000 chunks, so
+every later latency and recall measurement (29.1, 29.7-29.11) runs against the same fixed corpus
+with no API call and no network. Five subcommands, each a step in that pipeline:
 
-- `select`  pins which PDFs make the set, from the PMC Open Access bucket on AWS Open Data.
+- `select`  pins which PDFs make the set — from `vectara/open_ragbench`'s 1,000 arXiv papers at a
+            pinned revision (the default), or from the PMC Open Access bucket on AWS Open Data.
 - `fetch`   downloads and pins their bytes.
 - `sketch`  indexes them once with the free `hash` embedder to learn exact chunk counts, picks
             the prefix reaching the target, counts billed tokens and prints the price. Nothing
@@ -51,7 +52,7 @@ import psycopg
 from pgvector.psycopg import register_vector
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 # --- the price, printed before the spend ---------------------------------------------------------
 
@@ -221,6 +222,62 @@ def document_for(article_key: str) -> BenchDocument:
         source=f"{PMC_BUCKET_URL}/{article_key}/{article_key}.pdf",
         sha256="",
     )
+
+
+# --- the open_ragbench corpus ---------------------------------------------------------------------
+
+#: A fixed Hugging Face commit of `vectara/open_ragbench`, so `pdf_urls.json` and `qrels.json`
+#: cannot change under a run pinned to this revision.
+RAGBENCH_REVISION: Final[str] = "63f6b052ff83508b08e242db42263ee708815c26"
+RAGBENCH_REPO_URL: Final[str] = "https://huggingface.co/datasets/vectara/open_ragbench"
+
+
+def ragbench_file_url(name: str) -> str:
+    return f"{RAGBENCH_REPO_URL}/resolve/{RAGBENCH_REVISION}/pdf/arxiv/{name}"
+
+
+class RagbenchLabel(BaseModel):
+    """One `qrels.json` entry: which paper and section a query is labelled against."""
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    doc_id: str
+    section_id: int
+
+
+def golden_papers(qrels_body: bytes) -> frozenset[str]:
+    labels = TypeAdapter(dict[str, RagbenchLabel]).validate_json(qrels_body)
+    return frozenset(label.doc_id for label in labels.values())
+
+
+class UnpinnablePaperError(ValueError):
+    """A `pdf_urls.json` id and URL that could later resolve to different bytes: the id carries
+    no arXiv version suffix, or the URL is not exactly `https://arxiv.org/pdf/<id>`."""
+
+
+_ARXIV_VERSIONED_ID_RE: Final[re.Pattern[str]] = re.compile(r"\d{4}\.\d{4,5}v\d+")
+
+
+def ragbench_documents(pdf_urls_body: bytes, golden: frozenset[str]) -> tuple[BenchDocument, ...]:
+    pdf_urls = TypeAdapter(dict[str, str]).validate_json(pdf_urls_body)
+
+    documents: dict[str, BenchDocument] = {}
+    for identifier, url in pdf_urls.items():
+        expected_url = f"https://arxiv.org/pdf/{identifier}"
+        if _ARXIV_VERSIONED_ID_RE.fullmatch(identifier) is None:
+            message = f"{identifier} carries no arXiv version suffix, so its bytes could change"
+            raise UnpinnablePaperError(message)
+        if url != expected_url:
+            message = (
+                f"{identifier} points at {url!r}, not its own pinned URL {expected_url!r}, so "
+                "its bytes could change"
+            )
+            raise UnpinnablePaperError(message)
+        documents[identifier] = BenchDocument(id=identifier, source=expected_url, sha256="")
+
+    golden_ids = sorted(identifier for identifier in documents if identifier in golden)
+    rest_ids = sorted(identifier for identifier in documents if identifier not in golden)
+    return tuple(documents[identifier] for identifier in (*golden_ids, *rest_ids))
 
 
 def _toml_escape(value: str) -> str:
@@ -690,12 +747,46 @@ def _provision_schema(dsn: str) -> None:
 # --- select ---------------------------------------------------------------------------------------
 
 
+class CorpusSource(StrEnum):
+    """Which real-world corpus `select` draws documents from."""
+
+    PMC = "pmc"
+    OPEN_RAGBENCH = "open-ragbench"
+
+
 def cmd_select(args: argparse.Namespace) -> int:
     manifest = Path(args.manifest)
     if manifest.exists():
         message = f"{manifest} already exists. `select` does not overwrite a manifest."
         raise FileExistsError(message)
 
+    if args.source == CorpusSource.OPEN_RAGBENCH:
+        return _select_open_ragbench(manifest)
+    return _select_pmc(args, manifest)
+
+
+def _select_open_ragbench(manifest: Path) -> int:
+    pdf_urls_body = _urlopen(
+        ragbench_file_url("pdf_urls.json"), timeout=60, accept="application/json"
+    )
+    qrels_body = _urlopen(ragbench_file_url("qrels.json"), timeout=60, accept="application/json")
+
+    golden = golden_papers(qrels_body)
+    documents = ragbench_documents(pdf_urls_body, golden)
+    golden_count = sum(1 for document in documents if document.id in golden)
+
+    write_manifest(
+        manifest,
+        documents,
+        query=f"open_ragbench revision {RAGBENCH_REVISION} golden papers first",
+    )
+    print(
+        f"selected {len(documents)} documents into {manifest} ({golden_count} golden papers first)"
+    )
+    return 0
+
+
+def _select_pmc(args: argparse.Namespace, manifest: Path) -> int:
     documents: list[BenchDocument] = []
     looked_at = 0
     skipped_unadmitted = 0
@@ -802,6 +893,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
             target.write_bytes(body)
             updated.append(pinned)
             fetched += 1
+
+        if args.delay_seconds > 0:
+            time.sleep(args.delay_seconds)
 
         if since_checkpoint >= _MANIFEST_CHECKPOINT:
             write_manifest(manifest, tuple(updated) + tuple(documents[len(updated) :]), query=query)
@@ -1069,6 +1163,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     select = subparsers.add_parser("select", help="pin which PDFs make the corpus")
     select.add_argument("--manifest", type=Path, required=True)
+    select.add_argument(
+        "--source",
+        choices=[member.value for member in CorpusSource],
+        default=CorpusSource.OPEN_RAGBENCH.value,
+        type=CorpusSource,
+    )
     select.add_argument("--start-after", default="PMC11000000")
     select.add_argument("--count", type=int, default=1100)
     select.set_defaults(func=cmd_select)
@@ -1076,6 +1176,7 @@ def _build_parser() -> argparse.ArgumentParser:
     fetch = subparsers.add_parser("fetch", help="download and pin the selected PDFs")
     fetch.add_argument("--manifest", type=Path, required=True)
     fetch.add_argument("--dest", type=Path, required=True)
+    fetch.add_argument("--delay-seconds", type=float, default=0.0)
     fetch.set_defaults(func=cmd_fetch)
 
     sketch = subparsers.add_parser("sketch", help="index once for free and price the target")
