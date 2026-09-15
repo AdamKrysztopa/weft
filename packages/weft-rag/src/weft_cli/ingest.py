@@ -713,10 +713,16 @@ async def run_index(
                 yield work[start : start + batch_size]
 
         summary = await runner.run(runnable, batches(), indexing_ctx)
+        # Carried repair **R36.0** — `RunSummary` counts failed batches without naming their
+        # documents, so any failure leaves all of `work` `INDEXING` for the next run to retry;
+        # a batch that did succeed is re-paid then, and the store dedupes it by digest.
+        attempted = {doc.source_id for doc in work}
         await _record_sources(
             runnable,
             store_stage_ids=store_stage_ids,
-            docs=docs,
+            docs=docs
+            if summary.failed == 0
+            else tuple(doc for doc in docs if doc.source_id not in attempted),
             pipeline=pipeline,
             identity=identity,
         )

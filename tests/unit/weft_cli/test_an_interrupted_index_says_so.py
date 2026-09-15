@@ -41,7 +41,7 @@ from weft_extract import Extractor
 from weft_extract.contract import SourceDoc
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import NothingToProduce, Outcome, Produced, SourceId
+from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.runner import RunSummary
 from weft_store import NodeStore, SourceRecord, SourceStatus
@@ -79,6 +79,24 @@ class _ExplodingChunker(_Passthrough):
         return await super().run(payload, ctx)
 
 
+class _RefusingChunker(_Passthrough):
+    """A stage that returns `Failed` for one named document — carried repair **R36.0**.
+
+    Unlike `_ExplodingChunker` nothing is raised: the runner counts the batch as failed and
+    `run_index` returns normally, which is the path a non-UTF-8 file takes through the shipped
+    extractor. Keyed on content rather than on a flag so a corpus can hold one good document and
+    one refused one in the same run.
+    """
+
+    refuse: ClassVar[str | None] = None
+
+    async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+        refused = type(self).refuse
+        if refused is not None and any(refused in str(item) for item in payload):
+            return Failed(reason=f"cannot chunk {refused!r}")
+        return await super().run(payload, ctx)
+
+
 class _RecordingStore(_Passthrough):
     def __init__(self, config: object) -> None:
         super().__init__(config)
@@ -111,11 +129,12 @@ def _store_factory(store: _RecordingStore, config: object) -> _RecordingStore:
     return store
 
 
-def _registry(store: _RecordingStore) -> Registry:
+def _registry(store: _RecordingStore, chunker: type[_Passthrough] = _ExplodingChunker) -> Registry:
     _ExplodingChunker.explode = False
+    _RefusingChunker.refuse = None
     registry = Registry()
     registry.add(Extractor, "text", _Passthrough, distribution="weft-extract")
-    registry.add(Chunker, "fixed-size", _ExplodingChunker, distribution="weft-chunk")
+    registry.add(Chunker, "fixed-size", chunker, distribution="weft-chunk")
     registry.add(Embedder, "hash", _Passthrough, distribution="weft-embed")
     registry.add(NodeStore, "pgvector", partial(_store_factory, store), distribution="weft-store")
     return registry
@@ -245,6 +264,68 @@ async def test_an_interrupted_document_is_indexed_again_by_the_next_run(tmp_path
     assert result.documents_indexed == 1
     assert result.source_changes == {str(_source_id(tmp_path, "one.txt")): SourceChange.INCOMPLETE}
     assert store.records[_source_id(tmp_path, "one.txt")].status is SourceStatus.ACTIVE
+
+
+async def test_a_run_whose_batch_failed_does_not_record_it_active(tmp_path: Path) -> None:
+    """Carried repair **R36.0**: a batch the runner counted `Failed` did no work, so its
+    documents' records must not claim otherwise.
+
+    Found by running the binary: one non-UTF-8 file failed its batch, every source was recorded
+    `ACTIVE`, and the next `weft index` answered `2 unchanged` at exit `0` — the refused file and
+    the good one sharing its batch both missing from the corpus, with every later run green.
+    """
+    # Arrange
+    (tmp_path / "bad.txt").write_text("unreadable")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "bad.txt"
+
+    # Act
+    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert
+    assert result.summary.failed == 1
+    assert store.records[_source_id(tmp_path, "bad.txt")].status is not SourceStatus.ACTIVE
+
+
+async def test_a_document_whose_batch_failed_is_indexed_again_by_the_next_run(
+    tmp_path: Path,
+) -> None:
+    """The conjunction that makes the record above matter (`L8.29`): the next run, with nothing on
+    disk changed, treats the document as work rather than skipping it as unchanged."""
+    # Arrange — a run whose only batch is refused.
+    (tmp_path / "bad.txt").write_text("unreadable")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "bad.txt"
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Act — the cause is gone, the bytes are not.
+    _RefusingChunker.refuse = None
+    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert
+    assert result.documents_indexed == 1
+    assert store.records[_source_id(tmp_path, "bad.txt")].status is SourceStatus.ACTIVE
+
+
+async def test_a_failed_run_leaves_an_unchanged_documents_record_active(tmp_path: Path) -> None:
+    """The control: withholding `ACTIVE` from the run's work must not reach a document the run
+    never touched, whose record from the earlier run is still true."""
+    # Arrange — one document indexed cleanly, then a second added that the next run refuses.
+    (tmp_path / "good.txt").write_text("hello weft")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+    (tmp_path / "bad.txt").write_text("unreadable")
+    _RefusingChunker.refuse = "bad.txt"
+
+    # Act
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert
+    assert store.records[_source_id(tmp_path, "good.txt")].status is SourceStatus.ACTIVE
+    assert store.records[_source_id(tmp_path, "bad.txt")].status is not SourceStatus.ACTIVE
 
 
 def _rendered(changes: "dict[str, SourceChange]") -> str:
