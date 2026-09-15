@@ -590,3 +590,29 @@ def test_a_subset_keeps_a_node_shared_with_a_paper_it_left_out(tmp_path: Path) -
     assert np.array_equal(bench_vectors.open_vectors(directory, reloaded.meta), vectors[[0, 1]])
     assert reloaded.meta.rows == 2
     assert reloaded.meta.pdfs == 1
+
+
+# --- embedding in resumable slices --------------------------------------------------------------
+
+
+def test_the_next_slice_is_the_first_chosen_papers_not_yet_done_in_order() -> None:
+    chosen = ("p1", "p2", "p3", "p4", "p5")
+
+    assert bench_vectors.next_slice(chosen, frozenset({"p1", "p3"}), size=2) == ("p2", "p4")
+    assert bench_vectors.next_slice(chosen, frozenset({"p1", "p2", "p3"}), size=5) == ("p4", "p5")
+    assert bench_vectors.next_slice(chosen, frozenset(chosen), size=2) == ()
+    with pytest.raises(ValueError, match="size"):
+        bench_vectors.next_slice(chosen, frozenset(), size=0)
+
+
+def test_a_paper_is_done_only_when_its_source_record_is_active() -> None:
+    # Arrange — `weft_sources` rows as (id, status::text), read 2026-09-15 from a partial embed:
+    # every source is recorded `indexing` before a run and `active` only after it finishes.
+    rows = (
+        (f"{_PDFS}/2401.00001v1.pdf", "active"),
+        (f"{_PDFS}/2401.00002v1.pdf", "indexing"),
+        (f"{_PDFS}/2401.00003v1.pdf", "deleting"),
+    )
+
+    # Act / Assert
+    assert bench_vectors.active_papers(rows) == frozenset({"2401.00001v1"})

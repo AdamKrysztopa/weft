@@ -12,7 +12,8 @@ with no API call and no network. Seven subcommands, each a step in that pipeline
             the prefix reaching the target, counts billed tokens and prints the price. Nothing
             is spent.
 - `embed`   refuses without `--yes`. With it, indexes the chosen PDFs through
-            `openai-embeddings` and dumps the result to a vector set on disk.
+            `openai-embeddings` in resumable slices of `--batch-size` papers, and dumps the
+            result to a vector set on disk once every chosen paper is done.
 - `load`    restores a vector set into a new throwaway database with no API call.
 - `subset`  cuts a vector set down to the manifest-order prefix of whole papers that reaches a
             chunk target, and writes it as its own checksummed vector set.
@@ -29,6 +30,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import http.client
+import itertools
 import json
 import os
 import re
@@ -1207,6 +1209,39 @@ def cmd_sketch(args: argparse.Namespace) -> int:
 
 # --- embed ----------------------------------------------------------------------------------------
 
+#: `weft_sources.status`, rendered lowercase by `::text` — read 2026-09-15 from a partial embed:
+#: every source is `indexing` before a run and `active` only once it finishes.
+_ACTIVE_STATUS: Final[str] = "active"
+
+
+def next_slice(chosen: Sequence[str], done: frozenset[str], *, size: int) -> tuple[str, ...]:
+    if size < 1:
+        message = f"size must be at least 1, got {size}"
+        raise ValueError(message)
+    remaining = (identifier for identifier in chosen if identifier not in done)
+    return tuple(itertools.islice(remaining, size))
+
+
+def active_papers(rows: Iterable[tuple[str | None, str | None]]) -> frozenset[str]:
+    return frozenset(
+        PurePosixPath(row_id).stem
+        for row_id, status in rows
+        if row_id is not None and status == _ACTIVE_STATUS
+    )
+
+
+def _read_done_papers(dsn: str) -> frozenset[str]:
+    """The active papers `weft_sources` already holds. Autocommit, and closed before the caller
+    runs `weft`: an open connection blocks weft's lazy schema DDL (`L22.30`)."""
+    with psycopg.connect(dsn, autocommit=True) as conn, conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('weft_sources')")
+        row = cur.fetchone()
+        if row is None or row[0] is None:
+            return frozenset()
+        cur.execute("SELECT id, status::text FROM weft_sources")
+        rows = cur.fetchall()
+    return active_papers(rows)
+
 
 def cmd_embed(args: argparse.Namespace) -> int:
     # The sketch is read and printed before anything checks whether spending is even possible —
@@ -1231,7 +1266,6 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
     admin_dsn = _require_admin_dsn(args.admin_dsn)
     pdfs_dir = Path(args.pdfs).resolve()
-    _stage_papers(sketch.chosen_ids, pdfs_dir, work / "staged")
 
     db_name = f"weft_bench_embed_{sketch.input_digest[:12]}"
     if not _database_exists(admin_dsn, db_name):
@@ -1253,30 +1287,64 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
     env = os.environ.copy()
     env["WEFT_DATABASE_URL"] = dsn
-    result = _run_weft(
-        ["index", "staged", "--pipeline", "bench-embed", "--batch-size", str(args.batch_size)],
-        cwd=work,
-        env=env,
-    )
-    print(result.stdout)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
-    stored = _parse_stored_count(result.stdout)
 
-    with psycopg.connect(dsn) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM weft_nodes")
-            row = cur.fetchone()
-            counted = 0 if row is None else int(row[0])
-        if stored != counted or counted != sketch.chunks:
+    slice_number = 0
+    while True:
+        done = _read_done_papers(dsn)
+        current = next_slice(sketch.chosen_ids, done, size=args.batch_size)
+        if not current:
+            break
+        slice_number += 1
+        _stage_papers(current, pdfs_dir, work / "staged")
+        result = _run_weft(
+            ["index", "staged", "--pipeline", "bench-embed", "--batch-size", str(len(current))],
+            cwd=work,
+            env=env,
+        )
+        print(
+            f"slice {slice_number}: {len(current)} papers, "
+            f"{len(done) + len(current)} of {len(sketch.chosen_ids)} done"
+        )
+        for line in result.stdout.splitlines():
+            if "documents:" in line or "batch" in line:
+                print(line)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        if result.returncode != 0:
             message = (
-                f"weft index reported {stored} nodes stored, weft_nodes holds {counted}, the "
-                f"sketch chose {sketch.chunks} chunks — these must all agree before spending "
-                f"is trusted. Database {db_name} was kept for inspection."
+                f"embed failed on the slice {current[0]}..{current[-1]} "
+                f"(exit code {result.returncode}). Database {db_name} was kept, so re-running "
+                "the same `embed` command resumes."
+            )
+            raise ValueError(message)
+        # Without this a slice weft left unmarked would be chosen, and paid for, again forever.
+        stuck = sorted(frozenset(current) - _read_done_papers(dsn))
+        if stuck:
+            message = (
+                f"weft index exited 0 but left {len(stuck)} paper(s) of slice {slice_number} not "
+                f"active: {', '.join(stuck[:5])}. Stopped rather than re-paying that slice; "
+                f"database {db_name} was kept."
             )
             raise ValueError(message)
 
-        nodes_table, vectors = _dump_nodes_with_vectors(conn, "weft_nodes", expected_rows=counted)
+    done = _read_done_papers(dsn)
+    missing = frozenset(sketch.chosen_ids) - done
+    with psycopg.connect(dsn, autocommit=True) as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM weft_nodes")
+        row = cur.fetchone()
+        node_count = 0 if row is None else int(row[0])
+    if missing or node_count != sketch.chunks:
+        message = (
+            f"{len(done)} of {len(sketch.chosen_ids)} chosen papers are active, weft_nodes "
+            f"holds {node_count} nodes, the sketch chose {sketch.chunks} chunks — these must "
+            f"all agree before spending is trusted. Database {db_name} was kept for inspection."
+        )
+        raise ValueError(message)
+
+    with psycopg.connect(dsn) as conn:
+        nodes_table, vectors = _dump_nodes_with_vectors(
+            conn, "weft_nodes", expected_rows=node_count
+        )
         sources_table = _dump_table(conn, "weft_sources")
 
     width = vectors.shape[1] if vectors.shape[0] else sketch.model.native_width
@@ -1433,8 +1501,13 @@ def _build_parser() -> argparse.ArgumentParser:
     embed.add_argument("--pdfs", type=Path, required=True)
     embed.add_argument("--out", type=Path, required=True)
     embed.add_argument("--yes", action="store_true")
-    # One batch holding all 169,223 vectors was killed for memory on 2026-09-15.
-    embed.add_argument("--batch-size", type=int, default=50)
+    embed.add_argument(
+        "--batch-size",
+        type=int,
+        default=25,
+        help="papers per weft index run; each run marks its own slice active, so a killed run "
+        "re-pays only that slice",
+    )
     _add_admin_dsn(embed)
     embed.set_defaults(func=cmd_embed)
 
