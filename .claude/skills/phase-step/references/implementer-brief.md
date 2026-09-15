@@ -202,7 +202,13 @@ failure to be confirmed before any edit. A brief without it sends the agent to m
 that does not exist in its tree. **Before the patch, Step 0 runs `git merge --ff-only main` and names
 one symbol from the newest commit it depends on to confirm** (`L22.24`). The harness builds a
 worktree from the session's *first* commit, so anything committed since is absent, and the patch
-applies cleanly over a tree that lacks the contract the brief was written against.
+applies cleanly over a tree that lacks the contract the brief was written against. **And a brief never
+tells the agent a change exists that only your checkout holds** (`L22.25`). An uncommitted edit the
+agent's gate reads, such as a documentation file a check walks, is committed or carried in the Step 0
+patch. `R33.1`'s brief said `stream_usage` was *"already documented"* in `weft.toml.example`; that edit
+was uncommitted in main, the worktree lacked it, and the agent correctly blocked on a failing check it
+was forbidden to fix. A hook comparing `git status` against the patch was declined: `docs/internal/`
+is untracked and nearly always dirty, so it would fire on almost every correct dispatch.
 
 In practice parallelism is rare inside one ledger task — the tasks are ordered so each is one
 property — and the merge costs more than the sequence saved. Default to one.
