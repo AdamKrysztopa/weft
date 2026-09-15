@@ -2053,6 +2053,17 @@ All checks run in CI, before tests.
     `require` in the method's own body. Waiver `WAIVED_RECONCILABLES` pinned empty, with two
     planted counter-examples — no guard at all, and a guard testing the *other* mode — proving the
     walk can fail. `tests/architecture/test_ff29_reconcile_spends_only_under_full.py`.
+33. **A stage times itself with no action by its author.** Added 2026-09-15, ledger task 33.2.
+    Timing is a seam concern: a `weft_kernel.seam.wrap` call inside a recording scope leaves a
+    `StageRecord`. So the check has two halves. **(a)** A pipeline of in-process plugins run
+    through `Runner.run_once` in a scope yields one record per position, and none of the plugins
+    times itself. **(b)** An AST walk over `weft-rag` finds every awaited method call on an
+    instance built by `registry.entry(...).factory(...)` that is neither a lifecycle call nor
+    handed to `wrap`. Each such call is invisible to a record, and `UNWRAPPED_PLUGIN_CALLS` names
+    them, keyed without line numbers. At filing that is one call, the retrieve-only store search,
+    and task 33.3 empties it. The blind spot is stated on the module: a store method a retriever
+    calls inside its own `run` is timed only as part of that retriever's record.
+    `tests/architecture/test_ff33_every_plugin_call_is_timed.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
