@@ -1,10 +1,10 @@
 """Builds and reloads the real-embedder vector set — Phase 29 task **29.6**.
 
-About 970 pinned arXiv PDFs, embedded once through `text-embedding-3-large` into 100,000 chunks,
-so every later latency and recall measurement (29.1, 29.7-29.11) runs against the same fixed
-corpus with no API call and no network. Five subcommands, each a step in that pipeline:
+About 970 pinned PMC Open Access PDFs, embedded once through `text-embedding-3-large` into
+100,000 chunks, so every later latency and recall measurement (29.1, 29.7-29.11) runs against the
+same fixed corpus with no API call and no network. Five subcommands, each a step in that pipeline:
 
-- `select`  pins which PDFs make the set, from the arXiv API.
+- `select`  pins which PDFs make the set, from the PMC Open Access bucket on AWS Open Data.
 - `fetch`   downloads and pins their bytes.
 - `sketch`  indexes them once with the free `hash` embedder to learn exact chunk counts, picks
             the prefix reaching the target, counts billed tokens and prints the price. Nothing
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -50,7 +51,7 @@ import psycopg
 from pgvector.psycopg import register_vector
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 # --- the price, printed before the spend ---------------------------------------------------------
 
@@ -146,7 +147,7 @@ def vector_set_name(digest: str, model: EmbeddingModel, width: int, day: date) -
 
 
 class BenchDocument(BaseModel):
-    """One versioned arXiv document the set may draw on."""
+    """One versioned document the set may draw on."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -155,16 +156,70 @@ class BenchDocument(BaseModel):
     sha256: str
 
 
-#: The feed-level `<id>` is an `http://arxiv.org/api/...` URL and does not match `abs/`, so this
-#: pattern alone separates entry ids from it with no need to scope the match inside `<entry>`.
-_ENTRY_ID_RE = re.compile(r"<id>http://arxiv\.org/abs/([^<]+)</id>")
+#: PubMed Central Open Access bucket on AWS Open Data: anonymous HTTPS, built for bulk reads, and
+#: keyed by versioned article (`PMC10000014.1/PMC10000014.1.pdf`), read 2026-09-15. Chosen over
+#: arXiv, whose API answered 429 and whose PDF host answered 406 to this machine that day.
+PMC_BUCKET_URL: Final[str] = "https://pmc-oa-opendata.s3.amazonaws.com"
+
+#: `ListObjectsV2` with `delimiter=/` groups one `<CommonPrefixes><Prefix>` per versioned article;
+#: the bucket-level `<Prefix></Prefix>` sits outside a `<CommonPrefixes>` and so does not match.
+_COMMON_PREFIX_RE = re.compile(r"<CommonPrefixes>\s*<Prefix>([^<]+?)/</Prefix>\s*</CommonPrefixes>")
+_CONTINUATION_TOKEN_RE = re.compile(r"<NextContinuationToken>([^<]+)</NextContinuationToken>")
 
 
-def parse_arxiv_feed(body: bytes) -> tuple[BenchDocument, ...]:
+class S3Page(BaseModel):
+    """One page of an S3 `ListObjectsV2` listing, grouped by `delimiter=/`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    articles: tuple[str, ...]
+    continuation: str | None
+
+
+def parse_s3_listing(body: bytes) -> S3Page:
     text = body.decode("utf-8")
-    return tuple(
-        BenchDocument(id=identifier, source=f"https://arxiv.org/pdf/{identifier}", sha256="")
-        for identifier in _ENTRY_ID_RE.findall(text)
+    articles = tuple(_COMMON_PREFIX_RE.findall(text))
+    match = _CONTINUATION_TOKEN_RE.search(text)
+    return S3Page(articles=articles, continuation=None if match is None else match.group(1))
+
+
+class PmcArticle(BaseModel):
+    """One article's metadata, as `<key>.json` carries it. `extra="ignore"` because the real
+    JSON carries more fields than admission needs."""
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    pmcid: str
+    version: int
+    is_pmc_openaccess: bool
+    is_retracted: bool
+    is_historical_ocr: bool
+    license_code: str | None
+    pdf_url: str | None
+
+
+#: Licences that permit any use. `CC BY-NC` and similar are excluded even though they are open
+#: access, because "open access" and "reusable for a benchmark corpus" are not the same claim.
+ADMITTED_LICENSES: Final[frozenset[str]] = frozenset({"CC BY", "CC0"})
+
+
+def admitted(article: PmcArticle) -> bool:
+    return (
+        article.is_pmc_openaccess
+        and not article.is_retracted
+        and not article.is_historical_ocr
+        and article.license_code in ADMITTED_LICENSES
+        and article.pdf_url is not None
+    )
+
+
+def document_for(article_key: str) -> BenchDocument:
+    """Pins an article to the PDF under its own versioned prefix — the key already carries the
+    revision, so the same key can never later resolve to different bytes."""
+    return BenchDocument(
+        id=article_key,
+        source=f"{PMC_BUCKET_URL}/{article_key}/{article_key}.pdf",
+        sha256="",
     )
 
 
@@ -367,10 +422,13 @@ def open_vectors(directory: Path, meta: VectorSetMeta) -> npt.NDArray[np.float32
 # The subcommands. Not unit-tested — driven by running the binary, per the module docstring.
 # ===================================================================================
 
-_DEFAULT_QUERY: Final[str] = "cat:cs.IR AND submittedDate:[202401010000 TO 202412312359]"
-_ARXIV_PAGE_SIZE: Final[int] = 100
 _MANIFEST_CHECKPOINT: Final[int] = 25
 _STORED_RE: Final[re.Pattern[str]] = re.compile(r"nodes now stored: (\d+)\.")
+
+#: HTTP codes worth retrying: throttling (429), the transient server errors, and 406, which arXiv
+#: used as a throttle on 2026-09-15, answering it to one request and 200 to the next.
+_RETRYABLE_HTTP_CODES: Final[frozenset[int]] = frozenset({406, 429, 500, 502, 503, 504})
+_RETRY_DELAYS_SECONDS: Final[tuple[int, ...]] = (2, 4, 8, 16)
 
 
 class SketchResult(BaseModel):
@@ -385,17 +443,42 @@ class SketchResult(BaseModel):
     input_digest: str
 
 
-def _urlopen(url: str, *, timeout: int) -> bytes:
+def _urlopen(url: str, *, timeout: int, accept: str) -> bytes:
     if not url.startswith("https://"):
         message = f"refusing a non-https source: {url!r}"
         raise ValueError(message)
     # noqa: S310 on both lines below — the scheme is checked immediately above, which is the
     # audit S310 asks for. This is the one urlopen in the script; select and fetch both call it.
     request = urllib.request.Request(  # noqa: S310
-        url, headers={"User-Agent": fetch_corpus.USER_AGENT}
+        url,
+        headers={
+            "User-Agent": fetch_corpus.USER_AGENT,
+            "Accept": accept,
+            "Accept-Language": "en",
+        },
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
-        return response.read()
+    last_exc: Exception | None = None
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in _RETRYABLE_HTTP_CODES:
+                raise
+            last_exc = exc
+        except (
+            http.client.IncompleteRead,
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionResetError,
+        ) as exc:
+            last_exc = exc
+        if attempt < len(_RETRY_DELAYS_SECONDS):
+            time.sleep(_RETRY_DELAYS_SECONDS[attempt])
+    if last_exc is not None:
+        raise last_exc
+    message = "_urlopen exhausted its retries without recording an exception"
+    raise RuntimeError(message)
 
 
 def _weft_command() -> list[str]:
@@ -614,34 +697,66 @@ def cmd_select(args: argparse.Namespace) -> int:
         raise FileExistsError(message)
 
     documents: list[BenchDocument] = []
-    seen: set[str] = set()
-    start = 0
-    fetched_any = False
+    looked_at = 0
+    skipped_unadmitted = 0
+    skipped_unreadable = 0
+
+    continuation: str | None = None
     while len(documents) < args.count:
-        if fetched_any:
-            time.sleep(fetch_corpus.POLITE_DELAY_SECONDS)
-        url = (
-            "https://export.arxiv.org/api/query?search_query="
-            f"{urllib.parse.quote(args.query, safe='')}"
-            f"&sortBy=submittedDate&sortOrder=ascending&start={start}&max_results={_ARXIV_PAGE_SIZE}"
-        )
-        body = _urlopen(url, timeout=60)
-        fetched_any = True
-        page = parse_arxiv_feed(body)
-        if not page:
-            break
-        for document in page:
-            if document.id in seen:
-                continue
-            seen.add(document.id)
-            documents.append(document)
+        if continuation is None:
+            listing_url = (
+                f"{PMC_BUCKET_URL}/?list-type=2&delimiter=/&max-keys=1000"
+                f"&start-after={args.start_after}"
+            )
+        else:
+            listing_url = (
+                f"{PMC_BUCKET_URL}/?list-type=2&delimiter=/&max-keys=1000"
+                f"&continuation-token={urllib.parse.quote(continuation, safe='')}"
+            )
+        page = parse_s3_listing(_urlopen(listing_url, timeout=60, accept="application/xml"))
+
+        for key in page.articles:
             if len(documents) >= args.count:
                 break
-        start += _ARXIV_PAGE_SIZE
+            looked_at += 1
+            article_body = _urlopen(
+                f"{PMC_BUCKET_URL}/{key}/{key}.json", timeout=60, accept="application/json"
+            )
+            try:
+                article = PmcArticle.model_validate_json(article_body)
+            except ValidationError:
+                skipped_unreadable += 1
+                continue
+            if not admitted(article):
+                skipped_unadmitted += 1
+                continue
+            documents.append(document_for(key))
+
+        continuation = page.continuation
+        if continuation is None:
+            break
+
+    if len(documents) < args.count:
+        message = (
+            f"the bucket held only {len(documents):,} admitted articles from start-after "
+            f"{args.start_after!r} ({looked_at:,} looked at), fewer than the {args.count:,} "
+            "the set needs"
+        )
+        raise InsufficientCorpusError(message)
 
     chosen = tuple(documents[: args.count])
-    write_manifest(manifest, chosen, query=args.query)
-    print(f"selected {len(chosen)} documents into {manifest}")
+    write_manifest(
+        manifest,
+        chosen,
+        query=(
+            f"pmc-oa-opendata start-after {args.start_after} "
+            f"licences {','.join(sorted(ADMITTED_LICENSES))}"
+        ),
+    )
+    print(
+        f"selected {len(chosen)} documents into {manifest} (looked at {looked_at} articles, "
+        f"skipped {skipped_unadmitted} unadmitted, {skipped_unreadable} unreadable)"
+    )
     return 0
 
 
@@ -668,13 +783,18 @@ def cmd_fetch(args: argparse.Namespace) -> int:
                 updated.append(pin_or_verify(document, body) if document.sha256 == "" else document)
                 continue
 
-        if since_checkpoint:
-            time.sleep(fetch_corpus.POLITE_DELAY_SECONDS)
         since_checkpoint += 1
         try:
-            body = _urlopen(document.source, timeout=120)
+            body = _urlopen(document.source, timeout=120, accept="application/pdf")
             pinned = pin_or_verify(document, body)
-        except (urllib.error.URLError, TimeoutError, PinMismatchError, ValueError) as exc:
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            PinMismatchError,
+            ValueError,
+            http.client.IncompleteRead,
+            http.client.HTTPException,
+        ) as exc:
             print(f"  failed {document.id}: {exc}", file=sys.stderr)
             failed += 1
             updated.append(document)
@@ -949,7 +1069,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     select = subparsers.add_parser("select", help="pin which PDFs make the corpus")
     select.add_argument("--manifest", type=Path, required=True)
-    select.add_argument("--query", default=_DEFAULT_QUERY)
+    select.add_argument("--start-after", default="PMC11000000")
     select.add_argument("--count", type=int, default=1100)
     select.set_defaults(func=cmd_select)
 
@@ -997,6 +1117,7 @@ def main(argv: list[str] | None = None) -> int:
         psycopg.Error,
         subprocess.SubprocessError,
         OSError,
+        http.client.HTTPException,
     ) as exc:
         print(str(exc), file=sys.stderr)
         return 2

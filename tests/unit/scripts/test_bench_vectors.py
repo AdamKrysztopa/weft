@@ -19,25 +19,40 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 
-_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>query results</title>
-  <entry>
-    <id>http://arxiv.org/abs/2401.00017v2</id>
-    <title>A synthetic first entry</title>
-    <link href="http://arxiv.org/abs/2401.00017v2" rel="alternate" type="text/html"/>
-    <link title="pdf" href="http://arxiv.org/pdf/2401.00017v2" rel="related"
-          type="application/pdf"/>
-  </entry>
-  <entry>
-    <id>http://arxiv.org/abs/2401.00123v1</id>
-    <title>A synthetic second entry</title>
-    <link href="http://arxiv.org/abs/2401.00123v1" rel="alternate" type="text/html"/>
-    <link title="pdf" href="http://arxiv.org/pdf/2401.00123v1" rel="related"
-          type="application/pdf"/>
-  </entry>
-</feed>
+#: The shape of the PMC Open Access bucket's listing, measured 2026-09-15 on `pmc-oa-opendata`:
+#: `ListObjectsV2` with `delimiter=/` answers one `CommonPrefixes` entry per versioned article, and
+#: a truncated page carries the token that continues it.
+_S3_PAGE = b"""<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Name>pmc-oa-opendata</Name><Prefix></Prefix><KeyCount>2</KeyCount>
+  <IsTruncated>true</IsTruncated>
+  <NextContinuationToken>token-2</NextContinuationToken>
+  <CommonPrefixes><Prefix>PMC11000012.1/</Prefix></CommonPrefixes>
+  <CommonPrefixes><Prefix>PMC11000013.2/</Prefix></CommonPrefixes>
+</ListBucketResult>
 """
+
+_LAST_S3_PAGE = b"""<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <IsTruncated>false</IsTruncated>
+  <CommonPrefixes><Prefix>PMC11000020.1/</Prefix></CommonPrefixes>
+</ListBucketResult>
+"""
+
+
+def _article(**overrides: object) -> bench_vectors.PmcArticle:
+    # Field names and values copied from `pmc-oa-opendata/PMC10000014.1/PMC10000014.1.json`.
+    fields: dict[str, object] = {
+        "pmcid": "PMC11000012",
+        "version": 1,
+        "is_pmc_openaccess": True,
+        "is_retracted": False,
+        "is_historical_ocr": False,
+        "license_code": "CC BY",
+        "pdf_url": "s3://pmc-oa-opendata/PMC11000012.1/PMC11000012.1.pdf?md5=b5b41ab219fdd0c6",
+    }
+    fields.update(overrides)
+    return bench_vectors.PmcArticle.model_validate(fields)
 
 
 # --- naming -------------------------------------------------------------------------------------
@@ -122,18 +137,45 @@ def test_a_fetched_set_too_small_for_the_target_is_refused_with_both_numbers() -
 # --- the pinned PDFs ----------------------------------------------------------------------------
 
 
-def test_an_arxiv_feed_yields_every_entry_as_a_versioned_https_pdf() -> None:
+def test_a_bucket_page_yields_each_versioned_article_and_the_token_that_continues_it() -> None:
     # Act
-    entries = bench_vectors.parse_arxiv_feed(_FEED)
+    page = bench_vectors.parse_s3_listing(_S3_PAGE)
+    last = bench_vectors.parse_s3_listing(_LAST_S3_PAGE)
 
     # Assert
-    assert entries == (
-        bench_vectors.BenchDocument(
-            id="2401.00017v2", source="https://arxiv.org/pdf/2401.00017v2", sha256=""
-        ),
-        bench_vectors.BenchDocument(
-            id="2401.00123v1", source="https://arxiv.org/pdf/2401.00123v1", sha256=""
-        ),
+    assert page == bench_vectors.S3Page(
+        articles=("PMC11000012.1", "PMC11000013.2"), continuation="token-2"
+    )
+    assert last == bench_vectors.S3Page(articles=("PMC11000020.1",), continuation=None)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "admitted"),
+    [
+        ({}, True),
+        ({"license_code": "CC0"}, True),
+        ({"license_code": "CC BY-NC"}, False),
+        ({"is_retracted": True}, False),
+        ({"is_pmc_openaccess": False}, False),
+        ({"is_historical_ocr": True}, False),
+        ({"pdf_url": None}, False),
+    ],
+)
+def test_an_article_is_admitted_only_when_open_licensed_live_and_carrying_a_pdf(
+    overrides: dict[str, object], admitted: bool
+) -> None:
+    assert bench_vectors.admitted(_article(**overrides)) is admitted
+
+
+def test_an_article_is_pinned_to_the_pdf_under_its_versioned_prefix() -> None:
+    # Act
+    document = bench_vectors.document_for("PMC11000013.2")
+
+    # Assert — the `.2` is the revision, and the key cannot hold different bytes under it.
+    assert document == bench_vectors.BenchDocument(
+        id="PMC11000013.2",
+        source="https://pmc-oa-opendata.s3.amazonaws.com/PMC11000013.2/PMC11000013.2.pdf",
+        sha256="",
     )
 
 
