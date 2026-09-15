@@ -167,24 +167,30 @@ measured argument the module docstring opens with, applied to a fifth concern ra
 than the original four. `docs/02-extension-model.md` §2's status vocabulary gains no member
 for this: `weft_kernel.discovery.PackReport.deprecations` is read by `weft plugins doctor`
 as a flag beside a pack's existing status, exactly as `ambient` already is one.
+7. **A `StageRecord` per call, inside a `recording()` scope** — ledger task **33.1**. Timing is
+   the fifth concern applied without the author asking, exactly like the four above; outside a
+   scope `wrap` records nothing and costs one `ContextVar.get()`. See `recording`, `StageRecord`
+   and `OutcomeKind`, below `wrap_flush`.
 """
 
 import contextlib
+import time
 import warnings
-from collections.abc import Awaitable, Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Generator, Iterable, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from importlib import metadata
+from itertools import count
 from typing import cast
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_kernel import blocking
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import ExtModel, Node, Outcome, Produced
+from weft_kernel.payload import ExtModel, Node, NothingToProduce, Outcome, Produced
 
 #: The span attribute a NUL count is recorded under — see `_sanitize_control_bytes`.
 _NUL_BYTES_ATTRIBUTE = "weft.nul_bytes_removed"
@@ -441,6 +447,27 @@ def wrap[**P, T](
         # one leaves its caller's in place — which is what makes this mean *which pipeline
         # position am I inside*, rather than *what is the nearest wrapped call*.
         token = _current_stage.set(position) if position is not None else None
+        # Ledger task **33.1** — timing recorded only inside an open `recording()` scope, at no
+        # cost beyond this one `ContextVar.get()` outside one. `record_id` is taken now, before
+        # `run` executes, so a call this one makes in turn can name it as `parent`.
+        scope = _recording_scope.get()
+        record_id: int | None = None
+        parent_id: int | None = None
+        record_token = None
+        started = 0.0
+        items_in: int | None = None
+        if scope is not None:
+            parent_id = _recording_parent.get()
+            record_id = next(scope.ids)
+            record_token = _recording_parent.set(record_id)
+            started = time.perf_counter()
+            items_in = (
+                len(cast("Sequence[object]", args[0]))
+                if args and isinstance(args[0], list | tuple)
+                else None
+            )
+        outcome_kind = OutcomeKind.RAISED
+        items_out: int | None = None
         try:
             with _tracer.start_as_current_span(stage_label, kind=SpanKind.INTERNAL) as span:
                 span.set_attribute("weft.pack", distribution)
@@ -476,9 +503,31 @@ def wrap[**P, T](
                         ) from exc
                 outcome, nul_count = _sanitize_control_bytes(_strip_transient(outcome))
                 span.set_attribute(_NUL_BYTES_ATTRIBUTE, nul_count)
+            outcome_kind = _outcome_kind(outcome)
+            items_out = _items_out(outcome)
             return outcome
 
         finally:
+            # `outcome_kind` stays `RAISED` and `items_out` stays `None` for any exception that
+            # skipped the two assignments above — `CancelledError` included, never caught, only
+            # observed here on its way through.
+            if scope is not None and record_id is not None and record_token is not None:
+                scope.entries.append(
+                    StageRecord(
+                        id=record_id,
+                        parent=parent_id,
+                        label=stage_label,
+                        position=position,
+                        pack=distribution,
+                        contract=contract,
+                        plugin=plugin,
+                        seconds=time.perf_counter() - started,
+                        outcome=outcome_kind,
+                        items_in=items_in,
+                        items_out=items_out,
+                    )
+                )
+                _recording_parent.reset(record_token)
             if token is not None:
                 _current_stage.reset(token)
 
@@ -528,6 +577,114 @@ def wrap_flush(
                     ) from exc
 
     return _wrapped
+
+
+class OutcomeKind(StrEnum):
+    """The four ways a `wrap`-ed call can finish, as recorded by `recording()` — task **33.1**.
+
+    The first three are matched by `isinstance` against `Produced` / `NothingToProduce` /
+    `Failed` (`weft_kernel.payload.outcome`), never by name. `RAISED` is not one of those
+    three: it is what `wrap`'s `finally` leaves in place when an exception — any exception,
+    `CancelledError` included — escaped the call before an outcome existed to match against.
+    """
+
+    PRODUCED = "produced"
+    NOTHING_TO_PRODUCE = "nothing_to_produce"
+    FAILED = "failed"
+    RAISED = "raised"
+
+
+class StageRecord(BaseModel):
+    """One `wrap`-ed call's shape and outcome, appended inside an open `recording()` scope.
+
+    Task **33.1**. `id` is unique within its own scope, not across scopes; `parent` names the
+    enclosing wrapped call's `id` when this call ran nested inside one — an `LLM` a stage asks,
+    say — else `None`. `items_in`/`items_out` read the same list/tuple shape concern 3 above
+    already draws on, and are `None` for anything else, including every non-`PRODUCED` outcome.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: int
+    parent: int | None
+    label: str
+    position: str | None
+    pack: str
+    contract: str
+    plugin: str
+    seconds: float
+    outcome: OutcomeKind
+    items_in: int | None
+    items_out: int | None
+
+
+class _RecordingScope:
+    """The mutable accumulator behind one open `recording()` scope.
+
+    `ids` yields each call's `id` once, in order, before it runs, so a call it makes in turn
+    can name that id as its own `parent`; single-threaded `asyncio` makes this safe with no
+    lock, exactly as `_current_stage`'s own `ContextVar` needs none.
+    """
+
+    def __init__(self) -> None:
+        self.entries: list[StageRecord] = []
+        self.ids = count()
+
+    @property
+    def records(self) -> tuple[StageRecord, ...]:
+        return tuple(self.entries)
+
+
+#: The innermost open `recording()` scope, or `None` outside any — read once per `wrap`-ed
+#: call. `asyncio.gather`'s child tasks copy the context they were created in, so they read the
+#: same scope their parent opened rather than starting unrecorded.
+_recording_scope: ContextVar[_RecordingScope | None] = ContextVar("weft_recording", default=None)
+
+#: The `id` of the wrapped call currently running, so a call nested inside it can name that id
+#: as its own `parent`. `None` outside any wrapped call and at a scope's outermost call alike.
+_recording_parent: ContextVar[int | None] = ContextVar("weft_recording_parent", default=None)
+
+
+@contextlib.contextmanager
+def recording() -> Generator[_RecordingScope]:
+    """Open a scope that collects one `StageRecord` per `wrap`-ed call started inside it.
+
+    Task **33.1** — `CLAUDE.md` → *Cross-cutting concerns live at the registration seam*, applied
+    to timing. Scopes nest: opening one while another is open makes the new one the recipient
+    until it closes, and the outer scope resumes receiving records after. `wrap` never allocates
+    a record when no scope is open.
+    """
+    scope = _RecordingScope()
+    token = _recording_scope.set(scope)
+    try:
+        yield scope
+    finally:
+        _recording_scope.reset(token)
+
+
+def _outcome_kind[T](outcome: Outcome[T]) -> OutcomeKind:
+    """The `OutcomeKind` matching a completed call's own `Outcome`, by `isinstance` — never by
+    name, and never by `type(...) is ...`: a pack calling `Produced[int](value=...)` gets a
+    pydantic-generated subclass whose `type()` is not `Produced`, but `isinstance` still holds.
+    `Outcome[T]` is a closed union of exactly three members (`payload/outcome.py`), so ruling
+    out the first two leaves `Failed` the only member remaining — pyright proves it, and a third
+    `isinstance` restating what elimination already established is the one it refuses as dead.
+    """
+    if isinstance(outcome, Produced):
+        return OutcomeKind.PRODUCED
+    if isinstance(outcome, NothingToProduce):
+        return OutcomeKind.NOTHING_TO_PRODUCE
+    return OutcomeKind.FAILED
+
+
+def _items_out[T](outcome: Outcome[T]) -> int | None:
+    """`len(outcome.value)` when `outcome` is `Produced` and its value is a `list` or `tuple`."""
+    if not isinstance(outcome, Produced):
+        return None
+    value = outcome.value
+    if isinstance(value, list | tuple):
+        return len(cast("Sequence[object]", value))
+    return None
 
 
 def _attribute(
