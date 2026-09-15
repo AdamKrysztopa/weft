@@ -80,6 +80,7 @@ named document has made.
 
 from __future__ import annotations
 
+import time
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -547,6 +548,8 @@ class AskCommandResult(CommandResult):
     score_note: str | None = None
     #: Ledger task **33.5** — every `wrap`-ed call this run made, populated only under `--explain`.
     stages: tuple[StageRecord, ...] = ()
+    #: Ledger task **33.10** — the recorded branch's own wall time, only under `--explain`.
+    stages_seconds: float | None = None
 
 
 _RENDER_HELP: Final[str] = (
@@ -903,10 +906,16 @@ class AskCommand:
         if not ask_args.explain:
             return await branch
 
+        started_at = time.monotonic()
         with recording() as scope:
             outcome = await branch
+            elapsed = time.monotonic() - started_at
         if isinstance(outcome, Produced) and isinstance(outcome.value, AskCommandResult):
-            return Produced(value=outcome.value.model_copy(update={"stages": scope.records}))
+            return Produced(
+                value=outcome.value.model_copy(
+                    update={"stages": scope.records, "stages_seconds": elapsed}
+                )
+            )
         return outcome
 
     async def _run_retrieve_only_named(

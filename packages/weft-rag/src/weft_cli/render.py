@@ -124,6 +124,7 @@ from weft_eval.run_record import (
     NotScored,
     PerQuestionScores,
     QueryRung,
+    RoleTokens,
 )
 from weft_generate.payload import AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
@@ -708,9 +709,8 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
         return Rendered(stdout=payload, stderr=None, exit_code=ExitCode.SUCCESS)
 
     if not result.hits:
-        return Rendered(
-            stdout="no matching passages found.", stderr=None, exit_code=ExitCode.SUCCESS
-        )
+        lines = ["no matching passages found.", *_explain_lines(result), *_stage_lines(result)]
+        return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
     lines = [f"{hit.rank}. {hit.content}" for hit in result.hits]
     return Rendered(
@@ -771,6 +771,15 @@ def _stage_lines(result: AskCommandResult) -> list[str]:
         if record.items_out is not None:
             text += f"  out {record.items_out}"
         lines.append(f"{'  ' * (depth_of(record) + 1)}{text}")
+    if result.stages_seconds is not None:
+        top_level_seconds = sum(
+            record.seconds
+            for record in records
+            if record.parent is None or record.parent not in by_id
+        )
+        total_ms = result.stages_seconds * 1000
+        outside_ms = (result.stages_seconds - top_level_seconds) * 1000
+        lines.append(f"  total {total_ms:.0f} ms, outside any stage {outside_ms:.0f} ms")
     return lines
 
 
@@ -906,13 +915,29 @@ def _latency_summary_text(summary: LatencySummary) -> str:
     )
 
 
+def _role_tokens_text(role: str, tokens: RoleTokens) -> str:
+    """One `[llm.roles]` role's line in `weft eval run`'s `tokens:` sentence — ledger task
+    **33.10**. A role every call of which went unreported reads *not reported*, by name and
+    call count, never `0 in / 0 out`; that number would claim a metering the provider never
+    did.
+    """
+    if tokens.calls_not_reporting == tokens.calls:
+        return f"{role}: not reported ({tokens.calls} calls)"
+    text = f"{role}: {tokens.prompt_tokens} in / {tokens.completion_tokens} out"
+    if tokens.calls_not_reporting:
+        text += f" (+{tokens.calls_not_reporting} calls not reported)"
+    return text
+
+
 def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
     """`weft eval run` — the run id first, since that is what `weft eval compare`/`weft trace`
     need next, then `weft_cli.render._render_index`'s own summary line, then the corpus this
     record now carries, then task 4.7's own wall-clock measurement — V5's half of a priced run
     an operator can see without opening the persisted file. Task 33.8 appends the query latency
     percentiles when the record carries `question_seconds`, and prints nothing about latency for
-    a record that does not — never a fabricated `p50:` for a run that measured none.
+    a record that does not — never a fabricated `p50:` for a run that measured none. Task 33.10
+    appends each metered role's tokens when the record carries `token_usage`, and prints nothing
+    about tokens for a record that measured none.
     """
     summary = result.summary
     stored = "unknown" if result.stored_count is None else str(result.stored_count)
@@ -927,6 +952,12 @@ def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
     summary_latency = latency_summary(result.record.question_seconds)
     if summary_latency is not None:
         stdout += f" query latency: {_latency_summary_text(summary_latency)}."
+    token_usage = result.record.token_usage
+    if token_usage:
+        role_text = ", ".join(
+            _role_tokens_text(role, token_usage[role]) for role in sorted(token_usage)
+        )
+        stdout += f" tokens: {role_text}."
     stderr = (
         "\n".join(f"  failed: {reason}" for reason in summary.failed_reasons)
         if summary.failed_reasons
