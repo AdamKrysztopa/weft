@@ -1399,7 +1399,9 @@ def cmd_load(args: argparse.Namespace) -> int:
 
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
-            cur.execute("TRUNCATE weft_nodes, weft_sources")
+            # Named, not CASCADE: a table added later that references weft_nodes must refuse
+            # here rather than be emptied without anyone deciding it should be.
+            cur.execute("TRUNCATE weft_node_productions, weft_nodes, weft_sources")
         conn.commit()
 
         with conn.cursor() as cur:
@@ -1407,12 +1409,15 @@ def cmd_load(args: argparse.Namespace) -> int:
             before_nodes_row = cur.fetchone()
             cur.execute("SELECT count(*) FROM weft_sources")
             before_sources_row = cur.fetchone()
+            cur.execute("SELECT count(*) FROM weft_node_productions")
+            before_productions_row = cur.fetchone()
         before_nodes = 0 if before_nodes_row is None else int(before_nodes_row[0])
         before_sources = 0 if before_sources_row is None else int(before_sources_row[0])
-        if before_nodes != 0 or before_sources != 0:
+        before_productions = 0 if before_productions_row is None else int(before_productions_row[0])
+        if before_nodes != 0 or before_sources != 0 or before_productions != 0:
             message = (
-                f"expected an empty database after TRUNCATE, found {before_nodes} nodes and "
-                f"{before_sources} sources"
+                f"expected an empty database after TRUNCATE, found {before_nodes} nodes, "
+                f"{before_sources} sources and {before_productions} productions"
             )
             raise ValueError(message)
 
