@@ -39,6 +39,8 @@ dev = [
     # imports the SDK in a test without pulling in the rest of `weft-otel` — left in place
     # rather than pruned on a guess about which future test would need it back.
     "opentelemetry-sdk>=1.28",
+    "tiktoken>=0.8",
+    "numpy>=2",
 ]
 
 # The dev environment's alignment with `compose.yaml`, and nothing a downstream install
