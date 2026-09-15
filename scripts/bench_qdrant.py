@@ -240,12 +240,17 @@ def _ground_truth(
     return truth
 
 
-def _ingest(conn: psycopg.Connection, client: QdrantClient, collection: str) -> float:
+def _ingest(dsn: str, client: QdrantClient, collection: str) -> float:
     """Stream every row and upsert it into `collection` in batches of 500, timed as one span —
-    the same span whichever arm is ingesting, since the vectors and payloads are identical."""
+    the same span whichever arm is ingesting, since the vectors and payloads are identical.
+
+    Its own connection, and the one in this harness that is not `autocommit`: a server-side
+    cursor is a `DECLARE`, which Postgres refuses outside a transaction. The caller's
+    connection stays autocommit so the store's lazy DDL never waits on it (`L22.30`).
+    """
     started = time.monotonic()
     batch: list[models.PointStruct] = []
-    with conn.cursor(name="bench_qdrant_ingest") as cur:
+    with psycopg.connect(dsn) as conn, conn.cursor(name="bench_qdrant_ingest") as cur:
         cur.itersize = 2000
         cur.execute("SELECT id, content, embedding FROM weft_nodes ORDER BY id")
         for node_id, content, raw_embedding in cur:
@@ -300,6 +305,7 @@ def _query_arm(
 
 def _run_arm(
     conn: psycopg.Connection,
+    dsn: str,
     client: QdrantClient,
     *,
     indexing: PayloadIndexing,
@@ -322,7 +328,7 @@ def _run_arm(
                 collection, field_name=field, field_schema=models.PayloadSchemaType.BOOL
             )
 
-    seconds = _ingest(conn, client, collection)
+    seconds = _ingest(dsn, client, collection)
 
     points_before = client.count(collection, exact=True).count
     bench_latency.assert_rows(label="ingested", expected=rows, found=points_before)
@@ -449,6 +455,7 @@ def main(argv: list[str] | None = None) -> int:
             for indexing in PayloadIndexing:
                 ingested, arm_results = _run_arm(
                     conn,
+                    database_dsn,
                     client,
                     indexing=indexing,
                     stamp=stamp,
