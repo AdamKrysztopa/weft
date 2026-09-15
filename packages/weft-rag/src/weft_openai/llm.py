@@ -199,10 +199,14 @@ class ChatCompletionChunkChoice(Protocol):
 
 
 class ChatCompletionChunk(Protocol):
-    """One streamed fragment — a delta, never the whole answer."""
+    """One streamed fragment — a delta, or (with `stream_options.include_usage` sent) the
+    final usage-only chunk, whose `choices` is always empty. See `stream_reporting_usage`."""
 
     @property
     def choices(self) -> Sequence[ChatCompletionChunkChoice]: ...
+
+    @property
+    def usage(self) -> ChatCompletionUsage | None: ...
 
 
 class ChatCompletionsResource(Protocol):
@@ -213,6 +217,9 @@ class ChatCompletionsResource(Protocol):
     iterator of `ChatCompletionChunk`. A caller on the real client is cast to whichever this
     module asked for — see `_connected`'s docstring for why that cast, rather than a second,
     narrower Protocol per call shape, is the honest way to describe one vendor method.
+
+    `stream_options` is sent only by `stream_reporting_usage` — `stream` itself never sends
+    it, so a compatible endpoint that rejects the argument still serves a plain `stream` call.
     """
 
     async def create(
@@ -221,6 +228,7 @@ class ChatCompletionsResource(Protocol):
         model: str,
         messages: Sequence[Mapping[str, str]],
         stream: bool = False,
+        stream_options: Mapping[str, bool] | None = None,
         temperature: float | Omit = omit,
         max_tokens: int | Omit = omit,
         top_p: float | Omit = omit,
@@ -325,6 +333,47 @@ class OpenAILLMProvider:
             # same `except APIError` below, rather than leaving a raw vendor exception to
             # escape past a caller that only knows how to catch `weft_llm.errors.LLMError`.
             async for chunk in cast("AsyncIterator[ChatCompletionChunk]", chunks):
+                piece = chunk.choices[0].delta.content
+                if piece:
+                    yield piece
+        except APIError as exc:
+            raise map_openai_error(exc, model=model) from exc
+
+    async def stream_reporting_usage(
+        self, conv: Conversation, *, model: str, ctx: Context
+    ) -> AsyncIterator[str | TokenUsage]:
+        """`stream`, with the vendor asked for the one extra chunk that carries the token
+        count. Satisfies `weft_llm.contract.UsageReporting` structurally.
+
+        `openai/types/chat/chat_completion_stream_options_param.py` (read 2026-09-15) on
+        `include_usage`: "If set, an additional chunk will be streamed before the
+        `data: [DONE]` message. The `usage` field on this chunk shows the token usage
+        statistics for the entire request, and the `choices` field will always be an empty
+        array." So `choices` is checked before being indexed — that final chunk has none.
+        """
+        del ctx
+        client = await self._connected(model=model)
+        temperature, max_tokens, top_p = _generation_kwargs(self._config)
+        try:
+            chunks = await client.chat.completions.create(
+                model=model,
+                messages=_messages_of(conv),
+                stream=True,
+                stream_options={"include_usage": True},
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+            )
+            async for chunk in cast("AsyncIterator[ChatCompletionChunk]", chunks):
+                usage = chunk.usage
+                if usage is not None:
+                    yield TokenUsage(
+                        prompt_tokens=usage.prompt_tokens,
+                        completion_tokens=usage.completion_tokens,
+                    )
+                    continue
+                if not chunk.choices:
+                    continue
                 piece = chunk.choices[0].delta.content
                 if piece:
                     yield piece

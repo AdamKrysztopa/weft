@@ -45,14 +45,14 @@ that raise into `TokenSink.close(reason=...)`, so a reader is told the stream wa
 rather than left to mistake it for one that finished cleanly.
 """
 
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from typing import cast
 
 from weft_kernel.context import Context
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.seam import current_stage, wrap
-from weft_llm.contract import LLM, LLMProvider, NativeStructured, TokenSink
+from weft_llm.contract import LLM, LLMProvider, NativeStructured, TokenSink, UsageReporting
 from weft_llm.errors import (
     LLMError,
     LLMGenerationLoopError,
@@ -61,9 +61,10 @@ from weft_llm.errors import (
 )
 from weft_llm.loop_guard import LoopGuardConfig, detect_generation_loop
 from weft_llm.models import ModelRef, find_runtime_match, model_ref
-from weft_llm.payload import Completion, Rendered, TokenChunk
+from weft_llm.payload import Completion, Rendered, TokenChunk, TokenUsage
 from weft_llm.retry import RetryPolicy, with_retry
 from weft_llm.roles import LLMRoles
+from weft_llm.usage import UsageEntry, record_usage
 
 #: The contract name the seam stamps on every span and every attributed error raised through
 #: this client. Written once, here, rather than at each of the three call sites.
@@ -86,6 +87,22 @@ class NullSink:
     async def close(self, *, reason: str | None = None) -> None:
         """Nothing was opened. Present because the contract requires it of every sink."""
         del reason
+
+
+async def _text_only(
+    source: AsyncIterator[str | TokenUsage], captured: list[TokenUsage]
+) -> AsyncIterator[str]:
+    """`source`, with any `TokenUsage` item diverted into `captured` rather than yielded.
+
+    The seam that lets `complete`'s one accumulation loop — the loop-guard, the sink emit, the
+    `parts` join — drive a `UsageReporting` provider's stream the same way it drives a plain
+    one's, rather than duplicating that loop per provider kind.
+    """
+    async for item in source:
+        if isinstance(item, TokenUsage):
+            captured.append(item)
+            continue
+        yield item
 
 
 class _Bound:
@@ -130,16 +147,32 @@ class LLMClient:
         self._provider_names = frozenset(mapping.provider for mapping in roles.roles.values())
 
     async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
-        """Continue `rendered`'s conversation under `role`, streaming every chunk to the sink."""
+        """Continue `rendered`'s conversation under `role`, streaming every chunk to the sink.
+
+        Task **33.6**: a provider satisfying `UsageReporting` is asked through
+        `stream_reporting_usage` instead of `stream`, so its cost in tokens reaches both the
+        returned `Completion` and, when a `recording_usage()` scope is open, one `UsageEntry`.
+        A provider that does not satisfy it still streams exactly as before, `usage=None`.
+        """
         bound = self._bind(role)
         sink = ctx.require(TokenSink)
+        reporting = isinstance(bound.provider, UsageReporting)
 
         async def run() -> Outcome[Completion]:
             parts: list[str] = []
+            captured: list[TokenUsage] = []
+            source = (
+                _text_only(
+                    cast("UsageReporting", bound.provider).stream_reporting_usage(
+                        rendered.conversation, model=bound.ref.model, ctx=ctx
+                    ),
+                    captured,
+                )
+                if reporting
+                else bound.provider.stream(rendered.conversation, model=bound.ref.model, ctx=ctx)
+            )
             try:
-                async for chunk in bound.provider.stream(
-                    rendered.conversation, model=bound.ref.model, ctx=ctx
-                ):
+                async for chunk in source:
                     parts.append(chunk)
                     await sink.emit(TokenChunk(role=role, stage=current_stage(), text=chunk))
                     # Task 3.10: `parts` already holds the whole answer accumulated so far —
@@ -155,6 +188,16 @@ class LLMClient:
                 raise
             except Exception as fault:
                 raise self._fault(bound, role, fault) from fault
+            usage = captured[0] if captured else None
+            record_usage(
+                UsageEntry(
+                    role=role,
+                    position=current_stage(),
+                    provider=bound.ref.provider,
+                    model=bound.ref.model,
+                    usage=usage,
+                )
+            )
             text = "".join(parts)
             if not text:
                 # Never an empty `Produced` — a model that answered with nothing did not
@@ -165,7 +208,9 @@ class LLMClient:
                         f"on model '{bound.ref.model or '(provider default)'}'"
                     )
                 )
-            return Produced(value=Completion(text=text, model=bound.ref.model, finish_reason=""))
+            return Produced(
+                value=Completion(text=text, model=bound.ref.model, finish_reason="", usage=usage)
+            )
 
         return await self._sealed(bound, role, run)()
 

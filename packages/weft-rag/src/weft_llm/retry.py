@@ -37,9 +37,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome
-from weft_llm.contract import LLMProvider, NativeStructured
+from weft_llm.contract import LLMProvider, NativeStructured, UsageReporting
 from weft_llm.errors import LLMError
-from weft_llm.payload import Completion, Conversation
+from weft_llm.payload import Completion, Conversation, TokenUsage
 
 
 class RetryPolicy(BaseModel):
@@ -164,6 +164,77 @@ class RetryingNativeStructuredProvider(RetryingProvider):
         raise last
 
 
+class RetryingUsageReportingProvider(RetryingProvider):
+    """`RetryingProvider` for a provider that also satisfies `UsageReporting`.
+
+    The same two-class-per-capability shape `RetryingNativeStructuredProvider` already takes,
+    for the identical reason: `UsageReporting` is derived by `isinstance`, so a single wrapper
+    class would erase it for every provider that has it, and tier-1 usage reporting would
+    silently never happen for a retried call — the failure `RetryingNativeStructuredProvider`
+    exists to prevent, one protocol over.
+    """
+
+    def __init__(self, inner: UsageReporting, policy: RetryPolicy) -> None:
+        super().__init__(cast("LLMProvider", inner), policy)
+        self._reporting = inner
+
+    async def stream_reporting_usage(
+        self, conv: Conversation, *, model: str, ctx: Context
+    ) -> AsyncIterator[str | TokenUsage]:
+        last: LLMError | None = None
+        for attempt in range(1, self._policy.attempts + 1):
+            delay = self._policy.delay_seconds(attempt)
+            if delay:
+                await asyncio.sleep(delay)
+            yielded = False
+            try:
+                async for item in self._reporting.stream_reporting_usage(
+                    conv, model=model, ctx=ctx
+                ):
+                    yielded = True
+                    yield item
+                return
+            except LLMError as error:
+                if yielded or not error.transient:
+                    raise
+                last = error
+        assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
+        raise last
+
+
+class RetryingNativeStructuredUsageReportingProvider(RetryingNativeStructuredProvider):
+    """`RetryingNativeStructuredProvider` for a provider that also satisfies `UsageReporting`
+    — the fourth combination `with_retry` selects among, for a provider offering both.
+    """
+
+    def __init__(self, inner: NativeStructured, policy: RetryPolicy) -> None:
+        super().__init__(inner, policy)
+        self._reporting = cast("UsageReporting", inner)
+
+    async def stream_reporting_usage(
+        self, conv: Conversation, *, model: str, ctx: Context
+    ) -> AsyncIterator[str | TokenUsage]:
+        last: LLMError | None = None
+        for attempt in range(1, self._policy.attempts + 1):
+            delay = self._policy.delay_seconds(attempt)
+            if delay:
+                await asyncio.sleep(delay)
+            yielded = False
+            try:
+                async for item in self._reporting.stream_reporting_usage(
+                    conv, model=model, ctx=ctx
+                ):
+                    yielded = True
+                    yield item
+                return
+            except LLMError as error:
+                if yielded or not error.transient:
+                    raise
+                last = error
+        assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
+        raise last
+
+
 def with_retry(provider: LLMProvider, policy: RetryPolicy) -> LLMProvider:
     """`provider`, re-attempting transient failures under `policy`. The one way retry is added.
 
@@ -173,7 +244,16 @@ def with_retry(provider: LLMProvider, policy: RetryPolicy) -> LLMProvider:
     the tree on that ground alone — `tests/unit/weft_llm/test_scripted.py` records the same
     thing about `ScriptedProvider`. `isinstance` at runtime is the check that matters, and it
     is one line above.
+
+    **Four combinations, selected by what `provider` actually satisfies** — task 33.6 widens
+    this from two: `NativeStructured` and `UsageReporting` are independent derived
+    capabilities, so the wrapper returned must advertise exactly the pair the wrapped provider
+    has, never more.
     """
+    if isinstance(provider, NativeStructured) and isinstance(provider, UsageReporting):
+        return cast("LLMProvider", RetryingNativeStructuredUsageReportingProvider(provider, policy))
     if isinstance(provider, NativeStructured):
         return cast("LLMProvider", RetryingNativeStructuredProvider(provider, policy))
+    if isinstance(provider, UsageReporting):
+        return cast("LLMProvider", RetryingUsageReportingProvider(provider, policy))
     return cast("LLMProvider", RetryingProvider(provider, policy))

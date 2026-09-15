@@ -120,6 +120,7 @@ class _ChunkChoice:
 @dataclass
 class _Chunk:
     choices: Sequence[_ChunkChoice]
+    usage: _Usage | None = None
 
 
 async def _chunks(
@@ -162,10 +163,12 @@ class _Completions:
         model: str,
         messages: Sequence[Mapping[str, str]],
         stream: bool = False,
+        stream_options: Mapping[str, bool] | None = None,
         temperature: float | Omit = omit,
         max_tokens: int | Omit = omit,
         top_p: float | Omit = omit,
     ) -> _Response | AsyncIterator[_Chunk]:
+        del stream_options
         self.calls.append(
             _Call(
                 model=model,

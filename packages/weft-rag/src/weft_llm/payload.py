@@ -99,9 +99,10 @@ class Completion(BaseModel):
     `weft_llm.scripted.ScriptedProvider` answers this way honestly, the same way it marks its
     own text `[scripted]` rather than pretending to be a real model — and populated by a real
     vendor provider (`weft_openai.llm.OpenAILLMProvider`) from what the vendor's own response
-    reports. `weft_llm.stream` reports no usage either, for the identical reason it reports no
-    `finish_reason`: a streamed answer is read a piece at a time, never as one response object
-    a token count could be read off.
+    reports. **A streamed answer reports usage too, once a provider satisfies
+    `weft_llm.contract.UsageReporting`** (task 33.6): `weft_llm.client.LLMClient.complete`
+    reads it off the stream's final item rather than a separate response object, and `None`
+    here still names a provider that does not report usage on a stream — never a zero.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

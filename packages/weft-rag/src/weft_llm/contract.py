@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome
-from weft_llm.payload import Completion, Conversation, Rendered, TokenChunk
+from weft_llm.payload import Completion, Conversation, Rendered, TokenChunk, TokenUsage
 
 #: Fitness function 6's subject for this contract.
 LLM_CONTRACT_VERSION = "1.0.0"
@@ -99,6 +99,41 @@ class NativeStructured(Protocol):
 
 
 NativeStructured.version = LLM_CONTRACT_VERSION
+
+
+@runtime_checkable
+class UsageReporting(Protocol):
+    """A provider that can say what a streamed call actually cost, in tokens. Task **33.6**.
+
+    **A derived capability sibling, the same shape `NativeStructured` already takes** —
+    checked by `isinstance(provider, UsageReporting)`, never by a declared flag a provider
+    could lie about. `LLMClient.complete` always streams (`.phase2-design.md` decision 10), so
+    without this a token count could never reach a run at all; a provider that satisfies this
+    Protocol is asked through `stream_reporting_usage` instead of `stream`, and one that does
+    not still streams exactly as before, its call recorded with `usage=None` — named as not
+    reporting, never counted as zero.
+
+    Nothing registers *under* this contract, for the same reason nothing registers under
+    `NativeStructured`: a provider registers under `LLMProvider` and is found to satisfy this
+    one, which is what makes the capability underivable from a claim.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def stream_reporting_usage(
+        self, conv: Conversation, *, model: str, ctx: Context
+    ) -> AsyncIterator[str | TokenUsage]:
+        # Same unreachable-`yield` trick `LLMProvider.stream` uses, and for the identical
+        # reason: it is what tells a checker this is an async generator rather than a
+        # coroutine returning one, so a variable typed `UsageReporting` can be `async for`-ed
+        # with no `await` first.
+        if False:  # pragma: no cover — never executed, only read by the type checker
+            yield ""
+        return
+
+
+UsageReporting.version = LLM_CONTRACT_VERSION
 
 
 class LLM(Protocol):
