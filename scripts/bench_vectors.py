@@ -1090,17 +1090,17 @@ def _chunk_target(value: str) -> int | None:
     return target
 
 
-def _stage_documents(documents: Sequence[BenchDocument], pdfs_dir: Path, staged: Path) -> None:
-    for document in documents:
-        if not (pdfs_dir / f"{document.id}.pdf").exists():
-            message = f"{document.id}'s PDF is missing from {pdfs_dir}"
+def _stage_papers(ids: Sequence[str], pdfs_dir: Path, staged: Path) -> None:
+    for identifier in ids:
+        if not (pdfs_dir / f"{identifier}.pdf").exists():
+            message = f"{identifier}'s PDF is missing from {pdfs_dir}"
             raise FileNotFoundError(message)
     staged.mkdir(parents=True, exist_ok=True)
-    # A link left by an earlier run would index a paper excluded since.
+    # A link left by an earlier run would index a paper no longer chosen.
     for stale in staged.glob("*.pdf"):
         stale.unlink()
-    for document in documents:
-        (staged / f"{document.id}.pdf").symlink_to(pdfs_dir / f"{document.id}.pdf")
+    for identifier in ids:
+        (staged / f"{identifier}.pdf").symlink_to(pdfs_dir / f"{identifier}.pdf")
 
 
 def cmd_sketch(args: argparse.Namespace) -> int:
@@ -1112,7 +1112,7 @@ def cmd_sketch(args: argparse.Namespace) -> int:
     model = model_named(args.model)
 
     staged = work / "sketch-staged"
-    _stage_documents(documents, pdfs_dir, staged)
+    _stage_papers([document.id for document in documents], pdfs_dir, staged)
 
     full_digest = input_digest(document.sha256 for document in documents if document.sha256)
     db_name = f"weft_bench_sketch_{full_digest[:12]}"
@@ -1231,14 +1231,7 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
     admin_dsn = _require_admin_dsn(args.admin_dsn)
     pdfs_dir = Path(args.pdfs).resolve()
-    staged = work / "staged"
-    staged.mkdir(parents=True, exist_ok=True)
-    for identifier in sketch.chosen_ids:
-        source = pdfs_dir / f"{identifier}.pdf"
-        target = staged / f"{identifier}.pdf"
-        if target.is_symlink() or target.exists():
-            target.unlink()
-        target.symlink_to(source)
+    _stage_papers(sketch.chosen_ids, pdfs_dir, work / "staged")
 
     db_name = f"weft_bench_embed_{sketch.input_digest[:12]}"
     if not _database_exists(admin_dsn, db_name):
@@ -1260,7 +1253,11 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
     env = os.environ.copy()
     env["WEFT_DATABASE_URL"] = dsn
-    result = _run_weft(["index", "staged", "--pipeline", "bench-embed"], cwd=work, env=env)
+    result = _run_weft(
+        ["index", "staged", "--pipeline", "bench-embed", "--batch-size", str(args.batch_size)],
+        cwd=work,
+        env=env,
+    )
     print(result.stdout)
     if result.stderr:
         print(result.stderr, file=sys.stderr)
@@ -1436,6 +1433,8 @@ def _build_parser() -> argparse.ArgumentParser:
     embed.add_argument("--pdfs", type=Path, required=True)
     embed.add_argument("--out", type=Path, required=True)
     embed.add_argument("--yes", action="store_true")
+    # One batch holding all 169,223 vectors was killed for memory on 2026-09-15.
+    embed.add_argument("--batch-size", type=int, default=50)
     _add_admin_dsn(embed)
     embed.set_defaults(func=cmd_embed)
 
