@@ -16,7 +16,7 @@ fail at collection while this module does not exist, and it is green today — a
 phase has already paid for once (`L23.9`).
 
 The ladder is `lineage.sources`, and nothing in it is invented for this file: the shipped ingest
-path attaches no `ext` at all (`weft_chunk/__init__.py:10`, "this pack contributes no `ExtModel`"),
+path attaches no `ext` at all (`weft_chunk/__init__.py:10 "This pack contributes no"`),
 so `Phase 29`'s bucket column is unavailable and the only graded core field is the one below.
 """
 

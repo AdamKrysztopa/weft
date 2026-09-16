@@ -25,7 +25,12 @@ from weft_cli.eval_baseline import (
 from weft_cli.pipeline_catalogue import load_pipeline_catalogue
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
-from weft_eval.baseline import DepthTooShallowError, judge_reproduction, load_baseline_report
+from weft_eval.baseline import (
+    DepthTooShallowError,
+    IncomparableBaselinesError,
+    judge_reproduction,
+    load_baseline_report,
+)
 from weft_eval.corpus_manifest import Tier
 from weft_kernel.context import Context
 from weft_kernel.resolution import resolve
@@ -85,6 +90,24 @@ def _ctx() -> Context:
     return ctx
 
 
+#: The one identity reason `R31.2` introduced between the published record and the document this
+#: tree ships today: `HashEmbedder` gained the `config_model` it had always lacked, so its own
+#: default width is now written into a resolved stage's config where it used to be omitted. The
+#: embedder, the width and the vectors are unchanged — `compile.py` passed `config=None` before,
+#: and the runner built `HashEmbedderConfig()` at 64 either way — but the *record* is not, and
+#: `judge_reproduction` is right to refuse rather than report a run that measured something it
+#: cannot prove is the same thing.
+#:
+#: **Pinned exhaustively, and that is the point**: asserting this exact tuple is a stronger claim
+#: than `reproduced` was, because it says nothing *else* about the shipped document has drifted
+#: from the published record. `R31.5` re-takes the baseline and empties this constant; emptying it
+#: is that repair's definition of done. Ledger `6.30` is the precedent — the refusal is the
+#: reproduction check working, and the answer is a re-take, never a weakened comparison.
+_STALE_PUBLISHED_RECORD_REASONS: tuple[str, ...] = (
+    "stage 'embed' config differs ({} vs {'dimension': 64})",
+)
+
+
 def test_the_shipped_baseline_document_is_the_pipeline_the_published_record_names() -> None:
     # Arrange
     registry = discover_for_tests()
@@ -102,11 +125,12 @@ def test_the_shipped_baseline_document_is_the_pipeline_the_published_record_name
     shipped = published.model_copy(
         update={"record": published.record.model_copy(update={"resolved_pipeline": resolved})}
     )
-    reproduction = judge_reproduction(published, shipped)
 
-    # Assert
+    # Act / Assert
     assert [stage.use for stage in resolved.stages] == ["text", "fixed-size", "hash", "qdrant"]
-    assert reproduction.reproduced
+    with pytest.raises(IncomparableBaselinesError) as caught:
+        judge_reproduction(published, shipped)
+    assert caught.value.reasons == _STALE_PUBLISHED_RECORD_REASONS
 
 
 async def test_an_unknown_tier_is_refused_naming_every_tier(tmp_path: Path) -> None:

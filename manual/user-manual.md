@@ -367,7 +367,9 @@ What that prints — the resolved form, exactly as `resolved.model_dump(mode="js
       "contract": "Embedder",
       "contract_version": "1.0.0",
       "use": "hash",
-      "config": {},
+      "config": {
+        "dimension": 64
+      },
       "fallback": [],
       "applies_to": [],
       "distribution": "weft-embed",

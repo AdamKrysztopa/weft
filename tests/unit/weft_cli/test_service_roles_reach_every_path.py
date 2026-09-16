@@ -43,7 +43,7 @@ class _FsBlobs:
     """The plugin an operator selects for the `blobs` role.
 
     Takes a `config` argument because every real plugin in this tree does — `HashEmbedder`
-    (`packages/weft-rag/src/weft_embed/hash_embedder.py:75 'def __init__(self'`) and `PgVectorStore`
+    (`packages/weft-rag/src/weft_embed/hash_embedder.py:91 'def __init__(self'`) and `PgVectorStore`
     (`packages/weft-rag/src/weft_store/pgvector_store.py:1054 'config: object = None'`) both declare
     one with a default,
     and every assembler builds a plugin as `registry.entry(...).factory(None)`. A fixture

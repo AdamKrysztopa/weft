@@ -11,18 +11,25 @@ harness exists to catch: `iterative_scan = "off"` and `= "relaxed_order"` return
 recall, which means the GUC never reached the server.
 
 The ladder is `lineage.sources`, not Phase 29's `ext` bucket: the shipped ingest path attaches no
-`ext` at all (`weft_chunk/__init__.py:10`), so of the five core filterable fields
+`ext` at all (`weft_chunk/__init__.py:10 "This pack contributes no"`), so of the five core
+filterable fields
 (`weft_store/fields.py` `NodeField`) only `lineage.sources` is graded and writable in advance.
 Selectivity comes from indexing the corpus in nested slices and reading each rung's true size from
 `weft index`'s own `nodes now stored: N.` line — never a `count(*)`.
 
 **Two pipeline documents, and they are never the same one.** `weft index --pipeline` names an
-*ingest* document (extract/chunk/embed/store) and this harness always passes the shipped
-`index-text`, the same one `bench_latency.py`'s `_run_index` uses. `weft ask --retrieve-only
---pipeline` names a *retrieval* document (retrieve/fuse/pack), and that is the generated one
-`filter_document` writes, carrying the rung's `Filter`. The two cannot be interchanged — an ingest
-document ends in a `NodeStore` and a retrieval one must end in `Passages` — and saying so here
-because the distinction is invisible at the call sites, which differ only by the subcommand.
+*ingest* document (extract/chunk/embed/store) and `weft ask --retrieve-only --pipeline` names a
+*retrieval* document (retrieve/fuse/pack). The two cannot be interchanged — an ingest document ends
+in a `NodeStore` and a retrieval one must end in `Passages` — and saying so here because the
+distinction is invisible at the call sites, which differ only by the subcommand. **This harness
+generates both**: `ingest_document` derives from the shipped `index-pdf-text`, and
+`filter_document` writes the retrieval one carrying the rung's `Filter`.
+
+*(This paragraph said the ingest half "always passes the shipped `index-text`". That was wrong and
+a real run caught it: `index-text`'s extractor claims `.md`/`.txt`, the corpus is 1000 PDFs, and
+`weft index` exited 4 — "found .pdf, and the installed extractors claim .md, .txt". The
+implementer flagged this exact sentence as worth confirming and the confirmation checked the wrong
+half of it.)*
 
 This module's pure functions (the arm matrix, the `weft.toml` each arm writes, the filter document,
 and `bench_record.arms_from_settings`) are pinned by `tests/unit/scripts/test_bench_settings.py`.
@@ -61,7 +68,7 @@ from weft_store.contract import FilterOp, VectorIndexKind, VectorPrecision
 
 #: The width `[services] embed` can actually query — `ServiceSelection.embed` is a bare `str` and
 #: the query path builds it `factory(None)`, so the query embedder is configless and answers at
-#: `hash`'s own default (`weft_embed/hash_embedder.py:45`, `_DEFAULT_DIMENSION = 64`). `hash`
+#: `hash`'s own default (`weft_embed/hash_embedder.py:45 "_DEFAULT_DIMENSION = 64"`). `hash`
 #: declares no `config_model`, so it cannot be asked for any other width (`R31.2`, not this task's
 #: to fix).
 WIDTH: Final[int] = 64
@@ -311,6 +318,15 @@ def _drop_database(admin_dsn: str, name: str) -> None:
 
 
 def _pgvector_versions(admin_dsn: str, database: str) -> tuple[str, str]:
+    """The two versions, read **after** something has already opened `database`.
+
+    A freshly `CREATE DATABASE`d database has no `vector` extension: `PgVectorStore` issues
+    `CREATE EXTENSION IF NOT EXISTS` on its first connection, so probing `pg_extension` before the
+    first `weft index` finds nothing and this refuses the whole run. `bench_filtered.py` reads the
+    same two values and does it after its own `_load`, for the same reason. Called here once the
+    group's ingest has run rather than at database creation, which is where it sat until a real
+    run exited 2 on it.
+    """
     database_dsn = make_conninfo(admin_dsn, dbname=database)
     with psycopg.connect(database_dsn, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
@@ -357,9 +373,29 @@ def _rung_counts(total: int) -> dict[bench_filtered.Selectivity, int]:
     }
 
 
-def _run_index(binary: Path, corpus: Path, env: Mapping[str, str], workdir: Path) -> int:
+_INGEST_NAME: Final[str] = "bench-settings-ingest"
+
+
+def ingest_document(backend: Backend) -> str:
+    """The ingest document this harness writes, derived from a shipped one rather than invented.
+
+    **No shipped document pairs PDFs with Qdrant**, which is what forces this: `index-pdf-text`
+    is `index-pdf` → `index-text` with only the extractor replaced, so it stores to `pgvector`,
+    and `index-qdrant` swaps the store but keeps the `text` extractor, which claims `.md`/`.txt`
+    alone. The corpus the ninth decision settled on is 1000 PDFs, so the Qdrant arms need the
+    combination the tree does not ship — one `replace:` away from the one it does.
+    """
+    body = "extends: index-pdf-text\n"
+    if backend is Backend.QDRANT:
+        body += "replace:\n  - {id: store, use: qdrant}\n"
+    return body
+
+
+def _run_index(
+    binary: Path, corpus: Path, env: Mapping[str, str], workdir: Path, *, pipeline: str
+) -> int:
     result = subprocess.run(  # noqa: S603
-        [str(binary), "index", str(corpus.resolve()), "--pipeline", "index-text"],
+        [str(binary), "index", str(corpus.resolve()), "--pipeline", pipeline],
         cwd=workdir,
         env=dict(env),
         capture_output=True,
@@ -374,7 +410,12 @@ def _run_index(binary: Path, corpus: Path, env: Mapping[str, str], workdir: Path
 
 
 def _index_rungs(
-    binary: Path, sources: Sequence[Path], env: Mapping[str, str], workdir: Path
+    binary: Path,
+    sources: Sequence[Path],
+    env: Mapping[str, str],
+    workdir: Path,
+    *,
+    pipeline: str,
 ) -> tuple[
     dict[bench_filtered.Selectivity | None, int],
     dict[bench_filtered.Selectivity | None, tuple[str, ...]],
@@ -406,7 +447,7 @@ def _index_rungs(
             shutil.copy2(path, dest)
             copied.append(dest)
         boundary = count
-        sizes[selectivity] = _run_index(binary, slice_dir, env, workdir)
+        sizes[selectivity] = _run_index(binary, slice_dir, env, workdir, pipeline=pipeline)
         filter_sources[selectivity] = tuple(str(path.resolve()) for path in copied)
     return sizes, filter_sources
 
@@ -472,6 +513,7 @@ def _run_arm(
     env: Mapping[str, str],
     workdir: Path,
     questions: Sequence[str],
+    ingest_pipeline: str,
     matching_rows: int,
     truth: dict[str, tuple[str, ...]] | None,
 ) -> tuple[SettingsArmResult, dict[str, tuple[str, ...]]]:
@@ -479,7 +521,7 @@ def _run_arm(
     (`weft.toml`, the filter document) — `truth` is `None` only for the control arm that is about
     to produce it.
     """
-    rows_before = _run_index(binary, workdir / "slice", env, workdir)
+    rows_before = _run_index(binary, workdir / "slice", env, workdir, pipeline=ingest_pipeline)
 
     found: dict[str, tuple[str, ...]] = {}
     seconds: list[float] = []
@@ -488,7 +530,7 @@ def _run_arm(
         seconds.append(elapsed)
         found[question] = node_ids
 
-    rows_after = _run_index(binary, workdir / "slice", env, workdir)
+    rows_after = _run_index(binary, workdir / "slice", env, workdir, pipeline=ingest_pipeline)
 
     reference = truth if truth is not None else found
     recalls = [
@@ -527,6 +569,7 @@ def _run_group(
     workdir: Path,
     truth_by_selectivity: dict[bench_filtered.Selectivity | None, dict[str, tuple[str, ...]]],
     qdrant_collection: str | None,
+    ingest_pipeline: str,
 ) -> tuple[list[SettingsArmResult], int]:
     """One `(index, precision)` group: one throwaway store, indexed once in nested rungs, then
     every arm in the group (differing only by `iterative_scan`) queried at every rung it names.
@@ -538,7 +581,7 @@ def _run_group(
     one collection name would measure the first group's settings twice — identical numbers, which
     is precisely what this harness reads as "the setting never reached the server".
     """
-    rung_sizes, rung_sources = _index_rungs(binary, sources, env, workdir)
+    rung_sizes, rung_sources = _index_rungs(binary, sources, env, workdir, pipeline=ingest_pipeline)
     is_control = group_arms[0].is_control
 
     results: list[SettingsArmResult] = []
@@ -559,6 +602,7 @@ def _run_group(
                 env=env,
                 workdir=workdir,
                 questions=questions,
+                ingest_pipeline=ingest_pipeline,
                 matching_rows=rung_sizes[arm.selectivity],
                 truth=truth,
             )
@@ -628,13 +672,14 @@ def main(argv: list[str] | None = None) -> int:
             for (index_kind, precision), group_arms in ordered_groups:
                 with tempfile.TemporaryDirectory() as raw_workdir:
                     workdir = Path(raw_workdir)
+                    database_name: str | None = None
                     if backend is Backend.PGVECTOR:
                         name = f"{database_label}_{index_kind.value}_{precision.value}"
                         _create_database(admin_dsn, name)
                         created_databases.append(name)
+                        database_name = name
                         database_dsn = make_conninfo(admin_dsn, dbname=name)
                         env = {**os.environ, "WEFT_DATABASE_URL": database_dsn}
-                        pgvector_version, server_version = _pgvector_versions(admin_dsn, name)
                     else:
                         env = dict(os.environ)
                         qdrant_version = _qdrant_version(arguments.qdrant_url)
@@ -645,6 +690,7 @@ def main(argv: list[str] | None = None) -> int:
                         else None
                     )
                     _write_config(workdir, group_arms[0], qdrant_collection=collection)
+                    _write_pipeline_document(workdir, _INGEST_NAME, ingest_document(backend))
                     results, group_rows = _run_group(
                         binary,
                         group_arms,
@@ -654,7 +700,12 @@ def main(argv: list[str] | None = None) -> int:
                         workdir=workdir,
                         truth_by_selectivity=truth_by_selectivity,
                         qdrant_collection=collection,
+                        ingest_pipeline=_INGEST_NAME,
                     )
+                    if database_name is not None:
+                        pgvector_version, server_version = _pgvector_versions(
+                            admin_dsn, database_name
+                        )
                     all_results.extend(results)
                     total_rows = max(total_rows, group_rows)
 

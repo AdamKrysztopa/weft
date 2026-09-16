@@ -9,9 +9,15 @@ and nothing else touches the database while it runs). Three arms — the store's
 `ALTER COLUMN` timing at the width this run asked for.
 
 **Width 1536 cannot drive the two CLI arms.** `weft ask` embeds the query through `[services]
-embed`, which is `hash` at its default width 64; `hash` refuses any `with:` block, so there is no
-way to ask it for 1536 dimensions. Only the store-statement arm runs at that width, over synthetic
-unit vectors written directly into the throwaway column — see `synthetic_vector`.
+embed`, and that is a **service**: `ServiceSelection.embed` is a bare `str` and the query path
+builds it `factory(None)`, so it is configless by construction and `hash` answers at its own
+default width of 64. Only the store-statement arm runs at 1536, over synthetic unit vectors
+written directly into the throwaway column — see `synthetic_vector`.
+
+*(This paragraph used to say the reason was that "`hash` refuses any `with:` block". That was true
+when it was written and stopped being true at `R31.2`, which gave `HashEmbedder` the `config_model`
+it had always lacked — a pipeline **stage** may now name a dimension. The conclusion is unchanged,
+because the seam that pins the query width is the service surface, not the embedder.)*
 
 This module's pure functions (the percentile rule, the two counters, the synthetic vectors, the
 query sample, the machine label and the result line) are pinned by
@@ -384,8 +390,8 @@ def _arm_store_statement(
 
 
 _SKIP_REASON = (
-    "weft ask embeds the query through [services] embed, which is hash at its default width "
-    "64 and refuses a with: block"
+    "weft ask embeds the query through [services] embed, which is a service and therefore "
+    "configless — it is built factory(None), so hash answers at its own default width of 64"
 )
 
 

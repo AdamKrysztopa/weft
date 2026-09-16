@@ -70,7 +70,23 @@ class HashEmbedder:
     **Not a quality component** — see the module docstring. Satisfies
     `weft_embed.contract.Embedder` structurally: this class never imports it,
     the same path every third-party embedder pack is expected to take.
+
+    **`config_model = HashEmbedderConfig` — a repair, not part of the original
+    build (`R31.2`).** Without this class attribute `weft_kernel.resolution.
+    resolve` reads `getattr(declared, "config_model", None)` as `None` and
+    refuses *any* `with: {dimension: N}` block with `StageNotConfigurableError`,
+    falsely claiming this stage "cannot be parameterised at all" — while
+    `HashEmbedderConfig`, immediately above, is exactly the model task 1.5's
+    mechanism was built to validate against. Worse than the refusal: a stage
+    with no `with:` block resolved to an empty mapping rather than to the
+    declared default, so `dimension`'s own 64 was unreadable by anything
+    downstream, and `weft pipeline estimate` could not learn a width for
+    `index-text` at all. The spelling has no `ClassVar` because the two prior
+    instances of this same repair do not use one — `weft_chunk.fixed_size:118`
+    and `weft_clean.table_linearizer:91`.
     """
+
+    config_model: type[HashEmbedderConfig] = HashEmbedderConfig
 
     def __init__(self, config: HashEmbedderConfig | None = None) -> None:
         self._config = config if config is not None else HashEmbedderConfig()

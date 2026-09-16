@@ -80,6 +80,14 @@ question three times, all in one process.
 
 ## 4. Judge it against the published baseline
 
+> **Until the baseline is re-taken, a `weft-rag` newer than 2.7.0 refuses this comparison**, saying
+> `stage 'embed' config differs ({} vs {'dimension': 64})`. The hash embedder gained the
+> `config_model` it had always lacked, so its own default `dimension: 64` is now written into the
+> resolved record where it used to be omitted. The embedder, the width and the vectors are
+> unchanged; only the record is. Use `weft-rag` 2.7.0 against this file, or the re-taken baseline
+> once it is published. The refusal is the reproduction check working — a run that measured
+> something different must not be reported as reproducing this one.
+
 ```bash
 weft eval compare baselines/8854c33f71ea-2026-08-25.json mine.json
 ```
