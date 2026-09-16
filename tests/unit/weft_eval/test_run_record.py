@@ -600,3 +600,28 @@ def test_a_repetition_counts_from_one() -> None:
     # Act / Assert
     with pytest.raises(ValidationError):
         ExperimentRun(name="x", digest="e" * 64, invocation="inv-1", arm="a", repetition=0)
+
+
+def test_a_record_carries_each_questions_axes_keyed_as_its_scores_are(tmp_path: Path) -> None:
+    """Repair R38.1. A slice restricts a comparison's means, and a paired difference is over
+    questions, so a record says which slice each question was in — or, written before this repair,
+    that it does not know."""
+    # Arrange
+    record = build_run_record(
+        recorded_at="2026-09-16T00:00:00+00:00",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=_corpus(),
+        question_axes={"q-1": {"evidence": "text"}, "q-2": {"evidence": "text-table"}},
+    )
+    path = write_run_record(record, tmp_path / "runs" / "axes.json")
+    older = record.model_dump(mode="json")
+    del older["question_axes"]
+
+    # Act
+    loaded = load_run_record(path)
+    from_before = RunRecord.model_validate(older)
+
+    # Assert
+    assert loaded.question_axes is not None
+    assert dict(loaded.question_axes["q-2"]) == {"evidence": "text-table"}
+    assert from_before.question_axes is None

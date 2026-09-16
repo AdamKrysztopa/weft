@@ -709,3 +709,50 @@ async def test_a_rung_ending_in_a_generator_is_still_scored_over_the_answers_pas
 
     # Assert
     assert retrieved == []
+
+
+# --- Repair R38.1 — the scored run carries each question's axes for the record.
+
+
+async def test_the_scored_run_carries_each_questions_axes_with_its_kind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A paired difference restricted to a slice has to know which questions were in it, after the
+    question file is gone; `kind`, when a question states one, is recorded as the axis `--kind`
+    reads, so `--kind X` and `--slice kind=X` restrict the same questions."""
+
+    # Arrange
+    async def _no_metrics(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        del samples
+        return SubsetScores(metrics={}, per_question={})
+
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    curated = Question.model_validate(
+        {
+            "id": "curated-1",
+            "text": "What is it?",
+            "language": "en",
+            "kind": Kind.DEFINITIONAL,
+            "difficulty": "easy",
+            "relevant_documents": ("doc-a",),
+            "reference_answer": "That.",
+            "notes": "written for this test",
+            "quote": ({"document": "doc-a", "page": 0, "text": "That."},),
+        }
+    )
+    bridge = _question("bridge-1", kind_axis="requires-graph-hop")
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(curated, bridge),
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
+    )
+
+    # Assert
+    assert report.question_axes is not None
+    assert dict(report.question_axes["curated-1"]) == {"kind": "definitional"}
+    assert dict(report.question_axes["bridge-1"]) == {"kind": "requires-graph-hop"}

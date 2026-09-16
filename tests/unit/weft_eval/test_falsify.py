@@ -358,3 +358,21 @@ def test_one_paired_question_reports_no_interval_rather_than_a_zero_width_one() 
     assert difference.n == 1
     assert difference.low is None
     assert difference.high is None
+
+
+# --- Repair R38.1 — a paired difference restricted to named questions.
+
+
+def test_a_paired_difference_can_be_restricted_to_named_questions() -> None:
+    # Arrange
+    a = _with_questions(**{"precision@5": _per_question(q1=0.3, q2=0.5)})
+    b = _with_questions(**{"precision@5": _per_question(q1=0.5, q2=0.9)})
+
+    # Act
+    whole = paired_differences(a, b)
+    restricted = paired_differences(a, b, question_keys=frozenset({"q2"}))
+
+    # Assert
+    assert whole["precision@5"].n == 2
+    assert restricted["precision@5"].n == 1
+    assert restricted["precision@5"].mean == pytest.approx(0.4)

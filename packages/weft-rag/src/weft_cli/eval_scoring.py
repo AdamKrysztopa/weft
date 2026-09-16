@@ -432,6 +432,11 @@ class ScoredRun:
     #: `_fake_score_pipeline`), the same posture `RunRecord.metrics` already takes for a run
     #: given no `--questions` at all.
     question_scores: Mapping[str, PerQuestionScores] = _NO_QUESTION_SCORES
+    #: Repair **R38.1** — each question's own axes, keyed identically to `question_scores`:
+    #: `{**question.axes}` plus `"kind": question.kind.value` when the question stated one.
+    #: `None` only for a construction site written before this repair — `score_pipeline` always
+    #: fills it, the identical posture `question_seconds` already takes one field below.
+    question_axes: Mapping[str, Mapping[str, str]] | None = None
     #: Task **16.6** — the identity of the question set these scores are over, `""` when no
     #: questions were scored at all. `""` rather than `None` because a `ScoredRun` that scored
     #: nothing has no question set, and `RunRecord.question_set_digest` is where the *record's*
@@ -582,12 +587,18 @@ async def score_pipeline(
 
     samples: list[RetrievalSample] = []
     seconds: dict[str, float] = {}
+    axes: dict[str, Mapping[str, str]] = {}
     with recording_usage() as tally:
         for question in questions:
             question_key = question.id
             question_text = question.text
             question_kind = (
                 question.kind.value if question.kind is not None else question.axes.get("kind", "")
+            )
+            axes[question_key] = (
+                {**question.axes, "kind": question.kind.value}
+                if question.kind is not None
+                else {**question.axes}
             )
             hits: Sequence[Scored[Node]]
             started = time.monotonic()
@@ -658,6 +669,7 @@ async def score_pipeline(
         metrics=scores.metrics,
         query_rung=query_rung,
         question_scores=question_scores,
+        question_axes=axes,
         question_set=question_set_digest(questions),
         question_seconds=PerQuestionSeconds(keyed_by=keyed_by, seconds=seconds),
         token_usage=role_tokens(tally.entries),

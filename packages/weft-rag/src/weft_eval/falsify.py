@@ -372,7 +372,9 @@ def _index_stream(seed_material: str, *, count: int, modulus: int) -> list[int]:
     return indices[:count]
 
 
-def paired_differences(a: RunRecord, b: RunRecord) -> Mapping[str, PairedDifference]:
+def paired_differences(
+    a: RunRecord, b: RunRecord, *, question_keys: frozenset[str] | None = None
+) -> Mapping[str, PairedDifference]:
     """One `PairedDifference` per metric both records scored, keyed as `metrics` is.
 
     A record whose `question_scores` is `None` — every record written before task 16.4 —
@@ -381,6 +383,10 @@ def paired_differences(a: RunRecord, b: RunRecord) -> Mapping[str, PairedDiffere
     `question_scores`, only the question keys present in both are paired, and only where the
     outcome is `Produced` on **both** sides — `NotScored` is not a zero (`docs/09-release.md`
     :620, V4). A metric that pairs nothing produces no entry at all.
+
+    `question_keys` — repair R38.1 — restricts the pairing to that set alone, on top of the
+    "present in both" rule above: `None` (the default) is today's behaviour, pairing every
+    question both records scored.
     """
     if a.question_scores is None or b.question_scores is None:
         return MappingProxyType({})
@@ -390,8 +396,11 @@ def paired_differences(a: RunRecord, b: RunRecord) -> Mapping[str, PairedDiffere
     for name in names:
         a_scores = a.question_scores[name].scores
         b_scores = b.question_scores[name].scores
+        keys = set(a_scores) & set(b_scores)
+        if question_keys is not None:
+            keys &= question_keys
         keyed_diffs: list[tuple[str, float]] = []
-        for key in sorted(set(a_scores) & set(b_scores)):
+        for key in sorted(keys):
             a_outcome = a_scores[key]
             b_outcome = b_scores[key]
             if isinstance(a_outcome, Produced) and isinstance(b_outcome, Produced):

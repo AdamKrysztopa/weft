@@ -1082,12 +1082,21 @@ def _paired_difference_line(name: str, difference: PairedDifference) -> str:
     )
 
 
-def _paired_difference_lines(paired: Mapping[str, PairedDifference]) -> list[str]:
+def _paired_difference_lines(
+    paired: Mapping[str, PairedDifference], *, slice_: str | None = None
+) -> list[str]:
     """`weft eval compare`'s paired-difference block — task 16.9. Printed only when `paired` is
     non-empty, see `_render_eval_compare`; *beside* the falsification block, never instead of
     it, since the two answer different questions.
+
+    `slice_` — repair R38.1 — is `EvalCompareCommandResult.paired_differences_slice`: the
+    `"axis=value"` a `--slice`/`--kind` restricted the pairing to, printed in the header so a
+    reader cannot mistake a sliced pairing for one over the whole run.
     """
-    lines = ["paired difference over questions (b − a):"]
+    header = "paired difference over questions (b − a):"
+    if slice_ is not None:
+        header = f"paired difference over questions (b − a), {slice_}:"
+    lines = [header]
     lines.extend(_paired_difference_line(name, difference) for name, difference in paired.items())
     return lines
 
@@ -1205,6 +1214,10 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
     non-empty** — *beside* the falsification block, before it, never instead of it: the two
     intervals answer different questions (this system's own repetition noise, and whether the
     difference generalises across the questions), and a reader given one cannot infer the other.
+    Repair **R38.1** — under `--slice`/`--kind`, the header names the slice it paired over
+    (`result.paired_differences_slice`), and a record too old to say which questions were in
+    that slice prints `result.paired_differences_reason` on its own line instead of a block
+    that would otherwise silently pair the whole run under a slice's own header.
 
     **`result.reproduction`, repair `R22.4d`** — `--a`/`--b` both named a baseline report file
     rather than a persisted run, so nothing above applies: `_render_reproduction` is the whole
@@ -1232,7 +1245,13 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         _run_latency_line(result.run_b, result.latency_b),
     ]
     if result.paired_differences:
-        lines.extend(_paired_difference_lines(result.paired_differences))
+        lines.extend(
+            _paired_difference_lines(
+                result.paired_differences, slice_=result.paired_differences_slice
+            )
+        )
+    elif result.paired_differences_reason is not None:
+        lines.append(result.paired_differences_reason)
     if result.falsification is not None:
         baseline_pipeline = result.baseline_pipeline or ""
         lines.extend(

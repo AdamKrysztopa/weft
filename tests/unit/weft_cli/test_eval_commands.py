@@ -63,7 +63,7 @@ from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_enhance.contract import Enhancer
-from weft_eval.aggregate import MetricAggregate
+from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.contract import GenerationMetric
 from weft_eval.falsify import BaselineSpread, TooFewRepetitionsError, Verdict
 from weft_eval.offline import MetricNeedsCredentialsError, UnknownMetricNameError
@@ -637,6 +637,7 @@ def _write_record(
     question_set_digest: str | None = None,
     question_set_digest_basis: QuestionSetDigestBasis | None = None,
     question_scores: dict[str, PerQuestionScores] | None = None,
+    question_axes: dict[str, dict[str, str]] | None = None,
     active_distributions: tuple[str, ...] | None = None,
     model_versions: dict[str, str] | None = None,
 ) -> None:
@@ -655,6 +656,7 @@ def _write_record(
         question_set_digest=question_set_digest,
         question_set_digest_basis=question_set_digest_basis,
         question_scores=question_scores,
+        question_axes=question_axes,
         model_versions=model_versions or {},
     )
     if active_distributions is not None:
@@ -2058,3 +2060,83 @@ async def test_eval_compare_refuses_two_question_set_digests_taken_by_different_
     reasons = " ".join(excinfo.value.reasons)
     assert "question set digests are not over the same thing" in reasons
     assert QuestionSetDigestBasis.QUESTION_SET.value in reasons
+
+
+# --- Repair R38.1 — under a slice, the paired difference pairs the slice's questions only.
+
+
+def _sliced_pair(tmp_path: Path, *, with_axes: bool) -> None:
+    axes = {"q1": {"evidence": "text"}, "q2": {"evidence": "text-table"}} if with_axes else None
+    for run_id, pipeline, scores, mean in (
+        ("run-a", "base", {"q1": 0.3, "q2": 0.5}, 0.4),
+        ("run-b", "other", {"q1": 0.5, "q2": 0.9}, 0.7),
+    ):
+        aggregate = _aggregate("precision@5", mean)
+        assert isinstance(aggregate, Produced)
+        _write_record(
+            tmp_path,
+            run_id,
+            pipeline_name=pipeline,
+            corpus_name="corpus",
+            metrics={
+                "precision@5": Produced(
+                    value=aggregate.value.model_copy(
+                        update={
+                            "by_axis": {
+                                "evidence": {
+                                    "text": PartitionSlice(mean=scores["q1"], n=1, stdev=None),
+                                    "text-table": PartitionSlice(
+                                        mean=scores["q2"], n=1, stdev=None
+                                    ),
+                                }
+                            }
+                        }
+                    )
+                )
+            },
+            question_scores={
+                "precision@5": PerQuestionScores(
+                    keyed_by=QuestionKey.QUESTION_ID,
+                    scores={key: Produced(value=value) for key, value in scores.items()},
+                )
+            },
+            question_axes=axes,
+        )
+
+
+async def test_a_sliced_comparison_pairs_only_the_questions_in_the_slice(tmp_path: Path) -> None:
+    # Arrange
+    _sliced_pair(tmp_path, with_axes=True)
+
+    # Act
+    outcome = await EvalCompareCommand().run(
+        EvalCompareArgs(a="run-a", b="run-b", slice="evidence=text-table"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    assert result.paired_differences["precision@5"].n == 1
+    assert result.paired_differences["precision@5"].mean == pytest.approx(0.4)
+    rendered = render_outcome(outcome).stdout or ""
+    assert "paired difference over questions (b − a), evidence=text-table" in rendered
+
+
+async def test_a_sliced_comparison_of_records_without_axes_pairs_nothing_and_says_why(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    _sliced_pair(tmp_path, with_axes=False)
+
+    # Act
+    outcome = await EvalCompareCommand().run(
+        EvalCompareArgs(a="run-a", b="run-b", slice="evidence=text-table"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    assert result.paired_differences == {}
+    assert result.paired_differences_reason is not None
+    assert "evidence=text-table" in result.paired_differences_reason
+    assert result.paired_differences_reason in (render_outcome(outcome).stdout or "")

@@ -405,6 +405,13 @@ class RunRecord(BaseModel):
     #: task carries the means and not the observations under them, so a paired comparison
     #: against it is not computable and says so rather than inventing one.
     question_scores: Mapping[str, PerQuestionScores] | None = None
+    #: Repair **R38.1** — each recorded question's own axes (`weft_eval.question_set.Question.
+    #: axes`, plus `"kind"` when the question stated one), keyed identically to
+    #: `question_scores`. `None` means *not recorded*: every record written before this repair
+    #: names each question's scores and never which slice it belonged to, so
+    #: `weft eval compare --slice`/`--kind` cannot restrict a paired difference to that slice
+    #: and says so rather than pairing the whole run under a slice's own header.
+    question_axes: Mapping[str, Mapping[str, str]] | None = None
     #: Task 33.7 — each question's own retrieval latency, keyed identically to
     #: `question_scores`. `None` means *not recorded*: `durations.query_seconds` one field
     #: over is the run's total, but a record written before this task never split it out per
@@ -434,6 +441,7 @@ def build_run_record(
     metrics: Mapping[str, Outcome[MetricAggregate]] = _NO_METRICS,
     durations: RunDurations | None = None,
     question_scores: Mapping[str, PerQuestionScores] | None = None,
+    question_axes: Mapping[str, Mapping[str, str]] | None = None,
     question_set_digest: str | None = None,
     question_set_digest_basis: QuestionSetDigestBasis | None = None,
     question_seconds: PerQuestionSeconds | None = None,
@@ -472,6 +480,10 @@ def build_run_record(
     only the caller that paired samples to outcomes (`weft_cli.eval_scoring.score_pipeline`,
     through `weft_eval.harness.score_retrieval_gate_subset`) knows what each question scored.
 
+    `question_axes` — repair R38.1 — is passed straight through too, on the identical footing:
+    only the caller that read the question file (`weft_cli.eval_scoring.score_pipeline`) knows
+    which axes each question carried.
+
     `question_set_digest_basis` — task 38.11 — is passed straight through too, on the identical
     footing: only the caller that computed `question_set_digest` knows which function produced
     it.
@@ -492,6 +504,7 @@ def build_run_record(
         durations=durations,
         metrics={name: _as_run_result(outcome) for name, outcome in metrics.items()},
         question_scores=question_scores,
+        question_axes=question_axes,
         question_set_digest=question_set_digest,
         question_set_digest_basis=question_set_digest_basis,
         question_seconds=question_seconds,

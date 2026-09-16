@@ -776,6 +776,57 @@ def metrics_comparison_for_slice(
     }
 
 
+def _slice_axis_value(*, kind: str | None, slice_: str | None) -> str | None:
+    """`--kind X` is `--slice kind=X` — the one string either flag reduces to, or `None` when
+    neither was given — repair R38.1's own footing for restricting a paired difference the
+    identical way `metrics_comparison_for_kind`/`metrics_comparison_for_slice` already restrict
+    the metrics comparison.
+    """
+    if kind is not None:
+        return f"kind={kind}"
+    return slice_
+
+
+def _keys_matching(
+    axes: Mapping[str, Mapping[str, str]], *, axis: str, value: str
+) -> frozenset[str]:
+    """Every question key whose recorded axes carry `axis == value`."""
+    return frozenset(key for key, recorded in axes.items() if recorded.get(axis) == value)
+
+
+def paired_differences_for_slice(
+    a: RunRecord, b: RunRecord, *, kind: str | None, slice_: str | None
+) -> tuple[Mapping[str, PairedDifference], str | None, str | None]:
+    """`weft_eval.falsify.paired_differences(a, b)`, restricted to one slice's own questions —
+    repair R38.1, `metrics_comparison_for_slice`'s own restriction applied to the paired
+    difference rather than the mean.
+
+    Returns `(paired, slice_label, reason)`. `slice_label` is `"axis=value"` whenever
+    `--slice`/`--kind` was given, so the renderer's header can say which slice it paired over,
+    whether or not pairing actually ran; `reason` is populated only when a slice was asked for
+    and either record predates this repair (`question_axes is None`) — pairing is then not
+    computable, and `paired` is `{}` rather than silently pairing the whole run under a slice's
+    own header. With neither `--slice` nor `--kind`, this is exactly `paired_differences(a, b)`,
+    `None`, `None` — today's behaviour, unchanged.
+    """
+    axis_value = _slice_axis_value(kind=kind, slice_=slice_)
+    if axis_value is None:
+        return paired_differences(a, b), None, None
+
+    if a.question_axes is None or b.question_axes is None:
+        reason = (
+            f"not paired over {axis_value}: a record written before repair R38.1 does not say "
+            "which questions were in that slice"
+        )
+        return {}, axis_value, reason
+
+    axis, _, value = axis_value.partition("=")
+    question_keys = _keys_matching(a.question_axes, axis=axis, value=value) & _keys_matching(
+        b.question_axes, axis=axis, value=value
+    )
+    return paired_differences(a, b, question_keys=question_keys), axis_value, None
+
+
 class BaselineSelection(StrEnum):
     """Which rule chose a baseline's repetitions — printed, because a reader of a verdict
     cannot otherwise tell a rung-matched spread from a pipeline-matched one.
@@ -849,6 +900,15 @@ class EvalCompareCommandResult(CommandResult):
     query_rungs: QueryRungDifference | None = None
     baseline_selection: BaselineSelection | None = None
     paired_differences: Mapping[str, PairedDifference] = {}
+    #: Repair **R38.1** — `"axis=value"`, set whenever `--slice`/`--kind` restricted
+    #: `paired_differences`, so the renderer's header can say which slice it paired over.
+    #: `None` for an unrestricted comparison, the plain default every existing site keeps.
+    paired_differences_slice: str | None = None
+    #: Repair **R38.1** — why `paired_differences` is `{}` under a slice: `None` unless
+    #: `--slice`/`--kind` was given and at least one of the two records predates this repair
+    #: (`question_axes is None`), in which case pairing that record's questions to a slice is
+    #: not computable and this says so rather than silently pairing the whole run instead.
+    paired_differences_reason: str | None = None
     reproduction: Reproduction | None = None
     packaging_differences: tuple[str, ...] = ()
     #: Task 33.8 — each run's query latency; `None` when its record has no per-question timing.
@@ -1221,6 +1281,7 @@ async def index_and_score(
     metrics: Mapping[str, Outcome[MetricAggregate]] = {}
     query_rung: ScoredQueryRung | None = None
     question_scores: Mapping[str, PerQuestionScores] | None = None
+    question_axes: Mapping[str, Mapping[str, str]] | None = None
     question_set: str | None = None
     question_set_basis: QuestionSetDigestBasis | None = None
     question_seconds: PerQuestionSeconds | None = None
@@ -1246,6 +1307,7 @@ async def index_and_score(
         metrics = scored.metrics
         query_rung = scored.query_rung
         question_scores = scored.question_scores
+        question_axes = scored.question_axes
         question_set = scored.question_set or None
         question_set_basis = (
             QuestionSetDigestBasis.QUESTION_SET if question_set is not None else None
@@ -1269,6 +1331,7 @@ async def index_and_score(
         metrics=metrics,
         durations=RunDurations(ingest_seconds=ingest_seconds, query_seconds=query_seconds),
         question_scores=question_scores,
+        question_axes=question_axes,
         question_set_digest=question_set,
         question_set_digest_basis=question_set_basis,
         question_seconds=question_seconds,
@@ -1542,6 +1605,10 @@ class EvalCompareCommand:
                 exclude={compare_args.a, compare_args.b},
             )
 
+        paired, paired_slice, paired_reason = paired_differences_for_slice(
+            record_a, record_b, kind=compare_args.kind, slice_=compare_args.slice
+        )
+
         return Produced(
             value=EvalCompareCommandResult(
                 run_a=compare_args.a,
@@ -1561,7 +1628,9 @@ class EvalCompareCommand:
                 falsification=falsification,
                 query_rungs=query_rungs,
                 baseline_selection=baseline_selection,
-                paired_differences=paired_differences(record_a, record_b),
+                paired_differences=paired,
+                paired_differences_slice=paired_slice,
+                paired_differences_reason=paired_reason,
                 packaging_differences=_packaging_differences(record_a, record_b),
                 latency_a=latency_summary(record_a.question_seconds),
                 latency_b=latency_summary(record_b.question_seconds),
@@ -1659,5 +1728,6 @@ __all__ = [
     "metrics_comparison_for_kind",
     "metrics_comparison_for_slice",
     "model_versions_of",
+    "paired_differences_for_slice",
     "register_eval_commands",
 ]
