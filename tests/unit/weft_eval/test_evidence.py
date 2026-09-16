@@ -262,3 +262,43 @@ def test_regenerate_reads_the_records_on_disk_for_the_document_on_disk(tmp_path:
     assert markdown == render_evidence_table(
         evidence_table(experiment, complete_records(experiment))
     )
+
+
+# --- Repair R38.3 — tokens per query are never a zero standing where the count is unknown.
+
+
+def test_tokens_per_query_count_the_questions_a_record_timed_when_no_metric_scored_them(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    experiment = fixture_experiment(tmp_path)
+    records = [
+        record.model_copy(update={"question_scores": None})
+        for record in complete_records(experiment)
+    ]
+
+    # Act
+    table = evidence_table(experiment, records)
+
+    # Assert
+    costs = {cost.arm: cost for cost in table.costs}
+    assert costs["better"].tokens_per_query["generate"] == pytest.approx(110.0)
+
+
+def test_tokens_per_query_are_absent_rather_than_zero_when_no_question_is_known(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    experiment = fixture_experiment(tmp_path)
+    records = [
+        record.model_copy(update={"question_scores": None, "question_seconds": None})
+        for record in complete_records(experiment)
+    ]
+
+    # Act
+    table = evidence_table(experiment, records)
+    markdown = render_evidence_table(table)
+
+    # Assert
+    assert all(cost.tokens_per_query == {} for cost in table.costs)
+    assert "generate: 0.0" not in markdown

@@ -257,21 +257,33 @@ def _tokens_per_query(
             roles.update(record.token_usage)
     denominator = experiment.repeats * question_count
     tokens_per_query: dict[str, float] = {}
+    if not denominator:
+        return tokens_per_query
     for role in sorted(roles):
         total = 0
         for record in arm_records:
             if record.token_usage is not None and role in record.token_usage:
                 role_tokens = record.token_usage[role]
                 total += role_tokens.prompt_tokens + role_tokens.completion_tokens
-        tokens_per_query[role] = (total / denominator) if denominator else 0.0
+        tokens_per_query[role] = total / denominator
     return tokens_per_query
+
+
+def _question_count(record: RunRecord) -> int:
+    """How many questions `record` asked: every id any metric scored or the run timed. `0` means
+    the record says nothing about its questions, and tokens per query is then left unstated."""
+    ids: set[str] = set()
+    for per_metric in (record.question_scores or {}).values():
+        ids.update(per_metric.scores)
+    if record.question_seconds is not None:
+        ids.update(record.question_seconds.seconds)
+    return len(ids)
 
 
 def _arm_cost(
     experiment: Experiment,
     by_key: Mapping[tuple[str, int], RunRecord],
     arm: ExperimentArm,
-    first_metric: str,
 ) -> ArmCost:
     arm_records = _arm_records(experiment, by_key, arm)
     seconds: list[float] = []
@@ -284,20 +296,14 @@ def _arm_cost(
         p95=nearest_rank(seconds, 0.95),
         p99=nearest_rank(seconds, 0.99),
     )
-    rep_one = arm_records[0]
-    if rep_one.question_scores is not None and first_metric in rep_one.question_scores:
-        question_count = len(rep_one.question_scores[first_metric].scores)
-    else:
-        question_count = 0
-    tokens_per_query = _tokens_per_query(experiment, arm_records, question_count)
+    tokens_per_query = _tokens_per_query(experiment, arm_records, _question_count(arm_records[0]))
     return ArmCost(arm=arm.name, latency=latency, tokens_per_query=tokens_per_query)
 
 
 def _build_costs(
     experiment: Experiment, by_key: Mapping[tuple[str, int], RunRecord]
 ) -> list[ArmCost]:
-    first_metric = experiment.metrics[0]
-    return [_arm_cost(experiment, by_key, arm, first_metric) for arm in experiment.arms]
+    return [_arm_cost(experiment, by_key, arm) for arm in experiment.arms]
 
 
 def evidence_table(
