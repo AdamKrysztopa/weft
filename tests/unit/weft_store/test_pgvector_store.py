@@ -53,6 +53,7 @@ from weft_store.contract import (
     SourceRecord,
     TextSearch,
     VectorIndexKind,
+    VectorPrecision,
     VectorSearch,
 )
 from weft_store.pgvector_store import (
@@ -67,7 +68,9 @@ from weft_store.pgvector_store import (
     TextSearchConfigMismatchError,
     UnknownTextSearchConfigError,
     UnsupportedIndexKindError,
+    UnsupportedPrecisionError,
     VectorWidthMismatchError,
+    reject_width_over_index_ceiling,
 )
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -1158,4 +1161,179 @@ async def test_a_filtered_search_under_hnsw_still_returns_top_k(fresh_database: 
     assert [scored.score for scored in ranked] == sorted(
         (scored.score for scored in ranked), reverse=True
     )
+    await store.aclose()
+
+
+# --- Task 31.10 — compressed indexes, rescored at full precision ------------------------------
+
+
+async def _index_definitions_in(dsn: str) -> list[str]:
+    """Every index definition on `weft_nodes`, from the database's own catalogue."""
+    conn = await psycopg.AsyncConnection.connect(dsn, autocommit=True)
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT indexdef FROM pg_indexes WHERE tablename = 'weft_nodes'")
+            return [str(row[0]) for row in await cur.fetchall()]
+    finally:
+        await conn.close()
+
+
+def test_the_precision_defaults_to_float32_until_a_run_moves_it() -> None:
+    # Arrange / Act / Assert — the owner's Q2 rule: a compressed arm becomes the default only
+    # through a commit citing a persisted `weft eval` run whose recall@10 lands inside the
+    # float32 baseline's interval. `29.8` is a store-level measurement, not that run.
+    assert PgVectorSettings(dsn=SecretStr(_DSN)).precision is VectorPrecision.FLOAT32
+
+
+def test_rescore_oversampling_defaults_to_the_factor_that_stopped_paying() -> None:
+    """`29.8` on 100,142 real chunks, binary quantisation, recall@10 against the exact scan:
+
+    | oversampling | 1 | 2 | 4 | 10 |
+    |---|---|---|---|---|
+    | recall@10 | 0.8075 | 0.9565 | **0.989** | 0.989 |
+
+    Four is where the curve flattens — ten is *identical*, so every candidate past four is paid
+    for and buys nothing measurable. That plateau is the whole argument for the number, and it is
+    a measurement rather than a convention borrowed from a vendor's example.
+    """
+    # Arrange / Act / Assert
+    assert PgVectorSettings(dsn=SecretStr(_DSN)).rescore_oversampling == 4
+
+
+def test_a_precision_pgvector_cannot_index_is_refused_naming_what_it_serves() -> None:
+    # Arrange / Act / Assert — pgvector's HNSW indexes `vector`, `halfvec` and `bit`, and has no
+    # int8 form at all; Qdrant serves it as scalar quantization. The vocabulary is shared and the
+    # subsets are not, which is exactly what the refusal exists to say out loud.
+    with pytest.raises(UnsupportedPrecisionError) as raised:
+        PgVectorSettings(dsn=SecretStr(_DSN), precision=VectorPrecision.INT8)
+
+    message = str(raised.value)
+    assert "int8" in message
+    assert "pgvector" in message
+    assert raised.value.valid_options == ("float32", "float16", "binary")
+
+
+@pytest.mark.parametrize(
+    ("precision", "ceiling"),
+    [(VectorPrecision.FLOAT16, 4_000), (VectorPrecision.BINARY, 64_000)],
+)
+def test_a_width_past_the_compressed_index_ceiling_is_refused_by_name(
+    precision: VectorPrecision, ceiling: int
+) -> None:
+    """pgvector's own documented limits — `halfvec` 4,000 dimensions, `bit` 64,000.
+
+    **This is a function rather than a settings validator because of G22.** Every other refusal
+    this store makes is a `model_validator`; this one cannot be, because pgvector's width is
+    *learned from the first embedded node* rather than configured — there is no `vector_size`
+    field to validate against, and adding one to make the check convenient would reopen that gate.
+    So the refusal fires where the width first becomes known, and the decision is lifted into a
+    pure function so it is reachable without a database.
+    """
+    # Arrange / Act / Assert — one past the ceiling is refused, the ceiling itself is not.
+    reject_width_over_index_ceiling(precision, ceiling)
+
+    with pytest.raises(UnsupportedPrecisionError) as raised:
+        reject_width_over_index_ceiling(precision, ceiling + 1)
+
+    message = str(raised.value)
+    assert str(ceiling) in message
+    assert str(ceiling + 1) in message
+    assert precision.value in message
+    assert raised.value.valid_options == ("float32",)
+
+
+def test_float32_carries_no_index_width_ceiling_at_all() -> None:
+    # Arrange / Act / Assert — it builds no cast, so nothing bounds it. A width that would be
+    # refused under either compressed precision passes here, which is what makes the ceiling a
+    # property of the *compression* rather than of the store.
+    reject_width_over_index_ceiling(VectorPrecision.FLOAT32, 100_000)
+
+
+@pytest.mark.parametrize(
+    ("precision", "operator_class"),
+    [(VectorPrecision.FLOAT16, "halfvec_cosine_ops"), (VectorPrecision.BINARY, "bit_hamming_ops")],
+)
+async def test_a_compressed_store_builds_an_index_over_the_compressed_expression(
+    fresh_database: str, precision: VectorPrecision, operator_class: str
+) -> None:
+    # Arrange — a compressed index is an *expression* index: the column stays full-precision
+    # `vector(n)` and the index is built over a cast of it, which is what lets the rescore below
+    # compare against the original vectors rather than the lossy ones.
+    store = PgVectorStore(
+        PgVectorSettings(
+            dsn=SecretStr(fresh_database), index=VectorIndexKind.HNSW, precision=precision
+        )
+    )
+
+    # Act — the first embedded node commits the width, and the index follows it (31.9's point).
+    await store.add([_embedded("first", 3)])
+
+    # Assert
+    definitions = await _index_definitions_in(fresh_database)
+    compressed = [d for d in definitions if operator_class in d]
+    assert compressed, f"no {operator_class} index was built; weft_nodes holds {definitions}"
+    await store.aclose()
+
+
+async def test_a_compressed_search_is_rescored_against_the_full_precision_column(
+    fresh_database: str,
+) -> None:
+    """The ranking a compressed store returns is the full-precision one.
+
+    Binary quantisation alone gets recall@10 of 0.8075 (`29.8`); rescoring an oversampled
+    candidate set against the original vectors is what lifts it to 0.989. So the score handed
+    back must be the **full-precision** cosine, never the Hamming distance the index ranked by —
+    otherwise the number means something different from every other score this store returns, and
+    a caller comparing two backends' rankings is comparing two different quantities.
+    """
+    # Arrange — `near` is nearest in full precision; the others are placed so a 1-bit
+    # quantisation of all four collapses them into the same corner of the space.
+    store = PgVectorStore(
+        PgVectorSettings(
+            dsn=SecretStr(fresh_database),
+            index=VectorIndexKind.HNSW,
+            precision=VectorPrecision.BINARY,
+        )
+    )
+    near = _node("near").with_embedding(Vector(values=(1.0, 0.9, 0.8)))
+    mid = _node("mid").with_embedding(Vector(values=(1.0, 0.5, 0.4)))
+    far = _node("far").with_embedding(Vector(values=(1.0, 0.1, 0.05)))
+    await store.add([near, mid, far])
+
+    # Act
+    ranked = await store.search_vector(Vector(values=(1.0, 0.95, 0.85)), top_k=3)
+
+    # Assert — full-precision order, and a cosine score rather than a bit distance.
+    assert [scored.value.content for scored in ranked] == ["near", "mid", "far"]
+    assert all(0.0 <= scored.score <= 1.0 for scored in ranked)
+    await store.aclose()
+
+
+async def test_the_query_plan_shows_the_compressed_index_is_the_one_used(
+    fresh_database: str,
+) -> None:
+    """Postgres matches an expression index **textually** — this is the task's sharpest risk.
+
+    A compressed search whose `ORDER BY` expression stops matching the index expression by so
+    much as a cast silently falls back to a sequential scan: same results, same order, no error,
+    and the entire point of building the index gone. Nothing about the returned rows can detect
+    that, which is why this reads the plan rather than the output.
+    """
+    # Arrange
+    store = PgVectorStore(
+        PgVectorSettings(
+            dsn=SecretStr(fresh_database),
+            index=VectorIndexKind.HNSW,
+            precision=VectorPrecision.BINARY,
+        )
+    )
+    await store.add([_embedded(f"node-{i}", 3) for i in range(50)])
+
+    # Act — the plan for the statement the store itself issues, not one rewritten by this test:
+    # a copy would be a comparison whose two sides come from one source (`L5.6`).
+    plan = await store.explain_search_vector(Vector(values=(0.1, 0.1, 0.1)), top_k=5)
+
+    # Assert
+    assert "weft_nodes_embedding_hnsw_idx" in plan, plan
+    assert "Seq Scan" not in plan, plan
     await store.aclose()

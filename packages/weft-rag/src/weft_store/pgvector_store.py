@@ -115,6 +115,7 @@ from weft_store.contract import (
     SupersedeNarrowsSourcesError,
     UnhandledFilterOpError,
     VectorIndexKind,
+    VectorPrecision,
 )
 from weft_store.contract import (
     # `X as X` for the same reason its sibling below carries it: both moved to
@@ -536,6 +537,47 @@ class PgVectorSettings(BaseModel):
     #: pgvector's own documented HNSW build default for `ef_construction` — the size of the
     #: dynamic candidate list used while building the index. Same footing as `hnsw_m` above.
     hnsw_ef_construction: int = 64
+
+    #: Which precision this store's vectors and index are held at — task **31.10**.
+    #:
+    #: **`float32` is default until a persisted `weft eval` run puts a compressed arm inside
+    #: the float32 baseline's interval** — the owner's Q2 rule. `29.8` is a store-level
+    #: measurement, not that run.
+    precision: VectorPrecision = VectorPrecision.FLOAT32
+
+    #: How many candidates a compressed search rescores per requested `top_k`, against the
+    #: full-precision column — task **31.10**.
+    #:
+    #: **Four is measured, not conventional.** `29.8`, binary quantisation, recall@10 against
+    #: the exact scan:
+    #:
+    #: | oversampling | 1 | 2 | 4 | 10 |
+    #: |---|---|---|---|---|
+    #: | recall@10 | 0.8075 | 0.9565 | **0.989** | 0.989 |
+    #:
+    #: Ten is identical to four, so every candidate past four is paid for and buys nothing
+    #: measurable.
+    rescore_oversampling: int = Field(default=4, ge=1)
+
+    @model_validator(mode="after")
+    def _reject_unsupported_precision(self) -> "PgVectorSettings":
+        """Refuse a precision this backend cannot hold, naming what it does.
+
+        `01` requirement 5 applied to `precision`: pgvector's HNSW indexes `vector`,
+        `halfvec` and `bit`, and has no `int8` form at all — Qdrant serves that one as scalar
+        quantization, which is why the vocabulary (`weft_store.contract.VectorPrecision`) is
+        shared and the subsets it is served under are not.
+        """
+        served = (VectorPrecision.FLOAT32, VectorPrecision.FLOAT16, VectorPrecision.BINARY)
+        if self.precision not in served:
+            valid_options = tuple(precision.value for precision in served)
+            raise UnsupportedPrecisionError(
+                f"[packs.store] precision '{self.precision.value}' is not served by "
+                f"pgvector. It serves: {', '.join(valid_options)}.",
+                valid_options=valid_options,
+                pack="weft-store",
+            )
+        return self
 
     @model_validator(mode="after")
     def _reject_unsupported_index(self) -> "PgVectorSettings":
@@ -994,6 +1036,8 @@ class PgVectorStore:
         self._iterative_scan = settings.iterative_scan
         self._hnsw_m = settings.hnsw_m
         self._hnsw_ef_construction = settings.hnsw_ef_construction
+        self._precision = settings.precision
+        self._rescore_oversampling = settings.rescore_oversampling
         self._conn: psycopg.AsyncConnection[dict[str, Any]] | None = None
 
     def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
@@ -1520,14 +1564,7 @@ class PgVectorStore:
         self, vector: Vector, top_k: int, filter: Filter | None = None
     ) -> Sequence[Scored[Node]]:
         conn = await self._connection()
-        values: dict[str, object] = {}
-        statement = sql.SQL("""
-                SELECT *, embedding <=> %(vector)s AS distance
-                FROM weft_nodes
-                WHERE embedding IS NOT NULL AND {predicate}
-                ORDER BY embedding <=> %(vector)s
-                LIMIT %(top_k)s
-                """).format(predicate=_predicate_or_true(filter, values))
+        statement, values = await self._search_vector_statement(top_k, filter)
         async with conn.cursor() as cur:
             await cur.execute(
                 statement,
@@ -1535,7 +1572,7 @@ class PgVectorStore:
                 # adapts to a Postgres array, and `<=>` has no overload comparing `vector` to
                 # `double precision[]`. `register_vector_async` is what makes `PgVector` dump as
                 # the `vector` type instead.
-                {**values, "vector": PgVector(list(vector.values)), "top_k": top_k},
+                {**values, "vector": PgVector(list(vector.values))},
             )
             rows = await cur.fetchall()
         scored = [
@@ -1549,6 +1586,78 @@ class PgVectorStore:
         # `self._index` — `ORDER BY` above is still what keeps `LIMIT` cutting the right rows.
         scored.sort(key=lambda s: s.score, reverse=True)
         return scored
+
+    async def explain_search_vector(
+        self, vector: Vector, top_k: int, filter: Filter | None = None
+    ) -> str:
+        """`EXPLAIN` over the exact statement `search_vector` builds, as plan text.
+
+        Exists because Postgres matches an expression index **textually**: a compressed
+        search whose `ORDER BY` expression stops matching the index expression by so much as
+        a cast falls back to a sequential scan silently — same results, same order, no error,
+        and the entire point of building the index gone. Built from `_search_vector_statement`,
+        the same helper `search_vector` itself calls, rather than a statement re-typed here —
+        a plan read for a copy would be a comparison whose two sides come from one source
+        (`L5.6`), which is exactly what it exists to catch.
+        """
+        conn = await self._connection()
+        statement, values = await self._search_vector_statement(top_k, filter)
+        explain_statement = sql.SQL("EXPLAIN {statement}").format(statement=statement)
+        async with conn.cursor() as cur:
+            await cur.execute(
+                explain_statement, {**values, "vector": PgVector(list(vector.values))}
+            )
+            rows = await cur.fetchall()
+        return "\n".join(str(row["QUERY PLAN"]) for row in rows)
+
+    async def _search_vector_statement(
+        self, top_k: int, filter: Filter | None
+    ) -> tuple[sql.Composed, dict[str, object]]:
+        """The statement `search_vector` runs, and `explain_search_vector` reads the plan of.
+
+        `float32` stays the single-stage scan pgvector has always run. A compressed precision
+        runs the two-stage shape `29.8` measured: an inner query orders by the compressed
+        expression — the index's own operator class — cut to `rescore_oversampling * top_k`
+        candidates, and an outer query re-ranks those candidates by the full-precision cosine
+        distance and cuts to `top_k`. The index gets the search to a candidate set fast; the
+        original vectors decide the order, which is why the returned score is always the
+        full-precision cosine and never the distance the inner query ranked by.
+        """
+        values: dict[str, object] = {}
+        predicate = _predicate_or_true(filter, values)
+        values["top_k"] = top_k
+        plain = sql.SQL("""
+                SELECT *, embedding <=> %(vector)s AS distance
+                FROM weft_nodes
+                WHERE embedding IS NOT NULL AND {predicate}
+                ORDER BY embedding <=> %(vector)s
+                LIMIT %(top_k)s
+                """).format(predicate=predicate)
+        if self._precision is VectorPrecision.FLOAT32:
+            return plain, values
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            width = await self._read_committed_width(cur)
+        # No node has ever been embedded, so no compressed index exists either — the plain
+        # scan is correct regardless of shape, and it is the only shape that does not need a
+        # width to cast against.
+        if width is None:
+            return plain, values
+        values["candidates"] = self._rescore_oversampling * top_k
+        expression, operator, query = _compressed_order_terms(self._precision, width)
+        statement = sql.SQL("""
+                SELECT *, embedding <=> %(vector)s AS distance FROM (
+                    SELECT * FROM weft_nodes
+                    WHERE embedding IS NOT NULL AND {predicate}
+                    ORDER BY {expression} {operator} {query}
+                    LIMIT %(candidates)s
+                ) AS candidates
+                ORDER BY embedding <=> %(vector)s
+                LIMIT %(top_k)s
+                """).format(
+            predicate=predicate, expression=expression, operator=operator, query=query
+        )
+        return statement, values
 
     async def search_text(
         self, text: str, top_k: int, filter: Filter | None = None
@@ -1654,31 +1763,130 @@ class PgVectorStore:
                     _vector_width_mismatch_message(culprit, width, existing[0]),
                     pack="weft-store",
                 )
-            await cur.execute(_alter_embedding_width_sql(existing[0] if existing else width))
+            committed_width = existing[0] if existing else width
+            await cur.execute(_alter_embedding_width_sql(committed_width))
             if self._index is VectorIndexKind.HNSW:
                 # HNSW cannot be built on a bare `vector` column, and this branch runs exactly
                 # once — the width has just become fixed above, and `committed is not None`
                 # short-circuits every call after it. `IF NOT EXISTS` still guards it: a second
                 # `PgVectorStore` against the same database can race this same branch.
+                self._reject_width_over_index_ceiling(committed_width)
                 await cur.execute(
-                    self._create_hnsw_index_sql(self._hnsw_m, self._hnsw_ef_construction)
+                    self._create_hnsw_index_sql(
+                        self._precision,
+                        committed_width,
+                        self._hnsw_m,
+                        self._hnsw_ef_construction,
+                    )
                 )
 
+    def _reject_width_over_index_ceiling(self, width: int) -> None:
+        """This store's own precision against `width` — see `reject_width_over_index_ceiling`."""
+        reject_width_over_index_ceiling(self._precision, width)
+
     @staticmethod
-    def _create_hnsw_index_sql(m: int, ef_construction: int) -> sql.Composed:
+    def _create_hnsw_index_sql(
+        precision: VectorPrecision, width: int, m: int, ef_construction: int
+    ) -> sql.Composed:
         """Build `weft_nodes_embedding_hnsw_idx`, naming `_CREATE_TSVECTOR_INDEX`'s
         `weft_nodes_content_tsv_idx`. `vector_cosine_ops` matches `<=>`, the operator
-        `search_vector` already orders by.
+        `search_vector` already orders by for `float32`.
 
-        `m`/`ef_construction` are DDL, like `_alter_embedding_width_sql`'s `width` — a build
-        parameter, not a bound value — so both go through `sql.Literal` rather than a query
-        parameter, and both are settings an operator wrote into `weft.toml`, not the raw string it
-        was spelled with, so an f-string into SQL is never how either reaches this statement.
+        **A compressed precision builds an expression index over the full-precision column**
+        — `float16` casts to `halfvec(width)` under `halfvec_cosine_ops`, `binary` casts
+        through `binary_quantize` to `bit(width)` under `bit_hamming_ops`. The column stays
+        `vector(n)` either way; only the index is a cast of it, which is what lets a rescore
+        compare candidates against the original vectors rather than the lossy ones. The
+        index **name** does not vary by precision — one name per table keeps `IF NOT EXISTS`
+        idempotent, and `_search_vector_statement`'s `ORDER BY` is written to match whichever
+        expression this built, token for token, because Postgres matches an expression index
+        textually.
+
+        `width`, `m`/`ef_construction` are DDL, like `_alter_embedding_width_sql`'s `width` —
+        build parameters, not bound values — so all three go through `sql.Literal` rather
+        than a query parameter, and all are settings an operator wrote into `weft.toml`, not
+        the raw string it was spelled with, so an f-string into SQL is never how any of them
+        reaches this statement.
         """
+        if precision is VectorPrecision.FLOAT16:
+            column = sql.SQL("(embedding::halfvec({width})) halfvec_cosine_ops").format(
+                width=sql.Literal(width)
+            )
+        elif precision is VectorPrecision.BINARY:
+            column = sql.SQL("(binary_quantize(embedding)::bit({width})) bit_hamming_ops").format(
+                width=sql.Literal(width)
+            )
+        else:
+            column = sql.SQL("embedding vector_cosine_ops")
         return sql.SQL(
             "CREATE INDEX IF NOT EXISTS weft_nodes_embedding_hnsw_idx ON weft_nodes "
-            "USING hnsw (embedding vector_cosine_ops) WITH (m = {m}, ef_construction = {ef})"
-        ).format(m=sql.Literal(m), ef=sql.Literal(ef_construction))
+            "USING hnsw ({column}) WITH (m = {m}, ef_construction = {ef})"
+        ).format(column=column, m=sql.Literal(m), ef=sql.Literal(ef_construction))
+
+
+#: pgvector's own documented per-index-kind ceiling: `halfvec` indexes at most 4,000
+#: dimensions, `bit` at most 64,000. `float32`/`int8` carry no entry here — `float32` builds
+#: no cast at all, and `int8` never reaches this point, refused at settings validation.
+_INDEX_WIDTH_CEILINGS: dict[VectorPrecision, int] = {
+    VectorPrecision.FLOAT16: 4_000,
+    VectorPrecision.BINARY: 64_000,
+}
+
+
+def reject_width_over_index_ceiling(precision: VectorPrecision, width: int) -> None:
+    """Refuse a width the compressed index cannot represent, by name — task **31.10**.
+
+    pgvector's own documented limits: `halfvec` indexes at most 4,000 dimensions, `bit` at most
+    64,000. Left alone, a width past either ceiling fails inside `CREATE INDEX` with a driver
+    message naming neither the setting nor the remedy.
+
+    **A module-level function rather than a settings validator, and the reason is G22.** Every
+    other refusal this store makes is a `model_validator` on `PgVectorSettings`, which is where a
+    reader would look for this one. It cannot go there: **pgvector's vector width is not
+    configured.** G22 settled that the store learns `n` from the first embedded node it is ever
+    handed, which is why `PgVectorSettings` has no `vector_size` field where `QdrantSettings` does
+    — so at settings-validation time there is no width to check, and inventing one would reopen
+    that gate to make a test convenient.
+
+    So the check fires where the width first becomes known, inside index provisioning, and the
+    *decision* is lifted out to here — pure, public, and taking both operands as arguments. That
+    is what makes it testable without a database, without reaching a private name, and without a
+    suppression marker: the call site keeps its timing, and the rule stops being reachable only
+    through one.
+
+    `float32` and `int8` carry no ceiling: the first builds no cast at all, and the second never
+    reaches this point — `PgVectorSettings` refuses it at construction.
+    """
+    ceiling = _INDEX_WIDTH_CEILINGS.get(precision)
+    if ceiling is not None and width > ceiling:
+        raise UnsupportedPrecisionError(
+            f"[packs.store] precision '{precision.value}' indexes at most {ceiling} dimensions, "
+            f"and this corpus's embedding is {width}-wide. Set precision back to 'float32', "
+            f"which has no such ceiling, or re-index this corpus under a narrower embedding.",
+            valid_options=("float32",),
+            pack="weft-store",
+        )
+
+
+def _compressed_order_terms(
+    precision: VectorPrecision, width: int
+) -> tuple[sql.Composable, sql.SQL, sql.Composable]:
+    """The `ORDER BY` expression, operator and query-side cast a compressed candidate scan
+    uses — matched token for token against `PgVectorStore._create_hnsw_index_sql`'s own
+    expression, because Postgres matches an expression index textually and a shape that
+    drifts by so much as a cast falls back to a sequential scan with no error.
+    """
+    if precision is VectorPrecision.FLOAT16:
+        return (
+            sql.SQL("embedding::halfvec({width})").format(width=sql.Literal(width)),
+            sql.SQL("<=>"),
+            sql.SQL("%(vector)s::halfvec({width})").format(width=sql.Literal(width)),
+        )
+    return (
+        sql.SQL("binary_quantize(embedding)::bit({width})").format(width=sql.Literal(width)),
+        sql.SQL("<~>"),
+        sql.SQL("binary_quantize(%(vector)s)::bit({width})").format(width=sql.Literal(width)),
+    )
 
 
 def register(registrar: PackRegistrar, settings: PgVectorSettings) -> None:

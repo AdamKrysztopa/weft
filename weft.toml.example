@@ -105,10 +105,34 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # `hnsw_m` and `hnsw_ef_construction` are pgvector's own documented build
 # defaults, exposed rather than moved: raising them builds a better graph more
 # slowly, and nothing in Weft's own measurements asked for a different number.
+# `precision` is `float32` (the default), `float16` or `binary` — what the *index* holds, never
+# what the column holds. The column stays full-precision `vector(n)` and a compressed index is
+# built over a cast of it, which is what lets a search rank by the original vectors even though
+# it found its candidates through a lossy one. `int8` is a member of the shared vocabulary this
+# backend has no form for — pgvector's HNSW indexes `vector`, `halfvec` and `bit` — so asking for
+# it is refused by name. Qdrant serves it; the vocabulary is shared and the subsets are not.
+#
+# **Compression is a real trade and Weft measured it** on 100,142 chunks at width 1536, against
+# the exact scan: `binary` reaches recall@10 of 0.989 at 0.94 ms p95 in a **50 MB** index built in
+# 9.1 s, while `float16` (halfvec) reaches 0.9985 at 1.96 ms in **409 MB** built in 64.9 s. Binary
+# is eight times smaller and seven times faster to build, for about one part in a hundred of
+# recall. float32 stays the default regardless, until a persisted `weft eval` run puts a
+# compressed arm inside the float32 baseline's own interval — a store benchmark is not that run.
+#
+# `rescore_oversampling` is how many candidates the compressed index fetches per result before
+# they are re-ranked against the full-precision column: `oversampling × top_k`. **4 is measured,
+# not conventional.** Binary recall@10 by oversampling: 1 → 0.8075, 2 → 0.9565, 4 → 0.989,
+# 10 → 0.989. Four is where the curve flattens and ten is identical, so every candidate past four
+# is paid for and buys nothing. Rescoring is also why the score you get back is a cosine
+# similarity and not a bit distance — the index chooses who competes, the original vectors decide
+# the order.
+#
 # index = "exact"
 # iterative_scan = "relaxed_order"
 # hnsw_m = 16
 # hnsw_ef_construction = 64
+# precision = "float32"
+# rescore_oversampling = 4
 
 # [packs.openai]
 # Optional — every field here has a default, so this whole block can be absent and

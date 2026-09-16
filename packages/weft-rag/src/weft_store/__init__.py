@@ -72,6 +72,7 @@ from weft_store.pgvector_store import (
     TextRank,
     VectorWidthMismatchError,
     register,
+    reject_width_over_index_ceiling,
 )
 
 # Re-exported because `docs/02-extension-model.md` §1 names it as the call a pack shipping its own
@@ -163,4 +164,5 @@ __all__ = [
     "register_ext_model",
     "register_from_reports",
     "rehydrate_ext",
+    "reject_width_over_index_ceiling",
 ]
