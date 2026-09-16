@@ -1575,10 +1575,8 @@ Raised on the store's first embedded write, before any index is built and before
 inserted — an extension that is not *available* cannot be created no matter what runs next, so the
 catalogue is asked first.
 
-**Why this is not refused when you write it into `weft.toml`.** Until task `31.11` it was: the
-setting itself was rejected, because no pgvector deployment served `diskann`. That is the wrong
-place for the refusal, and the distinction matters. `diskann` is a **valid** `VectorIndexKind` —
-what varies is whether *this deployment* can serve it. A setting that is correct against one
+**Why this is not refused when you write it into `weft.toml`.** `diskann` is a **valid**
+`VectorIndexKind` — what varies is whether *this deployment* can serve it. A setting that is correct against one
 database and wrong against another cannot honestly be judged by reading a configuration file, so
 the answer comes from the database. `Bm25NotAvailableError` above draws the identical line for
 `text_mode`, and for the identical reason.

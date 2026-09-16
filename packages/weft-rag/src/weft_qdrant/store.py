@@ -78,7 +78,7 @@ from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_qdrant.lexical import analyze, document_weights, query_weights
-from weft_qdrant.settings import QdrantSettings
+from weft_qdrant.settings import DEFAULT_PAYLOAD_INDEXES, PayloadIndexType, QdrantSettings
 from weft_store.contract import (
     Cursor,
     Filter,
@@ -128,6 +128,15 @@ _LEXICAL = "lexical"
 #: lands on the same point in every deployment and a re-index overwrites rather than
 #: duplicates — `uuid5` is a digest, not a random id, which is the whole reason to use it.
 _ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://weft.invalid/qdrant/point-id")
+
+#: Weft's own payload-index vocabulary, mapped onto the driver's — task **31.1**. A Weft-side
+#: enum rather than the client's `PayloadSchemaType` re-exported, per `QdrantSettings.
+#: payload_indexes`'s docstring, so this is where the two meet.
+_PAYLOAD_SCHEMA_TYPE: dict[PayloadIndexType, models.PayloadSchemaType] = {
+    PayloadIndexType.KEYWORD: models.PayloadSchemaType.KEYWORD,
+    PayloadIndexType.INTEGER: models.PayloadSchemaType.INTEGER,
+    PayloadIndexType.FLOAT: models.PayloadSchemaType.FLOAT,
+}
 
 
 def _datatype_for(precision: VectorPrecision) -> models.Datatype | None:
@@ -314,9 +323,14 @@ class QdrantStore:
                     else None
                 ),
             )
+            # Before the first point — task **31.1**: Qdrant generates filterable-HNSW edges
+            # only for data indexed after the payload index exists, so an index created later
+            # still answers filters but the graph it needed was already built without it.
+            await self._reconcile_payload_indexes(client)
         else:
             await self._refuse_if_schema_mismatch(client)
             await self._reconcile_quantization(client)
+            await self._reconcile_payload_indexes(client)
         if not await client.collection_exists(self._sources):
             # No vectors at all: a source record has nothing to be similar to, and Qdrant
             # is content to hold a payload-only collection.
@@ -381,6 +395,32 @@ class QdrantStore:
             f"back to '{current}'.",
             pack="weft-qdrant",
         )
+
+    async def _reconcile_payload_indexes(self, client: AsyncQdrantClient) -> None:
+        """Create whatever declared payload index this collection is still missing.
+
+        A payload index is present or absent, never conflicting the way quantization can, so
+        there is no refusal to write here — a key declared after the collection already exists
+        is simply created. Run for a freshly created collection (every declared key is missing)
+        and for an existing one (only the newly declared ones are); the filterable-HNSW benefit
+        `_connection` names only reaches points written after an index exists, so creating one
+        against an existing collection still answers every filter but does not retroactively
+        gain that graph for points already there.
+
+        `DEFAULT_PAYLOAD_INDEXES` is folded in again here, not only trusted from `self._settings`
+        — `QdrantSettings.model_copy` does not re-run the validator that merges it in, and the
+        guarantee that `lineage.sources` is indexed is the store's, not a property of how its
+        settings object happened to be built.
+        """
+        wanted = {**DEFAULT_PAYLOAD_INDEXES, **self._settings.payload_indexes}
+        info = await client.get_collection(self._nodes)
+        existing = set(info.payload_schema)
+        for field, kind in wanted.items():
+            if field in existing:
+                continue
+            await client.create_payload_index(
+                self._nodes, field_name=field, field_schema=_PAYLOAD_SCHEMA_TYPE[kind]
+            )
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         """Store `payload` and pass it through — the narrowing `NodeStore` records."""

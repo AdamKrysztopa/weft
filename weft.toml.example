@@ -265,8 +265,29 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # with *no* quantization is the undecided case and is configured in place. See
 # `manual/troubleshooting.md` → `QuantizationMismatchError`.
 #
+# `payload_indexes` names which payload keys Qdrant indexes, and with what type. It defaults to
+# `{"lineage.sources" = "keyword"}` and that entry is never dropped: `delete_source` and
+# `reconcile` filter on that key on every call, so an index for it is not a tuning choice an
+# operator should have to discover. Anything you add is merged with it, not substituted for it.
+#
+# **Timing is the whole point, not an optimisation.** Qdrant generates filterable-HNSW edges only
+# for data indexed *after* a payload index exists. An index created later still answers filters,
+# but the graph it needed was already built without it — so Weft creates every declared index
+# before the first point is written. Phase 29 measured what that buys: with the payload index
+# created before ingest, Qdrant returned recall@10 1.000 at 0.1% selectivity.
+#
+# The type is declared rather than inferred because Qdrant cannot infer it: an `ext.` path may
+# hold a string, a number or a bool, and the index type decides which operators it can serve.
+# `keyword` for identity matching, `integer` and `float` for ordered comparisons. A key no filter
+# could ever address is refused here, by the same parser the filter translator uses — so you
+# cannot index a path your queries could never name.
+#
+# `content` is deliberately not indexed: it is addressable and admits `eq`, but a keyword index
+# over whole chunk text is paid for on every write and no filter Weft ships asks for it.
+#
 # index = "hnsw"
 # precision = "float32"
+# payload_indexes = { "lineage.sources" = "keyword", "ext.weft-pdf.page" = "integer" }
 #
 # `indexing_threshold` is how many points a segment must hold before Qdrant's optimizer builds
 # an HNSW index for it. Unset leaves Qdrant's own default of 20,000 in force, which is what a

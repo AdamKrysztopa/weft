@@ -30,6 +30,7 @@ from weft_kernel.payload import MediaType, Node, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.seam import wrap
 from weft_qdrant import NAME, QdrantSettings, QdrantStore, register, to_qdrant_filter
+from weft_qdrant.settings import PayloadIndexType
 from weft_qdrant.store import (
     CollectionSchemaMismatchError,
     QuantizationMismatchError,
@@ -630,6 +631,120 @@ async def test_an_exact_store_ranks_the_same_as_an_indexed_one(live_qdrant: str)
 
         # Assert
         assert [scored.value.content for scored in ranked] == ["near", "far"]
+    finally:
+        await store.aclose()
+        await _drop_collections(live_qdrant, settings.collection)
+
+
+# --- Task 31.1 — payload indexes, created before the first point is written -------------------
+
+
+def test_lineage_sources_is_indexed_by_default_because_weft_itself_filters_on_it() -> None:
+    """`lineage.sources` is the one key this store filters on without being asked.
+
+    Two sites, both unconditional: `delete_source` narrows by it on every delete, and
+    `reconcile` narrows by it on every pass. An operator never writes those filters — the store
+    issues them — so an index for them is not a tuning choice an operator should have to discover.
+    Every *other* key is theirs to declare.
+    """
+    # Arrange / Act / Assert
+    declared = QdrantSettings().payload_indexes
+    assert declared["lineage.sources"] is PayloadIndexType.KEYWORD
+
+
+def test_content_is_not_indexed_by_default_because_no_shipped_filter_needs_it() -> None:
+    # Arrange / Act / Assert — `content` *is* an addressable path and admits `eq`, so indexing it
+    # would be legal. It is left out on cost: a keyword index over whole chunk text is paid for on
+    # every write, and no filter Weft ships asks for it. An operator who wants one declares it.
+    assert "content" not in QdrantSettings().payload_indexes
+
+
+def test_a_key_no_filter_could_ever_address_is_refused_at_settings_validation() -> None:
+    """Requirement 5 reaching a settings block rather than a query.
+
+    The same `parse_field_path` the filter translator uses decides this, so a path refused here is
+    refused there for the same reason and with the same message — an operator cannot declare an
+    index for a key their filters could never name.
+    """
+    # Arrange / Act / Assert
+    with pytest.raises(UnaddressableFieldError) as raised:
+        QdrantSettings(payload_indexes={"lineage.parent": PayloadIndexType.KEYWORD})
+
+    assert "lineage.parent" in str(raised.value)
+
+
+def test_an_extension_path_may_be_declared_with_the_type_its_operators_need() -> None:
+    # Arrange / Act / Assert — an `ext.` path admits ordered operators, and Qdrant cannot infer
+    # from the path whether it holds a number or a string. So the operator states the type; that
+    # is the whole reason this is a map rather than a list of keys.
+    declared = QdrantSettings(
+        payload_indexes={"ext.weft-pdf.page": PayloadIndexType.INTEGER}
+    ).payload_indexes
+    assert declared["ext.weft-pdf.page"] is PayloadIndexType.INTEGER
+    # And the default is still carried, not replaced by the operator's map.
+    assert declared["lineage.sources"] is PayloadIndexType.KEYWORD
+
+
+async def test_every_declared_payload_index_exists_before_the_first_point_is_written(
+    live_qdrant: str,
+) -> None:
+    """Qdrant's own constraint, and the reason this is not merely an optimisation.
+
+    Filterable-HNSW edges are generated **only for data indexed after the payload index exists**.
+    A payload index created later still answers filters, but the graph it needed was already built
+    without it — so the index must exist before the first point, which is why creation lives in the
+    same `create_collection` branch rather than anywhere later.
+    """
+    # Arrange
+    settings = _probe_settings(live_qdrant).model_copy(
+        update={"payload_indexes": {"ext.weft-pdf.page": PayloadIndexType.INTEGER}}
+    )
+    store = QdrantStore(settings)
+
+    try:
+        # Act — the first write provisions the collection.
+        await store.add([_node("first").with_embedding(Vector(values=(1.0, 0.0)))])
+
+        # Assert — read the schema back off the server, not off the settings that asked for it.
+        client = AsyncQdrantClient(url=live_qdrant)
+        try:
+            info = await client.get_collection(settings.collection)
+            schema = info.payload_schema
+            assert "lineage.sources" in schema, f"payload schema holds {sorted(schema)}"
+            assert "ext.weft-pdf.page" in schema, f"payload schema holds {sorted(schema)}"
+        finally:
+            await client.close()
+    finally:
+        await store.aclose()
+        await _drop_collections(live_qdrant, settings.collection)
+
+
+async def test_the_default_index_serves_the_filter_delete_source_actually_issues(
+    live_qdrant: str,
+) -> None:
+    # Arrange — the point of indexing `lineage.sources` is that this exact call is fast and
+    # correct, so the test drives the real path rather than asserting the index in isolation.
+    settings = _probe_settings(live_qdrant)
+    store = QdrantStore(settings)
+    wanted = SourceId("wanted")
+    try:
+        kept = _node("kept", sources=frozenset({SourceId("other")})).with_embedding(
+            Vector(values=(1.0, 0.0))
+        )
+        doomed = _node("doomed", sources=frozenset({wanted})).with_embedding(
+            Vector(values=(0.0, 1.0))
+        )
+        await store.add([kept, doomed])
+
+        # Act
+        removed = await store.delete_source(wanted)
+
+        # Assert — exactly the node carrying it, and the other untouched.
+        assert removed.node_count == 1
+        assert [node.id for node in await store.get([kept.id])] == [kept.id]
+        # `get` returns a tuple on both backends, and `() == []` is `False` in Python whatever
+        # the store did — so this compares lengths rather than a bare literal.
+        assert len(await store.get([doomed.id])) == 0
     finally:
         await store.aclose()
         await _drop_collections(live_qdrant, settings.collection)

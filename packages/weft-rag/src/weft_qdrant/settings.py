@@ -16,9 +16,35 @@ publishes and a deployment that is not running is discovered at *use*, by the
 driver, naming the address it could not reach.
 """
 
+from collections.abc import Mapping
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 from weft_store.contract import VectorIndexKind, VectorPrecision
+
+
+class PayloadIndexType(StrEnum):
+    """The payload index kinds an operator may declare — task **31.1**.
+
+    A Weft-side vocabulary rather than the client's `models.PayloadSchemaType` re-exported, so a
+    pack's settings do not carry a driver type across the seam. Each maps onto exactly one member
+    of that enum: `KEYWORD`, `INTEGER`, `FLOAT`.
+    """
+
+    KEYWORD = "keyword"
+    INTEGER = "integer"
+    FLOAT = "float"
+
+
+#: The one filter this store issues itself, unconditionally — `delete_source` on every delete,
+#: `reconcile` on every pass. Every other key is the operator's to declare. Public — not just a
+#: default in shape, but a guarantee `weft_qdrant.store` folds in again at index-creation time,
+#: so the key is indexed even against a `QdrantSettings` built by `model_copy`, which does not
+#: re-run `_merge_and_validate_payload_indexes`.
+DEFAULT_PAYLOAD_INDEXES: Mapping[str, PayloadIndexType] = {
+    "lineage.sources": PayloadIndexType.KEYWORD
+}
 
 
 class QdrantSettings(BaseModel):
@@ -84,6 +110,18 @@ class QdrantSettings(BaseModel):
     #: only way a test collection of a few hundred points ever leaves the exact-search regime.
     indexing_threshold: int | None = Field(default=None, ge=1)
 
+    #: Every key filtered against Qdrant needs a payload index created **before** the first
+    #: point is written — task **31.1**: filterable-HNSW edges are generated only for data
+    #: indexed after the payload index exists, so an index created later still answers filters
+    #: but the graph it needed was already built without it. `lineage.sources` is in the default
+    #: because this store filters on it itself, unconditionally, on every `delete_source` and
+    #: `reconcile` call; an operator's own map is merged with that default, never replacing it.
+    #: `content` is deliberately absent — it is addressable and admits `eq`, but a keyword index
+    #: over whole chunk text is paid for on every write and no filter Weft ships asks for it.
+    payload_indexes: Mapping[str, PayloadIndexType] = Field(
+        default_factory=lambda: dict(DEFAULT_PAYLOAD_INDEXES)
+    )
+
     @staticmethod
     def served_precisions() -> tuple[str, ...]:
         """Every precision this backend can hold — the whole closed vocabulary.
@@ -140,4 +178,25 @@ class QdrantSettings(BaseModel):
                 valid_options=served,
                 pack="weft-qdrant",
             )
+        return self
+
+    @model_validator(mode="after")
+    def _merge_and_validate_payload_indexes(self) -> "QdrantSettings":
+        """Merge the operator's map with the store's own filter's index, and refuse a bad key.
+
+        The default is folded in rather than overwritten, so a declared map can never drop the
+        index `delete_source` and `reconcile` depend on. Every resulting key is checked through
+        `parse_field_path` — the same function the filter translator uses — so an operator cannot
+        declare an index for a path no `Filter` could ever address; imported inside the function
+        for the reason the two validators above already give.
+        """
+        from weft_store.fields import parse_field_path
+
+        merged: dict[str, PayloadIndexType] = {
+            **DEFAULT_PAYLOAD_INDEXES,
+            **self.payload_indexes,
+        }
+        for field in merged:
+            parse_field_path(field)
+        object.__setattr__(self, "payload_indexes", merged)
         return self
