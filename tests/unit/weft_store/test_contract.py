@@ -24,6 +24,7 @@ from pydantic import ValidationError
 
 from weft_engine.contract_reference import capability_siblings
 from weft_kernel.context import Context
+from weft_kernel.errors import UnresolvedNameError
 from weft_kernel.payload import MediaType, Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Lifetime, Runner, StageSpec
@@ -45,6 +46,8 @@ from weft_store.contract import (
     Scored,
     SourceRecord,
     TextSearch,
+    UnsupportedIndexKindError,
+    UnsupportedPrecisionError,
     VectorIndexKind,
     VectorPrecision,
     VectorSearch,
@@ -521,6 +524,56 @@ def test_both_vocabularies_are_published_by_the_pack_not_only_by_its_contract_mo
     assert weft_store.VectorPrecision is VectorPrecision
     assert "VectorIndexKind" in weft_store.__all__
     assert "VectorPrecision" in weft_store.__all__
+
+
+def test_one_refusal_class_serves_both_backends_rather_than_one_each() -> None:
+    """Task **31.12** — and the shape was forced by a check rather than chosen in comfort.
+
+    `31.9` and `31.2` each defined their own `UnsupportedIndexKindError`, byte-for-byte alike:
+    same bases, same `__init__`, same `valid_options` contract. `tests/docs/
+    test_troubleshooting_coverage.py::test_no_two_error_classes_share_a_name_outside_the_waiver`
+    — the ratchet `L22.45` added — refused the collision, correctly: that file keys coverage on
+    the bare class name, so two classes sharing one are both satisfied by a single `###` heading
+    and a later deletion of either goes unnoticed.
+
+    **The repair is the better design, not a workaround.** `31.0` published *one* vocabulary for
+    both backends; the refusal for "this backend does not serve that member" belongs in the same
+    place, with each backend supplying its own `valid_options`. That is what makes 31.12's
+    property — both backends refuse the same way — a fact about one class rather than a claim
+    asserted separately in two modules that could drift apart.
+    """
+    # Arrange
+    import weft_qdrant.store as qdrant_store
+    import weft_store.pgvector_store as pgvector_store
+
+    # Act / Assert — the same class object, reached through either backend's module.
+    assert qdrant_store.UnsupportedIndexKindError is UnsupportedIndexKindError
+    assert pgvector_store.UnsupportedIndexKindError is UnsupportedIndexKindError
+    assert qdrant_store.UnsupportedPrecisionError is UnsupportedPrecisionError
+    assert UnsupportedIndexKindError.__module__ == "weft_store.contract"
+    assert UnsupportedPrecisionError.__module__ == "weft_store.contract"
+    # Requirement 5's family: the options travel as a typed field, not only inside the message.
+    assert issubclass(UnsupportedIndexKindError, UnresolvedNameError)
+
+
+def test_the_shared_refusal_carries_whichever_backend_raised_it() -> None:
+    # Arrange / Act — one class, two backends, two different served sets. A shared class must
+    # not mean a shared answer: what each backend serves is its own fact.
+    pgvector = UnsupportedIndexKindError(
+        "[packs.store] index 'diskann' is not served by pgvector. It serves: exact, hnsw.",
+        valid_options=("exact", "hnsw"),
+        pack="weft-store",
+    )
+    qdrant = UnsupportedIndexKindError(
+        "[packs.qdrant] index 'diskann' is not served by Qdrant. It serves: exact, hnsw.",
+        valid_options=("exact", "hnsw"),
+        pack="weft-qdrant",
+    )
+
+    # Assert — the pack is what tells an operator which block to edit.
+    assert "packs.store" in str(pgvector)
+    assert "packs.qdrant" in str(qdrant)
+    assert pgvector.valid_options == qdrant.valid_options == ("exact", "hnsw")
 
 
 def test_publishing_a_vocabulary_does_not_make_it_a_capability_sibling() -> None:

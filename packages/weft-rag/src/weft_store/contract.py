@@ -394,6 +394,51 @@ _ORDERED_OPS = frozenset({FilterOp.LT, FilterOp.LTE, FilterOp.GT, FilterOp.GTE})
 _IDENTITY_OPS = frozenset({FilterOp.EQ, FilterOp.NE, FilterOp.IN, FilterOp.CONTAINS})
 
 
+class UnsupportedIndexKindError(WeftError, UnresolvedNameError):
+    """`index` names a `VectorIndexKind` the configured backend does not serve — task **31.12**.
+
+    **One class, both backends**, on `UnhandledFilterOpError`'s own footing below: the vocabulary
+    is shared (task `31.0` published `VectorIndexKind` for the whole store family), so the refusal
+    that says *this backend does not serve that member* belongs here rather than being written
+    once per backend. `31.9` and `31.2` each grew their own copy — byte-for-byte alike — and
+    `tests/docs/test_troubleshooting_coverage.py::test_no_two_error_classes_share_a_name_outside_
+    the_waiver` refused the collision, correctly: that file keys coverage on the bare class name,
+    so two classes sharing one are both satisfied by a single `###` heading and a later deletion
+    of either would go unnoticed.
+
+    **`valid_options` is what *the raising backend* serves, never the whole enum.** The two do not
+    serve the same subset and never will: Qdrant uses HNSW as its only dense vector index, and
+    pgvector serves `diskann` only where `vectorscale` is installed. `pack` is what tells an
+    operator which `weft.toml` block to edit. Sharing the class makes the *shape* of the refusal
+    one thing; it does not make the answer one thing.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
+        super().__init__(message, pack=pack)
+        self.valid_options = valid_options
+
+
+class UnsupportedPrecisionError(WeftError, UnresolvedNameError):
+    """`precision` names a `VectorPrecision` the configured backend cannot hold — task **31.12**.
+
+    Shared for the identical reason its sibling above is, and carrying the same typed
+    `valid_options` so requirement 5 is met structurally rather than only inside the message.
+
+    **The asymmetry it exists for is real and permanent.** `VectorPrecision` names four values and
+    the backends overlap on `float32` and `binary` only — Qdrant holds all four (`float16` as the
+    vector datatype, `int8` as scalar quantization, `binary` as binary quantization), while
+    pgvector's HNSW indexes `vector`, `halfvec` and `bit` and has no int8 form at all. Nothing
+    raises this on Qdrant today; it is defined for the *shape*, so a member a backend cannot
+    encode is refused by name at settings validation rather than reaching the driver as something
+    unrecognisable. A shared vocabulary is not a shared capability, and this is where that is said
+    out loud.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
+        super().__init__(message, pack=pack)
+        self.valid_options = valid_options
+
+
 class UnhandledFilterOpError(WeftError, UnresolvedNameError):
     """A `FilterOp` member no dispatch at this site has been taught to translate.
 

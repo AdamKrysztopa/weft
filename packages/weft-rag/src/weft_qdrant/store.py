@@ -94,6 +94,18 @@ from weft_store.contract import (
     SourceStatus,
     SupersedeNarrowsSourcesError,
     UnhandledFilterOpError,
+    VectorIndexKind,
+    VectorPrecision,
+)
+from weft_store.contract import (
+    # Re-exported deliberately, `X as X`: these two moved to `weft_store.contract` at task
+    # **31.12** so one class serves both backends, and a caller that reached them here before
+    # the move still resolves them here. Nothing in this module raises them — the refusals are
+    # in `weft_qdrant.settings`'s validators, which import them from the contract directly.
+    UnsupportedIndexKindError as UnsupportedIndexKindError,
+)
+from weft_store.contract import (
+    UnsupportedPrecisionError as UnsupportedPrecisionError,
 )
 from weft_store.fields import field_for
 from weft_store.rehydrate import rehydrate_ext
@@ -116,6 +128,51 @@ _LEXICAL = "lexical"
 #: lands on the same point in every deployment and a re-index overwrites rather than
 #: duplicates — `uuid5` is a digest, not a random id, which is the whole reason to use it.
 _ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://weft.invalid/qdrant/point-id")
+
+
+def _datatype_for(precision: VectorPrecision) -> models.Datatype | None:
+    """`float16` is a vector `datatype`; every other precision leaves Qdrant's own default."""
+    return models.Datatype.FLOAT16 if precision is VectorPrecision.FLOAT16 else None
+
+
+def _quantization_config_for(
+    precision: VectorPrecision,
+) -> models.ScalarQuantization | models.BinaryQuantization | None:
+    """The quantization Qdrant is asked to hold `precision` under, or `None` for no compression.
+
+    `float32` and `float16` need no `quantization_config` at all — the first is Qdrant's own
+    default and the second is a vector `datatype`, set by `_datatype_for` instead.
+    """
+    match precision:
+        case VectorPrecision.INT8:
+            return models.ScalarQuantization(
+                scalar=models.ScalarQuantizationConfig(type=models.ScalarType.INT8)
+            )
+        case VectorPrecision.BINARY:
+            return models.BinaryQuantization(binary=models.BinaryQuantizationConfig())
+        case _:
+            return None
+
+
+def _quantization_kind_for(precision: VectorPrecision) -> str | None:
+    """The `VectorPrecision` value a quantised collection reads back as, or `None` for neither
+    quantization this backend applies — see `_quantization_config_for`, which this mirrors.
+    """
+    config = _quantization_config_for(precision)
+    return _quantization_kind(config)
+
+
+def _quantization_kind(config: models.QuantizationConfig | None) -> str | None:
+    """The precision name a collection's own `quantization_config` reads back as.
+
+    `None` for a collection with no quantization applied — the undecided case
+    `QuantizationMismatchError`'s docstring names, distinct from either quantised kind.
+    """
+    if isinstance(config, models.ScalarQuantization):
+        return VectorPrecision.INT8.value
+    if isinstance(config, models.BinaryQuantization):
+        return VectorPrecision.BINARY.value
+    return None
 
 
 class VectorWidthMismatchError(WeftError):
@@ -144,6 +201,20 @@ class CollectionSchemaMismatchError(WeftError):
     vector set cannot be widened in place, so the remedy — a new `collection`, or a
     delete-and-re-index — is the operator's decision, exactly as it is for
     `VectorWidthMismatchError`.
+    """
+
+
+class QuantizationMismatchError(WeftError):
+    """An existing collection is already quantised differently from what `precision` asks for.
+
+    Owner question 2, settled as a split on grilling session G22's own two-branch precedent for
+    vector width: a collection with **no** quantization has never had this question answered, so
+    `_connection` applies the configured one in place — both are online operations in Qdrant, and
+    nothing an operator chose is being overwritten. A collection already quantised
+    **differently** carries somebody's settings' own choice, and re-quantising it in place would
+    silently change what every stored vector compares as with no error to notice it by — refused
+    here rather than reconfigured, naming both the collection's current quantization and the one
+    `precision` asks for.
     """
 
 
@@ -224,6 +295,7 @@ class QdrantStore:
                         # conformance kit compares two backends' *rankings*, and a distance
                         # metric chosen per deployment would make that comparison meaningless.
                         distance=models.Distance.COSINE,
+                        datatype=_datatype_for(self._settings.precision),
                     )
                 },
                 sparse_vectors_config={
@@ -233,9 +305,11 @@ class QdrantStore:
                     # Measured working on the pinned `v1.12.4`.
                     _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
                 },
+                quantization_config=_quantization_config_for(self._settings.precision),
             )
         else:
             await self._refuse_if_schema_mismatch(client)
+            await self._reconcile_quantization(client)
         if not await client.collection_exists(self._sources):
             # No vectors at all: a source record has nothing to be similar to, and Qdrant
             # is content to hold a payload-only collection.
@@ -269,6 +343,35 @@ class QdrantStore:
             f"something else, before this store wrote that vector. Point "
             f"[packs.qdrant] collection at a new name, or delete the collection and "
             f"re-index.",
+            pack="weft-qdrant",
+        )
+
+    async def _reconcile_quantization(self, client: AsyncQdrantClient) -> None:
+        """Apply the configured precision to an unquantised collection, or refuse a mismatch.
+
+        Run once per `_connection` call, after `_refuse_if_schema_mismatch` and before
+        `self._client` is set — every method goes through `_connection`, so the refusal reaches
+        `add`, `count`, `search_vector` and the rest alike. See `QuantizationMismatchError` for
+        the two-branch reasoning this implements.
+        """
+        info = await client.get_collection(self._nodes)
+        current = _quantization_kind(info.config.quantization_config)
+        desired = _quantization_kind_for(self._settings.precision)
+        if current == desired:
+            return
+        if current is None:
+            config = _quantization_config_for(self._settings.precision)
+            if config is not None:
+                await client.update_collection(self._nodes, quantization_config=config)
+            return
+        await client.close()
+        raise QuantizationMismatchError(
+            f"collection '{self._nodes}' is quantised as '{current}', and [packs.qdrant] "
+            f"precision asks for '{self._settings.precision.value}'. Re-quantising in place "
+            f"would silently change what every stored vector compares as, so this store "
+            f"refuses rather than reconfiguring a collection somebody else's settings built. "
+            f"Point [packs.qdrant] collection at a new name and re-index, or set precision "
+            f"back to '{current}'.",
             pack="weft-qdrant",
         )
 
@@ -664,6 +767,9 @@ class QdrantStore:
             query=list(vector.values),
             using=_VECTOR,
             query_filter=to_qdrant_filter(filter) if filter is not None else None,
+            search_params=models.SearchParams(exact=True)
+            if self._settings.index is VectorIndexKind.EXACT
+            else None,
             limit=top_k,
             with_payload=True,
             with_vectors=True,

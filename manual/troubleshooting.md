@@ -1501,6 +1501,33 @@ vector name error: lexical`.
 set `[packs.qdrant] collection` to a new name and run `weft index` again, or delete the old
 collection (and its `__sources` sibling) and re-index into the same name.
 
+### `QuantizationMismatchError`
+
+**What it looks like** — the collection already carries a quantization configuration, and
+`[packs.qdrant] precision` asks for a different one:
+
+```text
+QuantizationMismatchError: collection 'weft_nodes' is quantised as 'int8', and [packs.qdrant]
+precision asks for 'binary'. Re-quantising in place would silently change what every stored vector
+compares as, so this store refuses rather than reconfiguring a collection somebody else's settings
+built. Point [packs.qdrant] collection at a new name and re-index, or set precision back to
+'int8'.
+```
+
+**Why this refuses where a missing configuration does not.** The two cases are deliberately not
+treated alike, on the same reasoning grilling session G22 settled for vector width. A collection
+with *no* quantization has never had that question answered, so the configured precision is applied
+in place — both are online operations in Qdrant and nothing an operator chose is being overwritten.
+A collection already quantised *differently* is the other case: somebody's settings decided that,
+the stored vectors were encoded under it, and quietly re-encoding them would change what every
+comparison means with no error to notice it by. G22 refuses a table holding two widths rather than
+migrating it, and this is the same refusal one axis over.
+
+**What to do.** Either point `[packs.qdrant] collection` at a new name and re-index under the
+precision you want, or set `precision` back to what the collection already holds — the message
+names both. If you are unsure which a collection carries, `GET /collections/<name>` on the Qdrant
+server reports its `quantization_config` directly.
+
 ### `Bm25NotAvailableError`
 
 **What it looks like** — `[packs.store] text_mode` asks for `bm25` on a database that has no
@@ -4012,25 +4039,59 @@ nothing checked.
 
 ### `UnsupportedIndexKindError`
 
-**What it looks like** — `[packs.store] index` names a vector index kind this backend does not
-serve:
+**What it looks like** — `index` names a vector index kind the configured backend does not serve.
+**One class serves both backends**, so the message names which block to edit:
 
 ```text
 UnsupportedIndexKindError: [packs.store] index 'diskann' is not served by pgvector. It serves:
+exact, hnsw.
+
+UnsupportedIndexKindError: [packs.qdrant] index 'diskann' is not served by Qdrant. It serves:
 exact, hnsw.
 ```
 
 **Why the kinds differ per backend.** `VectorIndexKind` is one closed vocabulary across the store
 family — `exact`, `hnsw`, `diskann` — but no backend serves all of it, and the vocabulary being
 shared is what lets the refusal *name* the gap instead of a driver error doing it later and worse.
-Qdrant uses HNSW as its only dense vector index, so `diskann` there is refused the same way.
-pgvector serves `diskann` only where the `vectorscale` extension is installed, which the default
-development image does not carry — that case is a different message, about the extension rather
-than about the kind.
+The refusal class is shared for the same reason the vocabulary is: what each backend serves is its
+own fact, carried as `valid_options`, but the *shape* of the refusal is one thing rather than two
+that could drift apart.
+
+- **Qdrant** uses HNSW as its only dense vector index, so `diskann` is refused there always.
+- **pgvector** serves `diskann` only where the `vectorscale` extension is installed, which the
+  default development image does not carry — that case is a **different** message, about the
+  extension rather than about the kind.
+- `exact` is not a different index but the absence of one: a full scan per search, which is what
+  Qdrant already does below its own indexing threshold and what the pgvector store has always done.
 
 **What to do.** Set `index` to one of the kinds the message lists. If you meant to run DiskANN on
 Postgres, you need an image carrying `vectorscale`; `compose.yaml`'s `bm25` profile has one, and
 the refusal you get without it names the extension rather than this error.
+
+### `UnsupportedPrecisionError`
+
+**What it looks like** — `precision` names a vector precision the configured backend cannot hold:
+
+```text
+UnsupportedPrecisionError: [packs.store] precision 'int8' is not served by pgvector. It serves:
+float32, float16, binary.
+```
+
+**Why this exists when nothing raises it on one backend.** `VectorPrecision` names `float32`,
+`float16`, `int8` and `binary`, and the two backends do **not** serve the same subset — they
+overlap on `float32` and `binary` only. Qdrant holds all four (`float16` as the vector datatype,
+`int8` as scalar quantization, `binary` as binary quantization), so nothing reaches this error
+there today. pgvector's HNSW indexes `vector`, `halfvec` and `bit` and has no int8 form at all.
+
+The class is defined for the *shape* of the refusal rather than for a current member, so that a
+precision a backend cannot encode is refused by name at settings validation rather than reaching
+the driver and failing as something unrecognisable. That asymmetry is stated rather than hidden:
+a shared vocabulary does not mean a shared capability, and the honest way to express the
+difference is a refusal that names what this backend serves.
+
+**What to do.** Set `precision` to one of the values the message lists, or move the corpus to the
+backend that serves the one you want — noting that changing precision against a store that already
+holds vectors means re-indexing, since it changes what every stored vector compares as.
 
 ### `IterativeScanUnsupportedError`
 

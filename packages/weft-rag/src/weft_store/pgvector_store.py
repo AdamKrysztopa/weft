@@ -116,6 +116,19 @@ from weft_store.contract import (
     UnhandledFilterOpError,
     VectorIndexKind,
 )
+from weft_store.contract import (
+    # `X as X` for the same reason its sibling below carries it: both moved to
+    # `weft_store.contract` at task **31.12**, and a caller that reached either here before the
+    # move still resolves it here. This one *is* raised in this module, by the settings
+    # validator; the alias is what makes it a re-export rather than a private import.
+    UnsupportedIndexKindError as UnsupportedIndexKindError,
+)
+from weft_store.contract import (
+    # Re-exported `X as X`: it moved to `weft_store.contract` at task **31.12**, and this
+    # backend raises only its sibling above. A caller that reached it here before the move
+    # still resolves it here.
+    UnsupportedPrecisionError as UnsupportedPrecisionError,
+)
 from weft_store.fields import FieldKind, FieldPath, NodeField, field_for
 from weft_store.rehydrate import rehydrate_ext
 
@@ -543,21 +556,6 @@ class PgVectorSettings(BaseModel):
                 pack="weft-store",
             )
         return self
-
-
-class UnsupportedIndexKindError(WeftError, UnresolvedNameError):
-    """`[packs.store] index` names a `VectorIndexKind` this backend does not serve.
-
-    `01` requirement 5 applied to a name an operator types into `weft.toml`, on the same footing
-    `UnknownTextSearchConfigError` below already stands on: refused before any connection is
-    opened, naming what was asked for and every kind this backend actually serves.
-
-    Fitness function 12's family: `valid_options` is every `VectorIndexKind` this backend serves.
-    """
-
-    def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
-        super().__init__(message, pack=pack)
-        self.valid_options = valid_options
 
 
 class UnknownTextSearchConfigError(WeftError, UnresolvedNameError):

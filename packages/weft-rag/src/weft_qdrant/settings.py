@@ -16,7 +16,9 @@ publishes and a deployment that is not running is discovered at *use*, by the
 driver, naming the address it could not reach.
 """
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+
+from weft_store.contract import VectorIndexKind, VectorPrecision
 
 
 class QdrantSettings(BaseModel):
@@ -60,3 +62,73 @@ class QdrantSettings(BaseModel):
     #: revisited. Leaving this at the default is a choice, the same as setting it: either
     #: way an operator has seen the number rather than inherited it silently.
     bm25_avg_doc_len: float = Field(default=256.0, gt=0)
+
+    #: Which vector index this store's collection is built under — task **31.2**.
+    #:
+    #: **`hnsw`, not pgvector's `exact` default.** Qdrant has always built an HNSW index once a
+    #: segment passes its own threshold, so `hnsw` records what this backend already does rather
+    #: than changing it; `exact` is the opt-in that forces a full scan per search.
+    index: VectorIndexKind = VectorIndexKind.HNSW
+
+    #: Which precision the collection's vectors are held at — task **31.2**, the owner's Q2 rule:
+    #: float32 stays default until a persisted `weft eval` run puts a compressed arm inside the
+    #: baseline interval. Phase 29 measured compression on pgvector only.
+    precision: VectorPrecision = VectorPrecision.FLOAT32
+
+    @staticmethod
+    def served_precisions() -> tuple[str, ...]:
+        """Every precision this backend can hold — the whole closed vocabulary.
+
+        Unlike pgvector, Qdrant serves all four: `float16` is a vector `datatype`, `int8` is
+        `ScalarQuantizationConfig`, `binary` is `BinaryQuantizationConfig`, and `float32` is the
+        absence of all of it.
+        """
+        return tuple(precision.value for precision in VectorPrecision)
+
+    @model_validator(mode="after")
+    def _reject_unsupported_index(self) -> "QdrantSettings":
+        """Refuse an index kind Qdrant does not serve, naming what it does.
+
+        `01` requirement 5 applied to `index`: `diskann` is a real `VectorIndexKind` — pgvector
+        does not serve it either without the `vectorscale` extension — but Qdrant builds nothing
+        for it and uses HNSW as its only dense vector index.
+
+        The refusal class lives in `weft_store.contract`, shared with the pgvector store — task
+        **31.12**. `valid_options` is what *this* backend serves, which is not what the other one
+        serves: the shared class fixes the shape of the refusal, never its answer. Still imported
+        inside the function rather than at module scope, because this module is imported during
+        pack settings validation and `weft_store.contract` pulls in the whole store family.
+        """
+        from weft_store.contract import UnsupportedIndexKindError
+
+        served = (VectorIndexKind.EXACT, VectorIndexKind.HNSW)
+        if self.index not in served:
+            valid_options = tuple(kind.value for kind in served)
+            raise UnsupportedIndexKindError(
+                f"[packs.qdrant] index '{self.index.value}' is not served by Qdrant. It "
+                f"serves: {', '.join(valid_options)}.",
+                valid_options=valid_options,
+                pack="weft-qdrant",
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _reject_unsupported_precision(self) -> "QdrantSettings":
+        """Refuse a precision this backend cannot hold, naming what it does.
+
+        Unreachable today — `served_precisions()` is every `VectorPrecision` member, so nothing
+        this enum names can trip it. Kept for the shape: a future member added to the shared
+        vocabulary without a corresponding Qdrant encoding would otherwise fall through to the
+        driver with no refusal at all.
+        """
+        from weft_store.contract import UnsupportedPrecisionError
+
+        served = self.served_precisions()
+        if self.precision.value not in served:
+            raise UnsupportedPrecisionError(
+                f"[packs.qdrant] precision '{self.precision.value}' is not served by Qdrant. "
+                f"It serves: {', '.join(served)}.",
+                valid_options=served,
+                pack="weft-qdrant",
+            )
+        return self

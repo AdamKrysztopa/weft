@@ -30,13 +30,21 @@ from weft_kernel.payload import MediaType, Node, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.seam import wrap
 from weft_qdrant import NAME, QdrantSettings, QdrantStore, register, to_qdrant_filter
-from weft_qdrant.store import CollectionSchemaMismatchError, VectorWidthMismatchError
+from weft_qdrant.store import (
+    CollectionSchemaMismatchError,
+    QuantizationMismatchError,
+    UnsupportedIndexKindError,
+    UnsupportedPrecisionError,
+    VectorWidthMismatchError,
+)
 from weft_store.contract import (
     Filter,
     FilterOp,
     MetadataFilter,
     NodeStore,
     TextSearch,
+    VectorIndexKind,
+    VectorPrecision,
     VectorSearch,
 )
 from weft_store.fields import UnaddressableFieldError
@@ -65,12 +73,26 @@ async def _unreachable() -> str | None:
 
 
 @pytest.fixture
-async def store() -> AsyncIterator[QdrantStore]:
-    """A store on collections of its own, deleted afterwards — skipped if Qdrant is absent."""
+async def live_qdrant() -> str:
+    """The reachable Qdrant URL, or the reason this test cannot run — **the one skip in this file**.
+
+    Factored out of `store` at task **31.2**, which added tests that build their own settings and
+    so cannot take `store`. Both take this instead, and the reachability skip stays a single site:
+    repeating it per test would be one more `pytest.skip(` for one condition, which is what
+    `.claude/hooks/guard_quality_gates.py` refuses and is right to.
+    """
     reason = await _unreachable()
     if reason is not None:
         pytest.skip(reason)
-    settings = QdrantSettings(url=_URL, collection=f"weft_probe_{uuid4().hex[:12]}", vector_size=2)
+    return _URL
+
+
+@pytest.fixture
+async def store(live_qdrant: str) -> AsyncIterator[QdrantStore]:
+    """A store on collections of its own, deleted afterwards — skipped if Qdrant is absent."""
+    settings = QdrantSettings(
+        url=live_qdrant, collection=f"weft_probe_{uuid4().hex[:12]}", vector_size=2
+    )
     instance = QdrantStore(settings)
     yield instance
     await instance.aclose()
@@ -463,3 +485,151 @@ async def test_the_store_says_what_its_text_score_means(store: QdrantStore) -> N
     # Assert
     assert "bm25" in store.text_score_semantics.lower()
     assert store.text_score_semantics != store.vector_score_semantics
+
+
+# --- Task 31.2 — the index kind and precision a collection holds, and the two refusals --------
+
+
+def _probe_settings(
+    url: str,
+    *,
+    index: VectorIndexKind = VectorIndexKind.HNSW,
+    precision: VectorPrecision = VectorPrecision.FLOAT32,
+    collection: str | None = None,
+) -> QdrantSettings:
+    """`QdrantSettings` on a collection nothing else touches."""
+    return QdrantSettings(
+        url=url,
+        collection=collection or f"weft_probe_{uuid4().hex[:12]}",
+        vector_size=2,
+        index=index,
+        precision=precision,
+    )
+
+
+async def _drop_collections(url: str, *names: str) -> None:
+    client = AsyncQdrantClient(url=url)
+    for name in names:
+        for collection in (name, f"{name}__sources"):
+            if await client.collection_exists(collection):
+                await client.delete_collection(collection)
+    await client.close()
+
+
+def test_the_index_kind_defaults_to_hnsw_because_that_is_what_qdrant_builds() -> None:
+    # Arrange / Act / Assert — unlike pgvector, Qdrant has always built an HNSW index once a
+    # segment passes its own threshold. The default therefore records what this backend already
+    # does rather than changing it; `exact` is the opt-in that forces a full scan per search.
+    assert QdrantSettings().index is VectorIndexKind.HNSW
+
+
+def test_the_precision_defaults_to_float32_which_is_what_a_collection_holds_today() -> None:
+    # Arrange / Act / Assert — the owner's Q2 rule: float32 stays the default until a persisted
+    # `weft eval` run puts a compressed arm inside the baseline's interval. Phase 29 measured
+    # compression on pgvector, never on this backend, so nothing has earned the move here.
+    assert QdrantSettings().precision is VectorPrecision.FLOAT32
+
+
+def test_an_index_kind_qdrant_cannot_serve_is_refused_naming_what_it_does() -> None:
+    # Arrange / Act / Assert — Qdrant uses HNSW as its only dense vector index, so `diskann` is a
+    # real member of the shared vocabulary this backend does not serve. Refused by name at
+    # settings validation, exactly as pgvector refuses it — which is what 31.12 asserts of both.
+    with pytest.raises(UnsupportedIndexKindError) as raised:
+        QdrantSettings(index=VectorIndexKind.DISKANN)
+
+    message = str(raised.value)
+    assert "diskann" in message
+    assert "exact" in message
+    assert "hnsw" in message
+    assert raised.value.valid_options == ("exact", "hnsw")
+
+
+def test_every_precision_the_vocabulary_names_is_one_this_backend_can_hold() -> None:
+    # Arrange / Act / Assert — the two backends overlap on `float32` and `binary` only, and this
+    # is the side of that asymmetry Qdrant is on: `float16` is a datatype, `int8` is scalar
+    # quantization, `binary` is binary quantization. So this backend refuses no precision today.
+    # `UnsupportedPrecisionError` exists for the shape rather than for a current member, and
+    # asserting the set here is what keeps 31.12's "both refuse alike" honest about which half
+    # of it is currently vacuous on this backend.
+    assert set(QdrantSettings.served_precisions()) == {
+        precision.value for precision in VectorPrecision
+    }
+    assert issubclass(UnsupportedPrecisionError, Exception)
+
+
+async def test_a_collection_is_created_holding_the_configured_precision(
+    live_qdrant: str,
+) -> None:
+    # Arrange
+    settings = _probe_settings(live_qdrant, precision=VectorPrecision.INT8)
+    store = QdrantStore(settings)
+
+    try:
+        # Act — the first write provisions the collection.
+        await store.add([_node("configured").with_embedding(Vector(values=(1.0, 0.0)))])
+
+        # Assert — read back off the server rather than off the settings that asked for it, so
+        # the two sides of the comparison come from different places and can disagree.
+        client = AsyncQdrantClient(url=live_qdrant)
+        try:
+            info = await client.get_collection(settings.collection)
+            assert info.config.quantization_config is not None
+        finally:
+            await client.close()
+    finally:
+        await store.aclose()
+        await _drop_collections(live_qdrant, settings.collection)
+
+
+async def test_a_collection_quantised_differently_is_refused_with_both_configurations(
+    live_qdrant: str,
+) -> None:
+    """Owner question 2, settled as a split on G22's own two-branch precedent.
+
+    A collection with *no* quantization is the undecided case and is configured in place. One
+    already carrying a *different* quantization is the two-widths case: refused with both named,
+    never silently reconfigured over a choice an operator already made.
+    """
+    # Arrange — a collection this store wrote under int8.
+    name = f"weft_probe_{uuid4().hex[:12]}"
+    first = QdrantStore(
+        _probe_settings(live_qdrant, precision=VectorPrecision.INT8, collection=name)
+    )
+    second = QdrantStore(
+        _probe_settings(live_qdrant, precision=VectorPrecision.BINARY, collection=name)
+    )
+    try:
+        await first.add([_node("int8").with_embedding(Vector(values=(1.0, 0.0)))])
+
+        # Act / Assert — the same collection, opened asking for binary.
+        with pytest.raises(QuantizationMismatchError) as raised:
+            await second.count()
+
+        message = str(raised.value)
+        assert "int8" in message
+        assert "binary" in message
+    finally:
+        await first.aclose()
+        await second.aclose()
+        await _drop_collections(live_qdrant, name)
+
+
+async def test_an_exact_store_ranks_the_same_as_an_indexed_one(live_qdrant: str) -> None:
+    # Arrange — `exact` forces a full scan per search. The ranking must not change: the whole
+    # point of the conformance kit comparing two backends is that an index kind is a
+    # speed-against-recall trade-off, never a different answer.
+    settings = _probe_settings(live_qdrant, index=VectorIndexKind.EXACT)
+    store = QdrantStore(settings)
+    try:
+        near = _node("near").with_embedding(Vector(values=(1.0, 0.0)))
+        far = _node("far").with_embedding(Vector(values=(0.0, 1.0)))
+        await store.add([near, far])
+
+        # Act
+        ranked = await store.search_vector(Vector(values=(1.0, 0.0)), top_k=2)
+
+        # Assert
+        assert [scored.value.content for scored in ranked] == ["near", "far"]
+    finally:
+        await store.aclose()
+        await _drop_collections(live_qdrant, settings.collection)

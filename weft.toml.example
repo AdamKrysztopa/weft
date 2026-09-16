@@ -218,6 +218,31 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # timeout_seconds = 30
 # bm25_avg_doc_len = 256.0
+#
+# The vector arm, named from the same closed vocabulary `[packs.store]` uses — one set of
+# words across both backends, so an index kind means the same thing wherever you write it.
+#
+# `index` is `hnsw` (the default) or `exact`. **The default differs from the pgvector
+# store's on purpose**: Qdrant has always built an HNSW index once a segment passes its own
+# indexing threshold, so `hnsw` records what this backend already does rather than changing
+# it. `exact` is the opt-in that forces a full scan per search. `diskann` is a member of the
+# vocabulary this backend does not serve — Qdrant uses HNSW as its only dense vector index —
+# and asking for it is refused by name rather than quietly ignored.
+#
+# `precision` is `float32` (the default), `float16`, `int8` or `binary`. Qdrant serves all
+# four by different mechanisms: `float16` is the vector datatype, `int8` is scalar
+# quantization, `binary` is binary quantization, `float32` is the absence of both. Compression
+# trades recall for size and speed, and float32 stays the default until a persisted `weft eval`
+# run puts a compressed arm inside the baseline's own interval — Weft measured compression on
+# pgvector, never here, so nothing has earned the move on this backend yet.
+#
+# **Changing `precision` against a collection that already has one is refused**, not applied:
+# re-encoding stored vectors would silently change what every comparison means. A collection
+# with *no* quantization is the undecided case and is configured in place. See
+# `manual/troubleshooting.md` → `QuantizationMismatchError`.
+#
+# index = "hnsw"
+# precision = "float32"
 
 # --- Services ----------------------------------------------------------------
 # Which registered plugin fills a role a command needs. One line changes which
