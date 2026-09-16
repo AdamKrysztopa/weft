@@ -21,14 +21,16 @@ different filter, `weft_kg.bridges.bridges_from` compares the two, and `CeilingD
 what happens when they differ — `test_a_ceiling_that_disagreed_with_the_walk_is_refused` plants
 exactly that disagreement rather than trusting the sentence.
 
-**Generated questions are diagnostic and can never be V2 ground truth.** `--write` emits the JSON
-`weft eval run --questions` reads, carrying `kind = "requires-graph-hop"`, which is what makes
-`weft eval compare … --kind requires-graph-hop` — `01` → Phase 11's own Exit clause — a
-measurement rather than a plan. The pasteable TOML the renderer prints is the *other* direction: a
-skeleton for a person who wants one of these in `eval/questions/`, and `eval/check_questions.py`
-refuses it, because `reference_answer` is empty, `notes` is empty and `requires-graph-hop` is not
-one of V2's kinds. That refusal is the property, and this file asserts it through the real V2
-reader rather than against a copy of its rules.
+**Generated questions are diagnostic and can never be V2 ground truth.** `--write` emits the
+question file `weft eval run --questions` reads — since task 38.11 the one TOML model, stating
+`kind`, `quote`, `reference_answer`, `notes` and `difficulty` absent with a reason and carrying
+`axes.kind = "requires-graph-hop"`, which is what makes `weft eval compare … --kind
+requires-graph-hop` — `01` → Phase 11's own Exit clause — a measurement rather than a plan. The
+pasteable TOML the renderer prints is the *other* direction: a skeleton for a person who wants one
+of these in `eval/questions/`, and `eval/check_questions.py` refuses it, because `reference_answer`
+is empty, `notes` is empty and `requires-graph-hop` is not one of V2's kinds. That refusal is the
+property, and this file asserts it through the real V2 reader rather than against a copy of its
+rules.
 
 **Why the command writes no `quote`, and why that is 11.14's sentence arriving early.** A hop's
 citation is the node whose `ExtractedFact` stated it, and a fact node's content is the model's
@@ -40,7 +42,6 @@ quote to the person, which is the honest half of the same distinction.
 
 from __future__ import annotations
 
-import json
 import os
 import tomllib
 from collections.abc import AsyncIterator
@@ -50,12 +51,12 @@ import psycopg
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from weft_cli.eval_scoring import load_questions
 from weft_command.contract import CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_eval.question_set import Question as GroundTruthQuestion
+from weft_eval.question_set import QuestionField, QuestionSetFormat, read_question_set
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, Outcome, Produced, SourceId
 from weft_kernel.registry import Registry
@@ -68,7 +69,7 @@ from weft_kg.bridges import (
     NoRelationsToBridgeError,
     VectorCeiling,
     bridges_from,
-    questions_as_json,
+    questions_as_toml,
 )
 from weft_kg.commands import (
     GraphBridgesArgs,
@@ -424,24 +425,35 @@ def test_the_ceiling_agrees_when_the_two_queries_agree() -> None:
 # -------------------------------------------------------- what gets written ---
 
 
-async def test_write_emits_the_json_weft_eval_run_reads(store: GraphStore, tmp_path: Path) -> None:
+async def test_write_emits_the_question_file_weft_eval_run_reads(
+    store: GraphStore, tmp_path: Path
+) -> None:
     """The clause that turns `01` → Phase 11's Exit into a measurement, asserted **through the
-    real reader** rather than against a copy of its field names: `weft_cli.eval_scoring.
-    load_questions` is what `weft eval run --questions` calls, and it forbids extra keys."""
+    real reader**: `weft_eval.question_set.read_question_set` is what `weft eval run --questions`
+    calls since task 38.11, and the file states what a generated question cannot carry rather than
+    leaving it silently empty."""
     # Arrange
     await _two_document_bridge(store)
-    path = tmp_path / "bridges.json"
+    path = tmp_path / "bridges.toml"
 
     # Act
     outcome = await GraphBridgesCommand(_SETTINGS).run(GraphBridgesArgs(write=str(path)), _ctx())
 
     # Assert
     assert _bridges_result(outcome).written_to == str(path)
-    questions = load_questions(path)
-    assert len(questions) == 1
-    assert questions[0].kind == QUESTION_KIND
-    assert set(questions[0].relevant_documents) == {"doc-a", "doc-b"}
-    assert "Azouz" in questions[0].query and "NCI" in questions[0].query
+    question_set = read_question_set(path)
+    assert question_set.format is QuestionSetFormat.TOML
+    (question,) = question_set.questions
+    assert question.kind is None
+    assert question.axes["kind"] == QUESTION_KIND
+    assert {
+        QuestionField.KIND,
+        QuestionField.QUOTE,
+        QuestionField.REFERENCE_ANSWER,
+    } <= question.absent
+    assert question.absent_reason
+    assert set(question.relevant_documents) == {"doc-a", "doc-b"}
+    assert "Azouz" in question.text and "NCI" in question.text
 
 
 async def test_nothing_is_written_when_the_corpus_yields_no_bridge(
@@ -451,7 +463,7 @@ async def test_nothing_is_written_when_the_corpus_yields_no_bridge(
     score nothing, and a comparison over nothing reports `n=0` rather than saying why."""
     # Arrange
     await store.add([_fact_node("Azouz", "authored", "mRMR", document="doc-a")])
-    path = tmp_path / "bridges.json"
+    path = tmp_path / "bridges.toml"
 
     # Act
     outcome = await GraphBridgesCommand(_SETTINGS).run(GraphBridgesArgs(write=str(path)), _ctx())
@@ -461,21 +473,26 @@ async def test_nothing_is_written_when_the_corpus_yields_no_bridge(
     assert not path.exists()
 
 
-def test_the_written_questions_are_a_json_list_of_the_shape_the_reader_forbids_extras_in() -> None:
-    """The pure half, with no container: what `questions_as_json` produces is a JSON **list**,
-    which is the one structural thing `load_questions` checks before it validates anything."""
+def test_the_written_questions_read_back_as_one_question_per_bridge_keyed_by_its_id(
+    tmp_path: Path,
+) -> None:
+    """The pure half, with no container: what `questions_as_toml` produces reads through the one
+    question model, one question per bridge, under the bridge's own stable id."""
     # Arrange
     bridges = bridges_from(
         (_candidate(),),
         chunks_by_entity={"e-azouz": frozenset({"n-1"}), "e-nci": frozenset({"n-2"})},
     )
+    path = tmp_path / "bridges.toml"
 
     # Act
-    parsed = json.loads(questions_as_json(bridges))
+    path.write_text(questions_as_toml(bridges), encoding="utf-8")
+    (question,) = read_question_set(path).questions
 
     # Assert
-    assert isinstance(parsed, list)
-    assert parsed[0]["kind"] == QUESTION_KIND
+    assert question.id == bridges[0].question_id
+    assert question.axes["kind"] == QUESTION_KIND
+    assert not question.quote
 
 
 # ---------------------------------------------- diagnostic, never V2 truth ---

@@ -35,20 +35,26 @@ a number V4's own contract can mean anything by. `_deduplicated_by_document` ret
 raw pool than `top_k` (`_OVERSAMPLE_FACTOR`) and keeps only each document's first, best-ranked
 occurrence, so `RetrievalSample.retrieved` never repeats an id — the identical granularity
 `relevant_ids` is already named at.
+
+**This module reads `weft_eval.question_set.Question` — task 38.11.** It used to define its own,
+JSON-only `Question`; that model is retired, and every question `score_pipeline` scores — whether
+read from a curated TOML set, a legacy JSON file converted at the boundary, or a graph bridge —
+arrives through the one model. `document_labels` is the manifest-id path: `eval/questions/*.toml`
+names documents by manifest id rather than by corpus-relative path, and a caller holding the
+manifest's own id-to-path mapping passes it here so `resolve_labels` still receives the paths it
+has always matched against.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path, PurePath
+from pathlib import PurePath
 from types import MappingProxyType
 from typing import Any, Final, cast
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel
 
 from weft_cli.ask import run_ask
 from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
@@ -57,8 +63,9 @@ from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import ServiceSelection
 from weft_eval.aggregate import MetricAggregate
-from weft_eval.contract import QueryModality, RetrievalSample, RetrievedPassage
+from weft_eval.contract import RetrievalSample, RetrievedPassage
 from weft_eval.harness import score_retrieval_gate_subset
+from weft_eval.question_set import Question, question_set_digest
 from weft_eval.run_record import (
     NoQueryRung,
     PerQuestionScores,
@@ -79,17 +86,6 @@ from weft_llm.contract import TokenSink
 from weft_llm.usage import UsageEntry, recording_usage
 from weft_retrieve.payload import Passage
 from weft_store import NodeStore, Scored
-
-
-class QuestionsFileError(WeftError):
-    """`--questions <path>` names a file that does not exist, is not valid JSON, or is not a
-    well-formed list of questions — a caller-input problem, not a name-resolution failure, so
-    it carries no `valid_options` and is not a member of `NAME_RESOLUTION_FAMILY`.
-    """
-
-    def __init__(self, message: str, *, path: str) -> None:
-        super().__init__(message)
-        self.path = path
 
 
 class PipelineNotRetrievableError(WeftError):
@@ -189,6 +185,31 @@ def resolve_labels(
     return resolved
 
 
+def _labelled_by_manifest(
+    entries: Iterable[str], document_labels: Mapping[str, str]
+) -> Mapping[str, str]:
+    """Each `relevant_documents` entry, as `document_labels` names it — task **38.11**'s
+    manifest-id path. `document_labels` maps a manifest id (`eval/questions/*.toml`'s own
+    ground-truth vocabulary) to the corpus-relative label `resolve_labels` already matches
+    against, so this runs *before* that resolution rather than replacing it.
+
+    Raises `UnresolvableLabelError` for an entry the mapping does not hold, naming it and every
+    id the mapping does hold — `resolve_labels`'s own refusal shape, one stage earlier.
+    """
+    valid_options = tuple(sorted(document_labels))
+    resolved: dict[str, str] = {}
+    for entry in entries:
+        if entry not in document_labels:
+            raise UnresolvableLabelError(
+                f"relevant_documents entry '{entry}' names no id in the given manifest. "
+                f"Valid options: {', '.join(valid_options)}",
+                valid_options=valid_options,
+                label=entry,
+            )
+        resolved[entry] = document_labels[entry]
+    return resolved
+
+
 class AnswerCarriesNoUsedPassagesError(WeftError):
     """`passages_for_scoring` was handed something that is not a `weft_generate.payload.Answer`
     — or a stand-in shaped like one — so there is no `used` tuple to score a query rung over.
@@ -235,118 +256,6 @@ def passages_for_scoring(answer: object) -> tuple[Passage, ...]:
             answer_type=type(answer).__name__,
         )
     return cast("tuple[Any, ...]", used)
-
-
-class Question(BaseModel):
-    """One (query, relevant document ids) judgement `weft eval run --questions` scores
-    retrieval against. See the module docstring for why `relevant_documents` names documents,
-    never node ids.
-    """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    #: Task 16.4. Optional because every `--questions` file written before this task has none —
-    #: this is `weft_cli.eval_scoring.Question`, not `weft_eval.question_set`'s own, separate
-    #: `Question`; the two never meet (`L17.16`, and this module's own docstring).
-    id: str | None = None
-    query: str = Field(min_length=1)
-    relevant_documents: tuple[str, ...] = ()
-    #: What kind of query this is — task 9.12. Defaulted to `TEXT` so a questions file written
-    #: before this task keeps loading unchanged; `load_questions` needs no edit beyond this model
-    #: accepting the key.
-    modality: QueryModality = QueryModality.TEXT
-    #: What language this question and its reference answer are in — task **16.8**.
-    #: `eval/questions/*.toml` has stated it on every question since the set was written, and
-    #: this loader had no field for it, so the fact stopped at the file. Defaulted to `"en"`,
-    #: `modality`'s own reasoning one field over — and, because task 16.6's canonical form is
-    #: derived from this model rather than from a listed tuple, stating it changes the question
-    #: set's identity, which is correct: the same questions scored as Polish are a different
-    #: measurement.
-    language: str = Field(default="en", min_length=1)
-    #: This question's own `kind` — task 11.12. An open `str`, never an enum (see `weft_eval.
-    #: contract`'s own module docstring), defaulted to `""` so a questions file written before
-    #: this task keeps loading unchanged, `modality`'s own reasoning one field over.
-    kind: str = ""
-
-
-def load_questions(path: Path) -> tuple[Question, ...]:
-    """Every `Question` `path` holds — a JSON list of `{"query": ..., "relevant_documents": [...]}`.
-
-    Raises `QuestionsFileError` for a file that cannot be read, is not valid JSON, is not a JSON
-    list, or holds an entry `Question` refuses — one refusal for every way this input can be
-    malformed, rather than a bare `OSError`/`JSONDecodeError`/`ValidationError` a caller has to
-    already know this module's internals to make sense of.
-    """
-    try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise QuestionsFileError(f"could not read '{path}': {exc}", path=str(path)) from exc
-
-    try:
-        parsed: object = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise QuestionsFileError(f"'{path}' is not valid JSON: {exc}", path=str(path)) from exc
-
-    if not isinstance(parsed, list):
-        raise QuestionsFileError(
-            f"'{path}' must hold a JSON list of questions, found {type(parsed).__name__}",
-            path=str(path),
-        )
-    items = cast("list[object]", parsed)
-
-    try:
-        questions = tuple(Question.model_validate(item) for item in items)
-    except ValidationError as exc:
-        raise QuestionsFileError(
-            f"'{path}' holds a malformed question: {exc}", path=str(path)
-        ) from exc
-
-    ids = [question.id for question in questions if question.id is not None]
-    seen: set[str] = set()
-    for identifier in ids:
-        if identifier in seen:
-            raise QuestionsFileError(
-                f"'{path}' repeats id '{identifier}' — two questions under one id would "
-                "collapse into one per-question score.",
-                path=str(path),
-            )
-        seen.add(identifier)
-
-    if ids and len(ids) != len(questions):
-        raise QuestionsFileError(
-            f"'{path}' names an 'id' for some questions and not others — 'keyed_by' would be a "
-            "lie whichever value it took. Give every question an id, or none at all.",
-            path=str(path),
-        )
-
-    return questions
-
-
-def question_set_digest(questions: Iterable[Question]) -> str:
-    """A sha256 identifying the question set `questions` is — task **16.6**.
-
-    **Canonical, and nothing positional.** Each question is serialised as its own JSON object
-    with sorted keys, the per-question strings are sorted, and the digest is taken over the
-    join — so a file re-ordered is the same question set and a file with one question changed
-    is not. `weft_eval.run_record.corpus_identity` takes the identical shape for the corpus,
-    one artefact over.
-
-    **The canonical form is derived from `Question`, never hand-listed.** Every field the model
-    carries is in it, so a version that learns a scoring-relevant field produces a different
-    digest — which is correct rather than a gap: the same file scored by a version that reads a
-    field the old one ignored *is* a different measurement. Task 16.8 adds `language` and moves
-    this digest for exactly that reason. A hand-listed tuple would have left that field silently
-    outside the identity, which is the failure `L17.16`'s third instance was about.
-
-    **Nothing a machine put there is in it.** Since task 16.5 a `relevant_documents` label is a
-    corpus-relative path, so no staging root reaches this digest and the same file staged in a
-    second directory digests the same — which is the whole property the phase Exit asks for.
-    """
-    canonical = sorted(
-        json.dumps(question.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
-        for question in questions
-    )
-    return hashlib.sha256("\n".join(canonical).encode("utf-8")).hexdigest()
 
 
 def _stage_for_contract(resolved: ResolvedPipeline, contract_name: str) -> ResolvedStage | None:
@@ -517,6 +426,7 @@ async def score_pipeline(
     roles: RoleTable | None = None,
     sink: TokenSink | None = None,
     contributions: tuple[Contribution, ...] = (),
+    document_labels: Mapping[str, str] | None = None,
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset
     over the result. Returns a `ScoredRun`: the scores, and the query rung they were scored
@@ -566,6 +476,13 @@ async def score_pipeline(
     own reason, one layer up: `Hit`'s docstring already argues "a metric that had to know about
     file paths would be a metric that stops working the day the corpus moves" — the identical
     argument against teaching a metric a path-matching rule instead of a plain set comparison.
+
+    **`document_labels`, task 38.11 — the manifest-id path.** `eval/questions/*.toml` names a
+    `relevant_documents` entry by manifest id, never by path, so a caller holding the manifest
+    (`weft_eval.corpus_manifest.load_manifest`) passes `{doc.id: <corpus-relative path>, ...}`
+    here and every entry is mapped through it, via `_labelled_by_manifest`, *before*
+    `resolve_labels` ever sees it. `None` — every call site before this task — is unchanged:
+    entries are labels exactly as `resolve_labels` has always read them.
     """
     embed_stage = _stage_for_contract(resolved_pipeline, Embedder.__name__)
     store_stage = _stage_for_contract(resolved_pipeline, NodeStore.__name__)
@@ -594,28 +511,37 @@ async def score_pipeline(
             )
         )
 
-    # Task 16.4 — the keying is decided once, before the loop: `load_questions` has already
-    # refused a file that names an id for some questions and not others, so "every question
-    # carries an id" is a safe, single check here rather than one made per question.
-    keyed_by = (
-        QuestionKey.QUESTION_ID
-        if questions and all(question.id is not None for question in questions)
-        else QuestionKey.POSITION
-    )
+    # Task 38.11 — `weft_eval.question_set.Question.id` is required, so every question has an
+    # identity and keying is never by position.
+    keyed_by = QuestionKey.QUESTION_ID
 
     all_labels = {label for question in questions for label in question.relevant_documents}
-    resolved_labels = resolve_labels(all_labels, corpus_document_ids=corpus_document_ids)
+    manifest_labelled = (
+        _labelled_by_manifest(all_labels, document_labels) if document_labels is not None else None
+    )
+    labels_to_resolve = (
+        set(manifest_labelled.values()) if manifest_labelled is not None else all_labels
+    )
+    resolved_labels = resolve_labels(labels_to_resolve, corpus_document_ids=corpus_document_ids)
+
+    def _resolved_document_id(entry: str) -> str:
+        label = manifest_labelled[entry] if manifest_labelled is not None else entry
+        return resolved_labels[label]
 
     samples: list[RetrievalSample] = []
     seconds: dict[str, float] = {}
     with recording_usage() as tally:
-        for index, question in enumerate(questions):
-            question_key = question.id if question.id is not None else str(index)
+        for question in questions:
+            question_key = question.id
+            question_text = question.text
+            question_kind = (
+                question.kind.value if question.kind is not None else question.axes.get("kind", "")
+            )
             hits: Sequence[Scored[Node]]
             started = time.monotonic()
             if query_pipeline is not None:
                 answer = await run_named_ask(
-                    question.query,
+                    question_text,
                     pipeline_name=query_pipeline,
                     registry=registry,
                     reports=reports,
@@ -630,7 +556,7 @@ async def score_pipeline(
                 hits = [passage.scored for passage in passages_for_scoring(answer)]
             else:
                 hits = await run_ask(
-                    question.query,
+                    question_text,
                     registry=registry,
                     ctx=ctx,
                     top_k=top_k * _OVERSAMPLE_FACTOR,
@@ -642,14 +568,14 @@ async def score_pipeline(
                 seconds[question_key] = time.monotonic() - started
             samples.append(
                 RetrievalSample(
-                    query=question.query,
+                    query=question_text,
                     question_key=question_key,
                     retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
                     relevant_ids=frozenset(
-                        resolved_labels[label] for label in question.relevant_documents
+                        _resolved_document_id(entry) for entry in question.relevant_documents
                     ),
                     modality=question.modality,
-                    kind=question.kind,
+                    kind=question_kind,
                 )
             )
 
@@ -672,11 +598,8 @@ __all__ = [
     "AmbiguousLabelError",
     "AnswerCarriesNoUsedPassagesError",
     "PipelineNotRetrievableError",
-    "Question",
-    "QuestionsFileError",
     "ScoredRun",
     "UnresolvableLabelError",
-    "load_questions",
     "passages_for_scoring",
     "resolve_labels",
     "role_tokens",

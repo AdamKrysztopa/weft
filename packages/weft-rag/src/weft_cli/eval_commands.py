@@ -212,7 +212,7 @@ from typing import ClassVar, Final, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from weft_cli.eval_scoring import load_questions, score_pipeline
+from weft_cli.eval_scoring import score_pipeline
 from weft_cli.ingest import content_hashes_of, corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
@@ -226,6 +226,7 @@ from weft_eval.baseline import (
     judge_reproduction,
     load_baseline_report,
 )
+from weft_eval.corpus_manifest import load_manifest
 from weft_eval.falsify import (
     DifferenceJudgement,
     PairedDifference,
@@ -235,12 +236,14 @@ from weft_eval.falsify import (
 )
 from weft_eval.latency import LatencySummary, latency_summary
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
+from weft_eval.question_set import QuestionSetFormat, read_question_set
 from weft_eval.run_record import (
     CorpusDigestBasis,
     MetricRunResult,
     NotAggregated,
     PerQuestionScores,
     PerQuestionSeconds,
+    QuestionSetDigestBasis,
     RoleTokens,
     RunDurations,
     RunRecord,
@@ -424,11 +427,22 @@ class EvalRunArgs(BaseModel):
     questions: str | None = Field(
         default=None,
         description=(
-            "a JSON file of {query, relevant_documents} judgements (task 4.9) — when given, "
-            "this run also retrieves for every question and scores the gate-safe "
-            "RetrievalMetric subset over the result, folding it into the persisted record's "
-            "own 'metrics'. Omitted, 'metrics' stays empty, the same honesty "
+            "a question directory or a single TOML question file (weft_eval.question_set's "
+            "one model) — when given, this run also retrieves for every question and scores "
+            "the gate-safe RetrievalMetric subset over the result, folding it into the "
+            "persisted record's own 'metrics'. A JSON list of {query, relevant_documents} "
+            "judgements is still read, converted at the boundary, and printed as deprecated — "
+            "removed in weft-rag 3.0. Omitted, 'metrics' stays empty, the same honesty "
             "'model_versions' had before task 4.7 named its own gap."
+        ),
+    )
+    manifest: str | None = Field(
+        default=None,
+        description=(
+            "the corpus manifest whose ids the question set names its relevant_documents by — "
+            "eval/questions/*.toml's own vocabulary. Each id resolves to that document's path, "
+            "relative to the manifest's own directory, before ground truth is matched against "
+            "what was actually staged. Ignored when --questions is not given."
         ),
     )
     top_k: int = Field(
@@ -534,6 +548,10 @@ class EvalRunCommandResult(CommandResult):
     stored_count: int | None
     record: RunRecord
     wall_clock_seconds: float
+    #: Task **38.11** — the question set's own shape, when `--questions` was given: `render`'s
+    #: cue to print a deprecation notice for a JSON `--questions` file. `None` for a run given
+    #: no `--questions` at all.
+    question_set_format: QuestionSetFormat | None = None
 
 
 class MetricComparison(BaseModel):
@@ -770,6 +788,25 @@ def _load_or_refuse(run_id: str, *, directory: Path = DEFAULT_RUNS_DIR) -> RunRe
     return load_run_record(path)
 
 
+def _document_labels_from_manifest(manifest: str | None) -> Mapping[str, str] | None:
+    """`--manifest`'s own id-to-label mapping, or `None` when it was not given — task **38.11**.
+
+    Each manifest document's own `path` is resolved (`weft_eval.corpus_manifest.load_manifest`
+    resolves it against the manifest's own directory); this reduces it back to a path relative
+    to that same directory, `.as_posix()`, so it is exactly the corpus-relative label
+    `weft_cli.eval_scoring.resolve_labels` has always matched against — the identical shape
+    `eval/questions/*.toml`'s hand-written `relevant_documents` labels already take.
+    """
+    if manifest is None:
+        return None
+    manifest_path = Path(manifest)
+    manifest_root = manifest_path.resolve().parent
+    return {
+        document.id: document.path.relative_to(manifest_root).as_posix()
+        for document in load_manifest(manifest_path).documents
+    }
+
+
 def _model_field(config: object) -> str | None:
     """The `model` field a resolved stage's own `config` carries, or `None` — see the module
     docstring's paragraph on task 4.7's `model_versions` fill. `config` is either a plugin's own
@@ -853,16 +890,22 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
         reasons.append(
             f"model versions differ ({dict(a.model_versions)} vs {dict(b.model_versions)})"
         )
-    if (
-        a.question_set_digest is not None
-        and b.question_set_digest is not None
-        and a.question_set_digest != b.question_set_digest
-    ):
-        reasons.append(
-            f"question set differs ({a.question_set_digest[:12]}… vs "
-            f"{b.question_set_digest[:12]}…) — a metric delta between two runs scored on two "
-            f"sets of questions is a fact about the questions, not about the pipelines"
-        )
+    if a.question_set_digest is not None and b.question_set_digest is not None:
+        if a.question_set_digest_basis != b.question_set_digest_basis:
+            reasons.append(
+                "question set digests are not over the same thing "
+                f"({_question_set_basis_of(a)} vs {_question_set_basis_of(b)}) — task 38.11 "
+                f"moved the digest from `weft_cli.eval_scoring.Question`'s canonical form to "
+                f"`weft_eval.question_set.Question`'s, so the same questions digest "
+                f"differently either side of that boundary and the two numbers cannot be "
+                f"compared even over a set that never changed"
+            )
+        elif a.question_set_digest != b.question_set_digest:
+            reasons.append(
+                f"question set differs ({a.question_set_digest[:12]}… vs "
+                f"{b.question_set_digest[:12]}…) — a metric delta between two runs scored on two "
+                f"sets of questions is a fact about the questions, not about the pipelines"
+            )
     return tuple(reasons)
 
 
@@ -893,6 +936,15 @@ def _basis_of(record: RunRecord) -> str:
     than `None`, because absence is the honest answer for every record written before 16.0.
     """
     basis = record.corpus_digest_basis
+    return basis.value if basis is not None else "not recorded"
+
+
+def _question_set_basis_of(record: RunRecord) -> str:
+    """`question_set_digest_basis` as a reader of a run record should see it — *not recorded*
+    rather than `None`, because absence is the honest answer for every record written before
+    task 38.11 (`RunRecord.question_set_digest_basis`'s own docstring).
+    """
+    basis = record.question_set_digest_basis
     return basis.value if basis is not None else "not recorded"
 
 
@@ -957,14 +1009,17 @@ class EvalRunCommand:
         query_rung: ScoredQueryRung | None = None
         question_scores: Mapping[str, PerQuestionScores] | None = None
         question_set: str | None = None
+        question_set_basis: QuestionSetDigestBasis | None = None
         question_seconds: PerQuestionSeconds | None = None
         token_usage: Mapping[str, RoleTokens] | None = None
+        question_set_format: QuestionSetFormat | None = None
         if run_args.questions is not None:
-            questions = load_questions(Path(run_args.questions))
+            read_set = read_question_set(Path(run_args.questions))
+            question_set_format = read_set.format
             scored = await score_pipeline(
                 registry=deps.registry,
                 resolved_pipeline=_resolved,
-                questions=questions,
+                questions=read_set.questions,
                 top_k=run_args.top_k,
                 ctx=ctx,
                 corpus_document_ids=document_ids,
@@ -975,11 +1030,15 @@ class EvalRunCommand:
                 roles=deps.roles,
                 sink=deps.token_sink,
                 contributions=deps.contributions,
+                document_labels=_document_labels_from_manifest(run_args.manifest),
             )
             metrics = scored.metrics
             query_rung = scored.query_rung
             question_scores = scored.question_scores
             question_set = scored.question_set or None
+            question_set_basis = (
+                QuestionSetDigestBasis.QUESTION_SET if question_set is not None else None
+            )
             question_seconds = scored.question_seconds
             token_usage = scored.token_usage
         query_seconds = time.monotonic() - query_started
@@ -998,6 +1057,7 @@ class EvalRunCommand:
             durations=RunDurations(ingest_seconds=0.0, query_seconds=query_seconds),
             question_scores=question_scores,
             question_set_digest=question_set,
+            question_set_digest_basis=question_set_basis,
             question_seconds=question_seconds,
             token_usage=token_usage,
         )
@@ -1013,6 +1073,7 @@ class EvalRunCommand:
                 stored_count=None,
                 record=record,
                 wall_clock_seconds=0.0,
+                question_set_format=question_set_format,
             )
         )
 
@@ -1059,14 +1120,17 @@ class EvalRunCommand:
         query_rung: ScoredQueryRung | None = None
         question_scores: Mapping[str, PerQuestionScores] | None = None
         question_set: str | None = None
+        question_set_basis: QuestionSetDigestBasis | None = None
         question_seconds: PerQuestionSeconds | None = None
         token_usage: Mapping[str, RoleTokens] | None = None
+        question_set_format: QuestionSetFormat | None = None
         if run_args.questions is not None:
-            questions = load_questions(Path(run_args.questions))
+            read_set = read_question_set(Path(run_args.questions))
+            question_set_format = read_set.format
             scored = await score_pipeline(
                 registry=deps.registry,
                 resolved_pipeline=resolved_pipeline,
-                questions=questions,
+                questions=read_set.questions,
                 top_k=run_args.top_k,
                 ctx=ctx,
                 corpus_document_ids=result.document_ids,
@@ -1077,11 +1141,15 @@ class EvalRunCommand:
                 roles=deps.roles,
                 sink=deps.token_sink,
                 contributions=deps.contributions,
+                document_labels=_document_labels_from_manifest(run_args.manifest),
             )
             metrics = scored.metrics
             query_rung = scored.query_rung
             question_scores = scored.question_scores
             question_set = scored.question_set or None
+            question_set_basis = (
+                QuestionSetDigestBasis.QUESTION_SET if question_set is not None else None
+            )
             question_seconds = scored.question_seconds
             token_usage = scored.token_usage
         query_seconds = time.monotonic() - query_started
@@ -1103,6 +1171,7 @@ class EvalRunCommand:
             durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
             question_scores=question_scores,
             question_set_digest=question_set,
+            question_set_digest_basis=question_set_basis,
             question_seconds=question_seconds,
             token_usage=token_usage,
         )
@@ -1120,6 +1189,7 @@ class EvalRunCommand:
                 # a second read of the clock — `L7.4`: two measurements of one quantity agree
                 # until they do not, and nothing then says which is authoritative.
                 wall_clock_seconds=wall_clock_seconds,
+                question_set_format=question_set_format,
             )
         )
 

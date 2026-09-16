@@ -44,13 +44,14 @@ from pydantic import BaseModel
 from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli import route_ask as route_ask_module
 from weft_cli.eval_commands import EvalRunArgs
-from weft_cli.eval_scoring import Question, score_pipeline
+from weft_cli.eval_scoring import score_pipeline
 from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.services import ServiceSelection
 from weft_eval.harness import SubsetScores
+from weft_eval.question_set import Question, QuestionField
 from weft_eval.run_record import NoQueryRung, QueryRung
 from weft_generate import CitedAnswer, Generator
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsPrompt
@@ -62,6 +63,20 @@ from weft_llm.client import NullSink
 from weft_prompts.contract import Prompt
 from weft_retrieve import ContextPacker, Fuser, NoRetrieval, Repack, Retriever, SingleList
 from weft_store import NodeStore
+
+
+def _question(identifier: str, text: str, relevant_documents: tuple[str, ...] = ()) -> Question:
+    """The one question model, stating absent every field this fixture does not need."""
+    return Question.model_validate(
+        {
+            "id": identifier,
+            "text": text,
+            "language": "en",
+            "relevant_documents": relevant_documents,
+            "absent": frozenset(QuestionField),
+            "absent_reason": "a scoring fixture",
+        }
+    )
 
 
 def _ctx() -> Context:
@@ -315,7 +330,7 @@ async def test_a_named_rung_is_recorded_by_name_and_by_an_identity_of_its_own(
     scored = await score_pipeline(
         registry=registry,
         resolved_pipeline=ingest,
-        questions=(Question(query="why"),),
+        questions=(_question("q-1", "why"),),
         top_k=3,
         ctx=_ctx(),
         query_pipeline="rung-a",
@@ -346,7 +361,7 @@ async def test_naming_no_rung_is_recorded_as_a_measurement_not_as_an_absence(
     scored = await score_pipeline(
         registry=_query_registry(),
         resolved_pipeline=_ingest_resolved(),
-        questions=(Question(query="why"),),
+        questions=(_question("q-1", "why"),),
         top_k=3,
         ctx=_ctx(),
         corpus_document_ids=("doc-a",),

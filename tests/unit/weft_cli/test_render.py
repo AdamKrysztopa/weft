@@ -908,6 +908,37 @@ def test_render_eval_run_names_the_run_id_and_the_index_summary() -> None:
     assert rendered.exit_code is ExitCode.SUCCESS
 
 
+def test_render_eval_run_over_a_json_questions_file_says_the_format_is_deprecated() -> None:
+    """Task 38.11. A JSON `--questions` file still scores, converted into the one question model,
+    and the operator is told once, on stderr, that the format goes at `weft-rag` 3.0 — `09`
+    §2.3's clock for a deprecated surface."""
+    from weft_cli.eval_commands import EvalRunCommandResult
+    from weft_eval.question_set import QuestionSetFormat
+
+    # Arrange
+    def _result(question_set_format: QuestionSetFormat | None) -> EvalRunCommandResult:
+        return EvalRunCommandResult(
+            run_id="run-1",
+            path="corpus",
+            summary=RunSummary(produced=1, nothing_to_produce=0, failed=0),
+            stored_count=1,
+            record=_run_record(),
+            wall_clock_seconds=0.5,
+            question_set_format=question_set_format,
+        )
+
+    # Act
+    converted = render.render_outcome(Produced(value=_result(QuestionSetFormat.JSON)))
+    persisted = render.render_outcome(Produced(value=_result(QuestionSetFormat.TOML)))
+
+    # Assert
+    assert converted.exit_code is ExitCode.SUCCESS
+    assert converted.stderr is not None
+    assert "deprecated" in converted.stderr
+    assert "weft-rag 3.0" in converted.stderr
+    assert persisted.stderr is None or "deprecated" not in persisted.stderr
+
+
 def test_render_eval_run_with_failures_exits_1() -> None:
     from weft_cli.eval_commands import EvalRunCommandResult
 

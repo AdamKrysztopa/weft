@@ -67,6 +67,7 @@ from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import GenerationMetric
 from weft_eval.falsify import BaselineSpread, TooFewRepetitionsError, Verdict
 from weft_eval.offline import MetricNeedsCredentialsError, UnknownMetricNameError
+from weft_eval.question_set import QuestionSetFormat
 from weft_eval.run_record import (
     CorpusDigestBasis,
     CorpusIdentity,
@@ -76,6 +77,7 @@ from weft_eval.run_record import (
     PerQuestionScores,
     QueryRung,
     QuestionKey,
+    QuestionSetDigestBasis,
     RunRecord,
     ScoredQueryRung,
     build_run_record,
@@ -478,6 +480,7 @@ async def test_eval_run_with_questions_folds_the_scored_metrics_into_the_record(
     assert isinstance(result, EvalRunCommandResult)
     assert isinstance(result.record.metrics["precision@5"], Produced)
     assert result.record.metrics["precision@5"].value.mean == 0.8
+    assert result.question_set_format is QuestionSetFormat.JSON
 
 
 # --- Task 16.0 — the corpus digest is over the documents' bytes, not over where they sit.
@@ -632,6 +635,7 @@ def _write_record(
     query_rung: ScoredQueryRung | None = None,
     distribution_versions: dict[str, str] | None = None,
     question_set_digest: str | None = None,
+    question_set_digest_basis: QuestionSetDigestBasis | None = None,
     question_scores: dict[str, PerQuestionScores] | None = None,
     active_distributions: tuple[str, ...] | None = None,
     model_versions: dict[str, str] | None = None,
@@ -649,6 +653,7 @@ def _write_record(
         query_rung=query_rung,
         distribution_versions=distribution_versions,
         question_set_digest=question_set_digest,
+        question_set_digest_basis=question_set_digest_basis,
         question_scores=question_scores,
         model_versions=model_versions or {},
     )
@@ -1652,11 +1657,7 @@ async def test_a_persisted_record_carries_one_score_per_question_per_metric(
     monkeypatch.setattr(
         ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
     )
-    questions_path = tmp_path / "questions.json"
-    questions_path.write_text(
-        '[{"id": "q-1", "query": "a", "relevant_documents": ["doc-a"]},'
-        ' {"id": "q-2", "query": "b", "relevant_documents": ["doc-a"]}]'
-    )
+    questions_path = _toml_questions(tmp_path, ("q-1", "q-2"))
     measured = ScoredRun(
         metrics={"precision@5": _aggregate("precision@5", 0.5)},
         query_rung=NoQueryRung(reason="no query rung was named"),
@@ -1873,3 +1874,187 @@ async def test_eval_run_always_does_the_ingest_work_it_then_reports_the_duration
         "weft eval run measures the ingest it wraps, so it must do the work every time — a "
         "skipped re-index would be recorded as an ingest_seconds a comparison could act on"
     )
+
+
+# --- Task 38.11 — `weft eval run` reads the one question model.
+
+_TOML_HEADER = """[question_set]
+schema = 2
+absent = ["kind", "difficulty", "quote", "reference_answer", "notes"]
+absent_reason = "a command fixture"
+axes = []
+
+"""
+
+
+def _toml_questions(
+    directory: Path, identifiers: tuple[str, ...], *, document: str = "doc-a"
+) -> Path:
+    path = directory / "questions.toml"
+    body = "".join(
+        f'[[question]]\nid = "{identifier}"\ntext = "question {identifier}?"\n'
+        f'language = "en"\nrelevant_documents = ["{document}"]\n\n'
+        for identifier in identifiers
+    )
+    path.write_text(_TOML_HEADER + body, encoding="utf-8")
+    return path
+
+
+def _capturing_score_pipeline(
+    captured: dict[str, object], *, question_set: str = ""
+) -> Callable[..., Any]:
+    async def _fake(**kwargs: object) -> ScoredRun:
+        captured.update(kwargs)
+        return ScoredRun(
+            metrics={},
+            query_rung=NoQueryRung(reason="no query rung was named"),
+            question_set=question_set,
+        )
+
+    return _fake
+
+
+async def test_eval_run_hands_the_scorer_the_one_question_model_read_from_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    questions_path = _toml_questions(tmp_path, ("q-1", "q-2"))
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_score_pipeline(captured))
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index", questions=str(questions_path)),
+        _ctx(_deps()),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    assert result.question_set_format is QuestionSetFormat.TOML
+    questions = cast("tuple[Any, ...]", captured["questions"])
+    assert [question.id for question in questions] == ["q-1", "q-2"]
+    assert captured["document_labels"] is None
+
+
+async def test_eval_run_resolves_manifest_ids_through_the_manifest_it_is_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`eval/questions/*.toml` names `ax-1304.7717v2`, and the staged corpus holds
+    `arxiv/1304.7717v2.pdf`. `--manifest` is the one file that says which is which; each id maps
+    to its document's path relative to the manifest's own directory, so the label resolves
+    wherever the corpus is staged."""
+    # Arrange
+    corpus = tmp_path / "corpus"
+    (corpus / "arxiv").mkdir(parents=True)
+    (corpus / "arxiv" / "one.txt").write_text("hello weft")
+    manifest = corpus / "manifest.toml"
+    manifest.write_text(
+        '[corpus]\nname = "fixture"\n\n[[document]]\nid = "doc-one"\npath = "arxiv/one.txt"\n'
+        'format = "txt"\nlanguage = "en"\nsha256 = "00"\ntier = "fetch"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    questions_path = _toml_questions(tmp_path, ("q-1",), document="doc-one")
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_score_pipeline(captured))
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(
+            path=str(corpus),
+            pipeline="index",
+            questions=str(questions_path),
+            manifest=str(manifest),
+        ),
+        _ctx(_deps()),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert captured["document_labels"] == {"doc-one": "arxiv/one.txt"}
+
+
+async def test_eval_run_labels_the_digest_function_on_the_record_it_persists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    questions_path = _toml_questions(tmp_path, ("q-1",))
+    monkeypatch.setattr(
+        eval_commands_module,
+        "score_pipeline",
+        _capturing_score_pipeline({}, question_set="c" * 64),
+    )
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index", questions=str(questions_path)),
+        _ctx(_deps()),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    record = cast("Any", outcome).value.record
+    assert record.question_set_digest == "c" * 64
+    assert record.question_set_digest_basis is QuestionSetDigestBasis.QUESTION_SET
+
+
+async def test_eval_run_without_questions_labels_no_digest_function(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(_deps())
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("Any", outcome).value
+    assert result.record.question_set_digest_basis is None
+    assert result.question_set_format is None
+
+
+async def test_eval_compare_refuses_two_question_set_digests_taken_by_different_functions(
+    tmp_path: Path,
+) -> None:
+    """A record written before task 38.11 digested `weft_cli.eval_scoring.Question`'s canonical
+    form, and one written since digests `weft_eval.question_set.Question`'s. The same 136
+    questions give two digests, so the refusal has to say it is the *function* that differs, or
+    a reader goes looking for a changed question that does not exist."""
+    # Arrange
+    _write_record(
+        tmp_path, "run-a", pipeline_name="base", corpus_name="corpus", question_set_digest="a" * 64
+    )
+    _write_record(
+        tmp_path,
+        "run-b",
+        pipeline_name="base",
+        corpus_name="corpus",
+        question_set_digest="b" * 64,
+        question_set_digest_basis=QuestionSetDigestBasis.QUESTION_SET,
+    )
+
+    # Act
+    with pytest.raises(IncomparableRunsError) as excinfo:
+        await EvalCompareCommand().run(EvalCompareArgs(a="run-a", b="run-b"), _ctx(_deps()))
+
+    # Assert
+    reasons = " ".join(excinfo.value.reasons)
+    assert "question set digests are not over the same thing" in reasons
+    assert QuestionSetDigestBasis.QUESTION_SET.value in reasons

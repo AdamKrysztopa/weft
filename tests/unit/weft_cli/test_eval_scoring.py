@@ -1,18 +1,16 @@
 """Unit tests for `weft_cli.eval_scoring`.
 
-Mirrors `packages/weft-rag/src/weft_cli/eval_scoring.py`. `load_questions` is exercised against
-real files on disk — the happy path (a well-formed JSON list round-trips into `Question`s) and
-the error case (malformed JSON refuses naming the path, mirroring `weft_cli.ask`'s own tests'
-convention of fake embedder/store stand-ins). `score_pipeline` is exercised against fakes for
-`Embedder`/`NodeStore` — `weft_cli.ask`'s own `test_ask.py`'s convention, since the property
-under test is that this module retrieves through the *resolved pipeline's own* stages (never
-`[services]`) and folds the result into a real `weft_eval.harness.score_retrieval_gate_subset`
-report — plus the edge case (a pipeline naming no `Embedder`/`NodeStore` stage refuses outright
-rather than silently reporting empty metrics indistinguishable from "no --questions given").
+Mirrors `packages/weft-rag/src/weft_cli/eval_scoring.py`. Reading a question file is
+`weft_eval.question_set`'s, since task 38.11 moved the binary onto that one model, and is tested in
+`tests/unit/weft_eval/test_question_set_model.py`. `score_pipeline` is exercised against fakes for
+`Embedder`/`NodeStore` — `weft_cli.ask`'s own `test_ask.py`'s convention, since the property under
+test is that this module retrieves through the *resolved pipeline's own* stages (never `[services]`)
+and folds the result into a real `weft_eval.harness.score_retrieval_gate_subset` report — plus the
+edge case (a pipeline naming no `Embedder`/`NodeStore` stage refuses outright rather than silently
+reporting empty metrics indistinguishable from "no --questions given").
 """
 
 from collections.abc import Sequence
-from pathlib import Path
 
 import pytest
 
@@ -20,11 +18,7 @@ from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli.eval_scoring import (
     AmbiguousLabelError,
     PipelineNotRetrievableError,
-    Question,
-    QuestionsFileError,
     UnresolvableLabelError,
-    load_questions,
-    question_set_digest,
     resolve_labels,
     score_pipeline,
 )
@@ -32,6 +26,7 @@ from weft_embed import Embedder
 from weft_eval import Settings, register
 from weft_eval.contract import RetrievalSample
 from weft_eval.harness import SubsetScores
+from weft_eval.question_set import Kind, Question, QuestionField, question_set_digest
 from weft_eval.run_record import QuestionKey
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
@@ -118,43 +113,36 @@ def _ctx() -> Context:
     return Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
 
 
-# --- load_questions -------------------------------------------------------------------------
+_ABSENT_BUT_KIND: frozenset[QuestionField] = frozenset(
+    {
+        QuestionField.DIFFICULTY,
+        QuestionField.QUOTE,
+        QuestionField.REFERENCE_ANSWER,
+        QuestionField.NOTES,
+    }
+)
 
 
-def test_load_questions_round_trips_a_well_formed_file(tmp_path: Path) -> None:
-    # Arrange
-    path = tmp_path / "questions.json"
-    path.write_text(
-        '[{"query": "what is weft?", "relevant_documents": ["doc-a", "doc-b"]}]',
-        encoding="utf-8",
+def _question(
+    identifier: str = "q-1",
+    *,
+    text: str = "q",
+    relevant_documents: tuple[str, ...] = ("doc-a",),
+    kind_axis: str | None = None,
+) -> Question:
+    """A `weft_eval.question_set.Question` stating every field a scoring fixture does not need
+    absent — the one model `score_pipeline` reads since task 38.11."""
+    return Question.model_validate(
+        {
+            "id": identifier,
+            "text": text,
+            "language": "en",
+            "relevant_documents": relevant_documents,
+            "absent": _ABSENT_BUT_KIND | {QuestionField.KIND},
+            "absent_reason": "a scoring fixture",
+            "axes": {} if kind_axis is None else {"kind": kind_axis},
+        }
     )
-
-    # Act
-    questions = load_questions(path)
-
-    # Assert
-    assert questions == (Question(query="what is weft?", relevant_documents=("doc-a", "doc-b")),)
-
-
-def test_load_questions_refuses_malformed_json_naming_the_path(tmp_path: Path) -> None:
-    # Arrange
-    path = tmp_path / "questions.json"
-    path.write_text("not json", encoding="utf-8")
-
-    # Act / Assert
-    with pytest.raises(QuestionsFileError) as excinfo:
-        load_questions(path)
-    assert excinfo.value.path == str(path)
-
-
-def test_load_questions_refuses_a_missing_file(tmp_path: Path) -> None:
-    # Arrange
-    path = tmp_path / "does-not-exist.json"
-
-    # Act / Assert
-    with pytest.raises(QuestionsFileError) as excinfo:
-        load_questions(path)
-    assert excinfo.value.path == str(path)
 
 
 # --- score_pipeline --------------------------------------------------------------------------
@@ -162,7 +150,7 @@ def test_load_questions_refuses_a_missing_file(tmp_path: Path) -> None:
 
 async def test_score_pipeline_retrieves_and_scores_against_the_resolved_stages() -> None:
     # Arrange — one question whose relevant document is exactly what the fake store returns.
-    questions = (Question(query="q", relevant_documents=("doc-a",)),)
+    questions = (_question(),)
 
     # Act
     report = await score_pipeline(
@@ -185,7 +173,7 @@ async def test_score_pipeline_retrieves_and_scores_against_the_resolved_stages()
 
 async def test_score_pipeline_refuses_a_pipeline_with_no_store_stage() -> None:
     # Arrange
-    questions = (Question(query="q", relevant_documents=("doc-a",)),)
+    questions = (_question(),)
 
     # Act / Assert
     with pytest.raises(PipelineNotRetrievableError) as excinfo:
@@ -203,66 +191,11 @@ async def test_score_pipeline_refuses_a_pipeline_with_no_store_stage() -> None:
 # --- Task 16.4 — a question has an identity, or its position is named as such.
 
 
-def test_a_question_may_carry_an_id_and_a_file_without_one_still_loads(tmp_path: Path) -> None:
-    """`id` is optional, because every `--questions` file written before this task has none.
-
-    The ledger's own line for this task said the id was *"already carried and dropped"* by this
-    loader. It was not: `eval/questions/*.toml` carries ids and is read by
-    `weft_eval.question_set`'s own, separate `Question`; this
-    loader reads **JSON** and has `extra="forbid"`, so an `id` key would have been *refused*,
-    not dropped. Two `Question` classes, two loaders, and they never meet (`L17.16`).
-    """
-    # Arrange
-    with_id = tmp_path / "with-id.json"
-    with_id.write_text('[{"id": "fetch-001", "query": "q", "relevant_documents": ["doc-a"]}]')
-    without = tmp_path / "without.json"
-    without.write_text('[{"query": "q", "relevant_documents": ["doc-a"]}]')
-
-    # Act
-    identified = load_questions(with_id)
-    anonymous = load_questions(without)
-
-    # Assert
-    assert identified[0].id == "fetch-001"
-    assert anonymous[0].id is None
-
-
-def test_a_questions_file_repeating_an_id_is_refused_naming_it(tmp_path: Path) -> None:
-    """Two questions under one id would silently collapse into one per-question score, so the
-    file is refused where it is read rather than producing a record short of a question.
-    """
-    # Arrange
-    path = tmp_path / "duplicate.json"
-    path.write_text('[{"id": "fetch-001", "query": "a"}, {"id": "fetch-001", "query": "b"}]')
-
-    # Act / Assert
-    with pytest.raises(QuestionsFileError) as excinfo:
-        load_questions(path)
-    assert "fetch-001" in str(excinfo.value)
-
-
-def test_a_questions_file_that_identifies_some_questions_and_not_others_is_refused(
-    tmp_path: Path,
-) -> None:
-    """Either the file has identities or it has positions. A half-identified file would make
-    `keyed_by` a lie whichever value it took, and the honest answer is to refuse the input
-    rather than to pick a reading for it.
-    """
-    # Arrange
-    path = tmp_path / "mixed.json"
-    path.write_text('[{"id": "fetch-001", "query": "a"}, {"query": "b"}]')
-
-    # Act / Assert
-    with pytest.raises(QuestionsFileError) as excinfo:
-        load_questions(path)
-    assert "id" in str(excinfo.value)
-
-
 async def test_scores_are_keyed_by_question_id_when_the_file_carries_them() -> None:
     # Arrange
     questions = (
-        Question(id="fetch-001", query="q", relevant_documents=("doc-a",)),
-        Question(id="fetch-002", query="q2", relevant_documents=("doc-a",)),
+        _question("fetch-001"),
+        _question("fetch-002", text="q2"),
     )
 
     # Act
@@ -281,34 +214,6 @@ async def test_scores_are_keyed_by_question_id_when_the_file_carries_them() -> N
     precision = scores["precision@1"]
     assert precision.keyed_by is QuestionKey.QUESTION_ID
     assert set(precision.scores) == {"fetch-001", "fetch-002"}
-
-
-async def test_scores_are_keyed_by_position_when_the_file_carries_no_ids() -> None:
-    """And the record says `POSITION`, so nobody reads `"0"` as an identity that survives a
-    second questions file.
-    """
-    # Arrange
-    questions = (
-        Question(query="q", relevant_documents=("doc-a",)),
-        Question(query="q2", relevant_documents=("doc-a",)),
-    )
-
-    # Act
-    report = await score_pipeline(
-        registry=_registry(),
-        resolved_pipeline=_resolved_pipeline(),
-        questions=questions,
-        top_k=1,
-        ctx=_ctx(),
-        corpus_document_ids=("doc-a", "doc-b"),
-    )
-
-    # Assert
-    scores = report.question_scores
-    assert scores is not None
-    precision = scores["precision@1"]
-    assert precision.keyed_by is QuestionKey.POSITION
-    assert set(precision.scores) == {"0", "1"}
 
 
 # --- Task 16.5 — a label written in the tree finds its document on any machine.
@@ -422,7 +327,7 @@ async def test_a_question_is_scored_against_the_document_its_label_resolved_to()
     against a resolved absolute path — and every question scored `0.000`.
     """
     # Arrange
-    questions = (Question(query="q", relevant_documents=("doc-a",)),)
+    questions = (_question(),)
 
     # Act
     report = await score_pipeline(
@@ -438,72 +343,6 @@ async def test_a_question_is_scored_against_the_document_its_label_resolved_to()
     outcome = report.metrics["precision@1"]
     assert isinstance(outcome, Produced)
     assert outcome.value.mean == 1.0
-
-
-# --- Task 16.6 — the identity of the question set a run was scored with.
-
-
-def test_the_question_set_digest_is_order_independent() -> None:
-    """*Nothing positional*, so two files holding the same questions in two orders are one
-    question set. A digest over the list as written would make re-ordering a file look like a
-    different measurement.
-    """
-    # Arrange
-    first = Question(id="a", query="one", relevant_documents=("x.txt",))
-    second = Question(id="b", query="two", relevant_documents=("y.txt",))
-
-    # Act / Assert
-    assert question_set_digest((first, second)) == question_set_digest((second, first))
-
-
-def test_the_question_set_digest_moves_when_any_question_does() -> None:
-    """Every field of `Question` is in the canonical form, derived from the model rather than
-    from a hand-listed tuple — so a version that learns a scoring-relevant field produces a new
-    digest, which is the honest answer rather than a gap. Task 16.8 adds `language` and will
-    move this digest for exactly that reason.
-    """
-    # Arrange
-    base = Question(id="a", query="one", relevant_documents=("x.txt",), kind="factual")
-
-    # Act / Assert — one field at a time, each of which changes what was measured.
-    assert question_set_digest((base,)) != question_set_digest(
-        (Question(id="a", query="ONE", relevant_documents=("x.txt",), kind="factual"),)
-    )
-    assert question_set_digest((base,)) != question_set_digest(
-        (Question(id="a", query="one", relevant_documents=("y.txt",), kind="factual"),)
-    )
-    assert question_set_digest((base,)) != question_set_digest(
-        (Question(id="a", query="one", relevant_documents=("x.txt",), kind="numeric"),)
-    )
-
-
-def test_the_question_set_digest_holds_nothing_a_machine_put_there() -> None:
-    """The point of the whole field: the same file staged anywhere digests the same. Since task
-    16.5 a label is a corpus-relative path, so there is no root in a question to leak into this.
-    """
-    # Arrange — questions as they are written in a tree, with no absolute path anywhere.
-    questions = (
-        Question(id="a", query="one", relevant_documents=("arxiv/1304.7717v2.pdf",)),
-        Question(id="b", query="two", relevant_documents=("pl-wiki/kraków.txt",)),
-    )
-
-    # Act
-    digest = question_set_digest(questions)
-
-    # Assert — a digest is hex, and holds no separator a staging root would have contributed.
-    assert len(digest) == 64
-    assert all(character in "0123456789abcdef" for character in digest)
-
-
-def test_two_questions_that_differ_only_by_id_are_two_question_sets() -> None:
-    """An id is part of the identity because it is what per-question scores are keyed on
-    (task 16.4). Two files with the same questions under different ids produce records whose
-    scores cannot be paired, so they are not the same question set.
-    """
-    # Arrange / Act / Assert
-    assert question_set_digest((Question(id="a", query="q"),)) != question_set_digest(
-        (Question(id="b", query="q"),)
-    )
 
 
 # --- Task 16.7 — a rank metric scores a ranking the packer did not reverse.
@@ -569,7 +408,7 @@ async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
     await score_pipeline(
         registry=_registry(),
         resolved_pipeline=_resolved_pipeline(),
-        questions=(Question(query="q", relevant_documents=("doc-best",)),),
+        questions=(_question(relevant_documents=("doc-best",)),),
         top_k=3,
         ctx=_ctx(),
         query_pipeline="some-rung",
@@ -584,26 +423,113 @@ async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
     ]
 
 
-# --- Task 16.8 — a question states its own language.
+# --- Task 38.11 — one question model reaches the scorer.
 
 
-def test_a_question_carries_a_language_and_defaults_to_english() -> None:
-    """`eval/questions/*.toml` has stated `language` on every question since the set was
-    written; the JSON loader this path uses had no field for it, so the fact stopped at the
-    file. It is what a language-aware metric reads, and — since task 16.6's canonical form is
-    derived from the model — it is part of the question set's identity.
-    """
-    # Arrange / Act / Assert
-    assert Question(query="q").language == "en"
-    assert Question(query="q", language="pl").language == "pl"
+async def test_a_manifest_id_is_scored_against_the_document_its_manifest_names() -> None:
+    """`eval/questions/*.toml` names documents by manifest id, and a corpus is staged by path. The
+    manifest is the one place that says which path an id is, so `document_labels` carries that
+    mapping to the label resolution every other question already goes through."""
+    # Arrange
+    questions = (_question(relevant_documents=("ax-a",)),)
 
-
-def test_the_question_set_digest_moves_when_a_questions_language_does() -> None:
-    """Which is the point of deriving the canonical form rather than listing fields: the same
-    questions scored as Polish are a different measurement from the same questions scored as
-    English, and the digest says so without 16.6 having had to anticipate this field.
-    """
-    # Arrange / Act / Assert
-    assert question_set_digest((Question(id="a", query="q"),)) != question_set_digest(
-        (Question(id="a", query="q", language="pl"),)
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
+        document_labels={"ax-a": "doc-a", "ax-b": "doc-b"},
     )
+
+    # Assert
+    outcome = report.metrics["precision@1"]
+    assert isinstance(outcome, Produced)
+    assert outcome.value.mean == 1.0
+
+
+async def test_an_id_the_manifest_does_not_hold_is_refused_naming_it_and_the_ids_it_does() -> None:
+    # Arrange
+    questions = (_question(relevant_documents=("ax-missing",)),)
+
+    # Act
+    with pytest.raises(UnresolvableLabelError) as excinfo:
+        await score_pipeline(
+            registry=_registry(),
+            resolved_pipeline=_resolved_pipeline(),
+            questions=questions,
+            top_k=1,
+            ctx=_ctx(),
+            corpus_document_ids=("doc-a", "doc-b"),
+            document_labels={"ax-a": "doc-a", "ax-b": "doc-b"},
+        )
+
+    # Assert
+    message = str(excinfo.value)
+    assert "ax-missing" in message
+    assert "ax-a" in message
+
+
+async def test_a_sample_carries_the_questions_kind_or_the_axis_standing_in_for_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`weft eval compare --kind requires-graph-hop` slices on `RetrievalSample.kind`. A bridge
+    question states `kind` absent and carries the label as `axes["kind"]`; a curated question
+    carries a `Kind`. Both have to reach the sample, or one of the two sets stops being
+    sliceable."""
+    # Arrange
+    captured: list[RetrievalSample] = []
+
+    async def _capture(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        captured.extend(samples)
+        return SubsetScores(metrics={}, per_question={})
+
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _capture)
+    curated = Question.model_validate(
+        {
+            "id": "curated-1",
+            "text": "What is it?",
+            "language": "en",
+            "kind": Kind.DEFINITIONAL,
+            "difficulty": "easy",
+            "relevant_documents": ("doc-a",),
+            "reference_answer": "That.",
+            "notes": "written for this test",
+            "quote": ({"document": "doc-a", "page": 0, "text": "That."},),
+        }
+    )
+    bridge = _question("bridge-1", kind_axis="requires-graph-hop")
+
+    # Act
+    await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(curated, bridge),
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
+    )
+
+    # Assert
+    kinds = {sample.question_key: sample.kind for sample in captured}
+    assert kinds == {"curated-1": "definitional", "bridge-1": "requires-graph-hop"}
+
+
+async def test_the_scored_run_names_its_question_set_by_the_one_models_digest() -> None:
+    # Arrange
+    questions = (_question("q-1"), _question("q-2", text="q2"))
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
+    )
+
+    # Assert
+    assert report.question_set == question_set_digest(questions)

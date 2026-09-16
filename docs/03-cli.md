@@ -75,7 +75,7 @@ weft index <path>              run an ingestion pipeline over a source
 weft ask <question>            query, streaming the answer with citations
 weft pipeline list|show|derive|validate|diff|estimate
 weft plugins list|info|doctor
-weft eval run <path> <pipeline> [--query-pipeline <name>] [--questions <file>] [--top-k <n>]
+weft eval run <path> <pipeline> [--query-pipeline <name>] [--questions <path> [--manifest <file>]] [--top-k <n>]
                                     run a pipeline over a corpus, persist a run record; with
                                     --questions, also retrieve and score the gate-safe metric
                                     subset, folded into the record
@@ -570,7 +570,7 @@ running the same command.
 > **`weft eval run --questions <file> [--top-k <n>]`, task 4.9 (2026-08-20) — closes
 > `.phase4-design.md` §7's gap: a persisted `RunRecord` carried no metric scores, so `weft eval
 > compare` could only report that two runs' pipelines *differ*, never what they *produced*.**
-> `--questions` names a JSON file of `{"query": ..., "relevant_documents": [...]}` judgements;
+> `--questions` names a question file — *since task 38.11 (2026-09-16) the TOML form `weft_eval.question_set` reads, a directory or one file, with `--manifest` mapping manifest ids to corpus paths; a JSON list of `{"query": ..., "relevant_documents": [...]}` is converted into that form with a deprecation notice until `weft-rag` 3.0* —
 > given one, `weft eval run` retrieves for every question through the resolved pipeline's own
 > `Embedder`/`NodeStore` stages (never `[services]` — Q3, task 4.0, still holds for a named
 > pipeline) and scores the gate-safe `RetrievalMetric` subset over the result

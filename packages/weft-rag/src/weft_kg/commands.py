@@ -59,7 +59,8 @@ from weft_kg.bridges import (
     Bridge,
     bridges_from,
     no_relations_to_bridge_error,
-    questions_as_json,
+    questions_as_toml,
+    quote_toml_value,
 )
 from weft_kg.schema import GraphSchema, load_schema, propose_schema
 from weft_kg.store import ActiveSchema, GraphSettings, GraphStore, SchemaPresence
@@ -134,8 +135,8 @@ class GraphBridgesArgs(BaseModel):
     write: str = Field(
         default="",
         description=(
-            "write the questions to this path as the JSON `weft eval run --questions` reads; "
-            "nothing is written when the corpus yields no bridge"
+            "write the questions to this path as the TOML question file `weft eval run "
+            "--questions` reads; nothing is written when the corpus yields no bridge"
         ),
     )
 
@@ -275,7 +276,7 @@ class GraphBridgesCommand:
 
         written_to = ""
         if bridges and bridges_args.write:
-            Path(bridges_args.write).write_text(questions_as_json(bridges), encoding="utf-8")
+            Path(bridges_args.write).write_text(questions_as_toml(bridges), encoding="utf-8")
             written_to = bridges_args.write
 
         return Produced(
@@ -285,29 +286,20 @@ class GraphBridgesCommand:
         )
 
 
-def _quote(value: str) -> str:
-    """The identical escaping `weft_engine.config_surface._quote` uses, restated rather than
-    imported: that name is private to its own module, and a curated schema's TOML is this pack's
-    own artefact to render, not `weft_cli`'s.
-    """
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
 def _schema_as_toml(schema: GraphSchema) -> str:
     """`schema`, rendered as the TOML `weft_kg.schema.load_schema` reads back — the exact shape
     an operator pastes into a file and activates unchanged. `schema_version` is left out: a fresh
     proposal is always this installed pack's own current version, which is the default
     `GraphSchema.schema_version` already supplies with nothing written.
     """
-    lines = [f"name = {_quote(schema.name)}", ""]
+    lines = [f"name = {quote_toml_value(schema.name)}", ""]
     for relation in schema.relations:
         lines.extend(
             [
                 "[[relations]]",
-                f"source_type = {_quote(relation.source_type)}",
-                f"predicate = {_quote(relation.predicate)}",
-                f"target_type = {_quote(relation.target_type)}",
+                f"source_type = {quote_toml_value(relation.source_type)}",
+                f"predicate = {quote_toml_value(relation.predicate)}",
+                f"target_type = {quote_toml_value(relation.target_type)}",
                 "",
             ]
         )
@@ -389,13 +381,13 @@ def bridges_as_question_toml(bridges: Sequence[Bridge]) -> str:
     """
     lines = [_BRIDGE_TOML_HEADER]
     for bridge in bridges:
-        documents = ", ".join(_quote(document) for document in bridge.relevant_documents)
+        documents = ", ".join(quote_toml_value(document) for document in bridge.relevant_documents)
         lines.extend(
             [
                 "[[question]]",
-                f"id = {_quote(bridge.question_id)}",
-                f"text = {_quote(bridge.question)}",
-                f"kind = {_quote(QUESTION_KIND)}",
+                f"id = {quote_toml_value(bridge.question_id)}",
+                f"text = {quote_toml_value(bridge.question)}",
+                f"kind = {quote_toml_value(QUESTION_KIND)}",
                 f"relevant_documents = [{documents}]",
                 'reference_answer = ""',
                 'notes = ""',

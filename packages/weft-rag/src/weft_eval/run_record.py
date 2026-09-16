@@ -108,6 +108,17 @@ class CorpusDigestBasis(StrEnum):
     MANIFEST_DIGESTS = "manifest-digests"
 
 
+class QuestionSetDigestBasis(StrEnum):
+    """What function computed `RunRecord.question_set_digest` — task **38.11**.
+
+    One member. A record that names none was digested over the retired
+    `weft_cli.eval_scoring.Question` form, before this task — that absence is a fact, not a gap,
+    `CorpusDigestBasis`'s own shape one field over.
+    """
+
+    QUESTION_SET = "question-set"
+
+
 class CorpusIdentity(BaseModel):
     """Which corpus a run measured, in a form two runs can be compared by.
 
@@ -359,10 +370,15 @@ class RunRecord(BaseModel):
     metrics: Mapping[str, MetricRunResult] = Field(default_factory=dict)
     #: Task 16.6 — a sha256 over the canonical questions this run was scored with, or `None`
     #: for a record that predates the field or a run given no `--questions` at all. Built by
-    #: `weft_cli.eval_scoring.question_set_digest`, which lives there because `Question` does:
-    #: this module would have to import the CLI to compute it, the identical arrow
+    #: `weft_eval.question_set.question_set_digest`, which lives there because `Question` does:
+    #: this module would have to import that reader to compute it, the identical arrow
     #: `distribution_versions` already refuses to draw.
     question_set_digest: str | None = None
+    #: Task **38.11** — which function produced `question_set_digest`, so a digest taken over
+    #: the retired `weft_cli.eval_scoring.Question` form is told apart from one taken over the
+    #: one model: the same questions digest differently under the two. `None` means *not
+    #: recorded* — every record written before this task.
+    question_set_digest_basis: QuestionSetDigestBasis | None = None
     #: Task 16.4 — one outcome per question per metric, keyed by metric name exactly as
     #: `metrics` above is, so a reader pairing an aggregate with its questions never has to
     #: guess at two vocabularies. `None` means *not recorded*: a record written before this
@@ -396,6 +412,7 @@ def build_run_record(
     durations: RunDurations | None = None,
     question_scores: Mapping[str, PerQuestionScores] | None = None,
     question_set_digest: str | None = None,
+    question_set_digest_basis: QuestionSetDigestBasis | None = None,
     question_seconds: PerQuestionSeconds | None = None,
     token_usage: Mapping[str, RoleTokens] | None = None,
 ) -> RunRecord:
@@ -431,6 +448,10 @@ def build_run_record(
     only the caller that paired samples to outcomes (`weft_cli.eval_scoring.score_pipeline`,
     through `weft_eval.harness.score_retrieval_gate_subset`) knows what each question scored.
 
+    `question_set_digest_basis` — task 38.11 — is passed straight through too, on the identical
+    footing: only the caller that computed `question_set_digest` knows which function produced
+    it.
+
     `question_seconds`/`token_usage` — task 33.7 — are passed straight through as well, on the
     identical footing one field over: only the caller that ran the question loop
     (`weft_cli.eval_scoring.score_pipeline`) measured either.
@@ -448,6 +469,7 @@ def build_run_record(
         metrics={name: _as_run_result(outcome) for name, outcome in metrics.items()},
         question_scores=question_scores,
         question_set_digest=question_set_digest,
+        question_set_digest_basis=question_set_digest_basis,
         question_seconds=question_seconds,
         token_usage=token_usage,
     )

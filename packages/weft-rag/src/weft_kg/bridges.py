@@ -30,17 +30,19 @@ printed; disagreement raises `CeilingDisagreesError` rather than printing either
 from __future__ import annotations
 
 import hashlib
-import json
 from collections.abc import Mapping, Sequence
 from typing import Final
 
 from pydantic import BaseModel, ConfigDict
 
+from weft_eval.question_set import QUESTION_SET_SCHEMA_VERSION, QuestionField
 from weft_kernel.errors import WeftError
 
-#: `weft_cli.eval_scoring.Question.kind` for every question this module writes — task `11.12`'s
-#: own `--kind` filter is what turns `weft eval compare … --kind requires-graph-hop` into a
-#: measurement over exactly these questions and nothing else.
+#: `weft_eval.question_set.Question.axes["kind"]` for every question this module writes, since
+#: task **38.11** retired `weft_cli.eval_scoring.Question` — `requires-graph-hop` is not one of
+#: `weft_eval.question_set.Kind`'s own members, so it stands in as an axis rather than the field.
+#: Task `11.12`'s own `--kind` filter is what turns `weft eval compare … --kind
+#: requires-graph-hop` into a measurement over exactly these questions and nothing else.
 QUESTION_KIND: Final[str] = "requires-graph-hop"
 
 
@@ -237,20 +239,59 @@ def bridges_from(
     return tuple(bridges)
 
 
-def questions_as_json(bridges: Sequence[Bridge]) -> str:
-    """`bridges`, as the JSON `weft eval run --questions` reads: a **list**, one `Question`-shaped
-    object per bridge and nothing else — `weft_cli.eval_scoring.Question` forbids extra keys, so
-    an additional field here would make the file unreadable by the very command it exists for.
+def quote_toml_value(value: str) -> str:
+    """The identical escaping `weft_engine.config_surface._quote` uses, restated rather than
+    imported: that name is private to its own module. Shared with `weft_kg.commands`'s own
+    `bridges_as_question_toml` — moved here at task **38.11**, public rather than
+    underscore-prefixed because it now crosses that module boundary, so both this module's
+    `questions_as_toml` and that one write TOML through one escaper rather than two copies.
     """
-    payload = [
-        {
-            "query": bridge.question,
-            "relevant_documents": list(bridge.relevant_documents),
-            "kind": QUESTION_KIND,
-        }
-        for bridge in bridges
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+#: Every field `weft_eval.question_set.Question` may state absent — a bridge question supplies
+#: none of them: no `kind` (`QUESTION_KIND` stands in as an axis instead, see above), no
+#: `difficulty`, no `quote` (a hop's citation is a fact node, a model's *rendering* of a triple,
+#: never a document's own words — the module docstring's own paragraph on why `--write` carries
+#: no `quote`), no `reference_answer`, no `notes`.
+_ABSENT_FIELDS: Final[tuple[QuestionField, ...]] = tuple(QuestionField)
+
+_ABSENT_REASON: Final[str] = (
+    "generated from a graph path — diagnostic, and not V2 ground truth: eval/check_questions.py "
+    "refuses this file until a person writes a reference answer, a provenance note and a kind"
+)
+
+
+def questions_as_toml(bridges: Sequence[Bridge]) -> str:
+    """`bridges`, as the TOML `weft eval run --questions` reads since task **38.11** — one
+    `[[question]]` per bridge, under a `[question_set]` table stating every field this module
+    cannot supply and why, with `axes = ["kind"]` declared so `QUESTION_KIND` reaches
+    `RetrievalSample.kind` through `axes["kind"]` rather than the field itself.
+    """
+    absent = ", ".join(quote_toml_value(field.value) for field in _ABSENT_FIELDS)
+    lines = [
+        "[question_set]",
+        f"schema = {QUESTION_SET_SCHEMA_VERSION}",
+        f"absent = [{absent}]",
+        f"absent_reason = {quote_toml_value(_ABSENT_REASON)}",
+        'axes = ["kind"]',
+        "",
     ]
-    return json.dumps(payload, indent=2) + "\n"
+    for bridge in bridges:
+        documents = ", ".join(quote_toml_value(document) for document in bridge.relevant_documents)
+        lines.extend(
+            [
+                "[[question]]",
+                f"id = {quote_toml_value(bridge.question_id)}",
+                f"text = {quote_toml_value(bridge.question)}",
+                'language = "en"',
+                f"relevant_documents = [{documents}]",
+                f"axes = {{ kind = {quote_toml_value(QUESTION_KIND)} }}",
+                "",
+            ]
+        )
+    return "\n".join(lines).rstrip("\n") + "\n"
 
 
 __all__ = [
@@ -263,5 +304,6 @@ __all__ = [
     "VectorCeiling",
     "bridges_from",
     "no_relations_to_bridge_error",
-    "questions_as_json",
+    "questions_as_toml",
+    "quote_toml_value",
 ]

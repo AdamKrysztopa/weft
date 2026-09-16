@@ -15,9 +15,10 @@ The doubles are `tests/unit/weft_cli/test_eval_scoring.py`'s (`L11.17`).
 import asyncio
 from collections.abc import Sequence
 
-from weft_cli.eval_scoring import Question, ScoredRun, role_tokens, score_pipeline
+from weft_cli.eval_scoring import ScoredRun, role_tokens, score_pipeline
 from weft_embed import Embedder
 from weft_eval import Settings, register
+from weft_eval.question_set import Question, QuestionField
 from weft_eval.run_record import QuestionKey, RoleTokens
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
@@ -95,6 +96,20 @@ def _ctx() -> Context:
     return Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
 
 
+def _question(identifier: str, text: str, relevant_documents: tuple[str, ...] = ()) -> Question:
+    """The one question model, stating absent every field this fixture does not need."""
+    return Question.model_validate(
+        {
+            "id": identifier,
+            "text": text,
+            "language": "en",
+            "relevant_documents": relevant_documents,
+            "absent": frozenset(QuestionField),
+            "absent_reason": "a scoring fixture",
+        }
+    )
+
+
 async def _scored(questions: tuple[Question, ...]) -> ScoredRun:
     return await score_pipeline(
         registry=_registry(),
@@ -109,8 +124,8 @@ async def _scored(questions: tuple[Question, ...]) -> ScoredRun:
 async def test_each_question_is_timed_and_keyed_as_its_scores_are() -> None:
     # Arrange
     questions = (
-        Question(id="fetch-001", query="q", relevant_documents=("doc-a",)),
-        Question(id="fetch-002", query="q2", relevant_documents=("doc-a",)),
+        _question("fetch-001", "q", ("doc-a",)),
+        _question("fetch-002", "q2", ("doc-a",)),
     )
 
     # Act
@@ -126,7 +141,7 @@ async def test_each_question_is_timed_and_keyed_as_its_scores_are() -> None:
 
 async def test_a_run_that_asked_no_model_records_no_role_rather_than_zero_tokens() -> None:
     # Act
-    report = await _scored((Question(query="q", relevant_documents=("doc-a",)),))
+    report = await _scored((_question("q-1", "q", ("doc-a",)),))
 
     # Assert
     assert report.token_usage == {}

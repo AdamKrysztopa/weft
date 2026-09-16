@@ -1085,19 +1085,33 @@ Task **4.9**. Before this, a persisted `RunRecord` carried no metric scores at a
 compare` could only report that two runs' resolved pipelines *differ*, never what they
 *produced*. `weft eval run --questions <file>` closes that.
 
-`--questions` names a JSON file, a list of judgements:
+`--questions` names a question file — a directory of TOML files, or one — in the form
+`eval/questions/` is written in. A set that cannot supply every field says so once, in a
+`[question_set]` table, with a reason:
 
-```json
-[{"query": "what is weft?", "relevant_documents": ["/abs/path/to/weft-intro.md"]}]
+```toml
+[question_set]
+schema = 2
+absent = ["kind", "difficulty", "quote", "reference_answer", "notes"]
+absent_reason = "written for a retrieval-only check"
+axes = []
+
+[[question]]
+id = "intro-1"
+text = "what is weft?"
+language = "en"
+relevant_documents = ["weft-intro.md"]
 ```
 
-`relevant_documents` names a document, not a chunk — the same `SourceDoc.source_id` string a run's
-own `document_ids` already carries (a resolved, absolute file path, for the default text
-extractor), because that is the only identity a fixture can be authored against ahead of a run;
-a node id is a content-addressed digest nobody can predict in advance.
+`relevant_documents` names a document, not a chunk: a path relative to the corpus, matched on whole
+path components wherever the corpus is staged, because a node id is a content digest nobody can
+predict before a run. A set that names documents by manifest id, as `eval/questions/` does, is run
+with `--manifest corpus/manifest.toml`, which maps each id to its document's path. A JSON list of
+`{"query": ..., "relevant_documents": [...]}` still scores — converted into the same form, with a
+notice that the format is deprecated and goes at `weft-rag` 3.0.
 
 ```bash
-$ weft eval run corpus index --questions questions.json --top-k 5
+$ weft eval run corpus index --questions questions.toml --top-k 5
 run 3f9c...-1 persisted (corpus -> pipeline 'index'). produced 12, ... wall clock: 1.9s.
 ```
 

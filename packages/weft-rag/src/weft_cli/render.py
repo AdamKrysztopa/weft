@@ -118,6 +118,7 @@ from weft_eval.baseline import Reproduction
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDifference
 from weft_eval.latency import LatencySummary, latency_summary
+from weft_eval.question_set import QuestionSetFormat
 from weft_eval.run_record import (
     MetricRunResult,
     NoQueryRung,
@@ -999,11 +1000,16 @@ def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
             _role_tokens_text(role, token_usage[role]) for role in sorted(token_usage)
         )
         stdout += f" tokens: {role_text}."
-    stderr = (
-        "\n".join(f"  failed: {reason}" for reason in summary.failed_reasons)
-        if summary.failed_reasons
-        else None
-    )
+    stderr_lines: list[str] = []
+    if result.question_set_format is QuestionSetFormat.JSON:
+        stderr_lines.append(
+            "deprecated: a JSON --questions file is read by converting it into the TOML "
+            "question form until weft-rag 3.0, when this reader is removed — write the "
+            "TOML question form instead."
+        )
+    if summary.failed_reasons:
+        stderr_lines.extend(f"  failed: {reason}" for reason in summary.failed_reasons)
+    stderr = "\n".join(stderr_lines) if stderr_lines else None
     exit_code = ExitCode.SUCCESS if summary.failed == 0 else ExitCode.OPERATION_FAILED
     return Rendered(stdout=stdout, stderr=stderr, exit_code=exit_code)
 

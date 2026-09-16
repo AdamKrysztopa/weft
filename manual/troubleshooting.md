@@ -3094,30 +3094,8 @@ do:** the message names every run id that does exist; run `weft eval run` first 
 Task **4.9**, `.phase4-design.md` §7. `weft eval run <path> <pipeline> --questions <file>`
 retrieves for every query a `--questions` file names, through the resolved pipeline's own
 `Embedder`/`NodeStore` stages, and folds the gate-safe `RetrievalMetric` subset's scores into the
-persisted `RunRecord`. Both errors below are refused before any partial, misleading `metrics`
-mapping is ever persisted.
-
-### `QuestionsFileError`
-
-**What it looks like** — `--questions` named a file that is not valid JSON, reproduced against a
-real checkout with a deliberately broken fixture:
-
-```text
-$ echo 'not json' > questions.json
-$ weft eval run corpus index --questions questions.json
-'questions.json' is not valid JSON: Expecting value: line 1 column 1 (char 0)
-$ echo $?
-1
-```
-
-Also raised for a file that does not exist, or whose JSON is not a list of
-`{"query": ..., "relevant_documents": [...]}` objects — one refusal for every way this input can
-be malformed, rather than a bare `OSError`/`json.JSONDecodeError`/`pydantic.ValidationError` a
-caller has to already know this module's internals to make sense of. Not a name-resolution
-failure — there is no alternative file name to offer. **What to do:** the message names the path
-and the specific parse problem; fix the file and re-run. `relevant_documents` names a document,
-not a node id — the same `SourceDoc.source_id` string `weft eval run`'s own persisted `corpus`
-identity is built from (for the default text extractor, a file's own resolved path).
+persisted `RunRecord`. The error below is refused before any partial, misleading `metrics`
+mapping is ever persisted; a `--questions` file that cannot be read is `QuestionSetError`.
 
 ### `PipelineNotRetrievableError`
 
@@ -3217,7 +3195,9 @@ not valid TOML:
 QuestionSetError: round-2.toml: Expected ']]' at the end of an array declaration (at line 1, column 11)
 ```
 
-A question that breaks its own invariant names its file and index the same way —
+`weft eval run --questions` raises the same class for its input, a JSON list included — *`questions.json
+is not valid JSON: …`*, or one naming an `'id'` for some questions and not others. A question that
+breaks its own invariant names its file and index the same way —
 *`round-2.toml, question 0: … definitional but carries no supporting quote`*. **What to do:** fix the
 named file. The question set is ground truth, so nothing is skipped: one bad question refuses the
 whole set rather than scoring a smaller one under the same name.

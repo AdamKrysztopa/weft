@@ -26,7 +26,9 @@ from weft_eval.run_record import (
     PerQuestionScores,
     QueryRung,
     QuestionKey,
+    QuestionSetDigestBasis,
     RunDurations,
+    RunRecord,
     build_run_record,
     corpus_identity,
     load_run_record,
@@ -538,3 +540,29 @@ def test_a_question_set_digest_survives_the_round_trip(tmp_path: Path) -> None:
     # Assert
     assert loaded.question_set_digest == "f" * 64
     assert loaded == record
+
+
+def test_a_record_names_which_function_digested_its_question_set(tmp_path: Path) -> None:
+    """Task 38.11. `question_set_digest` was taken over `weft_cli.eval_scoring.Question` until
+    that model retired; a record written before carries no basis, and one written since says
+    `question-set`, so two digests of the same questions are told apart from two question sets."""
+    # Arrange
+    labelled = build_run_record(
+        recorded_at="2026-09-16T00:00:00+00:00",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=_corpus(),
+        question_set_digest="d" * 64,
+        question_set_digest_basis=QuestionSetDigestBasis.QUESTION_SET,
+    )
+    path = write_run_record(labelled, tmp_path / "runs" / "labelled.json")
+    older = labelled.model_dump(mode="json")
+    del older["question_set_digest_basis"]
+
+    # Act
+    loaded = load_run_record(path)
+    from_before = RunRecord.model_validate(older)
+
+    # Assert
+    assert loaded.question_set_digest_basis is QuestionSetDigestBasis.QUESTION_SET
+    assert from_before.question_set_digest == "d" * 64
+    assert from_before.question_set_digest_basis is None
