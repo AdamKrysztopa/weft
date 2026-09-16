@@ -63,6 +63,7 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from psycopg import sql
 from pydantic import SecretStr
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
@@ -87,6 +88,7 @@ from weft_store.conformance import (
     check_a_derived_node_and_a_collided_one_are_told_apart_in_the_same_store,
     check_a_field_no_node_can_have_is_refused_by_name_on_either_backend,
     check_a_filter_reaches_vector_search_rather_than_being_ignored,
+    check_a_filtered_search_returns_top_k_in_the_approximate_regime,
     check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext,
     check_a_node_two_documents_each_produced_whole_is_narrowed_not_deleted,
     check_a_node_written_twice_by_one_document_is_one_production_not_two,
@@ -111,7 +113,14 @@ from weft_store.conformance import (
     conformance_corpus,
     register_conformance_ext_models,
 )
-from weft_store.contract import Filter, MetadataFilter, NodeStore, TextSearch, VectorSearch
+from weft_store.contract import (
+    Filter,
+    MetadataFilter,
+    NodeStore,
+    TextSearch,
+    VectorIndexKind,
+    VectorSearch,
+)
 from weft_store.memory import MemoryStore
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
@@ -128,8 +137,8 @@ async def _postgres_unreachable() -> str | None:
     return None
 
 
-async def _pgvector_store() -> PgVectorStore:
-    instance = PgVectorStore(PgVectorSettings(dsn=SecretStr(_DSN)))
+async def _pgvector_store(index: VectorIndexKind = VectorIndexKind.EXACT) -> PgVectorStore:
+    instance = PgVectorStore(PgVectorSettings(dsn=SecretStr(_DSN), index=index))
     await instance.count()  # provisions the schema through the public API
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
@@ -197,16 +206,12 @@ async def store(request: pytest.FixtureRequest) -> AsyncIterator[ConformanceStor
     """A provisioned, empty store of whichever backend this parameter names."""
     backend = cast(str, request.param)
     if backend == "pgvector":
-        reason = await _postgres_unreachable()
-        if reason is not None:
-            pytest.skip(reason)
+        await _require_postgres()
         pg = await _pgvector_store()
         yield pg
         await pg.aclose()
         return
-    reason = await _qdrant_unreachable()
-    if reason is not None:
-        pytest.skip(reason)
+    await _require_qdrant()
     settings = _qdrant_settings()
     qdrant = QdrantStore(settings)
     yield qdrant
@@ -433,11 +438,96 @@ def _capabilities_of(store: object) -> frozenset[str]:
     )
 
 
-async def test_the_two_backends_advertise_different_capabilities_and_nobody_declared_them() -> None:
-    # Arrange
+async def _require_postgres() -> None:
+    """Skip unless `WEFT_DATABASE_URL` is reachable — **the only Postgres skip in this file**.
+
+    Hoisted at task **31.5**, which added a second fixture needing the same guard. One site per
+    backend rather than one per consumer: repeating the three-line check would be two more
+    `pytest.skip(` calls for one condition, and `.claude/hooks/guard_quality_gates.py` refuses
+    that — rightly, since a suppression marker multiplying across a file is exactly how one stops
+    being noticed.
+    """
     reason = await _postgres_unreachable()
     if reason is not None:
         pytest.skip(reason)
+
+
+async def _require_qdrant() -> None:
+    """Skip unless `WEFT_QDRANT_URL` is reachable — **the only Qdrant skip in this file**."""
+    reason = await _qdrant_unreachable()
+    if reason is not None:
+        pytest.skip(reason)
+
+
+@pytest.fixture(params=("pgvector", "qdrant"))
+async def approximate_store(request: pytest.FixtureRequest) -> AsyncIterator[ConformanceStore]:
+    """A store of each backend configured into its **approximate** regime — task **31.5**.
+
+    The `store` fixture hands back each backend at its default, and for both of them that default
+    answers exactly: pgvector builds no vector index at all, and a Qdrant collection this small
+    sits far below the optimizer's own indexing threshold. So every filtered check in this kit has
+    only ever run where the answer is exact by construction — which is the gap this task exists
+    for. `29.7` measured pgvector returning a mean of **0.03 rows out of 10** at 0.1% selectivity
+    under `hnsw.iterative_scan = off`, and no check here could have seen it, because no check ever
+    built an index.
+
+    Both arms are configured to *index*, not merely to name a kind:
+
+    - **pgvector** takes `index=hnsw` **on a database of its own**, created and dropped here. That
+      is not tidiness: G22's width commitment is one-way and builds a permanent HNSW index, and
+      `_pgvector_store`'s cleanup resets the shared table with `ALTER COLUMN embedding TYPE vector`
+      — which Postgres refuses once an HNSW index sits on a fixed-width column (`InvalidParameter
+      Value: column does not have dimensions`). Sharing the database would leave every later
+      pgvector arm unable to reset, deterministically. The unit suite's own
+      `fresh_database` fixture reached this conclusion first, and is the precedent.
+    - **Qdrant** takes `indexing_threshold=1`, so its optimizer builds an HNSW segment rather than
+      scanning exactly below the default of 20,000 points. **`0` is the wrong value** — Qdrant's
+      own documentation defines it as *disabling* indexing — which is the trap this fixture exists
+      to not fall into.
+    """
+    backend = cast(str, request.param)
+    if backend == "pgvector":
+        await _require_postgres()
+        name = f"weft_conformance_{uuid4().hex[:12]}"
+        admin = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+        async with admin.cursor() as cur:
+            await cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+        dsn = f"{_DSN.rsplit('/', 1)[0]}/{name}"
+        pg = PgVectorStore(PgVectorSettings(dsn=SecretStr(dsn), index=VectorIndexKind.HNSW))
+        try:
+            yield pg
+        finally:
+            await pg.aclose()
+            async with admin.cursor() as cur:
+                await cur.execute(
+                    sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+                )
+            await admin.close()
+        return
+    await _require_qdrant()
+    settings = _qdrant_settings().model_copy(update={"indexing_threshold": 1})
+    qdrant = QdrantStore(settings)
+    yield qdrant
+    await qdrant.aclose()
+    await _drop(settings)
+
+
+async def test_a_filtered_search_returns_top_k_in_the_approximate_regime(
+    approximate_store: FilterableSearchableStore,
+) -> None:
+    """The property `31.5` is named for, on backends where it can actually fail.
+
+    A filtered search must return as many results as the caller asked for whenever that many
+    stored nodes match the filter. Under an approximate index this is **not** free: pgvector picks
+    its candidate set *before* applying the filter, so a selective filter can leave almost nothing
+    behind and the search returns a short list with no error at all.
+    """
+    await check_a_filtered_search_returns_top_k_in_the_approximate_regime(approximate_store)
+
+
+async def test_the_two_backends_advertise_different_capabilities_and_nobody_declared_them() -> None:
+    # Arrange
+    await _require_postgres()
     pg = await _pgvector_store()
     qdrant = QdrantStore(_qdrant_settings())
 

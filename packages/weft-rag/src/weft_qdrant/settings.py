@@ -75,6 +75,15 @@ class QdrantSettings(BaseModel):
     #: baseline interval. Phase 29 measured compression on pgvector only.
     precision: VectorPrecision = VectorPrecision.FLOAT32
 
+    #: The optimizer's own `indexing_threshold`, in points — task **31.5**. `None` leaves Qdrant's
+    #: default (20,000) in force, and that is not the same as passing `0`: Qdrant's own
+    #: documentation defines `0` as *disabling* indexing entirely, so a caller who wants an index
+    #: on a small collection reaches for it and gets the opposite. A small positive value — the
+    #: conformance kit's approximate-regime fixture uses `1` — is what forces the optimizer to
+    #: build an HNSW segment well below the point count it would otherwise wait for, which is the
+    #: only way a test collection of a few hundred points ever leaves the exact-search regime.
+    indexing_threshold: int | None = Field(default=None, ge=1)
+
     @staticmethod
     def served_precisions() -> tuple[str, ...]:
         """Every precision this backend can hold — the whole closed vocabulary.

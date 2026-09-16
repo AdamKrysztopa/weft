@@ -243,6 +243,18 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # index = "hnsw"
 # precision = "float32"
+#
+# `indexing_threshold` is how many points a segment must hold before Qdrant's optimizer builds
+# an HNSW index for it. Unset leaves Qdrant's own default of 20,000 in force, which is what a
+# real deployment wants: below that a full scan is both exact and faster than building a graph.
+#
+# **`0` does not mean "index immediately" — it disables indexing entirely**, which is Qdrant's
+# own documented meaning and the opposite of what someone reaching for this setting intends. A
+# small positive value is what forces an index on a collection too small to earn one; the store
+# conformance kit sets `1` so a few hundred points leave the exact-search regime and the
+# filtered-search checks run against a real approximate index.
+#
+# indexing_threshold = 20000
 
 # --- Services ----------------------------------------------------------------
 # Which registered plugin fills a role a command needs. One line changes which

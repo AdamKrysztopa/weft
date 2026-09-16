@@ -48,38 +48,65 @@ _NARRATION = (
 )
 
 
-def last_assistant_text(transcript_path):
-    """The visible text of the final assistant message in the transcript, or ``""``.
+def _is_real_user_turn(message):
+    """Whether `message` is a human turn rather than a tool result.
+
+    **This distinction is the whole reason the first version of this hook never fired once.**
+    A tool result is recorded with ``role: "user"`` and a ``tool_result`` content block, so
+    "walk back to the last user message" stops at the first tool result — which in an agentic
+    turn is a handful of lines back, before any assistant prose exists. Measured against a real
+    transcript: the naive walk returned **zero** assistant text blocks.
+    """
+    if message.get("role") != "user":
+        return False
+    content = message.get("content")
+    if isinstance(content, list):
+        return not any(
+            isinstance(block, dict) and block.get("type") == "tool_result" for block in content
+        )
+    return True
+
+
+def assistant_text_this_turn(transcript_path):
+    """Every visible assistant text block since the last genuine human turn.
+
+    **Not just the final message, which is the defect this function was rewritten to fix.** A
+    `Stop` hook fires when the turn ends; narration lands in *intermediate* assistant messages,
+    the ones followed by tool calls. Reading only the last message inspects the one place the
+    narration never is. The owner asked three times for the narration to stop, a hook was written
+    to enforce it, and it stayed silent through several more instances for exactly this reason —
+    a check that cannot see its own subject is not a check (`phase-step` → *Finish* item 3).
 
     Only ``text`` blocks count. A tool call's input is not a reply to the user, and matching
-    inside one would fire on this very file's own source the moment it is written — the
-    `L12.8` trap, where the paragraph documenting a check becomes the check's own input.
+    inside one would fire on this very file's own source the moment it is written — the `L12.8`
+    trap, where the paragraph documenting a check becomes the check's own input.
     """
     try:
         with Path(transcript_path).open("r", encoding="utf-8") as handle:
             lines = handle.readlines()
     except (OSError, TypeError, ValueError):
         return ""
+    collected = []
     for line in reversed(lines):
         try:
             entry = json.loads(line)
         except (json.JSONDecodeError, ValueError):
             continue
         message = entry.get("message") or {}
+        if _is_real_user_turn(message):
+            break
         if message.get("role") != "assistant":
             continue
         content = message.get("content")
         if isinstance(content, str):
-            return content
-        if not isinstance(content, list):
-            return ""
-        parts = [
-            block.get("text", "")
-            for block in content
-            if isinstance(block, dict) and block.get("type") == "text"
-        ]
-        return "\n".join(parts)
-    return ""
+            collected.append(content)
+        elif isinstance(content, list):
+            collected.extend(
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            )
+    return "\n".join(reversed(collected))
 
 
 def offences(text):
@@ -103,7 +130,7 @@ def main():
     if payload.get("stop_hook_active"):
         return 0
 
-    text = last_assistant_text(payload.get("transcript_path"))
+    text = assistant_text_this_turn(payload.get("transcript_path"))
     if not text:
         return 0
 

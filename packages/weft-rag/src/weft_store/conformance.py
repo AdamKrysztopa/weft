@@ -56,6 +56,7 @@ assertions are, not *which* apply.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Final, Protocol, cast, runtime_checkable
@@ -1353,6 +1354,83 @@ async def check_a_filter_reaches_vector_search_rather_than_being_ignored(
     _require(
         [scored.value.content for scored in ranked] == ["alpha"],
         'the store did not satisfy: [scored.value.content for scored in ranked] == ["alpha"]',
+    )
+
+
+async def check_a_filtered_search_returns_top_k_in_the_approximate_regime(
+    store: FilterableSearchableStore,
+) -> None:
+    """A filtered vector search must not go short under an approximate index — task **31.5**.
+
+    `check_a_filter_reaches_vector_search_rather_than_being_ignored` asks `top_k=5` of three nodes,
+    where a post-filter shortfall and a correct answer are indistinguishable — three nodes can
+    never answer more than three. Phase 29 measured the real failure on a real corpus: pgvector
+    under `hnsw.iterative_scan = off` returned a mean of **0.03 rows out of 10** at 0.1%
+    selectivity, silently, with no error to notice it by. No check built before this task could
+    have seen that, because none of them ever built an index.
+
+    **The corpus is shaped to force a pre-filter candidate cut, not merely a small one.** 185
+    nodes sit almost exactly where the query vector points; 15 carry the filter and sit well away
+    from it. A search that fetches its nearest neighbours *before* the filter is applied fills its
+    whole candidate list with the 185 near-duplicates and finds none of the 15 that matter; a
+    search where the filter reaches inside the index keeps looking until it is satisfied, finds
+    all fifteen, and this check asks for ten of them.
+    """
+    # Arrange
+    top_k = 10
+    target_count = 15
+    noise_count = 185
+    query = Vector(values=(1.0, 0.0, 0.0))
+    noise = tuple(
+        _node(
+            f"noise-{i}",
+            sources=frozenset({_SOURCE_A}),
+            embedding=Vector(values=(1.0, (i % 7) * 1e-6, (i % 5) * 1e-6)),
+        )
+        for i in range(noise_count)
+    )
+    targets = tuple(
+        _node(
+            f"target-{i}",
+            sources=frozenset({_SOURCE_A}),
+            pages=ConformanceFact(backend="target"),
+            embedding=Vector(
+                values=(
+                    math.cos(2 * math.pi * i / target_count),
+                    math.sin(2 * math.pi * i / target_count),
+                    0.5,
+                )
+            ),
+        )
+        for i in range(target_count)
+    )
+    await store.add(noise + targets)
+    await store.flush()
+    _require(
+        callable(getattr(store, "search_vector", None)),
+        'the store did not satisfy: callable(getattr(store, "search_vector", None))',
+    )
+
+    # Act
+    ranked = await store.search_vector(
+        query,
+        top_k=top_k,
+        filter=Filter(op=FilterOp.EQ, field="ext.weft-store-conformance.backend", value="target"),
+    )
+
+    # Assert — the count first: a store returning fewer than the caller asked for is the failure
+    # this check exists to catch, and a predicate alone cannot see it.
+    _require(
+        len(ranked) == top_k,
+        f"{target_count} nodes matched the filter and top_k={top_k} was asked for, but the "
+        f"approximate regime returned {len(ranked)}",
+    )
+    _require(
+        all(
+            scored.value.ext_as(ConformanceFact) == ConformanceFact(backend="target")
+            for scored in ranked
+        ),
+        f"every result must satisfy the filter: {[scored.value.content for scored in ranked]}",
     )
 
 

@@ -306,6 +306,13 @@ class QdrantStore:
                     _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
                 },
                 quantization_config=_quantization_config_for(self._settings.precision),
+                optimizers_config=(
+                    models.OptimizersConfigDiff(
+                        indexing_threshold=self._settings.indexing_threshold
+                    )
+                    if self._settings.indexing_threshold is not None
+                    else None
+                ),
             )
         else:
             await self._refuse_if_schema_mismatch(client)
