@@ -62,11 +62,13 @@ from weft_store.fields import (
     parse_field_path,
 )
 from weft_store.pgvector_store import (
+    IterativeScan,
     MixedVectorWidthError,
     PgVectorSettings,
     PgVectorStore,
     TextQueryMode,
     TextRank,
+    UnsupportedIndexKindError,
     VectorWidthMismatchError,
     register,
 )
@@ -124,6 +126,7 @@ __all__ = [
     "FilterOp",
     "FilterOpMismatchError",
     "FilterValue",
+    "IterativeScan",
     "MetadataFilter",
     "MixedVectorWidthError",
     "NodeField",
@@ -147,6 +150,7 @@ __all__ = [
     "TextSearch",
     "UnaddressableFieldError",
     "UnhandledFilterOpError",
+    "UnsupportedIndexKindError",
     "VectorIndexKind",
     "VectorPrecision",
     "VectorSearch",

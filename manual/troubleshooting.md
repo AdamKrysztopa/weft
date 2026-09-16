@@ -4009,3 +4009,52 @@ names are `weft_kg.store.GraphStore.two_hop_bridges` and
 `weft_kg.store.GraphStore.chunks_by_entity`, and one of them is wrong about a database both can
 read. Neither number is printed, deliberately — printing either would be printing a measurement
 nothing checked.
+
+### `UnsupportedIndexKindError`
+
+**What it looks like** — `[packs.store] index` names a vector index kind this backend does not
+serve:
+
+```text
+UnsupportedIndexKindError: [packs.store] index 'diskann' is not served by pgvector. It serves:
+exact, hnsw.
+```
+
+**Why the kinds differ per backend.** `VectorIndexKind` is one closed vocabulary across the store
+family — `exact`, `hnsw`, `diskann` — but no backend serves all of it, and the vocabulary being
+shared is what lets the refusal *name* the gap instead of a driver error doing it later and worse.
+Qdrant uses HNSW as its only dense vector index, so `diskann` there is refused the same way.
+pgvector serves `diskann` only where the `vectorscale` extension is installed, which the default
+development image does not carry — that case is a different message, about the extension rather
+than about the kind.
+
+**What to do.** Set `index` to one of the kinds the message lists. If you meant to run DiskANN on
+Postgres, you need an image carrying `vectorscale`; `compose.yaml`'s `bm25` profile has one, and
+the refusal you get without it names the extension rather than this error.
+
+### `IterativeScanUnsupportedError`
+
+**What it looks like** — `[packs.store] index` is `hnsw` and `iterative_scan` asks for a mode this
+server's pgvector is too old to have:
+
+```text
+IterativeScanUnsupportedError: [packs.store] iterative_scan is 'relaxed_order', which pgvector
+added in 0.8.0, and this server has vector 0.7.4. A filtered HNSW search without iterative scans
+silently returns fewer rows than you asked for — measured at a mean of 0.03 rows out of 10 at 0.1%
+selectivity — so this store refuses rather than serving a search whose answer is quietly wrong.
+Upgrade pgvector to 0.8.0 or later, or set iterative_scan = "off" and accept that a filtered
+search under hnsw may return fewer results than top_k.
+```
+
+**Why this refuses instead of falling back.** This is the one setting in this store where the
+unsafe value is also the backend's own default. With `hnsw.iterative_scan = off`, pgvector scans a
+fixed number of candidates *before* your filter is applied, so a selective filter can leave almost
+nothing behind — and the search returns a short list with no error and no warning. Phase 29
+measured it on 100,142 real chunks: recall@10 of **0.003** at 0.1% selectivity, and as few as
+**0 of 10** rows returned. Quietly answering with the wrong rows is the failure this project
+refuses by name, so a store that cannot honour the configured mode says so at connection time
+rather than at every later query.
+
+**What to do.** Upgrade the server — pgvector 0.8.0 or later, which the image `compose.yaml` pins
+already carries. If you genuinely cannot, set `iterative_scan = "off"` deliberately: the refusal
+goes away and so does the guarantee that a filtered search returns `top_k` results.

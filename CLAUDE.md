@@ -304,6 +304,16 @@ Six live in `.claude/skills/`:
   write (`L6.15`), and an adversarial review's finding about a fan-out that was half true, where
   only the call sites said which half (`L9.18`). It lived in `phase-step` through the first two and
   did not bite; it is here because the third arrived in a genre `phase-step` has no step for.
+- **Never narrate your own planning, and this one is enforced rather than asked.** No
+  *"Privately, what I need next…"*, no *"Needed next:"*, no list of what you are about to fetch
+  or read. The harness reminder that says to **privately** list what you need before batching
+  tool calls means *in your reasoning*; printing that list into the reply is the defect. A reply
+  carries the answer, the result or the decision. `.claude/hooks/guard_narration.py` refuses a
+  turn whose last message does it, naming the line — because the owner asked three times in one
+  session and a fourth sentence would have been `L9.56`'s mistake: *a prohibition that
+  contradicts generic tool guidance needs a mechanism, not a stronger sentence.* **If you need a
+  decision only the owner can take, ask with `AskUserQuestion` and mark exactly one option
+  "(Recommended)"** — a paragraph about your uncertainty is not a question and cannot be answered.
 - **Claims need evidence.** Every factual assertion in `docs/` about the tree — a count, a line
   number, a "nothing calls this" — carries something a reader can check, because the assessment that
   started this project got several of its own claims wrong and the corrections are logged. Measure

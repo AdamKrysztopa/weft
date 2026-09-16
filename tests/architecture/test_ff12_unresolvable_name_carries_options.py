@@ -115,6 +115,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_llm.roles.UnmappedLLMRoleError",
         "weft_store.fields.UnaddressableFieldError",
         "weft_store.pgvector_store.UnknownTextSearchConfigError",
+        "weft_store.pgvector_store.UnsupportedIndexKindError",
         "weft_store.contract.UnhandledFilterOpError",
         "weft_prompts.errors.TemplateVariableError",
     }

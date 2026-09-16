@@ -52,10 +52,12 @@ from weft_store.contract import (
     NodeStore,
     SourceRecord,
     TextSearch,
+    VectorIndexKind,
     VectorSearch,
 )
 from weft_store.pgvector_store import (
     Bm25NotAvailableError,
+    IterativeScan,
     MixedVectorWidthError,
     PgVectorSettings,
     PgVectorStore,
@@ -64,6 +66,7 @@ from weft_store.pgvector_store import (
     TextRank,
     TextSearchConfigMismatchError,
     UnknownTextSearchConfigError,
+    UnsupportedIndexKindError,
     VectorWidthMismatchError,
 )
 
@@ -1020,3 +1023,139 @@ async def test_a_table_already_holding_two_widths_is_refused_with_both_numbers(
     assert "64" in message
     assert "1536" in message
     assert await _column_width(fresh_database) is None
+
+
+# --- Task 31.9 — the index kind is configuration, and its unsafe default is the backend's own ---
+
+
+async def _index_definitions(dsn: str) -> list[str]:
+    """Every index definition on `weft_nodes`, read from the database's own catalogue.
+
+    `pg_indexes` rather than a flag this store sets: the question is what the *database* holds,
+    which is the only side of it a caller's search actually meets.
+    """
+    conn = await psycopg.AsyncConnection.connect(dsn, autocommit=True)
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT indexdef FROM pg_indexes WHERE tablename = 'weft_nodes'")
+            return [str(row[0]) for row in await cur.fetchall()]
+    finally:
+        await conn.close()
+
+
+def test_the_index_kind_defaults_to_the_exact_scan_this_store_has_always_done() -> None:
+    # Arrange / Act
+    settings = PgVectorSettings(dsn=SecretStr(_DSN))
+
+    # Assert — `exact` is what every release before this task served, so the default changing
+    # would silently re-index every existing corpus on its next connection.
+    assert settings.index is VectorIndexKind.EXACT
+
+
+def test_an_index_kind_pgvector_does_not_serve_is_refused_naming_what_it_does() -> None:
+    # Arrange / Act / Assert — `VectorIndexKind` is one vocabulary across the store family and no
+    # backend serves all of it. `diskann` needs the `vectorscale` extension, which task 31.11
+    # adds; until then this backend serves two kinds and says which.
+    with pytest.raises(UnsupportedIndexKindError) as raised:
+        PgVectorSettings(dsn=SecretStr(_DSN), index=VectorIndexKind.DISKANN)
+
+    message = str(raised.value)
+    assert "diskann" in message
+    assert "exact" in message
+    assert "hnsw" in message
+    # Requirement 5: the options are a structural field a renderer can format, never only prose.
+    assert raised.value.valid_options == ("exact", "hnsw")
+
+
+def test_iterative_scan_defaults_to_relaxed_order_because_off_loses_rows_silently() -> None:
+    """Phase 29 `29.7`, on 100,142 real chunks: at 0.1% selectivity `hnsw.iterative_scan = off`
+    returns recall@10 **0.003** — a mean of 0.03 rows out of 10 — while `relaxed_order` recovers
+    0.8895. `off` is pgvector's own default, so inheriting the backend's default here is the one
+    choice that makes a filtered search quietly wrong. This assertion is the whole point of the
+    task: it fails if anyone ever "simplifies" the default back to the backend's.
+    """
+    # Arrange / Act
+    settings = PgVectorSettings(dsn=SecretStr(_DSN))
+
+    # Assert
+    assert settings.iterative_scan is IterativeScan.RELAXED_ORDER
+
+
+async def test_an_hnsw_store_builds_its_index_once_the_column_has_a_width(
+    fresh_database: str,
+) -> None:
+    # Arrange — HNSW cannot be built on a bare `vector` column, and G22 leaves the column bare
+    # until the first embedded node commits a width. So the index cannot be provisioned at
+    # connection time; it has to follow the width.
+    store = PgVectorStore(
+        PgVectorSettings(dsn=SecretStr(fresh_database), index=VectorIndexKind.HNSW)
+    )
+    await store.count()
+    assert await _column_width(fresh_database) is None
+    assert not [d for d in await _index_definitions(fresh_database) if "hnsw" in d.lower()]
+
+    # Act — the first embedded node types the column, and the index follows it.
+    await store.add([_embedded("first", 3)])
+
+    # Assert
+    assert await _column_width(fresh_database) == 3
+    hnsw = [d for d in await _index_definitions(fresh_database) if "hnsw" in d.lower()]
+    assert hnsw, (
+        f"no hnsw index was built; weft_nodes holds {await _index_definitions(fresh_database)}"
+    )
+    await store.aclose()
+
+
+async def test_an_exact_store_builds_no_vector_index_at_all(fresh_database: str) -> None:
+    # Arrange / Act — the default must not start building indexes on existing corpora.
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(fresh_database)))
+    await store.add([_embedded("first", 3)])
+
+    # Assert
+    definitions = await _index_definitions(fresh_database)
+    assert not [d for d in definitions if "hnsw" in d.lower()]
+    await store.aclose()
+
+
+async def test_a_filtered_search_under_hnsw_still_returns_top_k(fresh_database: str) -> None:
+    """The property the task is named for, and the one `29.7` measured failing.
+
+    The corpus is deliberately larger than `top_k` by a wide margin with a filter matching a
+    small slice of it, because that is the shape where `iterative_scan = off` returns a short
+    list: pgvector scans a fixed candidate set *before* the filter is applied, so a selective
+    filter can leave almost nothing behind, with no error to notice it by.
+    """
+    # Arrange
+    store = PgVectorStore(
+        PgVectorSettings(dsn=SecretStr(fresh_database), index=VectorIndexKind.HNSW)
+    )
+    wanted = SourceId("wanted")
+    nodes = [
+        _node(f"filler {i}", sources=frozenset({SourceId("other")})).with_embedding(
+            Vector(values=(float(i % 7), float(i % 5), 1.0))
+        )
+        for i in range(400)
+    ] + [
+        _node(f"match {i}", sources=frozenset({wanted})).with_embedding(
+            Vector(values=(1.0, 1.0, float(i)))
+        )
+        for i in range(40)
+    ]
+    await store.add(nodes)
+
+    # Act
+    ranked = await store.search_vector(
+        Vector(values=(1.0, 1.0, 1.0)),
+        top_k=10,
+        filter=Filter(op=FilterOp.CONTAINS, field="lineage.sources", value=str(wanted)),
+    )
+
+    # Assert — ten asked for, forty match, ten returned.
+    assert len(ranked) == 10
+    assert all(str(wanted) in scored.value.lineage.sources for scored in ranked)
+    # Relaxed ordering lets pgvector return rows slightly out of distance order, and this store
+    # ranks by score everywhere else, so the ordering is restored before anything is handed back.
+    assert [scored.score for scored in ranked] == sorted(
+        (scored.score for scored in ranked), reverse=True
+    )
+    await store.aclose()

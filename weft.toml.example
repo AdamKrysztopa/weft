@@ -72,6 +72,44 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # text_rank_normalization = 0
 # text_mode = "fts"
 
+# The vector arm — which index this store builds, and how a filtered search over
+# it behaves. Both have defaults, so this group can be absent too.
+#
+# `index` is `exact` (the default) or `hnsw`. `exact` builds no index at all and
+# every search is a sequential scan: correct always, and fine until the corpus
+# grows — Weft measured its own p95 crossing 100 ms somewhere between 50,000 and
+# 60,000 chunks at width 1536, roughly 300 papers (`manual/operations-guide.md`).
+# `hnsw` builds an approximate index and is about a hundred times faster at that
+# size. It is opt-in because turning it on rewrites nothing you already have, and
+# leaving it off costs a deployment that never outgrows the scan nothing at all.
+# `diskann` is a real member of the shared vocabulary and this backend does not
+# serve it yet; asking for it is refused by name rather than quietly scanned.
+#
+# The index is built when the column's width is first committed — a pgvector HNSW
+# index needs a dimensioned column, and Weft learns the dimension from the first
+# embedded node it is ever given, so there is nothing to build before then.
+#
+# `iterative_scan` is the setting that decides whether a *filtered* search under
+# `hnsw` tells you the truth, and **Weft does not inherit pgvector's own default
+# here.** With `off` — pgvector's default — the index picks a fixed candidate set
+# *before* your filter is applied, so a selective filter can leave almost nothing
+# behind and the search returns a short list with no error at all. Measured on
+# 100,142 real chunks: recall@10 of 0.003 at 0.1% selectivity, a mean of 0.03 rows
+# out of the 10 asked for. `relaxed_order`, the default here, keeps scanning until
+# it has enough post-filter candidates; it may return rows slightly out of order,
+# which is why the store re-sorts by score before handing them back. `strict_order`
+# preserves distance order at a little more cost. Set `off` only deliberately, and
+# only if you never filter. Needs pgvector 0.8.0 or newer; an older server is
+# refused by name (`manual/troubleshooting.md` → `IterativeScanUnsupportedError`).
+#
+# `hnsw_m` and `hnsw_ef_construction` are pgvector's own documented build
+# defaults, exposed rather than moved: raising them builds a better graph more
+# slowly, and nothing in Weft's own measurements asked for a different number.
+# index = "exact"
+# iterative_scan = "relaxed_order"
+# hnsw_m = 16
+# hnsw_ef_construction = 64
+
 # [packs.openai]
 # Optional — every field here has a default, so this whole block can be absent and
 # `weft-openai` still registers and still reports `active`. That is deliberate: a

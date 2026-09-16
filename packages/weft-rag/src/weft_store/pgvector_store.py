@@ -92,7 +92,7 @@ from pgvector.psycopg import register_vector_async
 from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
@@ -114,6 +114,7 @@ from weft_store.contract import (
     SourceStatus,
     SupersedeNarrowsSourcesError,
     UnhandledFilterOpError,
+    VectorIndexKind,
 )
 from weft_store.fields import FieldKind, FieldPath, NodeField, field_for
 from weft_store.rehydrate import rehydrate_ext
@@ -204,6 +205,20 @@ _SAME_TEXT_SEARCH_CONFIG = "SELECT %(found)s::regconfig = %(wanted)s::regconfig 
 #: back off the column at all. A shape this does not match is one this store did not write.
 _GENERATED_TEXT_SEARCH_CONFIG = re.compile(r"to_tsvector\('([^']+)'::regconfig")
 
+#: What `_require_iterative_scan_support` reads to answer "does *this* server have iterative
+#: scans", asked the same way `_INSTALLED_TEXT_SEARCH_CONFIGS` asks its question — of the
+#: database's own catalogue, never assumed from `compose.yaml`'s floating image tag.
+_VECTOR_EXTENSION_VERSION_SQL = "SELECT extversion FROM pg_extension WHERE extname = 'vector'"
+
+#: pgvector added `hnsw.iterative_scan` in 0.8.0 — the release note this store's own default
+#: (`IterativeScan.RELAXED_ORDER`) leans on.
+_ITERATIVE_SCAN_MINIMUM_VERSION = (0, 8, 0)
+
+
+def _pgvector_version(extversion: str) -> tuple[int, ...]:
+    """`extversion` (e.g. `"0.8.6"`), comparable against `_ITERATIVE_SCAN_MINIMUM_VERSION`."""
+    return tuple(int(part) for part in extversion.split("."))
+
 
 class TextQueryMode(StrEnum):
     """How the words of a question are combined into one `tsquery`.
@@ -247,6 +262,23 @@ class TextMode(StrEnum):
 
     FTS = "fts"
     BM25 = "bm25"
+
+
+class IterativeScan(StrEnum):
+    """pgvector's own `hnsw.iterative_scan` GUC values — task **31.9**.
+
+    Pgvector-specific, so this does **not** join `VectorIndexKind`/`VectorPrecision` in
+    `weft_store.contract`'s shared vocabulary: no other backend has this knob, and a value here
+    means nothing to Qdrant's HNSW. `off` scans a fixed candidate set *before* a filter is applied
+    — pgvector's own default, and the one this store does not inherit; see `PgVectorSettings.
+    iterative_scan`. `relaxed_order` and `strict_order` keep scanning until enough post-filter
+    candidates are found, at the cost of letting `relaxed_order` return rows slightly out of
+    distance order — `search_vector` re-sorts by score for exactly that reason.
+    """
+
+    OFF = "off"
+    RELAXED_ORDER = "relaxed_order"
+    STRICT_ORDER = "strict_order"
 
 
 def _add_tsvector_column_sql(config: str) -> sql.Composed:
@@ -464,6 +496,69 @@ class PgVectorSettings(BaseModel):
     #: serving `fts` numbers under a `bm25` label.
     text_mode: TextMode = TextMode.FTS
 
+    #: Which vector index this store builds, if any — task **31.0**/**31.9**.
+    #:
+    #: **`exact` is what every release before this task served, and changing this default would
+    #: re-index every existing corpus on its next connection** — `exact` builds no index at all, so
+    #: a deployment sitting on this default today pays nothing extra and loses nothing by staying
+    #: on it. `hnsw` is the opt-in; `diskann` needs the `vectorscale` extension this backend does
+    #: not yet serve (task 31.11) and is refused by `_reject_unsupported_index` below.
+    index: VectorIndexKind = VectorIndexKind.EXACT
+
+    #: pgvector's `hnsw.iterative_scan` session GUC — see `IterativeScan`.
+    #:
+    #: **`relaxed_order`, not pgvector's own `off` default.** Phase 29 measured `off` on 100,142
+    #: real chunks: recall@10 of 0.003 at 0.1% selectivity, a mean of 0.03 rows out of 10 — a
+    #: selective filter narrows what an HNSW scan sees *after* a fixed candidate set is already
+    #: chosen, so a filtered search returns a short list with no error to notice it by. Inheriting
+    #: the backend's own default is the one choice that makes this store's filtered search quietly
+    #: wrong, so it is not inherited.
+    iterative_scan: IterativeScan = IterativeScan.RELAXED_ORDER
+
+    #: pgvector's own documented HNSW build default for `m` — the max number of connections per
+    #: layer. Ledger task **31.9** turns the knob on; it does not move the number away from what
+    #: pgvector itself ships as a default.
+    hnsw_m: int = 16
+
+    #: pgvector's own documented HNSW build default for `ef_construction` — the size of the
+    #: dynamic candidate list used while building the index. Same footing as `hnsw_m` above.
+    hnsw_ef_construction: int = 64
+
+    @model_validator(mode="after")
+    def _reject_unsupported_index(self) -> "PgVectorSettings":
+        """Refuse an index kind this backend does not serve, naming what it does.
+
+        `01` requirement 5 applied to `index`: `diskann` is a real `VectorIndexKind` — Qdrant does
+        not serve it either, and a later task may make this backend serve it too — but today this
+        store builds nothing for it and would silently fall back to a sequential scan with no
+        index at all, which is a worse failure than refusing by name.
+        """
+        served = (VectorIndexKind.EXACT, VectorIndexKind.HNSW)
+        if self.index not in served:
+            valid_options = tuple(kind.value for kind in served)
+            raise UnsupportedIndexKindError(
+                f"[packs.store] index '{self.index.value}' is not served by pgvector. It serves: "
+                f"{', '.join(valid_options)}.",
+                valid_options=valid_options,
+                pack="weft-store",
+            )
+        return self
+
+
+class UnsupportedIndexKindError(WeftError, UnresolvedNameError):
+    """`[packs.store] index` names a `VectorIndexKind` this backend does not serve.
+
+    `01` requirement 5 applied to a name an operator types into `weft.toml`, on the same footing
+    `UnknownTextSearchConfigError` below already stands on: refused before any connection is
+    opened, naming what was asked for and every kind this backend actually serves.
+
+    Fitness function 12's family: `valid_options` is every `VectorIndexKind` this backend serves.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
+        super().__init__(message, pack=pack)
+        self.valid_options = valid_options
+
 
 class UnknownTextSearchConfigError(WeftError, UnresolvedNameError):
     """`text_search_config` names a configuration this database has not got.
@@ -502,6 +597,19 @@ class Bm25NotAvailableError(WeftError):
     `fts` as a `valid_options` entry would suggest the setting was wrong when it was the deployment
     that was. A plain `WeftError` reaches `weft_cli.exit_codes.exit_code_for`'s `OPERATION_FAILED`
     default, the same footing `TextSearchConfigMismatchError` above already stands on.
+    """
+
+
+class IterativeScanUnsupportedError(WeftError):
+    """`index = "hnsw"` with `iterative_scan` not `"off"`, on a server too old to have it.
+
+    pgvector added iterative scans in 0.8.0; a server older than that has no `hnsw.iterative_scan`
+    GUC at all, so setting it would fail with a driver error naming neither the setting nor why.
+    **Deliberately a plain `WeftError`, not `UnresolvedNameError`**, on the same footing
+    `Bm25NotAvailableError` above stands on: `relaxed_order` and `strict_order` are valid values of
+    `iterative_scan` — it is this server, not the setting, that cannot serve them. Refused at
+    connection time, once, rather than left to fail — or worse, silently return short lists — at
+    every later filtered search.
     """
 
 
@@ -884,6 +992,10 @@ class PgVectorStore:
             if self._text_mode is TextMode.BM25
             else _FTS_TEXT_SCORE_SEMANTICS
         )
+        self._index = settings.index
+        self._iterative_scan = settings.iterative_scan
+        self._hnsw_m = settings.hnsw_m
+        self._hnsw_ef_construction = settings.hnsw_ef_construction
         self._conn: psycopg.AsyncConnection[dict[str, Any]] | None = None
 
     def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
@@ -929,8 +1041,43 @@ class PgVectorStore:
             await cur.execute(_ADD_NODE_PRODUCTIONS_FK)
             await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
             await self._provision_text_index(cur)
+            if self._index is VectorIndexKind.HNSW:
+                await self._require_iterative_scan_support(cur)
+                # Set once per connection, not per query: this store owns `conn` exclusively for
+                # its lifetime (cached on `self._conn` above), so a session GUC set here already
+                # applies to every `search_vector` call the connection ever serves.
+                await cur.execute(
+                    sql.SQL("SET hnsw.iterative_scan = {value}").format(
+                        value=sql.Literal(self._iterative_scan.value)
+                    )
+                )
         self._conn = conn
         return conn
+
+    async def _require_iterative_scan_support(
+        self, cur: psycopg.AsyncCursor[dict[str, Any]]
+    ) -> None:
+        """Refuse `iterative_scan != "off"` on a server whose pgvector predates 0.8.0.
+
+        Read from `pg_extension` rather than assumed from the image tag: `compose.yaml`'s tag
+        floats, so the catalogue is the only honest source of what this server actually has.
+        """
+        if self._iterative_scan is IterativeScan.OFF:
+            return
+        await cur.execute(_VECTOR_EXTENSION_VERSION_SQL)
+        row = await cur.fetchone()
+        version = cast(str, row["extversion"]) if row is not None else "0"
+        if _pgvector_version(version) < _ITERATIVE_SCAN_MINIMUM_VERSION:
+            raise IterativeScanUnsupportedError(
+                f"[packs.store] iterative_scan is '{self._iterative_scan.value}', which pgvector "
+                f"added in 0.8.0, and this server has vector {version}. A filtered HNSW search "
+                f"without iterative scans silently returns fewer rows than you asked for — "
+                f"measured at a mean of 0.03 rows out of 10 at 0.1% selectivity — so this store "
+                f"refuses rather than serving a search whose answer is quietly wrong. Upgrade "
+                f'pgvector to 0.8.0 or later, or set iterative_scan = "off" and accept that a '
+                f"filtered search under hnsw may return fewer results than top_k.",
+                pack="weft-store",
+            )
 
     async def _provision_text_index(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> None:
         """Create `content_tsv` under the configured configuration, or refuse to use this database.
@@ -1393,10 +1540,17 @@ class PgVectorStore:
                 {**values, "vector": PgVector(list(vector.values)), "top_k": top_k},
             )
             rows = await cur.fetchall()
-        return [
+        scored = [
             Scored(value=_row_to_node(row), score=1.0 - cast(float, row["distance"]))
             for row in rows
         ]
+        # Re-sorted rather than trusted from the cursor: `hnsw.iterative_scan = 'relaxed_order'`
+        # (this store's own default — see `PgVectorSettings.iterative_scan`) explicitly permits
+        # pgvector to return rows slightly out of distance order, and every other score this store
+        # returns is already rank-ordered. One return path for every index kind, not a branch on
+        # `self._index` — `ORDER BY` above is still what keeps `LIMIT` cutting the right rows.
+        scored.sort(key=lambda s: s.score, reverse=True)
+        return scored
 
     async def search_text(
         self, text: str, top_k: int, filter: Filter | None = None
@@ -1503,6 +1657,30 @@ class PgVectorStore:
                     pack="weft-store",
                 )
             await cur.execute(_alter_embedding_width_sql(existing[0] if existing else width))
+            if self._index is VectorIndexKind.HNSW:
+                # HNSW cannot be built on a bare `vector` column, and this branch runs exactly
+                # once — the width has just become fixed above, and `committed is not None`
+                # short-circuits every call after it. `IF NOT EXISTS` still guards it: a second
+                # `PgVectorStore` against the same database can race this same branch.
+                await cur.execute(
+                    self._create_hnsw_index_sql(self._hnsw_m, self._hnsw_ef_construction)
+                )
+
+    @staticmethod
+    def _create_hnsw_index_sql(m: int, ef_construction: int) -> sql.Composed:
+        """Build `weft_nodes_embedding_hnsw_idx`, naming `_CREATE_TSVECTOR_INDEX`'s
+        `weft_nodes_content_tsv_idx`. `vector_cosine_ops` matches `<=>`, the operator
+        `search_vector` already orders by.
+
+        `m`/`ef_construction` are DDL, like `_alter_embedding_width_sql`'s `width` — a build
+        parameter, not a bound value — so both go through `sql.Literal` rather than a query
+        parameter, and both are settings an operator wrote into `weft.toml`, not the raw string it
+        was spelled with, so an f-string into SQL is never how either reaches this statement.
+        """
+        return sql.SQL(
+            "CREATE INDEX IF NOT EXISTS weft_nodes_embedding_hnsw_idx ON weft_nodes "
+            "USING hnsw (embedding vector_cosine_ops) WITH (m = {m}, ef_construction = {ef})"
+        ).format(m=sql.Literal(m), ef=sql.Literal(ef_construction))
 
 
 def register(registrar: PackRegistrar, settings: PgVectorSettings) -> None:
