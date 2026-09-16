@@ -160,7 +160,17 @@ the lint cache is cold.** And **a container that is reachable is not one that st
 holds what you put in it** — `L8.30`: a close-review measurement read `nodes now stored: 70` and
 minutes later the table held one row, because a second process in the same session truncated it,
 silently inverting a retrieval comparison. A measurement against `compose.yaml` asserts its own row
-count immediately before *and* after, and nothing else touches that container while a suite runs. A skip is not a pass, and a suite that quietly shrank is
+count immediately before *and* after, and nothing else touches that container while a suite runs.
+**Two more ways to break that, both paid in Phase 29.** *Tearing down* is touching it: a sweep that
+dropped every database matching the harness's own prefix — chosen by reading the database *list*
+rather than the live *backends* — killed two runs belonging to an agent sharing the container, and
+left them `FATAL: database "..." does not exist`, which reads as a bug in their own code rather than
+as interference. Drop the exact names you recorded when you created them; `guard_history_rewrites.py`
+now refuses the pattern form (`L22.47`). And a script that holds a connection open while driving the
+binary against the same database opens it with **`autocommit=True`**: `PgVectorStore` issues DDL on
+every connection, and even the idempotent `IF NOT EXISTS` form takes its table lock, so a harness
+holding a read transaction deadlocks the binary it is measuring — silently, forever (`L22.30`).
+A skip is not a pass, and a suite that quietly shrank is
 the failure mode with no symptom — `poe ci-checks` now fails a run whose `WEFT_DATABASE_URL`
 claims a database that then turns out to be unreachable, or whose skip names no
 `tests/conftest.py` `SkipCause` — a pinned skip total moved seven times in five days and could only

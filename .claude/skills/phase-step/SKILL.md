@@ -131,6 +131,49 @@ against ⚠'s definition and every live ⚠ meant something the definition did n
 a Generator` is checked against documents *anyone* may write — a three-line user pipeline made it
 fail with no message at all. Before you rely on what a thing means, enumerate what it currently is.
 
+**And the two cheapest sentences to write are the two nobody checks: *"it does not exist"* and
+*"that one is unaffected".*** Phase 29 paid for both, an hour apart, in the same session that logged
+the first (`L22.41`, `L22.42`).
+
+*"No record exists"* was written into the ledger as a settled paragraph from **one failed open** —
+a build invoked with `--latency run-29.1.json`, a filename that never existed, returning `[Errno 2]`.
+Six records had been there the whole time under the producing tool's own naming, `lat-<chunks>-<width>.json`,
+all six parsing cleanly. **A claim that an artefact does not exist is a claim about a directory**, so
+it is made by listing the directory — glob for the *producer's* naming pattern, not for the one name
+you happened to try, and quote what came back. This is `L22.21`'s rule where the "search" was a
+single hardcoded path, and a control costs one `glob`.
+
+*"That caller is unaffected"* was written after grepping for a shared helper's call sites, finding
+one, and reasoning that the other harness "indexes at width 64, which is the width it wants". True
+of its corpus, false of the arm under measurement: at `--width 1536` it *overwrites* those vectors,
+and the run died forty minutes later. **When a change to shared state breaks one caller, the others
+are cleared by running them — under the parameters that differ, not the defaults.** A caller that
+consumes the same resource differently under a flag is invisible to a grep for who calls what.
+
+Both are convenient conclusions, which is the tell: a bounded blast radius and a missing file each
+close a question cheaply, and neither was measured.
+
+**And what a plan *shows* you is unexecuted text.** `fix-plans/05`'s exit block displayed the command
+the phase would be judged by — `python scripts/store_bench.py …` — and no such file has ever existed
+in this tree; the harnesses are `bench_latency.py`, `bench_corpus.py`, `bench_widths.py`. It survived
+the writing of all thirteen tasks and was found by the first reader who tried to *act* on it
+(`L22.43`). Its numbers were labelled "the shape of the output, not a prediction", so nothing about
+it read as a claim — but the **path** was a claim, and a path either resolves or it does not. Check
+every `scripts/…`, `tests/…` or `packages/…` path a document names before building on it.
+
+**And an amending document that says *"the other's exit stands"* has copied it without reading it**
+(`L22.44`). `fix-plans/07` amends `05` item by item and defers wholesale on the exit — so two clauses
+`07` never examined were re-adopted, one of them already unsatisfiable (`L22.26`/`L22.26`'s embedder
+width) and one already discharged by a later task. `29.5` opened with its two governing documents
+disagreeing. A deferral records no act of reading: restate the clauses you leave unchanged, or name
+them individually as unchanged with the date you last read them.
+
+**And when you record a size, count the set, do not sum over the join** (`L22.34`). Per-paper chunk
+counts taken over `unnest(sources)` were summed into a corpus total that was 301 too high, because a
+node shared by two papers counts once in the set and twice in the sum. `count(DISTINCT id)`, never a
+sum of per-group counts — any fan-out makes the sum an upper bound wearing a count's clothes. It
+recurred in the same phase in the *prefix* rule, where a target of 100,000 selected 99,724.
+
 **And two ways of enumerating that lie to you, both paid for at Phase 21a's close.**
 *"Who writes this?"* answered by `grep` has a blind spot **the size of every default**:
 `SourceStatus.ACTIVE` has no production writer anywhere — a grep across `packages/` returns test

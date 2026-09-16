@@ -173,6 +173,49 @@ def test_at_least_one_failure_mode_is_derived_from_the_code() -> None:
     )
 
 
+#: Error classes that share a name with another class, deliberately or historically. The set is a
+#: ratchet: a *fourth* collision fails the floor below, because `_derived_failure_set()` keys on
+#: `cls.__name__` and therefore cannot tell two subjects apart once they share one. `L22.45`.
+#:
+#: - `VectorWidthMismatchError` — **by design**, settled at G22: `weft_store.pgvector_store` and
+#:   `weft_qdrant.store` refuse a width mismatch under one name so a stranger reading either
+#:   backend's failure reads the same sentence (`docs/02-extension-model.md`, the G22 narrowing).
+#: - `MissingApiKeyError`, `EmptyCorpusError` — historical, found by this floor when it was
+#:   written; neither was noticed before, which is the argument for the floor.
+NAME_COLLISION_WAIVER: Final[frozenset[str]] = frozenset(
+    {"VectorWidthMismatchError", "MissingApiKeyError", "EmptyCorpusError"}
+)
+
+
+def test_no_two_error_classes_share_a_name_outside_the_waiver() -> None:
+    # `L22.45`: the derived set is keyed on the bare class name, so two classes sharing one
+    # collapse into a single key — and coverage then holds for both while only one is checked.
+    # Either direction of this file's comparison can be satisfied by the survivor if a class or
+    # a heading is later deleted. Measured when written: 163 classes, 160 names, 3 collisions,
+    # all waived, so this arrives green and fails on the fourth.
+    #
+    # The walk first, and not because it is tidy: `_all_weft_error_subclasses()` reads
+    # `WeftError.__subclasses__()`, which is populated by importing the tree. Without this call
+    # the set is whatever some *other* test in this process happened to import, and the first
+    # plant of this assertion — waiver emptied, three known collisions present — did not fire.
+    # A check that passes because a sibling ran first is not a check (`phase-step` → *Finish* 3).
+    _import_every_first_party_module()
+    by_name: dict[str, list[str]] = {}
+    for cls in _all_weft_error_subclasses():
+        by_name.setdefault(cls.__name__, []).append(cls.__module__)
+    collisions = {
+        name: sorted(modules)
+        for name, modules in by_name.items()
+        if len(modules) > 1 and name not in NAME_COLLISION_WAIVER
+    }
+    assert not collisions, (
+        f"these error classes share a name with another class: {collisions}. "
+        "This file keys coverage on the bare class name, so both are satisfied by one "
+        "`### `Name`` heading and a later deletion of either would go unnoticed. Rename one, "
+        "or add it to NAME_COLLISION_WAIVER saying why the shared name is deliberate."
+    )
+
+
 def test_the_derived_set_names_classes_actually_defined_in_the_tree() -> None:
     # A sample, not the whole 22+5 — enough to catch the walk silently landing on the wrong
     # packages (say, picking up nothing because an import path changed) without hand-listing

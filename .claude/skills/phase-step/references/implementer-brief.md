@@ -272,7 +272,7 @@ A branch with no nameable value is a decision still owed, not a constraint. *Alr
 read once per constrained branch, never once per file.
 
 
-## Before you send: fourteen checks a brief fails silently
+## Before you send: seventeen checks a brief fails silently
 
 Phase 10 filed **six** entries that are one sentence — *the brief was wrong in a way the dispatcher
 could have checked before sending it*. That density is the finding: none of these is caught by the
@@ -407,6 +407,49 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     resolved inside method bodies. **This one was paid twice in one session**, the second time an
     hour after being written down, by the dispatcher rather than the agent — so it is a check on
     your own edits too, not only on what you ask for.
+
+    **And it is not only code, and not only briefs** — `L22.38`, twice in Phase 29. First an
+    implementer added four definitions to `pgvector_store.py` where each belonged, went red, and
+    **relocated every one to the end of the module and the class** to satisfy citations in files
+    it was forbidden to edit — a placement nobody chose. Then, at the phase close, 29 lines of
+    *prose* added to `docs/02-extension-model.md`'s store-contract section pushed
+    `docs/07-extension-cost.md:210 "The trust model"`'s citation of
+    `02-extension-model.md:1350 "# weft.yaml"` past its window — it had read 1321. **Choosing that
+    fragment is itself the lesson twice over**: the first repair quoted the part of line 210 that
+    *is* a citation, backticks and escaped quotes included, and FF17 read a fragment belonging to
+    no file at all. When the line you cite is a line about citations, quote the plain prose on it. No agent, no brief, no code. So read this as a check on **any substantial insertion into
+    a cited file**, your own paragraphs included. The saving grace both times was FF17's own
+    message, which names the citing file, the stale number, the quoted fragment *and* the line the
+    fragment is now on — which turns the repair into one digit. Do not lose that when touching it.
+
+15. **Does the brief tell the agent to configure a plugin — and has one document with that `with:`
+    block ever been run?** `L22.26`. A fix plan said the latency corpus is embedded "at dimension
+    1536 and at 64", citing `hash_embedder.py`'s docstring, and a brief inherited it. `HashEmbedder`
+    declares no `config_model`, so **any** `with:` on a hash stage exits 4 — while `HashEmbedderConfig`
+    exists and the module docstring describes `dimension` as real. A config class existing, and a
+    docstring describing it, is not the plugin accepting it. Run one document through
+    `weft pipeline validate` or `weft index` before the brief mandates the setting. `L9.42`'s
+    shape — the mechanism exists and the capability does not — reaching a plan and a brief.
+
+16. **Is every shape the brief pins correct at the task's size, not at the fixture's?** `L22.28`.
+    A red test pinned an in-memory structure sized for three rows against a task whose real input
+    is 100,000 × 3072 — correct at fixture size, impossible at task size, and a specification
+    defect rather than an implementation one. Multiply every type the red test pins through the
+    task's own stated size before sending. The same arithmetic catches the opposite error: a
+    memory-mapped read written for the real size and asserted against three floats.
+
+17. **Is the red state you describe the *whole* red state, and is every `path:line` in the brief
+    written in FF17's form?** Two entries, one habit. `L22.27`: a brief stated the red state from
+    pyright alone while `ruff` was red too, so the agent's first green was a surprise to both of
+    us — read the red state from **every** step of `ci-no-tests` against the red files, not from
+    the one step the test was designed to fail. `L22.32`: a brief dictated a docstring containing
+    `bench_diskann.py:582 "probe = _expression_probe(conn)"` with no quoted fragment, FF17 refused
+    it, and the agent could not fix it
+    without editing prose the brief had fixed. **The brief's prose becomes the tree's prose**, so
+    any `path:line` an agent may copy is written `path:line "text from that line"`. And `L22.29`
+    and `L22.35` are the same habit once more: when a brief asserts what a command prints, or names
+    a subcommand as "checked by running", run it once and paste the output — help text and a
+    docstring are `L12.11`'s fixture that claims to be real.
 
 14. **If the brief rejects a constraint because it would break N existing fixtures, price both
     sides.** `L14.5`. That breakage is the constraint *doing its job*. `27.1` dropped a foreign

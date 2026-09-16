@@ -59,6 +59,34 @@ BLOCKED = (
         "say what is wrong with it.",
     ),
     (
+        # **`docs/internal/lessons.md` `L22.47`.** Not git, and that is the point: the loss this
+        # guard exists for is "work nobody can recover", and a throwaway database mid-measurement
+        # is exactly that. Phase 29 swept `DROP DATABASE` over every name matching the harness's
+        # own prefix, after checking the database *list* rather than the live *backends*, and
+        # killed two runs belonging to a dispatched agent sharing the container. The failure it
+        # produced — `FATAL: database "..." does not exist` — reads as an application defect, so
+        # the cost is not only the lost run but the time spent disbelieving the tool.
+        #
+        # Matched on the pattern, never on the drop: `DROP DATABASE weft_bench_lat_10000_64_x`
+        # names what the caller created and is untouched. It is the `LIKE`/glob *sweep* that
+        # cannot know whose database it matched.
+        # The flags sit once, at the very front: `(?is)` on the second alternation branch is a
+        # DeprecationWarning today and an error on a later Python, and this directory runs under
+        # bare `python3` outside `ci-checks`, so nothing else would have said so.
+        re.compile(
+            r"(?is)"
+            r"(?:(?:DROP\s+DATABASE|pg_terminate_backend)\b(?:(?!;).)*?"
+            r"\bdatname\b(?:(?!;).)*?\bLIKE\b"
+            r"|\bdatname\s+LIKE\b(?:(?!;).)*?(?:DROP\s+DATABASE|pg_terminate_backend))"
+        ),
+        "dropping or terminating by a `datname LIKE` pattern takes every database the pattern "
+        "matches, including ones another process is still measuring against — and the error it "
+        'leaves them, `FATAL: database "..." does not exist`, looks exactly like a bug in their '
+        "own code. Drop the exact names you recorded when you created them. If you must sweep, "
+        "first read `pg_stat_activity` for live backends and refuse the ones that have any, "
+        "rather than terminating them to take the resource.",
+    ),
+    (
         re.compile(_AT_COMMAND_POSITION + r"git\s+clean\b"),
         "`git clean` deletes untracked files, which in this tree includes reading material kept "
         "deliberately out of version control. Delete named paths instead, having looked at them.",
@@ -66,7 +94,9 @@ BLOCKED = (
 )
 
 REASON = (
-    "Refused: `{command}` is one of the four git commands this repository does not run.\n\n"
+    "Refused: `{command}` is one of the commands this repository does not run, because each "
+    "destroys work that exists nowhere else — four git commands, and a database sweep matched "
+    "by name pattern.\n\n"
     "{advice}\n\n"
     "This is `.claude/agents/weft-implementer.md`'s standing prohibition, enforced rather than "
     "stated: it was read and overridden once by generic tool guidance (`docs/internal/lessons.md` "
@@ -151,6 +181,35 @@ def _self_test():
         ('echo "a\\|' + name + '\\|b"', False, "a quoted alternation is still prose"),
         ("cat > /dev/null <<'EOF'\nprose a\\|" + name + "\\|b\nEOF\n", False, "a heredoc is prose"),
         ("ls && " + reset, True, "a real second command is still refused"),
+        # `L22.47`. Assembled, like the names above, so this file does not become a member of
+        # the population it checks — written literally, every grep over this directory would
+        # refuse.
+        (
+            # noqa is scoped to this line, not the directory: `S608` is right to fire on a
+            # concatenated SQL string, and it cannot tell a *probe* from a query. This one is
+            # handed to `offending()` to prove the guard refuses it and is never executed. It is
+            # assembled rather than written out for the same reason as the names above — written
+            # literally, this file would join the population it checks (`L12.8`). Widening
+            # `pyproject.toml`'s `.claude/hooks/*` entry to cover `S608` would suppress a real
+            # rule across every hook for a reason about Python versions, which is `L8.37`'s
+            # defect: an ignore wider than the sentence justifying it.
+            "SELECT "  # noqa: S608
+            + "pg_terminate_backend(pid) FROM pg_stat_activity WHERE "
+            + "datname "
+            + "LIKE 'weft_bench%'",
+            True,
+            "terminating backends by a name pattern is refused",
+        ),
+        (
+            "DROP " + "DATABASE weft_bench_lat_10000_64_20260916012637",
+            False,
+            "dropping one database by its exact name is what the caller created, and is allowed",
+        ),
+        (
+            'echo "do not sweep with ' + "DROP " + "DATABASE ... datname " + 'LIKE"',
+            False,
+            "a quoted mention of the sweep is prose",
+        ),
     )
     failures = []
     for command, should_refuse, why in cases:
