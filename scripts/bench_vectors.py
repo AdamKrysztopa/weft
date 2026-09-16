@@ -1421,6 +1421,16 @@ def cmd_load(args: argparse.Namespace) -> int:
             )
             raise ValueError(message)
 
+        with conn.cursor() as cur:
+            # Provisioning committed the column to the `hash` embedder's width (64); the table is
+            # empty post-TRUNCATE, so retyping to the set's own width is a metadata-only rewrite.
+            cur.execute(
+                sql.SQL("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector({n})").format(
+                    n=sql.Literal(vector_set.meta.width)
+                )
+            )
+        conn.commit()
+
         _copy_table(conn, _table_named(vector_set, "weft_sources"))
 
         nodes_table = _table_named(vector_set, "weft_nodes")

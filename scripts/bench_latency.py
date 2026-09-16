@@ -300,6 +300,14 @@ def _versions(conn: psycopg.Connection) -> tuple[str, str]:
     return str(extension[0]), str(server[0])
 
 
+def _debare_column_type(conn: psycopg.Connection) -> None:
+    """29.3's store now commits `embedding` to `vector(64)` at first write; strip the width back
+    to bare so this harness's own timed ALTER still measures a bare->typed rewrite, not a no-op."""
+    with conn.cursor() as cur:
+        cur.execute(sql.SQL("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector"))
+    conn.commit()
+
+
 def _replace_with_synthetic(conn: psycopg.Connection, *, width: int) -> None:
     with conn.cursor() as cur:
         cur.execute("SELECT id FROM weft_nodes ORDER BY id")
@@ -580,6 +588,8 @@ def main(argv: list[str] | None = None) -> int:
                 assert_rows(label="indexed", expected=arguments.chunks, found=_row_count(conn))
                 pgvector_version, server_version = _versions(conn)
                 print(f"pgvector {pgvector_version}, server {server_version}")
+
+                _debare_column_type(conn)
 
                 synthetic = arguments.width != 64
                 if synthetic:
