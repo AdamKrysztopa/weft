@@ -64,6 +64,7 @@ from weft_store.fields import (
     parse_field_path,
 )
 from weft_store.pgvector_store import (
+    DiskannNotAvailableError,
     IterativeScan,
     MixedVectorWidthError,
     PgVectorSettings,
@@ -122,6 +123,7 @@ __all__ = [
     "STORE_CONTRACT_VERSION",
     "STORE_ROLE",
     "Cursor",
+    "DiskannNotAvailableError",
     "FieldKind",
     "FieldPath",
     "Filter",

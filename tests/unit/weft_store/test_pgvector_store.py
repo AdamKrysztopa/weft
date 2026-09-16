@@ -58,6 +58,7 @@ from weft_store.contract import (
 )
 from weft_store.pgvector_store import (
     Bm25NotAvailableError,
+    DiskannNotAvailableError,
     IterativeScan,
     MixedVectorWidthError,
     PgVectorSettings,
@@ -1055,19 +1056,29 @@ def test_the_index_kind_defaults_to_the_exact_scan_this_store_has_always_done() 
     assert settings.index is VectorIndexKind.EXACT
 
 
-def test_an_index_kind_pgvector_does_not_serve_is_refused_naming_what_it_does() -> None:
-    # Arrange / Act / Assert — `VectorIndexKind` is one vocabulary across the store family and no
-    # backend serves all of it. `diskann` needs the `vectorscale` extension, which task 31.11
-    # adds; until then this backend serves two kinds and says which.
-    with pytest.raises(UnsupportedIndexKindError) as raised:
-        PgVectorSettings(dsn=SecretStr(_DSN), index=VectorIndexKind.DISKANN)
+def test_pgvector_now_serves_every_index_kind_the_vocabulary_names() -> None:
+    """**Superseded at task 31.11, and the supersession is the point.**
 
-    message = str(raised.value)
-    assert "diskann" in message
-    assert "exact" in message
-    assert "hnsw" in message
-    # Requirement 5: the options are a structural field a renderer can format, never only prose.
-    assert raised.value.valid_options == ("exact", "hnsw")
+    This test asserted that `diskann` is refused at settings validation — task `31.9`'s
+    behaviour, with its own comment already anticipating that `31.11` would change it. `31.11`
+    moved that refusal *out of the settings and into the database*, because whether `diskann`
+    works is a fact about the deployment rather than about `weft.toml`, so the old assertion and
+    the new one were mutually exclusive: no implementation could satisfy both.
+
+    What replaces it records the consequence honestly. pgvector now serves **every** member of
+    `VectorIndexKind`, so `_reject_unsupported_index` has nothing left to refuse and **cannot
+    fire today**. The validator stays for a member added to the shared vocabulary later, on the
+    same footing as Qdrant's `UnsupportedPrecisionError` — defined for the shape, unreachable
+    until the vocabulary grows — and this assertion is what makes that claim checkable rather
+    than assumed. It fails the moment a member is added that this backend has no answer for,
+    which is exactly when somebody needs to decide what that answer is.
+    """
+    # Arrange / Act — every kind constructs; none is refused at settings validation.
+    for kind in VectorIndexKind:
+        assert PgVectorSettings(dsn=SecretStr(_DSN), index=kind).index is kind
+
+    # Assert — and the refusal machinery is still there, for a member that does not exist yet.
+    assert issubclass(UnsupportedIndexKindError, UnresolvedNameError)
 
 
 def test_iterative_scan_defaults_to_relaxed_order_because_off_loses_rows_silently() -> None:
@@ -1240,6 +1251,65 @@ def test_a_width_past_the_compressed_index_ceiling_is_refused_by_name(
     assert str(ceiling + 1) in message
     assert precision.value in message
     assert raised.value.valid_options == ("float32",)
+
+
+def test_diskann_is_no_longer_refused_at_settings_validation() -> None:
+    """Task **31.11** moves the `diskann` refusal from the settings to the database.
+
+    `31.9` refused it at settings validation because this backend served nothing for it. That is
+    now the wrong place: whether `diskann` works is a fact about **this deployment** — does its
+    Postgres carry `vectorscale`? — and a setting that is valid on one database and not on another
+    cannot honestly be refused by reading `weft.toml` alone. `Bm25NotAvailableError` already draws
+    this exact line for `text_mode = "bm25"`, and this follows it.
+    """
+    # Arrange / Act / Assert — constructing the settings is fine; the deployment decides.
+    assert PgVectorSettings(dsn=SecretStr(_DSN), index=VectorIndexKind.DISKANN).index is (
+        VectorIndexKind.DISKANN
+    )
+
+
+async def test_diskann_on_a_database_without_vectorscale_is_refused_naming_the_way_out(
+    fresh_database: str,
+) -> None:
+    """The refusal half of **31.11**, on the floor image — which genuinely has no `vectorscale`.
+
+    Measured on the running container: `SELECT count(*) FROM pg_available_extensions WHERE name =
+    'vectorscale'` returns **0**. So this is not a mocked absence; it is the deployment every
+    developer of this project actually has, and the one an operator most likely hits.
+
+    **Refused before any write**, like `Bm25NotAvailableError` and for the same reason: an
+    extension that is not *available* cannot be created no matter what runs next, so asking the
+    catalogue first is the honest question. Falling through would build no index and silently
+    serve a sequential scan under a name that promises otherwise.
+    """
+    # Arrange
+    store = PgVectorStore(
+        PgVectorSettings(dsn=SecretStr(fresh_database), index=VectorIndexKind.DISKANN)
+    )
+
+    # Act / Assert — the first embedded write is where an index would be provisioned.
+    with pytest.raises(DiskannNotAvailableError) as raised:
+        await store.add([_embedded("first", 3)])
+
+    message = str(raised.value)
+    assert "vectorscale" in message
+    # The way out is a compose profile, not a setting change — name it, or the operator is told
+    # what is wrong and not what to do about it.
+    assert "bm25" in message
+    assert "hnsw" in message, "an operator staying on this image needs the alternative named"
+
+    # And nothing was written: the refusal precedes the insert, so the corpus is untouched.
+    assert await store.count() == 0
+    await store.aclose()
+
+
+def test_the_diskann_refusal_is_about_the_deployment_not_the_setting() -> None:
+    # Arrange / Act / Assert — `Bm25NotAvailableError`'s own reasoning, applied one extension
+    # over: every `UnresolvedNameError` carries `valid_options` naming what the operator could
+    # have typed instead, and `diskann` *is* a valid `VectorIndexKind`. Naming `hnsw` as a
+    # `valid_options` entry would say the setting was wrong when the deployment was.
+    assert not issubclass(DiskannNotAvailableError, UnresolvedNameError)
+    assert issubclass(DiskannNotAvailableError, WeftError)
 
 
 def test_float32_carries_no_index_width_ceiling_at_all() -> None:

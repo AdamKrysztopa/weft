@@ -1557,6 +1557,45 @@ upgrade to the floor because its image is 3.86 GB against the floor's 640 MB —
 carries the whole argument. If you do not want that, `text_mode = "fts"` is the honest default and
 is what every Weft corpus ran on before this setting existed.
 
+### `DiskannNotAvailableError`
+
+**What it looks like** — `[packs.store] index` asks for `diskann` on a database whose Postgres has
+no `vectorscale`:
+
+```text
+DiskannNotAvailableError: [packs.store] index asks for 'diskann', but this database has no
+'vectorscale' extension available to install — StreamingDiskANN ships in
+timescale/timescaledb-ha, not in the pgvector floor image. Two ways out: run `docker compose
+--profile bm25 up -d` for a PostgreSQL 17 carrying vectorscale (port 5434) and point dsn at it;
+or set index back to 'hnsw', which this database can serve and which Weft measured at recall@10
+0.994 against the exact scan.
+```
+
+Raised on the store's first embedded write, before any index is built and before the batch is
+inserted — an extension that is not *available* cannot be created no matter what runs next, so the
+catalogue is asked first.
+
+**Why this is not refused when you write it into `weft.toml`.** Until task `31.11` it was: the
+setting itself was rejected, because no pgvector deployment served `diskann`. That is the wrong
+place for the refusal, and the distinction matters. `diskann` is a **valid** `VectorIndexKind` —
+what varies is whether *this deployment* can serve it. A setting that is correct against one
+database and wrong against another cannot honestly be judged by reading a configuration file, so
+the answer comes from the database. `Bm25NotAvailableError` above draws the identical line for
+`text_mode`, and for the identical reason.
+
+It is therefore a plain error carrying no *valid options*: naming `hnsw` as an alternative you
+could have typed would say your setting was wrong, when your deployment was.
+
+**What to do.** Either move to an image that carries the extension — `docker compose --profile
+bm25 up -d` starts a PostgreSQL 17 on **port 5434** with both pgvector and vectorscale, and it is
+behind a profile because that image is 3.86 GB against the floor's 640 MB — or stay on `hnsw`.
+
+**Before you reach for the bigger image, know what it buys.** Weft measured both on 100,142 real
+chunks: diskann reaches recall@10 **0.99** unfiltered at 2.8 ms p95, in a 68 MB index built in
+83.6 s. But under a filter it degrades sharply — **0.6885 at 0.1% selectivity** — while HNSW with
+`iterative_scan = "relaxed_order"` holds **0.89** there. If your searches carry filters, the floor
+image's `hnsw` is the better answer as well as the cheaper one.
+
 ### `UnknownTextSearchConfigError`
 
 **What it looks like** — `[packs.store] text_search_config` names something this database has
