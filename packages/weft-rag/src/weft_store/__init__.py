@@ -48,6 +48,8 @@ from weft_store.contract import (
     SupersedeNarrowsSourcesError,
     TextSearch,
     UnhandledFilterOpError,
+    VectorIndexKind,
+    VectorPrecision,
     VectorSearch,
 )
 from weft_store.fields import (
@@ -145,6 +147,8 @@ __all__ = [
     "TextSearch",
     "UnaddressableFieldError",
     "UnhandledFilterOpError",
+    "VectorIndexKind",
+    "VectorPrecision",
     "VectorSearch",
     "VectorWidthMismatchError",
     "field_for",

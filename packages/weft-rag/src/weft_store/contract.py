@@ -143,7 +143,9 @@ from weft_kernel.runner import Stage
 #: **`2.4.0` → `2.5.0` at task 27.1, the same shape again.** `Removed` gains `narrowed_count`,
 #: an optional integer defaulting to `0` — minor for the caller, minor for the implementer.
 #: **`2.5.0` → `2.6.0` at task 17.1** — `SourceStatus` gains `INDEXING`, minor for both audiences.
-STORE_CONTRACT_VERSION = "2.6.0"
+#: **`2.6.0` → `2.7.0` at task 31.0** — `VectorIndexKind` and `VectorPrecision` publish a
+#: vocabulary, minor for both audiences: no Protocol gained a member.
+STORE_CONTRACT_VERSION = "2.7.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -312,6 +314,36 @@ class Removed(BaseModel):
                 "'node_count'; report every other kind under its own name"
             )
         return self
+
+
+class VectorIndexKind(StrEnum):
+    """The closed vocabulary of index kinds a store may serve — task **31.0**. `Enum` per the
+    project's string-constant rule: an index kind is configuration, not a class, so a value
+    outside this set has to be refusable by name rather than handed to a backend that
+    interprets or silently ignores it.
+    """
+
+    EXACT = "exact"
+    HNSW = "hnsw"
+    #: What ships under this name is vectorscale's streaming variant, with its own default
+    #: storage layout (`SbqCompression`) — **not** the SSD-resident design of the DiskANN paper
+    #: (Subramanya et al., NeurIPS 2019). The name is deliberate regardless: it is the access
+    #: method the extension registers, and which backend serves it is a later task's concern.
+    DISKANN = "diskann"
+
+
+class VectorPrecision(StrEnum):
+    """The closed vocabulary of vector precisions a store may serve — task **31.0**. This is a
+    **union** across backends, not a claim that both serve all four: pgvector's HNSW indexes
+    `vector`, `halfvec` and `bit` and has no `int8`; Qdrant has `float16` as a datatype plus
+    `int8` scalar, binary and product quantization. The two overlap on `float32` and `binary`
+    only — which backend serves which subset is not decided here.
+    """
+
+    FLOAT32 = "float32"
+    FLOAT16 = "float16"
+    INT8 = "int8"
+    BINARY = "binary"
 
 
 class FilterOp(StrEnum):

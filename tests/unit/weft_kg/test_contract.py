@@ -194,7 +194,11 @@ def test_the_contract_version_is_its_own_and_moves_nothing_in_the_store_family()
     # and `11.9` added `ReconcileReport.abstained` — the last of those a change to the store
     # family made by a task of this pack's, through the family's own contract, which is exactly
     # the direction `11.4`'s deferral row says is allowed while promotion is not.
-    assert STORE_CONTRACT_VERSION == "2.6.0"
+    # It reads `2.7.0` since ledger `31.0` published `VectorIndexKind` and `VectorPrecision`
+    # into the store family's vocabulary — again a store-family change made without this pack,
+    # and again one that moves nothing about `GraphTraversal`, which is the whole point of
+    # asserting both numbers on adjacent lines.
+    assert STORE_CONTRACT_VERSION == "2.7.0"
 
 
 def test_a_graph_backend_with_no_vectors_is_a_whole_graph_traversal() -> None:

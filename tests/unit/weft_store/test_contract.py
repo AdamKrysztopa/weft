@@ -22,6 +22,7 @@ from collections.abc import AsyncIterator, Sequence
 import pytest
 from pydantic import ValidationError
 
+from weft_engine.contract_reference import capability_siblings
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
@@ -44,6 +45,8 @@ from weft_store.contract import (
     Scored,
     SourceRecord,
     TextSearch,
+    VectorIndexKind,
+    VectorPrecision,
     VectorSearch,
 )
 
@@ -350,7 +353,15 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # G9's table makes an added member of a returned enum minor rather than major because nothing
     # a caller already handles stops being returned. Minor for an implementer too: no Protocol
     # grew a method, and `SourceRecord.status` already existed with a default.
-    assert STORE_CONTRACT_VERSION == "2.6.0"
+    # Task **31.0** moves it to `2.7.0`, and it is the first of these to move for a *vocabulary*
+    # rather than for a field, an enum member or a Protocol: `VectorIndexKind` and
+    # `VectorPrecision` join the published surface so an index kind can be named in settings and
+    # refused by name. Minor for a caller — every existing name is untouched and nothing that
+    # already read the family stops working — and minor for an implementer, because neither enum
+    # is a member of any Protocol yet, so nothing already satisfying the family is asked for
+    # anything new. The maximum of two minors is a minor. Fitness function 6 binds this to the
+    # publishing distribution, and `weft-rag` is `2.7.0`, so the bump stays inside its bound.
+    assert STORE_CONTRACT_VERSION == "2.7.0"
 
 
 def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:
@@ -468,3 +479,61 @@ def test_an_ordered_comparison_against_a_fractional_bound_is_the_case_ranges_exi
 
     # Assert
     assert built.value == 0.8
+
+
+def test_the_index_kinds_a_store_may_serve_are_one_closed_vocabulary() -> None:
+    # Arrange / Act / Assert — task 31.0 names exactly these three. The vocabulary being
+    # *closed* is the property: an index kind is configuration rather than a class, so a
+    # value outside this set has to be refusable by name rather than handed to a backend
+    # that will interpret it or ignore it.
+    assert {kind.value for kind in VectorIndexKind} == {"exact", "hnsw", "diskann"}
+
+
+def test_the_vector_precisions_a_store_may_serve_are_one_closed_vocabulary() -> None:
+    # Arrange / Act / Assert — the two backends overlap on only `float32` and `binary`, with
+    # `float16` reached by different mechanisms and `int8` served by Qdrant alone, so this is
+    # the union the family names and never a claim that both backends serve all four.
+    assert {precision.value for precision in VectorPrecision} == {
+        "float32",
+        "float16",
+        "int8",
+        "binary",
+    }
+
+
+def test_each_vocabulary_is_a_str_enum_so_a_settings_value_is_its_own_string() -> None:
+    # Arrange / Act / Assert — `Enum` over `Literal` per the project's string-constant rule,
+    # and `StrEnum` specifically so a `[packs.store]` value parses to the member and renders
+    # back as the string an operator wrote.
+    assert VectorIndexKind("hnsw") is VectorIndexKind.HNSW
+    assert VectorPrecision("binary") is VectorPrecision.BINARY
+    assert f"{VectorIndexKind.HNSW}" == "hnsw"
+    assert f"{VectorPrecision.BINARY}" == "binary"
+
+
+def test_both_vocabularies_are_published_by_the_pack_not_only_by_its_contract_module() -> None:
+    # Arrange — `31.0`'s property is that `weft_store` *publishes* these beside the
+    # store-family Protocols; a name importable only from the submodule is not published.
+    import weft_store
+
+    # Act / Assert
+    assert weft_store.VectorIndexKind is VectorIndexKind
+    assert weft_store.VectorPrecision is VectorPrecision
+    assert "VectorIndexKind" in weft_store.__all__
+    assert "VectorPrecision" in weft_store.__all__
+
+
+def test_publishing_a_vocabulary_does_not_make_it_a_capability_sibling() -> None:
+    # Arrange — the store family's capabilities are derived by `isinstance` over what
+    # `weft_store.__all__` exports (`weft_engine.run_services._advertised`). A `StrEnum` is a
+    # `type`, so it would reach that `isinstance` call if the sibling filter ever stopped
+    # requiring a Protocol. This asserts the *filter*, not the enum: a capability is a fact
+    # about a Protocol, and a vocabulary is not a capability.
+    siblings = capability_siblings(NodeStore)
+
+    # Act / Assert
+    assert VectorIndexKind not in siblings
+    assert VectorPrecision not in siblings
+    # Control — without this the assertions above pass against an empty tuple, which would
+    # mean the filter had stopped finding anything rather than correctly excluding two enums.
+    assert VectorSearch in siblings
