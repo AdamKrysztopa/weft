@@ -15,6 +15,7 @@ from typing import Final
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 PYPROJECT: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "pyproject.toml"
+LOCKFILE: Final[Path] = REPO_ROOT / "uv.lock"
 PINNED_SERVER_PAGES: Final[tuple[Path, ...]] = (
     REPO_ROOT / "compose.yaml",
     REPO_ROOT / "docs" / "REPRODUCING.md",
@@ -23,6 +24,21 @@ PINNED_SERVER_PAGES: Final[tuple[Path, ...]] = (
 _SERVER: Final[re.Pattern[str]] = re.compile(r"qdrant/qdrant:v(\d+)\.(\d+)\.\d+")
 _FLOOR: Final[re.Pattern[str]] = re.compile(r">=\s*(\d+)\.(\d+)")
 _CEILING: Final[re.Pattern[str]] = re.compile(r"<\s*(\d+)\.(\d+)")
+
+#: The version `uv` actually resolved, which is the only statement of the pin that says what a
+#: fresh `uv sync` will really install. Ledger task **31.4**.
+_LOCK_RESOLVED: Final[re.Pattern[str]] = re.compile(
+    r'name = "qdrant-client"\nversion = "(\d+)\.(\d+)\.\d+"'
+)
+
+
+def one_minor_apart(client: tuple[int, int], server: tuple[int, int]) -> bool:
+    """The client's own compatibility rule: majors match, minors differ by at most one.
+
+    Stated here rather than imported from the client, deliberately: importing the rule from the
+    package whose version is under test is `L5.6`'s one-source comparison, which cannot disagree.
+    """
+    return client[0] == server[0] and abs(client[1] - server[1]) <= 1
 
 
 def client_specifiers(pyproject_text: str) -> list[str]:
@@ -93,3 +109,44 @@ def test_the_check_can_actually_fail() -> None:
     assert unbounded == ["'qdrant-client>=1.12' has no upper bound"]
     assert too_new == ["'qdrant-client>=1.12,<1.20' allows clients past 1.13"]
     assert bounded == []
+
+
+def test_the_lockfile_resolves_a_client_the_pinned_server_accepts() -> None:
+    """Ledger task **31.4** — the fifth statement of the pin, and the one nothing read.
+
+    `test_every_page_pins_the_same_server` walks `compose.yaml` and `REPRODUCING.md`;
+    `client_specifiers` walks `pyproject.toml`'s extras. **`uv.lock` was covered by neither**,
+    and it is the only one of the five that says what a fresh `uv sync` will actually install —
+    a specifier describes a range, a lockfile names a version. `R22.13` is precisely this defect
+    arriving through a door that was still unwatched: the extras' range was correct and the
+    resolution was not.
+    """
+    # Arrange
+    compose = (REPO_ROOT / "compose.yaml").read_text(encoding="utf-8")
+    pinned = _SERVER.search(compose)
+    assert pinned is not None
+    server = (int(pinned[1]), int(pinned[2]))
+
+    # Act
+    resolved = _LOCK_RESOLVED.search(LOCKFILE.read_text(encoding="utf-8"))
+
+    # Assert
+    assert resolved is not None, (
+        "uv.lock names no resolved qdrant-client, so this check compares nothing — the floor "
+        "`08` §3 requires before a coverage check may pass."
+    )
+    client = (int(resolved[1]), int(resolved[2]))
+    assert one_minor_apart(client, server), (
+        f"uv.lock resolves qdrant-client {client[0]}.{client[1]}.x against server "
+        f"{server[0]}.{server[1]}.x, which the client refuses: majors must match and minors "
+        f"differ by at most one."
+    )
+
+
+def test_the_lockfile_check_can_actually_fail() -> None:
+    # Arrange / Act / Assert — the assertion above passes today (client 1.13 against server
+    # 1.12), so without this its green says nothing about whether it is looking. `R22.13`'s own
+    # resolution is the disagreeing case.
+    assert one_minor_apart((1, 13), (1, 12))
+    assert not one_minor_apart((1, 19), (1, 12))
+    assert not one_minor_apart((2, 12), (1, 12))
