@@ -1110,6 +1110,8 @@ async def index_and_score(
     reuse_index: bool,
     refuse_foreign_documents: bool = False,
     experiment: ExperimentRun | None = None,
+    reprocess: bool = True,
+    batch_size: int | None = None,
 ) -> IndexAndScoreResult:
     """Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
     with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own
@@ -1138,6 +1140,14 @@ async def index_and_score(
 
     Mints a fresh `uuid4` run id and writes the record to `DEFAULT_RUNS_DIR/<run_id>.json` before
     returning — the two steps `EvalRunCommand.run` always performed, now performed once.
+
+    **`reprocess`/`batch_size` — repair R38.2.** `EvalRunCommand` still calls this with neither
+    named, so `reprocess` defaults `True` and every document is re-embedded on `weft eval run`'s
+    own wall-clock-timed path, unchanged. `weft_cli.eval_experiment` is the caller that passes
+    both explicitly: `reprocess=False` the one time it indexes a given pipeline and corpus, so a
+    document an operator already indexed is skipped rather than re-embedded at real API cost, and
+    `batch_size` from the experiment document's own `index_batch_size`, so the corpus is not held
+    in memory as one batch.
     """
     resolved: ResolvedPipeline
     document_ids: tuple[str, ...]
@@ -1179,8 +1189,11 @@ async def index_and_score(
             pipeline=pipeline,
             # `--reuse-index` is how a caller says *do not ingest*, and it says so in the
             # record; a wall-clock-timed run must not silently skip an unchanged document and
-            # be compared against one that did the whole job (ledger task 17.0).
-            reprocess=True,
+            # be compared against one that did the whole job (ledger task 17.0). An experiment
+            # indexing one pipeline and corpus for the first time passes `reprocess=False`
+            # instead, so an index an operator already built is honoured rather than redone.
+            reprocess=reprocess,
+            batch_size=batch_size,
         )
         ingest_seconds = time.monotonic() - started
         if not result.document_ids:

@@ -2,9 +2,11 @@
 
 Every experiment run in this tree so far has been its own script, with its own record shape and
 its own arm-comparison rule invented on the spot. This module reads a **document** instead: the
-arms, the question set, `repeats`, the metrics and the minimum detectable effect are all written
-down before any run, so `weft eval experiment <path>` (`weft_cli.eval_experiment`) can run every
-arm exactly as stated and refuse before indexing anything when two arms are not comparable.
+arms, the question set, `repeats`, the metrics, the minimum detectable effect and an optional
+`index_batch_size` are all written down before any run, so `weft eval experiment <path>`
+(`weft_cli.eval_experiment`) can run every arm exactly as stated, index each distinct pipeline and
+corpus once rather than once per arm, and refuse before indexing anything when two arms are not
+comparable or a metric no run would record is named.
 
 **A file on disk is data at rest, and it carries a version marker from its first release**, the
 identical reasoning `weft_eval.question_set.QuestionSetFormat` and `weft_eval.corpus_manifest`'s
@@ -64,6 +66,7 @@ _EXPERIMENT_TABLE_KEYS: Final[frozenset[str]] = frozenset(
         "top_k",
         "metrics",
         "minimum_detectable_effect",
+        "index_batch_size",
     }
 )
 
@@ -118,6 +121,7 @@ class Experiment(BaseModel):
     top_k: int = Field(ge=1)
     metrics: tuple[str, ...] = Field(min_length=1)
     minimum_detectable_effect: float = Field(gt=0)
+    index_batch_size: int | None = Field(default=None, ge=1)
     arms: tuple[ExperimentArm, ...]
 
     @field_validator("arms")
@@ -209,7 +213,12 @@ def load_experiment(path: Path) -> Experiment:
             f"the schema version it was written for."
         )
     schema = experiment_table["schema"]
-    if not isinstance(schema, int) or schema < 1 or schema > EXPERIMENT_SCHEMA_VERSION:
+    if isinstance(schema, bool) or not isinstance(schema, int) or schema < 1:
+        raise ExperimentDocumentError(
+            f"{path.name}: schema {schema!r} is not a schema any release of weft-rag has ever "
+            f"written — a schema is a positive integer."
+        )
+    if schema > EXPERIMENT_SCHEMA_VERSION:
         raise ExperimentSchemaError(
             f"{path.name} names schema {schema}, and this weft-rag reads schema "
             f"{EXPERIMENT_SCHEMA_VERSION} — upgrade weft-rag to read a document written for a "
@@ -239,6 +248,7 @@ def load_experiment(path: Path) -> Experiment:
             top_k=experiment_table.get("top_k"),
             metrics=tuple(experiment_table.get("metrics", ())),
             minimum_detectable_effect=experiment_table.get("minimum_detectable_effect"),
+            index_batch_size=experiment_table.get("index_batch_size"),
             arms=arms,
         )
     except ValidationError as exc:

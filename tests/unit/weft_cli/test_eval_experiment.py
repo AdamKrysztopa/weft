@@ -30,17 +30,21 @@ from weft_cli.eval_experiment import (
     UnscorableArmError,
 )
 from weft_cli.eval_scoring import ScoredRun
+from weft_cli.ingest import IndexResult, run_index_for
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.render import render_outcome
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
+from weft_eval import Settings, register
 from weft_eval.experiment import EXPERIMENT_SCHEMA_VERSION
+from weft_eval.offline import UnknownMetricNameError
 from weft_eval.question_set import Question, question_set_digest
 from weft_eval.run_record import NoQueryRung, PerQuestionScores, QuestionKey, load_run_record
 from weft_extract import Extractor
 from weft_kernel.context import Context
+from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
@@ -101,6 +105,9 @@ class _FakeEmbedderWithModel:
 
 def _registry() -> Registry:
     registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-eval")
+    register(registrar, Settings())
+    registrar.commit()
     registry.add(Extractor, "text", _PassThroughStage, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", _PassThroughStage, distribution="weft-chunk")
     registry.add(Embedder, "hash", _PassThroughStage, distribution="weft-embed")
@@ -181,7 +188,9 @@ def _arm(name: str, pipeline: str, extra: str = "") -> str:
     return f'\n[[arm]]\nname = "{name}"\npipeline = "{pipeline}"\n{extra}'
 
 
-def _experiment(root: Path, arms: str, *, repeats: int = 2) -> Path:
+def _experiment(
+    root: Path, arms: str, *, repeats: int = 2, metrics: str = '["precision@5"]', extra: str = ""
+) -> Path:
     """An experiment whose corpus, questions and document sit under `root/project`."""
     project = root / "project"
     (project / "corpus").mkdir(parents=True, exist_ok=True)
@@ -191,8 +200,8 @@ def _experiment(root: Path, arms: str, *, repeats: int = 2) -> Path:
     path.write_text(
         f"[experiment]\nschema = {EXPERIMENT_SCHEMA_VERSION}\n"
         f'name = "fixture"\nquestions = "questions.toml"\ncorpus = "corpus"\n'
-        f'repeats = {repeats}\ntop_k = 5\nmetrics = ["precision@5"]\n'
-        f"minimum_detectable_effect = 0.05\n" + arms,
+        f"repeats = {repeats}\ntop_k = 5\nmetrics = {metrics}\n"
+        f"minimum_detectable_effect = 0.05\n{extra}" + arms,
         encoding="utf-8",
     )
     return path
@@ -463,3 +472,105 @@ async def test_an_arm_whose_query_pipeline_ends_in_neither_a_generator_nor_a_pac
     assert "Embedder" in str(caught.value)
     assert calls == []
     assert not Path("runs").exists()
+
+
+# --- Repair R38.2 — one index per ingest pipeline and corpus, and no paid run on a name no run
+# --- records.
+
+
+def _counting_index(calls: list[dict[str, Any]]) -> Callable[..., Any]:
+    async def _index(deps: Dependencies, directory: Path, **kwargs: Any) -> IndexResult:
+        calls.append(kwargs)
+        return await run_index_for(deps, directory, **kwargs)
+
+    return _index
+
+
+async def test_arms_sharing_an_ingest_pipeline_and_corpus_index_it_once_in_bounded_batches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Three arms naming one ingest pipeline over one corpus measure the same index; re-embedding
+    it per arm paid for the corpus three times and ignored an index an operator had already
+    built. The one index honours unchanged documents and the document's batch size."""
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("a", "index") + _arm("b", "index", 'query_pipeline = "some-rung"\n'),
+        extra="index_batch_size = 7\n",
+    )
+    indexed: list[dict[str, Any]] = []
+    monkeypatch.setattr(eval_commands_module, "run_index_for", _counting_index(indexed))
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert len(indexed) == 1
+    assert indexed[0]["reprocess"] is False
+    assert indexed[0]["batch_size"] == 7
+
+
+async def test_arms_naming_two_ingest_pipelines_index_each_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(
+        tmp_path, _arm("a", "index") + _arm("b", "index-other") + _arm("c", "index"), repeats=3
+    )
+    indexed: list[dict[str, Any]] = []
+    monkeypatch.setattr(eval_commands_module, "run_index_for", _counting_index(indexed))
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+
+    # Act
+    await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert sorted(str(call["pipeline"]) for call in indexed) == ["index", "index-other"]
+
+
+async def test_a_metric_no_run_would_record_is_refused_before_anything_is_indexed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`recal@5` and `recall@10` beside `top_k = 5` passed every refusal and let the paid run go
+    ahead, to render `unjudgeable` naming nothing. The names a run records are asked of the
+    registered metrics at the experiment's own depth, before any index."""
+    # Arrange
+    path = _experiment(tmp_path, _arm("a", "index") + _arm("b", "index"), metrics='["recal@5"]')
+    indexed: list[dict[str, Any]] = []
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "run_index_for", _counting_index(indexed))
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    with pytest.raises(UnknownMetricNameError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert caught.value.name == "recal@5"
+    assert "recall@5" in caught.value.valid_options
+    assert "recall@10" not in caught.value.valid_options
+    assert indexed == []
+    assert calls == []
+
+
+async def test_a_record_names_its_corpus_as_the_document_wrote_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A resolved absolute path names a checkout, and two checkouts of one document would write
+    corpus identities `weft eval compare` refuses to pair."""
+    # Arrange
+    path = _experiment(tmp_path, _arm("a", "index") + _arm("b", "index"))
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    names = {
+        load_run_record(Path("runs") / f"{run.run_id}.json").corpus.name for run in result.runs
+    }
+    assert names == {"corpus"}

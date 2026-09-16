@@ -231,3 +231,37 @@ def test_a_missing_document_is_refused_naming_its_path(tmp_path: Path) -> None:
 
     # Assert
     assert "absent.toml" in str(caught.value)
+
+
+# --- Repair R38.2.
+
+
+def test_a_document_may_bound_the_index_batch_and_otherwise_does_not(tmp_path: Path) -> None:
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION)
+    bounded = _write(tmp_path, body.replace("top_k = 5", "top_k = 5\nindex_batch_size = 50"))
+    unbounded = _write(tmp_path, body, name="unbounded.toml")
+
+    # Act / Assert
+    assert load_experiment(bounded).index_batch_size == 50
+    assert load_experiment(unbounded).index_batch_size is None
+
+
+@pytest.mark.parametrize("schema", ["true", "0"], ids=["a-boolean", "zero"])
+def test_a_schema_no_release_wrote_is_refused_without_advice_to_upgrade(
+    tmp_path: Path, schema: str
+) -> None:
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
+        f"schema = {EXPERIMENT_SCHEMA_VERSION}", f"schema = {schema}"
+    )
+    path = _write(tmp_path, body)
+
+    # Act
+    with pytest.raises(ExperimentDocumentError) as caught:
+        load_experiment(path)
+
+    # Assert
+    assert not isinstance(caught.value, ExperimentSchemaError)
+    assert "schema" in str(caught.value)
+    assert "upgrade" not in str(caught.value)

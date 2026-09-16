@@ -26,15 +26,36 @@ one.** Every call into `index_and_score` below passes `refuse_foreign_documents=
 outside the arm's own corpus refuses loudly rather than scoring as a silent miss, which is exactly
 what would make a shared store read as a worse pipeline.
 
-**Every repetition after the first reuses the index it already built.** `reuse_index=(repetition
-> 1)` is `weft eval run --reuse-index`'s own flag, threaded through per arm: the first repetition
-indexes the arm's corpus, and every later repetition of that same arm scores against what is
-already stored — `index_and_score`'s own `R10.4` paragraph is why that is the honest choice for a
-rung comparison rather than a second, cheaper-looking re-index.
+**Every distinct ingest pipeline and corpus is indexed once, in bounded batches — repair R38.2.**
+Three arms naming one ingest pipeline over one corpus used to index it three times: `reuse_index`
+was `repetition > 1` *per arm*, so the second and third arm's own first repetition each re-indexed
+the identical corpus, paying for it again and ignoring an index an operator had already built, with
+no batch size passed so the whole corpus sat in memory as one batch. This module now keeps the set
+of `(pipeline, corpus)` pairs already indexed across every arm and repetition: the first time a
+pair is met, `index_and_score` is called with `reuse_index=False, reprocess=False,
+batch_size=experiment.index_batch_size` — unchanged documents already stored are skipped rather
+than re-embedded, and the corpus is walked in the document's own batch size rather than as one
+slice. Every later arm or repetition naming that same pair reuses what is already stored
+(`reuse_index=True`), the identical `index_and_score`'s own `R10.4` paragraph already argues for a
+rung comparison.
+
+**A metric no run would record is refused before anything is indexed — repair R38.2.** The names a
+run actually records at `experiment.top_k` are asked of the registered metrics themselves
+(`weft_eval.harness.score_retrieval_gate_subset` against one synthetic sample), never assumed from
+the document's own `metrics =` list: a typo (`recal@5` beside `recall@10`, neither of them a name
+any run has ever written) used to pass every other refusal and run the whole, paid experiment,
+rendering `unjudgeable` naming nothing an operator could act on.
+
+**A record names its corpus as the document wrote it, not as this machine resolved it — repair
+R38.2.** `corpus_name` is `corpus_for(arm)` relative to the experiment document's own directory,
+POSIX-style — the same footing `weft_eval.experiment`'s own module docstring already gives every
+resolved path, applied here to what a run record persists: two checkouts of one committed document
+at two absolute paths must still write one corpus identity, or `weft eval compare` cannot pair them.
 """
 
 from __future__ import annotations
 
+import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,7 +73,10 @@ from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
+from weft_eval.contract import RetrievalSample, RetrievedPassage
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
+from weft_eval.harness import score_retrieval_gate_subset
+from weft_eval.offline import UnknownMetricNameError
 from weft_eval.question_set import QuestionSet, read_question_set
 from weft_eval.run_record import ExperimentRun, corpus_identity
 from weft_kernel.context import Context
@@ -190,6 +214,44 @@ def _arm_incomparable_reasons(
     return tuple(reasons)
 
 
+async def _refuse_unrecordable_metrics(
+    experiment: Experiment, *, deps: Dependencies, ctx: Context
+) -> None:
+    """Refuse before any arm is indexed if `experiment.metrics` names something no run at
+    `experiment.top_k` would actually record. See the module docstring's own paragraph.
+    """
+    passages = tuple(
+        RetrievedPassage(id=f"pre-flight-{position}") for position in range(experiment.top_k)
+    )
+    sample = RetrievalSample(
+        query="weft eval experiment metric pre-flight",
+        retrieved=passages,
+        relevant_ids=frozenset({passages[0].id}),
+    )
+    subset = await score_retrieval_gate_subset(
+        deps.registry, [sample], top_k=experiment.top_k, ctx=ctx
+    )
+    recorded = {name for name, outcome in subset.metrics.items() if isinstance(outcome, Produced)}
+    for name in experiment.metrics:
+        if name not in recorded:
+            valid_options = tuple(sorted(recorded))
+            raise UnknownMetricNameError(
+                f"'{name}' is not a metric name a run at top_k={experiment.top_k} would ever "
+                f"record. Recorded metrics: "
+                f"{', '.join(repr(option) for option in valid_options) or 'none'}.",
+                valid_options=valid_options,
+                name=name,
+            )
+
+
+def _corpus_name_for(document_root: Path, corpus_path: Path) -> str:
+    """`corpus_path`, named as the document wrote it — relative to `document_root` (the
+    experiment document's own resolved directory), POSIX-style. See the module docstring's own
+    paragraph on why the resolved absolute path is never what a record persists.
+    """
+    return Path(os.path.relpath(corpus_path, start=document_root)).as_posix()
+
+
 class EvalExperimentCommand:
     """`weft eval experiment` — see the module docstring."""
 
@@ -233,6 +295,8 @@ class EvalExperimentCommand:
                     contract=contract,
                 )
 
+        await _refuse_unrecordable_metrics(experiment, deps=deps, ctx=ctx)
+
         question_sets: dict[str, QuestionSet] = {
             arm.name: read_question_set(experiment.questions_for(arm)) for arm in experiment.arms
         }
@@ -256,23 +320,29 @@ class EvalExperimentCommand:
                     reasons=reasons,
                 )
 
+        document_root = Path(experiment_args.path).resolve().parent
+        indexed_keys: set[tuple[str, Path]] = set()
         runs: list[ExperimentRunRef] = []
         for arm in experiment.arms:
             corpus_path = experiment.corpus_for(arm)
             questions = question_sets[arm.name].questions
+            index_key = (arm.pipeline, corpus_path)
             for repetition in range(1, experiment.repeats + 1):
+                already_indexed = index_key in indexed_keys
                 result = await index_and_score(
                     deps,
                     ctx=ctx,
                     path=corpus_path,
                     pipeline=arm.pipeline,
-                    corpus_name=str(corpus_path),
+                    corpus_name=_corpus_name_for(document_root, corpus_path),
                     questions=questions,
                     document_labels=document_labels,
                     top_k=experiment.top_k,
                     query_pipeline=arm.query_pipeline,
-                    reuse_index=repetition > 1,
+                    reuse_index=already_indexed,
                     refuse_foreign_documents=True,
+                    reprocess=False,
+                    batch_size=experiment.index_batch_size,
                     experiment=ExperimentRun(
                         name=experiment.name,
                         digest=experiment.digest,
@@ -281,6 +351,7 @@ class EvalExperimentCommand:
                         repetition=repetition,
                     ),
                 )
+                indexed_keys.add(index_key)
                 runs.append(
                     ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=result.run_id)
                 )
