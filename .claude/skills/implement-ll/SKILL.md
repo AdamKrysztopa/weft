@@ -154,6 +154,11 @@ and every concern an author had to remember decayed.
 
 ## The two traps
 
+**A rule routed to one artefact governs that artefact only.** Before calling an entry applied, ask
+which artefact will actually *carry* the claim next time. `L22.26` was routed into the brief
+reference and governed briefs; the same false fact was then written into ledger prose, which nothing
+checks, the same day it was read (`L23.26`).
+
 **A rule written in the wrong place looks applied and is not.** If a group's honest moment is "while
 someone was typing an edit" and it lands as a sentence in `CLAUDE.md`, the entry is closed and the
 defect will recur. When in doubt between a hook and a sentence, take the hook.
@@ -211,7 +216,10 @@ hardest question into a grep, and it is the cheapest thing in this whole skill.
    the usual one. `L6.1` already says a present-tense count expires and must be corrected in place,
    and it was routed to `weft-qualities`, which reads a change rather than performing this one; the
    first drain after it was applied left the Status row claiming a queue depth of six against an
-   empty queue (`lessons.md` L6.18). The durable fix is to state a **pointer** rather than a count:
+   empty queue (`lessons.md` L6.18). **The same holds inside `lessons.md` itself**: its Queue
+   preamble said "Twenty entries" over a queue of 27 while the checked README row was right
+   (`L23.30`) — a number is protected only by the check that reads it, so the preamble names no count.
+   The durable fix is to state a **pointer** rather than a count:
    *"`lessons.md` → Queue is where its depth is read"* cannot go stale.
 
    **The edges are the part that is easy to skip and expensive to skip.** An entry that refines,

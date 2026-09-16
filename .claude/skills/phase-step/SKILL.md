@@ -153,6 +153,34 @@ consumes the same resource differently under a flag is invisible to a grep for w
 Both are convenient conclusions, which is the tell: a bounded blast radius and a missing file each
 close a question cheaply, and neither was measured.
 
+**An empty result is a claim about the tool's traversal before it is a claim about the tree — so
+name what the tool drops before believing it.** Phase 31 paid for this five ways in one day, each
+time with a tool that answered correctly about the wrong population: a script and a grep that both
+key on `- [ ]` agreeing a `⊘` withdrawn task did not exist, because a withdrawn task is defined by
+*lacking* the checkbox (`L23.27`); `find` returning nothing under `_external-src`, which is a
+symlink `find` does not enter without `-L` (`L23.28`); a grep for a phrase quoted out of prose,
+which wraps at 78 columns where the source line does not (`L23.29`); a sentence-shaped grep for a
+decision `README.md` stores only as a table row, `| **S5** |` (`L23.31`); and output piped to
+`head`, which can support *present* and never *absent* (`L23.21`). A search that **errors** can
+print the same thing as one that found nothing — `grep --include=*.py` died on a zsh glob and said
+*"no matches found"*. So: search for the shortest token that cannot wrap, use `git grep` rather
+than shell globs, count with `-c` against a **control** that must hit (`L22.21`), and write "there
+is no …" only from an untruncated result.
+
+**And a plan's clauses, a decision brief's options and an amendment's "unchanged" are each
+unexecuted text, checked before anything is built on them.** A clause prescribing what code must do
+is read against the function it would change (`L23.19`); a clause quoting a vendor page carries the
+URL and the date read, and is re-fetched before it becomes a shipped default (`L23.18`); a brief
+enumerating options names, per option, the `path:line` of the call site that makes it possible, so
+a dead option dies at its citation (`L23.23`); every path a document names is checked, `docs/`
+included, not only `scripts/`, `tests/` and `packages/` (`L23.2`, widening `L22.43`); and a section
+declared "unchanged" re-resolves its citations, because identical words can sit over moved lines
+(`L23.4`). When a decision agent reports, check **which document each quotation came from** — one
+cited the proposal it was judging, relabelled as the settled text that ruled on it (`L23.1`). Write a
+cross-module reference as `path:line "fragment"`, never as a dotted import path: FF17 walks the
+first form and cannot reach the second (`L23.6` — a clause resolving dotted paths was sized at 599
+sites in `packages/` and declined).
+
 **And what a plan *shows* you is unexecuted text.** `fix-plans/05`'s exit block displayed the command
 the phase would be judged by — `python scripts/store_bench.py …` — and no such file has ever existed
 in this tree; the harnesses are `bench_latency.py`, `bench_corpus.py`, `bench_widths.py`. It survived
@@ -260,6 +288,16 @@ same function's output — `L5.6` reached through a door it does not name, becau
 a comparison *written* and this one was *transformed* (`L11.35`). So: **name the dimension the test
 varies, then check the fixture actually varies it** — and after a bulk edit, re-read every
 assertion it touched rather than trusting that lint would have said something.
+
+**Three more from Phase 31, each a red test wrong before any implementation existed.** A fixture
+parametrised over backends is read *arm by arm for what each leaves behind*: one arm tore down and
+the other did not, and only the careless one touched shared state (`L23.13`). A red test that
+changes behaviour an earlier task established carries the superseded test in the same patch — grep
+the target file for the earlier task's id first (`L23.16`). And assert a property of a returned
+container — its length, its ids, its membership — not equality with a literal, unless you have read
+the pinned return type; two lines of one test disagreed about whether a result was a list or a tuple
+(`L23.17`). The same holds for `str | None`: `"x" in rendered.stdout` type-checks as unsound, and
+`31.14`'s red failed the gate on exactly that before it failed on the missing field.
 
 **The general form, and Phase 12 paid for it four more times: a double is narrower than the real
 thing in exactly the dimension under test, and every assertion over that dimension is then
@@ -444,6 +482,17 @@ edits anything. Bring back its non-test diff only; the tests stay yours and land
 opened on, and two dispatches came back blocked on a contract committed an hour earlier. So Step 0
 opens with `git merge --ff-only main` and a check that a named symbol of that commit exists, before
 the patch is applied.
+
+**That Step 0 is owed by every worktree dispatch, whatever the agent type** (`L23.33`, recurring
+`L22.24`). Both rules above were Applied and in place when two general-purpose repair agents were
+sent into worktrees with only the symbol check — they correctly stopped, twice, because this project
+does not push and a worktree is cut from `origin/main`, which was ten commits behind. A check without
+its remedy keeps the alarm and loses the fix. **And build the patch last, from everything
+uncommitted, and read the red state from the patched tree** (`L23.10`, `L23.24`, `L23.9`): a patch cut
+from the task's own paths misses a prerequisite edit, one cut before a formatter ran describes a tree
+that no longer exists, and a baseline measured before applying it describes a tree the agent never
+sees. **And `isolation: worktree` removes an unchanged worktree when the agent stops** — resuming
+such an agent lands it in the main checkout, so a blocked worktree dispatch is re-sent, not resumed.
 
 **Do it yourself instead when the change is smaller than its brief** — a one-line repair, a rename,
 something where writing *Already decided* would take longer than the edit. The split buys
@@ -671,7 +720,13 @@ crashes on the exact state its own non-vacuity exercise produces.
    where this rule actually lives — this line exists so the reason is readable when it fires
    (`L12.16`).
 4. **You have run the thing, through the shipped entry point, from a directory that is not this
-   repository — including its failure path.** *And construct the condition for any branch that
+   repository — including its failure path.** *And take the advice the failure path gives* —
+   run the remedy an error message prints, because a remedy the system refuses is a second defect
+   inside the first (`L23.25`: `estimate` told the operator to name a width in a `with:` block that
+   a hash stage then refused; `31.13` printed `pip install weft-rag[qdrant]` for an installed extra).
+   *And exercise a new check through the input it will really be handed*, never a literal built to
+   match its own pattern — the narration hook read the one message that never carries the violation
+   (`L23.12`). *And construct the condition for any branch that
    only fires sometimes.* **Three branches this step keeps missing, each named by a defect it
    cost:** the **default, flagless** invocation — the one nobody runs on purpose, every user runs
    first, and an author verifying their own feature is least likely to reach for (`L9.64`); the

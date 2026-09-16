@@ -7,7 +7,8 @@ exists because a single async-entry bridge is safe only by docstring unless
 something actually checks it."
 `docs/06-phase-0-build.md` step 9 activates this clause.
 
-Found by an AST walk over the **whole repository** — not just `packages/*`
+Found by an AST walk over the **whole repository's Python** (`L23.32`: `pyproject.toml`'s
+`poe` tasks hold two bridges as TOML, which no AST walk reads) — not just `packages/*`
 and `testing/*`, which would leave a second bridge under `tests/`,
 `scripts/`, or an example pack such as step 10's `examples/weft-example-chunker/`
 free to hide unseen — for a call whose callee resolves to `asyncio.run`,

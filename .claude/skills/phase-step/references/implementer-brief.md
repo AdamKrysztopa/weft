@@ -233,7 +233,11 @@ one session by the author who had just written the rule down).
     may not** (`L22.15`). A new `WeftError` needs a `manual/troubleshooting.md` entry
     (`tests/docs/test_troubleshooting_coverage.py`), `ci-no-tests` does not run `tests/docs`, and
     inserting the entry moves every citation below it (check 13). `R22.8` and `R22.7` each spent
-    two full gate runs finding that after a green return.
+    two full gate runs finding that after a green return. **Grep the sibling's qualname across
+    `tests/` as well as `packages/`** — the sites pinning a family are usually tests, which the agent
+    may not edit, so land that edit yourself in Red (`L23.8`). **A new field on any `*Settings` model
+    owes `weft.toml.example` a line on the same terms**, named in *Files* or written before dispatch
+    (`L23.14`).
     **And a name the brief moves, renames or stops importing has callers no call graph shows**
     (`L22.20`): grep the tests for `setattr(<module>, "<name>"` as well as for calls. `R19.17`
     sized its refactor at 72 direct calls, told the agent to drop `commands.run_index`, and 11
@@ -421,6 +425,9 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     a cited file**, your own paragraphs included. The saving grace both times was FF17's own
     message, which names the citing file, the stale number, the quoted fragment *and* the line the
     fragment is now on — which turns the repair into one digit. Do not lose that when touching it.
+    **Where the citations into a file are many, the brief says who re-points them** (`L23.15`):
+    FF17's ±5 window means a heavily-cited file often has no compliant place to grow, and an agent
+    forbidden to edit the citing documents can only relocate code to dodge them.
 
 15. **Does the brief tell the agent to configure a plugin — and has one document with that `with:`
     block ever been run?** `L22.26`. A fix plan said the latency corpus is embedded "at dimension

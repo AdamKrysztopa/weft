@@ -111,8 +111,9 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
   kernel without naming a capability, it is too big.*
 - **The kernel depends on `pydantic` and `opentelemetry-api`. Nothing else.**
 - **Async only, no exceptions.** Every contract method is `async def`. No sync protocol, no sync
-  facade, no declared colour. `asyncio.run` appears exactly **once** in the whole tree, at
-  `weft-cli`'s entry point. `CancelledError` propagates and is never swallowed.
+  facade, no declared colour. `asyncio.run` appears exactly **once** in the tree's Python, at
+  `weft-cli`'s entry point — the two `poe` tasks that bridge the sweep scripts hold two more, by
+  design, in TOML fitness function 7(a) does not parse (`L23.32`). `CancelledError` propagates and is never swallowed.
 - **Built-ins get no shortcut.** A first-party pack registers through the same public entry point a
   third party uses, and receives nothing extra.
 - **Cross-cutting concerns live at the registration seam**, never in a rule authors must remember.
@@ -298,7 +299,9 @@ Six live in `.claude/skills/`:
   --check-live` now fails when a numbered document has no row there, which protects the router but
   could not have caught this — the row was there, and I did not look (`docs/internal/lessons.md` `L12.14`).
 - **A claim about what code does is checked against its callers, never against its name, its
-  docstring, or a comment's stated scope** — including a claim made by a review or another agent.
+  docstring, or a comment's stated scope — and a comment that gives a *reason* is such a claim**
+  (`L23.22`, `L23.5`: a comment's rationale for a bare `vector` column outlived the gate that
+  reversed it, and a citation check still reported it HOLDS) — including a claim made by a review or another agent.
   This has now cost three phases in three genres: a proviso invented mid-task rather than reopening
   a gate (`L5.32`), a code invariant asserting "every shipped pipeline" over documents anyone may
   write (`L6.15`), and an adversarial review's finding about a fan-out that was half true, where

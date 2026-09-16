@@ -432,6 +432,38 @@ def _documents_manifest_failures(path: Path) -> list[str]:
     return []
 
 
+def _fix_plan_row_failures(path: Path) -> list[str]:
+    """Does every fix-plan that names a phase have that phase's row in `12-roadmap.md` §1?
+
+    `docs/internal/lessons.md` `L23.11`. A plan is a hypothesis and a row is the only place a phase
+    is enumerated: Phase 30 was cited by number for four days, lost a task to Phase 33 and was
+    proposed for absorption, all without a row, and Phase 38 then went missing from the phase list
+    the same way. Keyed on the plan's own filename, `NN-phase-<id>-…md`, rather than on prose, so a
+    plan that merely mentions a phase is not held to owning one. Measured 2026-09-16: walks 10
+    plans, fails 0.
+    """
+    plans = path.parent / "fix-plans"
+    roadmap_path = path.parent / "12-roadmap.md"
+    if not plans.is_dir() or not roadmap_path.is_file():
+        return []
+    roadmap = roadmap_path.read_text(encoding="utf-8")
+    missing = []
+    for plan in sorted(plans.glob("[0-9][0-9]-phase-*.md")):
+        match = re.match(r"^[0-9]{2}-phase-([0-9]+[a-z]?)-", plan.name)
+        if match is None:
+            continue
+        if "| **" + match.group(1) + "** |" not in roadmap:
+            missing.append(plan.name + " (Phase " + match.group(1) + ")")
+    if missing:
+        return [
+            "fix-plans name phases that 12-roadmap.md §1 has no row for: "
+            + ", ".join(missing)
+            + " — a plan is a hypothesis and the row is the only place a phase is enumerated; file "
+            "it WON'T yet with a trigger if nothing else (L23.11)"
+        ]
+    return []
+
+
 def _repair_failures(identifier: str) -> list[str]:
     """Does the carried repair the Next action names exist, and is it still open?
 
@@ -647,6 +679,7 @@ def live_checks(
         failures.extend(_queue_depth_failures(path, status))
         failures.extend(_repair_count_failures(path, status))
     failures.extend(_documents_manifest_failures(path))
+    failures.extend(_fix_plan_row_failures(path))
     failures.extend(_leftover_worktree_failures(path.parents[2] / ".git"))
 
     # L6.4's own defect, made checkable. A mark is only readable when the phase preamble says
