@@ -483,11 +483,12 @@ async def score_pipeline(
     question runs through it — task **R38.0**: a rung whose last stage is a `Generator` is asked
     through `weft_cli.route_ask.run_named_ask`, exactly as before, and scored over
     `passages_for_scoring(answer)` — the passages that entered the prompt, never the ranking
-    underneath it. A rung whose last stage is a `Retriever`, `Fuser` or `ContextPacker` — a
-    query pipeline that *ends in retrieval* and produces `Passages`, never an `Answer` —
-    is run through `weft_cli.route_ask.run_named_retrieve` instead and scored over the
-    passages it packed, calling no model: `run_named_ask` requires an `Answer` at the end and
-    refuses such a rung outright, which is what left an experiment's earlier arms with orphaned
+    underneath it. Any other rung is run through `weft_cli.route_ask.run_named_retrieve` and
+    scored over the passages it packed, calling no model — which a rung ending in a
+    `ContextPacker` produces; one ending in a `Retriever` or a `Fuser` produces `Candidates` or
+    a `Ranking` and `run_named_retrieve` refuses it, the refusal `weft eval experiment` makes
+    before any index for the same reason. `run_named_ask` requires an `Answer` and refused a
+    packer-ending rung outright, which is what left an experiment's earlier arms with orphaned
     records once a later arm named one. `reports`/`llm`/`services`/`sink`/`contributions` are
     only read on this path — `weft_cli.eval_commands.EvalRunCommand.run` already has all five
     in scope from its own `Dependencies`, the identical set `run_named_ask`'s other caller,

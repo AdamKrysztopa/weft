@@ -483,3 +483,44 @@ def test_a_question_built_in_code_states_its_absences_or_is_refused() -> None:
     # Assert
     assert stated.answerable
     assert stated.axes["kind"] == "requires-graph-hop"
+
+
+# --- Repair R38.4 — a refused name is refused with the names that are valid.
+
+
+@pytest.mark.parametrize(
+    ("name", "body", "listed"),
+    [
+        (
+            "keyed.toml",
+            '[question_set]\nschema = 2\nabsent = []\naxes = []\ncolour = "blue"\n',
+            ("absent", "absent_reason", "axes", "schema"),
+        ),
+        (
+            "field.toml",
+            '[question_set]\nschema = 2\nabsent = ["colour"]\nabsent_reason = "r"\naxes = []\n',
+            tuple(field.value for field in QuestionField),
+        ),
+        (
+            "entry.json",
+            '[{"query": "q", "colour": "blue"}]',
+            ("id", "kind", "language", "modality", "query", "relevant_documents"),
+        ),
+        ("questions.csv", "query\nwhat", (".json", ".toml")),
+    ],
+    ids=["unknown-table-key", "unknown-absent-field", "unknown-json-key", "unknown-suffix"],
+)
+def test_a_refused_name_is_listed_beside_every_valid_one(
+    tmp_path: Path, name: str, body: str, listed: tuple[str, ...]
+) -> None:
+    # Arrange
+    path = tmp_path / name
+    path.write_text(body, encoding="utf-8")
+
+    # Act
+    with pytest.raises(QuestionSetError) as caught:
+        read_question_set(path)
+
+    # Assert
+    message = str(caught.value)
+    assert all(option in message for option in listed), message

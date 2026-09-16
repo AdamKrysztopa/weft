@@ -80,12 +80,15 @@ weft eval run <path> <pipeline> [--query-pipeline <name>] [--questions <path> [-
                                     --questions, also retrieve and score the gate-safe metric
                                     subset, folded into the record
 weft eval baseline <manifest> <questions> [--pipeline <name>] [--tiers <list>] [--out <file>]
-weft eval compare <a> <b> [--baseline <pipeline>]
+weft eval compare <a> <b> [--baseline <pipeline>] [--kind <kind> | --slice <axis=value>]
                                     diff two persisted runs' pipelines and their per-metric
                                     aggregates, refusing if anything but the pipeline differs;
                                     with --baseline, judge each per-metric difference against
                                     the interval that pipeline's own persisted repetitions
                                     spanned — the falsification instrument, `09` §4.3
+weft eval experiment <file>        run every arm and repetition of an experiment document
+weft eval table <file> [--runs <dir>] [--invocation <id>]
+                                    print its evidence table, computed from its records
 weft eval metrics [--name <name>]  which registered metrics run in the deterministic gate
                                     subset — no credentials, no network — or ask about one
 weft trace <run-id>            print what one persisted run recorded

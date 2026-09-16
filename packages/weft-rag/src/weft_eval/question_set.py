@@ -360,7 +360,8 @@ def _question_set_table(
     unknown = set(table) - _QUESTION_SET_TABLE_KEYS
     if unknown:
         raise QuestionSetError(
-            f"{path.name}: [question_set] carries unknown key(s) {sorted(unknown)}"
+            f"{path.name}: [question_set] carries unknown key(s) {sorted(unknown)}. "
+            f"Valid keys: {', '.join(sorted(_QUESTION_SET_TABLE_KEYS))}"
         )
     if "schema" not in table:
         raise QuestionSetError(f"{path.name}: [question_set] names no 'schema'")
@@ -379,7 +380,8 @@ def _question_set_table(
         absent = frozenset(QuestionField(value) for value in table.get("absent", ()))
     except ValueError as exc:
         raise QuestionSetError(
-            f"{path.name}: [question_set] absent names an unknown field: {exc}"
+            f"{path.name}: [question_set] absent names an unknown field: {exc}. "
+            f"Valid fields: {', '.join(field.value for field in QuestionField)}"
         ) from exc
     absent_reason = table.get("absent_reason")
     if absent_reason is not None and not isinstance(absent_reason, str):
@@ -533,7 +535,10 @@ def _convert_json_entry(path: Path, index: int, entry: dict[str, Any]) -> Questi
     """One JSON `--questions` entry, converted — or refused naming the file and the index."""
     unknown = set(entry) - _JSON_ENTRY_KEYS
     if unknown:
-        raise QuestionSetError(f"{path.name}, question {index}: unknown key(s) {sorted(unknown)}")
+        raise QuestionSetError(
+            f"{path.name}, question {index}: unknown key(s) {sorted(unknown)}. "
+            f"Valid keys: {', '.join(sorted(_JSON_ENTRY_KEYS))}"
+        )
     if "query" not in entry:
         raise QuestionSetError(f"{path.name}, question {index}: names no 'query'")
 
@@ -641,7 +646,10 @@ def read_question_set(path: Path) -> QuestionSet:
             questions=questions,
             format=QuestionSetFormat.JSON,
         )
-    raise QuestionSetError(f"{path.name}: unsupported question file suffix {path.suffix!r}")
+    raise QuestionSetError(
+        f"{path.name}: unsupported question file suffix {path.suffix!r}. "
+        "Valid: a directory, or a file ending .toml or .json"
+    )
 
 
 def reproducible_questions(
