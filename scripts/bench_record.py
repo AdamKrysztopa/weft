@@ -31,8 +31,11 @@ import bench_filtered
 import bench_latency
 import bench_qdrant
 import bench_quantised
+import bench_settings
 import bench_widths
 from pydantic import BaseModel, ConfigDict, ValidationError
+
+from weft_store.contract import VectorPrecision
 
 
 class G22Position(StrEnum):
@@ -329,6 +332,49 @@ def arms_from_qdrant(run: bench_qdrant.QdrantRun) -> tuple[ArmRecord, ...]:
     return tuple(arms)
 
 
+def _positions_for_settings_arm(arm: bench_settings.Arm) -> tuple[G22Position, ...]:
+    """Mirrors what the Phase 29 adapter gives the arm of the same configuration
+    (`arms_from_filtered:165`, `arms_from_quantised:196-200`, `arms_from_qdrant:315`), so a
+    comparison against Phase 29's arm of the same name is meaningful.
+    """
+    if arm.backend is bench_settings.Backend.QDRANT:
+        return (G22Position.UNINDEXED_CEILING,)
+    positions = [G22Position.COMMIT_AT_FIRST_WRITE, G22Position.CONFIGURED_WIDTH]
+    if arm.precision in (VectorPrecision.FLOAT16, VectorPrecision.BINARY):
+        positions.append(G22Position.EXPRESSION_INDEXES)
+    return tuple(positions)
+
+
+def arms_from_settings(run: bench_settings.SettingsRun) -> tuple[ArmRecord, ...]:
+    arms: list[ArmRecord] = []
+    for result in run.results:
+        arm = result.arm
+        sel = arm.selectivity.value if arm.selectivity is not None else "unfiltered"
+        scan = (
+            f" iterative_scan={arm.iterative_scan.value}" if arm.iterative_scan is not None else ""
+        )
+        name = f"{arm.backend.value} {arm.index.value} {arm.precision.value}{scan} {sel}"
+        arms.append(
+            ArmRecord.checked(
+                task="31.6",
+                name=name,
+                positions=_positions_for_settings_arm(arm),
+                rows_before=result.rows_before,
+                rows_after=result.rows_after,
+                measures=(
+                    Measure(label="recall@10", value=result.recall_at_10, unit=""),
+                    Measure(label="queries", value=float(result.queries), unit=""),
+                    Measure(
+                        label="rows returned, minimum", value=float(result.returned_min), unit=""
+                    ),
+                    Measure(label="p50", value=result.p50_ms, unit="ms"),
+                    Measure(label="p95", value=result.p95_ms, unit="ms"),
+                ),
+            )
+        )
+    return tuple(arms)
+
+
 def session_table(record: BenchRecord) -> str:
     lines = [
         "| G22 position | task | arm | numbers | rows before / after |",
@@ -379,6 +425,7 @@ RunModel = (
     | bench_diskann.DiskannRun
     | bench_widths.WidthsRun
     | bench_qdrant.QdrantRun
+    | bench_settings.SettingsRun
 )
 
 
@@ -440,6 +487,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     diskann = _read_runs(args.diskann, bench_diskann.DiskannRun)
     widths = _read_runs(args.widths, bench_widths.WidthsRun)
     qdrant = _read_runs(args.qdrant, bench_qdrant.QdrantRun)
+    settings = _read_runs(args.settings, bench_settings.SettingsRun)
 
     all_runs: tuple[RunModel, ...] = (
         *latency,
@@ -448,11 +496,12 @@ def cmd_build(args: argparse.Namespace) -> int:
         *diskann,
         *widths,
         *qdrant,
+        *settings,
     )
     if not all_runs:
         print(
             "no runs given: pass at least one of --latency/--filtered/--quantised/--diskann/"
-            "--widths/--qdrant",
+            "--widths/--qdrant/--settings",
             file=sys.stderr,
         )
         return 2
@@ -479,6 +528,8 @@ def cmd_build(args: argparse.Namespace) -> int:
         arms.extend(arms_from_widths(widths_run))
     for qdrant_run in qdrant:
         arms.extend(arms_from_qdrant(qdrant_run))
+    for settings_run in settings:
+        arms.extend(arms_from_settings(settings_run))
 
     facts: list[VersionFact] = []
     for diskann_run in diskann:
@@ -526,6 +577,7 @@ def _build_parser() -> argparse.ArgumentParser:
     build.add_argument("--diskann", action="append", type=Path, default=[])
     build.add_argument("--widths", action="append", type=Path, default=[])
     build.add_argument("--qdrant", action="append", type=Path, default=[])
+    build.add_argument("--settings", action="append", type=Path, default=[])
     build.add_argument("--image", action="append", default=[])
     build.set_defaults(func=cmd_build)
 
