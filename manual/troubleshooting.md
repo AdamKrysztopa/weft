@@ -3314,6 +3314,24 @@ more than one complete invocation of experiment 'fixture' (5abd131efc38…) exis
 
 **What to do:** pass `--invocation` with the one the table should describe.
 
+### `UnscorableArmError`
+
+**What it looks like** — an experiment arm whose query pipeline ends in a stage an arm cannot be
+scored over, refused before any arm is indexed or any record written:
+
+```text
+$ weft eval experiment bad.toml --yes ; echo $?
+arm 'embed-only' names query pipeline 'index-text', which ends in a NodeStore stage — an arm is scored over what a ContextPacker packed or a Generator answered from, so its last stage must be one of those.
+1
+```
+
+An arm's query pipeline is resolved in the experiment's pre-flight, beside the corpus and question
+set checks, so an unrunnable arm cannot leave the arms before it with records nobody can table. A
+pipeline ending in a `ContextPacker` — `lexical-retrieve` — is scored over the passages it packed
+and calls no model; one ending in a `Generator` over the passages its answer used. **What to do:**
+name a query pipeline that ends in one of those two, or drop `query_pipeline` to score the ingest
+pipeline's own vector search.
+
 ### `ForeignDocumentRetrievedError`
 
 **What it looks like** — an experiment arm retrieving a passage from a document the store holds

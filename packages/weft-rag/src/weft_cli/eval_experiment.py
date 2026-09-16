@@ -48,6 +48,7 @@ from weft_cli.eval_commands import (
     model_versions_of,
 )
 from weft_cli.ingest import content_hashes_of, corpus_documents
+from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
@@ -81,6 +82,23 @@ class IncomparableArmsError(WeftError):
         super().__init__(message)
         self.arm = arm
         self.reasons = reasons
+
+
+class UnscorableArmError(WeftError):
+    """An arm named a `query_pipeline` whose resolved last stage is neither a `Generator` nor a
+    `ContextPacker` — task **R38.0**'s pre-flight, so a resolvable-but-unscorable rung is refused
+    before any arm writes a record rather than mid-run, after earlier arms already indexed and
+    scored: `weft_cli.eval_scoring.score_pipeline` only knows how to ask a rung ending in a
+    `Generator` (`run_named_ask`) or retrieve one ending in a `ContextPacker`
+    (`run_named_retrieve`) — see that module's own docstring for why those are the two shapes
+    a query rung can be scored over.
+    """
+
+    def __init__(self, message: str, *, arm: str, pipeline: str, contract: str) -> None:
+        super().__init__(message)
+        self.arm = arm
+        self.pipeline = pipeline
+        self.contract = contract
 
 
 class EvalExperimentArgs(BaseModel):
@@ -195,6 +213,26 @@ class EvalExperimentCommand:
             else None
         )
 
+        for arm in experiment.arms:
+            if arm.query_pipeline is None:
+                continue
+            resolved = resolve_named_pipeline(
+                arm.query_pipeline,
+                registry=deps.registry,
+                reports=deps.reports,
+                contributions=deps.contributions,
+            )
+            contract = resolved.stages[-1].contract if resolved.stages else "(no stage)"
+            if contract not in ("Generator", "ContextPacker"):
+                raise UnscorableArmError(
+                    f"arm '{arm.name}' names query pipeline '{arm.query_pipeline}', which ends "
+                    f"in a {contract} stage — an arm is scored over what a ContextPacker packed "
+                    "or a Generator answered from, so its last stage must be one of those.",
+                    arm=arm.name,
+                    pipeline=arm.query_pipeline,
+                    contract=contract,
+                )
+
         question_sets: dict[str, QuestionSet] = {
             arm.name: read_question_set(experiment.questions_for(arm)) for arm in experiment.arms
         }
@@ -270,5 +308,6 @@ __all__ = [
     "EvalExperimentCommandResult",
     "ExperimentRunRef",
     "IncomparableArmsError",
+    "UnscorableArmError",
     "register_eval_experiment_command",
 ]

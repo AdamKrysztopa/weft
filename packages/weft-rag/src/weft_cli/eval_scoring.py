@@ -57,7 +57,7 @@ from typing import Any, Final, cast
 from pydantic import BaseModel
 
 from weft_cli.ask import run_ask
-from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
+from weft_cli.route_ask import resolve_named_pipeline, run_named_ask, run_named_retrieve
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
@@ -479,14 +479,19 @@ async def score_pipeline(
     **`query_pipeline`, ledger task 7.5 — the query rung Phase 8's exit needed measurable.**
     `None` (the default) is exactly today's behaviour, unchanged: `run_ask`, plain vector
     top-k, against `resolved_pipeline`'s own `Embedder`/`NodeStore` stages. Given a name
-    instead, retrieval for every question runs through *that* query pipeline —
-    `weft_cli.route_ask.run_named_ask`, so a `Retriever`, `Fuser`, `ContextPacker` or
-    `Generator` choice is the thing actually measured — and what reaches the metrics is
-    `passages_for_scoring(answer)`: exactly the passages that entered the prompt, never the
-    ranking underneath it. `reports`/`llm`/`services`/`sink`/`contributions` are only read on
-    this path — `weft_cli.eval_commands.EvalRunCommand.run` already has all five in scope from
-    its own `Dependencies`, the identical set `run_named_ask`'s other caller, `AskCommand`,
-    already threads through.
+    instead, `query_pipeline` is resolved once (below) and *what it ends in* decides how every
+    question runs through it — task **R38.0**: a rung whose last stage is a `Generator` is asked
+    through `weft_cli.route_ask.run_named_ask`, exactly as before, and scored over
+    `passages_for_scoring(answer)` — the passages that entered the prompt, never the ranking
+    underneath it. A rung whose last stage is a `Retriever`, `Fuser` or `ContextPacker` — a
+    query pipeline that *ends in retrieval* and produces `Passages`, never an `Answer` —
+    is run through `weft_cli.route_ask.run_named_retrieve` instead and scored over the
+    passages it packed, calling no model: `run_named_ask` requires an `Answer` at the end and
+    refuses such a rung outright, which is what left an experiment's earlier arms with orphaned
+    records once a later arm named one. `reports`/`llm`/`services`/`sink`/`contributions` are
+    only read on this path — `weft_cli.eval_commands.EvalRunCommand.run` already has all five
+    in scope from its own `Dependencies`, the identical set `run_named_ask`'s other caller,
+    `AskCommand`, already threads through.
 
     **Task 16.1 — one resolution answers for both the run and the record.** When `query_pipeline`
     is given, it is resolved exactly once, before the question loop, through
@@ -539,6 +544,7 @@ async def score_pipeline(
         )
 
     query_rung: ScoredQueryRung
+    generates = False
     if query_pipeline is not None:
         resolved_rung = resolve_named_pipeline(
             query_pipeline,
@@ -546,6 +552,7 @@ async def score_pipeline(
             reports=reports,
             contributions=contributions,
         )
+        generates = bool(resolved_rung.stages) and resolved_rung.stages[-1].contract == "Generator"
         query_rung = QueryRung(name=query_pipeline, identity=pipeline_identity(resolved_rung))
     else:
         query_rung = NoQueryRung(
@@ -583,7 +590,7 @@ async def score_pipeline(
             )
             hits: Sequence[Scored[Node]]
             started = time.monotonic()
-            if query_pipeline is not None:
+            if query_pipeline is not None and generates:
                 answer = await run_named_ask(
                     question_text,
                     pipeline_name=query_pipeline,
@@ -598,6 +605,21 @@ async def score_pipeline(
                 )
                 seconds[question_key] = time.monotonic() - started
                 hits = [passage.scored for passage in passages_for_scoring(answer)]
+            elif query_pipeline is not None:
+                passages = await run_named_retrieve(
+                    question_text,
+                    pipeline_name=query_pipeline,
+                    registry=registry,
+                    reports=reports,
+                    ctx=ctx,
+                    llm=llm if llm is not None else LLMSection(),
+                    services=services if services is not None else ServiceSelection(),
+                    roles=roles if roles is not None else RoleTable(),
+                    sink=sink if sink is not None else NullSink(),
+                    contributions=contributions,
+                )
+                seconds[question_key] = time.monotonic() - started
+                hits = [passage.scored for passage in passages.passages]
             else:
                 hits = await run_ask(
                     question_text,

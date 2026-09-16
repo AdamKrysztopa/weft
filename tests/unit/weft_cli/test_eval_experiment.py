@@ -21,13 +21,16 @@ from pydantic import BaseModel, ConfigDict
 from weft_chunk import Chunker
 from weft_cli import eval_commands as eval_commands_module
 from weft_cli import ingest as ingest_module
+from weft_cli import route_ask as route_ask_module
 from weft_cli.eval_experiment import (
     EvalExperimentArgs,
     EvalExperimentCommand,
     EvalExperimentCommandResult,
     IncomparableArmsError,
+    UnscorableArmError,
 )
 from weft_cli.eval_scoring import ScoredRun
+from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.render import render_outcome
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
@@ -41,6 +44,7 @@ from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
+from weft_retrieve import ContextPacker
 from weft_store import NodeStore
 
 
@@ -102,6 +106,7 @@ def _registry() -> Registry:
     registry.add(Embedder, "hash", _PassThroughStage, distribution="weft-embed")
     registry.add(Embedder, "fake-openai", _FakeEmbedderWithModel, distribution="test")
     registry.add(NodeStore, "pgvector", _FakeStore, distribution="weft-store")
+    registry.add(ContextPacker, "repack", _PassThroughStage, distribution="weft-retrieve")
     return registry
 
 
@@ -218,6 +223,7 @@ def in_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     run_dir.mkdir()
     monkeypatch.chdir(run_dir)
     monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue(_catalogue()))
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_query_catalogue()))
 
 
 async def test_every_arm_runs_every_repetition_and_persists_one_record_each(
@@ -396,3 +402,64 @@ def test_the_command_writes_and_says_so() -> None:
     # Assert
     assert EvalExperimentCommand.permission_class is PermissionClass.WRITE
     assert EvalExperimentCommand.help
+
+
+# --- Repair R38.0 — an arm that cannot be scored is refused before any arm writes a record.
+
+
+def _query_catalogue() -> dict[str, Pipeline]:
+    catalogue = _catalogue()
+    catalogue["some-rung"] = Pipeline(
+        name="some-rung", stages=(StageDeclaration(id="pack", use="repack"),)
+    )
+    catalogue["retrieval-ends-in-a-retriever"] = Pipeline(
+        name="retrieval-ends-in-a-retriever",
+        stages=(StageDeclaration(id="embed", use="hash"),),
+    )
+    return catalogue
+
+
+async def test_an_arm_naming_an_unknown_query_pipeline_is_refused_before_any_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_catalogue()))
+    path = _experiment(
+        tmp_path, _arm("a", "index") + _arm("b", "index", 'query_pipeline = "no-such-rung"\n')
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    with pytest.raises(UnknownPipelineNameError):
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert calls == []
+    assert not Path("runs").exists()
+
+
+async def test_an_arm_whose_query_pipeline_ends_in_neither_a_generator_nor_a_packer_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.setattr(ingest_module, "full_catalogue", _stub_catalogue(_query_catalogue()))
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_query_catalogue()))
+    path = _experiment(
+        tmp_path,
+        _arm("a", "index")
+        + _arm("b", "index", 'query_pipeline = "retrieval-ends-in-a-retriever"\n'),
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    with pytest.raises(UnscorableArmError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert caught.value.arm == "b"
+    assert "retrieval-ends-in-a-retriever" in str(caught.value)
+    assert "Embedder" in str(caught.value)
+    assert calls == []
+    assert not Path("runs").exists()

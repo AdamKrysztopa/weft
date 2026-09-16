@@ -43,7 +43,7 @@ from weft_kernel.payload import (
 )
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
-from weft_retrieve.payload import Passage, Query
+from weft_retrieve.payload import Passage, Passages, Query
 from weft_store import Filter, NodeStore, Scored
 
 
@@ -401,7 +401,9 @@ async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
     # test is about the order the metrics see. Stubbing `run_named_ask` alone left the earlier
     # call to refuse `'some-rung'` before anything under test ran.
     def _resolved_rung(*_args: object, **_kwargs: object) -> ResolvedPipeline:
-        return ResolvedPipeline(name="some-rung")
+        # Repair R38.0: a rung is asked for an answer only when it ends in a `Generator`, so the
+        # stub states that last stage rather than resolving to no stages at all.
+        return _rung("Retriever", "Fuser", "ContextPacker", "Generator")
 
     monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved_rung)
 
@@ -587,3 +589,123 @@ async def test_a_passage_from_outside_the_corpus_is_still_scored_when_not_asked(
     outcome = report.metrics["precision@1"]
     assert isinstance(outcome, Produced)
     assert outcome.value.mean == 0.0
+
+
+# --- Repair R38.0 — a query rung that ends in retrieval is scored over what it packed.
+
+
+def _labelled_passage(source: str, score: float, rank: int) -> Passage:
+    node = Node.synthetic(content=source, media_type=MediaType.TEXT, reason="fixture").model_copy(
+        update={"lineage": Lineage.derived(parents=(), sources=frozenset({SourceId(source)}))}
+    )
+    return Passage(
+        scored=Scored(value=node, score=score),
+        rank=rank,
+        retrieved_by="fixture",
+        label=str(rank + 1),
+    )
+
+
+def _rung(*contracts: str) -> ResolvedPipeline:
+    return ResolvedPipeline(
+        name="some-rung",
+        stages=tuple(
+            ResolvedStage(
+                id=f"stage-{index}",
+                contract=contract,
+                use=f"plugin-{index}",
+                distribution="weft-rag",
+                provenance="some-rung",
+            )
+            for index, contract in enumerate(contracts)
+        ),
+    )
+
+
+async def test_a_rung_ending_in_a_packer_is_scored_over_its_passages_and_calls_no_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`lexical-retrieve` ends in `repack` and produces `Passages`. `run_named_ask` requires an
+    `Answer` and refused it, which is what left `38.0`'s experiment with orphaned records; a
+    retrieval rung is scored through `run_named_retrieve` instead, the path `weft ask
+    --retrieve-only --pipeline` already takes, and no answer is generated for it."""
+    # Arrange
+    captured: list[RetrievalSample] = []
+    asked: list[object] = []
+
+    async def _passages(*_args: object, **_kwargs: object) -> Passages:
+        return Passages(
+            origin=Query(text="q"),
+            passages=(_labelled_passage("doc-b", 0.2, 1), _labelled_passage("doc-a", 0.9, 0)),
+        )
+
+    async def _ask(*args: object, **kwargs: object) -> Answer:
+        asked.append((args, kwargs))
+        raise AssertionError("a retrieval rung must not be asked for an answer")
+
+    async def _capture(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        captured.extend(samples)
+        return SubsetScores(metrics={}, per_question={})
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _ask)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _capture)
+
+    # Act
+    await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_question(relevant_documents=("doc-a",)),),
+        top_k=2,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a", "doc-b"),
+    )
+
+    # Assert
+    assert asked == []
+    assert [passage.id for passage in captured[0].retrieved] == ["doc-a", "doc-b"]
+
+
+async def test_a_rung_ending_in_a_generator_is_still_scored_over_the_answers_passages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    retrieved: list[object] = []
+
+    async def _answer(*_args: object, **_kwargs: object) -> Answer:
+        return Answer(text="a", origin=Query(text="q"), answered_by="fixture", used=())
+
+    async def _passages(*args: object, **kwargs: object) -> Passages:
+        retrieved.append((args, kwargs))
+        raise AssertionError("a generating rung is scored over its answer")
+
+    async def _capture(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        del samples
+        return SubsetScores(metrics={}, per_question={})
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker", "Generator")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _capture)
+
+    # Act
+    await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_question(),),
+        top_k=2,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert retrieved == []
