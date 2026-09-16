@@ -476,10 +476,42 @@ class QdrantStore:
         await self.add(payload)
         return Produced(value=payload)
 
+    #: How many nodes one request carries. **Not a tuned number and not a measurement.**
+    #: `weft index` hands this store the whole corpus as a single batch — `weft_cli/ingest.py`
+    #: says "every `SourceDoc` `discover_source_docs` finds is handed to `Runner.run` as the
+    #: single element of its batch iterator" — so `add` is routinely called with every node in
+    #: the corpus at once. On 2026-09-16 that was 169,223 nodes, and `31.6`'s measurement died
+    #: inside this method twice: once on the client's default timeout and again with
+    #: `timeout_seconds` raised to 900, both times reaching the operator as `'store' failed: `
+    #: with no message (`R31.9`). Any bound far below a corpus makes the request sendable, and
+    #: this value is chosen for that alone — it carries no throughput claim, because none was
+    #: measured.
+    _WRITE_BATCH: ClassVar[int] = 256
+
     async def add(self, nodes: Sequence[Node]) -> None:
+        """Store `nodes` in requests small enough to send — carried repair **R31.10**.
+
+        **Both calls are bounded, and the read is the one that mattered.** `_add_batch` issues a
+        `retrieve` before its `upsert`, carrying one id per node, so an unbounded read is reached
+        *first* and is as unsendable as an unbounded write — a repair that chunked only the write
+        would have fixed nothing. Batching here also bounds peak memory, since the points for a
+        slice are built and discarded rather than the whole corpus being materialised at once.
+
+        Splitting is safe because each slice is independently correct: the merge below reads the
+        prior payload for the ids in *that* slice, and node ids are content-derived, so no slice
+        depends on another. What it gives up is all-or-nothing atomicity across the whole call —
+        an interrupted `add` can leave earlier slices written. That is already true of this store
+        across separate `add` calls, and `weft index`'s own source records are what make a
+        partial index detectable and re-runnable.
+        """
         if not nodes:
             return
         client = await self._connection()
+        for start in range(0, len(nodes), self._WRITE_BATCH):
+            await self._add_batch(client, nodes[start : start + self._WRITE_BATCH])
+
+    async def _add_batch(self, client: AsyncQdrantClient, nodes: Sequence[Node]) -> None:
+        """One bounded slice of `add`: read the prior payloads, merge, write."""
         # Qdrant has no upsert-merge: an `upsert` replaces the whole payload, so the
         # union of `sources` has to be read back and computed here rather than left to
         # the write itself, the way `pgvector`'s `ON CONFLICT ... DO UPDATE` can.
