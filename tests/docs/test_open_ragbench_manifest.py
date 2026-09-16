@@ -41,3 +41,17 @@ def test_the_manifest_pins_the_three_files_the_question_set_is_built_from() -> N
     assert {"queries.json", "qrels.json", "answers.json"} <= names
     assert all(f"/resolve/{RAGBENCH_REVISION}/" in entry["source"] for entry in raw["dataset_file"])
     assert raw["dataset"]["revision"] == RAGBENCH_REVISION
+
+
+def test_the_question_files_are_pinned_to_the_same_revision_with_their_digests() -> None:
+    """`38.4`'s files are untracked; `corpus/open-ragbench-questions.toml` records the build that
+    wrote them, so a run record's question-set digest traces to one split of one build."""
+    # Act
+    pin = tomllib.loads((_MANIFEST.parent / "open-ragbench-questions.toml").read_text("utf-8"))
+
+    # Assert
+    assert pin["build"]["revision"] == RAGBENCH_REVISION
+    files = {entry["name"]: entry for entry in pin["file"]}
+    assert set(files) == {"dev.toml", "test.toml"}
+    assert sum(entry["questions"] for entry in files.values()) == pin["build"]["carried"]
+    assert all(len(entry["question_set_digest"]) == 64 for entry in files.values())
