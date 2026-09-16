@@ -346,6 +346,58 @@ def test_every_arm_of_a_full_run_reaches_the_record() -> None:
     assert len(records) == len(bench_settings.arms())
 
 
+def _manifest(tmp_path: Path, *, documents: tuple[str, ...], excluded: tuple[str, ...]) -> Path:
+    """A corpus manifest in the shape `corpus/open-ragbench-pdfs.toml` actually has: the
+    `[[document]]` entries are already the filtered set, and `[[excluded]]` records why the
+    missing ones are missing.
+    """
+    lines = ['query = "fixture"', ""]
+    for identifier in documents:
+        lines += ["[[document]]", f'id = "{identifier}"', 'source = "s"', 'sha256 = "d"', ""]
+    for identifier in excluded:
+        lines += ["[[excluded]]", f'id = "{identifier}"', 'reason = "R29.2"', ""]
+    path = tmp_path / "manifest.toml"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def test_a_manifest_makes_the_corpus_its_documents_and_not_the_directory(tmp_path: Path) -> None:
+    # Arrange — the directory holds a paper the manifest excluded, which is the real situation:
+    # `R29.2` aborts the whole `weft index` run on it, so meeting it at all ends the measurement.
+    corpus = tmp_path / "pdfs"
+    corpus.mkdir()
+    for identifier in ("good-1", "good-2", "surrogate"):
+        (corpus / f"{identifier}.pdf").write_bytes(b"%PDF-1.4\n")
+    manifest = _manifest(tmp_path, documents=("good-1", "good-2"), excluded=("surrogate",))
+
+    # Act
+    sources = bench_settings.corpus_sources(corpus, manifest=manifest)
+
+    # Assert
+    assert {path.name for path in sources} == {"good-1.pdf", "good-2.pdf"}
+
+
+def test_a_manifest_document_missing_from_the_corpus_is_refused_not_dropped(tmp_path: Path) -> None:
+    # A silently shorter corpus is a measurement over a set nobody chose.
+    corpus = tmp_path / "pdfs"
+    corpus.mkdir()
+    (corpus / "present.pdf").write_bytes(b"%PDF-1.4\n")
+    manifest = _manifest(tmp_path, documents=("present", "absent"), excluded=())
+
+    with pytest.raises(bench_settings.bench_latency.MeasurementRefusedError, match="absent"):
+        bench_settings.corpus_sources(corpus, manifest=manifest)
+
+
+def test_without_a_manifest_every_file_under_the_corpus_is_taken(tmp_path: Path) -> None:
+    # The default the smaller corpora rely on, kept working.
+    corpus = tmp_path / "docs"
+    corpus.mkdir()
+    for name in ("a.txt", "b.md"):
+        (corpus / name).write_text("x", encoding="utf-8")
+
+    assert len(bench_settings.corpus_sources(corpus)) == 2
+
+
 def test_a_settings_run_round_trips_through_its_json_file(tmp_path: Path) -> None:
     # Arrange
     run = _run(_result(bench_settings.arms()[0]))
