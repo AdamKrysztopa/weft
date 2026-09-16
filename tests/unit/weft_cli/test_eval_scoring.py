@@ -17,6 +17,7 @@ import pytest
 from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli.eval_scoring import (
     AmbiguousLabelError,
+    ForeignDocumentRetrievedError,
     PipelineNotRetrievableError,
     UnresolvableLabelError,
     resolve_labels,
@@ -533,3 +534,53 @@ async def test_the_scored_run_names_its_question_set_by_the_one_models_digest() 
 
     # Assert
     assert report.question_set == question_set_digest(questions)
+
+
+# --- Task 38.0 — an experiment's arm refuses a passage its corpus does not hold.
+
+
+async def test_a_passage_from_outside_the_corpus_is_refused_when_asked_naming_the_document() -> (
+    None
+):
+    """The fake store answers from `doc-a`. Scored against a corpus of `doc-b` alone, that
+    passage is a document no question judged, and counting it as a miss would make a store shared
+    with another corpus read as a worse pipeline."""
+    # Arrange
+    questions = (_question(relevant_documents=("doc-b",)),)
+
+    # Act
+    with pytest.raises(ForeignDocumentRetrievedError) as excinfo:
+        await score_pipeline(
+            registry=_registry(),
+            resolved_pipeline=_resolved_pipeline(),
+            questions=questions,
+            top_k=1,
+            ctx=_ctx(),
+            corpus_document_ids=("doc-b",),
+            refuse_foreign_documents=True,
+        )
+
+    # Assert
+    assert "doc-a" in str(excinfo.value)
+    assert excinfo.value.document == "doc-a"
+
+
+async def test_a_passage_from_outside_the_corpus_is_still_scored_when_not_asked() -> None:
+    """`weft eval run`'s own behaviour, unchanged: only the experiment runner opts in."""
+    # Arrange
+    questions = (_question(relevant_documents=("doc-b",)),)
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-b",),
+    )
+
+    # Assert
+    outcome = report.metrics["precision@1"]
+    assert isinstance(outcome, Produced)
+    assert outcome.value.mean == 0.0

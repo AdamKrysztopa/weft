@@ -95,6 +95,7 @@ from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
+from weft_cli.eval_experiment import register_eval_experiment_command
 from weft_cli.exit_codes import ExitCode
 from weft_cli.explain import (
     ScoreExplanation,
@@ -1570,7 +1571,11 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     — `eval run`/`eval compare`/`trace`, `weft_cli.eval_commands`'s own three — on the identical
     "compose from more than one function" footing, not a fourth entry point. Repair **R22.4c**
     adds `register_eval_baseline_command` right after it, for `eval baseline` —
-    `weft_cli.eval_baseline`'s own single command — the identical footing one module over.
+    `weft_cli.eval_baseline`'s own single command — the identical footing one module over. Task
+    **38.0** adds `register_eval_experiment_command` right after that, for `eval experiment` —
+    `weft_cli.eval_experiment`'s own single command, which runs every arm of an experiment
+    document through `weft_cli.eval_commands.index_and_score`, the identical path `eval run`
+    itself now calls.
 
     **Task 6.20 (G13) adds `weft_cli.render.register_renderers(registrar)`** — the same
     "compose from more than one function" footing again, this time on the renderer axis
@@ -1598,6 +1603,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     register_config_commands(registrar)
     register_eval_commands(registrar)
     register_eval_baseline_command(registrar)
+    register_eval_experiment_command(registrar)
     register_renderers(registrar)
 
 

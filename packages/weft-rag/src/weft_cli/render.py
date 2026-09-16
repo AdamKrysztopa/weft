@@ -90,6 +90,7 @@ from weft_cli.eval_commands import (
     QueryRungDifference,
     TraceCommandResult,
 )
+from weft_cli.eval_experiment import EvalExperimentCommandResult
 from weft_cli.exit_codes import exit_code_for
 from weft_cli.ingest import SourceChange
 from weft_cli.output import AskFormat
@@ -120,6 +121,7 @@ from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDiffere
 from weft_eval.latency import LatencySummary, latency_summary
 from weft_eval.question_set import QuestionSetFormat
 from weft_eval.run_record import (
+    ExperimentRun,
     MetricRunResult,
     NoQueryRung,
     NotAggregated,
@@ -1360,6 +1362,22 @@ def _question_set_text(digest: str | None) -> str:
     return f"{digest[:12]}…" if digest else "(not recorded)"
 
 
+def _experiment_text(experiment: ExperimentRun | None) -> str:
+    """The experiment a record was run as one arm's one repetition of — task **38.0**.
+
+    `(none)` covers both a run made outside an experiment and a record written before this task:
+    neither is a fact `weft eval experiment` recorded, and a reader tracing one run has no reason
+    to tell them apart the way `_query_rung_text`'s three states do — there is no second,
+    distinct "this run named no experiment" measurement the way `NoQueryRung` is one.
+    """
+    if experiment is None:
+        return "(none)"
+    return (
+        f"'{experiment.name}' ({experiment.digest[:12]}…) arm {experiment.arm}, "
+        f"repetition {experiment.repetition}"
+    )
+
+
 def _render_trace(result: TraceCommandResult) -> Rendered:
     """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
     module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
@@ -1379,6 +1397,7 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
         f"active distributions: {', '.join(record.active_distributions) or '(none)'}",
         f"distribution versions: {_distribution_versions_text(record.distribution_versions)}",
         f"question set: {_question_set_text(record.question_set_digest)}",
+        f"experiment: {_experiment_text(record.experiment)}",
     ]
     if record.metrics:
         lines.append("metrics:")
@@ -1386,6 +1405,19 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
     else:
         lines.append("metrics: (none recorded — 'weft eval run' was not given --questions)")
     lines.extend(_question_scores_lines(record.question_scores))
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_eval_experiment(result: EvalExperimentCommandResult) -> Rendered:
+    """`weft eval experiment` — task **38.0**. The experiment's own identity and invocation
+    first, since `weft trace <run-id>` is what a reader opens next for any one cell of it, then
+    one line per record it wrote, in the same arm-then-repetition order the command built them.
+    """
+    lines = [
+        f"experiment '{result.name}' ({result.digest[:12]}…) — invocation "
+        f"{result.invocation}: {len(result.runs)} record(s)"
+    ]
+    lines.extend(f"  {run.arm} r{run.repetition}: run {run.run_id}" for run in result.runs)
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
@@ -1403,7 +1435,7 @@ def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
-# --- the twenty built-in dispatch wrappers, and `register_renderers` — task 6.20 ----------
+# --- the twenty-one built-in dispatch wrappers, and `register_renderers` — task 6.20 ------
 #
 # Each wrapper below is a plain module-level `def`, never a `lambda` bound inside
 # `register_renderers` itself: `register_renderers` runs once per `discover()` call, and a
@@ -1526,6 +1558,10 @@ def _dispatch_eval_metrics(result: object) -> Rendered:
     return _render_eval_metrics(cast(EvalMetricsCommandResult, result))
 
 
+def _dispatch_eval_experiment(result: object) -> Rendered:
+    return _render_eval_experiment(cast(EvalExperimentCommandResult, result))
+
+
 def _dispatch_ask(result: object) -> Rendered:
     # `_render_result`'s own special-case is what actually reads `streamed` for a live
     # request — see that function's docstring. Registering this bound-`False` wrapper keeps
@@ -1540,7 +1576,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     Task **6.20**, G13's third repair — requirement 4 ("built-ins get no privileged path"),
     made checkable at runtime rather than merely asserted: `weft_cli.commands.register` calls
     this on the same footing it calls `register_pipeline_commands`/`register_eval_commands`,
-    so every one of these twenty calls to `registrar.add_renderer` is indistinguishable, at
+    so every one of these twenty-one calls to `registrar.add_renderer` is indistinguishable, at
     the seam, from the identical call any third-party pack's own `register()` makes for its own
     result type. **This module may not name the pack that proves it**, and that is fitness
     function 9(b) rather than shyness: a first-party file naming the out-of-tree pack would make
@@ -1565,6 +1601,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(EvalCompareCommandResult, _dispatch_eval_compare)
     registrar.add_renderer(TraceCommandResult, _dispatch_trace)
     registrar.add_renderer(EvalMetricsCommandResult, _dispatch_eval_metrics)
+    registrar.add_renderer(EvalExperimentCommandResult, _dispatch_eval_experiment)
     registrar.add_renderer(AskCommandResult, _dispatch_ask)
 
 
@@ -1579,7 +1616,7 @@ def _bootstrap_built_in_renderers() -> None:
     `register_renderers`/`register_renderers_from_reports` path a real discovery pass would,
     against a throwaway `Registry`/`PackRegistrar`, so the built-ins are reachable either way
     without a second, independently-drifting registration mechanism: a later, real discovery
-    pass registering the same twenty callables again is the identical-renderer repeat case
+    pass registering the same twenty-one callables again is the identical-renderer repeat case
     `register_renderers_from_reports` already treats as a no-op, never a collision.
     """
     registrar = PackRegistrar(Registry(), distribution="weft-cli")

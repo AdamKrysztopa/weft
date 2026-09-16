@@ -8,8 +8,8 @@ question this answers: what a run record must contain is *evaluation* knowledge 
 what, with what — and a kernel that knew what a run is *for* would be a kernel naming a
 capability. Nothing here touches `packages/weft-kernel`.
 
-**Five fields, fixed by `01` -> Phase 4 *Exit* and `09` §4 **V6**, plus task 4.9's own
-extension — and no more:**
+**Five fields were fixed by `01` -> Phase 4 *Exit* and `09` §4 **V6**; later tasks added the
+rest, each with its own docstring on `RunRecord`.** The first five, and the earliest additions:
 
 - `resolved_pipeline` — **what actually ran**, not the document that named it. Task 4.0 exists
   because of this task: before it, `weft index` named its four stages in Python and there was no
@@ -315,6 +315,26 @@ class RoleTokens(BaseModel):
     calls_not_reporting: int = Field(ge=0)
 
 
+class ExperimentRun(BaseModel):
+    """Which experiment a record was run as one arm's one repetition of — task **38.0**.
+
+    `name`/`digest` name the experiment document (`weft_eval.experiment.Experiment`'s own
+    `name`/`digest`); `invocation` is one `weft eval experiment` call's own id, shared by every
+    record that call wrote, so a table can group an invocation's own runs apart from a later
+    re-run of the identical document. `arm`/`repetition` are the one cell of that invocation this
+    record is. `RunRecord.experiment` is `None` for a run made outside an experiment, and for
+    every record written before this task — a fact stated by absence, `query_rung`'s own footing.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    digest: str = Field(min_length=1)
+    invocation: str = Field(min_length=1)
+    arm: str = Field(min_length=1)
+    repetition: int = Field(ge=1)
+
+
 class RunDurations(BaseModel):
     """Ledger task 10.22 — how long the two halves of a run took, kept apart on purpose.
 
@@ -396,6 +416,9 @@ class RunRecord(BaseModel):
     #: record that scored no question through a model has `{}`, a record written before this
     #: task measured nothing at all and has `None`.
     token_usage: Mapping[str, RoleTokens] | None = None
+    #: Task **38.0** — which experiment, invocation, arm and repetition this run was. `None` for
+    #: a run made outside an experiment, and for every record written before this task.
+    experiment: ExperimentRun | None = None
 
 
 def build_run_record(
@@ -415,6 +438,7 @@ def build_run_record(
     question_set_digest_basis: QuestionSetDigestBasis | None = None,
     question_seconds: PerQuestionSeconds | None = None,
     token_usage: Mapping[str, RoleTokens] | None = None,
+    experiment: ExperimentRun | None = None,
 ) -> RunRecord:
     """Assemble one `RunRecord`. `active_distributions` is always derived from `reports`
     through `active_distribution_set` — never accepted directly — so there is no second,
@@ -472,6 +496,7 @@ def build_run_record(
         question_set_digest_basis=question_set_digest_basis,
         question_seconds=question_seconds,
         token_usage=token_usage,
+        experiment=experiment,
     )
 
 

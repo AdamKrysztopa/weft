@@ -116,6 +116,23 @@ class UnresolvableLabelError(WeftError, UnresolvedNameError):
         self.label = label
 
 
+class ForeignDocumentRetrievedError(WeftError):
+    """`refuse_foreign_documents=True` and a retrieved passage names a document outside the
+    corpus this run scored — task **38.0**'s own guard for `weft eval experiment`.
+
+    An experiment's arms share one store: two arms pointed at two different corpora directories
+    still both index into it, so a passage from a document the *other* arm indexed can surface
+    for this one's questions. Scored as a normal miss, that reads as a worse pipeline rather than
+    what it is — a foreign document nothing here judged at all — so this refuses outright the
+    moment one is seen, before it ever reaches `_deduplicated_by_document`.
+    """
+
+    def __init__(self, message: str, *, document: str, corpus_documents: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.document = document
+        self.corpus_documents = corpus_documents
+
+
 class AmbiguousLabelError(WeftError, UnresolvedNameError):
     """A `relevant_documents` label names more than one document in the corpus.
 
@@ -280,6 +297,25 @@ def _document_id_of(hit: Scored[Node]) -> str:
     return sources[0] if sources else str(hit.value.id)
 
 
+def _refuse_foreign_documents(
+    hits: Sequence[Scored[Node]], *, corpus_document_ids: Sequence[str]
+) -> None:
+    """`refuse_foreign_documents=True`'s own check — see `ForeignDocumentRetrievedError`'s own
+    docstring. Checked before deduplication or scoring, over every hit a question retrieved,
+    whichever branch (`run_ask` or a named `query_pipeline`) produced them.
+    """
+    known = frozenset(corpus_document_ids)
+    for hit in hits:
+        document = _document_id_of(hit)
+        if document not in known:
+            raise ForeignDocumentRetrievedError(
+                f"a retrieved passage names document '{document}', which the store holds but "
+                f"the scored corpus does not ({len(known)} document(s)).",
+                document=document,
+                corpus_documents=tuple(sorted(known)),
+            )
+
+
 def _factory_config(config: object) -> object:
     """`config` narrowed to what a plugin's own factory actually expects — a real defect,
     found running the binary and not by any unit test, fixed here: `ResolvedStage.config`
@@ -427,10 +463,18 @@ async def score_pipeline(
     sink: TokenSink | None = None,
     contributions: tuple[Contribution, ...] = (),
     document_labels: Mapping[str, str] | None = None,
+    refuse_foreign_documents: bool = False,
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset
     over the result. Returns a `ScoredRun`: the scores, and the query rung they were scored
     with.
+
+    **`refuse_foreign_documents`, task 38.0.** `False` (the default) is exactly today's
+    behaviour, unchanged: `weft eval run` scores whatever a hit names. `True` — asked only by
+    `weft eval experiment`, whose arms share one store — raises `ForeignDocumentRetrievedError`
+    the moment a retrieved hit's own document is not in `corpus_document_ids`, before it ever
+    reaches `_deduplicated_by_document`: see that error's own docstring for why a hit from
+    another arm's corpus must not silently score as a miss.
 
     **`query_pipeline`, ledger task 7.5 — the query rung Phase 8's exit needed measurable.**
     `None` (the default) is exactly today's behaviour, unchanged: `run_ask`, plain vector
@@ -566,6 +610,8 @@ async def score_pipeline(
                     store_config=_factory_config(store_stage.config),
                 )
                 seconds[question_key] = time.monotonic() - started
+            if refuse_foreign_documents:
+                _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
             samples.append(
                 RetrievalSample(
                     query=question_text,
@@ -597,6 +643,7 @@ async def score_pipeline(
 __all__ = [
     "AmbiguousLabelError",
     "AnswerCarriesNoUsedPassagesError",
+    "ForeignDocumentRetrievedError",
     "PipelineNotRetrievableError",
     "ScoredRun",
     "UnresolvableLabelError",

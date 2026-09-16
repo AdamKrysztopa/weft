@@ -205,6 +205,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -236,9 +237,10 @@ from weft_eval.falsify import (
 )
 from weft_eval.latency import LatencySummary, latency_summary
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
-from weft_eval.question_set import QuestionSetFormat, read_question_set
+from weft_eval.question_set import Question, QuestionSetFormat, read_question_set
 from weft_eval.run_record import (
     CorpusDigestBasis,
+    ExperimentRun,
     MetricRunResult,
     NotAggregated,
     PerQuestionScores,
@@ -788,7 +790,7 @@ def _load_or_refuse(run_id: str, *, directory: Path = DEFAULT_RUNS_DIR) -> RunRe
     return load_run_record(path)
 
 
-def _document_labels_from_manifest(manifest: str | None) -> Mapping[str, str] | None:
+def document_labels_from_manifest(manifest: str | None) -> Mapping[str, str] | None:
     """`--manifest`'s own id-to-label mapping, or `None` when it was not given — task **38.11**.
 
     Each manifest document's own `path` is resolved (`weft_eval.corpus_manifest.load_manifest`
@@ -796,6 +798,11 @@ def _document_labels_from_manifest(manifest: str | None) -> Mapping[str, str] | 
     to that same directory, `.as_posix()`, so it is exactly the corpus-relative label
     `weft_cli.eval_scoring.resolve_labels` has always matched against — the identical shape
     `eval/questions/*.toml`'s hand-written `relevant_documents` labels already take.
+
+    **Public since task 38.0** — `weft_cli.eval_experiment.EvalExperimentCommand` needed the
+    identical id-to-label mapping for an experiment document's own `manifest =` line, and a
+    second, copied reader would have been the exact "two lists" failure this pack's own module
+    docstrings keep warning against.
     """
     if manifest is None:
         return None
@@ -948,6 +955,199 @@ def _question_set_basis_of(record: RunRecord) -> str:
     return basis.value if basis is not None else "not recorded"
 
 
+@dataclass(frozen=True)
+class IndexAndScoreResult:
+    """What `index_and_score` produced — every fact `EvalRunCommand`/`EvalExperimentCommand`
+    (task **38.0**) need to build their own result, from the one path both now index a corpus
+    and score a question set through. `wall_clock_seconds` is the identical measurement that
+    went onto `record.durations.ingest_seconds`, carried here too rather than read back off the
+    record a second time — `L7.4`: two reads of one quantity agree until they do not.
+    """
+
+    run_id: str
+    record: RunRecord
+    summary: RunSummary
+    stored_count: int | None
+    wall_clock_seconds: float
+
+
+async def index_and_score(
+    deps: Dependencies,
+    *,
+    ctx: Context,
+    path: Path,
+    pipeline: str,
+    corpus_name: str | None,
+    questions: tuple[Question, ...] | None,
+    document_labels: Mapping[str, str] | None,
+    top_k: int,
+    query_pipeline: str | None,
+    reuse_index: bool,
+    refuse_foreign_documents: bool = False,
+    experiment: ExperimentRun | None = None,
+) -> IndexAndScoreResult:
+    """Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
+    with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own
+    extraction: `EvalRunCommand.run` used to do this inline, twice (once per `reuse_index`
+    branch); `EvalExperimentCommand` (`weft_cli.eval_experiment`) needed the identical path so an
+    experiment's own scoring could never silently diverge from `weft eval run`'s, so it is a
+    module-level function both call rather than one calling a method on the other.
+
+    `score_pipeline` is called through this module's own global name — never a captured
+    reference — so a caller that monkeypatches `weft_cli.eval_commands.score_pipeline`
+    (`test_eval_commands.py`'s own convention) still reaches this function's call, on both the
+    `weft eval run` and the `weft eval experiment` path.
+
+    **`reuse_index` — carried repair `R10.4`.** Score against what is already stored, rather than
+    indexing again: comparing two *query* rungs against one corpus otherwise means re-ingesting
+    each time, harmless for a deterministic ingest rung and not at all harmless for one that calls
+    a model (`L11.46` measured a corpus grow from 23 nodes to 42 across four such runs, turning a
+    baseline *interval* into extraction drift). The corpus identity still comes from `corpus_
+    identity` over each discovered document's own bytes (`corpus_documents`, task 16.0), so
+    discovering them without ingesting yields the identical digest a real index would have —
+    reading ids back out of the store instead would make the record depend on whatever a previous
+    run happened to write. The ingest pipeline is still resolved and still recorded: a query-rung
+    comparison needs a stated ingest rung even when this call did not itself index anything.
+    `wall_clock_seconds`/`durations.ingest_seconds` are both `0.0` on this branch, a measurement
+    rather than a placeholder — this call spent no time ingesting.
+
+    Mints a fresh `uuid4` run id and writes the record to `DEFAULT_RUNS_DIR/<run_id>.json` before
+    returning — the two steps `EvalRunCommand.run` always performed, now performed once.
+    """
+    resolved: ResolvedPipeline
+    document_ids: tuple[str, ...]
+    content_hashes: tuple[str, ...]
+    summary: RunSummary
+    stored_count: int | None
+    ingest_seconds: float
+
+    if reuse_index:
+        resolved, _specs, documents = corpus_documents(
+            path,
+            pipeline=pipeline,
+            registry=deps.registry,
+            reports=deps.reports,
+            contributions=deps.contributions,
+        )
+        del _specs
+        document_ids = tuple(str(doc.source_id) for doc in documents)
+        if not document_ids:
+            raise EmptyCorpusError(
+                f"'{path}' holds nothing pipeline '{pipeline}' can read, so there is no corpus "
+                f"identity for a run record to carry and nothing for a query rung to retrieve. "
+                f"--reuse-index scores against a corpus that is already stored; point --path at "
+                f"the directory that was indexed.",
+                path=str(path),
+                pipeline=pipeline,
+            )
+        content_hashes = content_hashes_of(documents)
+        summary = RunSummary()
+        stored_count = None
+        ingest_seconds = 0.0
+    else:
+        # Task 4.7, V5's wall-clock half: measured around the real work, never estimated.
+        started = time.monotonic()
+        result = await run_index_for(
+            deps,
+            path,
+            ctx=ctx,
+            pipeline=pipeline,
+            # `--reuse-index` is how a caller says *do not ingest*, and it says so in the
+            # record; a wall-clock-timed run must not silently skip an unchanged document and
+            # be compared against one that did the whole job (ledger task 17.0).
+            reprocess=True,
+        )
+        ingest_seconds = time.monotonic() - started
+        if not result.document_ids:
+            raise EmptyCorpusError(
+                f"'{path}' produced nothing to index under pipeline '{pipeline}' — there is "
+                f"nothing for a run record to carry a corpus identity over. Point --path at a "
+                f"directory pipeline '{pipeline}' can actually read.",
+                path=str(path),
+                pipeline=pipeline,
+            )
+        # `run_index` always sets `resolved_pipeline` on the `pipeline=` path — see
+        # `weft_cli.ingest.IndexResult`'s own docstring — and `pipeline` is required above.
+        resolved = cast(ResolvedPipeline, result.resolved_pipeline)
+        document_ids = result.document_ids
+        content_hashes = result.content_hashes
+        summary = result.summary
+        stored_count = result.stored_count
+
+    # Task 4.9's own gap to fill — see the module docstring's paragraph on `--questions`.
+    # `{}` with no questions, the same honesty `model_versions` had before task 4.7.
+    # Task 10.22: timed separately from ingest above, on the same clock, so a rebuild's cost
+    # and a scoring run's cost never collapse into one number — see `RunDurations`'s own
+    # docstring for why that split is what G15's *Remove* face actually needs.
+    query_started = time.monotonic()
+    metrics: Mapping[str, Outcome[MetricAggregate]] = {}
+    query_rung: ScoredQueryRung | None = None
+    question_scores: Mapping[str, PerQuestionScores] | None = None
+    question_set: str | None = None
+    question_set_basis: QuestionSetDigestBasis | None = None
+    question_seconds: PerQuestionSeconds | None = None
+    token_usage: Mapping[str, RoleTokens] | None = None
+    if questions is not None:
+        scored = await score_pipeline(
+            registry=deps.registry,
+            resolved_pipeline=resolved,
+            questions=questions,
+            top_k=top_k,
+            ctx=ctx,
+            corpus_document_ids=document_ids,
+            query_pipeline=query_pipeline,
+            reports=deps.reports,
+            llm=deps.llm,
+            services=deps.services,
+            roles=deps.roles,
+            sink=deps.token_sink,
+            contributions=deps.contributions,
+            document_labels=document_labels,
+            refuse_foreign_documents=refuse_foreign_documents,
+        )
+        metrics = scored.metrics
+        query_rung = scored.query_rung
+        question_scores = scored.question_scores
+        question_set = scored.question_set or None
+        question_set_basis = (
+            QuestionSetDigestBasis.QUESTION_SET if question_set is not None else None
+        )
+        question_seconds = scored.question_seconds
+        token_usage = scored.token_usage
+    query_seconds = time.monotonic() - query_started
+
+    resolved_corpus_name = corpus_name if corpus_name is not None else str(path)
+    record = build_run_record(
+        recorded_at=datetime.now(UTC).isoformat(),
+        resolved_pipeline=resolved,
+        corpus=corpus_identity(resolved_corpus_name, content_hashes),
+        corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+        query_rung=query_rung,
+        # Task 4.7's own gap to fill — see the module docstring's paragraph on
+        # `model_versions_of`. Derived from what actually ran, never from `[services]`.
+        model_versions=model_versions_of(resolved, roles=deps.llm.roles),
+        reports=deps.reports,
+        distribution_versions=active_distribution_versions(deps.reports),
+        metrics=metrics,
+        durations=RunDurations(ingest_seconds=ingest_seconds, query_seconds=query_seconds),
+        question_scores=question_scores,
+        question_set_digest=question_set,
+        question_set_digest_basis=question_set_basis,
+        question_seconds=question_seconds,
+        token_usage=token_usage,
+        experiment=experiment,
+    )
+    run_id = str(uuid.uuid4())
+    write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
+    return IndexAndScoreResult(
+        run_id=run_id,
+        record=record,
+        summary=summary,
+        stored_count=stored_count,
+        wall_clock_seconds=ingest_seconds,
+    )
+
+
 class EvalRunCommand:
     """`weft eval run` — see the module docstring."""
 
@@ -959,236 +1159,37 @@ class EvalRunCommand:
     def __init__(self, config: object = None) -> None:
         del config
 
-    async def _score_the_stored_corpus(
-        self, run_args: EvalRunArgs, ctx: Context, deps: Dependencies
-    ) -> Outcome[CommandResult]:
-        """`--reuse-index` — carried repair **R10.4**. Score against what is already stored.
-
-        **Why this exists.** `weft eval run` always indexed, so comparing two *query* rungs meant
-        running it twice against one corpus and re-ingesting each time. Harmless for a
-        deterministic ingest rung; not at all harmless for one that calls a model. `L11.46`
-        measured it — four runs against a model-calling rung took a corpus from **23 nodes to
-        42**, and what read as a baseline *interval* was extraction drift rather than retrieval
-        noise. The comparison spanned a store that grew between its arms.
-
-        **The corpus identity comes from the same derivation, deliberately.** `corpus_identity`
-        digests each discovered document's own bytes (task 16.0; before it, the resolved path
-        each one was staged at), so discovering them without ingesting yields the identical
-        digest and the two arms compare rather than merely both existing. Reading the ids back
-        out of the store instead would make this record depend on what some previous run
-        happened to write, which is the moving corpus one layer down.
-
-        **The ingest pipeline is still resolved and still recorded.** A query-rung comparison is
-        only meaningful against a stated ingest rung — `_incomparable_reasons` reads it — and
-        resolving a document costs nothing and runs nothing.
-
-        `ingest_seconds` is `0.0` and that is a measurement rather than a placeholder: this run
-        spent no time ingesting.
-        """
-        _resolved, _specs, documents = corpus_documents(
-            Path(run_args.path),
-            pipeline=run_args.pipeline,
-            registry=deps.registry,
-            reports=deps.reports,
-            contributions=deps.contributions,
-        )
-        del _specs
-        document_ids = tuple(str(doc.source_id) for doc in documents)
-        if not document_ids:
-            raise EmptyCorpusError(
-                f"'{run_args.path}' holds nothing pipeline '{run_args.pipeline}' can read, so "
-                f"there is no corpus identity for a run record to carry and nothing for a query "
-                f"rung to retrieve. --reuse-index scores against a corpus that is already "
-                f"stored; point --path at the directory that was indexed.",
-                path=run_args.path,
-                pipeline=run_args.pipeline,
-            )
-
-        query_started = time.monotonic()
-        metrics: Mapping[str, Outcome[MetricAggregate]] = {}
-        query_rung: ScoredQueryRung | None = None
-        question_scores: Mapping[str, PerQuestionScores] | None = None
-        question_set: str | None = None
-        question_set_basis: QuestionSetDigestBasis | None = None
-        question_seconds: PerQuestionSeconds | None = None
-        token_usage: Mapping[str, RoleTokens] | None = None
-        question_set_format: QuestionSetFormat | None = None
-        if run_args.questions is not None:
-            read_set = read_question_set(Path(run_args.questions))
-            question_set_format = read_set.format
-            scored = await score_pipeline(
-                registry=deps.registry,
-                resolved_pipeline=_resolved,
-                questions=read_set.questions,
-                top_k=run_args.top_k,
-                ctx=ctx,
-                corpus_document_ids=document_ids,
-                query_pipeline=run_args.query_pipeline,
-                reports=deps.reports,
-                llm=deps.llm,
-                services=deps.services,
-                roles=deps.roles,
-                sink=deps.token_sink,
-                contributions=deps.contributions,
-                document_labels=_document_labels_from_manifest(run_args.manifest),
-            )
-            metrics = scored.metrics
-            query_rung = scored.query_rung
-            question_scores = scored.question_scores
-            question_set = scored.question_set or None
-            question_set_basis = (
-                QuestionSetDigestBasis.QUESTION_SET if question_set is not None else None
-            )
-            question_seconds = scored.question_seconds
-            token_usage = scored.token_usage
-        query_seconds = time.monotonic() - query_started
-
-        corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
-        record = build_run_record(
-            recorded_at=datetime.now(UTC).isoformat(),
-            resolved_pipeline=_resolved,
-            corpus=corpus_identity(corpus_name, content_hashes_of(documents)),
-            corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
-            query_rung=query_rung,
-            model_versions=model_versions_of(_resolved, roles=deps.llm.roles),
-            reports=deps.reports,
-            distribution_versions=active_distribution_versions(deps.reports),
-            metrics=metrics,
-            durations=RunDurations(ingest_seconds=0.0, query_seconds=query_seconds),
-            question_scores=question_scores,
-            question_set_digest=question_set,
-            question_set_digest_basis=question_set_basis,
-            question_seconds=question_seconds,
-            token_usage=token_usage,
-        )
-        run_id = str(uuid.uuid4())
-        write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
-        return Produced(
-            value=EvalRunCommandResult(
-                run_id=run_id,
-                path=run_args.path,
-                # Nothing was produced, because nothing ran — a summary of an ingest that did
-                # not happen, said as zeroes rather than omitted.
-                summary=RunSummary(),
-                stored_count=None,
-                record=record,
-                wall_clock_seconds=0.0,
-                question_set_format=question_set_format,
-            )
-        )
-
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         run_args = cast(EvalRunArgs, args)
         deps = ctx.require(Dependencies)
 
-        if run_args.reuse_index:
-            return await self._score_the_stored_corpus(run_args, ctx, deps)
-
-        # Task 4.7, V5's wall-clock half: measured around the real work, never estimated.
-        started = time.monotonic()
-        result = await run_index_for(
-            deps,
-            Path(run_args.path),
-            ctx=ctx,
-            pipeline=run_args.pipeline,
-            # `--reuse-index` is how a caller says *do not ingest*, and it says so in the
-            # record; a wall-clock-timed run must not silently skip an unchanged document and
-            # be compared against one that did the whole job (ledger task 17.0).
-            reprocess=True,
-        )
-        wall_clock_seconds = time.monotonic() - started
-        if not result.document_ids:
-            raise EmptyCorpusError(
-                f"'{run_args.path}' produced nothing to index under pipeline "
-                f"'{run_args.pipeline}' — there is nothing for a run record to carry a "
-                f"corpus identity over. Point --path at a directory pipeline "
-                f"'{run_args.pipeline}' can actually read.",
-                path=run_args.path,
-                pipeline=run_args.pipeline,
-            )
-        # `run_index` always sets `resolved_pipeline` on the `pipeline=` path — see
-        # `weft_cli.ingest.IndexResult`'s own docstring — and `pipeline` is required above.
-        resolved_pipeline = cast(ResolvedPipeline, result.resolved_pipeline)
-
-        # Task 4.9's own gap to fill — see the module docstring's paragraph on `--questions`.
-        # `{}` with no `--questions`, the same honesty `model_versions` had before task 4.7.
-        # Task 10.22: timed separately from ingest above, on the same clock, so a rebuild's
-        # cost and a scoring run's cost never collapse into one number — see `RunDurations`'
-        # own docstring for why that split is what G15's *Remove* face actually needs.
-        query_started = time.monotonic()
-        metrics: Mapping[str, Outcome[MetricAggregate]] = {}
-        query_rung: ScoredQueryRung | None = None
-        question_scores: Mapping[str, PerQuestionScores] | None = None
-        question_set: str | None = None
-        question_set_basis: QuestionSetDigestBasis | None = None
-        question_seconds: PerQuestionSeconds | None = None
-        token_usage: Mapping[str, RoleTokens] | None = None
+        questions: tuple[Question, ...] | None = None
         question_set_format: QuestionSetFormat | None = None
         if run_args.questions is not None:
             read_set = read_question_set(Path(run_args.questions))
             question_set_format = read_set.format
-            scored = await score_pipeline(
-                registry=deps.registry,
-                resolved_pipeline=resolved_pipeline,
-                questions=read_set.questions,
-                top_k=run_args.top_k,
-                ctx=ctx,
-                corpus_document_ids=result.document_ids,
-                query_pipeline=run_args.query_pipeline,
-                reports=deps.reports,
-                llm=deps.llm,
-                services=deps.services,
-                roles=deps.roles,
-                sink=deps.token_sink,
-                contributions=deps.contributions,
-                document_labels=_document_labels_from_manifest(run_args.manifest),
-            )
-            metrics = scored.metrics
-            query_rung = scored.query_rung
-            question_scores = scored.question_scores
-            question_set = scored.question_set or None
-            question_set_basis = (
-                QuestionSetDigestBasis.QUESTION_SET if question_set is not None else None
-            )
-            question_seconds = scored.question_seconds
-            token_usage = scored.token_usage
-        query_seconds = time.monotonic() - query_started
+            questions = read_set.questions
 
-        corpus_name = run_args.corpus_name if run_args.corpus_name is not None else run_args.path
-        corpus = corpus_identity(corpus_name, result.content_hashes)
-        record = build_run_record(
-            recorded_at=datetime.now(UTC).isoformat(),
-            resolved_pipeline=resolved_pipeline,
-            corpus=corpus,
-            corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
-            query_rung=query_rung,
-            # Task 4.7's own gap to fill — see the module docstring's paragraph on
-            # `model_versions_of`. Derived from what actually ran, never from `[services]`.
-            model_versions=model_versions_of(resolved_pipeline, roles=deps.llm.roles),
-            reports=deps.reports,
-            distribution_versions=active_distribution_versions(deps.reports),
-            metrics=metrics,
-            durations=RunDurations(ingest_seconds=wall_clock_seconds, query_seconds=query_seconds),
-            question_scores=question_scores,
-            question_set_digest=question_set,
-            question_set_digest_basis=question_set_basis,
-            question_seconds=question_seconds,
-            token_usage=token_usage,
+        result = await index_and_score(
+            deps,
+            ctx=ctx,
+            path=Path(run_args.path),
+            pipeline=run_args.pipeline,
+            corpus_name=run_args.corpus_name,
+            questions=questions,
+            document_labels=document_labels_from_manifest(run_args.manifest),
+            top_k=run_args.top_k,
+            query_pipeline=run_args.query_pipeline,
+            reuse_index=run_args.reuse_index,
         )
-        run_id = str(uuid.uuid4())
-        write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
-
         return Produced(
             value=EvalRunCommandResult(
-                run_id=run_id,
+                run_id=result.run_id,
                 path=run_args.path,
                 summary=result.summary,
                 stored_count=result.stored_count,
-                record=record,
-                # The same measurement that went onto `record.durations.ingest_seconds`, never
-                # a second read of the clock — `L7.4`: two measurements of one quantity agree
-                # until they do not, and nothing then says which is authoritative.
-                wall_clock_seconds=wall_clock_seconds,
+                record=result.record,
+                wall_clock_seconds=result.wall_clock_seconds,
                 question_set_format=question_set_format,
             )
         )
@@ -1502,6 +1503,7 @@ __all__ = [
     "EvalRunCommand",
     "EvalRunCommandResult",
     "IncomparableRunsError",
+    "IndexAndScoreResult",
     "MetricComparison",
     "NoBaselineRunsError",
     "NotABaselineReportError",
@@ -1511,6 +1513,8 @@ __all__ = [
     "TraceCommandResult",
     "UnknownQuestionKindError",
     "UnknownRunIdError",
+    "document_labels_from_manifest",
+    "index_and_score",
     "metrics_comparison_for_kind",
     "model_versions_of",
     "register_eval_commands",

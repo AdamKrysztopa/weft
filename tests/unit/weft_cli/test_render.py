@@ -1122,6 +1122,39 @@ def test_render_trace_prints_every_field_the_run_record_carries() -> None:
     assert "question set: (not recorded)" in rendered.stdout
 
 
+def test_render_trace_names_the_experiment_a_record_was_run_as() -> None:
+    """Task 38.0 — the phase Exit runs `weft trace` on an experiment's record and reads its
+    experiment digest; a record run outside an experiment says so."""
+    from weft_cli.eval_commands import TraceCommandResult
+    from weft_eval.run_record import ExperimentRun
+
+    # Arrange
+    run = ExperimentRun(
+        name="orb-retrieval-baseline",
+        digest="e" * 64,
+        invocation="inv-1",
+        arm="dense",
+        repetition=2,
+    )
+    inside = TraceCommandResult(
+        run_id="run-1", record=_run_record().model_copy(update={"experiment": run})
+    )
+    outside = TraceCommandResult(run_id="run-2", record=_run_record())
+
+    # Act
+    named = render.render_outcome(Produced(value=inside))
+    unnamed = render.render_outcome(Produced(value=outside))
+
+    # Assert
+    assert named.stdout is not None
+    assert (
+        "experiment: 'orb-retrieval-baseline' (eeeeeeeeeeee…) arm dense, repetition 2"
+        in named.stdout
+    )
+    assert unnamed.stdout is not None
+    assert "experiment: (none)" in unnamed.stdout
+
+
 def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() -> None:
     """Task **16.1**. Three states reach this renderer and each must read differently — a
     reader who cannot tell *"nobody recorded it"* from *"this run used plain vector top-k"*

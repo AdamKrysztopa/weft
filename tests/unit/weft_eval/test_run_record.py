@@ -20,6 +20,7 @@ from weft_eval.aggregate import MetricAggregate
 from weft_eval.run_record import (
     CorpusDigestBasis,
     CorpusIdentity,
+    ExperimentRun,
     NoQueryRung,
     NotAggregated,
     NotScored,
@@ -566,3 +567,36 @@ def test_a_record_names_which_function_digested_its_question_set(tmp_path: Path)
     assert loaded.question_set_digest_basis is QuestionSetDigestBasis.QUESTION_SET
     assert from_before.question_set_digest == "d" * 64
     assert from_before.question_set_digest_basis is None
+
+
+def test_a_record_names_the_experiment_arm_and_repetition_it_was_run_as(tmp_path: Path) -> None:
+    """Task 38.0. A table is recomputed from records, so a record says which experiment, which
+    invocation of it, which arm and which repetition it is — and one written outside an
+    experiment says it was none."""
+    # Arrange
+    run = ExperimentRun(
+        name="dense-against-rung", digest="e" * 64, invocation="inv-1", arm="dense", repetition=2
+    )
+    record = build_run_record(
+        recorded_at="2026-09-16T00:00:00+00:00",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=_corpus(),
+        experiment=run,
+    )
+    path = write_run_record(record, tmp_path / "runs" / "one.json")
+    older = record.model_dump(mode="json")
+    del older["experiment"]
+
+    # Act
+    loaded = load_run_record(path)
+    from_before = RunRecord.model_validate(older)
+
+    # Assert
+    assert loaded.experiment == run
+    assert from_before.experiment is None
+
+
+def test_a_repetition_counts_from_one() -> None:
+    # Act / Assert
+    with pytest.raises(ValidationError):
+        ExperimentRun(name="x", digest="e" * 64, invocation="inv-1", arm="a", repetition=0)

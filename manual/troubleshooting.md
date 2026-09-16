@@ -3217,6 +3217,72 @@ schema 1, `schema = 2` lets a file state which fields it cannot supply (`absent`
 than read on a guess. **What to do:** upgrade `weft-rag` to a release that reads that schema, or
 use the release that wrote the file.
 
+### `ExperimentDocumentError`
+
+**What it looks like** — `weft eval experiment` given a document that cannot be run as written,
+here one asking for a single repetition:
+
+```text
+$ weft eval experiment one.toml --yes ; echo $?
+one.toml: repeats: Input should be greater than or equal to 2
+1
+```
+
+An experiment document states its arms, question set, corpus, repetitions, metrics and minimum
+detectable effect before any run, and each is checked when it is read: fewer than two arms or two
+repetitions, a zero or missing effect, no metric, two arms under one name, an unknown key and a
+missing `schema` are all refused naming the file and the field. **What to do:** fix the named field.
+Two repetitions is the least that gives a between-run spread to judge a difference against.
+
+### `ExperimentSchemaError`
+
+**What it looks like** — an experiment document whose `[experiment] schema` is not one this release
+reads:
+
+```text
+$ weft eval experiment newer.toml --yes ; echo $?
+newer.toml names schema 2, and this weft-rag reads schema 1 — upgrade weft-rag to read a document written for a different schema.
+1
+```
+
+**What to do:** upgrade `weft-rag` to a release that reads that schema, or run the document with the
+release that wrote it.
+
+### `IncomparableArmsError`
+
+**What it looks like** — an experiment whose arms would not measure the same thing, refused before
+anything is indexed:
+
+```text
+$ weft eval experiment planted.toml --yes ; echo $?
+arm 'planted' is not comparable to 'dense': corpus differs ('dense' d3b18b20c967… vs 'planted' 4d10128f9175…).
+1
+```
+
+Every arm is compared with the first on three things: the digest of the documents its pipeline reads
+from its corpus, the digest of its question set, and any model slot both arms name at two
+different versions. An arm using a model slot the other lacks is not a difference — that is most
+of what an experiment varies. **What to do:** point the arm at the same corpus and questions, or
+run it as its own experiment; a difference in the corpus is a different measurement, not a
+comparison.
+
+### `ForeignDocumentRetrievedError`
+
+**What it looks like** — an experiment arm retrieving a passage from a document the store holds
+and the arm's corpus does not:
+
+```text
+$ weft index foreign
+$ weft eval experiment experiment.toml --yes ; echo $?
+a retrieved passage names document '/tmp/exp/foreign/saffron.txt', which the store holds but the scored corpus does not (2 document(s)).
+1
+```
+
+Scored, that passage would count as a miss against questions that never judged it, and the arm
+would read as worse than it is. `weft eval run` still scores such a store; the experiment runner
+refuses it. **What to do:** give the experiment a store holding only its corpus — a fresh database
+in `[packs.store] dsn`, or a new `[packs.qdrant] collection`.
+
 ### `CorpusManifestError`
 
 **What it looks like** — a manifest entry declaring a tier that does not exist:
