@@ -167,6 +167,36 @@ def _question_kind_slices(
     return slices
 
 
+def _axis_slices(
+    samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
+) -> Mapping[str, Mapping[str, PartitionSlice]]:
+    """Partition `outcomes` by every axis the `RetrievalSample` that produced each declares, fold
+    each partition with `aggregate()`, and keep only the partitions that produced a mean.
+
+    `_question_kind_slices`'s twin, one level up — a mapping of axis to value to `PartitionSlice`
+    rather than of value to `PartitionSlice` directly, because a sample may declare any number of
+    axes (task 38.2). A sample declaring no axis, or none for a given axis, contributes to the
+    mean and to no slice of it — the identical "absent, never fabricated" rule `_question_kind_
+    slices` already keeps for a `""` kind.
+    """
+    by_axis: dict[str, dict[str, list[Outcome[MetricScore]]]] = {}
+    for sample, outcome in zip(samples, outcomes, strict=True):
+        for axis, value in sample.axes.items():
+            by_axis.setdefault(axis, {}).setdefault(value, []).append(outcome)
+
+    slices: dict[str, dict[str, PartitionSlice]] = {}
+    for axis, by_value in by_axis.items():
+        for value, value_outcomes in by_value.items():
+            partition = aggregate(value_outcomes)
+            if isinstance(partition, Produced):
+                slices.setdefault(axis, {})[value] = PartitionSlice(
+                    mean=partition.value.mean,
+                    n=partition.value.n,
+                    stdev=partition.value.stdev,
+                )
+    return slices
+
+
 def _as_question_outcome(outcome: Outcome[MetricScore]) -> QuestionOutcome:
     """One question's `Outcome[MetricScore]` narrowed to `QuestionOutcome` — task 16.4, the
     per-sample twin of `weft_eval.run_record._as_run_result` one granularity up.
@@ -240,6 +270,7 @@ async def score_retrieval_gate_subset(
             kind=MetricKind.RETRIEVAL,
             by_modality=_modality_slices(samples, outcomes),
             by_question_kind=_question_kind_slices(samples, outcomes),
+            by_axis=_axis_slices(samples, outcomes),
         )
         key = outcome.value.reported_name if isinstance(outcome, Produced) else name
         if key in report:

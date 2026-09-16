@@ -2929,9 +2929,27 @@ rather than a comparison of two absent slices — a verdict computed from two nu
 is one a reader cannot tell from a real one.
 
 **What to do:** the message lists every kind either run actually recorded. Either name one of
-those, or re-run with a questions file whose entries carry the `kind` you want to compare —
-`{"query": ..., "relevant_documents": [...], "kind": "methodological"}` — and compare the new runs.
-Dropping `--kind` compares the whole run, which is what this command did before the flag existed.
+those, or re-run with a question file whose questions carry the `kind` you want to compare — `kind =
+"methodological"`, or an axis named `kind` in a set that states `kind` absent — and compare the new
+runs. Dropping `--kind` compares the whole run, which is what this command did before the flag
+existed. `--kind X` is the case `--slice kind=X` of `UnknownSliceError`'s flag.
+
+### `UnknownSliceError`
+
+**What it looks like** — `weft eval compare --slice` naming an `axis=value` pair neither run
+recorded:
+
+```text
+$ weft eval compare <run-a> <run-b> --slice evidence=video
+'evidence=video' is not a slice either run recorded. Slices recorded: evidence=text, evidence=text-table, split=dev.
+$ echo $?
+4
+```
+
+A question file declares axes (`[question_set] axes = ["evidence", ...]`) and each question a value
+for each; a run records a mean per value beside its whole-run mean, and `--slice` reads that number
+on both sides instead. A value no scored question carried has no slice, so it is refused rather than
+compared as two absent numbers. **What to do:** name one of the listed pairs, written `axis=value`.
 
 ### `TooFewRepetitionsError`
 

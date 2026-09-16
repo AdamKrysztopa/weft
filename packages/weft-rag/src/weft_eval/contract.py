@@ -95,8 +95,9 @@ happens to hold. A caller who wants "1.0 because both sides are the empty string
 different, legitimate question — `exact-match` already answers it, honestly, as an exact match.
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
-from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -213,6 +214,11 @@ class RetrievalSample(BaseModel):
     #: keys its per-question outcomes on this and never on a position of its own: whether a
     #: questions file has ids is the caller's fact, not the harness's.
     question_key: str = ""
+    #: Task 38.2 — the question's own declared axes, as they are (`weft_eval.question_set.
+    #: Question.axes`), including a bridge question's `kind` axis. `{}` for every sample built
+    #: before this task, `kind`'s own default one field over — `weft_eval.harness` slices every
+    #: declared axis the way it already slices `kind`.
+    axes: Mapping[str, str] = Field(default_factory=lambda: cast("Mapping[str, str]", {}))
 
 
 class MetricScore(BaseModel):

@@ -516,6 +516,9 @@ async def test_a_sample_carries_the_questions_kind_or_the_axis_standing_in_for_i
     # Assert
     kinds = {sample.question_key: sample.kind for sample in captured}
     assert kinds == {"curated-1": "definitional", "bridge-1": "requires-graph-hop"}
+    # Task 38.2 — a question's declared axes reach its sample as they are.
+    axes = {sample.question_key: dict(sample.axes) for sample in captured}
+    assert axes == {"curated-1": {}, "bridge-1": {"kind": "requires-graph-hop"}}
 
 
 async def test_the_scored_run_names_its_question_set_by_the_one_models_digest() -> None:

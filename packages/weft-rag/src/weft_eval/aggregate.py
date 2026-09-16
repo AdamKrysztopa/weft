@@ -199,6 +199,14 @@ class MetricAggregate(BaseModel):
     by_question_kind: Mapping[str, PartitionSlice] = Field(
         default_factory=lambda: cast("Mapping[str, PartitionSlice]", {})
     )
+    #: Each declared axis' own value-to-`PartitionSlice` mapping — task 38.2, `by_question_kind`
+    #: one level up: an axis (`RetrievalSample.axes`'s own keys, e.g. `evidence`, `answer-form`,
+    #: `split`) to that axis' own values, each sliced the way `by_question_kind` slices `kind`.
+    #: `{}` for a caller that did not partition by axis, or whose samples declared none — the
+    #: same "absent, never fabricated" rule `by_question_kind`'s own docstring states.
+    by_axis: Mapping[str, Mapping[str, PartitionSlice]] = Field(
+        default_factory=lambda: cast("Mapping[str, Mapping[str, PartitionSlice]]", {})
+    )
 
 
 def aggregate(
@@ -207,6 +215,7 @@ def aggregate(
     kind: MetricKind = MetricKind.RETRIEVAL,
     by_modality: Mapping[QueryModality, PartitionSlice] | None = None,
     by_question_kind: Mapping[str, PartitionSlice] | None = None,
+    by_axis: Mapping[str, Mapping[str, PartitionSlice]] | None = None,
 ) -> Outcome[MetricAggregate]:
     """Fold many observations of *one* metric into `Produced[MetricAggregate]`, or say why not.
 
@@ -276,6 +285,7 @@ def aggregate(
             kind=kind,
             by_modality=by_modality or {},
             by_question_kind=by_question_kind or {},
+            by_axis=by_axis or {},
         )
     )
 

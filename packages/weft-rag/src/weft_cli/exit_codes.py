@@ -134,6 +134,10 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     a verdict computed from two numbers nobody measured is one a reader cannot tell from a real
     one.
 
+    **`weft_cli.eval_commands.UnknownSliceError`, task 38.2 — `UnknownQuestionKindError`'s
+    widening.** `weft eval compare --slice axis=value` naming a slice neither run recorded rides
+    the identical refusal, one axis wider than `kind` alone.
+
     **`weft_eval.offline.UnknownMetricNameError`, task 4.7 — the identical shape again.**
     `weft eval metrics <name>` naming a metric neither `GenerationMetric` nor `RetrievalMetric`
     registered is "fix what you typed", FF12's family, exactly as an unknown run id is —
@@ -167,6 +171,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
         NoBaselineRunsError,
         UnknownQuestionKindError,
         UnknownRunIdError,
+        UnknownSliceError,
     )
     from weft_cli.eval_scoring import AmbiguousLabelError, UnresolvableLabelError
     from weft_cli.route_ask import NoRouterPipelineError
@@ -179,6 +184,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
             UnknownRunIdError,
             NoBaselineRunsError,
             UnknownQuestionKindError,
+            UnknownSliceError,
             UnknownMetricNameError,
             UnresolvableLabelError,
             AmbiguousLabelError,

@@ -211,7 +211,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import ClassVar, Final, cast
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from weft_cli.eval_scoring import score_pipeline
 from weft_cli.ingest import content_hashes_of, corpus_documents, run_index_for
@@ -397,6 +397,22 @@ class UnknownQuestionKindError(WeftError, UnresolvedNameError):
         self.kind = kind
 
 
+class UnknownSliceError(WeftError, UnresolvedNameError):
+    """`weft eval compare --slice axis=value` named a slice neither compared run recorded.
+
+    `UnknownQuestionKindError`'s twin, one level up — task 38.2 widens the restriction from
+    `kind` alone to any declared axis. `valid_options` is every `f"{axis}={value}"` either run's
+    own `MetricAggregate.by_axis` actually carries, plus every `f"kind={value}"` either run's own
+    `by_question_kind` carries, sorted — the identical "list what does exist" rule
+    `UnknownQuestionKindError` already keeps.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...], slice: str) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+        self.slice = slice
+
+
 class EvalRunArgs(BaseModel):
     """`weft eval run <path> <pipeline> [--corpus-name NAME]` — see the module docstring for
     why `pipeline` is a second required positional rather than `weft index`'s optional flag.
@@ -501,9 +517,29 @@ class EvalCompareArgs(BaseModel):
             "restrict metrics_comparison to one question kind's own slice (ledger task 11.12) "
             "instead of the whole-run mean — e.g. 'cross-document', 'definitional'. Refuses, "
             "naming every kind either run actually recorded, for a kind neither run did. "
+            "Omitted, this compares the whole-run mean exactly as it always has. "
+            "'--kind X' is '--slice kind=X' — the two are mutually exclusive."
+        ),
+    )
+    slice: str | None = Field(
+        default=None,
+        description=(
+            "restrict metrics_comparison to one declared axis' own slice (ledger task 38.2) — "
+            "'axis=value', e.g. 'evidence=text-table', read from each run's own per-slice "
+            "numbers. '--kind X' is the one case '--slice kind=X'; refuses, naming every "
+            "axis=value pair either run actually recorded, for a slice neither run did. "
             "Omitted, this compares the whole-run mean exactly as it always has."
         ),
     )
+
+    @model_validator(mode="after")
+    def _slice_and_kind_are_exclusive(self) -> EvalCompareArgs:
+        if self.slice is not None and self.kind is not None:
+            raise ValueError(
+                "--kind and --slice both given — '--kind X' is '--slice kind=X', so pass "
+                "exactly one of --kind or --slice, never both."
+            )
+        return self
 
 
 class TraceArgs(BaseModel):
@@ -646,6 +682,95 @@ def metrics_comparison_for_kind(
         name: MetricComparison(
             a=_restricted_to_kind(a.metrics.get(name), kind=kind),
             b=_restricted_to_kind(b.metrics.get(name), kind=kind),
+        )
+        for name in names
+    }
+
+
+def _recorded_slices(a: RunRecord, b: RunRecord) -> frozenset[str]:
+    """Every `axis=value` and `kind=value` pair either run's own metrics actually recorded a
+    slice for — `metrics_comparison_for_slice`'s own "list what does exist", `_recorded_kinds`
+    widened from `kind` alone to any declared axis (task 38.2).
+    """
+    slices: set[str] = set()
+    for record in (a, b):
+        for result in record.metrics.values():
+            if isinstance(result, Produced):
+                for axis, values in result.value.by_axis.items():
+                    slices.update(f"{axis}={value}" for value in values)
+                slices.update(f"kind={kind}" for kind in result.value.by_question_kind)
+    return frozenset(slices)
+
+
+def _restricted_to_axis(
+    result: MetricRunResult | None, *, axis: str, value: str
+) -> MetricRunResult:
+    """`result`, restricted to `axis=value`'s own slice — `_restricted_to_kind`'s twin, shaped
+    identically (task 38.2). `_NOT_MEASURED` for a result this run never produced, or whose
+    `by_axis` carries no entry for `axis`, or whose `by_axis[axis]` carries no entry for `value`
+    — the identical value a metric a run never scored at all gets.
+    """
+    if not isinstance(result, Produced):
+        return _NOT_MEASURED
+    slice_: PartitionSlice | None = result.value.by_axis.get(axis, {}).get(value)
+    if slice_ is None:
+        return _NOT_MEASURED
+    return Produced(
+        value=MetricAggregate(
+            reported_name=result.value.reported_name,
+            mean=slice_.mean,
+            n=slice_.n,
+            stdev=slice_.stdev,
+            excluded=0,
+            nothing_to_produce=0,
+            kind=result.value.kind,
+        )
+    )
+
+
+def metrics_comparison_for_slice(
+    a: RunRecord, b: RunRecord, *, slice_: str | None
+) -> Mapping[str, MetricComparison]:
+    """`_metrics_comparison(a, b)`, restricted to one declared axis' own slice — task 38.2,
+    `metrics_comparison_for_kind`'s widening from `kind` alone to any axis `weft_eval.harness`
+    now slices.
+
+    `slice_=None` returns exactly `_metrics_comparison(a, b)`. A `kind=<value>` request whose
+    value either run actually recorded in `by_question_kind` restricts through the existing
+    `_restricted_to_kind` — the identical result `metrics_comparison_for_kind` already gives
+    `--kind`, since `--kind X` is `--slice kind=X`. Any other `axis=value` request restricts
+    through `_restricted_to_axis`. A slice **neither** run recorded for **any** metric — including
+    a string with no `=` — raises `UnknownSliceError` naming every `axis=value` pair that is
+    there, rather than comparing two absent numbers.
+    """
+    if slice_ is None:
+        return _metrics_comparison(a, b)
+
+    recorded = _recorded_slices(a, b)
+    if slice_ not in recorded:
+        options = tuple(sorted(recorded))
+        raise UnknownSliceError(
+            f"'{slice_}' is not a slice either run recorded. Slices recorded: "
+            f"{', '.join(options) or '(none)'}.",
+            valid_options=options,
+            slice=slice_,
+        )
+
+    axis, _, value = slice_.partition("=")
+    names = sorted(set(a.metrics) | set(b.metrics))
+    if axis == "kind" and value in _recorded_kinds(a, b):
+        return {
+            name: MetricComparison(
+                a=_restricted_to_kind(a.metrics.get(name), kind=value),
+                b=_restricted_to_kind(b.metrics.get(name), kind=value),
+            )
+            for name in names
+        }
+
+    return {
+        name: MetricComparison(
+            a=_restricted_to_axis(a.metrics.get(name), axis=axis, value=value),
+            b=_restricted_to_axis(b.metrics.get(name), axis=axis, value=value),
         )
         for name in names
     }
@@ -1413,8 +1538,10 @@ class EvalCompareCommand:
                 active_distributions_match=record_a.active_distributions
                 == record_b.active_distributions,
                 pipeline_diff=diff,
-                metrics_comparison=metrics_comparison_for_kind(
-                    record_a, record_b, kind=compare_args.kind
+                metrics_comparison=(
+                    metrics_comparison_for_kind(record_a, record_b, kind=compare_args.kind)
+                    if compare_args.kind is not None
+                    else metrics_comparison_for_slice(record_a, record_b, slice_=compare_args.slice)
                 ),
                 baseline_pipeline=baseline_pipeline,
                 baseline_runs=baseline_runs,
@@ -1513,9 +1640,11 @@ __all__ = [
     "TraceCommandResult",
     "UnknownQuestionKindError",
     "UnknownRunIdError",
+    "UnknownSliceError",
     "document_labels_from_manifest",
     "index_and_score",
     "metrics_comparison_for_kind",
+    "metrics_comparison_for_slice",
     "model_versions_of",
     "register_eval_commands",
 ]

@@ -622,6 +622,7 @@ async def score_pipeline(
                     ),
                     modality=question.modality,
                     kind=question_kind,
+                    axes=question.axes,
                 )
             )
 

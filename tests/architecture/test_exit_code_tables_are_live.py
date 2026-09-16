@@ -63,6 +63,8 @@ _LOCAL_IMPORT_MEMBERS: Final[tuple[str, ...]] = (
     "UnknownRunIdError",
     "NoBaselineRunsError",
     "UnknownQuestionKindError",
+    # Task **38.2** — `--slice axis=value` naming a slice neither run recorded; `--kind`'s sibling.
+    "UnknownSliceError",
     "UnknownMetricNameError",
     # Task **16.5** — a ground-truth label naming no document, and one naming several. Both
     # ride this branch for the reason every member above does: a module-scope import of
@@ -91,6 +93,7 @@ def _local_import_classes() -> tuple[object, ...]:
         NoBaselineRunsError,
         UnknownQuestionKindError,
         UnknownRunIdError,
+        UnknownSliceError,
     )
     from weft_cli.route_ask import NoRouterPipelineError
     from weft_eval.offline import UnknownMetricNameError
@@ -100,6 +103,7 @@ def _local_import_classes() -> tuple[object, ...]:
         UnknownRunIdError,
         NoBaselineRunsError,
         UnknownQuestionKindError,
+        UnknownSliceError,
         UnknownMetricNameError,
     )
 
