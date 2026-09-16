@@ -214,6 +214,11 @@ class RetrievalSample(BaseModel):
     #: keys its per-question outcomes on this and never on a position of its own: whether a
     #: questions file has ids is the caller's fact, not the harness's.
     question_key: str = ""
+    #: Repair R38.5 — how many ranked candidates `retrieved` was collapsed from, when a caller
+    #: collapsed several passages of one document into one entry. `None` means `retrieved` is the
+    #: ranking as retrieved. The `@k` refusal reads this, not `len(retrieved)`: sixty chunks from
+    #: three documents is a complete ranking of three documents, not a rung that returned three.
+    candidate_count: int | None = Field(default=None, ge=0)
     #: Task 38.2 — the question's own declared axes, as they are (`weft_eval.question_set.
     #: Question.axes`), including a bridge question's `kind` axis. `{}` for every sample built
     #: before this task, `kind`'s own default one field over — `weft_eval.harness` slices every

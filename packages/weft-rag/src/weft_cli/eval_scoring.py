@@ -651,6 +651,7 @@ async def score_pipeline(
                     query=question_text,
                     question_key=question_key,
                     retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
+                    candidate_count=len(hits),
                     relevant_ids=frozenset(
                         _resolved_document_id(entry) for entry in question.relevant_documents
                     ),

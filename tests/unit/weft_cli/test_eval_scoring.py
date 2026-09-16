@@ -418,6 +418,8 @@ async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
         corpus_document_ids=("doc-best", "doc-middle", "doc-worst"),
     )
 
+    # Repair R38.5 — the sample says how many candidates the ranking was collapsed from.
+    assert captured[0].candidate_count == 3
     # Assert — best first, which is what `mrr`, `ndcg` and `mean_average_precision` all read.
     assert [passage.id for passage in captured[0].retrieved] == [
         "doc-best",

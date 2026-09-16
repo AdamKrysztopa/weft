@@ -29,7 +29,10 @@ retrieved) < k` returns `Failed`, not `NothingToProduce` — there was something
 metric could not score what its own name claims, which is a fact about the run's configuration
 rather than an honest absence of ground truth. `weft_eval.aggregate.aggregate` already excludes
 failures and reports the exclusion count, so a run half of whose questions retrieved fewer than
-`k` reports that instead of a quietly depressed mean.
+`k` reports that instead of a quietly depressed mean. **The depth is the candidates retrieved, not
+the documents they collapse to** (repair R38.5): a caller scoring at document granularity sets
+`RetrievalSample.candidate_count`, so sixty chunks from three papers are scored as a ranking of
+three documents rather than refused as a rung that returned three.
 """
 
 import math
@@ -40,6 +43,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from weft_eval.contract import MetricScore, RetrievalSample
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
+
+
+def _depth(payload: RetrievalSample) -> int:
+    """How many candidates the ranking was drawn from: `candidate_count` when a caller collapsed
+    passages into documents (repair R38.5), otherwise the length of what was retrieved."""
+    if payload.candidate_count is not None:
+        return payload.candidate_count
+    return len(payload.retrieved)
 
 
 class TopKConfig(BaseModel):
@@ -88,10 +99,10 @@ class PrecisionAtK:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
 
         k = self._config.k
-        if len(payload.retrieved) < k:
+        if _depth(payload) < k:
             return Failed(
                 reason=(
-                    f"a metric named @{k} cannot be computed over {len(payload.retrieved)} "
+                    f"a metric named @{k} cannot be computed over {_depth(payload)} "
                     f"candidates — the run retrieved fewer than it claims to score. Lower the "
                     f"metric's k, or raise the retrieval depth the rung packs."
                 )
@@ -119,10 +130,10 @@ class RecallAtK:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
 
         k = self._config.k
-        if len(payload.retrieved) < k:
+        if _depth(payload) < k:
             return Failed(
                 reason=(
-                    f"a metric named @{k} cannot be computed over {len(payload.retrieved)} "
+                    f"a metric named @{k} cannot be computed over {_depth(payload)} "
                     f"candidates — the run retrieved fewer than it claims to score. Lower the "
                     f"metric's k, or raise the retrieval depth the rung packs."
                 )
@@ -189,10 +200,10 @@ class NDCGAtK:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
 
         k = self._config.k
-        if len(payload.retrieved) < k:
+        if _depth(payload) < k:
             return Failed(
                 reason=(
-                    f"a metric named @{k} cannot be computed over {len(payload.retrieved)} "
+                    f"a metric named @{k} cannot be computed over {_depth(payload)} "
                     f"candidates — the run retrieved fewer than it claims to score. Lower the "
                     f"metric's k, or raise the retrieval depth the rung packs."
                 )
@@ -233,10 +244,10 @@ class MRRAtK:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
 
         k = self._config.k
-        if len(payload.retrieved) < k:
+        if _depth(payload) < k:
             return Failed(
                 reason=(
-                    f"a metric named @{k} cannot be computed over {len(payload.retrieved)} "
+                    f"a metric named @{k} cannot be computed over {_depth(payload)} "
                     f"candidates — the run retrieved fewer than it claims to score. Lower the "
                     f"metric's k, or raise the retrieval depth the rung packs."
                 )

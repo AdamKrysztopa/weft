@@ -5,6 +5,8 @@ edge case and one `k`-in-the-name check per metric, plus `MeanAveragePrecision`'
 happy path since averaging is where its formula differs from the other three.
 """
 
+import pytest
+
 from weft_eval.contract import RetrievalSample, RetrievedPassage
 from weft_eval.ir_metrics import (
     MeanAveragePrecision,
@@ -217,3 +219,58 @@ async def test_mrr_at_k_has_nothing_to_produce_without_ground_truth() -> None:
 
     # Assert
     assert isinstance(outcome, NothingToProduce)
+
+
+# --- Repair R38.5 — the depth a metric refuses on is the candidates retrieved, not the documents
+# --- they collapse to.
+
+
+@pytest.mark.parametrize(
+    "metric",
+    [
+        PrecisionAtK(TopKConfig(k=5)),
+        RecallAtK(TopKConfig(k=5)),
+        NDCGAtK(TopKConfig(k=5)),
+        MRRAtK(TopKConfig(k=5)),
+    ],
+    ids=["precision", "recall", "ndcg", "mrr"],
+)
+async def test_a_ranking_collapsed_to_fewer_documents_than_k_is_scored_when_k_candidates_came_back(
+    metric: PrecisionAtK | RecallAtK | NDCGAtK | MRRAtK,
+) -> None:
+    """Sixty chunks from three papers is a complete ranking of three documents. The `@k` refusal
+    exists for a rung that could never return `k` candidates — `repack: {top_n: 8}` scored `@10` —
+    and refusing a question whose sixty candidates happen to sit in three documents dropped 21% of
+    Open RAGBench's dev questions from `38.5`'s first record: the ones retrieval concentrates on."""
+    # Arrange
+    sample = _n_retrieved(3).model_copy(update={"candidate_count": 60})
+
+    # Act
+    outcome = await metric.evaluate(sample, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+
+
+async def test_a_ranking_whose_candidates_were_fewer_than_k_is_still_refused() -> None:
+    # Arrange
+    sample = _n_retrieved(3).model_copy(update={"candidate_count": 3})
+
+    # Act
+    outcome = await RecallAtK(TopKConfig(k=5)).evaluate(sample, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "3" in outcome.reason
+
+
+async def test_precision_over_a_short_collapsed_ranking_keeps_k_as_its_denominator() -> None:
+    # Arrange — one relevant document among three, from sixty candidates.
+    sample = _n_retrieved(3).model_copy(update={"candidate_count": 60})
+
+    # Act
+    outcome = await PrecisionAtK(TopKConfig(k=5)).evaluate(sample, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.value == pytest.approx(1 / 5)
