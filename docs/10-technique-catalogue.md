@@ -499,7 +499,7 @@ settled inside a document that does not own them.
 Part of what this document owns, and the cheapest thing in it. These names must stay free because the
 literature has already fixed them for techniques Weft does not implement.
 
-**This section reserves 27 names and 1 prefix.** That sentence is the point of it and not
+**This section reserves 42 names and 1 prefix.** That sentence is the point of it and not
 decoration: `tests/docs/test_technique_naming.py` counts what it can actually read here and
 refuses a run where the two disagree. Before carried repair `R11.7` there was no second number to
 disagree with — the parser's count and the section's count were the same number arrived at by the
@@ -623,6 +623,50 @@ decomposition line (least-to-most — Denny Zhou et al., ICLR 2023, arXiv:2205.1
 prompting — Tushar Khot et al., ICLR 2023, arXiv:2210.02406), and using it for Boolean operand
 splitting would promise sequential dependent sub-answers that `boolean-retrieval` structurally cannot
 produce.
+
+
+**Evaluation metrics, reserved at ledger `38.9` (2026-09-16) and none implemented.** Phase 38 settled
+that a metric is built only when it can be shown to change a verdict against records that already
+exist, and none can yet: no Phase 38 record existed when the survey ran, and a `RunRecord` persists
+per-question *scores* rather than the ranking, passages or answer a new metric would read, so every
+candidate is a re-run, not a re-score. The rank-only candidates — hit@k, R-precision, bpref, ERR —
+are functions of the rank of the one relevant document Open RAGBench labels per question, which
+`mrr@k` already carries, so they would reorder nothing and are neither reserved nor built. A metric
+row belongs to `09` §4, not to §1 (`test_technique_naming.py`'s `_CONTRACTS_OUTSIDE_THE_CATALOGUE`);
+these lines only keep the names free.
+
+· `erag` — Alireza Salemi, Hamed Zamani, *Evaluating Retrieval Quality in Retrieval-Augmented
+Generation*, arXiv:2404.13781, 2024: each retrieved document is labelled by whether the answering
+model, given it alone, answers the question. The first candidate that replaces the qrel rather than
+reweighting it; k generations per question
+· `sufficient-context` — Joren et al., *Sufficient Context*, arXiv:2411.06037, 2024: a judge
+decides whether the retrieved context could support an answer, with no reference. Separates "the
+right paper came back" from "enough of it came back"; one call per question
+· `udcg` — Trappolini et al., *Redefining Retrieval Evaluation in the Era of LLMs*, arXiv:2510.21440,
+2025: relevant utility minus the distraction of irrelevant passages, from the model's own abstention
+probability — needs token log-probabilities, which `LLM` may not expose
+· `negative-document-rate-at-k` — Weft's own, from Open RAGBench's corpus design: the share of the top
+k drawn from documents relevant to no question. Zero model calls, but a record holds no retrieved ids
+to compute it from; not called "hard-negative", because nothing shows the negatives are hard
+· `citation-recall` — Tianyu Gao, Howard Yen, Jiatong Yu, Danqi Chen, *ALCE*, EMNLP 2023,
+arXiv:2305.14627: whether a statement's citations together entail it
+· `citation-precision` — the same paper: whether each citation is needed for that support
+· `ares` — Saad-Falcon, Khattab, Potts, Zaharia, arXiv:2311.09476, 2023: fine-tuned judges calibrated on human
+labels by prediction-powered inference; Weft holds no human labels
+· `autonuggetizer` — Pradeep et al., arXiv:2411.09607, 2024: nugget extraction, vital/okay
+weighting and assignment; `answer-completeness` is nugget recall over one reference without the
+weighting, so it does not take this name
+· `noise-sensitivity` — Ru et al., *RAGChecker*, arXiv:2408.08067, 2024; also a RAGAS library
+metric
+· `context-utilization` — the same RAGChecker paper
+· `negative-rejection` — Jiawei Chen, Hongyu Lin, Xianpei Han, Le Sun, *RGB*, AAAI 2024,
+arXiv:2309.01431: needs unanswerable testbeds Open RAGBench does not have
+· `counterfactual-robustness` — the same RGB paper
+· `sas` — Risch et al., *Semantic Answer Similarity*, arXiv:2108.06130, 2021: a cross-encoder
+over answer and reference; `embedding-similarity` is a bi-encoder and does not take it
+· `bem` — Bulian et al., arXiv:2202.07654, 2022: a trained answer-equivalence classifier
+· `g-eval` — Liu et al., EMNLP 2023, arXiv:2303.16634: a chain-of-thought rubric judge with
+probability-weighted scoring
 
 ---
 
