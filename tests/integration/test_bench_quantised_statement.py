@@ -45,6 +45,10 @@ async def store() -> AsyncIterator[PgVectorStore]:
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
         await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
+        # G22 commits the column to the first embedding's width, and that survives a
+        # TRUNCATE. This fixture shares one database with every other suite, so the width
+        # goes back to bare here or whichever test ran first refuses this one at setup.
+        await cur.execute("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector")
     await conn.close()
     await instance.add([_node(n) for n in range(_ROWS)])
     yield instance

@@ -132,6 +132,11 @@ async def _pgvector_store() -> PgVectorStore:
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
         await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
+        # G22 commits the column to the first embedding's width, and that survives a TRUNCATE.
+        # This kit's corpus carries 3-component vectors and other checks use 2-component ones
+        # against one shared database, so the width goes back to bare here or whichever check
+        # ran first would refuse every later one by name.
+        await cur.execute("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector")
     await conn.close()
     return instance
 

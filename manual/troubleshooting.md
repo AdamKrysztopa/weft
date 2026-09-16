@@ -1573,6 +1573,55 @@ sense that matters — nothing needs re-indexing, because the column is derived 
 is already stored — but the rebuild is a full table rewrite, so on a large corpus do it when you can
 afford one.
 
+### `VectorWidthMismatchError`
+
+**What it looks like** — a node's embedding is a different width from the one this table already
+committed to:
+
+```text
+VectorWidthMismatchError: node 3a3a9776…72a56c carries a 3-component embedding, and
+weft_nodes.embedding committed to 1536 components at its first write. A pgvector column's width is
+fixed once it is typed and cannot be widened in place, so either this node was embedded by a
+different embedder than the rest of this corpus, or [services] embed now names a different one —
+re-index this corpus under a single embedder.
+```
+
+**Why the store refuses rather than letting Postgres do it.** This store learns its column's width
+from the first embedded node it is ever handed, types the column to `vector(n)`, and refuses any
+other width from then on. Postgres would refuse the write too, but with a message naming neither the
+node nor the remedy — and the remedy is a decision, not a retry.
+
+**What to do:** decide which embedder this corpus is, and re-index under it. *Changing the embedder
+means reindexing* is the standing rule, and this is the failure that enforces it. There is no
+setting to relax: the width is learned from your own data, never configured, so nothing here can be
+"set to the right number" instead.
+
+---
+
+### `MixedVectorWidthError`
+
+**What it looks like** — the table already holds more than one width, so there is no single width to
+commit to:
+
+```text
+MixedVectorWidthError: weft_nodes.embedding already holds nodes of 64, 1536 components each, and its
+column is still untyped. Typing it to any one of these widths would silently strand every row
+carrying the others, so this store refuses to guess — decide which width this corpus actually is and
+re-index the rest under it.
+```
+
+**How a table gets into this state.** Not through this store: `add()` refuses a mismatching node
+before it is written, so one width can never accumulate a second that way. It means the table was
+written by an older release, which declared the column with no dimension at all, under two different
+embedders.
+
+**What to do:** decide which width this corpus is. Then either re-index the whole corpus under that
+embedder into a fresh database, or delete the rows carrying the other width and let this store type
+the column on the next write. Typing the column yourself is the one thing to avoid — every row of
+the other width stays in the table, unsearchable and unreported.
+
+---
+
 ---
 
 ## Blob storage — `weft_blob`

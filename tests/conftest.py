@@ -239,6 +239,43 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def bare_embedding_column(request: pytest.FixtureRequest) -> None:
+    """Return `weft_nodes.embedding` to a bare `vector` before every container-touching test.
+
+    **G22, settled 2026-09-16, made the shared test database stateful in a way it never was.** The
+    store now learns its column's width from the first embedded node it is handed and refuses every
+    other width by name — so the seventeen integration modules that `TRUNCATE weft_nodes` and then
+    write embeddings no longer start from the same schema they finish with. Truncation empties rows;
+    it does not untype a column. One run measured it: the conformance corpus's 3-component vectors
+    typed the column, and twelve later modules writing 64-component hash embeddings were all refused
+    by name — 22 failures that were each, individually, the new behaviour working correctly.
+
+    Here rather than in seventeen fixtures, because `_reaches_a_container` already owns the
+    judgement of which tests reach the database, and a module added next month inherits this
+    without knowing it exists. `psycopg` is imported inside the body: `tests/conftest.py` is
+    loaded for every unit test too, and none of those should pay for a driver they never use.
+
+    Silent when Postgres is unreachable — a skip is not this fixture's to convert into an error.
+    """
+    if not _reaches_a_container(request.path):
+        return
+    import psycopg
+
+    dsn = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
+    try:
+        with psycopg.connect(dsn, autocommit=True, connect_timeout=2) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT atttypmod FROM pg_attribute "
+                "WHERE attrelid = to_regclass('weft_nodes') AND attname = 'embedding'"
+            )
+            row = cur.fetchone()
+            if row is not None and int(row[0]) > 0:
+                cur.execute("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector")
+    except psycopg.Error:
+        return
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Pin every container-touching test to one xdist worker, so no two of them ever overlap.

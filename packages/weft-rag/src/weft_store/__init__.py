@@ -60,10 +60,12 @@ from weft_store.fields import (
     parse_field_path,
 )
 from weft_store.pgvector_store import (
+    MixedVectorWidthError,
     PgVectorSettings,
     PgVectorStore,
     TextQueryMode,
     TextRank,
+    VectorWidthMismatchError,
     register,
 )
 
@@ -121,6 +123,7 @@ __all__ = [
     "FilterOpMismatchError",
     "FilterValue",
     "MetadataFilter",
+    "MixedVectorWidthError",
     "NodeField",
     "NodeStore",
     "Page",
@@ -143,6 +146,7 @@ __all__ = [
     "UnaddressableFieldError",
     "UnhandledFilterOpError",
     "VectorSearch",
+    "VectorWidthMismatchError",
     "field_for",
     "parse_field_path",
     "register",

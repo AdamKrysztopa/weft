@@ -37,6 +37,7 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from pgvector.psycopg import register_vector_async
 from psycopg import sql
 from pydantic import SecretStr, ValidationError
 
@@ -55,6 +56,7 @@ from weft_store.contract import (
 )
 from weft_store.pgvector_store import (
     Bm25NotAvailableError,
+    MixedVectorWidthError,
     PgVectorSettings,
     PgVectorStore,
     TextMode,
@@ -62,6 +64,7 @@ from weft_store.pgvector_store import (
     TextRank,
     TextSearchConfigMismatchError,
     UnknownTextSearchConfigError,
+    VectorWidthMismatchError,
 )
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -92,6 +95,11 @@ async def store() -> AsyncIterator[PgVectorStore]:
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
         await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
+        # G22 commits the column to the first embedding's width, and that survives a
+        # TRUNCATE. This file's tests use 2- and 3-component vectors against one shared
+        # database, so the width goes back to bare here or whichever test ran first would
+        # refuse every later one by name.
+        await cur.execute("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector")
     await conn.close()
     yield instance
     await instance.aclose()
@@ -578,6 +586,11 @@ async def test_a_length_normalising_setting_reaches_the_query_and_reorders_it() 
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:
         await cur.execute("TRUNCATE weft_nodes, weft_sources, weft_node_productions")
+        # G22 commits the column to the first embedding's width, and that survives a
+        # TRUNCATE. This file's tests use 2- and 3-component vectors against one shared
+        # database, so the width goes back to bare here or whichever test ran first would
+        # refuse every later one by name.
+        await cur.execute("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector")
     await conn.close()
     short = _one_alpha_short()
     long = _one_alpha_long()
@@ -904,3 +917,106 @@ def test_the_store_says_which_ranking_its_text_score_came_from() -> None:
     assert "ts_rank_cd" in fts.text_score_semantics
     assert "bm25" in bm25.text_score_semantics.lower()
     assert "ts_rank_cd" not in bm25.text_score_semantics
+
+
+# --- G22: the width is committed at first write -------------------------------------------------
+#
+# Settled 2026-09-16 as position 1 (`docs/internal/05-grilling-sessions.md` → G22): the store learns
+# `n` from the first embedded node it is handed, types the column to `vector(n)`, records the width,
+# and thereafter refuses a node of any other width by name. These tests pin that behaviour, and each
+# needs a database that has never been provisioned — a width is only *learned* once.
+
+
+async def _column_width(dsn: str) -> int | None:
+    """The declared width of `weft_nodes.embedding`, or `None` while the column is still bare.
+
+    `atttypmod` rather than a row's `vector_dims`: the question is what the *column* was declared
+    as, which an empty table still answers and a row-level function cannot.
+    """
+    conn = await psycopg.AsyncConnection.connect(dsn, autocommit=True)
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT atttypmod FROM pg_attribute
+                WHERE attrelid = 'weft_nodes'::regclass AND attname = 'embedding'
+                """
+            )
+            row = await cur.fetchone()
+    finally:
+        await conn.close()
+    if row is None:
+        return None
+    return None if int(row[0]) < 0 else int(row[0])
+
+
+def _embedded(content: str, width: int) -> Node:
+    return _node(content).with_embedding(Vector(values=tuple(0.1 for _ in range(width))))
+
+
+async def test_the_first_embedded_node_types_the_column_and_the_store_records_that_width(
+    fresh_database: str,
+) -> None:
+    # Arrange — a database that has never been written to: the width is not known yet.
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(fresh_database)))
+    await store.count()
+
+    # Act
+    assert await _column_width(fresh_database) is None
+    await store.add([_embedded("first", 1536)])
+
+    # Assert — the column carries the width, and the store answers with the same number.
+    assert await _column_width(fresh_database) == 1536
+    assert await store.committed_width() == 1536
+    await store.aclose()
+
+
+async def test_a_node_of_another_width_is_refused_by_name_once_the_width_is_committed(
+    fresh_database: str,
+) -> None:
+    # Arrange
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(fresh_database)))
+    await store.add([_embedded("first", 1536)])
+
+    # Act / Assert — Qdrant's shape: the node, both widths, and what to do about it.
+    with pytest.raises(VectorWidthMismatchError) as raised:
+        await store.add([_embedded("second", 64)])
+    message = str(raised.value)
+    assert "64" in message
+    assert "1536" in message
+    assert raised.value.pack == "weft-store"
+    assert await store.count() == 1
+    await store.aclose()
+
+
+async def test_a_table_already_holding_two_widths_is_refused_with_both_numbers(
+    fresh_database: str,
+) -> None:
+    # Arrange — the confident-nonsense case, written behind the store's back into a bare column.
+    conn = await psycopg.AsyncConnection.connect(fresh_database, autocommit=True)
+    async with conn.cursor() as cur:
+        await cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    # After the extension, never before: the adapter looks the type up in this database's
+    # own catalogue, and a fresh database has no `vector` type until the statement above.
+    await register_vector_async(conn)
+    async with conn.cursor() as cur:
+        await cur.execute(
+            "CREATE TABLE weft_nodes (id TEXT PRIMARY KEY, parents TEXT[] NOT NULL, "
+            "sources TEXT[] NOT NULL, content TEXT NOT NULL, media_type TEXT NOT NULL, "
+            "embedding VECTOR, ext JSONB NOT NULL)"
+        )
+        for node_id, width in (("a", 64), ("b", 1536)):
+            await cur.execute(
+                "INSERT INTO weft_nodes VALUES (%s, '{}', '{}', 'x', 'text/plain', %s, '{}')",
+                (node_id, list(Vector(values=tuple(0.1 for _ in range(width))).values)),
+            )
+    await conn.close()
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(fresh_database)))
+
+    # Act / Assert — refused with both widths, and never migrated.
+    with pytest.raises(MixedVectorWidthError) as raised:
+        await store.add([_embedded("third", 1536)])
+    message = str(raised.value)
+    assert "64" in message
+    assert "1536" in message
+    assert await _column_width(fresh_database) is None

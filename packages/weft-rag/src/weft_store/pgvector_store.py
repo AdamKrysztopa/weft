@@ -1039,6 +1039,7 @@ class PgVectorStore:
         if not nodes:
             return
         conn = await self._connection()
+        await self._reconcile_vector_width(conn, nodes)
         rows = [_node_to_row(node) for node in nodes]
         production_rows = [
             {
@@ -1435,6 +1436,74 @@ class PgVectorStore:
             await self._conn.close()
             self._conn = None
 
+    async def committed_width(self) -> int | None:
+        """The width `weft_nodes.embedding` is typed to, or `None` while the column is still bare.
+
+        Read off the column itself (`atttypmod`) rather than kept in memory, so a store opened
+        against a database another process already typed answers correctly on its very first call.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            return await self._read_committed_width(cur)
+
+    async def _read_committed_width(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> int | None:
+        await cur.execute(_EMBEDDING_TYPMOD_SQL)
+        row = await cur.fetchone()
+        if row is None:
+            return None
+        typmod = cast(int, row["atttypmod"])
+        return None if typmod < 0 else typmod
+
+    async def _reconcile_vector_width(
+        self, conn: psycopg.AsyncConnection[dict[str, Any]], nodes: Sequence[Node]
+    ) -> None:
+        """G22: learn the width from the first embedded node ever handed to `add()`, then hold it.
+
+        Runs before every `INSERT`, never after: a mismatch found here means nothing about this
+        batch has reached the table yet, and the caller sees exactly the row count it started with.
+        """
+        width: int | None = None
+        culprit: NodeId | None = None
+        for node in nodes:
+            if node.embedding is None:
+                continue
+            if width is None:
+                width, culprit = node.embedding.dimension, node.id
+            elif node.embedding.dimension != width:
+                raise VectorWidthMismatchError(
+                    _vector_width_mismatch_message(node.id, node.embedding.dimension, width),
+                    pack="weft-store",
+                )
+        if width is None or culprit is None:
+            return
+        async with conn.cursor() as cur:
+            committed = await self._read_committed_width(cur)
+            if committed is not None:
+                if committed != width:
+                    raise VectorWidthMismatchError(
+                        _vector_width_mismatch_message(culprit, width, committed),
+                        pack="weft-store",
+                    )
+                return
+            await cur.execute(_EMBEDDING_WIDTHS_SQL)
+            rows = await cur.fetchall()
+            existing = sorted({cast(int, row["width"]) for row in rows})
+            if len(existing) > 1:
+                raise MixedVectorWidthError(
+                    f"weft_nodes.embedding already holds nodes of "
+                    f"{', '.join(str(w) for w in existing)} components each, and its column is "
+                    f"still untyped. Typing it to any one of these widths would silently strand "
+                    f"every row carrying the others, so this store refuses to guess — decide "
+                    f"which width this corpus actually is and re-index the rest under it.",
+                    pack="weft-store",
+                )
+            if existing and existing[0] != width:
+                raise VectorWidthMismatchError(
+                    _vector_width_mismatch_message(culprit, width, existing[0]),
+                    pack="weft-store",
+                )
+            await cur.execute(_alter_embedding_width_sql(existing[0] if existing else width))
+
 
 def register(registrar: PackRegistrar, settings: PgVectorSettings) -> None:
     """Register `PgVectorStore` as `"pgvector"` for `NodeStore`. The only plugin this pack ships.
@@ -1508,4 +1577,78 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         pipeline=cast(str, row["pipeline"]),
         pipeline_identity=cast(str, row.get("pipeline_identity") or ""),
         status=SourceStatus(cast(str, row["status"])),
+    )
+
+
+# --- G22: the width is committed at first write --------------------------------------------------
+#
+# Grouped at the end of the module rather than beside `PgVectorStore.add` — fitness function 17
+# reads a line number off every citation in this tree, and these five names are new: appending them
+# after everything a citation already names is what keeps `scripts/bench_latency.py` and
+# `tests/unit/weft_cli/test_service_roles_reach_every_path.py`'s own quoted lines pointing at what
+# they always pointed at, rather than shifting both out of the checker's ±5-line window.
+
+# `atttypmod` rather than a row's `vector_dims`: the question `committed_width` answers is what
+# the *column* was declared as, which an empty table still answers and a row-level function
+# cannot. `< 0` is Postgres's own "no modifier recorded" — a bare `vector` column, not `vector(n)`.
+_EMBEDDING_TYPMOD_SQL = """
+SELECT atttypmod FROM pg_attribute
+WHERE attrelid = 'weft_nodes'::regclass AND attname = 'embedding'
+"""
+
+# Every distinct width already stored, asked of a column that may still be bare — `vector_dims`
+# reads a value's own length rather than the column's declared one, which is exactly what is
+# needed to tell a single-width table (typed in place) apart from a mixed one (refused).
+_EMBEDDING_WIDTHS_SQL = """
+SELECT DISTINCT vector_dims(embedding) AS width FROM weft_nodes WHERE embedding IS NOT NULL
+"""
+
+
+def _alter_embedding_width_sql(width: int) -> sql.Composed:
+    """Widen the bare `weft_nodes.embedding` column to `vector(n)` — run once, never per node.
+
+    This `ALTER` rewrites the whole table, measured at 10.33-21.11 s per 100k rows in Phase 29,
+    so `_reconcile_vector_width` reaches it only while `committed_width()` is still `None`; every
+    call after the first takes the cheaper branch, comparing against the width already recorded.
+    `width` is a `Vector.dimension`, never operator input, but still goes through `sql.Literal`
+    rather than string formatting — a type modifier is DDL and cannot be a bound parameter.
+    """
+    return sql.SQL("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector({n})").format(
+        n=sql.Literal(width)
+    )
+
+
+class VectorWidthMismatchError(WeftError):
+    """A node's embedding is not the width `weft_nodes.embedding` committed to at first write.
+
+    Grilling session G22: this store learns its column's width from the first embedded node it is
+    ever handed and types the column to `vector(n)`; from then on, Postgres itself would refuse a
+    write of a different width, but with a message naming neither the node nor the remedy. The
+    failure this exists to prevent is a caller reading "different vector dimensions 64 and 1536"
+    and having to reconstruct, from a driver error, that the fix is a decision — re-index this
+    corpus with the embedder the column already committed to, rather than a retry.
+    """
+
+
+class MixedVectorWidthError(WeftError):
+    """`weft_nodes.embedding` already holds two or more widths, and its column is still bare.
+
+    Only reachable by a table this store did not write in full — one width could never
+    accumulate a second by way of `add()` alone, since a mismatching node is refused before it is
+    written. Typing the column to either width found would silently strand every row carrying the
+    other, so this store refuses to guess and leaves the column bare rather than migrate it; both
+    widths are named so the fix — deciding which one this corpus actually is and re-indexing the
+    rest — is an operator's decision, not this store's.
+    """
+
+
+def _vector_width_mismatch_message(node_id: NodeId, width: int, committed: int) -> str:
+    """The G22 refusal, in Qdrant's shape: the node, both widths, and what to do about it."""
+    return (
+        f"node {node_id} carries a {width}-component embedding, and weft_nodes.embedding "
+        f"committed to {committed} components at its first write. A pgvector column's width is "
+        f"fixed once it is typed and cannot be widened in place, so either this node was "
+        f"produced by a different embedder than the one this corpus was indexed with, or "
+        f"[packs.store] dsn names the wrong database — re-index this corpus under one embedder, "
+        f"into a fresh weft_nodes table, to change its width."
     )
