@@ -701,12 +701,16 @@ def measure(
 
     resolved = {member: judge(question, hits, member) for member in Granularity}
     if not any(judged.scoreable for judged in resolved.values()):
+        # `answerable`, not `kind` — `kind` may be stated absent (`weft_eval.question_set`'s
+        # own model invariant already forces `answerable` false whenever this branch is
+        # reachable, but `kind` itself may be `None`).
+        stance = "unanswerable" if not question.answerable else "answerable"
         return Unscoreable(
             kind=ExclusionKind.NO_JUDGEMENT,
             detail=(
-                f"{question.id} is {question.kind.value} and carries no judgement: an "
-                f"unanswerable question names no document and quotes no span, so a retrieval "
-                f"metric has nothing to score it against"
+                f"{question.id} is {stance} and carries no judgement: a question with no "
+                f"relevant document and no quote gives a retrieval metric nothing to score it "
+                f"against"
             ),
         )
     values: dict[str, float] = {}

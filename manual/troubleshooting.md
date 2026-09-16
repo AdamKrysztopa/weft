@@ -3222,6 +3222,21 @@ A question that breaks its own invariant names its file and index the same way �
 named file. The question set is ground truth, so nothing is skipped: one bad question refuses the
 whole set rather than scoring a smaller one under the same name.
 
+### `QuestionSetSchemaError`
+
+**What it looks like** — a question file whose `[question_set]` table names a schema newer than
+this `weft-rag` reads, reproduced with a one-table file:
+
+```text
+QuestionSetSchemaError: round-3.toml: schema 3 is newer than the 2 this weft-rag reads — upgrade weft-rag to read it
+```
+
+A question file is a persisted format with its own version marker: no `[question_set]` table is
+schema 1, `schema = 2` lets a file state which fields it cannot supply (`absent`, with an
+`absent_reason`) and which partition axes its questions carry. A newer schema is refused rather
+than read on a guess. **What to do:** upgrade `weft-rag` to a release that reads that schema, or
+use the release that wrote the file.
+
 ### `CorpusManifestError`
 
 **What it looks like** — a manifest entry declaring a tier that does not exist:

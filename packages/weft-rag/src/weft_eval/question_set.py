@@ -38,6 +38,21 @@ it — and the file a question lives in is the round it was written in, nothing 
 draft carried `tier` on the question itself and it disagreed with the manifest for 24 of the 136,
 which is what a second copy of someone else's fact does.
 
+**This module is now the one question model — task 38.10.** `Question` used to describe only the
+136 hand-written questions, every field present. It now also holds an *imported* set that cannot
+supply some of them, and a legacy JSON `--questions` list converted rather than re-modelled. A
+missing field is legal only when the file says, once, which fields it cannot supply and why
+(`absent`/`absent_reason`); a field that is merely missing and unexplained is refused exactly as
+it always was, naming the field.
+
+**The question file is a persisted format now, and gets a version marker of its own** — a surface
+`S5`'s six (the `ext` map, the store's table, the filter AST, pipeline documents, `RunRecord`,
+`weft.toml`) did not name, as `S11`'s blob root was not. A file carrying no `[question_set]` table
+reads exactly as it always has — schema 1, every field required, no axes. `schema = 2` opts a file
+into stated absences and per-file axes. Anything newer is refused, upgrade-or-refuse like every
+other surface `S5` already binds: the message names the file, the version it declares, and the
+version this `weft-rag` supports.
+
 **There is no `main()` here, and that is forced rather than an omission.** Verifying a quote
 means reading the text an `Extractor` produces, every contract method is `async def` (G6), and
 `asyncio.run` may appear exactly once in the whole tree (fitness function 7(a), asserted by
@@ -48,14 +63,33 @@ hand: `uv run pytest tests/docs/test_question_set.py`.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import tomllib
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
+from typing import Any, Final, cast
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
+from weft_eval.contract import QueryModality
 from weft_kernel.errors import WeftError
+
+#: The version marker a question file's own `[question_set]` table names. No table at all is
+#: schema 1 — today's rules exactly, unmarked because nothing needed a marker until this task.
+QUESTION_SET_SCHEMA_VERSION: Final[int] = 2
+
+_QUESTION_SET_TABLE_KEYS: Final[frozenset[str]] = frozenset(
+    {"schema", "absent", "absent_reason", "axes"}
+)
 
 
 class QuestionSetError(WeftError):
@@ -64,6 +98,14 @@ class QuestionSetError(WeftError):
     A `WeftError`, since R22.4a: this module ships in the installed `weft-rag` wheel and any
     caller holding it — not only the hand-run harness — can reach a malformed question file, so
     the refusal is one a CLI can render like any other engine failure.
+    """
+
+
+class QuestionSetSchemaError(QuestionSetError):
+    """A question file's own `[question_set] schema` is newer than this `weft-rag` reads.
+
+    Upgrade-or-refuse, `S5`'s own posture: silence is refusal, never a best-effort parse of a
+    table shape this version has never seen.
     """
 
 
@@ -98,6 +140,32 @@ class Difficulty(StrEnum):
     HARD = "hard"
 
 
+class QuestionField(StrEnum):
+    """A field a question may state absent, rather than silently default — task 38.10.
+
+    Values equal the TOML keys a `[question_set]` table's `absent` list names, and the keys a
+    question entry is refused for supplying directly (`absent`/`absent_reason` belong to the
+    file, never to one question).
+    """
+
+    KIND = "kind"
+    DIFFICULTY = "difficulty"
+    QUOTE = "quote"
+    REFERENCE_ANSWER = "reference_answer"
+    NOTES = "notes"
+
+
+#: The order these are checked in matters: a question missing more than one of them is refused
+#: naming the first, and `kind` is checked first because a caller reading "kind" in the message
+#: should never have to wonder whether a later field was silently skipped.
+_STATABLE_SCALAR_FIELDS: Final[tuple[QuestionField, ...]] = (
+    QuestionField.KIND,
+    QuestionField.DIFFICULTY,
+    QuestionField.REFERENCE_ANSWER,
+    QuestionField.NOTES,
+)
+
+
 class Quote(BaseModel):
     """One literal span of a document's extracted text, and where in that document it is.
 
@@ -127,12 +195,17 @@ class Quote(BaseModel):
 
 
 class Question(BaseModel):
-    """One question, its reference answer, and the spans that support it.
+    """One question, its reference answer, and the spans that support it — or a stated reason it
+    carries none of these.
 
     Every per-question invariant V2 implies is refused here rather than asserted somewhere else,
     so a malformed question fails at the moment it is read and names itself while doing it. The
     set-level properties — ids unique across files, documents known to the manifest, the corpus
     covered — need more than one question to state and live in `tests/docs/test_question_set.py`.
+
+    `kind`, `difficulty`, `reference_answer`, `notes` and `quote` may each be missing, but only
+    when that field is in `absent`, for a reason in `absent_reason` — a field that is merely
+    missing is refused, naming itself, exactly as it always was.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -141,22 +214,83 @@ class Question(BaseModel):
     text: str = Field(min_length=1)
     #: BCP-47, matching `corpus/manifest.toml`'s `language`. A fact about the ask.
     language: str = Field(min_length=1)
-    kind: Kind
-    difficulty: Difficulty
+    #: What kind of query produced this question — task 9.12's own axis, defaulted to `TEXT` so
+    #: every question written before that task keeps loading unchanged.
+    modality: QueryModality = QueryModality.TEXT
+    kind: Kind | None = None
+    difficulty: Difficulty | None = None
     #: The documents an answer must be drawn from — the retrieval judgement. Empty exactly when
-    #: the question is unanswerable.
+    #: the question is unanswerable, or (`kind` absent) when it names nothing to retrieve.
     relevant_documents: tuple[str, ...] = ()
-    reference_answer: str = Field(min_length=1)
+    reference_answer: str | None = Field(default=None, min_length=1)
     #: V2's *"the provenance of each answer recorded (who wrote it, from which passage)"*. Prose
     #: rather than a sub-table because it carries the reasoning as well as the attribution — what
     #: was searched for and not found is most of what makes an unanswerable question believable.
-    notes: str = Field(min_length=1)
+    notes: str | None = Field(default=None, min_length=1)
     quote: tuple[Quote, ...] = ()
+    #: Which of the fields above this question cannot supply — stated, never inferred from
+    #: absence alone, so a field missing by accident is still refused.
+    absent: frozenset[QuestionField] = frozenset()
+    #: Why `absent` is non-empty. Required whenever `absent` is, so an importer's silence is
+    #: never mistaken for a fact this module checked.
+    absent_reason: str | None = None
+    #: Free-form facts a question carries in place of a field it cannot supply — `axes["kind"]`
+    #: for a question whose source labels a kind this module does not enumerate, for instance.
+    #: A file's `[question_set] axes` declares which names are legal; see `load_questions`.
+    axes: Mapping[str, str] = Field(default_factory=dict)
+
+    @field_serializer("absent")
+    def _serialise_absent(self, value: frozenset[QuestionField]) -> list[str]:
+        """Sorted, so `question_set_digest` never depends on a frozenset's iteration order."""
+        return sorted(member.value for member in value)
 
     @property
     def answerable(self) -> bool:
-        """Whether the corpus contains an answer. Derived, so no field can disagree with it."""
-        return self.kind is not Kind.UNANSWERABLE
+        """Whether the corpus contains an answer.
+
+        Derived from `kind` when it is stated, so no field can disagree with it; derived from
+        `relevant_documents` when `kind` is absent, because that is the only fact left that
+        could say so — a question naming a document to retrieve is a claim the corpus answers it.
+        """
+        if self.kind is not None:
+            return self.kind is not Kind.UNANSWERABLE
+        return bool(self.relevant_documents)
+
+    def _is_stated_empty(self, field: QuestionField) -> bool:
+        if field is QuestionField.QUOTE:
+            return self.quote == ()
+        return getattr(self, field.value) is None
+
+    @model_validator(mode="after")
+    def _absences_are_stated_and_honest(self) -> Question:
+        """Every gap is a stated fact, and every stated fact is a real gap.
+
+        Two directions, because each is a different lie: a field silently missing (never in
+        `absent`) is scored as if it were data nobody wrote, and a field claimed absent that the
+        question actually supplies hides real ground truth behind a fabricated excuse.
+        """
+        for field in _STATABLE_SCALAR_FIELDS:
+            if self._is_stated_empty(field) and field not in self.absent:
+                raise ValueError(
+                    f"{self.id}: '{field.value}' is missing but not named in [question_set] "
+                    f"absent — state it absent with a reason, or supply it"
+                )
+        for field in self.absent:
+            if not self._is_stated_empty(field):
+                raise ValueError(
+                    f"{self.id}: '{field.value}' is stated absent but this question supplies it"
+                )
+        if self.absent and not (self.absent_reason and self.absent_reason.strip()):
+            raise ValueError(
+                f"{self.id}: fields are stated absent with no reason — [question_set] needs an "
+                f"absent_reason"
+            )
+        if "kind" in self.axes and QuestionField.KIND not in self.absent:
+            raise ValueError(
+                f"{self.id}: axis 'kind' is refused while 'kind' is a field this question "
+                f"carries — an axis named kind only stands in for the field when it is absent"
+            )
+        return self
 
     @model_validator(mode="after")
     def _ground_truth_agrees_with_the_stance(self) -> Question:
@@ -167,21 +301,30 @@ class Question(BaseModel):
         one carrying a relevant document says the corpus answers it after all, and the stance
         metric — the one generation-side number that needs no judge — would then be measured
         against a question that is not what it claims to be.
+
+        The quote-shaped checks are skipped when `quote` is stated absent — an imported set that
+        never carried quotes has nothing to check them against — and the cross-document rule
+        applies only once `kind` is stated, since it is a fact about `kind`'s own vocabulary.
         """
+        quote_stated_absent = QuestionField.QUOTE in self.absent
+        stance = self.kind.value if self.kind is not None else "answerable"
         if self.answerable:
             if not self.relevant_documents:
-                raise ValueError(f"{self.id}: {self.kind.value} but names no relevant document")
-            if not self.quote:
-                raise ValueError(f"{self.id}: {self.kind.value} but carries no supporting quote")
-            quoted = {quote.document for quote in self.quote}
-            stray = sorted(quoted - set(self.relevant_documents))
-            if stray:
-                raise ValueError(f"{self.id}: quotes a document it does not call relevant: {stray}")
-            silent = sorted(set(self.relevant_documents) - quoted)
-            if silent:
-                raise ValueError(
-                    f"{self.id}: calls a document relevant but quotes nothing from it: {silent}"
-                )
+                raise ValueError(f"{self.id}: {stance} but names no relevant document")
+            if not quote_stated_absent:
+                if not self.quote:
+                    raise ValueError(f"{self.id}: {stance} but carries no supporting quote")
+                quoted = {quote.document for quote in self.quote}
+                stray = sorted(quoted - set(self.relevant_documents))
+                if stray:
+                    raise ValueError(
+                        f"{self.id}: quotes a document it does not call relevant: {stray}"
+                    )
+                silent = sorted(set(self.relevant_documents) - quoted)
+                if silent:
+                    raise ValueError(
+                        f"{self.id}: calls a document relevant but quotes nothing from it: {silent}"
+                    )
         else:
             if self.relevant_documents:
                 raise ValueError(
@@ -192,38 +335,313 @@ class Question(BaseModel):
                 raise ValueError(
                     f"{self.id}: unanswerable, yet carries {len(self.quote)} supporting quote(s)"
                 )
-        multi = len(set(self.relevant_documents)) > 1
-        if multi != (self.kind is Kind.CROSS_DOCUMENT):
-            raise ValueError(
-                f"{self.id}: kind is {self.kind.value} over "
-                f"{len(set(self.relevant_documents))} document(s); "
-                f"'{Kind.CROSS_DOCUMENT.value}' means more than one and nothing else means it"
-            )
+        if self.kind is not None:
+            multi = len(set(self.relevant_documents)) > 1
+            if multi != (self.kind is Kind.CROSS_DOCUMENT):
+                raise ValueError(
+                    f"{self.id}: kind is {self.kind.value} over "
+                    f"{len(set(self.relevant_documents))} document(s); "
+                    f"'{Kind.CROSS_DOCUMENT.value}' means more than one and nothing else means it"
+                )
         return self
+
+
+def _question_set_table(
+    raw: dict[str, Any], *, path: Path
+) -> tuple[frozenset[QuestionField], str | None, tuple[str, ...]]:
+    """Read `[question_set]`, or the schema-1 defaults when the file carries none."""
+    table: object = raw.get("question_set")
+    if table is None:
+        return frozenset(), None, ()
+    if not isinstance(table, dict):
+        raise QuestionSetError(f"{path.name}: [question_set] must be a table")
+    table = cast("dict[str, Any]", table)
+
+    unknown = set(table) - _QUESTION_SET_TABLE_KEYS
+    if unknown:
+        raise QuestionSetError(
+            f"{path.name}: [question_set] carries unknown key(s) {sorted(unknown)}"
+        )
+    if "schema" not in table:
+        raise QuestionSetError(f"{path.name}: [question_set] names no 'schema'")
+    schema = table["schema"]
+    if not isinstance(schema, int) or isinstance(schema, bool) or schema < 1:
+        raise QuestionSetError(
+            f"{path.name}: [question_set] schema must be a positive integer, found {schema!r}"
+        )
+    if schema > QUESTION_SET_SCHEMA_VERSION:
+        raise QuestionSetSchemaError(
+            f"{path.name}: schema {schema} is newer than the {QUESTION_SET_SCHEMA_VERSION} this "
+            f"weft-rag reads — upgrade weft-rag to read it"
+        )
+
+    try:
+        absent = frozenset(QuestionField(value) for value in table.get("absent", ()))
+    except ValueError as exc:
+        raise QuestionSetError(
+            f"{path.name}: [question_set] absent names an unknown field: {exc}"
+        ) from exc
+    absent_reason = table.get("absent_reason")
+    if absent_reason is not None and not isinstance(absent_reason, str):
+        raise QuestionSetError(f"{path.name}: [question_set] absent_reason must be a string")
+    declared_axes = tuple(table.get("axes", ()))
+    return absent, absent_reason, declared_axes
+
+
+def _read_toml_questions(path: Path) -> tuple[Question, ...]:
+    """Every question `path` holds, reading its own `[question_set]` table first."""
+    try:
+        with path.open("rb") as handle:
+            raw: dict[str, Any] = tomllib.load(handle)
+    except tomllib.TOMLDecodeError as exc:
+        raise QuestionSetError(f"{path.name}: {exc}") from exc
+
+    file_absent, file_absent_reason, declared_axes = _question_set_table(raw, path=path)
+    declared_axes_set = set(declared_axes)
+
+    questions: list[Question] = []
+    for index, raw_entry in enumerate(raw.get("question", ())):
+        entry: dict[str, Any] = dict(raw_entry)
+        if "absent" in entry or "absent_reason" in entry:
+            raise QuestionSetError(
+                f"{path.name}, question {index}: 'absent'/'absent_reason' belong to "
+                f"[question_set], not to a question entry"
+            )
+        entry_axes = entry.pop("axes", {})
+        if set(entry_axes) != declared_axes_set:
+            disagreeing = sorted(set(entry_axes) ^ declared_axes_set)
+            identifier = entry.get("id", f"<question {index}>")
+            raise QuestionSetError(
+                f"{path.name}, question {index} ({identifier}): axes {disagreeing} disagree "
+                f"with the file's declared axes {sorted(declared_axes_set)}"
+            )
+        try:
+            questions.append(
+                Question.model_validate(
+                    {
+                        **entry,
+                        "absent": file_absent,
+                        "absent_reason": file_absent_reason,
+                        "axes": entry_axes,
+                    }
+                )
+            )
+        except ValueError as exc:
+            message = f"{path.name}, question {index}: {exc}"
+            raise QuestionSetError(message) from exc
+    return tuple(questions)
 
 
 def load_questions(directory: Path) -> tuple[Question, ...]:
     """Every question under `directory`, in file then declaration order.
 
     A parse or validation failure names the file it came from. `tomllib` reports a syntax error by
-    byte offset and pydantic reports a field error by index, and neither says which of four files
+    byte offset and pydantic reports a field error by index, and neither says which of many files
     is meant — in a set of 136 questions that is most of the work still to do.
     """
     questions: list[Question] = []
     for path in sorted(directory.glob("*.toml")):
-        try:
-            with path.open("rb") as handle:
-                raw = tomllib.load(handle)
-        except tomllib.TOMLDecodeError as exc:
-            message = f"{path.name}: {exc}"
-            raise QuestionSetError(message) from exc
-        for index, entry in enumerate(raw.get("question", ())):
-            try:
-                questions.append(Question.model_validate(entry))
-            except ValueError as exc:
-                message = f"{path.name}, question {index}: {exc}"
-                raise QuestionSetError(message) from exc
+        questions.extend(_read_toml_questions(path))
     return tuple(questions)
+
+
+class QuestionSetFormat(StrEnum):
+    """Which shape `read_question_set` found on disk. Carried rather than inferred a second time
+    from the path, so a caller can report it without re-deriving it from the suffix.
+    """
+
+    TOML = "toml"
+    JSON = "json"
+
+
+class QuestionSet(BaseModel):
+    """A question set as read off disk — its questions, the shape they came from, and its digest.
+
+    `format` is how a caller learns a set was converted from the legacy JSON shape rather than
+    read as the persisted TOML one — the deprecation notice for that belongs to the CLI command
+    that owns printing to a human, task 38.11, not to this module.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    questions: tuple[Question, ...]
+    format: QuestionSetFormat
+
+    @property
+    def digest(self) -> str:
+        """`question_set_digest` over `questions` — derived, so no stored copy can disagree."""
+        return question_set_digest(self.questions)
+
+
+_JSON_ENTRY_KEYS: Final[frozenset[str]] = frozenset(
+    {"id", "query", "relevant_documents", "modality", "language", "kind"}
+)
+
+#: Every field a JSON `--questions` entry has never been able to carry, stated absent uniformly —
+#: `kind` joins this set per-entry, only when that entry's own `kind` does not resolve to one of
+#: this module's own `Kind` members.
+_JSON_ALWAYS_ABSENT: Final[frozenset[QuestionField]] = frozenset(
+    {
+        QuestionField.DIFFICULTY,
+        QuestionField.QUOTE,
+        QuestionField.REFERENCE_ANSWER,
+        QuestionField.NOTES,
+    }
+)
+
+_JSON_ABSENT_REASON: Final[str] = (
+    "converted from a JSON '--questions' file, which carries none of these fields"
+)
+
+
+def _json_entry_ids(path: Path, entries: list[dict[str, Any]]) -> None:
+    """Refuse a mix of stated and unstated ids, or two entries sharing one — `path`'s own shape."""
+    ids = [entry["id"] for entry in entries if "id" in entry]
+    if ids and len(ids) != len(entries):
+        raise QuestionSetError(
+            f"{path.name} names an 'id' for some questions and not others — give every "
+            f"question an id, or none at all"
+        )
+    if len(set(ids)) != len(ids):
+        raise QuestionSetError(f"{path.name} repeats an 'id' across two questions")
+
+
+def _json_kind_and_axes(
+    entry: dict[str, Any],
+) -> tuple[Kind | None, frozenset[QuestionField], dict[str, str]]:
+    """`kind`, the fields this entry cannot supply, and the axes standing in for what it cannot.
+
+    A `kind` matching one of this module's own members is kept and never counted absent. Anything
+    else — missing, `""`, or a label this module does not enumerate — is stated absent; a label
+    this module does not enumerate is kept as `axes["kind"]` rather than discarded.
+    """
+    absent = set(_JSON_ALWAYS_ABSENT)
+    axes: dict[str, str] = {}
+    kind_raw = entry.get("kind") or ""
+    if not kind_raw:
+        absent.add(QuestionField.KIND)
+        return None, frozenset(absent), axes
+    try:
+        return Kind(kind_raw), frozenset(absent), axes
+    except ValueError:
+        absent.add(QuestionField.KIND)
+        axes["kind"] = str(kind_raw)
+        return None, frozenset(absent), axes
+
+
+def _convert_json_entry(path: Path, index: int, entry: dict[str, Any]) -> Question:
+    """One JSON `--questions` entry, converted — or refused naming the file and the index."""
+    unknown = set(entry) - _JSON_ENTRY_KEYS
+    if unknown:
+        raise QuestionSetError(f"{path.name}, question {index}: unknown key(s) {sorted(unknown)}")
+    if "query" not in entry:
+        raise QuestionSetError(f"{path.name}, question {index}: names no 'query'")
+
+    kind, absent, axes = _json_kind_and_axes(entry)
+    try:
+        return Question.model_validate(
+            {
+                "id": str(entry.get("id", index)),
+                "text": entry["query"],
+                "language": entry.get("language", "en"),
+                "modality": entry.get("modality", QueryModality.TEXT.value),
+                "relevant_documents": tuple(entry.get("relevant_documents", ())),
+                "kind": kind,
+                "absent": absent,
+                "absent_reason": _JSON_ABSENT_REASON,
+                "axes": axes,
+            }
+        )
+    except ValueError as exc:
+        raise QuestionSetError(f"{path.name}, question {index}: {exc}") from exc
+
+
+def _read_json_questions(path: Path) -> tuple[Question, ...]:
+    """The legacy `--questions` JSON list, converted into the one model.
+
+    Reproduces `weft_cli.eval_scoring.load_questions`'s own refusals — not valid JSON, not a
+    list, an id named for some entries and not others, a duplicate id — over a shape converted
+    rather than re-modelled, task 38.10's own boundary; `weft eval run` moves onto this reader at
+    task 38.11.
+    """
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise QuestionSetError(f"{path.name}: could not read: {exc}") from exc
+
+    try:
+        parsed: object = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise QuestionSetError(f"{path.name} is not valid JSON: {exc}") from exc
+
+    if not isinstance(parsed, list):
+        raise QuestionSetError(
+            f"{path.name} must hold a JSON list of questions, found {type(parsed).__name__}"
+        )
+    entries = cast("list[object]", parsed)
+
+    dict_entries: list[dict[str, Any]] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise QuestionSetError(f"{path.name}, question {index}: not a JSON object")
+        dict_entries.append(cast("dict[str, Any]", entry))
+
+    _json_entry_ids(path, dict_entries)
+    return tuple(
+        _convert_json_entry(path, index, entry) for index, entry in enumerate(dict_entries)
+    )
+
+
+def question_set_digest(questions: Iterable[Question]) -> str:
+    """A sha256 identifying the question set `questions` is, independent of file order.
+
+    **Canonical, and nothing positional.** Each question is serialised as its own JSON object
+    with sorted keys, the per-question strings are sorted, and the digest is taken over the
+    join — so a file re-ordered is the same question set and a file with one question changed
+    is not.
+
+    **The canonical form is derived from `Question`, never hand-listed.** Every field the model
+    carries is in it, so a version that learns a scoring-relevant field produces a different
+    digest — which is correct rather than a gap: the same file scored by a version that reads a
+    field the old one ignored *is* a different measurement.
+    """
+    canonical = sorted(
+        json.dumps(question.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
+        for question in questions
+    )
+    return hashlib.sha256("\n".join(canonical).encode("utf-8")).hexdigest()
+
+
+def read_question_set(path: Path) -> QuestionSet:
+    """A question set from `path` — a directory, one `.toml` file, or one JSON `--questions` file.
+
+    A directory reads exactly as `load_questions` always has. A lone `.toml` file is the same
+    reader over one file, so a set that happens to live in one file digests identically to the
+    same content spread over several. A `.json` file is converted through `_read_json_questions`
+    rather than read by a second model. Anything else — a missing path, an unrecognised suffix —
+    is refused naming the path.
+    """
+    if path.is_dir():
+        questions = load_questions(path)
+        return QuestionSet(
+            questions=questions,
+            format=QuestionSetFormat.TOML,
+        )
+    if not path.exists():
+        raise QuestionSetError(f"{path.name}: no such file or directory")
+    if path.suffix == ".toml":
+        questions = _read_toml_questions(path)
+        return QuestionSet(
+            questions=questions,
+            format=QuestionSetFormat.TOML,
+        )
+    if path.suffix == ".json":
+        questions = _read_json_questions(path)
+        return QuestionSet(
+            questions=questions,
+            format=QuestionSetFormat.JSON,
+        )
+    raise QuestionSetError(f"{path.name}: unsupported question file suffix {path.suffix!r}")
 
 
 def reproducible_questions(
