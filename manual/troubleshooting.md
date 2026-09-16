@@ -3284,6 +3284,36 @@ of what an experiment varies. **What to do:** point the arm at the same corpus a
 run it as its own experiment; a difference in the corpus is a different measurement, not a
 comparison.
 
+### `IncompleteExperimentError`
+
+**What it looks like** — `weft eval table` asked for an experiment whose records under `runs/` do
+not hold every arm and repetition of one invocation:
+
+```text
+$ weft eval table experiment.toml ; echo $?
+invocation 'inv-1' of experiment 'fixture' (5abd131efc38…) is missing arm 'better' repetition 2.
+1
+```
+
+With no record of the document at all it says *"no records of experiment 'fixture' (5abd131efc38…)
+were found."* A table is computed from one complete invocation or not at all, because a cell from a
+partial run would read as a result. The digest is the document's bytes: records written before the
+document was edited belong to a different experiment and are not counted. **What to do:** run the
+experiment to completion with `weft eval experiment`, or point `--runs` at the directory holding its
+records.
+
+### `AmbiguousInvocationError`
+
+**What it looks like** — two complete invocations of the same document under `runs/`:
+
+```text
+$ weft eval table experiment.toml ; echo $?
+more than one complete invocation of experiment 'fixture' (5abd131efc38…) exists: 'inv-1', 'inv-2' — name one with --invocation.
+1
+```
+
+**What to do:** pass `--invocation` with the one the table should describe.
+
 ### `ForeignDocumentRetrievedError`
 
 **What it looks like** — an experiment arm retrieving a passage from a document the store holds

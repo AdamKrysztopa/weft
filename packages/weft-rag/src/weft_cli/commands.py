@@ -96,6 +96,7 @@ from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.eval_experiment import register_eval_experiment_command
+from weft_cli.eval_table import register_eval_table_command
 from weft_cli.exit_codes import ExitCode
 from weft_cli.explain import (
     ScoreExplanation,
@@ -1575,7 +1576,10 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     **38.0** adds `register_eval_experiment_command` right after that, for `eval experiment` —
     `weft_cli.eval_experiment`'s own single command, which runs every arm of an experiment
     document through `weft_cli.eval_commands.index_and_score`, the identical path `eval run`
-    itself now calls.
+    itself now calls. **38.1** adds `register_eval_table_command` right after that, for
+    `eval table` — `weft_cli.eval_table`'s own single command, which reads what `eval
+    experiment` wrote and prints `weft_eval.evidence`'s table, on the identical `READ` footing
+    `eval compare`/`trace` already hold.
 
     **Task 6.20 (G13) adds `weft_cli.render.register_renderers(registrar)`** — the same
     "compose from more than one function" footing again, this time on the renderer axis
@@ -1604,6 +1608,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     register_eval_commands(registrar)
     register_eval_baseline_command(registrar)
     register_eval_experiment_command(registrar)
+    register_eval_table_command(registrar)
     register_renderers(registrar)
 
 
