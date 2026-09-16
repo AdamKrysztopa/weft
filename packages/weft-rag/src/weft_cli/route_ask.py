@@ -62,15 +62,18 @@ and the resolved store — factored out once both existed, rather than a second 
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from collections.abc import AsyncGenerator, Mapping, Sequence
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, replace
 
+from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.pipeline_catalogue import (
     DEFAULT_PIPELINES_DIR,
     UnknownPipelineNameError,
     full_catalogue,
 )
+from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.run_services import (
     build_services,
@@ -209,6 +212,12 @@ async def run_routed_ask(
     threaded straight through to `_prepared_runner`'s own `build_services` call. Defaults to
     `_NO_ROLES` (empty), so `weft_cli.eval_scoring`'s own call — which holds no `Dependencies`
     to read a real one from — keeps registering exactly today's set.
+
+    **Closes what it built — repair R38.6.** The store and embedder `_prepared_runner` builds
+    for this call are closed before returning, success or error, through
+    `weft_cli.closing.close_each`: this function is `weft ask`'s own default path, and every
+    turn of the REPL calls it again, so a store built here and never closed held one Postgres
+    connection per turn until the process exited.
     """
     catalogue = full_catalogue(reports=reports)
     router_name = services.route
@@ -228,7 +237,7 @@ async def run_routed_ask(
             ),
         )
 
-    runner, routed_ctx, store, table, selected_services = await _prepared_runner(
+    built = await _prepared_runner(
         registry=registry,
         catalogue=catalogue,
         ctx=ctx,
@@ -237,66 +246,72 @@ async def run_routed_ask(
         sink=sink,
         roles=roles,
     )
-
-    query = Query(text=question)
-    route = await _run_pipeline(
-        router,
-        query,
-        sink=sink,
-        registry=registry,
-        runner=runner,
-        ctx=routed_ctx,
-        store=store,
-        store_name=services.store,
-        table=table,
-        selected=selected_services,
-        names=services.roles,
-        catalogue=catalogue,
-        reports=reports,
-        contributions=contributions,
-        entry_type=Query,
-    )
-    route = _require(route, Route, pipeline=router_name, produced_by="routing")
-
-    target = catalogue.get(route.pipeline)
-    if target is None:
-        options = tuple(sorted(catalogue))
-        raise UnroutedPipelineNameError(
-            f"the router selected '{route.pipeline}', which the pipeline catalogue does "
-            f"not hold. Catalogue: {options}.",
-            valid_options=options,
-            pipeline=route.pipeline,
-            remedy=(
-                "the RoutingPolicy that produced this Route selected a name outside its "
-                "own RouteCatalogue — that is a defect in the policy plugin, not in this "
-                "question."
-            ),
+    in_flight: BaseException | None = None
+    try:
+        query = Query(text=question)
+        route = await _run_pipeline(
+            router,
+            query,
+            sink=sink,
+            registry=registry,
+            runner=built.runner,
+            ctx=built.ctx,
+            store=built.store,
+            store_name=services.store,
+            table=built.table,
+            selected=built.selected,
+            names=services.roles,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+            entry_type=Query,
         )
-    query_set = QuerySet(origin=query, queries=(query,))
-    answer = await _run_pipeline(
-        target,
-        query_set,
-        sink=sink,
-        entry_type=QuerySet,
-        registry=registry,
-        runner=runner,
-        ctx=routed_ctx,
-        store=store,
-        store_name=services.store,
-        table=table,
-        selected=selected_services,
-        names=services.roles,
-        catalogue=catalogue,
-        reports=reports,
-        contributions=contributions,
-    )
-    answer = _require(
-        answer,
-        Answer,
-        pipeline=route.pipeline,
-        produced_by="`weft ask`",
-        alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
-    )
+        route = _require(route, Route, pipeline=router_name, produced_by="routing")
+
+        target = catalogue.get(route.pipeline)
+        if target is None:
+            options = tuple(sorted(catalogue))
+            raise UnroutedPipelineNameError(
+                f"the router selected '{route.pipeline}', which the pipeline catalogue does "
+                f"not hold. Catalogue: {options}.",
+                valid_options=options,
+                pipeline=route.pipeline,
+                remedy=(
+                    "the RoutingPolicy that produced this Route selected a name outside its "
+                    "own RouteCatalogue — that is a defect in the policy plugin, not in this "
+                    "question."
+                ),
+            )
+        query_set = QuerySet(origin=query, queries=(query,))
+        answer = await _run_pipeline(
+            target,
+            query_set,
+            sink=sink,
+            entry_type=QuerySet,
+            registry=registry,
+            runner=built.runner,
+            ctx=built.ctx,
+            store=built.store,
+            store_name=services.store,
+            table=built.table,
+            selected=built.selected,
+            names=services.roles,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        )
+        answer = _require(
+            answer,
+            Answer,
+            pipeline=route.pipeline,
+            produced_by="`weft ask`",
+            alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
+        )
+    except BaseException as failure:
+        in_flight = failure
+        raise
+    finally:
+        await close_each(built.close_targets, in_flight=in_flight)
     return route.pipeline, answer
 
 
@@ -459,6 +474,7 @@ async def run_named_ask(
     sink: TokenSink,
     contributions: tuple[Contribution, ...] = (),
     roles: RoleTable = _NO_ROLES,
+    prepared: PreparedRunner | None = None,
 ) -> Answer:
     """Run `pipeline_name` directly against `question`, bypassing the router entirely.
 
@@ -485,37 +501,59 @@ async def run_named_ask(
 
     `roles` — ledger task **9.0** — the identical parameter `run_routed_ask` documents for
     itself, threaded through to `_prepared_runner` the same way.
+
+    **`prepared` — repair R38.6.** `None` (the default) is `weft ask`/the REPL's own shape:
+    this call builds its own `PreparedRunner` and closes it before returning, success or
+    error, through `weft_cli.closing.close_each` — no store or embedder this function
+    opens outlives the call that opened it. A caller scoring many questions through one rung
+    (`weft_cli.eval_scoring.score_pipeline`) instead builds one with
+    `weft_cli.route_ask.prepared_services` and passes it here for every question; this
+    function then builds nothing of its own and closes nothing — the `async with` block that
+    built it owns that, once, for the whole run.
     """
     catalogue = full_catalogue(reports=reports)
     target = named_pipeline(pipeline_name, catalogue=catalogue)
-    runner, routed_ctx, store, table, selected_services = await _prepared_runner(
-        registry=registry,
-        catalogue=catalogue,
-        ctx=ctx,
-        llm=llm,
-        services=services,
-        sink=sink,
-        roles=roles,
+    owns = prepared is None
+    built = (
+        prepared
+        if prepared is not None
+        else await _prepared_runner(
+            registry=registry,
+            catalogue=catalogue,
+            ctx=ctx,
+            llm=llm,
+            services=services,
+            sink=sink,
+            roles=roles,
+        )
     )
-    query = Query(text=question)
-    query_set = QuerySet(origin=query, queries=(query,))
-    answer = await _run_pipeline(
-        target,
-        query_set,
-        sink=sink,
-        entry_type=QuerySet,
-        registry=registry,
-        runner=runner,
-        ctx=routed_ctx,
-        store=store,
-        store_name=services.store,
-        table=table,
-        selected=selected_services,
-        names=services.roles,
-        catalogue=catalogue,
-        reports=reports,
-        contributions=contributions,
-    )
+    in_flight: BaseException | None = None
+    try:
+        query = Query(text=question)
+        query_set = QuerySet(origin=query, queries=(query,))
+        answer = await _run_pipeline(
+            target,
+            query_set,
+            sink=sink,
+            entry_type=QuerySet,
+            registry=registry,
+            runner=built.runner,
+            ctx=built.ctx,
+            store=built.store,
+            store_name=services.store,
+            table=built.table,
+            selected=built.selected,
+            names=services.roles,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        )
+    except BaseException as failure:
+        in_flight = failure
+        raise
+    finally:
+        if owns:
+            await close_each(built.close_targets, in_flight=in_flight)
     return _require(
         answer,
         Answer,
@@ -537,6 +575,7 @@ async def run_named_retrieve(
     sink: TokenSink,
     contributions: tuple[Contribution, ...] = (),
     roles: RoleTable = _NO_ROLES,
+    prepared: PreparedRunner | None = None,
 ) -> Passages:
     """`run_named_ask`'s retrieval-only twin — repair **R21.5**.
 
@@ -555,43 +594,129 @@ async def run_named_retrieve(
     --retrieve-only`'s own "no model call" contract, extended to a caller who wants a
     *specific* retrieval pipeline rather than the hardwired vector search
     `weft_cli.ask.run_ask` performs.
+
+    **`prepared` — repair R38.6.** `run_named_ask`'s own docstring states the rule in full:
+    `None` builds a `PreparedRunner` here and closes it before returning, whatever a caller
+    already built through `weft_cli.route_ask.prepared_services` is used and left for that
+    caller to close.
     """
     catalogue = full_catalogue(reports=reports)
     target = named_pipeline(pipeline_name, catalogue=catalogue)
-    runner, routed_ctx, store, table, selected_services = await _prepared_runner(
-        registry=registry,
-        catalogue=catalogue,
-        ctx=ctx,
-        llm=llm,
-        services=services,
-        sink=sink,
-        roles=roles,
+    owns = prepared is None
+    built = (
+        prepared
+        if prepared is not None
+        else await _prepared_runner(
+            registry=registry,
+            catalogue=catalogue,
+            ctx=ctx,
+            llm=llm,
+            services=services,
+            sink=sink,
+            roles=roles,
+        )
     )
-    query = Query(text=question)
-    query_set = QuerySet(origin=query, queries=(query,))
-    result = await _run_pipeline(
-        target,
-        query_set,
-        sink=sink,
-        entry_type=QuerySet,
-        registry=registry,
-        runner=runner,
-        ctx=routed_ctx,
-        store=store,
-        store_name=services.store,
-        table=table,
-        selected=selected_services,
-        names=services.roles,
-        catalogue=catalogue,
-        reports=reports,
-        contributions=contributions,
-    )
+    in_flight: BaseException | None = None
+    try:
+        query = Query(text=question)
+        query_set = QuerySet(origin=query, queries=(query,))
+        result = await _run_pipeline(
+            target,
+            query_set,
+            sink=sink,
+            entry_type=QuerySet,
+            registry=registry,
+            runner=built.runner,
+            ctx=built.ctx,
+            store=built.store,
+            store_name=services.store,
+            table=built.table,
+            selected=built.selected,
+            names=services.roles,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        )
+    except BaseException as failure:
+        in_flight = failure
+        raise
+    finally:
+        if owns:
+            await close_each(built.close_targets, in_flight=in_flight)
     return _require(
         result,
         Passages,
         pipeline=pipeline_name,
         produced_by="`weft ask --retrieve-only`",
     )
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedRunner:
+    """One run's assembled services — repair **R38.6**: what `_prepared_runner` built, and
+    what closes it. `runner`, `ctx`, `store`, `table` and `selected` are exactly the five
+    values `_prepared_runner` returned before this repair; `close_targets` is new, and is
+    the only reason this is a dataclass rather than the bare tuple it replaces.
+    """
+
+    runner: Runner
+    ctx: Context
+    store: object
+    table: RoleTable
+    selected: Mapping[str, object]
+    close_targets: tuple[CloseTarget, ...] = ()
+
+
+def _close_targets(
+    *,
+    registry: Registry,
+    services: ServiceSelection,
+    roles: RoleTable,
+    role_instances: Mapping[str, object],
+    store: object,
+    embedder: object,
+) -> tuple[CloseTarget, ...]:
+    """Every instance `_prepared_runner` itself built from `registry`, in the reverse of the
+    order it built them — repair **R38.6**.
+
+    `weft_kernel.seam.aclose` already no-ops on an instance carrying no `aclose`, so nothing
+    here is checked twice for that; this only has to say which distribution and plugin each
+    one came from, the identical attribution `weft_cli.ask.run_ask`'s own `close_each` call
+    already gives the one embedder it builds. `registry.entry(...)` is a lookup, not a second
+    construction — the instances themselves are the ones `build_services`/
+    `selected_role_instances` already built, passed in rather than rebuilt.
+
+    Construction order was roles, then the store, then the embedder (`build_services`'s own
+    body registers `NodeStore` before `Embedder`); closing undoes that, embedder first.
+    """
+    targets = [
+        CloseTarget(
+            instance=embedder,
+            distribution=registry.entry(Embedder, services.embed).distribution,
+            contract=Embedder.__name__,
+            plugin=services.embed,
+            stage="prepared:embed",
+        ),
+        CloseTarget(
+            instance=store,
+            distribution=registry.entry(NodeStore, services.store).distribution,
+            contract=NodeStore.__name__,
+            plugin=services.store,
+            stage="prepared:store",
+        ),
+    ]
+    for key in reversed(tuple(role_instances)):
+        role = roles.roles[key]
+        targets.append(
+            CloseTarget(
+                instance=role_instances[key],
+                distribution=registry.entry(role.contract, services.roles[key]).distribution,
+                contract=role.contract.__name__,
+                plugin=services.roles[key],
+                stage=f"prepared:{key}",
+            )
+        )
+    return tuple(targets)
 
 
 async def _prepared_runner(
@@ -603,7 +728,7 @@ async def _prepared_runner(
     services: ServiceSelection,
     sink: TokenSink,
     roles: RoleTable = _NO_ROLES,
-) -> tuple[Runner, Context, object, RoleTable, Mapping[str, object]]:
+) -> PreparedRunner:
     """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
     registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
     functions' own two `_run_pipeline` calls need. Factored out once a second caller
@@ -623,6 +748,14 @@ async def _prepared_runner(
     a selected role's plugin twice per run is not acceptable, and a second construction could
     disagree with the one instance the `ServiceRegistry` this function returns actually holds
     — which would make the capability check answer about a different object than the run uses.
+
+    **`close_targets` — repair R38.6.** Every caller of this function used to keep what it
+    built for the rest of its own body and never close any of it — `PgVectorStore` opens one
+    Postgres connection per instance and releases it only in `aclose`, so a store built here
+    and never closed held its connection until the garbage collector happened by. This
+    function still builds; it is now also the one place that knows what it built and what to
+    close, so a caller closes through `PreparedRunner.close_targets` rather than each
+    reconstructing that list from `registry`/`services`/`roles` itself.
     """
     role_instances = selected_role_instances(registry=registry, services=services, table=roles)
     service_registry = await build_services(
@@ -637,7 +770,68 @@ async def _prepared_runner(
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)
     store = service_registry.resolve(NodeStore)
-    return runner, routed_ctx, store, roles, role_instances
+    embedder = service_registry.resolve(Embedder)
+    return PreparedRunner(
+        runner=runner,
+        ctx=routed_ctx,
+        store=store,
+        table=roles,
+        selected=role_instances,
+        close_targets=_close_targets(
+            registry=registry,
+            services=services,
+            roles=roles,
+            role_instances=role_instances,
+            store=store,
+            embedder=embedder,
+        ),
+    )
+
+
+@asynccontextmanager
+async def prepared_services(
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection,
+    services: ServiceSelection,
+    sink: TokenSink,
+    roles: RoleTable = _NO_ROLES,
+) -> AsyncGenerator[PreparedRunner]:
+    """One run's assembled services, built once and closed once — repair **R38.6**'s public
+    seam for a caller that runs many questions through the same rung.
+
+    `weft_cli.eval_scoring.score_pipeline` is that caller: scoring a query rung over a whole
+    question set used to call `run_named_retrieve` once per question, and each call built and
+    never closed its own `NodeStore`/`Embedder` — a store's first search provisions its
+    schema, so a per-question store also put that DDL and a connection handshake inside every
+    question's recorded seconds, and `weft eval experiment`'s hybrid arm exhausted a
+    100-connection server partway through its first record. `async with prepared_services(...)
+    as prepared:` builds once, and closes on the way out — success or error — through
+    `weft_kernel.seam.aclose`, exactly as `weft_engine.api.Weft.__aexit__` closes what a
+    session held. A caller inside the block passes the yielded `PreparedRunner` as
+    `run_named_ask`/`run_named_retrieve`'s own `prepared` keyword; both then build nothing and
+    close nothing of their own.
+    """
+    catalogue = full_catalogue(reports=reports)
+    built = await _prepared_runner(
+        registry=registry,
+        catalogue=catalogue,
+        ctx=ctx,
+        llm=llm,
+        services=services,
+        sink=sink,
+        roles=roles,
+    )
+    in_flight: BaseException | None = None
+    try:
+        yield built
+    except BaseException as failure:
+        in_flight = failure
+        raise
+    finally:
+        await close_each(built.close_targets, in_flight=in_flight)
 
 
 def show_only_the_answering_stage(specs: Sequence[StageSpec], *, sink: TokenSink) -> None:

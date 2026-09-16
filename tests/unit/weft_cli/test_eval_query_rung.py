@@ -45,7 +45,7 @@ from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli import route_ask as route_ask_module
 from weft_cli.eval_commands import EvalRunArgs
 from weft_cli.eval_scoring import score_pipeline
-from weft_cli.route_ask import resolve_named_pipeline, run_named_ask
+from weft_cli.route_ask import resolve_named_pipeline, run_named_ask, run_named_retrieve
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
 from weft_engine.llm_roles import LLMSection
@@ -391,3 +391,120 @@ async def test_two_rungs_differing_only_in_configuration_are_not_one_rung(
 
     # Assert
     assert pipeline_identity(first) != pipeline_identity(second)
+
+
+# --- Repair R38.6 — what a query rung's services open, the run closes.
+
+
+class _CountedStores:
+    """A `NodeStore` factory that counts what it built and what was closed.
+
+    `PgVectorStore` opens one Postgres connection per instance and releases it only in `aclose`;
+    `38.5`'s hybrid arm built one per question, closed none, and exhausted a 100-connection server
+    part-way through its first record. A store that holds no socket is the right double: the defect
+    is the lifetime, not the connection.
+    """
+
+    def __init__(self) -> None:
+        self.built = 0
+        self.closed = 0
+
+    def factory(self, config: object) -> _ClosableStore:
+        del config
+        self.built += 1
+        return _ClosableStore(self)
+
+
+class _ClosableStore:
+    def __init__(self, counts: _CountedStores) -> None:
+        self._counts = counts
+
+    async def aclose(self) -> None:
+        self._counts.closed += 1
+
+
+def _retrieval_document(name: str = "rung-r") -> Pipeline:
+    """`_query_document` without its `Generator`: a rung ending in a `ContextPacker`, the shape
+    `weft eval experiment`'s arms run through `run_named_retrieve`."""
+    return Pipeline(
+        name=name,
+        stages=(
+            StageDeclaration(id="retrieve", use="no-retrieval"),
+            StageDeclaration(id="fuse", use="single-list"),
+            StageDeclaration(id="pack", use="repack"),
+        ),
+    )
+
+
+def _counted_registry(counts: _CountedStores) -> Registry:
+    registry = Registry()
+    registry.add(Embedder, "fake-embed", HashEmbedder, distribution="weft-embed")
+    registry.add(NodeStore, "counted-store", counts.factory, distribution="weft-store")
+    registry.add(Retriever, "no-retrieval", NoRetrieval, distribution="weft-retrieve")
+    registry.add(Fuser, "single-list", SingleList, distribution="weft-retrieve")
+    registry.add(ContextPacker, "repack", Repack, distribution="weft-retrieve")
+    return registry
+
+
+async def test_a_named_retrieval_closes_every_store_it_built(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`weft ask --retrieve-only --pipeline` and every REPL turn go through this function, so a
+    store it builds and never closes is a connection held until the garbage collector happens by."""
+    # Arrange
+    counts = _CountedStores()
+    monkeypatch.setattr(
+        route_ask_module, "full_catalogue", _stub_catalogue({"rung-r": _retrieval_document()})
+    )
+    registry = _counted_registry(counts)
+
+    # Act
+    for _ in range(2):
+        await run_named_retrieve(
+            "why",
+            pipeline_name="rung-r",
+            registry=registry,
+            reports=(),
+            ctx=_ctx(),
+            llm=LLMSection(),
+            services=ServiceSelection(embed="fake-embed", store="counted-store"),
+            sink=NullSink(),
+        )
+
+    # Assert
+    assert counts.built > 0
+    assert counts.closed == counts.built, (
+        f"built {counts.built} stores and closed {counts.closed}: each unclosed pgvector store "
+        "holds a Postgres connection past the call that opened it"
+    )
+
+
+async def test_scoring_a_retrieval_rung_builds_its_store_once_and_closes_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One store for the whole run, not one per question: a store's first search provisions its
+    schema, so a per-question store puts that DDL and a connection handshake inside every
+    question's recorded seconds, and 1,548 of them is what reached the connection limit."""
+    # Arrange
+    counts = _CountedStores()
+    monkeypatch.setattr(
+        route_ask_module, "full_catalogue", _stub_catalogue({"rung-r": _retrieval_document()})
+    )
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    questions = tuple(_question(f"q-{index}", "why") for index in range(3))
+
+    # Act
+    await score_pipeline(
+        registry=_counted_registry(counts),
+        resolved_pipeline=_ingest_resolved(),
+        questions=questions,
+        top_k=3,
+        ctx=_ctx(),
+        query_pipeline="rung-r",
+        services=ServiceSelection(embed="fake-embed", store="counted-store"),
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert counts.built == 1, f"built {counts.built} stores for {len(questions)} questions"
+    assert counts.closed == 1

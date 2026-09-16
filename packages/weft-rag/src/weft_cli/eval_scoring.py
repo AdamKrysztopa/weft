@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from pathlib import PurePath
 from types import MappingProxyType
@@ -57,7 +58,13 @@ from typing import Any, Final, cast
 from pydantic import BaseModel
 
 from weft_cli.ask import run_ask
-from weft_cli.route_ask import resolve_named_pipeline, run_named_ask, run_named_retrieve
+from weft_cli.route_ask import (
+    PreparedRunner,
+    prepared_services,
+    resolve_named_pipeline,
+    run_named_ask,
+    run_named_retrieve,
+)
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
@@ -588,78 +595,96 @@ async def score_pipeline(
     samples: list[RetrievalSample] = []
     seconds: dict[str, float] = {}
     axes: dict[str, Mapping[str, str]] = {}
-    with recording_usage() as tally:
-        for question in questions:
-            question_key = question.id
-            question_text = question.text
-            question_kind = (
-                question.kind.value if question.kind is not None else question.axes.get("kind", "")
-            )
-            axes[question_key] = (
-                {**question.axes, "kind": question.kind.value}
-                if question.kind is not None
-                else {**question.axes}
-            )
-            hits: Sequence[Scored[Node]]
-            started = time.monotonic()
-            if query_pipeline is not None and generates:
-                answer = await run_named_ask(
-                    question_text,
-                    pipeline_name=query_pipeline,
+    # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
+    retrieval_services: PreparedRunner | None = None
+    async with AsyncExitStack() as stack:
+        if query_pipeline is not None and not generates:
+            retrieval_services = await stack.enter_async_context(
+                prepared_services(
                     registry=registry,
                     reports=reports,
                     ctx=ctx,
                     llm=llm if llm is not None else LLMSection(),
                     services=services if services is not None else ServiceSelection(),
-                    roles=roles if roles is not None else RoleTable(),
                     sink=sink if sink is not None else NullSink(),
-                    contributions=contributions,
-                )
-                seconds[question_key] = time.monotonic() - started
-                hits = [passage.scored for passage in passages_for_scoring(answer)]
-            elif query_pipeline is not None:
-                passages = await run_named_retrieve(
-                    question_text,
-                    pipeline_name=query_pipeline,
-                    registry=registry,
-                    reports=reports,
-                    ctx=ctx,
-                    llm=llm if llm is not None else LLMSection(),
-                    services=services if services is not None else ServiceSelection(),
                     roles=roles if roles is not None else RoleTable(),
-                    sink=sink if sink is not None else NullSink(),
-                    contributions=contributions,
-                )
-                seconds[question_key] = time.monotonic() - started
-                hits = [passage.scored for passage in passages.passages]
-            else:
-                hits = await run_ask(
-                    question_text,
-                    registry=registry,
-                    ctx=ctx,
-                    top_k=top_k * _OVERSAMPLE_FACTOR,
-                    embedder=embed_stage.use,
-                    store=store_stage.use,
-                    embedder_config=_factory_config(embed_stage.config),
-                    store_config=_factory_config(store_stage.config),
-                )
-                seconds[question_key] = time.monotonic() - started
-            if refuse_foreign_documents:
-                _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
-            samples.append(
-                RetrievalSample(
-                    query=question_text,
-                    question_key=question_key,
-                    retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
-                    candidate_count=len(hits),
-                    relevant_ids=frozenset(
-                        _resolved_document_id(entry) for entry in question.relevant_documents
-                    ),
-                    modality=question.modality,
-                    kind=question_kind,
-                    axes=question.axes,
                 )
             )
+        with recording_usage() as tally:
+            for question in questions:
+                question_key = question.id
+                question_text = question.text
+                question_kind = (
+                    question.kind.value
+                    if question.kind is not None
+                    else question.axes.get("kind", "")
+                )
+                axes[question_key] = (
+                    {**question.axes, "kind": question.kind.value}
+                    if question.kind is not None
+                    else {**question.axes}
+                )
+                hits: Sequence[Scored[Node]]
+                started = time.monotonic()
+                if query_pipeline is not None and generates:
+                    answer = await run_named_ask(
+                        question_text,
+                        pipeline_name=query_pipeline,
+                        registry=registry,
+                        reports=reports,
+                        ctx=ctx,
+                        llm=llm if llm is not None else LLMSection(),
+                        services=services if services is not None else ServiceSelection(),
+                        roles=roles if roles is not None else RoleTable(),
+                        sink=sink if sink is not None else NullSink(),
+                        contributions=contributions,
+                    )
+                    seconds[question_key] = time.monotonic() - started
+                    hits = [passage.scored for passage in passages_for_scoring(answer)]
+                elif query_pipeline is not None:
+                    passages = await run_named_retrieve(
+                        question_text,
+                        pipeline_name=query_pipeline,
+                        registry=registry,
+                        reports=reports,
+                        ctx=ctx,
+                        llm=llm if llm is not None else LLMSection(),
+                        services=services if services is not None else ServiceSelection(),
+                        roles=roles if roles is not None else RoleTable(),
+                        sink=sink if sink is not None else NullSink(),
+                        contributions=contributions,
+                        prepared=retrieval_services,
+                    )
+                    seconds[question_key] = time.monotonic() - started
+                    hits = [passage.scored for passage in passages.passages]
+                else:
+                    hits = await run_ask(
+                        question_text,
+                        registry=registry,
+                        ctx=ctx,
+                        top_k=top_k * _OVERSAMPLE_FACTOR,
+                        embedder=embed_stage.use,
+                        store=store_stage.use,
+                        embedder_config=_factory_config(embed_stage.config),
+                        store_config=_factory_config(store_stage.config),
+                    )
+                    seconds[question_key] = time.monotonic() - started
+                if refuse_foreign_documents:
+                    _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
+                samples.append(
+                    RetrievalSample(
+                        query=question_text,
+                        question_key=question_key,
+                        retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
+                        candidate_count=len(hits),
+                        relevant_ids=frozenset(
+                            _resolved_document_id(entry) for entry in question.relevant_documents
+                        ),
+                        modality=question.modality,
+                        kind=question_kind,
+                        axes=question.axes,
+                    )
+                )
 
     scores = await score_retrieval_gate_subset(registry, samples, top_k=top_k, ctx=ctx)
     question_scores = {
