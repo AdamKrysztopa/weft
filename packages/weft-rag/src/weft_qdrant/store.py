@@ -293,6 +293,23 @@ class QdrantStore:
         self._sources = f"{settings.collection}__sources"
         self._client: AsyncQdrantClient | None = None
 
+    @property
+    def vector_index_kind(self) -> VectorIndexKind:
+        """The configured index kind, read by `weft_cli.estimate.store_index_kind` —
+        ledger task **31.8**. This class keeps `self._settings` whole rather than
+        unpacking it into per-field attributes the way `PgVectorStore` does, so the
+        public name reads straight through it instead of duplicating a stored copy that
+        could drift from `self._settings.index`.
+        """
+        return self._settings.index
+
+    @property
+    def vector_precision(self) -> VectorPrecision:
+        """The configured vector precision — `vector_index_kind`'s own reasoning, one
+        setting over.
+        """
+        return self._settings.precision
+
     async def _connection(self) -> AsyncQdrantClient:
         """The lazily-opened, provisioned client this store reuses for its lifetime.
 

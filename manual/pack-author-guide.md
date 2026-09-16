@@ -291,6 +291,20 @@ so what it was handed is all it can see. `weft index --pipeline index-with-rapto
 is refused; `index-with-adrap` is the rung that joins a later batch into a tree an earlier run
 already built.
 
+**And it is one of a family, which nothing on this page named until now.** Weft reads several
+declarations off a constructed plugin defensively — present, it is used; absent, the answer is
+*"this plugin did not say"*, never a guess. A retriever may publish `score_semantics`, one sentence
+saying what its score means, which `weft ask --explain` prints and otherwise reports as undeclared.
+A stage may publish `needs_store`, the store capabilities it requires, checked before any stage
+runs. A **store** may publish `vector_index_kind` and `vector_precision` — from `weft_store`'s own
+`VectorIndexKind` and `VectorPrecision` — which `weft pipeline estimate` reads to say what an index
+will cost, and simply reports as unknown when they are absent.
+
+None of these is on any Protocol, and that is the design rather than an oversight: a `ClassVar` in a
+`@runtime_checkable` Protocol's body becomes a *required* member, so declaring one there would make
+a capability check start refusing packs over a documentation question. You are never refused for
+omitting one. You are only ever *quieter* in what Weft can tell an operator about your plugin.
+
 ## 5. Proving it runs
 
 **Name it in a pipeline document, and `weft index` runs it.** A document is a file, it can live in

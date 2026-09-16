@@ -615,6 +615,7 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft pack new` | `write` | `weft-rag` | scaffold a new pack — the four files `07` §2 calls the canonical pack, ready to `pip install -e .` and appear in `weft plugins doctor` |
 | `weft pipeline derive` | `write` | `weft-rag` | scaffold a new pipeline document with 'extends:' set to an existing one |
 | `weft pipeline diff` | `read` | `weft-rag` | the exact, structural difference between two resolved pipelines |
+| `weft pipeline estimate` | `read` | `weft-rag` | project a pipeline's vector count and storage bytes for a stated corpus size, from a small sample and no model call |
 | `weft pipeline list` | `read` | `weft-rag` | every pipeline this project can resolve — project-local documents and every installed pack's own contribution |
 | `weft pipeline show` | `read` | `weft-rag` | the resolved form of one pipeline: every stage's provenance, every var's final value, and anything that went unplaced or unapplied |
 | `weft pipeline validate` | `read` | `weft-rag` | resolve a pipeline and report whether it does, in the resolution-failure family's own words |

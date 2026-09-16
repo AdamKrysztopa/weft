@@ -584,6 +584,7 @@ async def build_index_services(
     services: ServiceSelection = _NO_SELECTION,
     filled_by_stages: Sequence[type[object]] = (),
     store_for_revisable: NodeStore | None = None,
+    offer_models: bool = True,
 ) -> ServiceRegistry:
     """Assemble one **ingest** run's `ServiceRegistry` — task **8.10**.
 
@@ -668,14 +669,31 @@ async def build_index_services(
     `async def` for the reason `build_services` states for itself: nothing below awaits today,
     and the coroutine shape is what lets a service that genuinely needs to join without
     changing every caller from sync to async at once.
+
+    **`offer_models` — ledger task 31.8's own addition.** Keyword-only, defaulting to `True`
+    so no existing caller changes: `weft pipeline estimate` is the one caller that passes
+    `False`, to run an ingest pipeline's own chunking stages while spending no model call.
+    `LLM` and `Prompts` are simply not registered when it is `False`, so a stage that reaches
+    for either gets the ordinary `UnresolvedServiceError` naming what this run does offer —
+    the run itself is the proof that no call was spent, not a field asserting it after the
+    fact. `TokenSink` stays registered either way: it is `weft_llm.client`'s dependency for
+    serving an `LLM`, harmless with none to serve, and already a required parameter here.
+    A `llm: LLMSection | None` was considered and rejected — `weft_engine.llm_roles.
+    LLMSection`'s own docstring states that every field defaults so that "the assembler never
+    has to decide what a missing block means," and `None` would reintroduce exactly that
+    ambiguity in the module that removed it.
     """
     registered = ServiceRegistry()
-    registered.add(
-        LLM,
-        llm_service(registry=registry, roles=llm.roles, retry=llm.retry, loop_guard=llm.loop_guard),
-    )
+    if offer_models:
+        registered.add(
+            LLM,
+            llm_service(
+                registry=registry, roles=llm.roles, retry=llm.retry, loop_guard=llm.loop_guard
+            ),
+        )
     registered.add(TokenSink, sink)
-    registered.add(Prompts, prompts_service(registry))
+    if offer_models:
+        registered.add(Prompts, prompts_service(registry))
     if embedder is not None:
         registered.add(Embedder, embedder)
     if store_for_revisable is not None:

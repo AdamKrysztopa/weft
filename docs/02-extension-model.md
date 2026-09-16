@@ -661,6 +661,22 @@ class TextSearch(Protocol):
 class MetadataFilter(Protocol): ...                # marker: supports the whole operator set
 ```
 
+> **Narrowed in Phase 31 task 31.8 (2026-09-16).** A store may publish **`vector_index_kind`** and
+> **`vector_precision`** — `VectorIndexKind` and `VectorPrecision`, the vocabulary task `31.0`
+> published beside these Protocols — saying which index it is configured to build and at what
+> precision. They are **declared, never required**, in the sense *What a plugin receives* above
+> gives that phrase: read with `getattr(store, name, None)`, absent from every Protocol here, and a
+> store that publishes neither is reported as having not said rather than refused or guessed about.
+>
+> They are deliberately *not* Protocol members. A `ClassVar` inside a `@runtime_checkable`
+> Protocol's body becomes a **required** `isinstance` member, so a capability for this would start
+> refusing third-party stores over a question that is documentation rather than capability — and it
+> could not avoid an instance anyway, because these are configuration and not facts about the class.
+> `MemoryStore` satisfies `VectorSearch` by scanning its own dicts and has no index kind to name
+> beyond `exact`; a graph store has no vectors at all. `weft-cli`'s capacity estimator is the first
+> reader, through `weft_cli.estimate.store_index_kind`, on the identical footing that
+> `weft_cli.explain` reads `score_semantics`.
+
 > **Narrowed in Phase 0 step 7 (2026-08-16).** The block above lists `NodeStore`'s capability
 > methods but not `run` — and the pipeline example above it (§3) selects `store` as an ordinary
 > stage, `- id: store\n    use: pgvector`, through the same `StageSpec` mechanism as `extract` or

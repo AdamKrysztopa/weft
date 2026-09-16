@@ -73,7 +73,7 @@ Verb-first and small. Depth lives in subcommands, not in flags.
 weft init                      scaffold weft.toml in the current project
 weft index <path>              run an ingestion pipeline over a source
 weft ask <question>            query, streaming the answer with citations
-weft pipeline list|show|derive|validate|diff
+weft pipeline list|show|derive|validate|diff|estimate
 weft plugins list|info|doctor
 weft eval run <path> <pipeline> [--query-pipeline <name>] [--questions <file>] [--top-k <n>]
                                     run a pipeline over a corpus, persist a run record; with

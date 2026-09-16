@@ -1885,6 +1885,22 @@ class PgVectorStore:
             "USING hnsw ({column}) WITH (m = {m}, ef_construction = {ef})"
         ).format(column=column, m=sql.Literal(m), ef=sql.Literal(ef_construction))
 
+    @property
+    def vector_index_kind(self) -> VectorIndexKind:
+        """The configured index kind, read by `weft_cli.estimate.store_index_kind` — ledger
+        task **31.8**. Declared, never required: the same `getattr` idiom `weft_cli.explain`
+        uses for `score_semantics`, so a store not carrying this reads as an absence rather
+        than a guess. A `@property` over `self._index` rather than a second stored copy of it.
+        """
+        return self._index
+
+    @property
+    def vector_precision(self) -> VectorPrecision:
+        """The configured vector precision — `vector_index_kind`'s own reasoning, one setting
+        over `self._precision`.
+        """
+        return self._precision
+
 
 #: pgvector's own documented per-index-kind ceiling: `halfvec` indexes at most 4,000
 #: dimensions, `bit` at most 64,000. `float32`/`int8` carry no entry here — `float32` builds

@@ -149,6 +149,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "pack new",
         "pipeline validate",
         "pipeline diff",
+        "pipeline estimate",
         "config get",
         "config set",
         "eval run",
@@ -176,6 +177,11 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "pipeline derive": PermissionClass.WRITE,
         "pipeline validate": PermissionClass.READ,
         "pipeline diff": PermissionClass.READ,
+        # `pipeline estimate` — task **31.8**. `read`, on `weft render`'s footing: it opens a
+        # sample directory and writes a projection to stdout, touching no store. It never
+        # embeds, so it also never spends a model call — which is the property the command
+        # exists to make checkable rather than merely claimed.
+        "pipeline estimate": PermissionClass.READ,
         "config get": PermissionClass.READ,
         "config set": PermissionClass.WRITE,
         # `eval run` writes a corpus into a store and a run record to disk — `write`, the

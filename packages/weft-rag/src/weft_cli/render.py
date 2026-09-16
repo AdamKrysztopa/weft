@@ -12,8 +12,8 @@ directly, now computed from data instead of interleaved with the logic that prod
 becomes a registration, not a table.** `docs/03-cli.md` → *Plugin-contributed commands*: "a
 result type nobody outside the CLI can format is only half a contract" — before this task,
 `_RENDERERS` matched only the CLI's own result types, so a pack's own `show` command printed a raw
-JSON dump at a person while eighteen built-in commands printed for one. `register_renderers`
-below registers every one of those eighteen through `weft_kernel.discovery.PackRegistrar.
+JSON dump at a person while twenty built-in commands printed for one. `register_renderers`
+below registers every one of those twenty through `weft_kernel.discovery.PackRegistrar.
 add_renderer`, the identical seam a third-party pack's own `register()` calls — so a built-in
 renderer and a stranger's are indistinguishable at the seam, and `weft_cli.commands.register`
 calls this function on exactly the same footing it calls `register_pipeline_commands` or
@@ -96,6 +96,7 @@ from weft_cli.output import AskFormat
 from weft_cli.pipeline_commands import (
     PipelineDeriveCommandResult,
     PipelineDiffCommandResult,
+    PipelineEstimateCommandResult,
     PipelineListCommandResult,
     PipelineShowCommandResult,
     PipelineValidateCommandResult,
@@ -880,6 +881,40 @@ def _render_pipeline_diff(result: PipelineDiffCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_pipeline_estimate(result: PipelineEstimateCommandResult) -> Rendered:
+    """`weft pipeline estimate` — every number named beside the assumption it rests on.
+
+    The task's own clause, printed rather than only pinned in the model: `width` carries
+    `width_assumption` on the same line when there is one, `index_bytes` prints `unmeasured`
+    rather than a bare `None` a reader could mistake for zero, and `unknowns` is its own line
+    so payload, text and WAL read as "nobody measured this" rather than as omitted.
+    """
+    projection = result.projection
+    width_line = f"width: {projection.width}"
+    if projection.width_assumption is not None:
+        width_line += f" (assumed — {projection.width_assumption})"
+
+    index_kind = projection.index_kind.value if projection.index_kind is not None else "none"
+    precision = projection.precision.value if projection.precision is not None else "none"
+    index_bytes = "unmeasured" if projection.index_bytes is None else str(projection.index_bytes)
+
+    lines = [
+        f"pipeline: {projection.pipeline}  store: {projection.store}",
+        f"sample: {projection.sample_documents} document(s), {projection.sample_chunks} chunk(s) "
+        f"— {projection.chunks_per_document:.2f} chunks/document",
+        f"projected: {projection.projected_documents} document(s) -> "
+        f"{projection.projected_vectors} vector(s)",
+        width_line,
+        f"index: {index_kind}  precision: {precision}",
+        f"vector bytes: {projection.vector_bytes}",
+        f"rescoring (full-precision copy) bytes: {projection.rescoring_original_bytes}",
+        f"index bytes: {index_bytes}",
+        f"model calls: {projection.model_calls}",
+        f"not estimated from this sample: {', '.join(projection.unknowns)}",
+    ]
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 def _render_config_get(result: ConfigGetCommandResult) -> Rendered:
     lines: list[str] = []
     for entry in result.entries:
@@ -1356,7 +1391,7 @@ def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
-# --- the eighteen built-in dispatch wrappers, and `register_renderers` — task 6.20 ----------
+# --- the twenty built-in dispatch wrappers, and `register_renderers` — task 6.20 ----------
 #
 # Each wrapper below is a plain module-level `def`, never a `lambda` bound inside
 # `register_renderers` itself: `register_renderers` runs once per `discover()` call, and a
@@ -1451,6 +1486,10 @@ def _dispatch_pipeline_diff(result: object) -> Rendered:
     return _render_pipeline_diff(cast(PipelineDiffCommandResult, result))
 
 
+def _dispatch_pipeline_estimate(result: object) -> Rendered:
+    return _render_pipeline_estimate(cast(PipelineEstimateCommandResult, result))
+
+
 def _dispatch_config_get(result: object) -> Rendered:
     return _render_config_get(cast(ConfigGetCommandResult, result))
 
@@ -1489,7 +1528,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     Task **6.20**, G13's third repair — requirement 4 ("built-ins get no privileged path"),
     made checkable at runtime rather than merely asserted: `weft_cli.commands.register` calls
     this on the same footing it calls `register_pipeline_commands`/`register_eval_commands`,
-    so every one of these eighteen calls to `registrar.add_renderer` is indistinguishable, at
+    so every one of these twenty calls to `registrar.add_renderer` is indistinguishable, at
     the seam, from the identical call any third-party pack's own `register()` makes for its own
     result type. **This module may not name the pack that proves it**, and that is fitness
     function 9(b) rather than shyness: a first-party file naming the out-of-tree pack would make
@@ -1507,6 +1546,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(PipelineDeriveCommandResult, _dispatch_pipeline_derive)
     registrar.add_renderer(PipelineValidateCommandResult, _dispatch_pipeline_validate)
     registrar.add_renderer(PipelineDiffCommandResult, _dispatch_pipeline_diff)
+    registrar.add_renderer(PipelineEstimateCommandResult, _dispatch_pipeline_estimate)
     registrar.add_renderer(ConfigGetCommandResult, _dispatch_config_get)
     registrar.add_renderer(ConfigSetCommandResult, _dispatch_config_set)
     registrar.add_renderer(EvalRunCommandResult, _dispatch_eval_run)
@@ -1527,7 +1567,7 @@ def _bootstrap_built_in_renderers() -> None:
     `register_renderers`/`register_renderers_from_reports` path a real discovery pass would,
     against a throwaway `Registry`/`PackRegistrar`, so the built-ins are reachable either way
     without a second, independently-drifting registration mechanism: a later, real discovery
-    pass registering the same eighteen callables again is the identical-renderer repeat case
+    pass registering the same twenty callables again is the identical-renderer repeat case
     `register_renderers_from_reports` already treats as a no-op, never a collision.
     """
     registrar = PackRegistrar(Registry(), distribution="weft-cli")

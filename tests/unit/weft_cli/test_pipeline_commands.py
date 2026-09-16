@@ -4,9 +4,9 @@ Mirrors `packages/weft-rag/src/weft_cli/pipeline_commands.py`. Builds a real `Re
 one stand-in contract/plugin (`_StageContract`, `test_commands.py`'s own `_Chunker`
 precedent) and real pipeline documents on disk under a `pipelines/` directory relative to
 `tmp_path` (`monkeypatch.chdir`) — never a stubbed `full_catalogue`/`resolve` — because the
-property under test is that these five commands wire correctly into `weft_cli.compile.
+property under test is that these six commands wire correctly into `weft_cli.compile.
 contracts_for` and `weft_kernel.resolution.resolve`, the same reasoning `test_route_ask.py`
-already applies to `weft route`. Covers the happy path for each of the five commands, the
+already applies to `weft route`. Covers the happy path for each of the six commands, the
 edge case of `derive` scaffolding a minimal `extends:`-only document, and the error case of
 an unknown pipeline name naming the valid options.
 """
@@ -446,3 +446,33 @@ async def test_pipeline_diff_reports_the_stage_a_derived_pipeline_adds(tmp_path:
     assert [stage.id for stage in diff.added_stages] == ["keywords"]
     assert diff.removed_stages == ()
     assert diff.changed_stages == ()
+
+
+# --- Task 31.8 — the estimator's argument spelling -------------------------------------------
+
+
+def test_the_estimate_arguments_spell_two_positionals_and_one_flag() -> None:
+    """`weft_cli.argparse_gen`'s rule is why this is a test and not a sentence in a docstring.
+
+    A field with **no default becomes a positional** and one **with a default becomes a flag**,
+    so the `--documents` in `weft pipeline estimate index-text ./sample --documents 100000` is
+    not a naming choice — it is what giving `documents` a default *does*, and `pipeline`/`sample`
+    are positional because they have none.
+
+    `RenderArgs` is why this is worth asserting: its first draft wrote `--pipeline` into the help
+    text for an argument argparse had made positional, so `weft render ./corpus --pipeline
+    preview-markdown` exited 2 with "unrecognized arguments". Every test passed throughout,
+    because they construct the args model directly and never meet argparse — which is exactly
+    what this test does too, so it checks the *shape that decides the spelling* rather than the
+    spelling itself.
+    """
+    # Arrange / Act
+    fields = pipeline_commands.PipelineEstimateArgs.model_fields
+
+    # Assert
+    assert fields["pipeline"].is_required()
+    assert fields["sample"].is_required()
+    assert not fields["documents"].is_required()
+    # `argparse_gen` renders each field's description as its help text, and a field with none
+    # would reach `weft pipeline estimate --help` as a bare name.
+    assert all(field.description for field in fields.values())

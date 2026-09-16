@@ -32,12 +32,13 @@ from weft_engine.run_services import (
     MalformedNeedsServicesError,
     MalformedNeedsStoreError,
     StoreCapabilityMissingError,
+    build_index_services,
     build_services,
     check_store_capabilities,
     demanded_capabilities,
 )
 from weft_engine.services import ServiceSelection
-from weft_kernel.context import Context
+from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.payload import Node, Outcome, Produced, Vector
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry, UnknownPluginError
@@ -501,3 +502,62 @@ def test_a_needs_services_that_is_not_a_tuple_of_capabilities_is_refused_by_name
     with pytest.raises(MalformedNeedsServicesError) as caught:
         demanded_capabilities(specs, registry=_service_demand_registry())
     assert "misdeclares" in str(caught.value)
+
+
+# --- Task 31.8 — an ingest run that offers no model -------------------------------------------
+
+
+async def test_an_ingest_run_offers_a_model_and_its_prompts_by_default() -> None:
+    """The control, and it is what makes the test below mean anything.
+
+    Asserting only that a service is *absent* under a flag proves nothing unless the same
+    assembly, unflagged, provides it — otherwise a typo in the contract name would pass both
+    halves. `L22.21`'s rule, applied to a service registry rather than to a search.
+    """
+    # Arrange / Act
+    services = await build_index_services(
+        registry=Registry(),
+        llm=LLMSection(),
+        sink=NullSink(),
+        embedder=None,
+    )
+
+    # Assert
+    assert services.resolve(LLM) is not None
+    assert services.resolve(Prompts) is not None
+
+
+async def test_an_estimate_run_offers_no_model_so_a_stage_reaching_for_one_is_refused() -> None:
+    """Task **31.8**: how "without one model call" is proved rather than asserted.
+
+    A projection that reported `model_calls: 0` from a hardcoded field would pass any test
+    written against that field — derived from what it verifies, which is the shape this project
+    refuses. The honest proof is the run context itself: no `LLM` and no `Prompts` are
+    registered at all, so an ingest stage that reaches for one cannot quietly succeed by calling
+    a model the estimator never meant to pay for. It gets `UnresolvedServiceError`, which is
+    requirement 5 — refused by name, naming what this run *does* offer.
+
+    **`TokenSink` stays.** It is `weft_llm.client`'s dependency for serving an `LLM`, harmless
+    with no `LLM` to serve, and already required by this function's signature; dropping it would
+    be a second change riding along on this one.
+    """
+    # Arrange / Act
+    services = await build_index_services(
+        registry=Registry(),
+        llm=LLMSection(),
+        sink=NullSink(),
+        embedder=None,
+        offer_models=False,
+    )
+
+    # Assert — both withheld, and the refusal names what is there instead of merely failing.
+    with pytest.raises(UnresolvedServiceError) as raised:
+        services.resolve(LLM)
+    assert "LLM" in str(raised.value)
+    assert "TokenSink" in str(raised.value)
+
+    with pytest.raises(UnresolvedServiceError):
+        services.resolve(Prompts)
+
+    # The sink is not a model service and is deliberately still registered.
+    assert services.resolve(TokenSink) is not None
