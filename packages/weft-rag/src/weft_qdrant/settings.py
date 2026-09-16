@@ -101,6 +101,15 @@ class QdrantSettings(BaseModel):
     #: baseline interval. Phase 29 measured compression on pgvector only.
     precision: VectorPrecision = VectorPrecision.FLOAT32
 
+    #: How many extra candidates the quantized index is asked for per requested result, before
+    #: the winners are rescored against the full-precision vectors — task **31.3**. `None` leaves
+    #: Qdrant's own default (`1.0`) in force, and that is deliberate rather than an omission:
+    #: Phase 29 measured no oversampling arm on this backend at all, so no number here would be
+    #: earned by anything more than a guess. `float`, because Qdrant's own documented example
+    #: uses `2.4`; `ge=1.0` because oversampling multiplies `top_k`, so a value below 1 would ask
+    #: the quantized index for fewer candidates than the caller wants results back.
+    rescore_oversampling: float | None = Field(default=None, ge=1.0)
+
     #: The optimizer's own `indexing_threshold`, in points — task **31.5**. `None` leaves Qdrant's
     #: default (20,000) in force, and that is not the same as passing `0`: Qdrant's own
     #: documentation defines `0` as *disabling* indexing entirely, so a caller who wants an index

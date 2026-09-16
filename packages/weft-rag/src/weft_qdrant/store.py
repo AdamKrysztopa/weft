@@ -184,6 +184,37 @@ def _quantization_kind(config: models.QuantizationConfig | None) -> str | None:
     return None
 
 
+def search_params_for(
+    *,
+    index: VectorIndexKind,
+    precision: VectorPrecision,
+    rescore_oversampling: float | None,
+) -> models.SearchParams | None:
+    """The `SearchParams` a search sends — task **31.3**, the one construction site for them.
+
+    Rescoring is requested **explicitly** for `int8` and `binary`, the two precisions
+    `_quantization_config_for` compresses: Qdrant's documented default enables it for binary
+    quantization only, so leaving `int8` unset would silently rank by the lossy quantized
+    distance. `float16` and `float32` carry no quantized vectors at all — `float16` is a vector
+    *datatype*, set through `_datatype_for` instead — so neither gets a `quantization` component.
+
+    `exact` and quantization answer different questions and both can hold at once: a full scan
+    over a compressed collection is still a full scan, and it is still rescored against the
+    originals. `None` only when there is nothing to say — not exact, not compressed.
+    """
+    quantization = (
+        models.QuantizationSearchParams(
+            ignore=False, rescore=True, oversampling=rescore_oversampling
+        )
+        if precision in (VectorPrecision.INT8, VectorPrecision.BINARY)
+        else None
+    )
+    exact = index is VectorIndexKind.EXACT
+    if not exact and quantization is None:
+        return None
+    return models.SearchParams(exact=exact, quantization=quantization)
+
+
 class VectorWidthMismatchError(WeftError):
     """A node's embedding is not the width this collection was created with.
 
@@ -814,9 +845,11 @@ class QdrantStore:
             query=list(vector.values),
             using=_VECTOR,
             query_filter=to_qdrant_filter(filter) if filter is not None else None,
-            search_params=models.SearchParams(exact=True)
-            if self._settings.index is VectorIndexKind.EXACT
-            else None,
+            search_params=search_params_for(
+                index=self._settings.index,
+                precision=self._settings.precision,
+                rescore_oversampling=self._settings.rescore_oversampling,
+            ),
             limit=top_k,
             with_payload=True,
             with_vectors=True,

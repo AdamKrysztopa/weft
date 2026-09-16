@@ -23,7 +23,12 @@ from functools import partial
 
 from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_qdrant.settings import QdrantSettings
-from weft_qdrant.store import QdrantStore, VectorWidthMismatchError, to_qdrant_filter
+from weft_qdrant.store import (
+    QdrantStore,
+    VectorWidthMismatchError,
+    search_params_for,
+    to_qdrant_filter,
+)
 from weft_store.contract import NodeStore
 
 #: The one name this pack registers, spelled once so a document, a test and the registration
@@ -66,5 +71,6 @@ __all__ = [
     "QdrantStore",
     "VectorWidthMismatchError",
     "register",
+    "search_params_for",
     "to_qdrant_filter",
 ]

@@ -300,6 +300,26 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # filtered-search checks run against a real approximate index.
 #
 # indexing_threshold = 20000
+#
+# `rescore_oversampling` is how many candidates a compressed search pulls from the quantized
+# index per requested result, before re-ranking them against the full-precision vectors Qdrant
+# stored beside them. It applies to `int8` and `binary` only: `float16` is the vector datatype
+# rather than quantization, so a float16 collection holds nothing quantized to rescore.
+#
+# **It has no default here, and the absence is the decision.** Weft has never measured an
+# oversampling curve on this backend — Phase 29's Qdrant arms measured payload indexes, not
+# compression — so leaving it unset leaves in force the `1.0` the Qdrant client documents on the
+# parameter itself, the same way `timeout_seconds` and `indexing_threshold` above leave the
+# driver's and the server's own defaults alone.
+#
+# **The pgvector store's identically-named setting defaults to `4`, and that number does not
+# transfer.** It comes from `29.8`, which measured recall@10 of 0.8075, 0.9565, 0.989 and 0.989
+# at oversampling 1, 2, 4 and 10 — over a `bit` expression index rescored by an outer SQL query.
+# Qdrant compresses and rescores by a different mechanism entirely, so borrowing the figure would
+# tell you Weft had measured this backend when it has not. Set it from your own measurement, or
+# leave it alone.
+#
+# rescore_oversampling = 4
 
 # --- Services ----------------------------------------------------------------
 # Which registered plugin fills a role a command needs. One line changes which

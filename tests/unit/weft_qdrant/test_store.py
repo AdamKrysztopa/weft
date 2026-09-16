@@ -21,6 +21,7 @@ from collections.abc import AsyncIterator
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
@@ -29,7 +30,14 @@ from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import MediaType, Node, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.seam import wrap
-from weft_qdrant import NAME, QdrantSettings, QdrantStore, register, to_qdrant_filter
+from weft_qdrant import (
+    NAME,
+    QdrantSettings,
+    QdrantStore,
+    register,
+    search_params_for,
+    to_qdrant_filter,
+)
 from weft_qdrant.settings import PayloadIndexType
 from weft_qdrant.store import (
     CollectionSchemaMismatchError,
@@ -745,6 +753,135 @@ async def test_the_default_index_serves_the_filter_delete_source_actually_issues
         # `get` returns a tuple on both backends, and `() == []` is `False` in Python whatever
         # the store did — so this compares lengths rather than a bare literal.
         assert len(await store.get([doomed.id])) == 0
+    finally:
+        await store.aclose()
+        await _drop_collections(live_qdrant, settings.collection)
+
+
+# --- Task 31.3 — a compressed search rescored against the full-precision vectors --------------
+
+
+def test_rescore_oversampling_has_no_default_because_nothing_measured_one_on_this_backend() -> None:
+    """The sixth owner decision of Phase 31, and the reason it is `None` rather than `4`.
+
+    Phase 29 measured **no Qdrant oversampling arm at all** — `run-29.11.json` carries no
+    oversampling figure and `g22-table.md`'s only Qdrant arms are payload-index present and
+    absent. The `4` the pgvector store carries is `29.8`'s measurement over a `bit` expression
+    index rescored by an outer SQL query; this backend rescores server-side against the
+    originals Qdrant stored beside the quantized vectors. Different index, different rescore
+    path, unmeasured here.
+
+    Unset is therefore not Weft declining to decide — it leaves in force the `1.0` that
+    `qdrant-client`'s own `QuantizationSearchParams.oversampling` documents, exactly as
+    `timeout_seconds` and `indexing_threshold` in this same class leave the driver's and the
+    server's defaults in force.
+    """
+    # Arrange / Act / Assert
+    assert QdrantSettings().rescore_oversampling is None
+
+
+def test_an_oversampling_factor_below_one_is_refused_because_it_would_fetch_fewer_than_top_k() -> (
+    None
+):
+    # Arrange / Act / Assert — oversampling is a multiplier on `top_k`, so a value under 1 asks
+    # the quantized index for fewer candidates than the caller wants results, and the rescore
+    # step could not return `top_k` however well it ranked them. Refused at settings validation,
+    # where every other bound in this class is checked.
+    with pytest.raises(ValidationError):
+        QdrantSettings(rescore_oversampling=0.5)
+
+
+def test_an_uncompressed_collection_is_sent_no_quantization_parameters_at_all() -> None:
+    """`float16` is a datatype, not quantization — the distinction `31.3`'s plan clause got wrong.
+
+    `_quantization_config_for` returns `None` for `float16` exactly as it does for `float32`,
+    because float16 is set through the vector `datatype` instead. So a float16 collection holds
+    nothing quantized to rescore, and sending `rescore`/`oversampling` against it would name a
+    step the server has no reason to take. The plan said rescore is set "for every precision
+    other than `float32`"; that is false against code this phase already shipped.
+    """
+    # Arrange / Act / Assert
+    for precision in (VectorPrecision.FLOAT32, VectorPrecision.FLOAT16):
+        params = search_params_for(
+            index=VectorIndexKind.HNSW, precision=precision, rescore_oversampling=4.0
+        )
+
+        assert params is None or params.quantization is None
+
+
+def test_a_compressed_search_rescores_the_configured_oversampling_against_full_precision() -> None:
+    # Arrange / Act / Assert — `int8` and `binary` are the two precisions Qdrant holds as
+    # quantization, and both are searched by ranking the quantized index and then re-scoring the
+    # winners against the stored originals. `ignore` stays False because the quantized index is
+    # exactly what makes the first pass cheap; turning it on would discard the compression the
+    # collection was built for.
+    for precision in (VectorPrecision.INT8, VectorPrecision.BINARY):
+        params = search_params_for(
+            index=VectorIndexKind.HNSW, precision=precision, rescore_oversampling=4.0
+        )
+
+        assert params is not None
+        assert params.quantization is not None
+        assert params.quantization.rescore is True
+        assert params.quantization.ignore is False
+        assert params.quantization.oversampling == 4.0
+
+
+def test_rescore_is_set_explicitly_rather_than_inherited_when_no_oversampling_is_configured() -> (
+    None
+):
+    # Arrange / Act / Assert — the docs enable rescoring by default for binary quantization only,
+    # so `int8` would silently rank by the quantized distance if this were left unset. Weft sets
+    # it for both and lets `oversampling` stay `None`, which is the one number no measurement
+    # here has earned: Qdrant then applies its own documented 1.0.
+    for precision in (VectorPrecision.INT8, VectorPrecision.BINARY):
+        params = search_params_for(
+            index=VectorIndexKind.HNSW, precision=precision, rescore_oversampling=None
+        )
+
+        assert params is not None
+        assert params.quantization is not None
+        assert params.quantization.rescore is True
+        assert params.quantization.oversampling is None
+
+
+def test_an_exact_search_still_forces_a_full_scan_over_a_compressed_collection() -> None:
+    # Arrange / Act / Assert — `exact` and `precision` answer different questions, and 31.2's
+    # branch must survive 31.3 rather than be replaced by it: a full scan over a compressed
+    # collection is still a full scan, and it is still rescored against the originals.
+    params = search_params_for(
+        index=VectorIndexKind.EXACT,
+        precision=VectorPrecision.BINARY,
+        rescore_oversampling=4.0,
+    )
+
+    assert params is not None
+    assert params.exact is True
+    assert params.quantization is not None
+    assert params.quantization.rescore is True
+
+
+async def test_a_binary_collection_returns_the_full_precision_ranking(live_qdrant: str) -> None:
+    """The behavioural half: the score returned is the full-precision score, not the quantized one.
+
+    Binary quantization of two opposed unit vectors is where the quantized distance is least
+    able to separate them, which is exactly why the rescore step has to decide the order. If
+    `rescore` were left to Qdrant's own default this would be the arm that shows it.
+    """
+    # Arrange
+    settings = _probe_settings(live_qdrant, precision=VectorPrecision.BINARY)
+    store = QdrantStore(settings)
+    try:
+        near = _node("near").with_embedding(Vector(values=(1.0, 0.0)))
+        far = _node("far").with_embedding(Vector(values=(0.0, 1.0)))
+        await store.add([near, far])
+
+        # Act
+        ranked = await store.search_vector(Vector(values=(1.0, 0.0)), top_k=2)
+
+        # Assert
+        assert [scored.value.content for scored in ranked] == ["near", "far"]
+        assert ranked[0].score > ranked[1].score
     finally:
         await store.aclose()
         await _drop_collections(live_qdrant, settings.collection)
