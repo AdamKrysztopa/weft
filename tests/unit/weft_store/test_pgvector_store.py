@@ -33,6 +33,7 @@ write.
 import os
 from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import uuid4
 
 import psycopg
@@ -249,6 +250,34 @@ async def test_search_text_ranks_by_lexical_match_and_advertises_text_search(
     assert isinstance(store, TextSearch)
     assert [scored.value.id for scored in results] == [both.id, one.id]
     assert results[0].score > results[1].score
+
+
+async def test_a_search_repeated_on_one_connection_is_never_planned_generically(
+    store: PgVectorStore,
+) -> None:
+    """Repair R38.7. psycopg prepares a statement on its fifth execution and Postgres may then
+    switch it to one generic plan, which for a `tsquery` cannot know how many rows the words
+    match: over 189,523 Open RAGBench chunks it estimated 948 matches for a question matching
+    ~150,000, and each lexical search went from 373 ms to 1,880 ms once `R38.6` gave a scored
+    run one connection. Read from the store's own session, because a plan cache is per session.
+    """
+    # Arrange
+    await store.add([_node("mutual information redundancy criterion"), _node("the cat sat")])
+    for question in ("mutual redundancy", "cat", "the criterion", "information", "sat", "mat"):
+        await store.search_text(question, top_k=5)
+        await store.search_text(question, top_k=5)
+
+    # Act
+    connection = cast(psycopg.AsyncConnection[dict[str, Any]], vars(store)["_conn"])
+    async with connection.cursor() as cur:
+        await cur.execute(
+            "SELECT coalesce(sum(generic_plans), 0) AS generic FROM pg_prepared_statements"
+        )
+        row = await cur.fetchone()
+
+    # Assert
+    assert row is not None
+    assert row["generic"] == 0, f"{row['generic']} executions used a generic plan"
 
 
 async def test_search_text_matches_a_lexeme_that_itself_contains_an_ampersand(

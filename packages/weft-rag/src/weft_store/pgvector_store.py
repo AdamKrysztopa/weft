@@ -1115,6 +1115,10 @@ class PgVectorStore:
             await cur.execute(_ADD_NODE_PRODUCTIONS_FK)
             await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
             await self._provision_text_index(cur)
+            # R38.7: a generic plan cannot know how many rows a question's words match — it
+            # estimated 948 of ~150,000 over Open RAGBench, and a lexical search took 1,880 ms
+            # against its own custom plan's 373 ms from the sixth execution on.
+            await cur.execute("SET plan_cache_mode = force_custom_plan")
             if self._index is VectorIndexKind.HNSW:
                 await self._require_iterative_scan_support(cur)
                 # Set once per connection, not per query: this store owns `conn` exclusively for
