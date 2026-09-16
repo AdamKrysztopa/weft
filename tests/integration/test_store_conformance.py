@@ -69,7 +69,8 @@ from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedR
 
 from weft_engine.run_services import StoreCapabilityMissingError, check_store_capabilities
 from weft_kernel.context import Context
-from weft_kernel.payload import Outcome, Produced
+from weft_kernel.errors import WeftError
+from weft_kernel.payload import MediaType, Node, Outcome, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.runner import StageSpec
 from weft_qdrant import QdrantSettings, QdrantStore
@@ -107,6 +108,7 @@ from weft_store.conformance import (
     check_supersede_refuses_a_replacement_that_drops_a_source,
     check_supersede_replaces_a_node_and_leaves_its_neighbours_alone,
     check_the_multimodal_facts_round_trip_through_every_store,
+    conformance_corpus,
     register_conformance_ext_models,
 )
 from weft_store.contract import Filter, MetadataFilter, NodeStore, TextSearch, VectorSearch
@@ -347,6 +349,52 @@ async def test_a_field_no_node_can_have_is_refused_by_name_on_either_backend(
     store: FilterableStore,
 ) -> None:
     await check_a_field_no_node_can_have_is_refused_by_name_on_either_backend(store)
+
+
+async def test_a_width_a_store_did_not_commit_to_is_refused_by_name_on_either_backend(
+    store: NodeStore,
+) -> None:
+    """Both backends refuse a second width by name — G22, ledger `29.4`.
+
+    **Here rather than in the published kit, and that is the honest place for it.** The kit's
+    checks are what *any* `NodeStore` must satisfy, and `weft_store.memory.MemoryStore` — which
+    `01` → *Runtime shape* specifies as "a dict with brute-force cosine", not a backend — has no
+    column to type and no width to commit to. It accepted the node and failed the check when this
+    lived there. Nor can `checks_for` gate it: every entry in `_CAPABILITY_OF` names a *method*
+    that proves a capability, and both backends refuse through `add`, which every store has. So
+    this is an assertion about the two persistent backends, which is what `fix-plans/05`'s *Done
+    when* asks for — "both backends refuse a width mismatch the same way".
+
+    **Neither backend shares an error class with the other**: `weft_qdrant` raises its own
+    `VectorWidthMismatchError` and `weft_store` a sibling of the same name, and the packs do not
+    import each other. So the assertion is over `WeftError` and over what both messages must
+    carry, because an operator cannot act on a driver's "expected dim: 64, got 1536": the node
+    refused, both widths, a remedy naming re-indexing, and the pack that refused it.
+    """
+    # Arrange — the corpus commits the store to 3 components, whatever the backend does with that.
+    await store.add(conformance_corpus())
+    wrong = Node.synthetic(
+        content="wrong width",
+        media_type=MediaType.TEXT,
+        reason="G22 width refusal",
+        sources=frozenset({SourceId("source-a")}),
+    ).with_embedding(Vector(values=tuple(0.1 for _ in range(64))))
+
+    # Act / Assert
+    try:
+        await store.add([wrong])
+    except WeftError as exc:
+        message = str(exc)
+        assert str(wrong.id) in message, f"the refusal must name the node: {message!r}"
+        assert "64" in message, f"the refusal must name the width offered: {message!r}"
+        assert "3" in message, f"the refusal must name the width committed: {message!r}"
+        assert "re-index" in message.lower(), f"it must say what to do: {message!r}"
+        assert exc.pack, f"the refusal must name the pack that refused it: {exc.pack!r}"
+    else:
+        raise AssertionError(
+            "a node of another width was accepted; both backends must refuse it by name, or a "
+            "corpus silently holds vectors no search can rank against each other"
+        )
 
 
 async def test_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend(

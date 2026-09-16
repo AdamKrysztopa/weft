@@ -121,12 +121,15 @@ _ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://weft.invalid/qdrant/point-id")
 class VectorWidthMismatchError(WeftError):
     """A node's embedding is not the width this collection was created with.
 
-    Postgres does not have this failure — `weft-store` declares its column with no
-    dimension — and that is exactly why it is worth naming rather than letting the
-    driver report it. A collection's width cannot be altered, so the remedy is a
-    decision (re-index under a different `[packs.qdrant] collection`, or point
-    `vector_size` at the embedder actually configured), and an operator cannot make
-    it from a driver's "expected dim: 64, got 1536".
+    **Both backends have this failure, and that is newer than this class.** Until G22 was
+    settled (2026-09-16) `weft-store` declared its column with no dimension and could not
+    refuse a width at all; it now commits to one at first write and raises its own sibling of
+    this error, which `weft_store.conformance` asserts says the same things this one does. The
+    two never share a class — the packs do not import each other — so the contract is the
+    message: the node, both widths, and a remedy. A collection's width cannot be altered, so
+    that remedy is a decision (re-index under a different `[packs.qdrant] collection`, or point
+    `vector_size` at the embedder actually configured), and an operator cannot make it from a
+    driver's "expected dim: 64, got 1536".
     """
 
 
