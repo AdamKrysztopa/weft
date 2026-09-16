@@ -310,6 +310,21 @@ class QdrantStore:
         """
         return self._settings.precision
 
+    @property
+    def payload_index_fields(self) -> tuple[str, ...]:
+        """Every payload index field path this store ensures — ledger task **31.14**.
+
+        Read from the same mapping `_reconcile_payload_indexes` writes from, so the report and
+        the write cannot disagree: `DEFAULT_PAYLOAD_INDEXES` folded under whatever
+        `[packs.qdrant] payload_indexes` declares. Sorted, so a run's output is stable rather
+        than dict-ordered.
+
+        Declared, never required — `weft_cli.ingest` reaches it through `getattr` exactly as
+        `31.8` reaches `vector_index_kind`, so a store that does not define it reports a stated
+        absence instead of being refused over a question about reporting.
+        """
+        return tuple(sorted({**DEFAULT_PAYLOAD_INDEXES, **self._settings.payload_indexes}))
+
     async def _connection(self) -> AsyncQdrantClient:
         """The lazily-opened, provisioned client this store reuses for its lifetime.
 

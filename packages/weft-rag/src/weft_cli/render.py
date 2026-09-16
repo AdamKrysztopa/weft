@@ -601,6 +601,12 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"{discovered} documents: {indexed} indexed, {discovered - indexed} unchanged. "
         f"nodes now stored: {stored}."
     )
+    if result.payload_indexes:
+        # Ledger task **31.14**. Named rather than counted: a number would satisfy "reports its
+        # payload index" while telling an operator nothing they could check against the
+        # `[packs.qdrant] payload_indexes` they wrote. Silent when the store declared nothing,
+        # which is not the same as a store reporting none.
+        stdout += f"\npayload indexes: {', '.join(result.payload_indexes)}."
     reparsed = _reparse_lines(result.source_changes)
     if reparsed:
         stdout += "\n" + "\n".join(reparsed)

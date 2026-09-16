@@ -454,6 +454,12 @@ class IndexResult:
     #: `len(work)` below, not `len(docs)`: task **17.0** skips a document whose `SourceChange` is
     #: `UNCHANGED`, and that gap is the whole fact `weft index`'s own line exists to print.
     documents_indexed: int = 0
+    #: Ledger task **31.14** — the payload index field paths the store ensured, read off the
+    #: built instance rather than re-derived from settings, so what is reported is what the run
+    #: actually wrote. Empty when the store declares no such attribute, which is a stated absence
+    #: and not a claim that it ensured none: pgvector ensures none and says nothing, and the
+    #: renderer prints nothing for it.
+    payload_indexes: tuple[str, ...] = ()
 
 
 def _validate_batch_size(batch_size: int | None) -> None:
@@ -736,6 +742,7 @@ async def run_index(
             source_changes={str(source): change for source, change in changes.items()},
             pipeline_identity=identity,
             documents_indexed=len(work),
+            payload_indexes=_payload_indexes(runnable, store_stage_id=store_stage_id),
         )
     except BaseException as failure:
         in_flight = failure
@@ -1175,6 +1182,29 @@ async def _stored_count(runnable: RunnablePipeline, *, store_stage_id: str | Non
         if count is not None:
             return await count()
     return None
+
+
+def _payload_indexes(runnable: RunnablePipeline, *, store_stage_id: str | None) -> tuple[str, ...]:
+    """What the store ensured, asked of the **built instance** — ledger task **31.14**.
+
+    `getattr` rather than a `NodeStore` member, which is the shape `31.8` established for reading
+    a store's index kind: declared, never required. A store that does not define it reports a
+    stated absence and is never refused over a question about reporting, so this needs no Protocol
+    member and no `STORE_CONTRACT_VERSION` move.
+
+    Asked of the instance rather than of settings, because the report is a claim about what *this
+    run* wrote. `31.1`'s guarantee is that Weft's own filter is served by an index created before
+    the first point; reading the settings would restate the intention, and reading the store
+    reports the thing that happened.
+    """
+    if store_stage_id is None:
+        return ()
+    for stage in runnable.stages:
+        if stage.id != store_stage_id:
+            continue
+        declared: tuple[str, ...] = getattr(stage.instance, "payload_index_fields", ())
+        return declared
+    return ()
 
 
 async def _release_reparsed_sources(

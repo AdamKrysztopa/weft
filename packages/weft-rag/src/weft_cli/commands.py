@@ -520,6 +520,14 @@ class IndexCommandResult(CommandResult):
     #: print what this run counts without importing that dataclass.
     documents_discovered: int = 0
     documents_indexed: int = 0
+    #: Ledger task **31.14** — the payload index field paths the store ensured for this run, so
+    #: an operator learns from the binary what `31.1` guarantees: every filter Weft itself issues
+    #: against Qdrant is served by an index that exists *before the first point is written*. Empty
+    #: is a **stated absence, not a claim of zero**: a store that declares no such attribute — as
+    #: pgvector does, ensuring none — has said nothing rather than said none, and the renderer
+    #: prints nothing at all in that case. Read off the built store the way `31.8` reads its index
+    #: kind, so no `NodeStore` Protocol member and no `STORE_CONTRACT_VERSION` move is needed.
+    payload_indexes: tuple[str, ...] = ()
 
 
 class AskCommandResult(CommandResult):
@@ -815,6 +823,7 @@ class IndexCommand:
                 defaulted_embedder=defaulted_embedder,
                 documents_discovered=len(result.document_ids),
                 documents_indexed=result.documents_indexed,
+                payload_indexes=result.payload_indexes,
             )
         )
 
