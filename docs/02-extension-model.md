@@ -1162,6 +1162,35 @@ behind `VectorSearch`, `_strategy_for_nodes` names a concept a store no longer h
 has nothing to hold because **retrievers never build an index** — text search is a store capability,
 so the BM25 pickle cache has no successor — and `update_file_metadata` is `SourceRecord`.
 
+> **Narrowed at G22 (settled 2026-09-16, Phase 29 tasks 29.3 and 29.4): a persistent store commits
+> to one vector width, and says so.** `VectorSearch` above says nothing about how wide a `Vector`
+> is, and that silence was load-bearing for as long as the built-in store kept an untyped column.
+> It no longer is. **A store that persists vectors learns its width from the first embedded node it
+> is ever given, holds it, and refuses any other width by name at `add()` — before anything of that
+> batch is written.** The refusal is a `WeftError` naming the offending node, both widths, and the
+> remedy; `pgvector` and `qdrant` raise it under the same class name deliberately, so a stranger
+> reading either backend's failure reads the same sentence. **The width is not configured.** No
+> setting names it: the embedder states it by producing vectors, which is the only source that
+> cannot disagree with the data.
+>
+> **Why this is a contract obligation and not an implementation detail.** Ranking across vectors of
+> different widths does not fail — it returns a confidently wrong ordering, which is the failure
+> `01` refuses by name and the one an operator cannot detect from the output. A store that silently
+> accepts a second width has not been lenient; it has become unable to tell its user that the
+> corpus is now two corpora.
+>
+> **The in-memory store is exempt, and the exemption is the interesting part.** `01` → *Runtime
+> shape* specifies `weft_store.memory.MemoryStore` as "a dict with brute-force cosine… not a
+> backend": it has no column, so there is no width to commit to and nothing to type. That is why
+> this obligation is **not** in `weft_store.conformance`'s published kit — `_published_checks()`
+> offers every `check_*` to every store by name, and `_CAPABILITY_OF` can only gate on a *method*,
+> while both real backends refuse through `add`, which every `NodeStore` has. The check therefore
+> lives in `tests/integration/test_store_conformance.py`, parametrised over the two persistent
+> backends. **A third-party store that persists vectors is expected to honour this even though the
+> kit cannot hand it an assertion that checks it** — which is why the obligation is written here,
+> in words, rather than left to a test a stranger cannot import. The kit's inability to express
+> "persistent stores only" is a gap in the kit, recorded as such.
+
 ## 2. Packs and discovery
 
 A pack declares one entry point. That is the entire integration surface:
