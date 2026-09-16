@@ -57,6 +57,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
+from open_ragbench import OpenRagbenchRendering, render_document
 from wikitext import Rendering, render
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -120,10 +121,13 @@ class Document:
     #: The digest of what the source serves, when that is not what is stored. Empty when the two
     #: are the same bytes, which is every document that is not rendered on the way in.
     source_sha256: str = ""
-    render: Rendering | None = None
+    render: Rendering | OpenRagbenchRendering | None = None
     #: What the rendering cost, checked against what it actually dropped. `None` where nothing is
     #: rendered — an unrendered document has no loss to state, which is not the same as zero loss.
     math_blocks_dropped: int | None = None
+    #: The same account for an Open RAGBench document, whose figures are data URIs a markdown
+    #: corpus cannot hold.
+    images_dropped: int | None = None
 
 
 @dataclass(frozen=True)
@@ -228,24 +232,30 @@ def _read_entry(entry: dict[str, object], *, root: Path, manifest: Path) -> Docu
         source_sha256=str(entry.get("source_sha256", "")),
         render=rendering,
         math_blocks_dropped=_read_optional_count(entry, "math_blocks_dropped"),
+        images_dropped=_read_optional_count(entry, "images_dropped"),
     )
 
 
 def _read_rendering(
     entry: dict[str, object], *, identifier: str, manifest: Path
-) -> Rendering | None:
+) -> Rendering | OpenRagbenchRendering | None:
     """The declared rendering, or a refusal that lists the renderings that exist."""
     declared = entry.get("render")
     if declared is None:
         return None
-    if str(declared) not in {member.value for member in Rendering}:
-        message = (
-            f"document {identifier!r} in {manifest} declares render {str(declared)!r}, which is "
-            f"not a rendering. Valid renderings are: "
-            f"{', '.join(member.value for member in Rendering)}."
-        )
-        raise ValueError(message)
-    return Rendering(str(declared))
+    renderings: tuple[Rendering | OpenRagbenchRendering, ...] = (
+        *Rendering,
+        *OpenRagbenchRendering,
+    )
+    for rendering in renderings:
+        if str(declared) == rendering.value:
+            return rendering
+    message = (
+        f"document {identifier!r} in {manifest} declares render {str(declared)!r}, which is "
+        f"not a rendering. Valid renderings are: "
+        f"{', '.join(rendering.value for rendering in renderings)}."
+    )
+    raise ValueError(message)
 
 
 def _read_optional_count(entry: dict[str, object], key: str) -> int | None:
@@ -280,7 +290,7 @@ def verify_one(document: Document) -> Result:
     return Result(document, Status.OK)
 
 
-def fetch_one(document: Document) -> Result:
+def fetch_one(document: Document, *, source_dir: Path | None = None) -> Result:
     """Fetches one document and refuses to keep bytes that do not match the pin.
 
     The digest check is the point of the exercise, not a safety net: V1 fails if
@@ -291,6 +301,9 @@ def fetch_one(document: Document) -> Result:
     """
     if not document.source.startswith("https://"):
         return Result(document, Status.MISSING, f"source is not an https URL: {document.source!r}")
+    local = _local_source(document, source_dir)
+    if local is not None:
+        return _kept(document, local.read_bytes())
     request = urllib.request.Request(document.source, headers={"User-Agent": USER_AGENT})  # noqa: S310
     try:
         # noqa S310 above: the scheme is checked immediately above this call, which
@@ -299,7 +312,23 @@ def fetch_one(document: Document) -> Result:
             body = response.read()
     except (urllib.error.URLError, TimeoutError) as exc:
         return Result(document, Status.MISSING, f"fetch failed: {type(exc).__name__}: {exc}")
+    return _kept(document, body)
 
+
+def _local_source(document: Document, source_dir: Path | None) -> Path | None:
+    """The copy of `document.source` under `source_dir`, named as the URL names it, if there is one.
+
+    A local copy is trusted exactly as far as downloaded bytes are: `_kept` checks it against the
+    same pins, so this only changes where the bytes come from.
+    """
+    if source_dir is None:
+        return None
+    candidate = source_dir / document.source.rsplit("/", 1)[-1]
+    return candidate if candidate.is_file() else None
+
+
+def _kept(document: Document, body: bytes) -> Result:
+    """Render `body` if the document is rendered, and write it only if it matches the pin."""
     if document.render is not None:
         rendered = _rendered(document, body, document.render)
         if isinstance(rendered, Result):
@@ -319,7 +348,9 @@ def fetch_one(document: Document) -> Result:
     return Result(document, Status.FETCHED)
 
 
-def _rendered(document: Document, body: bytes, rendering: Rendering) -> bytes | Result:
+def _rendered(
+    document: Document, body: bytes, rendering: Rendering | OpenRagbenchRendering
+) -> bytes | Result:
     """The stored bytes for a document that is rendered on the way in, or why there are none.
 
     The fetched revision is checked *before* it is rendered, so the two ways this can fail stay
@@ -335,6 +366,19 @@ def _rendered(document: Document, body: bytes, rendering: Rendering) -> bytes | 
             f"the pin no longer reproduces before rendering: expected "
             f"{document.source_sha256[:16]}…, fetched {fetched[:16]}… from {document.source}",
         )
+    if isinstance(rendering, OpenRagbenchRendering):
+        document_rendered = render_document(body)
+        if (
+            document.images_dropped is not None
+            and document_rendered.images_dropped != document.images_dropped
+        ):
+            return Result(
+                document,
+                Status.CORRUPT,
+                f"the manifest records {document.images_dropped} dropped image(s) and the "
+                f"rendering dropped {document_rendered.images_dropped}.",
+            )
+        return document_rendered.text.encode("utf-8")
     # The digest above already proved these are the pinned bytes, so a decoding failure here would
     # mean the pin itself is not UTF-8 — worth a traceback rather than a status.
     result = render(body.decode("utf-8"), rendering)
@@ -401,6 +445,12 @@ def main(argv: list[str] | None = None) -> int:
         help="verify checks what is on disk against the manifest; fetch retrieves the fetch tier",
     )
     parser.add_argument("--manifest", type=Path, default=MANIFEST)
+    parser.add_argument(
+        "--source-dir",
+        type=Path,
+        default=None,
+        help="read a source from this directory, named as its URL names it, instead of fetching it",
+    )
     arguments = parser.parse_args(argv)
 
     name, documents = load_manifest(arguments.manifest)
@@ -421,6 +471,9 @@ def main(argv: list[str] | None = None) -> int:
         existing = verify_one(document)
         if existing.status is Status.OK:
             results.append(existing)
+            continue
+        if _local_source(document, arguments.source_dir) is not None:
+            results.append(fetch_one(document, source_dir=arguments.source_dir))
             continue
         if requested:
             time.sleep(POLITE_DELAY_SECONDS)

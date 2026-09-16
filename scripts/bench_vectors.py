@@ -55,6 +55,7 @@ import fetch_corpus
 import numpy as np
 import numpy.typing as npt
 import psycopg
+from open_ragbench import RAGBENCH_REVISION, ragbench_file_url
 from pgvector.psycopg import register_vector
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
@@ -253,15 +254,6 @@ def document_for(article_key: str) -> BenchDocument:
 
 
 # --- the open_ragbench corpus ---------------------------------------------------------------------
-
-#: A fixed Hugging Face commit of `vectara/open_ragbench`, so `pdf_urls.json` and `qrels.json`
-#: cannot change under a run pinned to this revision.
-RAGBENCH_REVISION: Final[str] = "63f6b052ff83508b08e242db42263ee708815c26"
-RAGBENCH_REPO_URL: Final[str] = "https://huggingface.co/datasets/vectara/open_ragbench"
-
-
-def ragbench_file_url(name: str) -> str:
-    return f"{RAGBENCH_REPO_URL}/resolve/{RAGBENCH_REVISION}/pdf/arxiv/{name}"
 
 
 class RagbenchLabel(BaseModel):
