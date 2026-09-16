@@ -495,7 +495,7 @@ def wrap[**P, T](
                         raise
                     except Exception as exc:
                         raise WeftError(
-                            f"'{stage_label}' failed: {exc}",
+                            f"'{stage_label}' failed: {type(exc).__name__}: {exc}",
                             pack=distribution,
                             contract=contract,
                             plugin=plugin,
@@ -569,7 +569,7 @@ def wrap_flush(
                     raise
                 except Exception as exc:
                     raise WeftError(
-                        f"'{stage}' flush failed: {exc}",
+                        f"'{stage}' flush failed: {type(exc).__name__}: {exc}",
                         pack=distribution,
                         contract=contract,
                         plugin=plugin,
@@ -941,7 +941,7 @@ async def aclose(
                 raise
             except Exception as exc:
                 raise WeftError(
-                    f"'{label}' close failed: {exc}",
+                    f"'{label}' close failed: {type(exc).__name__}: {exc}",
                     pack=distribution,
                     contract=contract,
                     plugin=plugin,

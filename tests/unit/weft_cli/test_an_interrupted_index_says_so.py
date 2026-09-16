@@ -201,7 +201,8 @@ async def test_a_run_killed_midway_leaves_the_record_saying_indexing(tmp_path: P
 
     # Act
     # `WeftError`, not `RuntimeError`: the seam attributes a stage's failure to the stage that
-    # raised it, so what escapes `run_index` is `'chunk' failed: killed mid-index`. The exception
+    # raised it, so what escapes `run_index` is `'chunk' failed: RuntimeError: killed mid-index`
+    # — the class is there because `R31.9` put it there. The exception
     # is not this test's subject — surviving it to read the record is.
     with suppress(WeftError):
         await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
@@ -251,7 +252,8 @@ async def test_an_interrupted_document_is_indexed_again_by_the_next_run(tmp_path
     registry = _registry(store)
     _ExplodingChunker.explode = True
     # `WeftError`, not `RuntimeError`: the seam attributes a stage's failure to the stage that
-    # raised it, so what escapes `run_index` is `'chunk' failed: killed mid-index`. The exception
+    # raised it, so what escapes `run_index` is `'chunk' failed: RuntimeError: killed mid-index`
+    # — the class is there because `R31.9` put it there. The exception
     # is not this test's subject — surviving it to read the record is.
     with suppress(WeftError):
         await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
