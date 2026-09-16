@@ -15,6 +15,7 @@ import hashlib
 import sys
 from pathlib import Path
 
+import bench_latency
 from pydantic import BaseModel, ConfigDict
 
 #: `docs/02-extension-model.md` §3's own pipeline example: `{size: 512, overlap: 50}` — this
@@ -123,6 +124,7 @@ def generate(
 
 
 def main(argv: list[str] | None = None) -> int:
+    bench_latency.line_buffer_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--chunks", type=int, required=True)
     parser.add_argument("--out", type=Path, required=True)

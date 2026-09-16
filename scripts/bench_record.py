@@ -589,6 +589,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    bench_latency.line_buffer_stdout()
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:

@@ -876,6 +876,7 @@ def _plans_for(all_arms: Sequence[Arm]) -> list[_GroupPlan]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    bench_latency.line_buffer_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True, help="a directory of documents")
     parser.add_argument(

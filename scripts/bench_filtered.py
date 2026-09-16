@@ -414,6 +414,7 @@ def _run_arm(
 
 
 def main(argv: list[str] | None = None) -> int:
+    bench_latency.line_buffer_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--set", dest="vector_set", type=Path, required=True, help="a 29.6 vector set directory"

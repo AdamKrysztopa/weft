@@ -550,7 +550,30 @@ def _alter_column_type(conn: psycopg.Connection, *, width: int) -> float:
     return elapsed
 
 
+def line_buffer_stdout() -> None:
+    """Make a long run's progress visible while it runs — carried repair **R31.8**.
+
+    Python line-buffers stdout only when it is a terminal. Redirected to a file — which is how
+    every measurement in this tree is started — it uses a 4-8 KB block buffer, so `31.6`'s first
+    attempt reached 10 of 17 arms in 89 minutes against a **zero-byte log**, and a run with no
+    progress signal is indistinguishable from a hung one: the session that followed opened by
+    taking a stack sample of the process to decide which it was.
+
+    Set once per entry point rather than `flush=True` at each of the 59 `print` call sites across
+    these six harnesses, so a line nobody has written yet is covered too. It lives here because
+    the other five already import this module.
+    """
+    # Asked by method rather than by type. `sys.stdout` is typed `TextIO`, which declares no
+    # `reconfigure`, and narrowing it to `io.TextIOWrapper` leaves that class's type parameter
+    # unknown under strict checking. What decides the behaviour is whether the stream can be
+    # reconfigured at all — under `pytest`'s capture it cannot, and this skips rather than raises.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(line_buffering=True)
+
+
 def main(argv: list[str] | None = None) -> int:
+    line_buffer_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True, help="a 29.0 output directory")
     parser.add_argument("--chunks", type=int, required=True, help="the count 29.0 printed")

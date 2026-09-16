@@ -50,6 +50,7 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
+import bench_latency
 import fetch_corpus
 import numpy as np
 import numpy.typing as npt
@@ -1566,6 +1567,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    bench_latency.line_buffer_stdout()
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:
