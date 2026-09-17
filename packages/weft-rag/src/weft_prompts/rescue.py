@@ -22,6 +22,10 @@ import re
 #: wins, which is the one a model opens right after its prose preamble.
 _FENCE = re.compile(r"```[a-zA-Z0-9_-]*\s*\n(?P<body>.*?)\n?```", re.DOTALL)
 
+#: The characters that may follow a backslash in JSON, `u` apart (it needs four hex digits).
+_VALID_ESCAPES = frozenset('"\\/bfnrt')
+_UNICODE_ESCAPE = re.compile(r"u[0-9a-fA-F]{4}")
+
 
 def rescue_json(text: str) -> object | None:
     """The first JSON value `text` can be read as, or `None`. Three steps, in this order."""
@@ -36,17 +40,54 @@ def rescue_json(text: str) -> object | None:
     return _loads(_widest_object(text))
 
 
+def repair_backslash_escapes(text: str) -> str:
+    """`text` with every backslash JSON cannot read as an escape doubled. R38.11.
+
+    A backslash beginning one of JSON's own escapes (`\\"` `\\\\` `\\/` `\\b` `\\f` `\\n` `\\r`
+    `\\t` `\\uXXXX`) is left alone and keeps its meaning, so a LaTeX `\\nu` or `\\times` reads
+    back as a newline or tab followed by letters: a known approximation, accepted because it fixes
+    the common case (`\\(`, `\\cdot`, `\\alpha`) without a LaTeX parser.
+    """
+    out: list[str] = []
+    i = 0
+    length = len(text)
+    while i < length:
+        char = text[i]
+        if char == "\\" and i + 1 < length:
+            nxt = text[i + 1]
+            if nxt in _VALID_ESCAPES:
+                out.append(text[i : i + 2])
+                i += 2
+                continue
+            if nxt == "u" and _UNICODE_ESCAPE.match(text, i + 1):
+                out.append(text[i : i + 6])
+                i += 6
+                continue
+            out.append("\\\\")
+            i += 1
+            continue
+        out.append(char)
+        i += 1
+    return "".join(out)
+
+
 def _loads(candidate: str) -> object | None:
     """`json.loads`, catching exactly what it raises for text that is not JSON.
 
     `JSONDecodeError` and nothing broader: a `RecursionError` from a pathological document is
     not "this is not JSON", and swallowing it here would turn a resource problem into a parse
-    failure nobody can act on.
+    failure nobody can act on. A candidate that still fails is retried once with its backslash
+    escapes repaired (R38.11), so a document whose only fault is an unescaped LaTeX command is
+    read rather than discarded.
     """
     if not candidate:
         return None
     try:
         return json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+    try:
+        return json.loads(repair_backslash_escapes(candidate))
     except json.JSONDecodeError:
         return None
 

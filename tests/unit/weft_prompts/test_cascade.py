@@ -226,3 +226,20 @@ async def test_a_provider_that_answered_with_nothing_is_relayed_not_reinterprete
     # Assert — `NothingToProduce` is not a parse failure, and pretending otherwise would send
     # two more calls at a model that has already declined to speak.
     assert isinstance(outcome, NothingToProduce)
+
+
+async def test_a_schema_reply_with_an_unescaped_latex_backslash_is_accepted_at_tier_two() -> None:
+    """Repair R38.11. Tier 2's answer was the right document with `\\(` left unescaped; it was
+    thrown away, tier 3 re-asked without the schema and got a numbered list, and one question
+    aborted an experiment. The repaired document is the answer tier 2 was asked for."""
+    # Arrange
+    llm = _StubLLM(native=False, plain=[r'{"verdict": "\(yes\)"}', "1. yes\n2. no"])
+
+    # Act
+    outcome = await _run(llm)
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.value == _Verdict(verdict=r"\(yes\)")
+    assert (outcome.value.tier, outcome.value.attempts) == (CascadeTier.ADAPTED, 1)
+    assert llm.plain_calls == 1

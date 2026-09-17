@@ -46,7 +46,7 @@ from weft_llm.contract import LLM
 from weft_llm.errors import LLMBadRequestError, LLMCompletionError, LLMPermissionDeniedError
 from weft_llm.payload import Completion, Conversation, Message, MessageRole, Rendered
 from weft_prompts.contract import Prompt
-from weft_prompts.rescue import rescue_json
+from weft_prompts.rescue import repair_backslash_escapes, rescue_json
 
 #: How much of an unparseable completion survives into the `Failed` reason — chosen because it
 #: is the length at which a model's prose refusal is still readable in a terminal.
@@ -170,9 +170,19 @@ def _accept[T: BaseModel](
 
 
 def _validate[T: BaseModel](text: str, output: type[T]) -> T | None:
-    """`text` as `output`, or `None` to step down. The narrowed catch set, in one place."""
+    """`text` as `output`, or `None` to step down. The narrowed catch set, in one place.
+
+    A completion whose only fault is an unescaped backslash — a model writing LaTeX into a JSON
+    string, `\\(N_x\\)` — is retried once against `rescue.repair_backslash_escapes`'s output
+    before stepping down a tier that re-asks without the schema. R38.11. Only that repair: fence
+    and bare-object extraction stay tier 3's, via `rescue_json`.
+    """
     try:
         return output.model_validate_json(text)
+    except (ValidationError, ValueError):
+        pass
+    try:
+        return output.model_validate_json(repair_backslash_escapes(text))
     except (ValidationError, ValueError):
         return None
 
