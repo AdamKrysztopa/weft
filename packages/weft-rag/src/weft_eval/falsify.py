@@ -356,19 +356,22 @@ def _bootstrap_interval(
 
 
 def _index_stream(seed_material: str, *, count: int, modulus: int) -> list[int]:
-    """`count` indices below `modulus`, derived from `seed_material` alone.
+    """`count` indices uniform over `range(modulus)`, derived from `seed_material` alone.
 
-    Counter-mode sha256: block `i` is the digest of `seed_material` and `i`, and each of its
-    bytes yields one index. The bias from `byte % modulus` is at most one part in 256 and is
-    irrelevant to a percentile over 2,000 resamples — stated rather than hidden, because an
-    unstated approximation is the kind of thing a later reader has to re-derive.
+    One `shake_256` stream per attempt, read as 8-byte big-endian integers, with rejection of any
+    at or above the largest multiple of `modulus` below 2**64, so every kept index is exactly
+    uniform. Repair R38.8: indices were once single bytes, so no index passed 255 whatever
+    `modulus` was; hashing the seed once is what keeps 3,096,000 indices over 1,548 questions fast.
     """
+    limit = (2**64 // modulus) * modulus
     indices: list[int] = []
-    block = 0
+    attempt = 0
     while len(indices) < count:
-        digest = hashlib.sha256(f"{seed_material}|{block}".encode()).digest()
-        indices.extend(byte % modulus for byte in digest)
-        block += 1
+        needed = count - len(indices)
+        stream = hashlib.shake_256(f"{seed_material}|{attempt}".encode()).digest(8 * needed)
+        values = (int.from_bytes(stream[i : i + 8], "big") for i in range(0, len(stream), 8))
+        indices.extend(value % modulus for value in values if value < limit)
+        attempt += 1
     return indices[:count]
 
 

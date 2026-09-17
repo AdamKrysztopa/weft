@@ -376,3 +376,26 @@ def test_a_paired_difference_can_be_restricted_to_named_questions() -> None:
     assert whole["precision@5"].n == 2
     assert restricted["precision@5"].n == 1
     assert restricted["precision@5"].mean == pytest.approx(0.4)
+
+
+def test_the_interval_is_drawn_from_every_question_not_the_first_256() -> None:
+    """Repair R38.8. Each resampled index came from one sha256 byte, so over more than 256
+    questions the bootstrap only ever drew the first 256 in key order: Open RAGBench's 1,548
+    printed lexical recall@5 at -0.742 with an interval of -0.740 to -0.695, the mean outside its
+    own interval. Here the first 256 keys differ by 0 and the other 744 by 1."""
+    # Arrange
+    keys = [f"q{index:04d}" for index in range(1000)]
+    a = _with_questions(**{"recall@5": _per_question(**dict.fromkeys(keys, 0.0))})
+    b = _with_questions(
+        **{"recall@5": _per_question(**{key: float(i >= 256) for i, key in enumerate(keys)})}
+    )
+
+    # Act
+    difference = paired_differences(a, b)["recall@5"]
+
+    # Assert
+    assert difference.mean == pytest.approx(0.744)
+    assert difference.low is not None
+    assert difference.high is not None
+    assert difference.low <= difference.mean <= difference.high
+    assert difference.high - difference.low < 0.1
