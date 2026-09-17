@@ -327,7 +327,7 @@ class EvalExperimentCommand:
             corpus_path = experiment.corpus_for(arm)
             questions = question_sets[arm.name].questions
             index_key = (arm.pipeline, corpus_path)
-            for repetition in range(1, experiment.repeats + 1):
+            for repetition in range(1, experiment.repeats_for(arm) + 1):
                 already_indexed = index_key in indexed_keys
                 result = await index_and_score(
                     deps,

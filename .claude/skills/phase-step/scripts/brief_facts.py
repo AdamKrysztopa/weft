@@ -36,7 +36,11 @@ def _run(args: list[str]) -> str:
 
 
 def _defined(symbol: str) -> bool:
-    pattern = r"^\s*(async def|def|class) {0}\b|^{0}\b\s*[:=]".format(re.escape(symbol))
+    pattern = (
+        r"^[[:space:]]*(async def|def|class) {0}([^A-Za-z0-9_]|$)|^{0}[[:space:]]*[:=]".format(
+            re.escape(symbol)
+        )
+    )
     out = _run(["git", "grep", "-lE", pattern, "--", "packages", "testing", "scripts", "eval"])
     return bool(out.strip())
 

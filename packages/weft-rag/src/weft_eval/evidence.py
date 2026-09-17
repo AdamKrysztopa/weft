@@ -45,8 +45,10 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
 from weft_eval.falsify import (
+    BaselineMeasurement,
     DifferenceJudgement,
     PairedDifference,
+    TooFewRepetitionsError,
     Verdict,
     baseline_spreads,
     judge_differences,
@@ -136,6 +138,11 @@ class EvidenceTable(BaseModel):
     minimum_detectable_effect: float
     baseline_arm: str
     repeats: int
+    #: `experiment.repeats_for(arm)` for every arm, in document order — task **38.13**. Equal to
+    #: `repeats` on every arm exactly when no `[[arm]]` declared its own; the header renders
+    #: `repeats` alone in that case and these per-arm counts otherwise — see
+    #: `render_evidence_table`.
+    repeats_by_arm: tuple[tuple[str, int], ...]
     comparisons: tuple[ArmComparison, ...]
     costs: tuple[ArmCost, ...]
 
@@ -151,7 +158,7 @@ def _missing_pairs(experiment: Experiment, matched: Sequence[_MatchedRecord]) ->
         counts[key] = counts.get(key, 0) + 1
     missing: list[str] = []
     for arm in experiment.arms:
-        for repetition in range(1, experiment.repeats + 1):
+        for repetition in range(1, experiment.repeats_for(arm) + 1):
             if counts.get((arm.name, repetition), 0) != 1:
                 missing.append(f"arm '{arm.name}' repetition {repetition}")
     return missing
@@ -212,7 +219,9 @@ def _choose_invocation(
 def _arm_records(
     experiment: Experiment, by_key: Mapping[tuple[str, int], RunRecord], arm: ExperimentArm
 ) -> list[RunRecord]:
-    return [by_key[(arm.name, repetition)] for repetition in range(1, experiment.repeats + 1)]
+    return [
+        by_key[(arm.name, repetition)] for repetition in range(1, experiment.repeats_for(arm) + 1)
+    ]
 
 
 #: One record's own `(mean, n, excluded)` for one metric — repair R38.12, read once here and
@@ -247,7 +256,14 @@ def _build_comparisons(
     baseline_records: Sequence[RunRecord],
     by_key: Mapping[tuple[str, int], RunRecord],
 ) -> list[ArmComparison]:
-    spreads = baseline_spreads(baseline_records)
+    spreads: Mapping[str, BaselineMeasurement]
+    try:
+        spreads = baseline_spreads(baseline_records)
+    except TooFewRepetitionsError:
+        # `Experiment.repeats_for(baseline_arm)` may be 1 — task **38.13** — and
+        # `judge_differences` already reads a metric absent from `spreads` as `UNJUDGEABLE`,
+        # naming that the baseline never measured it, so an empty mapping is honest here too.
+        spreads = {}
     baseline_first = baseline_records[0]
     comparisons: list[ArmComparison] = []
     for arm in experiment.arms[1:]:
@@ -281,13 +297,16 @@ def _build_comparisons(
 
 
 def _tokens_per_query(
-    experiment: Experiment, arm_records: Sequence[RunRecord], question_count: int
+    experiment: Experiment,
+    arm: ExperimentArm,
+    arm_records: Sequence[RunRecord],
+    question_count: int,
 ) -> dict[str, float]:
     roles: set[str] = set()
     for record in arm_records:
         if record.token_usage is not None:
             roles.update(record.token_usage)
-    denominator = experiment.repeats * question_count
+    denominator = experiment.repeats_for(arm) * question_count
     tokens_per_query: dict[str, float] = {}
     if not denominator:
         return tokens_per_query
@@ -328,7 +347,9 @@ def _arm_cost(
         p95=nearest_rank(seconds, 0.95),
         p99=nearest_rank(seconds, 0.99),
     )
-    tokens_per_query = _tokens_per_query(experiment, arm_records, _question_count(arm_records[0]))
+    tokens_per_query = _tokens_per_query(
+        experiment, arm, arm_records, _question_count(arm_records[0])
+    )
     return ArmCost(arm=arm.name, latency=latency, tokens_per_query=tokens_per_query)
 
 
@@ -364,9 +385,18 @@ def evidence_table(
         minimum_detectable_effect=experiment.minimum_detectable_effect,
         baseline_arm=baseline_arm.name,
         repeats=experiment.repeats,
+        repeats_by_arm=tuple((arm.name, experiment.repeats_for(arm)) for arm in experiment.arms),
         comparisons=tuple(_build_comparisons(experiment, baseline_arm, baseline_records, by_key)),
         costs=tuple(_build_costs(experiment, by_key)),
     )
+
+
+def _repetitions_cell(table: EvidenceTable) -> str:
+    """`table.repeats` alone when every arm ran it — byte-identical to before task **38.13** —
+    and each arm's own count, briefly, the moment one arm's `repeats_for` diverges from it."""
+    if all(count == table.repeats for _, count in table.repeats_by_arm):
+        return str(table.repeats)
+    return ", ".join(f"{name} {count}" for name, count in table.repeats_by_arm)
 
 
 def render_evidence_table(table: EvidenceTable) -> str:
@@ -377,7 +407,7 @@ def render_evidence_table(table: EvidenceTable) -> str:
         f"# Evidence — {table.name}",
         "",
         f"experiment digest: {table.digest[:12]}… · invocation: {table.invocation} · "
-        f"repetitions: {table.repeats}",
+        f"repetitions: {_repetitions_cell(table)}",
         f"minimum detectable effect: {table.minimum_detectable_effect:g}",
         f"paired Δ and its interval: arm minus '{table.baseline_arm}' on repetition 1, 95% "
         "bootstrap interval over questions",

@@ -265,3 +265,44 @@ def test_a_schema_no_release_wrote_is_refused_without_advice_to_upgrade(
     assert not isinstance(caught.value, ExperimentSchemaError)
     assert "schema" in str(caught.value)
     assert "upgrade" not in str(caught.value)
+
+
+# --- Task 38.13 — an arm whose results cannot vary is not repeated.
+
+
+def test_an_arm_may_declare_its_own_repetitions_and_otherwise_inherits_the_documents(
+    tmp_path: Path,
+) -> None:
+    """`38.5`'s repetitions 2–3 were 65% of its query time and identical to repetition 1: retrieval
+    with no model call cannot vary, so its author runs it once. An arm reaching a model keeps the
+    document's `repeats`."""
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
+        'name = "dense"\npipeline = "index-text"\n',
+        'name = "dense"\npipeline = "index-text"\nrepeats = 1\n',
+    )
+    path = _write(tmp_path, body)
+
+    # Act
+    experiment = load_experiment(path)
+
+    # Assert
+    dense, rung = experiment.arms
+    assert experiment.repeats_for(dense) == 1
+    assert experiment.repeats_for(rung) == 3
+
+
+def test_an_arm_declaring_no_repetitions_at_all_is_refused_naming_the_field(tmp_path: Path) -> None:
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
+        'name = "dense"\npipeline = "index-text"\n',
+        'name = "dense"\npipeline = "index-text"\nrepeats = 0\n',
+    )
+    path = _write(tmp_path, body)
+
+    # Act
+    with pytest.raises(ExperimentDocumentError) as caught:
+        load_experiment(path)
+
+    # Assert
+    assert "repeats" in str(caught.value)

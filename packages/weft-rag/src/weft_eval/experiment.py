@@ -72,7 +72,7 @@ _EXPERIMENT_TABLE_KEYS: Final[frozenset[str]] = frozenset(
 
 #: Every key a `[[arm]]` table may carry — one-to-one onto `ExperimentArm`'s own fields.
 _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
-    {"name", "pipeline", "query_pipeline", "corpus", "questions"}
+    {"name", "pipeline", "query_pipeline", "corpus", "questions", "repeats"}
 )
 
 
@@ -94,6 +94,9 @@ class ExperimentArm(BaseModel):
     """One arm of an experiment — a pipeline, and optionally its own corpus/questions/query
     pipeline. `corpus`/`questions` are `None` when the arm inherits the experiment's own, resolved
     absolute paths when the arm names its own — see `Experiment.corpus_for`/`questions_for`.
+    `repeats` is `None` when the arm inherits the document's own `repeats` — see
+    `Experiment.repeats_for` (task **38.13**): a deterministic arm reaching no model declares its
+    own `repeats = 1` rather than paying for repetitions that cannot vary.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -103,6 +106,7 @@ class ExperimentArm(BaseModel):
     query_pipeline: str | None = None
     corpus: Path | None = None
     questions: Path | None = None
+    repeats: int | None = Field(default=None, ge=1)
 
 
 class Experiment(BaseModel):
@@ -149,6 +153,11 @@ class Experiment(BaseModel):
         """`arm`'s own question set, or the experiment's, when the arm names none."""
         return arm.questions if arm.questions is not None else self.questions
 
+    def repeats_for(self, arm: ExperimentArm) -> int:
+        """`arm`'s own repetition count, or the experiment's, when the arm names none — the one
+        place every loop and completeness check reads (task **38.13**)."""
+        return arm.repeats if arm.repeats is not None else self.repeats
+
 
 def _resolve(raw: object, *, root: Path) -> Path:
     return (root / str(raw)).resolve()
@@ -181,6 +190,7 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
         query_pipeline=entry.get("query_pipeline"),
         corpus=_resolve_optional(entry.get("corpus"), root=root),
         questions=_resolve_optional(entry.get("questions"), root=root),
+        repeats=entry.get("repeats"),
     )
 
 

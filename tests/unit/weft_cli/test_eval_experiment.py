@@ -574,3 +574,32 @@ async def test_a_record_names_its_corpus_as_the_document_wrote_it(
         load_run_record(Path("runs") / f"{run.run_id}.json").corpus.name for run in result.runs
     }
     assert names == {"corpus"}
+
+
+# --- Task 38.13 — each arm runs its own number of repetitions.
+
+
+async def test_an_arm_declaring_one_repetition_is_run_once_while_the_others_repeat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index", "repeats = 1\n")
+        + _arm("rung", "index", 'query_pipeline = "some-rung"\n'),
+        repeats=2,
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    assert {(run.arm, run.repetition) for run in result.runs} == {
+        ("dense", 1),
+        ("rung", 1),
+        ("rung", 2),
+    }

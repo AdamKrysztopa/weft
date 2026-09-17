@@ -363,3 +363,41 @@ def test_each_arms_mean_states_the_questions_it_is_over_and_how_many_were_exclud
     row = next(line for line in markdown.splitlines() if "| better | precision@5 |" in line)
     assert "0.500 (n 4) |" in row
     assert "0.750 (n 3, 1 excluded) |" in row
+
+
+# --- Task 38.13 — a baseline run once still yields a table.
+
+
+def test_a_baseline_run_once_is_complete_paired_and_its_spread_verdict_unjudgeable(
+    tmp_path: Path,
+) -> None:
+    """The paired interval over questions is the evidence for a deterministic baseline; a spread
+    needs at least two repetitions, and `falsify`'s own rule for one repetition is `UNJUDGEABLE`."""
+    # Arrange
+    path = tmp_path / "experiment.toml"
+    path.write_text(
+        f'[experiment]\nschema = {EXPERIMENT_SCHEMA_VERSION}\nname = "fixture"\n'
+        'questions = "questions.toml"\ncorpus = "corpus"\nrepeats = 2\ntop_k = 5\n'
+        'metrics = ["precision@5"]\nminimum_detectable_effect = 0.05\n\n'
+        '[[arm]]\nname = "base"\npipeline = "index"\nrepeats = 1\n\n'
+        '[[arm]]\nname = "better"\npipeline = "index"\nquery_pipeline = "rung"\n',
+        encoding="utf-8",
+    )
+    experiment = load_experiment(path)
+    records = [record for record in complete_records(experiment) if not _is_base_second(record)]
+
+    # Act
+    table = evidence_table(experiment, records)
+
+    # Assert
+    (comparison,) = table.comparisons
+    assert comparison.paired is not None
+    assert comparison.paired.mean == pytest.approx(0.25)
+    assert comparison.judgement.verdict is Verdict.UNJUDGEABLE
+
+
+def _is_base_second(record: RunRecord) -> bool:
+    return record.experiment is not None and (
+        record.experiment.arm,
+        record.experiment.repetition,
+    ) == ("base", 2)
