@@ -1,0 +1,7 @@
+# `lexical-retrieve` at the depth the other two arms use, so the three arms differ in the channel
+# they search and in nothing else.
+name: lexical-wide-retrieve
+stages:
+  - {id: retrieve, use: hybrid, with: {top_k: 60, channels: [text]}}
+  - {id: fuse,     use: single-list}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 60}}

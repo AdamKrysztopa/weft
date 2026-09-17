@@ -1,0 +1,31 @@
+# Dense against lexical against hybrid retrieval over Open RAGBench's development split — Phase 38
+# task 38.5. Every arm indexes the same corpus through `index-openai-large`, which names
+# `text-embedding-3-large` in its stage, and differs only in its query pipeline. The pipelines live
+# in `pipelines/` beside this file; run from a directory holding a copy of it and a `weft.toml`
+# whose `[services] embed` is `openai-embeddings` with the same model.
+
+[experiment]
+schema = 1
+name = "orb-retrieval-baseline"
+questions = "../../corpus/open-ragbench-questions/dev.toml"
+corpus = "../../corpus/open-ragbench"
+manifest = "../../corpus/open-ragbench.toml"
+repeats = 3
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.03
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+
+[[arm]]
+name = "lexical"
+pipeline = "index-openai-large"
+query_pipeline = "lexical-wide-retrieve"
+
+[[arm]]
+name = "hybrid"
+pipeline = "index-openai-large"
+query_pipeline = "hybrid-retrieve"

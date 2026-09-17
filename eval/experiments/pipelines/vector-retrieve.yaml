@@ -1,0 +1,8 @@
+# One vector search, packed, and no answer generated — the dense arm of Phase 38's retrieval
+# experiment. `lexical-retrieve`'s shape with the vector channel instead of the text one, and a
+# depth wide enough that five distinct documents survive packing.
+name: vector-retrieve
+stages:
+  - {id: retrieve, use: vector-top-k, with: {top_k: 60}}
+  - {id: fuse,     use: single-list}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 60}}

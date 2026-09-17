@@ -1,0 +1,13 @@
+# Both channels fused by reciprocal rank, packed, and no answer generated — the hybrid arm, with
+# `hybrid-then-generate`'s fusion settings.
+name: hybrid-retrieve
+stages:
+  - id: retrieve
+    use: hybrid
+    with: {top_k: 60}
+  - id: fuse
+    use: reciprocal-rank-fusion
+    with:
+      k: 60
+      weights: {"hybrid:vector": 1.0, "hybrid:text": 0.8}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 60}}

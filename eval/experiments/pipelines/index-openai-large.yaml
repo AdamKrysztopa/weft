@@ -1,0 +1,7 @@
+# `index-openai` with the model named in the stage, so a run record's model versions and the
+# pipeline identity both say which model embedded the corpus — a model set only in `weft.toml`
+# reaches neither.
+name: index-openai-large
+extends: index-openai
+replace:
+  - {id: embed, use: openai-embeddings, with: {model: text-embedding-3-large}}
