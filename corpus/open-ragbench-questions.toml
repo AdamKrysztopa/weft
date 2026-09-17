@@ -10,6 +10,12 @@ uncarried = 1
 straddling = 46
 
 [[file]]
+name = "dev-subset-300.toml"
+questions = 300
+sha256 = "251ea19f8bd7e59dc9a446a28d186446e2439d95b628938c14376577192bd0e2"
+question_set_digest = "e5178a6302e7a9d19c335cdbaf300c6936fc847d5d138971c63b5c2c17d6d2c9"
+
+[[file]]
 name = "dev.toml"
 questions = 1548
 sha256 = "b1f8ca762d4a870de06e82c7c917a0413bb79033534dac6a5982d71bb3d0044e"

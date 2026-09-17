@@ -20,7 +20,7 @@ import open_ragbench
 import open_ragbench_questions
 import pytest
 
-from weft_eval.question_set import QuestionField, QuestionSetFormat, read_question_set
+from weft_eval.question_set import Question, QuestionField, QuestionSetFormat, read_question_set
 
 _LONG_SENTENCE = (
     "We consider hierarchical time series data where the clustering variable is country and "
@@ -283,3 +283,43 @@ def test_the_pin_records_each_files_bytes_and_its_question_set_digest(tmp_path: 
         assert entry["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
         assert entry["question_set_digest"] == read_question_set(path).digest
         assert entry["questions"] == len(read_question_set(path).questions)
+
+
+def _axed(identifier: str, evidence: str, form: str) -> Question:
+    return Question.model_validate(
+        {
+            "id": identifier,
+            "text": f"question {identifier}?",
+            "language": "en",
+            "absent": frozenset(QuestionField),
+            "absent_reason": "a subset fixture",
+            "axes": {"evidence": evidence, "answer-form": form, "split": "dev"},
+        }
+    )
+
+
+def test_a_stratified_subset_keeps_each_strata_share_and_sums_to_its_size() -> None:
+    """Q5: the 2x2's 300 questions are stratified on the dataset's own two labels, so a subset
+    that happened to draw only text questions cannot stand in for the split."""
+    # Arrange — 60 text/abstractive, 30 text-table/extractive, 10 text-image/abstractive.
+    questions = (
+        [_axed(f"a-{i}", "text", "abstractive") for i in range(60)]
+        + [_axed(f"b-{i}", "text-table", "extractive") for i in range(30)]
+        + [_axed(f"c-{i}", "text-image", "abstractive") for i in range(10)]
+    )
+
+    # Act
+    subset = open_ragbench_questions.stratified_subset(questions, 25, seed="fixture")
+    again = open_ragbench_questions.stratified_subset(questions, 25, seed="fixture")
+
+    # Assert
+    assert len(subset) == 25
+    counts: dict[str, int] = {}
+    for question in subset:
+        counts[question.axes["evidence"]] = counts.get(question.axes["evidence"], 0) + 1
+    # 25 x 0.3 and 25 x 0.1 tie on a remainder of 0.5, broken by stratum key, which puts the
+    # last question in text-image.
+    assert counts == {"text": 15, "text-table": 7, "text-image": 3}
+    assert [q.id for q in subset] == [q.id for q in again]
+    order = [q.id for q in questions]
+    assert [q.id for q in subset] == sorted((q.id for q in subset), key=order.index)

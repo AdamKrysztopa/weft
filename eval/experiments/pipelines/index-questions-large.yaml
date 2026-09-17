@@ -1,0 +1,7 @@
+# `index-with-questions` over `index-openai-large`: three generated questions per chunk, embedded
+# with `text-embedding-3-large` beside the chunk they were generated from.
+name: index-questions-large
+extends: index-openai-large
+insert:
+  - after: chunk
+    stage: {id: questions, use: hypothetical-questions, with: {questions_per_node: 3, max_concurrent_nodes: 32}}

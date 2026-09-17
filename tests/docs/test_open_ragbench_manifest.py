@@ -52,6 +52,9 @@ def test_the_question_files_are_pinned_to_the_same_revision_with_their_digests()
     # Assert
     assert pin["build"]["revision"] == RAGBENCH_REVISION
     files = {entry["name"]: entry for entry in pin["file"]}
-    assert set(files) == {"dev.toml", "test.toml"}
-    assert sum(entry["questions"] for entry in files.values()) == pin["build"]["carried"]
+    assert set(files) == {"dev.toml", "test.toml", "dev-subset-300.toml"}
+    assert (
+        files["dev.toml"]["questions"] + files["test.toml"]["questions"] == pin["build"]["carried"]
+    )
+    assert files["dev-subset-300.toml"]["questions"] == 300
     assert all(len(entry["question_set_digest"]) == 64 for entry in files.values())

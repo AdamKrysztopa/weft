@@ -1,0 +1,39 @@
+# HyDE at query time crossed with hypothetical questions at index time — Phase 38 task 38.6 — over
+# the 300-question stratified dev subset and the 160 documents it cites. Spend decided by the owner
+# on that corpus, not the full 1,000 documents: with no distractors retrieval is easier, and the
+# corpus identity differs from `orb-retrieval-baseline`'s, so the four arms compare with each other
+# only. Arm order does not matter: a changed ingest pipeline releases a document's nodes before
+# re-indexing it. Run against a database nothing else writes to, from a directory holding a copy of `pipelines/` and a `weft.toml` mapping the
+# `index` and `hyde` roles.
+
+[experiment]
+schema = 1
+name = "orb-hyde-questions"
+questions = "../../corpus/open-ragbench-questions/dev-subset-300.toml"
+corpus = "../../corpus/open-ragbench-cited-300"
+manifest = "../../corpus/open-ragbench.toml"
+repeats = 3
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.05
+index_batch_size = 5
+
+[[arm]]
+name = "plain"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+
+[[arm]]
+name = "hyde"
+pipeline = "index-openai-large"
+query_pipeline = "hyde-vector-retrieve"
+
+[[arm]]
+name = "questions"
+pipeline = "index-questions-large"
+query_pipeline = "vector-retrieve"
+
+[[arm]]
+name = "questions-hyde"
+pipeline = "index-questions-large"
+query_pipeline = "hyde-vector-retrieve"

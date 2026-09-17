@@ -1,0 +1,8 @@
+# `vector-retrieve` with HyDE's hypothetical documents searched beside the question and fused by
+# reciprocal rank — `hyde-then-retrieve`'s transform and fusion, packed, and no answer generated.
+name: hyde-vector-retrieve
+stages:
+  - {id: hypothesise, use: hyde}
+  - {id: retrieve,    use: vector-top-k, with: {top_k: 60}}
+  - {id: fuse,        use: reciprocal-rank-fusion, with: {k: 60}}
+  - {id: pack,        use: repack, with: {method: reverse, top_n: 60}}

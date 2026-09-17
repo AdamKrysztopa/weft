@@ -33,6 +33,7 @@ import argparse
 import hashlib
 import json
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -175,7 +176,41 @@ def _header(split: str, *, seed: str, dev_fraction: float) -> str:
     )
 
 
-def build(dataset: Path, out: Path, *, seed: str, dev_fraction: float) -> Build:
+def stratified_subset(
+    questions: Sequence[Question], size: int, *, seed: str
+) -> tuple[Question, ...]:
+    """`size` questions drawn so each `(evidence, answer-form)` stratum keeps its share of
+    `questions` — Phase 38 Q5. Shares are rounded by largest remainder so the strata sum to `size`
+    exactly; within a stratum the questions taken are the first by `sha256(seed:id)`, so the subset
+    is a pure function of the seed and the ids. The result keeps `questions`' own order."""
+    strata: dict[tuple[str, str], list[Question]] = {}
+    for question in questions:
+        strata.setdefault((question.axes["evidence"], question.axes["answer-form"]), []).append(
+            question
+        )
+    total = len(questions)
+    exact = {key: size * len(members) / total for key, members in strata.items()}
+    taken = {key: int(share) for key, share in exact.items()}
+    by_remainder = sorted(exact, key=lambda key: (-(exact[key] - taken[key]), key))
+    for key in by_remainder[: size - sum(taken.values())]:
+        taken[key] += 1
+    chosen: set[str] = set()
+    for key, members in strata.items():
+        ranked = sorted(
+            members, key=lambda q: hashlib.sha256(f"{seed}:{q.id}".encode()).hexdigest()
+        )
+        chosen.update(question.id for question in ranked[: taken[key]])
+    return tuple(question for question in questions if question.id in chosen)
+
+
+def build(
+    dataset: Path,
+    out: Path,
+    *,
+    seed: str,
+    dev_fraction: float,
+    subset: int | None = None,
+) -> Build:
     """Build the question files from the dataset copy at `dataset` into `out`."""
     queries = json.loads((dataset / "queries.json").read_text(encoding="utf-8"))
     qrels = json.loads((dataset / "qrels.json").read_text(encoding="utf-8"))
@@ -242,7 +277,10 @@ def build(dataset: Path, out: Path, *, seed: str, dev_fraction: float) -> Build:
         raise UnverifiedQuoteError(message)
 
     out.mkdir(parents=True, exist_ok=True)
-    for split, questions in by_split.items():
+    files = dict(by_split)
+    if subset is not None:
+        files[f"dev-subset-{subset}"] = list(stratified_subset(by_split["dev"], subset, seed=seed))
+    for split, questions in files.items():
         path = out / f"{split}.toml"
         body = _header(split, seed=seed, dev_fraction=dev_fraction) + "".join(
             "\n" + _question_toml(question) for question in questions
@@ -292,10 +330,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", default="38.4")
     parser.add_argument("--dev-fraction", type=float, default=0.5)
     parser.add_argument("--pin", type=Path, default=None, help="also write the tracked pin here")
+    parser.add_argument(
+        "--subset", type=int, default=None, help="also write a stratified dev subset of this size"
+    )
     arguments = parser.parse_args(argv)
 
     result = build(
-        arguments.dataset, arguments.out, seed=arguments.seed, dev_fraction=arguments.dev_fraction
+        arguments.dataset,
+        arguments.out,
+        seed=arguments.seed,
+        dev_fraction=arguments.dev_fraction,
+        subset=arguments.subset,
     )
     record = {
         "revision": RAGBENCH_REVISION,

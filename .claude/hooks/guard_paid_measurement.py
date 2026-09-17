@@ -60,8 +60,13 @@ def strip_heredocs(command):
     return "\n".join(kept)
 
 
+_QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
+
+
 def offends(command):
-    command = strip_heredocs(command)
+    # Quoted text is a pattern or an argument, not a command: a `pgrep -f "… experiment"` status
+    # check was refused (L24.2's shape). A run wrapped in `sh -c '…'` is not seen either.
+    command = _QUOTED.sub("", strip_heredocs(command))
     if not _RUNS_EXPERIMENT.search(command):
         return False
     if "--help" in command:
