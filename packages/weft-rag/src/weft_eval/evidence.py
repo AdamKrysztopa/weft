@@ -95,6 +95,11 @@ class ArmComparison(BaseModel):
     arm_mean: float | None
     paired: PairedDifference | None
     judgement: DifferenceJudgement
+    #: `True` exactly when `judgement.spread` is a `BaselineSpread` whose `width` is `0.0` —
+    #: repair R38.10. Carried on the row rather than recomputed by the renderer, the same
+    #: reason `judgement` itself is carried rather than re-derived: one place computes the
+    #: fact, and `_comparison_row`/the header block only read it.
+    zero_width_spread: bool
 
 
 class ArmCost(BaseModel):
@@ -243,6 +248,9 @@ def _build_comparisons(
                     arm_mean=_metric_mean(arm_first, metric),
                     paired=paired_map.get(metric),
                     judgement=judgement,
+                    zero_width_spread=(
+                        judgement.spread is not None and judgement.spread.width == 0.0
+                    ),
                 )
             )
     return comparisons
@@ -351,10 +359,24 @@ def render_evidence_table(table: EvidenceTable) -> str:
         "bootstrap interval over questions",
         "spread verdict: that Δ against the between-repetition spread of arm "
         f"'{table.baseline_arm}'",
-        "",
-        f"| arm | metric | {table.baseline_arm} | arm | paired Δ | 95% CI | n | spread verdict |",
-        "|---|---|---|---|---|---|---|---|",
+        "the minimum detectable effect is not applied to either verdict above: the paired "
+        "difference's bootstrap interval and the spread verdict each read only the record's "
+        "own numbers, never a chosen threshold.",
     ]
+    if any(comparison.zero_width_spread for comparison in table.comparisons):
+        lines.append(
+            "at least one spread verdict below was judged against a zero-width baseline "
+            "spread: these repetitions did not vary at all, which is a claim about them, not "
+            "proof the system is deterministic."
+        )
+    lines.extend(
+        [
+            "",
+            f"| arm | metric | {table.baseline_arm} | arm | paired Δ | 95% CI | n | "
+            "spread verdict |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+    )
     for comparison in table.comparisons:
         lines.append(_comparison_row(comparison))
     lines.extend(
@@ -385,9 +407,12 @@ def _comparison_row(comparison: ArmComparison) -> str:
         paired_mean = "—"
         ci = "—"
         n = "—"
+    verdict = comparison.judgement.verdict.value
+    if comparison.zero_width_spread:
+        verdict = f"{verdict} (zero-width)"
     return (
         f"| {comparison.arm} | {comparison.metric} | {baseline_mean} | {arm_mean} | "
-        f"{paired_mean} | {ci} | {n} | {comparison.judgement.verdict.value} |"
+        f"{paired_mean} | {ci} | {n} | {verdict} |"
     )
 
 

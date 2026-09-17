@@ -302,3 +302,33 @@ def test_tokens_per_query_are_absent_rather_than_zero_when_no_question_is_known(
     # Assert
     assert all(cost.tokens_per_query == {} for cost in table.costs)
     assert "generate: 0.0" not in markdown
+
+
+def test_a_verdict_against_a_zero_width_spread_says_so_and_the_effect_size_decides_nothing(
+    tmp_path: Path,
+) -> None:
+    """Repair R38.10. Retrieval with no model call repeats itself exactly, so `38.5`'s dense arm
+    recorded a zero-width spread and hybrid's recall@5 Δ of -0.003, a tenth of the document's
+    minimum detectable effect, printed a bare `outside-baseline-spread`. `09` §4.3 keeps the
+    strict reading; `weft eval compare --baseline` already prints the caveat beside it, and the
+    table did not.
+    """
+    # Arrange — the base arm's two repetitions agree exactly.
+    experiment = fixture_experiment(tmp_path)
+    records = [
+        _record(experiment, arm="base", repetition=1, scores=(0.5, 0.5, 0.5, 0.5)),
+        _record(experiment, arm="base", repetition=2, scores=(0.5, 0.5, 0.5, 0.5)),
+        _record(experiment, arm="better", repetition=1, scores=(0.5, 0.5, 0.5, 0.51)),
+        _record(experiment, arm="better", repetition=2, scores=(0.5, 0.5, 0.5, 0.51)),
+    ]
+
+    # Act
+    markdown = render_evidence_table(evidence_table(experiment, records))
+
+    # Assert
+    row = next(line for line in markdown.splitlines() if "| better | precision@5 |" in line)
+    assert f"{Verdict.OUTSIDE_BASELINE_SPREAD.value} (zero-width)" in row
+    header = markdown.split("| arm |", 1)[0]
+    assert "zero-width" in header
+    assert "not proof the system is deterministic" in header
+    assert "minimum detectable effect is not applied" in header
