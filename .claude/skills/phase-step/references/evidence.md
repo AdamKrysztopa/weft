@@ -100,3 +100,20 @@ of the shape: its fixture plants the exact input the parser exists to reject.
 process-global slot. It passed its own suite, and each test tree run alone, and failed five things
 in the combined run (`docs/internal/lessons.md` L5.12). An out-of-workspace pack installed into the
 development venv changes what the whole suite sees (`docs/internal/lessons.md` L5.31).
+
+## A paid measurement is not a unit test — Phase 38
+
+Phase 38's two measurements ran seven times between them (`38.5` four, `38.6` three), and every
+restart traced to a question answerable before `--yes`. The six questions are
+`.claude/hooks/guard_paid_measurement.py`'s refusal text, printed at the command that starts the run,
+because as sentences here they would be read before writing the experiment and forgotten by the time
+it ran (`L24.4`, `L24.7`, `L24.9`–`L24.12`). Two points the hook cannot ask:
+
+**A resource is proven released by counting, never by a run surviving** (`L24.5`). Dense and lexical
+wrote six clean records while every question leaked a Postgres connection; the collector happened to
+keep up until hybrid. A test that counts constructions against closes on a double is the evidence;
+a long green run is timing.
+
+**The code half is filed, not remembered**: pre-flight estimates and a per-record progress line,
+per-arm repeats, per-batch resumable indexing for model-calling stages, a counted degraded generation
+(`R38.13`), and a scale-smoke integration test — ledger tasks `38.12`–`38.15`.

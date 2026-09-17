@@ -275,6 +275,11 @@ direction (`build-ledger.md` → *The working protocol*), not a gate — it is n
 Shape: the mirroring path under `tests/`, happy path, one edge case, one error case, AAA with one
 block each, external services mocked. Assert the *fact a field means*, never its literal shape.
 
+**Derive every expected value from the specification the test cites, never type it from an
+example** (`L24.8`). `R38.11`'s red test expected `\times` to stay literal while `\n` decoded, and
+`\t` is a JSON escape exactly as `\n` is: the implementer bent the code to the contradiction. For a
+parser, run the expected output through the reference implementation before dispatch.
+
 **A fixture whose two sides cannot disagree is the same defect one level out, and Phase 11 met it
 three times.** The rule below is about a *comparison*; this is about the **inputs**. A fixture that
 is symmetric in the very dimension under test makes every assertion over that dimension vacuous
@@ -472,6 +477,11 @@ the agent changed is yours to remove at *Verify***: read its diff, bring it into
 (`git -C <worktree> diff` plus any file it created), then `git worktree remove` it and delete its
 branch; `next_task.py --check-live` fails while an unlocked `agent-*` worktree is left. A worktree
 is its own checkout and *not* its own container, so a task needing the database is still serial.
+**And the dispatcher is a writer to the container and to the host** (`L24.3`, `L24.12`): while an
+agent may run a database-backed suite, run no database-backed suite of your own — `ruff`, `pyright`
+and `tests/architecture` alone open no connection — and while a paid measurement runs, dispatch no
+implementer and fan out no research agents on its host. Both were paid in Phase 38: a gate truncated
+an implementer's tables into a flaky red, and a 24 GB host killed a measurement three batches in.
 **And it is built from `HEAD`, where the red tests are not** (`L22.19`): *Red* leaves them
 uncommitted here, so write them to a patch in the scratchpad (`git diff` for edited files,
 `git diff --no-index /dev/null <file>` for new ones — `git add -N` needs a `git reset` to undo)

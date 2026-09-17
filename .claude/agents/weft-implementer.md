@@ -23,7 +23,8 @@ is wrong, that is a finding to report — never an edit to make.
 
 - **Do not edit any test.** Not to fix an import, not to relax an assertion, not to rename a
   fixture. A test that seems wrong is a **stop and report**, and it is one of the more valuable
-  things you can return.
+  things you can return. **A test that contradicts its own brief is blocked, never green** — do not
+  choose which of the two to satisfy by bending the code (`docs/internal/lessons.md` `L24.8`).
 - **Do not edit anything under `docs/`, and never tick a ledger box.** The plan and the code are
   meant to be true about each other, and the session that holds the reasoning writes both.
 - **Do not weaken a gate.** No new `# type: ignore`, `# noqa`, `@pytest.mark.skip`/`xfail`, no

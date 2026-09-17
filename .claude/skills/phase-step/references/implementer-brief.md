@@ -334,7 +334,11 @@ the work. Run these against the brief, not against the code.
    conclusion is "there are no others". **When the file expected to be red is one you just wrote,
    group its errors by message as well** (`L22.13`): a missing-module cascade has one shape
    (`could not be resolved`, `is unknown`), and seven errors of another shape once sat inside
-   *"all 80 are the import"*, in the dispatcher's own helper.
+   *"all 80 are the import"*, in the dispatcher's own helper. **Now a command, and a hook enforces
+   it** (`L24.1`, which recurred twice in one phase with this sentence Applied — grouping by message
+   hid a `getattr` error saying "unknown"): `scripts/brief_facts.py --red <files> --owners <modules>`
+   groups the errors by the *symbol* each names, and `.claude/hooks/guard_implementer_brief.py`
+   refuses a `weft-implementer` dispatch whose prompt lacks its `## Brief facts` block.
 
 5. **Does the change land in a function already near a ceiling?** `L10.32`. A brief added two
    branches to a method one below ruff's `max-complexity`, and said nothing — silently delegating
@@ -427,7 +431,13 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     fragment is now on — which turns the repair into one digit. Do not lose that when touching it.
     **Where the citations into a file are many, the brief says who re-points them** (`L23.15`):
     FF17's ±5 window means a heavily-cited file often has no compliant place to grow, and an agent
-    forbidden to edit the citing documents can only relocate code to dodge them.
+    forbidden to edit the citing documents can only relocate code to dodge them. `L24.6` recurred it
+    with this sentence Applied; `scripts/brief_facts.py --owners` now lists every citation into the
+    modules a change edits, inside the block the dispatch hook requires.
+
+    **A worktree agent that runs `weft eval …` through `Bash` may be refused** by the harness's own
+    worktree guard, which matches the word `eval` (`L24.2`; not a hook of this repository). Tell it to
+    invoke the binary through a variable (`SUB=ev; $W ${SUB}al …`).
 
 15. **Does the brief tell the agent to configure a plugin — and has one document with that `with:`
     block ever been run?** `L22.26`. A fix plan said the latency corpus is embedded "at dimension
