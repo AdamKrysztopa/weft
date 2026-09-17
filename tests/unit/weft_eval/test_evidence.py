@@ -332,3 +332,34 @@ def test_a_verdict_against_a_zero_width_spread_says_so_and_the_effect_size_decid
     assert "zero-width" in header
     assert "not proof the system is deterministic" in header
     assert "minimum detectable effect is not applied" in header
+
+
+def test_each_arms_mean_states_the_questions_it_is_over_and_how_many_were_excluded(
+    tmp_path: Path,
+) -> None:
+    """Repair R38.12. A rung that fails on a question now excludes it rather than aborting the
+    run, so two arms' means can be over different questions; the paired Δ stays comparable
+    because it pairs only questions both arms scored, and the table's only `n` was that one."""
+    # Arrange — the better arm's first repetition could not answer one question.
+    experiment = fixture_experiment(tmp_path)
+    records = complete_records(experiment)
+    first = records[2]
+    aggregate = first.metrics["precision@5"]
+    assert isinstance(aggregate, Produced)
+    records[2] = first.model_copy(
+        update={
+            "metrics": {
+                "precision@5": Produced(
+                    value=aggregate.value.model_copy(update={"n": 3, "excluded": 1})
+                )
+            }
+        }
+    )
+
+    # Act
+    markdown = render_evidence_table(evidence_table(experiment, records))
+
+    # Assert
+    row = next(line for line in markdown.splitlines() if "| better | precision@5 |" in line)
+    assert "0.500 (n 4) |" in row
+    assert "0.750 (n 3, 1 excluded) |" in row

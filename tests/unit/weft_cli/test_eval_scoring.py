@@ -23,12 +23,13 @@ from weft_cli.eval_scoring import (
     resolve_labels,
     score_pipeline,
 )
+from weft_cli.route_ask import PipelineDidNotProduceError
 from weft_embed import Embedder
 from weft_eval import Settings, register
 from weft_eval.contract import RetrievalSample
 from weft_eval.harness import SubsetScores
 from weft_eval.question_set import Kind, Question, QuestionField, question_set_digest
-from weft_eval.run_record import QuestionKey
+from weft_eval.run_record import NotScored, QuestionKey
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
@@ -758,3 +759,56 @@ async def test_the_scored_run_carries_each_questions_axes_with_its_kind(
     assert report.question_axes is not None
     assert dict(report.question_axes["curated-1"]) == {"kind": "definitional"}
     assert dict(report.question_axes["bridge-1"]) == {"kind": "requires-graph-hop"}
+
+
+# --- Repair R38.12 — a rung that fails on one question excludes that question, counted.
+
+
+async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_scores_the_rest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`38.6`'s HyDE arm failed on one of 300 questions — a model's answer could not be parsed —
+    and the exception left the question loop, so the arm wrote no record at all. `09` V4: a failed
+    metric is an error, never a zero, and aggregates report how many were excluded. A question the
+    rung could not answer is the same error one level up."""
+
+    # Arrange
+    async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
+        if question == "breaks":
+            raise PipelineDidNotProduceError(
+                "pipeline 'some-rung' did not produce: could not parse", pipeline="some-rung"
+            )
+        return Passages(origin=Query(text=question), passages=(_labelled_passage("doc-a", 0.9, 0),))
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+    questions = (
+        _question("q-1", text="works"),
+        _question("q-2", text="breaks"),
+        _question("q-3", text="works too"),
+    )
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert scored.question_scores, "the run must still produce per-question scores"
+    for name, per_question in scored.question_scores.items():
+        outcome = per_question.scores["q-2"]
+        assert isinstance(outcome, NotScored), name
+        assert "could not parse" in outcome.reason
+        assert isinstance(per_question.scores["q-1"], Produced), name
+        aggregate = scored.metrics[name]
+        assert isinstance(aggregate, Produced), name
+        assert (aggregate.value.n, aggregate.value.excluded) == (2, 1), name

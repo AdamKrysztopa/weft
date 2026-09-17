@@ -59,6 +59,7 @@ from pydantic import BaseModel
 
 from weft_cli.ask import run_ask
 from weft_cli.route_ask import (
+    PipelineDidNotProduceError,
     PreparedRunner,
     prepared_services,
     resolve_named_pipeline,
@@ -518,6 +519,13 @@ async def score_pipeline(
     pipeline's own `Embedder`/`NodeStore` stages — because that absence is itself a
     measurement, not a gap: see `weft_eval.run_record.NoQueryRung`'s own docstring.
 
+    **A question a query rung raises on excludes it — repair R38.12.** `run_named_retrieve`/
+    `run_named_ask` raising `PipelineDidNotProduceError` for one question no longer aborts the
+    whole run: that question is caught, carries no `RetrievalSample` and no `question_seconds`
+    entry, and is passed to `score_retrieval_gate_subset` as a `failed_questions` entry, which
+    turns it into `NotScored` under every metric and counts it in `excluded` — `09` V4's "a
+    failed metric is an error, never a zero" one level up. Any other exception propagates.
+
     Raises `PipelineNotRetrievableError` if `resolved_pipeline` (the *ingest* pipeline
     `--questions` was corroborated over) names no `Embedder`/`NodeStore` stage — checked
     unconditionally, whether or not `query_pipeline` is given: a query rung has nothing to
@@ -595,6 +603,7 @@ async def score_pipeline(
     samples: list[RetrievalSample] = []
     seconds: dict[str, float] = {}
     axes: dict[str, Mapping[str, str]] = {}
+    failed: dict[str, str] = {}
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
     retrieval_services: PreparedRunner | None = None
     async with AsyncExitStack() as stack:
@@ -627,34 +636,42 @@ async def score_pipeline(
                 hits: Sequence[Scored[Node]]
                 started = time.monotonic()
                 if query_pipeline is not None and generates:
-                    answer = await run_named_ask(
-                        question_text,
-                        pipeline_name=query_pipeline,
-                        registry=registry,
-                        reports=reports,
-                        ctx=ctx,
-                        llm=llm if llm is not None else LLMSection(),
-                        services=services if services is not None else ServiceSelection(),
-                        roles=roles if roles is not None else RoleTable(),
-                        sink=sink if sink is not None else NullSink(),
-                        contributions=contributions,
-                    )
+                    try:
+                        answer = await run_named_ask(
+                            question_text,
+                            pipeline_name=query_pipeline,
+                            registry=registry,
+                            reports=reports,
+                            ctx=ctx,
+                            llm=llm if llm is not None else LLMSection(),
+                            services=services if services is not None else ServiceSelection(),
+                            roles=roles if roles is not None else RoleTable(),
+                            sink=sink if sink is not None else NullSink(),
+                            contributions=contributions,
+                        )
+                    except PipelineDidNotProduceError as failure:
+                        failed[question_key] = str(failure)
+                        continue
                     seconds[question_key] = time.monotonic() - started
                     hits = [passage.scored for passage in passages_for_scoring(answer)]
                 elif query_pipeline is not None:
-                    passages = await run_named_retrieve(
-                        question_text,
-                        pipeline_name=query_pipeline,
-                        registry=registry,
-                        reports=reports,
-                        ctx=ctx,
-                        llm=llm if llm is not None else LLMSection(),
-                        services=services if services is not None else ServiceSelection(),
-                        roles=roles if roles is not None else RoleTable(),
-                        sink=sink if sink is not None else NullSink(),
-                        contributions=contributions,
-                        prepared=retrieval_services,
-                    )
+                    try:
+                        passages = await run_named_retrieve(
+                            question_text,
+                            pipeline_name=query_pipeline,
+                            registry=registry,
+                            reports=reports,
+                            ctx=ctx,
+                            llm=llm if llm is not None else LLMSection(),
+                            services=services if services is not None else ServiceSelection(),
+                            roles=roles if roles is not None else RoleTable(),
+                            sink=sink if sink is not None else NullSink(),
+                            contributions=contributions,
+                            prepared=retrieval_services,
+                        )
+                    except PipelineDidNotProduceError as failure:
+                        failed[question_key] = str(failure)
+                        continue
                     seconds[question_key] = time.monotonic() - started
                     hits = [passage.scored for passage in passages.passages]
                 else:
@@ -686,7 +703,9 @@ async def score_pipeline(
                     )
                 )
 
-    scores = await score_retrieval_gate_subset(registry, samples, top_k=top_k, ctx=ctx)
+    scores = await score_retrieval_gate_subset(
+        registry, samples, top_k=top_k, ctx=ctx, failed_questions=failed
+    )
     question_scores = {
         name: PerQuestionScores(keyed_by=keyed_by, scores=outcomes)
         for name, outcomes in scores.per_question.items()

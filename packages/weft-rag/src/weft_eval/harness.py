@@ -53,13 +53,24 @@ carries both the aggregate and the observations under it, keyed identically — 
 built from the same `zip(samples, outcomes, strict=True)` pairing `_modality_slices`/`_question_
 kind_slices` already use, keyed by `RetrievalSample.question_key` rather than by position, because
 whether a caller's questions carry an identity is the caller's own fact.
+
+**`failed_questions` — repair R38.12.** A question a query rung could not answer at all — its
+retrieval or generation call raised, before a `RetrievalSample` ever existed for it — never
+reaches `RetrievalMetric.evaluate`. Rather than teach `weft_cli.eval_scoring` to reconstruct
+`excluded`/`nothing_to_produce` counting by hand, its caller passes the question's own key and
+failure reason here, and this is still the one place that turns a failure into `Failed` (counted
+in `MetricAggregate.excluded`, never `nothing_to_produce` — a rung that raised is an error, not a
+legitimate absence) and into `NotScored` in every metric's `per_question` — the same `aggregate()`/
+`_as_question_outcome` this module already runs for every sample-level failure, extended to a
+question that produced no sample at all.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import cast
+from types import MappingProxyType
+from typing import Final, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -221,6 +232,12 @@ def _per_question_scores(
     }
 
 
+#: `score_retrieval_gate_subset`'s own `failed_questions` default — every call site before
+#: repair R38.12 named only `samples`, so `{}` is the honest reading of "no question failed
+#: before it reached a sample."
+_NO_FAILED_QUESTIONS: Final[Mapping[str, str]] = MappingProxyType({})
+
+
 class CollidingMetricNameError(WeftError):
     """Two registered metrics compute the same reported name.
 
@@ -242,6 +259,7 @@ async def score_retrieval_gate_subset(
     *,
     top_k: int,
     ctx: Context,
+    failed_questions: Mapping[str, str] = _NO_FAILED_QUESTIONS,
 ) -> SubsetScores:
     """Every gate-safe `RetrievalMetric` registered in `registry`, scored over `samples`.
 
@@ -250,6 +268,12 @@ async def score_retrieval_gate_subset(
     one, keyed identically. An empty `samples` scores every metric against zero observations,
     which `weft_eval.aggregate.aggregate` already answers honestly (`Failed`, "no observations
     to aggregate"); this function invents no special case for it.
+
+    `failed_questions` — repair R38.12 — maps a question key to why a query rung raised for it
+    before any `RetrievalSample` could be built. Every metric's aggregate excludes one `Failed`
+    observation per entry (`MetricAggregate.excluded`, not `nothing_to_produce`) and its
+    `per_question` carries `NotScored(reason=...)` for that key, on top of whatever `samples`
+    itself produced. `{}` — every call site before this repair — changes nothing.
     """
     gate_safe_retrieval = registry.names_for(RetrievalMetric) & set(gate_subset(registry).gate_safe)
 
@@ -265,8 +289,9 @@ async def score_retrieval_gate_subset(
         metric = cast(RetrievalMetric, factory(config))
 
         outcomes = [await metric.evaluate(sample, ctx) for sample in samples]
+        failures = [Failed(reason=reason) for reason in failed_questions.values()]
         outcome = aggregate(
-            outcomes,
+            [*outcomes, *failures],
             kind=MetricKind.RETRIEVAL,
             by_modality=_modality_slices(samples, outcomes),
             by_question_kind=_question_kind_slices(samples, outcomes),
@@ -282,7 +307,13 @@ async def score_retrieval_gate_subset(
             )
         reported_by[key] = name
         report[key] = outcome
-        per_question[key] = _per_question_scores(samples, outcomes)
+        per_question[key] = {
+            **_per_question_scores(samples, outcomes),
+            **{
+                question_key: NotScored(reason=reason)
+                for question_key, reason in failed_questions.items()
+            },
+        }
     return SubsetScores(metrics=report, per_question=per_question)
 
 

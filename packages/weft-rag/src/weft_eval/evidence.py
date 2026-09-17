@@ -92,7 +92,17 @@ class ArmComparison(BaseModel):
     arm: str
     metric: str
     baseline_mean: float | None
+    #: `None` exactly when `baseline_mean` is — a metric repetition 1 measured nothing for.
+    baseline_n: int | None
+    #: How many of `baseline_n`'s own observations `MetricAggregate.excluded` counted — repair
+    #: **R38.12**. `0` whenever `baseline_n` is `None`, the same "meaningless, never fabricated"
+    #: posture a `0`-valued count takes everywhere else in this tree.
+    baseline_excluded: int
     arm_mean: float | None
+    #: `arm_n`/`arm_excluded` — `baseline_n`/`baseline_excluded`'s own twin, over the arm's own
+    #: repetition-1 aggregate.
+    arm_n: int | None
+    arm_excluded: int
     paired: PairedDifference | None
     judgement: DifferenceJudgement
     #: `True` exactly when `judgement.spread` is a `BaselineSpread` whose `width` is `0.0` —
@@ -205,9 +215,17 @@ def _arm_records(
     return [by_key[(arm.name, repetition)] for repetition in range(1, experiment.repeats + 1)]
 
 
-def _metric_mean(record: RunRecord, metric: str) -> float | None:
+#: One record's own `(mean, n, excluded)` for one metric — repair R38.12, read once here and
+#: carried on `ArmComparison` rather than recomputed in the renderer (see that model's own
+#: docstring). `None` for a metric repetition 1 measured nothing for.
+type _MetricStats = tuple[float, int, int]
+
+
+def _metric_stats(record: RunRecord, metric: str) -> _MetricStats | None:
     outcome = record.metrics.get(metric)
-    return outcome.value.mean if isinstance(outcome, Produced) else None
+    if not isinstance(outcome, Produced):
+        return None
+    return (outcome.value.mean, outcome.value.n, outcome.value.excluded)
 
 
 def _unjudged(baseline_arm: ExperimentArm, arm: ExperimentArm, metric: str) -> DifferenceJudgement:
@@ -240,12 +258,18 @@ def _build_comparisons(
             judgement = judgement_map.get(metric)
             if judgement is None:
                 judgement = _unjudged(baseline_arm, arm, metric)
+            baseline_stats = _metric_stats(baseline_first, metric)
+            arm_stats = _metric_stats(arm_first, metric)
             comparisons.append(
                 ArmComparison(
                     arm=arm.name,
                     metric=metric,
-                    baseline_mean=_metric_mean(baseline_first, metric),
-                    arm_mean=_metric_mean(arm_first, metric),
+                    baseline_mean=baseline_stats[0] if baseline_stats is not None else None,
+                    baseline_n=baseline_stats[1] if baseline_stats is not None else None,
+                    baseline_excluded=baseline_stats[2] if baseline_stats is not None else 0,
+                    arm_mean=arm_stats[0] if arm_stats is not None else None,
+                    arm_n=arm_stats[1] if arm_stats is not None else None,
+                    arm_excluded=arm_stats[2] if arm_stats is not None else 0,
                     paired=paired_map.get(metric),
                     judgement=judgement,
                     zero_width_spread=(
@@ -391,11 +415,22 @@ def render_evidence_table(table: EvidenceTable) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _mean_cell(mean: float | None, n: int | None, excluded: int) -> str:
+    """`mean`, with the population it was measured over — repair R38.12. `—` when `mean` is
+    `None` (nothing was measured); `{mean:.3f} (n {n})` when nothing was excluded; `{mean:.3f}
+    (n {n}, {excluded} excluded)` otherwise — see `ArmComparison`'s own docstring."""
+    if mean is None or n is None:
+        return "—"
+    if excluded == 0:
+        return f"{mean:.3f} (n {n})"
+    return f"{mean:.3f} (n {n}, {excluded} excluded)"
+
+
 def _comparison_row(comparison: ArmComparison) -> str:
-    baseline_mean = (
-        f"{comparison.baseline_mean:.3f}" if comparison.baseline_mean is not None else "—"
+    baseline_mean = _mean_cell(
+        comparison.baseline_mean, comparison.baseline_n, comparison.baseline_excluded
     )
-    arm_mean = f"{comparison.arm_mean:.3f}" if comparison.arm_mean is not None else "—"
+    arm_mean = _mean_cell(comparison.arm_mean, comparison.arm_n, comparison.arm_excluded)
     if comparison.paired is not None:
         paired_mean = f"{comparison.paired.mean:+.3f}"
         n = str(comparison.paired.n)
