@@ -87,6 +87,7 @@ weft eval compare <a> <b> [--baseline <pipeline>] [--kind <kind> | --slice <axis
                                     the interval that pipeline's own persisted repetitions
                                     spanned — the falsification instrument, `09` §4.3
 weft eval experiment <file>        run every arm and repetition of an experiment document
+weft eval plan <file>              state the size of an experiment without running it
 weft eval table <file> [--runs <dir>] [--invocation <id>]
                                     print its evidence table, computed from its records
 weft eval metrics [--name <name>]  which registered metrics run in the deterministic gate

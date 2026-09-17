@@ -157,6 +157,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "eval metrics",
         "eval baseline",
         "eval experiment",
+        "eval plan",
         "eval table",
         "trace",
     }
@@ -201,6 +202,9 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         # `eval experiment` — task **38.0** — indexes every arm's corpus and writes one run
         # record per arm and repetition, never overwriting one: `eval run`'s footing, many times.
         "eval experiment": PermissionClass.WRITE,
+        # `eval plan` — task **38.12** — reads an experiment document and walks its corpus to
+        # state the size of the run it asks for; it opens no store and writes nothing.
+        "eval plan": PermissionClass.READ,
         # `eval table` — task **38.1** — reads an experiment document and the records under
         # `runs/`, and prints the table they produce; it writes nothing.
         "eval table": PermissionClass.READ,

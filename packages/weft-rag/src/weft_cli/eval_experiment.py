@@ -254,6 +254,115 @@ def _corpus_name_for(document_root: Path, corpus_path: Path) -> str:
     return Path(os.path.relpath(corpus_path, start=document_root)).as_posix()
 
 
+class EvalPlanArgs(BaseModel):
+    """`weft eval plan <path>` — one positional, the experiment document."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    path: str = Field(description="the experiment document")
+
+
+class ArmPlan(BaseModel):
+    """What one arm would run: its pipelines, its repetitions, and the questions they multiply."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    arm: str
+    pipeline: str
+    query_pipeline: str | None
+    repetitions: int
+    questions: int
+    executions: int
+
+
+class CorpusPlan(BaseModel):
+    """One `(ingest pipeline, corpus)` pair and the documents a run would walk for it."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pipeline: str
+    corpus: str
+    documents: int
+
+
+class EvalPlanCommandResult(CommandResult):
+    """`weft eval plan`'s answer — the size of the run the document asks for, before it runs."""
+
+    name: str
+    digest: str
+    arms: tuple[ArmPlan, ...]
+    corpora: tuple[CorpusPlan, ...]
+
+
+class EvalPlanCommand:
+    """`weft eval plan <path>` — what the document would run, without running it. Task **38.12**.
+
+    `38.6`'s spend was approved twice, and its *size* — the calls, the hours, the memory — was
+    stated nowhere until a run had already been killed twice. This prints what the document and the
+    corpus answer exactly: per arm the pipelines, the repetitions, the questions and the query
+    executions they multiply to; per `(ingest pipeline, corpus)` the documents a run would walk.
+
+    **It deliberately states nothing it would have to guess.** Model calls per role are not
+    derivable — no stage declares that it calls one — seconds per call is a property of an account
+    on a day, and the chunk count a batch holds is known only after chunking. Those three are the
+    operator's to work out before `--yes`, which is what `.claude/hooks/guard_paid_measurement.py`
+    asks at the command that starts a run. This command reads: it walks the corpus, writes no
+    record, indexes nothing and never queries a store.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = EvalPlanArgs
+    result_model: ClassVar[type[CommandResult]] = EvalPlanCommandResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = "state the size of an experiment document without running it"
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        plan_args = cast(EvalPlanArgs, args)
+        deps = ctx.require(Dependencies)
+        experiment = load_experiment(Path(plan_args.path))
+        document_root = Path(plan_args.path).resolve().parent
+        arms: list[ArmPlan] = []
+        corpora: dict[tuple[str, Path], CorpusPlan] = {}
+        for arm in experiment.arms:
+            questions = read_question_set(experiment.questions_for(arm)).questions
+            repetitions = experiment.repeats_for(arm)
+            arms.append(
+                ArmPlan(
+                    arm=arm.name,
+                    pipeline=arm.pipeline,
+                    query_pipeline=arm.query_pipeline,
+                    repetitions=repetitions,
+                    questions=len(questions),
+                    executions=len(questions) * repetitions,
+                )
+            )
+            corpus_path = experiment.corpus_for(arm)
+            key = (arm.pipeline, corpus_path)
+            if key not in corpora:
+                _resolved, _specs, documents = corpus_documents(
+                    corpus_path,
+                    pipeline=arm.pipeline,
+                    registry=deps.registry,
+                    reports=deps.reports,
+                    contributions=deps.contributions,
+                )
+                corpora[key] = CorpusPlan(
+                    pipeline=arm.pipeline,
+                    corpus=_corpus_name_for(document_root, corpus_path),
+                    documents=len(documents),
+                )
+        return Produced(
+            value=EvalPlanCommandResult(
+                name=experiment.name,
+                digest=experiment.digest,
+                arms=tuple(arms),
+                corpora=tuple(corpora.values()),
+            )
+        )
+
+
 class EvalExperimentCommand:
     """`weft eval experiment` — see the module docstring."""
 
@@ -413,12 +522,18 @@ def register_eval_experiment_command(registrar: PackRegistrar) -> None:
     `register_eval_baseline_command`, never from a second entry point.
     """
     registrar.add(Command, "eval experiment", EvalExperimentCommand)
+    registrar.add(Command, "eval plan", EvalPlanCommand)
 
 
 __all__ = [
+    "ArmPlan",
+    "CorpusPlan",
     "EvalExperimentArgs",
     "EvalExperimentCommand",
     "EvalExperimentCommandResult",
+    "EvalPlanArgs",
+    "EvalPlanCommand",
+    "EvalPlanCommandResult",
     "ExperimentRunRef",
     "IncomparableArmsError",
     "UnscorableArmError",

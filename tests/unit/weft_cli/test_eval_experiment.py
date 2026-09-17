@@ -26,6 +26,9 @@ from weft_cli.eval_experiment import (
     EvalExperimentArgs,
     EvalExperimentCommand,
     EvalExperimentCommandResult,
+    EvalPlanArgs,
+    EvalPlanCommand,
+    EvalPlanCommandResult,
     IncomparableArmsError,
     UnscorableArmError,
 )
@@ -688,3 +691,42 @@ async def test_rerunning_a_completed_experiment_starts_a_new_invocation(
     first_result = cast("EvalExperimentCommandResult", first.value)
     second_result = cast("EvalExperimentCommandResult", second.value)
     assert second_result.invocation != first_result.invocation
+
+
+# --- Task 38.12 — an experiment states its size before anything is indexed or paid for.
+
+
+async def test_the_plan_states_each_arms_size_and_runs_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`38.6`'s spend was approved twice and its size — 33,856 generation calls, four hours, two
+    gigabytes a batch — was never stated. What the document and the corpus can answer exactly is
+    answered here, before `--yes` and before any store is touched."""
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index", "repeats = 1\n")
+        + _arm("rung", "index", 'query_pipeline = "some-rung"\n'),
+        repeats=3,
+    )
+    scored: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(scored))
+
+    # Act
+    outcome = await EvalPlanCommand().run(EvalPlanArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    plan = cast("EvalPlanCommandResult", outcome.value)
+    assert plan.name == "fixture"
+    assert [(arm.arm, arm.repetitions, arm.questions, arm.executions) for arm in plan.arms] == [
+        ("dense", 1, 2, 2),
+        ("rung", 3, 2, 6),
+    ]
+    assert [(corpus.pipeline, corpus.documents) for corpus in plan.corpora] == [("index", 1)]
+    assert scored == [], "a plan scores nothing"
+    assert not list(Path("runs").glob("*.json")), "a plan writes no record"
+
+
+def test_the_plan_command_only_reads() -> None:
+    assert EvalPlanCommand.permission_class is PermissionClass.READ

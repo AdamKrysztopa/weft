@@ -90,7 +90,7 @@ from weft_cli.eval_commands import (
     QueryRungDifference,
     TraceCommandResult,
 )
-from weft_cli.eval_experiment import EvalExperimentCommandResult
+from weft_cli.eval_experiment import EvalExperimentCommandResult, EvalPlanCommandResult
 from weft_cli.eval_table import EvalTableCommandResult
 from weft_cli.exit_codes import exit_code_for
 from weft_cli.ingest import SourceChange
@@ -1428,6 +1428,26 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_eval_plan(result: EvalPlanCommandResult) -> Rendered:
+    """`weft eval plan` — task **38.12**. The size of the run the document asks for: one line per
+    arm, then one per `(ingest pipeline, corpus)`, and a total of the query executions. What it
+    does not print — model calls, hours, memory — is what no document can answer.
+    """
+    lines = [f"plan for '{result.name}' ({result.digest[:12]}…)"]
+    lines.extend(
+        f"  {arm.arm}: {arm.pipeline}"
+        + (f" → {arm.query_pipeline}" if arm.query_pipeline else "")
+        + f", {arm.repetitions} × {arm.questions} question(s) = {arm.executions} execution(s)"
+        for arm in result.arms
+    )
+    lines.extend(
+        f"  index {corpus.pipeline} over {corpus.corpus}: {corpus.documents} document(s)"
+        for corpus in result.corpora
+    )
+    lines.append(f"  total query executions: {sum(arm.executions for arm in result.arms)}")
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 def _render_eval_experiment(result: EvalExperimentCommandResult) -> Rendered:
     """`weft eval experiment` — task **38.0**. The experiment's own identity and invocation
     first, since `weft trace <run-id>` is what a reader opens next for any one cell of it, then
@@ -1590,6 +1610,10 @@ def _dispatch_eval_experiment(result: object) -> Rendered:
     return _render_eval_experiment(cast(EvalExperimentCommandResult, result))
 
 
+def _dispatch_eval_plan(result: object) -> Rendered:
+    return _render_eval_plan(cast(EvalPlanCommandResult, result))
+
+
 def _dispatch_eval_table(result: object) -> Rendered:
     return _render_eval_table(cast(EvalTableCommandResult, result))
 
@@ -1634,6 +1658,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(TraceCommandResult, _dispatch_trace)
     registrar.add_renderer(EvalMetricsCommandResult, _dispatch_eval_metrics)
     registrar.add_renderer(EvalExperimentCommandResult, _dispatch_eval_experiment)
+    registrar.add_renderer(EvalPlanCommandResult, _dispatch_eval_plan)
     registrar.add_renderer(EvalTableCommandResult, _dispatch_eval_table)
     registrar.add_renderer(AskCommandResult, _dispatch_ask)
 
