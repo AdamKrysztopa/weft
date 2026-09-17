@@ -707,28 +707,40 @@ async def run_index(
             status=SourceStatus.INDEXING,
         )
 
-        async def batches() -> AsyncIterator[object]:
-            # Ledger task **17.3**. `None` yields `work` once, exactly as this function always
-            # has — including when `work` is empty, which task **17.0**'s fully-unchanged-corpus
-            # behaviour depends on. Otherwise, successive slices of `batch_size` documents, with
-            # a shorter final slice when the length is not an exact multiple.
-            if batch_size is None:
-                yield work
-                return
-            for start in range(0, len(work), batch_size):
-                yield work[start : start + batch_size]
+        # Ledger task **17.3**. `None` is `work` as one batch, exactly as this function always has
+        # — including when `work` is empty, which task **17.0**'s fully-unchanged-corpus
+        # behaviour depends on. Otherwise, successive slices of `batch_size` documents, with a
+        # shorter final slice when the length is not an exact multiple.
+        slices: list[tuple[SourceDoc, ...]] = (
+            [tuple(work)]
+            if batch_size is None
+            else [
+                tuple(work[start : start + batch_size]) for start in range(0, len(work), batch_size)
+            ]
+        )
 
-        summary = await runner.run(runnable, batches(), indexing_ctx)
-        # Carried repair **R36.0** — `RunSummary` counts failed batches without naming their
-        # documents, so any failure leaves all of `work` `INDEXING` for the next run to retry;
-        # a batch that did succeed is re-paid then, and the store dedupes it by digest.
+        # Task **38.14**, superseding carried repair R36.0's "a batch that did succeed is re-paid":
+        # each batch is its own `runner.run`, flushed and recorded `ACTIVE` the moment it
+        # produced, so a failed batch — or a run killed after batch k — leaves batches 1..k done
+        # and only the rest `INDEXING`. `38.6`'s question index re-paid every model call twice.
+        counts: list[RunSummary] = []
+        for batch in slices:
+            batch_summary = await runner.run(runnable, _one(batch), indexing_ctx)
+            counts.append(batch_summary)
+            if batch_summary.failed == 0:
+                await _record_sources(
+                    runnable,
+                    store_stage_ids=store_stage_ids,
+                    docs=batch,
+                    pipeline=pipeline,
+                    identity=identity,
+                )
+        summary = _summed(counts)
         attempted = {doc.source_id for doc in work}
         await _record_sources(
             runnable,
             store_stage_ids=store_stage_ids,
-            docs=docs
-            if summary.failed == 0
-            else tuple(doc for doc in docs if doc.source_id not in attempted),
+            docs=tuple(doc for doc in docs if doc.source_id not in attempted),
             pipeline=pipeline,
             identity=identity,
         )
@@ -1144,6 +1156,23 @@ def _require_corpus_directory(directory: Path) -> None:
             f"holding it — 'weft index {directory.parent}' — and every file under it whose "
             f"format an installed extractor claims is read."
         )
+
+
+async def _one(batch: tuple[SourceDoc, ...]) -> AsyncIterator[object]:
+    yield batch
+
+
+def _summed(summaries: Sequence[RunSummary]) -> RunSummary:
+    """One `RunSummary` over per-batch runs, counts and reasons in batch order — task 38.14."""
+    return RunSummary(
+        produced=sum(summary.produced for summary in summaries),
+        nothing_to_produce=sum(summary.nothing_to_produce for summary in summaries),
+        failed=sum(summary.failed for summary in summaries),
+        nothing_to_produce_reasons=tuple(
+            reason for summary in summaries for reason in summary.nothing_to_produce_reasons
+        ),
+        failed_reasons=tuple(reason for summary in summaries for reason in summary.failed_reasons),
+    )
 
 
 def _nothing_found(

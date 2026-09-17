@@ -391,3 +391,68 @@ def test_one_incomplete_document_still_says_which_one() -> None:
     assert rendered.splitlines()[1:] == [
         "  a.txt: a previous index of this document did not finish — indexed again"
     ]
+
+
+# --- Task 38.14 — a batch that finished is kept, whatever happens to the batches after it.
+
+
+class _ExplodingOnChunker(_Passthrough):
+    """Raises once a named document's batch reaches it: a run killed part-way, after earlier
+    batches finished."""
+
+    explode_on: ClassVar[str | None] = None
+
+    async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+        named = type(self).explode_on
+        if named is not None and any(named in str(item) for item in payload):
+            raise RuntimeError("killed mid-index")
+        return await super().run(payload, ctx)
+
+
+async def test_a_batch_that_succeeded_is_active_even_when_a_later_batch_failed(
+    tmp_path: Path,
+) -> None:
+    """`38.6`'s question index re-paid every model call after one failure, because `R36.0`
+    withholds `ACTIVE` from all of a run's work when any batch fails. One document per batch
+    names exactly which documents failed."""
+    # Arrange
+    (tmp_path / "a_good.txt").write_text("hello weft")
+    (tmp_path / "b_bad.txt").write_text("unreadable")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "b_bad.txt"
+
+    # Act
+    result = await run_index(
+        tmp_path, registry=registry, ctx=_ctx(), extractor="text", batch_size=1
+    )
+
+    # Assert
+    assert result.summary.failed == 1
+    assert store.records[_source_id(tmp_path, "a_good.txt")].status is SourceStatus.ACTIVE
+    assert store.records[_source_id(tmp_path, "b_bad.txt")].status is not SourceStatus.ACTIVE
+
+
+async def test_a_run_killed_after_its_first_batch_keeps_that_batch_for_the_next_run(
+    tmp_path: Path,
+) -> None:
+    """The kill `38.6` met twice: the batches before it had finished and were re-paid anyway."""
+    # Arrange
+    (tmp_path / "a_first.txt").write_text("hello weft")
+    (tmp_path / "b_second.txt").write_text("killed here")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_ExplodingOnChunker)
+    _ExplodingOnChunker.explode_on = "b_second.txt"
+    with suppress(RuntimeError, WeftError):
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text", batch_size=1)
+
+    # Act — the next run, with the cause gone.
+    _ExplodingOnChunker.explode_on = None
+    result = await run_index(
+        tmp_path, registry=registry, ctx=_ctx(), extractor="text", batch_size=1
+    )
+
+    # Assert
+    assert store.records[_source_id(tmp_path, "a_first.txt")].status is SourceStatus.ACTIVE
+    assert result.documents_indexed == 1
+    assert result.source_changes[str(_source_id(tmp_path, "a_first.txt"))] is SourceChange.UNCHANGED
