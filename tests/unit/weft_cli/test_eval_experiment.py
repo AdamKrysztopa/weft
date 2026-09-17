@@ -603,3 +603,88 @@ async def test_an_arm_declaring_one_repetition_is_run_once_while_the_others_repe
         ("rung", 1),
         ("rung", 2),
     }
+
+
+# --- Task 38.16 — an interrupted experiment resumes its invocation instead of starting over.
+
+
+class _InterruptedError(Exception):
+    """The run killed part-way: raised by the scoring stub once it has scored `survive` records."""
+
+
+def _interrupting_stub(calls: list[dict[str, object]], *, survive: int) -> Callable[..., Any]:
+    scoring = _scoring_stub(calls)
+
+    async def _fake(**kwargs: object) -> ScoredRun:
+        if len(calls) >= survive:
+            raise _InterruptedError
+        return await scoring(**kwargs)
+
+    return _fake
+
+
+async def test_rerunning_an_interrupted_experiment_scores_only_what_it_had_not_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`38.6` ran six times and three of the lost runs had already written valid records for
+    whole arms, each re-paid from zero. A written record is never re-paid."""
+    # Arrange — the first run is killed after writing two of its four records.
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index") + _arm("rung", "index", 'query_pipeline = "some-rung"\n'),
+        repeats=2,
+    )
+    first_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        eval_commands_module, "score_pipeline", _interrupting_stub(first_calls, survive=2)
+    )
+    with pytest.raises(_InterruptedError):
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+    written = [load_run_record(record) for record in sorted(Path("runs").glob("*.json"))]
+    assert len(written) == 2
+
+    # Act — the same document, run again.
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    assert len(calls) == 2, "the two records the first run wrote were scored again"
+    first_invocation = {record.experiment.invocation for record in written if record.experiment}
+    assert first_invocation == {result.invocation}
+    assert {(run.arm, run.repetition) for run in result.runs} == {
+        ("dense", 1),
+        ("dense", 2),
+        ("rung", 1),
+        ("rung", 2),
+    }
+    assert len(list(Path("runs").glob("*.json"))) == 4
+
+
+async def test_rerunning_a_completed_experiment_starts_a_new_invocation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A deliberate re-run is still possible: only an incomplete invocation is continued."""
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index") + _arm("rung", "index", 'query_pipeline = "some-rung"\n'),
+        repeats=2,
+    )
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+    first = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+    assert isinstance(first, Produced)
+
+    # Act
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+    second = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(second, Produced)
+    assert len(calls) == 4
+    first_result = cast("EvalExperimentCommandResult", first.value)
+    second_result = cast("EvalExperimentCommandResult", second.value)
+    assert second_result.invocation != first_result.invocation

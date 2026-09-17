@@ -64,6 +64,8 @@ from typing import ClassVar, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.eval_commands import (
+    DEFAULT_RUNS_DIR,
+    all_run_records,
     document_labels_from_manifest,
     index_and_score,
     model_versions_of,
@@ -267,7 +269,8 @@ class EvalExperimentCommand:
         experiment_args = cast(EvalExperimentArgs, args)
         deps = ctx.require(Dependencies)
         experiment = load_experiment(Path(experiment_args.path))
-        invocation = uuid.uuid4().hex
+        resumed = _incomplete_invocation(experiment)
+        invocation, written = resumed if resumed is not None else (uuid.uuid4().hex, {})
 
         document_labels = (
             document_labels_from_manifest(str(experiment.manifest))
@@ -328,6 +331,10 @@ class EvalExperimentCommand:
             questions = question_sets[arm.name].questions
             index_key = (arm.pipeline, corpus_path)
             for repetition in range(1, experiment.repeats_for(arm) + 1):
+                found = written.get((arm.name, repetition))
+                if found is not None:
+                    runs.append(ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=found))
+                    continue
                 already_indexed = index_key in indexed_keys
                 result = await index_and_score(
                     deps,
@@ -364,6 +371,41 @@ class EvalExperimentCommand:
                 runs=tuple(runs),
             )
         )
+
+
+def _incomplete_invocation(
+    experiment: Experiment, *, directory: Path = DEFAULT_RUNS_DIR
+) -> tuple[str, dict[tuple[str, int], str]] | None:
+    """The newest invocation of this document that is missing a record, and what it already wrote.
+
+    Task **38.16**: `38.6` ran six times, and three of its lost runs had written valid records for
+    whole arms that the next run paid for again. Re-running a document therefore continues its
+    newest invocation — newest by the latest `recorded_at` among its records — when some arm ×
+    repetition in `repeats_for` has no record, and starts a new one when that invocation is
+    complete, so a deliberate re-run is still a fresh measurement.
+    """
+    invocations: dict[str, dict[tuple[str, int], tuple[str, str]]] = {}
+    for run_id, record in all_run_records(directory):
+        run = record.experiment
+        if run is None or run.digest != experiment.digest:
+            continue
+        invocations.setdefault(run.invocation, {})[(run.arm, run.repetition)] = (
+            run_id,
+            record.recorded_at,
+        )
+    if not invocations:
+        return None
+    invocation, found = max(
+        invocations.items(), key=lambda item: max(recorded for _, recorded in item[1].values())
+    )
+    expected = {
+        (arm.name, repetition)
+        for arm in experiment.arms
+        for repetition in range(1, experiment.repeats_for(arm) + 1)
+    }
+    if expected <= set(found):
+        return None
+    return invocation, {key: run_id for key, (run_id, _) in found.items()}
 
 
 def register_eval_experiment_command(registrar: PackRegistrar) -> None:
