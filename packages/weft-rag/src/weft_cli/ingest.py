@@ -1250,7 +1250,10 @@ async def _release_reparsed_sources(
     in the store together, both retrievable, under one `SourceRecord` that records only the
     later. Measured at Phase 11's exit as 23 nodes becoming 42 over four runs (`L11.46`).
 
-    **Only `CONTENT_CHANGED` and `PIPELINE_CHANGED`.** `NEW` has nothing to release, and
+    **`CONTENT_CHANGED`, `PIPELINE_CHANGED` and `INCOMPLETE`.** `INCOMPLETE` joined at repair
+    **R38.14**: an interrupted run leaves its sources `INDEXING` with whatever nodes it wrote, and a
+    model-written node gets a new id each run, so `38.6`'s next arm retrieved 22,463 of them. `NEW`
+    has nothing to release, and
     `UNCHANGED` must not be touched: `02` §1 makes idempotent re-indexing the point of
     content-addressed ids, and releasing there would delete and rewrite an entire corpus to
     arrive back where it started.
@@ -1276,7 +1279,8 @@ async def _release_reparsed_sources(
     stale = tuple(
         source
         for source, change in changes.items()
-        if change in (SourceChange.CONTENT_CHANGED, SourceChange.PIPELINE_CHANGED)
+        if change
+        in (SourceChange.CONTENT_CHANGED, SourceChange.PIPELINE_CHANGED, SourceChange.INCOMPLETE)
     )
     if not stale:
         return

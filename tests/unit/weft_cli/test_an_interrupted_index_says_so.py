@@ -456,3 +456,38 @@ async def test_a_run_killed_after_its_first_batch_keeps_that_batch_for_the_next_
     assert store.records[_source_id(tmp_path, "a_first.txt")].status is SourceStatus.ACTIVE
     assert result.documents_indexed == 1
     assert result.source_changes[str(_source_id(tmp_path, "a_first.txt"))] is SourceChange.UNCHANGED
+
+
+# --- Repair R38.14 — what an interrupted run wrote is released before the document is redone.
+
+
+class _DeletingStore(_RecordingStore):
+    def __init__(self, config: object) -> None:
+        super().__init__(config)
+        self.deleted: list[SourceId] = []
+
+    async def delete_source(self, source: SourceId) -> None:
+        self.deleted.append(source)
+
+
+async def test_an_interrupted_documents_nodes_are_released_before_it_is_indexed_again(
+    tmp_path: Path,
+) -> None:
+    """`38.6`'s fourth run retrieved 22,463 question nodes a killed run had written: the killed
+    run left its sources `INDEXING`, the next run read them `INCOMPLETE`, and only
+    `CONTENT_CHANGED` and `PIPELINE_CHANGED` were released before re-indexing. Nodes a model wrote
+    differ run to run, so they get new ids and pile up even under the same pipeline."""
+    # Arrange — a run that dies partway.
+    (tmp_path / "one.txt").write_text("hello weft")
+    store = _DeletingStore(None)
+    registry = _registry(store)
+    _ExplodingChunker.explode = True
+    with suppress(WeftError):
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Act
+    _ExplodingChunker.explode = False
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert
+    assert store.deleted == [_source_id(tmp_path, "one.txt")]
