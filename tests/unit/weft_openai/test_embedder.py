@@ -25,6 +25,7 @@ from pydantic import SecretStr, ValidationError
 
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NothingToProduce, Outcome, Produced
+from weft_llm.usage import recording_usage
 from weft_openai import Settings
 from weft_openai.embedder import (
     VENDOR_BASE_URL,
@@ -58,8 +59,14 @@ class _Item:
 
 
 @dataclass
+class _Usage:
+    prompt_tokens: int
+
+
+@dataclass
 class _Response:
     data: Sequence[_Item]
+    usage: _Usage | None = None
 
 
 @dataclass
@@ -81,6 +88,7 @@ class _Embeddings:
     """
 
     width: int = 4
+    reports_usage: bool = True
     calls: list[_Call] = field(default_factory=lambda: [])
     error: Exception | None = None
     shuffled: bool = False
@@ -95,7 +103,10 @@ class _Embeddings:
             _Item(index=position, embedding=[float(len(text)) + position] * self.width)
             for position, text in enumerate(input)
         ]
-        return _Response(data=list(reversed(items)) if self.shuffled else items)
+        return _Response(
+            data=list(reversed(items)) if self.shuffled else items,
+            usage=_Usage(prompt_tokens=7 * len(input)) if self.reports_usage else None,
+        )
 
 
 @dataclass
@@ -439,3 +450,42 @@ async def test_with_neither_surface_naming_one_the_vendor_default_is_still_sent(
     assert isinstance(outcome, Produced)
     (call,) = client.embeddings.calls
     assert call.model == "text-embedding-3-small"
+
+
+async def test_every_embeddings_call_records_the_tokens_it_was_billed_for() -> None:
+    """Repair R38.9. A query rung's tokens per query are read from `recording_usage`, and only an
+    LLM call ever wrote to it: Open RAGBench's dense arm made 1,548 query-embedding calls and its
+    record said nothing was spent. An embedder is not bound to an `[llm.roles]` role, so its
+    entries carry the `[services]` key that selects it, `embed`."""
+    # Arrange
+    client = _Client()
+    embedder = OpenAIEmbedder(_settings(), OpenAIEmbedderConfig(batch_size=2), client=client)
+
+    # Act
+    with recording_usage() as tally:
+        await embedder.run([_node("one"), _node("two"), _node("three")], _ctx())
+
+    # Assert
+    assert [entry.role for entry in tally.entries] == ["embed", "embed"]
+    assert {entry.model for entry in tally.entries} == {"text-embedding-3-small"}
+    usages = [entry.usage for entry in tally.entries]
+    assert [(u.prompt_tokens, u.completion_tokens) for u in usages if u is not None] == [
+        (14, 0),
+        (7, 0),
+    ]
+
+
+async def test_a_server_that_reports_no_usage_is_recorded_as_unreported_not_as_free() -> None:
+    """R38.9's other half: a compatible server may leave `usage` out, and `UsageEntry.usage` is
+    `None` for exactly that case — a `0` would read as a call measured and found free."""
+    # Arrange
+    client = _Client(embeddings=_Embeddings(reports_usage=False))
+    embedder = OpenAIEmbedder(_settings(), client=client)
+
+    # Act
+    with recording_usage() as tally:
+        outcome = await embedder.run([_node("one")], _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [(entry.role, entry.usage) for entry in tally.entries] == [("embed", None)]

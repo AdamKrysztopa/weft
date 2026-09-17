@@ -25,7 +25,9 @@ class UsageEntry(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    #: The `[llm.roles]` role the call was bound to — `weft_llm.roles.LLMRoles`.
+    #: The `[llm.roles]` role the call was bound to (`weft_llm.roles.LLMRoles`), for an `LLM`
+    #: call — or, for an embedder, which is bound to no role, the fixed string `"embed"` naming
+    #: the `[services]` key that selected it instead.
     role: str
     #: The pipeline position that asked, read off `weft_kernel.seam.current_stage()` at the
     #: call site rather than inferred from `role` — two roles can share a position and one

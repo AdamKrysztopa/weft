@@ -65,12 +65,18 @@ from pydantic import BaseModel, ConfigDict, Field
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Vector
+from weft_kernel.seam import current_stage
+from weft_llm.payload import TokenUsage
+from weft_llm.usage import UsageEntry, record_usage
 
 if TYPE_CHECKING:
     from weft_openai.settings import Settings
 
 #: The name this embedder is registered and selected under — see `weft_openai.register`.
 NAME = "openai-embeddings"
+
+#: An embedder is bound to no `[llm.roles]` role, so its usage entries carry the `[services]` key.
+_USAGE_ROLE = "embed"
 
 #: The pack whose `[packs.<name>]` block configures this plugin when nobody says otherwise.
 #: **Not derivable from `NAME`**: a plugin name and a pack name are different identities (this
@@ -172,11 +178,21 @@ class EmbeddingItem(Protocol):
     def embedding(self) -> Sequence[float]: ...
 
 
+class EmbeddingUsage(Protocol):
+    """What one embeddings call cost — the one field this pack bills against."""
+
+    @property
+    def prompt_tokens(self) -> int: ...
+
+
 class EmbeddingBatch(Protocol):
     """What one embeddings call answers."""
 
     @property
     def data(self) -> Sequence[EmbeddingItem]: ...
+
+    @property
+    def usage(self) -> EmbeddingUsage | None: ...
 
 
 class EmbeddingsResource(Protocol):
@@ -294,6 +310,18 @@ class OpenAIEmbedder:
                 f"the embeddings API refused a batch of {len(texts)} for model '{model}': {exc}",
                 transient=isinstance(exc, _TRANSIENT),
             ) from exc
+        record_usage(
+            UsageEntry(
+                role=_USAGE_ROLE,
+                position=current_stage(),
+                provider=self._account,
+                model=model,
+                # A compatible server may omit `usage`; that is recorded as unreported, never 0.
+                usage=None
+                if batch.usage is None
+                else TokenUsage(prompt_tokens=batch.usage.prompt_tokens, completion_tokens=0),
+            )
+        )
         by_index = {item.index: item for item in batch.data}
         expected = list(range(len(texts)))
         if sorted(by_index) != expected:
