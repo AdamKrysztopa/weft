@@ -686,6 +686,15 @@ nothing anyone wrote — and it is the wrong one for an English-only corpus, whe
 configuration your database installs is available, and a name it does not have is refused with the
 list.
 
+**Measured, on English text, before you choose.** Over Open RAGBench's development split — 1,548
+questions against 1,000 arXiv papers, 189,523 chunks — lexical search alone found the right paper in
+its top five for **24.4%** of questions under `simple` and **68.1%** under `english`, on the same
+index with nothing re-embedded, and answered faster (median 0.18 s against 0.45 s). Hybrid search
+barely moved (98.3% → 98.5%), because the vector arm already finds nearly everything. So an
+English-only corpus that uses the text arm on its own should set `english`; a mixed-language one
+should keep `simple`. The `simple` records are `eval/experiments/orb-retrieval-baseline/` in the
+repository.
+
 **This one is schema, and changing it later is not free.** The index is a generated column, which
 is what makes it impossible to leave stale — Postgres recomputes it from the stored text on every
 write — and also what stops the setting from applying to a database that already has one. Weft

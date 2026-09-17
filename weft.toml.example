@@ -42,7 +42,10 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # part of the schema: the index is a generated column, so changing this against
 # a database that already has one is refused rather than silently ignored (see
 # `manual/troubleshooting.md` → `TextSearchConfigMismatchError` for the two ways
-# out).
+# out). Measured on 1,548 English questions over 1,000 arXiv papers: lexical
+# search alone put the right paper in its top five 24.4% of the time under
+# `simple` and 68.1% under `english` (`manual/operations-guide.md` → *Tuning the
+# text arm*).
 #
 # `text_query_mode` is `any` (a question matches on any of its words — the right
 # default for natural language, since ANDing every word of a real question
