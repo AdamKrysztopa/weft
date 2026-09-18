@@ -143,6 +143,26 @@ replace the generator. `broad-and-refined-rrf` and `raptor-and-leaves-rrf` searc
 different granularities and fuse the two lists by rank. `no-retrieval` answers from the model
 alone, which is the control every other rung on this list is measured against.
 
+**Four context rungs decide what the model reads, not what is found** (Phase 32).
+- `dedupe-then-generate` drops a passage that repeats a higher-ranked one (`shingle-resemblance`).
+- `mmr-then-generate` picks passages that are relevant but unlike each other (`mmr`).
+- `adjacent-chunks-then-generate` adds the chunk on either side of each hit.
+- `context-construction-then-generate` does all three and cuts the context to a token budget of
+  the generating model. It is refused for a model nothing can count.
+
+**None is a default, on measurement.** On Weft's own 107 English validation questions,
+`eval/experiments/context-construction-*`:
+- The composition raised `token_recall` by +0.047 (95% interval +0.025 to +0.070) and +0.030
+  (+0.004 to +0.058) on the two question sets. That is below the 0.08 the run was sized to
+  detect, and it used about twice the prompt tokens.
+- `adjacent-chunks` alone gained about +0.025.
+- `dedupe` and `mmr` changed nothing on a corpus with no repeated passages.
+- `rouge-l` and the 12 Polish questions moved for no arm.
+
+Reach for the composition when answers straddle chunk boundaries and prompt cost matters less
+than completeness. Reach for `dedupe` or `mmr` when your corpus repeats itself: versioned manuals,
+mirrored pages, near-identical records.
+
 **Four graph query rungs, and they are the ones that answer a question no single passage can.**
 `graph-then-generate` matches the entities a question names against the graph, walks one hop out
 and returns the nodes those entities anchor; `graph-2hop-then-generate` walks two, which is what a
