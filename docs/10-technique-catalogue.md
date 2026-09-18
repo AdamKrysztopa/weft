@@ -499,7 +499,7 @@ settled inside a document that does not own them.
 Part of what this document owns, and the cheapest thing in it. These names must stay free because the
 literature has already fixed them for techniques Weft does not implement.
 
-**This section reserves 42 names and 1 prefix.** That sentence is the point of it and not
+**This section reserves 43 names and 1 prefix.** That sentence is the point of it and not
 decoration: `tests/docs/test_technique_naming.py` counts what it can actually read here and
 refuses a run where the two disagree. Before carried repair `R11.7` there was no second number to
 disagree with — the parser's count and the section's count were the same number arrived at by the
@@ -667,6 +667,16 @@ over answer and reference; `embedding-similarity` is a bi-encoder and does not t
 · `bem` — Bulian et al., arXiv:2202.07654, 2022: a trained answer-equivalence classifier
 · `g-eval` — Liu et al., EMNLP 2023, arXiv:2303.16634: a chain-of-thought rubric judge with
 probability-weighted scoring
+
+**Reserved at Phase 39's opening (2026-09-18), before any code exists** — **G24**'s name for its own
+technique, so the first implementation cannot seize a broader one. It is Weft's own and cites nothing:
+
+· `intent-and-anchors` — a query is split into its full semantic intent, searched densely in the
+user's original wording, and its exact anchors — identifier-shaped tokens, quoted spans, configured
+entities — each searched lexically on its own; a query with no anchor contributes no lexical ranking
+at all. Not `decomposition`, reserved above for sub-questions whose answers depend on each other,
+which this never produces; not `keyword-extraction`, which names the index-time act `R19.13` settled
+against
 
 ---
 
