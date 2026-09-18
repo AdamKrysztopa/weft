@@ -886,6 +886,11 @@ later comparison needs it, not because more is better:
   questions, p99 is withheld and p95 is not. `weft eval compare` prints one latency line per run,
   and says `not recorded` for an older record rather than refusing the comparison. Latency depends
   on the machine, so it is reported beside a comparison and never gated.
+- **`question_contributors`** (Phase 39, task 39.2): for each question a query rung retrieved for,
+  the labels of the ranked lists its passages were fused from — `hybrid:vector`, `hybrid:text`.
+  Under `intent-and-anchors` it is how a record says which branch a question took: a question with
+  no anchor names no `hybrid:text`, because its lexical arm was never asked. `None` means the run
+  retrieved through the hardwired vector search or a generating rung, or predates 39.2.
 - **`token_usage`** (task 33.7): what each model role spent, as prompt and completion tokens over the
   calls that reported them, plus a count of calls whose provider reports nothing, such as the
   scripted one. A role that cannot be metered shows as calls not reporting, never as zero tokens.

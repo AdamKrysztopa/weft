@@ -625,3 +625,32 @@ def test_a_record_carries_each_questions_axes_keyed_as_its_scores_are(tmp_path: 
     assert loaded.question_axes is not None
     assert dict(loaded.question_axes["q-2"]) == {"evidence": "text-table"}
     assert from_before.question_axes is None
+
+
+def test_a_record_says_which_arms_answered_each_question(tmp_path: Path) -> None:
+    """Ledger task 39.2. G24: a question with no anchor contributes no lexical ranking, and the
+    run records which branch it took — so a record carries, per question, the labels of the lists
+    its ranking was fused from, and a record written before this task says it does not know."""
+    # Arrange
+    record = build_run_record(
+        recorded_at="2026-09-18T00:00:00+00:00",
+        resolved_pipeline=_resolved_pipeline(),
+        corpus=_corpus(),
+        question_contributors={
+            "q-1": ("hybrid:vector", "hybrid:text"),
+            "q-2": ("hybrid:vector",),
+        },
+    )
+    path = write_run_record(record, tmp_path / "runs" / "contributors.json")
+    older = record.model_dump(mode="json")
+    del older["question_contributors"]
+
+    # Act
+    loaded = load_run_record(path)
+    from_before = RunRecord.model_validate(older)
+
+    # Assert
+    assert loaded.question_contributors is not None
+    assert tuple(loaded.question_contributors["q-2"]) == ("hybrid:vector",)
+    assert "hybrid:text" in loaded.question_contributors["q-1"]
+    assert from_before.question_contributors is None

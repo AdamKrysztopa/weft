@@ -1282,6 +1282,7 @@ async def index_and_score(
     query_rung: ScoredQueryRung | None = None
     question_scores: Mapping[str, PerQuestionScores] | None = None
     question_axes: Mapping[str, Mapping[str, str]] | None = None
+    question_contributors: Mapping[str, tuple[str, ...]] | None = None
     question_set: str | None = None
     question_set_basis: QuestionSetDigestBasis | None = None
     question_seconds: PerQuestionSeconds | None = None
@@ -1308,6 +1309,7 @@ async def index_and_score(
         query_rung = scored.query_rung
         question_scores = scored.question_scores
         question_axes = scored.question_axes
+        question_contributors = scored.question_contributors
         question_set = scored.question_set or None
         question_set_basis = (
             QuestionSetDigestBasis.QUESTION_SET if question_set is not None else None
@@ -1332,6 +1334,7 @@ async def index_and_score(
         durations=RunDurations(ingest_seconds=ingest_seconds, query_seconds=query_seconds),
         question_scores=question_scores,
         question_axes=question_axes,
+        question_contributors=question_contributors,
         question_set_digest=question_set,
         question_set_digest_basis=question_set_basis,
         question_seconds=question_seconds,

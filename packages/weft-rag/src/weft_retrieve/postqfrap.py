@@ -150,7 +150,11 @@ class PostQfrapPacker:
         `09` §4's V2 requires the engine to be able to answer "not in this corpus").
         """
         if not payload.hits:
-            return Produced(value=Passages(origin=payload.origin, ext=payload.ext))
+            return Produced(
+                value=Passages(
+                    origin=payload.origin, contributors=payload.contributors, ext=payload.ext
+                )
+            )
 
         unembedded = sum(1 for hit in payload.hits if hit.node.embedding is None)
         if unembedded:
@@ -220,7 +224,14 @@ class PostQfrapPacker:
             retrieved_by=NAME,
             label="1",
         )
-        return Produced(value=Passages(origin=payload.origin, passages=(passage,), ext=payload.ext))
+        return Produced(
+            value=Passages(
+                origin=payload.origin,
+                passages=(passage,),
+                contributors=payload.contributors,
+                ext=payload.ext,
+            )
+        )
 
     async def _summarize_all(
         self,

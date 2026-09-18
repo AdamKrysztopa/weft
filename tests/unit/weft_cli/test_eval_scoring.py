@@ -812,3 +812,82 @@ async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_sc
         aggregate = scored.metrics[name]
         assert isinstance(aggregate, Produced), name
         assert (aggregate.value.n, aggregate.value.excluded) == (2, 1), name
+
+
+# --- Ledger task 39.2 — a retrieval rung's record says which arms answered each question.
+
+
+async def test_a_retrieval_rung_records_which_arms_each_questions_passages_came_from(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """G24: a question with no anchor contributes no lexical ranking, and the run records which
+    branch it took. The passages a retrieval rung returns carry the labels of the lists they were
+    fused from; the scored run keeps them per question, keyed as its scores are."""
+    # Arrange
+    answered_by = {
+        "What is WRH123?": ("hybrid:vector", "hybrid:text"),
+        "What is a good controller?": ("hybrid:vector",),
+    }
+
+    async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
+        return Passages(
+            origin=Query(text=question),
+            passages=(_labelled_passage("doc-a", 0.9, 0),),
+            contributors=answered_by[question],
+        )
+
+    async def _no_metrics(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        del samples
+        return SubsetScores(metrics={}, per_question={})
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("QueryTransform", "Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    anchored = _question("anchored", text="What is WRH123?")
+    plain = _question("plain", text="What is a good controller?")
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(anchored, plain),
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert report.question_contributors is not None
+    assert set(report.question_contributors["anchored"]) == {"hybrid:vector", "hybrid:text"}
+    assert tuple(report.question_contributors["plain"]) == ("hybrid:vector",)
+
+
+async def test_a_run_with_no_query_rung_records_no_contributors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The hardwired vector search returns hits, not passages, so nothing states an arm; the
+    record says it does not know rather than inventing an answer."""
+
+    # Arrange
+    async def _no_metrics(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        del samples
+        return SubsetScores(metrics={}, per_question={})
+
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_question(),),
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert report.question_contributors is None

@@ -340,7 +340,12 @@ def _merge_passages(current: Passages, new: tuple[Passage, ...]) -> Passages:
         )
         for rank, passage in enumerate(combined)
     )
-    return Passages(origin=current.origin, passages=relabelled, ext=current.ext)
+    return Passages(
+        origin=current.origin,
+        passages=relabelled,
+        contributors=current.contributors,
+        ext=current.ext,
+    )
 
 
 def _offer(passages: tuple[Passage, ...]) -> str:

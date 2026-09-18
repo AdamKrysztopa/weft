@@ -445,6 +445,10 @@ class ScoredRun:
     #: `None` only for a construction site written before this repair — `score_pipeline` always
     #: fills it, the identical posture `question_seconds` already takes one field below.
     question_axes: Mapping[str, Mapping[str, str]] | None = None
+    #: Task **39.2** — each question's own `Passages.contributors`, keyed identically to
+    #: `question_scores`; `None` when the run scored no retrieval rung (a generating rung's
+    #: `Answer` and the hardwired `run_ask` search state no arm) or predates this task.
+    question_contributors: Mapping[str, tuple[str, ...]] | None = None
     #: Task **16.6** — the identity of the question set these scores are over, `""` when no
     #: questions were scored at all. `""` rather than `None` because a `ScoredRun` that scored
     #: nothing has no question set, and `RunRecord.question_set_digest` is where the *record's*
@@ -603,6 +607,8 @@ async def score_pipeline(
     samples: list[RetrievalSample] = []
     seconds: dict[str, float] = {}
     axes: dict[str, Mapping[str, str]] = {}
+    contributors: dict[str, tuple[str, ...]] = {}
+    is_retrieval_rung = query_pipeline is not None and not generates
     failed: dict[str, str] = {}
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
     retrieval_services: PreparedRunner | None = None
@@ -674,6 +680,7 @@ async def score_pipeline(
                         continue
                     seconds[question_key] = time.monotonic() - started
                     hits = [passage.scored for passage in passages.passages]
+                    contributors[question_key] = tuple(passages.contributors)
                 else:
                     hits = await run_ask(
                         question_text,
@@ -715,6 +722,7 @@ async def score_pipeline(
         query_rung=query_rung,
         question_scores=question_scores,
         question_axes=axes,
+        question_contributors=contributors if is_retrieval_rung else None,
         question_set=question_set_digest(questions),
         question_seconds=PerQuestionSeconds(keyed_by=keyed_by, seconds=seconds),
         token_usage=role_tokens(tally.entries),

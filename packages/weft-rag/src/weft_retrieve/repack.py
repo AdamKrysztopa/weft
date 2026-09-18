@@ -153,7 +153,11 @@ class Repack:
         """
         del ctx
         if not payload.hits:
-            return Produced(value=Passages(origin=payload.origin, ext=payload.ext))
+            return Produced(
+                value=Passages(
+                    origin=payload.origin, contributors=payload.contributors, ext=payload.ext
+                )
+            )
 
         kept = (
             payload.hits[: self._config.top_n] if self._config.top_n is not None else payload.hits
@@ -168,4 +172,11 @@ class Repack:
             )
             for position, passage in enumerate(ordered)
         )
-        return Produced(value=Passages(origin=payload.origin, passages=passages, ext=payload.ext))
+        return Produced(
+            value=Passages(
+                origin=payload.origin,
+                passages=passages,
+                contributors=payload.contributors,
+                ext=payload.ext,
+            )
+        )

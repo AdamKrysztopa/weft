@@ -310,6 +310,10 @@ class Passages(BaseModel):
 
     origin: Query
     passages: tuple[Passage, ...] = ()
+    #: the labels of the ranked lists these passages were fused from, copied from
+    #: `Ranking.contributors` by the packer; empty when the packer states none — an
+    #: absence, not a claim that no arm answered.
+    contributors: tuple[str, ...] = ()
     ext: ExtMap = Field(default_factory=dict, validate_default=True)
 
     @model_validator(mode="after")
