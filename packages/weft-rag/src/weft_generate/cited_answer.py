@@ -141,7 +141,7 @@ class CitedAnswer:
             offered: tuple[Passage, ...] = ()
         else:
             offered = await _resolved_to_citable(
-                payload.passages[: self._config.max_passages], ctx=ctx
+                payload.best_ranked(self._config.max_passages), ctx=ctx
             )
 
         llm = ctx.require(LLM)

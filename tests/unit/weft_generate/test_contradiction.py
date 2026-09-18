@@ -289,3 +289,29 @@ def test_the_declared_cost_bound_is_two_two() -> None:
     # are both always attempted, the same "no skip path" arithmetic `hyde`'s own
     # docstring states for its own single fixed call.
     assert ContradictionCheck.cost_bound == (2, 2)
+
+
+async def test_fewer_than_were_packed_offers_the_best_ranked_passages_in_packed_order() -> None:
+    # Arrange — `R32.2`, the same defect `cited-answer` had: reading from the front of a
+    # `reverse`-packed list answered from the worst passages.
+    worst, middle, best = (
+        _passage("1", "Study C found nothing.").model_copy(update={"rank": 2}),
+        _passage("2", "Study B found about 12%.").model_copy(update={"rank": 1}),
+        _passage("3", "Study A found 12%.").model_copy(update={"rank": 0}),
+    )
+    payload = _passages(worst, middle, best)
+    llm = _StubLLM(
+        [
+            '{"status": "agree", "agreed": ["Both found ~12% [2] [3]."], "conflicts": []}',
+            "Both found about 12% [2] [3].",
+        ]
+    )
+
+    # Act
+    outcome = await ContradictionCheck(ContradictionCheckConfig(max_passages=2)).run(
+        payload, _ctx(_services(llm))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.used == (middle, best)

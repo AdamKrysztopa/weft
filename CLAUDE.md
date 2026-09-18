@@ -278,6 +278,10 @@ Six live in `.claude/skills/`:
   write the verdict *into* its log rather than trusting a status. Staging followed by a commit is
   untouched, and heredoc bodies are stripped before matching, because prose is not a command — a
   lesson the guard taught by refusing the very edit that documented it. `docs/internal/lessons.md` `L10.24`.
+- **The gate is refused while a file it would walk is untracked** (`PreToolUse` on `Bash`,
+  `guard_unstaged_gate.py`). The architecture suite walks `git ls-files`, so an unstaged new file
+  passes locally and fails in CI once committed — twice in Phase 32 (`L26.8`, `R32.6`). `git add`
+  first.
 - **Writes are refused to anything outside this repository's own tracked tree** (`PreToolUse`) —
   reading material kept on disk and excluded from version control. A write there would leave no
   trace in any diff, which is the whole reason it is refused rather than merely discouraged.

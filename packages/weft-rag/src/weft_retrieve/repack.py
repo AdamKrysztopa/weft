@@ -43,6 +43,8 @@ already have moved it away from — so `[1]` in a generated answer always names 
 passage this stage put first, regardless of which method arranged it there.
 `weft_retrieve.payload.Passages`'s own model validator is what makes a packer that forgot
 this, or that labelled two passages alike, unconstructable rather than silently wrong.
+A passage's `rank` stays its position in the ranking this stage was handed, so a generator
+reading fewer passages than were packed reads the best (`Passages.best_ranked`, `R32.2`).
 
 **`top_n` truncates the input, before any method sees it.** Cutting after reordering would
 let `sides` or `reverse` decide *which* hits survive as a side effect of deciding where
@@ -191,11 +193,14 @@ class Repack:
             if isinstance(budgeted, Failed):
                 return budgeted
             kept = budgeted
-        ordered = _METHODS[self._config.method](kept)
+        ranked = tuple(
+            passage.model_copy(update={"rank": position}) for position, passage in enumerate(kept)
+        )
+        ordered = _METHODS[self._config.method](ranked)
         passages = tuple(
             Passage(
                 scored=passage.scored,
-                rank=position,
+                rank=passage.rank,
                 retrieved_by=passage.retrieved_by,
                 label=str(position + 1),
             )

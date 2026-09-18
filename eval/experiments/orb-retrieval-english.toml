@@ -1,0 +1,32 @@
+# `orb-retrieval-baseline` again, against a copy of the same index whose lexical column is generated
+# under Postgres's `english` text search configuration instead of the shipped `simple` — stop words
+# dropped and words stemmed — with every query-time text setting left at its default. Nothing is
+# re-embedded: `[packs.store]` settings are outside a pipeline's identity, so every source reads as
+# unchanged. Dense does not read the text column and is the between-document control. Run from a
+# directory holding a copy of `pipelines/` and a `weft.toml` naming `text_search_config = "english"`.
+
+[experiment]
+schema = 1
+name = "orb-retrieval-english"
+questions = "../../corpus/open-ragbench-questions/dev.toml"
+corpus = "../../corpus/open-ragbench"
+manifest = "../../corpus/open-ragbench.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.03
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+
+[[arm]]
+name = "lexical"
+pipeline = "index-openai-large"
+query_pipeline = "lexical-wide-retrieve"
+
+[[arm]]
+name = "hybrid"
+pipeline = "index-openai-large"
+query_pipeline = "hybrid-retrieve"

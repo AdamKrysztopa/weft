@@ -188,3 +188,23 @@ def test_the_declared_cost_bound_is_zero_zero() -> None:
     # Act / Assert — pure reordering over what already arrived; `run` resolves no service
     # and calls no model, the same honest shape `test_no_retrieval.py` uses for its own (0, 0).
     assert Repack.cost_bound == (0, 0)
+
+
+async def test_reverse_keeps_each_passages_ranking_position_while_labels_follow_the_packing() -> (
+    None
+):
+    # Arrange — `R32.2`: a generator reading fewer passages than were packed can choose the
+    # best only if the packed passage still says where the ranking put it.
+    payload = _ranking("best", "middle", "worst")
+
+    # Act
+    outcome = await Repack(RepackConfig(method=RepackMethod.REVERSE)).run(payload, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    passages = outcome.value.passages
+    assert [(p.node.content, p.rank, p.label) for p in passages] == [
+        ("worst", 2, "1"),
+        ("middle", 1, "2"),
+        ("best", 0, "3"),
+    ]

@@ -347,6 +347,15 @@ class Passages(BaseModel):
             )
         return self
 
+    def best_ranked(self, limit: int) -> tuple[Passage, ...]:
+        """The `limit` passages the ranking put first, in the order they were packed.
+
+        `repack`'s default `reverse` puts the best passage last, so a reader taking a prefix
+        reads the worst of what was packed (`R32.2`). Ties keep packed order.
+        """
+        kept = {id(passage) for passage in sorted(self.passages, key=lambda p: p.rank)[:limit]}
+        return tuple(passage for passage in self.passages if id(passage) in kept)
+
 
 class Assessment(BaseModel):
     """What a `Sufficiency` returns: whether the evidence is enough, and whether it could look.

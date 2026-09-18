@@ -400,3 +400,25 @@ def test_the_declared_cost_bound_is_zero_one() -> None:
     # Act / Assert — zero when `run` returns before resolving anything (empty evidence,
     # `REFUSE`), one otherwise: at most one `LLM.complete` call, ever.
     assert CitedAnswer.cost_bound == (0, 1)
+
+
+async def test_reading_fewer_than_were_packed_reads_the_best_ranked_in_packed_order() -> None:
+    # Arrange — `R32.2`: `repack`'s default `reverse` puts the best passage last, so reading
+    # `max_passages` from the front answered from the worst of what was packed.
+    worst, middle, best = (
+        _passage("1", "worst passage").model_copy(update={"rank": 2}),
+        _passage("2", "middle passage").model_copy(update={"rank": 1}),
+        _passage("3", "best passage").model_copy(update={"rank": 0}),
+    )
+    payload = _passages(worst, middle, best)
+    llm = _StubLLM(["the answer [3]."])
+
+    # Act
+    outcome = await CitedAnswer(CitedAnswerConfig(max_passages=2)).run(
+        payload, _ctx(_services(llm))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [p.node.content for p in outcome.value.used] == ["middle passage", "best passage"]
+    assert "worst passage" not in llm.last_prompt

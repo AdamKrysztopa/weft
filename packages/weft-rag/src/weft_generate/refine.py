@@ -246,7 +246,7 @@ class RefineOnUncertainty:
         round_number = 0
 
         for round_number in range(1, self._config.max_rounds + 2):
-            offered = current.passages[: self._config.max_passages]
+            offered = current.best_ranked(self._config.max_passages)
             rendered = await draft_prompt.render(
                 AnswerWithCitationsRequest(question=payload.origin.text, passages=_offer(offered)),
                 ctx,
@@ -331,14 +331,21 @@ def _merge_passages(current: Passages, new: tuple[Passage, ...]) -> Passages:
     """`current`'s own passages, plus `new`, relabelled from `1` so every passage the next
     round's draft can cite has a label unique across the merged set — the same `str(position
     + 1)` labelling `weft_retrieve.repack.Repack`'s own packer assigns, applied here because a
-    retrieval round changes *how many* passages there are, not just their order.
+    retrieval round changes *how many* passages there are, not just their order. Ranks are
+    kept, and `new` ranks after all of them, so `Passages.best_ranked` still reads the best.
     """
-    combined = current.passages + new
+    after = max((passage.rank for passage in current.passages), default=-1) + 1
+    combined = current.passages + tuple(
+        passage.model_copy(update={"rank": after + offset}) for offset, passage in enumerate(new)
+    )
     relabelled = tuple(
         Passage(
-            scored=passage.scored, rank=rank, retrieved_by=passage.retrieved_by, label=str(rank + 1)
+            scored=passage.scored,
+            rank=passage.rank,
+            retrieved_by=passage.retrieved_by,
+            label=str(position + 1),
         )
-        for rank, passage in enumerate(combined)
+        for position, passage in enumerate(combined)
     )
     return Passages(
         origin=current.origin,

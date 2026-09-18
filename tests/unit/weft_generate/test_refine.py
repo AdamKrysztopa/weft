@@ -437,3 +437,59 @@ async def test_a_real_hedge_phrases_signal_triggers_a_redraft_on_a_polish_hedge(
     assert llm.calls == 2
     assert len(retriever.calls) == 1
     assert outcome.value.text.startswith("Las losowy redukuje wariancję")
+
+
+async def test_a_draft_reading_fewer_than_were_packed_reads_the_best_ranked_in_packed_order() -> (
+    None
+):
+    # Arrange — `R32.2` for the refining generator's first draft.
+    origin = _asked()
+    worst, middle, best = (
+        _passage("1", "worst passage").model_copy(update={"rank": 2}),
+        _passage("2", "middle passage").model_copy(update={"rank": 1}),
+        _passage("3", "best passage").model_copy(update={"rank": 0}),
+    )
+    passages = Passages(origin=origin, passages=(worst, middle, best))
+    llm = _StubLLM(["Averaging trees [3]."])
+    signal = _FakeSignal([Produced(value=_assessment(sufficient=True, confidence=0.9))])
+    retriever = _FakeRetriever([Produced(value=_candidates(origin))])
+    config = RefineOnUncertaintyConfig(max_passages=2)
+
+    # Act
+    outcome = await RefineOnUncertainty(config).run(
+        passages, _ctx(_services(llm, signal, retriever))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.used == (middle, best)
+
+
+async def test_a_second_round_still_reads_the_best_ranked_once_new_evidence_is_merged() -> None:
+    # Arrange — merging a retrieval round's passages must not renumber the packed ones by
+    # position, or round two reads the worst of them again (`R32.2`).
+    origin = _asked()
+    worst, middle, best = (
+        _passage("1", "worst passage").model_copy(update={"rank": 2}),
+        _passage("2", "middle passage").model_copy(update={"rank": 1}),
+        _passage("3", "best passage").model_copy(update={"rank": 0}),
+    )
+    passages = Passages(origin=origin, passages=(worst, middle, best))
+    llm = _StubLLM(["Unsure [3].", "Averaging trees [2] [3]."])
+    signal = _FakeSignal(
+        [
+            Produced(value=_assessment(sufficient=False, confidence=0.2)),
+            Produced(value=_assessment(sufficient=True, confidence=0.9)),
+        ]
+    )
+    retriever = _FakeRetriever([Produced(value=_candidates(origin, "fresh passage"))])
+    config = RefineOnUncertaintyConfig(max_rounds=1, max_passages=2)
+
+    # Act
+    outcome = await RefineOnUncertainty(config).run(
+        passages, _ctx(_services(llm, signal, retriever))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [p.node.content for p in outcome.value.used] == ["middle passage", "best passage"]

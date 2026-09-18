@@ -147,7 +147,7 @@ class ContradictionCheck:
         """Critique, then answer under `origin` alone — never a derived query, the same
         obligation every plugin that closes the query path carries.
         """
-        offered = payload.passages[: self._config.max_passages]
+        offered = payload.best_ranked(self._config.max_passages)
         llm = ctx.require(LLM)
         lookup = ctx.require(StageLookup)
 
