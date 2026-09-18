@@ -81,9 +81,11 @@ from weft_store.conformance import (
     OPERATOR_CASES,
     FilterableSearchableStore,
     FilterableStore,
+    FilterableTextStore,
     ReconcilableStore,
     SearchableStore,
     SupersedableStore,
+    TextSearchableStore,
     check_a_deleted_nodes_productions_do_not_outlive_it,
     check_a_derived_node_and_a_collided_one_are_told_apart_in_the_same_store,
     check_a_field_no_node_can_have_is_refused_by_name_on_either_backend,
@@ -106,6 +108,9 @@ from weft_store.conformance import (
     check_reconcile_finishes_a_deletion_that_was_interrupted,
     check_reconcile_leaves_a_healthy_store_alone_on_either_backend,
     check_scan_and_count_see_every_stored_node_whatever_order_a_backend_walks_in,
+    check_search_text_answers_nothing_matching_with_an_empty_ranking,
+    check_search_text_finds_the_node_that_carries_the_words,
+    check_search_text_narrows_by_a_filter_rather_than_ignoring_it,
     check_search_vector_ranks_by_cosine_similarity_on_either_backend,
     check_supersede_is_idempotent_so_an_interrupted_one_can_be_retried,
     check_supersede_refuses_a_replacement_that_drops_a_source,
@@ -354,6 +359,30 @@ async def test_a_parents_children_within_an_ordinal_range_are_one_filter_away(
 
 async def test_writing_a_node_again_under_its_id_replaces_its_ext(store: FilterableStore) -> None:
     await check_writing_a_node_again_under_its_id_replaces_its_ext(store)
+
+
+async def test_search_text_finds_the_node_that_carries_the_words(
+    store: TextSearchableStore,
+) -> None:
+    await check_search_text_finds_the_node_that_carries_the_words(store)
+
+
+async def test_search_text_answers_nothing_matching_with_an_empty_ranking(
+    store: TextSearchableStore,
+) -> None:
+    await check_search_text_answers_nothing_matching_with_an_empty_ranking(store)
+
+
+async def test_search_text_narrows_by_a_filter_rather_than_ignoring_it(
+    store: FilterableTextStore,
+) -> None:
+    if isinstance(store, QdrantStore):
+        # Repair R32.7: bound for the first time at Phase 32's close, and Qdrant's filtered text
+        # search drops the node the filter keeps. Pinned so the day it is fixed this fails.
+        with pytest.raises(AssertionError, match="a filter the match satisfies must keep it"):
+            await check_search_text_narrows_by_a_filter_rather_than_ignoring_it(store)
+        return
+    await check_search_text_narrows_by_a_filter_rather_than_ignoring_it(store)
 
 
 async def test_a_filter_reaches_vector_search_rather_than_being_ignored(

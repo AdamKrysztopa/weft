@@ -104,7 +104,7 @@ development venv changes what the whole suite sees (`docs/internal/lessons.md` L
 ## A paid measurement is not a unit test — Phase 38
 
 Phase 38's two measurements ran seven times between them (`38.5` four, `38.6` three), and every
-restart traced to a question answerable before `--yes`. The six questions are
+restart traced to a question answerable before `--yes`. The questions are
 `.claude/hooks/guard_paid_measurement.py`'s refusal text, printed at the command that starts the run,
 because as sentences here they would be read before writing the experiment and forgotten by the time
 it ran (`L24.4`, `L24.7`, `L24.9`–`L24.12`). Two points the hook cannot ask:

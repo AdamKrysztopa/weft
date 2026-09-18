@@ -83,7 +83,10 @@ it through the rule above.** `R21.5` was filed saying *"of the 39 shipped pipeli
 one is text-only"* — 39 is the file count of one directory; the tree ships 48, the binary offers
 47, and `weft_kg` contributes the rest. **A population is what the *system* enumerates, not the
 directory the question started in**: take it from the binary or the registry, and where the claim
-does not need a cardinality, do not state one. *(b)* **"Exactly one surviving instance" is a claim
+does not need a cardinality, do not state one. **The same holds for a computed value** (`L26.2`):
+a remedy relying on one names every site that computes it — `git grep` the function, not the
+concept — and is measured on each, the default path first; `fix-plans/09` Q5(a) moved the pipeline
+identity on `--pipeline` and not on bare `weft index`, which computes it a second way. *(b)* **"Exactly one surviving instance" is a claim
 about a fact, and a grep can only see a phrasing.** `R21.4` swept `docs/`, `manual/`, `README.md`
 and `packages/` for a sentence it was correcting and reported one instance left; the same false
 claim sat in `hybrid-then-generate.yaml`, inside those roots, saying it in different words — and it
@@ -95,7 +98,10 @@ and an error message names only its subject.** `L22.17`: `R22.9` was filed again
 `weft_kernel.resolution.resolve`, and framed as a gate question, because *"stage 'store' names
 plugin 'pgvector'"* reads like resolution. The raise was one layer up, in
 `weft_cli.compile.contracts_for`, and the fix needed no decision. Grep the message's literal text,
-read the function that raises it, then write the `owner`. *(d)* **Before filing, search the open
+read the function that raises it, then write the `owner`. **From a log, the owner is the exception
+on its last line and the `except` it escaped** (`L26.1`): a traceback printed under *"during closing
+of"* or *"Exception ignored in"* was swallowed by the runtime — `R39.1` was filed against one and
+the fix sat in `weft_cli/eval_scoring.py`. *(d)* **Before filing, search the open
 repairs for the defect's subject, never its id.** `L22.18`: `R22.8` was filed, built and closed
 for an untranslated pydantic error on `--repeats 1`, while `R19.16`, filed a day earlier, named the
 same message from `--batch-size 0` and said every bounded field inherits it. Grep the open lines for
@@ -130,6 +136,9 @@ against ⚠'s definition and every live ⚠ meant something the definition did n
 `weft_cli.route_ask`'s `assert isinstance(answer, Answer)  # every shipped routable pipeline ends in
 a Generator` is checked against documents *anyone* may write — a three-line user pipeline made it
 fail with no message at all. Before you rely on what a thing means, enumerate what it currently is.
+**A measurement plan names each metric with the call site that computes it in a real run**, or a
+record that carries it — `32.0` named three that were registered and unit-tested and that no run
+had ever computed (`L26.5`).
 
 **And the two cheapest sentences to write are the two nobody checks: *"it does not exist"* and
 *"that one is unaffected".*** Phase 29 paid for both, an hour apart, in the same session that logged
@@ -670,6 +679,9 @@ A task is not done until all of these are true:
    and wrote the wrong cause into the queue before the next full run said otherwise
    (`lessons.md` L6.32). A message naming an environment state is a hypothesis, not a diagnosis. Backgrounding it is how three agents in Phase 3 stalled; running only the
    touched tree is how Phase 5 shipped a default that failed five things in the combined run.
+   **And a local green says nothing about CI's clock** (`L26.6`): when a change touches what a
+   timed test exercises, read that test's time on the last CI run, and one past half its timeout
+   gets its own budget before the push — `test_experiment_at_scale` ran 28 s here and 57 of 60 there.
 2. **Any fitness function the task's *turns on* field names is wired and green** — wired means added
    to the `ci-checks` composite in the same commit, because fitness function 0 fails otherwise.
 3. **A check you added can fail, and you have watched it.** Plant a disagreeing case and see it go
@@ -785,7 +797,9 @@ crashes on the exact state its own non-vacuity exercise produces.
 5. **The ledger box is ticked with its commit sha**, `docs/internal/README.md`'s Status block still reads
    true, and any document whose content the work changed is edited **in the same commit**. The plan
    and the code are meant to be true about each other.
-6. **The commit message says why**, and names the step. The diff already says what.
+6. **The commit message says why**, and names the step. The diff already says what. A result it
+   claims names the run that produced it with its collected count — `32.2`'s said two checks passed
+   on both backends, and `-k` collected zero (`L26.4`).
 7. **The lessons queue is current.** If a documented check turned out to be prose, a claim from
    intuition was falsified by measurement, a proposal contradicted settled text, or the defect was
    found by running the binary — the `lessons` skill has written it into `docs/internal/lessons.md`. Write it

@@ -1,4 +1,4 @@
-"""PreToolUse guard: a paid measurement is started only after its seven checks are answered.
+"""PreToolUse guard: a paid measurement is started only after its nine checks are answered.
 
 `docs/internal/lessons.md` `L24.4`, `L24.7`, `L24.9`, `L24.10`, `L24.11` and `L24.12`, drained
 2026-09-17. Phase 38's two measurements ran six times between them: `38.5` four times and `38.6`
@@ -29,7 +29,7 @@ _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 _ACKNOWLEDGED = "WEFT_MEASUREMENT_CHECKED=1"
 
 REASON = """Refused: a paid measurement starts only after these are answered.
-(L24.4, L24.7, L24.9-L24.13, L25.4)
+(L24.4, L24.7, L24.9-L24.13, L25.4, L26.5, L26.7)
 1. Scale smoke: has this harness run on the free embedder and scripted provider with more than 256
    questions, more than five searches per connection, a planted rung failure and an unparseable
    completion — and were its records read?
@@ -45,6 +45,11 @@ REASON = """Refused: a paid measurement starts only after these are answered.
 7. The query side matches the index side: `[services] embed` names the index pipeline's embedder and
    model. A free smoke on `hash` uses one default for both, so it cannot catch this — and the paid
    run fails at its first question, after the embedding is paid for (L25.4).
+8. Every metric the plan names is in the free smoke's record — not only registered and unit-tested:
+   a metric no real run has computed may be one the harness cannot produce (L26.5).
+9. The change moved what it should: each arm's downstream size caps are read in `weft pipeline
+   show`, and the smoke's record differs from baseline in the quantity the change acts on (prompt
+   tokens, passages kept) — a widened stage feeding an unchanged cap measures the cap (L26.7).
 Answer them, then prefix the command with WEFT_MEASUREMENT_CHECKED=1."""
 
 

@@ -101,11 +101,12 @@ def _find_archive(out_dir: Path, name: str) -> Path | None:
 _SUITES_ABOUT_THE_CODE: tuple[str, ...] = ("tests/unit", "tests/integration")
 
 
-def _capability_requirements(repo_root: Path) -> list[str]:
-    """Every library `weft-rag[all]` names — since G19 the capability packs ship inside
+def _extra_requirements(repo_root: Path, *extras: str) -> list[str]:
+    """Every library the named `weft-rag` extras list — since G19 the capability packs ship inside
     `weft-rag`, and this suite imports their libraries directly."""
     pyproject = tomllib.loads((repo_root / "packages/weft-rag/pyproject.toml").read_text())
-    return list(pyproject["project"]["optional-dependencies"]["all"])
+    declared = pyproject["project"]["optional-dependencies"]
+    return [requirement for extra in extras for requirement in declared[extra]]
 
 
 def run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
@@ -121,18 +122,13 @@ def run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
         "pytest-asyncio",
         "--with",
         "pytest-timeout",
-        # `weft-cli[reference]`'s own extra, installed here for the same reason `pytest` is: the
-        # tests exercise the contract-reference generator, which shells out to it. Task 6.7
-        # declared it; before that it was reachable only through the workspace's dev group
-        # (`docs/internal/lessons.md` L6.24).
-        "--with",
-        "ruff>=0.16.0",
-        # The capability libraries, read from `weft-rag`'s `all` extra rather than listed here:
-        # a copy drifted twice (`tiktoken`, `qdrant-client`'s bound). Named as libraries, not as
-        # `weft-rag[all]`, which would resolve `weft-rag` from an index instead of the sdist.
+        # `all` and `reference` (the contract-reference generator shells out to ruff, `L6.24`),
+        # read from the manifest rather than listed here: a copy drifted twice (`tiktoken`,
+        # `qdrant-client`'s bound; `L26.6`). Named as libraries, not as `weft-rag[all]`, which
+        # would resolve `weft-rag` from an index instead of the sdist.
         *[
             part
-            for requirement in _capability_requirements(repo_root)
+            for requirement in _extra_requirements(repo_root, "all", "reference")
             for part in ("--with", requirement)
         ],
         "pytest",
