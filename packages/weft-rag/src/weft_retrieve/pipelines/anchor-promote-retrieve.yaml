@@ -1,0 +1,17 @@
+name: anchor-promote-retrieve
+
+# Dense retrieval's own fifty chunks, reordered so a passage holding more of the question's anchors
+# sits above one holding fewer; a question with no anchor is returned exactly as dense ranked it.
+# The pool Phase 40 measures `anchor-promote` over (`eval/pool-promotion/protocol.toml`), packed
+# whole, with no answer generated. `weft ask --retrieve-only --explain` prints which branch ran.
+vars:
+  route.summary: >-
+    One vector search, then the passages that contain the question's identifiers, quoted phrases
+    or configured names are moved to the top, with no model call and no generated answer. For a
+    question that names a part number, an error code or a version.
+  route.cost: "one embedding call, one search, no model call"
+stages:
+  - {id: retrieve, use: vector-top-k, with: {top_k: 50}}
+  - {id: fuse,     use: single-list}
+  - {id: promote,  use: anchor-promote}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 50}}

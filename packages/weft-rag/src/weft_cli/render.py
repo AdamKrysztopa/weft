@@ -720,15 +720,35 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
         return Rendered(stdout=payload, stderr=None, exit_code=ExitCode.SUCCESS)
 
     if not result.hits:
-        lines = ["no matching passages found.", *_explain_lines(result), *_stage_lines(result)]
+        lines = [
+            "no matching passages found.",
+            *_explain_lines(result),
+            *_stage_lines(result),
+            *_record_lines(result),
+        ]
         return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
     lines = [f"{hit.rank}. {hit.content}" for hit in result.hits]
     return Rendered(
-        stdout="\n".join([*lines, *_explain_lines(result), *_stage_lines(result)]),
+        stdout="\n".join(
+            [*lines, *_explain_lines(result), *_stage_lines(result), *_record_lines(result)]
+        ),
         stderr=None,
         exit_code=ExitCode.SUCCESS,
     )
+
+
+def _record_lines(result: AskCommandResult) -> list[str]:
+    """`--explain`'s record block, or nothing at all — ledger task **40.3**.
+
+    Empty unless `--explain` populated `result.records`, the same byte-identical-without-the-
+    flag guarantee `_explain_lines` and `_stage_lines` already give their own blocks. Each line
+    is a stage's own sentence about what it recorded on `Passages.ext` — `weft_cli.explain.
+    record_lines` resolved it; this function only lays it out.
+    """
+    if not result.records:
+        return []
+    return ["", "records:", *(f"  {line}" for line in result.records)]
 
 
 def _explain_lines(result: AskCommandResult) -> list[str]:

@@ -1,0 +1,13 @@
+name: anchor-promote-then-generate
+extends: retrieve-then-generate
+
+vars:
+  route.summary: >-
+    One vector search, then the passages that contain the question's identifiers, quoted phrases
+    or configured names are moved to the top before the answer is written. For a question that
+    names a part number, an error code or a version.
+  route.cost: "one embedding call, one search, and one model call"
+
+insert:
+  - after: fuse
+    stage: {id: promote, use: anchor-promote}

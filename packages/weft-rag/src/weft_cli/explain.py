@@ -42,6 +42,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
+from weft_kernel.payload import ExtModel
+
 #: What a producer that declared nothing renders as. **An absence, stated.** `01` requirement 5's
 #: posture for an unknown name applied to an undeclared fact: say what was wanted and why it is
 #: unavailable, rather than filling the hole with something that reads like an answer.
@@ -179,4 +181,34 @@ def incomparable_note(produced_by: Sequence[str]) -> str | None:
     )
 
 
-__all__ = ["ScoreExplanation", "arm_explanations", "explanations_for", "incomparable_note"]
+def record_lines(ext: Mapping[str, ExtModel]) -> tuple[str, ...]:
+    """One line per entry a query-path stage left on `ext`, in insertion order — ledger **40.3**.
+
+    A record's own `explained()` is read defensively, the same declared-never-required idiom
+    `ScoreExplanation.of` uses for `score_semantics` above: a `callable` check rather than an
+    `isinstance` one, because the contract a record satisfies (structurally, never a base class
+    every `ExtModel` must carry) is that it *may* declare one. An entry that declares none
+    renders as an absence, never a guessed sentence.
+
+    `producer` prefers the class's own `produced_by` — the plugin name a reader can pass to
+    `--pipeline` or look up in `10` — and falls back to the namespace only for an entry that
+    never stated one.
+    """
+    lines: list[str] = []
+    for entry in ext.values():
+        explained = getattr(entry, "explained", None)
+        if callable(explained):
+            producer = getattr(type(entry), "produced_by", entry.__namespace__)
+            lines.append(f"{producer}: {explained()}")
+        else:
+            lines.append(f"{entry.__namespace__} did not say what it recorded")
+    return tuple(lines)
+
+
+__all__ = [
+    "ScoreExplanation",
+    "arm_explanations",
+    "explanations_for",
+    "incomparable_note",
+    "record_lines",
+]

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -45,12 +46,13 @@ from weft_engine.registry_bootstrap import Dependencies, build_dependencies
 from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.discovery import PackReport, PackStatus, PipelineResource
-from weft_kernel.payload import MediaType, Node, Outcome, Produced, Vector
+from weft_kernel.payload import ExtModel, MediaType, Node, Outcome, Produced, Vector
 from weft_kernel.registry import Registry
 from weft_retrieve import ContextPacker, Fuser, Retriever
+from weft_retrieve.anchor_promote import AnchorBranch, AnchorPromotion
 from weft_retrieve.fusion import SingleList
 from weft_retrieve.hybrid import Hybrid
-from weft_retrieve.payload import Channel
+from weft_retrieve.payload import Channel, Passages, Query
 from weft_retrieve.repack import Repack
 from weft_store.contract import Filter, NodeStore, Scored
 
@@ -253,3 +255,50 @@ async def test_a_derived_pipeline_that_generates_is_refused_like_any_other() -> 
     with pytest.raises(commands.ConflictingAskModeError) as refusal:
         await commands.AskCommand().run(args, _ctx(deps))
     assert "rewrite-then-retrieve" in str(refusal.value)
+
+
+# --- Task 40.3 — `--explain` reads the records the pipeline's stages left on what they packed.
+
+
+class _Undeclared(ExtModel):
+    """A record whose producer wrote no sentence for it."""
+
+    __namespace__: ClassVar[str] = "test-undeclared"
+    __schema_version__: ClassVar[str] = "1"
+
+
+@pytest.mark.parametrize("explain", [True, False])
+async def test_explain_names_each_record_in_its_producers_own_sentence(
+    monkeypatch: pytest.MonkeyPatch, explain: bool
+) -> None:
+    # Arrange
+    record = AnchorPromotion(branch=AnchorBranch.PROMOTED, anchors=("WRH123",), hits_promoted=1)
+
+    async def _packed(question: str, **_kwargs: object) -> Passages:
+        return Passages(
+            origin=Query(text=question),
+            ext={AnchorPromotion.__namespace__: record, _Undeclared.__namespace__: _Undeclared()},
+        )
+
+    monkeypatch.setattr(commands, "run_named_retrieve", _packed)
+    args = commands.AskArgs(
+        question="what does WRH123 mean",
+        retrieve_only=True,
+        pipeline=LEXICAL_PIPELINE,
+        explain=explain,
+    )
+
+    # Act
+    outcome = await commands.AskCommand().run(args, _ctx(_deps()))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, commands.AskCommandResult)
+    if not explain:
+        assert result.records == ()
+        return
+    assert result.records == (
+        "anchor-promote: branch: promoted, anchors 1, hits promoted 1",
+        "test-undeclared did not say what it recorded",
+    )

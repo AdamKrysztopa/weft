@@ -48,12 +48,13 @@ from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 from weft_retrieve import ContextPacker, Reranker
+from weft_retrieve.anchor_promote import AnchorPromote
 from weft_retrieve.payload import Ranking
 from weft_retrieve.repack import Repack
 from weft_store import NodeStore, Scored
 
 _CORPUS = "/capture-host/corpus"
-_DOCUMENTS = ("doc-a.txt", "doc-b.txt", "doc-c.txt", "doc-d.txt", "doc-z.txt")
+_DOCUMENTS = ("doc-a.txt", "doc-b.txt", "doc-c.txt", "doc-d.txt", "doc-w.txt", "doc-z.txt")
 
 
 def _node(document: str, words: str) -> Node:
@@ -72,6 +73,7 @@ _NODES = {
     "b1": _node("doc-b.txt", "beta one"),
     "c1": _node("doc-c.txt", "gamma one"),
     "d1": _node("doc-d.txt", "delta one"),
+    "w1": _node("doc-w.txt", "WRH123 is the reset code"),
     **{f"z{n}": _node("doc-z.txt", f"filler {n}") for n in range(1, 5)},
 }
 
@@ -150,6 +152,7 @@ def _registry() -> Registry:
     registry.add(NodeStore, "pgvector", _Store, distribution="weft-store")
     registry.add(ContextPacker, "repack", Repack, distribution="weft-retrieve")
     registry.add(Reranker, "spy-rerank", _Spy, distribution="weft-retrieve")
+    registry.add(Reranker, "anchor-promote", AnchorPromote, distribution="weft-retrieve")
     registrar = PackRegistrar(registry, distribution="weft-eval")
     register(registrar, Settings())
     registrar.commit()
@@ -165,6 +168,13 @@ def _catalogue() -> Callable[..., dict[str, Pipeline]]:
         "replay-reverse": Pipeline(
             name="replay-reverse",
             stages=(StageDeclaration(id="pack", use="repack", config={"method": "reverse"}),),
+        ),
+        "replay-promote": Pipeline(
+            name="replay-promote",
+            stages=(
+                StageDeclaration(id="promote", use="anchor-promote"),
+                StageDeclaration(id="pack", use="repack", config={"method": "reverse"}),
+            ),
         ),
         "replay-spy": Pipeline(
             name="replay-spy",
@@ -451,3 +461,17 @@ async def test_a_pool_that_no_longer_matches_what_it_is_replayed_against_is_refu
 
     # Assert
     assert named in str(caught.value)
+
+
+async def test_a_promotion_lifting_the_relevant_passage_from_third_to_first_scores_it_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — ledger 40.3's fixture: packed by `reverse`, scored on (-score, rank).
+    question = _question("q-anchored", "what does WRH123 mean", ("doc-w.txt",))
+    pool = _pool((question, (_chunk("a1", 0.9), _chunk("b1", 0.8), _chunk("w1", 0.7)), True))
+
+    # Act
+    scored = await _replay(monkeypatch, pool, (question,), through="replay-promote")
+
+    # Assert
+    assert _reciprocal_ranks(scored) == {"q-anchored": 1.0}

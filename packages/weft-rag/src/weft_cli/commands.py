@@ -103,6 +103,7 @@ from weft_cli.explain import (
     arm_explanations,
     explanations_for,
     incomparable_note,
+    record_lines,
 )
 from weft_cli.fanout import Participant
 from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index_for
@@ -560,6 +561,9 @@ class AskCommandResult(CommandResult):
     stages: tuple[StageRecord, ...] = ()
     #: Ledger task **33.10** — the recorded branch's own wall time, only under `--explain`.
     stages_seconds: float | None = None
+    #: Ledger task **40.3** — one line per `Passages.ext` entry, each in its own producer's
+    #: words, populated only under `--explain`.
+    records: tuple[str, ...] = ()
 
 
 _RENDER_HELP: Final[str] = (
@@ -975,6 +979,7 @@ class AskCommand:
                 pipeline_name=pipeline_name,
                 answer=None,
                 hits=hits_for([passage.scored for passage in passages.passages]),
+                records=record_lines(passages.ext) if ask_args.explain else (),
             )
         )
 

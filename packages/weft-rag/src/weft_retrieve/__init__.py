@@ -98,6 +98,8 @@ from weft_kernel.discovery import PackRegistrar
 from weft_prompts.contract import Prompt
 from weft_retrieve.adjacent_chunks import NAME as ADJACENT_CHUNKS_NAME
 from weft_retrieve.adjacent_chunks import AdjacentChunks, AdjacentChunksConfig
+from weft_retrieve.anchor_promote import NAME as ANCHOR_PROMOTE_NAME
+from weft_retrieve.anchor_promote import AnchorPromote
 from weft_retrieve.boolean import NAME as BOOLEAN_RETRIEVAL_NAME
 from weft_retrieve.boolean import (
     BooleanPlan,
@@ -405,6 +407,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Sufficiency, LLM_SUFFICIENCY_NAME, LlmSufficiency)
     registrar.add(Sufficiency, HEDGE_PHRASES_NAME, HedgePhrases)
     registrar.add(Reranker, SHINGLE_RESEMBLANCE_NAME, ShingleResemblance)
+    registrar.add(Reranker, ANCHOR_PROMOTE_NAME, AnchorPromote)
     registrar.add(ContextPacker, REPACK_NAME, Repack)
     registrar.add(ContextPacker, POSTQFRAP_NAME, PostQfrapPacker)
     registrar.add(QueryTransform, CONTEXTUAL_QUERY_REWRITE_NAME, ContextualQueryRewrite)
@@ -467,6 +470,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/boolean-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/rerank-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/mmr-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/anchor-promote-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/summarise-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/grade-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/iterative-retrieve.yaml")
@@ -485,6 +489,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # `Generator` — the one document `weft ask --retrieve-only --pipeline lexical-retrieve`
     # can run with no account and no model. See the document's own header.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/lexical-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/anchor-promote-retrieve.yaml")
 
     # **The ingest rungs — listed below and deliberately not counted here — are contributed from
     # this pack rather than from `weft-index` or `weft-clean` for one reason: a document has to name

@@ -2192,3 +2192,29 @@ def test_a_result_carrying_pack_reports_serialises_rather_than_taking_the_comman
     assert rendered.stdout is not None
     document = json.loads(rendered.stdout)
     assert document["reports"][0]["ext_models"] == ["weft-test-render"]
+
+
+# --- Task 40.3 — a stage's own record of which branch it took, under `--explain` only.
+
+
+def test_explain_prints_each_record_a_stage_left_on_what_it_packed() -> None:
+    # Arrange
+    from weft_cli.ask import AskHit
+
+    hits = (AskHit(rank=1, node_id="n1", score=0.9, content="first"),)
+    result = AskCommandResult(
+        question="q",
+        top_k=5,
+        format=AskFormat.TEXT,
+        hits=hits,
+        records=("anchor-promote: branch: promoted, anchors 1, hits promoted 1",),
+    )
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stdout is not None
+    assert "records:\n  anchor-promote: branch: promoted, anchors 1, hits promoted 1" in (
+        rendered.stdout
+    )

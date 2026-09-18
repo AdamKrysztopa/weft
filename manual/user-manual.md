@@ -163,6 +163,13 @@ Reach for the composition when answers straddle chunk boundaries and prompt cost
 than completeness. Reach for `dedupe` or `mmr` when your corpus repeats itself: versioned manuals,
 mirrored pages, near-identical records.
 
+**Two rungs move passages that name the question's identifiers to the top** (Phase 40).
+`anchor-promote-retrieve` and `anchor-promote-then-generate` reorder the vector search's own
+passages so one holding more of the question's part numbers, error codes, versions or quoted
+phrases sits above one holding fewer. A question with none is left exactly as the search ranked
+it. `weft ask --retrieve-only --explain` prints which of the three branches ran. Neither is a
+default: Phase 40 measures them.
+
 **Four graph query rungs, and they are the ones that answer a question no single passage can.**
 `graph-then-generate` matches the entities a question names against the graph, walks one hop out
 and returns the nodes those entities anchor; `graph-2hop-then-generate` walks two, which is what a
