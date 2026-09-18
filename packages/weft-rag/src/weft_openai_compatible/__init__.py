@@ -41,14 +41,14 @@ wanting it is the trigger to reopen this as a gate.
 
 from collections.abc import AsyncIterator
 from functools import partial
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from weft_embed.contract import Embedder
 from weft_kernel.context import Context
 from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_kernel.payload import Outcome
-from weft_llm.contract import LLMProvider
-from weft_llm.payload import Completion, Conversation
+from weft_llm.contract import LLMProvider, UsageReporting
+from weft_llm.payload import Completion, Conversation, TokenUsage
 from weft_openai.embedder import OpenAIEmbedder
 from weft_openai.llm import ChatClient, OpenAILLMConfig, OpenAILLMProvider
 from weft_openai.settings import Settings as VendorSettings
@@ -113,14 +113,22 @@ class Settings(VendorSettings):
 
 
 class StreamOnlyOpenAILLMProvider:
-    """`OpenAILLMProvider`, with the one method that satisfies `UsageReporting` withheld.
+    """`OpenAILLMProvider`, with the methods that satisfy `UsageReporting` and `TokenCounting`
+    withheld.
 
     Registered for `openai-compatible` instead of `OpenAILLMProvider` itself whenever
     `Settings.stream_usage` is false — see `register`. Delegation, not subclassing: a subclass
-    would inherit `stream_reporting_usage` and still satisfy `weft_llm.contract.UsageReporting`
-    by `isinstance`, which is exactly the claim this class exists to withhold. `LLMClient` then
-    streams this provider through plain `stream`, and the call is recorded as not reporting usage
-    rather than as reporting zero.
+    would inherit `stream_reporting_usage` and `count_tokens` and still satisfy
+    `weft_llm.contract.UsageReporting` and `weft_llm.contract.TokenCounting` by `isinstance`,
+    which is exactly the claim this class exists to withhold. `LLMClient` then streams this
+    provider through plain `stream`, and the call is recorded as not reporting usage rather
+    than as reporting zero.
+
+    **Withholding `count_tokens` is not the same repair as withholding usage reporting, and
+    task 32.6 is what forces it into this class rather than a third one:** a local server's
+    model names are not the vendor's, so `tiktoken`'s encoding for an aliased name would count
+    the wrong model's tokens, silently — the failure `TokenCounting`'s own `None` return exists
+    to name rather than guess past.
     """
 
     config_model: ClassVar[type[OpenAILLMConfig]] = OpenAILLMConfig
@@ -148,6 +156,29 @@ class StreamOnlyOpenAILLMProvider:
         await self._inner.close()
 
 
+class UsageReportingOnlyOpenAILLMProvider(StreamOnlyOpenAILLMProvider):
+    """`StreamOnlyOpenAILLMProvider`, with `stream_reporting_usage` added back.
+
+    Registered for `openai-compatible` instead of `OpenAILLMProvider` itself whenever
+    `Settings.stream_usage` is true — see `register`. Before task 32.6 that setting registered
+    `OpenAILLMProvider` directly, because the class had nothing else `isinstance` could find
+    that this account should not claim; `count_tokens` is now exactly such a thing, so the
+    direct registration would have made an `openai-compatible` account satisfy `TokenCounting`
+    by accident of sharing a class with the vendor account. Delegation, the same shape
+    `StreamOnlyOpenAILLMProvider` already takes: `weft_llm.contract.UsageReporting` is derived
+    from the presence of `stream_reporting_usage` alone, and this class forwards exactly that
+    one method and nothing named `count_tokens`.
+    """
+
+    async def stream_reporting_usage(
+        self, conv: Conversation, *, model: str, ctx: Context
+    ) -> AsyncIterator[str | TokenUsage]:
+        async for item in cast("UsageReporting", self._inner).stream_reporting_usage(
+            conv, model=model, ctx=ctx
+        ):
+            yield item
+
+
 def register(registrar: PackRegistrar, settings: Settings) -> None:
     """Register the three `weft_openai` adapters against this account's own settings.
 
@@ -157,9 +188,11 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     says what one account *holds*.
 
     **The `LLMProvider` class is chosen from `settings.stream_usage` at registration time**
-    (repair R33.1): `OpenAILLMProvider` when the account has opted in to the vendor's
-    `stream_options.include_usage` field, `StreamOnlyOpenAILLMProvider` — which does not satisfy
-    `UsageReporting` — otherwise.
+    (repair R33.1, widened by task **32.6**): `UsageReportingOnlyOpenAILLMProvider` when the
+    account has opted in to the vendor's `stream_options.include_usage` field,
+    `StreamOnlyOpenAILLMProvider` — neither of which satisfies `weft_llm.contract.TokenCounting`
+    — otherwise. Never `OpenAILLMProvider` itself: since task 32.6 that class also satisfies
+    `TokenCounting`, and this account's model names are not the vendor's to count.
 
     `partial`, never a closure, for the reason `weft_openai.register` states and ledger task 9.4
     paid for: `weft_kernel.registry.unwrap_factory` peels a `partial` and nothing else, so a
@@ -167,7 +200,11 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     instance — which once cost a pack a silent absence from `weft delete`'s fan-out (`L9.55`).
     """
     registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings, account=ACCOUNT))
-    provider_class = OpenAILLMProvider if settings.stream_usage else StreamOnlyOpenAILLMProvider
+    provider_class = (
+        UsageReportingOnlyOpenAILLMProvider
+        if settings.stream_usage
+        else StreamOnlyOpenAILLMProvider
+    )
     registrar.add(LLMProvider, PROVIDER_NAME, partial(provider_class, settings, account=ACCOUNT))
     registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings, account=ACCOUNT))
 
@@ -180,5 +217,6 @@ __all__ = [
     "VISION_NAME",
     "Settings",
     "StreamOnlyOpenAILLMProvider",
+    "UsageReportingOnlyOpenAILLMProvider",
     "register",
 ]

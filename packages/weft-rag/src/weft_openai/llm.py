@@ -46,6 +46,7 @@ import asyncio
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import TYPE_CHECKING, ClassVar, Final, Protocol, cast
 
+import tiktoken
 from openai import (
     APIConnectionError,
     APIError,
@@ -413,6 +414,21 @@ class OpenAILLMProvider:
         client = await asyncio.to_thread(build_client, settings)
         self._client = cast("ChatClient", client)
         return self._client
+
+    async def count_tokens(self, text: str, *, model: str) -> int | None:
+        """`text`'s token count under `model`'s own encoding — task **32.6**, gate **G25**.
+
+        Satisfies `weft_llm.contract.TokenCounting`. `tiktoken.encoding_for_model` is the
+        vendor's own model→encoding map, looked up locally with no network call — a model it
+        has no mapping for raises `KeyError`, caught here and turned into `None`, never a
+        default encoding: guessing a wrong one would silently over- or under-fill a budgeted
+        prompt.
+        """
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            return None
+        return len(encoding.encode(text))
 
 
 def _messages_of(conv: Conversation) -> list[dict[str, str]]:

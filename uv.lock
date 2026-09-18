@@ -3449,6 +3449,7 @@ all = [
     { name = "pillow" },
     { name = "pypdf" },
     { name = "qdrant-client" },
+    { name = "tiktoken" },
 ]
 bertscore = [
     { name = "bert-score" },
@@ -3459,6 +3460,7 @@ docling = [
 openai = [
     { name = "openai" },
     { name = "pillow" },
+    { name = "tiktoken" },
 ]
 otel = [
     { name = "opentelemetry-sdk" },
@@ -3499,6 +3501,8 @@ requires-dist = [
     { name = "qdrant-client", marker = "extra == 'qdrant'", specifier = ">=1.12,<1.14" },
     { name = "rouge-score", specifier = ">=0.1" },
     { name = "ruff", marker = "extra == 'reference'", specifier = ">=0.16.0" },
+    { name = "tiktoken", marker = "extra == 'all'", specifier = ">=0.8" },
+    { name = "tiktoken", marker = "extra == 'openai'", specifier = ">=0.8" },
     { name = "weft-kernel", editable = "packages/weft-kernel" },
 ]
 provides-extras = ["bertscore", "reference", "pdf", "openai", "qdrant", "otel", "docling", "all"]

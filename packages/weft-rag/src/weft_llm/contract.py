@@ -136,6 +136,55 @@ class UsageReporting(Protocol):
 UsageReporting.version = LLM_CONTRACT_VERSION
 
 
+@runtime_checkable
+class TokenCounting(Protocol):
+    """A provider that can count a text's tokens for one of its own models. Gate **G25**.
+
+    **A derived capability sibling, the same shape `NativeStructured` and `UsageReporting`
+    already take** — checked by `isinstance(provider, TokenCounting)`, never by a declared
+    flag a provider could lie about. `weft_llm.client.LLMClient.count_tokens` (task **32.6**)
+    is what `repack`'s budget (**32.7**) calls, resolved through a role exactly the way
+    `native_structured_available` resolves its answer: through the role's provider, never
+    through a second statement of the model.
+
+    `None` means "this provider cannot count that model" — never a character estimate, never
+    a default encoding, because a wrong count would silently over- or under-fill a budgeted
+    prompt. A provider that does not satisfy this Protocol at all and one that satisfies it
+    but answers `None` are the same refusal from the caller's side; `weft_llm.errors.
+    TokenCountUnavailableError` is what turns either into a message naming the role, the
+    provider and the model.
+
+    Nothing registers *under* this contract, for the same reason nothing registers under
+    `NativeStructured` or `UsageReporting`: a provider registers under `LLMProvider` and is
+    found to satisfy this one, which is what makes the capability underivable from a claim.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def count_tokens(self, text: str, *, model: str) -> int | None: ...
+
+
+TokenCounting.version = LLM_CONTRACT_VERSION
+
+
+@runtime_checkable
+class TokenCounter(Protocol):
+    """What `weft_llm.client.LLMClient` satisfies structurally — counting resolved by role.
+
+    **Not a capability a provider registers or is found to satisfy** — the mirror image of
+    `TokenCounting`, one layer up: a role's *provider* is found to satisfy `TokenCounting`,
+    and the *client* that resolves a role to a provider is found to satisfy this one, so a
+    consumer (`repack`, task **32.7**) checks `isinstance(llm, TokenCounter)` without the
+    published `weft_llm.contract.LLM` service Protocol growing a member and without bumping
+    `LLM_CONTRACT_VERSION` — Phase 32 declares no contract change. Carries no `version`, for
+    the identical mechanical reason `LLM` itself carries none: it is a service shape, checked
+    against a client instance, never registered under a name.
+    """
+
+    async def count_tokens(self, role: str, text: str) -> int: ...
+
+
 class LLM(Protocol):
     """The run's one answer to "ask a model" — retry, streaming and role resolution attached.
 

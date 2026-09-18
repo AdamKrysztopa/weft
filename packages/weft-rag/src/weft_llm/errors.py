@@ -227,3 +227,36 @@ class LLMCompletionError(LLMError):
     provider, the model and the truncated raw text, which is the only diagnostic that survives
     a total parse failure.
     """
+
+
+class TokenCountUnavailableError(WeftError):
+    """A role's model could not be counted — gate **G25**, `weft_llm.contract.TokenCounting`.
+
+    **Not an `LLMError`** — `weft_llm.client.LLMClient.count_tokens` resolves through
+    `self._bind(role)` without a model call, the same way `native_structured_available`
+    does, so nothing here is a fact about the vendor's transport or a call that ran. The same
+    shape `roles.UnmappedLLMRoleError` already takes: a plain `WeftError` subclass that sets
+    its own typed fields in `__init__` rather than threading them through `LLMError`'s
+    `provider`/`model` pair, because this refusal happens before any provider is asked.
+
+    **Two causes, one class, one message.** The role's provider does not satisfy
+    `TokenCounting` at all, or it does and answered `None` for `model` — never a character
+    estimate, never a default encoding, because a wrong count would silently over- or
+    under-fill a budgeted prompt. Both causes are the identical refusal from a caller's side
+    (`weft_llm.client.LLMClient.count_tokens` cannot tell them apart without asking the
+    provider a second, redundant question), so the message is built here from the three typed
+    fields rather than composed twice at two call sites. `model` is `None` when the role maps
+    no model of its own, and the message renders that as the provider's own default rather
+    than leaving it blank.
+    """
+
+    def __init__(self, *, role: str, provider: str, model: str | None) -> None:
+        super().__init__(
+            f"provider '{provider}' (role '{role}') cannot count tokens for model "
+            f"'{model or '(provider default)'}'. Map role '{role}' to a provider that counts "
+            f"(the `openai` pack does, for models its encoder knows), or remove the budget "
+            f"that needs this count."
+        )
+        self.role = role
+        self.provider = provider
+        self.model = model

@@ -2705,6 +2705,26 @@ the thresholds are `[llm.loop_guard]` in `weft.toml` — raising `similarity_thr
 `1.0`) or lowering `diversity_threshold` (closer to `0.0`) makes the guard fire on fewer, more
 extreme cases, per [`manual/operations-guide.md`](operations-guide.md).
 
+### `TokenCountUnavailableError`
+
+**What it looks like** — `repack`'s token budget (or any other caller of
+`LLMClient.count_tokens`) asked for a count and the role's provider could not produce one, either
+because it does not offer counting at all or because it does and does not know the model:
+
+```text
+TokenCountUnavailableError: provider 'scripted' (role 'generate') cannot count tokens for model
+'any-model'. Map role 'generate' to a provider that counts (the `openai` pack does, for models its
+encoder knows), or remove the budget that needs this count.
+```
+
+**What to do:** one of the two things the message says. Point the role at a provider that offers
+`weft_llm.contract.TokenCounting` — `openai`, for a model its `tiktoken` encoding knows — or drop
+the feature that needs a token budget for this role. Never estimated by character count: a wrong
+count would silently over- or under-fill a budgeted prompt, so this is refused rather than guessed.
+An `openai-compatible` account never counts, whatever `[packs.openai-compatible] stream_usage`
+says — its model names are not the vendor's, and the vendor's encoder would count an aliased model
+wrongly.
+
 ### `ModelProviderMismatchError`
 
 **What it looks like** — a `[llm.roles]` entry's model string carries a provider prefix naming a

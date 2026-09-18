@@ -52,12 +52,20 @@ from weft_kernel.context import Context
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.seam import current_stage, wrap
-from weft_llm.contract import LLM, LLMProvider, NativeStructured, TokenSink, UsageReporting
+from weft_llm.contract import (
+    LLM,
+    LLMProvider,
+    NativeStructured,
+    TokenCounting,
+    TokenSink,
+    UsageReporting,
+)
 from weft_llm.errors import (
     LLMError,
     LLMGenerationLoopError,
     LLMProviderFaultError,
     NativeStructuredUnsupportedError,
+    TokenCountUnavailableError,
 )
 from weft_llm.loop_guard import LoopGuardConfig, detect_generation_loop
 from weft_llm.models import ModelRef, find_runtime_match, model_ref
@@ -248,6 +256,33 @@ class LLMClient:
     async def native_structured_available(self, role: str) -> bool:
         """Whether `role`'s provider satisfies `NativeStructured` — derived, never declared."""
         return isinstance(self._bind(role).provider, NativeStructured)
+
+    async def count_tokens(self, role: str, text: str) -> int:
+        """`text`'s token count for `role`'s model — task **32.6**, gate **G25**.
+
+        Resolved through `self._bind(role)`, the same role resolution `native_structured_
+        available` uses, and with no model call: counting is local to the provider's own
+        encoder, never a request the vendor bills for.
+
+        **Checked against `bound.raw`, not `bound.provider`.** `native_structured_available`
+        checks `bound.provider` because `weft_llm.retry.with_retry` selects a wrapper class
+        that itself implements `complete_structured`/`stream_reporting_usage` whenever the
+        wrapped provider satisfies `NativeStructured`/`UsageReporting` — so the retried object
+        mirrors the capability and `isinstance` on either object agrees. `TokenCounting` gets
+        no such wrapper: every `with_retry` result exposes exactly `complete`/`stream`/`close`
+        (and, conditionally, the two above) and never `count_tokens`, so checking `bound.
+        provider` here would answer `False` for every provider, retried or not. `bound.raw` is
+        the object built before retry wrapped it, which is what actually satisfies or fails to
+        satisfy this Protocol.
+        """
+        bound = self._bind(role)
+        model = bound.ref.model or None
+        if not isinstance(bound.raw, TokenCounting):
+            raise TokenCountUnavailableError(role=role, provider=bound.ref.provider, model=model)
+        count = await bound.raw.count_tokens(text, model=bound.ref.model)
+        if count is None:
+            raise TokenCountUnavailableError(role=role, provider=bound.ref.provider, model=model)
+        return count
 
     async def close(self) -> None:
         """Close every provider this client built, once each, in the order they were built."""
