@@ -1,7 +1,7 @@
 # Task 32.10: `adjacent-chunks` and the composition against `retrieve-then-generate`, on
 # `fetch.toml`'s 54 questions. Document-level IR is blind to widening by construction (32.0), so
 # only the answer metrics are named. `context-recall` is left out: `weft eval experiment` scores
-# only gate-safe metrics (`weft_cli/eval_scoring.py:528`), and it is a gate-unsafe judge.
+# only gate-safe metrics (`weft_eval.harness`), and it is a gate-unsafe judge.
 
 [experiment]
 schema = 1
