@@ -1,0 +1,10 @@
+name: dedupe-threshold-t030-then-generate
+extends: dedupe-then-generate
+
+# Task 32.10's resemblance-threshold sweep, low end — a stricter cut than the shipped default,
+# dropping a passage on weaker overlap with a higher-ranked one already kept. `0.5` is
+# `dedupe-then-generate`'s own shipped default (Broder 1997 p. 2's quoted "50% resemblance") and
+# needs no second document.
+
+set:
+  - {id: dedupe, with: {threshold: 0.3}}

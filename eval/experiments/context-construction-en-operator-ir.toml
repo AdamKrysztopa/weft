@@ -1,0 +1,50 @@
+# Task 32.10 — `operator.toml`'s 53 questions; the family is `context-construction-en-fetch-ir.toml`'s.
+# Both English documents read `corpus/validation-en`: the manifest's `arxiv/` and `mrmr/`
+# documents and nothing else, staged by symlink, because `operator.toml` cites both directories
+# and `corpus_documents` takes no manifest filter.
+
+[experiment]
+schema = 1
+name = "context-construction-en-operator-ir"
+questions = "../questions/operator.toml"
+corpus = "../../corpus/validation-en"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5", "token_recall", "rouge_l"]
+minimum_detectable_effect = 0.08
+
+[[arm]]
+name = "baseline"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "retrieve-then-generate"
+
+[[arm]]
+name = "dedupe"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "dedupe-then-generate"
+
+[[arm]]
+name = "dedupe-t030"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "dedupe-threshold-t030-then-generate"
+
+[[arm]]
+name = "dedupe-t070"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "dedupe-threshold-t070-then-generate"
+
+[[arm]]
+name = "mmr"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "mmr-then-generate"
+
+[[arm]]
+name = "mmr-w030"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "mmr-relevance-w030-then-generate"
+
+[[arm]]
+name = "mmr-w100"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "mmr-relevance-w100-then-generate"

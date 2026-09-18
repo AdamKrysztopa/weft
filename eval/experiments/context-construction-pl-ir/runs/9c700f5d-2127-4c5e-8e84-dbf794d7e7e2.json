@@ -1,0 +1,1239 @@
+{
+  "recorded_at": "2026-09-18T16:58:33.641012+00:00",
+  "resolved_pipeline": {
+    "name": "index-openai-large",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "text",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.0.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-large",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-openai-large"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "2.7.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "../../corpus/pl-wiki",
+    "digest": "4514a81d6c1470307eeb1895d5d2ecb9886628c7f48efa38667639f10a2a55ad"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-large",
+    "role:generate": "openai:gpt-5.6-luna"
+  },
+  "active_distributions": [
+    "weft-canary",
+    "weft-rag"
+  ],
+  "distribution_versions": {
+    "weft-canary": "0.1.0",
+    "weft-rag": "2.7.0"
+  },
+  "durations": {
+    "ingest_seconds": 0.0,
+    "query_seconds": 31.697420415934175
+  },
+  "corpus_digest_basis": "document-bytes",
+  "query_rung": {
+    "name": "dedupe-then-generate",
+    "identity": "088ba53f1ea0f5c20dedbf65e694d8ad"
+  },
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.9583333333333334,
+        "n": 12,
+        "stdev": 0.14433756729740643,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9583333333333334,
+            "n": 12,
+            "stdev": 0.14433756729740643
+          }
+        },
+        "by_question_kind": {
+          "quantitative": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.8333333333333334,
+            "n": 3,
+            "stdev": 0.28867513459481287
+          },
+          "methodological": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "limitation": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "mrr@5": {
+      "value": {
+        "reported_name": "mrr@5",
+        "mean": 1.0,
+        "n": 12,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 1.0,
+            "n": 12,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {
+          "quantitative": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 1.0,
+            "n": 3,
+            "stdev": 0.0
+          },
+          "methodological": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "limitation": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "ndcg@5": {
+      "value": {
+        "reported_name": "ndcg@5",
+        "mean": 0.9677622660637882,
+        "n": 12,
+        "stdev": 0.11167478619681251,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9677622660637882,
+            "n": 12,
+            "stdev": 0.11167478619681251
+          }
+        },
+        "by_question_kind": {
+          "quantitative": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.8710490642551528,
+            "n": 3,
+            "stdev": 0.22334957239362502
+          },
+          "methodological": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "limitation": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "precision@5": {
+      "value": {
+        "reported_name": "precision@5",
+        "mean": 0.23333333333333336,
+        "n": 12,
+        "stdev": 0.0778498944161523,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.23333333333333336,
+            "n": 12,
+            "stdev": 0.0778498944161523
+          }
+        },
+        "by_question_kind": {
+          "quantitative": {
+            "mean": 0.2,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 0.2,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.3333333333333333,
+            "n": 3,
+            "stdev": 0.11547005383792516
+          },
+          "methodological": {
+            "mean": 0.2,
+            "n": 1,
+            "stdev": null
+          },
+          "comparative": {
+            "mean": 0.2,
+            "n": 1,
+            "stdev": null
+          },
+          "limitation": {
+            "mean": 0.2,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "recall@5": {
+      "value": {
+        "reported_name": "recall@5",
+        "mean": 0.9583333333333334,
+        "n": 12,
+        "stdev": 0.14433756729740643,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9583333333333334,
+            "n": 12,
+            "stdev": 0.14433756729740643
+          }
+        },
+        "by_question_kind": {
+          "quantitative": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.8333333333333334,
+            "n": 3,
+            "stdev": 0.28867513459481287
+          },
+          "methodological": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          },
+          "limitation": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "accuracy": {
+      "value": {
+        "reported_name": "accuracy",
+        "mean": 0.0,
+        "n": 12,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 12,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "embedding-similarity": {
+      "reason": "'embedding-similarity' needs a service this run does not provide: no service is registered for Embedder on this run. It is unavailable because nothing resolved one before this stage ran. Services available on this run: Dependencies, LLM, Prompts, Registry, TokenSink."
+    },
+    "exact_match": {
+      "value": {
+        "reported_name": "exact_match",
+        "mean": 0.0,
+        "n": 12,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 12,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "f1_score": {
+      "value": {
+        "reported_name": "f1_score",
+        "mean": 0.2462779585030818,
+        "n": 12,
+        "stdev": 0.08605395337974371,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.2462779585030818,
+            "n": 12,
+            "stdev": 0.08605395337974371
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "key_terms_precision": {
+      "value": {
+        "reported_name": "key_terms_precision",
+        "mean": 0.2946272409509714,
+        "n": 12,
+        "stdev": 0.10368716772020829,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.2946272409509714,
+            "n": 12,
+            "stdev": 0.10368716772020829
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "overlap-at-threshold": {
+      "reason": "'overlap-at-threshold' needs a configuration this gate-subset run cannot supply with no arguments: 1 validation error for AtThresholdConfig\nthreshold\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing"
+    },
+    "rouge_1": {
+      "value": {
+        "reported_name": "rouge_1",
+        "mean": 0.31888170088838574,
+        "n": 12,
+        "stdev": 0.08758453878169696,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.31888170088838574,
+            "n": 12,
+            "stdev": 0.08758453878169696
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_2": {
+      "value": {
+        "reported_name": "rouge_2",
+        "mean": 0.125621602594524,
+        "n": 12,
+        "stdev": 0.06817503318208352,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.125621602594524,
+            "n": 12,
+            "stdev": 0.06817503318208352
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_l": {
+      "value": {
+        "reported_name": "rouge_l",
+        "mean": 0.2167570628497647,
+        "n": 12,
+        "stdev": 0.08634392859996932,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.2167570628497647,
+            "n": 12,
+            "stdev": 0.08634392859996932
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_overlap": {
+      "value": {
+        "reported_name": "token_overlap",
+        "mean": 0.20947374469029734,
+        "n": 12,
+        "stdev": 0.06340036098728476,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.20947374469029734,
+            "n": 12,
+            "stdev": 0.06340036098728476
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_recall": {
+      "value": {
+        "reported_name": "token_recall",
+        "mean": 0.43519488362323644,
+        "n": 12,
+        "stdev": 0.12755169685389528,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.43519488362323644,
+            "n": 12,
+            "stdev": 0.12755169685389528
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    }
+  },
+  "question_set_digest": "b1e97d21b9cd1ed88e29bdad39b066e8fd53b177581a0c62f455bb52831b18d6",
+  "question_set_digest_basis": "question-set",
+  "question_scores": {
+    "mean_average_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 1.0
+        },
+        "polish-002": {
+          "value": 1.0
+        },
+        "polish-003": {
+          "value": 1.0
+        },
+        "polish-004": {
+          "value": 1.0
+        },
+        "polish-005": {
+          "value": 1.0
+        },
+        "polish-006": {
+          "value": 1.0
+        },
+        "polish-007": {
+          "value": 1.0
+        },
+        "polish-008": {
+          "value": 1.0
+        },
+        "polish-009": {
+          "value": 0.5
+        },
+        "polish-010": {
+          "value": 1.0
+        },
+        "polish-011": {
+          "value": 1.0
+        },
+        "polish-012": {
+          "value": 1.0
+        }
+      }
+    },
+    "mrr@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 1.0
+        },
+        "polish-002": {
+          "value": 1.0
+        },
+        "polish-003": {
+          "value": 1.0
+        },
+        "polish-004": {
+          "value": 1.0
+        },
+        "polish-005": {
+          "value": 1.0
+        },
+        "polish-006": {
+          "value": 1.0
+        },
+        "polish-007": {
+          "value": 1.0
+        },
+        "polish-008": {
+          "value": 1.0
+        },
+        "polish-009": {
+          "value": 1.0
+        },
+        "polish-010": {
+          "value": 1.0
+        },
+        "polish-011": {
+          "value": 1.0
+        },
+        "polish-012": {
+          "value": 1.0
+        }
+      }
+    },
+    "ndcg@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 1.0
+        },
+        "polish-002": {
+          "value": 1.0
+        },
+        "polish-003": {
+          "value": 1.0
+        },
+        "polish-004": {
+          "value": 1.0
+        },
+        "polish-005": {
+          "value": 1.0
+        },
+        "polish-006": {
+          "value": 1.0
+        },
+        "polish-007": {
+          "value": 1.0
+        },
+        "polish-008": {
+          "value": 1.0
+        },
+        "polish-009": {
+          "value": 0.6131471927654584
+        },
+        "polish-010": {
+          "value": 1.0
+        },
+        "polish-011": {
+          "value": 1.0
+        },
+        "polish-012": {
+          "value": 1.0
+        }
+      }
+    },
+    "precision@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.2
+        },
+        "polish-002": {
+          "value": 0.2
+        },
+        "polish-003": {
+          "value": 0.2
+        },
+        "polish-004": {
+          "value": 0.4
+        },
+        "polish-005": {
+          "value": 0.2
+        },
+        "polish-006": {
+          "value": 0.2
+        },
+        "polish-007": {
+          "value": 0.2
+        },
+        "polish-008": {
+          "value": 0.2
+        },
+        "polish-009": {
+          "value": 0.2
+        },
+        "polish-010": {
+          "value": 0.4
+        },
+        "polish-011": {
+          "value": 0.2
+        },
+        "polish-012": {
+          "value": 0.2
+        }
+      }
+    },
+    "recall@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 1.0
+        },
+        "polish-002": {
+          "value": 1.0
+        },
+        "polish-003": {
+          "value": 1.0
+        },
+        "polish-004": {
+          "value": 1.0
+        },
+        "polish-005": {
+          "value": 1.0
+        },
+        "polish-006": {
+          "value": 1.0
+        },
+        "polish-007": {
+          "value": 1.0
+        },
+        "polish-008": {
+          "value": 1.0
+        },
+        "polish-009": {
+          "value": 0.5
+        },
+        "polish-010": {
+          "value": 1.0
+        },
+        "polish-011": {
+          "value": 1.0
+        },
+        "polish-012": {
+          "value": 1.0
+        }
+      }
+    },
+    "accuracy": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.0
+        },
+        "polish-002": {
+          "value": 0.0
+        },
+        "polish-003": {
+          "value": 0.0
+        },
+        "polish-004": {
+          "value": 0.0
+        },
+        "polish-005": {
+          "value": 0.0
+        },
+        "polish-006": {
+          "value": 0.0
+        },
+        "polish-007": {
+          "value": 0.0
+        },
+        "polish-008": {
+          "value": 0.0
+        },
+        "polish-009": {
+          "value": 0.0
+        },
+        "polish-010": {
+          "value": 0.0
+        },
+        "polish-011": {
+          "value": 0.0
+        },
+        "polish-012": {
+          "value": 0.0
+        }
+      }
+    },
+    "embedding-similarity": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "exact_match": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.0
+        },
+        "polish-002": {
+          "value": 0.0
+        },
+        "polish-003": {
+          "value": 0.0
+        },
+        "polish-004": {
+          "value": 0.0
+        },
+        "polish-005": {
+          "value": 0.0
+        },
+        "polish-006": {
+          "value": 0.0
+        },
+        "polish-007": {
+          "value": 0.0
+        },
+        "polish-008": {
+          "value": 0.0
+        },
+        "polish-009": {
+          "value": 0.0
+        },
+        "polish-010": {
+          "value": 0.0
+        },
+        "polish-011": {
+          "value": 0.0
+        },
+        "polish-012": {
+          "value": 0.0
+        }
+      }
+    },
+    "f1_score": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.02898550724637681
+        },
+        "polish-002": {
+          "value": 0.2155688622754491
+        },
+        "polish-003": {
+          "value": 0.2758620689655173
+        },
+        "polish-004": {
+          "value": 0.3023255813953488
+        },
+        "polish-005": {
+          "value": 0.2577319587628866
+        },
+        "polish-006": {
+          "value": 0.33333333333333326
+        },
+        "polish-007": {
+          "value": 0.2463768115942029
+        },
+        "polish-008": {
+          "value": 0.23841059602649012
+        },
+        "polish-009": {
+          "value": 0.2631578947368421
+        },
+        "polish-010": {
+          "value": 0.18181818181818182
+        },
+        "polish-011": {
+          "value": 0.23529411764705882
+        },
+        "polish-012": {
+          "value": 0.3764705882352941
+        }
+      }
+    },
+    "key_terms_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.3333333333333333
+        },
+        "polish-002": {
+          "value": 0.20238095238095238
+        },
+        "polish-003": {
+          "value": 0.375
+        },
+        "polish-004": {
+          "value": 0.36
+        },
+        "polish-005": {
+          "value": 0.21621621621621623
+        },
+        "polish-006": {
+          "value": 0.4782608695652174
+        },
+        "polish-007": {
+          "value": 0.2647058823529412
+        },
+        "polish-008": {
+          "value": 0.23170731707317074
+        },
+        "polish-009": {
+          "value": 0.22826086956521738
+        },
+        "polish-010": {
+          "value": 0.17567567567567569
+        },
+        "polish-011": {
+          "value": 0.21052631578947367
+        },
+        "polish-012": {
+          "value": 0.4594594594594595
+        }
+      }
+    },
+    "overlap-at-threshold": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "rouge_1": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.21951219512195122
+        },
+        "polish-002": {
+          "value": 0.2650602409638554
+        },
+        "polish-003": {
+          "value": 0.488888888888889
+        },
+        "polish-004": {
+          "value": 0.3368421052631579
+        },
+        "polish-005": {
+          "value": 0.288659793814433
+        },
+        "polish-006": {
+          "value": 0.4150943396226415
+        },
+        "polish-007": {
+          "value": 0.30434782608695654
+        },
+        "polish-008": {
+          "value": 0.2857142857142857
+        },
+        "polish-009": {
+          "value": 0.3027027027027027
+        },
+        "polish-010": {
+          "value": 0.2535211267605634
+        },
+        "polish-011": {
+          "value": 0.21917808219178084
+        },
+        "polish-012": {
+          "value": 0.4470588235294118
+        }
+      }
+    },
+    "rouge_2": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.075
+        },
+        "polish-002": {
+          "value": 0.07317073170731708
+        },
+        "polish-003": {
+          "value": 0.25
+        },
+        "polish-004": {
+          "value": 0.1595744680851064
+        },
+        "polish-005": {
+          "value": 0.14583333333333334
+        },
+        "polish-006": {
+          "value": 0.19607843137254902
+        },
+        "polish-007": {
+          "value": 0.10294117647058822
+        },
+        "polish-008": {
+          "value": 0.06896551724137931
+        },
+        "polish-009": {
+          "value": 0.12021857923497267
+        },
+        "polish-010": {
+          "value": 0.05714285714285715
+        },
+        "polish-011": {
+          "value": 0.04166666666666666
+        },
+        "polish-012": {
+          "value": 0.2168674698795181
+        }
+      }
+    },
+    "rouge_l": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.1951219512195122
+        },
+        "polish-002": {
+          "value": 0.15662650602409636
+        },
+        "polish-003": {
+          "value": 0.4
+        },
+        "polish-004": {
+          "value": 0.17894736842105263
+        },
+        "polish-005": {
+          "value": 0.21649484536082472
+        },
+        "polish-006": {
+          "value": 0.26415094339622647
+        },
+        "polish-007": {
+          "value": 0.2463768115942029
+        },
+        "polish-008": {
+          "value": 0.1496598639455782
+        },
+        "polish-009": {
+          "value": 0.16216216216216217
+        },
+        "polish-010": {
+          "value": 0.16901408450704222
+        },
+        "polish-011": {
+          "value": 0.10958904109589042
+        },
+        "polish-012": {
+          "value": 0.35294117647058826
+        }
+      }
+    },
+    "token_overlap": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.16363636363636364
+        },
+        "polish-002": {
+          "value": 0.17
+        },
+        "polish-003": {
+          "value": 0.3
+        },
+        "polish-004": {
+          "value": 0.29473684210526313
+        },
+        "polish-005": {
+          "value": 0.192
+        },
+        "polish-006": {
+          "value": 0.2682926829268293
+        },
+        "polish-007": {
+          "value": 0.20212765957446807
+        },
+        "polish-008": {
+          "value": 0.17699115044247787
+        },
+        "polish-009": {
+          "value": 0.1774193548387097
+        },
+        "polish-010": {
+          "value": 0.12389380530973451
+        },
+        "polish-011": {
+          "value": 0.14634146341463414
+        },
+        "polish-012": {
+          "value": 0.2982456140350877
+        }
+      }
+    },
+    "token_recall": {
+      "keyed_by": "question-id",
+      "scores": {
+        "polish-001": {
+          "value": 0.24324324324324326
+        },
+        "polish-002": {
+          "value": 0.5151515151515151
+        },
+        "polish-003": {
+          "value": 0.6
+        },
+        "polish-004": {
+          "value": 0.5833333333333334
+        },
+        "polish-005": {
+          "value": 0.631578947368421
+        },
+        "polish-006": {
+          "value": 0.3793103448275862
+        },
+        "polish-007": {
+          "value": 0.4222222222222222
+        },
+        "polish-008": {
+          "value": 0.39215686274509803
+        },
+        "polish-009": {
+          "value": 0.4074074074074074
+        },
+        "polish-010": {
+          "value": 0.2641509433962264
+        },
+        "polish-011": {
+          "value": 0.32432432432432434
+        },
+        "polish-012": {
+          "value": 0.4594594594594595
+        }
+      }
+    }
+  },
+  "question_axes": {
+    "polish-001": {
+      "kind": "quantitative"
+    },
+    "polish-002": {
+      "kind": "definitional"
+    },
+    "polish-003": {
+      "kind": "definitional"
+    },
+    "polish-004": {
+      "kind": "cross-document"
+    },
+    "polish-005": {
+      "kind": "methodological"
+    },
+    "polish-006": {
+      "kind": "quantitative"
+    },
+    "polish-007": {
+      "kind": "comparative"
+    },
+    "polish-008": {
+      "kind": "limitation"
+    },
+    "polish-009": {
+      "kind": "cross-document"
+    },
+    "polish-010": {
+      "kind": "cross-document"
+    },
+    "polish-011": {
+      "kind": "definitional"
+    },
+    "polish-012": {
+      "kind": "definitional"
+    }
+  },
+  "question_contributors": null,
+  "question_seconds": {
+    "keyed_by": "question-id",
+    "seconds": {
+      "polish-001": 2.1358511669095606,
+      "polish-002": 4.006728166947141,
+      "polish-003": 1.7974487498868257,
+      "polish-004": 3.0171294161118567,
+      "polish-005": 3.7929310828913003,
+      "polish-006": 1.2858392919879407,
+      "polish-007": 2.5196987909730524,
+      "polish-008": 2.921670332783833,
+      "polish-009": 2.749225541949272,
+      "polish-010": 2.3284610419068485,
+      "polish-011": 3.2045991658233106,
+      "polish-012": 1.8844948748592287
+    }
+  },
+  "token_usage": {
+    "embed": {
+      "prompt_tokens": 407,
+      "completion_tokens": 0,
+      "calls": 12,
+      "calls_not_reporting": 0
+    },
+    "generate": {
+      "prompt_tokens": 16392,
+      "completion_tokens": 3289,
+      "calls": 12,
+      "calls_not_reporting": 0
+    }
+  },
+  "experiment": {
+    "name": "context-construction-pl-ir",
+    "digest": "c4d32b49c347b2c1203f3e488cd5e3908ddcc9455c2e5ebf92d64ca2f6602421",
+    "invocation": "247ce33f3b4c4da0b0a8f266ab93828f",
+    "arm": "dedupe",
+    "repetition": 2
+  }
+}

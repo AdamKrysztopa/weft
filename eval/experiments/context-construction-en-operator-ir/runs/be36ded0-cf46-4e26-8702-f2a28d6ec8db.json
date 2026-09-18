@@ -1,0 +1,3140 @@
+{
+  "recorded_at": "2026-09-18T17:10:35.997905+00:00",
+  "resolved_pipeline": {
+    "name": "index-openai-large-pdf",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-pdf-text"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.0.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-large",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-openai-large-pdf"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "2.7.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "../../corpus/validation-en",
+    "digest": "fa62239f0e1a53526e3603312898dbc346d1a03e8671733b9e60b98c7d65382a"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-large",
+    "role:generate": "openai:gpt-5.6-luna"
+  },
+  "active_distributions": [
+    "weft-canary",
+    "weft-rag"
+  ],
+  "distribution_versions": {
+    "weft-canary": "0.1.0",
+    "weft-rag": "2.7.0"
+  },
+  "durations": {
+    "ingest_seconds": 0.0,
+    "query_seconds": 174.6501902078744
+  },
+  "corpus_digest_basis": "document-bytes",
+  "query_rung": {
+    "name": "dedupe-threshold-t030-then-generate",
+    "identity": "317ca404a5fd25fc0d11cc0c0c3cde25"
+  },
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.810272536687631,
+        "n": 53,
+        "stdev": 0.3204756603733828,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.810272536687631,
+            "n": 53,
+            "stdev": 0.3204756603733828
+          }
+        },
+        "by_question_kind": {
+          "definitional": {
+            "mean": 0.6904761904761905,
+            "n": 7,
+            "stdev": 0.41307979935470174
+          },
+          "methodological": {
+            "mean": 0.7756410256410257,
+            "n": 13,
+            "stdev": 0.3654408413779288
+          },
+          "quantitative": {
+            "mean": 0.9,
+            "n": 10,
+            "stdev": 0.21081851067789195
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 8,
+            "stdev": 0.0
+          },
+          "limitation": {
+            "mean": 0.8611111111111112,
+            "n": 9,
+            "stdev": 0.2825970826302195
+          },
+          "cross-document": {
+            "mean": 0.5462962962962963,
+            "n": 6,
+            "stdev": 0.38716549347993784
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "mrr@5": {
+      "value": {
+        "reported_name": "mrr@5",
+        "mean": 0.8364779874213837,
+        "n": 53,
+        "stdev": 0.30177637549938674,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.8364779874213837,
+            "n": 53,
+            "stdev": 0.30177637549938674
+          }
+        },
+        "by_question_kind": {
+          "definitional": {
+            "mean": 0.6904761904761905,
+            "n": 7,
+            "stdev": 0.41307979935470174
+          },
+          "methodological": {
+            "mean": 0.7756410256410257,
+            "n": 13,
+            "stdev": 0.3654408413779288
+          },
+          "quantitative": {
+            "mean": 0.9,
+            "n": 10,
+            "stdev": 0.21081851067789195
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 8,
+            "stdev": 0.0
+          },
+          "limitation": {
+            "mean": 0.8611111111111112,
+            "n": 9,
+            "stdev": 0.2825970826302195
+          },
+          "cross-document": {
+            "mean": 0.7777777777777778,
+            "n": 6,
+            "stdev": 0.34426518632954817
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "ndcg@5": {
+      "value": {
+        "reported_name": "ndcg@5",
+        "mean": 0.8449718722439452,
+        "n": 53,
+        "stdev": 0.27461380879127045,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.8449718722439452,
+            "n": 53,
+            "stdev": 0.27461380879127045
+          }
+        },
+        "by_question_kind": {
+          "definitional": {
+            "mean": 0.7329899647959225,
+            "n": 7,
+            "stdev": 0.38452402059798685
+          },
+          "methodological": {
+            "mean": 0.8124312547419115,
+            "n": 13,
+            "stdev": 0.3231325300548737
+          },
+          "quantitative": {
+            "mean": 0.9261859507142916,
+            "n": 10,
+            "stdev": 0.15561367937517578
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 8,
+            "stdev": 0.0
+          },
+          "limitation": {
+            "mean": 0.8957340346272056,
+            "n": 9,
+            "stdev": 0.21286718409312674
+          },
+          "cross-document": {
+            "mean": 0.6279178908208374,
+            "n": 6,
+            "stdev": 0.3271870092129014
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "precision@5": {
+      "value": {
+        "reported_name": "precision@5",
+        "mean": 0.20000000000000004,
+        "n": 53,
+        "stdev": 0.05547001962252292,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.20000000000000004,
+            "n": 53,
+            "stdev": 0.05547001962252292
+          }
+        },
+        "by_question_kind": {
+          "definitional": {
+            "mean": 0.17142857142857146,
+            "n": 7,
+            "stdev": 0.07559289460184546
+          },
+          "methodological": {
+            "mean": 0.18461538461538465,
+            "n": 13,
+            "stdev": 0.05547001962252292
+          },
+          "quantitative": {
+            "mean": 0.2,
+            "n": 10,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 0.2,
+            "n": 8,
+            "stdev": 0.0
+          },
+          "limitation": {
+            "mean": 0.2,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.26666666666666666,
+            "n": 6,
+            "stdev": 0.10327955589886445
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "recall@5": {
+      "value": {
+        "reported_name": "recall@5",
+        "mean": 0.9213836477987422,
+        "n": 53,
+        "stdev": 0.23480254840186535,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9213836477987422,
+            "n": 53,
+            "stdev": 0.23480254840186535
+          }
+        },
+        "by_question_kind": {
+          "definitional": {
+            "mean": 0.8571428571428571,
+            "n": 7,
+            "stdev": 0.37796447300922725
+          },
+          "methodological": {
+            "mean": 0.9230769230769231,
+            "n": 13,
+            "stdev": 0.2773500981126146
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 10,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 8,
+            "stdev": 0.0
+          },
+          "limitation": {
+            "mean": 1.0,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.638888888888889,
+            "n": 6,
+            "stdev": 0.28706690406141805
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "accuracy": {
+      "value": {
+        "reported_name": "accuracy",
+        "mean": 0.0,
+        "n": 53,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 53,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "embedding-similarity": {
+      "reason": "'embedding-similarity' needs a service this run does not provide: no service is registered for Embedder on this run. It is unavailable because nothing resolved one before this stage ran. Services available on this run: Dependencies, LLM, Prompts, Registry, TokenSink."
+    },
+    "exact_match": {
+      "value": {
+        "reported_name": "exact_match",
+        "mean": 0.0,
+        "n": 53,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 53,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "f1_score": {
+      "value": {
+        "reported_name": "f1_score",
+        "mean": 0.3525871162313198,
+        "n": 53,
+        "stdev": 0.10391364738653278,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3525871162313198,
+            "n": 53,
+            "stdev": 0.10391364738653278
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "key_terms_precision": {
+      "value": {
+        "reported_name": "key_terms_precision",
+        "mean": 0.3319387670363163,
+        "n": 53,
+        "stdev": 0.12753018449215325,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3319387670363163,
+            "n": 53,
+            "stdev": 0.12753018449215325
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "overlap-at-threshold": {
+      "reason": "'overlap-at-threshold' needs a configuration this gate-subset run cannot supply with no arguments: 1 validation error for AtThresholdConfig\nthreshold\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing"
+    },
+    "rouge_1": {
+      "value": {
+        "reported_name": "rouge_1",
+        "mean": 0.4524568756393227,
+        "n": 53,
+        "stdev": 0.12023535861260266,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.4524568756393227,
+            "n": 53,
+            "stdev": 0.12023535861260266
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_2": {
+      "value": {
+        "reported_name": "rouge_2",
+        "mean": 0.21300391600185667,
+        "n": 53,
+        "stdev": 0.10478070361837354,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.21300391600185667,
+            "n": 53,
+            "stdev": 0.10478070361837354
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_l": {
+      "value": {
+        "reported_name": "rouge_l",
+        "mean": 0.3334552536808036,
+        "n": 53,
+        "stdev": 0.11712368353334865,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3334552536808036,
+            "n": 53,
+            "stdev": 0.11712368353334865
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_overlap": {
+      "value": {
+        "reported_name": "token_overlap",
+        "mean": 0.3133173953984999,
+        "n": 53,
+        "stdev": 0.10628291675305114,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3133173953984999,
+            "n": 53,
+            "stdev": 0.10628291675305114
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_recall": {
+      "value": {
+        "reported_name": "token_recall",
+        "mean": 0.5296322140478225,
+        "n": 53,
+        "stdev": 0.14330900027630306,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.5296322140478225,
+            "n": 53,
+            "stdev": 0.14330900027630306
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    }
+  },
+  "question_set_digest": "6aaeb720d910089ebc932f94bd04e636511af8e28d691ee7ab75546374bec1f2",
+  "question_set_digest_basis": "question-set",
+  "question_scores": {
+    "mean_average_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.5
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.25
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-013": {
+          "value": 0.5
+        },
+        "operator-014": {
+          "value": 0.3333333333333333
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.5
+        },
+        "operator-017": {
+          "value": 1.0
+        },
+        "operator-018": {
+          "value": 0.5
+        },
+        "operator-019": {
+          "value": 1.0
+        },
+        "operator-020": {
+          "value": 1.0
+        },
+        "operator-021": {
+          "value": 1.0
+        },
+        "operator-022": {
+          "value": 0.5
+        },
+        "operator-023": {
+          "value": 1.0
+        },
+        "operator-024": {
+          "value": 1.0
+        },
+        "operator-025": {
+          "value": 1.0
+        },
+        "operator-026": {
+          "value": 1.0
+        },
+        "operator-027": {
+          "value": 1.0
+        },
+        "operator-028": {
+          "value": 1.0
+        },
+        "operator-029": {
+          "value": 1.0
+        },
+        "operator-030": {
+          "value": 1.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.25
+        },
+        "operator-033": {
+          "value": 1.0
+        },
+        "operator-034": {
+          "value": 1.0
+        },
+        "operator-035": {
+          "value": 1.0
+        },
+        "operator-036": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 0.3333333333333333
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.5
+        },
+        "operator-049": {
+          "value": 0.16666666666666666
+        },
+        "operator-050": {
+          "value": 0.5
+        },
+        "operator-051": {
+          "value": 1.0
+        },
+        "operator-052": {
+          "value": 1.0
+        },
+        "operator-053": {
+          "value": 0.1111111111111111
+        }
+      }
+    },
+    "mrr@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.5
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.25
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-013": {
+          "value": 0.5
+        },
+        "operator-014": {
+          "value": 0.3333333333333333
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.5
+        },
+        "operator-017": {
+          "value": 1.0
+        },
+        "operator-018": {
+          "value": 0.5
+        },
+        "operator-019": {
+          "value": 1.0
+        },
+        "operator-020": {
+          "value": 1.0
+        },
+        "operator-021": {
+          "value": 1.0
+        },
+        "operator-022": {
+          "value": 0.5
+        },
+        "operator-023": {
+          "value": 1.0
+        },
+        "operator-024": {
+          "value": 1.0
+        },
+        "operator-025": {
+          "value": 1.0
+        },
+        "operator-026": {
+          "value": 1.0
+        },
+        "operator-027": {
+          "value": 1.0
+        },
+        "operator-028": {
+          "value": 1.0
+        },
+        "operator-029": {
+          "value": 1.0
+        },
+        "operator-030": {
+          "value": 1.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.25
+        },
+        "operator-033": {
+          "value": 1.0
+        },
+        "operator-034": {
+          "value": 1.0
+        },
+        "operator-035": {
+          "value": 1.0
+        },
+        "operator-036": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 0.3333333333333333
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 1.0
+        },
+        "operator-049": {
+          "value": 0.3333333333333333
+        },
+        "operator-050": {
+          "value": 1.0
+        },
+        "operator-051": {
+          "value": 1.0
+        },
+        "operator-052": {
+          "value": 1.0
+        },
+        "operator-053": {
+          "value": 0.3333333333333333
+        }
+      }
+    },
+    "ndcg@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.6309297535714575
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.43067655807339306
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-013": {
+          "value": 0.6309297535714575
+        },
+        "operator-014": {
+          "value": 0.5
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.6309297535714575
+        },
+        "operator-017": {
+          "value": 1.0
+        },
+        "operator-018": {
+          "value": 0.6309297535714575
+        },
+        "operator-019": {
+          "value": 1.0
+        },
+        "operator-020": {
+          "value": 1.0
+        },
+        "operator-021": {
+          "value": 1.0
+        },
+        "operator-022": {
+          "value": 0.6309297535714575
+        },
+        "operator-023": {
+          "value": 1.0
+        },
+        "operator-024": {
+          "value": 1.0
+        },
+        "operator-025": {
+          "value": 1.0
+        },
+        "operator-026": {
+          "value": 1.0
+        },
+        "operator-027": {
+          "value": 1.0
+        },
+        "operator-028": {
+          "value": 1.0
+        },
+        "operator-029": {
+          "value": 1.0
+        },
+        "operator-030": {
+          "value": 1.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.43067655807339306
+        },
+        "operator-033": {
+          "value": 1.0
+        },
+        "operator-034": {
+          "value": 1.0
+        },
+        "operator-035": {
+          "value": 1.0
+        },
+        "operator-036": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 0.5
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.6131471927654584
+        },
+        "operator-049": {
+          "value": 0.3065735963827292
+        },
+        "operator-050": {
+          "value": 0.6131471927654584
+        },
+        "operator-051": {
+          "value": 1.0
+        },
+        "operator-052": {
+          "value": 1.0
+        },
+        "operator-053": {
+          "value": 0.23463936301137822
+        }
+      }
+    },
+    "precision@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.2
+        },
+        "operator-002": {
+          "value": 0.2
+        },
+        "operator-003": {
+          "value": 0.2
+        },
+        "operator-004": {
+          "value": 0.2
+        },
+        "operator-005": {
+          "value": 0.2
+        },
+        "operator-006": {
+          "value": 0.2
+        },
+        "operator-007": {
+          "value": 0.2
+        },
+        "operator-008": {
+          "value": 0.2
+        },
+        "operator-009": {
+          "value": 0.2
+        },
+        "operator-010": {
+          "value": 0.2
+        },
+        "operator-011": {
+          "value": 0.2
+        },
+        "operator-012": {
+          "value": 0.2
+        },
+        "operator-013": {
+          "value": 0.2
+        },
+        "operator-014": {
+          "value": 0.2
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.2
+        },
+        "operator-017": {
+          "value": 0.2
+        },
+        "operator-018": {
+          "value": 0.2
+        },
+        "operator-019": {
+          "value": 0.2
+        },
+        "operator-020": {
+          "value": 0.2
+        },
+        "operator-021": {
+          "value": 0.2
+        },
+        "operator-022": {
+          "value": 0.2
+        },
+        "operator-023": {
+          "value": 0.2
+        },
+        "operator-024": {
+          "value": 0.2
+        },
+        "operator-025": {
+          "value": 0.2
+        },
+        "operator-026": {
+          "value": 0.2
+        },
+        "operator-027": {
+          "value": 0.2
+        },
+        "operator-028": {
+          "value": 0.2
+        },
+        "operator-029": {
+          "value": 0.2
+        },
+        "operator-030": {
+          "value": 0.2
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.2
+        },
+        "operator-033": {
+          "value": 0.2
+        },
+        "operator-034": {
+          "value": 0.2
+        },
+        "operator-035": {
+          "value": 0.2
+        },
+        "operator-036": {
+          "value": 0.2
+        },
+        "operator-037": {
+          "value": 0.2
+        },
+        "operator-038": {
+          "value": 0.2
+        },
+        "operator-039": {
+          "value": 0.2
+        },
+        "operator-040": {
+          "value": 0.2
+        },
+        "operator-041": {
+          "value": 0.2
+        },
+        "operator-042": {
+          "value": 0.2
+        },
+        "operator-043": {
+          "value": 0.2
+        },
+        "operator-044": {
+          "value": 0.2
+        },
+        "operator-045": {
+          "value": 0.2
+        },
+        "operator-046": {
+          "value": 0.2
+        },
+        "operator-047": {
+          "value": 0.2
+        },
+        "operator-048": {
+          "value": 0.2
+        },
+        "operator-049": {
+          "value": 0.2
+        },
+        "operator-050": {
+          "value": 0.2
+        },
+        "operator-051": {
+          "value": 0.4
+        },
+        "operator-052": {
+          "value": 0.4
+        },
+        "operator-053": {
+          "value": 0.2
+        }
+      }
+    },
+    "recall@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 1.0
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 1.0
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-013": {
+          "value": 1.0
+        },
+        "operator-014": {
+          "value": 1.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 1.0
+        },
+        "operator-017": {
+          "value": 1.0
+        },
+        "operator-018": {
+          "value": 1.0
+        },
+        "operator-019": {
+          "value": 1.0
+        },
+        "operator-020": {
+          "value": 1.0
+        },
+        "operator-021": {
+          "value": 1.0
+        },
+        "operator-022": {
+          "value": 1.0
+        },
+        "operator-023": {
+          "value": 1.0
+        },
+        "operator-024": {
+          "value": 1.0
+        },
+        "operator-025": {
+          "value": 1.0
+        },
+        "operator-026": {
+          "value": 1.0
+        },
+        "operator-027": {
+          "value": 1.0
+        },
+        "operator-028": {
+          "value": 1.0
+        },
+        "operator-029": {
+          "value": 1.0
+        },
+        "operator-030": {
+          "value": 1.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 1.0
+        },
+        "operator-033": {
+          "value": 1.0
+        },
+        "operator-034": {
+          "value": 1.0
+        },
+        "operator-035": {
+          "value": 1.0
+        },
+        "operator-036": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.5
+        },
+        "operator-049": {
+          "value": 0.5
+        },
+        "operator-050": {
+          "value": 0.5
+        },
+        "operator-051": {
+          "value": 1.0
+        },
+        "operator-052": {
+          "value": 1.0
+        },
+        "operator-053": {
+          "value": 0.3333333333333333
+        }
+      }
+    },
+    "accuracy": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "embedding-similarity": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "exact_match": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "f1_score": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.3287671232876712
+        },
+        "operator-002": {
+          "value": 0.267515923566879
+        },
+        "operator-003": {
+          "value": 0.6444444444444444
+        },
+        "operator-004": {
+          "value": 0.2857142857142857
+        },
+        "operator-005": {
+          "value": 0.3404255319148936
+        },
+        "operator-006": {
+          "value": 0.23391812865497075
+        },
+        "operator-007": {
+          "value": 0.30303030303030304
+        },
+        "operator-008": {
+          "value": 0.3398692810457517
+        },
+        "operator-009": {
+          "value": 0.49599999999999994
+        },
+        "operator-010": {
+          "value": 0.38095238095238093
+        },
+        "operator-011": {
+          "value": 0.21818181818181817
+        },
+        "operator-012": {
+          "value": 0.4112149532710281
+        },
+        "operator-013": {
+          "value": 0.39370078740157477
+        },
+        "operator-014": {
+          "value": 0.3333333333333333
+        },
+        "operator-015": {
+          "value": 0.18032786885245905
+        },
+        "operator-016": {
+          "value": 0.3043478260869565
+        },
+        "operator-017": {
+          "value": 0.5526315789473685
+        },
+        "operator-018": {
+          "value": 0.34545454545454546
+        },
+        "operator-019": {
+          "value": 0.2
+        },
+        "operator-020": {
+          "value": 0.43434343434343436
+        },
+        "operator-021": {
+          "value": 0.3311258278145695
+        },
+        "operator-022": {
+          "value": 0.41758241758241754
+        },
+        "operator-023": {
+          "value": 0.45517241379310347
+        },
+        "operator-024": {
+          "value": 0.2772277227722772
+        },
+        "operator-025": {
+          "value": 0.20408163265306123
+        },
+        "operator-026": {
+          "value": 0.32044198895027626
+        },
+        "operator-027": {
+          "value": 0.3766233766233766
+        },
+        "operator-028": {
+          "value": 0.30136986301369867
+        },
+        "operator-029": {
+          "value": 0.4507042253521127
+        },
+        "operator-030": {
+          "value": 0.46875000000000006
+        },
+        "operator-031": {
+          "value": 0.22988505747126436
+        },
+        "operator-032": {
+          "value": 0.24242424242424243
+        },
+        "operator-033": {
+          "value": 0.43373493975903615
+        },
+        "operator-034": {
+          "value": 0.6050420168067228
+        },
+        "operator-035": {
+          "value": 0.45569620253164556
+        },
+        "operator-036": {
+          "value": 0.37168141592920345
+        },
+        "operator-037": {
+          "value": 0.26771653543307083
+        },
+        "operator-038": {
+          "value": 0.3157894736842105
+        },
+        "operator-039": {
+          "value": 0.5000000000000001
+        },
+        "operator-040": {
+          "value": 0.34545454545454546
+        },
+        "operator-041": {
+          "value": 0.1904761904761905
+        },
+        "operator-042": {
+          "value": 0.2967741935483871
+        },
+        "operator-043": {
+          "value": 0.4631578947368421
+        },
+        "operator-044": {
+          "value": 0.26666666666666666
+        },
+        "operator-045": {
+          "value": 0.4186046511627908
+        },
+        "operator-046": {
+          "value": 0.36
+        },
+        "operator-047": {
+          "value": 0.453125
+        },
+        "operator-048": {
+          "value": 0.26865671641791045
+        },
+        "operator-049": {
+          "value": 0.2209302325581395
+        },
+        "operator-050": {
+          "value": 0.35200000000000004
+        },
+        "operator-051": {
+          "value": 0.3546099290780142
+        },
+        "operator-052": {
+          "value": 0.3013698630136986
+        },
+        "operator-053": {
+          "value": 0.376068376068376
+        }
+      }
+    },
+    "key_terms_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.18181818181818182
+        },
+        "operator-002": {
+          "value": 0.1267605633802817
+        },
+        "operator-003": {
+          "value": 0.5238095238095238
+        },
+        "operator-004": {
+          "value": 0.46875
+        },
+        "operator-005": {
+          "value": 0.43243243243243246
+        },
+        "operator-006": {
+          "value": 0.09782608695652174
+        },
+        "operator-007": {
+          "value": 0.375
+        },
+        "operator-008": {
+          "value": 0.36065573770491804
+        },
+        "operator-009": {
+          "value": 0.43103448275862066
+        },
+        "operator-010": {
+          "value": 0.35294117647058826
+        },
+        "operator-011": {
+          "value": 0.3191489361702128
+        },
+        "operator-012": {
+          "value": 0.4
+        },
+        "operator-013": {
+          "value": 0.28378378378378377
+        },
+        "operator-014": {
+          "value": 0.21621621621621623
+        },
+        "operator-015": {
+          "value": 0.125
+        },
+        "operator-016": {
+          "value": 0.2682926829268293
+        },
+        "operator-017": {
+          "value": 0.4857142857142857
+        },
+        "operator-018": {
+          "value": 0.3488372093023256
+        },
+        "operator-019": {
+          "value": 0.2
+        },
+        "operator-020": {
+          "value": 0.3488372093023256
+        },
+        "operator-021": {
+          "value": 0.2727272727272727
+        },
+        "operator-022": {
+          "value": 0.42857142857142855
+        },
+        "operator-023": {
+          "value": 0.45
+        },
+        "operator-024": {
+          "value": 0.2647058823529412
+        },
+        "operator-025": {
+          "value": 0.46153846153846156
+        },
+        "operator-026": {
+          "value": 0.2727272727272727
+        },
+        "operator-027": {
+          "value": 0.39622641509433965
+        },
+        "operator-028": {
+          "value": 0.4090909090909091
+        },
+        "operator-029": {
+          "value": 0.41379310344827586
+        },
+        "operator-030": {
+          "value": 0.36
+        },
+        "operator-031": {
+          "value": 0.2647058823529412
+        },
+        "operator-032": {
+          "value": 0.08139534883720931
+        },
+        "operator-033": {
+          "value": 0.5862068965517241
+        },
+        "operator-034": {
+          "value": 0.35294117647058826
+        },
+        "operator-035": {
+          "value": 0.31343283582089554
+        },
+        "operator-036": {
+          "value": 0.5833333333333334
+        },
+        "operator-037": {
+          "value": 0.2777777777777778
+        },
+        "operator-038": {
+          "value": 0.37142857142857144
+        },
+        "operator-039": {
+          "value": 0.5588235294117647
+        },
+        "operator-040": {
+          "value": 0.2826086956521739
+        },
+        "operator-041": {
+          "value": 0.12195121951219512
+        },
+        "operator-042": {
+          "value": 0.1724137931034483
+        },
+        "operator-043": {
+          "value": 0.38461538461538464
+        },
+        "operator-044": {
+          "value": 0.20512820512820512
+        },
+        "operator-045": {
+          "value": 0.5
+        },
+        "operator-046": {
+          "value": 0.42105263157894735
+        },
+        "operator-047": {
+          "value": 0.47368421052631576
+        },
+        "operator-048": {
+          "value": 0.20754716981132076
+        },
+        "operator-049": {
+          "value": 0.19230769230769232
+        },
+        "operator-050": {
+          "value": 0.2641509433962264
+        },
+        "operator-051": {
+          "value": 0.43636363636363634
+        },
+        "operator-052": {
+          "value": 0.24242424242424243
+        },
+        "operator-053": {
+          "value": 0.2222222222222222
+        }
+      }
+    },
+    "overlap-at-threshold": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "rouge_1": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.3439490445859873
+        },
+        "operator-002": {
+          "value": 0.29411764705882354
+        },
+        "operator-003": {
+          "value": 0.7446808510638298
+        },
+        "operator-004": {
+          "value": 0.5348837209302325
+        },
+        "operator-005": {
+          "value": 0.5471698113207546
+        },
+        "operator-006": {
+          "value": 0.23728813559322035
+        },
+        "operator-007": {
+          "value": 0.45714285714285713
+        },
+        "operator-008": {
+          "value": 0.5093167701863354
+        },
+        "operator-009": {
+          "value": 0.5797101449275363
+        },
+        "operator-010": {
+          "value": 0.48648648648648646
+        },
+        "operator-011": {
+          "value": 0.5535714285714286
+        },
+        "operator-012": {
+          "value": 0.5225225225225226
+        },
+        "operator-013": {
+          "value": 0.41463414634146345
+        },
+        "operator-014": {
+          "value": 0.37681159420289856
+        },
+        "operator-015": {
+          "value": 0.23076923076923075
+        },
+        "operator-016": {
+          "value": 0.33663366336633666
+        },
+        "operator-017": {
+          "value": 0.6753246753246753
+        },
+        "operator-018": {
+          "value": 0.49557522123893805
+        },
+        "operator-019": {
+          "value": 0.2985074626865672
+        },
+        "operator-020": {
+          "value": 0.5048543689320388
+        },
+        "operator-021": {
+          "value": 0.37735849056603776
+        },
+        "operator-022": {
+          "value": 0.5102040816326531
+        },
+        "operator-023": {
+          "value": 0.6000000000000001
+        },
+        "operator-024": {
+          "value": 0.35514018691588783
+        },
+        "operator-025": {
+          "value": 0.36363636363636365
+        },
+        "operator-026": {
+          "value": 0.42639593908629436
+        },
+        "operator-027": {
+          "value": 0.45454545454545453
+        },
+        "operator-028": {
+          "value": 0.4102564102564103
+        },
+        "operator-029": {
+          "value": 0.48
+        },
+        "operator-030": {
+          "value": 0.53125
+        },
+        "operator-031": {
+          "value": 0.3333333333333333
+        },
+        "operator-032": {
+          "value": 0.2801932367149758
+        },
+        "operator-033": {
+          "value": 0.5833333333333334
+        },
+        "operator-034": {
+          "value": 0.6016260162601627
+        },
+        "operator-035": {
+          "value": 0.49367088607594944
+        },
+        "operator-036": {
+          "value": 0.5789473684210527
+        },
+        "operator-037": {
+          "value": 0.4427480916030534
+        },
+        "operator-038": {
+          "value": 0.5813953488372092
+        },
+        "operator-039": {
+          "value": 0.6944444444444444
+        },
+        "operator-040": {
+          "value": 0.4285714285714286
+        },
+        "operator-041": {
+          "value": 0.24892703862660942
+        },
+        "operator-042": {
+          "value": 0.2857142857142857
+        },
+        "operator-043": {
+          "value": 0.5252525252525252
+        },
+        "operator-044": {
+          "value": 0.3614457831325301
+        },
+        "operator-045": {
+          "value": 0.4597701149425287
+        },
+        "operator-046": {
+          "value": 0.43564356435643564
+        },
+        "operator-047": {
+          "value": 0.562962962962963
+        },
+        "operator-048": {
+          "value": 0.35036496350364965
+        },
+        "operator-049": {
+          "value": 0.2780748663101604
+        },
+        "operator-050": {
+          "value": 0.3880597014925374
+        },
+        "operator-051": {
+          "value": 0.5454545454545454
+        },
+        "operator-052": {
+          "value": 0.4342105263157895
+        },
+        "operator-053": {
+          "value": 0.43333333333333335
+        }
+      }
+    },
+    "rouge_2": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.06451612903225806
+        },
+        "operator-002": {
+          "value": 0.13095238095238096
+        },
+        "operator-003": {
+          "value": 0.5
+        },
+        "operator-004": {
+          "value": 0.1904761904761905
+        },
+        "operator-005": {
+          "value": 0.2692307692307692
+        },
+        "operator-006": {
+          "value": 0.06857142857142857
+        },
+        "operator-007": {
+          "value": 0.23529411764705882
+        },
+        "operator-008": {
+          "value": 0.26415094339622636
+        },
+        "operator-009": {
+          "value": 0.39705882352941174
+        },
+        "operator-010": {
+          "value": 0.24999999999999994
+        },
+        "operator-011": {
+          "value": 0.30909090909090914
+        },
+        "operator-012": {
+          "value": 0.22018348623853212
+        },
+        "operator-013": {
+          "value": 0.2962962962962963
+        },
+        "operator-014": {
+          "value": 0.1764705882352941
+        },
+        "operator-015": {
+          "value": 0.04687499999999999
+        },
+        "operator-016": {
+          "value": 0.10101010101010102
+        },
+        "operator-017": {
+          "value": 0.3466666666666667
+        },
+        "operator-018": {
+          "value": 0.28828828828828823
+        },
+        "operator-019": {
+          "value": 0.13636363636363635
+        },
+        "operator-020": {
+          "value": 0.25490196078431376
+        },
+        "operator-021": {
+          "value": 0.1019108280254777
+        },
+        "operator-022": {
+          "value": 0.16666666666666669
+        },
+        "operator-023": {
+          "value": 0.27848101265822783
+        },
+        "operator-024": {
+          "value": 0.1142857142857143
+        },
+        "operator-025": {
+          "value": 0.22641509433962265
+        },
+        "operator-026": {
+          "value": 0.10256410256410256
+        },
+        "operator-027": {
+          "value": 0.15789473684210525
+        },
+        "operator-028": {
+          "value": 0.2105263157894737
+        },
+        "operator-029": {
+          "value": 0.2191780821917808
+        },
+        "operator-030": {
+          "value": 0.16129032258064516
+        },
+        "operator-031": {
+          "value": 0.06818181818181818
+        },
+        "operator-032": {
+          "value": 0.06829268292682926
+        },
+        "operator-033": {
+          "value": 0.36170212765957444
+        },
+        "operator-034": {
+          "value": 0.347107438016529
+        },
+        "operator-035": {
+          "value": 0.2948717948717949
+        },
+        "operator-036": {
+          "value": 0.3392857142857143
+        },
+        "operator-037": {
+          "value": 0.23255813953488372
+        },
+        "operator-038": {
+          "value": 0.380952380952381
+        },
+        "operator-039": {
+          "value": 0.42857142857142855
+        },
+        "operator-040": {
+          "value": 0.1935483870967742
+        },
+        "operator-041": {
+          "value": 0.07792207792207792
+        },
+        "operator-042": {
+          "value": 0.15555555555555556
+        },
+        "operator-043": {
+          "value": 0.24742268041237112
+        },
+        "operator-044": {
+          "value": 0.14814814814814814
+        },
+        "operator-045": {
+          "value": 0.23529411764705885
+        },
+        "operator-046": {
+          "value": 0.22222222222222224
+        },
+        "operator-047": {
+          "value": 0.24060150375939848
+        },
+        "operator-048": {
+          "value": 0.07407407407407407
+        },
+        "operator-049": {
+          "value": 0.06486486486486487
+        },
+        "operator-050": {
+          "value": 0.21212121212121213
+        },
+        "operator-051": {
+          "value": 0.2836879432624113
+        },
+        "operator-052": {
+          "value": 0.13333333333333333
+        },
+        "operator-053": {
+          "value": 0.19327731092436976
+        }
+      }
+    },
+    "rouge_l": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.2038216560509554
+        },
+        "operator-002": {
+          "value": 0.24705882352941172
+        },
+        "operator-003": {
+          "value": 0.6382978723404256
+        },
+        "operator-004": {
+          "value": 0.4186046511627907
+        },
+        "operator-005": {
+          "value": 0.4716981132075472
+        },
+        "operator-006": {
+          "value": 0.16949152542372883
+        },
+        "operator-007": {
+          "value": 0.4
+        },
+        "operator-008": {
+          "value": 0.45962732919254656
+        },
+        "operator-009": {
+          "value": 0.5217391304347826
+        },
+        "operator-010": {
+          "value": 0.32432432432432434
+        },
+        "operator-011": {
+          "value": 0.375
+        },
+        "operator-012": {
+          "value": 0.3963963963963964
+        },
+        "operator-013": {
+          "value": 0.35365853658536583
+        },
+        "operator-014": {
+          "value": 0.2608695652173913
+        },
+        "operator-015": {
+          "value": 0.13846153846153847
+        },
+        "operator-016": {
+          "value": 0.198019801980198
+        },
+        "operator-017": {
+          "value": 0.38961038961038963
+        },
+        "operator-018": {
+          "value": 0.4424778761061947
+        },
+        "operator-019": {
+          "value": 0.22388059701492538
+        },
+        "operator-020": {
+          "value": 0.37864077669902907
+        },
+        "operator-021": {
+          "value": 0.25157232704402516
+        },
+        "operator-022": {
+          "value": 0.4081632653061224
+        },
+        "operator-023": {
+          "value": 0.42500000000000004
+        },
+        "operator-024": {
+          "value": 0.205607476635514
+        },
+        "operator-025": {
+          "value": 0.36363636363636365
+        },
+        "operator-026": {
+          "value": 0.23350253807106597
+        },
+        "operator-027": {
+          "value": 0.33766233766233766
+        },
+        "operator-028": {
+          "value": 0.2820512820512821
+        },
+        "operator-029": {
+          "value": 0.3733333333333333
+        },
+        "operator-030": {
+          "value": 0.34375000000000006
+        },
+        "operator-031": {
+          "value": 0.2222222222222222
+        },
+        "operator-032": {
+          "value": 0.1642512077294686
+        },
+        "operator-033": {
+          "value": 0.5208333333333334
+        },
+        "operator-034": {
+          "value": 0.4878048780487804
+        },
+        "operator-035": {
+          "value": 0.40506329113924044
+        },
+        "operator-036": {
+          "value": 0.3157894736842105
+        },
+        "operator-037": {
+          "value": 0.33587786259541985
+        },
+        "operator-038": {
+          "value": 0.5581395348837208
+        },
+        "operator-039": {
+          "value": 0.5
+        },
+        "operator-040": {
+          "value": 0.30158730158730157
+        },
+        "operator-041": {
+          "value": 0.16309012875536483
+        },
+        "operator-042": {
+          "value": 0.19780219780219782
+        },
+        "operator-043": {
+          "value": 0.30303030303030304
+        },
+        "operator-044": {
+          "value": 0.26506024096385544
+        },
+        "operator-045": {
+          "value": 0.39080459770114945
+        },
+        "operator-046": {
+          "value": 0.37623762376237624
+        },
+        "operator-047": {
+          "value": 0.4740740740740741
+        },
+        "operator-048": {
+          "value": 0.16058394160583941
+        },
+        "operator-049": {
+          "value": 0.14973262032085563
+        },
+        "operator-050": {
+          "value": 0.29850746268656714
+        },
+        "operator-051": {
+          "value": 0.32167832167832167
+        },
+        "operator-052": {
+          "value": 0.25
+        },
+        "operator-053": {
+          "value": 0.275
+        }
+      }
+    },
+    "token_overlap": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.21
+        },
+        "operator-002": {
+          "value": 0.15306122448979592
+        },
+        "operator-003": {
+          "value": 0.5686274509803921
+        },
+        "operator-004": {
+          "value": 0.40425531914893614
+        },
+        "operator-005": {
+          "value": 0.31746031746031744
+        },
+        "operator-006": {
+          "value": 0.13559322033898305
+        },
+        "operator-007": {
+          "value": 0.2765957446808511
+        },
+        "operator-008": {
+          "value": 0.38571428571428573
+        },
+        "operator-009": {
+          "value": 0.4155844155844156
+        },
+        "operator-010": {
+          "value": 0.38095238095238093
+        },
+        "operator-011": {
+          "value": 0.3275862068965517
+        },
+        "operator-012": {
+          "value": 0.35294117647058826
+        },
+        "operator-013": {
+          "value": 0.34523809523809523
+        },
+        "operator-014": {
+          "value": 0.2619047619047619
+        },
+        "operator-015": {
+          "value": 0.14432989690721648
+        },
+        "operator-016": {
+          "value": 0.22857142857142856
+        },
+        "operator-017": {
+          "value": 0.5454545454545454
+        },
+        "operator-018": {
+          "value": 0.3181818181818182
+        },
+        "operator-019": {
+          "value": 0.21666666666666667
+        },
+        "operator-020": {
+          "value": 0.3333333333333333
+        },
+        "operator-021": {
+          "value": 0.2727272727272727
+        },
+        "operator-022": {
+          "value": 0.3157894736842105
+        },
+        "operator-023": {
+          "value": 0.4358974358974359
+        },
+        "operator-024": {
+          "value": 0.2028985507246377
+        },
+        "operator-025": {
+          "value": 0.24324324324324326
+        },
+        "operator-026": {
+          "value": 0.2727272727272727
+        },
+        "operator-027": {
+          "value": 0.3170731707317073
+        },
+        "operator-028": {
+          "value": 0.28888888888888886
+        },
+        "operator-029": {
+          "value": 0.3488372093023256
+        },
+        "operator-030": {
+          "value": 0.35714285714285715
+        },
+        "operator-031": {
+          "value": 0.2222222222222222
+        },
+        "operator-032": {
+          "value": 0.14035087719298245
+        },
+        "operator-033": {
+          "value": 0.4444444444444444
+        },
+        "operator-034": {
+          "value": 0.4375
+        },
+        "operator-035": {
+          "value": 0.38271604938271603
+        },
+        "operator-036": {
+          "value": 0.4576271186440678
+        },
+        "operator-037": {
+          "value": 0.323943661971831
+        },
+        "operator-038": {
+          "value": 0.3953488372093023
+        },
+        "operator-039": {
+          "value": 0.5454545454545454
+        },
+        "operator-040": {
+          "value": 0.25
+        },
+        "operator-041": {
+          "value": 0.16058394160583941
+        },
+        "operator-042": {
+          "value": 0.22826086956521738
+        },
+        "operator-043": {
+          "value": 0.3684210526315789
+        },
+        "operator-044": {
+          "value": 0.21739130434782608
+        },
+        "operator-045": {
+          "value": 0.3469387755102041
+        },
+        "operator-046": {
+          "value": 0.3230769230769231
+        },
+        "operator-047": {
+          "value": 0.4383561643835616
+        },
+        "operator-048": {
+          "value": 0.20224719101123595
+        },
+        "operator-049": {
+          "value": 0.17355371900826447
+        },
+        "operator-050": {
+          "value": 0.21739130434782608
+        },
+        "operator-051": {
+          "value": 0.42424242424242425
+        },
+        "operator-052": {
+          "value": 0.2891566265060241
+        },
+        "operator-053": {
+          "value": 0.23931623931623933
+        }
+      }
+    },
+    "token_recall": {
+      "keyed_by": "question-id",
+      "scores": {
+        "operator-001": {
+          "value": 0.4772727272727273
+        },
+        "operator-002": {
+          "value": 0.35714285714285715
+        },
+        "operator-003": {
+          "value": 0.7631578947368421
+        },
+        "operator-004": {
+          "value": 0.5588235294117647
+        },
+        "operator-005": {
+          "value": 0.43478260869565216
+        },
+        "operator-006": {
+          "value": 0.38095238095238093
+        },
+        "operator-007": {
+          "value": 0.3611111111111111
+        },
+        "operator-008": {
+          "value": 0.75
+        },
+        "operator-009": {
+          "value": 0.6274509803921569
+        },
+        "operator-010": {
+          "value": 0.6666666666666666
+        },
+        "operator-011": {
+          "value": 0.6333333333333333
+        },
+        "operator-012": {
+          "value": 0.5106382978723404
+        },
+        "operator-013": {
+          "value": 0.7435897435897436
+        },
+        "operator-014": {
+          "value": 0.6875
+        },
+        "operator-015": {
+          "value": 0.358974358974359
+        },
+        "operator-016": {
+          "value": 0.35555555555555557
+        },
+        "operator-017": {
+          "value": 0.7272727272727273
+        },
+        "operator-018": {
+          "value": 0.4772727272727273
+        },
+        "operator-019": {
+          "value": 0.5652173913043478
+        },
+        "operator-020": {
+          "value": 0.6206896551724138
+        },
+        "operator-021": {
+          "value": 0.5510204081632653
+        },
+        "operator-022": {
+          "value": 0.3829787234042553
+        },
+        "operator-023": {
+          "value": 0.6538461538461539
+        },
+        "operator-024": {
+          "value": 0.2857142857142857
+        },
+        "operator-025": {
+          "value": 0.2727272727272727
+        },
+        "operator-026": {
+          "value": 0.5769230769230769
+        },
+        "operator-027": {
+          "value": 0.4727272727272727
+        },
+        "operator-028": {
+          "value": 0.3611111111111111
+        },
+        "operator-029": {
+          "value": 0.5172413793103449
+        },
+        "operator-030": {
+          "value": 0.46875
+        },
+        "operator-031": {
+          "value": 0.375
+        },
+        "operator-032": {
+          "value": 0.36363636363636365
+        },
+        "operator-033": {
+          "value": 0.5555555555555556
+        },
+        "operator-034": {
+          "value": 0.6829268292682927
+        },
+        "operator-035": {
+          "value": 0.6888888888888889
+        },
+        "operator-036": {
+          "value": 0.54
+        },
+        "operator-037": {
+          "value": 0.575
+        },
+        "operator-038": {
+          "value": 0.68
+        },
+        "operator-039": {
+          "value": 0.7058823529411765
+        },
+        "operator-040": {
+          "value": 0.4358974358974359
+        },
+        "operator-041": {
+          "value": 0.6111111111111112
+        },
+        "operator-042": {
+          "value": 0.8076923076923077
+        },
+        "operator-043": {
+          "value": 0.5384615384615384
+        },
+        "operator-044": {
+          "value": 0.5882352941176471
+        },
+        "operator-045": {
+          "value": 0.40476190476190477
+        },
+        "operator-046": {
+          "value": 0.4375
+        },
+        "operator-047": {
+          "value": 0.6666666666666666
+        },
+        "operator-048": {
+          "value": 0.3333333333333333
+        },
+        "operator-049": {
+          "value": 0.328125
+        },
+        "operator-050": {
+          "value": 0.3389830508474576
+        },
+        "operator-051": {
+          "value": 0.717948717948718
+        },
+        "operator-052": {
+          "value": 0.5853658536585366
+        },
+        "operator-053": {
+          "value": 0.509090909090909
+        }
+      }
+    }
+  },
+  "question_axes": {
+    "operator-001": {
+      "kind": "definitional"
+    },
+    "operator-002": {
+      "kind": "methodological"
+    },
+    "operator-003": {
+      "kind": "methodological"
+    },
+    "operator-004": {
+      "kind": "quantitative"
+    },
+    "operator-005": {
+      "kind": "comparative"
+    },
+    "operator-006": {
+      "kind": "limitation"
+    },
+    "operator-007": {
+      "kind": "definitional"
+    },
+    "operator-008": {
+      "kind": "methodological"
+    },
+    "operator-009": {
+      "kind": "methodological"
+    },
+    "operator-010": {
+      "kind": "quantitative"
+    },
+    "operator-011": {
+      "kind": "comparative"
+    },
+    "operator-012": {
+      "kind": "limitation"
+    },
+    "operator-013": {
+      "kind": "definitional"
+    },
+    "operator-014": {
+      "kind": "methodological"
+    },
+    "operator-015": {
+      "kind": "methodological"
+    },
+    "operator-016": {
+      "kind": "quantitative"
+    },
+    "operator-017": {
+      "kind": "comparative"
+    },
+    "operator-018": {
+      "kind": "limitation"
+    },
+    "operator-019": {
+      "kind": "definitional"
+    },
+    "operator-020": {
+      "kind": "methodological"
+    },
+    "operator-021": {
+      "kind": "methodological"
+    },
+    "operator-022": {
+      "kind": "quantitative"
+    },
+    "operator-023": {
+      "kind": "comparative"
+    },
+    "operator-024": {
+      "kind": "limitation"
+    },
+    "operator-025": {
+      "kind": "quantitative"
+    },
+    "operator-026": {
+      "kind": "methodological"
+    },
+    "operator-027": {
+      "kind": "methodological"
+    },
+    "operator-028": {
+      "kind": "comparative"
+    },
+    "operator-029": {
+      "kind": "limitation"
+    },
+    "operator-030": {
+      "kind": "limitation"
+    },
+    "operator-031": {
+      "kind": "definitional"
+    },
+    "operator-032": {
+      "kind": "methodological"
+    },
+    "operator-033": {
+      "kind": "quantitative"
+    },
+    "operator-034": {
+      "kind": "quantitative"
+    },
+    "operator-035": {
+      "kind": "limitation"
+    },
+    "operator-036": {
+      "kind": "comparative"
+    },
+    "operator-037": {
+      "kind": "methodological"
+    },
+    "operator-038": {
+      "kind": "definitional"
+    },
+    "operator-039": {
+      "kind": "quantitative"
+    },
+    "operator-040": {
+      "kind": "comparative"
+    },
+    "operator-041": {
+      "kind": "limitation"
+    },
+    "operator-042": {
+      "kind": "definitional"
+    },
+    "operator-043": {
+      "kind": "methodological"
+    },
+    "operator-044": {
+      "kind": "quantitative"
+    },
+    "operator-045": {
+      "kind": "quantitative"
+    },
+    "operator-046": {
+      "kind": "comparative"
+    },
+    "operator-047": {
+      "kind": "limitation"
+    },
+    "operator-048": {
+      "kind": "cross-document"
+    },
+    "operator-049": {
+      "kind": "cross-document"
+    },
+    "operator-050": {
+      "kind": "cross-document"
+    },
+    "operator-051": {
+      "kind": "cross-document"
+    },
+    "operator-052": {
+      "kind": "cross-document"
+    },
+    "operator-053": {
+      "kind": "cross-document"
+    }
+  },
+  "question_contributors": null,
+  "question_seconds": {
+    "keyed_by": "question-id",
+    "seconds": {
+      "operator-001": 2.4210070830304176,
+      "operator-002": 2.9834626659285277,
+      "operator-003": 2.8094600001350045,
+      "operator-004": 2.7855362920090556,
+      "operator-005": 2.4418844159226865,
+      "operator-006": 4.697359750047326,
+      "operator-007": 1.1770942921284586,
+      "operator-008": 2.606489166850224,
+      "operator-009": 2.2199059159029275,
+      "operator-010": 1.6700834159273654,
+      "operator-011": 2.100373040884733,
+      "operator-012": 2.377081874990836,
+      "operator-013": 2.711705083027482,
+      "operator-014": 1.9570009580347687,
+      "operator-015": 4.6782703751232475,
+      "operator-016": 3.9698840000201017,
+      "operator-017": 1.6671019589994103,
+      "operator-018": 2.2465187089983374,
+      "operator-019": 2.2361374169122428,
+      "operator-020": 3.209286709083244,
+      "operator-021": 2.3928147500846535,
+      "operator-022": 2.124417291022837,
+      "operator-023": 2.6262358750682324,
+      "operator-024": 1.2478087081108242,
+      "operator-025": 1.1789010840002447,
+      "operator-026": 6.491528040962294,
+      "operator-027": 2.44217220810242,
+      "operator-028": 1.8318951248656958,
+      "operator-029": 1.5695742908865213,
+      "operator-030": 2.4086465411819518,
+      "operator-031": 3.5613673329353333,
+      "operator-032": 8.973496249876916,
+      "operator-033": 9.177785124862567,
+      "operator-034": 2.370050000026822,
+      "operator-035": 3.4417981668375432,
+      "operator-036": 1.888451041188091,
+      "operator-037": 5.317407540977001,
+      "operator-038": 2.669235958950594,
+      "operator-039": 1.5154663750436157,
+      "operator-040": 5.740059416973963,
+      "operator-041": 7.775265417061746,
+      "operator-042": 3.758651375072077,
+      "operator-043": 1.3200410830322653,
+      "operator-044": 7.939050375018269,
+      "operator-045": 1.4418813330121338,
+      "operator-046": 3.007800916908309,
+      "operator-047": 2.363303041085601,
+      "operator-048": 3.288243333110586,
+      "operator-049": 2.9178871249314398,
+      "operator-050": 3.4742377498187125,
+      "operator-051": 3.2300772501621395,
+      "operator-052": 4.689050167100504,
+      "operator-053": 7.398698499891907
+    }
+  },
+  "token_usage": {
+    "embed": {
+      "prompt_tokens": 1537,
+      "completion_tokens": 0,
+      "calls": 53,
+      "calls_not_reporting": 0
+    },
+    "generate": {
+      "prompt_tokens": 62701,
+      "completion_tokens": 16441,
+      "calls": 53,
+      "calls_not_reporting": 0
+    }
+  },
+  "experiment": {
+    "name": "context-construction-en-operator-ir",
+    "digest": "f71544fda41fdcf5548b1dce07f669fa721397c83c993d7d3a4d7d7735e2bd3c",
+    "invocation": "f911ae886554442a86874417e42affa0",
+    "arm": "dedupe-t030",
+    "repetition": 1
+  }
+}

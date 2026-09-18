@@ -1,0 +1,14 @@
+name: index-openai-large-pdf
+extends: index-pdf-text
+
+# Task 32.10's own gap, found pricing it: `index-openai-large` derives from `index-text`, whose
+# `extract: text` reads only `.md`/`.txt` — the arxiv and operator-tier mrmr documents `corpus/
+# manifest.toml` names are all PDFs, and `index-openai-large` cannot see a single one of them.
+# `04.8`'s own finding stands unchanged ("no single resolved pipeline" reads PDFs and
+# text/markdown together), so the English arms of 32.10 (which cite only PDF-tier documents) get
+# this document instead, and the Polish arms (`pl-wiki`, all `.md`/`.txt`) keep
+# `index-openai-large` unmodified — see `eval/experiments/context-construction-en-fetch-ir.toml`'s
+# header for the corpus-directory split this forces.
+
+replace:
+  - {id: embed, use: openai-embeddings, with: {model: text-embedding-3-large}}

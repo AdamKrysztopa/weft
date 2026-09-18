@@ -1,0 +1,31 @@
+# Task 32.10 — `operator.toml`'s half (53 questions) of the English question set. See
+# `context-construction-en-fetch-widen.toml`'s header for the family this document covers, the
+# `context-recall` finding (it is priced but does not run — see that file), and the MDE
+# derivation. See `context-construction-en-operator-ir.toml`'s header for why `corpus/mrmr` is
+# the closest existing directory rather than an exact match, and what that costs this arm set.
+
+[experiment]
+schema = 1
+name = "context-construction-en-operator-widen"
+questions = "../questions/operator.toml"
+corpus = "../../corpus/validation-en"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["token_recall", "rouge_l"]
+minimum_detectable_effect = 0.08
+
+[[arm]]
+name = "baseline"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "retrieve-then-generate"
+
+[[arm]]
+name = "adjacent-chunks"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "adjacent-chunks-then-generate"
+
+[[arm]]
+name = "context-construction"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "context-construction-then-generate"

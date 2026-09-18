@@ -1,0 +1,9 @@
+name: mmr-relevance-w030-then-generate
+extends: mmr-then-generate
+
+# Task 32.10's λ sweep, low end — Carbonell & Goldstein p. 336's own three-point comparison
+# ("no significant statistical difference between the λ=1, λ=.7, and λ=.3") read as the sweep's
+# three values; `.7` is `mmr-then-generate`'s own shipped default and needs no second document.
+
+set:
+  - {id: diversify, with: {relevance_weight: 0.3}}

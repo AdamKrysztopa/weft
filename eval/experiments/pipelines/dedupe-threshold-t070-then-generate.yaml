@@ -1,0 +1,10 @@
+name: dedupe-threshold-t070-then-generate
+extends: dedupe-then-generate
+
+# Task 32.10's resemblance-threshold sweep, high end — a looser cut than the shipped default,
+# keeping a passage unless its overlap with a higher-ranked one already kept is stronger. See
+# `dedupe-threshold-t030-then-generate.yaml` for the other end and the source quote; `0.5` is
+# `dedupe-then-generate`'s own shipped default.
+
+set:
+  - {id: dedupe, with: {threshold: 0.7}}

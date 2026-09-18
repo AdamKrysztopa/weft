@@ -1,0 +1,51 @@
+# Task 32.10, Polish — `eval/questions/polish.toml` (12 questions), the `pl-wiki` slice of the
+# same 25-document corpus. `minimum_detectable_effect = 0.24` is 32.0's own number for n=12 at
+# the same assumed SD (0.3): Polish reports its interval and claims nothing short of it, rather
+# than borrowing English's 0.08. See `context-construction-en-fetch-ir.toml`'s header for the
+# family this document covers.
+
+[experiment]
+schema = 1
+name = "context-construction-pl-ir"
+questions = "../questions/polish.toml"
+corpus = "../../corpus/pl-wiki"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5", "token_recall", "rouge_l"]
+minimum_detectable_effect = 0.24
+
+[[arm]]
+name = "baseline"
+pipeline = "index-openai-large"
+query_pipeline = "retrieve-then-generate"
+
+[[arm]]
+name = "dedupe"
+pipeline = "index-openai-large"
+query_pipeline = "dedupe-then-generate"
+
+[[arm]]
+name = "dedupe-t030"
+pipeline = "index-openai-large"
+query_pipeline = "dedupe-threshold-t030-then-generate"
+
+[[arm]]
+name = "dedupe-t070"
+pipeline = "index-openai-large"
+query_pipeline = "dedupe-threshold-t070-then-generate"
+
+[[arm]]
+name = "mmr"
+pipeline = "index-openai-large"
+query_pipeline = "mmr-then-generate"
+
+[[arm]]
+name = "mmr-w030"
+pipeline = "index-openai-large"
+query_pipeline = "mmr-relevance-w030-then-generate"
+
+[[arm]]
+name = "mmr-w100"
+pipeline = "index-openai-large"
+query_pipeline = "mmr-relevance-w100-then-generate"

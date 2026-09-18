@@ -1,0 +1,29 @@
+# Task 32.10, Polish — see `context-construction-pl-ir.toml`'s header for the corpus/MDE and
+# `context-construction-en-fetch-widen.toml`'s header for the family this document covers and the
+# `context-recall` finding (it is priced but does not run — see that file).
+
+[experiment]
+schema = 1
+name = "context-construction-pl-widen"
+questions = "../questions/polish.toml"
+corpus = "../../corpus/pl-wiki"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["token_recall", "rouge_l"]
+minimum_detectable_effect = 0.24
+
+[[arm]]
+name = "baseline"
+pipeline = "index-openai-large"
+query_pipeline = "retrieve-then-generate"
+
+[[arm]]
+name = "adjacent-chunks"
+pipeline = "index-openai-large"
+query_pipeline = "adjacent-chunks-then-generate"
+
+[[arm]]
+name = "context-construction"
+pipeline = "index-openai-large"
+query_pipeline = "context-construction-then-generate"

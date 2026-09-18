@@ -1,0 +1,9 @@
+name: mmr-relevance-w100-then-generate
+extends: mmr-then-generate
+
+# Task 32.10's λ sweep, high end — pure relevance, no novelty term. See
+# `mmr-relevance-w030-then-generate.yaml` for the other end and the source quote; `.7` is
+# `mmr-then-generate`'s own shipped default.
+
+set:
+  - {id: diversify, with: {relevance_weight: 1.0}}
