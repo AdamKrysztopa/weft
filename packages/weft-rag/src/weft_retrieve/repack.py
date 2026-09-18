@@ -57,16 +57,32 @@ to that parent is a separate, named operation on the retrieval pack's own to-do 
 and labels whatever tuple of `Passage`s a `Ranking` carries — it has no opinion on how many
 of them share a parent, so a collapsing `Reranker` slotted in ahead of this one in a
 document changes what `repack` receives and nothing about what `repack` does with it.
+
+**A token budget, ledger task 32.7, gate G25.** `budget_tokens` keeps a prefix of `kept` —
+after `top_n`, before `method` arranges it — in ranking order, dropping from the tail the
+moment the next whole passage would push the evidence block a `Generator` will actually
+receive past the budget. Whole passages, never a truncated one: a passage cut mid-sentence
+still carries its citation label, and a reader who follows `[3]` into half a sentence has
+been given a broken citation, not a shorter one. The count is asked of the `role`'s own
+model, through `LLM`'s `TokenCounter` shape (`weft_llm.contract.TokenCounter`,
+task 32.6) — the model that will read the context is the model whose tokeniser decides
+whether it fits, and `cited_answer` asks the `generate` role by default
+(`weft_generate/cited_answer.py`), which is why that is this field's default too. A best
+passage that alone exceeds the budget fails naming both numbers rather than packing empty:
+an empty `Passages` reads downstream as "not in this corpus" (`09` §4's V2), the wrong
+diagnosis for "the budget is too small for even one passage" — the operator needs to raise
+the budget or lower chunk size, not be told the corpus has nothing.
 """
 
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
 from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Outcome, Produced
+from weft_kernel.payload import Failed, Outcome, Produced
+from weft_llm.contract import LLM, TokenCounter
 from weft_retrieve.payload import Passage, Passages, Ranking
 
 #: The name this packer is registered and selectable under — see `weft_retrieve.register`.
@@ -97,6 +113,13 @@ class RepackConfig(BaseModel):
     #: Keep only the best `top_n` hits, by the order `Ranking.hits` already arrived in,
     #: before `method` arranges them. `None` keeps every hit.
     top_n: int | None = None
+    #: The evidence block's token ceiling, counted as `weft_generate.cited_answer` renders
+    #: it. Applied after `top_n`, before `method`. `None` packs every kept hit, uncounted.
+    budget_tokens: int | None = Field(default=None, ge=1)
+    #: The `[llm.roles]` role whose model will read the packed context — `cited_answer`
+    #: asks `generate` by default, so that is this field's default too. Only resolved when
+    #: `budget_tokens` is set.
+    role: str = "generate"
 
 
 def _forward(hits: Sequence[Passage]) -> Sequence[Passage]:
@@ -132,9 +155,11 @@ class Repack:
     """Orders, truncates and labels one ranking's hits. Satisfies `contract.ContextPacker`
     structurally.
 
-    `cost_bound = (0, 0)`: pure rearrangement of what `run` was handed. It resolves no
-    service and calls no model, the same claim `weft_retrieve.fusion.SingleList` and
-    `ReciprocalRankFusion` make about the arity-reducing position one seam earlier.
+    `cost_bound = (0, 0)`: counting a rendered block against a budget is local arithmetic
+    over a number a `TokenCounter` already resolved, not a model call. It resolves no
+    service and calls no model *when no budget is set* — with one, it resolves `LLM` to
+    count, the same claim `weft_retrieve.fusion.SingleList` and `ReciprocalRankFusion` make
+    about the arity-reducing position one seam earlier.
     """
 
     config_model: ClassVar[type[RepackConfig]] = RepackConfig
@@ -144,14 +169,13 @@ class Repack:
         self._config = config if config is not None else RepackConfig()
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Passages]:
-        """Truncate to `top_n`, arrange by `method`, label by final position.
+        """Truncate to `top_n`, apply the budget, arrange by `method`, label by final position.
 
         **The emptiness rule** — no hits at all packs to empty `Passages`, with no method
         applied and nothing computed: the identical case every other stage in this module
         handles, and for the identical reason (`weft_retrieve.contract`'s own emptiness
         rule; `09` §4's V2 requires the engine to be able to answer "not in this corpus").
         """
-        del ctx
         if not payload.hits:
             return Produced(
                 value=Passages(
@@ -162,6 +186,11 @@ class Repack:
         kept = (
             payload.hits[: self._config.top_n] if self._config.top_n is not None else payload.hits
         )
+        if self._config.budget_tokens is not None:
+            budgeted = await self._within_budget(kept, self._config.budget_tokens, ctx)
+            if isinstance(budgeted, Failed):
+                return budgeted
+            kept = budgeted
         ordered = _METHODS[self._config.method](kept)
         passages = tuple(
             Passage(
@@ -180,3 +209,42 @@ class Repack:
                 ext=payload.ext,
             )
         )
+
+    async def _within_budget(
+        self, kept: Sequence[Passage], budget: int, ctx: Context
+    ) -> Sequence[Passage] | Failed:
+        """The longest ranking-order prefix of `kept` whose rendered block fits `budget`.
+
+        Renders each candidate prefix exactly as `weft_generate.cited_answer._offer` renders
+        the final evidence block for labels `1..k` — the count this stage acts on has to be
+        the count the model that reads the context will actually see. `TokenCountUnavailableError`
+        is not caught: `weft_llm.client.LLMClient.count_tokens` raising it is the same refusal
+        this module's docstring insists on elsewhere — no character estimate standing in for a
+        count nothing could produce.
+        """
+        llm = ctx.require(LLM)
+        if not isinstance(llm, TokenCounter):
+            return Failed(
+                reason=(
+                    f"'{NAME}' was given a token budget for the '{self._config.role}' role, "
+                    f"but the resolved LLM service does not satisfy {TokenCounter.__name__} "
+                    "and cannot count tokens."
+                )
+            )
+        selected: list[Passage] = []
+        for passage in kept:
+            candidate = (*selected, passage)
+            text = "\n\n".join(f"[{i + 1}] {p.node.content}" for i, p in enumerate(candidate))
+            count = await llm.count_tokens(self._config.role, text)
+            if count > budget:
+                if not selected:
+                    return Failed(
+                        reason=(
+                            f"'{NAME}': the best passage alone counts {count} tokens against a "
+                            f"budget of {budget} tokens — raise budget_tokens or lower chunk "
+                            "size."
+                        )
+                    )
+                break
+            selected.append(passage)
+        return tuple(selected)
