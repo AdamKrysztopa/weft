@@ -104,6 +104,10 @@ file, grep for line-number citations into it**, and either say in the brief that
 grow there or plan to re-point them yourself. You are not exempt: this session displaced three of
 its own citations the same day, each caught by FF17 naming the correct line.
 
+**A `path:line` written into a brief is copied into code as written, so write it in FF17's form**
+(`path:line "fragment"`). `39.0`'s brief cited `hybrid` by a bare line range; the implementer
+put that string in a docstring and FF17 stopped the gate on it (`L25.1`).
+
 *Tightening FF17 to demand the fragment be on the exact line was sized and declined: 112 quoted
 citations, **93** exact, **17** inside the window but not on the line. A check arriving red on
 seventeen judgements is one whose waiver is where the real drift hides (`R10.2`).*

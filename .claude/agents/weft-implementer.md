@@ -79,6 +79,9 @@ do, and they arrive from `docs/internal/lessons-archive.md` directly so they are
 - **An unknown name fails loudly**, saying what was wanted, why it is unavailable, and what the
   valid options are.
 - **No source text from any other codebase** enters this repository.
+- **Consecutive pairs are `itertools.pairwise`.** Ruff's B905 wants `strict=` on every `zip`, and
+  `zip(xs, xs[1:], strict=True)` raises the first time the loop exhausts, because offset pairs always
+  differ in length by one (`L25.2`).
 
 ## The loop
 

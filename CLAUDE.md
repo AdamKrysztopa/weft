@@ -93,6 +93,10 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
   *understand*, then closed; every line here is written for Weft. The test: *if you could not have
   written this line without that file open, it is a copy.*
 
+  **Fetching is governed the same way: read a site's terms before any download, and quote them.**
+  `robots.txt` is not permission — Phase 39 copied 336 datasheets before a collector found the
+  vendor's terms forbid automated copying, and every copy was deleted (`L25.5`).
+
   **Two bounded exceptions, added 2026-09-05 because the absolute wording was not accurate** —
   `NOTICE` carries all three cases in full and is the authority:
   *(a)* **the copyright holder's own prior work may be carried across**, because it is nobody
