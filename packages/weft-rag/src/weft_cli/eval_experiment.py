@@ -67,6 +67,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.eval_commands import (
     DEFAULT_RUNS_DIR,
+    IndexAndScoreResult,
     all_run_records,
     document_labels_from_manifest,
     index_and_score,
@@ -81,13 +82,22 @@ from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassa
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
 from weft_eval.harness import score_generation_gate_subset, score_retrieval_at_cutoffs
 from weft_eval.offline import UnknownMetricNameError
-from weft_eval.question_set import QuestionSet, read_question_set
-from weft_eval.run_record import ExperimentRun, corpus_identity
+from weft_eval.pool import (
+    POOL_MANIFEST_SCHEMA_VERSION,
+    PoolManifest,
+    PoolQuestion,
+    relevant_set_sha256,
+    text_sha256,
+    write_pool_manifest,
+)
+from weft_eval.question_set import Question, QuestionSet, read_question_set
+from weft_eval.run_record import ExperimentRun, QueryRung, corpus_identity
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.resolution import ResolvedPipeline
+from weft_retrieve.intent_and_anchors import find_anchors
 
 _EVAL_EXPERIMENT_HELP = (
     "run every arm of an experiment document (eval/experiments/*.toml) for every repetition, "
@@ -265,6 +275,56 @@ def _corpus_name_for(document_root: Path, corpus_path: Path) -> str:
     return Path(os.path.relpath(corpus_path, start=document_root)).as_posix()
 
 
+def _write_arm_pool(
+    experiment: Experiment,
+    arm: ExperimentArm,
+    questions: tuple[Question, ...],
+    identity: _ArmIdentity,
+    result: IndexAndScoreResult,
+    *,
+    store: str,
+) -> None:
+    """Write `arm`'s captured pool beside `result`'s own run record — ledger task **40.2**.
+    Called only for an arm whose `capture_pool` is set, after `index_and_score` returns; the
+    pre-flight loop in `EvalExperimentCommand.run` has already refused any such arm naming no
+    `query_pipeline` or one not ending in a `ContextPacker`, so `arm.query_pipeline` is a `str`
+    here and `result.question_pools`/`result.store_rows` are never `None`.
+    """
+    if result.store_rows is None:
+        raise ValueError(
+            f"arm '{arm.name}' asked to capture a pool, but its run recorded no store row "
+            "count — a capture with no row count is not a manifest."
+        )
+    pools = result.question_pools or {}
+    query_rung = result.record.query_rung
+    query_pipeline_identity = query_rung.identity if isinstance(query_rung, QueryRung) else ""
+    manifest = PoolManifest(
+        schema_version=POOL_MANIFEST_SCHEMA_VERSION,
+        experiment=experiment.name,
+        experiment_digest=experiment.digest,
+        arm=arm.name,
+        corpus_digest=identity.corpus_digest,
+        question_set_digest=identity.question_set_digest,
+        query_pipeline=cast(str, arm.query_pipeline),
+        query_pipeline_identity=query_pipeline_identity,
+        model_versions=dict(identity.model_versions),
+        store=store,
+        store_rows=result.store_rows,
+        questions=tuple(
+            PoolQuestion(
+                id=question.id,
+                text_sha256=text_sha256(question.text),
+                relevant_sha256=relevant_set_sha256(question.relevant_documents),
+                rule_fires=bool(find_anchors(question.text)),
+                chunks=pools[question.id],
+            )
+            for question in questions
+            if question.id in pools
+        ),
+    )
+    write_pool_manifest(manifest, DEFAULT_RUNS_DIR / "pools" / f"{result.run_id}.json")
+
+
 class EvalPlanArgs(BaseModel):
     """`weft eval plan <path>` — one positional, the experiment document."""
 
@@ -400,6 +460,14 @@ class EvalExperimentCommand:
 
         for arm in experiment.arms:
             if arm.query_pipeline is None:
+                if arm.capture_pool:
+                    raise UnscorableArmError(
+                        f"arm '{arm.name}' sets capture_pool but names no query_pipeline — a "
+                        "pool is what a retrieval rung packed, and this arm has none to pack one.",
+                        arm=arm.name,
+                        pipeline="(none)",
+                        contract="(no query pipeline)",
+                    )
                 continue
             resolved = resolve_named_pipeline(
                 arm.query_pipeline,
@@ -413,6 +481,16 @@ class EvalExperimentCommand:
                     f"arm '{arm.name}' names query pipeline '{arm.query_pipeline}', which ends "
                     f"in a {contract} stage — an arm is scored over what a ContextPacker packed "
                     "or a Generator answered from, so its last stage must be one of those.",
+                    arm=arm.name,
+                    pipeline=arm.query_pipeline,
+                    contract=contract,
+                )
+            if arm.capture_pool and contract != "ContextPacker":
+                raise UnscorableArmError(
+                    f"arm '{arm.name}' sets capture_pool but query pipeline "
+                    f"'{arm.query_pipeline}' ends in a {contract} stage, not a ContextPacker — "
+                    "a pool is what a retrieval rung packed, and a generating rung has no "
+                    "ranking beneath the passages it answered from.",
                     arm=arm.name,
                     pipeline=arm.query_pipeline,
                     contract=contract,
@@ -471,6 +549,7 @@ class EvalExperimentCommand:
                     refuse_foreign_documents=True,
                     reprocess=False,
                     batch_size=experiment.index_batch_size,
+                    capture_pool=arm.capture_pool,
                     experiment=ExperimentRun(
                         name=experiment.name,
                         digest=experiment.digest,
@@ -483,6 +562,15 @@ class EvalExperimentCommand:
                 runs.append(
                     ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=result.run_id)
                 )
+                if arm.capture_pool:
+                    _write_arm_pool(
+                        experiment,
+                        arm,
+                        questions,
+                        identities[arm.name],
+                        result,
+                        store=deps.services.store,
+                    )
 
         return Produced(
             value=EvalExperimentCommandResult(

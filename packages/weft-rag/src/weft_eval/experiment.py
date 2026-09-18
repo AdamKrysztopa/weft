@@ -79,7 +79,7 @@ _EXPERIMENT_TABLE_KEYS: Final[frozenset[str]] = frozenset(
 
 #: Every key a `[[arm]]` table may carry — one-to-one onto `ExperimentArm`'s own fields.
 _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
-    {"name", "pipeline", "query_pipeline", "corpus", "questions", "repeats"}
+    {"name", "pipeline", "query_pipeline", "corpus", "questions", "repeats", "capture_pool"}
 )
 
 
@@ -104,6 +104,10 @@ class ExperimentArm(BaseModel):
     `repeats` is `None` when the arm inherits the document's own `repeats` — see
     `Experiment.repeats_for` (task **38.13**): a deterministic arm reaching no model declares its
     own `repeats = 1` rather than paying for repetitions that cannot vary.
+
+    `capture_pool` (task **40.2**) marks this arm's run to write a `weft_eval.pool.PoolManifest`
+    beside its record — refused by `weft_cli.eval_experiment` before anything runs unless
+    `query_pipeline` ends in a `ContextPacker`, since a pool is what a retrieval rung packed.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -114,6 +118,7 @@ class ExperimentArm(BaseModel):
     corpus: Path | None = None
     questions: Path | None = None
     repeats: int | None = Field(default=None, ge=1)
+    capture_pool: bool = False
 
 
 class Experiment(BaseModel):
@@ -234,6 +239,7 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
         corpus=_resolve_optional(entry.get("corpus"), root=root),
         questions=_resolve_optional(entry.get("questions"), root=root),
         repeats=entry.get("repeats"),
+        capture_pool=bool(entry.get("capture_pool", False)),
     )
 
 

@@ -3119,6 +3119,33 @@ over identical files. **What to do:** re-take the older arm on this version. The
 migration — the bytes an old record digested were never written down. `manual/operations-guide.md`
 → *What the corpus digest is over, and why a record says so* has the reproduction.
 
+### `PoolManifestError`
+
+**What it looks like** — reading a frozen retrieval pool (`runs/pools/<run_id>.json`, written by an
+experiment arm with `capture_pool = true`) fails on the file itself:
+
+```text
+'runs/pools/torn.json': not valid JSON: Expecting value: line 2 column 1 (char 37)
+```
+
+**Why it can happen at all.** A pool is written once, by the run that captured it, and read back
+instead of searching again. A file cut short by an interrupted copy, or edited by hand, is no
+longer the pool that run captured. **What to do:** copy the manifest again from the machine that
+captured it, or capture the pool again with the capturing arm. Do not repair it by hand: its sha256
+is recorded with every run that reads it.
+
+### `PoolManifestSchemaError`
+
+**What it looks like:**
+
+```text
+'runs/pools/new.json': schema_version 99 is not the 1 this weft-rag reads.
+```
+
+**Why it can happen at all.** The manifest was written by a `weft-rag` release whose pool format
+this one does not know. It is refused before its fields are read, so a newer field is never
+silently dropped. **What to do:** read it with the release that wrote it, or upgrade `weft-rag`.
+
 ### `CollidingScoreNameError`
 
 **What it looks like** — a run scoring a generating pipeline (`weft eval run --query-pipeline` or

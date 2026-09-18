@@ -47,6 +47,7 @@ has always matched against.
 
 from __future__ import annotations
 
+import hashlib
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack
@@ -78,6 +79,7 @@ from weft_eval.harness import (
     score_retrieval_at_cutoffs,
     score_retrieval_gate_subset,
 )
+from weft_eval.pool import PoolChunk
 from weft_eval.question_set import Question, question_set_digest
 from weft_eval.run_record import (
     NoQueryRung,
@@ -498,6 +500,12 @@ class ScoredRun:
     #: Task **33.7** — what each model role spent across the run. `{}` for a run that asked
     #: no model, `role_tokens`'s own default one level up.
     token_usage: Mapping[str, RoleTokens] = _NO_TOKEN_USAGE
+    #: Task **40.2** — every packed chunk `score_pipeline` retrieved for each question, best-first,
+    #: when `capture_pool=True` on the retrieval-rung path. `None` when capture was not asked for.
+    question_pools: Mapping[str, tuple[PoolChunk, ...]] | None = None
+    #: Task **40.2** — the store's own row count at capture time, read once after the question
+    #: loop. `None` when capture was not asked for.
+    store_rows: int | None = None
 
 
 def _merge_generation_scores(
@@ -550,6 +558,59 @@ def _resolved_cutoffs(cutoffs: tuple[int, ...] | None, *, top_k: int) -> tuple[i
     return resolved
 
 
+def _require_capturable_rung(capture_pool: bool, *, is_retrieval_rung: bool) -> None:
+    """`capture_pool=True`'s own pre-flight — ledger task 40.2. A pool is what a retrieval rung
+    packed; neither a generating rung nor the no-query-rung path has one to keep.
+    """
+    if capture_pool and not is_retrieval_rung:
+        raise ValueError(
+            "capture_pool=True requires a retrieval rung (a query_pipeline ending in something "
+            "other than a Generator) — a pool is what a retrieval rung packed, and neither a "
+            "generating rung nor the no-query-rung path has one."
+        )
+
+
+async def _captured_store_rows(
+    capture_pool: bool, retrieval_services: PreparedRunner | None
+) -> int | None:
+    """`retrieval_services.store`'s own row count, read once after the question loop, only when
+    `capture_pool` asked for it — task **40.2**. `retrieval_services` is never `None` when
+    `capture_pool` is `True`: `_require_capturable_rung` already refused any other case, and
+    `retrieval_services` is set on exactly the branch that check requires.
+    """
+    if not capture_pool:
+        return None
+    prepared = cast("PreparedRunner", retrieval_services)
+    return await cast("NodeStore", prepared.store).count()
+
+
+def _pool_chunks_of(hits: Sequence[Scored[Node]]) -> tuple[PoolChunk, ...]:
+    """`hits`, already in ranking order (`_scored_in_ranking_order`), as `PoolChunk`s — task
+    **40.2**. Never re-derives an order; the caller's own order is kept exactly.
+    """
+    return tuple(
+        PoolChunk(
+            node_id=str(hit.value.id),
+            document_id=_document_id_of(hit),
+            content_sha256=hashlib.sha256(hit.value.content.encode("utf-8")).hexdigest(),
+            score=hit.score,
+        )
+        for hit in hits
+    )
+
+
+def _record_captured_chunks(
+    pools: dict[str, tuple[PoolChunk, ...]],
+    question_key: str,
+    hits: Sequence[Scored[Node]],
+    *,
+    capture_pool: bool,
+) -> None:
+    """Record `question_key`'s pool into `pools`, in place, when `capture_pool` asked for it."""
+    if capture_pool:
+        pools[question_key] = _pool_chunks_of(hits)
+
+
 async def _score_retrieval(
     registry: Registry,
     samples: Sequence[RetrievalSample],
@@ -587,6 +648,7 @@ async def score_pipeline(
     contributions: tuple[Contribution, ...] = (),
     document_labels: Mapping[str, str] | None = None,
     refuse_foreign_documents: bool = False,
+    capture_pool: bool = False,
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset
     over the result. Returns a `ScoredRun`: the scores, and the query rung they were scored
@@ -691,6 +753,16 @@ async def score_pipeline(
     the same collapsed samples once per declared cutoff, merging by what each metric's own name
     says about it. `max(cutoffs)` must equal `top_k`, since a cutoff no ranking was collapsed to
     could never be read from it.
+
+    **`capture_pool`, ledger task 40.2.** `False` (the default) is unchanged. `True` is only
+    honoured on the retrieval-rung path (`query_pipeline` given, ending in something other than a
+    `Generator`) — a generating rung has no ranking beneath the passages it packed and the
+    no-query-rung path retrieves through no named pipeline at all, so a pool captured from either
+    would name a rung `weft_eval.experiment` never asked for; both raise `ValueError` immediately,
+    before anything runs. On the retrieval-rung path, `ScoredRun.question_pools` carries every
+    question's packed chunks in ranking order (`_scored_in_ranking_order`, not the document-
+    deduplicated `top_k`), and `ScoredRun.store_rows` carries `retrieval_services.store`'s own
+    `count()`, read once after the question loop.
     """
     resolved_cutoffs = _resolved_cutoffs(cutoffs, top_k=top_k)
 
@@ -747,7 +819,10 @@ async def score_pipeline(
     contributors: dict[str, tuple[str, ...]] = {}
     is_retrieval_rung = query_pipeline is not None and not generates
     is_generating_rung = query_pipeline is not None and generates
+    _require_capturable_rung(capture_pool, is_retrieval_rung=is_retrieval_rung)
     failed: dict[str, str] = {}
+    question_pools: dict[str, tuple[PoolChunk, ...]] = {}
+    store_rows: int | None = None
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
     retrieval_services: PreparedRunner | None = None
     async with AsyncExitStack() as stack:
@@ -838,6 +913,9 @@ async def score_pipeline(
                     seconds[question_key] = time.monotonic() - started
                     hits = _scored_in_ranking_order(passages.passages)
                     contributors[question_key] = tuple(passages.contributors)
+                    _record_captured_chunks(
+                        question_pools, question_key, hits, capture_pool=capture_pool
+                    )
                 else:
                     hits = await run_ask(
                         question_text,
@@ -866,6 +944,7 @@ async def score_pipeline(
                         axes=question.axes,
                     )
                 )
+        store_rows = await _captured_store_rows(capture_pool, retrieval_services)
 
     scores = await _score_retrieval(
         registry, samples, cutoffs=resolved_cutoffs, ctx=ctx, failed_questions=failed
@@ -890,6 +969,8 @@ async def score_pipeline(
         question_set=question_set_digest(questions),
         question_seconds=PerQuestionSeconds(keyed_by=keyed_by, seconds=seconds),
         token_usage=role_tokens(tally.entries),
+        question_pools=question_pools if capture_pool else None,
+        store_rows=store_rows if capture_pool else None,
     )
 
 

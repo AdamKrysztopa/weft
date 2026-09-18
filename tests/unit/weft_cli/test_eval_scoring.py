@@ -10,6 +10,7 @@ edge case (a pipeline naming no `Embedder`/`NodeStore` stage refuses outright ra
 reporting empty metrics indistinguishable from "no --questions given").
 """
 
+import hashlib
 from collections.abc import Sequence
 
 import pytest
@@ -76,6 +77,9 @@ class _FakeVectorSearchStore:
             update={"lineage": Lineage.derived(parents=(), sources=frozenset({SourceId("doc-a")}))}
         )
         return [Scored(value=found, score=0.9)]
+
+    async def count(self) -> int:
+        return 7
 
 
 def _registry() -> Registry:
@@ -1219,3 +1223,54 @@ async def test_a_ranking_collapsed_once_is_scored_at_every_cutoff(
     at_one, at_two = scored.metrics["recall@1"], scored.metrics["recall@2"]
     assert isinstance(at_one, Produced) and isinstance(at_two, Produced)
     assert (at_one.value.mean, at_two.value.mean) == (0.0, 1.0)
+
+
+# --- Task 40.2 — a retrieval rung's pool, captured in the order the ranking gave it.
+
+
+@pytest.mark.parametrize("capture", [True, False])
+async def test_a_captured_pool_holds_every_packed_chunk_in_ranking_order(
+    monkeypatch: pytest.MonkeyPatch, capture: bool
+) -> None:
+    # Arrange — packed by `reverse`, so the tuple is worst-first; the pool must not be.
+    packed = (
+        _labelled_passage("doc-c", 0.2, 2),
+        _labelled_passage("doc-b", 0.5, 1),
+        _labelled_passage("doc-a", 0.9, 0),
+    )
+
+    async def _passages(*_args: object, **_kwargs: object) -> Passages:
+        return Passages(origin=Query(text="q"), passages=packed)
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_question(relevant_documents=("doc-a",)),),
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a", "doc-b", "doc-c"),
+        capture_pool=capture,
+    )
+
+    # Assert
+    if not capture:
+        assert (scored.question_pools, scored.store_rows) == (None, None)
+        return
+    assert scored.question_pools is not None
+    chunks = scored.question_pools["q-1"]
+    assert [(chunk.document_id, chunk.score) for chunk in chunks] == [
+        ("doc-a", 0.9),
+        ("doc-b", 0.5),
+        ("doc-c", 0.2),
+    ]
+    assert chunks[0].node_id == str(packed[2].node.id)
+    assert chunks[0].content_sha256 == hashlib.sha256(b"doc-a").hexdigest()
+    assert scored.store_rows == 7

@@ -237,6 +237,7 @@ from weft_eval.falsify import (
 )
 from weft_eval.latency import LatencySummary, latency_summary
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
+from weft_eval.pool import PoolChunk
 from weft_eval.question_set import Question, QuestionSetFormat, read_question_set
 from weft_eval.run_record import (
     CorpusDigestBasis,
@@ -1154,6 +1155,11 @@ class IndexAndScoreResult:
     summary: RunSummary
     stored_count: int | None
     wall_clock_seconds: float
+    #: Task **40.2** — every packed chunk `score_pipeline` retrieved for each question, in
+    #: ranking order, when `capture_pool=True` was passed through. `None` otherwise.
+    question_pools: Mapping[str, tuple[PoolChunk, ...]] | None = None
+    #: Task **40.2** — the store's own row count at capture time. `None` when not capturing.
+    store_rows: int | None = None
 
 
 async def index_and_score(
@@ -1173,6 +1179,7 @@ async def index_and_score(
     reprocess: bool = True,
     batch_size: int | None = None,
     cutoffs: tuple[int, ...] | None = None,
+    capture_pool: bool = False,
 ) -> IndexAndScoreResult:
     """Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
     with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own
@@ -1214,6 +1221,11 @@ async def index_and_score(
     of the same name; `None` (every call site before this task, including `weft eval run`'s) is
     unchanged. `weft_cli.eval_experiment` is the one caller that passes an experiment's own
     declared `Experiment.cutoffs`.
+
+    `capture_pool` — ledger task 40.2 — is passed straight through to `score_pipeline`'s own
+    keyword of the same name; `False` (every call site before this task) is unchanged.
+    `IndexAndScoreResult.question_pools`/`store_rows` carry whatever `score_pipeline` returned
+    for them, `None` when `questions` is `None` or `capture_pool` is `False`.
     """
     resolved: ResolvedPipeline
     document_ids: tuple[str, ...]
@@ -1293,6 +1305,8 @@ async def index_and_score(
     question_set_basis: QuestionSetDigestBasis | None = None
     question_seconds: PerQuestionSeconds | None = None
     token_usage: Mapping[str, RoleTokens] | None = None
+    question_pools: Mapping[str, tuple[PoolChunk, ...]] | None = None
+    result_store_rows: int | None = None
     if questions is not None:
         scored = await score_pipeline(
             registry=deps.registry,
@@ -1311,6 +1325,7 @@ async def index_and_score(
             contributions=deps.contributions,
             document_labels=document_labels,
             refuse_foreign_documents=refuse_foreign_documents,
+            capture_pool=capture_pool,
         )
         metrics = scored.metrics
         query_rung = scored.query_rung
@@ -1323,6 +1338,8 @@ async def index_and_score(
         )
         question_seconds = scored.question_seconds
         token_usage = scored.token_usage
+        question_pools = scored.question_pools
+        result_store_rows = scored.store_rows
     query_seconds = time.monotonic() - query_started
 
     resolved_corpus_name = corpus_name if corpus_name is not None else str(path)
@@ -1356,6 +1373,8 @@ async def index_and_score(
         summary=summary,
         stored_count=stored_count,
         wall_clock_seconds=ingest_seconds,
+        question_pools=question_pools,
+        store_rows=result_store_rows,
     )
 
 

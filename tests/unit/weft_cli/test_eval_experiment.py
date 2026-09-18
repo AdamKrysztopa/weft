@@ -41,8 +41,9 @@ from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_eval import Settings, register
-from weft_eval.experiment import EXPERIMENT_SCHEMA_VERSION
+from weft_eval.experiment import EXPERIMENT_SCHEMA_VERSION, load_experiment
 from weft_eval.offline import UnknownMetricNameError
+from weft_eval.pool import PoolChunk, load_pool_manifest, relevant_set_sha256, text_sha256
 from weft_eval.question_set import Question, question_set_digest
 from weft_eval.run_record import NoQueryRung, PerQuestionScores, QuestionKey, load_run_record
 from weft_extract import Extractor
@@ -819,3 +820,141 @@ async def test_a_metric_at_a_cutoff_the_document_did_not_declare_is_refused_nami
     assert {"recall@1", "recall@5", "mrr@5"} <= set(caught.value.valid_options)
     assert "recall@3" not in caught.value.valid_options
     assert calls == []
+
+
+# --- Task 40.2 — an arm marked to capture writes its pool beside its record.
+
+_ANCHORED_QUESTIONS = """[question_set]
+schema = 2
+absent = ["kind", "difficulty", "quote", "reference_answer", "notes"]
+absent_reason = "an experiment fixture"
+axes = []
+
+[[question]]
+id = "q-plain"
+text = "what is weft?"
+language = "en"
+relevant_documents = ["one.txt"]
+
+[[question]]
+id = "q-anchored"
+text = "what does error WRH123 mean?"
+language = "en"
+relevant_documents = ["one.txt"]
+"""
+
+
+def _capturing_stub(calls: list[dict[str, object]]) -> Callable[..., Any]:
+    async def _fake(**kwargs: object) -> ScoredRun:
+        calls.append(kwargs)
+        questions = cast("tuple[Question, ...]", kwargs["questions"])
+        pools = {
+            question.id: (
+                PoolChunk(
+                    node_id=f"{question.id}-n1",
+                    document_id="one.txt",
+                    content_sha256="a" * 64,
+                    score=0.9,
+                ),
+                PoolChunk(
+                    node_id=f"{question.id}-n2",
+                    document_id="one.txt",
+                    content_sha256="b" * 64,
+                    score=0.3,
+                ),
+            )
+            for question in questions
+        }
+        return ScoredRun(
+            metrics={},
+            query_rung=NoQueryRung(reason="stub"),
+            question_scores={
+                "precision@5": PerQuestionScores(
+                    keyed_by=QuestionKey.QUESTION_ID,
+                    scores={question.id: Produced(value=1.0) for question in questions},
+                )
+            },
+            question_set=question_set_digest(questions),
+            question_pools=pools if kwargs.get("capture_pool") else None,
+            store_rows=11 if kwargs.get("capture_pool") else None,
+        )
+
+    return _fake
+
+
+async def test_an_arm_marked_to_capture_writes_its_pool_beside_its_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index", 'query_pipeline = "some-rung"\ncapture_pool = true\nrepeats = 1\n')
+        + _arm("other", "index", 'query_pipeline = "some-rung"\nrepeats = 1\n'),
+    )
+    (path.parent / "questions.toml").write_text(_ANCHORED_QUESTIONS, encoding="utf-8")
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub(calls))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    by_arm = {run.arm: run.run_id for run in result.runs}
+    manifests = sorted(Path("runs", "pools").glob("*.json"))
+    assert [p.name for p in manifests] == [f"{by_arm['dense']}.json"]
+    loaded = load_pool_manifest(manifests[0]).manifest
+    assert (loaded.arm, loaded.query_pipeline, loaded.store_rows) == ("dense", "some-rung", 11)
+    assert loaded.experiment_digest == load_experiment(path).digest
+    questions = {question.id: question for question in loaded.questions}
+    assert questions["q-anchored"].rule_fires is True
+    assert questions["q-plain"].rule_fires is False
+    assert questions["q-plain"].text_sha256 == text_sha256("what is weft?")
+    assert questions["q-plain"].relevant_sha256 == relevant_set_sha256(["one.txt"])
+    assert [chunk.node_id for chunk in questions["q-plain"].chunks] == ["q-plain-n1", "q-plain-n2"]
+    captured = [call for call in calls if call.get("capture_pool")]
+    assert len(captured) == 1
+
+
+async def test_capturing_an_arm_with_no_query_pipeline_is_refused_before_anything_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — a pool is what a retrieval rung packed; the no-rung path has no ranking to keep.
+    path = _experiment(
+        tmp_path, _arm("dense", "index", "capture_pool = true\n") + _arm("other", "index")
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub(calls))
+
+    # Act
+    with pytest.raises(UnscorableArmError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert caught.value.arm == "dense"
+    assert "capture_pool" in str(caught.value)
+    assert calls == []
+
+
+async def test_a_captured_pool_is_not_read_back_as_a_run_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Found by running the built wheel: a second `weft eval experiment` in a directory holding a
+    manifest beside the records died reading it as a `RunRecord`, since every reader of `runs/`
+    takes each `*.json` there for one."""
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index", 'query_pipeline = "some-rung"\ncapture_pool = true\nrepeats = 1\n')
+        + _arm("other", "index", 'query_pipeline = "some-rung"\nrepeats = 1\n'),
+    )
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub([]))
+    await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Act
+    again = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(again, Produced)
+    assert list(Path("runs").glob("*.pool.json")) == []
