@@ -1,0 +1,25 @@
+# Phase 39 task 39.7 on esci: BM25 alone as the keyword reference, on the pg_textsearch server,
+# indexed with the free hash embedder (no vector is read).
+
+[experiment]
+schema = 1
+name = "esci-bm25"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.03
+
+[[arm]]
+name = "bm25"
+pipeline = "index-text"
+query_pipeline = "lexical-wide-retrieve"
+repeats = 1
+
+[[arm]]
+name = "bm25-anchors-only"
+pipeline = "index-text"
+query_pipeline = "anchors-rule-text-retrieve"
+repeats = 1

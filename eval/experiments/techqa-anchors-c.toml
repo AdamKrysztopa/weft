@@ -1,0 +1,23 @@
+# Phase 39 task 39.7 on techqa: dense against dense + anchors, the owner's comparison, on an open
+# identifier-rich benchmark (Apache-2.0). Keyword weight fitted on split = train, reported on test.
+
+[experiment]
+schema = 1
+name = "techqa-anchors-c"
+questions = "../../corpus/techqa-questions.toml"
+corpus = "../../corpus/techqa"
+manifest = "../../corpus/techqa.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.03
+
+[[arm]]
+name = "anchors-model-w025"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-model-w025-retrieve"
+
+[[arm]]
+name = "anchors-model-w050"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-model-w050-retrieve"

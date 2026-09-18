@@ -1,0 +1,26 @@
+# Phase 39 task 39.7 on esci: dense against dense + anchors, the owner's comparison, on an open
+# identifier-rich benchmark (Apache-2.0). Keyword weight fitted on split = train, reported on test.
+
+[experiment]
+schema = 1
+name = "esci-anchors-a"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.03
+index_batch_size = 1000
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+repeats = 1
+
+[[arm]]
+name = "hybrid"
+pipeline = "index-openai-large"
+query_pipeline = "hybrid-retrieve"
+repeats = 1
