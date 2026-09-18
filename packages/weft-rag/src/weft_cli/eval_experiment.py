@@ -75,9 +75,9 @@ from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
-from weft_eval.contract import RetrievalSample, RetrievedPassage
+from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassage
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
-from weft_eval.harness import score_retrieval_gate_subset
+from weft_eval.harness import score_generation_gate_subset, score_retrieval_gate_subset
 from weft_eval.offline import UnknownMetricNameError
 from weft_eval.question_set import QuestionSet, read_question_set
 from weft_eval.run_record import ExperimentRun, corpus_identity
@@ -234,6 +234,15 @@ async def _refuse_unrecordable_metrics(
         deps.registry, [sample], top_k=experiment.top_k, ctx=ctx
     )
     recorded = {name for name, outcome in subset.metrics.items() if isinstance(outcome, Produced)}
+    # Ledger 32.14 scores a generating arm's answer too, so its names are recordable here.
+    answered = await score_generation_gate_subset(
+        deps.registry,
+        [("pre-flight", GenerationSample(query="pre-flight", prediction="a", reference="a"))],
+        ctx=ctx,
+    )
+    recorded |= {
+        name for name, outcome in answered.metrics.items() if isinstance(outcome, Produced)
+    }
     for name in experiment.metrics:
         if name not in recorded:
             valid_options = tuple(sorted(recorded))

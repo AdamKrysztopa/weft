@@ -730,3 +730,42 @@ async def test_the_plan_states_each_arms_size_and_runs_nothing(
 
 def test_the_plan_command_only_reads() -> None:
     assert EvalPlanCommand.permission_class is PermissionClass.READ
+
+
+async def test_an_answer_metric_a_generating_arm_records_passes_the_pre_flight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger `32.14` scored a generating rung's answer; the pre-flight still asked only the
+    retrieval metrics, so every document naming `token_recall` was refused before indexing —
+    found by `32.10`'s free smoke run."""
+    # Arrange
+    path = _experiment(
+        tmp_path, _arm("a", "index") + _arm("b", "index"), metrics='["recall@5", "token_recall"]'
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+
+
+async def test_a_refused_metric_name_lists_the_answer_metrics_beside_the_retrieval_ones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — the plugin name, not the name the metric reports.
+    path = _experiment(
+        tmp_path, _arm("a", "index") + _arm("b", "index"), metrics='["token-recall"]'
+    )
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+
+    # Act
+    with pytest.raises(UnknownMetricNameError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert "token_recall" in caught.value.valid_options
+    assert "rouge_l" in caught.value.valid_options
+    assert "recall@5" in caught.value.valid_options
