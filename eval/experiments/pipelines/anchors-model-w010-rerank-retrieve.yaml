@@ -1,0 +1,10 @@
+name: anchors-model-w010-rerank-retrieve
+extends: anchors-model-w010-retrieve
+# G24's full recipe: the fitted fusion, then `llm-rerank` against the question as asked over the top
+# 20. `vector-rerank-retrieve` is its control, so the reranker's own gain is not credited to anchors.
+replace:
+  - {id: fuse, use: normalized-score-fusion, with: {weights: {"hybrid:vector": 1.0, "hybrid:text": 0.10}, top_k: 20}}
+  - {id: pack, use: repack, with: {method: reverse, top_n: 20}}
+insert:
+  - before: pack
+    stage: {id: rerank, use: llm-rerank, with: {top_n: 20}}

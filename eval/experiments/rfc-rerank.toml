@@ -1,0 +1,30 @@
+# Phase 39's rerank arm on the RFC corpus — ledger task 39.5: G24's full recipe (anchors, fusion
+# weight 0.10 fitted on the train half by `rfc-weights`, `llm-rerank` against the question as asked)
+# against dense + the same reranker, so the reranker's own gain is not credited to the anchors.
+
+[experiment]
+schema = 1
+name = "rfc-rerank"
+questions = "../../corpus/rfc-questions/rfc.toml"
+corpus = "../../corpus/rfc"
+manifest = "../../corpus/rfc.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+repeats = 1
+
+[[arm]]
+name = "dense-rerank"
+pipeline = "index-openai-large"
+query_pipeline = "vector-rerank-retrieve"
+
+[[arm]]
+name = "anchors-model-w010-rerank"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-model-w010-rerank-retrieve"

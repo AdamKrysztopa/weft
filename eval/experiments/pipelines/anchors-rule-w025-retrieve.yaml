@@ -1,0 +1,7 @@
+name: anchors-rule-w025-retrieve
+extends: anchors-rule-retrieve
+# The text lists weighted 0.25 against the dense list's 1.0 — one point of 39.5's fit (G24: weights
+# fitted on the train split, reported on the held-out one). Equal weights let a question's anchors
+# outvote its intent, one list per anchor.
+replace:
+  - {id: fuse, use: normalized-score-fusion, with: {weights: {"hybrid:vector": 1.0, "hybrid:text": 0.25}}}

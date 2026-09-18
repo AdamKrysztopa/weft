@@ -1,0 +1,56 @@
+# Phase 39's fusion-weight fit on the RFC corpus — ledger task 39.5. G24: normalized-score fusion with
+# weights fitted on the train split and reported on the held-out one. `rfc-anchors` fused at equal
+# weight and lost to dense exactly where the text arm entered (mrr@5 0.756 against dense's 0.884 on
+# the 92 anchored questions the model sent to it), because one list per anchor outvotes the intent.
+# Each arm below weights the text lists against the dense list's 1.0; the weight is chosen by mrr@5
+# on `split = train` and reported on `split = test`.
+
+[experiment]
+schema = 1
+name = "rfc-weights"
+questions = "../../corpus/rfc-questions/rfc.toml"
+corpus = "../../corpus/rfc"
+manifest = "../../corpus/rfc.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+repeats = 1
+
+[[arm]]
+name = "anchors-rule-w010"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-rule-w010-retrieve"
+repeats = 1
+
+[[arm]]
+name = "anchors-rule-w025"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-rule-w025-retrieve"
+repeats = 1
+
+[[arm]]
+name = "anchors-rule-w050"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-rule-w050-retrieve"
+repeats = 1
+
+[[arm]]
+name = "anchors-model-w010"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-model-w010-retrieve"
+
+[[arm]]
+name = "anchors-model-w025"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-model-w025-retrieve"
+
+[[arm]]
+name = "anchors-model-w050"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-model-w050-retrieve"

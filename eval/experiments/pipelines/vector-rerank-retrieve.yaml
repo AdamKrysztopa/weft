@@ -1,0 +1,8 @@
+name: vector-rerank-retrieve
+# Dense, then `llm-rerank` against the question as asked over the top 20 — the control for 39.5's
+# rerank arm, so the reranker's own gain is never credited to `intent-and-anchors`.
+stages:
+  - {id: retrieve, use: vector-top-k, with: {top_k: 20}}
+  - {id: fuse,     use: single-list}
+  - {id: rerank,   use: llm-rerank, with: {top_n: 20}}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 20}}
