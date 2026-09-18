@@ -976,3 +976,164 @@ async def test_a_run_with_no_query_rung_records_no_contributors(
 
     # Assert
     assert report.question_contributors is None
+
+
+# --- Ledger task 32.14 — a generating rung's answer is scored against the reference answer.
+
+
+def _answered(reference: str | None, identifier: str = "q-1", text: str = "q") -> Question:
+    fields: dict[str, object] = {
+        "id": identifier,
+        "text": text,
+        "language": "en",
+        "relevant_documents": ("doc-a",),
+        "absent": _ABSENT_BUT_KIND | {QuestionField.KIND},
+        "absent_reason": "a scoring fixture",
+        "axes": {},
+    }
+    if reference is not None:
+        fields["reference_answer"] = reference
+        fields["absent"] = (_ABSENT_BUT_KIND - {QuestionField.REFERENCE_ANSWER}) | {
+            QuestionField.KIND
+        }
+    return Question.model_validate(fields)
+
+
+def _generating(monkeypatch: pytest.MonkeyPatch, answers: dict[str, str]) -> None:
+    async def _answer(question: str, *_args: object, **_kwargs: object) -> Answer:
+        return Answer(
+            text=answers[question],
+            origin=Query(text=question),
+            answered_by="fixture",
+            used=(_labelled_passage("doc-a", 0.9, 0),),
+        )
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker", "Generator")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+
+
+async def test_a_generating_rungs_answer_is_scored_against_the_reference_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`32.0` named `token-recall` and `rouge-l` as the metrics that can see `adjacent-chunks`;
+    before this task the scored run kept only `Answer.used` and threw the text away, so no
+    answer metric was ever computed in a real run."""
+    # Arrange — `token_recall` splits on whitespace after lower-casing (`weft_eval/lexical.py`),
+    # so both reference tokens appear in this answer and recall is 1.0.
+    _generating(monkeypatch, {"what is it?": "It is forty two"})
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_answered("forty two", text="what is it?"),),
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    recall = scored.metrics["token_recall"]
+    assert isinstance(recall, Produced)
+    assert recall.value.mean == 1.0
+    assert "rouge_l" in scored.metrics
+    assert scored.question_scores is not None
+    assert "q-1" in scored.question_scores["token_recall"].scores
+
+
+async def test_a_question_with_no_reference_answer_has_nothing_to_score_not_a_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    _generating(monkeypatch, {"with": "forty two", "without": "anything"})
+    questions = (
+        _answered("forty two", identifier="with", text="with"),
+        _answered(None, identifier="without", text="without"),
+    )
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    recall = scored.metrics["token_recall"]
+    assert isinstance(recall, Produced)
+    assert (recall.value.n, recall.value.nothing_to_produce) == (1, 1)
+
+
+async def test_a_question_whose_model_looped_is_excluded_from_the_answer_metrics_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    async def _answer(question: str, *_args: object, **_kwargs: object) -> Answer:
+        if question == "loops":
+            raise LLMGenerationLoopError("repeating span", provider="scripted", model="some-model")
+        return Answer(text="forty two", origin=Query(text=question), answered_by="fixture")
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker", "Generator")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+    questions = (
+        _answered("forty two", identifier="fine", text="fine"),
+        _answered("forty two", identifier="looped", text="loops"),
+    )
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    recall = scored.metrics["token_recall"]
+    assert isinstance(recall, Produced)
+    assert (recall.value.n, recall.value.excluded) == (1, 1)
+    assert scored.question_scores is not None
+    assert isinstance(scored.question_scores["token_recall"].scores["looped"], NotScored)
+
+
+async def test_a_retrieval_rung_computes_no_answer_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
+        return Passages(origin=Query(text=question), passages=(_labelled_passage("doc-a", 0.9, 0),))
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_answered("forty two"),),
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert "token_recall" not in scored.metrics
+    assert "rouge_l" not in scored.metrics

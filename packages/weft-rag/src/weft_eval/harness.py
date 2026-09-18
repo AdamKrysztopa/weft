@@ -70,12 +70,14 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Final, cast
+from typing import Final, Protocol, cast
 
 from pydantic import BaseModel, ValidationError
 
 from weft_eval.aggregate import MetricAggregate, PartitionSlice, aggregate
 from weft_eval.contract import (
+    GenerationMetric,
+    GenerationSample,
     MetricKind,
     MetricScore,
     QueryModality,
@@ -84,7 +86,7 @@ from weft_eval.contract import (
 )
 from weft_eval.offline import gate_subset
 from weft_eval.run_record import NotScored, QuestionOutcome
-from weft_kernel.context import Context
+from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
@@ -123,8 +125,19 @@ def _metric_config(config_model: type[BaseModel] | None, *, top_k: int) -> BaseM
         return config_model(k=top_k)
 
 
+class _KindAndModality(Protocol):
+    """The two fields `_modality_slices`/`_question_kind_slices` actually read — both
+    `RetrievalSample` and `GenerationSample` carry them at the identical default (task 9.12/
+    11.12), so one pair of slicing functions serves both contracts rather than one copy per
+    contract that could drift apart from the other.
+    """
+
+    modality: QueryModality
+    kind: str
+
+
 def _modality_slices(
-    samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
+    samples: Sequence[_KindAndModality], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[QueryModality, PartitionSlice]:
     """Partition `outcomes` by the `modality` of the `RetrievalSample` that produced each, fold
     each partition with `aggregate()`, and keep only the partitions that produced a mean.
@@ -150,7 +163,7 @@ def _modality_slices(
 
 
 def _question_kind_slices(
-    samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
+    samples: Sequence[_KindAndModality], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, PartitionSlice]:
     """Partition `outcomes` by the `kind` of the `RetrievalSample` that produced each, fold each
     partition with `aggregate()`, and keep only the partitions that produced a mean.
@@ -219,6 +232,17 @@ def _as_question_outcome(outcome: Outcome[MetricScore]) -> QuestionOutcome:
             return NotScored(reason=reason)
 
 
+def _per_question_scores_by_keys(
+    keys: Sequence[str], outcomes: Sequence[Outcome[MetricScore]]
+) -> Mapping[str, QuestionOutcome]:
+    """`outcomes`, keyed positionally by `keys` — the shared half of `_per_question_scores`
+    (`RetrievalSample.question_key`, read off each sample) and `score_generation_gate_subset`
+    (a caller-supplied key, since `GenerationSample` carries no `question_key` field of its
+    own — see that function's own docstring for why).
+    """
+    return {key: _as_question_outcome(outcome) for key, outcome in zip(keys, outcomes, strict=True)}
+
+
 def _per_question_scores(
     samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, QuestionOutcome]:
@@ -226,10 +250,7 @@ def _per_question_scores(
     identical `zip(samples, outcomes, strict=True)` pairing `_modality_slices`/`_question_kind_
     slices` already use, above.
     """
-    return {
-        sample.question_key: _as_question_outcome(outcome)
-        for sample, outcome in zip(samples, outcomes, strict=True)
-    }
+    return _per_question_scores_by_keys([sample.question_key for sample in samples], outcomes)
 
 
 #: `score_retrieval_gate_subset`'s own `failed_questions` default — every call site before
@@ -251,6 +272,33 @@ class CollidingMetricNameError(WeftError):
     refusal names the reported name and both registered plugins, because *which* two collided
     is the only fact an operator can act on.
     """
+
+
+def _record_metric(
+    report: dict[str, Outcome[MetricAggregate]],
+    reported_by: dict[str, str],
+    per_question: dict[str, Mapping[str, QuestionOutcome]],
+    *,
+    key: str,
+    name: str,
+    outcome: Outcome[MetricAggregate],
+    scores: Mapping[str, QuestionOutcome],
+) -> None:
+    """The collision guard `score_retrieval_gate_subset`/`score_generation_gate_subset` both
+    apply identically after computing one metric's `outcome` — see `CollidingMetricNameError`'s
+    own docstring for why a name two metrics both claim is refused rather than one silently
+    replacing the other in `report`.
+    """
+    if key in report:
+        raise CollidingMetricNameError(
+            f"two registered metrics both report '{key}' — '{reported_by[key]}' and "
+            f"'{name}'. A run record keys both its aggregates and its per-question scores "
+            f"by the name a metric computes, so one of the two would silently replace the "
+            f"other. Uninstall one, or have its pack report a name of its own."
+        )
+    reported_by[key] = name
+    report[key] = outcome
+    per_question[key] = scores
 
 
 async def score_retrieval_gate_subset(
@@ -298,23 +346,142 @@ async def score_retrieval_gate_subset(
             by_axis=_axis_slices(samples, outcomes),
         )
         key = outcome.value.reported_name if isinstance(outcome, Produced) else name
-        if key in report:
-            raise CollidingMetricNameError(
-                f"two registered metrics both report '{key}' — '{reported_by[key]}' and "
-                f"'{name}'. A run record keys both its aggregates and its per-question scores "
-                f"by the name a metric computes, so one of the two would silently replace the "
-                f"other. Uninstall one, or have its pack report a name of its own."
-            )
-        reported_by[key] = name
-        report[key] = outcome
-        per_question[key] = {
-            **_per_question_scores(samples, outcomes),
-            **{
-                question_key: NotScored(reason=reason)
-                for question_key, reason in failed_questions.items()
+        _record_metric(
+            report,
+            reported_by,
+            per_question,
+            key=key,
+            name=name,
+            outcome=outcome,
+            scores={
+                **_per_question_scores(samples, outcomes),
+                **{
+                    question_key: NotScored(reason=reason)
+                    for question_key, reason in failed_questions.items()
+                },
             },
-        }
+        )
     return SubsetScores(metrics=report, per_question=per_question)
 
 
-__all__ = ["SubsetScores", "score_retrieval_gate_subset"]
+def _generation_metric_config(config_model: type[BaseModel] | None) -> BaseModel | None:
+    """`config_model`, built with no arguments — every gate-safe `GenerationMetric` this pack
+    ships needs a config buildable this way (`weft_eval.lexical.NoConfig`, `_RougeConfig`'s own
+    defaulted `use_stemmer`) with one exception: `weft_eval.at_threshold.AtThresholdConfig`'s
+    `threshold` has no default by design (that module's own docstring: "a threshold silently
+    defaulted is a threshold nobody chose"), so it is not constructible generically at all —
+    the third config shape `_metric_config`'s own docstring already says it will not guess at,
+    applied here rather than copied, because a generation sample carries no `top_k` for a `k=`
+    fallback to even mean anything. Raises `pydantic.ValidationError`; the caller turns that into
+    one metric's own `Failed` outcome rather than aborting every other gate-safe metric over it.
+    """
+    if config_model is None:
+        return None
+    return config_model()
+
+
+async def score_generation_gate_subset(
+    registry: Registry,
+    samples: Sequence[tuple[str, GenerationSample]],
+    *,
+    ctx: Context,
+    failed_questions: Mapping[str, str] = _NO_FAILED_QUESTIONS,
+) -> SubsetScores:
+    """Every gate-safe `GenerationMetric` registered in `registry`, scored over `samples` —
+    `score_retrieval_gate_subset`'s twin, one contract over. Shares its collision guard
+    (`_record_metric`), its per-question keying (`_per_question_scores_by_keys`), its modality/
+    kind slicing (`_modality_slices`/`_question_kind_slices`, both now typed structurally rather
+    than to `RetrievalSample` alone) and its `aggregate()`/`failed_questions` folding exactly;
+    only the metric contract, the sample shape and `MetricKind` differ.
+
+    `samples` pairs each `GenerationSample` with the question key it was built for, rather than
+    reading one off the sample itself: unlike `RetrievalSample` (task 16.4), `GenerationSample`
+    carries no `question_key` field — see `weft_eval.contract`'s own module docstring for why
+    the two contracts' samples are not one widened shape, and adding a retrieval-only field to
+    the generation side to serve this one caller would be exactly the grab-bag that docstring
+    already argues against.
+
+    A metric whose `config_model` cannot be built with no arguments — `overlap-at-threshold`'s
+    own `AtThresholdConfig`, see `_generation_metric_config`'s docstring — reports `Failed` for
+    itself alone, keyed by its own registered name (it never scored anything to report a
+    computed name for), rather than that one demonstration metric's unrelated configuration
+    need aborting every other gate-safe `GenerationMetric` in the same run.
+    """
+    gate_safe_generation = registry.names_for(GenerationMetric) & set(
+        gate_subset(registry).gate_safe
+    )
+
+    keys = [key for key, _ in samples]
+    payloads = [sample for _, sample in samples]
+    failure_scores = {
+        question_key: NotScored(reason=reason) for question_key, reason in failed_questions.items()
+    }
+
+    report: dict[str, Outcome[MetricAggregate]] = {}
+    reported_by: dict[str, str] = {}
+    per_question: dict[str, Mapping[str, QuestionOutcome]] = {}
+    for name in sorted(gate_safe_generation):
+        factory = registry.lookup(GenerationMetric, name)
+        target = unwrap_factory(factory)
+        config_model = cast("type[BaseModel] | None", getattr(target, "config_model", None))
+        try:
+            config = _generation_metric_config(config_model)
+        except ValidationError as exc:
+            _record_metric(
+                report,
+                reported_by,
+                per_question,
+                key=name,
+                name=name,
+                outcome=Failed(
+                    reason=(
+                        f"'{name}' needs a configuration this gate-subset run cannot supply "
+                        f"with no arguments: {exc}"
+                    )
+                ),
+                scores=dict(failure_scores),
+            )
+            continue
+        metric = cast(GenerationMetric, factory(config))
+
+        try:
+            outcomes = [await metric.evaluate(payload, ctx) for payload in payloads]
+        except UnresolvedServiceError as exc:
+            # `embedding-similarity`'s own `ctx.require(Embedder)` — "whatever embedder a run
+            # has configured" — has nothing to resolve when the caller could not provide one
+            # (`weft_cli.eval_scoring.score_pipeline`'s own docstring paragraph on task 32.14
+            # explains when). One metric's unmet service need is that metric's own `Failed`,
+            # not every other gate-safe `GenerationMetric` in the same run aborting over it —
+            # the identical posture `_generation_metric_config`'s `ValidationError` catch above
+            # already takes for a metric whose configuration cannot be built generically.
+            _record_metric(
+                report,
+                reported_by,
+                per_question,
+                key=name,
+                name=name,
+                outcome=Failed(reason=f"'{name}' needs a service this run does not provide: {exc}"),
+                scores=dict(failure_scores),
+            )
+            continue
+        failures = [Failed(reason=reason) for reason in failed_questions.values()]
+        outcome = aggregate(
+            [*outcomes, *failures],
+            kind=MetricKind.GENERATION,
+            by_modality=_modality_slices(payloads, outcomes),
+            by_question_kind=_question_kind_slices(payloads, outcomes),
+        )
+        key = outcome.value.reported_name if isinstance(outcome, Produced) else name
+        _record_metric(
+            report,
+            reported_by,
+            per_question,
+            key=key,
+            name=name,
+            outcome=outcome,
+            scores={**_per_question_scores_by_keys(keys, outcomes), **failure_scores},
+        )
+    return SubsetScores(metrics=report, per_question=per_question)
+
+
+__all__ = ["SubsetScores", "score_generation_gate_subset", "score_retrieval_gate_subset"]

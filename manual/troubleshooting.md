@@ -3039,6 +3039,26 @@ over identical files. **What to do:** re-take the older arm on this version. The
 migration — the bytes an old record digested were never written down. `manual/operations-guide.md`
 → *What the corpus digest is over, and why a record says so* has the reproduction.
 
+### `CollidingScoreNameError`
+
+**What it looks like** — a run scoring a generating pipeline (`weft eval run --query-pipeline` or
+`weft eval experiment`) refuses because a retrieval metric and an answer metric report one name:
+
+```text
+a retrieval metric and a generation metric both report 'overlap' in this run. A scored run keys
+both its aggregates and its per-question scores by the name a metric computes, so one would
+silently replace the other. Have one pack's metric report a name of its own.
+```
+
+**Why it can happen at all.** Since ledger `32.14` a generating pipeline is scored twice in one run
+— its passages by the retrieval metrics and its answer by the answer metrics — and both land in one
+record keyed by reported name. Weft's own metrics report distinct names; a clash means an installed
+pack reports a name another metric already uses, across the two kinds. `CollidingMetricNameError`
+below is the same refusal within one kind.
+
+**What to do:** uninstall the pack you did not mean to score with, or ask its author to report a
+name of its own.
+
 ### `CollidingMetricNameError`
 
 **What it looks like** — two installed metrics compute the same reported name, so `weft eval run

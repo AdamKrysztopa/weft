@@ -71,8 +71,12 @@ from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import ServiceSelection
 from weft_eval.aggregate import MetricAggregate
-from weft_eval.contract import RetrievalSample, RetrievedPassage
-from weft_eval.harness import score_retrieval_gate_subset
+from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassage
+from weft_eval.harness import (
+    SubsetScores,
+    score_generation_gate_subset,
+    score_retrieval_gate_subset,
+)
 from weft_eval.question_set import Question, question_set_digest
 from weft_eval.run_record import (
     NoQueryRung,
@@ -80,6 +84,7 @@ from weft_eval.run_record import (
     PerQuestionSeconds,
     QueryRung,
     QuestionKey,
+    QuestionOutcome,
     RoleTokens,
     ScoredQueryRung,
 )
@@ -248,6 +253,25 @@ class AnswerCarriesNoUsedPassagesError(WeftError):
     def __init__(self, message: str, *, answer_type: str) -> None:
         super().__init__(message)
         self.answer_type = answer_type
+
+
+class CollidingScoreNameError(WeftError):
+    """A retrieval metric and a generation metric both report the same name in one run — task
+    **32.14**.
+
+    `weft_eval.harness.CollidingMetricNameError` already refuses this within one contract
+    (`score_retrieval_gate_subset` alone, `score_generation_gate_subset` alone); this is the
+    identical refusal one contract boundary up, because `score_pipeline` merges the two
+    `SubsetScores` into one `ScoredRun.metrics`/`question_scores` mapping and a name both sides
+    claim would silently replace one with the other exactly as it would within either function
+    alone. Names both the reported name and the fact that it crossed contracts, because a
+    generation metric colliding with a retrieval metric is a different fault from two
+    generation metrics colliding with each other.
+    """
+
+    def __init__(self, message: str, *, name: str) -> None:
+        super().__init__(message)
+        self.name = name
 
 
 def passages_for_scoring(answer: object) -> tuple[Passage, ...]:
@@ -465,6 +489,42 @@ class ScoredRun:
     token_usage: Mapping[str, RoleTokens] = _NO_TOKEN_USAGE
 
 
+def _merge_generation_scores(
+    generation_scores: SubsetScores,
+    *,
+    metrics: dict[str, Outcome[MetricAggregate]],
+    per_question: dict[str, Mapping[str, QuestionOutcome]],
+) -> None:
+    """Fold `score_generation_gate_subset`'s own `SubsetScores` into `score_pipeline`'s
+    retrieval-side `metrics`/`per_question`, in place — task **32.14**.
+
+    `ctx` reaches `score_generation_gate_subset` exactly as `score_pipeline` received it:
+    `embedding-similarity`'s own `ctx.require(Embedder)` finds nothing on it, because FF22
+    (`docs/internal/build-ledger.md` task 9.0) pins every `ServiceRegistry` a shipped run
+    assembles to three named assemblers, and `score_pipeline` is deliberately not a fourth. That
+    metric's `evaluate` raises `UnresolvedServiceError`, which `score_generation_gate_subset`
+    already catches and reports as `Failed` for itself alone, naming why — visible in the
+    record, never a crash and never a silent absence indistinguishable from "this run has no
+    reference answers." Wiring a real `Embedder` onto this path is unbuilt, and belongs in
+    `weft_engine.run_services` if it is ever done, not here.
+
+    Raises `CollidingScoreNameError` for a name a retrieval metric already reported — see that
+    error's own docstring for why one contract's own collision guard is not enough once the two
+    are merged into one `ScoredRun`.
+    """
+    for name, aggregate_outcome in generation_scores.metrics.items():
+        if name in metrics:
+            raise CollidingScoreNameError(
+                f"a retrieval metric and a generation metric both report '{name}' in this "
+                f"run. A scored run keys both its aggregates and its per-question scores "
+                f"by the name a metric computes, so one would silently replace the other. "
+                f"Have one pack's metric report a name of its own.",
+                name=name,
+            )
+        metrics[name] = aggregate_outcome
+        per_question[name] = generation_scores.per_question[name]
+
+
 async def score_pipeline(
     *,
     registry: Registry,
@@ -562,6 +622,20 @@ async def score_pipeline(
     here and every entry is mapped through it, via `_labelled_by_manifest`, *before*
     `resolve_labels` ever sees it. `None` — every call site before this task — is unchanged:
     entries are labels exactly as `resolve_labels` has always read them.
+
+    **A generating rung's own answer is scored against the reference answer too — task 32.14.**
+    Before this task, a generating rung's `Answer.text` was read only for `passages_for_scoring`
+    and then discarded, so no `GenerationMetric` — `token-recall`, `rouge-l`, every one of the
+    32.0 catalogue's "generation-only" entries — was ever computed in a real run. Every gate-safe
+    `GenerationMetric` is now scored beside the retrieval metrics, over one `GenerationSample`
+    per successfully-answered question (`weft_eval.harness.score_generation_gate_subset`), and
+    merged into this same `ScoredRun`. Only *gate-safe* metrics run here, unconditionally: a
+    judge metric needs a model of its own and is priced and asked for separately, exactly as
+    `score_retrieval_gate_subset` already restricts the retrieval side — this function invents
+    no second rule for the generation half of the same contract split. A retrieval rung or the
+    no-query-rung path builds no `GenerationSample` and computes no generation metric at all,
+    because neither one ever calls a `Generator`. See `_merge_generation_scores`'s own docstring
+    for why `ctx` reaches it unchanged, and what that costs `embedding-similarity` specifically.
     """
     embed_stage = _stage_for_contract(resolved_pipeline, Embedder.__name__)
     store_stage = _stage_for_contract(resolved_pipeline, NodeStore.__name__)
@@ -610,10 +684,12 @@ async def score_pipeline(
         return resolved_labels[label]
 
     samples: list[RetrievalSample] = []
+    generation_samples: list[tuple[str, GenerationSample]] = []
     seconds: dict[str, float] = {}
     axes: dict[str, Mapping[str, str]] = {}
     contributors: dict[str, tuple[str, ...]] = {}
     is_retrieval_rung = query_pipeline is not None and not generates
+    is_generating_rung = query_pipeline is not None and generates
     failed: dict[str, str] = {}
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
     retrieval_services: PreparedRunner | None = None
@@ -664,7 +740,26 @@ async def score_pipeline(
                         failed[question_key] = str(failure)
                         continue
                     seconds[question_key] = time.monotonic() - started
-                    hits = [passage.scored for passage in passages_for_scoring(answer)]
+                    used_passages = passages_for_scoring(answer)
+                    hits = [passage.scored for passage in used_passages]
+                    generation_samples.append(
+                        (
+                            question_key,
+                            GenerationSample(
+                                query=question_text,
+                                # `getattr`, not `answer.text` — the identical seam
+                                # `passages_for_scoring`'s own docstring argues for `used`:
+                                # a test's duck-typed stand-in carrying no `text` is "no
+                                # prediction to evaluate" (`GenerationSample.prediction`'s own
+                                # `None` state), never a crash reading an attribute it never
+                                # promised to carry.
+                                prediction=getattr(answer, "text", None),
+                                reference=question.reference_answer or "",
+                                contexts=tuple(passage.node.content for passage in used_passages),
+                                language=question.language,
+                            ),
+                        )
+                    )
                 elif query_pipeline is not None:
                     try:
                         passages = await run_named_retrieve(
@@ -718,12 +813,19 @@ async def score_pipeline(
     scores = await score_retrieval_gate_subset(
         registry, samples, top_k=top_k, ctx=ctx, failed_questions=failed
     )
+    metrics: dict[str, Outcome[MetricAggregate]] = dict(scores.metrics)
+    per_question: dict[str, Mapping[str, QuestionOutcome]] = dict(scores.per_question)
+    if is_generating_rung:
+        generation_scores = await score_generation_gate_subset(
+            registry, generation_samples, ctx=ctx, failed_questions=failed
+        )
+        _merge_generation_scores(generation_scores, metrics=metrics, per_question=per_question)
     question_scores = {
         name: PerQuestionScores(keyed_by=keyed_by, scores=outcomes)
-        for name, outcomes in scores.per_question.items()
+        for name, outcomes in per_question.items()
     }
     return ScoredRun(
-        metrics=scores.metrics,
+        metrics=metrics,
         query_rung=query_rung,
         question_scores=question_scores,
         question_axes=axes,
@@ -737,6 +839,7 @@ async def score_pipeline(
 __all__ = [
     "AmbiguousLabelError",
     "AnswerCarriesNoUsedPassagesError",
+    "CollidingScoreNameError",
     "ForeignDocumentRetrievedError",
     "PipelineNotRetrievableError",
     "ScoredRun",
