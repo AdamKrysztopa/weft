@@ -1,0 +1,24 @@
+name: intent-and-anchors-then-generate
+extends: hybrid-normalized-scores
+
+# **One stage inserted, and `hybrid` is not edited to make it work.** `intent-and-anchors` hands
+# `retrieve` the question exactly as asked, labelled for the vector arm alone, and one query per
+# anchor labelled for the text arm alone; `hybrid` already searches only the arms a query asks
+# for, so the dense arm sees the user's wording and the lexical arm sees `WRH123` rather than
+# *what*, *is* and *the*. A question with no anchor reaches the text arm not at all.
+#
+# **No `weights:` block, for `hybrid-normalized-scores`' own reason** — G24 settled that the
+# weights are fitted on a train split and reported on a held-out one, and nothing has been fitted.
+# Rerank against the question as asked is G24's too, and is not here until it has been measured.
+vars:
+  route.summary: >-
+    Searches the question's meaning as asked, and looks up each exact identifier, code or quoted
+    phrase in it on its own; a question with none is searched by meaning alone. The rung for
+    questions that name part numbers, error codes or section numbers.
+  route.cost: >-
+    one embedding call, one vector search, one text search per anchor found (none when the
+    question has none), and one model call
+
+insert:
+  - before: retrieve
+    stage: {id: anchor, use: intent-and-anchors}

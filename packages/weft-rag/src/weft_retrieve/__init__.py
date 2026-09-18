@@ -144,6 +144,14 @@ from weft_retrieve.graded import NAME as GRADED_RETRIEVAL_NAME
 from weft_retrieve.graded import GradedRetrieval, GradedRetrievalConfig
 from weft_retrieve.hybrid import NAME as HYBRID_NAME
 from weft_retrieve.hybrid import Hybrid, HybridConfig
+from weft_retrieve.intent_and_anchors import NAME as INTENT_AND_ANCHORS_NAME
+from weft_retrieve.intent_and_anchors import (
+    Anchor,
+    AnchorKind,
+    IntentAndAnchors,
+    IntentAndAnchorsConfig,
+    find_anchors,
+)
 from weft_retrieve.iterative import NAME as ITERATIVE_RETRIEVAL_NAME
 from weft_retrieve.iterative import (
     IterativeRetrieval,
@@ -389,6 +397,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(QueryTransform, HYDE_NAME, Hyde)
     registrar.add(QueryTransform, STEP_BACK_NAME, StepBack)
     registrar.add(QueryTransform, MULTI_QUERY_NAME, MultiQuery)
+    registrar.add(QueryTransform, INTENT_AND_ANCHORS_NAME, IntentAndAnchors)
     registrar.add(QueryTransform, BOOLEAN_RETRIEVAL_NAME, BooleanRetrieval)
     registrar.add(Prompt, PASSAGE_RELEVANCE_NAME, PassageRelevancePrompt)
     registrar.add(Prompt, STANDALONE_QUESTION_NAME, StandaloneQuestionPrompt)
@@ -453,6 +462,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # becomes of the answer, and the reason `single-list` cannot stay: two arms are two lists.
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hybrid-normalized-scores.yaml")
+    registrar.add_pipeline_resource(
+        "weft_retrieve", "pipelines/intent-and-anchors-then-generate.yaml"
+    )
     # Repair R21.5: `hybrid` narrowed to its text arm, ending in `repack` rather than a
     # `Generator` — the one document `weft ask --retrieve-only --pipeline lexical-retrieve`
     # can run with no account and no model. See the document's own header.
@@ -528,6 +540,7 @@ __all__ = [
     "HEDGE_PHRASES_NAME",
     "HYDE_DOCUMENT_NAME",
     "HYDE_NAME",
+    "INTENT_AND_ANCHORS_NAME",
     "ITERATIVE_RETRIEVAL_NAME",
     "LLM_RERANK_NAME",
     "LLM_SUFFICIENCY_NAME",
@@ -555,6 +568,8 @@ __all__ = [
     "VECTOR_TOP_K_NAME",
     "Always",
     "AlwaysConfig",
+    "Anchor",
+    "AnchorKind",
     "ArmEvidence",
     "ArmHit",
     "Assessment",
@@ -601,6 +616,8 @@ __all__ = [
     "HydeDocumentPrompt",
     "HydeDocumentRequest",
     "HydeDocuments",
+    "IntentAndAnchors",
+    "IntentAndAnchorsConfig",
     "IterativeRetrieval",
     "IterativeRetrievalConfig",
     "IterativeRetrievalTrace",
@@ -684,6 +701,7 @@ __all__ = [
     "TurnRole",
     "VectorTopK",
     "contributor_label",
+    "find_anchors",
     "fusion_evidence",
     "register",
     "stop_reason",

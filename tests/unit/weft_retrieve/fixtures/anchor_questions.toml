@@ -1,0 +1,207 @@
+# Forty questions judging `intent-and-anchors` — ledger tasks 39.0 and 39.1.
+#
+# Written 2026-09-18 by an agent given G24's definition of an anchor and nothing else: it read no
+# code and never saw the rule it judges, so the labels are not shaped by the implementation.
+# Twenty carry anchors (a01–a20), twenty carry none (n01–n20); a01 and n01 are the owner's own
+# examples. None of the twenty no-anchor questions contains a digit, so the negative half judges
+# acronyms, hyphenated words and ordinary language — number handling is the unit tests' job.
+
+[[question]]
+id = "a01"
+text = "What is the difference between the controller WRH123 and STX58"
+anchors = ["WRH123", "STX58"]
+
+[[question]]
+id = "a02"
+text = "What does error code ERR_CONNECTION_REFUSED mean?"
+anchors = ["ERR_CONNECTION_REFUSED"]
+
+[[question]]
+id = "a03"
+text = "Why does RFC 7231 define the status code 404 the way it does?"
+anchors = ["7231", "404"]
+
+[[question]]
+id = "a04"
+text = "Does IPv6 require a different MTU than IPv4?"
+anchors = ["IPv6", "IPv4"]
+
+[[question]]
+id = "a05"
+text = "what's the maximum value for max_age in a cache-control header?"
+anchors = ["max_age"]
+
+[[question]]
+id = "a06"
+text = "How is section 4.3.2 of the spec related to chunked transfer encoding?"
+anchors = ["4.3.2"]
+
+[[question]]
+id = "a07"
+text = "Is TLS 1.3 backwards compatible with 1.2?"
+anchors = ["1.3", "1.2"]
+
+[[question]]
+id = "a08"
+text = "what's the part number for the replacement fan on the WRH123 unit?"
+anchors = ["WRH123"]
+
+[[question]]
+id = "a09"
+text = "Can someone explain what \"connection reset by peer\" means in this context?"
+anchors = ["connection reset by peer"]
+
+[[question]]
+id = "a10"
+text = "port 443 vs port 8443 - which should I use for the reverse proxy?"
+anchors = ["443", "8443"]
+
+[[question]]
+id = "a11"
+text = "Getting error 0x80070005 when installing the driver, any ideas?"
+anchors = ["0x80070005"]
+
+[[question]]
+id = "a12"
+text = "does HTTP/2 support server push still, or was that dropped in HTTP/3?"
+anchors = ["HTTP/2", "HTTP/3"]
+
+[[question]]
+id = "a13"
+text = "what changed between v2.1.0 and v2.2.0 of the client library?"
+anchors = ["v2.1.0", "v2.2.0"]
+
+[[question]]
+id = "a14"
+text = "Looking for the datasheet on the STX58 module, does it support SPI?"
+anchors = ["STX58"]
+
+[[question]]
+id = "a15"
+text = "RFC7231 vs RFC7230 - which one covers message syntax?"
+anchors = ["RFC7231", "RFC7230"]
+
+[[question]]
+id = "a16"
+text = "my config has maxAge set but the cookie still expires immediately, why?"
+anchors = ["maxAge"]
+
+[[question]]
+id = "a17"
+text = "what's SHA-256 used for in the handshake?"
+anchors = ["SHA-256"]
+
+[[question]]
+id = "a18"
+text = "is status code 429 the right one to return when rate limiting?"
+anchors = ["429"]
+
+[[question]]
+id = "a19"
+text = "the label on the board just says E1234, is that a known fault code?"
+anchors = ["E1234"]
+
+[[question]]
+id = "a20"
+text = "should I be using DNS over HTTPS or is DoH covered under RFC8484?"
+anchors = ["RFC8484"]
+
+[[question]]
+id = "n01"
+text = "I am looking for the best controller for underwater RC"
+anchors = []
+
+[[question]]
+id = "n02"
+text = "How does TCP handle packet loss during a slow connection?"
+anchors = []
+
+[[question]]
+id = "n03"
+text = "What's the difference between symmetric and asymmetric encryption?"
+anchors = []
+
+[[question]]
+id = "n04"
+text = "Why does my email keep getting marked as spam by Gmail?"
+anchors = []
+
+[[question]]
+id = "n05"
+text = "Can someone explain how DNS caching actually works under the hood?"
+anchors = []
+
+[[question]]
+id = "n06"
+text = "Is it normal for a Wi-Fi router to drop connections after a firmware update?"
+anchors = []
+
+[[question]]
+id = "n07"
+text = "What are the pros and cons of using a reverse proxy in front of a web server?"
+anchors = []
+
+[[question]]
+id = "n08"
+text = "How many retries should a client attempt before giving up on a handshake?"
+anchors = []
+
+[[question]]
+id = "n09"
+text = "What's the best way to secure an API against replay attacks?"
+anchors = []
+
+[[question]]
+id = "n10"
+text = "Does browser caching actually improve page load times that much?"
+anchors = []
+
+[[question]]
+id = "n11"
+text = "I keep getting disconnected from my VPN every few minutes, any ideas why?"
+anchors = []
+
+[[question]]
+id = "n12"
+text = "What's the difference between a load balancer and a reverse proxy?"
+anchors = []
+
+[[question]]
+id = "n13"
+text = "How do certificate authorities verify domain ownership before issuing a cert?"
+anchors = []
+
+[[question]]
+id = "n14"
+text = "Looking for a good waterproof controller for a small RC boat"
+anchors = []
+
+[[question]]
+id = "n15"
+text = "Why would a firewall silently drop packets instead of rejecting them?"
+anchors = []
+
+[[question]]
+id = "n16"
+text = "What's the recommended way to rotate API keys without downtime?"
+anchors = []
+
+[[question]]
+id = "n17"
+text = "How does content negotiation work between a browser and a server?"
+anchors = []
+
+[[question]]
+id = "n18"
+text = "Is there a good explanation of how NAT traversal works for peer to peer connections?"
+anchors = []
+
+[[question]]
+id = "n19"
+text = "What causes latency spikes on a shared hosting network?"
+anchors = []
+
+[[question]]
+id = "n20"
+text = "How do email servers decide whether to accept or bounce an incoming message?"
+anchors = []

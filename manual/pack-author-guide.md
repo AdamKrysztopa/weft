@@ -920,7 +920,7 @@ without raising. `weft-retrieve` ships three this way:
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/route.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/no-retrieval.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/retrieve-then-generate.yaml")
-# packages/weft-rag/src/weft_retrieve/__init__.py:380-382 "registrar.add(Sufficiency,"
+# packages/weft-rag/src/weft_retrieve/__init__.py:392-393 "registrar.add(Sufficiency,"
 ```
 
 `package` and `resource` are read together as an `importlib.resources` path inside your own installed
