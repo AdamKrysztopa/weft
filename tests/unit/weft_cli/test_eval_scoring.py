@@ -44,6 +44,7 @@ from weft_kernel.payload import (
 )
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
+from weft_llm.errors import LLMAuthenticationError, LLMGenerationLoopError
 from weft_retrieve.payload import Passage, Passages, Query
 from weft_store import Filter, NodeStore, Scored
 
@@ -812,6 +813,90 @@ async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_sc
         aggregate = scored.metrics[name]
         assert isinstance(aggregate, Produced), name
         assert (aggregate.value.n, aggregate.value.excluded) == (2, 1), name
+
+
+# --- Repair R39.1 — a model stuck in a repeating span on one question excludes that question.
+
+
+async def test_a_model_looping_on_one_question_excludes_it_and_scores_the_rest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`39.5`'s `rfc-rerank` run: `llm-rerank` looped on one question's prompt, the loop-breaker
+    stopped it, and its `LLMGenerationLoopError` left the question loop, so the arm wrote no
+    record. The loop is a fact about that question's prompt — retrying it "is likely to loop
+    again" — so it is `R38.12`'s per-question failure, not a fault of the run."""
+
+    # Arrange
+    async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
+        if question == "loops":
+            raise LLMGenerationLoopError(
+                "provider 'openai' (role 'rerank') was generating a repeating span",
+                provider="openai",
+                model="some-model",
+            )
+        return Passages(origin=Query(text=question), passages=(_labelled_passage("doc-a", 0.9, 0),))
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+    questions = (
+        _question("q-1", text="works"),
+        _question("q-2", text="loops"),
+        _question("q-3", text="works too"),
+    )
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert scored.question_scores, "the run must still produce per-question scores"
+    for name, per_question in scored.question_scores.items():
+        outcome = per_question.scores["q-2"]
+        assert isinstance(outcome, NotScored), name
+        assert "repeating span" in outcome.reason
+        aggregate = scored.metrics[name]
+        assert isinstance(aggregate, Produced), name
+        assert (aggregate.value.n, aggregate.value.excluded) == (2, 1), name
+
+
+async def test_a_model_refusing_the_credential_still_aborts_the_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The control: a wrong key fails every question identically, so excluding them one by one
+    would write a record of nothing but exclusions. Only the per-question failure is caught."""
+
+    # Arrange
+    async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
+        del question
+        raise LLMAuthenticationError("invalid api key", provider="openai", model="some-model")
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+
+    # Act / Assert
+    with pytest.raises(LLMAuthenticationError):
+        await score_pipeline(
+            registry=_registry(),
+            resolved_pipeline=_resolved_pipeline(),
+            questions=(_question("q-1", text="works"),),
+            top_k=1,
+            ctx=_ctx(),
+            query_pipeline="some-rung",
+            corpus_document_ids=("doc-a",),
+        )
 
 
 # --- Ledger task 39.2 — a retrieval rung's record says which arms answered each question.

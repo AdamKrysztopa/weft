@@ -91,6 +91,7 @@ from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage, pipeline_identity
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
+from weft_llm.errors import LLMGenerationLoopError
 from weft_llm.usage import UsageEntry, recording_usage
 from weft_retrieve.payload import Passage
 from weft_store import NodeStore, Scored
@@ -528,7 +529,11 @@ async def score_pipeline(
     whole run: that question is caught, carries no `RetrievalSample` and no `question_seconds`
     entry, and is passed to `score_retrieval_gate_subset` as a `failed_questions` entry, which
     turns it into `NotScored` under every metric and counts it in `excluded` — `09` V4's "a
-    failed metric is an error, never a zero" one level up. Any other exception propagates.
+    failed metric is an error, never a zero" one level up. Repair R39.1 folds
+    `LLMGenerationLoopError` into the same exclusion — the loop-breaker's verdict on one
+    question's prompt, which retrying "is likely to loop again" — and nothing else from
+    `weft_llm.errors`, because a credential or quota fault fails every question alike. Any
+    other exception propagates.
 
     Raises `PipelineNotRetrievableError` if `resolved_pipeline` (the *ingest* pipeline
     `--questions` was corroborated over) names no `Embedder`/`NodeStore` stage — checked
@@ -655,7 +660,7 @@ async def score_pipeline(
                             sink=sink if sink is not None else NullSink(),
                             contributions=contributions,
                         )
-                    except PipelineDidNotProduceError as failure:
+                    except (PipelineDidNotProduceError, LLMGenerationLoopError) as failure:
                         failed[question_key] = str(failure)
                         continue
                     seconds[question_key] = time.monotonic() - started
@@ -675,7 +680,7 @@ async def score_pipeline(
                             contributions=contributions,
                             prepared=retrieval_services,
                         )
-                    except PipelineDidNotProduceError as failure:
+                    except (PipelineDidNotProduceError, LLMGenerationLoopError) as failure:
                         failed[question_key] = str(failure)
                         continue
                     seconds[question_key] = time.monotonic() - started
