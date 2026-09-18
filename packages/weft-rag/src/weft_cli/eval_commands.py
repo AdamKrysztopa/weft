@@ -1172,6 +1172,7 @@ async def index_and_score(
     experiment: ExperimentRun | None = None,
     reprocess: bool = True,
     batch_size: int | None = None,
+    cutoffs: tuple[int, ...] | None = None,
 ) -> IndexAndScoreResult:
     """Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
     with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own
@@ -1208,6 +1209,11 @@ async def index_and_score(
     document an operator already indexed is skipped rather than re-embedded at real API cost, and
     `batch_size` from the experiment document's own `index_batch_size`, so the corpus is not held
     in memory as one batch.
+
+    `cutoffs` — ledger task 40.1 — is passed straight through to `score_pipeline`'s own keyword
+    of the same name; `None` (every call site before this task, including `weft eval run`'s) is
+    unchanged. `weft_cli.eval_experiment` is the one caller that passes an experiment's own
+    declared `Experiment.cutoffs`.
     """
     resolved: ResolvedPipeline
     document_ids: tuple[str, ...]
@@ -1293,6 +1299,7 @@ async def index_and_score(
             resolved_pipeline=resolved,
             questions=questions,
             top_k=top_k,
+            cutoffs=cutoffs,
             ctx=ctx,
             corpus_document_ids=document_ids,
             query_pipeline=query_pipeline,

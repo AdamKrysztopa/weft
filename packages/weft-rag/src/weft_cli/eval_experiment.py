@@ -39,12 +39,14 @@ slice. Every later arm or repetition naming that same pair reuses what is alread
 (`reuse_index=True`), the identical `index_and_score`'s own `R10.4` paragraph already argues for a
 rung comparison.
 
-**A metric no run would record is refused before anything is indexed — repair R38.2.** The names a
-run actually records at `experiment.top_k` are asked of the registered metrics themselves
-(`weft_eval.harness.score_retrieval_gate_subset` against one synthetic sample), never assumed from
-the document's own `metrics =` list: a typo (`recal@5` beside `recall@10`, neither of them a name
-any run has ever written) used to pass every other refusal and run the whole, paid experiment,
-rendering `unjudgeable` naming nothing an operator could act on.
+**A metric no run would record is refused before anything is indexed — repair R38.2, widened at
+ledger task 40.1.** The names a run actually records at every one of `experiment.cutoffs` are
+asked of the registered metrics themselves (`weft_eval.harness.score_retrieval_at_cutoffs`
+against one synthetic sample), never assumed from the document's own `metrics =` list: a typo
+(`recal@5` beside `recall@10`, neither of them a name any run has ever written) used to pass
+every other refusal and run the whole, paid experiment, rendering `unjudgeable` naming nothing an
+operator could act on. A name recorded at any declared cutoff is accepted; one at a cutoff the
+document never declared is refused on the same footing as a typo.
 
 **A record names its corpus as the document wrote it, not as this machine resolved it — repair
 R38.2.** `corpus_name` is `corpus_for(arm)` relative to the experiment document's own directory,
@@ -77,7 +79,7 @@ from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
 from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassage
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
-from weft_eval.harness import score_generation_gate_subset, score_retrieval_gate_subset
+from weft_eval.harness import score_generation_gate_subset, score_retrieval_at_cutoffs
 from weft_eval.offline import UnknownMetricNameError
 from weft_eval.question_set import QuestionSet, read_question_set
 from weft_eval.run_record import ExperimentRun, corpus_identity
@@ -219,8 +221,8 @@ def _arm_incomparable_reasons(
 async def _refuse_unrecordable_metrics(
     experiment: Experiment, *, deps: Dependencies, ctx: Context
 ) -> None:
-    """Refuse before any arm is indexed if `experiment.metrics` names something no run at
-    `experiment.top_k` would actually record. See the module docstring's own paragraph.
+    """Refuse before any arm is indexed if `experiment.metrics` names something no run at any of
+    `experiment.cutoffs` would actually record. See the module docstring's own paragraph.
     """
     passages = tuple(
         RetrievedPassage(id=f"pre-flight-{position}") for position in range(experiment.top_k)
@@ -230,8 +232,8 @@ async def _refuse_unrecordable_metrics(
         retrieved=passages,
         relevant_ids=frozenset({passages[0].id}),
     )
-    subset = await score_retrieval_gate_subset(
-        deps.registry, [sample], top_k=experiment.top_k, ctx=ctx
+    subset = await score_retrieval_at_cutoffs(
+        deps.registry, [sample], cutoffs=experiment.cutoffs, ctx=ctx
     )
     recorded = {name for name, outcome in subset.metrics.items() if isinstance(outcome, Produced)}
     # Ledger 32.14 scores a generating arm's answer too, so its names are recordable here.
@@ -247,8 +249,8 @@ async def _refuse_unrecordable_metrics(
         if name not in recorded:
             valid_options = tuple(sorted(recorded))
             raise UnknownMetricNameError(
-                f"'{name}' is not a metric name a run at top_k={experiment.top_k} would ever "
-                f"record. Recorded metrics: "
+                f"'{name}' is not a metric name a run at cutoffs {experiment.cutoffs} would "
+                f"ever record. Recorded metrics: "
                 f"{', '.join(repr(option) for option in valid_options) or 'none'}.",
                 valid_options=valid_options,
                 name=name,
@@ -463,6 +465,7 @@ class EvalExperimentCommand:
                     questions=questions,
                     document_labels=document_labels,
                     top_k=experiment.top_k,
+                    cutoffs=experiment.cutoffs,
                     query_pipeline=arm.query_pipeline,
                     reuse_index=already_indexed,
                     refuse_foreign_documents=True,

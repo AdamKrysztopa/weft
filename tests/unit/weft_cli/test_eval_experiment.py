@@ -192,7 +192,13 @@ def _arm(name: str, pipeline: str, extra: str = "") -> str:
 
 
 def _experiment(
-    root: Path, arms: str, *, repeats: int = 2, metrics: str = '["precision@5"]', extra: str = ""
+    root: Path,
+    arms: str,
+    *,
+    repeats: int = 2,
+    metrics: str = '["precision@5"]',
+    extra: str = "",
+    top_k: str = "5",
 ) -> Path:
     """An experiment whose corpus, questions and document sit under `root/project`."""
     project = root / "project"
@@ -203,7 +209,7 @@ def _experiment(
     path.write_text(
         f"[experiment]\nschema = {EXPERIMENT_SCHEMA_VERSION}\n"
         f'name = "fixture"\nquestions = "questions.toml"\ncorpus = "corpus"\n'
-        f"repeats = {repeats}\ntop_k = 5\nmetrics = {metrics}\n"
+        f"repeats = {repeats}\ntop_k = {top_k}\nmetrics = {metrics}\n"
         f"minimum_detectable_effect = 0.05\n{extra}" + arms,
         encoding="utf-8",
     )
@@ -769,3 +775,47 @@ async def test_a_refused_metric_name_lists_the_answer_metrics_beside_the_retriev
     assert "token_recall" in caught.value.valid_options
     assert "rouge_l" in caught.value.valid_options
     assert "recall@5" in caught.value.valid_options
+
+
+# --- Task 40.1 — one ranking, every declared cutoff.
+
+
+async def test_every_declared_cutoff_reaches_the_scorer_and_the_ranking_is_read_to_the_largest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("a", "index") + _arm("b", "index"),
+        metrics='["recall@1", "mrr@5", "ndcg@10"]',
+        top_k="[1, 5, 10]",
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert calls
+    assert {(call["top_k"], call["cutoffs"]) for call in calls} == {(10, (1, 5, 10))}
+
+
+async def test_a_metric_at_a_cutoff_the_document_did_not_declare_is_refused_naming_the_valid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(
+        tmp_path, _arm("a", "index") + _arm("b", "index"), metrics='["recall@3"]', top_k="[1, 5]"
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    with pytest.raises(UnknownMetricNameError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert {"recall@1", "recall@5", "mrr@5"} <= set(caught.value.valid_options)
+    assert "recall@3" not in caught.value.valid_options
+    assert calls == []

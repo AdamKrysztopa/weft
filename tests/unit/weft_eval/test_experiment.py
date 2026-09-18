@@ -147,6 +147,8 @@ def test_the_digest_is_over_the_documents_bytes(tmp_path: Path) -> None:
         (('metrics = ["precision@5", "recall@5"]', "metrics = []"), "metrics"),
         (('name = "rung"', 'name = "dense"'), "dense"),
         (("top_k = 5", "top_k = 5\ntemperature = 0.2"), "temperature"),
+        (("top_k = 5", "top_k = []"), "top_k"),
+        (("top_k = 5", "top_k = [0, 5]"), "top_k"),
     ],
     ids=[
         "one-repetition",
@@ -155,6 +157,8 @@ def test_the_digest_is_over_the_documents_bytes(tmp_path: Path) -> None:
         "no-metric",
         "two-arms-one-name",
         "an-unknown-key",
+        "no-cutoff",
+        "a-zero-cutoff",
     ],
 )
 def test_a_document_that_cannot_be_run_as_stated_is_refused_naming_file_and_field(
@@ -306,3 +310,32 @@ def test_an_arm_declaring_no_repetitions_at_all_is_refused_naming_the_field(tmp_
 
     # Assert
     assert "repeats" in str(caught.value)
+
+
+# --- Task 40.1 — one ranking, every declared cutoff.
+
+
+def test_a_document_may_declare_several_cutoffs_and_the_ranking_is_read_to_the_largest(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
+        "top_k = 5", "top_k = [10, 1, 5]"
+    )
+
+    # Act
+    experiment = load_experiment(_write(tmp_path, body))
+
+    # Assert
+    assert experiment.cutoffs == (1, 5, 10)
+    assert experiment.top_k == 10
+
+
+def test_a_bare_top_k_is_a_set_of_one_cutoff(tmp_path: Path) -> None:
+    # Act
+    experiment = load_experiment(
+        _write(tmp_path, _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION))
+    )
+
+    # Assert
+    assert (experiment.cutoffs, experiment.top_k) == ((5,), 5)

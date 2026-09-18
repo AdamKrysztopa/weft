@@ -75,6 +75,7 @@ from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassa
 from weft_eval.harness import (
     SubsetScores,
     score_generation_gate_subset,
+    score_retrieval_at_cutoffs,
     score_retrieval_gate_subset,
 )
 from weft_eval.question_set import Question, question_set_digest
@@ -535,12 +536,46 @@ def _merge_generation_scores(
         per_question[name] = generation_scores.per_question[name]
 
 
+def _resolved_cutoffs(cutoffs: tuple[int, ...] | None, *, top_k: int) -> tuple[int, ...]:
+    """`cutoffs`, defaulted to `(top_k,)` — ledger task 40.1. `top_k` is always the depth the
+    ranking is collapsed to, so a caller naming a largest cutoff that disagrees with it is
+    asking for a depth no ranking was ever collapsed to.
+    """
+    resolved = cutoffs if cutoffs is not None else (top_k,)
+    if max(resolved) != top_k:
+        raise ValueError(
+            f"cutoffs {resolved} name a largest cutoff of {max(resolved)}, which does not "
+            f"match top_k={top_k} — top_k is the depth the ranking is collapsed to."
+        )
+    return resolved
+
+
+async def _score_retrieval(
+    registry: Registry,
+    samples: Sequence[RetrievalSample],
+    *,
+    cutoffs: tuple[int, ...],
+    ctx: Context,
+    failed_questions: Mapping[str, str],
+) -> SubsetScores:
+    """One cutoff is today's single `score_retrieval_gate_subset` call; several go through
+    `weft_eval.harness.score_retrieval_at_cutoffs`, which gives the same result for one."""
+    if len(cutoffs) == 1:
+        return await score_retrieval_gate_subset(
+            registry, samples, top_k=cutoffs[0], ctx=ctx, failed_questions=failed_questions
+        )
+    return await score_retrieval_at_cutoffs(
+        registry, samples, cutoffs=cutoffs, ctx=ctx, failed_questions=failed_questions
+    )
+
+
 async def score_pipeline(
     *,
     registry: Registry,
     resolved_pipeline: ResolvedPipeline,
     questions: tuple[Question, ...],
     top_k: int,
+    cutoffs: tuple[int, ...] | None = None,
     ctx: Context,
     corpus_document_ids: Sequence[str],
     query_pipeline: str | None = None,
@@ -646,7 +681,19 @@ async def score_pipeline(
     no-query-rung path builds no `GenerationSample` and computes no generation metric at all,
     because neither one ever calls a `Generator`. See `_merge_generation_scores`'s own docstring
     for why `ctx` reaches it unchanged, and what that costs `embedding-similarity` specifically.
+
+    **`cutoffs`, ledger task 40.1.** `None` (the default) scores at `top_k` alone, exactly
+    today's behaviour — and with one cutoff (`None`, or a one-member tuple) this calls
+    `weft_eval.harness.score_retrieval_gate_subset` exactly as before, byte-for-byte the same
+    call, so nothing that patches or reads that one call site changes. `top_k` stays the depth
+    every ranking is collapsed to (`_deduplicated_by_document` below runs once, unchanged).
+    Given a tuple of more than one cutoff, `weft_eval.harness.score_retrieval_at_cutoffs` scores
+    the same collapsed samples once per declared cutoff, merging by what each metric's own name
+    says about it. `max(cutoffs)` must equal `top_k`, since a cutoff no ranking was collapsed to
+    could never be read from it.
     """
+    resolved_cutoffs = _resolved_cutoffs(cutoffs, top_k=top_k)
+
     embed_stage = _stage_for_contract(resolved_pipeline, Embedder.__name__)
     store_stage = _stage_for_contract(resolved_pipeline, NodeStore.__name__)
     if embed_stage is None or store_stage is None:
@@ -820,8 +867,8 @@ async def score_pipeline(
                     )
                 )
 
-    scores = await score_retrieval_gate_subset(
-        registry, samples, top_k=top_k, ctx=ctx, failed_questions=failed
+    scores = await _score_retrieval(
+        registry, samples, cutoffs=resolved_cutoffs, ctx=ctx, failed_questions=failed
     )
     metrics: dict[str, Outcome[MetricAggregate]] = dict(scores.metrics)
     per_question: dict[str, Mapping[str, QuestionOutcome]] = dict(scores.per_question)

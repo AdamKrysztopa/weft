@@ -364,6 +364,42 @@ async def score_retrieval_gate_subset(
     return SubsetScores(metrics=report, per_question=per_question)
 
 
+async def score_retrieval_at_cutoffs(
+    registry: Registry,
+    samples: Sequence[RetrievalSample],
+    *,
+    cutoffs: Sequence[int],
+    ctx: Context,
+    failed_questions: Mapping[str, str] = _NO_FAILED_QUESTIONS,
+) -> SubsetScores:
+    """One ranking, scored once per declared cutoff — ledger task **40.1**.
+
+    `samples` already carries a ranking collapsed to distinct documents once, at
+    `max(cutoffs)` (the caller's job — see `weft_cli.eval_scoring`); this function calls
+    `score_retrieval_gate_subset` once per cutoff over that same `samples` and merges the
+    results by what each metric's own name says about it: a name ending `@k` is kept only from
+    the scoring done at that `k` (`precision@5` only from the `k=5` call, never from `k=1`'s,
+    where the identical name would report a different `top_k`'s config against a ranking sliced
+    the same way — the two are not the same computation just because a stranger's `RetrievalMetric`
+    could theoretically report the same string at two depths); a name carrying no `@` at all
+    (`mean_average_precision`) is kept only from the scoring at `max(cutoffs)`, since such a
+    metric's own name carries no depth for `@k`-filtering to select by. With one cutoff this
+    reduces to exactly one `score_retrieval_gate_subset` call and its own output, unmerged.
+    """
+    largest = max(cutoffs)
+    metrics: dict[str, Outcome[MetricAggregate]] = {}
+    per_question: dict[str, Mapping[str, QuestionOutcome]] = {}
+    for k in cutoffs:
+        scored = await score_retrieval_gate_subset(
+            registry, samples, top_k=k, ctx=ctx, failed_questions=failed_questions
+        )
+        for name, outcome in scored.metrics.items():
+            if name.endswith(f"@{k}") or ("@" not in name and k == largest):
+                metrics[name] = outcome
+                per_question[name] = scored.per_question[name]
+    return SubsetScores(metrics=metrics, per_question=per_question)
+
+
 def _generation_metric_config(config_model: type[BaseModel] | None) -> BaseModel | None:
     """`config_model`, built with no arguments — every gate-safe `GenerationMetric` this pack
     ships needs a config buildable this way (`weft_eval.lexical.NoConfig`, `_RougeConfig`'s own
@@ -484,4 +520,9 @@ async def score_generation_gate_subset(
     return SubsetScores(metrics=report, per_question=per_question)
 
 
-__all__ = ["SubsetScores", "score_generation_gate_subset", "score_retrieval_gate_subset"]
+__all__ = [
+    "SubsetScores",
+    "score_generation_gate_subset",
+    "score_retrieval_at_cutoffs",
+    "score_retrieval_gate_subset",
+]

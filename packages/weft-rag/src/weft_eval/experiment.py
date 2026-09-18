@@ -43,9 +43,16 @@ from __future__ import annotations
 import hashlib
 import tomllib
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from weft_kernel.errors import WeftError
 
@@ -123,10 +130,46 @@ class Experiment(BaseModel):
     manifest: Path | None = None
     repeats: int = Field(ge=2)
     top_k: int = Field(ge=1)
+    cutoffs: tuple[int, ...] = Field(min_length=1)
     metrics: tuple[str, ...] = Field(min_length=1)
     minimum_detectable_effect: float = Field(gt=0)
     index_batch_size: int | None = Field(default=None, ge=1)
     arms: tuple[ExperimentArm, ...]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _cutoffs_from_top_k(cls, data: Any) -> Any:
+        """A document writes only `top_k` — an int names one cutoff, a list names several. This
+        expands either spelling into the declared `top_k` (the largest, and so the retrieval
+        depth every question's ranking is collapsed to) plus `cutoffs` (every declared depth,
+        sorted ascending and de-duplicated) before field validation runs. A document may not
+        write `cutoffs` itself; `extra="forbid"` still refuses it.
+        """
+        if not isinstance(data, dict):
+            return data
+        document = cast("dict[str, Any]", data)
+        if "top_k" not in document:
+            return document
+        raw: Any = document["top_k"]
+        if raw is None or isinstance(raw, bool):
+            return document
+        if isinstance(raw, int):
+            return {**document, "cutoffs": (raw,)}
+        if isinstance(raw, (list, tuple)):
+            entries = cast("list[Any] | tuple[Any, ...]", raw)
+            if not entries:
+                raise ValueError("top_k names no cutoff — declare at least one retrieval depth.")
+            cutoffs: list[int] = []
+            for value in entries:
+                if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                    raise ValueError(
+                        f"top_k names {value!r} as a cutoff, and every cutoff must be a "
+                        f"positive integer."
+                    )
+                cutoffs.append(value)
+            ordered = tuple(sorted(set(cutoffs)))
+            return {**document, "top_k": max(ordered), "cutoffs": ordered}
+        return document
 
     @field_validator("arms")
     @classmethod
@@ -256,6 +299,7 @@ def load_experiment(path: Path) -> Experiment:
             manifest=_resolve_optional(experiment_table.get("manifest"), root=root),
             repeats=experiment_table.get("repeats"),
             top_k=experiment_table.get("top_k"),
+            cutoffs=(),  # derived from `top_k` by `_cutoffs_from_top_k`
             metrics=tuple(experiment_table.get("metrics", ())),
             minimum_detectable_effect=experiment_table.get("minimum_detectable_effect"),
             index_batch_size=experiment_table.get("index_batch_size"),

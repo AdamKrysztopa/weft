@@ -20,6 +20,7 @@ from weft_eval import Settings, register
 from weft_eval.contract import MetricScore, RetrievalMetric, RetrievalSample, RetrievedPassage
 from weft_eval.harness import (
     CollidingMetricNameError,
+    score_retrieval_at_cutoffs,
     score_retrieval_gate_subset,
 )
 from weft_eval.run_record import NotScored
@@ -228,3 +229,55 @@ async def test_two_metrics_reporting_one_name_are_refused_rather_than_overwritin
     message = str(excinfo.value)
     assert "precision@1" in message, "the refusal does not name the reported name that collided"
     assert "shadow-precision" in message, "the refusal does not name the plugin that collided"
+
+
+# --- Task 40.1 — every cutoff is read off one ranking.
+
+
+def _ranked_samples() -> list[RetrievalSample]:
+    """Ten documents each, the relevant ones at different depths, so every cutoff differs."""
+    placements: dict[str, set[int]] = {
+        "q-top": {0},
+        "q-third": {2},
+        "q-seventh": {6},
+        "q-two": {1, 8},
+        "q-none": set(),
+    }
+    return [
+        RetrievalSample(
+            query=key,
+            question_key=key,
+            retrieved=tuple(RetrievedPassage(id=f"{key}-{i}", text="t") for i in range(10)),
+            relevant_ids=frozenset(f"{key}-{i}" for i in positions) or frozenset({"elsewhere"}),
+        )
+        for key, positions in placements.items()
+    ]
+
+
+async def test_scoring_at_several_cutoffs_gives_exactly_what_one_scoring_per_cutoff_gives() -> None:
+    # Arrange
+    registry, samples, cutoffs = _registry(), _ranked_samples(), (1, 5, 10)
+    single = {
+        k: await score_retrieval_gate_subset(registry, samples, top_k=k, ctx=_ctx())
+        for k in cutoffs
+    }
+    expected_metrics = {
+        name: outcome
+        for k in cutoffs
+        for name, outcome in single[k].metrics.items()
+        if name.endswith(f"@{k}") or ("@" not in name and k == max(cutoffs))
+    }
+    expected_per_question = {
+        name: single[k].per_question[name]
+        for k in cutoffs
+        for name in single[k].per_question
+        if name.endswith(f"@{k}") or ("@" not in name and k == max(cutoffs))
+    }
+
+    # Act
+    report = await score_retrieval_at_cutoffs(registry, samples, cutoffs=cutoffs, ctx=_ctx())
+
+    # Assert
+    assert {"mrr@5", "recall@1", "ndcg@10"} <= set(report.metrics)
+    assert report.metrics == expected_metrics
+    assert report.per_question == expected_per_question

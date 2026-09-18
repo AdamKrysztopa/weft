@@ -1183,3 +1183,39 @@ async def test_hits_tied_on_score_are_ranked_in_the_order_the_ranking_gave_them(
 
     # Assert
     assert [passage.id for passage in captured[0].retrieved] == ["doc-best", "doc-other"]
+
+
+# --- Task 40.1 — the ranking is collapsed once and scored at every cutoff.
+
+
+async def test_a_ranking_collapsed_once_is_scored_at_every_cutoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — the relevant document is second, so recall@1 is 0 and recall@2 is 1.
+    packed = (_labelled_passage("doc-first", 0.9, 0), _labelled_passage("doc-best", 0.5, 1))
+
+    async def _passages(*_args: object, **_kwargs: object) -> Passages:
+        return Passages(origin=Query(text="q"), passages=packed)
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+
+    # Act
+    scored = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_question(relevant_documents=("doc-best",)),),
+        top_k=2,
+        cutoffs=(1, 2),
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-best", "doc-first"),
+    )
+
+    # Assert
+    at_one, at_two = scored.metrics["recall@1"], scored.metrics["recall@2"]
+    assert isinstance(at_one, Produced) and isinstance(at_two, Produced)
+    assert (at_one.value.mean, at_two.value.mean) == (0.0, 1.0)
