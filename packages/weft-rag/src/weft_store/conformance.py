@@ -63,6 +63,7 @@ from typing import Final, Protocol, cast, runtime_checkable
 
 from weft_blob.contract import BlobUri
 from weft_blob.payload import BlobRef
+from weft_chunk.payload import ChunkPosition
 from weft_extract.payload import BoundingBox, PageSpan, TableGrid
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
@@ -252,7 +253,7 @@ def register_conformance_ext_models() -> None:
     Idempotent here rather than at the registry: calling it twice is a no-op, because a caller who
     runs two suites in one process should not have to remember which one registered first.
     """
-    for model in (ConformanceFact, BlobRef, PageSpan, TableGrid):
+    for model in (ConformanceFact, BlobRef, ChunkPosition, PageSpan, TableGrid):
         try:
             register_ext_model(model)
         except DuplicateRegistrationError:
@@ -1330,6 +1331,79 @@ async def check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_eve
     _require(
         await _all(page) == frozenset(),
         "the store did not satisfy: await _all(page) == frozenset()",
+    )
+
+
+async def check_a_parents_children_within_an_ordinal_range_are_one_filter_away(
+    store: FilterableStore,
+) -> None:
+    """A hit's siblings, by position — ledger `32.2`, what `adjacent-chunks` (`32.3`) asks.
+
+    `lineage.parents` alone was checked above; this is that predicate **and** an integer `in`
+    over `ext.weft-chunk.ordinal` (`weft_chunk.payload.ChunkPosition`, `32.1`), the one
+    combination reading the two translators cannot settle. A second parent whose children
+    carry the same ordinals is stored beside it, so a store that dropped either clause
+    answers visibly wrong rather than accidentally right.
+    """
+    # Arrange
+    wanted = _node("wanted parent", sources=frozenset({_SOURCE_A}))
+    other = _node("other parent", sources=frozenset({_SOURCE_B}))
+    children = tuple(
+        parent.derive(content=f"{label} {ordinal}", ordinal=ordinal).with_ext(
+            ChunkPosition(ordinal=ordinal, start=ordinal * 10)
+        )
+        for parent, label in ((wanted, "wanted"), (other, "other"))
+        for ordinal in range(5)
+    )
+    await store.add((wanted, other, *children))
+    _require(
+        callable(getattr(store, "matching", None)),
+        'the store did not satisfy: callable(getattr(store, "matching", None))',
+    )
+
+    # Act
+    page = await store.matching(
+        Filter(
+            op=FilterOp.AND,
+            clauses=(
+                Filter(op=FilterOp.CONTAINS, field="lineage.parents", value=str(wanted.id)),
+                Filter(op=FilterOp.IN, field="ext.weft-chunk.ordinal", value=(1, 2, 3)),
+            ),
+        )
+    )
+
+    # Assert
+    _require(
+        await _all(page) == frozenset({"wanted 1", "wanted 2", "wanted 3"}),
+        'the store did not satisfy: await _all(page) == frozenset({"wanted 1", "wanted 2", '
+        '"wanted 3"})',
+    )
+
+
+async def check_writing_a_node_again_under_its_id_replaces_its_ext(
+    store: FilterableStore,
+) -> None:
+    """`weft index --reprocess` is how a corpus indexed before `32.1` gains positions — Phase
+    32's owner question 5, settled on measurement — and it works only if writing a node again
+    under an unchanged id replaces its `ext` rather than keeping the first write's. A chunk's id
+    does not move when `ChunkPosition` is added (`32.1` pins that), so this is exactly the write
+    a re-index performs.
+    """
+    # Arrange
+    parent = _node("reprocessed parent", sources=frozenset({_SOURCE_A}))
+    before = parent.derive(content="indexed before positions existed", ordinal=0)
+    after = before.with_ext(ChunkPosition(ordinal=0, start=0))
+    await store.add((parent, before))
+
+    # Act
+    await store.add((after,))
+    page = await store.matching(Filter(op=FilterOp.EXISTS, field="ext.weft-chunk.ordinal"))
+
+    # Assert
+    _require(
+        await _all(page) == frozenset({"indexed before positions existed"}),
+        'the store did not satisfy: await _all(page) == frozenset({"indexed before positions '
+        'existed"})',
     )
 
 

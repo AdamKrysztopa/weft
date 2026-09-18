@@ -94,6 +94,7 @@ from weft_store.conformance import (
     check_a_node_written_twice_by_one_document_is_one_production_not_two,
     check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything,
     check_a_parent_is_one_filter_away_from_its_child_on_either_backend,
+    check_a_parents_children_within_an_ordinal_range_are_one_filter_away,
     check_a_source_record_round_trips_and_is_listed,
     check_add_merges_a_nodes_sources_rather_than_replacing_them,
     check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend,
@@ -110,6 +111,7 @@ from weft_store.conformance import (
     check_supersede_refuses_a_replacement_that_drops_a_source,
     check_supersede_replaces_a_node_and_leaves_its_neighbours_alone,
     check_the_multimodal_facts_round_trip_through_every_store,
+    check_writing_a_node_again_under_its_id_replaces_its_ext,
     conformance_corpus,
     register_conformance_ext_models,
 )
@@ -342,6 +344,16 @@ async def test_a_parent_id_nothing_derives_from_selects_nothing_rather_than_ever
     store: FilterableStore,
 ) -> None:
     await check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything(store)
+
+
+async def test_a_parents_children_within_an_ordinal_range_are_one_filter_away(
+    store: FilterableStore,
+) -> None:
+    await check_a_parents_children_within_an_ordinal_range_are_one_filter_away(store)
+
+
+async def test_writing_a_node_again_under_its_id_replaces_its_ext(store: FilterableStore) -> None:
+    await check_writing_a_node_again_under_its_id_replaces_its_ext(store)
 
 
 async def test_a_filter_reaches_vector_search_rather_than_being_ignored(
