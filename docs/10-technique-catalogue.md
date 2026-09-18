@@ -500,7 +500,7 @@ settled inside a document that does not own them.
 Part of what this document owns, and the cheapest thing in it. These names must stay free because the
 literature has already fixed them for techniques Weft does not implement.
 
-**This section reserves 42 names and 1 prefix.** That sentence is the point of it and not
+**This section reserves 45 names and 1 prefix.** That sentence is the point of it and not
 decoration: `tests/docs/test_technique_naming.py` counts what it can actually read here and
 refuses a run where the two disagree. Before carried repair `R11.7` there was no second number to
 disagree with — the parser's count and the section's count were the same number arrived at by the
@@ -668,6 +668,21 @@ over answer and reference; `embedding-similarity` is a bi-encoder and does not t
 · `bem` — Bulian et al., arXiv:2202.07654, 2022: a trained answer-equivalence classifier
 · `g-eval` — Liu et al., EMNLP 2023, arXiv:2303.16634: a chain-of-thought rubric judge with
 probability-weighted scoring
+
+**Reserved at Phase 32's opening (2026-09-18), before any code exists** — three `Reranker`s,
+named so the first implementation cannot seize a broader name or a blog's:
+
+· `mmr` — Carbonell & Goldstein, SIGIR '98, pp. 335–336: maximal marginal relevance, greedy
+selection trading a passage's similarity to the query against its similarity to what is already
+selected
+
+· `shingle-resemblance` — Broder 1997: drop a passage whose w-shingle resemblance to a
+higher-ranked kept passage meets a threshold, computed exactly. Named for the measure, not the
+purpose, so an embedding-based near-duplicate filter keeps a name of its own
+
+· `adjacent-chunks` — Weft's own, no origin paper: add each hit's same-parent neighbours by
+recorded chunk position. Not `small-to-big` or `sentence-window`, which are a blog's and a
+framework's labels with two meanings between them and a sentence unit Weft does not have
 
 **`intent-and-anchors` was reserved here at Phase 39's opening (2026-09-18) and is now taken** —
 ledger `39.0`, and its row is in §1.1. **G24**'s name for its own technique, reserved before any
