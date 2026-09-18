@@ -47,6 +47,11 @@ _DOTTED_DIGITS_RE: Final[re.Pattern[str]] = re.compile(r"^\d+(\.\d+)+$")
 #: Two lowercase letters first, so `DoH`, `iOS` and `iPhone` stay words; PascalCase is refused
 #: because by shape alone it cannot be told from a brand name (`39.1`'s first gate).
 _CAMEL_CASE_RE: Final[re.Pattern[str]] = re.compile(r"[a-z]{2,}[A-Z][a-z]")
+#: A number glued to a unit of size, rate, frequency or time is an amount, never an identifier —
+#: the one error class both extractors shared at `39.1`'s gate (`5GHz`, `32MB`).
+_AMOUNT_RE: Final[re.Pattern[str]] = re.compile(
+    r"^\d+(?:\.\d+)?\s?(?:[kmgtp]i?b|[kmg]?hz|[kmg]?bps|[mµun]?s)$", re.IGNORECASE
+)
 
 
 class AnchorKind(StrEnum):
@@ -116,6 +121,8 @@ def _find_entities(text: str, entities: Sequence[str]) -> tuple[list[tuple[int, 
 
 
 def _is_identifier_shaped(token: str) -> bool:
+    if _AMOUNT_RE.match(token):
+        return False
     has_letter = any(character.isascii() and character.isalpha() for character in token)
     has_digit = any(character.isdigit() for character in token)
     if has_letter and has_digit and not _ORDINAL_RE.match(token):
@@ -289,7 +296,9 @@ class IntentAndAnchors:
                 # method's own comment on this line.
                 return generated
             named = (_searchable(anchor) for anchor in generated.value.value.anchors)
-            anchor_texts = _dedupe_first(tuple(anchor for anchor in named if anchor))
+            anchor_texts = _dedupe_first(
+                tuple(anchor for anchor in named if anchor and not _AMOUNT_RE.match(anchor))
+            )
             question = payload.origin.text
             for anchor in anchor_texts:
                 invented = [

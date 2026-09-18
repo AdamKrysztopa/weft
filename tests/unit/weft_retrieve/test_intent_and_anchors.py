@@ -449,3 +449,31 @@ async def test_call_parentheses_and_a_possessive_are_not_part_of_what_is_searche
     # Assert
     assert isinstance(outcome, Produced)
     assert [query.text for query in outcome.value.queries[1:]] == [searched]
+
+
+@pytest.mark.parametrize(
+    "amount", ["5GHz", "2.4GHz", "32MB", "16 GB", "100ms", "10Gbps", "64KiB", "250us"]
+)
+def test_a_number_with_a_unit_is_an_amount_and_never_an_anchor(amount: str) -> None:
+    # Arrange — the one error class both extractors shared at 39.1's gate: an amount glued to its
+    # unit reads as a part number by shape.
+    text = f"does AX6000 firmware v2.1.0 run at {amount}?"
+
+    # Act
+    anchors = find_anchors(text)
+
+    # Assert
+    assert [anchor.text for anchor in anchors] == ["AX6000", "v2.1.0"]
+
+
+async def test_the_model_path_drops_a_unit_bearing_amount_it_named() -> None:
+    # Arrange
+    llm = _StubLLM(['{"anchors": ["AX6000", "5GHz", "2.4GHz", "v2.1.0"]}'])
+    asked = _asked("does AX6000 on v2.1.0 prefer 5GHz over 2.4GHz?")
+
+    # Act
+    outcome = await _by_model().run(asked, _model_ctx(llm))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [query.text for query in outcome.value.queries[1:]] == ["AX6000", "v2.1.0"]
