@@ -1,0 +1,28 @@
+name: context-construction-then-generate
+extends: retrieve-then-generate
+
+# Phase 32's composition: drop near-copies before `mmr` spends a selection on them, select eight
+# by relevance against novelty, widen each by its neighbours after selection so they never compete
+# for a slot, then pack whole passages under a token budget of the generator's own model.
+# `repack`'s inherited `top_n: 8` would cut the widened list back before the budget ran, so it is
+# lifted to 24 (eight hits, up to two neighbours each) and the budget decides.
+vars:
+  route.summary: >-
+    One vector search; near-duplicate passages dropped, eight chosen for relevance and variety,
+    each widened by the chunk on either side, and the context cut to a token budget before the
+    answer is written. For a question whose answer straddles a chunk boundary, over a corpus
+    that repeats itself.
+  route.cost: >-
+    one embedding call, one search, one more embedding call for the question's vector, one store
+    read for neighbours, and one model call
+
+insert:
+  - after: fuse
+    stage: {id: dedupe, use: shingle-resemblance}
+  - after: dedupe
+    stage: {id: diversify, use: mmr, with: {top_n: 8}}
+  - after: diversify
+    stage: {id: expand, use: adjacent-chunks}
+
+set:
+  - {id: pack, with: {top_n: 24, budget_tokens: 6000}}

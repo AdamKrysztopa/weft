@@ -539,6 +539,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-fixed.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/dedupe-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/adjacent-chunks-then-generate.yaml")
+    registrar.add_pipeline_resource(
+        "weft_retrieve", "pipelines/context-construction-then-generate.yaml"
+    )
 
 
 __all__ = [
