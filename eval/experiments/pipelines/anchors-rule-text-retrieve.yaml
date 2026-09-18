@@ -1,0 +1,7 @@
+name: anchors-rule-text-retrieve
+extends: anchors-rule-retrieve
+# The anchors alone, each searched lexically on its own and nothing else: `hybrid` offers only its
+# text arm, so the intent query (vector-only) is skipped and a question with no anchor retrieves
+# nothing. A diagnostic of what per-anchor search finds by itself, not a candidate technique.
+replace:
+  - {id: retrieve, use: hybrid, with: {top_k: 60, channels: [text]}}

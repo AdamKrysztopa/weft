@@ -1,0 +1,35 @@
+# Phase 39's baseline on the RFC corpus — ledger task 39.4. Dense, lexical and hybrid over one
+# index whose lexical column uses Postgres's `english` configuration, so no arm the new technique is
+# later scored against loses to it on a store setting (`38.5`'s follow-up: `simple` → `english` alone
+# moved lexical recall@5 0.244 → 0.681). BM25 needs the `pg_textsearch` server and has its own
+# document, `rfc-bm25.toml`. Run from a directory holding a copy of `pipelines/` and a `weft.toml`
+# naming `text_search_config = "english"`; every arm here is deterministic, so `repeats = 1` each.
+
+[experiment]
+schema = 1
+name = "rfc-baseline"
+questions = "../../corpus/rfc-questions/rfc.toml"
+corpus = "../../corpus/rfc"
+manifest = "../../corpus/rfc.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+repeats = 1
+
+[[arm]]
+name = "lexical"
+pipeline = "index-openai-large"
+query_pipeline = "lexical-wide-retrieve"
+repeats = 1
+
+[[arm]]
+name = "hybrid"
+pipeline = "index-openai-large"
+query_pipeline = "hybrid-retrieve"
+repeats = 1

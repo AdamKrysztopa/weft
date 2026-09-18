@@ -1,0 +1,1686 @@
+# Phase 39's RFC questions as written — ledger task 39.3. Six writers (one per family in
+# corpus/rfc-selection.toml) worked from the RFC text alone, 20 questions with anchors and 20
+# without each; every file passed `scripts/rfc_corpus.py check-questions` (quote verbatim in the
+# relevant RFC, each anchor in the question and in at least two RFCs — the owner's Q2) before it
+# was accepted. `scripts/rfc_corpus.py questions` generates the Weft question set from this file.
+
+[[question]]
+id = "http-a01"
+text = "what does the 429 status code mean when a client has been sending too many requests"
+relevant_document = "rfc6585"
+quote = "The 429 status code indicates that the user has sent too many"
+anchors = ["429"]
+
+[[question]]
+id = "http-a02"
+text = "what is the Content-Disposition header used to convey in an HTTP response"
+relevant_document = "rfc6266"
+quote = "The Content-Disposition response header field is used to convey"
+anchors = ["Content-Disposition"]
+
+[[question]]
+id = "http-a03"
+text = "what does the Set-Cookie header let an HTTP server do"
+relevant_document = "rfc6265"
+quote = "The Set-Cookie HTTP response header is used to send cookies from the"
+anchors = ["Set-Cookie"]
+
+[[question]]
+id = "http-a04"
+text = "what does the stale-while-revalidate cache-control extension let a cache do while it checks with the origin server"
+relevant_document = "rfc5861"
+quote = "The stale-while-revalidate HTTP Cache-Control extension allows a"
+anchors = ["stale-while-revalidate"]
+
+[[question]]
+id = "http-a05"
+text = "why can't a client trust an alternative service advertised over h2c as much as one advertised over a TLS-protected protocol"
+relevant_document = "rfc7838"
+quote = 'the "h2c" protocol, the client cannot use it, because there is no'
+anchors = ["h2c"]
+
+[[question]]
+id = "http-a06"
+text = "what does a 451 response tell you about why a resource can't be accessed"
+relevant_document = "rfc7725"
+quote = "The use of the 451 status code implies neither the existence nor"
+anchors = ["451"]
+
+[[question]]
+id = "http-a07"
+text = "when a server accepts a WebSocket handshake, what does the reason phrase read next to the 101 status code in its response"
+relevant_document = "rfc6455"
+quote = "A Status-Line with a 101 response code as per RFC 2616"
+anchors = ["101"]
+
+[[question]]
+id = "http-a08"
+text = "does the version of HTTP Digest access authentication that introduced SHA-256 still support the original, older hashing algorithm for backwards compatibility"
+relevant_document = "rfc7616"
+quote = "SHA-256 and SHA-512/256 algorithms.  To maintain backwards"
+anchors = ["SHA-256"]
+
+[[question]]
+id = "http-a09"
+text = "in HTTP Basic authentication, how are the user-id and password sent over the network"
+relevant_document = "rfc7617"
+quote = "user-id and password are passed over the network as cleartext."
+anchors = ["user-id"]
+
+[[question]]
+id = "http-a10"
+text = "what standardized header field was designed to replace the non-standard X-Forwarded-For header for disclosing forwarding information"
+relevant_document = "rfc7239"
+quote = "standard header fields such as X-Forwarded-For, X-Forwarded-By, and"
+anchors = ["X-Forwarded-For"]
+
+[[question]]
+id = "http-a11"
+text = "what does a 308 status code tell a client about a resource's location"
+relevant_document = "rfc7538"
+quote = "The 308 (Permanent Redirect) status code indicates that the target"
+anchors = ["308"]
+
+[[question]]
+id = "http-a12"
+text = "what does the Proxy-Status header field let an intermediary convey about how it handled a request"
+relevant_document = "rfc9209"
+quote = "The Proxy-Status HTTP response field allows an intermediary to convey"
+anchors = ["Proxy-Status"]
+
+[[question]]
+id = "http-a13"
+text = "what does the Cache-Status header field describe about how caches handled a response"
+relevant_document = "rfc9211"
+quote = "The Cache-Status HTTP response header field indicates how caches have"
+anchors = ["Cache-Status"]
+
+[[question]]
+id = "http-a14"
+text = "what status code should a server use to reject a CONNECT request whose target port is empty or invalid"
+relevant_document = "rfc9110"
+quote = "A server MUST reject a CONNECT request that targets an empty or"
+anchors = ["CONNECT"]
+
+[[question]]
+id = "http-a15"
+text = "what happened to the rich priority-signaling system that RFC 7540 originally defined"
+relevant_document = "rfc9113"
+quote = "RFC 7540 defined a rich system for signaling priority of requests."
+anchors = ["7540"]
+
+[[question]]
+id = "http-a16"
+text = "in the original PRIORITY frame scheme for stream prioritization, what integer range can a dependent stream's weight value fall between"
+relevant_document = "rfc7540"
+quote = "All dependent streams are allocated an integer weight between 1 and"
+anchors = ["PRIORITY"]
+
+[[question]]
+id = "http-a17"
+text = "what request-target form does a client have to send when it makes a CONNECT request, according to the semantics spec that predates today's consolidated HTTP standard"
+relevant_document = "rfc7231"
+quote = "A client sending a CONNECT request MUST send the authority form of"
+anchors = ["CONNECT"]
+
+[[question]]
+id = "http-a18"
+text = "what does the ETag header field in a response provide for a representation"
+relevant_document = "rfc7232"
+quote = 'The "ETag" header field in a response provides the current entity-tag'
+anchors = ["ETag"]
+
+[[question]]
+id = "http-a19"
+text = "what does a 103 informational status code tell a client to expect before the final response"
+relevant_document = "rfc8297"
+quote = "The 103 (Early Hints) informational status code indicates to the"
+anchors = ["103"]
+
+[[question]]
+id = "http-a20"
+text = "what risk does sending a request as 0-RTT data expose it to, that keeps servers from safely processing early data by default"
+relevant_document = "rfc8470"
+quote = "zero round-trip time (0-RTT) data).  If the client has spoken to the"
+anchors = ["0-RTT"]
+
+[[question]]
+id = "http-n01"
+text = "in the very first HTTP specification, what kind of response contains no header fields at all and is meant only for clients that still speak the oldest, simplest version of the protocol"
+relevant_document = "rfc1945"
+quote = "A Simple-Response should only be sent in response to an HTTP/0.9"
+anchors = []
+
+[[question]]
+id = "http-n02"
+text = "before it was renamed in later specifications, what did the original, single big HTTP specification call the payload part of a request or response message"
+relevant_document = "rfc2616"
+quote = "entity-header fields and content in the form of an entity-body, as"
+anchors = []
+
+[[question]]
+id = "http-n03"
+text = "in the classic HTTP Digest authentication scheme, what value does a client generate and include to help prevent replay and chosen-plaintext attacks alongside the server's own challenge value"
+relevant_document = "rfc2617"
+quote = "the WWW-Authenticate header field.  The cnonce-value is an opaque"
+anchors = []
+
+[[question]]
+id = "http-n04"
+text = "checking that a server's certificate matches the hostname a client meant to reach mainly defends against what kind of attack, where an unseen third party secretly relays or alters communication between two parties who believe they're talking directly to each other"
+relevant_document = "rfc2818"
+quote = "in order to prevent man-in-the-middle attacks."
+anchors = []
+
+[[question]]
+id = "http-n05"
+text = "for two urls to count as the same web origin, which three parts of the url must all match exactly"
+relevant_document = "rfc6454"
+quote = "Each of the URIs has the same scheme, host, and port components."
+anchors = []
+
+[[question]]
+id = "http-n06"
+text = "what is the name of the mechanism that lets an https website tell browsers to always connect to it securely from then on, even if a user types a plain http address"
+relevant_document = "rfc6797"
+quote = "sites via the Strict-Transport-Security HTTP response header field"
+anchors = []
+
+[[question]]
+id = "http-n07"
+text = "what lets a server tell a client whether it is willing to accept requests for only part of a resource instead of the whole thing"
+relevant_document = "rfc7233"
+quote = 'The "Accept-Ranges" header field allows a server to indicate that it'
+anchors = []
+
+[[question]]
+id = "http-n08"
+text = "what cache directive can an origin server include to stop an intermediary from altering a response's content, such as recompressing an image, even though the response can still be cached"
+relevant_document = "rfc7234"
+quote = 'The "no-transform" response directive indicates that an intermediary'
+anchors = []
+
+[[question]]
+id = "http-n09"
+text = "is the name of an HTTP authentication scheme, like Basic or Digest, treated as case-sensitive or case-insensitive by the general challenge-response framework"
+relevant_document = "rfc7235"
+quote = "insensitive token as a means to identify the authentication scheme,"
+anchors = []
+
+[[question]]
+id = "http-n10"
+text = "among the WebDAV-related HTTP methods this registry document lists, which one is marked as neither safe nor idempotent"
+relevant_document = "rfc7237"
+quote = "| LOCK              | no   | no         | [RFC4918], Section 9.10   |"
+anchors = []
+
+[[question]]
+id = "http-n11"
+text = "how many predefined, unchangeable entries does HPACK's static table start with before a connection adds any dynamic ones of its own"
+relevant_document = "rfc7541"
+quote = "The static table (see Section 2.3.1) consists in a predefined and"
+anchors = []
+
+[[question]]
+id = "http-n12"
+text = "what cache-control extension can a server use to tell caches that a response's representation will never change while it stays fresh, even across a user's forced reload"
+relevant_document = "rfc8246"
+quote = "The immutable HTTP response Cache-Control extension allows servers to"
+anchors = []
+
+[[question]]
+id = "http-n13"
+text = "what lets a web response point to a related resource, such as the next page in a paginated series, using a relation type carried in a header rather than in the body"
+relevant_document = "rfc8288"
+quote = "In the simplest case, a link relation type identifies the semantics"
+anchors = []
+
+[[question]]
+id = "http-n14"
+text = "what's the name of the cache-control response directive that forces a cache which doesn't specifically recognize a response's status code or extension to refuse storing it at all, rather than caching it normally"
+relevant_document = "rfc9111"
+quote = "The must-understand response directive limits caching of the response"
+anchors = []
+
+[[question]]
+id = "http-n15"
+text = "does the current specification for framing HTTP messages over a plain TCP connection still allow a header field's value to continue onto a following line that starts with whitespace"
+relevant_document = "rfc9112"
+quote = "horizontal tab (obs-fold).  This specification deprecates such line"
+anchors = []
+
+[[question]]
+id = "http-n16"
+text = "does the HTTP mapping that runs over QUIC support the classic in-connection upgrade mechanism used to switch protocols on an existing connection"
+relevant_document = "rfc9114"
+quote = "HTTP/3 does not support the HTTP Upgrade mechanism (Section 7.8 of"
+anchors = []
+
+[[question]]
+id = "http-n17"
+text = "compared to its predecessor used for the prior HTTP version, what compression scheme for header fields was redesigned to avoid stalling when packets arrive out of order over an unreliable transport"
+relevant_document = "rfc9204"
+quote = "QPACK reuses core concepts from HPACK, but is redesigned to allow"
+anchors = []
+
+[[question]]
+id = "http-n18"
+text = "what best-practices document for building new application protocols on top of HTTP advises authors who think they need an entirely new method to first check whether an existing one already covers the need"
+relevant_document = "rfc9205"
+quote = "When authors believe that a new method is required, they are"
+anchors = []
+
+[[question]]
+id = "http-n19"
+text = "what's an example of content that can be drawn incrementally as it arrives, without blocking the rest of a page from rendering"
+relevant_document = "rfc9218"
+quote = "inline images do not block rendering and get drawn incrementally as"
+anchors = []
+
+[[question]]
+id = "http-n20"
+text = "besides a date type, what new data type did the latest revision of the structured field values spec add for representing human-readable text that needs careful handling of its allowed characters"
+relevant_document = "rfc9651"
+quote = "Fields that use the Display String type are advised to carefully"
+anchors = []
+
+[[question]]
+id = "tls-a01"
+text = "what does the export_restriction alert mean in TLS"
+relevant_document = "rfc2246"
+quote = "A negotiation not in compliance with export restrictions was"
+anchors = ["export_restriction"]
+
+[[question]]
+id = "tls-a02"
+text = "which change replaced the decryption_failed alert with bad_record_mac to guard against CBC padding attacks"
+relevant_document = "rfc4346"
+quote = "Handling of padding errors is changed to use the bad_record_mac"
+anchors = ["decryption_failed", "bad_record_mac"]
+
+[[question]]
+id = "tls-a03"
+text = "which cipher suite is mandatory to implement for TLS 1.2"
+relevant_document = "rfc5246"
+quote = "TLS_RSA_WITH_AES_128_CBC_SHA is now the mandatory to implement"
+anchors = ["1.2"]
+
+[[question]]
+id = "tls-a04"
+text = "what does the pathLenConstraint field limit in a CA certificate"
+relevant_document = "rfc5280"
+quote = "The pathLenConstraint field is meaningful only if the cA boolean is"
+anchors = ["pathLenConstraint"]
+
+[[question]]
+id = "tls-a05"
+text = "how does a client ask for a smaller record size using the original max_fragment_length extension"
+relevant_document = "rfc6066"
+quote = "In order to negotiate smaller maximum fragment lengths, clients MAY"
+anchors = ["max_fragment_length"]
+
+[[question]]
+id = "tls-a06"
+text = "what does the DNS-ID identifier type mean in certificate identity verification"
+relevant_document = "rfc6125"
+quote = "DNS-ID = a subjectAltName entry of type dNSName; see [PKIX]"
+anchors = ["DNS-ID"]
+
+[[question]]
+id = "tls-a07"
+text = "what does the epoch field in a DTLS record header track"
+relevant_document = "rfc6347"
+quote = "A counter value that is incremented on every cipher state change."
+anchors = ["epoch"]
+
+[[question]]
+id = "tls-a08"
+text = "in an OCSP response what does the nextUpdate field tell a client"
+relevant_document = "rfc6960"
+quote = "The time at or before which newer information will be"
+anchors = ["nextUpdate"]
+
+[[question]]
+id = "tls-a09"
+text = "which RFC 5246 extension type number did IANA allocate for the certificate transparency SCT extension"
+relevant_document = "rfc6962"
+quote = "IANA has allocated an RFC 5246 ExtensionType value (18) for the SCT"
+anchors = ["5246"]
+
+[[question]]
+id = "tls-a10"
+text = "what does the client_certificate_type extension let a TLS handshake use instead of a full X.509 certificate"
+relevant_document = "rfc7250"
+quote = "This document introduces the use of raw public keys in TLS/DTLS."
+anchors = ["client_certificate_type"]
+
+[[question]]
+id = "tls-a11"
+text = "what does the no_application_protocol alert mean during TLS's ALPN negotiation"
+relevant_document = "rfc7301"
+quote = 'with a fatal "no_application_protocol" alert.'
+anchors = ["no_application_protocol"]
+
+[[question]]
+id = "tls-a12"
+text = "how does a client ask to use the encrypt_then_mac extension instead of the default construction"
+relevant_document = "rfc7366"
+quote = "encrypt_then_mac extension in its client_hello if it wishes to use"
+anchors = ["encrypt_then_mac"]
+
+[[question]]
+id = "tls-a13"
+text = "what vulnerability does the attack tracked as CVE-2009-3555 exploit in TLS's renegotiation mechanism"
+relevant_document = "rfc7457"
+quote = "A major attack on the TLS renegotiation mechanism applies to all"
+anchors = ["CVE-2009-3555"]
+
+[[question]]
+id = "tls-a14"
+text = "does the original TLS best practices document say SHOULD NOT or MUST NOT for negotiating TLS 1.0"
+relevant_document = "rfc7525"
+quote = "Implementations SHOULD NOT negotiate TLS version 1.0 [RFC2246];"
+anchors = ["1.0"]
+
+[[question]]
+id = "tls-a15"
+text = "what does the extended_master_secret extension bind the TLS master secret to"
+relevant_document = "rfc7627"
+quote = 'This document defines a new TLS extension, "extended_master_secret"'
+anchors = ["extended_master_secret"]
+
+[[question]]
+id = "tls-a16"
+text = "how does putting the status_request feature marker inside a server's own certificate protect against a withheld OCSP response"
+relevant_document = "rfc7633"
+quote = "status_request feature in the server end-entity certificate permits a"
+anchors = ["status_request"]
+
+[[question]]
+id = "tls-a17"
+text = "why is the record_iv_length zero for the ChaCha20-Poly1305 TLS cipher suites"
+relevant_document = "rfc7905"
+quote = "which saves eight bytes per record and prevents implementations from"
+anchors = ["record_iv_length"]
+
+[[question]]
+id = "tls-a18"
+text = "how many named elliptic curves did RFC 4492 originally register before most were deprecated"
+relevant_document = "rfc8422"
+quote = "RFC 4492 defined 25 different curves in the NamedCurve registry (now"
+anchors = ["4492"]
+
+[[question]]
+id = "tls-a19"
+text = "when does a TLS server send a HelloRetryRequest instead of a normal ServerHello"
+relevant_document = "rfc8446"
+quote = "The server will send this message in response to a ClientHello"
+anchors = ["HelloRetryRequest"]
+
+[[question]]
+id = "tls-a20"
+text = "which new Recommended column did this document add to the TLS IANA registries"
+relevant_document = "rfc8447"
+quote = 'Per this document, a "Recommended" column has been added to many of'
+anchors = ["Recommended"]
+
+[[question]]
+id = "tls-n01"
+text = "in the original 1999 TLS specification, why does the pseudorandom function combine two different hash algorithms"
+relevant_document = "rfc2246"
+quote = "In order to make the PRF as secure as possible, it uses two hash"
+anchors = []
+
+[[question]]
+id = "tls-n02"
+text = "how does a TLS server hand off session state to the client instead of storing it itself"
+relevant_document = "rfc5077"
+quote = "The TLS server encapsulates the session state into a"
+anchors = []
+
+[[question]]
+id = "tls-n03"
+text = "which single hash function does the newer TLS pseudorandom function standardize on instead of combining two algorithms"
+relevant_document = "rfc5246"
+quote = "SHA-256 hash function is used for all cipher suites defined in this"
+anchors = []
+
+[[question]]
+id = "tls-n04"
+text = "why must a TLS client stop offering compatibility with the old Secure Sockets Layer handshake format"
+relevant_document = "rfc6176"
+quote = "Clients MUST NOT send any ClientHello"
+anchors = []
+
+[[question]]
+id = "tls-n05"
+text = "how does a certificate tell a relying party where to fetch its revocation list"
+relevant_document = "rfc5280"
+quote = "The CRL distribution points extension identifies how CRL information"
+anchors = []
+
+[[question]]
+id = "tls-n06"
+text = "why would a TLS client want to tell the server which hostname it is connecting to when many sites share one IP address"
+relevant_document = "rfc6066"
+quote = "Allow TLS clients to provide to the TLS server the name of the"
+anchors = []
+
+[[question]]
+id = "tls-n07"
+text = "why does this guidance recommend moving away from issuing wildcard certificates"
+relevant_document = "rfc6125"
+quote = "Move away from the issuance of so-called wildcard certificates"
+anchors = []
+
+[[question]]
+id = "tls-n08"
+text = "how does an OCSP response prevent an old reply from being replayed as if it were fresh"
+relevant_document = "rfc6960"
+quote = "The nonce cryptographically binds a request and a response to prevent"
+anchors = []
+
+[[question]]
+id = "tls-n09"
+text = "how is a certificate transparency log's identifier computed from its public key"
+relevant_document = "rfc6962"
+quote = "is the SHA-256 hash of the log's public key, calculated over"
+anchors = []
+
+[[question]]
+id = "tls-n10"
+text = "roughly how many sessions do recent RC4 keystream bias attacks need before they become practical"
+relevant_document = "rfc7457"
+quote = "exploitable; currently they require 2^26 sessions or 13x2^30"
+anchors = []
+
+[[question]]
+id = "tls-n11"
+text = "what is the most secure way to defend against the triple handshake attack during renegotiation, according to the original TLS best practices"
+relevant_document = "rfc7525"
+quote = "The most secure option for countering the Triple Handshake attack is"
+anchors = []
+
+[[question]]
+id = "tls-n12"
+text = "why isn't the TLS master secret cryptographically bound to the server certificate used in the handshake"
+relevant_document = "rfc7627"
+quote = "server certificate.  Consequently, it is possible for an active"
+anchors = []
+
+[[question]]
+id = "tls-n13"
+text = "why does a modern TLS ClientHello only ever offer the null compression method these days"
+relevant_document = "rfc8446"
+quote = "Versions of TLS before 1.3 supported"
+anchors = []
+
+[[question]]
+id = "tls-n14"
+text = "how does a TLS endpoint independently advertise the largest record size it is willing to receive from the other side"
+relevant_document = "rfc8449"
+quote = "The value of RecordSizeLimit is the maximum size of record in octets"
+anchors = []
+
+[[question]]
+id = "tls-n15"
+text = "what publication status did the IETF move the two oldest TLS specifications to when it deprecated them"
+relevant_document = "rfc8996"
+quote = "documents have been moved to Historic status.  These versions lack"
+anchors = []
+
+[[question]]
+id = "tls-n16"
+text = "why were TLS implementations historically unclear about what version number to put in the record layer for the earliest protocol editions"
+relevant_document = "rfc8996"
+quote = "Historically, TLS specifications were not clear on what the record"
+anchors = []
+
+[[question]]
+id = "tls-n17"
+text = "how can log clients tell that a certificate transparency log has published more signed tree heads than its allowed rate"
+relevant_document = "rfc9162"
+quote = "Violation of the append-only property or the STH issuance rate limit"
+anchors = []
+
+[[question]]
+id = "tls-n18"
+text = "what new generic data structure does the newer certificate transparency spec use to wrap all its different message types"
+relevant_document = "rfc9162"
+quote = "encapsulate most types of CT data.  A TransItemList, consisting of"
+anchors = []
+
+[[question]]
+id = "tls-n19"
+text = "which newer attacks does this document call out that the earlier survey of TLS attacks did not include"
+relevant_document = "rfc9325"
+quote = "New attacks since [RFC7457]: ALPACA, Raccoon, Logjam, and"
+anchors = []
+
+[[question]]
+id = "tls-n20"
+text = "why don't CRIME-style compression attacks apply when a TLS handshake compresses just the certificate chain"
+relevant_document = "rfc9325"
+quote = "avoidance of doubt, CRIME-style attacks on TLS compression do not"
+anchors = []
+
+[[question]]
+id = "dns-a01"
+text = "what dns header opcode value marks a message as an IQUERY"
+relevant_document = "rfc1035"
+quote = "A four bit field that specifies kind of query in this"
+anchors = ["IQUERY"]
+
+[[question]]
+id = "dns-a02"
+text = "what does the ANCOUNT field count in a dns message header"
+relevant_document = "rfc1035"
+quote = "an unsigned 16 bit integer specifying the number of"
+anchors = ["ANCOUNT"]
+
+[[question]]
+id = "dns-a03"
+text = "what does the PRCOUNT field count in a dynamic update message"
+relevant_document = "rfc2136"
+quote = "The number of RRs in the Prerequisite Section."
+anchors = ["PRCOUNT"]
+
+[[question]]
+id = "dns-a04"
+text = "can records in the same RRSet have different TTL values"
+relevant_document = "rfc2181"
+quote = "Consequently the use of differing TTLs in an RRSet is hereby"
+anchors = ["RRSet"]
+
+[[question]]
+id = "dns-a05"
+text = "how many kinds of NXDOMAIN response are distinguished by their authority section contents"
+relevant_document = "rfc2308"
+quote = "NXDOMAIN responses can be categorised into four types by the contents"
+anchors = ["NXDOMAIN"]
+
+[[question]]
+id = "dns-a06"
+text = "in an SRV record what does a Target value of a single dot mean"
+relevant_document = "rfc2782"
+quote = 'A Target of "." means that the service is decidedly not'
+anchors = ["SRV"]
+
+[[question]]
+id = "dns-a07"
+text = "what is the AAAA record used to store"
+relevant_document = "rfc3596"
+quote = "The AAAA resource record type is a record specific to the Internet"
+anchors = ["AAAA"]
+
+[[question]]
+id = "dns-a08"
+text = "what problem does the DS record solve when building a dnssec chain of trust"
+relevant_document = "rfc4033"
+quote = "The Delegation Signer (DS) RR type simplifies some of the"
+anchors = ["DS"]
+
+[[question]]
+id = "dns-a09"
+text = "what fields make up the RDATA of a DS resource record"
+relevant_document = "rfc4034"
+quote = "The RDATA for a DS RR consists of a 2 octet Key Tag field, a 1 octet"
+anchors = ["DS"]
+
+[[question]]
+id = "dns-a10"
+text = "what does it mean when the AD bit is set in a dns response"
+relevant_document = "rfc4035"
+quote = "(Checking Disabled) bit and the AD (Authentic Data) bit.  The CD bit"
+anchors = ["AD"]
+
+[[question]]
+id = "dns-a11"
+text = "what is an Opt-Out NSEC3 record used for in a signed zone"
+relevant_document = "rfc5155"
+quote = "Opt-Out NSEC3 resource record:  an NSEC3 resource record that has the"
+anchors = ["Opt-Out"]
+
+[[question]]
+id = "dns-a12"
+text = "why must an AXFR zone transfer use TCP instead of UDP"
+relevant_document = "rfc5936"
+quote = "AXFR sessions are currently restricted to TCP by Section 4.3.5 of RFC"
+anchors = ["AXFR"]
+
+[[question]]
+id = "dns-a13"
+text = "why was UDP port 5353 chosen for multicast DNS queries"
+relevant_document = "rfc6762"
+quote = 'Multicast to UDP port 5353".  The design rationale for selecting UDP'
+anchors = ["5353"]
+
+[[question]]
+id = "dns-a14"
+text = "why does a client request PTR records when browsing for services with DNS-SD"
+relevant_document = "rfc6763"
+quote = 'the client requests records of type "PTR" (pointer from one name to'
+anchors = ["PTR"]
+
+[[question]]
+id = "dns-a15"
+text = "what does a CAA record let a domain owner control"
+relevant_document = "rfc6844"
+quote = "The Certification Authority Authorization (CAA) DNS Resource Record"
+anchors = ["CAA"]
+
+[[question]]
+id = "dns-a16"
+text = "what is the OPT pseudo-RR used for in an EDNS-enabled DNS message"
+relevant_document = "rfc6891"
+quote = "An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the"
+anchors = ["OPT"]
+
+[[question]]
+id = "dns-a17"
+text = "does a DNS over TLS server need to accept connections on port 853"
+relevant_document = "rfc7858"
+quote = "and accept TCP connections on port 853, unless it has mutual"
+anchors = ["853"]
+
+[[question]]
+id = "dns-a18"
+text = "why does DNS over HTTPS benefit from reusing HTTPS default port 443"
+relevant_document = "rfc8484"
+quote = "Additionally, the use of the HTTPS default port 443 and the ability"
+anchors = ["443"]
+
+[[question]]
+id = "dns-a19"
+text = "what does the DSO opcode let a client and server maintain"
+relevant_document = "rfc8490"
+quote = "This document defines a new DNS OPCODE for DNS Stateful Operations"
+anchors = ["DSO"]
+
+[[question]]
+id = "dns-a20"
+text = "what does the INFO-CODE field indicate in an extended DNS error option"
+relevant_document = "rfc8914"
+quote = "of the DNS message.  The INFO-CODE serves as an index into the"
+anchors = ["INFO-CODE"]
+
+[[question]]
+id = "dns-n01"
+text = "why does the domain system require resolvers to use the iterative approach when following referrals"
+relevant_document = "rfc1034"
+quote = "system requires implementation of the iterative approach, but"
+anchors = []
+
+[[question]]
+id = "dns-n02"
+text = "what makes a connected group of names in the domain tree count as one zone"
+relevant_document = "rfc1034"
+quote = "The zone is said to be authoritative for all"
+anchors = []
+
+[[question]]
+id = "dns-n03"
+text = "does a dynamic dns update apply partially if only some of its prerequisites are met"
+relevant_document = "rfc2136"
+quote = "UPDATE is atomic, i.e., all prerequisites must be satisfied or else"
+anchors = []
+
+[[question]]
+id = "dns-n04"
+text = "how should a resolver decide which of several cached answers to trust more"
+relevant_document = "rfc2181"
+quote = "relative likely trustworthiness of the various data.  An"
+anchors = []
+
+[[question]]
+id = "dns-n05"
+text = "why should a resolver remember that a name does not exist instead of asking again"
+relevant_document = "rfc2308"
+quote = "eliminated if all resolvers implemented negative caching.  With this"
+anchors = []
+
+[[question]]
+id = "dns-n06"
+text = "how does a client choose among several service targets that share the same priority"
+relevant_document = "rfc2782"
+quote = "contact the target host with the lowest-numbered priority it can"
+anchors = []
+
+[[question]]
+id = "dns-n07"
+text = "how does adding a record type for a newer kind of internet address avoid breaking existing dns software"
+relevant_document = "rfc3596"
+quote = "The changes are designed to be compatible with existing software."
+anchors = []
+
+[[question]]
+id = "dns-n08"
+text = "what is an island of security in a partially deployed dnssec rollout"
+relevant_document = "rfc4033"
+quote = "An island of security is served by security-aware name servers and"
+anchors = []
+
+[[question]]
+id = "dns-n09"
+text = "how are domain names ordered for canonical comparison when signing a zone"
+relevant_document = "rfc4034"
+quote = "For the purposes of DNS security, owner names are ordered by treating"
+anchors = []
+
+[[question]]
+id = "dns-n10"
+text = "how does a resolver rebuild the exact data that was originally signed to check it"
+relevant_document = "rfc4035"
+quote = "data.  The original signed data includes RRSIG RDATA (excluding the"
+anchors = []
+
+[[question]]
+id = "dns-n11"
+text = "how does hashing owner names stop someone from walking a signed zone to list its contents"
+relevant_document = "rfc5155"
+quote = "also provides measures against zone enumeration and permits gradual"
+anchors = []
+
+[[question]]
+id = "dns-n12"
+text = "why do the name servers for the same zone need to stay in sync with each other"
+relevant_document = "rfc5936"
+quote = "these mechanisms is to enable a set of DNS name servers to remain"
+anchors = []
+
+[[question]]
+id = "dns-n13"
+text = "what happens on a local network when two computers pick the same self chosen host name"
+relevant_document = "rfc6762"
+quote = "the chosen host name is not already in use on that link.  Having"
+anchors = []
+
+[[question]]
+id = "dns-n14"
+text = "does discovering services over dns require inventing any brand new protocol message types"
+relevant_document = "rfc6763"
+quote = "and no new operation codes, response codes, resource record types, or"
+anchors = []
+
+[[question]]
+id = "dns-n15"
+text = "what should a certificate issuer do if it does not understand a property marked critical"
+relevant_document = "rfc6844"
+quote = "critical flag is asserted and the property MUST be understood"
+anchors = []
+
+[[question]]
+id = "dns-n16"
+text = "is supporting tcp now mandatory or optional for a full dns implementation"
+relevant_document = "rfc7766"
+quote = "such that support for TCP is henceforth a REQUIRED part of a full DNS"
+anchors = []
+
+[[question]]
+id = "dns-n17"
+text = "why would a recursive resolver tell an authoritative server which network the end user is on"
+relevant_document = "rfc7871"
+quote = "ECS as a hint to the end user's network location and provide a better"
+anchors = []
+
+[[question]]
+id = "dns-n18"
+text = "what term describes a nameserver that is listed for a zone but is not actually serving it"
+relevant_document = "rfc8499"
+quote = 'Lame delegation:  "A lame delegations exists [sic] when a nameserver'
+anchors = []
+
+[[question]]
+id = "dns-n19"
+text = "how can a recursive resolver keep answering queries when authoritative servers are unreachable"
+relevant_document = "rfc8767"
+quote = "This document defines a method (serve-stale) for recursive resolvers"
+anchors = []
+
+[[question]]
+id = "dns-n20"
+text = "how does using quic instead of plain udp add privacy to dns lookups"
+relevant_document = "rfc9250"
+quote = "This document describes the use of QUIC to provide transport"
+anchors = []
+
+[[question]]
+id = "mail-a01"
+text = "what does a 552 reply code mean in the SMTP message size declaration extension?"
+relevant_document = "rfc1870"
+quote = "552 message exceeds fixed maximum message size"
+anchors = ["552"]
+
+[[question]]
+id = "mail-a02"
+text = "what is the Quoted-Printable encoding meant to do to a message body?"
+relevant_document = "rfc2045"
+quote = "The Quoted-Printable encoding is intended to represent data that"
+anchors = ["Quoted-Printable"]
+
+[[question]]
+id = "mail-a03"
+text = "in MIME, what makes multipart/alternative different from other multipart types?"
+relevant_document = "rfc2046"
+quote = 'The "multipart/alternative" type is syntactically identical to'
+anchors = ["multipart/alternative"]
+
+[[question]]
+id = "mail-a04"
+text = "what exactly is an encoded-word in an email header?"
+relevant_document = "rfc2047"
+quote = 'Generally, an "encoded-word" is a sequence of printable ASCII'
+anchors = ["encoded-word"]
+
+[[question]]
+id = "mail-a05"
+text = "how does an SMTP client ask the server to begin a STARTTLS negotiation?"
+relevant_document = "rfc3207"
+quote = "The STARTTLS keyword is used to tell the SMTP client that the SMTP"
+anchors = ["STARTTLS"]
+
+[[question]]
+id = "mail-a06"
+text = "what does the ORCPT parameter specify about a message's recipient?"
+relevant_document = "rfc3461"
+quote = "The ORCPT esmtp-keyword of the RCPT command is used to specify an"
+anchors = ["ORCPT"]
+
+[[question]]
+id = "mail-a07"
+text = "what does the Diagnostic-Code field carry in a delivery status notification?"
+relevant_document = "rfc3464"
+quote = 'For a "failed" or "delayed" recipient, the Diagnostic-Code DSN field'
+anchors = ["Diagnostic-Code"]
+
+[[question]]
+id = "mail-a08"
+text = "what does the LSUB command return to an IMAP client?"
+relevant_document = "rfc3501"
+quote = "The LSUB command returns a subset of names from the set of names"
+anchors = ["LSUB"]
+
+[[question]]
+id = "mail-a09"
+text = "what does a 535 reply mean after an SMTP login attempt fails?"
+relevant_document = "rfc4954"
+quote = "the AUTH command with a 535 reply unless a more specific error code"
+anchors = ["535"]
+
+[[question]]
+id = "mail-a10"
+text = "what's a 421 reply telling an SMTP client to do?"
+relevant_document = "rfc5321"
+quote = "421  <domain> Service not available, closing transmission channel"
+anchors = ["421"]
+
+[[question]]
+id = "mail-a11"
+text = "what does the Message-ID field of an email contain?"
+relevant_document = "rfc5322"
+quote = 'The "Message-ID:" field contains a single unique message identifier.'
+anchors = ["Message-ID"]
+
+[[question]]
+id = "mail-a12"
+text = "what does the 8BITMIME keyword in an EHLO response tell a client?"
+relevant_document = "rfc6152"
+quote = "command, and the response includes the EHLO keyword value 8BITMIME,"
+anchors = ["8BITMIME"]
+
+[[question]]
+id = "mail-a13"
+text = "what's stored inside the DKIM-Signature header field of a signed message?"
+relevant_document = "rfc6376"
+quote = "The signature of the email is stored in the DKIM-Signature header"
+anchors = ["DKIM-Signature"]
+
+[[question]]
+id = "mail-a14"
+text = "what does adding the SMTPUTF8 parameter signal about a message's envelope?"
+relevant_document = "rfc6531"
+quote = "One OPTIONAL parameter, SMTPUTF8, is added to the MAIL command."
+anchors = ["SMTPUTF8"]
+
+[[question]]
+id = "mail-a15"
+text = "what is the message/global media type used for?"
+relevant_document = "rfc6532"
+quote = "new media type, message/global, is defined for messages that use this"
+anchors = ["message/global"]
+
+[[question]]
+id = "mail-a16"
+text = "what does a softfail result mean when checking a domain's mail senders?"
+relevant_document = "rfc7208"
+quote = 'A "softfail" result is a weak statement by the publishing ADMD that'
+anchors = ["softfail"]
+
+[[question]]
+id = "mail-a17"
+text = "what does the rua tag in a policy record specify?"
+relevant_document = "rfc7489"
+quote = 'mail.  The presence of the "rua" tag specifies where to send'
+anchors = ["rua"]
+
+[[question]]
+id = "mail-a18"
+text = "what must the URI in a List-Unsubscribe header support for one-click unsubscribing?"
+relevant_document = "rfc8058"
+quote = "The URI in the List-Unsubscribe header MUST contain enough"
+anchors = ["List-Unsubscribe"]
+
+[[question]]
+id = "mail-a19"
+text = "for an internationalized domain, must SPF and DKIM DNS records use the A-label form?"
+relevant_document = "rfc8616"
+quote = "All internationalized domain names are represented as A-labels"
+anchors = ["A-label"]
+
+[[question]]
+id = "mail-a20"
+text = "why was the LSUB command deprecated in favor of LIST?"
+relevant_document = "rfc9051"
+quote = "LSUB command was deprecated.  Clients should use LIST"
+anchors = ["LSUB"]
+
+[[question]]
+id = "mail-n01"
+text = "how can a mail client log into a POP3 server without sending its password in the clear?"
+relevant_document = "rfc1939"
+quote = "does not involve sending a password"
+anchors = []
+
+[[question]]
+id = "mail-n02"
+text = "how can a long parameter value be split across several pieces using numbered continuations?"
+relevant_document = "rfc2231"
+quote = "Character set and language information may be combined with the"
+anchors = []
+
+[[question]]
+id = "mail-n03"
+text = "what role does the server accepting a user's outgoing mail for the first time play?"
+relevant_document = "rfc5598"
+quote = "A Mail Submission Agent (MSA) accepts the message submitted by the"
+anchors = []
+
+[[question]]
+id = "mail-n04"
+text = "how does a mail relay taking part in an authentication chain record its own assessment of a forwarded message?"
+relevant_document = "rfc8617"
+quote = "The ARC-Authentication-Results (AAR) header field records the message"
+anchors = []
+
+[[question]]
+id = "mail-n05"
+text = "why should a mail program ignore parameters attached to a content type it doesn't recognize?"
+relevant_document = "rfc2049"
+quote = "Ignore any content type parameters whose names they do"
+anchors = []
+
+[[question]]
+id = "mail-n06"
+text = "why does this document split message submission apart from ordinary mail relay?"
+relevant_document = "rfc6409"
+quote = "This memo splits message submission from message relay, allowing each"
+anchors = []
+
+[[question]]
+id = "mail-n07"
+text = "why does this document recommend encrypting mail submission and access connections from the very start rather than upgrading them partway through?"
+relevant_document = "rfc8314"
+quote = "This specification outlines current recommendations for the use of"
+anchors = []
+
+[[question]]
+id = "mail-n08"
+text = "why would a mail server want to know how big a message is before agreeing to accept it?"
+relevant_document = "rfc1870"
+quote = "client and server may interact to give the server an opportunity to"
+anchors = []
+
+[[question]]
+id = "mail-n09"
+text = "what content type does a mail reader assume for a body when none is specified?"
+relevant_document = "rfc2045"
+quote = "This default is assumed if no Content-Type header field is specified."
+anchors = []
+
+[[question]]
+id = "mail-n10"
+text = "what happens to text placed before the first part of a multi-part message?"
+relevant_document = "rfc2046"
+quote = 'NOTE:  These "preamble" and "epilogue" areas are generally not used'
+anchors = []
+
+[[question]]
+id = "mail-n11"
+text = "why does non-ASCII text in a mail header need to be specially encoded rather than included directly?"
+relevant_document = "rfc2047"
+quote = "text in various portions of a RFC 822 [2] message header, in a manner"
+anchors = []
+
+[[question]]
+id = "mail-n12"
+text = "why must an SMTP client and server forget everything they knew about each other right before starting an encrypted session?"
+relevant_document = "rfc3207"
+quote = "For this reason, clients and servers MUST discard any knowledge"
+anchors = []
+
+[[question]]
+id = "mail-n13"
+text = "why might a sender want to be told only when a message fails to reach its recipient, not when it succeeds?"
+relevant_document = "rfc3461"
+quote = "This memo defines an extension to the Simple Mail Transfer Protocol"
+anchors = []
+
+[[question]]
+id = "mail-n14"
+text = "why shouldn't a mail server accept a plaintext password login unless the connection is otherwise protected?"
+relevant_document = "rfc4954"
+quote = "it does NOT permit any plaintext password mechanisms, unless either"
+anchors = []
+
+[[question]]
+id = "mail-n15"
+text = "why does each server that handles a message add a line recording who sent it and when it arrived?"
+relevant_document = "rfc5321"
+quote = "of the mail data.  This trace record indicates the identity of the"
+anchors = []
+
+[[question]]
+id = "mail-n16"
+text = "how does an email keep track of which earlier message it's replying to?"
+relevant_document = "rfc5322"
+quote = "message and the message identifiers of other messages (for example,"
+anchors = []
+
+[[question]]
+id = "mail-n17"
+text = "why did SMTP need an extension to carry message bodies that aren't limited to plain seven-bit text?"
+relevant_document = "rfc6152"
+quote = "exchange messages in which the content body consists of a MIME"
+anchors = []
+
+[[question]]
+id = "mail-n18"
+text = "why might a signature covering an email's headers need to tolerate small formatting changes picked up along the way?"
+relevant_document = "rfc6376"
+quote = "Signers, a canonicalization algorithm that survives modest in-transit"
+anchors = []
+
+[[question]]
+id = "mail-n19"
+text = "why can't an email address made only of Latin letters represent a mailbox name written in another script?"
+relevant_document = "rfc6531"
+quote = "Although UTF-8 strings are needed to represent email addresses in"
+anchors = []
+
+[[question]]
+id = "mail-n20"
+text = "why does putting foreign-script text directly into mail headers depend on the transport passing every bit of every byte through unchanged?"
+relevant_document = "rfc6532"
+quote = "This specification is based on a model of native, end-to-end support"
+anchors = []
+
+[[question]]
+id = "net-a01"
+text = "which icmpv6 message, called Packet Too Big, does a router send back to the source when it has to drop a packet that's larger than the next hop's mtu"
+relevant_document = "rfc4443"
+quote = "A Packet Too Big MUST be sent by a router in response to a packet"
+anchors = ["Packet Too Big"]
+
+[[question]]
+id = "net-a02"
+text = "which transport protocol spec defines 0-RTT as letting a client send application data before it even hears back from the server during the handshake"
+relevant_document = "rfc9000"
+quote = "0-RTT allows application data to be"
+anchors = ["0-RTT"]
+
+[[question]]
+id = "net-a03"
+text = "what document specifies the Retry Integrity Tag as a 128 bit field computed with AEAD_AES_128_GCM over a fixed secret key"
+relevant_document = "rfc9001"
+quote = "The Retry Integrity Tag is a 128-bit field that is computed as the"
+anchors = ["Retry Integrity Tag"]
+
+[[question]]
+id = "net-a04"
+text = "which spec introduces PTO as the replacement for tcp's rto and tail loss probe, based on a timer that adds the peer's max ack delay"
+relevant_document = "rfc9002"
+quote = "QUIC uses a probe timeout (PTO; see Section 6.2), with a timer based"
+anchors = ["PTO"]
+
+[[question]]
+id = "net-a05"
+text = "which rfc says FC00::/7 is the prefix used to identify local ipv6 unicast addresses"
+relevant_document = "rfc4193"
+quote = "addresses are called Unique Local IPv6 Unicast Addresses and are"
+anchors = ["FC00"]
+
+[[question]]
+id = "net-a06"
+text = "which rfc lists FE80::/10 as the address range reserved for link-local unicast"
+relevant_document = "rfc4291"
+quote = "Link-Local addresses are for use on a single link.  Link-Local"
+anchors = ["FE80"]
+
+[[question]]
+id = "net-a07"
+text = "which rfc describes the Source Quench message a gateway may send when it has to discard a datagram for lack of buffer space"
+relevant_document = "rfc792"
+quote = "discards a datagram, it may send a source quench message to the"
+anchors = ["Source Quench"]
+
+[[question]]
+id = "net-a08"
+text = "which rfc uses the Don't Fragment bit to dynamically discover a path's mtu"
+relevant_document = "rfc1191"
+quote = "In this memo, we describe a technique for using the Don't Fragment"
+anchors = ["Don't Fragment"]
+
+[[question]]
+id = "net-a09"
+text = "which rfc defines the Router Advertisement message that routers send out to advertise their presence and link parameters"
+relevant_document = "rfc4861"
+quote = "Router Advertisement: Routers advertise their presence together"
+anchors = ["Router Advertisement"]
+
+[[question]]
+id = "net-a10"
+text = "which rfc specifies the Duplicate Address Detection procedure a host runs before it starts using a new ipv6 address"
+relevant_document = "rfc4862"
+quote = "and the Duplicate Address Detection procedure to verify the"
+anchors = ["Duplicate Address Detection"]
+
+[[question]]
+id = "net-a11"
+text = "which rfc calls its basic one-to-one address translation approach Traditional NAT, letting private hosts reach the internet through a public address"
+relevant_document = "rfc3022"
+quote = "The Address Translation operation presented in this document is"
+anchors = ["Traditional NAT"]
+
+[[question]]
+id = "net-a12"
+text = "which rfc requires a nat to support hairpinning so two internal hosts behind the same box can reach each other via their external mapped addresses"
+relevant_document = "rfc5382"
+quote = 'port" for hairpinning.  Hairpinning is necessary to allow two'
+anchors = ["hairpinning"]
+
+[[question]]
+id = "net-a13"
+text = "which rfc has routers set the Congestion Experienced codepoint in the ip header instead of just dropping the packet"
+relevant_document = "rfc3168"
+quote = "instead set the Congestion Experienced (CE) codepoint in the IP"
+anchors = ["Congestion Experienced"]
+
+[[question]]
+id = "net-a14"
+text = "which rfc defines the INVITE request a user agent sends to set up a session with someone else"
+relevant_document = "rfc3261"
+quote = "an INVITE request addressed to Bob's SIP URI.  INVITE is an example"
+anchors = ["INVITE"]
+
+[[question]]
+id = "net-a15"
+text = "which rfc defines SSRC as the identifier naming the source of a stream of packets, independent of the network address"
+relevant_document = "rfc3550"
+quote = "Synchronization source (SSRC): The source of a stream of RTP"
+anchors = ["SSRC"]
+
+[[question]]
+id = "net-a16"
+text = "which rfc says ports from 49152 up to 65535 are never formally assigned and are meant for dynamic, private use"
+relevant_document = "rfc6335"
+quote = "Ports in the Dynamic Ports range (49152-65535) have been"
+anchors = ["49152"]
+
+[[question]]
+id = "net-a17"
+text = "which rfc reserves 192.168.0.0 through 192.168.255.255 for private internets"
+relevant_document = "rfc1918"
+quote = "This document describes address allocation for private internets. The"
+anchors = ["192.168"]
+
+[[question]]
+id = "net-a18"
+text = "in the current tcp standard that obsoletes rfc 793, how does the state machine describe the TIME-WAIT state"
+relevant_document = "rfc9293"
+quote = "TIME-WAIT -  represents waiting for enough time to pass to be sure"
+anchors = ["TIME-WAIT"]
+
+[[question]]
+id = "net-a19"
+text = "which rfc defines the Time to Live field that bounds how long a datagram is allowed to exist in the network"
+relevant_document = "rfc791"
+quote = "This field indicates the maximum time the datagram is allowed to"
+anchors = ["Time to Live"]
+
+[[question]]
+id = "net-a20"
+text = "which currently standards-track cubic spec describes a fast convergence mechanism for when bandwidth is released by departing flows"
+relevant_document = "rfc9438"
+quote = "bandwidth release by existing flows, the following fast convergence"
+anchors = ["fast convergence"]
+
+[[question]]
+id = "net-n01"
+text = "what value does a sender transmit in the udp checksum field on the wire when its computed checksum comes out to exactly zero"
+relevant_document = "rfc768"
+quote = "If the computed  checksum  is zero,  it is transmitted  as all ones (the"
+anchors = []
+
+[[question]]
+id = "net-n02"
+text = "besides flow control, multiplexing and connections, what security-related facility did the original tcp spec say a communication system requires"
+relevant_document = "rfc793"
+quote = "The users of TCP may indicate the security and precedence of their"
+anchors = []
+
+[[question]]
+id = "net-n03"
+text = "what principle does this document state about being liberal in what a host accepts and conservative in what it sends"
+relevant_document = "rfc1122"
+quote = "conservative in what you send\" is particularly important in the"
+anchors = []
+
+[[question]]
+id = "net-n04"
+text = "what should an ip router do with a datagram it can't handle instead of complaining about it"
+relevant_document = "rfc1812"
+quote = "silently discard a received datagram.  This means that the datagram"
+anchors = []
+
+[[question]]
+id = "net-n05"
+text = "what is the very first message a dhcp client broadcasts on its local subnet when it wants to find an available server"
+relevant_document = "rfc2131"
+quote = "The client broadcasts a DHCPDISCOVER message on its local physical"
+anchors = []
+
+[[question]]
+id = "net-n06"
+text = "what nickname did the original ipv6 spec's abstract give the protocol, a nickname the current spec later removed from its own abstract"
+relevant_document = "rfc2460"
+quote = "also sometimes referred to as IP Next Generation or IPng."
+anchors = []
+
+[[question]]
+id = "net-n07"
+text = "which document supersedes the old meaning of the ipv4 header's tos octet with a differentiated services field instead"
+relevant_document = "rfc2474"
+quote = "intended to supersede the existing definitions of the IPv4 TOS octet"
+anchors = []
+
+[[question]]
+id = "net-n08"
+text = "in the original dhcpv6 spec, before prefix delegation got folded into the core protocol, what message does a client use to discover servers on its network"
+relevant_document = "rfc3315"
+quote = "A client uses the Solicit message to discover DHCP servers configured"
+anchors = []
+
+[[question]]
+id = "net-n09"
+text = "which document originally defined slow start, congestion avoidance, fast retransmit and fast recovery for tcp before cubic became the default"
+relevant_document = "rfc5681"
+quote = "algorithms: slow start, congestion avoidance, fast retransmit, and"
+anchors = []
+
+[[question]]
+id = "net-n10"
+text = "in this time synchronization protocol, following the telephone industry's conventions, what gets worse the higher a server's number is in the hierarchy"
+relevant_document = "rfc5905"
+quote = "increase approximately in proportion to stratum numbers and measured"
+anchors = []
+
+[[question]]
+id = "net-n11"
+text = "before a tcp sender has any round trip time measurement at all, what should it set its retransmission timer to"
+relevant_document = "rfc6298"
+quote = "set RTO <- 1 second, though the \"backing off\" on repeated"
+anchors = []
+
+[[question]]
+id = "net-n12"
+text = "what mechanism protects tcp against old duplicate segments from the same connection when sequence numbers can wrap around at high bandwidth"
+relevant_document = "rfc7323"
+quote = "upper limit of network bandwidths.  PAWS uses the TCP Timestamps"
+anchors = []
+
+[[question]]
+id = "net-n13"
+text = "what extension to tcp lets a client send data before the handshake finishes, saving a full round trip on repeat connections to a server it already knows"
+relevant_document = "rfc7413"
+quote = "connection handshake, and saves up to one full round-trip time (RTT)"
+anchors = []
+
+[[question]]
+id = "net-n14"
+text = "compared to its predecessor, which document clarified how the hop limit gets decremented and added a note matching ipv4's data transmission order"
+relevant_document = "rfc8200"
+quote = "Added text in Section 1 that the data transmission order is the"
+anchors = []
+
+[[question]]
+id = "net-n15"
+text = "which document describes an algorithm using a cubic function instead of a linear increase, adopted as linux's default and used for years before it was later obsoleted"
+relevant_document = "rfc8312"
+quote = "CUBIC and its predecessor algorithm have been adopted as"
+anchors = []
+
+[[question]]
+id = "net-n16"
+text = "which single specification folds together the earlier dhcp for ipv6 document along with the separate prefix delegation document into one"
+relevant_document = "rfc8415"
+quote = "document obsoletes RFC 3315, RFC 3633, RFC 3736, RFC 4242, RFC 7083,"
+anchors = []
+
+[[question]]
+id = "net-n17"
+text = "how does a sip registrar record the association between a user's address and where they can currently be reached"
+relevant_document = "rfc3261"
+quote = "The registrar writes this association, also called a binding, to a"
+anchors = []
+
+[[question]]
+id = "net-n18"
+text = "in this real time media transport protocol, what statistic gets calculated continuously from the spacing between arriving packets to estimate network variability"
+relevant_document = "rfc3550"
+quote = "The interarrival jitter SHOULD be calculated continuously as each"
+anchors = []
+
+[[question]]
+id = "net-n19"
+text = "what mechanism lets a node figure out that a neighboring router or host it has been talking to has become unreachable"
+relevant_document = "rfc4861"
+quote = "Neighbor Unreachability Detection: How nodes determine that a"
+anchors = []
+
+[[question]]
+id = "net-n20"
+text = "which current tcp spec says the window size must be treated as an unsigned number or large windows will look like negative ones"
+relevant_document = "rfc9293"
+quote = "not work (MUST-1).  It is RECOMMENDED that implementations will"
+anchors = []
+
+[[question]]
+id = "id-a01"
+text = "what does the userinfo subcomponent of a URI usually contain"
+relevant_document = "rfc3986"
+quote = "The userinfo subcomponent may consist of a user name and, optionally,"
+anchors = ["userinfo"]
+
+[[question]]
+id = "id-a02"
+text = "how is a literal IPv6 address written in the host part of a URI"
+relevant_document = "rfc3986"
+quote = "A host identified by an IPv6 literal address is represented inside"
+anchors = ["IPv6"]
+
+[[question]]
+id = "id-a03"
+text = "what is base64url encoding"
+relevant_document = "rfc4648"
+quote = "This encoding may be referred to as \"base64url\".  This encoding"
+anchors = ["base64url"]
+
+[[question]]
+id = "id-a04"
+text = "how does an OAuth client include the redirect_uri value in an authorization request"
+relevant_document = "rfc6749"
+quote = "authorization request using the \"redirect_uri\" request parameter."
+anchors = ["redirect_uri"]
+
+[[question]]
+id = "id-a05"
+text = "when must a resource server send the WWW-Authenticate header in its response"
+relevant_document = "rfc6750"
+quote = "\"WWW-Authenticate\" response header field; it MAY include it in"
+anchors = ["WWW-Authenticate"]
+
+[[question]]
+id = "id-a06"
+text = "in a JSON pointer path, what does the escaped token ~1 decode to"
+relevant_document = "rfc6901"
+quote = "occurrence of the sequence '~1' to '/', and then transforming any"
+anchors = ["~1"]
+
+[[question]]
+id = "id-a07"
+text = "what does a JWS header parameter block look like when HS256 is the chosen algorithm"
+relevant_document = "rfc7515"
+quote = "The \"alg\" (algorithm) Header Parameter identifies the cryptographic"
+anchors = ["HS256"]
+
+[[question]]
+id = "id-a08"
+text = "what does the kty parameter of a JSON web key identify"
+relevant_document = "rfc7517"
+quote = "The \"kty\" (key type) parameter identifies the cryptographic algorithm"
+anchors = ["kty"]
+
+[[question]]
+id = "id-a09"
+text = "what does the x5c parameter of a JSON web key contain"
+relevant_document = "rfc7517"
+quote = "The \"x5c\" (X.509 certificate chain) parameter contains a chain of one"
+anchors = ["x5c"]
+
+[[question]]
+id = "id-a10"
+text = "which elliptic curve does the P-256 signing algorithm use"
+relevant_document = "rfc7518"
+quote = "SHA-512 hash function.  The P-256, P-384, and P-521 curves are"
+anchors = ["P-256"]
+
+[[question]]
+id = "id-a11"
+text = "what underlying signature scheme does the RS256 JWS algorithm rely on"
+relevant_document = "rfc7518"
+quote = "The RSASSA-PKCS1-v1_5 SHA-256 digital signature is generated as"
+anchors = ["RS256"]
+
+[[question]]
+id = "id-a12"
+text = "what does the exp claim in a JWT identify"
+relevant_document = "rfc7519"
+quote = "The \"exp\" (expiration time) claim identifies the expiration time on"
+anchors = ["exp"]
+
+[[question]]
+id = "id-a13"
+text = "what does the client_assertion_type parameter specify in an OAuth assertion request"
+relevant_document = "rfc7521"
+quote = "REQUIRED.  The format of the assertion as defined by the"
+anchors = ["client_assertion_type"]
+
+[[question]]
+id = "id-a14"
+text = "what value must the grant_type parameter carry when a client uses a signed JWT as its authorization grant"
+relevant_document = "rfc7523"
+quote = "To use a Bearer JWT as an authorization grant, the client uses an"
+anchors = ["grant_type"]
+
+[[question]]
+id = "id-a15"
+text = "which code challenge method must a PKCE client use if the server supports it, S256 or plain"
+relevant_document = "rfc7636"
+quote = "If the client is capable of using \"S256\", it MUST use \"S256\", as"
+anchors = ["S256"]
+
+[[question]]
+id = "id-a16"
+text = "what does an authorization server associate with the authorization code when a client sends a code_challenge"
+relevant_document = "rfc7636"
+quote = "response, it MUST associate the \"code_challenge\" and"
+anchors = ["code_challenge"]
+
+[[question]]
+id = "id-a17"
+text = "what does the active field in a token introspection response indicate"
+relevant_document = "rfc7662"
+quote = "is currently active.  The specifics of a token's \"active\" state"
+anchors = ["active"]
+
+[[question]]
+id = "id-a18"
+text = "what is the purpose of the token_type_hint parameter in a token introspection request"
+relevant_document = "rfc7662"
+quote = "OPTIONAL.  A hint about the type of the token submitted for"
+anchors = ["token_type_hint"]
+
+[[question]]
+id = "id-a19"
+text = "what does the jwks_uri metadata value point to"
+relevant_document = "rfc8414"
+quote = "OPTIONAL.  URL of the authorization server's JWK Set [JWK]"
+anchors = ["jwks_uri"]
+
+[[question]]
+id = "id-a20"
+text = "what does the token type identifier urn:ietf:params:oauth:token-type:jwt indicate about an exchanged token"
+relevant_document = "rfc8693"
+quote = "The value \"urn:ietf:params:oauth:token-type:jwt\", which is defined in"
+anchors = ["urn:ietf:params:oauth:token-type:jwt"]
+
+[[question]]
+id = "id-n01"
+text = "what larger character repertoire can an internationalized identifier draw its characters from, compared to a plain URI"
+relevant_document = "rfc3987"
+quote = "Universal Character Set (Unicode/ISO 10646).  A mapping from IRIs to"
+anchors = []
+
+[[question]]
+id = "id-n02"
+text = "what kind of naming system does the UUID specification define"
+relevant_document = "rfc4122"
+quote = "This specification defines a Uniform Resource Name namespace for"
+anchors = []
+
+[[question]]
+id = "id-n03"
+text = "what does a URI template describe using variable expansion"
+relevant_document = "rfc6570"
+quote = "A URI Template is a compact sequence of characters for describing a"
+anchors = []
+
+[[question]]
+id = "id-n04"
+text = "where in the OAuth core specification is the element that names which grant type a client is requesting defined"
+relevant_document = "rfc6749"
+quote = "The \"grant_type\" element is defined in Sections 4.1.3, 4.3.2, 4.4.2,"
+anchors = []
+
+[[question]]
+id = "id-n05"
+text = "what could cause a protected resource to reject a bearer access token as invalid"
+relevant_document = "rfc6750"
+quote = "The access token provided is expired, revoked, malformed, or"
+anchors = []
+
+[[question]]
+id = "id-n06"
+text = "what kind of tokens does a JSON pointer string consist of"
+relevant_document = "rfc6901"
+quote = "containing a sequence of zero or more reference tokens, each prefixed"
+anchors = []
+
+[[question]]
+id = "id-n07"
+text = "what happens to the value at its original location when a JSON patch move operation runs"
+relevant_document = "rfc6902"
+quote = "The \"move\" operation removes the value at a specified location and"
+anchors = []
+
+[[question]]
+id = "id-n08"
+text = "how does a client ask an authorization server to revoke a particular token"
+relevant_document = "rfc7009"
+quote = "The client requests the revocation of a particular token by making an"
+anchors = []
+
+[[question]]
+id = "id-n09"
+text = "what happened to how widely JSON was used in the years after its original specification was published"
+relevant_document = "rfc7159"
+quote = "In the years since the publication of RFC 4627, JSON has found very"
+anchors = []
+
+[[question]]
+id = "id-n10"
+text = "why is the merge patch format not suitable for describing every kind of JSON document change"
+relevant_document = "rfc7396"
+quote = "This design means that merge patch documents are suitable for"
+anchors = []
+
+[[question]]
+id = "id-n11"
+text = "what is I-JSON short for"
+relevant_document = "rfc7493"
+quote = "I-JSON (short for \"Internet JSON\") is a restricted profile of JSON"
+anchors = []
+
+[[question]]
+id = "id-n12"
+text = "what does the encryption algorithm header parameter of an encrypted JSON web token identify"
+relevant_document = "rfc7516"
+quote = "The \"enc\" (encryption algorithm) Header Parameter identifies the"
+anchors = []
+
+[[question]]
+id = "id-n13"
+text = "which JWT claim identifies who a token is intended for"
+relevant_document = "rfc7519"
+quote = "The \"aud\" (audience) claim identifies the recipients that the JWT is"
+anchors = []
+
+[[question]]
+id = "id-n14"
+text = "what does the OAuth assertion framework let a client use instead of a client secret to authenticate"
+relevant_document = "rfc7521"
+quote = "This specification provides a framework for the use of assertions"
+anchors = []
+
+[[question]]
+id = "id-n15"
+text = "what must the assertion parameter contain when a client authenticates with a signed JWT bearer grant"
+relevant_document = "rfc7523"
+quote = "The value of the \"assertion\" parameter MUST contain a single JWT."
+anchors = []
+
+[[question]]
+id = "id-n16"
+text = "which JSON specification requires JSON text exchanged between open systems to be encoded in UTF-8"
+relevant_document = "rfc8259"
+quote = "ecosystem MUST be encoded using UTF-8 [RFC3629]."
+anchors = []
+
+[[question]]
+id = "id-n17"
+text = "how does a client find an authorization server's configuration without asking an administrator directly"
+relevant_document = "rfc8414"
+quote = "formed by inserting a well-known URI string into the authorization"
+anchors = []
+
+[[question]]
+id = "id-n18"
+text = "in a token exchange request, whose identity does the token submitted for exchange represent"
+relevant_document = "rfc8693"
+quote = "on behalf of whom the token is being requested while the"
+anchors = []
+
+[[question]]
+id = "id-n19"
+text = "what new media type marks a JWT as being used specifically as an OAuth access token"
+relevant_document = "rfc9068"
+quote = "This specification registers the \"application/at+jwt\" media type,"
+anchors = []
+
+[[question]]
+id = "id-n20"
+text = "how does a pushed authorization request handle a redirect value that a client never pre-registered"
+relevant_document = "rfc9126"
+quote = "OAuth 2.0 [RFC6749] allows clients to use unregistered \"redirect_uri\""
+anchors = []
+

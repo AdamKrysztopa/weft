@@ -1,0 +1,29 @@
+# The RFCs of Phase 39's corpus (ledger task 39.3), chosen in six families so one anchor recurs across
+# several documents — a status code in the HTTP family's successive editions, a header in the specs
+# that define, refine and cite it — which is what makes the owner's Q2 checkable: exact matching
+# cannot win when the anchor names several documents and the question's intent picks one.
+# `scripts/rfc_corpus.py download --numbers-file` reads `numbers`; the families are for the people
+# writing questions and are read by nothing else.
+
+numbers = [
+  # HTTP: every edition of the core, its extensions, and the headers and status codes they share.
+  1945, 2068, 2616, 2617, 2818, 5861, 6265, 6266, 6454, 6455, 6585, 6797, 7230, 7231, 7232, 7233,
+  7234, 7235, 7237, 7239, 7538, 7540, 7541, 7616, 7617, 7725, 7838, 8246, 8288, 8297, 8470, 8941,
+  9110, 9111, 9112, 9113, 9114, 9204, 9205, 9209, 9211, 9218, 9651,
+  # TLS and the PKI under it: versions 1.0 to 1.3, extensions, deprecations and certificates.
+  2246, 4346, 5077, 5246, 5280, 6066, 6125, 6176, 6347, 6960, 6962, 7250, 7301, 7366, 7457, 7525,
+  7627, 7633, 7905, 8422, 8446, 8447, 8449, 8996, 9162, 9325,
+  # DNS: the core, DNSSEC, record types, transports and extended errors.
+  1034, 1035, 2136, 2181, 2308, 2782, 3596, 4033, 4034, 4035, 5155, 5936, 6762, 6763, 6844, 6891,
+  7766, 7858, 7871, 8484, 8490, 8499, 8767, 8914, 9250,
+  # Mail: SMTP, message format, MIME, IMAP, POP and their extensions.
+  1870, 1939, 2045, 2046, 2047, 2049, 2231, 3207, 3461, 3464, 3501, 4954, 5321, 5322, 5598, 6152,
+  6376, 6409, 6531, 6532, 7208, 7489, 8058, 8314, 8616, 8617, 9051,
+  # Transport and IP: TCP, UDP, IP, QUIC, NAT, NTP, DHCP and the registries that number them.
+  768, 791, 792, 793, 1122, 1191, 1812, 1918, 2131, 2460, 2474, 3022, 3168, 3261, 3315, 3550, 4193,
+  4291, 4443, 4861, 4862, 5382, 5681, 5905, 6298, 6335, 7323, 7413, 8200, 8312, 8415, 9000, 9001,
+  9002, 9293, 9438,
+  # Identity and data formats: OAuth, JOSE, JSON, URIs and UUIDs.
+  3986, 3987, 4122, 4648, 6570, 6749, 6750, 6901, 6902, 7009, 7159, 7396, 7493, 7515, 7516, 7517,
+  7518, 7519, 7521, 7523, 7636, 7662, 8259, 8414, 8693, 9068, 9126,
+]

@@ -1,0 +1,32 @@
+# Phase 39's technique on the RFC corpus — ledger task 39.5, first measurement: `intent-and-anchors`
+# by rule and by model against dense, over `rfc-baseline`'s index (same corpus, questions and
+# `english` text configuration, so no re-embedding). Rerank and fitted fusion weights are later arms.
+# The model arm reaches `gpt-5.6-luna` under role `anchors`, so it runs twice; the others once.
+
+[experiment]
+schema = 1
+name = "rfc-anchors"
+questions = "../../corpus/rfc-questions/rfc.toml"
+corpus = "../../corpus/rfc"
+manifest = "../../corpus/rfc.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+repeats = 1
+
+[[arm]]
+name = "anchors-rule"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-rule-retrieve"
+repeats = 1
+
+[[arm]]
+name = "anchors-model"
+pipeline = "index-openai-large"
+query_pipeline = "anchors-model-retrieve"

@@ -1,0 +1,29 @@
+# Phase 39's fourth baseline arm on the RFC corpus — ledger task 39.4: BM25 (`text_mode = "bm25"`,
+# the `pg_textsearch` server behind compose's `bm25` profile, port 5434), never measured on any
+# corpus before this phase. Lexical only, so the index uses the free `hash` embedder — no vector is
+# read, and nothing is embedded twice. Same corpus and questions as `rfc-baseline.toml`.
+# `bm25-anchors-only` searches each rule-found anchor with BM25 and nothing else: what per-anchor
+# search finds on its own, against the whole question under the same ranker.
+
+[experiment]
+schema = 1
+name = "rfc-bm25"
+questions = "../../corpus/rfc-questions/rfc.toml"
+corpus = "../../corpus/rfc"
+manifest = "../../corpus/rfc.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "bm25"
+pipeline = "index-text"
+query_pipeline = "lexical-wide-retrieve"
+repeats = 1
+
+[[arm]]
+name = "bm25-anchors-only"
+pipeline = "index-text"
+query_pipeline = "anchors-rule-text-retrieve"
+repeats = 1

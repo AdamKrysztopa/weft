@@ -1,0 +1,9 @@
+name: anchors-rule-retrieve
+# `intent-and-anchors` with the deterministic rule: the question as asked to the vector arm, each
+# anchor to the text arm alone, fused by normalized score (G24). The retrieval-only twin of the
+# shipped `intent-and-anchors-then-generate`, at the depth `hybrid-retrieve` uses.
+stages:
+  - {id: anchor,   use: intent-and-anchors}
+  - {id: retrieve, use: hybrid, with: {top_k: 60}}
+  - {id: fuse,     use: normalized-score-fusion}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 60}}

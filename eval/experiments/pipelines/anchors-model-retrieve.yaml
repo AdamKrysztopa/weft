@@ -1,0 +1,5 @@
+name: anchors-model-retrieve
+extends: anchors-rule-retrieve
+# The same, with the anchors named by the model under role `anchors` — the mechanism `39.1` gated.
+replace:
+  - {id: anchor, use: intent-and-anchors, with: {method: model}}
