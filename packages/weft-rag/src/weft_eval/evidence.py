@@ -34,6 +34,10 @@ name match would silently compare a table against records a later edit invalidat
 Registers nothing: turning an invocation's records into a table is not a capability any pack or
 third party needs to swap, the identical reasoning `weft_eval.falsify`'s own module docstring
 already gives for its own unregistered functions.
+
+Repair **R38.16**: the table also states which corpus its records were measured on — the name
+and digest every `RunRecord.corpus` already carries — so a table copied out of its directory
+still says what it measured.
 """
 
 from __future__ import annotations
@@ -128,6 +132,9 @@ class EvidenceTable(BaseModel):
     """One experiment document's whole claim, over one complete invocation of it — see the
     module docstring. `render_evidence_table` is this table's only reader that matters: the
     committed markdown is this model rendered, and nothing renders it by hand.
+
+    `corpus_name`/`corpus_digest` name the corpus the baseline arm's own records were measured
+    on, read from those records rather than from the experiment document.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -135,6 +142,11 @@ class EvidenceTable(BaseModel):
     name: str
     digest: str
     invocation: str
+    #: The corpus the baseline arm's first repetition record was measured against — repair
+    #: R38.16: a copied table still says what it measured, rather than relying on whichever
+    #: experiment document happens to sit beside it.
+    corpus_name: str
+    corpus_digest: str
     minimum_detectable_effect: float
     baseline_arm: str
     repeats: int
@@ -382,6 +394,8 @@ def evidence_table(
         name=experiment.name,
         digest=experiment.digest,
         invocation=chosen_invocation,
+        corpus_name=baseline_records[0].corpus.name,
+        corpus_digest=baseline_records[0].corpus.digest,
         minimum_detectable_effect=experiment.minimum_detectable_effect,
         baseline_arm=baseline_arm.name,
         repeats=experiment.repeats,
@@ -408,6 +422,7 @@ def render_evidence_table(table: EvidenceTable) -> str:
         "",
         f"experiment digest: {table.digest[:12]}… · invocation: {table.invocation} · "
         f"repetitions: {_repetitions_cell(table)}",
+        f"corpus: {table.corpus_name} ({table.corpus_digest[:12]}…)",
         f"minimum detectable effect: {table.minimum_detectable_effect:g}",
         f"paired Δ and its interval: arm minus '{table.baseline_arm}' on repetition 1, 95% "
         "bootstrap interval over questions",
@@ -463,7 +478,7 @@ def _comparison_row(comparison: ArmComparison) -> str:
     arm_mean = _mean_cell(comparison.arm_mean, comparison.arm_n, comparison.arm_excluded)
     if comparison.paired is not None:
         paired_mean = f"{comparison.paired.mean:+.3f}"
-        n = str(comparison.paired.n)
+        n = f"{comparison.paired.n}, {comparison.paired.differing} differing"
         if comparison.paired.low is not None and comparison.paired.high is not None:
             ci = f"{comparison.paired.low:+.3f} to {comparison.paired.high:+.3f}"
         else:

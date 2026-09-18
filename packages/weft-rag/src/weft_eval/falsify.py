@@ -37,6 +37,9 @@ Registers nothing: folding a baseline's repetitions into a spread and judging a 
 against it are not capabilities any pack or third party needs to swap, the identical reasoning
 `weft_eval.aggregate`/`weft_eval.run_record`'s own module docstrings already give for their own
 unregistered functions.
+
+Repair **R38.16**: `paired_differences`' own `PairedDifference` also states how many of its
+paired questions actually differ, because `n` alone hides a mean carried by almost none of them.
 """
 
 from __future__ import annotations
@@ -294,6 +297,9 @@ class PairedDifference(BaseModel):
     `low`/`high` are `None` for a single paired question, the identical rule `BaselineSpread`
     already states for a single repetition — one observation has no spread to report, and a
     zero-width interval reads as certainty.
+
+    `differing` (repair R38.16) says how many of `n` actually moved, because `mean` and its
+    interval can rest on a handful of questions while the rest agree exactly.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -306,6 +312,10 @@ class PairedDifference(BaseModel):
     high: float | None
     #: How many questions both records scored for this metric.
     n: int = Field(ge=1)
+    #: How many of `n`'s own paired questions have a difference that is not exactly zero —
+    #: repair R38.16: a mean and its interval can rest on a handful of questions while the rest
+    #: agree exactly, and this is what tells a reader that apart from `n` alone.
+    differing: int = Field(ge=0)
 
 
 def _percentile(sorted_values: Sequence[float], pct: float) -> float:
@@ -412,8 +422,9 @@ def paired_differences(
             continue
         mean = sum(diff for _, diff in keyed_diffs) / len(keyed_diffs)
         low, high = _bootstrap_interval(keyed_diffs)
+        differing = sum(1 for _, diff in keyed_diffs if diff != 0.0)
         result[name] = PairedDifference(
-            metric=name, mean=mean, low=low, high=high, n=len(keyed_diffs)
+            metric=name, mean=mean, low=low, high=high, n=len(keyed_diffs), differing=differing
         )
     return MappingProxyType(result)
 

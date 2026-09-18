@@ -401,3 +401,47 @@ def _is_base_second(record: RunRecord) -> bool:
         record.experiment.arm,
         record.experiment.repetition,
     ) == ("base", 2)
+
+
+# --- Repair R38.16 — a table states the population its statistics are over.
+
+
+def test_a_paired_difference_counts_the_questions_that_actually_differ(tmp_path: Path) -> None:
+    """An interval resting on one question of four says so: most per-question differences are
+    exactly zero, and the mean and its interval are carried by the few that are not."""
+    # Arrange
+    experiment = fixture_experiment(tmp_path)
+    records = [
+        _record(experiment, arm="base", repetition=1, scores=(0.5, 0.5, 0.5, 0.5)),
+        _record(experiment, arm="base", repetition=2, scores=(0.5, 0.5, 0.5, 0.5)),
+        _record(experiment, arm="better", repetition=1, scores=(0.5, 0.75, 0.5, 0.5)),
+        _record(experiment, arm="better", repetition=2, scores=(0.5, 0.75, 0.5, 0.5)),
+    ]
+
+    # Act
+    table = evidence_table(experiment, records)
+    markdown = render_evidence_table(table)
+
+    # Assert
+    comparison = next(c for c in table.comparisons if c.arm == "better")
+    assert comparison.paired is not None
+    assert comparison.paired.n == 4
+    assert comparison.paired.differing == 1
+    row = next(line for line in markdown.splitlines() if "| better | precision@5 |" in line)
+    assert "| 4, 1 differing |" in row
+
+
+def test_the_table_names_the_corpus_its_records_were_measured_on(tmp_path: Path) -> None:
+    """A table copied out of its directory still says which corpus it measured — the name and
+    digest every record already carries, never the experiment document's header comment."""
+    # Arrange
+    experiment = fixture_experiment(tmp_path)
+
+    # Act
+    table = evidence_table(experiment, complete_records(experiment))
+    markdown = render_evidence_table(table)
+
+    # Assert
+    assert table.corpus_name == "corpus"
+    assert table.corpus_digest == "c" * 64
+    assert "corpus: corpus (cccccccccccc…)" in markdown.splitlines()[2:6]
