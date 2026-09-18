@@ -13,6 +13,8 @@ encoding. `R33.1` is the same trap for usage reporting, and the same delegation 
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -82,3 +84,27 @@ def test_an_openai_compatible_account_never_counts(tmp_path: Path, compatible_bl
     # Assert
     assert isinstance(provider, LLMProvider)
     assert not isinstance(provider, TokenCounting)
+
+
+async def test_counting_runs_off_the_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`32.10`'s paid run: `tiktoken` reads (and on first use downloads) its encoding file, and
+    the seam's blocking-call guard stopped `repack` for `open()` on the event loop thread — no
+    unit test could see it, because none ran under the guard."""
+    # Arrange
+    offloaded: list[str] = []
+    real = asyncio.to_thread
+
+    async def _to_thread(
+        function: Callable[..., object], /, *args: object, **kwargs: object
+    ) -> object:
+        offloaded.append(getattr(function, "__name__", repr(function)))
+        return await real(function, *args, **kwargs)
+
+    monkeypatch.setattr(asyncio, "to_thread", _to_thread)
+
+    # Act
+    count = await _provider().count_tokens(_POLISH, model=DEFAULT_MODEL)
+
+    # Assert
+    assert count is not None
+    assert offloaded, "the encoding lookup and the count must run through asyncio.to_thread"

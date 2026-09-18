@@ -419,16 +419,21 @@ class OpenAILLMProvider:
         """`text`'s token count under `model`'s own encoding — task **32.6**, gate **G25**.
 
         Satisfies `weft_llm.contract.TokenCounting`. `tiktoken.encoding_for_model` is the
-        vendor's own model→encoding map, looked up locally with no network call — a model it
-        has no mapping for raises `KeyError`, caught here and turned into `None`, never a
-        default encoding: guessing a wrong one would silently over- or under-fill a budgeted
-        prompt.
+        vendor's own model→encoding map; a model it has no mapping for raises `KeyError`, turned
+        into `None`, never a default encoding — a wrong one would silently over- or under-fill a
+        budgeted prompt. Runs in a worker thread: `tiktoken` reads its encoding file from a cache
+        and downloads it on first use, and the seam's blocking-call guard stopped `32.10`'s paid
+        run on that `open()`.
         """
-        try:
-            encoding = tiktoken.encoding_for_model(model)
-        except KeyError:
-            return None
-        return len(encoding.encode(text))
+        return await asyncio.to_thread(_count_tokens, text, model)
+
+
+def _count_tokens(text: str, model: str) -> int | None:
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        return None
+    return len(encoding.encode(text))
 
 
 def _messages_of(conv: Conversation) -> list[dict[str, str]]:
