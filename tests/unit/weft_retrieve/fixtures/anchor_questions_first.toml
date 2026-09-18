@@ -1,4 +1,6 @@
-# Forty questions judging `intent-and-anchors` — ledger tasks 39.0 and 39.1.
+# The first forty questions judging `intent-and-anchors` — ledger tasks 39.0 and 39.1. They failed
+# the gate once (a20's `DoH`, precision 28/29) and the rule was narrowed against them, so they are
+# a regression set now, not the gate.
 #
 # Written 2026-09-18 by an agent given G24's definition of an anchor and nothing else: it read no
 # code and never saw the rule it judges, so the labels are not shaped by the implementation.

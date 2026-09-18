@@ -57,6 +57,7 @@ def _asked(text: str, *, filter: Filter | None = None) -> QuerySet:
         ("HTTP/2 over IPv6", ("HTTP/2", "IPv6")),
         ("why does the browser show ERR_CONNECTION_REFUSED", ("ERR_CONNECTION_REFUSED",)),
         ("how do I set maxAge on the cookie", ("maxAge",)),
+        ("call getElementById from onClick", ("getElementById", "onClick")),
         ("what does §4.3 require", ("4.3",)),
         ("Is STX58, or WRH123?", ("STX58", "WRH123")),
         ("WRH123 against WRH123 again", ("WRH123",)),
@@ -83,6 +84,8 @@ def test_identifier_shaped_tokens_are_anchors_in_the_order_they_first_appear(
         "retry 3 times then give up",
         "top 10 tips for caching",
         "what does __init__ do",
+        "is DoH supported on iOS and macOS",
+        "the iPhone and eBay apps on GitHub",
     ],
 )
 def test_ordinary_language_acronyms_and_counts_are_not_anchors(text: str) -> None:

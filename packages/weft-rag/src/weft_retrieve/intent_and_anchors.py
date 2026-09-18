@@ -36,7 +36,9 @@ _QUOTE_PAIRS: Final[tuple[tuple[str, str], ...]] = (('"', '"'), ("“", "”"), 
 _STRIP_CHARS: Final[str] = ".,;:!?()[]{}'\"§"
 _ORDINAL_RE: Final[re.Pattern[str]] = re.compile(r"^\d+(st|nd|rd|th)$", re.IGNORECASE)
 _DOTTED_DIGITS_RE: Final[re.Pattern[str]] = re.compile(r"^\d+(\.\d+)+$")
-_LOWER_UPPER_RE: Final[re.Pattern[str]] = re.compile(r"[a-z][A-Z]")
+#: Two lowercase letters first, so `DoH`, `iOS` and `iPhone` stay words; PascalCase is refused
+#: because by shape alone it cannot be told from a brand name (`39.1`'s first gate).
+_CAMEL_CASE_RE: Final[re.Pattern[str]] = re.compile(r"[a-z]{2,}[A-Z][a-z]")
 
 
 class AnchorKind(StrEnum):
@@ -105,7 +107,7 @@ def _is_identifier_shaped(token: str) -> bool:
         for left, right in pairwise(token.split("_")):
             if left and right and left[-1].isalnum() and right[0].isalnum():
                 return True
-    return bool(_LOWER_UPPER_RE.search(token))
+    return bool(_CAMEL_CASE_RE.match(token))
 
 
 def _find_identifiers(text: str) -> list[tuple[int, Anchor]]:
