@@ -9,6 +9,19 @@ call at runtime — `use_stemmer=False` (the default this module keeps) never re
 downloaded corpora, only its bundled, data-free Porter stemmer code path, so nothing here breaks
 `poe ci-checks` on a clean checkout with no account and no cached model.
 
+**Repair R32.1: a word, whatever punctuation is attached and whatever alphabet it is in.**
+`_tokens` used to be `text.lower().split()`, so `"forty two."` never recalled `"two"` — the
+trailing period stayed on the token. `rouge-score`'s own default tokenizer is worse for anything
+outside ASCII: it keeps only `[a-z0-9]`, so `"Zażółć gęślą jaźń."` became `['za', 'g', 'l', 'ja']`
+and `jaźń` matched `ja ń` as a perfect score. Every tokenizer in this file now applies the same
+rule `weft_retrieve.shingle_resemblance` already uses for the same reason — `re.findall(r"\\w+",
+text.casefold())`, Unicode-aware so a word never splits at its own diacritics — restated here
+rather than imported, because a pack does not import another pack's internals for a two-line
+rule. Answer metrics are now comparable across English and Polish only in the sense that words
+are words in both; `use_stemmer=True`'s Porter stemmer is English-specific by construction and
+does nothing useful to a Polish token — it is not disabled for one, because English is still a
+legitimate answer language, but it is not a claim of cross-lingual stemming either.
+
 **Empty reference is `NothingToProduce`, everywhere in this file, unconditionally.**
 `weft_eval.contract`'s own rule: nothing to compare against is nothing to compare against, no
 matter what the prediction holds. Returning an unconditional `1.0` on an empty reference is a
@@ -19,14 +32,21 @@ indistinguishable from "the prediction shares nothing with a real, non-empty ref
 precisely the accident `NothingToProduce` exists to name).
 """
 
+import re
 from typing import ClassVar
 
+from nltk.stem import porter
 from pydantic import BaseModel, ConfigDict
 from rouge_score import rouge_scorer
 
 from weft_eval.contract import GenerationSample, MetricScore
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
+
+#: A word token: a maximal run of Unicode word characters, matching
+#: `weft_retrieve.shingle_resemblance._TOKEN` — the same rule, restated rather than imported
+#: because the two packs do not share internals.
+_WORD: re.Pattern[str] = re.compile(r"\w+")
 
 #: A short, closed stop-word list for `KeyTermsPrecision`'s content-word heuristic — not an
 #: attempt at linguistic completeness, only enough to keep function words from counting as
@@ -75,7 +95,7 @@ class NoConfig(BaseModel):
 
 
 def _tokens(text: str) -> frozenset[str]:
-    return frozenset(text.lower().split())
+    return frozenset(_WORD.findall(text.casefold()))
 
 
 class TokenOverlap:
@@ -180,10 +200,33 @@ class _RougeConfig(BaseModel):
     use_stemmer: bool = False
 
 
+class _WordTokenizer:
+    """`rouge_score.rouge_scorer.RougeScorer`'s `tokenizer=` shape — a bare `tokenize()` method.
+
+    `RougeScorer` ignores `use_stemmer` entirely once a `tokenizer=` is supplied (read from its
+    source: the constructor only ever builds a stemmer for its own `DefaultTokenizer`), so
+    stemming has to happen in here or not at all. When it is wanted, this stems with
+    `rouge_score`'s own dependency — `nltk.stem.porter.PorterStemmer`, the same pure-code,
+    no-download algorithm `DefaultTokenizer` uses — applied to words longer than three
+    characters, matching `rouge_score.tokenize.tokenize`'s own threshold so switching alphabets
+    does not also silently change how aggressively English gets stemmed.
+    """
+
+    def __init__(self, *, use_stemmer: bool) -> None:
+        self._stemmer = porter.PorterStemmer() if use_stemmer else None
+
+    def tokenize(self, text: str) -> list[str]:
+        words = _WORD.findall(text.casefold())
+        if self._stemmer is None:
+            return words
+        return [self._stemmer.stem(word) if len(word) > 3 else word for word in words]
+
+
 def _rouge_fmeasure(
     rouge_type: str, *, reference: str, prediction: str, use_stemmer: bool
 ) -> float:
-    scorer = rouge_scorer.RougeScorer([rouge_type], use_stemmer=use_stemmer)
+    tokenizer = _WordTokenizer(use_stemmer=use_stemmer)
+    scorer = rouge_scorer.RougeScorer([rouge_type], tokenizer=tokenizer)
     return scorer.score(reference, prediction)[rouge_type].fmeasure
 
 
