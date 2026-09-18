@@ -74,7 +74,8 @@ def main():
         "pass without seeing them and CI would fail once they are committed (L26.8, R32.6):\n"
         + shown
         + more
-        + "\n`git add` them (or add them to .gitignore if they are not the tree's), then re-run.\n"
+        + "\n`git add` them in a command of its own — this hook reads the tree before the command\n"
+        "runs, so a `git add` chained in front of the gate has not happened yet — then re-run.\n"
     )
     return 2
 

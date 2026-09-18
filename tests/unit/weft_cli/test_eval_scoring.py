@@ -1137,3 +1137,49 @@ async def test_a_retrieval_rung_computes_no_answer_metrics(
     # Assert
     assert "token_recall" not in scored.metrics
     assert "rouge_l" not in scored.metrics
+
+
+# --- Repair R40.0 — hits tied on score keep the order the ranking gave them, not the packer's.
+
+
+@pytest.mark.parametrize("ends_in", ["ContextPacker", "Generator"])
+async def test_hits_tied_on_score_are_ranked_in_the_order_the_ranking_gave_them(
+    monkeypatch: pytest.MonkeyPatch, ends_in: str
+) -> None:
+    """`repack: reverse` packs the best hit last; two hits tied on score arrived at the stable
+    sort in that inverted order, so `[relevant, irrelevant]` at 3.5 each scored RR ½."""
+    # Arrange
+    captured: list[RetrievalSample] = []
+    packed = (_labelled_passage("doc-other", 3.5, 1), _labelled_passage("doc-best", 3.5, 0))
+
+    async def _passages(*_args: object, **_kwargs: object) -> Passages:
+        return Passages(origin=Query(text="q"), passages=packed)
+
+    async def _answer(*_args: object, **_kwargs: object) -> Answer:
+        return Answer(text="a", origin=Query(text="q"), answered_by="fixture", used=packed)
+
+    async def _capture(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
+        captured.extend(samples)
+        return SubsetScores(metrics={}, per_question={})
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Reranker", ends_in)
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_retrieve", _passages)
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _capture)
+
+    # Act
+    await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(_question(relevant_documents=("doc-best",)),),
+        top_k=2,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-best", "doc-other"),
+    )
+
+    # Assert
+    assert [passage.id for passage in captured[0].retrieved] == ["doc-best", "doc-other"]

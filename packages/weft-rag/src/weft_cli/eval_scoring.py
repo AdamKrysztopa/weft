@@ -393,6 +393,16 @@ def _ranked_by_score(hits: Sequence[Scored[Node]]) -> tuple[Scored[Node], ...]:
     return tuple(sorted(hits, key=lambda hit: hit.score, reverse=True))
 
 
+def _scored_in_ranking_order(passages: Sequence[Passage]) -> list[Scored[Node]]:
+    """Packed passages as `Scored`, best-first with ties in the ranking's order (`R40.0`).
+
+    `_ranked_by_score`'s sort is stable, so a tie reaches it in whatever order arrives here; a
+    packed passage's `rank` is its position in the ranking before packing, and `reverse` has
+    inverted the tuple.
+    """
+    return [p.scored for p in sorted(passages, key=lambda p: (-p.score, p.rank))]
+
+
 def _deduplicated_by_document(
     hits: Sequence[Scored[Node]], *, top_k: int
 ) -> tuple[RetrievedPassage, ...]:
@@ -741,7 +751,7 @@ async def score_pipeline(
                         continue
                     seconds[question_key] = time.monotonic() - started
                     used_passages = passages_for_scoring(answer)
-                    hits = [passage.scored for passage in used_passages]
+                    hits = _scored_in_ranking_order(used_passages)
                     generation_samples.append(
                         (
                             question_key,
@@ -779,7 +789,7 @@ async def score_pipeline(
                         failed[question_key] = str(failure)
                         continue
                     seconds[question_key] = time.monotonic() - started
-                    hits = [passage.scored for passage in passages.passages]
+                    hits = _scored_in_ranking_order(passages.passages)
                     contributors[question_key] = tuple(passages.contributors)
                 else:
                     hits = await run_ask(
