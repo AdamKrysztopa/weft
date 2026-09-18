@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 from pathlib import Path
 
 from publish_set import Member, PublishSetUnreadableError, publishing_members
@@ -100,7 +101,14 @@ def _find_archive(out_dir: Path, name: str) -> Path | None:
 _SUITES_ABOUT_THE_CODE: tuple[str, ...] = ("tests/unit", "tests/integration")
 
 
-def _run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
+def _capability_requirements(repo_root: Path) -> list[str]:
+    """Every library `weft-rag[all]` names — since G19 the capability packs ship inside
+    `weft-rag`, and this suite imports their libraries directly."""
+    pyproject = tomllib.loads((repo_root / "packages/weft-rag/pyproject.toml").read_text())
+    return list(pyproject["project"]["optional-dependencies"]["all"])
+
+
+def run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
     command = [
         "uv",
         "run",
@@ -119,30 +127,14 @@ def _run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
         # (`docs/internal/lessons.md` L6.24).
         "--with",
         "ruff>=0.16.0",
-        # **The capability extras, since G19 (2026-09-09).** Six packs were their own sdists until
-        # that session and each brought its own library; they ship inside `weft-rag` now with the
-        # libraries behind extras, so an install that names none of them has `weft_pdf`,
-        # `weft_openai`, `weft_qdrant`, `weft_otel` and `weft_docling` present and *unusable*. The
-        # packs themselves degrade correctly — discovery folds the import error into a `FAILED`
-        # report — but this suite imports `pdfplumber`, `openai` and the rest **directly**, so it
-        # fails at collection rather than at discovery. Naming the libraries here rather than the
-        # `all` extra: the archives are installed by path, so `weft-rag[all]` would resolve
-        # `weft-rag` from an index instead of from the sdist under test, which is the one thing
-        # this check exists to prevent.
-        "--with",
-        "pypdf>=6.16",
-        "--with",
-        "pdfplumber>=0.11.10",
-        "--with",
-        "openai>=3.1",
-        "--with",
-        "pillow>=10.0",
-        "--with",
-        "qdrant-client>=1.12",
-        "--with",
-        "opentelemetry-sdk>=1.28",
-        "--with",
-        "docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]>=2.55",
+        # The capability libraries, read from `weft-rag`'s `all` extra rather than listed here:
+        # a copy drifted twice (`tiktoken`, `qdrant-client`'s bound). Named as libraries, not as
+        # `weft-rag[all]`, which would resolve `weft-rag` from an index instead of the sdist.
+        *[
+            part
+            for requirement in _capability_requirements(repo_root)
+            for part in ("--with", requirement)
+        ],
         "pytest",
         *_SUITES_ABOUT_THE_CODE,
         "-q",
@@ -219,7 +211,7 @@ def main() -> int:
             return 0
 
         sys.stdout.write("\nrunning the test suite against the built sdists...\n")
-        test_returncode = _run_tests_against_sdists(built_archives, repo_root)
+        test_returncode = run_tests_against_sdists(built_archives, repo_root)
         if test_returncode != 0:
             sys.stderr.write("\nthe test suite failed when run against the built sdists.\n")
             return test_returncode

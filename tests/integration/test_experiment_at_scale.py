@@ -171,6 +171,9 @@ def _ctx(deps: Dependencies) -> Context:
     return ctx
 
 
+# 28 s locally, ~57 s on a CI runner (green) and >60 s (red) on 2026-09-18 — the suite's 60 s
+# default is too close for a test that runs 300 questions by design.
+@pytest.mark.timeout(180)
 async def test_an_experiment_over_three_hundred_questions_holds_every_property_a_paid_run_needs(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
