@@ -96,7 +96,7 @@ from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
 from weft_llm.contract import TokenSink
 from weft_retrieve.contract import RoutingPolicy
-from weft_retrieve.payload import Passages, Query, QuerySet, Route
+from weft_retrieve.payload import Passages, Query, QuerySet, Ranking, Route
 from weft_store import NodeStore
 
 #: `route.yaml`'s own `name:` field, and **the default rather than the law** since ledger task
@@ -989,3 +989,84 @@ async def _run_pipeline(
             pipeline=pipeline.name,
         )
     return outcome.value
+
+
+async def run_named_rerank(
+    ranking: Ranking,
+    *,
+    pipeline_name: str,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection,
+    services: ServiceSelection,
+    sink: TokenSink,
+    contributions: tuple[Contribution, ...] = (),
+    roles: RoleTable = _NO_ROLES,
+    prepared: PreparedRunner | None = None,
+) -> Passages:
+    """`run_named_retrieve`'s twin for a caller that already holds a `Ranking` — ledger task
+    **40.2**'s second half: `weft_cli.eval_scoring.score_pipeline`'s pool-replay path hydrates a
+    captured pool's own chunks into a `Ranking` itself, rather than a `Query`, so there is no
+    `Query`/`QuerySet` construction here for a rung to resolve retrieval from — the entry payload
+    is `ranking` itself, and `entry_type=Ranking` is what lets `weft_kernel.runner.Runner.resolve`
+    refuse a document whose first stage cannot accept one, before anything runs, exactly as
+    `run_named_ask`/`run_named_retrieve` already refuse a first stage that cannot accept a
+    `QuerySet`.
+
+    Same resolution, the same assembled services, the same execution and the same `_require`
+    seam as `run_named_retrieve`: a pipeline that ends in anything other than a `ContextPacker`
+    is refused by the identical message, read for `Passages` instead of `Ranking`.
+
+    `prepared` — repair R38.6's own footing, restated here for a third caller: `None` builds a
+    `PreparedRunner` here and closes it before returning; a caller scoring many questions through
+    one rung builds one once through `weft_cli.route_ask.prepared_services` and passes it here,
+    on the identical terms `run_named_ask`/`run_named_retrieve` already document for themselves.
+    """
+    catalogue = full_catalogue(reports=reports)
+    target = named_pipeline(pipeline_name, catalogue=catalogue)
+    owns = prepared is None
+    built = (
+        prepared
+        if prepared is not None
+        else await _prepared_runner(
+            registry=registry,
+            catalogue=catalogue,
+            ctx=ctx,
+            llm=llm,
+            services=services,
+            sink=sink,
+            roles=roles,
+        )
+    )
+    in_flight: BaseException | None = None
+    try:
+        result = await _run_pipeline(
+            target,
+            ranking,
+            sink=sink,
+            entry_type=Ranking,
+            registry=registry,
+            runner=built.runner,
+            ctx=built.ctx,
+            store=built.store,
+            store_name=services.store,
+            table=built.table,
+            selected=built.selected,
+            names=services.roles,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        )
+    except BaseException as failure:
+        in_flight = failure
+        raise
+    finally:
+        if owns:
+            await close_each(built.close_targets, in_flight=in_flight)
+    return _require(
+        result,
+        Passages,
+        pipeline=pipeline_name,
+        produced_by="a pool replay",
+    )

@@ -29,6 +29,7 @@ from typing import Final, cast
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_kernel.errors import WeftError
+from weft_kernel.payload import ExtModel
 
 #: The schema this release of `weft-rag` reads and writes. A manifest naming a different number
 #: was written by, or is meant for, a different `weft-rag` release — see `PoolManifestSchemaError`.
@@ -45,6 +46,27 @@ class PoolManifestSchemaError(PoolManifestError):
     """The manifest names a schema this release does not read — the message names the path, the
     schema it declares and the schema this release reads.
     """
+
+
+class PoolIntegrityError(PoolManifestError):
+    """A replay's manifest, question file or store no longer agree — ledger task **40.2**'s
+    second half. Raised before or during the question loop, never turned into a per-question
+    exclusion: unlike a stage's own refusal (`PipelineDidNotProduceError`), this means the
+    *replay itself* cannot be trusted, not that one question failed.
+
+    `question`/`chunk` name whichever of the two the mismatch was found on — a question id for
+    a set that has moved since capture, a node id for a chunk the store no longer holds or holds
+    differently. Both are `None` for a whole-run mismatch (a store row count that no longer
+    matches `PoolManifest.store_rows`), where nothing about one question or one chunk is at
+    fault.
+    """
+
+    def __init__(
+        self, message: str, *, question: str | None = None, chunk: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.question = question
+        self.chunk = chunk
 
 
 class PoolChunk(BaseModel):
@@ -95,6 +117,11 @@ class PoolManifest(BaseModel):
     model_versions: Mapping[str, str]
     store: str
     store_rows: int
+    #: Every corpus document id the capturing run resolved labels against — task **40.2**'s
+    #: second half, `weft_cli.eval_scoring.score_pipeline`'s own `corpus_document_ids`, so a
+    #: replay's `refuse_foreign_documents` check has the identical set the capture run had,
+    #: with no corpus of its own to re-derive it from.
+    document_ids: tuple[str, ...]
     questions: tuple[PoolQuestion, ...]
 
 
@@ -108,6 +135,26 @@ class LoadedPool(BaseModel):
 
     manifest: PoolManifest
     sha256: str
+
+
+class PoolQuestionEntry(ExtModel):
+    """Which question a replayed `Ranking` serves — ledger task **40.2**'s second half.
+
+    `Query` carries no id (TechQA asks fourteen texts twice, so the text alone cannot say), and a
+    replayed rung's own stages need to know which pool question they are looking at — a reranker
+    reading `Query.text` alone cannot tell two questions with identical text apart. Rides
+    `Ranking.ext` only, never `register_ext_model`/`add_ext_model`: those exist for an `ExtModel`
+    that reaches a `Node` and must survive a store round trip, and this one never does —
+    `weft_retrieve.fusion.FusionEvidence` is the identical, already-shipped precedent for a
+    `Ranking`-only namespace (`docs/internal/lessons.md` `L5.20`).
+    """
+
+    __namespace__ = "weft-eval-pool"
+    __schema_version__ = "1"
+
+    corpus_digest: str
+    question_id: str
+    text_sha256: str
 
 
 def text_sha256(text: str) -> str:
@@ -168,10 +215,12 @@ __all__ = [
     "LoadedPool",
     "POOL_MANIFEST_SCHEMA_VERSION",
     "PoolChunk",
+    "PoolIntegrityError",
     "PoolManifest",
     "PoolManifestError",
     "PoolManifestSchemaError",
     "PoolQuestion",
+    "PoolQuestionEntry",
     "load_pool_manifest",
     "relevant_set_sha256",
     "text_sha256",

@@ -79,7 +79,16 @@ _EXPERIMENT_TABLE_KEYS: Final[frozenset[str]] = frozenset(
 
 #: Every key a `[[arm]]` table may carry — one-to-one onto `ExperimentArm`'s own fields.
 _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
-    {"name", "pipeline", "query_pipeline", "corpus", "questions", "repeats", "capture_pool"}
+    {
+        "name",
+        "pipeline",
+        "query_pipeline",
+        "corpus",
+        "questions",
+        "repeats",
+        "capture_pool",
+        "pool",
+    }
 )
 
 
@@ -108,6 +117,11 @@ class ExperimentArm(BaseModel):
     `capture_pool` (task **40.2**) marks this arm's run to write a `weft_eval.pool.PoolManifest`
     beside its record — refused by `weft_cli.eval_experiment` before anything runs unless
     `query_pipeline` ends in a `ContextPacker`, since a pool is what a retrieval rung packed.
+
+    `pool` (task **40.2**'s second half) names a manifest this arm replays instead of indexing
+    and retrieving — resolved against the document's own directory, `corpus`/`questions`' own
+    footing. Refused alongside `capture_pool` on the identical arm: a replay reads a pool, it
+    never writes one.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -119,6 +133,21 @@ class ExperimentArm(BaseModel):
     questions: Path | None = None
     repeats: int | None = Field(default=None, ge=1)
     capture_pool: bool = False
+    pool: Path | None = None
+
+    @model_validator(mode="after")
+    def _capture_and_replay_are_exclusive(self) -> ExperimentArm:
+        """An arm cannot both `capture_pool` and name a `pool` to replay — see the class
+        docstring's own paragraph. Checked here, at load, rather than left for `weft_cli.
+        eval_experiment` to notice mid-run: a replay reads a pool, it never writes one, so the
+        two keys on one arm can never both be honoured.
+        """
+        if self.capture_pool and self.pool is not None:
+            raise ValueError(
+                f"arm '{self.name}' sets both capture_pool and pool — a replay reads a pool, "
+                "it never writes one. Remove one of the two keys."
+            )
+        return self
 
 
 class Experiment(BaseModel):
@@ -240,6 +269,7 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
         questions=_resolve_optional(entry.get("questions"), root=root),
         repeats=entry.get("repeats"),
         capture_pool=bool(entry.get("capture_pool", False)),
+        pool=_resolve_optional(entry.get("pool"), root=root),
     )
 
 

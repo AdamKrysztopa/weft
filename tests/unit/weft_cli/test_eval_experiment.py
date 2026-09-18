@@ -41,9 +41,19 @@ from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_eval import Settings, register
-from weft_eval.experiment import EXPERIMENT_SCHEMA_VERSION, load_experiment
+from weft_eval.experiment import (
+    EXPERIMENT_SCHEMA_VERSION,
+    ExperimentDocumentError,
+    load_experiment,
+)
 from weft_eval.offline import UnknownMetricNameError
-from weft_eval.pool import PoolChunk, load_pool_manifest, relevant_set_sha256, text_sha256
+from weft_eval.pool import (
+    LoadedPool,
+    PoolChunk,
+    load_pool_manifest,
+    relevant_set_sha256,
+    text_sha256,
+)
 from weft_eval.question_set import Question, question_set_digest
 from weft_eval.run_record import NoQueryRung, PerQuestionScores, QuestionKey, load_run_record
 from weft_extract import Extractor
@@ -958,3 +968,107 @@ async def test_a_captured_pool_is_not_read_back_as_a_run_record(
     # Assert
     assert isinstance(again, Produced)
     assert list(Path("runs").glob("*.pool.json")) == []
+
+
+# --- Task 40.2 — an arm naming a pool replays it and reads no corpus.
+
+
+async def _captured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    """Capture a pool with the stub scorer; return the experiment document and the manifest."""
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index", 'query_pipeline = "some-rung"\ncapture_pool = true\nrepeats = 1\n')
+        + _arm("other", "index", 'query_pipeline = "some-rung"\nrepeats = 1\n'),
+    )
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub([]))
+    await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+    (manifest,) = Path("runs", "pools").glob("*.json")
+    return path, manifest.resolve()
+
+
+def _replay_document(root: Path, manifest: Path) -> Path:
+    replay = root / "project" / "replay.toml"
+    replay.write_text(
+        f"[experiment]\nschema = {EXPERIMENT_SCHEMA_VERSION}\n"
+        'name = "replay"\nquestions = "questions.toml"\ncorpus = "corpus"\n'
+        'repeats = 2\ntop_k = 5\nmetrics = ["precision@5"]\nminimum_detectable_effect = 0.05\n'
+        + _arm(
+            "identity", "index", f'query_pipeline = "some-rung"\npool = "{manifest}"\nrepeats = 1\n'
+        )
+        + _arm(
+            "again", "index", f'query_pipeline = "some-rung"\npool = "{manifest}"\nrepeats = 1\n'
+        ),
+        encoding="utf-8",
+    )
+    return replay
+
+
+async def test_an_arm_naming_a_pool_replays_it_without_indexing_or_reading_the_corpus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — the corpus is gone by the time the replay runs; nothing may need it.
+    _, manifest = await _captured(tmp_path, monkeypatch)
+    replay = _replay_document(tmp_path, manifest)
+    for document in (tmp_path / "project" / "corpus").iterdir():
+        document.unlink()
+    (tmp_path / "project" / "corpus").rmdir()
+    calls: list[dict[str, object]] = []
+    indexed: list[dict[str, Any]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub(calls))
+    monkeypatch.setattr(eval_commands_module, "run_index_for", _counting_index(indexed))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(replay)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    assert indexed == []
+    loaded = load_pool_manifest(manifest)
+    assert {cast("LoadedPool", call["pool"]).sha256 for call in calls} == {loaded.sha256}
+    for run in result.runs:
+        record = load_run_record(Path("runs") / f"{run.run_id}.json")
+        assert record.experiment is not None
+        assert record.experiment.pool_manifest == loaded.sha256
+        assert record.corpus.digest == loaded.manifest.corpus_digest
+
+
+async def test_a_replay_arm_is_planned_without_reading_the_corpus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    _, manifest = await _captured(tmp_path, monkeypatch)
+    replay = _replay_document(tmp_path, manifest)
+    for document in (tmp_path / "project" / "corpus").iterdir():
+        document.unlink()
+    (tmp_path / "project" / "corpus").rmdir()
+
+    # Act
+    outcome = await EvalPlanCommand().run(EvalPlanArgs(path=str(replay)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    plan = cast("EvalPlanCommandResult", outcome.value)
+    assert [arm.arm for arm in plan.arms] == ["identity", "again"]
+    assert plan.corpora == ()
+
+
+def test_an_arm_both_capturing_and_replaying_a_pool_is_refused_naming_both_keys(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm(
+            "both", "index", 'query_pipeline = "some-rung"\ncapture_pool = true\npool = "x.json"\n'
+        )
+        + _arm("other", "index"),
+    )
+
+    # Act
+    with pytest.raises(ExperimentDocumentError) as caught:
+        load_experiment(path)
+
+    # Assert
+    assert "capture_pool" in str(caught.value)
+    assert "pool" in str(caught.value)

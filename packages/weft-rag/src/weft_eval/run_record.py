@@ -333,6 +333,11 @@ class ExperimentRun(BaseModel):
     invocation: str = Field(min_length=1)
     arm: str = Field(min_length=1)
     repetition: int = Field(ge=1)
+    #: Task **40.2** (second half) — the sha256 of the pool manifest a replay arm read
+    #: (`weft_eval.pool.LoadedPool.sha256`), so two arms replaying the identical manifest pin
+    #: down which one. `None` for an arm that indexed and retrieved, and for every record
+    #: written before this task — additive, on `RunRecord`'s own footing throughout this class.
+    pool_manifest: str | None = None
 
 
 class RunDurations(BaseModel):

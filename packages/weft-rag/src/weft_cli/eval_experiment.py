@@ -84,8 +84,10 @@ from weft_eval.harness import score_generation_gate_subset, score_retrieval_at_c
 from weft_eval.offline import UnknownMetricNameError
 from weft_eval.pool import (
     POOL_MANIFEST_SCHEMA_VERSION,
+    LoadedPool,
     PoolManifest,
     PoolQuestion,
+    load_pool_manifest,
     relevant_set_sha256,
     text_sha256,
     write_pool_manifest,
@@ -139,6 +141,69 @@ class UnscorableArmError(WeftError):
         self.contract = contract
 
 
+def _refuse_unscorable_arm(arm: ExperimentArm, *, deps: Dependencies) -> None:
+    """One arm's own pre-flight — `UnscorableArmError`'s own paragraph, plus ledger task 40.2's
+    second half: an arm naming `pool` must also name a `query_pipeline`, and that rung must end
+    in a `ContextPacker` specifically, since a replay reranks through the rung a pool was
+    captured from and a `Generator` has already answered past that point.
+    """
+    if arm.query_pipeline is None:
+        if arm.capture_pool:
+            raise UnscorableArmError(
+                f"arm '{arm.name}' sets capture_pool but names no query_pipeline — a pool is "
+                "what a retrieval rung packed, and this arm has none to pack one.",
+                arm=arm.name,
+                pipeline="(none)",
+                contract="(no query pipeline)",
+            )
+        if arm.pool is not None:
+            raise UnscorableArmError(
+                f"arm '{arm.name}' names a pool to replay but names no query_pipeline — a "
+                "replay reranks through the rerank document the pool names, and this arm has "
+                "none.",
+                arm=arm.name,
+                pipeline="(none)",
+                contract="(no query pipeline)",
+            )
+        return
+    resolved = resolve_named_pipeline(
+        arm.query_pipeline,
+        registry=deps.registry,
+        reports=deps.reports,
+        contributions=deps.contributions,
+    )
+    contract = resolved.stages[-1].contract if resolved.stages else "(no stage)"
+    if contract not in ("Generator", "ContextPacker"):
+        raise UnscorableArmError(
+            f"arm '{arm.name}' names query pipeline '{arm.query_pipeline}', which ends "
+            f"in a {contract} stage — an arm is scored over what a ContextPacker packed "
+            "or a Generator answered from, so its last stage must be one of those.",
+            arm=arm.name,
+            pipeline=arm.query_pipeline,
+            contract=contract,
+        )
+    if arm.capture_pool and contract != "ContextPacker":
+        raise UnscorableArmError(
+            f"arm '{arm.name}' sets capture_pool but query pipeline "
+            f"'{arm.query_pipeline}' ends in a {contract} stage, not a ContextPacker — "
+            "a pool is what a retrieval rung packed, and a generating rung has no "
+            "ranking beneath the passages it answered from.",
+            arm=arm.name,
+            pipeline=arm.query_pipeline,
+            contract=contract,
+        )
+    if arm.pool is not None and contract != "ContextPacker":
+        raise UnscorableArmError(
+            f"arm '{arm.name}' names a pool to replay but query pipeline "
+            f"'{arm.query_pipeline}' ends in a {contract} stage, not a ContextPacker — "
+            "a replay reranks through the rung a pool was captured from, which a "
+            "Generator has already answered past.",
+            arm=arm.name,
+            pipeline=arm.query_pipeline,
+            contract=contract,
+        )
+
+
 class EvalExperimentArgs(BaseModel):
     """`weft eval experiment <path>` — one positional, the experiment document."""
 
@@ -181,8 +246,31 @@ class _ArmIdentity:
 
 
 def _arm_identity(
-    experiment: Experiment, arm: ExperimentArm, question_set: QuestionSet, *, deps: Dependencies
+    experiment: Experiment,
+    arm: ExperimentArm,
+    question_set: QuestionSet,
+    *,
+    deps: Dependencies,
+    pool: LoadedPool | None,
 ) -> _ArmIdentity:
+    """A replay arm (`pool` given) resolves its ingest pipeline by name alone — the identical
+    resolution `corpus_documents` performs, minus the directory read a corpus this arm never
+    touches would need — and takes its corpus digest from the manifest, so a replay arm compares
+    equal, on corpus, to the capture arm it came from.
+    """
+    if pool is not None:
+        resolved = resolve_named_pipeline(
+            arm.pipeline,
+            registry=deps.registry,
+            reports=deps.reports,
+            contributions=deps.contributions,
+        )
+        return _ArmIdentity(
+            resolved=resolved,
+            corpus_digest=pool.manifest.corpus_digest,
+            question_set_digest=question_set.digest,
+            model_versions=dict(model_versions_of(resolved, roles=deps.llm.roles)),
+        )
     resolved, _specs, documents = corpus_documents(
         experiment.corpus_for(arm),
         pipeline=arm.pipeline,
@@ -310,6 +398,7 @@ def _write_arm_pool(
         model_versions=dict(identity.model_versions),
         store=store,
         store_rows=result.store_rows,
+        document_ids=result.document_ids,
         questions=tuple(
             PoolQuestion(
                 id=question.id,
@@ -409,6 +498,8 @@ class EvalPlanCommand:
                     executions=len(questions) * repetitions,
                 )
             )
+            if arm.pool is not None:
+                continue
             corpus_path = experiment.corpus_for(arm)
             key = (arm.pipeline, corpus_path)
             if key not in corpora:
@@ -458,43 +549,16 @@ class EvalExperimentCommand:
             else None
         )
 
+        # Task 40.2's second half — loaded once, before any arm runs, so a bad manifest file is
+        # refused before anything else does.
+        pools: dict[str, LoadedPool] = {
+            arm.name: load_pool_manifest(arm.pool)
+            for arm in experiment.arms
+            if arm.pool is not None
+        }
+
         for arm in experiment.arms:
-            if arm.query_pipeline is None:
-                if arm.capture_pool:
-                    raise UnscorableArmError(
-                        f"arm '{arm.name}' sets capture_pool but names no query_pipeline — a "
-                        "pool is what a retrieval rung packed, and this arm has none to pack one.",
-                        arm=arm.name,
-                        pipeline="(none)",
-                        contract="(no query pipeline)",
-                    )
-                continue
-            resolved = resolve_named_pipeline(
-                arm.query_pipeline,
-                registry=deps.registry,
-                reports=deps.reports,
-                contributions=deps.contributions,
-            )
-            contract = resolved.stages[-1].contract if resolved.stages else "(no stage)"
-            if contract not in ("Generator", "ContextPacker"):
-                raise UnscorableArmError(
-                    f"arm '{arm.name}' names query pipeline '{arm.query_pipeline}', which ends "
-                    f"in a {contract} stage — an arm is scored over what a ContextPacker packed "
-                    "or a Generator answered from, so its last stage must be one of those.",
-                    arm=arm.name,
-                    pipeline=arm.query_pipeline,
-                    contract=contract,
-                )
-            if arm.capture_pool and contract != "ContextPacker":
-                raise UnscorableArmError(
-                    f"arm '{arm.name}' sets capture_pool but query pipeline "
-                    f"'{arm.query_pipeline}' ends in a {contract} stage, not a ContextPacker — "
-                    "a pool is what a retrieval rung packed, and a generating rung has no "
-                    "ranking beneath the passages it answered from.",
-                    arm=arm.name,
-                    pipeline=arm.query_pipeline,
-                    contract=contract,
-                )
+            _refuse_unscorable_arm(arm, deps=deps)
 
         await _refuse_unrecordable_metrics(experiment, deps=deps, ctx=ctx)
 
@@ -503,7 +567,9 @@ class EvalExperimentCommand:
         }
 
         identities: dict[str, _ArmIdentity] = {
-            arm.name: _arm_identity(experiment, arm, question_sets[arm.name], deps=deps)
+            arm.name: _arm_identity(
+                experiment, arm, question_sets[arm.name], deps=deps, pool=pools.get(arm.name)
+            )
             for arm in experiment.arms
         }
 
@@ -525,6 +591,7 @@ class EvalExperimentCommand:
         indexed_keys: set[tuple[str, Path]] = set()
         runs: list[ExperimentRunRef] = []
         for arm in experiment.arms:
+            pool = pools.get(arm.name)
             corpus_path = experiment.corpus_for(arm)
             questions = question_sets[arm.name].questions
             index_key = (arm.pipeline, corpus_path)
@@ -550,15 +617,18 @@ class EvalExperimentCommand:
                     reprocess=False,
                     batch_size=experiment.index_batch_size,
                     capture_pool=arm.capture_pool,
+                    pool=pool,
                     experiment=ExperimentRun(
                         name=experiment.name,
                         digest=experiment.digest,
                         invocation=invocation,
                         arm=arm.name,
                         repetition=repetition,
+                        pool_manifest=pool.sha256 if pool is not None else None,
                     ),
                 )
-                indexed_keys.add(index_key)
+                if pool is None:
+                    indexed_keys.add(index_key)
                 runs.append(
                     ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=result.run_id)
                 )

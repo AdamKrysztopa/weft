@@ -49,7 +49,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from pathlib import PurePath
@@ -65,6 +65,7 @@ from weft_cli.route_ask import (
     prepared_services,
     resolve_named_pipeline,
     run_named_ask,
+    run_named_rerank,
     run_named_retrieve,
 )
 from weft_embed import Embedder
@@ -79,7 +80,15 @@ from weft_eval.harness import (
     score_retrieval_at_cutoffs,
     score_retrieval_gate_subset,
 )
-from weft_eval.pool import PoolChunk
+from weft_eval.pool import (
+    LoadedPool,
+    PoolChunk,
+    PoolIntegrityError,
+    PoolQuestion,
+    PoolQuestionEntry,
+    relevant_set_sha256,
+    text_sha256,
+)
 from weft_eval.question_set import Question, question_set_digest
 from weft_eval.run_record import (
     NoQueryRung,
@@ -94,14 +103,14 @@ from weft_eval.run_record import (
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import Node, Outcome
+from weft_kernel.payload import Node, NodeId, Outcome
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage, pipeline_identity
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_llm.errors import LLMGenerationLoopError
 from weft_llm.usage import UsageEntry, recording_usage
-from weft_retrieve.payload import Passage
+from weft_retrieve.payload import Passage, Query, Ranking
 from weft_store import NodeStore, Scored
 
 
@@ -611,6 +620,390 @@ def _record_captured_chunks(
         pools[question_key] = _pool_chunks_of(hits)
 
 
+def _require_replayable_rung(pool: LoadedPool | None, *, is_retrieval_rung: bool) -> None:
+    """`pool=...`'s own pre-flight — ledger task **40.2**'s second half, `_require_capturable_
+    rung`'s own shape one clause down. A pool is captured from a retrieval rung, so it can only
+    be replayed through one: neither a generating rung nor the no-query-rung path has a rung it
+    could rerank through.
+    """
+    if pool is not None and not is_retrieval_rung:
+        raise ValueError(
+            "pool=... requires a retrieval rung (a query_pipeline ending in something other "
+            "than a Generator) — a pool is captured from a retrieval rung, and neither a "
+            "generating rung nor the no-query-rung path has one to replay it through."
+        )
+
+
+async def _check_pool_before_loop(
+    pool: LoadedPool, questions: Sequence[Question], store: NodeStore
+) -> Mapping[str, PoolQuestion]:
+    """Every fact `pool` and `questions` must agree on before a single question replays — see
+    `weft_eval.pool.PoolIntegrityError`'s own docstring. Returns each asked question's own
+    `PoolQuestion`, keyed by id, so the question loop below looks it up once rather than
+    re-searching `pool.manifest.questions` per question.
+
+    Raises `PoolIntegrityError` naming the first offending question id for a question the
+    manifest does not hold, a manifest question this run does not ask, a question whose text or
+    relevant-document set has drifted since capture, or a store whose row count no longer
+    matches what the pool was captured against.
+    """
+    manifest_by_id = {entry.id: entry for entry in pool.manifest.questions}
+    asked_ids = {question.id for question in questions}
+    for question in questions:
+        if question.id not in manifest_by_id:
+            raise PoolIntegrityError(
+                f"question '{question.id}' is asked here but is not in the captured pool — a "
+                f"replay can only score the questions its capture run asked.",
+                question=question.id,
+            )
+    for entry in pool.manifest.questions:
+        if entry.id not in asked_ids:
+            raise PoolIntegrityError(
+                f"the captured pool holds question '{entry.id}', which this replay's own "
+                f"question file does not ask — a replay must ask exactly the questions it "
+                f"captured, no more and no fewer.",
+                question=entry.id,
+            )
+    for question in questions:
+        entry = manifest_by_id[question.id]
+        if text_sha256(question.text) != entry.text_sha256:
+            raise PoolIntegrityError(
+                f"question '{question.id}' text has changed since capture — it no longer "
+                f"hashes to the text the pool was captured against.",
+                question=question.id,
+            )
+        if relevant_set_sha256(question.relevant_documents) != entry.relevant_sha256:
+            raise PoolIntegrityError(
+                f"question '{question.id}' relevant document set has changed since capture — "
+                f"it no longer hashes to the relevant set the pool was captured against.",
+                question=question.id,
+            )
+    actual_rows = await store.count()
+    if actual_rows != pool.manifest.store_rows:
+        raise PoolIntegrityError(
+            f"the store now holds {actual_rows} row(s), but the pool was captured against a "
+            f"store holding {pool.manifest.store_rows} row(s) — a replay must hydrate chunks "
+            f"from the identical store it was captured from."
+        )
+    return manifest_by_id
+
+
+async def _check_pool_after_loop(pool: LoadedPool, store: NodeStore) -> None:
+    """The store's row count, checked once more after every question replayed — see
+    `_check_pool_before_loop`'s own docstring for the identical check one call earlier.
+    """
+    actual_rows = await store.count()
+    if actual_rows != pool.manifest.store_rows:
+        raise PoolIntegrityError(
+            f"the store now holds {actual_rows} row(s), but the pool was captured against a "
+            f"store holding {pool.manifest.store_rows} row(s) — something changed the store "
+            f"while this replay ran."
+        )
+
+
+async def _hydrated_ranking(
+    question: Question, entry: PoolQuestion, *, store: NodeStore, corpus_digest: str
+) -> Ranking:
+    """`entry`'s own captured chunks, hydrated from `store` by id and rebuilt into a `Ranking` a
+    reranking rung can run — ledger task **40.2**'s second half. Never searches: every chunk is
+    read back by the node id the capture run recorded, in the capture's own order, so `rank`
+    below is that order and never a re-derived one.
+
+    Raises `PoolIntegrityError` naming `question.id` and the chunk's node id for a chunk the
+    store no longer holds, or whose content no longer hashes to what was captured.
+    """
+    nodes = await store.get([NodeId(chunk.node_id) for chunk in entry.chunks])
+    node_by_id = {str(node.id): node for node in nodes}
+    hits: list[Passage] = []
+    for rank, chunk in enumerate(entry.chunks):
+        node = node_by_id.get(chunk.node_id)
+        if node is None:
+            raise PoolIntegrityError(
+                f"question '{question.id}' names chunk '{chunk.node_id}', which the store no "
+                f"longer holds.",
+                question=question.id,
+                chunk=chunk.node_id,
+            )
+        actual_hash = hashlib.sha256(node.content.encode("utf-8")).hexdigest()
+        if actual_hash != chunk.content_sha256:
+            raise PoolIntegrityError(
+                f"question '{question.id}' names chunk '{chunk.node_id}', whose content no "
+                f"longer hashes to what the pool captured.",
+                question=question.id,
+                chunk=chunk.node_id,
+            )
+        hits.append(
+            Passage(scored=Scored(value=node, score=chunk.score), rank=rank, retrieved_by="pool")
+        )
+    return Ranking(
+        origin=Query(text=question.text),
+        hits=tuple(hits),
+        ext={
+            PoolQuestionEntry.__namespace__: PoolQuestionEntry(
+                corpus_digest=corpus_digest,
+                question_id=question.id,
+                text_sha256=entry.text_sha256,
+            )
+        },
+    )
+
+
+async def _generating_question_hits(
+    question: Question,
+    *,
+    query_pipeline: str,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    roles: RoleTable | None,
+    sink: TokenSink | None,
+    contributions: tuple[Contribution, ...],
+    generation_samples: list[tuple[str, GenerationSample]],
+) -> Sequence[Scored[Node]]:
+    """One question's own hits, on a generating rung — `run_named_ask`, and the `GenerationSample`
+    `score_pipeline`'s own docstring says every answered question builds. Lifted out of the
+    per-question loop so that loop's own branching stays inside `score_pipeline`'s complexity
+    budget; raises `PipelineDidNotProduceError`/`weft_llm.errors.LLMGenerationLoopError`
+    unchanged, for the caller's own per-question exclusion.
+    """
+    answer = await run_named_ask(
+        question.text,
+        pipeline_name=query_pipeline,
+        registry=registry,
+        reports=reports,
+        ctx=ctx,
+        llm=llm if llm is not None else LLMSection(),
+        services=services if services is not None else ServiceSelection(),
+        roles=roles if roles is not None else RoleTable(),
+        sink=sink if sink is not None else NullSink(),
+        contributions=contributions,
+    )
+    used_passages = passages_for_scoring(answer)
+    hits = _scored_in_ranking_order(used_passages)
+    generation_samples.append(
+        (
+            question.id,
+            GenerationSample(
+                query=question.text,
+                # `getattr`, not `answer.text` — the identical seam `passages_for_scoring`'s
+                # own docstring argues for `used`: a test's duck-typed stand-in carrying no
+                # `text` is "no prediction to evaluate" (`GenerationSample.prediction`'s own
+                # `None` state), never a crash reading an attribute it never promised to carry.
+                prediction=getattr(answer, "text", None),
+                reference=question.reference_answer or "",
+                contexts=tuple(passage.node.content for passage in used_passages),
+                language=question.language,
+            ),
+        )
+    )
+    return hits
+
+
+async def _pool_question_hits(
+    question: Question,
+    entry: PoolQuestion,
+    *,
+    query_pipeline: str,
+    pool: LoadedPool,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    roles: RoleTable | None,
+    sink: TokenSink | None,
+    contributions: tuple[Contribution, ...],
+    retrieval_services: PreparedRunner | None,
+    contributors: dict[str, tuple[str, ...]],
+) -> Sequence[Scored[Node]]:
+    """One question's own hits, replayed from a captured pool — `_hydrated_ranking` reads the
+    manifest's own chunks back by id, and `run_named_rerank` runs them through the rerank
+    document `query_pipeline` names. Raises `PoolIntegrityError` for a chunk the store no longer
+    holds or agrees with (never caught by the caller's own per-question exclusion — see that
+    error's own docstring), and `PipelineDidNotProduceError`/`LLMGenerationLoopError` unchanged,
+    for the caller's own per-question exclusion.
+    """
+    ranking = await _hydrated_ranking(
+        question,
+        entry,
+        store=cast("NodeStore", cast("PreparedRunner", retrieval_services).store),
+        corpus_digest=pool.manifest.corpus_digest,
+    )
+    passages = await run_named_rerank(
+        ranking,
+        pipeline_name=query_pipeline,
+        registry=registry,
+        reports=reports,
+        ctx=ctx,
+        llm=llm if llm is not None else LLMSection(),
+        services=services if services is not None else ServiceSelection(),
+        roles=roles if roles is not None else RoleTable(),
+        sink=sink if sink is not None else NullSink(),
+        contributions=contributions,
+        prepared=retrieval_services,
+    )
+    contributors[question.id] = tuple(passages.contributors)
+    return _scored_in_ranking_order(passages.passages)
+
+
+async def _retrieval_question_hits(
+    question_text: str,
+    *,
+    question_key: str,
+    query_pipeline: str,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    roles: RoleTable | None,
+    sink: TokenSink | None,
+    contributions: tuple[Contribution, ...],
+    retrieval_services: PreparedRunner | None,
+    contributors: dict[str, tuple[str, ...]],
+    question_pools: dict[str, tuple[PoolChunk, ...]],
+    capture_pool: bool,
+) -> Sequence[Scored[Node]]:
+    """One question's own hits, on an ordinary retrieval rung — `run_named_retrieve`, unchanged
+    from before this function was lifted out of `score_pipeline`'s own per-question loop.
+    """
+    passages = await run_named_retrieve(
+        question_text,
+        pipeline_name=query_pipeline,
+        registry=registry,
+        reports=reports,
+        ctx=ctx,
+        llm=llm if llm is not None else LLMSection(),
+        services=services if services is not None else ServiceSelection(),
+        roles=roles if roles is not None else RoleTable(),
+        sink=sink if sink is not None else NullSink(),
+        contributions=contributions,
+        prepared=retrieval_services,
+    )
+    contributors[question_key] = tuple(passages.contributors)
+    hits = _scored_in_ranking_order(passages.passages)
+    _record_captured_chunks(question_pools, question_key, hits, capture_pool=capture_pool)
+    return hits
+
+
+def _resolved_query_rung(
+    query_pipeline: str | None,
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+    embed_stage: ResolvedStage,
+    store_stage: ResolvedStage,
+) -> tuple[ScoredQueryRung, bool]:
+    """`query_pipeline`, resolved to the `ScoredQueryRung` a `RunRecord` persists, and whether it
+    generates — task **16.1**'s own resolution, lifted out of `score_pipeline` so its own
+    branching stays inside that function's complexity budget.
+    """
+    if query_pipeline is None:
+        return (
+            NoQueryRung(
+                reason=(
+                    "no query rung was named — retrieval ran against the ingest pipeline's own "
+                    f"Embedder ('{embed_stage.use}') and NodeStore ('{store_stage.use}') stages"
+                )
+            ),
+            False,
+        )
+    resolved_rung = resolve_named_pipeline(
+        query_pipeline, registry=registry, reports=reports, contributions=contributions
+    )
+    generates = bool(resolved_rung.stages) and resolved_rung.stages[-1].contract == "Generator"
+    return QueryRung(name=query_pipeline, identity=pipeline_identity(resolved_rung)), generates
+
+
+def _document_id_resolver(
+    questions: tuple[Question, ...],
+    *,
+    document_labels: Mapping[str, str] | None,
+    corpus_document_ids: Sequence[str],
+) -> Callable[[str], str]:
+    """A `question.relevant_documents` entry, resolved to the corpus document id it names —
+    task **16.5**/**38.11**'s own two-stage resolution, lifted out of `score_pipeline` so its own
+    branching stays inside that function's complexity budget. See `score_pipeline`'s own
+    docstring for what `document_labels` does.
+    """
+    all_labels = {label for question in questions for label in question.relevant_documents}
+    manifest_labelled = (
+        _labelled_by_manifest(all_labels, document_labels) if document_labels is not None else None
+    )
+    labels_to_resolve = (
+        set(manifest_labelled.values()) if manifest_labelled is not None else all_labels
+    )
+    resolved_labels = resolve_labels(labels_to_resolve, corpus_document_ids=corpus_document_ids)
+
+    def _resolved(entry: str) -> str:
+        label = manifest_labelled[entry] if manifest_labelled is not None else entry
+        return resolved_labels[label]
+
+    return _resolved
+
+
+async def _prepared_retrieval(
+    stack: AsyncExitStack,
+    *,
+    query_pipeline: str | None,
+    generates: bool,
+    pool: LoadedPool | None,
+    questions: tuple[Question, ...],
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    sink: TokenSink | None,
+    roles: RoleTable | None,
+) -> tuple[PreparedRunner | None, Mapping[str, PoolQuestion] | None]:
+    """The `PreparedRunner` a retrieval rung or a replay needs, and — only for a replay — every
+    asked question's own `PoolQuestion`, checked once against `pool` and the store before the
+    first question runs. Lifted out of `score_pipeline` so its own branching stays inside that
+    function's complexity budget; see `_check_pool_before_loop`'s own docstring for what a
+    replay refuses here.
+    """
+    retrieval_services: PreparedRunner | None = None
+    if query_pipeline is not None and not generates:
+        retrieval_services = await stack.enter_async_context(
+            prepared_services(
+                registry=registry,
+                reports=reports,
+                ctx=ctx,
+                llm=llm if llm is not None else LLMSection(),
+                services=services if services is not None else ServiceSelection(),
+                sink=sink if sink is not None else NullSink(),
+                roles=roles if roles is not None else RoleTable(),
+            )
+        )
+    pool_questions_by_id: Mapping[str, PoolQuestion] | None = None
+    if pool is not None:
+        pool_questions_by_id = await _check_pool_before_loop(
+            pool, questions, cast("NodeStore", cast("PreparedRunner", retrieval_services).store)
+        )
+    return retrieval_services, pool_questions_by_id
+
+
+def _question_axes(
+    question: Question, pool_questions_by_id: Mapping[str, PoolQuestion] | None
+) -> Mapping[str, str]:
+    """One question's own axes — its stated axes, plus `"kind"` when it named one, plus
+    `"rule-fires"` when this is a pool replay (`weft_eval.pool.PoolQuestion.rule_fires`). Lifted
+    out of `score_pipeline`'s own per-question loop for the identical, complexity-budget reason.
+    """
+    axes = (
+        {**question.axes, "kind": question.kind.value}
+        if question.kind is not None
+        else dict(question.axes)
+    )
+    if pool_questions_by_id is not None:
+        axes["rule-fires"] = "true" if pool_questions_by_id[question.id].rule_fires else "false"
+    return axes
+
+
 async def _score_retrieval(
     registry: Registry,
     samples: Sequence[RetrievalSample],
@@ -649,6 +1042,7 @@ async def score_pipeline(
     document_labels: Mapping[str, str] | None = None,
     refuse_foreign_documents: bool = False,
     capture_pool: bool = False,
+    pool: LoadedPool | None = None,
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset
     over the result. Returns a `ScoredRun`: the scores, and the query rung they were scored
@@ -763,7 +1157,30 @@ async def score_pipeline(
     question's packed chunks in ranking order (`_scored_in_ranking_order`, not the document-
     deduplicated `top_k`), and `ScoredRun.store_rows` carries `retrieval_services.store`'s own
     `count()`, read once after the question loop.
+
+    **`pool`, ledger task 40.2's second half.** `None` (the default) is unchanged. Given a
+    `weft_eval.pool.LoadedPool` instead, every question is replayed rather than retrieved: no
+    `run_named_retrieve`, no `run_ask`, no embedder call and no search. `_check_pool_before_loop`
+    refuses, before the first question runs, a question the manifest does not hold, a manifest
+    question this run does not ask, a question whose text or relevant set has drifted, or a
+    store whose row count already disagrees with the manifest's own `store_rows`.
+    `_hydrated_ranking` then reads each question's own captured chunks back from the store by id
+    — never searches — and rebuilds them into a `Ranking` carrying a `weft_eval.pool.
+    PoolQuestionEntry` under `ext`, so a stage downstream can tell which pool question it is
+    looking at even when two questions share one text. That `Ranking` runs through
+    `weft_cli.route_ask.run_named_rerank`, the rerank document `query_pipeline` names — which
+    must end in a `ContextPacker`, the identical shape `run_named_retrieve` requires, since a
+    pool is retrieval-rung data. `_check_pool_after_loop` repeats the row-count check once
+    every question has run. Every one of these raises `weft_eval.pool.PoolIntegrityError`, which
+    propagates out of this function whole — never a per-question exclusion, because it means the
+    replay itself cannot be trusted, not that one question's stage refused. `capture_pool=True`
+    together with `pool` raises `ValueError`: a replay reads a pool, it never writes one.
     """
+    if capture_pool and pool is not None:
+        raise ValueError(
+            "capture_pool and pool are mutually exclusive — a replay reads a pool, it never "
+            "writes one."
+        )
     resolved_cutoffs = _resolved_cutoffs(cutoffs, top_k=top_k)
 
     embed_stage = _stage_for_contract(resolved_pipeline, Embedder.__name__)
@@ -776,41 +1193,22 @@ async def score_pipeline(
             pipeline=resolved_pipeline.name,
         )
 
-    query_rung: ScoredQueryRung
-    generates = False
-    if query_pipeline is not None:
-        resolved_rung = resolve_named_pipeline(
-            query_pipeline,
-            registry=registry,
-            reports=reports,
-            contributions=contributions,
-        )
-        generates = bool(resolved_rung.stages) and resolved_rung.stages[-1].contract == "Generator"
-        query_rung = QueryRung(name=query_pipeline, identity=pipeline_identity(resolved_rung))
-    else:
-        query_rung = NoQueryRung(
-            reason=(
-                "no query rung was named — retrieval ran against the ingest pipeline's own "
-                f"Embedder ('{embed_stage.use}') and NodeStore ('{store_stage.use}') stages"
-            )
-        )
+    query_rung, generates = _resolved_query_rung(
+        query_pipeline,
+        registry=registry,
+        reports=reports,
+        contributions=contributions,
+        embed_stage=embed_stage,
+        store_stage=store_stage,
+    )
 
     # Task 38.11 — `weft_eval.question_set.Question.id` is required, so every question has an
     # identity and keying is never by position.
     keyed_by = QuestionKey.QUESTION_ID
 
-    all_labels = {label for question in questions for label in question.relevant_documents}
-    manifest_labelled = (
-        _labelled_by_manifest(all_labels, document_labels) if document_labels is not None else None
+    _resolved_document_id = _document_id_resolver(
+        questions, document_labels=document_labels, corpus_document_ids=corpus_document_ids
     )
-    labels_to_resolve = (
-        set(manifest_labelled.values()) if manifest_labelled is not None else all_labels
-    )
-    resolved_labels = resolve_labels(labels_to_resolve, corpus_document_ids=corpus_document_ids)
-
-    def _resolved_document_id(entry: str) -> str:
-        label = manifest_labelled[entry] if manifest_labelled is not None else entry
-        return resolved_labels[label]
 
     samples: list[RetrievalSample] = []
     generation_samples: list[tuple[str, GenerationSample]] = []
@@ -820,24 +1218,26 @@ async def score_pipeline(
     is_retrieval_rung = query_pipeline is not None and not generates
     is_generating_rung = query_pipeline is not None and generates
     _require_capturable_rung(capture_pool, is_retrieval_rung=is_retrieval_rung)
+    _require_replayable_rung(pool, is_retrieval_rung=is_retrieval_rung)
     failed: dict[str, str] = {}
     question_pools: dict[str, tuple[PoolChunk, ...]] = {}
     store_rows: int | None = None
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
-    retrieval_services: PreparedRunner | None = None
     async with AsyncExitStack() as stack:
-        if query_pipeline is not None and not generates:
-            retrieval_services = await stack.enter_async_context(
-                prepared_services(
-                    registry=registry,
-                    reports=reports,
-                    ctx=ctx,
-                    llm=llm if llm is not None else LLMSection(),
-                    services=services if services is not None else ServiceSelection(),
-                    sink=sink if sink is not None else NullSink(),
-                    roles=roles if roles is not None else RoleTable(),
-                )
-            )
+        retrieval_services, pool_questions_by_id = await _prepared_retrieval(
+            stack,
+            query_pipeline=query_pipeline,
+            generates=generates,
+            pool=pool,
+            questions=questions,
+            registry=registry,
+            reports=reports,
+            ctx=ctx,
+            llm=llm,
+            services=services,
+            sink=sink,
+            roles=roles,
+        )
         with recording_usage() as tally:
             for question in questions:
                 question_key = question.id
@@ -847,87 +1247,77 @@ async def score_pipeline(
                     if question.kind is not None
                     else question.axes.get("kind", "")
                 )
-                axes[question_key] = (
-                    {**question.axes, "kind": question.kind.value}
-                    if question.kind is not None
-                    else {**question.axes}
-                )
+                axes[question_key] = _question_axes(question, pool_questions_by_id)
                 hits: Sequence[Scored[Node]]
                 started = time.monotonic()
-                if query_pipeline is not None and generates:
-                    try:
-                        answer = await run_named_ask(
-                            question_text,
-                            pipeline_name=query_pipeline,
+                try:
+                    if query_pipeline is not None and generates:
+                        hits = await _generating_question_hits(
+                            question,
+                            query_pipeline=query_pipeline,
                             registry=registry,
                             reports=reports,
                             ctx=ctx,
-                            llm=llm if llm is not None else LLMSection(),
-                            services=services if services is not None else ServiceSelection(),
-                            roles=roles if roles is not None else RoleTable(),
-                            sink=sink if sink is not None else NullSink(),
+                            llm=llm,
+                            services=services,
+                            roles=roles,
+                            sink=sink,
                             contributions=contributions,
+                            generation_samples=generation_samples,
                         )
-                    except (PipelineDidNotProduceError, LLMGenerationLoopError) as failure:
-                        failed[question_key] = str(failure)
-                        continue
-                    seconds[question_key] = time.monotonic() - started
-                    used_passages = passages_for_scoring(answer)
-                    hits = _scored_in_ranking_order(used_passages)
-                    generation_samples.append(
-                        (
-                            question_key,
-                            GenerationSample(
-                                query=question_text,
-                                # `getattr`, not `answer.text` — the identical seam
-                                # `passages_for_scoring`'s own docstring argues for `used`:
-                                # a test's duck-typed stand-in carrying no `text` is "no
-                                # prediction to evaluate" (`GenerationSample.prediction`'s own
-                                # `None` state), never a crash reading an attribute it never
-                                # promised to carry.
-                                prediction=getattr(answer, "text", None),
-                                reference=question.reference_answer or "",
-                                contexts=tuple(passage.node.content for passage in used_passages),
-                                language=question.language,
-                            ),
-                        )
-                    )
-                elif query_pipeline is not None:
-                    try:
-                        passages = await run_named_retrieve(
-                            question_text,
-                            pipeline_name=query_pipeline,
+                    elif pool is not None:
+                        pool_entry = cast("Mapping[str, PoolQuestion]", pool_questions_by_id)[
+                            question_key
+                        ]
+                        hits = await _pool_question_hits(
+                            question,
+                            pool_entry,
+                            query_pipeline=cast("str", query_pipeline),
+                            pool=pool,
                             registry=registry,
                             reports=reports,
                             ctx=ctx,
-                            llm=llm if llm is not None else LLMSection(),
-                            services=services if services is not None else ServiceSelection(),
-                            roles=roles if roles is not None else RoleTable(),
-                            sink=sink if sink is not None else NullSink(),
+                            llm=llm,
+                            services=services,
+                            roles=roles,
+                            sink=sink,
                             contributions=contributions,
-                            prepared=retrieval_services,
+                            retrieval_services=retrieval_services,
+                            contributors=contributors,
                         )
-                    except (PipelineDidNotProduceError, LLMGenerationLoopError) as failure:
-                        failed[question_key] = str(failure)
-                        continue
-                    seconds[question_key] = time.monotonic() - started
-                    hits = _scored_in_ranking_order(passages.passages)
-                    contributors[question_key] = tuple(passages.contributors)
-                    _record_captured_chunks(
-                        question_pools, question_key, hits, capture_pool=capture_pool
-                    )
-                else:
-                    hits = await run_ask(
-                        question_text,
-                        registry=registry,
-                        ctx=ctx,
-                        top_k=top_k * _OVERSAMPLE_FACTOR,
-                        embedder=embed_stage.use,
-                        store=store_stage.use,
-                        embedder_config=_factory_config(embed_stage.config),
-                        store_config=_factory_config(store_stage.config),
-                    )
-                    seconds[question_key] = time.monotonic() - started
+                    elif query_pipeline is not None:
+                        hits = await _retrieval_question_hits(
+                            question_text,
+                            question_key=question_key,
+                            query_pipeline=query_pipeline,
+                            registry=registry,
+                            reports=reports,
+                            ctx=ctx,
+                            llm=llm,
+                            services=services,
+                            roles=roles,
+                            sink=sink,
+                            contributions=contributions,
+                            retrieval_services=retrieval_services,
+                            contributors=contributors,
+                            question_pools=question_pools,
+                            capture_pool=capture_pool,
+                        )
+                    else:
+                        hits = await run_ask(
+                            question_text,
+                            registry=registry,
+                            ctx=ctx,
+                            top_k=top_k * _OVERSAMPLE_FACTOR,
+                            embedder=embed_stage.use,
+                            store=store_stage.use,
+                            embedder_config=_factory_config(embed_stage.config),
+                            store_config=_factory_config(store_stage.config),
+                        )
+                except (PipelineDidNotProduceError, LLMGenerationLoopError) as failure:
+                    failed[question_key] = str(failure)
+                    continue
+                seconds[question_key] = time.monotonic() - started
                 if refuse_foreign_documents:
                     _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
                 samples.append(
@@ -935,6 +1325,12 @@ async def score_pipeline(
                         query=question_text,
                         question_key=question_key,
                         retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
+                        # A replay's own `hits` is whatever the capture run happened to pack for
+                        # this one question, never a fresh search — the pool's `store_rows` is
+                        # the honest depth a metric named `@k` should compare `k` against
+                        # (`weft_eval.ir_metrics`'s own module docstring, R38.5): the corpus this
+                        # rung was captured over, not how many of its chunks one question's own
+                        # ranking happened to keep.
                         candidate_count=len(hits),
                         relevant_ids=frozenset(
                             _resolved_document_id(entry) for entry in question.relevant_documents
@@ -945,6 +1341,10 @@ async def score_pipeline(
                     )
                 )
         store_rows = await _captured_store_rows(capture_pool, retrieval_services)
+        if pool is not None:
+            await _check_pool_after_loop(
+                pool, cast("NodeStore", cast("PreparedRunner", retrieval_services).store)
+            )
 
     scores = await _score_retrieval(
         registry, samples, cutoffs=resolved_cutoffs, ctx=ctx, failed_questions=failed

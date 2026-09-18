@@ -3146,6 +3146,40 @@ is recorded with every run that reads it.
 this one does not know. It is refused before its fields are read, so a newer field is never
 silently dropped. **What to do:** read it with the release that wrote it, or upgrade `weft-rag`.
 
+### `PoolIntegrityError`
+
+**What it looks like** — an arm naming `pool = "..."` replays a captured pool, and something the
+manifest, the question file or the store agree on has moved since capture:
+
+```text
+question 'q-1' names chunk 'n2abc123', whose content no longer hashes to what the pool captured.
+```
+
+Other shapes the same error takes, each naming what moved: a question in the question file but
+not in the manifest, or the reverse; a question whose text or `relevant_documents` has changed
+under an id the manifest already used; a chunk the store no longer holds at all; and a store row
+count that no longer matches the manifest's own, checked once before the first question replays
+and once again after the last one —
+
+```text
+the store now holds 71 row(s), but the pool was captured against a store holding 70 row(s) —
+something changed the store while this replay ran.
+```
+
+**Why it can happen at all.** A replay never embeds, never searches and never reads the corpus —
+its whole claim to being a fast, deterministic comparison is that it reruns the *rerank* half of a
+rung against exactly the chunks a capture run once retrieved. That claim is only honest while the
+question file, the manifest and the store all still agree with each other; a question file edited
+after capture, a manifest copied beside the wrong store, or another process writing to the same
+store while a replay runs all break the agreement silently unless this refuses by name the moment
+it is noticed.
+
+**What to do:** if the question file changed on purpose, capture the pool again against it. If the
+manifest is right and the store is wrong, replay against the store the pool names in `store`/
+`corpus_digest` (`runs/pools/<run_id>.json`) rather than whatever `[services] store` happens to
+point at now. Never edit the manifest by hand to make a mismatch go away — its own sha256 is what
+every replay's record pins its trust to.
+
 ### `CollidingScoreNameError`
 
 **What it looks like** — a run scoring a generating pipeline (`weft eval run --query-pipeline` or

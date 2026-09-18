@@ -217,6 +217,7 @@ from weft_cli.eval_scoring import score_pipeline
 from weft_cli.ingest import content_hashes_of, corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
+from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
@@ -237,10 +238,11 @@ from weft_eval.falsify import (
 )
 from weft_eval.latency import LatencySummary, latency_summary
 from weft_eval.offline import GateSubset, gate_subset, require_gate_safe
-from weft_eval.pool import PoolChunk
+from weft_eval.pool import LoadedPool, PoolChunk
 from weft_eval.question_set import Question, QuestionSetFormat, read_question_set
 from weft_eval.run_record import (
     CorpusDigestBasis,
+    CorpusIdentity,
     ExperimentRun,
     MetricRunResult,
     NotAggregated,
@@ -1160,6 +1162,11 @@ class IndexAndScoreResult:
     question_pools: Mapping[str, tuple[PoolChunk, ...]] | None = None
     #: Task **40.2** — the store's own row count at capture time. `None` when not capturing.
     store_rows: int | None = None
+    #: Task **40.2** (second half) — every corpus document id this run's questions were scored
+    #: against, whichever of the three branches produced it (a fresh index, `--reuse-index`, or a
+    #: pool replay's own manifest) — what `_write_arm_pool` needs to fill `PoolManifest.
+    #: document_ids` without re-deriving it a second way.
+    document_ids: tuple[str, ...] = ()
 
 
 async def index_and_score(
@@ -1180,6 +1187,7 @@ async def index_and_score(
     batch_size: int | None = None,
     cutoffs: tuple[int, ...] | None = None,
     capture_pool: bool = False,
+    pool: LoadedPool | None = None,
 ) -> IndexAndScoreResult:
     """Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
     with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own
@@ -1226,6 +1234,19 @@ async def index_and_score(
     keyword of the same name; `False` (every call site before this task) is unchanged.
     `IndexAndScoreResult.question_pools`/`store_rows` carry whatever `score_pipeline` returned
     for them, `None` when `questions` is `None` or `capture_pool` is `False`.
+
+    `pool` — ledger task 40.2's second half. `None` (every call site before this task) is
+    unchanged. Given a `LoadedPool` instead, this indexes nothing and reads no corpus at all —
+    no `run_index_for`, no `corpus_documents` — the ingest pipeline is resolved by name alone
+    (`weft_cli.route_ask.resolve_named_pipeline`, the identical public resolution `corpus_
+    documents` itself calls one layer down) purely so `PipelineNotRetrievableError`'s own check
+    and `model_versions_of` have something to read, `document_ids` is `pool.manifest.
+    document_ids`, and the record's own `corpus` is built directly from `pool.manifest.
+    corpus_digest` rather than digested from documents this call never touched.
+    `stored_count` is `None` and `ingest_seconds` is `0.0`, `--reuse-index`'s own honest
+    measurement one branch up: this call spent no time reading a corpus either.
+    `score_pipeline` is called with `pool=pool`, which replays every question through the
+    manifest's own captured chunks rather than retrieving again.
     """
     resolved: ResolvedPipeline
     document_ids: tuple[str, ...]
@@ -1234,7 +1255,19 @@ async def index_and_score(
     stored_count: int | None
     ingest_seconds: float
 
-    if reuse_index:
+    if pool is not None:
+        resolved = resolve_named_pipeline(
+            pipeline,
+            registry=deps.registry,
+            reports=deps.reports,
+            contributions=deps.contributions,
+        )
+        document_ids = pool.manifest.document_ids
+        content_hashes = ()
+        summary = RunSummary()
+        stored_count = None
+        ingest_seconds = 0.0
+    elif reuse_index:
         resolved, _specs, documents = corpus_documents(
             path,
             pipeline=pipeline,
@@ -1326,6 +1359,7 @@ async def index_and_score(
             document_labels=document_labels,
             refuse_foreign_documents=refuse_foreign_documents,
             capture_pool=capture_pool,
+            pool=pool,
         )
         metrics = scored.metrics
         query_rung = scored.query_rung
@@ -1343,10 +1377,15 @@ async def index_and_score(
     query_seconds = time.monotonic() - query_started
 
     resolved_corpus_name = corpus_name if corpus_name is not None else str(path)
+    corpus = (
+        CorpusIdentity(name=resolved_corpus_name, digest=pool.manifest.corpus_digest)
+        if pool is not None
+        else corpus_identity(resolved_corpus_name, content_hashes)
+    )
     record = build_run_record(
         recorded_at=datetime.now(UTC).isoformat(),
         resolved_pipeline=resolved,
-        corpus=corpus_identity(resolved_corpus_name, content_hashes),
+        corpus=corpus,
         corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
         query_rung=query_rung,
         # Task 4.7's own gap to fill — see the module docstring's paragraph on
@@ -1375,6 +1414,7 @@ async def index_and_score(
         wall_clock_seconds=ingest_seconds,
         question_pools=question_pools,
         store_rows=result_store_rows,
+        document_ids=document_ids,
     )
 
 

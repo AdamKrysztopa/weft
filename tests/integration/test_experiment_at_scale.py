@@ -26,7 +26,9 @@ retrieval quality and nothing here reads it as one.
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, cast
@@ -44,6 +46,7 @@ from weft_cli.route_ask import PipelineDidNotProduceError, run_named_retrieve
 from weft_engine.registry_bootstrap import Dependencies, build_dependencies
 from weft_eval.evidence import evidence_table
 from weft_eval.experiment import load_experiment
+from weft_eval.pool import PoolIntegrityError
 from weft_eval.run_record import load_run_record
 from weft_kernel.context import Context
 from weft_kernel.payload import Produced
@@ -240,3 +243,128 @@ async def test_an_experiment_over_three_hundred_questions_holds_every_property_a
 
     # Connections: the run closes every store it opened, whatever the questions did.
     assert await _open_connections() <= before + 1
+
+
+# --- Task 40.2 — a frozen pool, captured against the real store and replayed without the corpus.
+#
+# The unit tests hold replay's rules against a store double. What only the real store can answer is
+# whether a pool captured through `vector-top-k` and replayed through nothing but a packer scores
+# exactly what the capture scored, and whether pgvector hands back by id the chunks a manifest
+# names. The corpus is deleted between capture and replay, so a replay that read it fails here.
+
+_POOL_QUESTIONS = 12
+
+_CAPTURE_PIPELINE = """name: dense-pool-retrieve
+stages:
+  - {id: retrieve, use: vector-top-k, with: {top_k: 50}}
+  - {id: fuse, use: single-list}
+  - {id: pack, use: repack, with: {method: reverse, top_n: 50}}
+"""
+
+_IDENTITY_PIPELINE = """name: replay-identity
+stages:
+  - {id: pack, use: repack, with: {method: reverse}}
+"""
+
+
+def _pool_experiment(name: str, arms: str) -> str:
+    return (
+        f'[experiment]\nschema = 1\nname = "{name}"\nquestions = "pool-questions.toml"\n'
+        'corpus = "corpus"\nrepeats = 2\ntop_k = [1, 5]\nmetrics = ["mrr@5", "recall@1"]\n'
+        "minimum_detectable_effect = 0.05\n" + arms
+    )
+
+
+def _replay_arms(manifest: Path) -> str:
+    arm = (
+        '\n[[arm]]\nname = "{name}"\npipeline = "index-text"\n'
+        'query_pipeline = "replay-identity"\npool = "{pool}"\nrepeats = 1\n'
+    )
+    return arm.format(name="identity", pool=manifest) + arm.format(name="again", pool=manifest)
+
+
+@pytest.fixture
+def pool_project(project: Path) -> Path:
+    """`project`, with a short question set and the two documents a capture and a replay need."""
+    lines = _questions().split("\n[[question]]")
+    (project / "pool-questions.toml").write_text(
+        "\n[[question]]".join(lines[: _POOL_QUESTIONS + 1]), encoding="utf-8"
+    )
+    (project / "pipelines").mkdir()
+    (project / "pipelines" / "dense-pool-retrieve.yaml").write_text(_CAPTURE_PIPELINE)
+    (project / "pipelines" / "replay-identity.yaml").write_text(_IDENTITY_PIPELINE)
+    arm = (
+        '\n[[arm]]\nname = "{name}"\npipeline = "index-text"\n'
+        'query_pipeline = "dense-pool-retrieve"\n{extra}repeats = 1\n'
+    )
+    (project / "capture.toml").write_text(
+        _pool_experiment(
+            "capture",
+            arm.format(name="dense", extra="capture_pool = true\n")
+            + arm.format(name="plain", extra=""),
+        ),
+        encoding="utf-8",
+    )
+    return project
+
+
+async def _pool_run(project: Path, document: str) -> dict[str, Any]:
+    deps = build_dependencies(project / "weft.toml")
+    outcome = await EvalExperimentCommand().run(
+        EvalExperimentArgs(path=str(project / document)), _ctx(deps)
+    )
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    return {run.arm: load_run_record(Path("runs") / f"{run.run_id}.json") for run in result.runs}
+
+
+def _scores(record: Any, metric: str) -> dict[str, object]:
+    assert record.question_scores is not None
+    return dict(record.question_scores[metric].scores)
+
+
+@pytest.mark.timeout(180)
+async def test_an_identity_replay_of_a_captured_pool_scores_what_the_capture_scored(
+    pool_project: Path,
+) -> None:
+    # Arrange
+    captured = await _pool_run(pool_project, "capture.toml")
+    (manifest,) = (pool_project / "runs" / "pools").glob("*.json")
+    shutil.rmtree(pool_project / "corpus")
+    (pool_project / "replay.toml").write_text(
+        _pool_experiment("replay", _replay_arms(manifest)), encoding="utf-8"
+    )
+
+    # Act
+    replayed = await _pool_run(pool_project, "replay.toml")
+
+    # Assert
+    for metric in ("mrr@5", "recall@1"):
+        assert _scores(replayed["identity"], metric) == _scores(captured["dense"], metric), metric
+    assert replayed["identity"].corpus.digest == captured["dense"].corpus.digest
+
+
+@pytest.mark.timeout(180)
+async def test_a_manifest_whose_chunk_hash_was_changed_is_refused_naming_the_chunk(
+    pool_project: Path,
+) -> None:
+    # Arrange
+    await _pool_run(pool_project, "capture.toml")
+    (manifest,) = (pool_project / "runs" / "pools").glob("*.json")
+    body = json.loads(manifest.read_text(encoding="utf-8"))
+    chunk = body["questions"][0]["chunks"][0]
+    chunk["content_sha256"] = "0" * 64
+    corrupt = pool_project / "corrupt.json"
+    corrupt.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    (pool_project / "replay.toml").write_text(
+        _pool_experiment("replay", _replay_arms(corrupt)), encoding="utf-8"
+    )
+    before = sorted(Path("runs").glob("*.json"))
+
+    # Act
+    with pytest.raises(PoolIntegrityError) as caught:
+        await _pool_run(pool_project, "replay.toml")
+
+    # Assert
+    assert chunk["node_id"] in str(caught.value)
+    assert sorted(Path("runs").glob("*.json")) == before, "a refused replay writes no record"

@@ -19,6 +19,7 @@ from weft_eval.pool import (
     PoolManifest,
     PoolManifestSchemaError,
     PoolQuestion,
+    PoolQuestionEntry,
     load_pool_manifest,
     relevant_set_sha256,
     text_sha256,
@@ -40,6 +41,7 @@ def _manifest() -> PoolManifest:
         model_versions={"embed": "text-embedding-3-large"},
         store="pgvector",
         store_rows=2,
+        document_ids=("/corpus/doc-a", "/corpus/doc-b"),
         questions=(
             PoolQuestion(
                 id="q-1",
@@ -104,3 +106,12 @@ def test_a_relevant_set_hashes_the_same_whatever_order_it_is_written_in() -> Non
 
 def test_a_question_texts_hash_is_the_sha256_of_its_utf8_bytes() -> None:
     assert text_sha256("zażółć") == hashlib.sha256("zażółć".encode()).hexdigest()
+
+
+def test_the_entry_a_replayed_ranking_carries_names_its_own_namespace_and_question() -> None:
+    # Act
+    entry = PoolQuestionEntry(corpus_digest="c" * 64, question_id="q-1", text_sha256="t" * 64)
+
+    # Assert
+    assert PoolQuestionEntry.__namespace__ == "weft-eval-pool"
+    assert entry.question_id == "q-1"
