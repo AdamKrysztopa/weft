@@ -1,0 +1,100 @@
+# Phase 40's protocol, written before any run it governs (ledger 40.0). Every number here that needs
+# no data is fixed now; the power numbers are 40.6's, from 40.4's baseline and 40.5's labels, and
+# are committed into [power] when they exist. Nothing below is tuned on an evaluation outcome.
+# tests/docs/test_pool_promotion_protocol.py holds it.
+
+[scope]
+label = "exploratory on reused benchmarks"
+# Phase 39 fitted weights on these questions' train split and read the held-out split, and those
+# outcomes motivated this phase — so nothing measured on them is confirmatory.
+keep_original_split = true
+tuning_forbidden = ["entities", "matcher", "pool_depth", "slice_criteria"]
+
+[[corpus]]
+name = "esci"
+role = "primary"
+questions = "corpus/esci-questions.toml"
+question_count = 830
+
+[[corpus]]
+name = "techqa"
+role = "confirmatory"
+questions = "corpus/techqa-questions.toml"
+question_count = 610
+
+[pool]
+retriever = "vector-top-k"
+depth = 50
+unit = "chunks"
+# One pool for the gate and every arm in Phases 40 and 41, frozen once by 40.2's capture. Documents
+# are what the evaluator collapses to after reordering; distinct documents per question are recorded.
+
+[metrics]
+primary = "mrr@5"
+secondary = ["recall@1", "ndcg@10"]
+# All three read off one ranking per question (40.1).
+
+[anchors]
+extractor = "find_anchors"
+entities = []
+
+[labelling]
+# 40.5. Oracle anchors from the question text alone; an empty set recorded explicitly.
+oracle_population = "rule fires, or the stored anchored axis is true"
+identifier_exact = "shown the question, its whole relevant set shuffled and the pool's same-family documents, a labeller records whether an identifier in the question decides relevant from sibling"
+sibling_rule = "same product and problem, another version, CVE or error code"
+second_labeller_per_corpus = 30
+adjudicator = "owner"
+
+[effect]
+worthwhile = 0.05
+alpha = 0.05
+power = 0.80
+# n ~= (2.8 * sd / worthwhile)^2. The sd bound per contrast:
+reorderer_vs_dense_sd_bound = "sqrt(mean(max(RR@5_i, oracle_gain_i)^2))"
+reorderer_vs_reorderer_sd_bound = "sqrt(mean(p_i)), p_i = 1[any relevant in pool]"
+reorderer_vs_reorderer_reading = "descriptive"
+
+[ceilings]
+oracle_gain = "1[any relevant document has a chunk in the pool] - RR@5(dense)"
+promotion_gain = "1[rule fires and some pool chunk of a relevant document contains an anchor] * (1 - RR@5(dense))"
+denominator = "every question in the corpus"
+open_phase_41_when = "esci oracle ceiling >= 0.05"
+
+# The verdict per contrast, on the paired 95% interval [L, U] and point estimate d.
+# Exhaustive, first match wins.
+[[verdict]]
+name = "harm"
+when = "U < 0"
+
+[[verdict]]
+name = "benefit ruled out"
+when = "U < worthwhile"
+
+[[verdict]]
+name = "worthwhile"
+when = "L > 0 and d >= worthwhile"
+
+[[verdict]]
+name = "positive, below worthwhile"
+when = "L > 0"
+
+[[verdict]]
+name = "inconclusive"
+when = "otherwise"
+underpowered_when = "n below 40.6's requirement"
+
+[joint_reading]
+# Rule and oracle arms are read together, on identical question ids.
+extractor_condemned = "rule arm not worthwhile beside an oracle arm worthwhile or positive"
+promotion_ruled_out = "oracle arm is harm or benefit ruled out, on that slice only"
+reach = "anchor-promote's policy, its extractor and the population measured, nothing wider"
+
+[runs]
+# L24.9: an arm that reaches no model runs once.
+repeats_without_model = 1
+spend_cap_usd = 5.0
+pricing = "tokenized, never characters / 4"
+
+[power]
+# 40.6 fills this from 40.4 and 40.5; empty until then.
