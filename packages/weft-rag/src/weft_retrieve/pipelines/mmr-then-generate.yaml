@@ -1,0 +1,24 @@
+name: mmr-then-generate
+extends: retrieve-then-generate
+
+# A one-operator rung beside `rerank-then-generate`: the retrieval is unchanged and what
+# reaches `repack` is reordered for diversity against the question rather than for pure
+# relevance — `weft_retrieve.mmr`'s own module docstring carries the Carbonell & Goldstein
+# criterion this stage applies.
+#
+# `top_n` is left at the plugin's default (`None`, every hit reordered), so this rung
+# diversifies the whole retrieved set; `repack`'s inherited `top_n: 8` still decides how many
+# passages the generator actually sees.
+vars:
+  route.summary: >-
+    One vector search, then the retrieved passages are reordered to balance relevance to the
+    question against redundancy with what is already chosen, before the answer is written.
+    For a corpus where the nearest vectors cluster around a few near-duplicate passages and a
+    reader benefits from seeing distinct ones.
+  route.cost: >-
+    one embedding call, one search, one more embedding call for the question's vector, and
+    one model call
+
+insert:
+  - after: fuse
+    stage: {id: diversify, use: mmr}

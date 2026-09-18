@@ -162,6 +162,8 @@ from weft_retrieve.iterative import (
     StopReason,
     stop_reason,
 )
+from weft_retrieve.mmr import NAME as MMR_NAME
+from weft_retrieve.mmr import Mmr, MmrConfig
 from weft_retrieve.multi_arm import NAME as MULTI_ARM_NAME
 from weft_retrieve.multi_arm import MultiArm
 from weft_retrieve.multi_retriever import NAME as MULTI_RETRIEVER_NAME
@@ -394,6 +396,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Reranker, LLM_RERANK_NAME, LlmRerank)
     registrar.add(Reranker, GRADED_RETRIEVAL_NAME, GradedRetrieval)
     registrar.add(Reranker, COLLAPSE_TO_PARENT_NAME, CollapseToParent)
+    registrar.add(Reranker, MMR_NAME, Mmr)
     registrar.add(Sufficiency, LLM_SUFFICIENCY_NAME, LlmSufficiency)
     registrar.add(Sufficiency, HEDGE_PHRASES_NAME, HedgePhrases)
     registrar.add(ContextPacker, REPACK_NAME, Repack)
@@ -457,6 +460,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/multi-query-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/boolean-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/rerank-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/mmr-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/summarise-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/grade-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/iterative-retrieve.yaml")
@@ -550,6 +554,7 @@ __all__ = [
     "ITERATIVE_RETRIEVAL_NAME",
     "LLM_RERANK_NAME",
     "LLM_SUFFICIENCY_NAME",
+    "MMR_NAME",
     "MULTI_QUERY_NAME",
     "MULTI_QUERY_VARIANTS_NAME",
     "MULTI_RETRIEVER_NAME",
@@ -635,6 +640,8 @@ __all__ = [
     "LlmSufficiency",
     "LlmSufficiencyConfig",
     "LoopState",
+    "Mmr",
+    "MmrConfig",
     "MultiQuery",
     "MultiQueryConfig",
     "MultiQueryVariants",
