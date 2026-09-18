@@ -5,10 +5,12 @@ that carry one, and nothing for the twenty that carry none. Precision first, bec
 costs every query the lexical noise Phase 38 measured at recall@5 0.244, while a missed one costs a
 query only the dense arm it had anyway.
 
-**The first forty failed it** at `578d0e8` — recall 1.000, precision 28/29, `DoH` read as camelCase
-— and the clause was narrowed against them, so they are a regression set now and decide nothing.
-The gate is the second forty, written after the narrowing was committed, by an agent that saw
-neither the code nor the first set. A second miss reopens G24's Q-A rather than a second rewrite.
+**Neither form of the rule passed.** The first forty failed at `578d0e8` (precision 28/29, `DoH`);
+the camelCase clause was narrowed against them, so they are a regression set here and decide
+nothing. A fresh forty, written blind after the narrowing, failed it at `9aaa376` (precision
+0.800, recall 0.923 — quantities read as identifiers, errno names missed), which reopened G24's
+Q-A. The gate moved to the model decomposition, over both sets:
+`tests/integration/test_intent_and_anchors_model_gate.py`.
 """
 
 from __future__ import annotations
@@ -40,7 +42,7 @@ def test_the_first_forty_are_the_set_the_gate_was_first_set_on() -> None:
     assert all(anchor in text for _, text, anchors in questions for anchor in anchors)
 
 
-def test_the_first_forty_still_separate_after_the_narrowing() -> None:
+def test_the_rule_invents_no_anchor_on_the_first_forty_and_misses_only_a_header() -> None:
     # Arrange
     questions = _questions()
 
@@ -54,4 +56,7 @@ def test_the_first_forty_still_separate_after_the_narrowing() -> None:
 
     # Assert
     assert invented == [], f"false anchors — precision below 1.0: {invented}"
-    assert missed == [], f"missed anchors — recall below 1.0: {missed}"
+    # A header named as one became an anchor when Codex's review sharpened the definition; the
+    # rule refuses hyphenated words without a digit by design, which is why `method: model`
+    # exists.
+    assert missed == ["a05: 'cache-control'"]

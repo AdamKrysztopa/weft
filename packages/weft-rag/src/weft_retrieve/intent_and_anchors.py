@@ -8,11 +8,14 @@ the published claim this module makes true. `hybrid` already searches only the a
 skips a query whose arms it does not offer, so labelling the intent for the vector arm and each
 anchor for the text arm is the whole mechanism — `hybrid` itself needs no edit.
 
-**Precision over recall is the settled trade**, not an incidental narrowing: a false anchor sends
-the text arm chasing a token that names nothing, which is the noise Phase 38 measured; a missed
-anchor costs a query only the dense arm it already had. `find_anchors` is deliberately narrow
-because of that trade — an all-caps acronym or a hyphenated name without a digit reads as an
-identifier to a human and is refused here on purpose, not by oversight.
+**`find_anchors`, the default `method: rule`, is deliberately narrow** — an all-caps acronym or a
+hyphenated name without a digit is refused — and it failed its gate on meaning, not shape: a blind
+forty scored precision 0.800 / recall 0.923, `32MB` read as an identifier beside `AX6000` and
+`ETIMEDOUT` missed (ledger `39.1`). **`method: model`** asks the configured `LLM` through the
+registered `question-anchors` prompt instead. G24's trade was then reversed by the owner to
+**recall first, precision at least 0.95**: an anchor the model names may recombine words the user
+typed (`TLS 1.2` from "TLS 1.3 … with 1.2") and is refused only when it introduces a word the
+question does not contain.
 """
 
 from __future__ import annotations
@@ -23,11 +26,16 @@ from enum import StrEnum
 from itertools import pairwise
 from typing import ClassVar, Final
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Outcome, Produced
+from weft_kernel.payload import Failed, Outcome, Produced
+from weft_llm.contract import LLM
+from weft_prompts.cascade import execute
+from weft_prompts.contract import Prompt
+from weft_retrieve.contract import StageLookup
 from weft_retrieve.payload import Channel, Query, QueryOrigin, QuerySet
+from weft_retrieve.prompts import QUESTION_ANCHORS_NAME, QuestionAnchors, QuestionAnchorsRequest
 
 #: The name this transform is registered and selectable under — see `weft_retrieve.register`.
 NAME: Final[str] = "intent-and-anchors"
@@ -47,6 +55,19 @@ class AnchorKind(StrEnum):
     IDENTIFIER = "identifier"
     QUOTED = "quoted"
     ENTITY = "entity"
+    #: Named by `method: model` — the model, not a local rule, decided this span was an anchor.
+    EXTRACTED = "extracted"
+
+
+class AnchorMethod(StrEnum):
+    """How `IntentAndAnchors` finds a question's anchors."""
+
+    #: `find_anchors`'s shape-only rule — the default, and the only path that touches no
+    #: `ctx` service.
+    RULE = "rule"
+    #: The model decomposition (`39.1`, second form) — asks the configured `LLM` through the
+    #: registered `question-anchors` prompt.
+    MODEL = "model"
 
 
 class Anchor(BaseModel):
@@ -152,8 +173,17 @@ class IntentAndAnchorsConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    #: Matched whole-word and case-sensitively — see `find_anchors`.
+    #: Which mechanism finds the anchors — see `AnchorMethod`.
+    method: AnchorMethod = AnchorMethod.RULE
+    #: Matched whole-word and case-sensitively — see `find_anchors`. Ignored under
+    #: `method: model`, which is why the two may not be configured together — see
+    #: `_entities_need_the_rule` below.
     entities: tuple[str, ...] = ()
+    #: The registered `Prompt` asked under `method: model` — see
+    #: `weft_retrieve.prompts.QuestionAnchorsPrompt`.
+    prompt: str = Field(default=QUESTION_ANCHORS_NAME, min_length=1)
+    #: The role `method: model`'s call to `execute` is billed and rate-limited under.
+    role: str = Field(default="anchors", min_length=1)
 
     @field_validator("entities")
     @classmethod
@@ -165,13 +195,64 @@ class IntentAndAnchorsConfig(BaseModel):
             )
         return value
 
+    @model_validator(mode="after")
+    def _entities_need_the_rule(self) -> IntentAndAnchorsConfig:
+        if self.method is AnchorMethod.MODEL and self.entities:
+            raise ValueError(
+                "IntentAndAnchorsConfig.entities is ignored under method=model: the model "
+                "decomposition asks the question alone and never sees configured entities, "
+                "so naming both would promise a match this method does not make."
+            )
+        return self
+
+
+def _dedupe_first(texts: Sequence[str]) -> tuple[str, ...]:
+    """`texts`, each kept at its first occurrence — the model path's own copy of the rule
+    dedup `find_anchors` already applies to its own three sources."""
+    seen: set[str] = set()
+    kept: list[str] = []
+    for text in texts:
+        if text in seen:
+            continue
+        seen.add(text)
+        kept.append(text)
+    return tuple(kept)
+
+
+def _searchable(anchor: str) -> str:
+    """A model-named span as it is searched: without a call's `()` or a possessive `'s`."""
+    text = anchor.strip()
+    text = text.removesuffix("()")
+    for possessive in ("'s", "\u2019s"):
+        text = text.removesuffix(possessive)
+    return text.strip()
+
+
+def _anchor_queries(anchor_texts: Sequence[str], *, origin: Query) -> tuple[Query, ...]:
+    """One `Query` per anchor text, aimed at `Channel.TEXT` alone — shared by both the rule
+    and the model path, so an anchor is turned into a query exactly one way regardless of
+    which mechanism named it."""
+    return tuple(
+        Query(
+            text=text,
+            origin=QueryOrigin.DERIVED,
+            produced_by=NAME,
+            locale=origin.locale,
+            channels=(Channel.TEXT.value,),
+            filter=origin.filter,
+        )
+        for text in anchor_texts
+    )
+
 
 class IntentAndAnchors:
     """Splits a question into its intent and its anchors. Satisfies `weft_retrieve.contract.
     QueryTransform` structurally.
 
-    Never returns `NothingToProduce` or `Failed` — a question always has an intent, even when
-    it has no anchor.
+    Never returns `NothingToProduce` — a question always has an intent, even when it has no
+    anchor. `method: model` can return `Failed`: a model-named anchor carrying a word the
+    question does not contain is refused rather than searched (see the module docstring);
+    `method: rule` never fails.
     """
 
     config_model: ClassVar[type[IntentAndAnchorsConfig]] = IntentAndAnchorsConfig
@@ -185,28 +266,60 @@ class IntentAndAnchors:
         Every incoming query another transform already derived (`produced_by` non-empty) passes
         through unchanged; every query still carrying the user's own words (`produced_by == ""`)
         is replaced by the intent — same text, aimed at `Channel.VECTOR` alone.
+
+        `method: rule` (the default) never touches `ctx` — `find_anchors` is a pure function
+        of the question and the configured entities. `method: model` asks the configured
+        `LLM` the same question through the registered `question-anchors` prompt, exactly the
+        shape `weft_retrieve.transforms.StepBack.run` asks its own prompt.
         """
-        del ctx
-        anchors = find_anchors(payload.origin.text, entities=self._config.entities)
+        if self._config.method is AnchorMethod.MODEL:
+            llm = ctx.require(LLM)
+            lookup = ctx.require(StageLookup)
+            prompt = await lookup.build_capability(Prompt, self._config.prompt)
+            generated = await execute(
+                llm=llm,
+                prompt=prompt,
+                values=QuestionAnchorsRequest(question=payload.origin.text),
+                output=QuestionAnchors,
+                role=self._config.role,
+                ctx=ctx,
+            )
+            if not isinstance(generated, Produced):
+                # Relayed exactly as `StepBack.run` relays its own cascade outcome — see that
+                # method's own comment on this line.
+                return generated
+            named = (_searchable(anchor) for anchor in generated.value.value.anchors)
+            anchor_texts = _dedupe_first(tuple(anchor for anchor in named if anchor))
+            question = payload.origin.text
+            for anchor in anchor_texts:
+                invented = [
+                    word for word in anchor.split() if word.strip(_STRIP_CHARS) not in question
+                ]
+                if invented:
+                    return Failed(
+                        reason=(
+                            f"the model named anchor '{anchor}', and the question does not "
+                            f"contain {invented[0]!r}; an anchor may recombine the words the "
+                            "user typed but never introduce one"
+                        )
+                    )
+        else:
+            anchor_texts = tuple(
+                anchor.text
+                for anchor in find_anchors(payload.origin.text, entities=self._config.entities)
+            )
 
         intent = payload.origin.model_copy(update={"channels": (Channel.VECTOR.value,)})
         passthrough = tuple(query for query in payload.queries if query.produced_by)
-        anchor_queries = tuple(
-            Query(
-                text=anchor.text,
-                origin=QueryOrigin.DERIVED,
-                produced_by=NAME,
-                locale=payload.origin.locale,
-                channels=(Channel.TEXT.value,),
-                filter=payload.origin.filter,
-            )
-            for anchor in anchors
-        )
 
         return Produced(
             value=QuerySet(
                 origin=payload.origin,
-                queries=(intent, *passthrough, *anchor_queries),
+                queries=(
+                    intent,
+                    *passthrough,
+                    *_anchor_queries(anchor_texts, origin=payload.origin),
+                ),
                 history=payload.history,
                 ext=payload.ext,
             )

@@ -1,6 +1,7 @@
 # The first forty questions judging `intent-and-anchors` — ledger tasks 39.0 and 39.1. They failed
 # the gate once (a20's `DoH`, precision 28/29) and the rule was narrowed against them, so they are
 # a regression set now, not the gate.
+# After the Codex review (see anchor_questions_gate.toml's header), a05 gained `cache-control`.
 #
 # Written 2026-09-18 by an agent given G24's definition of an anchor and nothing else: it read no
 # code and never saw the rule it judges, so the labels are not shaped by the implementation.
@@ -31,7 +32,7 @@ anchors = ["IPv6", "IPv4"]
 [[question]]
 id = "a05"
 text = "what's the maximum value for max_age in a cache-control header?"
-anchors = ["max_age"]
+anchors = ["max_age", "cache-control"]
 
 [[question]]
 id = "a06"

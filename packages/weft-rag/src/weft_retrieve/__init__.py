@@ -148,6 +148,7 @@ from weft_retrieve.intent_and_anchors import NAME as INTENT_AND_ANCHORS_NAME
 from weft_retrieve.intent_and_anchors import (
     Anchor,
     AnchorKind,
+    AnchorMethod,
     IntentAndAnchors,
     IntentAndAnchorsConfig,
     find_anchors,
@@ -192,6 +193,7 @@ from weft_retrieve.prompts import (
     HYDE_DOCUMENT_NAME,
     MULTI_QUERY_VARIANTS_NAME,
     PASSAGE_RELEVANCE_NAME,
+    QUESTION_ANCHORS_NAME,
     RELEVANCE_GRADE_NAME,
     ROUTE_QUERY_NAME,
     STANDALONE_QUESTION_NAME,
@@ -218,6 +220,9 @@ from weft_retrieve.prompts import (
     PassageRelevance,
     PassageRelevancePrompt,
     PassageRelevanceRequest,
+    QuestionAnchors,
+    QuestionAnchorsPrompt,
+    QuestionAnchorsRequest,
     RelevanceGradePrompt,
     RouteQueryPrompt,
     RouteQueryRequest,
@@ -403,6 +408,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Prompt, STANDALONE_QUESTION_NAME, StandaloneQuestionPrompt)
     registrar.add(Prompt, HYDE_DOCUMENT_NAME, HydeDocumentPrompt)
     registrar.add(Prompt, STEP_BACK_QUESTION_NAME, StepBackPrompt)
+    registrar.add(Prompt, QUESTION_ANCHORS_NAME, QuestionAnchorsPrompt)
     registrar.add(Prompt, MULTI_QUERY_VARIANTS_NAME, MultiQueryVariantsPrompt)
     registrar.add(Prompt, RELEVANCE_GRADE_NAME, RelevanceGradePrompt)
     registrar.add(Prompt, BOOLEAN_PARSE_NAME, BooleanParsePrompt)
@@ -553,6 +559,7 @@ __all__ = [
     "PASSAGE_RELEVANCE_NAME",
     "POSTQFRAP_NAME",
     "QUERY_SCORER_NAME",
+    "QUESTION_ANCHORS_NAME",
     "RELEVANCE_GRADE_NAME",
     "REPACK_NAME",
     "RETRIEVE_CONTRACT_VERSION",
@@ -570,6 +577,7 @@ __all__ = [
     "AlwaysConfig",
     "Anchor",
     "AnchorKind",
+    "AnchorMethod",
     "ArmEvidence",
     "ArmHit",
     "Assessment",
@@ -655,6 +663,9 @@ __all__ = [
     "QueryScorerConfig",
     "QuerySet",
     "QueryTransform",
+    "QuestionAnchors",
+    "QuestionAnchorsPrompt",
+    "QuestionAnchorsRequest",
     "RankedList",
     "Ranking",
     "ReciprocalRankFusion",

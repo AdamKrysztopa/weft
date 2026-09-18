@@ -408,6 +408,117 @@ class StepBackPrompt(TypedPrompt):
 
 
 #: The name this prompt is registered and selectable under — see `weft_retrieve.register` and
+#: `weft_retrieve.intent_and_anchors.IntentAndAnchorsConfig.prompt`'s default. Not
+#: `"intent-and-anchors"` — the same collision reason `STEP_BACK_QUESTION_NAME` is not
+#: `"step-back"` (see that constant's own docstring): `intent-and-anchors` (the
+#: `QueryTransform`) already claims that name.
+QUESTION_ANCHORS_NAME = "question-anchors"
+
+
+class QuestionAnchorsRequest(BaseModel):
+    """What `question-anchors` renders: the question exactly as the user asked it.
+
+    `question` is `QuerySet.origin.text`, never a query an earlier transform already
+    derived — the same obligation every other request model in this module carries.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    question: str
+
+
+class QuestionAnchors(BaseModel):
+    """The anchors `weft_retrieve.intent_and_anchors.IntentAndAnchors`'s `method: model` turns
+    into one text-arm query each. A question may have none.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    anchors: tuple[str, ...] = ()
+
+
+class QuestionAnchorsPrompt(TypedPrompt):
+    """Ask a model for the spans of a question a keyword search should look up on their own —
+    the model decomposition `intent-and-anchors`' `method: model` asks for, in place of the
+    shape-only rule `find_anchors` applies under `method: rule`. Its examples deliberately
+    share no token with the gate fixtures (`tests/unit/weft_retrieve/fixtures/
+    anchor_questions_first.toml`, `anchor_questions_gate.toml`), so a model that merely
+    memorised the prompt's own examples could not pass either gate by accident.
+    """
+
+    name: ClassVar[str] = QUESTION_ANCHORS_NAME
+    input_model: ClassVar[type[BaseModel]] = QuestionAnchorsRequest
+    output_model: ClassVar[type[BaseModel] | None] = QuestionAnchors
+    texts: ClassVar[Mapping[str, PromptText]] = {
+        "en": PromptText(
+            system=(
+                "You read a search question and pick out its anchors: the exact spans a "
+                "keyword search should look up on their own, because each one names a "
+                "specific thing rather than describing it. You never answer the question "
+                "and you never rewrite it."
+            ),
+            user=(
+                "Question: ${question}\n\n"
+                "List the anchors in the question above, each copied character for "
+                "character from it. An anchor is:\n"
+                "- an identifier: a part, model or product number (XR-4400, QN90B), an "
+                "error or status code, including a symbolic one (E1102, 0x1A2B, "
+                "EADDRINUSE), a name from code (retry_limit, bufferSize), a version "
+                "(v1.4.2), a name joined with digits (SHA3-384, TLSv1), or an acronym "
+                "containing a digit (3DES)\n"
+                "- a number that names something: an RFC, section, port or status code — "
+                'give the number alone ("RFC 2616" gives 2616, "section 7.2" gives 7.2)\n'
+                "- a field, header or parameter name, when the question names it as one (the "
+                "Retry-After header)\n"
+                "- a quoted span: the text inside quotation marks or backticks, without the "
+                "marks\n\n"
+                "These are not anchors: ordinary words, however technical; acronyms and "
+                "product or brand names without a digit (SNMP, Kerberos, Android, Slack); a "
+                "hex value used as a bit pattern or mask rather than a code (a 0x0F00 mask); "
+                "and numbers that "
+                "measure an amount — counts, years, sizes, speeds, durations, prices, "
+                "percentages and ordinals (5 attempts, 1998, 64KB, 10Gbps, 250 "
+                "milliseconds, $$15, 80%, 4th).\n\n"
+                "Answer with the anchors in the order they first appear, each once. A "
+                "question may have none."
+            ),
+        ),
+        "pl": PromptText(
+            system=(
+                "Czytasz pytanie wyszukiwawcze i wskazujesz jego kotwice: dokładne "
+                "fragmenty, których wyszukiwanie po słowach kluczowych powinno szukać "
+                "osobno, bo każdy z nich nazywa konkretną rzecz, a nie ją opisuje. Nigdy "
+                "nie odpowiadasz na pytanie i nigdy go nie przeformułowujesz."
+            ),
+            user=(
+                "Pytanie: ${question}\n\n"
+                "Wypisz kotwice z powyższego pytania, każdą skopiowaną z niego znak po "
+                "znaku. Kotwica to:\n"
+                "- identyfikator: numer części, modelu lub produktu (XR-4400, QN90B), kod "
+                "błędu lub statusu, także symboliczny (E1102, 0x1A2B, EADDRINUSE), nazwa z "
+                "kodu (retry_limit, bufferSize), wersja (v1.4.2) albo nazwa połączona z "
+                "cyframi (SHA3-384, TLSv1) albo akronim zawierający cyfrę (3DES)\n"
+                "- liczba, która coś nazywa: numer RFC, sekcji, portu lub kodu statusu — "
+                "podaj samą liczbę („RFC 2616” daje 2616, „sekcja 7.2” daje 7.2)\n"
+                "- nazwa pola, nagłówka lub parametru, gdy pytanie nazywa ją jako taką "
+                "(nagłówek Retry-After)\n"
+                "- fragment w cudzysłowie: tekst wewnątrz cudzysłowu lub grawisów, bez "
+                "tych znaków\n\n"
+                "Kotwicami nie są: zwykłe słowa, nawet techniczne; akronimy oraz nazwy "
+                "produktów i marek bez cyfry (SNMP, Kerberos, Android, Slack); wartość "
+                "szesnastkowa użyta jako wzorzec bitów lub maska, a nie kod (maska 0x0F00); "
+                "a także liczby "
+                "mierzące ilość — liczebności, lata, rozmiary, prędkości, czasy trwania, "
+                "ceny, procenty i liczebniki porządkowe (5 prób, 1998, 64KB, 10Gbps, 250 "
+                "milisekund, 15 zł, 80%, 4.).\n\n"
+                "Podaj kotwice w kolejności ich pierwszego wystąpienia, każdą raz. "
+                "Pytanie może nie mieć żadnej."
+            ),
+        ),
+    }
+
+
+#: The name this prompt is registered and selectable under — see `weft_retrieve.register` and
 #: `weft_retrieve.transforms.MultiQueryConfig.prompt`'s default. Not `"multi-query"`, for the
 #: same collision reason `STEP_BACK_QUESTION_NAME` is not `"step-back"` — see that constant's
 #: own docstring. `multi-query` (the `QueryTransform`) already claims the shorter name.

@@ -1,0 +1,212 @@
+# Forty questions — the gate of ledger task 39.1, written 2026-09-18 after the camelCase clause was
+# narrowed at 9aaa376, by an agent that saw G24's definition of an anchor and neither the code nor
+# the first forty. Twenty carry anchors (g01–g20), twenty none (m01–m20); 11 of the none carry
+# digits as quantities and 8 carry mixed-case names. The rule failed this set once, as written
+# (precision 0.800, recall 0.923). Four questions (g03, g07, g08, g20) then had the writer's own
+# shape vocabulary — "snake_case", "camelCase", "SCREAMING_SNAKE", which the brief's wording induced
+# and no user types — removed from their text, labels unchanged, before any model was run on them.
+# Then peer-reviewed by Codex (gpt-6-astra) against the definition alone: 76 of 80 labels accepted,
+# none clearly wrong, four ambiguous where the definition was silent. The definition was sharpened
+# (a header named as one is an anchor; an acronym with a digit is; a hex value is only when it is
+# a code), m14 gained `2FA` and g20 lost `0xFF00`, and g04, g07, g08 and g20 — judged constructed
+# token exercises — were rewritten as natural questions by a fresh agent blind to the code.
+
+[[question]]
+id = "g01"
+text = "What does RFC 9110 say about status code 429?"
+anchors = ["9110", "429"]
+
+[[question]]
+id = "g02"
+text = "Is the `Content-Length` header required when using HTTP/1.1 chunked encoding?"
+anchors = ["Content-Length", "HTTP/1.1"]
+
+[[question]]
+id = "g03"
+text = "Does RFC8259 restrict how JSON numbers use the constant MAX_SAFE_INTEGER?"
+anchors = ["RFC8259", "MAX_SAFE_INTEGER"]
+
+[[question]]
+id = "g04"
+text = "Is port 8080 the one RFC 6335 registers for HTTP alternate?"
+anchors = ["8080", "6335"]
+
+[[question]]
+id = "g05"
+text = 'The error message reads "connection reset by peer" — which RFC section covers that, section 3.4 of RFC 5246?'
+anchors = ["connection reset by peer", "3.4", "5246"]
+
+[[question]]
+id = "g06"
+text = "Our router's model number is WRT54GL-v8, and it ships with 32MB of flash — does RFC 2131 (DHCP) apply to its config?"
+anchors = ["WRT54GL-v8", "2131"]
+
+[[question]]
+id = "g07"
+text = "We named a config field parse_max_retries — does RFC 7231 say anything about retry backoff after a 30 second delay?"
+anchors = ["parse_max_retries", "7231"]
+
+[[question]]
+id = "g08"
+text = "Does getSocketOpt() support querying the SO_KEEPALIVE flag on a TCP socket?"
+anchors = ["getSocketOpt", "SO_KEEPALIVE"]
+
+[[question]]
+id = "g09"
+text = "What does error code 0x8007007A mean on a Cisco ASA 5505, and is that documented in RFC 4271?"
+anchors = ["0x8007007A", "5505", "4271"]
+
+[[question]]
+id = "g10"
+text = 'Is the quoted phrase "idempotent methods" defined in RFC 7231 section 4.2.2?'
+anchors = ["idempotent methods", "7231", "4.2.2"]
+
+[[question]]
+id = "g11"
+text = 'Does OpenSSL version v3.4.1 fix the vulnerability described as "heap buffer overflow" in CVE-2024-0727?'
+anchors = ["v3.4.1", "heap buffer overflow", "CVE-2024-0727"]
+
+[[question]]
+id = "g12"
+text = "What's the difference between SHA-256 and SHA-512 as used in RFC 6234?"
+anchors = ["SHA-256", "SHA-512", "6234"]
+
+[[question]]
+id = "g13"
+text = "Which port number does RFC 3501 assign to IMAP, 143 or 993?"
+anchors = ["3501", "143", "993"]
+
+[[question]]
+id = "g14"
+text = "The function build_response_headers in the reference implementation throws error code ECONNRESET — is that covered by RFC 9293?"
+anchors = ["build_response_headers", "ECONNRESET", "9293"]
+
+[[question]]
+id = "g15"
+text = "Our NIC's part number is X710-DA2, and after 3 retries it logs status code 503 — which RFC governs that response?"
+anchors = ["X710-DA2", "503"]
+
+[[question]]
+id = "g16"
+text = "Is the header field named X-Forwarded-For described in RFC 7239, and what about the constant MAX_HEADER_SIZE?"
+anchors = ["X-Forwarded-For", "7239", "MAX_HEADER_SIZE"]
+
+[[question]]
+id = "g17"
+text = 'What does section 6.5.2 of RFC9110 say about the "must-revalidate" cache directive?'
+anchors = ["6.5.2", "RFC9110", "must-revalidate"]
+
+[[question]]
+id = "g18"
+text = "Does firmware v2.3.0-rc1 for the TP-Link Archer AX6000 fix the crash logged as errno ETIMEDOUT?"
+anchors = ["v2.3.0-rc1", "AX6000", "ETIMEDOUT"]
+
+[[question]]
+id = "g19"
+text = "In RFC 793, is the three-way handshake described in section 3.4, and does it still apply after 40 years?"
+anchors = ["793", "3.4"]
+
+[[question]]
+id = "g20"
+text = "What hex value does the tcp_flags_mask field use for the SYN flag, as defined by RFC 9293?"
+anchors = ["tcp_flags_mask", "9293"]
+
+[[question]]
+id = "m01"
+text = "How many round trips does a TLS handshake typically need before the client can send application data?"
+anchors = []
+
+[[question]]
+id = "m02"
+text = "Why do some firewalls silently drop UDP packets larger than 1500 bytes?"
+anchors = []
+
+[[question]]
+id = "m03"
+text = "Is it normal for a DHCP lease to last about 24 hours by default?"
+anchors = []
+
+[[question]]
+id = "m04"
+text = "Does enabling OAuth for the API always require a redirect URI?"
+anchors = []
+
+[[question]]
+id = "m05"
+text = "Why did my iOS device stop syncing over WebRTC after the last update?"
+anchors = []
+
+[[question]]
+id = "m06"
+text = "What's the practical difference between a stateful and a stateless firewall?"
+anchors = []
+
+[[question]]
+id = "m07"
+text = "Since around 2019, have most browsers stopped trusting certificates signed with weaker hash algorithms?"
+anchors = []
+
+[[question]]
+id = "m08"
+text = "Would upgrading our office switch cost more than $40 per port?"
+anchors = []
+
+[[question]]
+id = "m09"
+text = "Does a router with only 16 GB of onboard storage have enough room for firmware updates?"
+anchors = []
+
+[[question]]
+id = "m10"
+text = "Is a 5GHz wireless band always faster than a 2.4GHz one in a crowded office?"
+anchors = []
+
+[[question]]
+id = "m11"
+text = "Can a load balancer really promise 99.9% uptime without redundant links?"
+anchors = []
+
+[[question]]
+id = "m12"
+text = "If the 3rd retry still times out, should the client give up entirely?"
+anchors = []
+
+[[question]]
+id = "m13"
+text = "How long should a client wait, roughly 30 minutes, before refreshing a stale DNS cache entry?"
+anchors = []
+
+[[question]]
+id = "m14"
+text = "Does adding 2FA to the login flow noticeably slow down authentication?"
+anchors = ["2FA"]
+
+[[question]]
+id = "m15"
+text = "Why would a server reject a connection after 5 failed retries in a row?"
+anchors = []
+
+[[question]]
+id = "m16"
+text = "Does macOS handle background networking differently from most Linux distributions?"
+anchors = []
+
+[[question]]
+id = "m17"
+text = "Is it worth mirroring our GitHub repository to a private GitLab instance for backups?"
+anchors = []
+
+[[question]]
+id = "m18"
+text = "How does PostgreSQL handle connection pooling compared to a typical in-memory cache?"
+anchors = []
+
+[[question]]
+id = "m19"
+text = "What advantages does DoH have over traditional plaintext DNS lookups?"
+anchors = []
+
+[[question]]
+id = "m20"
+text = "Would switching to IPsec instead of a plain VPN tunnel improve throughput noticeably?"
+anchors = []

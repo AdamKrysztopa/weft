@@ -12,23 +12,30 @@ The forty-question gate is `39.1`'s and reads a fixture this file does not.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import pytest
 from pydantic import ValidationError
 
 import weft_retrieve
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.discovery import PackRegistrar
-from weft_kernel.payload import Produced
+from weft_kernel.payload import Failed, Outcome, Produced
 from weft_kernel.registry import Registry
-from weft_retrieve.contract import QueryTransform
+from weft_llm.contract import LLM
+from weft_llm.payload import Completion, Rendered
+from weft_prompts.contract import Prompt
+from weft_retrieve.contract import QueryTransform, StageLookup
 from weft_retrieve.intent_and_anchors import (
     NAME,
     AnchorKind,
+    AnchorMethod,
     IntentAndAnchors,
     IntentAndAnchorsConfig,
     find_anchors,
 )
 from weft_retrieve.payload import Channel, Query, QueryOrigin, QuerySet
+from weft_retrieve.prompts import QUESTION_ANCHORS_NAME, QuestionAnchorsPrompt
 from weft_store.contract import Filter, FilterOp
 
 
@@ -245,3 +252,200 @@ def test_register_adds_intent_and_anchors_under_the_query_transform_contract() -
     # Assert
     assert NAME == "intent-and-anchors"
     assert isinstance(registry.entry(QueryTransform, NAME).factory(None), IntentAndAnchors)
+
+
+class _StubLLM:
+    """An `LLM` answering tier 2 of the cascade from a script — `test_transforms.py`'s own."""
+
+    def __init__(self, replies: list[str]) -> None:
+        self._replies = replies
+        self.calls = 0
+        self.roles: list[str] = []
+
+    async def native_structured_available(self, role: str) -> bool:
+        del role
+        return False
+
+    async def complete_structured(
+        self, rendered: Rendered, schema: Mapping[str, object], *, role: str, ctx: Context
+    ) -> Outcome[Completion]:
+        raise AssertionError("tier 1 is unavailable on this stub and must not be reached")
+
+    async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
+        del rendered, ctx
+        self.roles.append(role)
+        reply = self._replies[min(self.calls, len(self._replies) - 1)]
+        self.calls += 1
+        return Produced(value=Completion(text=reply, model="stub-model"))
+
+    async def close(self) -> None: ...
+
+
+class _StubLookup:
+    """A `StageLookup` holding this pack's own prompts — `test_transforms.py`'s own."""
+
+    def __init__(self, prompts: Mapping[str, object]) -> None:
+        self._prompts = prompts
+        self.asked: list[str] = []
+
+    def names(self, contract: type[object]) -> frozenset[str]:
+        del contract
+        return frozenset(self._prompts)
+
+    async def build(self, contract: type[object], name: str, config: object = None) -> object:
+        raise AssertionError("this plugin resolves a capability by name, never a stage")
+
+    async def build_capability(
+        self, contract: type[object], name: str, config: object = None
+    ) -> object:
+        del contract, config
+        self.asked.append(name)
+        return self._prompts[name]
+
+
+def _model_ctx(llm: _StubLLM) -> Context:
+    services = ServiceRegistry()
+    services.add(LLM, llm)
+    services.add(StageLookup, _StubLookup({QUESTION_ANCHORS_NAME: QuestionAnchorsPrompt()}))
+    return Context(
+        tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en", services=services
+    )
+
+
+def _by_model() -> IntentAndAnchors:
+    return IntentAndAnchors(IntentAndAnchorsConfig(method=AnchorMethod.MODEL))
+
+
+async def test_the_model_method_turns_each_anchor_it_names_into_a_text_arm_query() -> None:
+    # Arrange
+    llm = _StubLLM(['{"anchors": ["ETIMEDOUT", "X-Forwarded-For"]}'])
+    asked = _asked("does ETIMEDOUT mean the X-Forwarded-For header was dropped after 30 seconds")
+
+    # Act
+    outcome = await _by_model().run(asked, _model_ctx(llm))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    intent, *anchors = outcome.value.queries
+    assert intent.text == asked.origin.text
+    assert tuple(intent.channels) == (Channel.VECTOR.value,)
+    assert [query.text for query in anchors] == ["ETIMEDOUT", "X-Forwarded-For"]
+    assert all(tuple(query.channels) == (Channel.TEXT.value,) for query in anchors)
+    assert all(query.produced_by == NAME for query in anchors)
+    assert llm.calls == 1
+
+
+async def test_the_model_method_asks_under_its_own_role() -> None:
+    # Arrange
+    llm = _StubLLM(['{"anchors": []}'])
+
+    # Act
+    await _by_model().run(_asked("is a 5 GHz band faster"), _model_ctx(llm))
+
+    # Assert
+    assert llm.roles == ["anchors"]
+
+
+async def test_the_model_naming_no_anchor_asks_the_text_arm_nothing() -> None:
+    # Arrange
+    llm = _StubLLM(['{"anchors": []}'])
+    asked = _asked("is a 5 GHz band always faster in a crowded office")
+
+    # Act
+    outcome = await _by_model().run(asked, _model_ctx(llm))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert len(outcome.value.queries) == 1
+    assert all(Channel.TEXT.value not in query.channels for query in outcome.value.queries)
+
+
+async def test_an_anchor_the_question_does_not_contain_fails_rather_than_being_searched() -> None:
+    # Arrange — a lexical search for a span the user never typed is a hallucination searched
+    # exactly, which is worse than no anchor at all.
+    llm = _StubLLM(['{"anchors": ["ETIMEDOUT", "ECONNRESET"]}'])
+    asked = _asked("what does ETIMEDOUT mean")
+
+    # Act
+    outcome = await _by_model().run(asked, _model_ctx(llm))
+
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "ECONNRESET" in outcome.reason
+    assert "does not contain" in outcome.reason
+
+
+async def test_a_repeated_model_anchor_is_searched_once() -> None:
+    # Arrange
+    llm = _StubLLM(['{"anchors": ["AX6000", "AX6000"]}'])
+
+    # Act
+    outcome = await _by_model().run(_asked("AX6000 or AX6000 v2"), _model_ctx(llm))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [query.text for query in outcome.value.queries[1:]] == ["AX6000"]
+
+
+def test_entities_are_refused_beside_the_model_method_because_it_would_ignore_them() -> None:
+    # Act / Assert
+    with pytest.raises(ValidationError, match="entities"):
+        IntentAndAnchorsConfig(method=AnchorMethod.MODEL, entities=("Kerberos",))
+
+
+def test_the_rule_is_the_default_so_no_model_is_called_unless_asked() -> None:
+    # Act
+    config = IntentAndAnchorsConfig()
+
+    # Assert
+    assert config.method is AnchorMethod.RULE
+    assert AnchorKind.EXTRACTED.value == "extracted"
+
+
+def test_register_adds_the_question_anchors_prompt() -> None:
+    # Arrange
+    registry = Registry()
+    registrar = PackRegistrar(registry, distribution="weft-rag")
+
+    # Act
+    weft_retrieve.register(registrar, weft_retrieve.Settings())
+    registrar.commit()
+
+    # Assert
+    assert QUESTION_ANCHORS_NAME == "question-anchors"
+    assert isinstance(
+        registry.entry(Prompt, QUESTION_ANCHORS_NAME).factory(None), QuestionAnchorsPrompt
+    )
+
+
+async def test_the_model_may_recombine_words_the_user_typed() -> None:
+    # Arrange — recall first (G24, reversed 2026-09-18): `TLS 1.2` is not a span of the question,
+    # but every word of it is, so it is searched rather than losing the question's anchors.
+    llm = _StubLLM(['{"anchors": ["TLS 1.3", "TLS 1.2"]}'])
+    asked = _asked("Is TLS 1.3 backwards compatible with 1.2?")
+
+    # Act
+    outcome = await _by_model().run(asked, _model_ctx(llm))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [query.text for query in outcome.value.queries[1:]] == ["TLS 1.3", "TLS 1.2"]
+
+
+@pytest.mark.parametrize(
+    ("named", "searched"),
+    [("getSocketOpt()", "getSocketOpt"), ("6335's", "6335")],
+)
+async def test_call_parentheses_and_a_possessive_are_not_part_of_what_is_searched(
+    named: str, searched: str
+) -> None:
+    # Arrange
+    llm = _StubLLM([f'{{"anchors": ["{named}"]}}'])
+    asked = _asked("does getSocketOpt() read RFC 6335's registry")
+
+    # Act
+    outcome = await _by_model().run(asked, _model_ctx(llm))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [query.text for query in outcome.value.queries[1:]] == [searched]
