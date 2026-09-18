@@ -1,0 +1,16 @@
+name: dedupe-then-generate
+extends: retrieve-then-generate
+
+# A one-operator rung: the retrieval is unchanged and near-duplicate passages are dropped
+# before `repack` decides where in the prompt the survivors sit — `weft_retrieve.
+# shingle_resemblance`'s own module docstring carries the measure and both constants' sources.
+vars:
+  route.summary: >-
+    One vector search, then a passage whose wording nearly repeats a higher-ranked one already
+    kept is dropped before the answer is written. For a corpus where near-duplicate chunks would
+    otherwise crowd the same evidence into several slots of the prompt.
+  route.cost: "one embedding call, one search, one model call"
+
+insert:
+  - after: fuse
+    stage: {id: dedupe, use: shingle-resemblance}

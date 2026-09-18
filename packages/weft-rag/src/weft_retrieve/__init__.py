@@ -264,6 +264,8 @@ from weft_retrieve.routing import (
     ThresholdLadder,
     ThresholdLadderConfig,
 )
+from weft_retrieve.shingle_resemblance import NAME as SHINGLE_RESEMBLANCE_NAME
+from weft_retrieve.shingle_resemblance import ShingleResemblance
 from weft_retrieve.sufficiency import (
     DEFAULT_HEDGE_MARKERS,
     HEDGE_PHRASES_NAME,
@@ -399,6 +401,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Reranker, MMR_NAME, Mmr)
     registrar.add(Sufficiency, LLM_SUFFICIENCY_NAME, LlmSufficiency)
     registrar.add(Sufficiency, HEDGE_PHRASES_NAME, HedgePhrases)
+    registrar.add(Reranker, SHINGLE_RESEMBLANCE_NAME, ShingleResemblance)
     registrar.add(ContextPacker, REPACK_NAME, Repack)
     registrar.add(ContextPacker, POSTQFRAP_NAME, PostQfrapPacker)
     registrar.add(QueryTransform, CONTEXTUAL_QUERY_REWRITE_NAME, ContextualQueryRewrite)
@@ -531,6 +534,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/preview-markdown.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-score.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-fixed.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/dedupe-then-generate.yaml")
 
 
 __all__ = [
