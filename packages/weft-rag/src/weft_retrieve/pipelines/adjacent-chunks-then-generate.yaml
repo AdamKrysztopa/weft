@@ -1,0 +1,28 @@
+name: adjacent-chunks-then-generate
+extends: retrieve-then-generate
+
+# A one-operator rung on the widening side: the retrieval and its ordering are unchanged, and
+# each hit is widened by its own same-parent neighbours before `pack` chooses where each
+# passage sits. For a question whose answer needs the sentence either side of the single window
+# that matched it, not a wider search.
+#
+# `top_n: 24` overrides the inherited `8` — the default `window: 1` can add up to two neighbours
+# per hit, so eight surviving hits could otherwise expand to twenty-four passages only for
+# `pack` to immediately drop most of them back down to eight, discarding what this stage just
+# added (see `weft_retrieve.adjacent_chunks`'s own module docstring). `set:` overrides `pack`'s
+# `with:` in place rather than naming a different plugin, merged over the inherited
+# `{method: reverse, top_n: 8}`.
+vars:
+  route.summary: >-
+    One vector search, then each hit is widened by up to one same-parent chunk on either side
+    before the answer is written. For a question whose answer needs the sentence beside the one
+    that matched, not a wider search.
+  route.cost: >-
+    one embedding call, one search, one store read for neighbours, and one model call
+
+insert:
+  - after: fuse
+    stage: {id: expand, use: adjacent-chunks}
+
+set:
+  - {id: pack, with: {top_n: 24}}

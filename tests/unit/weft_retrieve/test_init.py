@@ -208,8 +208,11 @@ def test_the_pack_imports_exactly_the_packs_whose_types_its_contracts_name() -> 
     # into a vector through `weft_embed.contract.Embedder` before it can search for one.
     # `weft_llm` and `weft_prompts` joined at task 2.7: `llm-rerank` asks a model a registered
     # prompt, and both are upstream of this pack on `.phase2-design.md` §2's one-way chain.
+    # `weft_chunk` joined at task 32.3: `adjacent-chunks` reads the chunker's own
+    # `ChunkPosition` to find a hit's siblings, and `weft_chunk` depends on the kernel alone.
     # Read from imports rather than from a manifest — see `_first_party_imports`.
     assert _first_party_imports("weft_retrieve") == {
+        "weft_chunk",
         "weft_kernel",
         "weft_store",
         "weft_embed",

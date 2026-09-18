@@ -96,6 +96,8 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_kernel.discovery import PackRegistrar
 from weft_prompts.contract import Prompt
+from weft_retrieve.adjacent_chunks import NAME as ADJACENT_CHUNKS_NAME
+from weft_retrieve.adjacent_chunks import AdjacentChunks, AdjacentChunksConfig
 from weft_retrieve.boolean import NAME as BOOLEAN_RETRIEVAL_NAME
 from weft_retrieve.boolean import (
     BooleanPlan,
@@ -398,6 +400,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Reranker, LLM_RERANK_NAME, LlmRerank)
     registrar.add(Reranker, GRADED_RETRIEVAL_NAME, GradedRetrieval)
     registrar.add(Reranker, COLLAPSE_TO_PARENT_NAME, CollapseToParent)
+    registrar.add(Reranker, ADJACENT_CHUNKS_NAME, AdjacentChunks)
     registrar.add(Reranker, MMR_NAME, Mmr)
     registrar.add(Sufficiency, LLM_SUFFICIENCY_NAME, LlmSufficiency)
     registrar.add(Sufficiency, HEDGE_PHRASES_NAME, HedgePhrases)
@@ -535,9 +538,13 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-score.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-fixed.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/dedupe-then-generate.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/adjacent-chunks-then-generate.yaml")
 
 
 __all__ = [
+    "ADJACENT_CHUNKS_NAME",
+    "AdjacentChunks",
+    "AdjacentChunksConfig",
     "ALWAYS_NAME",
     "BOOLEAN_COMBINE_NAME",
     "HYBRID_NAME",
