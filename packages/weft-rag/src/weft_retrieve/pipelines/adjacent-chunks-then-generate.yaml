@@ -26,3 +26,4 @@ insert:
 
 set:
   - {id: pack, with: {top_n: 24}}
+  - {id: generate, with: {max_passages: 24}}

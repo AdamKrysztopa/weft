@@ -9,11 +9,19 @@ the budget ever ran (the decision agent's finding at the opening).
 
 from pathlib import Path
 
+import pytest
+
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_engine import registry_bootstrap
-from weft_kernel.resolution import ResolvedPipeline
+from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 
 _NAME = "context-construction-then-generate"
+
+
+def _int_field(stage: ResolvedStage, name: str) -> int:
+    value = getattr(stage.config, name)
+    assert isinstance(value, int)
+    return value
 
 
 def _resolved(tmp_path: Path) -> ResolvedPipeline:
@@ -52,3 +60,24 @@ def test_mmr_selects_before_expansion_so_the_widened_list_is_bounded(tmp_path: P
 
     # Assert — without a `top_n` on `mmr`, expansion would widen every retrieved hit.
     assert getattr(diversify.config, "top_n", None) is not None
+
+
+@pytest.mark.parametrize(
+    "name", ["adjacent-chunks-then-generate", "context-construction-then-generate"]
+)
+def test_the_generator_reads_every_passage_packing_kept(tmp_path: Path, name: str) -> None:
+    """`32.10`'s first run: `cited-answer` reads at most `max_passages` (8) from the front of
+    what `repack` hands it, and `method: reverse` puts the best passage last — so the widened
+    24 were cut to the eight worst, and both arms scored far below the baseline for it."""
+    # Arrange
+    config = tmp_path / "weft.toml"
+    config.write_text("", encoding="utf-8")
+    deps = registry_bootstrap.build_dependencies(config_path=config)
+
+    # Act
+    stages = resolve_named_pipeline(name, registry=deps.registry, reports=deps.reports).stages
+    pack = next(stage for stage in stages if stage.use == "repack")
+    generate = next(stage for stage in stages if stage.use == "cited-answer")
+
+    # Assert
+    assert _int_field(generate, "max_passages") >= _int_field(pack, "top_n")

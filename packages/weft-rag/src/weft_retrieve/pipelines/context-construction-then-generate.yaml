@@ -5,7 +5,8 @@ extends: retrieve-then-generate
 # by relevance against novelty, widen each by its neighbours after selection so they never compete
 # for a slot, then pack whole passages under a token budget of the generator's own model.
 # `repack`'s inherited `top_n: 8` would cut the widened list back before the budget ran, so it is
-# lifted to 24 (eight hits, up to two neighbours each) and the budget decides.
+# lifted to 24 (eight hits, up to two neighbours each) and the budget decides; `cited-answer` reads
+# `max_passages` from the front of what `reverse` packed, so it is lifted to match or the best go.
 vars:
   route.summary: >-
     One vector search; near-duplicate passages dropped, eight chosen for relevance and variety,
@@ -26,3 +27,4 @@ insert:
 
 set:
   - {id: pack, with: {top_n: 24, budget_tokens: 6000}}
+  - {id: generate, with: {max_passages: 24}}
