@@ -45,26 +45,25 @@ for a second caller) until G17 added a third consumer, `weft_clean`, which share
 import with either of the first two — only `weft-kernel`. This module now imports it from
 there rather than from a sibling pack.
 
-**A window no longer records where it starts — repair `R17.1`, 2026-09-12.** This chunker
-attached `weft_chunk.payload.ChunkOffset` to every window, and ledger 2.9's repair made that
-offset compound across nested chunking so it stayed root-relative for `weft_pdf.PdfPages.
-page_at` to resolve. **G17** retired that reader: a page became a scalar fact on the node it
-describes (`weft_extract.payload.PageSpan`), carried forward above like any other, and no
-caller has asked where a window begins since. A field a persisted record carries and nothing
-renders is deleted rather than held for a reader that may arrive (`R9.11`'s rule, `L5.19`),
-so the offset, its ext model and the compounding repair are all gone. A pack that later needs
-a chunk's position in its parent adds it back as its own `ExtModel`, with the reader in the
-same commit.
+**A window's position is back, as `ChunkPosition` — ledger `32.1`.** `R17.1` withdrew the
+predecessor `ChunkOffset` because nothing read it; this one is read by `adjacent-chunks`
+(`32.3`), which fetches a hit's siblings by ordinal through the Filter AST. It is attached
+*after* `carry_forward`, so it wins over whatever position the parent carried — a node
+derived without re-chunking (a cleaning pass) keeps its chunk's position via `carry_forward`
+like any other namespace, and a further chunking pass replaces it with its own.
 """
 
 from collections.abc import Sequence
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from weft_chunk.payload import ChunkPosition
 from weft_chunk.property import WordBoundaries
 from weft_kernel.context import Context
 from weft_kernel.payload import (
     Applies,
+    ExtModel,
     MediaType,
     Node,
     NothingToProduce,
@@ -115,6 +114,7 @@ class FixedSizeChunker:
     #: table's cell grid or an image's caption would not honour either shape, so `TEXT` is the
     #: one media type this splitting logic can claim.
     applies_to: tuple[Applies, ...] = (Applies(media_type=MediaType.TEXT),)
+    provides: ClassVar[tuple[type[ExtModel], ...]] = (ChunkPosition,)
     config_model: type[FixedSizeChunkerConfig] = FixedSizeChunkerConfig
 
     def __init__(self, config: FixedSizeChunkerConfig | None = None) -> None:
@@ -141,7 +141,9 @@ def _windows(node: Node, *, size: int, overlap: int) -> list[Node]:
     start = 0
     while start < len(text):
         piece = text[start : start + size]
-        windows.append(carry_forward(node.derive(content=piece, ordinal=ordinal), parent=node))
+        window = carry_forward(node.derive(content=piece, ordinal=ordinal), parent=node)
+        window = window.with_ext(ChunkPosition(ordinal=ordinal, start=start))
+        windows.append(window)
         ordinal += 1
         start += step
     return windows

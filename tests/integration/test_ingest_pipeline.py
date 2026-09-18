@@ -39,9 +39,11 @@ import pytest
 from pydantic import SecretStr
 
 from weft_chunk import Chunker, FixedSizeChunker
+from weft_chunk.payload import ChunkPosition
 from weft_embed import Embedder, HashEmbedder
 from weft_extract import Extractor, TextExtractor, discover_source_docs
 from weft_kernel.context import Context
+from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import MediaType, Node, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Runner, StageSpec
@@ -90,12 +92,18 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     def store_factory(_config: object) -> PgVectorStore:
         return store
 
-    # No `register_from_reports` call any more. `weft-chunk` declared exactly one `ExtModel`,
-    # `ChunkOffset`, and `R17.1` withdrew it once G17 left it with no reader — so this pipeline's
-    # chunks now carry no namespace at all and there is nothing here to make rehydratable. The
-    # obligation ledger 6.17 named is not gone, only currently empty: a hand-built `Registry` runs
-    # no pack's `register()`, so the moment a stage in this fixture attaches an `ExtModel` again,
-    # that class has to be registered here or reading a node back fails (`L5.21`, `L6.28`).
+    # A hand-built `Registry` runs no pack's `register()`, so `fixed-size`'s `ChunkPosition`
+    # (ledger `32.1`) is made rehydratable here or reading a node back fails (`L5.21`, `L6.28`).
+    register_from_reports(
+        [
+            PackReport(
+                pack="weft-chunk",
+                distribution="weft-chunk",
+                status=PackStatus.ACTIVE,
+                ext_models=(ChunkPosition,),
+            )
+        ]
+    )
     registry = Registry()
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")

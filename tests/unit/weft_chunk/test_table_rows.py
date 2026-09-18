@@ -23,6 +23,7 @@ touch it.
 import pytest
 
 from weft_chunk.contract import Chunker
+from weft_chunk.payload import ChunkPosition
 from weft_chunk.table_rows import NAME, TableRowChunker, TableRowChunkerConfig
 from weft_extract.payload import BoundingBox, TableGrid
 from weft_extract.table_text import index_text
@@ -98,7 +99,7 @@ def test_it_declares_the_fact_it_reads() -> None:
 
 
 def test_it_declares_the_fact_it_attaches() -> None:
-    assert TableRowChunker.provides == (TableGrid,)
+    assert TableRowChunker.provides == (TableGrid, ChunkPosition)
 
 
 async def test_the_table_survives_alongside_its_rows() -> None:

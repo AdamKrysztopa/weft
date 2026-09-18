@@ -10,12 +10,13 @@ parses, validates, binds through `functools.partial`, and reaches the database. 
 harness exists to catch: `iterative_scan = "off"` and `= "relaxed_order"` returning *identical*
 recall, which means the GUC never reached the server.
 
-The ladder is `lineage.sources`, not Phase 29's `ext` bucket: the shipped ingest path attaches no
-`ext` at all (`weft_chunk/__init__.py:10 "This pack contributes no"`), so of the five core
-filterable fields
-(`weft_store/fields.py` `NodeField`) only `lineage.sources` is graded and writable in advance.
-Selectivity comes from indexing the corpus in nested slices and reading each rung's true size from
-`weft index`'s own `nodes now stored: N.` line — never a `count(*)`.
+The ladder is `lineage.sources`, not Phase 29's `ext` bucket: when this harness was built
+(Phase 31) the shipped ingest path attached no `ext` at all, so of the five core filterable
+fields
+(`weft_store/fields.py` `NodeField`) only `lineage.sources` is graded and writable in advance;
+`32.1`'s chunk position is an ordinal within one parent, not a graded bucket. Selectivity comes
+from indexing the corpus in nested slices and reading each rung's true size from `weft index`'s
+own `nodes now stored: N.` line — never a `count(*)`.
 
 **Two pipeline documents, and they are never the same one.** `weft index --pipeline` names an
 *ingest* document (extract/chunk/embed/store) and `weft ask --retrieve-only --pipeline` names a

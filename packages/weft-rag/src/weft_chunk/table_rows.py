@@ -24,12 +24,14 @@ rule, the identical mechanism applied to the one media type that understands a g
 second formatter written here — see that function's docstring for why two renderings of
 one row must never be free to drift. Each child then carries forward what its parent's
 `ext` said (`weft_kernel.payload.carry_forward`, minus `SyntheticOrigin`) and, last, its own
-one-row `TableGrid` — attached after the carry so it wins over the parent's whole-table
-grid in the same namespace. `spans` and `caption` are deliberately **not** carried into a
-row's own grid: a `CellSpan` describes a merge across the table's whole geometry, which
-one row does not have, and the caption belongs to the table — repeating it into fifty rows
-would swamp the header terms the measured gain above actually comes from, and the parent
-node still carries it, one `lineage.parents` filter away.
+one-row `TableGrid` and its `ChunkPosition` (`32.1`) — attached after the carry so they win
+over whatever the parent carried in the same namespace. `spans` and `caption` are
+deliberately **not** carried into a row's own grid: a `CellSpan` describes a merge across
+the table's whole geometry, which one row does not have, and the caption belongs to the
+table — repeating it into fifty rows would swamp the header terms the measured gain above
+actually comes from, and the parent node still carries it, one `lineage.parents` filter
+away. `ChunkPosition.start` is `None` for a row: a row has no character span in its parent,
+only an ordinal.
 
 **`MediaType.TABLE` on every row, never `TEXT`.** `TEXT` would route each row straight
 into `fixed-size`, which slices on characters with no notion of a row boundary and would
@@ -41,6 +43,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
 
+from weft_chunk.payload import ChunkPosition
 from weft_extract.payload import TableGrid
 from weft_extract.table_text import row_text
 from weft_kernel.context import Context
@@ -88,7 +91,7 @@ class TableRowChunker:
     #: cell whole — so the empty tuple is the honest declaration, not an omission.
     destroys: tuple[type[Property], ...] = ()
     requires: ClassVar[tuple[type[ExtModel], ...]] = (TableGrid,)
-    provides: ClassVar[tuple[type[ExtModel], ...]] = (TableGrid,)
+    provides: ClassVar[tuple[type[ExtModel], ...]] = (TableGrid, ChunkPosition)
     config_model: type[TableRowChunkerConfig] = TableRowChunkerConfig
 
     def __init__(self, config: TableRowChunkerConfig | None = None) -> None:
@@ -127,7 +130,9 @@ def _rows(node: Node) -> list[Node]:
         # `TableGrid` in the same namespace. No `spans`, no `caption` — see the module
         # docstring for why both are the table's facts, not this row's.
         row_grid = TableGrid(headers=grid.headers, rows=(row,), page=grid.page, bbox=grid.bbox)
-        children.append(child.with_ext(row_grid))
+        child = child.with_ext(row_grid)
+        child = child.with_ext(ChunkPosition(ordinal=index, start=None))
+        children.append(child)
     return children
 
 

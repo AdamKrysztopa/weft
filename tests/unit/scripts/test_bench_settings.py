@@ -15,9 +15,10 @@ this module's own run model. Importing `bench_settings` into that file would mak
 fail at collection while this module does not exist, and it is green today — a masking shape this
 phase has already paid for once (`L23.9`).
 
-The ladder is `lineage.sources`, and nothing in it is invented for this file: the shipped ingest
-path attaches no `ext` at all (`weft_chunk/__init__.py:10 "This pack contributes no"`),
-so `Phase 29`'s bucket column is unavailable and the only graded core field is the one below.
+The ladder is `lineage.sources`, and nothing in it is invented for this file: when this harness
+was built (Phase 31) the shipped ingest path attached no `ext` at all, so `Phase 29`'s bucket
+column was unavailable and the only graded core field is the one below. `32.1`'s chunk position
+is an ordinal within one parent, not a graded bucket, and changes none of that.
 """
 
 from __future__ import annotations

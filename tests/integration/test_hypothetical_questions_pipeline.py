@@ -44,6 +44,7 @@ from pydantic import SecretStr
 
 from weft_chunk import FixedSizeChunker
 from weft_chunk.contract import Chunker
+from weft_chunk.payload import ChunkPosition
 from weft_embed.contract import Embedder
 from weft_extract.contract import Extractor
 from weft_extract.text import discover_source_docs
@@ -258,6 +259,7 @@ async def test_a_question_nobody_wrote_retrieves_its_chunk_and_cites_the_chunk(
     # Arrange — one real paper, extracted and chunked, trimmed to a bounded slice.
     _ensure_rehydrates(PdfPages)
     _ensure_rehydrates(Representation)
+    _ensure_rehydrates(ChunkPosition)
     assert _PAPER.exists(), "corpus/arxiv/1706.07535v1.pdf must be materialised for this test"
     (tmp_path / _PAPER.name).write_bytes(_PAPER.read_bytes())
     docs = discover_source_docs(tmp_path, extensions=PDF_EXTENSIONS)
