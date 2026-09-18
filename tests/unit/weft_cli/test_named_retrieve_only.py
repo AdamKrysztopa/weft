@@ -175,9 +175,9 @@ async def test_a_named_retrieval_pipeline_runs_under_retrieve_only_with_no_model
     )
     assert result.pipeline_name == LEXICAL_PIPELINE
     assert [hit.content for hit in result.hits] == [
-        "a loom holds the warp",
         "the weft crosses the warp",
-    ], "the passages are the text arm's, in the order the packer put them in"
+        "a loom holds the warp",
+    ], "the text arm's passages, best first — `R40.1`: by ranking, not by where `reverse` packed"
 
 
 async def test_retrieve_only_refuses_a_pipeline_that_ends_in_a_generator() -> None:

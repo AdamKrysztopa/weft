@@ -978,7 +978,7 @@ class AskCommand:
                 format=ask_args.format,
                 pipeline_name=pipeline_name,
                 answer=None,
-                hits=hits_for([passage.scored for passage in passages.passages]),
+                hits=hits_for([p.scored for p in sorted(passages.passages, key=lambda p: p.rank)]),
                 records=record_lines(passages.ext) if ask_args.explain else (),
             )
         )
