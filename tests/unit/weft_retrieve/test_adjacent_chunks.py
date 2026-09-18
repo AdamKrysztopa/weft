@@ -226,3 +226,10 @@ async def test_an_empty_ranking_passes_through_without_reading_the_store() -> No
     assert isinstance(outcome, Produced)
     assert outcome.value.hits == ()
     assert store.queries == 0
+
+
+def test_it_says_what_its_scores_mean() -> None:
+    """`weft ask --explain` printed "adjacent-chunks did not say what its score means" at
+    `32.13`'s exit: a neighbour carries its anchor hit's score, which is not a similarity."""
+    # Act / Assert
+    assert "neighbour" in AdjacentChunks.score_semantics

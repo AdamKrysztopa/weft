@@ -2269,6 +2269,30 @@ store = "pgvector"
 — and re-indexing is not optional, because the corpus does not move with the key: a store you have
 never written to answers every question with nothing and reports no error while doing it.
 
+**A reranker needing `MetadataFilter` fires here too** — `adjacent-chunks` (`weft_retrieve.
+adjacent_chunks`) declares `needs_store: ClassVar[tuple[type, ...]] = (MetadataFilter,)`, so a
+stage naming it against a store that cannot evaluate a metadata filter refuses at run assembly,
+before the stage itself ever runs — message from the source, not reproduced against a real store,
+because both shipped stores (`pgvector`, `memory`) satisfy `MetadataFilter` and this needs a
+third-party one that does not:
+
+```text
+stage 'widen' names 'adjacent-chunks', which needs MetadataFilter from the store, and the
+configured store 'acme-store' does not provide it. 'acme-store' advertises: VectorSearch.
+Registered stores that do provide MetadataFilter: 'pgvector' (weft-store). Nothing here adapts or
+degrades — a run that asked for a capability does not quietly proceed without it.
+```
+
+`AdjacentChunks.run` carries its own `isinstance(store, MetadataFilter)` check as well, with its own
+message ("'adjacent-chunks' needs a store that can evaluate a metadata filter to find a hit's
+siblings by ordinal, and `<StoreClass>` does not provide it. Configure a store that satisfies
+MetadataFilter.") — but under `weft ask` and `weft index` you will never see it: `needs_store`
+means `check_store_capabilities` above catches the identical gap first, one layer out, before the
+stage runs at all. That in-stage check only fires for the other audience this page names in its
+intro — a caller driving `AdjacentChunks.run` directly against a hand-built `Context`, bypassing
+run assembly entirely. **What to do:** the same fourth fix as above — name a store providing
+`MetadataFilter` in `[services] store` and re-index.
+
 ### `MalformedNeedsStoreError`
 
 **What it looks like** — a plugin's `needs_store` is not a tuple of capability Protocols:
@@ -2363,7 +2387,63 @@ raised LLMAuthenticationError: invalid API key
 This is the real reason a stage gave, translated rather than swallowed — the same discipline every
 other `Outcome`-to-exception translation in this tree follows: nothing here invents a second message
 for a fact a stage already stated plainly. **What to do:** read the reason the message quotes; it
-almost always names the actual failing stage and pack.
+almost always names the actual failing stage and pack. Three reasons worth knowing by name:
+
+**A hit with no recorded chunk position** — `adjacent-chunks` reads each hit's
+`weft_chunk.payload.ChunkPosition` to find its ordinal among siblings, and a node indexed before
+positions were recorded carries none. Reproduced from a corpus indexed by a release before ledger
+**32.1**:
+
+```text
+$ weft ask --pipeline context-construction-then-generate "…"
+pipeline 'context-construction-then-generate' did not produce: 'adjacent-chunks' needs a recorded
+chunk position for node 2b9931e2…, and it carries none. The corpus was indexed before chunk
+positions were recorded — run `weft index --reprocess` over it.
+$ echo $?
+4
+```
+
+**What to do:** re-index with `--reprocess`, which rewrites every node's recorded extension facts
+(`ChunkPosition` included) under the same node ids, so citations and passage labels stay valid:
+
+```text
+$ weft index ./corpus --pipeline index-text --reprocess
+9 documents: 9 indexed, 0 unchanged. nodes now stored: 107.
+```
+
+— after which the same `weft ask` prints a cited answer, exit `0`.
+
+**A token budget smaller than the best passage** — `repack`'s own reason, when `budget_tokens`
+cannot fit even the single best passage. Reproduced with a document setting `budget_tokens: 10`:
+
+```text
+pipeline 'tiny-budget' did not produce: 'repack': the best passage alone counts 158 tokens against
+a budget of 10 tokens — raise budget_tokens or lower chunk size.
+$ echo $?
+4
+```
+
+Refused rather than packing nothing: an empty context reads downstream exactly like "not in this
+corpus" — a wrong answer indistinguishable from a corpus that genuinely has no relevant passage.
+**What to do:** raise `budget_tokens`, or lower the chunker's chunk size so a single passage fits
+within the budget you have.
+
+**A hit that arrives without a stored vector** — `mmr` scores relevance and novelty from each
+hit's own stored embedding and refuses by name rather than treating a missing one as maximally
+dissimilar or irrelevant. Not reproduced against a real store; message from the source
+(`weft_retrieve.mmr`):
+
+```text
+'mmr' scores relevance and novelty from stored vectors, and 1 hit(s) arrived with no stored
+embedding: sha256:1b4f….
+```
+
+This reaches `mmr` from a retriever or an earlier reranker that never attached a vector to that
+hit — `weft_store.pgvector_store.PgVectorStore.search_vector` only ever returns nodes whose
+`embedding` column is not null, so a hit that came in through `search_text` alone, or through a
+corpus indexed with no embedder configured, is the usual source. **What to do:** put `mmr` after a
+stage whose search returns stored vectors — `vector-top-k`, or the vector side of a fused hybrid
+ranking — rather than after a text-only retrieval path.
 
 ---
 

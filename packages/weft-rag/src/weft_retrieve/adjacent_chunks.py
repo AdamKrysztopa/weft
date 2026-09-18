@@ -63,6 +63,10 @@ class AdjacentChunks:
 
     config_model: ClassVar[type[AdjacentChunksConfig]] = AdjacentChunksConfig
     needs_store: ClassVar[tuple[type, ...]] = (MetadataFilter,)
+    score_semantics: ClassVar[str] = (
+        "a retrieved hit keeps its own score; each added neighbour carries the score of the hit "
+        "that brought it, so neighbours tie with their anchor and are not ranked by similarity"
+    )
     cost_bound: ClassVar[tuple[int, int]] = (0, 0)
 
     def __init__(self, config: AdjacentChunksConfig | None = None) -> None:
