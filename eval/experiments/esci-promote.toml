@@ -1,0 +1,37 @@
+# Phase 40 task 40.8 on esci: `anchor-promote` and its oracle control, each replayed over the frozen
+# fifty-chunk dense pool `esci-pool.toml` captured, against the same pool unreordered. No search and no
+# model call: every arm reads the manifest (kept under the ignored corpus/pools/), so all three score
+# identical questions over identical chunks. Deterministic, so each runs once (L24.9). Exploratory
+# on reused benchmarks (`eval/pool-promotion/protocol.toml`).
+
+[experiment]
+schema = 1
+name = "esci-promote"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = [1, 5, 10]
+metrics = ["mrr@5", "recall@1", "recall@5", "recall@10", "ndcg@10"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "replay-identity"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+repeats = 1
+
+[[arm]]
+name = "anchor-promote"
+pipeline = "index-openai-large"
+query_pipeline = "replay-anchor-promote"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+repeats = 1
+
+[[arm]]
+name = "oracle-anchor-promote"
+pipeline = "index-openai-large"
+query_pipeline = "replay-oracle-esci"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+repeats = 1

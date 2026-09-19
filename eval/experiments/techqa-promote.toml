@@ -1,0 +1,37 @@
+# Phase 40 task 40.8 on techqa: `anchor-promote` and its oracle control, each replayed over the frozen
+# fifty-chunk dense pool `techqa-pool.toml` captured, against the same pool unreordered. No search and no
+# model call: every arm reads the manifest (kept under the ignored corpus/pools/), so all three score
+# identical questions over identical chunks. Deterministic, so each runs once (L24.9). Exploratory
+# on reused benchmarks (`eval/pool-promotion/protocol.toml`).
+
+[experiment]
+schema = 1
+name = "techqa-promote"
+questions = "../../corpus/techqa-questions.toml"
+corpus = "../../corpus/techqa"
+manifest = "../../corpus/techqa.toml"
+repeats = 2
+top_k = [1, 5, 10]
+metrics = ["mrr@5", "recall@1", "recall@5", "recall@10", "ndcg@10"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "replay-identity"
+pool = "../../corpus/pools/9f151702-a134-4b73-baf5-9f4382fcae5e.json"
+repeats = 1
+
+[[arm]]
+name = "anchor-promote"
+pipeline = "index-openai-large"
+query_pipeline = "replay-anchor-promote"
+pool = "../../corpus/pools/9f151702-a134-4b73-baf5-9f4382fcae5e.json"
+repeats = 1
+
+[[arm]]
+name = "oracle-anchor-promote"
+pipeline = "index-openai-large"
+query_pipeline = "replay-oracle-techqa"
+pool = "../../corpus/pools/9f151702-a134-4b73-baf5-9f4382fcae5e.json"
+repeats = 1

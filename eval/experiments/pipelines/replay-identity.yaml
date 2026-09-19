@@ -1,0 +1,5 @@
+# Phase 40's control arm: a frozen pool replayed through nothing but the packer, so its scores are
+# the capture's own (`40.2`'s identity replay). Every reordering arm is read against this one.
+name: replay-identity
+stages:
+  - {id: pack, use: repack, with: {method: reverse}}

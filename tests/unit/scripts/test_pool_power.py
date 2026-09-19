@@ -12,7 +12,7 @@ import math
 
 import pytest
 from pool_ceilings import QuestionCeiling
-from pool_power import power_for
+from pool_power import power_for, slices_from
 
 
 def _ceiling(identifier: str, *, rr5: float, oracle: float, in_pool: bool) -> QuestionCeiling:
@@ -59,3 +59,23 @@ def test_a_slice_naming_a_question_the_ceilings_do_not_hold_is_refused() -> None
     # Act
     with pytest.raises(ValueError, match="q-9"):
         power_for(ceilings, {"all": {"q-1", "q-9"}})
+
+
+def test_slices_are_every_axis_value_the_labelled_population_and_the_identifier_exact_yes() -> None:
+    # Arrange
+    ceilings = (
+        _ceiling("q-1", rr5=1.0, oracle=0.0, in_pool=True),
+        _ceiling("q-2", rr5=0.0, oracle=1.0, in_pool=True),
+        _ceiling("q-3", rr5=0.5, oracle=0.5, in_pool=True),
+    )
+    axes = {"q-1": {"split": "test"}, "q-2": {"split": "train"}, "q-3": {"split": "test"}}
+
+    # Act
+    slices = slices_from(ceilings, axes, labelled={"q-1", "q-2"}, identifier_exact={"q-2"})
+
+    # Assert
+    assert slices["all"] == {"q-1", "q-2", "q-3"}
+    assert slices["split=test"] == {"q-1", "q-3"}
+    assert slices["oracle-labelled"] == {"q-1", "q-2"}
+    assert slices["identifier-exact=yes"] == {"q-2"}
+    assert slices["rule-fires=true"] == {"q-1", "q-2", "q-3"}

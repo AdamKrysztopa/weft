@@ -1,0 +1,7 @@
+# Phase 40's oracle arm on techqa: the frozen pool reordered by the anchors a blind labeller wrote
+# (`eval/pool-promotion/techqa-oracle-anchors.jsonl`), through the test-only `weft-oracle-anchors`
+# pack. The labels path resolves against the directory the run starts in, which holds a copy.
+name: replay-oracle-techqa
+stages:
+  - {id: promote, use: oracle-anchor-promote, with: {labels: techqa-oracle-anchors.jsonl}}
+  - {id: pack,    use: repack, with: {method: reverse}}

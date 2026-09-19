@@ -1,0 +1,5 @@
+# Phase 40's rule arm: the frozen pool reordered by the anchors `find_anchors`' rule finds.
+name: replay-anchor-promote
+stages:
+  - {id: promote, use: anchor-promote}
+  - {id: pack,    use: repack, with: {method: reverse}}
