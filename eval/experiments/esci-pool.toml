@@ -1,0 +1,29 @@
+# Phase 40 task 40.4 on esci: dense retrieval's fifty-chunk pool, captured once for every later arm to
+# replay (`eval/pool-promotion/protocol.toml`). The second arm is the same search again, uncaptured —
+# the determinism check a deterministic arm's repetition would otherwise be. Exploratory on reused
+# benchmarks: Phase 39 read these questions.
+
+[experiment]
+schema = 1
+name = "esci-pool"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = [1, 5, 10]
+metrics = ["mrr@5", "recall@1", "recall@5", "recall@10", "ndcg@10"]
+minimum_detectable_effect = 0.05
+index_batch_size = 1000
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "dense-pool-retrieve"
+capture_pool = true
+repeats = 1
+
+[[arm]]
+name = "dense-again"
+pipeline = "index-openai-large"
+query_pipeline = "dense-pool-retrieve"
+repeats = 1

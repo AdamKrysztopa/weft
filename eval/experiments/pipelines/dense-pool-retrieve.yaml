@@ -1,0 +1,8 @@
+# Phase 40's one pool (`eval/pool-promotion/protocol.toml` → [pool]): dense `vector-top-k` at fifty
+# chunks, fused as the single list it is, packed whole. Every Phase 40 and 41 arm reorders exactly
+# these fifty, replayed from the manifest the capturing arm writes, never retrieved again.
+name: dense-pool-retrieve
+stages:
+  - {id: retrieve, use: vector-top-k, with: {top_k: 50}}
+  - {id: fuse,     use: single-list}
+  - {id: pack,     use: repack, with: {method: reverse, top_n: 50}}
