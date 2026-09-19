@@ -106,7 +106,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     labelled = {row["question_id"] for row in _jsonl(args.labels) if row["anchors"]}
     exact = {
-        str(row["id"]).split(":", 1)[1]
+        str(row["question_id"])
         for row in _jsonl(args.identifier_exact)
         if row["identifier_decides"] == "yes"
     }

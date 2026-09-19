@@ -1,0 +1,500 @@
+{"question_id": "DEV_Q000", "identifier_decides": "no", "sibling": null, "why": "relevant is a JSM download page; no pool doc shares that product/problem at another identifier"}
+{"question_id": "DEV_Q002", "identifier_decides": "yes", "sibling": 5, "why": "'Redhat Linux 7.2' separates native-Linux crash from n5's Windows-client-to-P8-5.2 sibling crash"}
+{"question_id": "DEV_Q007", "identifier_decides": "no", "sibling": null, "why": "no pool doc belongs to the Socket Gateway family; all are other gateway types"}
+{"question_id": "DEV_Q010", "identifier_decides": "yes", "sibling": 2, "why": "quoted 'not UTF-8' encoding message separates relevant from n2's 'with correct UTF-8 encoding' sibling"}
+{"question_id": "DEV_Q011", "identifier_decides": "no", "sibling": null, "why": "n4 is the same jextract-OOM APAR but no version/APAR is named in the question to pick between guide and APAR"}
+{"question_id": "DEV_Q012", "identifier_decides": "no", "sibling": null, "why": "n6 shares 'Argument list too long' text but is a different product (ClearCase), not same family"}
+{"question_id": "DEV_Q013", "identifier_decides": "no", "sibling": null, "why": "pool fix-pack pages are other ODM versions (8.5.1.3/8.0.1.x/7.5.0.1/8.8.0.1), none matching 8.8.1.3, and relevant is a generic non-version FAQ"}
+{"question_id": "DEV_Q014", "identifier_decides": "no", "sibling": null, "why": "pool docs are Installation Manager/feature-pack versions, not the same unified-fixpack problem"}
+{"question_id": "DEV_Q016", "identifier_decides": "no", "sibling": null, "why": "siblings n2/n3 differ by clustered-vs-standalone topology, not a version/error the question names"}
+{"question_id": "DEV_Q019", "identifier_decides": "yes", "sibling": 1, "why": "question names 'IIB and WMB', separating it from same-CVE bulletins for other products in the pool"}
+{"question_id": "DEV_Q021", "identifier_decides": "yes", "sibling": 1, "why": "'DataPower Gateway 7.1.0' explains why n1's button-based fix no longer applies (button removed in 7.1.0)"}
+{"question_id": "DEV_Q022", "identifier_decides": "yes", "sibling": 2, "why": "question's versions 9.0.0.4/9.6.1 rule out pool's WAS 7.0.x Test Environment Extension fix-pack pages"}
+{"question_id": "DEV_Q023", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same DW-trace-missing problem at another version/error"}
+{"question_id": "DEV_Q027", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version/error variant of the same batch-creation problem"}
+{"question_id": "DEV_Q028", "identifier_decides": "yes", "sibling": 1, "why": "question names CVE-2015-4911; pool sibling n1 is the same WAS+WSRR bulletin family for CVE-2016-5573/5597"}
+{"question_id": "DEV_Q029", "identifier_decides": "yes", "sibling": 2, "why": "question names 'ODM 8.8 Rule Execution Server', separating the JRules/ODM-specific SCE note from n2's generic WebSphere-level explanation"}
+{"question_id": "DEV_Q030", "identifier_decides": "yes", "sibling": 6, "why": "question specifies HP-UX; pool sibling n6 covers the same verbose-GC-redirect problem for AIX/Linux/Windows instead"}
+{"question_id": "DEV_Q032", "identifier_decides": "yes", "sibling": 5, "why": "question specifies 'CSV file' and 'Download action'; pool sibling n5 is the same .dat-extension defect but for email attachments"}
+{"question_id": "DEV_Q033", "identifier_decides": "no", "sibling": null, "why": "relevant is a general off-device-logging guide, not a member of the syslog-TCP-specific family in the pool"}
+{"question_id": "DEV_Q034", "identifier_decides": "no", "sibling": null, "why": "n2/n4 are different named profiling tools, not version variants, and the question names neither"}
+{"question_id": "DEV_Q035", "identifier_decides": "yes", "sibling": 5, "why": "same CVE-2017-14919 as n5, but question names 'API Connect' not 'IBM Cloud Schematics'"}
+{"question_id": "DEV_Q038", "identifier_decides": "no", "sibling": null, "why": "n6 is the same RTS ruleapp-timeout family but no version/error in the question decides between it and relevant"}
+{"question_id": "DEV_Q039", "identifier_decides": "yes", "sibling": 4, "why": "question specifies starting version 5.0.0.8; pool sibling n4's APAR only affects the initial 5.0.0.0 OVA build"}
+{"question_id": "DEV_Q040", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the exact GSK/LD_LIBRARY_PATH problem at a different Apache/plugin version"}
+{"question_id": "DEV_Q043", "identifier_decides": "yes", "sibling": 1, "why": "question specifies version 4.2.0.1/Fix Pack 1; pool sibling n1 is the download page for base ITNM 4.2 (no fix pack)"}
+{"question_id": "DEV_Q046", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same Box-deletion-permission problem at another version/error"}
+{"question_id": "DEV_Q047", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version/error variant of the same expired-S&S-download problem"}
+{"question_id": "DEV_Q050", "identifier_decides": "yes", "sibling": 3, "why": "question specifies 10.5FP7; pool sibling n3 is the same NUM_IOSERVERS=AUTOMATIC family but for DB2 10.1 (SAP workload)"}
+{"question_id": "DEV_Q051", "identifier_decides": "yes", "sibling": 1, "why": "question specifies 'WorkplaceXT'; pool sibling n1 is the same NullPointerException/stack trace but for plain FileNet Workplace (non-XT)"}
+{"question_id": "DEV_Q052", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same 'still expired after replacing cert' problem at another version/error"}
+{"question_id": "DEV_Q053", "identifier_decides": "no", "sibling": null, "why": "pool siblings share only the theme of WAS-detection failures during Portal install, each with a different unrelated error"}
+{"question_id": "DEV_Q055", "identifier_decides": "no", "sibling": null, "why": "n2 is a near-duplicate of the question text itself but is not distinguished from relevant by any identifier the question names"}
+{"question_id": "DEV_Q063", "identifier_decides": "no", "sibling": null, "why": "no version/error in the question decides between relevant's technique and the DotEdit-specific pool docs"}
+{"question_id": "DEV_Q064", "identifier_decides": "yes", "sibling": 4, "why": "question specifies MQ/MQ Appliance; pool siblings are the same CVE-2016-2183/Sweet32 family for ISAM, IHS, Content Manager z/OS, and Communications Server"}
+{"question_id": "DEV_Q066", "identifier_decides": "no", "sibling": null, "why": "question names no CVE, so nothing decides among the many identically-titled Flash alerts each covering a different CVE batch"}
+{"question_id": "DEV_Q067", "identifier_decides": "no", "sibling": null, "why": "relevant's actual topic (search returning no users) has no version/error-differentiated sibling in the pool"}
+{"question_id": "DEV_Q068", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the specific 'dump namespace' CORBA context at a different version/product"}
+{"question_id": "DEV_Q074", "identifier_decides": "yes", "sibling": 5, "why": "question specifies 'AIX Server 2.5'; pool sibling n5 is the same CVE-2015-1920 bulletin for the Red Hat Enterprise Linux Server edition"}
+{"question_id": "DEV_Q077", "identifier_decides": "yes", "sibling": 5, "why": "question specifies 'SPSS 24 Gradpack'; pool sibling n5 is the general (non-Gradpack) license-transfer FAQ"}
+{"question_id": "DEV_Q080", "identifier_decides": "no", "sibling": null, "why": "pool APARs are different enhancement requests (sampled table, EXECOUTPUT), not the same OUTPUT_TYPE problem at another version"}
+{"question_id": "DEV_Q082", "identifier_decides": "yes", "sibling": 2, "why": "question names CVE-2017-1694; pool sibling n2 is the same IIB bulletin family for CVE-2017-7674"}
+{"question_id": "DEV_Q088", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares relevant's specific 'Default DB path is not set' RHEL5 cqreg error at another version"}
+{"question_id": "DEV_Q089", "identifier_decides": "yes", "sibling": 1, "why": "question specifies IBM API Connect; pool sibling n1 is the same CVE-2016-8610 bulletin for IBM Spectrum Control"}
+{"question_id": "DEV_Q090", "identifier_decides": "no", "sibling": null, "why": "pool RTW 8.5 siblings each show a different specific error text, none matching relevant's exact warning"}
+{"question_id": "DEV_Q094", "identifier_decides": "no", "sibling": null, "why": "question's '5.0.0.0' does not clearly exclude n2's Nov-2012-OVA-specific APAR the way a narrower version would"}
+{"question_id": "DEV_Q098", "identifier_decides": "yes", "sibling": 1, "why": "question names CVE-2018-2633 (January 2018); pool sibling n1 is the identical-titled WSRR/Studio bulletin for CVE-2018-2783 (April 2018)"}
+{"question_id": "DEV_Q099", "identifier_decides": "yes", "sibling": 3, "why": "question specifies 'ITCAM Agent for WebSphere Applications'; pool sibling n3 is the fix list for the different 'ITCAM Data Collector' component"}
+{"question_id": "DEV_Q102", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the HMAC-hashing-performance problem at another version"}
+{"question_id": "DEV_Q108", "identifier_decides": "no", "sibling": null, "why": "version/OSS-level references across pool docs are too loosely matched to relevant's Fix Pack 12 readme to call a clean identifier decision"}
+{"question_id": "DEV_Q109", "identifier_decides": "yes", "sibling": 1, "why": "question names CVE-2016-8918; pool sibling n1 is the same IIB bulletin family for CVE-2017-1694"}
+{"question_id": "DEV_Q112", "identifier_decides": "no", "sibling": null, "why": "pool nco_confpack docs report different errors; none is the 'Tool in menu but not found' sibling"}
+{"question_id": "DEV_Q114", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same DB2 z/OS-vs-LUW precompile topic at another version"}
+{"question_id": "DEV_Q116", "identifier_decides": "no", "sibling": null, "why": "n6 is the same upgrade-to-8.5.5 DBUpgrade family but tied to version 8.5.0.1, not named in the generic question"}
+{"question_id": "DEV_Q120", "identifier_decides": "no", "sibling": null, "why": "n5/n6 share Atlas 6.0.3.3 but a different problem (Notice Sender alert, collection plan), not the BIRT report error"}
+{"question_id": "DEV_Q121", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a Job Execution Node variant for another IIB/WMB version"}
+{"question_id": "DEV_Q122", "identifier_decides": "yes", "sibling": 2, "why": "question quotes 'TLOAMNEWGLACCOUNT'; pool siblings quote the generic 'GLACCOUNT' attribute in the same BMXAA4198E family"}
+{"question_id": "DEV_Q123", "identifier_decides": "no", "sibling": null, "why": "pool docs are different specific dtx/mrc errors, not the same dtx.ini/'Source not found' problem at another version"}
+{"question_id": "DEV_Q129", "identifier_decides": "yes", "sibling": 5, "why": "same CVE-2015-0410/CVE-2014-6593 pair as n5, but question names 'IBM OS Images for Red Hat Linux Systems and AIX' not PureApplication System"}
+{"question_id": "DEV_Q132", "identifier_decides": "no", "sibling": null, "why": "pool docs cover 'status unknown' in unrelated products/mechanisms, not the ITCAM WAS baselining family"}
+{"question_id": "DEV_Q134", "identifier_decides": "no", "sibling": null, "why": "n1 documents the identical defect (not a different version/identifier), so nothing distinguishes them"}
+{"question_id": "DEV_Q140", "identifier_decides": "yes", "sibling": 4, "why": "question specifies DB2 V9.7 FP11; pool sibling n4 documents the same runstats HIGH2KEY defect but as fixed by DB2 9.7 FP2-FP6"}
+{"question_id": "DEV_Q145", "identifier_decides": "no", "sibling": null, "why": "n5 is the same reload()/VMM-cache family but for Portal 6.1.0.x, and no version is named in the question to decide"}
+{"question_id": "DEV_Q149", "identifier_decides": "no", "sibling": null, "why": "pool siblings (n3, n5) are also version-7.5.2-specific, so the stated version does not decide between them and relevant"}
+{"question_id": "DEV_Q154", "identifier_decides": "yes", "sibling": 1, "why": "question specifies Impact 7.1.0.11; pool sibling n1 is the same USERPARAMETERS/DataType-replication APAR for Impact 5.1.1"}
+{"question_id": "DEV_Q155", "identifier_decides": "no", "sibling": null, "why": "pool MustGather guides are for other topics, not specifically the wpcollector-explanation family"}
+{"question_id": "DEV_Q156", "identifier_decides": "yes", "sibling": 6, "why": "question names CVE-2016-9693; pool sibling n6 is the same BPM/WLE-specific vulnerability-bulletin family for CVE-2015-1884"}
+{"question_id": "DEV_Q158", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same OS Agents TOKEN_SEPARATOR problem at another version"}
+{"question_id": "DEV_Q161", "identifier_decides": "no", "sibling": null, "why": "n5 shares the StateChange/EventReader family but the differentiator (future-dated vs millisecond cause) is a symptom description, not a named identifier"}
+{"question_id": "DEV_Q164", "identifier_decides": "no", "sibling": null, "why": "pool siblings are bug reports for different failure modes of sharing conversations, not a version variant of the guidance document"}
+{"question_id": "DEV_Q171", "identifier_decides": "no", "sibling": null, "why": "n1 is the identical APAR text distinguished only by APAR number, which the question does not name"}
+{"question_id": "DEV_Q179", "identifier_decides": "yes", "sibling": 3, "why": "question names CVE-2017-3735; pool sibling n3 is the same WebSphere MQ 5.3/HP NonStop OpenSSL-bulletin family for CVE-2015-3194"}
+{"question_id": "DEV_Q180", "identifier_decides": "yes", "sibling": 2, "why": "question names CVE-2015-1920; pool siblings are the same PureApplication System bulletin family for other CVEs (n2: CVE-2015-3183)"}
+{"question_id": "DEV_Q181", "identifier_decides": "no", "sibling": null, "why": "n5 is topically close (Maximo date comparisons) but a different specific defect, not a version variant of the report-query problem"}
+{"question_id": "DEV_Q182", "identifier_decides": "yes", "sibling": 2, "why": "question lists CVE-2017-10115/10116/10109/10108; pool sibling n2 is the same WMB/IIB Java-Runtime bulletin family for CVE-2016-3485"}
+{"question_id": "DEV_Q184", "identifier_decides": "no", "sibling": null, "why": "n2 shares the CWSXM0100E error code (not a discriminator); the actual difference is a topology description, not a named identifier"}
+{"question_id": "DEV_Q186", "identifier_decides": "no", "sibling": null, "why": "n6's license-agreement failure is a different, unrelated product family (TFIM), not a true sibling of the ITCAM/Tivoli Monitoring silent-install note"}
+{"question_id": "DEV_Q187", "identifier_decides": "no", "sibling": null, "why": "the WSRR-specific CVE-2017-10115 bulletin (n3) and the WAS-level canonical bulletin (relevant) are two sides of a shipped-component pointer, not identifier-differentiated siblings"}
+{"question_id": "DEV_Q192", "identifier_decides": "no", "sibling": null, "why": "n4 shares the general 'no such file or directory' text but no quoted file/identifier in the question decides between it and relevant's session-file cause"}
+{"question_id": "DEV_Q193", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version-differentiated sibling of the Nokia NSP EPC/RAN probe family"}
+{"question_id": "DEV_Q195", "identifier_decides": "yes", "sibling": 1, "why": "question specifies 'ITCAM for DataPower appliance v7.1'; pool sibling n1 is TLS support for a different ITCAM agent (SOA D4)"}
+{"question_id": "DEV_Q196", "identifier_decides": "no", "sibling": null, "why": "n6 shares 'Modeler Client Trial' at a different version but a different specific defect (launch failure, not extraction error 1152)"}
+{"question_id": "DEV_Q202", "identifier_decides": "no", "sibling": null, "why": "n4's motif-vs-gtk sibling is IM-version specific but the question names no IM version to decide"}
+{"question_id": "DEV_Q204", "identifier_decides": "no", "sibling": null, "why": "the question asks which version to pick and states no target-version identifier, so nothing decides among the release-announcement siblings"}
+{"question_id": "DEV_Q206", "identifier_decides": "no", "sibling": null, "why": "pool nco_confpack docs report different errors; none is the 'Tool in menu but not found' sibling"}
+{"question_id": "DEV_Q208", "identifier_decides": "yes", "sibling": 6, "why": "question quotes error code TASK001X; pool siblings n1 and n6 are the same Portal-to-CF14 upgrade-failure family but with different errors"}
+{"question_id": "DEV_Q210", "identifier_decides": "yes", "sibling": 5, "why": "question names 'startNode' and error code ADML3000E; pool sibling n5 is the same too-many-open-files family for the addNode -includeapps command"}
+{"question_id": "DEV_Q215", "identifier_decides": "no", "sibling": null, "why": "pool siblings are bug reports for different failure modes of sharing conversations, not a version variant of the guidance document"}
+{"question_id": "DEV_Q216", "identifier_decides": "yes", "sibling": 4, "why": "question specifies Windows 10 and a downloaded zip source; pool sibling n4 is the same Error 1311 family caused by corrupt DVD media on Windows 7"}
+{"question_id": "DEV_Q218", "identifier_decides": "no", "sibling": null, "why": "n5 documents the identical 8.0.0.4-falls-back-to-8.0.0.2 defect as relevant, so nothing distinguishes them"}
+{"question_id": "DEV_Q220", "identifier_decides": "yes", "sibling": 2, "why": "question specifies IBM PureApplication System; pool sibling n2 is the same CVE-2014-8730 TLS-padding bulletin for IBM Security Network Protection"}
+{"question_id": "DEV_Q224", "identifier_decides": "no", "sibling": null, "why": "pool Atlas-HttpOnly siblings are product-level fixes at specific Atlas versions, not a Weblogic-specific alternative the question's identifier would exclude"}
+{"question_id": "DEV_Q225", "identifier_decides": "no", "sibling": null, "why": "no pool doc matches relevant's specific EJQAB0067E/WSP0005E error at another version"}
+{"question_id": "DEV_Q230", "identifier_decides": "yes", "sibling": 1, "why": "question quotes error code WTRN0047E matching relevant's format; pool sibling n1 shows a different log format for the Memory-to-Memory-replication trigger"}
+{"question_id": "DEV_Q234", "identifier_decides": "yes", "sibling": 2, "why": "question quotes 'return code 1'; pool sibling n2 shows the identical TCR 2.1.1 FP2/ACUOSI0050E family but with return code 127"}
+{"question_id": "DEV_Q235", "identifier_decides": "yes", "sibling": 4, "why": "question specifies IBM WebSphere MQ; pool sibling n4 is the same CVE-2016-3485 bulletin for IBM MQ Light"}
+{"question_id": "DEV_Q239", "identifier_decides": "yes", "sibling": 5, "why": "question specifies RFT 8.2; pool sibling n5 is the same ClassNotFoundException/eclipse-launch-error family but for RFT 8.5.x on Citrix"}
+{"question_id": "DEV_Q240", "identifier_decides": "no", "sibling": null, "why": "relevant does not belong to the port-number-status family that n3 exemplifies, so no identifier in the question connects them"}
+{"question_id": "DEV_Q244", "identifier_decides": "no", "sibling": null, "why": "the question names no version, error, or product edition at all, so nothing decides between relevant and the crm_resource-command siblings"}
+{"question_id": "DEV_Q245", "identifier_decides": "no", "sibling": null, "why": "pool docs differ from relevant along multiple axes (function, platform, version) at once, not a single named identifier"}
+{"question_id": "DEV_Q249", "identifier_decides": "yes", "sibling": 6, "why": "question names CVE-2016-8971; pool sibling n6 is the same IBM WebSphere MQ DoS-bulletin family for CVE-2014-4771"}
+{"question_id": "DEV_Q254", "identifier_decides": "no", "sibling": null, "why": "sibling is a different RDz/TSO bug, not IKJEESX0 exit"}
+{"question_id": "DEV_Q257", "identifier_decides": "no", "sibling": null, "why": "no version stated in question to pick apart the SDMS-pruning duplicates"}
+{"question_id": "DEV_Q258", "identifier_decides": "no", "sibling": null, "why": "no version/error code named; pool covers different products/apps"}
+{"question_id": "DEV_Q260", "identifier_decides": "no", "sibling": null, "why": "no sibling APAR for the same CVE pair with another CVE/APAR"}
+{"question_id": "DEV_Q261", "identifier_decides": "no", "sibling": null, "why": "no version/APAR named; pool is different PMs/products"}
+{"question_id": "DEV_Q262", "identifier_decides": "no", "sibling": null, "why": "question names no version, error code or APAR at all"}
+{"question_id": "DEV_Q266", "identifier_decides": "no", "sibling": null, "why": "siblings differ by version but question never names one"}
+{"question_id": "DEV_Q268", "identifier_decides": "no", "sibling": null, "why": "duplicate APAR aside, no sibling shares the OOM problem at another version"}
+{"question_id": "DEV_Q275", "identifier_decides": "no", "sibling": null, "why": "pool siblings solve the same goal differently, not by version"}
+{"question_id": "DEV_Q277", "identifier_decides": "no", "sibling": null, "why": "no pool doc is the same SAML/PUMA bug at another version"}
+{"question_id": "DEV_Q279", "identifier_decides": "no", "sibling": null, "why": "closest sibling is a Japanese duplicate, not a version/APAR variant"}
+{"question_id": "DEV_Q281", "identifier_decides": "no", "sibling": null, "why": "no version/error code in question; pool is different causes/products"}
+{"question_id": "DEV_Q283", "identifier_decides": "no", "sibling": null, "why": "no sibling shares product+problem differing only by version/edition"}
+{"question_id": "DEV_Q288", "identifier_decides": "yes", "sibling": 1, "why": "'8.5.6' picks the release-notes doc over the general Java-6-EOS alert"}
+{"question_id": "DEV_Q291", "identifier_decides": "no", "sibling": null, "why": "same docs as Q288 but no BPM version is named this time"}
+{"question_id": "DEV_Q296", "identifier_decides": "no", "sibling": null, "why": "relevant is FileNet/pureScale, pool is unrelated BPM issues"}
+{"question_id": "DEV_Q299", "identifier_decides": "no", "sibling": null, "why": "no version distinguishes the UDF-variable sibling docs"}
+{"question_id": "DEV_Q300", "identifier_decides": "yes", "sibling": 3, "why": "'DB2 9.5' picks the pre-9.7 no-reclaimable-storage doc over reclaim-steps sibling"}
+{"question_id": "DEV_Q303", "identifier_decides": "no", "sibling": null, "why": "no DASH/Web GUI sibling exists at another version"}
+{"question_id": "DEV_Q305", "identifier_decides": "no", "sibling": null, "why": "true differentiator across siblings is SSL/SSO cause, not the stated version"}
+{"question_id": "DEV_Q306", "identifier_decides": "no", "sibling": null, "why": "no DotEdit-display-limit sibling at another version"}
+{"question_id": "DEV_Q307", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2017-3735 picks it apart from CVE-2015-3194 sibling bulletin"}
+{"question_id": "TRAIN_Q000", "identifier_decides": "no", "sibling": null, "why": "sibling APAR covers the identical versions, not a different one"}
+{"question_id": "TRAIN_Q001", "identifier_decides": "no", "sibling": null, "why": "'(all versions)' explicitly removes version as a discriminator"}
+{"question_id": "TRAIN_Q003", "identifier_decides": "no", "sibling": null, "why": "no IHS-mutual-auth sibling exists at another version"}
+{"question_id": "TRAIN_Q005", "identifier_decides": "no", "sibling": null, "why": "no version/error code named in the question"}
+{"question_id": "TRAIN_Q006", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2017-3156 picks it apart from ITNM's own CVE-2017-12624 bulletin"}
+{"question_id": "TRAIN_Q007", "identifier_decides": "yes", "sibling": 1, "why": "'V8.0 to 8.5.7' picks apart the WAS-upgrade cause from the MQ/z-OS-migration sibling"}
+{"question_id": "TRAIN_Q008", "identifier_decides": "no", "sibling": null, "why": "unclear from the text whether '851' is covered by the relevant doc or its 64-bit sibling"}
+{"question_id": "TRAIN_Q009", "identifier_decides": "no", "sibling": null, "why": "no CE version ties the question to one of the near-duplicate ACCE docs"}
+{"question_id": "TRAIN_Q010", "identifier_decides": "no", "sibling": null, "why": "no sibling shares the exact prefs-lock symptom at another version"}
+{"question_id": "TRAIN_Q011", "identifier_decides": "no", "sibling": null, "why": "no SPSS-license sibling differs from relevant only by version"}
+{"question_id": "TRAIN_Q012", "identifier_decides": "no", "sibling": null, "why": "no version/error code named; multiple general ulimit docs tie"}
+{"question_id": "TRAIN_Q013", "identifier_decides": "no", "sibling": null, "why": "pool docs are different TIP 2.2 problems, not this one at another version"}
+{"question_id": "TRAIN_Q014", "identifier_decides": "no", "sibling": null, "why": "sibling APAR is the same issue, not a different one"}
+{"question_id": "TRAIN_Q015", "identifier_decides": "no", "sibling": null, "why": "CVE list absent from the question; siblings differ only by CVE"}
+{"question_id": "TRAIN_Q016", "identifier_decides": "no", "sibling": null, "why": "no DASH-version identifier; 'too many open files' quote doesn't pick a version"}
+{"question_id": "TRAIN_Q017", "identifier_decides": "no", "sibling": null, "why": "no other WebSphere Portal system-requirements doc at a different version"}
+{"question_id": "TRAIN_Q019", "identifier_decides": "no", "sibling": null, "why": "no Subscription-trial sibling differing only by OS/bit version"}
+{"question_id": "TRAIN_Q020", "identifier_decides": "no", "sibling": null, "why": "question names RDZ but no doc (relevant or pool) ties to RDZ specifically"}
+{"question_id": "TRAIN_Q024", "identifier_decides": "yes", "sibling": 3, "why": "'GradPack' edition picks the vendor-redirect doc over the general licensing-wizard fix"}
+{"question_id": "TRAIN_Q026", "identifier_decides": "no", "sibling": null, "why": "pool docs are different products/problems, not this reports package at v6.x"}
+{"question_id": "TRAIN_Q027", "identifier_decides": "yes", "sibling": 4, "why": "'EJPAS0017E' picks the page-creation cause apart from the library-creation RT0002E sibling"}
+{"question_id": "TRAIN_Q028", "identifier_decides": "yes", "sibling": 1, "why": "'File Transfer Edition' + CVE together pick it apart from the Managed-File-Transfer sibling with the same CVE"}
+{"question_id": "TRAIN_Q029", "identifier_decides": "no", "sibling": null, "why": "no doc mentions WsnNameService; version pair doesn't clearly pick among the AWSUI0833E siblings"}
+{"question_id": "TRAIN_Q030", "identifier_decides": "no", "sibling": null, "why": "no DataPower-version sibling exists for this SHA-2 question"}
+{"question_id": "TRAIN_Q031", "identifier_decides": "no", "sibling": null, "why": "sibling differs by firewall type (XML vs Web Application), which the question never names"}
+{"question_id": "TRAIN_Q034", "identifier_decides": "yes", "sibling": 1, "why": "'Fix Pack 3' picks it apart from the FP1/FP2/FP4 sibling downloads"}
+{"question_id": "TRAIN_Q039", "identifier_decides": "no", "sibling": null, "why": "'-Xcompressedrefs' names the same flag in both relevant and sibling, so it doesn't discriminate"}
+{"question_id": "TRAIN_Q040", "identifier_decides": "no", "sibling": null, "why": "no Omnibus-specific sibling exists differing only by version"}
+{"question_id": "TRAIN_Q041", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2017-5461 picks it apart from the CVE-2017-7805 sibling bulletin, same product"}
+{"question_id": "TRAIN_Q042", "identifier_decides": "no", "sibling": null, "why": "no webDAV/DBAccessException sibling at another version"}
+{"question_id": "TRAIN_Q043", "identifier_decides": "yes", "sibling": 5, "why": "'i5' platform picks the pdcollect doc apart from the generic .LG0-naming sibling"}
+{"question_id": "TRAIN_Q044", "identifier_decides": "no", "sibling": null, "why": "question names no Student/GradPack edition to pick apart the near-duplicate redirect docs"}
+{"question_id": "TRAIN_Q045", "identifier_decides": "yes", "sibling": 2, "why": "'CIWEB1158' picks it apart from the CIWEB1016 sibling error code"}
+{"question_id": "TRAIN_Q046", "identifier_decides": "no", "sibling": null, "why": "no CANDLEDATA sibling exists differing only by version/agent"}
+{"question_id": "TRAIN_Q047", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2016-9693 picks it apart from the CVE-2015-1884 sibling bulletin"}
+{"question_id": "TRAIN_Q049", "identifier_decides": "yes", "sibling": 1, "why": "the CVE named picks it apart from other WAS-shipped-with-WSRR CVE bulletins"}
+{"question_id": "TRAIN_Q050", "identifier_decides": "yes", "sibling": 4, "why": "'1.1.2.1' picks the general HTTP-unsupported doc apart from the 1.1.0.3-specific bug sibling"}
+{"question_id": "TRAIN_Q052", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2017-1557 picks it apart from the CVE-2017-1117 sibling bulletin"}
+{"question_id": "TRAIN_Q053", "identifier_decides": "no", "sibling": null, "why": "several near-identical Centera FPLibrary docs exist; '5.2.1' doesn't clearly separate them"}
+{"question_id": "TRAIN_Q054", "identifier_decides": "no", "sibling": null, "why": "no version/flag named; several general native-OOM docs tie"}
+{"question_id": "TRAIN_Q055", "identifier_decides": "no", "sibling": null, "why": "same ambiguous Centera cluster as Q053, just reordered"}
+{"question_id": "TRAIN_Q056", "identifier_decides": "no", "sibling": null, "why": "no version/error code named for this generic tool-identity question"}
+{"question_id": "TRAIN_Q058", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares INSTCONFFAILED at another version"}
+{"question_id": "TRAIN_Q059", "identifier_decides": "no", "sibling": null, "why": "sibling install-failure doc differs by command/problem, not version"}
+{"question_id": "TRAIN_Q060", "identifier_decides": "yes", "sibling": 6, "why": "the exact quoted log lines pick this cause apart from the KTAP-not-installed sibling"}
+{"question_id": "TRAIN_Q062", "identifier_decides": "no", "sibling": null, "why": "pool docs are different IBMMON_AGENT problems, not this one at another version"}
+{"question_id": "TRAIN_Q063", "identifier_decides": "yes", "sibling": 3, "why": "'8.5.1.2 of 8.5.1.1' picks it apart from the 8.5.1.1 fix pack sibling"}
+{"question_id": "TRAIN_Q064", "identifier_decides": "yes", "sibling": 5, "why": "RHEL 5.8/Java 8.0 pick it apart from the RHEL 7.1/Java 7.1 sibling APAR"}
+{"question_id": "TRAIN_Q065", "identifier_decides": "yes", "sibling": 2, "why": "'Solaris' picks it apart from the AIX/Linux/Windows sibling doc on the same topic"}
+{"question_id": "TRAIN_Q066", "identifier_decides": "no", "sibling": null, "why": "sibling differs by Windows-2012 OS support, not by 64-bit architecture"}
+{"question_id": "TRAIN_Q067", "identifier_decides": "no", "sibling": null, "why": "no ODM-version sibling exists differing only by version for this timeout"}
+{"question_id": "TRAIN_Q068", "identifier_decides": "no", "sibling": null, "why": "same as Q030, no DataPower-version sibling for SHA-2"}
+{"question_id": "TRAIN_Q069", "identifier_decides": "yes", "sibling": 5, "why": "'firmware 6.0' picks it apart from the firmware-4.0.0 sibling doc"}
+{"question_id": "TRAIN_Q071", "identifier_decides": "no", "sibling": null, "why": "no BigFix-version sibling exists for this generic slow-upgrade question"}
+{"question_id": "TRAIN_Q072", "identifier_decides": "no", "sibling": null, "why": "sibling APAR has the identical error text; no identifier tells them apart"}
+{"question_id": "TRAIN_Q073", "identifier_decides": "no", "sibling": null, "why": "pool docs are different specific ODM bugs, not this one at another version"}
+{"question_id": "TRAIN_Q075", "identifier_decides": "no", "sibling": null, "why": "pool docs are different fixes/interim-fixes, not this download at another version"}
+{"question_id": "TRAIN_Q076", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2017-3735 picks it apart from the CVE-2015-3194 sibling bulletin"}
+{"question_id": "TRAIN_Q080", "identifier_decides": "yes", "sibling": 1, "why": "the named CVE list picks it apart from the sibling bulletin's different CVE list"}
+{"question_id": "TRAIN_Q081", "identifier_decides": "yes", "sibling": 1, "why": "'WASSERVICE.exe' picks it apart from the utilityConnector.exe sibling error"}
+{"question_id": "TRAIN_Q082", "identifier_decides": "no", "sibling": null, "why": "no version-differentiated sibling for object replication within a repository"}
+{"question_id": "TRAIN_Q083", "identifier_decides": "no", "sibling": null, "why": "no Oracle-driver-conflict sibling exists at another WAS version"}
+{"question_id": "TRAIN_Q084", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2018-1371 picks it apart from the CVE-2017-1747 sibling SIGSEGV bulletin"}
+{"question_id": "TRAIN_Q085", "identifier_decides": "yes", "sibling": 2, "why": "'V2.6' and 'SBL-JCA-317' pick it apart from the V6.1.0.6/SBL-JCA-00313 sibling"}
+{"question_id": "TRAIN_Q087", "identifier_decides": "no", "sibling": null, "why": "no sibling addresses the specific 'libs already installed' detail by version"}
+{"question_id": "TRAIN_Q089", "identifier_decides": "yes", "sibling": 6, "why": "the named CVE picks it apart from the sibling bulletin's different CVE set"}
+{"question_id": "TRAIN_Q090", "identifier_decides": "yes", "sibling": 1, "why": "'SQL Server 2017' implies the newer agent fix over the older 6.3.1.8 sibling"}
+{"question_id": "TRAIN_Q091", "identifier_decides": "no", "sibling": null, "why": "closest sibling is the mirror-image export/decrypt problem, not a version variant"}
+{"question_id": "TRAIN_Q092", "identifier_decides": "yes", "sibling": 5, "why": "the quoted class names pick it apart from the ActionNodeImpl/ConditionNodeImpl sibling"}
+{"question_id": "TRAIN_Q093", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2016-3092 picks it apart from the CVE-2016-6816 sibling bulletin"}
+{"question_id": "TRAIN_Q097", "identifier_decides": "no", "sibling": null, "why": "no version/error code named; several 'too many open files' docs tie"}
+{"question_id": "TRAIN_Q100", "identifier_decides": "yes", "sibling": 2, "why": "'ITM 6.3' picks it apart from the TBSM v3.1/ITM v6.2 sibling FAQ"}
+{"question_id": "TRAIN_Q101", "identifier_decides": "no", "sibling": null, "why": "unlike Q060's pool, no doc here shares the exact quoted log lines at another cause"}
+{"question_id": "TRAIN_Q103", "identifier_decides": "no", "sibling": null, "why": "no sibling shares the S013/KCIJPALO specifics at another version"}
+{"question_id": "TRAIN_Q104", "identifier_decides": "no", "sibling": null, "why": "no version named; sibling APAR is a different specific SCA bug"}
+{"question_id": "TRAIN_Q106", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2015-2012 picks it apart from the CVE-2014-4822 sibling bulletin"}
+{"question_id": "TRAIN_Q108", "identifier_decides": "yes", "sibling": 5, "why": "'Internet Passthru' picks it apart from the same-CVE 'MQ Telemetry' sibling bulletin"}
+{"question_id": "TRAIN_Q109", "identifier_decides": "yes", "sibling": 1, "why": "the named CVE list picks it apart from the sibling bulletin's different CVE list"}
+{"question_id": "TRAIN_Q110", "identifier_decides": "no", "sibling": 6, "why": "NFS-mount cause vs version-upgrade cause separates the docs, not a named identifier"}
+{"question_id": "TRAIN_Q111", "identifier_decides": "no", "sibling": null, "why": "pool docs are different corruption problems, not same-problem/different-version siblings"}
+{"question_id": "TRAIN_Q112", "identifier_decides": "no", "sibling": 4, "why": "question names no error code or version separating it from the CWSIA0241E-sharing sibling"}
+{"question_id": "TRAIN_Q113", "identifier_decides": "no", "sibling": null, "why": "pool has no same-problem-different-version sibling for the logging-config question"}
+{"question_id": "TRAIN_Q114", "identifier_decides": "yes", "sibling": 2, "why": "question's CVE-2016-0394 rules out the same-family sibling's different CVE (CVE-2015-2018)"}
+{"question_id": "TRAIN_Q116", "identifier_decides": "yes", "sibling": 4, "why": "question's exact error codes (ADMA5008E/ADMA0063E/ADMA5069E/WASX7017E) separate it from the CF14 sibling's EJPSD0028E"}
+{"question_id": "TRAIN_Q117", "identifier_decides": "no", "sibling": null, "why": "pool docs cover different products' Java8 news, not version-siblings of the relevant"}
+{"question_id": "TRAIN_Q118", "identifier_decides": "yes", "sibling": 2, "why": "question's stated version 'Portal 7.0 CF' separates it from the version-generic sibling doc"}
+{"question_id": "TRAIN_Q120", "identifier_decides": "no", "sibling": 4, "why": "model number 9235 appears in both relevant and the APAR sibling, so it doesn't decide"}
+{"question_id": "TRAIN_Q121", "identifier_decides": "yes", "sibling": 6, "why": "question's 'FP4+IF1' fix level separates it from the FP4-only ncp_poller OOM sibling"}
+{"question_id": "TRAIN_Q122", "identifier_decides": "no", "sibling": null, "why": "pool docs are different products/problems, no version-sibling exists"}
+{"question_id": "TRAIN_Q123", "identifier_decides": "no", "sibling": 4, "why": "question names no version/APAR to separate it from the JR43392 sibling describing the same SCA-update-deletes-destinations problem"}
+{"question_id": "TRAIN_Q124", "identifier_decides": "yes", "sibling": 3, "why": "question's stated fix level '8.5.5.5 or less' falls before PI09576's 8.5.5.3 fix, ruling that sibling out (ambiguous: relies on fix-pack ordering)"}
+{"question_id": "TRAIN_Q125", "identifier_decides": "no", "sibling": 3, "why": "the split between completeness-report and checking/building a ruleset isn't a named identifier"}
+{"question_id": "TRAIN_Q126", "identifier_decides": "yes", "sibling": 1, "why": "question's CVE-2017-1236 rules out the same-family MQ DoS bulletins with other CVEs"}
+{"question_id": "TRAIN_Q127", "identifier_decides": "no", "sibling": null, "why": "pool's DataPower timeout docs are different specific issues; question names no firmware version"}
+{"question_id": "TRAIN_Q130", "identifier_decides": "no", "sibling": null, "why": "pool's API Connect release notices aren't siblings of the firmware-lifecycle relevant doc at all"}
+{"question_id": "TRAIN_Q131", "identifier_decides": "no", "sibling": 4, "why": "question doesn't name CE vs CPE, the identifier that would separate it from the Content Engine log-relocation sibling"}
+{"question_id": "TRAIN_Q132", "identifier_decides": "no", "sibling": null, "why": "the only same-product pool doc addresses a different problem (trace level vs trace formatting), not a version sibling"}
+{"question_id": "TRAIN_Q134", "identifier_decides": "no", "sibling": 4, "why": "the Liberty-vs-traditional distinction isn't literally named in the question (ambiguous: relevant doc itself cites Apache 2.2 not 2.4)"}
+{"question_id": "TRAIN_Q135", "identifier_decides": "no", "sibling": null, "why": "pool's classpath/NoClassDefFoundError docs are different specific causes, not version siblings"}
+{"question_id": "TRAIN_Q136", "identifier_decides": "yes", "sibling": 4, "why": "question's version '6.31 FP10' separates it from the differently-versioned IF fixes (6.3.0-IF4, 6.2.3-IF4)"}
+{"question_id": "TRAIN_Q137", "identifier_decides": "yes", "sibling": 2, "why": "question's JCC/WAS-Liberty context names the product that separates it from the same-error-code (-4499) Guardium sibling"}
+{"question_id": "TRAIN_Q139", "identifier_decides": "yes", "sibling": 2, "why": "question names WMB/IIB, separating it from same-CVE bulletins for other products (Sterling, Watson Explorer, API Mgmt)"}
+{"question_id": "TRAIN_Q140", "identifier_decides": "yes", "sibling": 6, "why": "question's exact version ICC 4.0.1 and CPE .NET API 5.2.1.2 separate it from the differently-versioned ICC 4.0.1.4 sibling"}
+{"question_id": "TRAIN_Q144", "identifier_decides": "yes", "sibling": 6, "why": "question's CVE-2016-6080 rules out same-family WMB/IIB bulletins with other CVEs"}
+{"question_id": "TRAIN_Q145", "identifier_decides": "no", "sibling": null, "why": "pool docs cover thread-dumps for other products; no IIB-version sibling exists"}
+{"question_id": "TRAIN_Q150", "identifier_decides": "no", "sibling": 6, "why": "the sibling APAR (PI38040) has the identical error text, so nothing in the question separates it from the relevant APAR (PI34677)"}
+{"question_id": "TRAIN_Q154", "identifier_decides": "no", "sibling": 4, "why": "the OS version 10.9.5 appears in both the question's context and the sibling, so it doesn't decide (ambiguous)"}
+{"question_id": "TRAIN_Q155", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a same-problem different-version sibling of the My Inbox filter case"}
+{"question_id": "TRAIN_Q158", "identifier_decides": "no", "sibling": null, "why": "pool docs are different specific symptoms; question names no version"}
+{"question_id": "TRAIN_Q159", "identifier_decides": "yes", "sibling": 2, "why": "question's exact error code IQQG0205E separates it from the differently-coded IQQD0040E sibling"}
+{"question_id": "TRAIN_Q160", "identifier_decides": "yes", "sibling": 2, "why": "question's SQLCODE=-401/DSNXOBFC separate it from the same-product sibling's SQLCODE=-805"}
+{"question_id": "TRAIN_Q161", "identifier_decides": "no", "sibling": 2, "why": "the question doesn't literally state the MQJMS1068 code, so it can't be said to decide against the similar JMSWMQ1068 sibling (ambiguous)"}
+{"question_id": "TRAIN_Q162", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares family/identifier with the PI50993 fix note; all are unrelated crashes"}
+{"question_id": "TRAIN_Q165", "identifier_decides": "no", "sibling": 1, "why": "the version '8.5.5.9 or later' matches the PI73197 sibling rather than deciding in favor of the general relevant doc (ambiguous)"}
+{"question_id": "TRAIN_Q166", "identifier_decides": "no", "sibling": null, "why": "pool docs address other products/problems, not a WAS-7.0-vs-other-version sibling"}
+{"question_id": "TRAIN_Q168", "identifier_decides": "yes", "sibling": 1, "why": "question's CVE-2016-2961 rules out same-family WMB/IIB bulletins with other CVEs"}
+{"question_id": "TRAIN_Q171", "identifier_decides": "yes", "sibling": 1, "why": "question's CVE-2014-8730 rules out same-family DB2/WRS bulletins with other CVEs"}
+{"question_id": "TRAIN_Q172", "identifier_decides": "no", "sibling": null, "why": "pool docs are about other products' TLS support, not StoredIQ siblings"}
+{"question_id": "TRAIN_Q174", "identifier_decides": "no", "sibling": 3, "why": "question names no error code, and the labelled relevant document isn't even in the same problem family as the syndication-pair sibling"}
+{"question_id": "TRAIN_Q178", "identifier_decides": "no", "sibling": 4, "why": "KVM is named in the question but the labelled relevant document is unrelated to the KVM-DLA sibling's topic (ambiguous)"}
+{"question_id": "TRAIN_Q182", "identifier_decides": "no", "sibling": 6, "why": "the version 7.1.1.0.0 doesn't clearly separate the Windows-service failure from the other ITCAM J2EE sibling documents (ambiguous)"}
+{"question_id": "TRAIN_Q184", "identifier_decides": "yes", "sibling": 3, "why": "question's exact code CRIMA1217E separates it from other CRIMA-coded Portal-8-install siblings"}
+{"question_id": "TRAIN_Q186", "identifier_decides": "yes", "sibling": 2, "why": "question's SPSS 25.0.0.1 + High Sierra (10.13) separate it from the SPSS-25-on-plain-Sierra sibling"}
+{"question_id": "TRAIN_Q187", "identifier_decides": "no", "sibling": 6, "why": "no version or code in the question separates the generic session-timeout doc from the coach-specific SessionBeanTimeoutException sibling"}
+{"question_id": "TRAIN_Q195", "identifier_decides": "yes", "sibling": 5, "why": "question's named exception StringIndexOutOfBoundsException separates it from the CannotEncodeCharacterException sibling"}
+{"question_id": "TRAIN_Q198", "identifier_decides": "yes", "sibling": 1, "why": "question's CVE-2016-1000232 rules out same-family API Connect/Node.js bulletins with other CVEs"}
+{"question_id": "TRAIN_Q199", "identifier_decides": "yes", "sibling": 6, "why": "question names BPM/Process Center, separating it from the Maximo-specific wasservice sibling"}
+{"question_id": "TRAIN_Q201", "identifier_decides": "yes", "sibling": 2, "why": "question's exact EJB name WIMServiceHome/NameNotFoundException separates it from the AccessControlException sibling"}
+{"question_id": "TRAIN_Q203", "identifier_decides": "no", "sibling": 2, "why": "'syslog-TCP' is named in both the question and the IT07482 sibling, so it doesn't decide"}
+{"question_id": "TRAIN_Q204", "identifier_decides": "no", "sibling": null, "why": "the only same-symptom doc (Clarity) is a different product, not a version sibling"}
+{"question_id": "TRAIN_Q205", "identifier_decides": "no", "sibling": null, "why": "pool's ILMT import-task failures are different specific errors, not version siblings; the exact-title pool doc is a translation duplicate"}
+{"question_id": "TRAIN_Q206", "identifier_decides": "yes", "sibling": 4, "why": "question names 'OS Images for Red Hat Linux Systems and AIX', ruling out the same-CVE PureApplication System sibling"}
+{"question_id": "TRAIN_Q207", "identifier_decides": "no", "sibling": 5, "why": "question doesn't name D4 vs WDP, the identifier that would separate it from the SOA D4 agent TLS sibling"}
+{"question_id": "TRAIN_Q209", "identifier_decides": "yes", "sibling": 1, "why": "question's ODM 8.5.1 separates it from the differently-versioned (8.8.1) OOM sibling"}
+{"question_id": "TRAIN_Q212", "identifier_decides": "yes", "sibling": 2, "why": "question's CVE-2016-2178 rules out same-family MQ AMS bulletins with other CVEs"}
+{"question_id": "TRAIN_Q214", "identifier_decides": "yes", "sibling": 2, "why": "question names Image Construction and Composition Tool, ruling out the same-CVE WebSphere Portal sibling"}
+{"question_id": "TRAIN_Q215", "identifier_decides": "yes", "sibling": 1, "why": "question's CVE-2017-1194 rules out same-family WAS/ITNM bulletins with other CVEs"}
+{"question_id": "TRAIN_Q216", "identifier_decides": "yes", "sibling": 6, "why": "question's CVE-2017-7805 rules out same-family MQ Appliance NSS bulletins with other CVEs"}
+{"question_id": "TRAIN_Q217", "identifier_decides": "yes", "sibling": 6, "why": "question's V7.5.0 separates it from the differently-versioned (7.3.0) messaging fix-pack sibling"}
+{"question_id": "TRAIN_Q219", "identifier_decides": "no", "sibling": 5, "why": "the sibling shares the exact same error code SQLCODE=-1585/SQLSTATE=54048, so the code doesn't decide, and no product name is stated"}
+{"question_id": "TRAIN_Q221", "identifier_decides": "no", "sibling": 2, "why": "the sibling describes the identical symptom in nearly the same words; nothing in the question separates them"}
+{"question_id": "TRAIN_Q222", "identifier_decides": "no", "sibling": 1, "why": "the sibling shares the same ITDS 6.3/RHEL topic; the split is document-type, not an identifier"}
+{"question_id": "TRAIN_Q223", "identifier_decides": "yes", "sibling": 3, "why": "question's SQL20157N and the V10.1/V10.5-not-V9.7 detail separate it from the differently-coded SQL2048N backup sibling"}
+{"question_id": "TRAIN_Q224", "identifier_decides": "yes", "sibling": 1, "why": "question names WebSphere MQ Internet Passthru, ruling out the same-CVE MQ Telemetry sibling"}
+{"question_id": "TRAIN_Q225", "identifier_decides": "no", "sibling": 1, "why": "the question's exact version+CF (7.0.0.2 CF29) actually matches the sibling rather than the labelled relevant (7.0.0.1) (ambiguous)"}
+{"question_id": "TRAIN_Q226", "identifier_decides": "yes", "sibling": 2, "why": "question's 'TIP' names Tivoli Integrated Portal, ruling out the similarly-named Tivoli Provisioning Manager sibling"}
+{"question_id": "TRAIN_Q227", "identifier_decides": "no", "sibling": 3, "why": "question names no MQ version or MQExplorer context to separate it from the AMQ4999 CHLAUTH-delete sibling"}
+{"question_id": "TRAIN_Q228", "identifier_decides": "no", "sibling": null, "why": "pool docs address different reclaim-storage sub-tasks, not a version sibling of the SQL1763N error"}
+{"question_id": "TRAIN_Q231", "identifier_decides": "no", "sibling": 3, "why": "'(all versions)' is a scope phrase, not a literal identifier, and no pool doc reproduces the quoted error text"}
+{"question_id": "TRAIN_Q232", "identifier_decides": "yes", "sibling": 4, "why": "question's CVE-2015-5011 rules out same-family WMB/IIB bulletins with other CVEs"}
+{"question_id": "TRAIN_Q233", "identifier_decides": "yes", "sibling": 4, "why": "question's CVE-2018-1382 (and absence of 'Developer Portal') separates it from the same-XSS-type Developer Portal sibling with a different CVE"}
+{"question_id": "TRAIN_Q234", "identifier_decides": "no", "sibling": 2, "why": "question names no product edition (e.g. Maximo), and version '7.0.X' doesn't map to any differently-versioned same-problem sibling since the relevant doc is version-generic"}
+{"question_id": "TRAIN_Q235", "identifier_decides": "yes", "sibling": 3, "why": "question's exact code BMXAA4087E separates it from the other BMXAA-coded Maximo/SCCD start-failure siblings"}
+{"question_id": "TRAIN_Q236", "identifier_decides": "yes", "sibling": 4, "why": "question's SPSS 19 on Sierra separates it from the SPSS-24-on-El-Capitan activation-wizard sibling (ambiguous: labelled relevant is a generic compatibility matrix)"}
+{"question_id": "TRAIN_Q239", "identifier_decides": "yes", "sibling": 3, "why": "question names IIB, ruling out the same-CVE-2016-0360 WebSphere MQ JMS client sibling"}
+{"question_id": "TRAIN_Q240", "identifier_decides": "no", "sibling": 3, "why": "version 3.2 is shared with the End-of-Marketing sibling, so it doesn't decide; the split is announcement type"}
+{"question_id": "TRAIN_Q241", "identifier_decides": "yes", "sibling": 1, "why": "question names the BPM Process Admin Console, separating it from the JSP/report print-export sibling with the identical SRVE0199E message"}
+{"question_id": "TRAIN_Q242", "identifier_decides": "no", "sibling": 6, "why": "the sibling shares the exact AMQ9716 code and the 7.0.1.0 upgrade context, so nothing in the question decides"}
+{"question_id": "TRAIN_Q243", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version-sibling of the same ALTER QLOCAL problem"}
+{"question_id": "TRAIN_Q244", "identifier_decides": "yes", "sibling": 2, "why": "question's CVE-2015-4872 and 'WSRR Studio' scope rule out the differently-CVE'd/differently-scoped siblings"}
+{"question_id": "TRAIN_Q247", "identifier_decides": "no", "sibling": 4, "why": "no version or code in the question separates reload()/clearEntity from the direct-LDAP-update sibling"}
+{"question_id": "TRAIN_Q248", "identifier_decides": "yes", "sibling": 2, "why": "'MessageSet Project' names the artifact type that separates it from the connector-project sibling (ambiguous: borderline as a rubric anchor)"}
+{"question_id": "TRAIN_Q252", "identifier_decides": "no", "sibling": null, "why": "pool's version-specific ODM ruleset bugs are different symptoms, not siblings of the unexpected-version-executed relevant doc"}
+{"question_id": "TRAIN_Q254", "identifier_decides": "yes", "sibling": 5, "why": "question's quoted WTRN0006W transaction-timeout message separates it from the SQLCODE=-964 virtual-portal-deletion sibling"}
+{"question_id": "TRAIN_Q255", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version-sibling of the same uninstall problem"}
+{"question_id": "TRAIN_Q256", "identifier_decides": "yes", "sibling": 2, "why": "question's ORA-00942 and krzgrant.sql/6.3.1.2-IF0003 package separate it from the same-script ORA-01722 sibling"}
+{"question_id": "TRAIN_Q258", "identifier_decides": "no", "sibling": 2, "why": "question's Datacap 8.1 doesn't map to any differently-versioned same-problem sibling"}
+{"question_id": "TRAIN_Q260", "identifier_decides": "yes", "sibling": 5, "why": "question's quoted error chain (BMT-IMP-0002/CM-REQ-4342/CAF-WRN-2082) separates it from the AmbiguousDataSourceCredentials BMT-IMP-0002 sibling"}
+{"question_id": "TRAIN_Q262", "identifier_decides": "yes", "sibling": 6, "why": "question names IBM Content Navigator, ruling out the same-symptom BPM scroll-bar sibling"}
+{"question_id": "TRAIN_Q263", "identifier_decides": "yes", "sibling": 2, "why": "question's 'Fixpack 6' separates it from the other numbered ITM 6.3.0 fix-pack siblings"}
+{"question_id": "TRAIN_Q266", "identifier_decides": "yes", "sibling": 1, "why": "question names DataPower, ruling out the same-CVE Bash bulletins for other products"}
+{"question_id": "TRAIN_Q267", "identifier_decides": "yes", "sibling": 5, "why": "question's version 7.1.1.1 separates it from the differently-versioned (6.2.0) SAP-agent-crash sibling"}
+{"question_id": "TRAIN_Q269", "identifier_decides": "no", "sibling": null, "why": "pool's Rulerunner start/stop docs are different specific problems, not a version sibling"}
+{"question_id": "TRAIN_Q270", "identifier_decides": "no", "sibling": 6, "why": "question's ICWPA1001E code appears in no pool doc; the closest Atlas sibling addresses a different feature"}
+{"question_id": "TRAIN_Q272", "identifier_decides": "yes", "sibling": 2, "why": "question's WAS V7.0-to-V8.5.5 upgrade maps to the V7.0.1-vs-V7.1 MQ-JMS-classes change, separating it from the raw-MQ-upgrade sibling (ambiguous)"}
+{"question_id": "TRAIN_Q274", "identifier_decides": "no", "sibling": 5, "why": "no version is named in the question to separate the general profile-path FAQ from the exact-match JR51714 sibling fix"}
+{"question_id": "TRAIN_Q276", "identifier_decides": "no", "sibling": 6, "why": "'(all versions)' is a scope phrase, not a literal identifier separating it from the JMS-adapter-listener sibling"}
+{"question_id": "TRAIN_Q277", "identifier_decides": "yes", "sibling": 1, "why": "question names MySQL agent, ruling out the similarly-named SQL agent sibling"}
+{"question_id": "TRAIN_Q278", "identifier_decides": "yes", "sibling": 1, "why": "version 7.1.1 separates the version-specific 'no automated pruning' answer from the general SDMS pruning wiki doc"}
+{"question_id": "TRAIN_Q279", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2017-1341 named in question distinguishes it from same-family MQ bulletins for other CVEs"}
+{"question_id": "TRAIN_Q280", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares same product+problem (Oracle JDBC custom properties in WAS) differentiated by version"}
+{"question_id": "TRAIN_Q283", "identifier_decides": "no", "sibling": null, "why": "pool's Alcatel 5620 SAM probe versions aren't siblings of the unrelated Nokia NFMP relevant doc"}
+{"question_id": "TRAIN_Q285", "identifier_decides": "no", "sibling": 1, "why": "sibling APAR shares the same firmware versions named in the question, so version alone doesn't decide"}
+{"question_id": "TRAIN_Q286", "identifier_decides": "no", "sibling": null, "why": "pool's port/socket-failure siblings aren't same family as the labeled relevant (unrelated On Success/Delete APAR)"}
+{"question_id": "TRAIN_Q287", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares same product+problem (Datacap OS compatibility) differentiated by version"}
+{"question_id": "TRAIN_Q288", "identifier_decides": "yes", "sibling": 4, "why": "bundle name com.stellent.scd.ExportResources vs com.outsideinsdk.ExportResources separates the two export-bundle issues"}
+{"question_id": "TRAIN_Q291", "identifier_decides": "no", "sibling": 1, "why": "question names no CVE to pick among several update-versions of the identical bulletin title"}
+{"question_id": "TRAIN_Q294", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (general maintenance strategy doc) isn't same-problem family as pool's IZE0106E variants"}
+{"question_id": "TRAIN_Q295", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (TIP HA cluster doc) is unrelated to pool's WebGUI/Java-applet-manifest family"}
+{"question_id": "TRAIN_Q297", "identifier_decides": "yes", "sibling": 4, "why": "CVE-2015-0235 distinguishes it from the same-product sibling bulletin for CVE-2015-1472 and CVE-2013-7423"}
+{"question_id": "TRAIN_Q298", "identifier_decides": "no", "sibling": null, "why": "no version/error/APAR named in question to separate PVU-report docs from generic PVU/licensing siblings"}
+{"question_id": "TRAIN_Q299", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the specific fixpack/JDK-bundling problem differentiated by a named version"}
+{"question_id": "TRAIN_Q300", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the RT7507E error family; PI18137/CF15 siblings involve different specific errors"}
+{"question_id": "TRAIN_Q302", "identifier_decides": "yes", "sibling": 4, "why": "CVE-2018-2633 picks the January 2018 bulletin apart from the April 2018 sibling (CVE-2018-2783)"}
+{"question_id": "TRAIN_Q303", "identifier_decides": "yes", "sibling": 1, "why": "'Specific symptom number: 3' separates it from same-family Error 2070 docs about symptom number 5"}
+{"question_id": "TRAIN_Q304", "identifier_decides": "no", "sibling": null, "why": "no same-product/problem sibling among pool docs (different products: Cognos, Notes, IWR, Content Navigator)"}
+{"question_id": "TRAIN_Q305", "identifier_decides": "no", "sibling": null, "why": "grad-pack authorization-code siblings share the problem, but digit counts are measurements, not anchors"}
+{"question_id": "TRAIN_Q306", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (admin-privileges warning) is a different problem than pool's license-transfer doc"}
+{"question_id": "TRAIN_Q307", "identifier_decides": "no", "sibling": null, "why": "the differentiator (second DE instance vs DE at different path) is a described cause, not a named identifier"}
+{"question_id": "TRAIN_Q312", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2015-0410/CVE-2014-6593 separate the January 2015 bulletin from the April 2015 sibling (CVE-2015-2808 set)"}
+{"question_id": "TRAIN_Q314", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the same product/CVE family as the labeled relevant IBM HTTP Server POODLE bulletin"}
+{"question_id": "TRAIN_Q318", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (sync.bigfix.com gather 404) differs in problem from pool's APAR IV83671 fixlet-display doc"}
+{"question_id": "TRAIN_Q319", "identifier_decides": "yes", "sibling": 4, "why": "LDAP error code 34 (Invalid DN Syntax) distinguishes it from the CWWIM4520E sibling with error code 65"}
+{"question_id": "TRAIN_Q320", "identifier_decides": "no", "sibling": null, "why": "ITCAM AD vs J2EE are different products, not version-differentiated siblings"}
+{"question_id": "TRAIN_Q321", "identifier_decides": "yes", "sibling": 5, "why": "CVE-2017-10115/10116 plus the product name API Connect separate the July 2017 bulletin from the January/April 2017 sibling and from same-CVE bulletins for other products"}
+{"question_id": "TRAIN_Q324", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2015-0138 separates this bulletin from same-family siblings for other CVEs (e.g. CVE-2015-4000)"}
+{"question_id": "TRAIN_Q328", "identifier_decides": "no", "sibling": null, "why": "question names no version/error-code identifier; the closest pool doc differs only by scope"}
+{"question_id": "TRAIN_Q330", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same fit-content-by problem at a different version"}
+{"question_id": "TRAIN_Q332", "identifier_decides": "no", "sibling": null, "why": "the Maximo product name doesn't decide; the more Maximo-specific pool doc isn't distinguished by any question identifier"}
+{"question_id": "TRAIN_Q333", "identifier_decides": "yes", "sibling": 3, "why": "the JAXB UnmarshalException/MTDS SOAP context separates it from the same-product ODM sibling APAR RS02029"}
+{"question_id": "TRAIN_Q334", "identifier_decides": "no", "sibling": null, "why": "no version/error-code identifier in question separates the general timezone family of DateTime storage docs"}
+{"question_id": "TRAIN_Q336", "identifier_decides": "no", "sibling": null, "why": "question names no version/APAR to distinguish among locked-files-during-ITM-install docs"}
+{"question_id": "TRAIN_Q338", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (DCO case-sensitivity bug) isn't a migration-version sibling of pool's 9.0-to-9.0.1 guide"}
+{"question_id": "TRAIN_Q339", "identifier_decides": "no", "sibling": null, "why": "no other pool doc shares the TCR+IE11 family differentiated by version"}
+{"question_id": "TRAIN_Q340", "identifier_decides": "yes", "sibling": 3, "why": "the HPDMG0759W error text distinguishes it from the sibling run-svrssl-config failure (getCACert NullPointerException)"}
+{"question_id": "TRAIN_Q343", "identifier_decides": "yes", "sibling": 3, "why": "'WAS Liberty' named in question matches relevant's explicit Liberty mention, distinguishing it from the same-CVE sibling notice with no Liberty mention"}
+{"question_id": "TRAIN_Q345", "identifier_decides": "yes", "sibling": 5, "why": "version 8.5.5.6 distinguishes it from the sibling bulletin for 8.5.5.7"}
+{"question_id": "TRAIN_Q346", "identifier_decides": "no", "sibling": null, "why": "the closest pool doc describes the very same APAR (PM50525) as relevant; no version/APAR in question separates them"}
+{"question_id": "TRAIN_Q347", "identifier_decides": "no", "sibling": null, "why": "no other pool doc addresses DataPower's supported algorithms differentiated by firmware version"}
+{"question_id": "TRAIN_Q348", "identifier_decides": "no", "sibling": 6, "why": "question names no version/column identifier to distinguish this SQLCODE=-206 cause from the sibling's different-version instance"}
+{"question_id": "TRAIN_Q349", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2015-0156 distinguishes it from the same-console sibling bulletin CVE-2017-1530"}
+{"question_id": "TRAIN_Q350", "identifier_decides": "no", "sibling": 6, "why": "question names no version; relevant and the closest pool doc may describe the same PureApplication release"}
+{"question_id": "TRAIN_Q352", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (XML character serialization error) isn't in the same family as pool's delimiter-configuration docs"}
+{"question_id": "TRAIN_Q353", "identifier_decides": "yes", "sibling": 2, "why": "the cqreg add_dbset command plus RHEL platform separate it from the version-specific (CQ 7.1.x) sibling with a different root cause"}
+{"question_id": "TRAIN_Q355", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the Netezza/PureData spring-space family; all are unrelated products/errors"}
+{"question_id": "TRAIN_Q357", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses DataPower SHA-2 support specifically; all are different products"}
+{"question_id": "TRAIN_Q358", "identifier_decides": "no", "sibling": 3, "why": "the distinguishing feature (different user repository vs SPNEGO) is a described cause, not a named identifier"}
+{"question_id": "TRAIN_Q359", "identifier_decides": "yes", "sibling": 1, "why": "product name MQ Appliance plus CVE-2015-7575 separate it from the same-CVE/different-product sibling and from other MQ Appliance CVE bulletins"}
+{"question_id": "TRAIN_Q361", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version-specific EOL announcement for a different MQ version; doc4 is a general lifecycle index"}
+{"question_id": "TRAIN_Q362", "identifier_decides": "yes", "sibling": 2, "why": "product name 'Image Construction and Composition Tool' distinguishes it among same-CVE-2015-4000 sibling bulletins for other products"}
+{"question_id": "TRAIN_Q363", "identifier_decides": "yes", "sibling": 3, "why": "version V4.0 distinguishes it from the same-family V3.0 Healthcare Pack fix-pack/download docs"}
+{"question_id": "TRAIN_Q365", "identifier_decides": "yes", "sibling": 3, "why": "CVE-2017-1000381/CVE-2017-11499 distinguish this API Connect Node.js bulletin from the sibling for CVE-2016-7099/CVE-2016-5325"}
+{"question_id": "TRAIN_Q366", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (generic backup-creation steps) doesn't share the specific corruption/restore problem with pool's E-REG-002-025 family (e.g. doc4)"}
+{"question_id": "TRAIN_Q367", "identifier_decides": "no", "sibling": 4, "why": "question doesn't quote either error message ('Couldn't validate parameters' vs 'Couldn't secure parameters') that would separate relevant from the DotEdit/DotScan sibling"}
+{"question_id": "TRAIN_Q368", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (identify app with queue open) is unrelated to pool's 2085/Unknown-Object-Name family (docs 5, 6)"}
+{"question_id": "TRAIN_Q369", "identifier_decides": "yes", "sibling": 5, "why": "CVE-2016-2177 distinguishes it from the same-product (MQ AMS) sibling bulletin for CVE-2015-3194/3195/3196"}
+{"question_id": "TRAIN_Q371", "identifier_decides": "yes", "sibling": 6, "why": "version V8.0 distinguishes it from the same-family system-requirements sibling for MQ V7.0/7.0.1 on z/OS"}
+{"question_id": "TRAIN_Q372", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (permission-denied error) is a different problem than pool's CRIMA1217E doc4, which more closely matches the quoted error code"}
+{"question_id": "TRAIN_Q373", "identifier_decides": "no", "sibling": 2, "why": "relevant addresses a different action (RecognizeFieldICR_C, error code 12) than the sibling's RecognizePageFields2CCO_ICR_C abort; no APAR/version in question separates them"}
+{"question_id": "TRAIN_Q374", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares relevant's specific MakeFile-external-file-inclusion topic differentiated by version"}
+{"question_id": "TRAIN_Q375", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2015-0235 plus 'DataPower Gateway appliances' separate it from same-product siblings with different CVEs and from the same-CVE XC10 Appliance bulletin"}
+{"question_id": "TRAIN_Q376", "identifier_decides": "yes", "sibling": 1, "why": "product name WSRR plus CVE-2016-1000031 separate it from same-CVE bulletins for other products and from the same-product WSRR bulletin for different CVEs"}
+{"question_id": "TRAIN_Q378", "identifier_decides": "yes", "sibling": 5, "why": "product name MQ Appliance plus CVE-2016-0201 separate it from same-CVE bulletins for other products and from same-product bulletins for other CVEs"}
+{"question_id": "TRAIN_Q379", "identifier_decides": "no", "sibling": null, "why": "no other pool doc addresses DASH TimeSet/dataRefresh Events specifically; closest analogues are different products"}
+{"question_id": "TRAIN_Q380", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same how-to-view-custodian-notes problem differentiated by version; doc1 is a different issue (performance warning)"}
+{"question_id": "TRAIN_Q382", "identifier_decides": "yes", "sibling": 2, "why": "'Fix Pack 2' distinguishes it from the sibling 'Interim Fix 1' download page for the same 24.0.0.0 release"}
+{"question_id": "TRAIN_Q383", "identifier_decides": "yes", "sibling": 6, "why": "CMOD v9.0 plus the arssyscr command distinguish it from the V8.4.1 sibling requiring the arsdb command"}
+{"question_id": "TRAIN_Q386", "identifier_decides": "yes", "sibling": 4, "why": "CVE-2015-0410/CVE-2014-6593 (January 2015) distinguish it from the April 2015 sibling bulletin (CVE-2015-2808 set)"}
+{"question_id": "TRAIN_Q387", "identifier_decides": "no", "sibling": 4, "why": "labeled relevant (compressed-references heap doc) doesn't share the quoted 'Dump Event systhrow' template with pool's closer matches"}
+{"question_id": "TRAIN_Q388", "identifier_decides": "yes", "sibling": 6, "why": "the property name 'defaultRowPrefetch' distinguishes it from the general Oracle-JDBC-custom-property sibling doc"}
+{"question_id": "TRAIN_Q389", "identifier_decides": "yes", "sibling": 5, "why": "the version range (19-23, including 20+) distinguishes it from the legacy compatibility doc which explicitly excludes releases 20 and above"}
+{"question_id": "TRAIN_Q390", "identifier_decides": "no", "sibling": 3, "why": "relevant and the sibling (APAR IZ81446) describe the same underlying defect; 'all versions' in the question is a scope statement, not a version/error-code identifier"}
+{"question_id": "TRAIN_Q393", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same fit-content-by problem at a different version"}
+{"question_id": "TRAIN_Q394", "identifier_decides": "no", "sibling": 1, "why": "question names no version/column identifier to distinguish this SQLCODE=-206 cause from the sibling's different-version instance"}
+{"question_id": "TRAIN_Q395", "identifier_decides": "no", "sibling": null, "why": "labeled relevant (generic IHS 8.5 fix list) doesn't share the specific ITCAM/AIX-7.2-compatibility problem with any pool doc"}
+{"question_id": "TRAIN_Q397", "identifier_decides": "no", "sibling": 6, "why": "no visible date/version distinguishes the near-duplicate WebGUI leap-second docs; doc5 differs by naming ObjectServer, not the question's Web GUI"}
+{"question_id": "TRAIN_Q398", "identifier_decides": "no", "sibling": 5, "why": "the distinguishing feature (different user repository vs SPNEGO) is a described cause, not a named identifier"}
+{"question_id": "TRAIN_Q400", "identifier_decides": "yes", "sibling": 2, "why": "CVE-2017-1235 distinguishes it from other same-family MQ denial-of-service bulletins for different CVEs"}
+{"question_id": "TRAIN_Q402", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the specific 'OALL8 is in an inconsistent state' StaleConnectionException; each names a different specific message"}
+{"question_id": "TRAIN_Q403", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2015-1890 distinguishes it from same-platform (PureApplication System) sibling bulletins for other CVEs"}
+{"question_id": "TRAIN_Q406", "identifier_decides": "yes", "sibling": 3, "why": "CVE-2016-5546/5548 distinguish the January/April 2017 bulletin from the same-title sibling for July 2017 (CVE-2017-10115)"}
+{"question_id": "TRAIN_Q411", "identifier_decides": "no", "sibling": null, "why": "no other pool doc is a version-differentiated ICC system-requirements/prerequisites doc"}
+{"question_id": "TRAIN_Q413", "identifier_decides": "no", "sibling": 1, "why": "labeled relevant (DCO case-sensitivity bug) isn't a migration-version sibling of pool's 9.0-to-9.0.1 guide"}
+{"question_id": "TRAIN_Q414", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version-specific EOL announcement for a different MQ version; WAS V7.0/V8.0 EOL docs are a different product"}
+{"question_id": "TRAIN_Q415", "identifier_decides": "yes", "sibling": 1, "why": "the product name 'FileNet WorkplaceXT' distinguishes it from the sibling with the identical encryption/decryption keyId error (Process Engine)"}
+{"question_id": "TRAIN_Q416", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same missing-component-parameters problem; all are different Virtual Interview/Hold topics"}
+{"question_id": "TRAIN_Q417", "identifier_decides": "yes", "sibling": 2, "why": "CMOD v9.0 plus the arssyscr command distinguish it from the V8.4.1 sibling requiring the arsdb command"}
+{"question_id": "TRAIN_Q422", "identifier_decides": "yes", "sibling": 1, "why": "product name 'IBM Integration Designer and WebSphere Integration Developer' distinguishes it from same-CVE-2014-3566 bulletins for other products"}
+{"question_id": "TRAIN_Q424", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the same Data Studio 3.1.1 uninstall problem at a different version; doc3 is the identical issue in Japanese"}
+{"question_id": "TRAIN_Q425", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the generic chflevel single-VOB command at a different level; docs 1 and 5 differ in problem type, not just version"}
+{"question_id": "TRAIN_Q426", "identifier_decides": "yes", "sibling": 6, "why": "CVE-2017-1747 distinguishes it from other same-family MQ SIGSEGV/DoS bulletins for different CVEs"}
+{"question_id": "TRAIN_Q428", "identifier_decides": "no", "sibling": null, "why": "no version/error-code identifier in question separates the labeled relevant (generic TCR heap-size fix) from pool's more specific 'never completes' hang docs"}
+{"question_id": "TRAIN_Q429", "identifier_decides": "yes", "sibling": 5, "why": "Portal version 7.0.0.2 distinguishes it from the same-family hardware/software requirements sibling for Portal V6.1.0.5/V6.1.5.2"}
+{"question_id": "TRAIN_Q430", "identifier_decides": "no", "sibling": null, "why": "labeled relevant addresses a different specific problem (permission-denied error) than the question's 'taking long time'; no pool doc shares that problem either"}
+{"question_id": "TRAIN_Q431", "identifier_decides": "yes", "sibling": 5, "why": "'OS agent' distinguishes it from the sibling APAR for the System Monitor Agent (IV32710)"}
+{"question_id": "TRAIN_Q433", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses general Optim licensing at a different version; doc2 (v7.2 trial license) is a different problem"}
+{"question_id": "TRAIN_Q437", "identifier_decides": "yes", "sibling": 1, "why": "version 7.0.0.41 distinguishes it from same-family WAS Test Environment Extension download docs for other fix pack versions"}
+{"question_id": "TRAIN_Q440", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the same SCM-check-analyses-deactivation problem differentiated by a version/APAR identifier"}
+{"question_id": "TRAIN_Q441", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version/APAR sibling of the serve-static-files answer"}
+{"question_id": "TRAIN_Q442", "identifier_decides": "yes", "sibling": 6, "why": "named RHEL edition separates it from the same CVE-2015-4000 bulletin for AIX Server 2.5"}
+{"question_id": "TRAIN_Q444", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the relevant Mac-compatibility answer's family"}
+{"question_id": "TRAIN_Q445", "identifier_decides": "no", "sibling": null, "why": "pool APARs share version 8.1 but are different bugs, not version siblings of the relevant symptom"}
+{"question_id": "TRAIN_Q446", "identifier_decides": "yes", "sibling": null, "why": "no pool doc is a DataPower-specific sibling of the same bash-CVE bulletin"}
+{"question_id": "TRAIN_Q448", "identifier_decides": "yes", "sibling": 4, "why": "version 9035 named; sibling PI57725 is the same export-to-XML bug in version 9031"}
+{"question_id": "TRAIN_Q450", "identifier_decides": "yes", "sibling": 5, "why": "versions 7.0/8.5.5 named; sibling covers MQRC 2035 for a V5.3-to-V6/V7 upgrade instead"}
+{"question_id": "TRAIN_Q451", "identifier_decides": "no", "sibling": null, "why": "pool docs cover different ICC-P8 problems, not a version sibling of the SSL setup answer"}
+{"question_id": "TRAIN_Q453", "identifier_decides": "no", "sibling": null, "why": "pool ICO version docs address different topics (PowerVC, keystone, driver fix), not the roadmap answer"}
+{"question_id": "TRAIN_Q454", "identifier_decides": "yes", "sibling": 3, "why": "SQLSTATE HY000 / Native Error -256 named; sibling has different native error codes for a different DB2 driver"}
+{"question_id": "TRAIN_Q455", "identifier_decides": "no", "sibling": null, "why": "pool docs are different products/problems, not a version sibling of the Portal Derby answer"}
+{"question_id": "TRAIN_Q456", "identifier_decides": "no", "sibling": null, "why": "pool docs cover unrelated Solaris-zone products, not a WAS zonecfg sibling"}
+{"question_id": "TRAIN_Q458", "identifier_decides": "yes", "sibling": 4, "why": "error code TASK001X named; sibling shares the same CF14 upgrade context with a different error"}
+{"question_id": "TRAIN_Q460", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the relevant Student/GradPack Resources doc's family"}
+{"question_id": "TRAIN_Q461", "identifier_decides": "no", "sibling": null, "why": "pool docs are different TIP problems, not an Argus-cache version sibling"}
+{"question_id": "TRAIN_Q462", "identifier_decides": "no", "sibling": null, "why": "pool CVEs are distinct MQ vulnerabilities, not versions of the same dynamic-queue leak"}
+{"question_id": "TRAIN_Q463", "identifier_decides": "no", "sibling": null, "why": "pool docs are different products (TIP, API Mgmt), not a Portal-multiple-login version sibling"}
+{"question_id": "TRAIN_Q465", "identifier_decides": "no", "sibling": null, "why": "the question's quoted error code EJCBD0021E matches a pool doc, not the relevant EJCBC0002E document"}
+{"question_id": "TRAIN_Q466", "identifier_decides": "no", "sibling": 3, "why": "the appended webcast date 'Tuesday, 17 Jan 2017' distinguishes it from the Feb 15 webcast sibling"}
+{"question_id": "TRAIN_Q469", "identifier_decides": "no", "sibling": null, "why": "the named product 'WSRR' actually matches a pool doc's title, not the relevant Jazz for Service Management bulletin"}
+{"question_id": "TRAIN_Q471", "identifier_decides": "no", "sibling": null, "why": "version 8.5.5.10 is shared by several pool APARs, so it does not discriminate a single sibling"}
+{"question_id": "TRAIN_Q472", "identifier_decides": "no", "sibling": null, "why": "the question names no platform, so it cannot distinguish the AIX-specific answer from the Linux sibling"}
+{"question_id": "TRAIN_Q473", "identifier_decides": "no", "sibling": null, "why": "pool Summarization-and-Pruning APARs are unrelated bugs, not a version sibling of the ERRORCODE=-4220 answer"}
+{"question_id": "TRAIN_Q475", "identifier_decides": "yes", "sibling": 2, "why": "the quoted 'Console Settings' distinguishes it from other WAS-8.5.5.9-missing-jar symptoms (datasource save failure)"}
+{"question_id": "TRAIN_Q478", "identifier_decides": "no", "sibling": null, "why": "pool shared-library docs are a different topic than the relevant resource-provider-isolation answer"}
+{"question_id": "TRAIN_Q488", "identifier_decides": "no", "sibling": null, "why": "pool FIPS docs are for unrelated products, not a DB2 version sibling"}
+{"question_id": "TRAIN_Q489", "identifier_decides": "no", "sibling": null, "why": "no version/platform is named that separates the ODM RES answer from the WebLogic RES sibling"}
+{"question_id": "TRAIN_Q490", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version sibling of the relevant DWC-9.3-to-lower-TWS SSL answer"}
+{"question_id": "TRAIN_Q492", "identifier_decides": "no", "sibling": null, "why": "pool CVEs are different MQTT vulnerabilities; the Japanese duplicate shares the same CVEs rather than differing"}
+{"question_id": "TRAIN_Q493", "identifier_decides": "yes", "sibling": 4, "why": "CVE-2017-1741 named distinguishes it from the same 'shipped with ITNM' bulletin pattern for CVE-2017-1743"}
+{"question_id": "TRAIN_Q494", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version sibling of the Business Monitor Oracle-12c JVM-property answer"}
+{"question_id": "TRAIN_Q495", "identifier_decides": "no", "sibling": null, "why": "pool log4j docs are for unrelated products (Maximo, TRIRIGA), not a WAS-logging version sibling"}
+{"question_id": "TRAIN_Q496", "identifier_decides": "no", "sibling": null, "why": "the question's quoted error/context (IWKWC0016E syndication) matches a pool doc, not the relevant JDBC/JCC document"}
+{"question_id": "TRAIN_Q497", "identifier_decides": "no", "sibling": null, "why": "no pool doc addresses the specific 'Page cannot be displayed' symptom as a version sibling"}
+{"question_id": "TRAIN_Q499", "identifier_decides": "yes", "sibling": 5, "why": "CVE-2017-8804 named distinguishes it from the same glibc/MQ-Appliance bulletin family for CVE-2015-7547"}
+{"question_id": "TRAIN_Q503", "identifier_decides": "no", "sibling": null, "why": "the acsi path appears in an unrelated-problem pool doc, not in a permission-removal sibling"}
+{"question_id": "TRAIN_Q504", "identifier_decides": "no", "sibling": null, "why": "'malformed' is a descriptive word, not an identifier separating it from the trap-queue-full sibling"}
+{"question_id": "TRAIN_Q505", "identifier_decides": "no", "sibling": null, "why": "no pool doc shares the relevant Student/GradPack Resources doc's family"}
+{"question_id": "TRAIN_Q507", "identifier_decides": "yes", "sibling": 1, "why": "'Web GUI 8.1'/JazzSM DASH context distinguishes it from the SKLM-GUI sibling with the same no-timeout lock-out cause"}
+{"question_id": "TRAIN_Q511", "identifier_decides": "yes", "sibling": 5, "why": "CVE-2015-0289 named distinguishes it from the sibling DataPower SSL bulletin for CVE-2015-1788/1789/1790/1792"}
+{"question_id": "TRAIN_Q513", "identifier_decides": "yes", "sibling": 5, "why": "CVE-2014-8901 named distinguishes it from the sibling WMB/IIB bulletin for CVE-2015-2018"}
+{"question_id": "TRAIN_Q516", "identifier_decides": "no", "sibling": null, "why": "no version/error code is named that separates the relevant document from the similarly-themed ICR pool docs"}
+{"question_id": "TRAIN_Q517", "identifier_decides": "yes", "sibling": 4, "why": "the quoted error text ('wasn't heard from'/'Unauthorized client...rejecting') matches the relevant doc, not the z/OS-specific sibling"}
+{"question_id": "TRAIN_Q518", "identifier_decides": "yes", "sibling": 6, "why": "CVE-2014-0076 named distinguishes it from the sibling GSKit/MQ bulletin for CVE-2015-7421/7420"}
+{"question_id": "TRAIN_Q519", "identifier_decides": "yes", "sibling": 5, "why": "CVE-2015-0193 named distinguishes it from the near-identical 'error situations' XSS bulletin CVE-2014-0957"}
+{"question_id": "TRAIN_Q520", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a matching-engine/version sibling of the relevant word-too-tall answer"}
+{"question_id": "TRAIN_Q521", "identifier_decides": "no", "sibling": null, "why": "the closest pool doc (PM50525) is the same APAR referenced by the relevant document, not a distinct sibling"}
+{"question_id": "TRAIN_Q523", "identifier_decides": "no", "sibling": null, "why": "pool XFF docs are for unrelated products (IHS, TIP, DataPower), not an FELB version sibling"}
+{"question_id": "TRAIN_Q524", "identifier_decides": "no", "sibling": null, "why": "pool ABEND codes are for different underlying bugs, not versions of the same ABEND 102-00000000"}
+{"question_id": "TRAIN_Q525", "identifier_decides": "no", "sibling": null, "why": "the closest pool doc (n=6) shares the same v7.1.1 version as the relevant document, so it does not discriminate"}
+{"question_id": "TRAIN_Q526", "identifier_decides": "yes", "sibling": 1, "why": "version 8.1.2 places relevant in the 64-bit feature-availability table, distinct from the v8.0.6 ReporterPlus APAR sibling"}
+{"question_id": "TRAIN_Q533", "identifier_decides": "no", "sibling": null, "why": "pool CVEs are different MQTT vulnerabilities; the Japanese duplicate shares the same CVEs rather than differing"}
+{"question_id": "TRAIN_Q535", "identifier_decides": "no", "sibling": null, "why": "the SQLCODE=-204/42704 error is shared by all pool docs for different products, so it is the object name that would differ, not a listed identifier type"}
+{"question_id": "TRAIN_Q537", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version sibling of the Netcool/Impact HSQLDB-password answer"}
+{"question_id": "TRAIN_Q538", "identifier_decides": "no", "sibling": null, "why": "the build number 7.2.0.0.14 also appears in a pool doc (n=1), so it does not cleanly discriminate toward the relevant fix list"}
+{"question_id": "TRAIN_Q540", "identifier_decides": "no", "sibling": null, "why": "the relevant Content Navigator 3.0.0 fix list has no same-family sibling among the Case-Manager-specific pool docs"}
+{"question_id": "TRAIN_Q541", "identifier_decides": "no", "sibling": null, "why": "the closest version-matching pool doc (n=5, Cognos BI 10.2.2) addresses a different specific problem, not a version sibling"}
+{"question_id": "TRAIN_Q543", "identifier_decides": "no", "sibling": null, "why": "no version is named in the question that separates the relevant generic Linux-issues FAQ from the db2cluster-alert APARs"}
+{"question_id": "TRAIN_Q545", "identifier_decides": "yes", "sibling": null, "why": "the closest sibling (n=6) shares the same version 6.1.0 as the relevant document, so no identifier discriminates"}
+{"question_id": "TRAIN_Q546", "identifier_decides": "no", "sibling": null, "why": "no ITNM version is named that would separate the relevant answer from the version-3.8/3.9 EventFilter sibling"}
+{"question_id": "TRAIN_Q547", "identifier_decides": "no", "sibling": null, "why": "pool cert-expiry APARs are for different products, not a version sibling of the SDA/TEPS answer"}
+{"question_id": "TRAIN_Q548", "identifier_decides": "yes", "sibling": 4, "why": "version 6.0.3.3 named distinguishes it from the Fix Pack 5 APAR for the same Reminder-Notice timer-task family"}
+{"question_id": "TRAIN_Q549", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a version sibling of the ITCAM MS launchpad.sh end-of-file answer"}
+{"question_id": "TRAIN_Q550", "identifier_decides": "no", "sibling": null, "why": "pool CVEs affect different shipped components (HTTP Server, OpenSSL, WAS, Apache CXF), not versions of the same MySQL vulnerability"}
+{"question_id": "TRAIN_Q552", "identifier_decides": "no", "sibling": null, "why": "no version is named that separates the relevant IHS-V7.0-32-bit answer from the similar restricted-policy pool doc"}
+{"question_id": "TRAIN_Q553", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2014-3566/CVE-2014-6457 named distinguish it from the sibling bulletin for CVE-2015-0410/CVE-2014-6593"}
+{"question_id": "TRAIN_Q554", "identifier_decides": "yes", "sibling": 4, "why": "DB2 9.5 named distinguishes it from the reclaim-steps sibling that only applies once the feature is enabled (9.7+)"}
+{"question_id": "TRAIN_Q555", "identifier_decides": "yes", "sibling": 3, "why": "Mac OS 10.10.5 (Yosemite) named distinguishes it from the sibling launch-failure doc specific to OS 10.6/10.7"}
+{"question_id": "TRAIN_Q556", "identifier_decides": "no", "sibling": null, "why": "pool FIPS docs are for unrelated products, not a DB2 version sibling"}
+{"question_id": "TRAIN_Q557", "identifier_decides": "no", "sibling": null, "why": "no version is named that separates the relevant generic semget answer from the version-specific DB2TRCSTARTUPSIZE APARs"}
+{"question_id": "TRAIN_Q559", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2015-1920 named distinguishes it from the sibling PureApplication System bulletin for CVE-2015-1283"}
+{"question_id": "TRAIN_Q561", "identifier_decides": "yes", "sibling": 4, "why": "CF09 named; sibling shares the ADMA5026E error but for a WASPostUpgrade migration, not a CF apply"}
+{"question_id": "TRAIN_Q562", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a same-family Portal-system-requirements sibling for a different version"}
+{"question_id": "TRAIN_Q564", "identifier_decides": "no", "sibling": null, "why": "no version is named that separates the general CHLAUTH-removal FAQ from the version-specific MQExplorer APARs"}
+{"question_id": "TRAIN_Q565", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a same-family sibling of the general MQ-compatibility answer"}
+{"question_id": "TRAIN_Q567", "identifier_decides": "no", "sibling": null, "why": "pool Web-Editor login docs are for an unrelated product, not a version sibling of the browser-support answer"}
+{"question_id": "TRAIN_Q568", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a clean version sibling of the V6.1.0.1-specific redirect answer"}
+{"question_id": "TRAIN_Q569", "identifier_decides": "yes", "sibling": 5, "why": "the quoted error text distinguishes it from sibling license-error messages ('not allowed to generate more licenses')"}
+{"question_id": "TRAIN_Q570", "identifier_decides": "yes", "sibling": 6, "why": "version 5.2 named; sibling is the same document type for a different, unversioned release with different file paths"}
+{"question_id": "TRAIN_Q572", "identifier_decides": "yes", "sibling": 4, "why": "CVE-2016-0475 named distinguishes it from the sibling Java-Runtime/MQ bulletin for CVE-2016-0264 etc."}
+{"question_id": "TRAIN_Q573", "identifier_decides": "no", "sibling": null, "why": "no version is named that separates the relevant generic dbheap answer from the version-specific application-heap APARs"}
+{"question_id": "TRAIN_Q574", "identifier_decides": "yes", "sibling": 1, "why": "CVE-2017-1126 named distinguishes it from the sibling WMB/IIB bulletin for CVE-2017-1207"}
+{"question_id": "TRAIN_Q575", "identifier_decides": "no", "sibling": null, "why": "no version is named that separates the relevant generic dbheap answer from the version-specific application-heap APARs"}
+{"question_id": "TRAIN_Q576", "identifier_decides": "no", "sibling": null, "why": "the question names BPM versions, not the JD Edwards adapter version that would separate the relevant doc from the sibling v7.0 requirements doc"}
+{"question_id": "TRAIN_Q577", "identifier_decides": "no", "sibling": null, "why": "no WAS version is named that separates the disable-capability APAR from the earlier message-improvement APAR sibling"}
+{"question_id": "TRAIN_Q578", "identifier_decides": "no", "sibling": null, "why": "no DataPower version is named that separates the relevant CONNECT how-to from the version-specific CONNECT-bug sibling"}
+{"question_id": "TRAIN_Q579", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a same-family sibling (compatibility matrix) for a different OS version"}
+{"question_id": "TRAIN_Q580", "identifier_decides": "yes", "sibling": 6, "why": "CVE-2015-1472/CVE-2013-7423 named distinguish it from the sibling MQ-Hypervisor-Edition glibc bulletin for CVE-2014-5119"}
+{"question_id": "TRAIN_Q581", "identifier_decides": "no", "sibling": null, "why": "pool OOM docs are for unrelated products, not a version sibling of the ITCAM-agent-config answer"}
+{"question_id": "TRAIN_Q582", "identifier_decides": "no", "sibling": null, "why": "the relevant generic download page has no same-family sibling among the Grad-Pack/Mac-specific pool docs"}
+{"question_id": "TRAIN_Q583", "identifier_decides": "yes", "sibling": 3, "why": "'ITCAM for AD' named distinguishes it from the TPAE-specific instance of the same here-document/graphical-mode installer bug"}
+{"question_id": "TRAIN_Q584", "identifier_decides": "no", "sibling": null, "why": "the named CVE-2017-1741 actually matches a pool doc (n=6), not the relevant CVE-2017-1731 document - the identifier does not correctly decide"}
+{"question_id": "TRAIN_Q587", "identifier_decides": "no", "sibling": null, "why": "the version boundary (1.7.3.1 or older) is shared by the pool docs, which describe the same underlying TLS fact from a different symptom angle"}
+{"question_id": "TRAIN_Q588", "identifier_decides": "no", "sibling": null, "why": "the quoted retVal/errno text has no matching sibling with a different errno among the pool docs"}
+{"question_id": "TRAIN_Q590", "identifier_decides": "no", "sibling": null, "why": "the relevant generic TLS-support FAQ has no same-family sibling; the topically closer docs are all in the pool"}
+{"question_id": "TRAIN_Q593", "identifier_decides": "no", "sibling": null, "why": "pool docs are different products/problems, not a version sibling of the Portal Derby answer"}
+{"question_id": "TRAIN_Q596", "identifier_decides": "no", "sibling": null, "why": "no pool doc matches the relevant fix pack's version while addressing the same 'shuts down often' symptom"}
+{"question_id": "TRAIN_Q597", "identifier_decides": "yes", "sibling": 1, "why": "'IBM Content Navigator v2.0.2' named, distinct from the same scale-parameter fix for FileNet BPF's Image Viewer"}
+{"question_id": "TRAIN_Q598", "identifier_decides": "no", "sibling": null, "why": "no pool doc is a same-family (Lombardi/BPM) IE11-support sibling; the relevant doc itself is a generic pointer"}
+{"question_id": "TRAIN_Q599", "identifier_decides": "yes", "sibling": 5, "why": "'ICC configuration manager' named distinguishes it from the same .NET FIPS/MD5CryptoServiceProvider error in i2 Analyst's Notebook"}

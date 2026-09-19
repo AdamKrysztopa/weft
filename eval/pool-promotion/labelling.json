@@ -1,5 +1,30 @@
 {
   "adjudication": "owner, 2026-09-19: the primary labeller's set for every double-label disagreement",
+  "identifier_exact": {
+    "adjudication": "owner, 2026-09-19: yes only when an identifier written in the question separates the relevant set from a same-brand/line sibling in the pool",
+    "method": "blind Claude subagents shown the question, its whole relevant set shuffled and up to five top pool documents; ESCI batches 02-03 (80 questions) labelled by the orchestrating model after the agent launches were refused, having seen only slice-level ceilings",
+    "second_labeller": {
+      "esci": {
+        "adjudicated": {
+          "esci:57516": "yes",
+          "esci:59520": "no"
+        },
+        "agree": 28,
+        "kappa": 0.866,
+        "questions": 30
+      },
+      "techqa": {
+        "adjudicated": {
+          "techqa:TRAIN_Q446": "yes",
+          "techqa:TRAIN_Q466": "no",
+          "techqa:TRAIN_Q545": "yes"
+        },
+        "agree": 27,
+        "kappa": 0.706,
+        "questions": 30
+      }
+    }
+  },
   "labeller": "Claude subagents, blind: question text only",
   "repeated_text_groups_reconciled": [
     {

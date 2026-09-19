@@ -1,0 +1,385 @@
+{"question_id": "100929", "identifier_decides": "no", "sibling": null, "why": "no model/part identifier in generic remote query"}
+{"question_id": "101405", "identifier_decides": "no", "sibling": null, "why": "pool items are all for the same LG V20 model, differing only by brand"}
+{"question_id": "101684", "identifier_decides": "yes", "sibling": 18, "why": "TI-30X IIS distinguishes from sibling TI-30 Eco RS scientific calculator"}
+{"question_id": "101940", "identifier_decides": "no", "sibling": null, "why": "pool items are unrelated books by other authors, not editions of this title"}
+{"question_id": "10198", "identifier_decides": "no", "sibling": null, "why": "no written identifier separates the exact clone board from the pool's own clone board"}
+{"question_id": "102104", "identifier_decides": "no", "sibling": null, "why": "pool item is a summary guide of the book, a different product type, not a sibling edition"}
+{"question_id": "102176", "identifier_decides": "no", "sibling": null, "why": "pool has unrelated books and unrelated products, no sibling edition present"}
+{"question_id": "102234", "identifier_decides": "no", "sibling": null, "why": "title-alike pool book differs only by author name, not a counted identifier type"}
+{"question_id": "102240", "identifier_decides": "no", "sibling": null, "why": "pool books are different titles in the same series, not editions of this one"}
+{"question_id": "102833", "identifier_decides": "no", "sibling": null, "why": "ambiguous: relevant and pool both mix vol.2/vol.3 across different sub-series"}
+{"question_id": "10379", "identifier_decides": "yes", "sibling": 4, "why": "iPhone 7 Plus size decides against sibling Armpocket band sized for smaller phones (up to 6.0in)"}
+{"question_id": "104490", "identifier_decides": "yes", "sibling": 10, "why": "the '4' distinguishes from sibling Toy Story 3"}
+{"question_id": "104656", "identifier_decides": "no", "sibling": null, "why": "no model/version identifier in generic toy query"}
+{"question_id": "104783", "identifier_decides": "yes", "sibling": 6, "why": "PS4 identifier decides against sibling PlayStation 3 copy of Cold Steel II"}
+{"question_id": "105071", "identifier_decides": "yes", "sibling": 7, "why": "Magna 2 line name decides against sibling Travelpro Crew 11 luggage, same brand"}
+{"question_id": "105303", "identifier_decides": "no", "sibling": null, "why": "pool mounts also list C920 compatibility, so the model doesn't exclude them"}
+{"question_id": "105336", "identifier_decides": "no", "sibling": null, "why": "ambiguous: the relevant set itself includes non-PS4 board games and unrelated PS4 titles"}
+{"question_id": "105445", "identifier_decides": "no", "sibling": null, "why": "no year/generation is written in the query, so F150 doesn't exclude the pool's own F150 sub box"}
+{"question_id": "106221", "identifier_decides": "no", "sibling": null, "why": "no identifier, generic support query"}
+{"question_id": "106318", "identifier_decides": "no", "sibling": null, "why": "pool's PTZ cameras are a different, competing brand, not same-line siblings"}
+{"question_id": "106583", "identifier_decides": "yes", "sibling": 3, "why": "iPhone 6 (non-Plus) decides against sibling iPhone 6/6S Plus case"}
+{"question_id": "107238", "identifier_decides": "no", "sibling": null, "why": "ambiguous: compatibility lists overlap S10 in both pool and relevant, and one relevant item omits it entirely"}
+{"question_id": "107638", "identifier_decides": "yes", "sibling": 2, "why": "V13H010L45 decides against sibling lamp part V13H010L49"}
+{"question_id": "10771", "identifier_decides": "no", "sibling": null, "why": "pool items are racing-wheel accessories, not sibling game editions"}
+{"question_id": "108272", "identifier_decides": "yes", "sibling": 12, "why": "Versa 2 decides against sibling band that fits Versa/Lite/SE but omits Versa 2"}
+{"question_id": "10837", "identifier_decides": "yes", "sibling": 4, "why": "Q538EI/15-inch decides against sibling Zenbook Flip 14 model UX461FA"}
+{"question_id": "10865", "identifier_decides": "yes", "sibling": 1, "why": "X570-Pro decides against sibling TUF Gaming X570-Plus, same chipset generation"}
+{"question_id": "10922", "identifier_decides": "no", "sibling": null, "why": "AT&T is a carrier constraint across many brands, not a same-family identifier"}
+{"question_id": "109680", "identifier_decides": "no", "sibling": null, "why": "pool's similarly-titled book is an unrelated work (War and Peace), not an edition"}
+{"question_id": "10981", "identifier_decides": "no", "sibling": null, "why": "no Atlas-brand sibling differing by electric/manual is present in the pool"}
+{"question_id": "109814", "identifier_decides": "yes", "sibling": 19, "why": "394 decides against sibling Energizer 379 battery"}
+{"question_id": "110139", "identifier_decides": "yes", "sibling": 4, "why": "iPhone 6 decides against sibling case for iPhone 7/8 Plus"}
+{"question_id": "110375", "identifier_decides": "yes", "sibling": 8, "why": "C922 decides against sibling C920 webcam"}
+{"question_id": "110666", "identifier_decides": "no", "sibling": null, "why": "non-shopping login query with no product identifier"}
+{"question_id": "110891", "identifier_decides": "yes", "sibling": 4, "why": "'2' decides against sibling filter compatible with Whirlpool Filter 4"}
+{"question_id": "111631", "identifier_decides": "yes", "sibling": 2, "why": "'1.5 x 40' size decides against sibling Wiha 1.5 x 50mm screwdriver"}
+{"question_id": "111683", "identifier_decides": "yes", "sibling": 1, "why": "'book 1' decides against sibling Wild Rescuers book 3 (Tundra)"}
+{"question_id": "111697", "identifier_decides": "yes", "sibling": 2, "why": "iPhone X decides against sibling Wildflower case for iPhone XR"}
+{"question_id": "111722", "identifier_decides": "no", "sibling": null, "why": "no identifier, generic colored-shirt query"}
+{"question_id": "111867", "identifier_decides": "no", "sibling": null, "why": "'USB' is a format/category word, not a listed identifier type"}
+{"question_id": "112020", "identifier_decides": "yes", "sibling": 1, "why": "iPhone 7 (not Plus) distinguishes from sibling iPhone 7 Plus/8 Plus case"}
+{"question_id": "112138", "identifier_decides": "no", "sibling": null, "why": "pool chargers already list iPhone 11 compatibility, so it doesn't exclude them"}
+{"question_id": "112198", "identifier_decides": "no", "sibling": null, "why": "pool's non-Logitech keyboards are competing brands, not same-brand siblings"}
+{"question_id": "11230", "identifier_decides": "no", "sibling": null, "why": "ambiguous: only a person's name, not a listed identifier type, separates from same-topic books by other authors"}
+{"question_id": "113546", "identifier_decides": "no", "sibling": null, "why": "pool items are Makita accessory blades, excluded by category not by any written identifier"}
+{"question_id": "114153", "identifier_decides": "no", "sibling": null, "why": "pool bug vacuums are different brands, not same-brand siblings of WB100"}
+{"question_id": "114316", "identifier_decides": "no", "sibling": null, "why": "most pool controllers are also explicitly Xbox One, so it doesn't exclude them"}
+{"question_id": "114421", "identifier_decides": "yes", "sibling": 6, "why": "'Note 8 Pro' distinguishes from sibling Redmi Note 7 Pro case"}
+{"question_id": "114427", "identifier_decides": "yes", "sibling": 3, "why": "'Redmi 7' distinguishes from sibling Redmi 7A case"}
+{"question_id": "114589", "identifier_decides": "yes", "sibling": 6, "why": "'XT' tier name distinguishes from sibling Shimano Dura-Ace Di2 component"}
+{"question_id": "115332", "identifier_decides": "yes", "sibling": 21, "why": "'Z590' distinguishes from sibling Z390 chipset motherboard"}
+{"question_id": "128", "identifier_decides": "no", "sibling": null, "why": "pool items are entirely unrelated products, none bear the quoted phrase"}
+{"question_id": "133", "identifier_decides": "no", "sibling": null, "why": "pool's rebuttal book and multi-book bundles are different products, not editions of this book"}
+{"question_id": "15005", "identifier_decides": "no", "sibling": null, "why": "no version/model identifier, pool is unrelated media"}
+{"question_id": "15408", "identifier_decides": "no", "sibling": null, "why": "the sibling BU3 pen differs only by color code, and colour is not a counted identifier"}
+{"question_id": "15414", "identifier_decides": "yes", "sibling": 1, "why": "'4' distinguishes from sibling Flex 5 Hybrid razor"}
+{"question_id": "1549", "identifier_decides": "yes", "sibling": 14, "why": "'10A' grade code distinguishes from sibling Malaysian 12A wave bundle"}
+{"question_id": "15848", "identifier_decides": "no", "sibling": null, "why": "pool items are summary/study-guide products, not editions of the book"}
+{"question_id": "15888", "identifier_decides": "no", "sibling": null, "why": "pool albums are unrelated titles/artists, no sibling pressing of Crosswinds"}
+{"question_id": "164", "identifier_decides": "no", "sibling": null, "why": "ambiguous: nearly all pool cases already state the same 5G (non-UW) compatibility"}
+{"question_id": "1695", "identifier_decides": "no", "sibling": null, "why": "the only differentiator is a 'without pencil holder' feature, not a counted identifier type"}
+{"question_id": "16998", "identifier_decides": "no", "sibling": null, "why": "pool's competing-brand grills aren't same-brand siblings, and no differing-model Blackstone grill is in the pool"}
+{"question_id": "1710", "identifier_decides": "yes", "sibling": 9, "why": "'11 Pro Max' distinguishes from sibling Otterbox Defender Screenless for iPhone 11 Pro"}
+{"question_id": "17136", "identifier_decides": "yes", "sibling": 6, "why": "'A01' distinguishes from sibling Galaxy A20/A30 case"}
+{"question_id": "17713", "identifier_decides": "no", "sibling": null, "why": "pool items are wrong-category BMW parts or a different-brand vehicle, not an F87 M2 sibling model"}
+{"question_id": "18620", "identifier_decides": "no", "sibling": null, "why": "generic brand-only query; pool items are also Bosch saws with no identifier to exclude them"}
+{"question_id": "19950", "identifier_decides": "yes", "sibling": 8, "why": "'C13' distinguishes from sibling Brooks Cambium C15 saddle"}
+{"question_id": "19959", "identifier_decides": "yes", "sibling": 4, "why": "'Launch 6' line name distinguishes from sibling Brooks Ghost 12 shoe"}
+{"question_id": "19995", "identifier_decides": "yes", "sibling": 8, "why": "'LC61' distinguishes from sibling Brother LC65 cartridge"}
+{"question_id": "20184", "identifier_decides": "no", "sibling": null, "why": "pool items are either competing brands or different BT21 products, not a differing-model fan"}
+{"question_id": "2048", "identifier_decides": "yes", "sibling": 2, "why": "'13 x 6' lace size distinguishes from sibling 613 wig with 13x4 lace"}
+{"question_id": "21482", "identifier_decides": "no", "sibling": null, "why": "the only differentiator is a 'without D3' feature, not a counted identifier type"}
+{"question_id": "22414", "identifier_decides": "yes", "sibling": 3, "why": "'6D' distinguishes from sibling battery grip for 6D Mark II"}
+{"question_id": "22438", "identifier_decides": "yes", "sibling": 5, "why": "'M50' distinguishes from sibling Canon EOS M6 Mark II camera"}
+{"question_id": "22494", "identifier_decides": "yes", "sibling": 12, "why": "'R52' is missing from sibling's listed compatible models"}
+{"question_id": "22708", "identifier_decides": "no", "sibling": null, "why": "pool items are wrong-category Lexus accessories (key fobs, shift knobs), not a differing-model car cover"}
+{"question_id": "23260", "identifier_decides": "no", "sibling": null, "why": "only a person's name, not a listed identifier type, separates from same-topic books by other authors"}
+{"question_id": "23335", "identifier_decides": "no", "sibling": null, "why": "only a person's name separates from other unrelated artists in the pool"}
+{"question_id": "23553", "identifier_decides": "no", "sibling": null, "why": "ambiguous: most pool cases already list J7 Crown compatibility; the one true model-different sibling (Galaxy S7) isn't decided specifically by 'Crown'"}
+{"question_id": "23737", "identifier_decides": "yes", "sibling": 4, "why": "'3' (feet) distinguishes from sibling Cat6 cable at 50ft length"}
+{"question_id": "24233", "identifier_decides": "no", "sibling": null, "why": "brand shared with every pool item; 'lens shade' is a category noun"}
+{"question_id": "26177", "identifier_decides": "yes", "sibling": 3, "why": "'pro 26xl' separates from Chuckit Sport 26"}
+{"question_id": "26730", "identifier_decides": "yes", "sibling": 6, "why": "'6plus' separates from the iPhone 6/6s 4.7in OtterBox"}
+{"question_id": "27767", "identifier_decides": "no", "sibling": null, "why": "relevant set spans non-Rock Harbor Coble series; series name not applied consistently"}
+{"question_id": "27967", "identifier_decides": "yes", "sibling": 7, "why": "'ice maiden ii' separates from Ice Maiden Shorty and Minx Mid III"}
+{"question_id": "28052", "identifier_decides": "no", "sibling": null, "why": "pool blenders are other brands, no same-line sibling"}
+{"question_id": "28836", "identifier_decides": "no", "sibling": null, "why": "pool coolants are other brands; no same-brand sibling"}
+{"question_id": "29235", "identifier_decides": "yes", "sibling": 3, "why": "'hs50' separates from Corsair HS70/HS45/HS35"}
+{"question_id": "29791", "identifier_decides": "yes", "sibling": 4, "why": "'cr529' separates from LAUNCH CR629/CR319/CRP129X"}
+{"question_id": "29936", "identifier_decides": "yes", "sibling": 2, "why": "'cr-10s pro' separates from CR-10 V2/V3"}
+{"question_id": "30457", "identifier_decides": "no", "sibling": null, "why": "pool CRZ leggings differ by colour/size only"}
+{"question_id": "31065", "identifier_decides": "yes", "sibling": 9, "why": "'iphone 7' separates from the iPhone 5S cartoon case"}
+{"question_id": "3128", "identifier_decides": "no", "sibling": null, "why": "no pool sibling"}
+{"question_id": "31284", "identifier_decides": "yes", "sibling": 2, "why": "'d800' separates from Nikon D850/D750"}
+{"question_id": "31360", "identifier_decides": "yes", "sibling": 2, "why": "'min-col' separates from Daily Manufacturing K-Min"}
+{"question_id": "31509", "identifier_decides": "no", "sibling": null, "why": "pool items are other artists"}
+{"question_id": "31855", "identifier_decides": "yes", "sibling": 12, "why": "'ddj400' separates from DDJ-200/800/1000SRT"}
+{"question_id": "3190", "identifier_decides": "no", "sibling": null, "why": "no same-family sibling"}
+{"question_id": "32506", "identifier_decides": "yes", "sibling": 6, "why": "'3' separates Descendants 3 from Descendants 2"}
+{"question_id": "34042", "identifier_decides": "no", "sibling": null, "why": "pool non-DJI drones are other brands; no identifier decides"}
+{"question_id": "34649", "identifier_decides": "yes", "sibling": 3, "why": "'280c' separates from Dogtra 282C/202C/1902S"}
+{"question_id": "35762", "identifier_decides": "no", "sibling": null, "why": "pool lights are for other vehicles, no same-family sibling"}
+{"question_id": "35924", "identifier_decides": "no", "sibling": null, "why": "no same-family sibling"}
+{"question_id": "36179", "identifier_decides": "yes", "sibling": 5, "why": "'labelwriter 450' separates from LabelWriter 4XL"}
+{"question_id": "36300", "identifier_decides": "yes", "sibling": 4, "why": "'e5 plus' separates from Moto E5 Play"}
+{"question_id": "36466", "identifier_decides": "yes", "sibling": 2, "why": "'stage 3' separates from Earth's Best Stage 2"}
+{"question_id": "3659", "identifier_decides": "no", "sibling": null, "why": "pool shakes are other brands"}
+{"question_id": "36672", "identifier_decides": "no", "sibling": null, "why": "pool Ed Levin pieces differ by nothing the question names"}
+{"question_id": "37998", "identifier_decides": "no", "sibling": null, "why": "pool holds the same design; no identifier separates"}
+{"question_id": "39052", "identifier_decides": "no", "sibling": null, "why": "no same-family sibling"}
+{"question_id": "39064", "identifier_decides": "no", "sibling": null, "why": "'f150' is shared by the pool Ford parts"}
+{"question_id": "39072", "identifier_decides": "no", "sibling": null, "why": "no same-family sibling"}
+{"question_id": "3932", "identifier_decides": "no", "sibling": null, "why": "relevant respirator does not carry 'n99'; no clean sibling"}
+{"question_id": "3938", "identifier_decides": "yes", "sibling": 12, "why": "'safety walk' separates from 3M reflective tape"}
+{"question_id": "39428", "identifier_decides": "no", "sibling": null, "why": "pool tyres are other brands"}
+{"question_id": "39673", "identifier_decides": "yes", "sibling": 1, "why": "'40' separates from Farpoint 70/65/55"}
+{"question_id": "39725", "identifier_decides": "no", "sibling": null, "why": "no same-family charger sibling"}
+{"question_id": "40233", "identifier_decides": "yes", "sibling": 4, "why": "'btr3' separates from FiiO BTR5"}
+{"question_id": "40690", "identifier_decides": "no", "sibling": null, "why": "brand only; no identifier"}
+{"question_id": "40794", "identifier_decides": "yes", "sibling": 2, "why": "'fit 9' separates from Sascha Fitness BCAA"}
+{"question_id": "40972", "identifier_decides": "yes", "sibling": 1, "why": "'24' separates from High Coast 18"}
+{"question_id": "4198", "identifier_decides": "no", "sibling": null, "why": "relevant are models, not art; no same-line sibling decided by an identifier"}
+{"question_id": "42101", "identifier_decides": "yes", "sibling": 3, "why": "'f150' separates from SuperDuty F250/F350 parts"}
+{"question_id": "42296", "identifier_decides": "yes", "sibling": 1, "why": "'founding brothers' separates from Ellis's other books"}
+{"question_id": "4276", "identifier_decides": "no", "sibling": null, "why": "no same-family sibling in the pool"}
+{"question_id": "4297", "identifier_decides": "yes", "sibling": 16, "why": "'49ers' separates from the Littlearth Steelers purse"}
+{"question_id": "43005", "identifier_decides": "no", "sibling": null, "why": "no identifier beyond the product family"}
+{"question_id": "4328", "identifier_decides": "no", "sibling": null, "why": "pool laptops are other brands; specs are measurements"}
+{"question_id": "43732", "identifier_decides": "yes", "sibling": 1, "why": "'fz300' separates from FZ1000/FZ2500"}
+{"question_id": "43786", "identifier_decides": "no", "sibling": null, "why": "'refills' is a category noun; no identifier separates"}
+{"question_id": "43805", "identifier_decides": "yes", "sibling": 1, "why": "'g9' separates from Odyssey G7"}
+{"question_id": "43914", "identifier_decides": "yes", "sibling": 13, "why": "'a10' separates from Galaxy A10e/A10S"}
+{"question_id": "43926", "identifier_decides": "yes", "sibling": 3, "why": "'active 2' separates from Galaxy Watch Active"}
+{"question_id": "43958", "identifier_decides": "yes", "sibling": 2, "why": "'note 10 plus' separates from Ghostek Note 10 cases"}
+{"question_id": "43983", "identifier_decides": "no", "sibling": null, "why": "colour words decide; relevant mixes S10 and S10 Plus"}
+{"question_id": "44005", "identifier_decides": "yes", "sibling": 2, "why": "'s3' separates from Note 3 batteries"}
+{"question_id": "44023", "identifier_decides": "yes", "sibling": 1, "why": "'s8 plus' separates from BodyGuardz Galaxy S8"}
+{"question_id": "44026", "identifier_decides": "yes", "sibling": 30, "why": "'s8 plus' separates from the S8 Active protector"}
+{"question_id": "44037", "identifier_decides": "yes", "sibling": 4, "why": "'s9' separates from the Vofolen Galaxy S7 case"}
+{"question_id": "4413", "identifier_decides": "no", "sibling": null, "why": "no identifier separates the 4moms items"}
+{"question_id": "44253", "identifier_decides": "no", "sibling": null, "why": "pool headsets are other brands"}
+{"question_id": "44473", "identifier_decides": "no", "sibling": null, "why": "pool holds Edge 530 bundles; nothing separates"}
+{"question_id": "44708", "identifier_decides": "yes", "sibling": 2, "why": "'s2 classic' separates from Gear S3 bands"}
+{"question_id": "44982", "identifier_decides": "no", "sibling": null, "why": "category words only"}
+{"question_id": "45023", "identifier_decides": "no", "sibling": null, "why": "pool titles are other authors"}
+{"question_id": "4589", "identifier_decides": "no", "sibling": null, "why": "pool 5.11 item is a shirt; category noun"}
+{"question_id": "46023", "identifier_decides": "yes", "sibling": 8, "why": "'19' separates from the Glock 43 holster"}
+{"question_id": "46097", "identifier_decides": "no", "sibling": null, "why": "relevant set includes non-GlowStrike darts; not consistent"}
+{"question_id": "46148", "identifier_decides": "no", "sibling": null, "why": "relevant and pool both carry '350'; noisy"}
+{"question_id": "46589", "identifier_decides": "no", "sibling": null, "why": "pool holds MK4 mirrors too; nothing separates"}
+{"question_id": "46694", "identifier_decides": "no", "sibling": null, "why": "pool films are other titles, not a same-family sibling"}
+{"question_id": "46739", "identifier_decides": "yes", "sibling": 3, "why": "'3a xl' separates from Pixel 3A and Pixel 3 XL"}
+{"question_id": "46742", "identifier_decides": "yes", "sibling": 9, "why": "'4a' separates from Pixel 4 XL and 3a cases"}
+{"question_id": "46971", "identifier_decides": "yes", "sibling": 7, "why": "'4ever' separates from Graco Grows4Me/Extend2Fit"}
+{"question_id": "47869", "identifier_decides": "yes", "sibling": 9, "why": "'8 plus' separates from the iPhone 8 case"}
+{"question_id": "479", "identifier_decides": "yes", "sibling": 6, "why": "'the world is not enough' separates from Tomorrow Never Dies"}
+{"question_id": "47974", "identifier_decides": "no", "sibling": null, "why": "'p90' is a shared pickup type; pool items are other brands"}
+{"question_id": "48185", "identifier_decides": "no", "sibling": null, "why": "pool holds H2 lights too; nothing separates"}
+{"question_id": "48471", "identifier_decides": "no", "sibling": null, "why": "author names shared with the Sedona Method pool items"}
+{"question_id": "49208", "identifier_decides": "no", "sibling": null, "why": "pool collets are other brands"}
+{"question_id": "49257", "identifier_decides": "no", "sibling": 4, "why": "no model/size named in query; pool sibling (same Nathan Vulcanized Shoe) differs from relevant only by size code, unstated"}
+{"question_id": "49340", "identifier_decides": "no", "sibling": null, "why": "pool items are different product categories (mug, toppers, clothing), not same-family food siblings"}
+{"question_id": "50074", "identifier_decides": "no", "sibling": null, "why": "no identifier in query; topical mismatch, no version/model sibling among pool"}
+{"question_id": "50290", "identifier_decides": "no", "sibling": null, "why": "pool items are entirely different fragrance brands, not Terre d'Hermes-line siblings"}
+{"question_id": "50674", "identifier_decides": "yes", "sibling": 5, "why": "character name 'Hinata Hyuga' decides against pool's same-type Naruto figure of a different character (Madara)"}
+{"question_id": "50894", "identifier_decides": "no", "sibling": 7, "why": "'for women' is a gender attribute, not a model/edition identifier; sibling Wave Men differs only by that attribute"}
+{"question_id": "50931", "identifier_decides": "yes", "sibling": 2, "why": "'full size' decides against pool holster marketed for compact+full size combo fit"}
+{"question_id": "51121", "identifier_decides": "yes", "sibling": 2, "why": "'z50' model code decides against pool tail-light lens fitting other Honda mini-bikes but not Z50"}
+{"question_id": "51174", "identifier_decides": "no", "sibling": null, "why": "pool valves are a different brand (Valemo) not a same-brand/line sibling; the one Honeywell pool item is a different kind of product (motor, not valve)"}
+{"question_id": "512", "identifier_decides": "yes", "sibling": 8, "why": "'black' matches a part-number color variant (BK) deciding against pool's Chrome (CH) variant of the same headlight line"}
+{"question_id": "51268", "identifier_decides": "yes", "sibling": 7, "why": "'benchrest' decides against pool's plain (non-Bench-Rest) Hoppe's No.9 solvent"}
+{"question_id": "51678", "identifier_decides": "yes", "sibling": 6, "why": "'950xl 951xl' decides against pool's HP 952XL cartridge, same family different model number"}
+{"question_id": "51726", "identifier_decides": "yes", "sibling": 4, "why": "'fdw' in 'm281fdw' decides against pool's M281cdw, same numeric model but different suffix"}
+{"question_id": "51863", "identifier_decides": "yes", "sibling": 6, "why": "'p20' (without 'pro') decides against pool's P20 Pro variant"}
+{"question_id": "5206", "identifier_decides": "yes", "sibling": 8, "why": "shade code '760' decides against pool's CoverGirl Smoothers foundation shade 705"}
+{"question_id": "52364", "identifier_decides": "yes", "sibling": 18, "why": "series name 'I Can Read' decides against pool's competing 'World of Reading' Level 1 series"}
+{"question_id": "52671", "identifier_decides": "no", "sibling": null, "why": "pool items are entirely unrelated product categories, no Iconsgr-brand sibling"}
+{"question_id": "52750", "identifier_decides": "no", "sibling": null, "why": "pool items are different Polaris parts (coil, headlight bulb), not ignition-switch siblings differing by model"}
+{"question_id": "53217", "identifier_decides": "no", "sibling": null, "why": "pool door-light products already list G37 in their own fitment; no identifier separates them from relevant"}
+{"question_id": "53219", "identifier_decides": "yes", "sibling": 6, "why": "'m35' decides against pool's Q50-only OEM remote (different model)"}
+{"question_id": "53777", "identifier_decides": "yes", "sibling": 6, "why": "bare 'ipad 3' decides against pool's Apple Pencil, whose compatibility is 'iPad Air 3rd generation' not the base iPad 3 -- a naming collision"}
+{"question_id": "53809", "identifier_decides": "yes", "sibling": 8, "why": "'Air' decides against pool's iPad Mini 2 (different product line, same generation number)"}
+{"question_id": "53908", "identifier_decides": "yes", "sibling": 6, "why": "'11' decides against pool's same-brand (Jelly Comb) keyboard case sized for iPad Pro 12.9\""}
+{"question_id": "53950", "identifier_decides": "no", "sibling": null, "why": "pool items are iPhone screen parts or a bare device listing, not an iPad-2-family screen-replacement sibling"}
+{"question_id": "54017", "identifier_decides": "yes", "sibling": 8, "why": "'11' decides against pool's same-brand Wildflower checkered case for iPhone X/XS"}
+{"question_id": "54023", "identifier_decides": "yes", "sibling": 15, "why": "'11' decides against pool's AUNC cable whose compatibility list stops at XS Max, no 11"}
+{"question_id": "54034", "identifier_decides": "no", "sibling": null, "why": "all pool items already target iPhone 11 Pro Max exactly like relevant; no identifier differentiates them"}
+{"question_id": "54062", "identifier_decides": "no", "sibling": null, "why": "no document mentions Gucci; the relevant/pool split tracks material/style, not a formal identifier"}
+{"question_id": "54077", "identifier_decides": "no", "sibling": null, "why": "color/'logo out' is not a formal identifier, and the data is inconsistent (a genuinely blue case sits in the pool)"}
+{"question_id": "54082", "identifier_decides": "yes", "sibling": 4, "why": "model decides against pool's same-brand (Speck Presidio Grip) case sized for plain iPhone 11, not Pro Max"}
+{"question_id": "54083", "identifier_decides": "yes", "sibling": 2, "why": "'pro max' decides against pool's OTBBA case sized for iPhone 11 Pro (not Pro Max), same feature (built-in protector)"}
+{"question_id": "54107", "identifier_decides": "no", "sibling": null, "why": "pool's one true screen-protector item fits iPhone 11 Pro, already accepted as relevant elsewhere; other pool items differ by product type (case, not protector), not identifier"}
+{"question_id": "54111", "identifier_decides": "yes", "sibling": 1, "why": "model decides against pool's same-line Apple Silicone Case for iPhone 11 Pro, not base 11"}
+{"question_id": "54118", "identifier_decides": "yes", "sibling": 17, "why": "model decides against pool's same-brand (Temdan) waterproof case for iPhone 11 Pro Max, not base 11"}
+{"question_id": "54119", "identifier_decides": "no", "sibling": null, "why": "pool's Apple item differs by product category (battery case vs charger), not identifier; other pool chargers already fit iPhone 11"}
+{"question_id": "54133", "identifier_decides": "yes", "sibling": 10, "why": "'5' decides against pool's same-style cute case for iPhone 7/8"}
+{"question_id": "54145", "identifier_decides": "no", "sibling": null, "why": "pool differs by product type (battery case vs standalone charger/power bank), not by a model identifier -- both target iPhone 6"}
+{"question_id": "54170", "identifier_decides": "yes", "sibling": 4, "why": "plain '6' decides against pool's Plus-only battery cases (6 Plus/6s Plus family)"}
+{"question_id": "54218", "identifier_decides": "yes", "sibling": 3, "why": "brand+color match ('otterbox', 'black'); '7' decides against pool's Symmetry Black case for iPhone 6/6s"}
+{"question_id": "54233", "identifier_decides": "no", "sibling": null, "why": "pool differs by product type (phone, or charging cable, vs repair port part), not by a model identifier"}
+{"question_id": "54255", "identifier_decides": "yes", "sibling": 1, "why": "'plus' decides against pool's same-brand/line LifeProof NUUD for plain iPhone 7 (not 7 Plus)"}
+{"question_id": "54256", "identifier_decides": "yes", "sibling": 14, "why": "'plus' decides against pool's same-brand/line OtterBox Symmetry Black for plain iPhone 7 (not 7 Plus)"}
+{"question_id": "54266", "identifier_decides": "yes", "sibling": 4, "why": "'7 plus' decides against pool's same-theme (Cartoon Killing Joker) case sized only for iPhone 8 Plus"}
+{"question_id": "54278", "identifier_decides": "no", "sibling": null, "why": "pool items differ by product type (case, charging port, external protector), not by a model identifier -- all target iPhone 7"}
+{"question_id": "54285", "identifier_decides": "no", "sibling": null, "why": "pool phones are the same iPhone 7 GSM Unlocked family as relevant; the split tracks price, invisible in the text, not a formal identifier"}
+{"question_id": "54301", "identifier_decides": "yes", "sibling": 10, "why": "'8' (without Plus) decides against pool's same-brand (OCYCLONE) Diamond Rhinestone case sized for 8 Plus/7 Plus"}
+{"question_id": "54307", "identifier_decides": "yes", "sibling": 13, "why": "'8' (without Plus) decides against pool's same-brand (Anuck) silicone case sized for 8 Plus/7 Plus"}
+{"question_id": "54363", "identifier_decides": "yes", "sibling": 2, "why": "'8' decides against pool's same-pattern Apple iPhone 7, 32GB, Black - For AT&T (Renewed) listing"}
+{"question_id": "54370", "identifier_decides": "yes", "sibling": 4, "why": "'8' (without Plus) decides against pool's same-brand/line Spigen Tough Armor Gunmetal sized for 8 Plus/7 Plus"}
+{"question_id": "54415", "identifier_decides": "no", "sibling": null, "why": "the relevant/pool split tracks color variants of the same wallet cases, not any identifier in the question; 'card holder' is a category phrase, not a formal identifier"}
+{"question_id": "5457", "identifier_decides": "no", "sibling": null, "why": "the only near-miss ('7 Plus Case' by PUTEE) is a different, unrelated brand/phone ecosystem, not a same-family sibling"}
+{"question_id": "54638", "identifier_decides": "yes", "sibling": 5, "why": "'blue' decides against pool's identical Apple Silicone Case for iPhone Xs in White"}
+{"question_id": "54986", "identifier_decides": "no", "sibling": null, "why": "pool items are entirely unrelated product categories from other brands, no ISDT-family sibling"}
+{"question_id": "5507", "identifier_decides": "yes", "sibling": 5, "why": "'s9' decides against pool's same-style cartoon case for Samsung Galaxy S10 Plus"}
+{"question_id": "5524", "identifier_decides": "no", "sibling": null, "why": "pool items are entirely unrelated product categories, no 921-bulb-family sibling with a different part number"}
+{"question_id": "55401", "identifier_decides": "no", "sibling": null, "why": "no film title/part number is named in the question; pool items differ by product type (tin sign, DVD set, poster card) not by an identifier"}
+{"question_id": "55588", "identifier_decides": "yes", "sibling": 3, "why": "'x3' decides against pool's same-brand (Jaybird) X2 model"}
+{"question_id": "56116", "identifier_decides": "yes", "sibling": 4, "why": "'john 3 16' decides against pool's same-family scripture wall art quoting Hebrews 13:14 instead"}
+{"question_id": "56132", "identifier_decides": "yes", "sibling": 5, "why": "'100 series' (L100 etc.) decides against pool's same-brand (ROP Shop) solenoid for the Sabre model line instead"}
+{"question_id": "56214", "identifier_decides": "no", "sibling": null, "why": "no pool document is actually written by Jojo Moyes -- they are different authors' books, not a same-family sibling"}
+{"question_id": "56223", "identifier_decides": "yes", "sibling": 10, "why": "'big girls' decides against pool's identical JoJo Siwa tutu dress sized for little girls (X-Small 4/5)"}
+{"question_id": "56354", "identifier_decides": "no", "sibling": null, "why": "no pool document is actually written by Joyce Carol Oates -- different authors, not a same-family sibling"}
+{"question_id": "56758", "identifier_decides": "no", "sibling": null, "why": "no pool item is a JVC-brand TV of a different model; pool JVC items are a different product category (remote, car stereo, earphones)"}
+{"question_id": "56822", "identifier_decides": "yes", "sibling": 1, "why": "'k60' decides against pool's same-brand (Ridgid) Autofeed Assembly for the K400 model instead"}
+{"question_id": "56827", "identifier_decides": "yes", "sibling": 11, "why": "'fitbone' decides against pool's same-brand (FitPAWS) traxpeanut accessory, a different named product"}
+{"question_id": "56942", "identifier_decides": "no", "sibling": null, "why": "the closest pool item (Kid Cudi) is a different artist, not Kanye West -- not a same-family sibling"}
+{"question_id": "57142", "identifier_decides": "yes", "sibling": 14, "why": "'boot' decides against pool's same-line (Elsa) KEEN Sneaker"}
+{"question_id": "57208", "identifier_decides": "yes", "sibling": 4, "why": "'griffey' decides against pool's same-brand (Nike) Air Force 1, a different signature line"}
+{"question_id": "57491", "identifier_decides": "no", "sibling": null, "why": "pool items are battery cases (wrap the phone), a different product type from the keychain-style power bank the question names; not a formal identifier"}
+{"question_id": "57516", "identifier_decides": "yes", "sibling": null, "why": "pool items already list ES330/2005 in their fitment but differ by being shell-only or protective-cover accessories, not full replacement fobs -- a product-type difference, not an identifier"}
+{"question_id": "58750", "identifier_decides": "yes", "sibling": 11, "why": "'kleenex' decides against pool's Solimo (Amazon brand) facial tissue"}
+{"question_id": "58781", "identifier_decides": "yes", "sibling": 5, "why": "'bridge' decides against pool's same-brand (Kmise) electric guitar neck, a different part"}
+{"question_id": "58957", "identifier_decides": "yes", "sibling": 5, "why": "'muffin mix' decides against pool's same-brand (Kodiak) Minute Muffins, a different named product line"}
+{"question_id": "59213", "identifier_decides": "yes", "sibling": 7, "why": "'kx250f' decides against pool's same-kind plastics kit fitted for the Yamaha YZ85 instead"}
+{"question_id": "59227", "identifier_decides": "yes", "sibling": 9, "why": "'peeler' decides against pool's same-brand (Kyocera) Wide Julienne Slicer, a different product"}
+{"question_id": "59520", "identifier_decides": "no", "sibling": 12, "why": "'towels' decides against pool's same-brand/line (Lacoste Legend) bathroom rug, a different product"}
+{"question_id": "59535", "identifier_decides": "yes", "sibling": 3, "why": "'lactaid' decides against pool's ValuMeds lactase supplement, explicitly sold as 'Comparable to Lactaid'"}
+{"question_id": "5955", "identifier_decides": "yes", "sibling": 1, "why": "'a1c' decides against pool's Metene kit, which tests blood glucose generally rather than A1C specifically"}
+{"question_id": "6008", "identifier_decides": "yes", "sibling": 1, "why": "'a7siii' decides against pool's same-brand (Sony) Alpha 7C, a different camera model"}
+{"question_id": "60520", "identifier_decides": "yes", "sibling": 1, "why": "'layrite' decides against pool's Pacinos Matte Hair Paste, a different brand"}
+{"question_id": "60558", "identifier_decides": "yes", "sibling": 6, "why": "Crimson Trace LG-497 (LCP II) siblings LG-431 (LCP); 'lcp 380' decides"}
+{"question_id": "61565", "identifier_decides": "yes", "sibling": 3, "why": "BICOL iPhone 8 Plus case siblings iPhone 8 case; '8' (no plus) decides"}
+{"question_id": "61694", "identifier_decides": "yes", "sibling": 1, "why": "Levi's 502 siblings 508; '508' decides"}
+{"question_id": "61723", "identifier_decides": "yes", "sibling": 1, "why": "Levi's 569 siblings 559; '559' decides"}
+{"question_id": "6174", "identifier_decides": "no", "sibling": null, "why": "no pool sibling shares Derwent Academy brand/line"}
+{"question_id": "61835", "identifier_decides": "yes", "sibling": 14, "why": "LG K30 case siblings K40 case; 'k40' decides"}
+{"question_id": "61877", "identifier_decides": "no", "sibling": null, "why": "no identifier in question to decide anything"}
+{"question_id": "61909", "identifier_decides": "yes", "sibling": 3, "why": "LG K40 case siblings V30 case (same kind, diff LG phone line); 'v30' decides"}
+{"question_id": "63101", "identifier_decides": "no", "sibling": null, "why": "pool items are different artists entirely, not Livingston Taylor siblings"}
+{"question_id": "63373", "identifier_decides": "yes", "sibling": 1, "why": "LOL Surprise Series 1 siblings Series 2; 'series 2' decides"}
+{"question_id": "63631", "identifier_decides": "no", "sibling": null, "why": "pool curcumin products share no brand/line with Longvida products"}
+{"question_id": "64011", "identifier_decides": "yes", "sibling": 7, "why": "Renata 394/SR45 near-identical button cell siblings LR44 family; 'lr44' decides"}
+{"question_id": "6636", "identifier_decides": "yes", "sibling": 7, "why": "adidas Ultraboost siblings adidas 4D line; '4d' decides"}
+{"question_id": "6637", "identifier_decides": "no", "sibling": null, "why": "no specific identifier present in generic query"}
+{"question_id": "66499", "identifier_decides": "yes", "sibling": 13, "why": "DJI Mavic 2 Enterprise Advanced siblings Mavic 2 Zoom; 'zoom' decides"}
+{"question_id": "66973", "identifier_decides": "yes", "sibling": 9, "why": "Moyu Guansu 4x4 siblings Meilong 4x4 (same parent brand); 'meilong' decides"}
+{"question_id": "67146", "identifier_decides": "no", "sibling": null, "why": "no same-brand/line hoodie sibling differing only by number"}
+{"question_id": "68908", "identifier_decides": "no", "sibling": null, "why": "no Microsoft-branded sibling in pool; no specific identifier"}
+{"question_id": "69055", "identifier_decides": "no", "sibling": null, "why": "pool books are by different authors, not Kundera siblings"}
+{"question_id": "69143", "identifier_decides": "yes", "sibling": 6, "why": "Miller Spectrum 625 siblings Spectrum 375; '375' decides"}
+{"question_id": "69842", "identifier_decides": "no", "sibling": null, "why": "Herstyle sibling exists but no model identifier in question decides"}
+{"question_id": "69877", "identifier_decides": "no", "sibling": null, "why": "Adult Mizuno pants sibling exists but 'boys' is not a rubric-qualifying identifier (ambiguous)"}
+{"question_id": "70170", "identifier_decides": "no", "sibling": null, "why": "no clean same-model sibling decided by a true identifier"}
+{"question_id": "70208", "identifier_decides": "no", "sibling": null, "why": "pool items are different competing brands, not MOKOQI siblings"}
+{"question_id": "70772", "identifier_decides": "no", "sibling": null, "why": "no Motorola product at all appears in pool"}
+{"question_id": "70864", "identifier_decides": "yes", "sibling": 2, "why": "Glisten Moto G6 Plus soccer case siblings G6 case; 'g6' (no plus) decides"}
+{"question_id": "70987", "identifier_decides": "no", "sibling": null, "why": "fully generic query, no identifier present"}
+{"question_id": "71336", "identifier_decides": "yes", "sibling": 1, "why": "MSR605/206 siblings MSR X6 family; 'x6' decides"}
+{"question_id": "71997", "identifier_decides": "yes", "sibling": 5, "why": "Urban Decay Naked2 siblings Naked3; '3' decides"}
+{"question_id": "72835", "identifier_decides": "yes", "sibling": 1, "why": "TOTO Neorest 750H siblings Neorest 700H; '700h' decides"}
+{"question_id": "73077", "identifier_decides": "yes", "sibling": 5, "why": "New Balance 997 Sport siblings 997H; '997h' decides"}
+{"question_id": "73262", "identifier_decides": "yes", "sibling": 4, "why": "Nexiq 125032 (original) siblings USB Link 2; '2' decides"}
+{"question_id": "73271", "identifier_decides": "yes", "sibling": 7, "why": "Nextbase 422GW siblings 522GW; '522gw' decides"}
+{"question_id": "73539", "identifier_decides": "yes", "sibling": 14, "why": "Nike Epic React Flyknit (gen1) siblings Flyknit 2; '2' decides"}
+{"question_id": "73650", "identifier_decides": "no", "sibling": null, "why": "fully generic query, no identifier present"}
+{"question_id": "73737", "identifier_decides": "yes", "sibling": 6, "why": "Nikon COOLPIX AW110 siblings AW130; 'aw130' decides"}
+{"question_id": "73832", "identifier_decides": "yes", "sibling": 4, "why": "Nintendo New 3DS XL siblings 2DS XL; '2ds xl' decides"}
+{"question_id": "73954", "identifier_decides": "yes", "sibling": 10, "why": "370Z coilovers sibling of 350Z accessories; '350z' decides"}
+{"question_id": "73988", "identifier_decides": "no", "sibling": null, "why": "no same-brand Nitto sibling in pool"}
+{"question_id": "7423", "identifier_decides": "yes", "sibling": 5, "why": "Nike Air Zoom Pegasus 36 siblings Pegasus 35; '35' decides"}
+{"question_id": "74384", "identifier_decides": "yes", "sibling": 7, "why": "Norton 360 for Amazon 10-device edition, same count diff edition; 'premium' decides"}
+{"question_id": "74461", "identifier_decides": "no", "sibling": null, "why": "all pool items are the same model (Note 10 Plus), no differing sibling"}
+{"question_id": "74462", "identifier_decides": "no", "sibling": null, "why": "Crave Navy sibling exists but color is not a rubric-qualifying identifier (ambiguous)"}
+{"question_id": "74464", "identifier_decides": "yes", "sibling": 2, "why": "Samsung Note 10 Lite same family, diff edition; 'plus' decides (excludes Lite)"}
+{"question_id": "74618", "identifier_decides": "yes", "sibling": 9, "why": "Intel NUC10i7FNH1 same brand/kind, diff generation; 'nuc8i7beh' decides vs this sibling"}
+{"question_id": "74681", "identifier_decides": "yes", "sibling": 2, "why": "Ebanel Numb520 same brand/kind, diff product code; 'numb25' decides"}
+{"question_id": "7480", "identifier_decides": "no", "sibling": null, "why": "all pool AirPods 1&2 cases are same generation as relevant, no sibling"}
+{"question_id": "75321", "identifier_decides": "no", "sibling": null, "why": "no pool documents exist for this question"}
+{"question_id": "7538", "identifier_decides": "yes", "sibling": 8, "why": "Apple original AirPods (1st gen) siblings AirPods 2; '2' decides"}
+{"question_id": "75847", "identifier_decides": "no", "sibling": null, "why": "pool items are entirely different brands (Huawei/Samsung/ZTE), not Oppo siblings"}
+{"question_id": "7635", "identifier_decides": "no", "sibling": null, "why": "pool items are different-brand (Fisher & Paykel) products, not ResMed siblings"}
+{"question_id": "76447", "identifier_decides": "yes", "sibling": 4, "why": "OtterBox Commuter for iPhone 11 Pro MAX siblings Pro; 'pro' (no max) decides"}
+{"question_id": "76464", "identifier_decides": "yes", "sibling": 6, "why": "OtterBox Symmetry for Surface Pro 4 siblings Pro 7; '7' decides"}
+{"question_id": "77044", "identifier_decides": "yes", "sibling": 2, "why": "PNY Quadro P2200 same brand/kind, diff model; 'p620' decides"}
+{"question_id": "77404", "identifier_decides": "no", "sibling": null, "why": "no cat-specific Panacur product exists anywhere; 'cats' not a rubric identifier"}
+{"question_id": "77422", "identifier_decides": "no", "sibling": null, "why": "the sole pool doc also matches SDR-H40P; no excluding sibling"}
+{"question_id": "78276", "identifier_decides": "no", "sibling": null, "why": "pool items are different brands, not PB8 siblings"}
+{"question_id": "78278", "identifier_decides": "no", "sibling": null, "why": "PB2 is a different competing brand, not PBfit's own line"}
+{"question_id": "7887", "identifier_decides": "no", "sibling": null, "why": "fully generic query; no identifier narrows within Echo family"}
+{"question_id": "79082", "identifier_decides": "no", "sibling": null, "why": "pool items are unrelated franchises or a different-kind Persona spinoff"}
+{"question_id": "79352", "identifier_decides": "no", "sibling": null, "why": "pool headlamps are all different brands, not Petzl siblings"}
+{"question_id": "79502", "identifier_decides": "yes", "sibling": 6, "why": "EnCASEs case for LG Aristo 4 Plus, diff generation; 'aristo 3 plus' decides"}
+{"question_id": "79529", "identifier_decides": "yes", "sibling": 19, "why": "Kitoo case for iPhone 7/8/SE2020, same case line diff generation; '11 pro max' decides"}
+{"question_id": "80453", "identifier_decides": "yes", "sibling": 6, "why": "Pioneer MVH-200EX same brand/kind, diff model number; 'mvh-210ex' decides"}
+{"question_id": "80612", "identifier_decides": "yes", "sibling": 13, "why": "Teelevo Pixel 3 XL case same brand/kind, diff size code; 'pixel 3' (no suffix) decides"}
+{"question_id": "8097", "identifier_decides": "no", "sibling": null, "why": "no genuine Left 4 Dead sibling excluded by platform identifier"}
+{"question_id": "81309", "identifier_decides": "no", "sibling": null, "why": "pool items are consoles or a different cable type, not composite-cable siblings"}
+{"question_id": "81310", "identifier_decides": "yes", "sibling": 1, "why": "PlayStation 4 Console same brand/kind, diff generation; '3' decides"}
+{"question_id": "81811", "identifier_decides": "yes", "sibling": 1, "why": "evian spring water same kind, diff brand; 'poland spring' decides"}
+{"question_id": "81812", "identifier_decides": "yes", "sibling": 6, "why": "Nestle Pure Life same kind, diff brand; 'poland springs' decides"}
+{"question_id": "81842", "identifier_decides": "yes", "sibling": 8, "why": "LED headlight for Polaris Outlaw 450/525 same line diff model; '50' decides"}
+{"question_id": "81905", "identifier_decides": "yes", "sibling": 2, "why": "Police Woman Complete Second Season same show diff season; 'season 3' decides"}
+{"question_id": "82529", "identifier_decides": "yes", "sibling": 3, "why": "Half-Life 2 Official Guide same kind (game guide) diff game title; 'portal 2' decides"}
+{"question_id": "83037", "identifier_decides": "yes", "sibling": 2, "why": "Precise M3 same brand/kind golf set, diff model code; 'm5' decides"}
+{"question_id": "83435", "identifier_decides": "no", "sibling": null, "why": "pool items are unrelated part types/printers, not printhead siblings"}
+{"question_id": "83471", "identifier_decides": "yes", "sibling": 9, "why": "Galaxy S10 5G privacy screen protector same kind/brand-line, diff generation; 's20' decides"}
+{"question_id": "83472", "identifier_decides": "yes", "sibling": 20, "why": "VITAVELAAA Note 10 (no Plus) protector same brand/kind, diff size code; 'plus' decides"}
+{"question_id": "83721", "identifier_decides": "yes", "sibling": 2, "why": "Protandim NRF2+NRF1 Combo same brand, diff formula/edition; 'nrf2' (standalone) decides"}
+{"question_id": "83860", "identifier_decides": "no", "sibling": null, "why": "no clean same-brand Prusa sibling excluded specifically by 'mk3'"}
+{"question_id": "83915", "identifier_decides": "no", "sibling": null, "why": "'accessories' is a generic category word, not a rubric-qualifying identifier"}
+{"question_id": "83947", "identifier_decides": "no", "sibling": null, "why": "pool docs are PS4 consoles, VR headsets, and a gaming headset, not monitors — no same-kind sibling exists"}
+{"question_id": "83994", "identifier_decides": "no", "sibling": 3, "why": "'ps5' does not decide: the pool sibling (n=3, Mytrix PS VR bundle) differs from relevant PS VR bundles only by included game/accessory content, and other pool bundles are also PS4/PS5 compatible"}
+{"question_id": "8454", "identifier_decides": "yes", "sibling": 18, "why": "'am3' separates Socket AM3/AM3+ AMD chips (relevant, e.g. n=1 FX-8150) from a Socket AM4 Ryzen sibling (pool, n=18); two relevant items (n=2, n=6) are themselves AM4, apparently mislabeled"}
+{"question_id": "84815", "identifier_decides": "no", "sibling": null, "why": "pool docs are for different vehicles (GM, VW GTI) or a different kind of product (diagnostic tool, valve caps) — none is a competing tuner for the Infiniti Q50/Q60"}
+{"question_id": "84845", "identifier_decides": "yes", "sibling": 2, "why": "'345' separates the 345 MHz Qolsys IQ Panel 2 Plus (relevant) from the 433 MHz frequency-variant sibling (pool, n=2), same product line"}
+{"question_id": "85021", "identifier_decides": "no", "sibling": 3, "why": "'geeksoul' has no matching product in relevant or pool; the one true same-brand sibling present (Anker PowerPort Speed 4, pool n=3, vs Anker PowerPort Speed 2, relevant n=9) differs by port count/wattage, unnamed by the question"}
+{"question_id": "8542", "identifier_decides": "no", "sibling": 1, "why": "the sibling (pool n=1, Navy Slim-Fit Long-Sleeve Pocket T-Shirt) differs from relevant (n=5, Black) only by color/size, which 'long sleeve tshirt' does not name"}
+{"question_id": "85767", "identifier_decides": "no", "sibling": null, "why": "pool items are unrelated products or a similarly-named but different artist (Rey De La Torre), not a version of Ray Torres's own work"}
+{"question_id": "86244", "identifier_decides": "yes", "sibling": 3, "why": "'red and black' separates the Red/Black iPhone 7 cases (relevant) from the Navy Blue color-variant sibling (pool, n=3), same case family across iPhone 7/8/SE"}
+{"question_id": "86248", "identifier_decides": "yes", "sibling": 4, "why": "'red and black' separates the Red & Black Fade/combo controllers (relevant) from solid-color siblings (pool, e.g. n=4 solid Black), same official Xbox Wireless Controller line"}
+{"question_id": "87889", "identifier_decides": "yes", "sibling": 14, "why": "'rj45' separates the RJ11-to-RJ45 converter cables (relevant) from an RJ11-to-RJ11 extension cable sibling (pool, n=14), same phone-cable family lacking an RJ45 end"}
+{"question_id": "87894", "identifier_decides": "no", "sibling": 3, "why": "the sibling (pool n=3, Y.D.F Blue 2-pack RJ45 coupler) differs from relevant (n=6, Y.D.F Black 5-pack) only by color/pack size, unnamed by 'rj45 female union'; other pool items are RJ11 adapters, a different function"}
+{"question_id": "88190", "identifier_decides": "yes", "sibling": 1, "why": "'xg43uq' is the exact model code separating the correct monitor (relevant, n=4) from its close sibling, the ASUS ROG Swift PG43UQ (pool, n=1), same specs but a different ROG sub-line"}
+{"question_id": "88237", "identifier_decides": "no", "sibling": 13, "why": "'wifi' does not decide: the pool sibling (n=13, Roku Streaming Stick 4K+ 2021) explicitly touts 'Long-range Wi-Fi' just like the relevant Roku devices; it is simply a newer model not labeled relevant"}
+{"question_id": "88696", "identifier_decides": "yes", "sibling": 1, "why": "'rz1' separates RZ1-compatible replacement parts (relevant) from an RZ25-specific sibling part (pool, n=1), same RotoZip router accessory line"}
+{"question_id": "88886", "identifier_decides": "yes", "sibling": 19, "why": "'15w40' separates the 15W-40 Royal Purple diesel oils (relevant) from a 10W30 Royal Purple diesel oil sibling (pool, n=19), same brand and diesel category differing only by viscosity grade"}
+{"question_id": "89029", "identifier_decides": "yes", "sibling": 6, "why": "'rudin' separates editions of Turgenev's novel Rudin (relevant) from a different Turgenev work in the pool (n=6, 'A Sportsman's Sketches'), same author differing by which work it is"}
+{"question_id": "89360", "identifier_decides": "no", "sibling": null, "why": "all pool items are unrelated products (Twilight, a movie autograph, jewelry supplies, peanut butter) with no RWBY connection"}
+{"question_id": "89418", "identifier_decides": "yes", "sibling": 2, "why": "'ryzen 5' separates the Ryzen 5 processors (relevant) from a Ryzen 7 sibling (pool, n=2), same AMD desktop CPU line differing by performance tier"}
+{"question_id": "89458", "identifier_decides": "yes", "sibling": 6, "why": "'5g' separates the Trianium Clarium Case for Galaxy S10 5G (relevant, n=7) from the same case for the base Galaxy S10 (pool, n=6), same brand/line differing only by 5G variant"}
+{"question_id": "89467", "identifier_decides": "no", "sibling": 19, "why": "the sibling (pool n=19, Keklle2 screen protector) is essentially identical to relevant (n=24, Keklle2, Black) differing only by unstated color/wording; 's10 plus screen protector' names no distinguishing spec"}
+{"question_id": "89483", "identifier_decides": "yes", "sibling": 7, "why": "'s4' separates the Galaxy S4 cases (relevant) from a Galaxy S7 case sibling (pool, n=7), same Samsung Galaxy case family differing by phone model"}
+{"question_id": "89946", "identifier_decides": "yes", "sibling": 4, "why": "'evo' separates the Samsung 860 EVO (relevant, n=2) from the nearly-identical Samsung 860 PRO sibling (pool, n=4), same generation and form factor differing only by product tier"}
+{"question_id": "89948", "identifier_decides": "yes", "sibling": 8, "why": "'9' separates Samsung Galaxy S9 (relevant) from a Galaxy S8 sibling (pool, n=8), same Samsung Galaxy phone line differing by generation"}
+{"question_id": "89956", "identifier_decides": "no", "sibling": 3, "why": "'a10' does not decide: near-identical A10e phones appear as both relevant (n=7) and pool (n=3), so the model suffix is not what the labels track"}
+{"question_id": "90051", "identifier_decides": "yes", "sibling": 13, "why": "'a70' separates the Galaxy A70 (relevant) from the nearly-identical Galaxy A71 sibling (pool, n=13), same Samsung Galaxy A-series differing by model number"}
+{"question_id": "90067", "identifier_decides": "yes", "sibling": 3, "why": "'orbit' separates cases compatible with the J3 2018/Orbit family (relevant) from the same brand's case for the older J3 Emerge/Prime/Eclipse family, which does not list J3 Orbit (pool, n=3)"}
+{"question_id": "90103", "identifier_decides": "yes", "sibling": 6, "why": "the 's' in 'galaxy s 10+' separates Galaxy S10+ cases (intended) from a Galaxy Note 10 Plus case sibling (pool, n=6), same '10 Plus' naming, different Galaxy sub-line; other pool exclusions here (genuine S10+ cases) look inconsistent with similarly-specific relevant items"}
+{"question_id": "90134", "identifier_decides": "yes", "sibling": 11, "why": "'s7' separates the Galaxy S7 cases (relevant) from a Galaxy J7 case sibling (pool, n=11), same Samsung Galaxy case-naming family but a different phone line"}
+{"question_id": "90165", "identifier_decides": "yes", "sibling": 19, "why": "'purple' separates the Purple Tab A 10.1 cases (relevant) from same-family color-variant siblings in the pool (e.g. n=19, ProCase in Navy; n=5, GUAGUA in Blue/Black)"}
+{"question_id": "90196", "identifier_decides": "yes", "sibling": 7, "why": "'j7' separates the Galaxy J7 credit-card wallet cases (relevant) from the same wallet-style case for Galaxy S7 (pool, n=7), same wallet/card-holder case category, different phone"}
+{"question_id": "90212", "identifier_decides": "yes", "sibling": 1, "why": "'n900' separates the Galaxy Note 3 N900 (relevant) from a Galaxy Note 4 N910A sibling (pool, n=1), same Samsung Galaxy Note phone line differing by model/generation"}
+{"question_id": "90246", "identifier_decides": "yes", "sibling": 2, "why": "'q80r' separates the Q80R-series Samsung QLED TV (relevant) from the near-identical Q80T-series sibling from the following year (pool, n=2), same tier differing only by year suffix"}
+{"question_id": "90262", "identifier_decides": "no", "sibling": 9, "why": "no identifier decides: the pool sibling (n=9, Skinomi, explicitly for S10+) is functionally identical to many relevant S10+ screen protectors; relevant itself includes non-Plus S10/S10e items (n=1-3), so 's10+' is not consistently enforced"}
+{"question_id": "90324", "identifier_decides": "yes", "sibling": 3, "why": "'t580' separates the 2016 Tab A 10.1 (T580) cases (relevant) from a 2019 Tab A 10.1 (T510/T515) sibling (pool, n=3), same case family differing by tablet model year"}
+{"question_id": "9079", "identifier_decides": "no", "sibling": null, "why": "all pool items are unrelated products (garden trellis, supplements, phone case) or an unrelated film (Happy Gilmore), not a version of Andy Milligan's own work"}
+{"question_id": "91156", "identifier_decides": "yes", "sibling": 8, "why": "'plus' separates the amFilm screen protector for iPhone 8 Plus (relevant, n=25) from the same brand's screen protector for the regular iPhone 8 (pool, n=8), same product line differing by size"}
+{"question_id": "91318", "identifier_decides": "yes", "sibling": 7, "why": "'5tb' separates the Seagate 5TB drives (relevant) from same-line capacity siblings in the pool (e.g. n=7, Expansion Desktop 6TB; n=1, Expansion Portable 4TB)"}
+{"question_id": "92137", "identifier_decides": "yes", "sibling": 1, "why": "'sf' separates the Nike SF Air Force 1 special-force sub-line (relevant) from a regular (non-SF) Air Force 1 Mid sibling (pool, n=1), same base shoe brand/model differing by sub-line"}
+{"question_id": "92182", "identifier_decides": "yes", "sibling": 11, "why": "'ps3' separates the PS3 ICO/Shadow of the Colossus Collection (relevant) from the PS4 remake sibling (pool, n=11, 'Shadow of the Colossus - PlayStation 4'), same game differing by platform"}
+{"question_id": "92563", "identifier_decides": "no", "sibling": 2, "why": "no identifier (query is generic 'shimano fishing reel') decides between relevant Sienna sizes and the Sienna 1000FE pool sibling"}
+{"question_id": "92663", "identifier_decides": "no", "sibling": 5, "why": "the digit '1' names MGK's 'Shock Wave 1' product, not the Fiberlock size; it does not separate the 5-gallon Fiberlock (relevant) from the 1-gallon Fiberlock sibling (pool)"}
+{"question_id": "93162", "identifier_decides": "yes", "sibling": 1, "why": "'owb' separates the OWB Concealment Express holster (relevant, n=20) from its IWB sibling (pool, n=1), same brand/gun"}
+{"question_id": "93163", "identifier_decides": "no", "sibling": 18, "why": "'sas' does not decide: the DeSantis Mini Scabbard sibling (pool, n=18) fits P365 SAS just as the relevant DeSantis Nemesis (n=11) does"}
+{"question_id": "94267", "identifier_decides": "no", "sibling": null, "why": "pool docs are accessories/parts (chassis guard, steering blocks, bumper) or a different brand (LAEGENDARY), not a sibling Slash 4x4 trim"}
+{"question_id": "95086", "identifier_decides": "no", "sibling": 10, "why": "'5' names iPhone 5, not Apple Watch Series 5; it does not separate the GPS-only Series 5 44mm (relevant, n=5) from the GPS+Cellular Series 5 44mm sibling (pool, n=10), and relevant itself spans Series 3 and 5"}
+{"question_id": "9555", "identifier_decides": "no", "sibling": null, "why": "pool docs are unrelated products (a UPS unit, a scooter battery, a generic cell), not a same-family BE350 sibling differing by suffix"}
+{"question_id": "9597", "identifier_decides": "no", "sibling": null, "why": "pool items are a different-scope compilation, an unrelated film, and an activity book, not a version/edition sibling of any relevant Apollo 11 title"}
+{"question_id": "96148", "identifier_decides": "yes", "sibling": 1, "why": "'vgp-bps34' is the exact part number separating relevant BPS34 batteries from pool siblings targeting other Sony VAIO part numbers (BPS22/24/26)"}
+{"question_id": "96579", "identifier_decides": "no", "sibling": null, "why": "all pool documents are other brands (Klipsch, Focal, Kaladior); no KEF sibling exists to be distinguished from"}
+{"question_id": "9730", "identifier_decides": "yes", "sibling": 1, "why": "'plus' separates iPhone 7 Plus (relevant) from the non-Plus iPhone 7 GSM Unlocked pool siblings (n=1-4)"}
+{"question_id": "9763", "identifier_decides": "yes", "sibling": 6, "why": "'2' separates Apple Pencil (2nd Generation) (relevant) from the unnumbered 1st-generation Apple Pencil sibling (pool, n=6)"}
+{"question_id": "97638", "identifier_decides": "yes", "sibling": 5, "why": "'adult' separates the adult-sized Rubie's BB-8 costumes (relevant) from toddler/child-sized Rubie's BB-8 costume siblings (pool, e.g. n=5 4T)"}
+{"question_id": "9866", "identifier_decides": "yes", "sibling": 15, "why": "'44mm' separates the Julk 44mm case (relevant, n=21) from the identical Julk case in 40mm (pool, n=15)"}
+{"question_id": "98740", "identifier_decides": "no", "sibling": null, "why": "pool items are all different artists (John Mayer, Johnny Cash, Kacey Musgraves, Lee Ann Womack), not a Sturgill Simpson sibling release"}
+{"question_id": "98769", "identifier_decides": "no", "sibling": 2, "why": "'bluetooth' does not cleanly decide: a relevant doc (n=3, Redbeys) is itself explicitly 'Without Bluetooth', same as the pool sibling (n=2)"}
+{"question_id": "9893", "identifier_decides": "yes", "sibling": 18, "why": "'38mm' separates the 38mm Apple Watch Series 3 (relevant, n=15) from the 42mm Apple Watch Series 3 sibling (pool, n=18)"}
+{"question_id": "9898", "identifier_decides": "no", "sibling": 9, "why": "'men' does not decide anything here; the only sibling present (n=9, 42mm) differs from relevant (n=13, 38mm) by size, a difference this question does not name"}
+{"question_id": "99021", "identifier_decides": "yes", "sibling": 6, "why": "'7' separates 'Suits Season 7' (relevant, n=4) from 'Suits - Pilot' (an earlier season of the same show, pool, n=6)"}
+{"question_id": "9903", "identifier_decides": "yes", "sibling": 3, "why": "'4' separates Apple Watch Series 4 (relevant) from the Series 3 sibling (pool, n=3) and Series 5 siblings (n=12/13/19)"}
+{"question_id": "9911", "identifier_decides": "no", "sibling": null, "why": "pool docs are actual Apple Watch Series 5 units, not bands; no same-kind (band) sibling exists to be decided against"}
+{"question_id": "99120", "identifier_decides": "yes", "sibling": 5, "why": "'470' separates the Weber Summit S-470 grills (relevant) from the Weber Summit S-670 sibling (pool, n=5), same line differing by model number"}
+{"question_id": "99471", "identifier_decides": "no", "sibling": 17, "why": "the clean sibling (n=17, Surface Book 2 i5) differs from relevant (n=16, i7) only by CPU/color, unnamed by the question; 'book'/'2' do not reliably decide given noisy relevant labels (a Book 1 item n=2 and a Surface Go item n=5 are also labeled relevant)"}
+{"question_id": "99483", "identifier_decides": "no", "sibling": null, "why": "pool items are chargers for a different device ecosystem (Lenovo) or the Surface Pro 3 tablet itself, not an OEM/third-party charger sibling for the same device"}
+{"question_id": "99782", "identifier_decides": "no", "sibling": null, "why": "all pool items are refill pads/consumables for the Sweeper system, not a sibling Sweeper tool/kit differing by model or version"}
