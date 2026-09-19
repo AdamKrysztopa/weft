@@ -97,4 +97,89 @@ spend_cap_usd = 5.0
 pricing = "tokenized, never characters / 4"
 
 [power]
-# 40.6 fills this from 40.4 and 40.5; empty until then.
+# 40.6's numbers are `{corpus}-power.json`, computed by scripts/pool_power.py at moved_fraction 1.
+
+# ---------------------------------------------------------------------------------------------------
+# Phase 41 (ledger 41.0), written before any cross-encoder score exists. Same pools, questions,
+# metrics, slices and verdict as Phase 40; what follows is only what a cross-encoder adds.
+
+[phase_41]
+label = "exploratory on reused benchmarks"
+adoption_model = "BAAI/bge-reranker-v2-m3"
+exploratory_models = ["cross-encoder/ms-marco-MiniLM-L6-v2"]
+# Nothing measured here moves a default. Adoption is Phase 41b's, on untouched data (G26).
+tuning_forbidden = ["model", "depth", "truncation", "pool_depth", "slices"]
+depth = 50
+truncate = true
+truncation_direction = "Right"
+raw_scores = false
+
+[[phase_41.arm]]
+name = "dense"
+reorderer = "none (40.8's identity replay, reused, not re-run)"
+
+[[phase_41.arm]]
+name = "anchor-promote"
+reorderer = "anchor-promote (40.8's record, reused, not re-run)"
+
+[[phase_41.arm]]
+name = "cross-encoder-bge"
+reorderer = "cross-encoder-rerank, model BAAI/bge-reranker-v2-m3"
+
+[[phase_41.arm]]
+name = "cross-encoder-minilm"
+reorderer = "cross-encoder-rerank, model cross-encoder/ms-marco-MiniLM-L6-v2"
+
+[[phase_41.contrast]]
+arms = ["cross-encoder-bge", "dense"]
+reading = "verdict"
+
+[[phase_41.contrast]]
+arms = ["cross-encoder-minilm", "dense"]
+reading = "verdict"
+
+[[phase_41.contrast]]
+arms = ["cross-encoder-bge", "anchor-promote"]
+reading = "descriptive"
+
+[[phase_41.contrast]]
+arms = ["cross-encoder-minilm", "anchor-promote"]
+reading = "descriptive"
+
+[phase_41.power]
+# L27.2: 40.6's bound assumed every question moves by its whole headroom, and 40.8's realised
+# intervals came back 4-13x narrower than the MDE it implied wherever the rule moved anything.
+# A cross-encoder rescores every pair, so it can move any question with a relevant chunk in the pool; the bound assumes half of them
+# move by their whole headroom, the rest not at all: sd bound x sqrt(moved_fraction).
+moved_fraction = 0.5
+# Printed beside every slice: the largest fraction at which the slice would be powered
+# (n / n_required at fraction 1), and 40.8's realised mrr@5 half-width for the rule arm.
+breakeven_fraction = "n / n_required(moved_fraction = 1)"
+realised_beside = "40.8 anchor-promote mrr@5 half-width"
+
+[phase_41.repeats]
+# L24.9: an arm that reaches a model runs twice. The verdict is read on the first repetition; the
+# second is compared question by question, differing questions counted beside it, and a slice
+# whose two verdicts differ reads "unstable" rather than either verdict.
+per_model_arm = 2
+read_on = 1
+
+[phase_41.open_41b]
+when = "cross-encoder-bge against dense, esci, slice all, verdict is neither harm nor benefit ruled out"
+
+[phase_41.instrument]
+# Four experiments in a row have been null. If cross-encoder-bge against dense on esci, slice all,
+# reads harm or benefit ruled out, the instrument is checked before the technique is judged, and
+# the report says which checks ran and what they found:
+checks = [
+  "a gold-first replay of the same pool realises dense mrr@5 + the oracle ceiling exactly",
+  "cross-encoder scores for 20 questions recomputed by a direct /rerank call reproduce the replay's order",
+  "the replay's (-score, rank) key reproduces the emitted order through repack's reverse",
+]
+
+[phase_41.spend]
+cap_usd = 5.0
+order = ["41.3 (local, $0)", "41.4 llm-rerank pilot", "41.4 repetition 1", "41.4 repetition 2"]
+# 41.4 only: before each paid run, spend recorded so far plus that run's tokenized worst-case bound
+# must be <= cap_usd, or the run does not start and the stop is recorded.
+llm_rerank_corpora = ["esci"]

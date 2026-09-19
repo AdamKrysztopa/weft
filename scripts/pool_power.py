@@ -35,12 +35,26 @@ class SlicePower(BaseModel):
     mde_between_reorderers: float
     n_required: int
     underpowered: bool
+    moved_fraction: float = 1.0
+
+    @property
+    def breakeven_fraction(self) -> float:
+        """The largest share of questions that could move by their whole headroom with this slice
+        still powered: its n over the n it would need were every question to move."""
+        return self.n * self.moved_fraction / self.n_required
 
 
 def power_for(
-    ceilings: Sequence[QuestionCeiling], slices: Mapping[str, Set[str]]
+    ceilings: Sequence[QuestionCeiling],
+    slices: Mapping[str, Set[str]],
+    *,
+    moved_fraction: float = 1.0,
 ) -> dict[str, SlicePower]:
-    """Each named slice's power, over the questions `slices` assigns it."""
+    """Each named slice's power, over the questions `slices` assigns it, assuming `moved_fraction`
+    of them move by their whole headroom and the rest not at all (`L27.2`)."""
+    if not 0 < moved_fraction <= 1:
+        raise ValueError(f"moved_fraction must lie in (0, 1], got {moved_fraction}")
+    scale = math.sqrt(moved_fraction)
     by_id = {ceiling.question_id: ceiling for ceiling in ceilings}
     power: dict[str, SlicePower] = {}
     for name, members in slices.items():
@@ -51,8 +65,8 @@ def power_for(
         if not held:
             continue
         n = len(held)
-        against_dense = math.sqrt(sum(max(c.rr5, c.oracle_gain) ** 2 for c in held) / n)
-        between = math.sqrt(sum(1.0 for c in held if c.any_relevant_in_pool) / n)
+        against_dense = scale * math.sqrt(sum(max(c.rr5, c.oracle_gain) ** 2 for c in held) / n)
+        between = scale * math.sqrt(sum(1.0 for c in held if c.any_relevant_in_pool) / n)
         required = math.ceil((_Z * against_dense / WORTHWHILE) ** 2)
         power[name] = SlicePower(
             n=n,
@@ -62,6 +76,7 @@ def power_for(
             mde_between_reorderers=_Z * between / math.sqrt(n),
             n_required=required,
             underpowered=n < required,
+            moved_fraction=moved_fraction,
         )
     return power
 
@@ -90,13 +105,15 @@ def slices_from(
 def main(argv: Sequence[str] | None = None) -> int:
     """Write one corpus's power table: `--ceilings` (40.4's file), `--questions`, `--labels` (40.5's
     oracle anchors; a question with a non-empty set is in the oracle's population),
-    `--identifier-exact` (40.5's identifier-exact labels), `--out`."""
+    `--identifier-exact` (40.5's identifier-exact labels), `--out`, and `--moved-fraction` (41.0's
+    assumption; 40.6's table is the default of 1)."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ceilings", type=Path, required=True)
     parser.add_argument("--questions", type=Path, required=True)
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--identifier-exact", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--moved-fraction", type=float, default=1.0)
     args = parser.parse_args(argv)
 
     body = json.loads(args.ceilings.read_text(encoding="utf-8"))
@@ -111,14 +128,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         if row["identifier_decides"] == "yes"
     }
     slices = slices_from(ceilings, axes, labelled=labelled, identifier_exact=exact)
-    power = power_for(ceilings, slices)
+    power = power_for(ceilings, slices, moved_fraction=args.moved_fraction)
     by_id = {ceiling.question_id: ceiling for ceiling in ceilings}
     out = {
         "ceilings": args.ceilings.name,
         "worthwhile": WORTHWHILE,
         "slices": {
             name: {
-                **slice_.model_dump(),
+                **_dumped(slice_),
                 "oracle_ceiling": _mean(by_id[i].oracle_gain for i in slices[name]),
                 "promotion_ceiling": _mean(by_id[i].promotion_gain for i in slices[name]),
             }
@@ -133,6 +150,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             flush=True,
         )
     return 0
+
+
+def _dumped(slice_: SlicePower) -> dict[str, Any]:
+    """40.6's table carries no fraction, so it regenerates as committed; 41.0's states its own."""
+    if slice_.moved_fraction == 1.0:
+        return slice_.model_dump(exclude={"moved_fraction"})
+    return {**slice_.model_dump(), "breakeven_fraction": slice_.breakeven_fraction}
 
 
 def _mean(values: Iterable[float]) -> float:

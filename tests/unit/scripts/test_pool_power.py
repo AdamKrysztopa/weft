@@ -79,3 +79,31 @@ def test_slices_are_every_axis_value_the_labelled_population_and_the_identifier_
     assert slices["oracle-labelled"] == {"q-1", "q-2"}
     assert slices["identifier-exact=yes"] == {"q-2"}
     assert slices["rule-fires=true"] == {"q-1", "q-2", "q-3"}
+
+
+def test_a_moved_fraction_scales_both_bounds_by_its_root_and_reports_the_breakeven() -> None:
+    # Arrange — ledger 41.0 (L27.2): the bound states what fraction of questions it assumes move.
+    ceilings = tuple(_ceiling(f"q-{i}", rr5=0.0, oracle=1.0, in_pool=True) for i in range(1, 101))
+    slices = {"all": {c.question_id for c in ceilings}}
+
+    # Act
+    everyone = power_for(ceilings, slices)["all"]
+    half = power_for(ceilings, slices, moved_fraction=0.5)["all"]
+
+    # Assert
+    assert half.sd_against_dense == pytest.approx(everyone.sd_against_dense * math.sqrt(0.5))
+    assert half.sd_between_reorderers == pytest.approx(
+        everyone.sd_between_reorderers * math.sqrt(0.5)
+    )
+    assert half.n_required == math.ceil((2.8 * half.sd_against_dense / 0.05) ** 2)
+    assert half.breakeven_fraction == pytest.approx(100 / everyone.n_required)
+
+
+@pytest.mark.parametrize("fraction", [0.0, -0.5, 1.5])
+def test_a_moved_fraction_outside_zero_to_one_is_refused(fraction: float) -> None:
+    # Arrange
+    ceilings = (_ceiling("q-1", rr5=1.0, oracle=0.0, in_pool=True),)
+
+    # Act
+    with pytest.raises(ValueError, match="moved_fraction"):
+        power_for(ceilings, {"all": {"q-1"}}, moved_fraction=fraction)

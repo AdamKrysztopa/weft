@@ -1,0 +1,123 @@
+{
+  "ceilings": "esci-ceilings.json",
+  "slices": {
+    "all": {
+      "breakeven_fraction": 0.3022578295702841,
+      "mde_against_dense": 0.06428822485671962,
+      "mde_between_reorderers": 0.06822469345209484,
+      "moved_fraction": 0.5,
+      "n": 830,
+      "n_required": 1373,
+      "oracle_ceiling": 0.14686746987951807,
+      "promotion_ceiling": 0.0313855421686747,
+      "sd_against_dense": 0.6614734981501679,
+      "sd_between_reorderers": 0.701976555404345,
+      "underpowered": true
+    },
+    "anchored=no": {
+      "breakeven_fraction": 0.152014652014652,
+      "mde_against_dense": 0.09066048439241461,
+      "mde_between_reorderers": 0.0962480947699371,
+      "moved_fraction": 0.5,
+      "n": 415,
+      "n_required": 1365,
+      "oracle_ceiling": 0.16032128514056224,
+      "promotion_ceiling": 0.0036144578313253013,
+      "sd_against_dense": 0.6596051717482625,
+      "sd_between_reorderers": 0.7002581279664897,
+      "underpowered": true
+    },
+    "anchored=yes": {
+      "breakeven_fraction": 0.1503623188405797,
+      "mde_against_dense": 0.09117335131849282,
+      "mde_between_reorderers": 0.09671990198344113,
+      "moved_fraction": 0.5,
+      "n": 415,
+      "n_required": 1380,
+      "oracle_ceiling": 0.1334136546184739,
+      "promotion_ceiling": 0.0591566265060241,
+      "sd_against_dense": 0.6633365623218619,
+      "sd_between_reorderers": 0.7036907864194091,
+      "underpowered": true
+    },
+    "identifier-exact=yes": {
+      "breakeven_fraction": 0.07330960854092526,
+      "mde_against_dense": 0.13056387542633316,
+      "mde_between_reorderers": 0.13794609894300106,
+      "moved_fraction": 0.5,
+      "n": 206,
+      "n_required": 1405,
+      "oracle_ceiling": 0.11165048543689321,
+      "promotion_ceiling": 0.05663430420711975,
+      "sd_against_dense": 0.6692657668420422,
+      "sd_between_reorderers": 0.7071067811865476,
+      "underpowered": true
+    },
+    "oracle-labelled": {
+      "breakeven_fraction": 0.1375,
+      "mde_against_dense": 0.09532745748522238,
+      "mde_between_reorderers": 0.10051109062607458,
+      "moved_fraction": 0.5,
+      "n": 385,
+      "n_required": 1400,
+      "oracle_ceiling": 0.12225108225108226,
+      "promotion_ceiling": 0.054675324675324675,
+      "sd_against_dense": 0.668021350895707,
+      "sd_between_reorderers": 0.704346431881284,
+      "underpowered": true
+    },
+    "rule-fires=false": {
+      "breakeven_fraction": 0.2266473569876901,
+      "mde_against_dense": 0.07425801396306765,
+      "mde_between_reorderers": 0.07849808397667074,
+      "moved_fraction": 0.5,
+      "n": 626,
+      "n_required": 1381,
+      "oracle_ceiling": 0.1507188498402556,
+      "promotion_ceiling": 0.0,
+      "sd_against_dense": 0.6635481842023634,
+      "sd_between_reorderers": 0.7014362262905415,
+      "underpowered": true
+    },
+    "rule-fires=true": {
+      "breakeven_fraction": 0.07578008915304606,
+      "mde_against_dense": 0.1284186305608534,
+      "mde_between_reorderers": 0.1379394693095024,
+      "moved_fraction": 0.5,
+      "n": 204,
+      "n_required": 1346,
+      "oracle_ceiling": 0.13504901960784313,
+      "promotion_ceiling": 0.12769607843137254,
+      "sd_against_dense": 0.6550660421727288,
+      "sd_between_reorderers": 0.7036320339607104,
+      "underpowered": true
+    },
+    "split=test": {
+      "breakeven_fraction": 0.15226939970717424,
+      "mde_against_dense": 0.09058825259864406,
+      "mde_between_reorderers": 0.09648740221905784,
+      "moved_fraction": 0.5,
+      "n": 416,
+      "n_required": 1366,
+      "oracle_ceiling": 0.13605769230769232,
+      "promotion_ceiling": 0.03926282051282052,
+      "sd_against_dense": 0.659873239575369,
+      "sd_between_reorderers": 0.7028444953297882,
+      "underpowered": true
+    },
+    "split=train": {
+      "breakeven_fraction": 0.15010877447425672,
+      "mde_against_dense": 0.09124776083894844,
+      "mde_between_reorderers": 0.09648057809063744,
+      "moved_fraction": 0.5,
+      "n": 414,
+      "n_required": 1379,
+      "oracle_ceiling": 0.1577294685990338,
+      "promotion_ceiling": 0.023470209339774558,
+      "sd_against_dense": 0.663077597390404,
+      "sd_between_reorderers": 0.7011033402572027,
+      "underpowered": true
+    }
+  },
+  "worthwhile": 0.05
+}
