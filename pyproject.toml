@@ -1,5 +1,8 @@
 [tool.uv.workspace]
 members = ["packages/*", "testing/*"]
+# Ledger 40.7: installed only where Phase 40 measures with it, never into the dev env, where its
+# Reranker would be registered and reachable from no shipped document (fitness function 16).
+exclude = ["testing/weft-oracle-anchors"]
 
 [dependency-groups]
 dev = [
@@ -255,6 +258,7 @@ include = ["packages", "testing", "tests", "scripts", "eval", "examples"]
 extraPaths = [
     "scripts",
     "eval",
+    "testing/weft-oracle-anchors/src",
     "examples/weft-example-blob/src",
     "examples/weft-example-describer/src",
     "examples/weft-example-chunker/src",
@@ -284,7 +288,7 @@ addopts = "--strict-markers"
 # the corpus manifest itself would be a second manifest reader, drifting from the one an operator
 # actually runs. So the script is imported, not reimplemented, and this is the one line that makes
 # that possible. Paired with `[tool.pyright] extraPaths` below, which resolves the same import.
-pythonpath = ["scripts", "eval"]
+pythonpath = ["scripts", "eval", "testing/weft-oracle-anchors/src"]
 
 # A hang must fail, not stall. The registration seam guards blocking calls by
 # overriding socket and SSL operations, so a regression there does not raise —

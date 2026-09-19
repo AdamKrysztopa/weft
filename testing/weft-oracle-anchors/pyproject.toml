@@ -1,0 +1,24 @@
+[project]
+name = "weft-oracle-anchors"
+version = "0.1.0"
+description = "Test-only distribution for Phase 40's oracle control. Never published."
+requires-python = ">=3.12"
+dependencies = ["weft-kernel>=0.2.1,<1.0.0", "weft-rag>=2.7.0,<3.0.0", "pydantic>=2"]
+
+# The one entry point a pack declares (`docs/02-extension-model.md` section 2).
+[project.entry-points."weft.packs"]
+oracle-anchors = "weft_oracle_anchors:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/weft_oracle_anchors"]
+
+# **Never published.** Ledger task 40.7. `oracle-anchor-promote` reads ledger 40.5's blind labels
+# and exists only to let Phase 40 tell a promotion failure from an extraction failure — a control
+# with no business on an index, and installed only where the measurement runs
+# (`[tool.uv.workspace] exclude` in the root `pyproject.toml` keeps it out of the dev `.venv`).
+[tool.weft]
+publish = false
