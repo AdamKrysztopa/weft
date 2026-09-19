@@ -1,0 +1,501 @@
+{"question_id": "DEV_Q000", "text_sha256": "e761254d1bf86b9ec745d4e57366ee69d6e2bde2bc5d3b0ef1e5a46dbb86e239", "anchors": ["Web GUI 8.1 FP7", "DASH 3.1.2.1", "IBM Dashboard Application Services Hub", "3.1.0.3"]}
+{"question_id": "DEV_Q002", "text_sha256": "eb7821507b38984e27d97542ea337eeec19df78e62b58ca08f4c1cc24e24a48a", "anchors": ["P8 Content Engine Configuration manager (CMUI)", "Redhat Linux 7.2", "configmgr", "javacore.txt", "libcairo.so.2", "Content Platform Engine CPE 5.2.1.4"]}
+{"question_id": "DEV_Q007", "text_sha256": "5793fcf09b34fc88f71d2144dda69585eabf6491a7578197da5080ef9a0df46f", "anchors": ["Netcool Omnibus (NOI)", "nco-g-socket-java-2_0", "nco-g-socket-10_0"]}
+{"question_id": "DEV_Q010", "text_sha256": "49a0b73431c26ef8c6c0b1576b50b065dfe1342ca4d1c6adba25816548e556e1", "anchors": ["Portal 8.5", "EJPDB0085W", "EJPFD0016E", "EJPDB0160E", "EJPDB0166W", "NLS_CHARACTERSET", "WE8MSWIN1252"]}
+{"question_id": "DEV_Q011", "text_sha256": "b3f35b5563de47ce497bd4867ffd103a470175d434f7b7970d829a3cd7b0e054", "anchors": ["jextract"]}
+{"question_id": "DEV_Q012", "text_sha256": "25470510cb63cc49451516d6d7c0944feb98622c73ac8c5059c8ba05ccb643fe", "anchors": ["/nz/kit/bin/adm/nzudxcompile", "Argument list too long"]}
+{"question_id": "DEV_Q013", "text_sha256": "0fc053bc8ba71e94472913ba2477ea50354d2b27f38b4ec52841f8ffa93a9c76", "anchors": ["ODM 8.8.1", "Decision Center", "8.8.1.3"]}
+{"question_id": "DEV_Q014", "text_sha256": "c7f672cd79269fa9fca5a4a91c49b661bf5ccc9b949a6ac30fe341e0d79f71e3", "anchors": ["Installation Manager", "updateInstaller"]}
+{"question_id": "DEV_Q016", "text_sha256": "112dfc3cf3acb67db3267ada68ca756282806a290774f5f3551464763adb27c8", "anchors": ["Decision Center", "RES console", "/testing/sspService"]}
+{"question_id": "DEV_Q019", "text_sha256": "e36c76fdcf55f9d3a74eab09571dd6298877ac14b3cef4c365956ae315c957a2", "anchors": ["CVE-2015-0138", "IIB and WMB", "IBM Integration Bus and WebSphere Message Broker", "FREAK: Factoring Attack on RSA-EXPORT keys"]}
+{"question_id": "DEV_Q021", "text_sha256": "1c73dd26068737afff28ebcec0a38589388e9ddb9f2e79ff7d5293361b177c4e", "anchors": ["DataPower Gateway 7.1.0", "WebService Proxy"]}
+{"question_id": "DEV_Q022", "text_sha256": "38882be9b8138f9be19bbe0fce13766863d20d4bb8b79f30950e0a33bb877b7f", "anchors": ["websphere application server 9.0.0.4", "was 9.0.0.0", "rad/rsa 9.6.1", "was 8.5.5.10", "Network Deployment", "DMZ Secure Proxy Server", "IBM Web Enablement for IBM i"]}
+{"question_id": "DEV_Q023", "text_sha256": "0d97e6cde92693e7a852eace35e814a12ef14f7c5c11e70c7e8bc022da3ad39e", "anchors": ["EXECUTION_TRACES", "Decision Warehouse", "monitoring.enabled", "monitoring.filters", "ruleset.bom.enabled", "ruleset.sequential.trace.enabled", "ruleset.trace.enabled"]}
+{"question_id": "DEV_Q027", "text_sha256": "ab201e2b460cc8767c471dd84b21ddebf4db54d35ae7665ecfcedb31c1789170", "anchors": ["datacap 9.0", "datacap studio", "filenet"]}
+{"question_id": "DEV_Q028", "text_sha256": "f2582315036420ff9fd534147c04e5115d13349762ef5f42862f301e3e068986", "anchors": ["CVE-2015-4911", "WebSphere Service Registry and Repository"]}
+{"question_id": "DEV_Q029", "text_sha256": "80414cf2e088687a01356661f5cab139fc47a5b387fea1ed22584f92bb695caa", "anchors": ["StaleConnectionException", "ODM 8.8", "Rule Execution Server"]}
+{"question_id": "DEV_Q030", "text_sha256": "9d1097b01ee2e92421521a9dc9f0de4f47f15910938e158f6c835fb22c0a063c", "anchors": ["HP-UX", "-Xverbosegc", "native_stdout"]}
+{"question_id": "DEV_Q032", "text_sha256": "6ba7053fa5509d15b3255e75602380eef9e5304c9bc4a99e2d1bbe31ea7bb9ce", "anchors": ["IBM Content Navigator v2.0.3", ".dat", "CSV"]}
+{"question_id": "DEV_Q033", "text_sha256": "e3e4f4213af243a1df4221dbb03609fe08d5d8b6ebcb8c9494b73c0e5ee35043", "anchors": ["syslog-TCP", "DataPower Gateways", "log-action"]}
+{"question_id": "DEV_Q034", "text_sha256": "cfe91b8ebbeee6b5354c1c42ceb26c01bf307d6c59459ef8ae09735f77e13092", "anchors": ["WAS 8.0"]}
+{"question_id": "DEV_Q035", "text_sha256": "8bf9776e164407aa62fe6df440e3467ca001992612fb989e0c08ce79f7e87d47", "anchors": ["CVE-2017-14919", "API Connect", "Node.js"]}
+{"question_id": "DEV_Q038", "text_sha256": "18e3b9e38208d2f74c2e8a70a58f9ed76b35fe55f67b895acc7576d40cbf30fa", "anchors": ["ODM 8.7", "TeamServer"]}
+{"question_id": "DEV_Q039", "text_sha256": "9a92945d97380ae959248bded5d849e5b60cd2e1734d8906a927b9a6c1ebedb4", "anchors": ["virtual DataPower Appliance", "5.0.0.8", "6.0+"]}
+{"question_id": "DEV_Q040", "text_sha256": "5fa8a0970a4102a1d120d4f5fd17f34ef37411e1a0c1e36c88d40db2a9f9859e", "anchors": ["WebSphere Plugin 8.5", "Apache 2.4", "http_plugin.log", "gsk8_64"]}
+{"question_id": "DEV_Q043", "text_sha256": "f5695865fd428d95f4348efa70c6018ace4a9443867d86faedd00ca82750d27f", "anchors": ["ITNM 4.2.0.1", "IBM Tivoli Network Manager IP Edition Version 4.2 Fix Pack 1", "Passport Advantage"]}
+{"question_id": "DEV_Q046", "text_sha256": "c76938f8b55ae571dbb6b1b04b13b8bb60ccff94b80b880ddb26415a8ad911e9", "anchors": ["ICM 5.3.0", "Box", "Viewer Uploader"]}
+{"question_id": "DEV_Q047", "text_sha256": "d2e77e31c7f31700c1885114211bbf624f2a17e2e4c7cfeddfa6e325d37298a7", "anchors": ["SPSS v24"]}
+{"question_id": "DEV_Q050", "text_sha256": "9881ef5192463ecd4c7191fd15aa819e42f6343273b5e76f50d9be002bd631a1", "anchors": ["NUM_IOSERVERS", "10.5FP7"]}
+{"question_id": "DEV_Q051", "text_sha256": "f4d3721fdc3e32bf7155a7144d84743dbf82e80b219a089991367d5b758781c5", "anchors": ["FileNet Workplace XT", "PrefAccessRolesInfoPage", "PrefBootstrapInfoPage"]}
+{"question_id": "DEV_Q052", "text_sha256": "e5a83a4b0318473ff0f1509a2251531473eec533a02a7049949e95b90d162178", "anchors": ["certificate expired"]}
+{"question_id": "DEV_Q053", "text_sha256": "577b58c3e1fcd4b469d2a5bd66437771ef6aed3a37d016c8c9f4acf6a87f437c", "anchors": ["Portal 8.0.0.1 CF12", "WAS 8.0.0.8", "8.0.0.5"]}
+{"question_id": "DEV_Q055", "text_sha256": "51ab04ac248d2d71a8005d885ad0817f4c8db4125107b9c408e682d99220be1d", "anchors": ["COMMENT ON COLUMN", "Table . could not be found in the database."]}
+{"question_id": "DEV_Q063", "text_sha256": "1f5cefef2f3c8d8a90edd3996e6ecd42d19ea4d29a8ea67a4ec783046cf3b637", "anchors": ["datacap 8.1", "dotedit", "ignored page status"]}
+{"question_id": "DEV_Q064", "text_sha256": "213d40c65bd6186e126ea6660332bccb7cd7560fe2e586815aedd3f3bf2d80d8", "anchors": ["MQ Appliance", "Sweet32 Birthday Attack", "triple-DES"]}
+{"question_id": "DEV_Q066", "text_sha256": "366078aa147f73b178af01b38c690d22230a4fb48ea4a8ddd04512f5f566670b", "anchors": ["IBM Integration Bus Hypervisor Edition V9.0", "WebSphere Message Broker Hypervisor Edition V8.0", "Red Hat Linux"]}
+{"question_id": "DEV_Q067", "text_sha256": "d8fa7657088954922768bfb52e3584f1228cfeb8d36f75e288dfb90d655f703c", "anchors": ["AppTarget", "CWLND0004W", "group replication lock"]}
+{"question_id": "DEV_Q068", "text_sha256": "9f034900822398af6ea3fdcbe8d7e93f67dc54b8abbbb0c8227620712864939d", "anchors": ["java.lang.StackOverflowError", "dump namespace", "Corbaloc"]}
+{"question_id": "DEV_Q074", "text_sha256": "1699d51f4712836446575ff1118fa5cb13c3ddb2a1714888d62996438969c20b", "anchors": ["CVE-2015-1920", "IBM SOA Policy Gateway Pattern for AIX Server 2.5"]}
+{"question_id": "DEV_Q077", "text_sha256": "975c60b3bc29a1926ba96d1451add622768b216badf2646987039ad6fabddbc5", "anchors": ["SPSS 24 Gradpack"]}
+{"question_id": "DEV_Q080", "text_sha256": "41f75ae5fa6db7d4498c04bb46ec9aac8e2f302343d5d50fa196b7016406f364", "anchors": ["OUTPUT_TYPE", "ITM V6", "OUTPUT_TYPE=S"]}
+{"question_id": "DEV_Q082", "text_sha256": "6bc96e3a11e2f5e386b6e18fabf4d3a0639c8332fa9575413897531380a94ff1", "anchors": ["CVE-2017-1694", "IBM Integration Bus"]}
+{"question_id": "DEV_Q088", "text_sha256": "bd1b204382189de26d7dc0189af65e2566a2581f88e0b34f589d04ea2302f539", "anchors": ["CQWEB", "CQ 7.1.2", "LRKS 8.1.3", "cqreg"]}
+{"question_id": "DEV_Q089", "text_sha256": "d1e0268fe5e2c28583c18657a543534b613636cc9b0e5dbbc1c2e89211fb1391", "anchors": ["CVE-2016-8610", "IBM API Connect", "OpenSSL"]}
+{"question_id": "DEV_Q090", "text_sha256": "54bdbcf0eac74ddae13b5d8b9f4d0269f83d80ee67c731c808ab468d2e004b64", "anchors": ["RTW 8.5", "RPT floating license", "RIT floating license"]}
+{"question_id": "DEV_Q094", "text_sha256": "013605767979313153ce972c5888e7a86784fbf936509e2ed6dd2a1eff18ac59", "anchors": ["virtual DataPower Appliance", "5.0.0.0", "6.0+"]}
+{"question_id": "DEV_Q098", "text_sha256": "a8602b84645171b94d9496b3d194694963ee1689db43a234c95a3bd68a5ead0e", "anchors": ["CVE-2018-2633", "WebSphere Service Registry and Repository Studio"]}
+{"question_id": "DEV_Q099", "text_sha256": "26c3652c0254d914af79fecc14c8d6a1923192d3262138beb20064c0e8c25ac6", "anchors": ["ITCAM Agent for WebSphere Applications 7.2.0.0.7"]}
+{"question_id": "DEV_Q102", "text_sha256": "17e1b3e26c0c4bc217f15b148daf2b06efd699f4eb0665f673eb447122740c6e", "anchors": ["Event Log Hashing", "7.3.1"]}
+{"question_id": "DEV_Q108", "text_sha256": "faa5190fe090787a5dd5680856a901541fe7ead1932b130a8f56f3d9f74ae484", "anchors": ["MQ 5.3.1", "HP Integrity NonStop Server BladeSystem", "OSS version is not suitable for installation", "J06.14"]}
+{"question_id": "DEV_Q109", "text_sha256": "f531491fbb7476aed6ccffe7a50c7db28db721a3e39ae10c92e44c86ecc10174", "anchors": ["CVE-2016-8918", "IBM Integration Bus V10.0.0.4"]}
+{"question_id": "DEV_Q112", "text_sha256": "922ccb6d0d0911b43244e378badda4b226660d0750301df197b4b8fe9bee1ef8", "anchors": ["nco_confpack", "Tool in menu but not found", "AlertsMenu"]}
+{"question_id": "DEV_Q114", "text_sha256": "782773a2fbc1aad539c115149c9cbbe558aa8c4dedce13fc5048d2e420de4761", "anchors": ["DB2 z/OS V9.1", "DB2 LUW V10.5 FP7", "DB2 AESE V10.5 FP7", "Micro Focus Cobol"]}
+{"question_id": "DEV_Q116", "text_sha256": "6fb0fda0a3299ab0176fbb62f38524e4de2f69409787c1f210793c5326ecd014", "anchors": ["ibm bpm 8.5", "ibm bpm 8.5.5"]}
+{"question_id": "DEV_Q120", "text_sha256": "a827287cf355e397e605353a71ab5b6086fb6b102b6fed8c259eb1e0ee198d74", "anchors": ["BIRT", "Atlas 6.0.3.3"]}
+{"question_id": "DEV_Q121", "text_sha256": "c33806bd471e0e0aedcc927be92f2a835b02c72a55f02383fba3a8094fef212c", "anchors": ["Job Execution Node", "IIB V10", "IIB V9"]}
+{"question_id": "DEV_Q122", "text_sha256": "120fd0bfb9840eff15f3f20f193143391fa1d7813be6d5a43107fafa49ded7df", "anchors": ["BMXAA4198E", "TLOAMNEWGLACCOUNT"]}
+{"question_id": "DEV_Q123", "text_sha256": "68b68b9c1220df3ace5b005f2e14696a7ddfc3cb4c3e644dc38d21cddacc323a", "anchors": ["Resource Registry", "dtx.ini", "Source not found", "Design Studio"]}
+{"question_id": "DEV_Q129", "text_sha256": "bb020c356b05116dffac8497419e5254e4bf65193329c7223c92c9f99a14a589", "anchors": ["CVE-2015-0410", "CVE-2014-6593", "IBM OS Images for Red Hat Linux Systems and AIX", "IBM Java SDK"]}
+{"question_id": "DEV_Q132", "text_sha256": "e5d68a1651f13a454a0161cc8ad06dc32244dc05a95ba3df42a5e5cc66da73d7", "anchors": ["ITCAM WAS Application Status"]}
+{"question_id": "DEV_Q134", "text_sha256": "531830cc901cc5be6a018aa0da792c0044eb8f441b95f765108cdc89ab26fc79", "anchors": ["DataPower 9235", "Power supply '1' has no AC input power, or is not present."]}
+{"question_id": "DEV_Q140", "text_sha256": "72457a60d37ff2947d26718b278bd32a73c32b084d006c2823fb9131b65f0a31", "anchors": ["SQL1227N", "DB2 V9.7 FP11", "db2look", "DB21034E", "SYSSTAT.COLUMNS"]}
+{"question_id": "DEV_Q145", "text_sha256": "5f5d4e25ee87056f8e448e71b31427a944ae73e92e4ad6f1e6b443963a5891ef", "anchors": ["reload()", "attribute cache"]}
+{"question_id": "DEV_Q149", "text_sha256": "f5a552852a22dd1b34207b1f0d4d675e2e03e0d22dc06b42321453772921602e", "anchors": ["v7.5.2", "v7.2"]}
+{"question_id": "DEV_Q154", "text_sha256": "70a7d392da59a8adff20a620b77800d8189b0ce75a721e96002fca05b7cafeb4", "anchors": ["Impact 7.1.0.11", "*.SQL.USERPARAMETERS"]}
+{"question_id": "DEV_Q155", "text_sha256": "05827fe48d7b94baf123c72de4ad6d58d399e3f92f590a0efa562b2b81bbe1b9", "anchors": ["wpcollector", "WebSphere Portal Server"]}
+{"question_id": "DEV_Q156", "text_sha256": "3db19bcd162a8850fb9f44a111d7d530b8e0993cfd759fa0a8b38d4677395b86", "anchors": ["CVE-2016-9693", "IBM Business Process Manager (BPM) and WebSphere Lombardi Edition (WLE)"]}
+{"question_id": "DEV_Q158", "text_sha256": "663d437ff60d5e9de43d37def699fcb4a4a8ef8344b8abc0a65617f143e61988", "anchors": ["TOKEN_SEPARATOR"]}
+{"question_id": "DEV_Q161", "text_sha256": "f4415e3eba52f59911684268f4b7f198f279ec55b2e5cdc7bf8e7428eb2c0d1c", "anchors": ["Netcool/Impact 7.1.0", "StateChange", "OMNIbusEventReader"]}
+{"question_id": "DEV_Q164", "text_sha256": "06515e8690de6e762cf68a9b8042da23b6a9c8a53546f80e5cd75e1cf35822d6", "anchors": ["conversation sharing", "MQ version 7.0"]}
+{"question_id": "DEV_Q171", "text_sha256": "173e30629eecaffbbca4bc9fff314211ee4f796ef71170a7c50f17ce899e513a", "anchors": ["MBEANSTARTER LOADEXTENSIONS FAILED TO LOAD EXTENSION", "Portal Server 8.5", "ServerExt.applications", "com.ibm.wps.scripting.server.ApplicationServerExtensions"]}
+{"question_id": "DEV_Q179", "text_sha256": "5b8876aee2c5fc70985dec26156ed4fa79cedd25ae4a98bcf753f0e5644e2618", "anchors": ["CVE-2017-3735", "WebSphere MQ 5.3 and MQ 8 for HPE NonStop Server"]}
+{"question_id": "DEV_Q180", "text_sha256": "337259d10424121f05e5dc79fe9be6a117379dfe8827516fd2853a82c6052317", "anchors": ["CVE-2015-1920", "IBM PureApplication System"]}
+{"question_id": "DEV_Q181", "text_sha256": "3839115b78cfe6b79c82e743e1b7c6e7ac82a7e3615cc75374c09b3e1ef05bd2", "anchors": ["MxLoader 4.7.4", "reportdate >= TODAY()"]}
+{"question_id": "DEV_Q182", "text_sha256": "3b3c2586602bb37c1720f387332d8c0c1322ddf9be8f26fdf7f9fa46e9916ad7", "anchors": ["CVE-2017-10115", "CVE-2017-10116", "CVE-2017-10109", "CVE-2017-10108", "IBM Integration Bus and WebSphere Message Broker"]}
+{"question_id": "DEV_Q184", "text_sha256": "06feaec7b2430af16caefc71e2103d01f7d64b3f996fd9a6c8282b77cad33dcf", "anchors": ["CWSXM0100E", "CWSXM1023E", "mediation module"]}
+{"question_id": "DEV_Q186", "text_sha256": "b0add45a5d2b029ab9e7a73ab122a6ef779928bb5d24c5a2b1bb53df5647201b", "anchors": ["ITCAM for MQ", "SEVERE: You must agree to the License Agreement.", "MQ_Silent_Uninstall.txt"]}
+{"question_id": "DEV_Q187", "text_sha256": "1bd9f08181412e1090e8d5a475f80a348823f34a197053fde8aa30401d09640e", "anchors": ["CVE-2017-10115", "WebSphere Service Registry and Repository"]}
+{"question_id": "DEV_Q192", "text_sha256": "83f49ff63839809deaafc8f7a1835a4b6ab71b76be00c099fa13feec4306e6a0", "anchors": ["Exclusive Edit", "no such file or directory"]}
+{"question_id": "DEV_Q193", "text_sha256": "fedff10a7d54869b08e5db2cd19a93f7f0156e81f93aac761e719322fee374ef", "anchors": ["Nokia NSP EPC v17.9", "Nokia NSP RAN v17.3"]}
+{"question_id": "DEV_Q195", "text_sha256": "64bae73525d4351622b5a593659e7ddd52aabde3c2da763a5d7f4065f661428e", "anchors": ["ITCAM for DataPower appliance v7.1", "TLS protocol v1.2"]}
+{"question_id": "DEV_Q196", "text_sha256": "0c7facca52b829d985e755409041ecca824162d3a4b4fe4ff487fa10c4dd6193", "anchors": ["modelerClient64.msi", "error 1152"]}
+{"question_id": "DEV_Q202", "text_sha256": "63daa9c9c84a85a6c8f4124e0ee5851037a1bca179c4caf697ef31d054e94ad8", "anchors": ["Installation Manager", "AIX 7.1", "netcool"]}
+{"question_id": "DEV_Q204", "text_sha256": "f2157d001747a04d03317046fef17f7442fcdd7c3d5e04d33aee9a4cea6e37d9", "anchors": ["WTX", "v8.3.0.3", "270/271"]}
+{"question_id": "DEV_Q206", "text_sha256": "28b2cdbe13a87515d87c9f80fbefaffdd3b0b3afa4b2cdf540b2c5d9abd8d0c5", "anchors": ["nco_confpack", "Tool in menu but not found", "AlertsMenu"]}
+{"question_id": "DEV_Q208", "text_sha256": "7acf288fc4891a6529ed2c0d3e07f553b6d3600d146f61b79172d2d264c42219", "anchors": ["TASK001X", "Portal 8.0.0.1", "8.0.0.1 CF14", "import-nodes", "ConfigTrace.log", "jcr.install_cfg.xml"]}
+{"question_id": "DEV_Q210", "text_sha256": "0a01d4195cab2cbf7e3b01f0bd04d963607e54adb1839f40080d33ec94aaedc7", "anchors": ["ADML3000E", "Too many open files"]}
+{"question_id": "DEV_Q215", "text_sha256": "5c20e3a6b0442dfade3291942b3fa5f02a51e945d96809b8611b9cb358eb4e89", "anchors": ["conversation sharing", "MQ version 7.0"]}
+{"question_id": "DEV_Q216", "text_sha256": "c181c94259922355aaba20413ee0d86ab854c96a7e3baa5cf541707620ab9a13", "anchors": ["SPSS 23", "Error 1311", "Source file not found."]}
+{"question_id": "DEV_Q218", "text_sha256": "e9274c2f377e0f16c13cefc07794a6b29411f481a6324cdeb6b266ec00f4688e", "anchors": ["8.0.0.2", "8.0.0.4", "PureApplication System"]}
+{"question_id": "DEV_Q220", "text_sha256": "5dec3e9f85111b50258b0213a04bcafcd4081e4563bd537edb9c0c861f49ff10", "anchors": ["CVE-2014-8730", "IBM PureApplication System"]}
+{"question_id": "DEV_Q224", "text_sha256": "3d2bb81b6f97803886abb2f22a364c1157cf9d472558b1716c1e387e28691a4f", "anchors": ["HttpOnly", "Oracle Weblogic 12c", "IBM Atlas"]}
+{"question_id": "DEV_Q225", "text_sha256": "182b09a0a1929f7b539b53b3632e12c0981d3b4ce3cfcc9ed92e0d3cbdd3530b", "anchors": ["webDAV", "com.ibm.icm.da.DBAccessException", "User id can not be null"]}
+{"question_id": "DEV_Q230", "text_sha256": "36d4d532b3dd0c1ed80c64775b0931e8fde307a48285353e83e41214ff360e06", "anchors": ["NotSerializableException", "WTRN0047E"]}
+{"question_id": "DEV_Q234", "text_sha256": "97c5dcb03f2cb0b6a35aec7c4ba42b35b5c3f6f422c748ca9d8f6c4d68b9db85", "anchors": ["TCR 2.1.1", "Fixpack 2", "ACUOSI0050E"]}
+{"question_id": "DEV_Q235", "text_sha256": "de318fe9e8027823e532f7d32cc9e49f24b17fbe00fadd53fc3cdbf28e21e464", "anchors": ["CVE-2016-3485", "IBM WebSphere MQ"]}
+{"question_id": "DEV_Q239", "text_sha256": "cc2ec87549bc304ef31fda4e6a8e12b7e4a5d93f3bd7b847e3a4609914a80086", "anchors": ["RFT 8.2", "org.eclipse.core.runtime.adaptor.EclipseStarter"]}
+{"question_id": "DEV_Q240", "text_sha256": "63eab97ee8470d032709f37f1f32b05b7fe1f01b5050be90fe6cfafb8bc5555d", "anchors": ["RecordChangeSystem.msl", "port number 6,002", "7000/8000", "9.0 Launcher"]}
+{"question_id": "DEV_Q244", "text_sha256": "250c8b52ab438bb27e79cb415cf31bdcfb4bfccb5faa5d620f787654dbd12ddf", "anchors": ["crm_mon"]}
+{"question_id": "DEV_Q245", "text_sha256": "70adca9ee181897222598cd7e1f7b9dead9ee428d195a289b6e0a557053ce86e", "anchors": ["XMLLIB", "WTX 8.3.0.5", "VALIDATEEX", "VALIDATEXX"]}
+{"question_id": "DEV_Q249", "text_sha256": "4348dc76aab97eb830213e0a6f970e6697ea8a1cb9cdf7e0c58cf24a59419e7b", "anchors": ["CVE-2016-8971", "IBM WebSphere MQ Administration command could cause denial of service"]}
+{"question_id": "DEV_Q254", "text_sha256": "1a8161487d8efc3f0a82e6847169de70dff020ca2d1bc272a0bc8e8a19c1e1ea", "anchors": ["IKJ79154I", "IKJEESX0", "TSO SEND", "REASON CODE X'00000004'."]}
+{"question_id": "DEV_Q257", "text_sha256": "f485690bd24c5155de5c3ecc9b25a6dd03bf23f3e3aa696f4afce932d7c248cc", "anchors": ["SDMS", "ITCAM for SOA 7.1.1"]}
+{"question_id": "DEV_Q258", "text_sha256": "1052b24f1b637ff99c2b5ea1cd239f814f887e07c8dea069d6a3d9b54a219d18", "anchors": ["ITCAM WAS Application Status", "Application_Health_Status.Application_Status", "Application Health workspace"]}
+{"question_id": "DEV_Q260", "text_sha256": "f4273de95cf5386c67f6fcd4ef580f2ef3356e2449a33c1138707cedd5e160ec", "anchors": ["PI50993", "CVE-2012-6153", "CVE-2014-3577", "VerifyError", "org/apache/http/HttpEntity"]}
+{"question_id": "DEV_Q261", "text_sha256": "c05f6b3fda49c82b5dd0ca998068829a019ba2d6da58d042253854972fac827c", "anchors": ["reload()", "attribute cache"]}
+{"question_id": "DEV_Q262", "text_sha256": "bbe1c5a13ab76442a59f06d4cd6ddcce4abbfe9ff5b19232a8699cd91906dc4e", "anchors": ["COMMENT ON COLUMN", "Table . could not be found in the database."]}
+{"question_id": "DEV_Q266", "text_sha256": "fcfc6f94ed3f71e8e88191a4b7571a57adeed66d9b815a23f8055f866fc9cf9b", "anchors": ["Packaging utility"]}
+{"question_id": "DEV_Q268", "text_sha256": "f19b31c5af8b84030576f9913a0c8a45f14431a5f59b671c386e86ebdbf8cdcf", "anchors": ["ODR", "v8553"]}
+{"question_id": "DEV_Q275", "text_sha256": "8d528aad99de177088523f61f6d602470eea3644f8dd7b90b0b3d926e81f52b1", "anchors": ["JOBTASK.DESCRIPTION.DESCRIPTION_LONGDESCRITION"]}
+{"question_id": "DEV_Q277", "text_sha256": "762077d8584078598aadce07b070faaba12f9fda1ef56bba804cfca8a03b4a52", "anchors": ["SAML TAI", "WebSphere Portal 8.0"]}
+{"question_id": "DEV_Q279", "text_sha256": "f7c4f259fded3dcfa7f229abdea1e6ac8fa66fa5d6f12e8e260fc2fb97d660ea", "anchors": ["ADMIN_CMD", "XA environment"]}
+{"question_id": "DEV_Q281", "text_sha256": "5ab5c2482a31955f00d5552a41115c3cf25ae5a9a850689d8e63a472f4ae81c3", "anchors": ["IBM Content Navigator", "'Save and Close'", "'Save'"]}
+{"question_id": "DEV_Q283", "text_sha256": "9a5d6f2ce171265bc15aa22105ee654bfd626daac72e6a2cbbd8eadfc7704dbb", "anchors": ["SPSS 20", "4-20C30"]}
+{"question_id": "DEV_Q288", "text_sha256": "76d4f8d199ad1a77978017e2f0f37cd7206adf3c77267e3e1da5750dc5d9c885", "anchors": ["BPM 8.5.6", "Java 8"]}
+{"question_id": "DEV_Q291", "text_sha256": "745206650e9d4040a212d1e95d877d30f0bade5b24b11a14c9f60b56182c32ed", "anchors": ["Java 8"]}
+{"question_id": "DEV_Q296", "text_sha256": "d41a2404562b56718aa2cee10e9e598ebb1679d1249059a93662fc1fbcd5105a", "anchors": ["Document Store", "IBM DB2 pureScale", "systemOut.log"]}
+{"question_id": "DEV_Q299", "text_sha256": "d78b8fb9aa50b670fff206c1e72a7da4f9c984a61584850a572d519e6194ed1f", "anchors": ["Netcool/Impact 6.1.1", "GetByFilter", "AlertKey"]}
+{"question_id": "DEV_Q300", "text_sha256": "e7bc3b74d6dced219cdfa6c1ddfd62c281f3c87d8b8876bf5d106b8fa3b6e23f", "anchors": ["DB2 9.5", "Non Reclaimable Storage"]}
+{"question_id": "DEV_Q303", "text_sha256": "953cb78b95e7a8663f5ff541018ea77fb67ea32b016dddfdb6ad00e3b5f86e01", "anchors": ["Web GUI 8.1", "security.xml", "2147483647"]}
+{"question_id": "DEV_Q305", "text_sha256": "45283d7aeaeb61cae9d39dd081ab4f79772c81d6b7a4458fa4e163ea31e3dbbc", "anchors": ["Cognos Analytics 11.0.3"]}
+{"question_id": "DEV_Q306", "text_sha256": "010beaae682b2f4adebd209dfaa23d28201f2ffd547bdf2acdc3b5c6554a205d", "anchors": ["DotEdit", "QID"]}
+{"question_id": "DEV_Q307", "text_sha256": "7a73792c1a884cce206374603e0a41cb567cf2c477c63a688fb9512ada6d3e28", "anchors": ["CVE-2017-3735", "WebSphere MQ 5.3 for HP NonStop Server"]}
+{"question_id": "TRAIN_Q000", "text_sha256": "b249be03bfb7468915d9fc2c34a5950fb71c508add4309f8d072bdd93aa7da42", "anchors": ["Streams 4.1.1.1", "4.1.1.2", ".bashrc", "ODBCINI", "SQL state is 08003", "unixODBC", "Connnection does not exist."]}
+{"question_id": "TRAIN_Q001", "text_sha256": "4be7ca925076efcdaa747c09d871427520dc77350f028c16781bf4cc8267f051", "anchors": ["Netcool/Impact", "Exit()", "User Defined Function"]}
+{"question_id": "TRAIN_Q003", "text_sha256": "c21bf8ed7059c83d540d218dec2072175dc51526ef0567e09822d304c413e95f", "anchors": ["IBM HTTP Server", "IHS v7", "SSL mutual authentication"]}
+{"question_id": "TRAIN_Q005", "text_sha256": "d9540c7ea9a9d673e01935ec1168785a6ff110ee1132c7b798266284203480be", "anchors": ["load.rules"]}
+{"question_id": "TRAIN_Q006", "text_sha256": "52e33acfddcf3104ab4777423515bb3779a0e9e26402f1c69f91b98e581c4d39", "anchors": ["ITNM", "CVE-2017-3156"]}
+{"question_id": "TRAIN_Q007", "text_sha256": "32adecca598637ff2ec086f4c50c56a02255a3632a7a837adf195b2365a742ac", "anchors": ["MQRC_NOT_AUTHORIZED", "JMSWMQ2013", "MQCC_FAILED", "8.5.7"]}
+{"question_id": "TRAIN_Q008", "text_sha256": "2457c62ca404da643e8ab7a2a9ef63600fa5c83266b9f831ae55079767c14ecb", "anchors": ["Requisite Pro (ReqPro)", "RAD/RSA(4WS) 851"]}
+{"question_id": "TRAIN_Q009", "text_sha256": "7034550551bb132f2a82fc2dfa3d3c27d666a98f6c6607e7ee2503928e89e209", "anchors": ["Content Engine 5.2.0.3", "Is Required"]}
+{"question_id": "TRAIN_Q010", "text_sha256": "38cf994f96a4ec371713d4883f1a7b80eaae6faa1027a5b40554d1c3011c5a28", "anchors": ["managesdk.sh", "-listEnabledProfileAll", "WebGUI FP13", "BackingStoreException", "Couldn't get file lock."]}
+{"question_id": "TRAIN_Q011", "text_sha256": "d4fe2955f0099897aa408791c4d1cdb8b21f11eb7541c24d5efc97de9ac930b2", "anchors": ["SPSS 25"]}
+{"question_id": "TRAIN_Q012", "text_sha256": "ac84530eeb15078ae7c27627e1b941d11518772465214256376eb50bfa103598", "anchors": ["ulimit"]}
+{"question_id": "TRAIN_Q013", "text_sha256": "fc0aac828c069d1d085c6421ce043757669bc55dcc52f41ce4cddefe699c72c9", "anchors": ["TIP 2.2", "TIP 2.1"]}
+{"question_id": "TRAIN_Q014", "text_sha256": "e2d3ec591336b246fbdf53815fe27db111bba8dcde6b99350ef4e7ad3cae68f6", "anchors": ["NMA agent", "ITM for Virtual Environment", "tamcd addbundles"]}
+{"question_id": "TRAIN_Q015", "text_sha256": "f4c01769a95b902177021628e8aee7773f517c9359cc98e222aae52755f545d7", "anchors": ["IBM Integration Bus Hypervisor Edition V9.0", "WebSphere Message Broker Hypervisor Edition V8.0"]}
+{"question_id": "TRAIN_Q016", "text_sha256": "abf7d99b0af651b03c84ce17548be774925d77572a12698dd630f890711d5202", "anchors": ["Too many open files", "DASH"]}
+{"question_id": "TRAIN_Q017", "text_sha256": "4cc508cbb5cb64e3b1c93cfdd5f72668e5a3491b9a0a3dc0cb9e36db594759c5", "anchors": ["Portal Server v6.1.0.6", "Oracle 12c", "Oracle 11g"]}
+{"question_id": "TRAIN_Q019", "text_sha256": "11d550d0ca2fa1ca9e28da0a8ba038eef988139a6867b77c73c7b13514c9007c", "anchors": ["SPSS", "jxbrowser"]}
+{"question_id": "TRAIN_Q020", "text_sha256": "415a64a53eb9ec3a7fec33167938ecbda99ac37477bf5a885699b57f89ebdce1", "anchors": ["HATS 9.0.0.0", "RDZ 9.0", "IBM Rational Application Developer for WebSphere Software", "IBM Rational Software Architect for WebSphere Software", "IBM Rational Developer for i for SOA Construction", "IBM Rational Business Developer", "IBM Integration Developer"]}
+{"question_id": "TRAIN_Q024", "text_sha256": "126427a4f8adb15bb334668fafaf78021e7a7171b44a6f873521f6cf7d8d8c48", "anchors": ["GradPack 24 for Windows (12-Mo Rental)", "You are not allowed to generate any more new licenses."]}
+{"question_id": "TRAIN_Q026", "text_sha256": "75cac5b1ef34cc61b7e9a59f1a9979a27527389aef470a569a10965a8f09d3b3", "anchors": ["ITM VMware VI Agent Reports", "v 7.2"]}
+{"question_id": "TRAIN_Q027", "text_sha256": "a86da6c704b3355117ac05fc4360a104b3d549d6176ff0b735cb0abb68367e6b", "anchors": ["Manage Pages Portlet", "EJPAS0017E", "RT0002E", "DSRA1300E", "PreparedStatement.setBinaryStream"]}
+{"question_id": "TRAIN_Q028", "text_sha256": "78c376c46820b66781b44f2ed031010baca2ba9d155240ab1545d22cd4f7d306", "anchors": ["CVE-2016-1000031", "IBM WebSphere MQ File Transfer Edition", "Apache Commons FileUpload"]}
+{"question_id": "TRAIN_Q029", "text_sha256": "b9903a4ebba59470e85019a8c6bc966db2ae0c2c916bafad92232a838532ab14", "anchors": ["AWSUI0833E", "AWSJCO005E", "WebSphere 8.5.5.4", "8.5.5.2"]}
+{"question_id": "TRAIN_Q030", "text_sha256": "778140ca353f6a9c16b366ade03475dadab7dade3051f23e288e2070588a1596", "anchors": ["DataPower", "SHA-2"]}
+{"question_id": "TRAIN_Q031", "text_sha256": "60bef5000f54c5f1b40b2a3e4ca037dca28c5cc4cf1033cf03f1604aa9c549fe", "anchors": ["non idempotent request method - RFC 2616 sec 10.3.", "DataPower"]}
+{"question_id": "TRAIN_Q034", "text_sha256": "3c0b3511553aa62c5179de2f4202803066ef5ac663c2f5eedbcc2bb6bdfcb137", "anchors": ["ITNM 4.2 Fix Pack 3"]}
+{"question_id": "TRAIN_Q039", "text_sha256": "eca9d551204590f8cd5d8dc93f5117ecbbdc8d10d47c2ce5e49f1d5f13736a26", "anchors": ["-Xcompressedrefs"]}
+{"question_id": "TRAIN_Q040", "text_sha256": "29ecfa95c930e5808cb4535767f258018664523c57873a7f02f63ba588902f8b", "anchors": ["Omnibus 8.1"]}
+{"question_id": "TRAIN_Q041", "text_sha256": "32d0a89f26d9e136567629ee81d84c51df944363b576697d10507017ed5f4ac2", "anchors": ["CVE-2017-5461", "IBM MQ Appliance", "Network Security Services (NSS)"]}
+{"question_id": "TRAIN_Q042", "text_sha256": "4cb5f92e68804beeb0771169d4d8b93dfae073c13796351ba5f880fd8f908339", "anchors": ["webDAV", "com.ibm.icm.da.DBAccessException", "User id can not be null"]}
+{"question_id": "TRAIN_Q043", "text_sha256": "69104904d4785bcf5e82c4a6be7ead6fe6a4aa6a3e7a30252629977f87bc8e36", "anchors": [".LG0", "OS agent - A4"]}
+{"question_id": "TRAIN_Q044", "text_sha256": "6df3a1fd2dcfa1eedc1843169775a8ffc69611b0f6ee8cdc1fe43daa7c1135ef", "anchors": ["SPSS 25"]}
+{"question_id": "TRAIN_Q045", "text_sha256": "be1ecc1b53a07048e77a1447d4bb170a37fc347638d2d540ff14b0ceb9e46c10", "anchors": ["content Navigator", "CIWEB1158"]}
+{"question_id": "TRAIN_Q046", "text_sha256": "aea5e72154a6d78889ca704028766b48c590bdbfd1fac164a6475749d26c10be", "anchors": ["Linux KVM monitoring agent", "CANDLEDATA"]}
+{"question_id": "TRAIN_Q047", "text_sha256": "3db19bcd162a8850fb9f44a111d7d530b8e0993cfd759fa0a8b38d4677395b86", "anchors": ["CVE-2016-9693", "IBM Business Process Manager (BPM) and WebSphere Lombardi Edition (WLE)"]}
+{"question_id": "TRAIN_Q049", "text_sha256": "388673dc5d7adf992ad0314f27ff5db26cbc7f5e19df9ce05194b6b20ba693ed", "anchors": ["CVE-2017-1731", "CVE-2017-1741", "IBM WebSphere Service Registry and Repository"]}
+{"question_id": "TRAIN_Q050", "text_sha256": "eb0071188b08c22d5e780eabdafbac51adb9ee047561b7fd809200bdd6ed5731", "anchors": ["JazzSM 1.1.2.1"]}
+{"question_id": "TRAIN_Q052", "text_sha256": "ccd2e6f603b9b947ce1a3f35d5dfdbd22eaffb425a35c6d4ffd44b8952d19346", "anchors": ["CVE-2017-1557", "IBM MQ"]}
+{"question_id": "TRAIN_Q053", "text_sha256": "ff918b819931f5fd2ec949ec14d0df4c051ac15dba1486e4d63f7b864c698f63", "anchors": ["FNRCC0110E", "P8 CPE 5.2.1", "CenteraFCP", "FPLibrary"]}
+{"question_id": "TRAIN_Q054", "text_sha256": "32596a83dc82e6d4043a7d8697c95fe84152c14caf12d1a69e4687270d3c0246", "anchors": ["Native OutOfMemory", "NOOM"]}
+{"question_id": "TRAIN_Q055", "text_sha256": "477cfbc45d6883afa29075845ae968824d101381af862933456e85a28ad4c52e", "anchors": ["FNRCC0110E", "P8 CPE 5.2.1", "CenteraFCP", "FPLibrary"]}
+{"question_id": "TRAIN_Q056", "text_sha256": "05827fe48d7b94baf123c72de4ad6d58d399e3f92f590a0efa562b2b81bbe1b9", "anchors": ["wpcollector", "WebSphere Portal Server"]}
+{"question_id": "TRAIN_Q058", "text_sha256": "d4335142a6496aca113cf5f2a4a8b2cd0478b12898c9b319dde79eeb5b34f217", "anchors": ["Portal v8.5", "INSTCONFFAILED"]}
+{"question_id": "TRAIN_Q059", "text_sha256": "776d300820701e55095019740c161891d96002dbb57e11df2caa2628eb9a0a8d", "anchors": ["DLTLICPGM LICPGM(5724C04)", "I5OS agent"]}
+{"question_id": "TRAIN_Q060", "text_sha256": "125868c0a30a0c6eb5c3aa57a2544b8151dacfda231fc26dbeb67f582078abb8", "anchors": ["S-TAP", "Guardium", "guard_stap.stderr.txt", "snif.log", "Unauthorized client connecting from ,rejecting"]}
+{"question_id": "TRAIN_Q062", "text_sha256": "a326b893c0211fded92ad8db4d0dcfc7b0e9f5f2283a32de5e8deba83ad6aa7e", "anchors": ["SAP Agent", "IBMMON_AGENT"]}
+{"question_id": "TRAIN_Q063", "text_sha256": "323bb59857bff8d1d1073f4a0da0d8f04c73a9a6862e77d1fc4e9088ec7eef81", "anchors": ["ODM 8.5.1.2", "ODM 8.5.1.1", "Fix Central"]}
+{"question_id": "TRAIN_Q064", "text_sha256": "265aea22f9a008da7597bef8e811a914063293a45770bef0f1f033555559bd39", "anchors": ["RHEL 5.8", "Liberty 8.5.5.11", "JAVA 8.0"]}
+{"question_id": "TRAIN_Q065", "text_sha256": "e90087671a3b46e52d4b6f7250f9c811c6d1cd7a69c98258703466eb1e45f250", "anchors": ["-Xverbosegc", "native_stdout", "SunOS"]}
+{"question_id": "TRAIN_Q066", "text_sha256": "7ab5cbe99808a686fb32ee7c13f433e88b482e3ef9c5b7f578889873c1f3d7ce", "anchors": ["Log File Agent"]}
+{"question_id": "TRAIN_Q067", "text_sha256": "18e3b9e38208d2f74c2e8a70a58f9ed76b35fe55f67b895acc7576d40cbf30fa", "anchors": ["ODM 8.7", "TeamServer"]}
+{"question_id": "TRAIN_Q068", "text_sha256": "308a25241a1c0261fe049169c51ab8eac1539be6aaf26be7aceda299cc49ec4e", "anchors": ["DataPower", "SHA-2", "SHA256"]}
+{"question_id": "TRAIN_Q069", "text_sha256": "eb1e4b554bb036aefe811c545a9c2429e4534d9af220095f295c3af7a0c44171", "anchors": ["datapower firmware", "v6.0"]}
+{"question_id": "TRAIN_Q071", "text_sha256": "6169640d7219f46bace968430921865b5a03bce86cd407b09425b71ca4ba4ae4", "anchors": ["BigFix version 9.2.5"]}
+{"question_id": "TRAIN_Q072", "text_sha256": "de5422b3d9d072a488f1f4a01578d215da595b9e1b2b51d7078a0c4da873a987", "anchors": ["MBEANSTARTER LOADEXTENSIONS FAILED TO LOAD EXTENSION", "Portal Server 8.5", "ServerExt.applications", "com.ibm.wps.scripting.server.ApplicationServerExtensions"]}
+{"question_id": "TRAIN_Q073", "text_sha256": "3d370923f226d77687c4d0d4be579955e6ecd85b0d35bdb0f2823b0360f2ee37", "anchors": ["ODM 8.7.0.1", "Replace RuleApp Version"]}
+{"question_id": "TRAIN_Q075", "text_sha256": "a055f44c78cedf08516c0a27b313831829d08536ff353ed4cfa771e543f2d106", "anchors": ["6.2.0-TIV-ITM_SYB-FP0002", "Tivoli Composite Application Manager for Applications 721 FP2"]}
+{"question_id": "TRAIN_Q076", "text_sha256": "5b8876aee2c5fc70985dec26156ed4fa79cedd25ae4a98bcf753f0e5644e2618", "anchors": ["CVE-2017-3735", "WebSphere MQ 5.3 and MQ 8 for HPE NonStop Server"]}
+{"question_id": "TRAIN_Q080", "text_sha256": "33bb7de547a33126439d6156873584dc272c57939bb9ff4a6dccc1c085026fa9", "anchors": ["CVE-2011-5320", "CVE-2017-15670", "CVE-2017-15671", "CVE-2017-15804", "IBM Integration Bus Hypervisor Edition V9.0", "WebSphere Message Broker Hypervisor Edition V8.0"]}
+{"question_id": "TRAIN_Q081", "text_sha256": "5f9cfe058b398cbf088140cdcf81387dc14eb85b53ee79974b7f12887b23aa72", "anchors": ["ICC 4.0.1", "WASSERVICE.exe", "'Access is denied'"]}
+{"question_id": "TRAIN_Q082", "text_sha256": "c640cfea231df0bdd5ecbab8b1e1de356f57fc3d648c57677327a6cd30b38c91", "anchors": ["XGS 5.3.0.6"]}
+{"question_id": "TRAIN_Q083", "text_sha256": "05ab282d4c6dbca3bf1f8e35c42aca602b17f8ee796809afa1ba0b430df82eb1", "anchors": ["DSRA8206I", "WAS ND v8.5.5.0", "ojdbc6.jar", "ojdbc14.jar"]}
+{"question_id": "TRAIN_Q084", "text_sha256": "19321f85a26503b04151848e4f12813a286556a9165bbbe1da689f77a4c11d94", "anchors": ["CVE-2018-1371", "AMQRMPPA"]}
+{"question_id": "TRAIN_Q085", "text_sha256": "9887e8289cb99759754bdaa650949ee20f449a7a054de41b92cf04727cabfa46", "anchors": ["WebSphere Business Integration (WBI) Adapter for Siebel V2.6", "SBL-JCA-317"]}
+{"question_id": "TRAIN_Q087", "text_sha256": "f90104069c8049f876a7d7054fb880602dd617103f487ca6604bf4b6c1ffcf1d", "anchors": ["DASH 3.1.3", "GTK"]}
+{"question_id": "TRAIN_Q089", "text_sha256": "4a2bab06f3cdb427331aa6a91e6afba954a588b87321df8cacca2fcac5514928", "anchors": ["CVE-2015-2613", "WebSphere Enterprise Service Bus"]}
+{"question_id": "TRAIN_Q090", "text_sha256": "816f6300545a213c2f1d5a0ccf1a291420f4b631f2f1a6b38e2313c1f166d4c1", "anchors": ["ITCAM MSSQL agent", "SQL Server 2017", "SQL Server 2016"]}
+{"question_id": "TRAIN_Q091", "text_sha256": "1b0feb6a7fd4708ec20424a3a17687a378840222fac8cc0f7f499217a139465d", "anchors": ["Keys couldn't be imported. Unable to encrypt the FIPS key", "FIPS"]}
+{"question_id": "TRAIN_Q092", "text_sha256": "85eb92df9d2da50fef13c42bf64b8fb1fbf3a32fbe144aab280ef954dd03443e", "anchors": ["IlrStorePolicy$SerializedENamedElement", "EStructuralFeature"]}
+{"question_id": "TRAIN_Q093", "text_sha256": "f9ce80632ec015afd898ad478d813432e1856747767bbbd3d91f2ef9f27b3fcb", "anchors": ["CVE-2016-3092", "Tomcat"]}
+{"question_id": "TRAIN_Q097", "text_sha256": "5d852554fdf038349b20d330dc827941b4623ebd7b33ca1373339eeae0521a47", "anchors": ["Too many open files", "Portal server"]}
+{"question_id": "TRAIN_Q100", "text_sha256": "90a88929cce2b13bb1f5671b8099a2f9268675a7dbb5fb79f472aab273005168", "anchors": ["TBSM", "ITM 6.3"]}
+{"question_id": "TRAIN_Q101", "text_sha256": "39fa10761cda7c8d914d53a5d9cf537f7ffd019718fd39fdb8719b5339e65c96", "anchors": ["S-TAP", "Guardium", "guard_stap.stderr.txt", "snif.log", "Unauthorized client connecting from ,rejecting"]}
+{"question_id": "TRAIN_Q103", "text_sha256": "d561659fd47fed8cf78ff2eabfb39254cbef9825655278a96e6cfcca142fb91c", "anchors": ["PARMGEN", "KCIJPALO", "IBM OMEGAMON for Messaging on z/OS 07.05.00", "SYSTEM COMPLETION CODE=013", "REASON CODE=00000018"]}
+{"question_id": "TRAIN_Q104", "text_sha256": "b30950088b9eb1b48e54634aab8a754bc6e3c59d031c10c5ac26f760f3c88e63", "anchors": ["SCA.SYSTEM"]}
+{"question_id": "TRAIN_Q106", "text_sha256": "d29f55be4059cfdaced6b650a727d24aa75241513d118eb8c892907827666060", "anchors": ["CVE-2015-2012", "MQXR"]}
+{"question_id": "TRAIN_Q108", "text_sha256": "444720125fb666ea3a2055ea163ddefa77707e3840ad2ebecad3169da02a674c", "anchors": ["CVE-2015-4000", "IBM WebSphere MQ Internet Passthru"]}
+{"question_id": "TRAIN_Q109", "text_sha256": "55e1593fbf590b0d9b6ebfc5a913182d3bca492f266b1b20379cc4b3c8083654", "anchors": ["CVE-2017-14746", "CVE-2017-15085", "CVE-2017-15086", "CVE-2017-15087", "CVE-2017-15275", "IBM Integration Bus Hypervisor Edition V9.0", "WebSphere Message Broker Hypervisor Edition V8.0"]}
+{"question_id": "TRAIN_Q110", "text_sha256": "37bed1a940d557e85fce0260a34077c1059ad35bc6e281ae14bc77949cb187b0", "anchors": ["Installation Manager", "NoClassDefFoundError", "ProgressMonitorDialog", "Ingram Server"]}
+{"question_id": "TRAIN_Q111", "text_sha256": "bfd55852c563a0fd8b1dfab57003208483c2fba4ac195288cbe1fe922008eca9", "anchors": ["db2diag.log", "DB2"]}
+{"question_id": "TRAIN_Q112", "text_sha256": "60a4b83fd35ed447edfb5564af668758b6dd5858cd18f4e20bbcfc7417ae0734", "anchors": ["WAS 8.5.x", "com.ibm.ws.cluster.selection.NoAvailableTargetExceptionImpl", "com.ibm.ws.sib.trm.wlm.client.WaitForWLMData"]}
+{"question_id": "TRAIN_Q113", "text_sha256": "c04c0ec3a15ccf41601665d8c2f7753e806b52cca46914ca8f22f63a89b7ca89", "anchors": ["Atlas Extensions", "Atlas 6.0.3.3"]}
+{"question_id": "TRAIN_Q114", "text_sha256": "85ed09ac971a03301ac2c53e35d45308e6b7dfe370b8776edfd1597465ee5ad6", "anchors": ["CVE-2016-0394", "IBM Integration Bus", "WebSphere Message Broker"]}
+{"question_id": "TRAIN_Q116", "text_sha256": "4b057b0bd478f9bf04176def5a034b838651b4162970309cf40ceaf9a2f484ab", "anchors": ["Portal 8001 CF14", "ADMA5008E", "ADMA0063E", "ADMA5069E", "WASX7017E"]}
+{"question_id": "TRAIN_Q117", "text_sha256": "b4d93571c9a672081d8d24f8cafd89a2e0e09d8a93ace832bae91d9f7faadd59", "anchors": ["Oracle JDK 8", "Oracle JDK 7", "IBM Mobile Foundation", "IBM Worklight", "IBM Worklight Foundation", "IBM MobileFirst Platform Foundation"]}
+{"question_id": "TRAIN_Q118", "text_sha256": "2cc447dd5ceab0062c967eaff7c2f4e5fee5dd95d1e8197f2067c8c14de89429", "anchors": ["Portal 7.0 CF", "Profile version is not the same as portal binary version before updating portal binary."]}
+{"question_id": "TRAIN_Q120", "text_sha256": "d0361238848762f3232ba28ccdfc0fcff80a6e8fbf72a183153b4a22be4e905d", "anchors": ["DataPower 9235", "has no AC input power, or is not present"]}
+{"question_id": "TRAIN_Q121", "text_sha256": "a6214233b75eb44178bd350a83edbd3fb319774971c394bcb784ba0bb89c5292", "anchors": ["ncp_poller", "ITNM 3.9 FP4+IF1", "F-RIV-002-014", "CRivError.cc(386)"]}
+{"question_id": "TRAIN_Q122", "text_sha256": "2f0653ca2fba72961f0be2b080503530179af4d680f5de77611753fc957da1af", "anchors": ["Integrated Solutions Console", "Internet Explorer"]}
+{"question_id": "TRAIN_Q123", "text_sha256": "05643a5fb69d498f0ecf38f85371179aff70c31aea7f9f203a636a71cedf9839", "anchors": ["SCA.SYSTEM bus"]}
+{"question_id": "TRAIN_Q124", "text_sha256": "37393fef1fab8146624e34a9a9f70080e2ad12d53c2b4c148659367aaa9d6612", "anchors": ["Portal v8.5", "WAS 8.5.5.5", "INSTCONFFAILED", "com.ibm.ws.profile.cli.WSProfileCLIAugmentProfileInvoker", "executeWSProfileAccordingToMode", "manageprofiles.sh", "portal01_create.log"]}
+{"question_id": "TRAIN_Q125", "text_sha256": "b9087431436da3f586e4ef3b8e750c90449ac7e296551cdf45caf2f15c2075f7", "anchors": ["Decision Center", "StackOverflowError", "completeness report", "IlcIntScalProd", "IlcIntExpr"]}
+{"question_id": "TRAIN_Q126", "text_sha256": "0b9187c95ff4fbc3416848be24277b1feb61e8d39e63063aee88c4c63b1b7ffa", "anchors": ["IBM MQ", "CVE-2017-1236"]}
+{"question_id": "TRAIN_Q127", "text_sha256": "a1c8bfe0446b03e198faf215aa022598b1b69c83e370912a43ca4a041ab2a638", "anchors": ["DataPower", "backside persistent timeout", "Failed to process response headers"]}
+{"question_id": "TRAIN_Q130", "text_sha256": "9feb3cf7efa6d9acecbc66e1cf2b8274db72bbb3201a26e11484ca95f529b02d", "anchors": ["APIC v5", "API Connect v5", "DataPower 7.2.x"]}
+{"question_id": "TRAIN_Q131", "text_sha256": "b37532a9c9f194931e3926dce3546aa3b843fe95f6b5cee77d1e190dc4e928ce", "anchors": ["P8", "FileNet folder", "PE logs"]}
+{"question_id": "TRAIN_Q132", "text_sha256": "60b8d2b431f22fb93fc2ad611fc1acfa518c438f45510243c07925eecf2833d1", "anchors": ["CMOD v9.0"]}
+{"question_id": "TRAIN_Q134", "text_sha256": "a7658c7fce38086c8fb54c60e8f895a758efc6e5edfa844da49e540931e167c8", "anchors": ["WebSphere Plugin 8.5", "Apache 2.4", "http_plugin.log", "gsk8_64", "loadSecurityLibrary"]}
+{"question_id": "TRAIN_Q135", "text_sha256": "3594552fe28846524eaed0eb312ccf9260982ec19a350735c00b5aac78eb0c4a", "anchors": ["WAS Server Runtime library", "RAD", "WAS 8.0", "NoClassDefFoundError"]}
+{"question_id": "TRAIN_Q136", "text_sha256": "6566cd19a9cd6ec27a2662304e5bd8cfa8c76c1f2b8302c5f702d6135998334e", "anchors": ["SQL Server agent 6.31 FP10", "MSSQLSERVER", "Configure Database Agents", "OQ_LocalConfig.log"]}
+{"question_id": "TRAIN_Q137", "text_sha256": "282eef847ef99e06d28a238b70d1ddd4350ab94b764f5e931250bf5c00bc771a", "anchors": ["SQLDB", "WAS Liberty", "java.sql.SQLNonTransientException", "[jcc][t4][2043][11550][4.14.103]", "ERRORCODE=-4499", "SQLSTATE=08001", "DSRA0010E"]}
+{"question_id": "TRAIN_Q139", "text_sha256": "d4751620b941c139dc725471bf7cde8811746e3ac6b3e9dec70f8b0ca78a4113", "anchors": ["CVE-2015-7575", "MD5 Signature and Hash Algorithm", "WebSphere Message Broker", "IBM Integration Bus"]}
+{"question_id": "TRAIN_Q140", "text_sha256": "3f6fbe50b66d1cfe6b37a3994a0dc111322892511cd7b33c82dc83a259577217", "anchors": ["ICC 4.0.1", "IBM FileNet P8 Content Processing Engine (CPE) .NET API 5.2.1.2"]}
+{"question_id": "TRAIN_Q144", "text_sha256": "da4c6caccf3bf2f0815f7373990d2ed4fb8de9ea768c08b0b2ac04413f4ef247", "anchors": ["CVE-2016-6080", "WebSphere Message Broker Version 8", "WebAdmin context"]}
+{"question_id": "TRAIN_Q145", "text_sha256": "07eca1b99289e1cf9c6e89b843c23936e2ae4b89c5e7387527b8d4f0d8196632", "anchors": ["IIB v10", "execution group"]}
+{"question_id": "TRAIN_Q150", "text_sha256": "dc8edba0f8b1098774cc58053ce8ede478ff067c095f3486292b5a040e917889", "anchors": ["Portal Server 8.5", "MBEANSTARTER LOADEXTENSIONS FAILED TO LOAD EXTENSION", "com.ibm.wps.scripting.server.MBeanStarter", "ServerExt.applications", "com.ibm.wps.scripting.server.ApplicationServerExtensions"]}
+{"question_id": "TRAIN_Q154", "text_sha256": "ebc62296b4f1bd5237aa7a3691f36a042ed004ab44a7ee55ccaa3647251e40f8", "anchors": ["IBM SPSS Statistics Subscription Installer", "OS X 10.9.5", "statisticsSub_Installer"]}
+{"question_id": "TRAIN_Q155", "text_sha256": "150e89133a7cef9953cf35e81dd9bc29688fa0ccad5c7f1cab3d14a2231e9886", "anchors": ["My Inbox", "Force case-insensitive search"]}
+{"question_id": "TRAIN_Q158", "text_sha256": "f4a44996f8c1e86f1bb91b4e32665589932151c4b6fd189cd6e430b013a35f47", "anchors": ["IBM FileNet Workplace XT", "Content Platform Engine Client Files", "IBM Case Manager", "create_web_client_war.sh", "create_web_client_ear.sh"]}
+{"question_id": "TRAIN_Q159", "text_sha256": "4fdc3009c3ba7bac48f02fe48d430479b9f6b41207089118319a9b0ac0cd2910", "anchors": ["IBM FileNet Content Platform Engine", "IBM FileNet Content Search Services", "p8_server_error.log", "IQQG0205E", "5.2.0.2", "2.1.0.0-1.1-4140.FP4"]}
+{"question_id": "TRAIN_Q160", "text_sha256": "6454fc134e785665fa809f0d5fd99ffb67f29f50d5573a301cbbdc6d1d2146a9", "anchors": ["DSNT408I", "SQLCODE -401", "CIUSNTSR", "CICS Interdependency Analyzer for z/OS", "CIUDBCQ", "DB2 11", "DSNXOBFC"]}
+{"question_id": "TRAIN_Q161", "text_sha256": "47a1d472a30ad106ac36fb260333a0d6f5a9d728c7cba6514517ba2119b3b9a3", "anchors": ["WMQ", "WAS 7.0.0.27", "CCDT", "QCF"]}
+{"question_id": "TRAIN_Q162", "text_sha256": "9984bb97c2b22989d7894c7596ff1416da6cf146d4a347352adfadbfb99574ee", "anchors": ["PI50993", "CVE-2012-6153", "CVE-2014-3577", "VerifyError", "org/apache/http/HttpEntity"]}
+{"question_id": "TRAIN_Q165", "text_sha256": "0d86a720d7f8e737c9759cbf65395620f3a485d4b094ae699b1e2041f0ade95c", "anchors": ["Java 8", "EJBDeploy", "WebSphere Application Server 8.5.5.9"]}
+{"question_id": "TRAIN_Q166", "text_sha256": "a361fe649b65254e48fb2e6bfc0a95b118ec9f3ee34af7af13e0ecce0c1b2186", "anchors": ["WebSphere Application Server 7.0", "session timeout"]}
+{"question_id": "TRAIN_Q168", "text_sha256": "4b48a02a7ad8c8220f468f00ccf6ea987ce2a5e22d039f594623b5f12c846767", "anchors": ["CVE-2016-2961", "WebSphere Message Broker", "IBM Integration Bus"]}
+{"question_id": "TRAIN_Q171", "text_sha256": "221c025aaed1bf8ad4fe0f728b8ee8ad95aae7129ce844da181ef06ef30caed8", "anchors": ["CVE-2014-8730", "IBM DB2", "WebSphere Remote Server"]}
+{"question_id": "TRAIN_Q172", "text_sha256": "440439976616f8b9b83f92fc91c2ad70590fc8f01729e7c8b73515aae8165de3", "anchors": ["StoredIQ", "TLS v1.2"]}
+{"question_id": "TRAIN_Q174", "text_sha256": "1d31d8bd700ef6020b505e7ffc23bcb52160185684f7ddb87f4ef5929c785592", "anchors": ["portal wcm", "syndicator-subscriber pair", "Subscribe Now"]}
+{"question_id": "TRAIN_Q178", "text_sha256": "d552295a8eb5f5244e189a9bfb359f0d24f6bab2b53193910dd3eb721b435488", "anchors": ["ILMT agent", "inventory hardware", "System ID", "KVM"]}
+{"question_id": "TRAIN_Q182", "text_sha256": "49c9fde2464776a75f90e06c4da0c8482e96a36d3a1c712b08033a0c8f02140d", "anchors": ["ITCAM for J2EE 7.1.1.0.0", "Tomcat 7.0", "Windows 2008 R2", "J2_EC_CONFIG_FAILED", "com.ibm.tivoli.itcam.install.j2ee.custompanel.ConfigProcessSectionPanel"]}
+{"question_id": "TRAIN_Q184", "text_sha256": "3db525e8dc46d884561a7b9cd87a5738ffbf1d8523b23615c1b00758440f3d9b", "anchors": ["Portal 8.5", "CRIMA1217E", "IIM"]}
+{"question_id": "TRAIN_Q186", "text_sha256": "0e8fefe4ac0cd0badd6cf40f4536691b88887a98a6e0c03477b929581ab44e39", "anchors": ["IBM SPSS Statistics 25.0.0.1", "High Sierra (10.13)"]}
+{"question_id": "TRAIN_Q187", "text_sha256": "39e39d55f1d2bf7e4febad8d5d18f40b7db114808605da50b3fb9121b4f52296", "anchors": ["coach", "swg21633251", "swg21601357", "The service you are trying to run has expired."]}
+{"question_id": "TRAIN_Q195", "text_sha256": "c61f3d3fa6a1f03c384169aedb64afcfd990d0f0b6f194b7fe63b3ddff411434", "anchors": ["StringIndexOutOfBoundsException = null", "projects.csv", "COORDINATOR", "loginId:Role"]}
+{"question_id": "TRAIN_Q198", "text_sha256": "9c370292fbc076eea0512ffb875a022214cce13ab462fe78e8b5199606fc6c8a", "anchors": ["CVE-2016-1000232", "IBM API Connect", "tough-cookie"]}
+{"question_id": "TRAIN_Q199", "text_sha256": "27ec742dbf7f514b75abc27eee0155180f0bff5662b376a4e41e614308e0d060", "anchors": ["BPM 8.5.0.1", "Process Center", "ProcessCenter Quickstart", "BPMConfig -start dmgrprofile"]}
+{"question_id": "TRAIN_Q201", "text_sha256": "59527f3199788c6c4015b651a9a7bcf34590bc3f3cdeffe26f6a368df07d97e9", "anchors": ["wp-add-property", "Portal 8.5", "wp-la-install-ear", "ConfigTrace.log", "Can not find EJB", "ejb/com/ibm/websphere/wim/ejb/WIMServiceHome", "NameNotFoundException"]}
+{"question_id": "TRAIN_Q203", "text_sha256": "7fa8669a3228507062e9230acb5cb695de9d5cd17fb26ac9af442ed43caf3d8b", "anchors": ["DataPower Gateways", "syslog-TCP", "log-action"]}
+{"question_id": "TRAIN_Q204", "text_sha256": "d76d6f840800d8067745bf203976aa6a850a880a81a937fed6c9d6b7f2d11884", "anchors": ["Internet Explorer has stopped working", "Internet Explorer"]}
+{"question_id": "TRAIN_Q205", "text_sha256": "09e3da294f81c63c7a4298d5f8afff12ed0058e276dfe8746ea307cbe89ab49a", "anchors": ["Upload replication check failed with error: getservbyname_r failed (Java::JavaLang::RuntimeException)", "BigFix", "ILMT"]}
+{"question_id": "TRAIN_Q206", "text_sha256": "bb020c356b05116dffac8497419e5254e4bf65193329c7223c92c9f99a14a589", "anchors": ["CVE-2015-0410", "CVE-2014-6593", "IBM OS Images for Red Hat Linux Systems and AIX", "IBM Java SDK"]}
+{"question_id": "TRAIN_Q207", "text_sha256": "26a9d993c88cd60c56387c550e4f55c79b51ced3c5d657f414419f9a18948e65", "anchors": ["Data Power Agent", "APM agent", "TLSv1.2"]}
+{"question_id": "TRAIN_Q209", "text_sha256": "c17baf17cd470a3dace75c19c5190357fd56593f1b9d9e6de564f333c366b4ff", "anchors": ["ODM 8.5.1", "Decision Center", "EXECUTION_TRACES.FULL_EXECUTION_TRACE", "Decision Warehouse"]}
+{"question_id": "TRAIN_Q212", "text_sha256": "af8feb85119b2f3fcc2c0ec70837ecde5804e1e9d8df1db0d8138006f2d8c21f", "anchors": ["CVE-2016-2178", "OpenSSL", "IBM WebSphere MQ Advanced Message Security"]}
+{"question_id": "TRAIN_Q214", "text_sha256": "1dfa226d2bae9e1bf1b47c678ecaeef913e11ae35615822fb633cb2ed1a36378", "anchors": ["CVE-2014-8917", "IBM Dojo Toolkit", "IBM Image Construction and Composition Tool"]}
+{"question_id": "TRAIN_Q215", "text_sha256": "27852222c0fce4864dfe4f1665ea390b8f301949084e140ece99a4fc296145f2", "anchors": ["CVE-2017-1194", "ITNM", "WebSphere Application Server"]}
+{"question_id": "TRAIN_Q216", "text_sha256": "b95b2085a4d507f7da4ba88e726829d6f03c431be811f7ce549708d1752b415e", "anchors": ["CVE-2017-7805", "IBM MQ Appliance", "Network Security Services (NSS)"]}
+{"question_id": "TRAIN_Q217", "text_sha256": "c76d4e4ff187aeea67bd7fdc32d640ac0f4e2547cbd2ea309edfd15ea14bd25a", "anchors": ["IBM OMEGAMON for Messaging on z/OS V7.5.0", "ITM SLES zlinux"]}
+{"question_id": "TRAIN_Q219", "text_sha256": "7184ad61858b48a72b69e8131101b13f780e40d0581f4d426ad9de1bcb9b3bf1", "anchors": ["database-transfer", "SQLCODE=-1585", "SQLSTATE=54048", "com.ibm.db2.jcc.DB2Driver", "ConfigTrace.log"]}
+{"question_id": "TRAIN_Q221", "text_sha256": "6f074b49248c973cdcce182d652ffa7c71b7f42855bf42d1f7d08665be7caafb", "anchors": ["Case Analyzer", "CAPublisher", "CASTORE", "com.microsoft.sqlserver.jdbc.SQLServerException", "The query processor ran out of internal resources and could not produce a query plan."]}
+{"question_id": "TRAIN_Q222", "text_sha256": "33da445e89ef04ecb926acab46da2e57846d8e4cca42c48177e00dda8e85b494", "anchors": ["CPIT", "IBM Tivoli Directory Server (ITDS) 6.3", "cpit_install_stderr.txt", "install_tds.bin", "/opt/IBM/ldap/V6.3/sbin/idsldif2db"]}
+{"question_id": "TRAIN_Q223", "text_sha256": "cc4b53367018dd16dca134c77ed44437afc11960277da63a35bd335926d206eb", "anchors": ["SQL20157N", "V10.1", "V10.5", "V9.7"]}
+{"question_id": "TRAIN_Q224", "text_sha256": "a156c8099910cccbf1ec1beeba63bf0317fe7b1e273541809b6eb7757862f3c6", "anchors": ["CVE-2015-4000", "Diffie-Hellman ciphers", "IBM WebSphere MQ Internet Passthru"]}
+{"question_id": "TRAIN_Q225", "text_sha256": "ca5175de3ee21390e86cf758e96a490da8c38ccec2a8cde3c20c188485c27423", "anchors": ["Portal 7.0.0.2 - CF29"]}
+{"question_id": "TRAIN_Q226", "text_sha256": "3d72492d63812b2af2e42803f2b78fdfa7e7337f1647098dfe6af1d651dd04cb", "anchors": ["RC4", "Tivoli Integrated Portal"]}
+{"question_id": "TRAIN_Q227", "text_sha256": "aaa9e752b1044aa6d267aeb715b1b78b58904c285ef08766174d708e17945980", "anchors": ["CHLAUTH", "ACTION(REMOVE)", "AMQ8878", "AMQ8884"]}
+{"question_id": "TRAIN_Q228", "text_sha256": "e7bc3b74d6dced219cdfa6c1ddfd62c281f3c87d8b8876bf5d106b8fa3b6e23f", "anchors": ["DB2 9.5", "Non Reclaimable Storage"]}
+{"question_id": "TRAIN_Q231", "text_sha256": "8191f0e0e4dae4b3be5e9c347fe6f0db7a2ffc9cabd34f74e246ae3d94ea4816", "anchors": ["Netcool/Impact", "OMNIbusEventReader", "Filter Analyzer", "rule includes an unsupported expression"]}
+{"question_id": "TRAIN_Q232", "text_sha256": "c9e97733f0ee025587d93548e6b449db260f721aae5f9b2e2429ec4cc7ec7f2e", "anchors": ["CVE-2015-5011", "MQSISTOP", "STARTMSGFLOW", "WebSphere Message Broker", "IBM Integration Bus"]}
+{"question_id": "TRAIN_Q233", "text_sha256": "60273e4ed62b982372f84f041b4e764d04080bd8d08a20b92531c7f43c416226", "anchors": ["CVE-2018-1382", "API Connect", "cross-site scripting"]}
+{"question_id": "TRAIN_Q234", "text_sha256": "9cd511d5fe0e535812411ec392cc2ce35af8229c7c15f0ebdbe9661a41c3828a", "anchors": ["WebSphere Application Server version 7.0.X"]}
+{"question_id": "TRAIN_Q235", "text_sha256": "9af531019bfe972af6b1e94cca6fbae5bce8de95fe49d3a3815a3e81af38f0b9", "anchors": ["Maximo/SCCD", "BMXAA4087E", "MAXMESSAGE"]}
+{"question_id": "TRAIN_Q236", "text_sha256": "b273ccd01eb0bbc9515f9c21924d39d9b7a760e7e311701eaebf98af3f4ddfba", "anchors": ["SPSS 19", "OS X Sierra"]}
+{"question_id": "TRAIN_Q239", "text_sha256": "5cb6dc58bfc1aba24dfc9a50b0cd0951f1236ad6b02a7b9b79a1689fe1ee8e44", "anchors": ["CVE-2016-0360", "IBM Integration Bus", "IBM WebSphere JMS Client", "deserialization RCE vulnerability"]}
+{"question_id": "TRAIN_Q240", "text_sha256": "594f21811d4dfa0283c4d0e793c2481e364ca745a91d5a9f575722707ac42354", "anchors": ["CICS TS 3.2"]}
+{"question_id": "TRAIN_Q241", "text_sha256": "9e15c601794255ff20019b3c64dcccbdd57182a93da236b128b98fe7a62bae69", "anchors": ["Process Admin Console", "Process Monitor", "java.lang.IllegalStateException", "SRVE0199E", "OutputStream already obtained"]}
+{"question_id": "TRAIN_Q242", "text_sha256": "0af7fea55c18a7243d465b92873d4a15248191a8067a0b43bcda524d1646d641", "anchors": ["AMQ9716", "Remote SSL certificate revocation status check failed", "CRL", "OCSP"]}
+{"question_id": "TRAIN_Q243", "text_sha256": "a0219d2ab266864f004cbe7d3102e0ffbed2fa6a7e6afd8d28a89e8227220bec", "anchors": ["OMEGAMON XE for Messaging", "alter Qlocal", "QMGRS"]}
+{"question_id": "TRAIN_Q244", "text_sha256": "04ea8e64d25d5e106d521458e40076738bb562f1f77a46917e8ee7cf4e2f282e", "anchors": ["CVE-2015-4872", "IBM Java SDK", "WebSphere Service Registry and Repository Studio"]}
+{"question_id": "TRAIN_Q247", "text_sha256": "d53436215d929e1270fd27e685a372702fcd968bf1ec4fcd662cb3f99b96d762", "anchors": ["reload()", "attribute cache"]}
+{"question_id": "TRAIN_Q248", "text_sha256": "60e53506f612b55dc37a67c73c865e5987d3dbae464a40437812bf00bb423923", "anchors": ["MessageSet Project", "WMB V8"]}
+{"question_id": "TRAIN_Q252", "text_sha256": "0b928415efb6213c0038f0451fee62e410bd14016315ec6ec99963ad3a42d5a7", "anchors": ["ODM 8.7.0.1", "Replace RuleApp Version"]}
+{"question_id": "TRAIN_Q254", "text_sha256": "ae196bde3b3a45cccaba44549127c96510d22ef5ecec72ff6904f8752ce622e6", "anchors": ["virtual portal", "WTRN0006W", "WTRN0124I"]}
+{"question_id": "TRAIN_Q255", "text_sha256": "91b91593535687b6a61085e2e4c1f5725228e0bbc78753f5c4bd91101961b232", "anchors": ["Data Studio 3.1.1.0", "DB2 WSE V9.7 FP11", "Data Studio 4.1.2", "Could not find the main class"]}
+{"question_id": "TRAIN_Q256", "text_sha256": "27f8153b0ab2ea1a2ce203e9fc684abe97b129582eb418bc41ee30c840da6026", "anchors": ["krzgrant.sql", "6.3.1.2-TIV-ITM_KRZ-IF0003.tar", "ORA-00942"]}
+{"question_id": "TRAIN_Q258", "text_sha256": "1cbd69bf5ce029c0990ac07f8f10a30b15d39f732378d020ba411e47e8d7443f", "anchors": ["datacap 8.1", "dotedit", "ignored page status"]}
+{"question_id": "TRAIN_Q260", "text_sha256": "b9a3edbe0d13f16e4aa0af71e7aeaa7e62156acbb8121e7942f6183877e6c97e", "anchors": ["IBM Cognos", "Framework Manager 10.2.2 Fix Pack 5", "BMT-IMP-0002", "CM-REQ-4342", "CAF-WRN-2082"]}
+{"question_id": "TRAIN_Q262", "text_sha256": "656e5282140c6d872d1dde31726946784196e1c7432680412c2ac4cb192579fc", "anchors": ["IBM Content Navigator", "Internet Explorer V9, V10, and V11"]}
+{"question_id": "TRAIN_Q263", "text_sha256": "bd49bbf8799940325d02547369e52e4ac5965fec233ca7558399fb2b8b8b96b4", "anchors": ["ITM 6.3.0 Fixpack 6"]}
+{"question_id": "TRAIN_Q266", "text_sha256": "44c59ccb4c92b17c40cc5a884abd691d73764816c6937706f9594d141c908084", "anchors": ["CVE-2014-6271", "CVE-2014-7169", "DataPower", "bash environment variable vulnerability"]}
+{"question_id": "TRAIN_Q267", "text_sha256": "cc046dcca167e2852c0f3f3e36f5ff92ad6f3993041af81a87ca463dca236c96", "anchors": ["SAP Agent 7.1.1.1"]}
+{"question_id": "TRAIN_Q269", "text_sha256": "d9e88e89e1bde4d8c7a5a7674af6960735cbbefd49c1815cbf190950f596219f", "anchors": ["Rulerunner Service", "Datacap version 9.0.1", "communication link error"]}
+{"question_id": "TRAIN_Q270", "text_sha256": "0b6d10d4cf49a08ea02aaa76960b8260459ef8935f898e61b1ac739cd357ef8e", "anchors": ["ICWPA1001E", "An unexpected error occurred. Contact your system administrator. ICWPA1001E", "matter request"]}
+{"question_id": "TRAIN_Q272", "text_sha256": "3ae922fdb3c5a362b808bcdd69f018b256c5ab1b56d2d9e1716308b115936145", "anchors": ["MQRC_NOT_AUTHORIZED", "V7.0 to V8.5.5"]}
+{"question_id": "TRAIN_Q274", "text_sha256": "a500ebdadb35ca95cdf6c2cc748d5892a161829de77aeeeac0af96c6ebba94fe", "anchors": ["profilePath", "BPMConfig", "com.ibm.bpm.config.BPMConfig.main()"]}
+{"question_id": "TRAIN_Q276", "text_sha256": "a1d56d89a733b5b7e73feda1db263a41311dfcf0993ce0e7723ef0eeeed64085", "anchors": ["Netcool/Impact", "JMSListener", "JBOSS", "jms.autoreconnect", "jms.autoreconnect.pollinterval"]}
+{"question_id": "TRAIN_Q277", "text_sha256": "08a8665cc90310c713a016ecde92b98d56dddd1b73cd902e973597567888d585", "anchors": ["MySQL agent", "MySQL server versions 5.7.6 and above"]}
+{"question_id": "TRAIN_Q278", "text_sha256": "d9032e2b42887093955b489402ac580ac0740e164598e7fb230fc99a11dbe837", "anchors": ["SDMS", "ITCAM for SOA 7.1.1"]}
+{"question_id": "TRAIN_Q279", "text_sha256": "e1bf6a9c28d8604fb64c5d70fb9ced105e348973340e16c2892e39de93381a39", "anchors": ["CVE-2017-1341", "IBM MQ", "IBM MQ Appliance", "MQOPEN"]}
+{"question_id": "TRAIN_Q280", "text_sha256": "952b8d731f20bc1829436a806c523a0bde702bc03a797dc5c7abbe5212916bc8", "anchors": ["WebSphere Application Server", "Oracle 11.1 JDBC drivers"]}
+{"question_id": "TRAIN_Q283", "text_sha256": "d249fccd2950734aa3517d5a73b8834e4210086a73b2eea124eaa7d210b9a128", "anchors": ["nco_p_alcatel_5620_sam_v13", "Alcatel 5620 SAM", "Release 14"]}
+{"question_id": "TRAIN_Q285", "text_sha256": "013605767979313153ce972c5888e7a86784fbf936509e2ed6dd2a1eff18ac59", "anchors": ["virtual DataPower Appliance", "5.0.0.0", "6.0+"]}
+{"question_id": "TRAIN_Q286", "text_sha256": "63eab97ee8470d032709f37f1f32b05b7fe1f01b5050be90fe6cfafb8bc5555d", "anchors": ["RecordChangeSystem.msl", "port number 6,002", "7000/8000", "9.0 Launcher"]}
+{"question_id": "TRAIN_Q287", "text_sha256": "b2565467099dff02601cecc183b3c9d6ec72656f5cca392d453998dfd3f6b966", "anchors": ["Datacap", "Windows 10"]}
+{"question_id": "TRAIN_Q288", "text_sha256": "2e9af96a48ac1e587b91eebc0a47b1d0e6f46cc3717661a5890d7f122124094c", "anchors": ["DCS", "java.util.MissingResourceException", "com.stellent.scd.ExportResources"]}
+{"question_id": "TRAIN_Q291", "text_sha256": "235382b144213d3758e82962cbbb3fa8d55ecda28a18a49c71e79902211c918b", "anchors": ["IBM Integration Bus Hypervisor Edition V9.0", "WebSphere Message Broker Hypervisor Edition V8.0", "Red Hat Linux"]}
+{"question_id": "TRAIN_Q294", "text_sha256": "b9a24ba9b6ffe34ab452ea614af6abed83d31d21fba3318059c5d69e46cc628f", "anchors": ["IZE0106E", "Unsupported CICS release", "CICS Explorer", "CMCI"]}
+{"question_id": "TRAIN_Q295", "text_sha256": "625bb67482131a34d2096da7857d26208793bcc6b3e4732ae916f547b5e74826", "anchors": ["ITNM", "Omnnibus WebGUI", "Missing Permissions manifest attribute in main jar"]}
+{"question_id": "TRAIN_Q297", "text_sha256": "b0138611162fc7b638f4d3b84b1421f0d570821d096b1e7711ca275d84d1c498", "anchors": ["IBM WebSphere MQ Hypervisor Edition for Red Hat Enterprise Linux Server", "glibc", "CVE-2015-0235", "GHOST"]}
+{"question_id": "TRAIN_Q298", "text_sha256": "b472977c67376330c4a8530bf82c9c727c5120709033c65068e66ca06eb6b208", "anchors": ["PVU", "ILMT", "Datastage"]}
+{"question_id": "TRAIN_Q299", "text_sha256": "c7f672cd79269fa9fca5a4a91c49b661bf5ccc9b949a6ac30fe341e0d79f71e3", "anchors": ["Installation Manager", "updateInstaller"]}
+{"question_id": "TRAIN_Q300", "text_sha256": "5438c36a23050152a4c757a6ac6b9099034513d7d265c8ea95bd7313cc28ece0", "anchors": ["WebSphere Portal 8.0.0.1 CF04", "WAS 8.0.0.10", "RT7507E", "Unable to initialize Repository: Default."]}
+{"question_id": "TRAIN_Q302", "text_sha256": "2c1db50ffe2ad5d6bc9311978d6bcb6edb3864bd19eea69d8c72fc2fa52314fd", "anchors": ["CVE-2018-2633", "CVE-2018-2603", "CVE-2018-2579", "CVE-2018-2602", "IBM Java SDK", "WSRR", "WSRR Studio"]}
+{"question_id": "TRAIN_Q303", "text_sha256": "e62aebd7b0db8014a03ff527c9ad77c6547e5f4e737ca936f019047a1b49ef75", "anchors": ["Error #2070", "The application is unable to communicate properly with the license server.", "SPSS grad pack"]}
+{"question_id": "TRAIN_Q304", "text_sha256": "ebb1dfb2ec549ab56c9205e139070161feedadef587240d5d427e2b997d43b2e", "anchors": ["FileNet Workplace XT", "ACCE", "text/csv", "application/vnd.ms-excel"]}
+{"question_id": "TRAIN_Q305", "text_sha256": "0edf4b16416b359c83a39610d078e38ee4bd27eebb63a3686bc4707ade60b228", "anchors": ["SPSS GradPack", "IBM SPSS Statistics 24"]}
+{"question_id": "TRAIN_Q306", "text_sha256": "1e38bee32ed96d89bfcd34a3f393997105d92a104d07e0980482de0889276aa2", "anchors": ["spss 24", "SPSS Licence wizard"]}
+{"question_id": "TRAIN_Q307", "text_sha256": "0877fb573a9f9a9f4a2f9ecffd6ac7d2daa19aba4f676e9fce0a7ab4f7a807de", "anchors": ["Deployment Engine", "Wrong Deployment Engine", ".acsi_FQDN", ".acsi_HOSTNAME"]}
+{"question_id": "TRAIN_Q312", "text_sha256": "bb45fe553bdfef208f6ad239f3a8b14b6f09982d5db2531eb2f4d3d8f15476e5", "anchors": ["CVE-2015-0410", "CVE-2014-6593", "IBM Java SDK", "IBM Image Construction and Composition Tool"]}
+{"question_id": "TRAIN_Q314", "text_sha256": "f7b13d31f71b809358fdefdff2dfafc12a38f031ffe18edc4a0fc088e71a9ed8", "anchors": ["TLS1.1"]}
+{"question_id": "TRAIN_Q318", "text_sha256": "34b1de8349c0e966636d3059840bb7403ace67b050c55a5069a6179f42ec0229", "anchors": ["ILTM 9.2.7", "9.5.4.38", "BigFix", "IBM License Reporting (ILTM) v9", "fixlets"]}
+{"question_id": "TRAIN_Q319", "text_sha256": "9180c9c9fa4694913cc08072c6281bc97b1df2bd4454f6547d3a902fed531cab", "anchors": ["ltpa-usrnm", "wimconfig.xml", "CWWIM4520E", "Domino"]}
+{"question_id": "TRAIN_Q320", "text_sha256": "fdbc77763d85fbc66c9ebf782f053721471109bf2af6025299cbd710b2296a33", "anchors": ["ITCAM J2EE 7.1.1", "J2EE DC"]}
+{"question_id": "TRAIN_Q321", "text_sha256": "ae859bb7ccc6e393201082c2b43dcce8503dfea5f89f2202010ff7b8cfd52913", "anchors": ["CVE-2017-10115", "CVE-2017-10116", "IBM Java Runtime", "API Connect"]}
+{"question_id": "TRAIN_Q324", "text_sha256": "85a4b3653c7b8d4e48e96ee662956aacbf08cedefb1551e26c3d8d936924326e", "anchors": ["CVE-2015-0138", "WebSphere Application Server", "IBM Business Monitor"]}
+{"question_id": "TRAIN_Q328", "text_sha256": "d1dad2e323004149a3822ce8defd8a4e07b063cd824e4f93f8c39608779bfc7d", "anchors": ["RulesMgrSvr", "rules console"]}
+{"question_id": "TRAIN_Q330", "text_sha256": "958123e84a0d276a07cefdf978e493633314f860bfcf89d1238688453b756471", "anchors": ["Daeja viewer", "IBM Content Navigator v2.0.3", "fit content by"]}
+{"question_id": "TRAIN_Q332", "text_sha256": "50ca2267d008ba21307c887c6b7db5bfd81ce4391b61e82d6e15f0c862ef763f", "anchors": ["LTPA token", "Maximo 7.6.0.8", "Chrome", "SECJ0371W"]}
+{"question_id": "TRAIN_Q333", "text_sha256": "ab8ee5c2f6dfa95bb6a6e6b8c17498c658eda1b3f540ce0c9b437b1a665f93b1", "anchors": ["javax.xml.bind.UnmarshalException", "org.xml.sax.SAXParseException", "JRules", "ODM", "must end with the ; delimiter"]}
+{"question_id": "TRAIN_Q334", "text_sha256": "6dcb931286ad13c00e37bf39c34ab0ce7702426a4780ccf1cb97498ab810698b", "anchors": ["FNP8_SetProperty", "FEM", "Datacap"]}
+{"question_id": "TRAIN_Q336", "text_sha256": "9569bcdbef39d87285e5314039d37028bfcd1e7c4e8750de88b26cf10f22575b", "anchors": ["deploy.jar", "IBM Tivoli Monitoring"]}
+{"question_id": "TRAIN_Q338", "text_sha256": "d7e41bec298e252a9a89d5666673a2f894721f4a96a3129fe23e8c0d8ea1f036", "anchors": ["VScan", "Datacap 8.1", "Datacap 9.0.1", "Datacap Desktop", "This batch has no data to process. Aborting", "Unable to run queue"]}
+{"question_id": "TRAIN_Q339", "text_sha256": "c3a585d164026a659168d8acc804246925018c414826edf6d784a27c679003b0", "anchors": ["TCR 3.1.2.1", "IE 11", "Tivoli Common Reporting", "undefined"]}
+{"question_id": "TRAIN_Q340", "text_sha256": "14e390d3c1203fc1c2b72a4f8658afc566a03dde1026efe44e43d17faa504387", "anchors": ["run-svrssl-config", "SvrSslCfg", "HPDMG0759W", "The user name already exists in the registry."]}
+{"question_id": "TRAIN_Q343", "text_sha256": "c02c96b9b8b9e75ff8b189784e7c0f15d4f300354523cb5ee2ab469d21f4302b", "anchors": ["CVE-2017-1681", "WebSphere Application Server", "WebSphere Service Registry and Repository", "WAS Liberty"]}
+{"question_id": "TRAIN_Q345", "text_sha256": "74ce03f26acf1abc419b967949cba35a4766862a2959bd2fd6e69561668bdcd0", "anchors": ["WAS fix pack 8.5.5.6"]}
+{"question_id": "TRAIN_Q346", "text_sha256": "8c9bbffcdbd58ed6e105da1b4d94bc2ee30d0f2e5c74e03c2317777916809520", "anchors": ["Exclusive Edit", "no such file or directory"]}
+{"question_id": "TRAIN_Q347", "text_sha256": "348f28c4b6fc1ce653da270793c660de084b418bd45cd80d881c96a6ccbc4563", "anchors": ["DataPower 7.5.2.x", "SFTP client", "SSH handshake"]}
+{"question_id": "TRAIN_Q348", "text_sha256": "559ad8ef6d491dc007f695ff203dd4a30a1ae6bb8198685130a59a8371b4503b", "anchors": ["DSM", "SQLCODE=-206", "ISAS core warehouse database"]}
+{"question_id": "TRAIN_Q349", "text_sha256": "10962fc38175e615e6bd144479d3a40c0798ec6cb760eff51a538f447834a2e0", "anchors": ["CVE-2015-0156", "Process Admin Console", "IBM Business Process Manager (BPM)", "WebSphere Lombardi Edition (WLE)", "Persistent cross-site scripting vulnerability"]}
+{"question_id": "TRAIN_Q350", "text_sha256": "7d068cb94d7ffb0d5f8f784e981284231aab7bd807871247008bd3faa6fd2a23", "anchors": ["Component Attribute List"]}
+{"question_id": "TRAIN_Q352", "text_sha256": "df8ee4fb77e2671cfe4fd3f2ce5992b494e171dfd8a32e6943778a5e1466ae17", "anchors": ["Websphere Adapter for Flat File", "Hex05"]}
+{"question_id": "TRAIN_Q353", "text_sha256": "12879d4dcae8f68e09d325e9101870e4ccc6d5ae2f4a9e01e54a523327d4b7a2", "anchors": ["CQWEB", "CQ 7.1.2", "LRKS 8.1.3", "cqreg add_dbset"]}
+{"question_id": "TRAIN_Q355", "text_sha256": "4c601a9f9ccccebb540301bdf96f21eaaa517132602b7f2a814f3b7091258c40", "anchors": ["ERROR: Records trailing spring space set to 512 is too small..."]}
+{"question_id": "TRAIN_Q357", "text_sha256": "879454d67565d9b737a54b8497a7c201c515a014e20ef47d49547e6be377f7be", "anchors": ["DataPower", "SHA-256"]}
+{"question_id": "TRAIN_Q358", "text_sha256": "98580dbd2028a544de788fe0667be67cbe46a9109153f6be955c30f3c776018e", "anchors": ["Virtual Portals", "Base Portal", "ITDS", "Could not communicate with the target URL. Please check that the Syndicator URL details are entered correctly, and that the credential slot user exists on the target server."]}
+{"question_id": "TRAIN_Q359", "text_sha256": "bf24837c822fb6dccf926a683a30692474ccf6a356b225a9aa4faf8aeb253231", "anchors": ["CVE-2015-7575", "MD5 Signature and Hash Algorithm", "IBM MQ Appliance"]}
+{"question_id": "TRAIN_Q361", "text_sha256": "c0f9a4b4d5d1e0fe443e3153a483de0d6ceda82404d14e5a8bb703bc95127d4a", "anchors": ["MQ V7.0.1"]}
+{"question_id": "TRAIN_Q362", "text_sha256": "a075d09843e8e39ccb442263a0a00ab144c48c0035b67cb7d1893df173bbc8b1", "anchors": ["CVE-2015-4000", "Diffie-Hellman ciphers", "IBM Image Construction and CompositionTool"]}
+{"question_id": "TRAIN_Q363", "text_sha256": "8cb91e8ffe62e1170b7b613ac1b464ade5be84bff3a11b3344c7b9f4cd932f67", "anchors": ["Integration Bus Healthcare Pack V4.0"]}
+{"question_id": "TRAIN_Q365", "text_sha256": "50f1325b90fff32a4331851f0cbb4d30681fa54e8d3a3422e4835ecb959ead8f", "anchors": ["CVE-2017-1000381", "CVE-2017-11499", "Node.js", "IBM API Connect"]}
+{"question_id": "TRAIN_Q366", "text_sha256": "b64ebc3f31a23a1619e139ae425d5800de5b641acc88a2441b61adcfe9ba1d11", "anchors": ["E-REG-002-025", "table_store", "NCOMS", "E-OBX-102-020", "Extent statistics mismatch"]}
+{"question_id": "TRAIN_Q367", "text_sha256": "44803fc04eab34b2058b4bae237c5873702b9eb7ce975b51c462eb63a2d29161", "anchors": ["1040ez", "Datacap 9.0.0.3", "Datacap Studio", "Tmweb.net", "Datacap.xml"]}
+{"question_id": "TRAIN_Q368", "text_sha256": "085bdd8a27d1e4d124d47fc23700bd9d2ab678d1b74d3a89a2ec59e971502fff", "anchors": ["kmq", "SYSTEM.MQXR.COMMAND.QUEUE", "Unknown Object Name [2085]"]}
+{"question_id": "TRAIN_Q369", "text_sha256": "f93c994a247c33e17c4b05b62eaa9ca32f929dae66ca01a8c694cc6d652067fe", "anchors": ["CVE-2016-2177", "OpenSSL", "IBM WebSphere MQ Advanced Message Security"]}
+{"question_id": "TRAIN_Q371", "text_sha256": "db4076208e4c4c00a51949e19224a2350e286851a7bee885d0a49f7281e0d19e", "anchors": ["MQ V8.0"]}
+{"question_id": "TRAIN_Q372", "text_sha256": "1324ca12cab1d03de05b864e53bad31f55122284846552e655853ac622ef81d8", "anchors": ["CRIMA1217E", "JAZZ from 1.1.0 to 1.1.3"]}
+{"question_id": "TRAIN_Q373", "text_sha256": "ef253f7d8ceb90132523ecc60adf650c51e9389fb58ba5f092061b018d6e18dd", "anchors": ["RecognizePageFieldsICR_C", "SetPageType", "ReliefForm", "Profiler Task", "PageID Task"]}
+{"question_id": "TRAIN_Q374", "text_sha256": "65a98ee1cc00d8c74d5358c087872ebdc07a80b8aaefc31e66ef4d4e8c5dbc06", "anchors": ["Rhapsody 8.0.5", "CG:ImplementationExternsion"]}
+{"question_id": "TRAIN_Q375", "text_sha256": "37e3aec7747dd7d8982b133929b4260437ccc12a40f69a69bcfb42e7714b609c", "anchors": ["CVE-2015-0235", "glibc", "IBM DataPower Gateway"]}
+{"question_id": "TRAIN_Q376", "text_sha256": "12b4dcfd7c9447549b85515fb663ff843e8c6c77354c8e187cf042b481f3d971", "anchors": ["CVE-2016-1000031", "Apache Commons FileUpload", "WebSphere Service Registry and Repository"]}
+{"question_id": "TRAIN_Q378", "text_sha256": "90f8e990d3e0b75c4c5404c2a3d28111bddf943c4e202178c9f1c2390f063c9a", "anchors": ["CVE-2016-0201", "GSKit", "IBM MQ Appliance"]}
+{"question_id": "TRAIN_Q379", "text_sha256": "6a588b6dc1bbedea22652651b3dc1f0088085430d33448f4a7dbf680b0ed19a0", "anchors": ["Subscibed Events", "dataRefresh"]}
+{"question_id": "TRAIN_Q380", "text_sha256": "7adab32b1b97f60738028b5ca07a1aa51297dfa5cf4959fc49ad3bc0c1c82bbf", "anchors": ["Custodian Notes", "Atlas Preservation Plan"]}
+{"question_id": "TRAIN_Q382", "text_sha256": "180dd23b9ec678c7c02254f4a0f3bc4c19e7978a1cf4192603fcccc3b522f406", "anchors": ["SPSS Statistics 24.0 Fix Pack 2"]}
+{"question_id": "TRAIN_Q383", "text_sha256": "587be9e19b4ff2533d1394d2b5460d5bba81416573d68b1d5e9ad0e2fee834ac", "anchors": ["arssyscr -I instance_name -r", "Report Distribution", "CMOD v9.0"]}
+{"question_id": "TRAIN_Q386", "text_sha256": "e7335f6336e090108192da72c1f5c73280c161a532625254c5ac2ed7a384f255", "anchors": ["CVE-2015-0410", "CVE-2014-6593", "IBM Java SDK", "IBM Image Construction and Composition Tool"]}
+{"question_id": "TRAIN_Q387", "text_sha256": "fdec6d46613bfa7920e0e1d2e61f33d8910c48baad14eb2643db15e99493934a", "anchors": ["systhrow", "java/lang/OutOfMemoryError", "Failed to create thread: retVal -1073741830, errno 12"]}
+{"question_id": "TRAIN_Q388", "text_sha256": "b16d58515da9b7d5ddb80dafc1f654b4186418fd784d4ce286250d03636edbbb", "anchors": ["WebSphere Application Server", "Oracle 11.1 JDBC drivers", "defaultRowPrefetch"]}
+{"question_id": "TRAIN_Q389", "text_sha256": "529d710467cc99e02d54bb1b9f6c5866d93158921ddfecfab26cac9db3610785", "anchors": ["IBM SPSS Statistics 19, 20, 21, 22 and 23"]}
+{"question_id": "TRAIN_Q390", "text_sha256": "abe00fdc5b216a3a23f448c42b4c3655e7c3529c67227c1287da984ecae32579", "anchors": ["Netcool/Impact", "ImpactServer Cluster", "Error 500: Mark invalid"]}
+{"question_id": "TRAIN_Q393", "text_sha256": "223e14277e050fffe7e462b67c5b9a72d928fdd695ce9b9f343719eb9a78df29", "anchors": ["Daeja viewer", "IBM Content Navigator", "fit content by"]}
+{"question_id": "TRAIN_Q394", "text_sha256": "d31f076a625914f203b2c18f3cbfd9aec40666e14454e3ed2de4f13f17553fbc", "anchors": ["DSM", "SQLCODE=-206", "ISAS core warehouse database"]}
+{"question_id": "TRAIN_Q395", "text_sha256": "f54f13260c4b4f79fd2e9a637d36f0929e62eeb46693bfc827b8136524fcc7b3", "anchors": ["ITCAM for HTTP Server 7.1 FP4", "IBM HTTP Server (IHS) 8.5.5.10", "AIX 7.2.x"]}
+{"question_id": "TRAIN_Q397", "text_sha256": "48fda814a9e6afffc0c63b0ce22bcc79ef3bd05193f62379867b0fa2472d4b53", "anchors": ["Netcool/OMNIbus", "Leap Second"]}
+{"question_id": "TRAIN_Q398", "text_sha256": "03e0aab01ee48fe9efa837b5bc897233c518b8c7b52c424bf04bb5fd6ec717a3", "anchors": ["Virtual Portals", "Base Portal", "ITDS", "Could not communicate with the target URL. Please check that the Syndicator URL details are entered correctly, and that the credential slot user exists on the target server."]}
+{"question_id": "TRAIN_Q400", "text_sha256": "f9fbb7ca3ef013f1a442fca28ceb079fdd1c5d040663d117ef7d479cbdb47c47", "anchors": ["CVE-2017-1235", "IBM MQ"]}
+{"question_id": "TRAIN_Q402", "text_sha256": "0dd42fa36d1973be3472877f453d1629ed15967e56cde3e937c056e83ceda0af", "anchors": ["StaleConnectionException", "OALL8 is in an inconsistent state", "J2CA0056I", "com.ibm.websphere.ce.cm.StaleConnectionException"]}
+{"question_id": "TRAIN_Q403", "text_sha256": "92d3935b977cb8afbe037fc59fa3ea02c7a839f553c0011b5c1b875052ca05ba", "anchors": ["CVE-2015-1890", "IBM PureApplication System"]}
+{"question_id": "TRAIN_Q406", "text_sha256": "25c25f6cd78dbefe45d2c0a385cb9eb9459f59d9eaef4a5cb7d1181e53191861", "anchors": ["CVE-2016-5548", "IBM Java Runtime", "API Connect"]}
+{"question_id": "TRAIN_Q411", "text_sha256": "363b12136cbd684efd2dcb8122a920b25caa17b3c8d4eb253ce3316031acb0a6", "anchors": ["Domino 9.0.1", "ICC"]}
+{"question_id": "TRAIN_Q413", "text_sha256": "d9d411cdf7a4646b71dcdc572346110b3e56b4730f77022ae6c7250f693e8719", "anchors": ["VScan", "Datacap 8.1", "Datacap 9.0.1", "Datacap Desktop", "This batch has no data to process. Aborting", "Unable to run queue"]}
+{"question_id": "TRAIN_Q414", "text_sha256": "42fe8b205fdc7d693abf69203547a3704f5e6bf455af145178df4931c20af567", "anchors": ["Websphere MQ V7.0"]}
+{"question_id": "TRAIN_Q415", "text_sha256": "cafd6778e8376f70fa9a293d5eca9505cbc75deb19dbe1fee2b8155138c1efb2", "anchors": ["FileNet Workplace XT 1.1.5.x", "com.filenet.wcm.api.EncryptionException", "InvalidKeyException", "Illegal key size or default parameters", "IBM WAS 8.5.5.9"]}
+{"question_id": "TRAIN_Q416", "text_sha256": "f6ba651703eafa1cc255e4621368aa93402fbcd33966516c1c878c631a11400f", "anchors": ["Enable Hold", "Virtual Interview Multiple Response"]}
+{"question_id": "TRAIN_Q417", "text_sha256": "d710268908c961c6827dac289f034c2f03da40cb65e9562d82e5ca11eee5e48c", "anchors": ["arssyscr -I instance_name -r", "Report Distribution", "CMOD v9.0"]}
+{"question_id": "TRAIN_Q422", "text_sha256": "f3d3a44d6f948d959a581d985f2a9b726c92bdafa3c7ba5199dbc9f6016c2c81", "anchors": ["CVE-2014-3566", "IBM Integration Designer", "WebSphere Integration Developer", "SSLv3"]}
+{"question_id": "TRAIN_Q424", "text_sha256": "6657512f2409018d10e7baee54413d7197c250ecf49bc77c4eaf5281077780c8", "anchors": ["Data Studio 3.1.1.0", "DB2 WSE V9.7 FP11", "Data Studio 4.1.2", "Could not find the main class"]}
+{"question_id": "TRAIN_Q425", "text_sha256": "6bfc4bdbc7bfab91a0e91e954544c0c84a0858185ef5f26799d2647f4f30897d", "anchors": ["Clearcase version 8.0.1.3", "VOB", "feature level"]}
+{"question_id": "TRAIN_Q426", "text_sha256": "870c30db28d2a5ed47cc249c563b07142781d6758b592e724d6d1174656c924e", "anchors": ["CVE-2017-1747", "IBM MQ", "SIGSEGV"]}
+{"question_id": "TRAIN_Q428", "text_sha256": "724dc481dad1eeea0535ca3bb3ecba423180dd0d7a81cc55cb4864883611c91f", "anchors": ["ITMv6", "Cognos"]}
+{"question_id": "TRAIN_Q429", "text_sha256": "116b51a7276dd18285c73680372ecce859852b19b429934bde83f67831bfcd28", "anchors": ["Portal 7.0.0.2 CF20", "DB2 JDBC Driver", "4.11.77 to 4.18.60"]}
+{"question_id": "TRAIN_Q430", "text_sha256": "20394510c21723f284354629448025a43527cb75eeb6a6ba55eb864e687e3a61", "anchors": ["DASH 3.1.2.1 to 3.1.3.0"]}
+{"question_id": "TRAIN_Q431", "text_sha256": "ca3518a263bc873eb21575a0339441bb250bc168eea3b9d2682b3b7ab6a13d38", "anchors": ["Program Files", "OS agent"]}
+{"question_id": "TRAIN_Q433", "text_sha256": "440ea57357d8e0c51bd6def3811a6712b7f83febe4c7d2582ce23706bda5e71d", "anchors": ["Optim 11.3", "data masking module"]}
+{"question_id": "TRAIN_Q437", "text_sha256": "89211ce4b43dbf74d0d0d7d7b6ec9e70d732a03028058b4a6b1af8ed957fb82a", "anchors": ["WAS TE v7.0.0.41", "Rational Application Developer for WebSphere Software"]}
+{"question_id": "TRAIN_Q440", "text_sha256": "379b26ef1baf422ca164b9c92e885373a97775c84e690995498fb6f436f18c5f", "anchors": ["SCM check analyses", "<not reported>", "SCA user interface"]}
+{"question_id": "TRAIN_Q441", "text_sha256": "378faa7bbb9f6021326e0c7d7a65b327ce5919fd6fc9765681a9ff6e969665f9", "anchors": ["WebSphere 8.5"]}
+{"question_id": "TRAIN_Q442", "text_sha256": "0c0395830d4b41e9bcf5a9a2c9eaa0522705406aa3b03ccc91e4659f61e89adf", "anchors": ["CVE-2015-4000", "IBM SOA Policy Gateway Pattern for Red Hat Enterprise Linux Server 2.5", "Logjam"]}
+{"question_id": "TRAIN_Q444", "text_sha256": "1eedf4c700fcd68512cd3cf93cf698c1acef57b93e7bbc1ac4e6f25171bab086", "anchors": ["SPSS 22", "Error # 7001", "showlic", "Specific symptom number: 18"]}
+{"question_id": "TRAIN_Q445", "text_sha256": "020e732b18df693441d88963ba4bc27f9a6bbe9dd9333fae184425634fae0830", "anchors": ["IBM Datacap 8.1"]}
+{"question_id": "TRAIN_Q446", "text_sha256": "b1253e49f5d2131b40782a05944a7658b9bc4cb7bae0c9771fb60f062505b325", "anchors": ["CVE-2014-6271", "CVE-2014-7169", "DataPower"]}
+{"question_id": "TRAIN_Q448", "text_sha256": "59c7bc0b20a4ee0b3b8d821dd028acc8d46be26d9b0acf5aaae14725497cb467", "anchors": ["ASE 9035"]}
+{"question_id": "TRAIN_Q450", "text_sha256": "738df175760ce7595d0c1e27a6526858c0720d1c693c5a0364c6b593f03e91dd", "anchors": ["MQRC_NOT_AUTHORIZED", "Websphere V7.0", "V8.5.5", "WAS 8.5.5.3", "JMSWMQ2013", "MQCC_FAILED", "JMSCMQ0001", "com.ibm.msg.client.jms.DetailedJMSSecurityException", "com.ibm.mq.MQException"]}
+{"question_id": "TRAIN_Q451", "text_sha256": "4926dcabf9adf9fd19c1d7016fcf5805cb2021988c172474af81d5f2eb1a94df", "anchors": ["ICC", "P8"]}
+{"question_id": "TRAIN_Q453", "text_sha256": "b3e5c109fd633fd699e879507e7f8de1dd8de64125d1e0cd0b0daf0731d002e4", "anchors": ["ICO 2.5.0.2", "OpenStack kilo", "OpenStack Liberty/Mitika"]}
+{"question_id": "TRAIN_Q454", "text_sha256": "20131ca9918b8230c371b92ced34826e35ce778f4920e29ad82291d1adaf222b", "anchors": ["SQLSTATE = HY000: Native Error Code = -256"]}
+{"question_id": "TRAIN_Q455", "text_sha256": "85ded6a308818da7b583ed7da38f3da5ab2bc93bce18c27574abe5c547e2b200", "anchors": ["Derby database", "database-transfer"]}
+{"question_id": "TRAIN_Q456", "text_sha256": "ae372dae9216ca04d7ec282b6f532ceecd6acf0ddf6b8422e3920d7f01a64a76", "anchors": ["zonecfg", "Oracle Solaris 11.2 SPARC", "8558", "com.ibm.ws.xd.agent.hypervisor.SolarisHypervisor"]}
+{"question_id": "TRAIN_Q458", "text_sha256": "5335eff920fe17a7df463139d74b079e3f7e2837157b6cec3a46c5b50da08a27", "anchors": ["TASK001X", "Portal 8.0.0.1", "CF14", "import-nodes"]}
+{"question_id": "TRAIN_Q460", "text_sha256": "658b484af7ea652b20864555334c3d128b9e81376e6aed4c1798038932455efe", "anchors": ["SPSS 24", "Authorization failed.: You are not allowed to generate any more new licenses.", "SPSS Student Version and Graduate Pack Resources"]}
+{"question_id": "TRAIN_Q461", "text_sha256": "bfce0d8654a3f78deb35e2d6b1becc78e0c6d7e70e806eac9fcbae84853ca14c", "anchors": ["TIP", "ARGUS", "cacheTime", "configFile.xml"]}
+{"question_id": "TRAIN_Q462", "text_sha256": "45082e8491564ed6a20db334f95e9f2b5def70cd7f8947987e67895c81d64141", "anchors": ["CVE-2017-1283", "IBM MQ", "IBM MQ Appliance"]}
+{"question_id": "TRAIN_Q463", "text_sha256": "0f27b41aa8cb66fc57c7bc9833d86861430a88a02b01c06fcf4c9edb374b3ad8", "anchors": ["WebSphere Portal"]}
+{"question_id": "TRAIN_Q465", "text_sha256": "78bec48a5f02c56fbc8f4b2e689ed65b6286b39a774936f9b8e499609b34a584", "anchors": ["EJCBD0021E", "EJCBD0019E", "dav:fs-type1/themes/Portal8.0/theme.html", "com.ibm.wps.resolver.impl.ExtensionTracker", "BlackWhiteListFactoryOnExtensionRegistry"]}
+{"question_id": "TRAIN_Q466", "text_sha256": "48eae80194a99fd1e623d9a15f14ff41245790e2fafab32cd075fa40959595ae", "anchors": ["ISDS", "SDS 8.0.1"]}
+{"question_id": "TRAIN_Q469", "text_sha256": "a710ac691ac47e1f7a9291e4e3074927e5aa051f01821a7471368c1621cff397", "anchors": ["CVE-2011-4343", "WSRR", "WebSphere Service Registry and Repository"]}
+{"question_id": "TRAIN_Q471", "text_sha256": "72855e03bc8ef34c1c3a172d0fd4faf9e81f8385c8c1412259b319457d5e9552", "anchors": ["WebSphere Application Server 8.5.5.10"]}
+{"question_id": "TRAIN_Q472", "text_sha256": "8c191cf6a7a96f0929f6c383925422dd32596b58bc6c0f2f5a0d5baa509caa33", "anchors": ["Netcool OMNIbus Ping Probe", "SetUID"]}
+{"question_id": "TRAIN_Q473", "text_sha256": "bbf8804003d2110c5cbb049f9da1786fc71ad54bc292a7f285f0342882078a41", "anchors": ["Summarization and pruning", "SQL Error Code = -4220", "AIX_LPAR"]}
+{"question_id": "TRAIN_Q475", "text_sha256": "77a1a49856d6c5ec18ec946214b01f74266de38850ec58ee3e7088ea0b11acc6", "anchors": ["Console Settings", "JazzSM 1.2.1.1", "WebSphere 8.5.5.9", "DASH"]}
+{"question_id": "TRAIN_Q478", "text_sha256": "9634eb33a36feb9ab64e5923c09b52d22665342318361dd2160bf37e498cc5b5", "anchors": ["ODM", "XU resource adapter"]}
+{"question_id": "TRAIN_Q482", "text_sha256": "7147b8d40d7909d9086b8b06d0ada92af8544e73a0762b56942ddb9050c79652", "anchors": []}
+{"question_id": "TRAIN_Q488", "text_sha256": "b83e3e995531574aa5596e4ed3a0c75263b43dd02b1f3abf29b9a0b2293c1096", "anchors": ["V-58159", "SV-72589r1_rule", "NIST FIPS 140-2", "DB2 UDB version 8", "The DBMS must implement NIST FIPS 140-2 validated cryptographic modules to provision digital signatures."]}
+{"question_id": "TRAIN_Q489", "text_sha256": "80414cf2e088687a01356661f5cab139fc47a5b387fea1ed22584f92bb695caa", "anchors": ["StaleConnectionException", "ODM 8.8", "Rule Execution Server"]}
+{"question_id": "TRAIN_Q490", "text_sha256": "0fb920496b5f6e61159fc81c3d9c48933ee7c1f90bf411558f3b8d254957cdcf", "anchors": ["TWS", "DWC", "WebSphere 8.5.5.4", "AWSUI0833E", "AWSJCO005E", "WsnNameService"]}
+{"question_id": "TRAIN_Q492", "text_sha256": "9364bafeac22978f3d82dfe9622bba2513ea0d3efed26ac86e8d797824abc9b4", "anchors": ["CVE-2015-4943", "CVE-2015-4941", "CVE-2015-4942"]}
+{"question_id": "TRAIN_Q493", "text_sha256": "ec164ecd52ca6ef0244aba02256044daddfb3a216a59d161653bbc0ec81d9000", "anchors": ["CVE-2017-1741", "IBM Tivoli Network Manager IP Edition"]}
+{"question_id": "TRAIN_Q494", "text_sha256": "d74025e574ccd35f70c7acd11a6adf4facc5744c0317079affa6b3b1af208233", "anchors": ["J2CA0024E", "DSRA0080E", "BPM Advanced v8.5.6", "Oracle JDBC Driver 12.1.0.1.0", "Oracle 12c", "SQL Code : 17274", "jdbc/BPEDB", "Advanced database support for IBM BPM Standard, IBM BPM Advanced, and IBM Business Monitor on distributed platforms"]}
+{"question_id": "TRAIN_Q495", "text_sha256": "2d492eb7188188614f9bbd972016c4ec97d86d8aab42d06d14374e0424fe31e2", "anchors": ["log4j"]}
+{"question_id": "TRAIN_Q496", "text_sha256": "d0b2dfc06b39cf3e6c9b02cb0c2f8ce8f098a0b4ab82f339b28798be17c03077", "anchors": ["IWKWC0016E", "IBM Web Content Manager", "/wps/wcm/vpname/basicauth/SyndicationServlet", "javax.net.ssl.SSLKeyException", "RSA premaster secret error"]}
+{"question_id": "TRAIN_Q497", "text_sha256": "fa984cfb2f87bc0ce2d3e533b53407b23e9cd8c70954fa05064495fff59f0f2d", "anchors": ["DASH", "Page cannot be displayed"]}
+{"question_id": "TRAIN_Q499", "text_sha256": "dfa33bb45afaaa2b59ff17d3cf160f95f5d8e721d27685f2cc3f5a7149bbb12f", "anchors": ["CVE-2017-8804", "IBM MQ Appliance", "glibc"]}
+{"question_id": "TRAIN_Q503", "text_sha256": "1906ab40e4838b8fd84716aead3f3487e1d83941fd0800239831fef292b1a1ea", "anchors": ["/usr/ibm/common/acsi", "/var/ibm/common/acsi"]}
+{"question_id": "TRAIN_Q504", "text_sha256": "ba7f3973972bf42efa876bbc5926a004d5afad348f33896bd43caa678ac26be3", "anchors": ["nco_p_mttrapd"]}
+{"question_id": "TRAIN_Q505", "text_sha256": "3674f823fa74f5965d4b6901b1b1a1af4e1e982610fd04df1bff6e3b5fcfa260", "anchors": ["SPSS 24", "Authorization failed.: You are not allowed to generate any more new licenses."]}
+{"question_id": "TRAIN_Q507", "text_sha256": "953cb78b95e7a8663f5ff541018ea77fb67ea32b016dddfdb6ad00e3b5f86e01", "anchors": ["Web GUI 8.1", "security.xml", "2147483647"]}
+{"question_id": "TRAIN_Q511", "text_sha256": "7d6088631402be7324f2dd3d74b01e51da314b9c8ff5ab549d658f6cef344136", "anchors": ["CVE-2015-0289", "IBM DataPower Gateways"]}
+{"question_id": "TRAIN_Q513", "text_sha256": "b2ccca1151feaeec5340270a0c4f041efb3686655a11a4a2525a6cb49eb357c3", "anchors": ["CVE-2014-8901", "WebSphere Message Broker", "IBM Integration Bus"]}
+{"question_id": "TRAIN_Q516", "text_sha256": "da1d778f4e3991748a2834430ca175e2ce233e3275cb6ba08480f907c89882fc", "anchors": ["RecognizePageFieldsICR_C", "SetPageType", "PageID Task", "Profiler Task"]}
+{"question_id": "TRAIN_Q517", "text_sha256": "bf2b6678278b82de06346ffc607f842c5f969b2f8e26d7c2ba0a74b1dceee66b", "anchors": ["S-TAP", "guard_stap.stderr.txt", "Server wasn't heard from for nn sec during this attempt nnn sec total), closing and re-opening", "Unauthorized client connecting from ,rejecting", "/log/opt-ibm-guardium-log/snif/snif.log", "Guardium Appliance"]}
+{"question_id": "TRAIN_Q518", "text_sha256": "1082914e097a46d814cbf4753a1c07f9f230ebc473aa0ee98e2c8a8f9fbaca6c", "anchors": ["CVE-2014-0076", "IBM WebSphere MQ", "GSKit"]}
+{"question_id": "TRAIN_Q519", "text_sha256": "d92b790cad4e14c48dea43cd49881f1d54259553b5ab2570221774a83d51c0a1", "anchors": ["CVE-2015-0193", "IBM Business Process Manager", "WebSphere Lombardi Edition"]}
+{"question_id": "TRAIN_Q520", "text_sha256": "6376364eebef144f003e7bc83843d2d50e2b5ebaa99a46b0064d847d50a8e1d6", "anchors": ["RecognizePageOCR_A"]}
+{"question_id": "TRAIN_Q521", "text_sha256": "b62a2433522d79e85dc8e4273bfd46c891f6d97e16850d5a03755fc730e655ca", "anchors": ["Exclusive Edit", "no such file or directory"]}
+{"question_id": "TRAIN_Q523", "text_sha256": "61db5a9690e83ccec56c276140ae607743e1df5fe81f34489147dc7de3c931ca", "anchors": ["FELB", "x-forwarder-for"]}
+{"question_id": "TRAIN_Q524", "text_sha256": "347db77bf2b60d65932d47b0786056da9fad9b583b5fb1bdd5432860632267e3", "anchors": ["V701", "SCSQAUTH", "SCSQANLE", "MQ V8", "ABN=102-00000000"]}
+{"question_id": "TRAIN_Q525", "text_sha256": "7582d71c0c8ff5893e12400fce1a8d9bf5f888c3bf980bfb817346fee9e45aa9", "anchors": ["ITCAM J2EE Agent", "TEPS", "7.1.1", "Monitoring Level", "Agent Configuration"]}
+{"question_id": "TRAIN_Q526", "text_sha256": "6e596aa720418fdae04b500465ada3f399337c089023d9dcee28628edbb008cd", "anchors": ["Rhapsody v8.1.2", "reports plus"]}
+{"question_id": "TRAIN_Q533", "text_sha256": "8af7f30ccf190c6175efb626ccac284624eeb6e62ff130c6e5395600f55b2da4", "anchors": ["CVE-2015-4941"]}
+{"question_id": "TRAIN_Q535", "text_sha256": "0329fc976fab07863a025df46cd8b52f625958d7a6fab6af27fbe8dc2a00ece1", "anchors": ["SYSIBMADM.DBCFG", "SQLCODE=-204", "SQLSTATE=42704", "DRIVER=3.65.102", "com.ibm.websphere.ce.cm.StaleConnectionException", "ODM Event Server"]}
+{"question_id": "TRAIN_Q537", "text_sha256": "4b72ba1a33602cd606d7022ec29e7983b734400ef0f89789a7b4101c91386fb6", "anchors": ["Netcool/Impact 6.1.0", "HSQLDB"]}
+{"question_id": "TRAIN_Q538", "text_sha256": "ba2dad787f29612bd593aa77c0369cff6f432874348bc0e561df50029075f642", "anchors": ["ITCAM Data Collector for WebSphere 7.2.0.0.14"]}
+{"question_id": "TRAIN_Q540", "text_sha256": "3e4f1cf1f947b0537e0f144df84270396034116bd0450534646ddac850c7efe4", "anchors": ["IBM Case Manager 5.2.1.4", "IBM Content Navigator 2.0.3.7", "Properties View Designer", "Case Builder", "IE"]}
+{"question_id": "TRAIN_Q541", "text_sha256": "1eb3937f2cdf78e2db4afceffbd71e474cf84664866f713772e784556a6e1b92", "anchors": ["Cognos Workspace Advanced", "Report Studio", "IBM Cognos 10.2.2.x"]}
+{"question_id": "TRAIN_Q543", "text_sha256": "eccd36445cf4f83af94e24dd108b867b13e2682d23f2af30e3c6fb5ab8924028", "anchors": ["RHEL7.2", "DB2 11.1 GA", "db2cluster -cm -list -alert", "0x80090030", "db2diag.log", "pdLogCaPrintf", "db2diag -cfrc <CF_errcode>"]}
+{"question_id": "TRAIN_Q545", "text_sha256": "b85e458f7a67fc84e060bc177591fa137bfcb277cab61ba42ac356823c9b4afe", "anchors": ["Netcool/Impact 6.1.0", "SelfMonitoring", "OMNIbus GenericClear Automation", "DeleteClears"]}
+{"question_id": "TRAIN_Q546", "text_sha256": "d8c192b23363558b4ebb07fd8da6e18dc2011296a21070ca238a7344bb6cd753", "anchors": ["@LocalNodeAlias=\"\"", "ITNM", "nco_p_monitor.rules", "@LocalNodeAlias=\"empty\""]}
+{"question_id": "TRAIN_Q547", "text_sha256": "b669e2366c472dc78df479a73407af78a7387fddcee3679acd2e6ecc81cf43c9", "anchors": ["SDA", "ITCAM for SOA 7.2 FP1 ifix 5", "TEMS", "TEPS"]}
+{"question_id": "TRAIN_Q548", "text_sha256": "178a1147680b829162ccba808aadf43932891ade6fb2b3f8ed53074b81fbde76", "anchors": ["Notice Sender Execution Failed Alert", "Atlas 6.0.3.3"]}
+{"question_id": "TRAIN_Q549", "text_sha256": "74481fe383ae67eb25ccf7c2f98d52c70d44db0ca768cf0f47a03810934823e4", "anchors": ["launchpad.sh"]}
+{"question_id": "TRAIN_Q550", "text_sha256": "9389ff0844ce8371ef5a12ca0cf7a166ee3c15c539d78932686f9aa84a6fa803", "anchors": ["CVE-2017-3523", "CVE-2017-5638", "ITNM"]}
+{"question_id": "TRAIN_Q552", "text_sha256": "261934132f8cebb8400d5ce6f5dc7f0561ef38db4c28cf4567d2910994caf31c", "anchors": ["IBM HTTP Server 7", "gsk7cmd", "Ikeyman", "PKCS12", "The command cannot complete because your JRE is using restricted policy files."]}
+{"question_id": "TRAIN_Q553", "text_sha256": "0b0b4c631bc08c5624a89ed6857537315a182a0ee2bbb1f824c718257004f1bf", "anchors": ["CVE-2014-3566", "CVE-2014-6457", "IBM Java SDK", "IBM Image Construction and Composition Tool"]}
+{"question_id": "TRAIN_Q554", "text_sha256": "8d17a3e3a852e35a863f09abca4770668b980770bc3029ed3ecef55fbb9018d1", "anchors": ["DB2 9.5", "Non Reclaimable Storage"]}
+{"question_id": "TRAIN_Q555", "text_sha256": "d294c1bc4d1534a04fdf6cbbdad26a30695acb66748b724f6865044aa6c05464", "anchors": ["SPSS", "Yosemite 10.10.5"]}
+{"question_id": "TRAIN_Q556", "text_sha256": "01e515b34129b4840b5ab087331dbadd627df44f8fa000c8731204e429901376", "anchors": ["NIST FIPS 140-2", "DB2"]}
+{"question_id": "TRAIN_Q557", "text_sha256": "b536beb0ebbb0a48eb5cce317c98bb4a97d26387b6f589dcc961725599f981ab", "anchors": ["DB2", "segment()"]}
+{"question_id": "TRAIN_Q559", "text_sha256": "337259d10424121f05e5dc79fe9be6a117379dfe8827516fd2853a82c6052317", "anchors": ["CVE-2015-1920", "IBM PureApplication System"]}
+{"question_id": "TRAIN_Q561", "text_sha256": "58908214116fb92e2247e343e5c35825fe68844e9ec038c1d61d61eab5814496", "anchors": ["CF09", "Portal 8001", "ConfigTrace.log", "ADMA5026E", "com.ibm.websphere.management.exception.AdminException", "ilwwcm-authoring.war+WEB-INF/web.xml", "wsadmin"]}
+{"question_id": "TRAIN_Q562", "text_sha256": "8c89265edee7a5fdaf8a10bcffe5d74e9dddc4d5395bcd3eb4c55a1caf888303", "anchors": ["Portal 6.1.x", "Oracle 11g", "Portal Server v6.1.0.6", "WPS 6.1.0.6"]}
+{"question_id": "TRAIN_Q564", "text_sha256": "9e76bfa65ee2f2aae57b41b25bb91b9dc0094a0dfe79444ab4bca77bfbb30f9b", "anchors": ["CHLAUTH", "AMQ8878", "AMQ8884", "ACTION(REMOVE)", "TYPE(USERMAP)"]}
+{"question_id": "TRAIN_Q565", "text_sha256": "5e735c6a5345593e9aa98c772dec3f64f02060539d0c674203bbe5a0b7ecca17", "anchors": ["ODM 8.5.1", "MQ 9.0", "ODM Rule Execution Server", "WAS 8.5.0.2", "ODM 8.5.1 System Requirements"]}
+{"question_id": "TRAIN_Q567", "text_sha256": "5caffd06b217660658c8cf86353da894d01e06f2e56b4324333fc29b0924dc41", "anchors": ["Editor for Messages"]}
+{"question_id": "TRAIN_Q568", "text_sha256": "3a3ee7998122d9a09d0222f48781c99979761e9f29ac78a8429ed999b9a514d0", "anchors": ["WebSphere Portal V6.1.0.1"]}
+{"question_id": "TRAIN_Q569", "text_sha256": "56109efd2be98a7ebe9d02a5df0312e16ac5052f9ecc738c2082617994bb8102", "anchors": ["Authorization failed.: The Authorization Code entered is not for this product/version."]}
+{"question_id": "TRAIN_Q570", "text_sha256": "a75dde98af34ba538caebd81f95d49b1bfe2e8f8eb6255e2dd61cd6a5f037f06", "anchors": ["IBM Enterprise Content Management System Monitor 5.2", "MSSQL"]}
+{"question_id": "TRAIN_Q572", "text_sha256": "36f65021d4d4d289a28a2f14e11c5c49bd1fb9157036d3ce1d18e282f1b177a5", "anchors": ["CVE-2016-0475", "IBM Java Runtime", "IBM WebSphere MQ"]}
+{"question_id": "TRAIN_Q573", "text_sha256": "9f040fdc652d44b17167abfc36b7dddb6789299f9ac25673b6dc7e9bd069b6fb", "anchors": ["DB2 V11.1", "BLU", "dbheap"]}
+{"question_id": "TRAIN_Q574", "text_sha256": "9d2261777451639abb856ac20e6fb173cf4c62afa15dc45c094c3017f73d226e", "anchors": ["CVE-2017-1126", "WebSphere Message Broker", "IBM Integration Bus"]}
+{"question_id": "TRAIN_Q575", "text_sha256": "041615833362fc8533f95685203d8dad21ee0fa7ebce15b37a974eb8581bb540", "anchors": ["DB2 V11.1", "BLU", "dbheap"]}
+{"question_id": "TRAIN_Q576", "text_sha256": "092d6fb655d1c75fc303affbb37870ee76350c2f80c3590a1f8eed7631df4107", "anchors": ["JD Edwards Adapter", "BPM 8.5.6", "BPM 8.5.5"]}
+{"question_id": "TRAIN_Q577", "text_sha256": "ad29657a20f4d1699ae9ed742e58997764d018214e9edbce6a9ce92eb68f4ed8", "anchors": ["SECJ0371W", "LTPA"]}
+{"question_id": "TRAIN_Q578", "text_sha256": "32c4c5b626b4871da5c2e589c62f11119b81492f8a2c5f6f0d29c0a054bbc0f8", "anchors": ["IBM DataPower Gateway Appliance", "HTTP CONNECT"]}
+{"question_id": "TRAIN_Q579", "text_sha256": "4a5b8e19c916a36314a446480131c018f62cdc019cb03b5b667ff6feb78cb0f4", "anchors": ["SPSS Statistics version 24", "Mac OS X 10.9.5", "can't save profile"]}
+{"question_id": "TRAIN_Q580", "text_sha256": "df0c47fdb31b0d6368b8959f5803ff06e9a74b1ec4ca0865d061bb3e4e2518c5", "anchors": ["CVE-2015-1472", "CVE-2013-7423", "WebSphere MQ Hypervisor Edition", "glibc"]}
+{"question_id": "TRAIN_Q581", "text_sha256": "9a23002940d7de69c9e50886ddd5b7304898c06ad36a23348e60df9d79093493", "anchors": ["ITCAM for WAS 7.2.0.0.x DC", "config.sh", "JVMDUMP039I", "java.lang.OutOfMemoryError", "-Xms256m -Xmx256m", "config.py"]}
+{"question_id": "TRAIN_Q582", "text_sha256": "992f5b7c2542faf03b500b364d68a5a088493b74f8a3cb885befcb32ce61c6ae", "anchors": ["SPSS Statistics Premium Grad Pack v.24"]}
+{"question_id": "TRAIN_Q583", "text_sha256": "672389be0a831275765314d738822d8dab6c4c168eeeb8dbe09767b104b2720f", "anchors": ["ITCAM for AD Managing", "launchpad.sh", "silent_MS_linux.bin", "setup_MS_lin.bin", "here-document at line 1926 delimited by end-of-file (wanted `/dev/null')"]}
+{"question_id": "TRAIN_Q584", "text_sha256": "efafc0141c8eb63914c96671b0b7544502156d04394205e2def290a49f689ddf", "anchors": ["CVE-2017-1741", "WSRR", "IBM WebSphere Service Registry and Repository", "WAS traditional V9.0.0.0"]}
+{"question_id": "TRAIN_Q587", "text_sha256": "d60a90e46fdc794f6d11cf1d7ff165ef664637033f4ee41d3f2be01c8a2e9821", "anchors": ["Installation Manager 1.7.2", "8.5.5.2"]}
+{"question_id": "TRAIN_Q588", "text_sha256": "b17c76d935f336bbab694e1b9f79d9cc17644618f8b32cd974a9983d903d5638", "anchors": ["systhrow", "00040000", "java/lang/OutOfMemoryError", "Failed to create a thread: retVal -1073741830, errno 11"]}
+{"question_id": "TRAIN_Q590", "text_sha256": "213a2c062859f3e394117e0e5003c49194c65ab5183a7dd163cdfb7d49b068f5", "anchors": ["ITCAM for Transactions", "Robotic Response Time", "Rational Performance Tester", "URL Unavailable Failure", "t6"]}
+{"question_id": "TRAIN_Q593", "text_sha256": "08a58fa5de9e5f7ce2b37dab34d294aa529c75a6b71c7291cb1df7ae1ff0753b", "anchors": ["Derby database", "database-transfer"]}
+{"question_id": "TRAIN_Q596", "text_sha256": "881cdd67a7d14430b5e3ca670f5ad0740bd897302a98ecc7f11996941e8708a0", "anchors": ["ITCAM MQ agent", "WebSphere MQ Monitoring Agent", "lx8263", "07.30.01.00"]}
+{"question_id": "TRAIN_Q597", "text_sha256": "ee1e313cdae070c669c49264b2c1c5bccbd5d763c5e009f030b84ccbdbd94995", "anchors": ["Daeja viewer", "IBM Content Navigator v2.0.2", "fit content by"]}
+{"question_id": "TRAIN_Q598", "text_sha256": "8d80966d2542a9bdb3b99410066f6f2f91ead284af202501319fa0046bfc231f", "anchors": ["Internet Explorer 11", "Lombardi 7.2.XX", "Lombardi 7.2.0.5", "IE 11"]}
+{"question_id": "TRAIN_Q599", "text_sha256": "bd11bed9af05a1899732796fe95c8beb9231bf0b2c9b3ddb10164b3f1929cc13", "anchors": ["ICC", "Application Error", "This implementation is not part of the Windows Platform FIPS validated cryptographic algorithms.", "System.Reflection.TargetInvocationException", "System.InvalidOperationException", "System.Security.Cryptography.MD5CryptoServiceProvider"]}

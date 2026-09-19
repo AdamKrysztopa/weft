@@ -1,0 +1,85 @@
+{
+  "adjudication": "owner, 2026-09-19: the primary labeller's set for every double-label disagreement",
+  "labeller": "Claude subagents, blind: question text only",
+  "repeated_text_groups_reconciled": [
+    {
+      "anchors": [
+        "StaleConnectionException",
+        "ODM 8.8",
+        "Rule Execution Server"
+      ],
+      "questions": [
+        "DEV_Q029",
+        "TRAIN_Q489"
+      ]
+    },
+    {
+      "anchors": [
+        "virtual DataPower Appliance",
+        "5.0.0.0",
+        "6.0+"
+      ],
+      "questions": [
+        "DEV_Q094",
+        "TRAIN_Q285"
+      ]
+    },
+    {
+      "anchors": [
+        "CVE-2015-0410",
+        "CVE-2014-6593",
+        "IBM OS Images for Red Hat Linux Systems and AIX",
+        "IBM Java SDK"
+      ],
+      "questions": [
+        "DEV_Q129",
+        "TRAIN_Q206"
+      ]
+    },
+    {
+      "anchors": [
+        "RecordChangeSystem.msl",
+        "port number 6,002",
+        "7000/8000",
+        "9.0 Launcher"
+      ],
+      "questions": [
+        "DEV_Q240",
+        "TRAIN_Q286"
+      ]
+    },
+    {
+      "anchors": [
+        "Web GUI 8.1",
+        "security.xml",
+        "2147483647"
+      ],
+      "questions": [
+        "DEV_Q303",
+        "TRAIN_Q507"
+      ]
+    }
+  ],
+  "repeated_texts": "owner, 2026-09-19: union, keeping the shorter of two nested spans",
+  "rubric": "eval/pool-promotion/anchor-rubric.md",
+  "second_labeller": {
+    "esci": {
+      "exact_set_agreement": 28,
+      "kappa": "not computable: spans are drawn from what either labeller marked, so no span is jointly unmarked",
+      "positive_agreement": 0.9394,
+      "questions": 30,
+      "spans_both": 31,
+      "spans_primary_only": 1,
+      "spans_second_only": 3
+    },
+    "techqa": {
+      "exact_set_agreement": 10,
+      "kappa": "not computable: spans are drawn from what either labeller marked, so no span is jointly unmarked",
+      "positive_agreement": 0.75,
+      "questions": 30,
+      "spans_both": 69,
+      "spans_primary_only": 26,
+      "spans_second_only": 20
+    }
+  }
+}
