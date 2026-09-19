@@ -34,6 +34,7 @@ from publish_set import Member, PublishSetUnreadableError, publishing_members
 #: rather than derived: this list is what the check compares the tree against, and a list derived
 #: from the tree could not disagree with it (`docs/internal/lessons.md` `L5.6`).
 EXTRA_BACKED_MODULES: dict[str, str] = {
+    "weft_cross_encoder": "cross-encoder",
     "weft_docling": "docling",
     "weft_openai": "openai",
     # **The sixth, and it was missing.** `weft_openai_compatible` imports `weft_openai.embedder`

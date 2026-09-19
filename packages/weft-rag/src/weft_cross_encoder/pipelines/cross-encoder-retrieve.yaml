@@ -1,0 +1,16 @@
+name: cross-encoder-retrieve
+
+# Dense retrieval's own fifty chunks, rescored against the question by a TEI-served
+# cross-encoder and packed whole, with no answer generated — `weft ask --retrieve-only
+# --explain` prints the served model, how many were scored and dropped, and how many
+# requests it took. No `route.summary`/`route.cost`: a routed `weft ask` that picks a rung
+# ending in a packer fails, and this rung also needs a TEI server nobody starts for it.
+stages:
+  - {id: retrieve, use: vector-top-k, with: {top_k: 50}}
+  - {id: fuse, use: single-list}
+  - {
+      id: rerank,
+      use: cross-encoder-rerank,
+      with: {model: BAAI/bge-reranker-v2-m3, depth: 50, truncate: true},
+    }
+  - {id: pack, use: repack, with: {method: reverse, top_n: 50}}

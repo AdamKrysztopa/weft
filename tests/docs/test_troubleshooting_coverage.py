@@ -265,8 +265,10 @@ def test_the_derived_package_list_names_every_distribution_including_the_two_tha
     # attached, so this arrival moves only the count, the way `weft_otel`'s and `weft_docling`'s
     # did — and unlike theirs, it is not a pack at all.
     assert "weft_engine" in packages
-    assert len(packages) == 26, (
-        f"expected 26 first-party top-level packages under packages/, found {sorted(packages)} — "
+    # `weft_cross_encoder` — ledger task `41.2`, the TEI-served reranker's own pack.
+    assert "weft_cross_encoder" in packages
+    assert len(packages) == 27, (
+        f"expected 27 first-party top-level packages under packages/, found {sorted(packages)} — "
         f"either a new one shipped (nothing to do here, this walk found it automatically) "
         f"or the walk itself broke."
     )

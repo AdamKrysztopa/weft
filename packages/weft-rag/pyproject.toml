@@ -57,10 +57,10 @@
 # `weft-canary` does. What changed is how the code is *wheeled*, not how it is written.
 #
 # **A pack's identity is its entry-point name, not this distribution's name.** `weft plugins
-# list|doctor` prints twenty-one distinguishable rows, and `[packs.store]` configures the store
+# list|doctor` prints twenty-three distinguishable rows, and `[packs.store]` configures the store
 # and nothing else — see `weft_kernel.discovery`'s own module docstring for where the two
 # identities part. That separation is what made this file possible; without it, bundling would
-# have collapsed twenty-one settings namespaces into one.
+# have collapsed twenty-three settings namespaces into one.
 
 [project]
 name = "weft-rag"
@@ -162,6 +162,9 @@ openai = ["openai>=3.1", "pillow>=10.0", "tiktoken>=0.8"]
 qdrant = ["qdrant-client>=1.12,<1.14"]
 otel = ["opentelemetry-sdk>=1.28"]
 docling = ["docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]>=2.55"]
+# The seventh capability extra, ledger **41.2**: `weft_cross_encoder` speaks to a TEI
+# server over plain HTTP, so the only dependency it declines on your behalf is the client.
+cross-encoder = ["httpx>=0.28"]
 # `all` lists the libraries rather than referring to this distribution's own extras. A
 # self-reference (`weft-rag[pdf,openai,...]`) is a requirement on a sibling with no version
 # bound, which fitness function 10(b) refuses for the reason it refuses every other one: an
@@ -176,16 +179,17 @@ all = [
     "qdrant-client>=1.12,<1.14",
     "opentelemetry-sdk>=1.28",
     "docling-slim[convert-core,format-pdf,models-local,feat-ocr-rapidocr-onnx]>=2.55",
+    "httpx>=0.28",
 ]
 
 [project.scripts]
 weft = "weft_cli.cli:main"
 
-# The twenty-one packs this wheel registers. **The name on the left is the pack's identity** — the
-# row `weft plugins list|doctor` prints, and the key a `[packs.<pack>]` settings block uses — so
-# these twenty-one are what an operator writes in `weft.toml`, never `weft-rag`.
+# The twenty-three packs this wheel registers. **The name on the left is the pack's identity** —
+# the row `weft plugins list|doctor` prints, and the key a `[packs.<pack>]` settings block uses —
+# so these twenty-three are what an operator writes in `weft.toml`, never `weft-rag`.
 #
-# Twenty-five packages ship; twenty-one register. `weft_command`, `weft_prompts` and — since task
+# Twenty-six packages ship; twenty-three register. `weft_command`, `weft_prompts` and — since task
 # 24.1 — `weft_engine` deliberately declare no entry point and register nothing: fitness function 2
 # requires a distribution declaring one to be active *and contributing*, and every first-party
 # prompt belongs to the plugin that asks it a question. They are libraries other packs and the CLI
@@ -232,12 +236,14 @@ qdrant = "weft_qdrant:register"
 # Ledger task 11.5 — `weft_kg` was already carried in this wheel's own package list (11.4
 # published its contract with no entry point at all); this is the line that makes it reachable.
 graph = "weft_kg:register"
+# Ledger task 41.2 — behind its own `cross-encoder` extra, `weft_qdrant`'s own shape.
+cross-encoder = "weft_cross_encoder:register"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Twenty-five top-level packages in one wheel, listed rather than globbed: a glob would silently
+# Twenty-six top-level packages in one wheel, listed rather than globbed: a glob would silently
 # ship whatever happened to be under `src/`, and what this distribution ships is a decision.
 #
 # **They live under this project's own `src/`, and that placement is load-bearing.** The first
@@ -256,6 +262,7 @@ packages = [
     "src/weft_clean",
     "src/weft_cli",
     "src/weft_command",
+    "src/weft_cross_encoder",
     "src/weft_docling",
     "src/weft_embed",
     "src/weft_engine",

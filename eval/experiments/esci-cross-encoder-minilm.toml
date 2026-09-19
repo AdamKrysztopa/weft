@@ -1,0 +1,30 @@
+# Phase 41 task 41.3 on esci: the minilm cross-encoder replayed over the frozen fifty-chunk dense pool
+# `esci-pool.toml` captured. No search and no embedding: the arm reads the manifest (kept under the
+# ignored corpus/pools/), so it scores the questions and chunks 40.8's dense and anchor-promote
+# records scored, and is paired against those records by `scripts/rerank_verdict.py`. It reaches a
+# model, so it runs twice (L24.9); the dense identity arm runs once, and is compared with 40.8's
+# dense record question by question as a determinism check, not read as a second baseline. Exploratory on reused benchmarks (`protocol.toml` → [phase_41]).
+
+[experiment]
+schema = 1
+name = "esci-cross-encoder-minilm"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = [1, 5, 10]
+metrics = ["mrr@5", "recall@1", "recall@5", "recall@10", "ndcg@10"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "cross-encoder-minilm"
+pipeline = "index-openai-large"
+query_pipeline = "replay-cross-encoder-minilm"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "replay-identity"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+repeats = 1

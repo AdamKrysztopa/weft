@@ -3944,6 +3944,70 @@ already gets this right.
 
 ---
 
+## Reranking through a cross-encoder — `weft_cross_encoder`
+
+`cross-encoder-rerank` scores each passage against the question through a
+[Text Embeddings Inference](https://github.com/huggingface/text-embeddings-inference) server. It
+never returns the passages unranked when it cannot score them: a fault of the server stops the
+run, naming the address, and only a passage the server refuses to read fails that one question.
+
+### `CrossEncoderUnreachableError`
+
+**What it looks like** — nothing answered at the configured address:
+
+```text
+CrossEncoderUnreachableError: 'cross-encoder-rerank' could not reach http://localhost:8080/info
+(ConnectError). Start the TEI server, or point [packs.cross-encoder] url at the one that is running.
+```
+
+**What to do:** start the server, or set `[packs.cross-encoder] url` in `weft.toml` to where it
+runs. `http://localhost:8080` is the default. A server that is still loading its model refuses
+connections until its warm-up ends; wait for its log to print `Ready`.
+
+### `CrossEncoderServerError`
+
+**What it looks like** — the server answered, with an error or with something that is not one
+score per passage:
+
+```text
+CrossEncoderServerError: 'cross-encoder-rerank': http://localhost:8080/rerank answered 429:
+Model is overloaded
+```
+
+**What to do:** read the status. `413` means the request carried more passages than the server
+accepts, so start it with a larger `--max-client-batch-size` (the reranker already splits a request
+at the size `/info` reports). `424` means the served model is not a single-class sequence
+classifier. `429` means it is overloaded, so lower the concurrency or raise
+`--max-concurrent-requests`. A `5xx` is the server's own failure; its log says why. A response
+holding a different number of scores from the passages sent is a server defect, and it is refused
+rather than guessed at.
+
+### `CrossEncoderModelMismatchError`
+
+**What it looks like** — the server serves a different model from the one the stage names, or a
+model that is not a reranker:
+
+```text
+CrossEncoderModelMismatchError: 'cross-encoder-rerank' is configured for 'BAAI/bge-reranker-v2-m3',
+but http://localhost:8080 serves 'cross-encoder/ms-marco-MiniLM-L6-v2' (reranker).
+```
+
+**What to do:** point `[packs.cross-encoder] url` at a server serving the named model, or name the
+served one in the stage's `with: {model: …}`. The check reads `/info` before any passage is scored,
+because a score from the wrong model is a number you cannot tell apart from a right one.
+
+### `CrossEncoderModelUnsetError`
+
+**What it looks like** — a pipeline uses `cross-encoder-rerank` with no `model:`:
+
+```text
+CrossEncoderModelUnsetError: 'cross-encoder-rerank' needs `model:` in its `with:` block, the
+reranker the TEI server serves (for example BAAI/bge-reranker-v2-m3). No model is assumed.
+```
+
+**What to do:** add `with: {model: <the served model id>}` to the stage. The shipped rungs
+`cross-encoder-retrieve` and `cross-encoder-rerank-then-generate` already name one.
+
 ## Doctor statuses — `weft plugins doctor`
 
 [`manual/operations-guide.md`](operations-guide.md) → *Doctor* owns the full table and what each

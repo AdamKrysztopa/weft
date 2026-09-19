@@ -477,6 +477,20 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # this file named none of them, so the only way to find one was to read the pack's
 # source. `tests/docs/test_pack_settings_documented.py` now refuses that state.
 
+# [packs.cross-encoder]
+# Where the Text Embeddings Inference server that `cross-encoder-rerank` scores through
+# runs (`pip install weft-rag[cross-encoder]`). Every field has a default, so the pack
+# registers with no server running and refuses at first use, naming the address. The
+# model is not set here: each stage names it in `with: {model: …}`, and the reranker
+# checks it against the server's `/info` before scoring anything.
+#
+# url = "http://localhost:8080"
+#
+# `timeout_seconds` is how long one request may take, in seconds; a reranker scoring fifty
+# passages on a CPU takes about a second per request on the machine this was measured on.
+#
+# timeout_seconds = 30.0
+
 # [packs.graph]
 # `weft-kg`'s own connection, and it is **not** inherited from `[packs.store]` or from
 # an exported `WEFT_DATABASE_URL`: this pack is offered no ambient setting, so the line

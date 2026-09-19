@@ -1,0 +1,6 @@
+# Phase 41's minilm arm: the frozen fifty-chunk dense pool rescored by `cross-encoder/ms-marco-MiniLM-L6-v2` through the TEI
+# server `[packs.cross-encoder] url` names, which `/info` must show serving exactly this model.
+name: replay-cross-encoder-minilm
+stages:
+  - {id: rerank, use: cross-encoder-rerank, with: {model: cross-encoder/ms-marco-MiniLM-L6-v2, depth: 50, truncate: true}}
+  - {id: pack,   use: repack, with: {method: reverse}}

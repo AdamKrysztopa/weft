@@ -32,7 +32,7 @@ weft/
 ├── manual/                # what ships to users
 ├── packages/              # the two distributions, and nothing else
 │   ├── weft-kernel/       # registry, discovery, pipeline model, payload types
-│   └── weft-rag/          # 23 packages, 21 packs, incl. weft_cli and weft_kg
+│   └── weft-rag/          # 26 packages, 23 packs, incl. weft_cli and weft_kg
 ├── testing/weft-canary/   # test-only distribution for fitness function 8
 ├── tests/architecture/    # the fitness functions
 ├── tests/integration/     # what needs the one container
@@ -48,7 +48,7 @@ Second time this section has drifted; the first is recorded below.)*
 **A pack's identity is not its distribution, and this tree is where that stops being abstract.**
 `weft_cli`, `weft_extract`, `weft_chunk`, `weft_store`, `weft_embed` and nine more are *packs* — each
 with its own `weft.packs` entry point, its own `[packs.*]` namespace and its own `plugins doctor`
-row — and all twenty-one ship inside the one `weft-rag` distribution. So `packages/weft-cli/` does not
+row — and all twenty-three ship inside the one `weft-rag` distribution. So `packages/weft-cli/` does not
 exist; the module is at `packages/weft-rag/src/weft_cli/`. G10 re-settled this on 2026-09-05, turning
 twenty published names into six and then seven; `09` §1 owns the reasoning and `docs/internal/README.md`'s G10
 row records it. *(This section listed the pre-consolidation layout until 2026-09-06 — five

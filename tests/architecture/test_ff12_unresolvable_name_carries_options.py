@@ -120,6 +120,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_store.contract.UnsupportedPrecisionError",
         "weft_store.contract.UnhandledFilterOpError",
         "weft_prompts.errors.TemplateVariableError",
+        "weft_cross_encoder.rerank.CrossEncoderModelMismatchError",
     }
 )
 

@@ -1,0 +1,10 @@
+name: cross-encoder-rerank-then-generate
+extends: hybrid-then-generate
+
+# `hybrid-then-generate`'s own two-armed retrieval, with every fused hit rescored by a
+# TEI-served cross-encoder before the answer is written — `graph-then-rerank.yaml`'s own
+# shape, one `insert:` after `fuse`. No `route.summary`/`route.cost`: a router must not pick
+# a rung that needs a TEI server nobody started.
+insert:
+  - after: fuse
+    stage: {id: rerank, use: cross-encoder-rerank, with: {model: BAAI/bge-reranker-v2-m3, truncate: true}}

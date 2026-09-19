@@ -1,0 +1,6 @@
+# Phase 41's bge arm: the frozen fifty-chunk dense pool rescored by `BAAI/bge-reranker-v2-m3` through the TEI
+# server `[packs.cross-encoder] url` names, which `/info` must show serving exactly this model.
+name: replay-cross-encoder-bge
+stages:
+  - {id: rerank, use: cross-encoder-rerank, with: {model: BAAI/bge-reranker-v2-m3, depth: 50, truncate: true}}
+  - {id: pack,   use: repack, with: {method: reverse}}
