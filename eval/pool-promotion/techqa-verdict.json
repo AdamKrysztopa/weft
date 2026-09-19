@@ -1,0 +1,737 @@
+{
+  "slices": {
+    "all": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 114,
+          "high": -0.005573087431693992,
+          "low": -0.049045765027322406,
+          "mean": -0.02743169398907104,
+          "metric": "mrr@5",
+          "n": 610
+        },
+        "ndcg@10": {
+          "differing": 124,
+          "high": -0.005831085278971482,
+          "low": -0.04072041214111727,
+          "mean": -0.022646098826762467,
+          "metric": "ndcg@10",
+          "n": 610
+        },
+        "recall@1": {
+          "differing": 73,
+          "high": -0.008155737704918257,
+          "low": -0.06229508196721312,
+          "mean": -0.03442622950819672,
+          "metric": "recall@1",
+          "n": 610
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 610,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 99,
+          "high": -0.001893712574850312,
+          "low": -0.04364687292082502,
+          "mean": -0.023486360612109115,
+          "metric": "mrr@5",
+          "n": 501
+        },
+        "ndcg@10": {
+          "differing": 125,
+          "high": 0.0005595110110898319,
+          "low": -0.036049377511319265,
+          "mean": -0.01719777759937908,
+          "metric": "ndcg@10",
+          "n": 501
+        },
+        "recall@1": {
+          "differing": 57,
+          "high": 0.012025948103792143,
+          "low": -0.04790419161676647,
+          "mean": -0.017964071856287425,
+          "metric": "recall@1",
+          "n": 501
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "harm",
+        "oracle-anchor-promote": "harm"
+      }
+    },
+    "anchor-rarity=common": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 42,
+          "high": -0.02603693181818184,
+          "low": -0.1123153409090909,
+          "mean": -0.06742424242424243,
+          "metric": "mrr@5",
+          "n": 176
+        },
+        "ndcg@10": {
+          "differing": 45,
+          "high": -0.02253624602514789,
+          "low": -0.08922946676723278,
+          "mean": -0.0547571660583313,
+          "metric": "ndcg@10",
+          "n": 176
+        },
+        "recall@1": {
+          "differing": 24,
+          "high": -0.005681818181818182,
+          "low": -0.11363636363636363,
+          "mean": -0.056818181818181816,
+          "metric": "recall@1",
+          "n": 176
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 176,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 40,
+          "high": 0.00313683712121206,
+          "low": -0.07528645833333333,
+          "mean": -0.035037878787878785,
+          "metric": "mrr@5",
+          "n": 176
+        },
+        "ndcg@10": {
+          "differing": 48,
+          "high": 0.00028718168475744157,
+          "low": -0.06607865119128004,
+          "mean": -0.03317858370039476,
+          "metric": "ndcg@10",
+          "n": 176
+        },
+        "recall@1": {
+          "differing": 25,
+          "high": 0.028409090909090908,
+          "low": -0.08522727272727272,
+          "mean": -0.028409090909090908,
+          "metric": "recall@1",
+          "n": 176
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "harm",
+        "oracle-anchor-promote": "benefit ruled out"
+      }
+    },
+    "anchor-rarity=none": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 6,
+          "high": 0.024793388429752067,
+          "low": -0.017906336088154274,
+          "mean": 0.002754820936639118,
+          "metric": "mrr@5",
+          "n": 121
+        },
+        "ndcg@10": {
+          "differing": 6,
+          "high": 0.015433551314167591,
+          "low": -0.01761098969893767,
+          "mean": -0.0006456996085601303,
+          "metric": "ndcg@10",
+          "n": 121
+        },
+        "recall@1": {
+          "differing": 2,
+          "high": 0.024793388429752067,
+          "low": -0.024793388429752067,
+          "mean": 0.0,
+          "metric": "recall@1",
+          "n": 121
+        }
+      },
+      "joint": "no joint conclusion",
+      "n": 121,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 3,
+          "high": 0.19444444444444445,
+          "low": -0.13888888888888892,
+          "mean": 0.027777777777777776,
+          "metric": "mrr@5",
+          "n": 12
+        },
+        "ndcg@10": {
+          "differing": 5,
+          "high": 0.17785706013168903,
+          "low": -0.11940480326748881,
+          "mean": 0.023173127872687202,
+          "metric": "ndcg@10",
+          "n": 12
+        },
+        "recall@1": {
+          "differing": 2,
+          "high": 0.25,
+          "low": -0.25,
+          "mean": 0.0,
+          "metric": "recall@1",
+          "n": 12
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "benefit ruled out",
+        "oracle-anchor-promote": "inconclusive (underpowered)"
+      }
+    },
+    "anchor-rarity=rare": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 66,
+          "high": 0.015604366347177835,
+          "low": -0.048196219382321624,
+          "mean": -0.016613418530351438,
+          "metric": "mrr@5",
+          "n": 313
+        },
+        "ndcg@10": {
+          "differing": 73,
+          "high": 0.012278166687281185,
+          "low": -0.04114439414479867,
+          "mean": -0.013094982125952136,
+          "metric": "ndcg@10",
+          "n": 313
+        },
+        "recall@1": {
+          "differing": 47,
+          "high": 0.006389776357827476,
+          "low": -0.07667731629392971,
+          "mean": -0.03514376996805112,
+          "metric": "recall@1",
+          "n": 313
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 313,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 56,
+          "high": 0.007032747603833844,
+          "low": -0.04579472843450479,
+          "mean": -0.018956336528221512,
+          "metric": "mrr@5",
+          "n": 313
+        },
+        "ndcg@10": {
+          "differing": 72,
+          "high": 0.012086696597628838,
+          "low": -0.032024664618427075,
+          "mean": -0.009759531567066094,
+          "metric": "ndcg@10",
+          "n": 313
+        },
+        "recall@1": {
+          "differing": 30,
+          "high": 0.022364217252396165,
+          "low": -0.04792332268370607,
+          "mean": -0.012779552715654952,
+          "metric": "recall@1",
+          "n": 313
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "benefit ruled out",
+        "oracle-anchor-promote": "benefit ruled out"
+      }
+    },
+    "anchored=no": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 6,
+          "high": 0.024793388429752067,
+          "low": -0.017906336088154274,
+          "mean": 0.002754820936639118,
+          "metric": "mrr@5",
+          "n": 121
+        },
+        "ndcg@10": {
+          "differing": 6,
+          "high": 0.015433551314167591,
+          "low": -0.01761098969893767,
+          "mean": -0.0006456996085601303,
+          "metric": "ndcg@10",
+          "n": 121
+        },
+        "recall@1": {
+          "differing": 2,
+          "high": 0.024793388429752067,
+          "low": -0.024793388429752067,
+          "mean": 0.0,
+          "metric": "recall@1",
+          "n": 121
+        }
+      },
+      "joint": "no joint conclusion",
+      "n": 121,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 3,
+          "high": 0.19444444444444445,
+          "low": -0.13888888888888892,
+          "mean": 0.027777777777777776,
+          "metric": "mrr@5",
+          "n": 12
+        },
+        "ndcg@10": {
+          "differing": 5,
+          "high": 0.17785706013168903,
+          "low": -0.11940480326748881,
+          "mean": 0.023173127872687202,
+          "metric": "ndcg@10",
+          "n": 12
+        },
+        "recall@1": {
+          "differing": 2,
+          "high": 0.25,
+          "low": -0.25,
+          "mean": 0.0,
+          "metric": "recall@1",
+          "n": 12
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "benefit ruled out",
+        "oracle-anchor-promote": "inconclusive (underpowered)"
+      }
+    },
+    "anchored=yes": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 108,
+          "high": -0.00909679618268577,
+          "low": -0.06162747102931152,
+          "mean": -0.0349011588275392,
+          "metric": "mrr@5",
+          "n": 489
+        },
+        "ndcg@10": {
+          "differing": 118,
+          "high": -0.0068194451348669105,
+          "low": -0.04984148037647642,
+          "mean": -0.028089960392002716,
+          "metric": "ndcg@10",
+          "n": 489
+        },
+        "recall@1": {
+          "differing": 71,
+          "high": -0.010224948875255624,
+          "low": -0.07770961145194274,
+          "mean": -0.04294478527607362,
+          "metric": "recall@1",
+          "n": 489
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 489,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 96,
+          "high": -0.0019384798909339014,
+          "low": -0.047070552147239264,
+          "mean": -0.02474437627811861,
+          "metric": "mrr@5",
+          "n": 489
+        },
+        "ndcg@10": {
+          "differing": 120,
+          "high": -0.0004963905206423453,
+          "low": -0.03621248630681793,
+          "mean": -0.018188474666178248,
+          "metric": "ndcg@10",
+          "n": 489
+        },
+        "recall@1": {
+          "differing": 55,
+          "high": 0.010224948875255624,
+          "low": -0.04703476482617587,
+          "mean": -0.018404907975460124,
+          "metric": "recall@1",
+          "n": 489
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "harm",
+        "oracle-anchor-promote": "harm"
+      }
+    },
+    "identifier-exact=yes": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 46,
+          "high": 0.06425086355785836,
+          "low": -0.02245682210708118,
+          "mean": 0.02089810017271157,
+          "metric": "mrr@5",
+          "n": 193
+        },
+        "ndcg@10": {
+          "differing": 49,
+          "high": 0.058876422617551605,
+          "low": -0.011975368408000986,
+          "mean": 0.022980460215039605,
+          "metric": "ndcg@10",
+          "n": 193
+        },
+        "recall@1": {
+          "differing": 32,
+          "high": 0.07772020725388601,
+          "low": -0.03626943005181347,
+          "mean": 0.02072538860103627,
+          "metric": "recall@1",
+          "n": 193
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 193,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 35,
+          "high": 0.04689982728842828,
+          "low": -0.025736183074265978,
+          "mean": 0.010362694300518135,
+          "metric": "mrr@5",
+          "n": 193
+        },
+        "ndcg@10": {
+          "differing": 42,
+          "high": 0.04878025002992441,
+          "low": -0.008790297437057002,
+          "mean": 0.018070760919656283,
+          "metric": "ndcg@10",
+          "n": 193
+        },
+        "recall@1": {
+          "differing": 21,
+          "high": 0.06217616580310881,
+          "low": -0.031088082901554404,
+          "mean": 0.015544041450777202,
+          "metric": "recall@1",
+          "n": 193
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "inconclusive (underpowered)",
+        "oracle-anchor-promote": "benefit ruled out"
+      }
+    },
+    "oracle-labelled": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 114,
+          "high": -0.006997500000000014,
+          "low": -0.05996833333333333,
+          "mean": -0.033466666666666665,
+          "metric": "mrr@5",
+          "n": 500
+        },
+        "ndcg@10": {
+          "differing": 124,
+          "high": -0.006565245976044738,
+          "low": -0.04846317938048482,
+          "mean": -0.02762824056865021,
+          "metric": "ndcg@10",
+          "n": 500
+        },
+        "recall@1": {
+          "differing": 73,
+          "high": -0.008,
+          "low": -0.076,
+          "mean": -0.042,
+          "metric": "recall@1",
+          "n": 500
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 500,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 99,
+          "high": -0.0021991666666666696,
+          "low": -0.0451,
+          "mean": -0.02353333333333333,
+          "metric": "mrr@5",
+          "n": 500
+        },
+        "ndcg@10": {
+          "differing": 125,
+          "high": 0.0016163297513283146,
+          "low": -0.03557300631090589,
+          "mean": -0.017232173154577837,
+          "metric": "ndcg@10",
+          "n": 500
+        },
+        "recall@1": {
+          "differing": 57,
+          "high": 0.01,
+          "low": -0.048,
+          "mean": -0.018,
+          "metric": "recall@1",
+          "n": 500
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "harm",
+        "oracle-anchor-promote": "harm"
+      }
+    },
+    "rule-fires=false": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 0,
+          "high": 0.0,
+          "low": 0.0,
+          "mean": 0.0,
+          "metric": "mrr@5",
+          "n": 145
+        },
+        "ndcg@10": {
+          "differing": 0,
+          "high": 0.0,
+          "low": 0.0,
+          "mean": 0.0,
+          "metric": "ndcg@10",
+          "n": 145
+        },
+        "recall@1": {
+          "differing": 0,
+          "high": 0.0,
+          "low": 0.0,
+          "mean": 0.0,
+          "metric": "recall@1",
+          "n": 145
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 145,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 7,
+          "high": 0.03288194444444439,
+          "low": -0.08056712962962964,
+          "mean": -0.022222222222222223,
+          "metric": "mrr@5",
+          "n": 36
+        },
+        "ndcg@10": {
+          "differing": 8,
+          "high": 0.02223053593233623,
+          "low": -0.06757540556996527,
+          "mean": -0.02234187348756738,
+          "metric": "ndcg@10",
+          "n": 36
+        },
+        "recall@1": {
+          "differing": 2,
+          "high": 0.08333333333333333,
+          "low": -0.08333333333333333,
+          "mean": 0.0,
+          "metric": "recall@1",
+          "n": 36
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "benefit ruled out",
+        "oracle-anchor-promote": "benefit ruled out"
+      }
+    },
+    "rule-fires=true": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 114,
+          "high": -0.008491039426523316,
+          "low": -0.06462813620071685,
+          "mean": -0.03598566308243728,
+          "metric": "mrr@5",
+          "n": 465
+        },
+        "ndcg@10": {
+          "differing": 124,
+          "high": -0.006930051802529457,
+          "low": -0.05232610089702137,
+          "mean": -0.029707785557688396,
+          "metric": "ndcg@10",
+          "n": 465
+        },
+        "recall@1": {
+          "differing": 73,
+          "high": -0.008602150537634409,
+          "low": -0.08172043010752689,
+          "mean": -0.04516129032258064,
+          "metric": "recall@1",
+          "n": 465
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 465,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 92,
+          "high": 0.00028673835125448164,
+          "low": -0.04684587813620071,
+          "mean": -0.023584229390681003,
+          "metric": "mrr@5",
+          "n": 465
+        },
+        "ndcg@10": {
+          "differing": 117,
+          "high": 0.0022812166555209786,
+          "low": -0.03662486730923044,
+          "mean": -0.01679952501448708,
+          "metric": "ndcg@10",
+          "n": 465
+        },
+        "recall@1": {
+          "differing": 55,
+          "high": 0.012903225806451613,
+          "low": -0.05161290322580645,
+          "mean": -0.01935483870967742,
+          "metric": "recall@1",
+          "n": 465
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "harm",
+        "oracle-anchor-promote": "benefit ruled out"
+      }
+    },
+    "split=test": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 58,
+          "high": 0.000762527233115468,
+          "low": -0.05501497821350762,
+          "mean": -0.026198257080610025,
+          "metric": "mrr@5",
+          "n": 306
+        },
+        "ndcg@10": {
+          "differing": 64,
+          "high": -0.00033186400360139167,
+          "low": -0.046924217035790895,
+          "mean": -0.024269532654746115,
+          "metric": "ndcg@10",
+          "n": 306
+        },
+        "recall@1": {
+          "differing": 36,
+          "high": -0.0031862745098043673,
+          "low": -0.07516339869281045,
+          "mean": -0.0392156862745098,
+          "metric": "recall@1",
+          "n": 306
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 306,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 50,
+          "high": 0.015603333333333316,
+          "low": -0.03926833333333333,
+          "mean": -0.0118,
+          "metric": "mrr@5",
+          "n": 250
+        },
+        "ndcg@10": {
+          "differing": 60,
+          "high": 0.012909717544155671,
+          "low": -0.0330931014747438,
+          "mean": -0.009576368060245536,
+          "metric": "ndcg@10",
+          "n": 250
+        },
+        "recall@1": {
+          "differing": 28,
+          "high": 0.032,
+          "low": -0.048,
+          "mean": -0.008,
+          "metric": "recall@1",
+          "n": 250
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "benefit ruled out",
+        "oracle-anchor-promote": "benefit ruled out"
+      }
+    },
+    "split=train": {
+      "anchor-promote": {
+        "mrr@5": {
+          "differing": 56,
+          "high": 0.0022532894736841816,
+          "low": -0.059879385964912275,
+          "mean": -0.028673245614035087,
+          "metric": "mrr@5",
+          "n": 304
+        },
+        "ndcg@10": {
+          "differing": 60,
+          "high": 0.007048402653392371,
+          "low": -0.048950434139964714,
+          "mean": -0.021011984513068398,
+          "metric": "ndcg@10",
+          "n": 304
+        },
+        "recall@1": {
+          "differing": 37,
+          "high": 0.006661184210525866,
+          "low": -0.06907894736842106,
+          "mean": -0.029605263157894735,
+          "metric": "recall@1",
+          "n": 304
+        }
+      },
+      "joint": "promotion ruled out on this slice",
+      "n": 304,
+      "oracle-anchor-promote": {
+        "mrr@5": {
+          "differing": 49,
+          "high": -0.000725431606905737,
+          "low": -0.0679316069057105,
+          "mean": -0.0351261620185923,
+          "metric": "mrr@5",
+          "n": 251
+        },
+        "ndcg@10": {
+          "differing": 65,
+          "high": 0.004273406697417857,
+          "low": -0.0544244981085161,
+          "mean": -0.02478882295708181,
+          "metric": "ndcg@10",
+          "n": 251
+        },
+        "recall@1": {
+          "differing": 29,
+          "high": 0.01195219123505976,
+          "low": -0.07171314741035857,
+          "mean": -0.027888446215139442,
+          "metric": "recall@1",
+          "n": 251
+        }
+      },
+      "underpowered": true,
+      "verdicts": {
+        "anchor-promote": "benefit ruled out",
+        "oracle-anchor-promote": "harm"
+      }
+    }
+  },
+  "worthwhile": 0.05
+}
