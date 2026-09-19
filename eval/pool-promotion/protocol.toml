@@ -149,8 +149,9 @@ reading = "descriptive"
 [phase_41.power]
 # L27.2: 40.6's bound assumed every question moves by its whole headroom, and 40.8's realised
 # intervals came back 4-13x narrower than the MDE it implied wherever the rule moved anything.
-# A cross-encoder rescores every pair, so it can move any question with a relevant chunk in the pool; the bound assumes half of them
-# move by their whole headroom, the rest not at all: sd bound x sqrt(moved_fraction).
+# A cross-encoder rescores every pair, so it can move any question with a relevant chunk in the
+# pool; the bound assumes half of them move by their whole headroom, the rest not at all:
+# sd bound x sqrt(moved_fraction).
 moved_fraction = 0.5
 # Printed beside every slice: the largest fraction at which the slice would be powered
 # (n / n_required at fraction 1), and 40.8's realised mrr@5 half-width for the rule arm.
@@ -183,3 +184,15 @@ order = ["41.3 (local, $0)", "41.4 llm-rerank pilot", "41.4 repetition 1", "41.4
 # 41.4 only: before each paid run, spend recorded so far plus that run's tokenized worst-case bound
 # must be <= cap_usd, or the run does not start and the stop is recorded.
 llm_rerank_corpora = ["esci"]
+
+[phase_41.serving]
+# Fixed at 41.1, before any cross-encoder score existed; the measurements are in serving/.
+# TEI 1.9.4 (sha e80ef225) built natively with `-F metal` on the Apple M4 Pro: the CPU image served
+# bge at 0.99 pairs/s (~39 h for 41.3), Metal at 4.32. float32, as the CPU image and the
+# transformers reference; bge's input capped at 1024 tokens through sentence_bert_config.json,
+# above both pools' longest pair (784), so no pair is truncated and warm-up fits in memory.
+server = "text-embeddings-inference 1.9.4, native Metal build"
+dtype = "float32"
+bge_max_input_length = 1024
+minilm_max_input_length = 512
+max_client_batch_size = 64

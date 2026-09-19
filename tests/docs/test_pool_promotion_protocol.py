@@ -131,3 +131,10 @@ def test_the_committed_cross_encoder_power_uses_the_protocols_moved_fraction(cor
 
     assert {entry["moved_fraction"] for entry in slices.values()} == {fraction}
     assert all("breakeven_fraction" in entry for entry in slices.values())
+
+
+def test_the_serving_dtype_is_fixed_before_any_score_and_matches_the_reference() -> None:
+    serving = cast(dict[str, Any], _phase_41()["serving"])
+
+    assert serving["dtype"] == "float32"
+    assert serving["bge_max_input_length"] >= 784

@@ -1,0 +1,61 @@
+{
+ "minilm": {
+  "limit": 512,
+  "limit_source": "/info",
+  "pair_template_probe": [
+   "[CLS]",
+   "q",
+   "[SEP]",
+   "p",
+   "[SEP]"
+  ],
+  "esci": {
+   "pairs": 41500,
+   "over_limit": 0,
+   "fraction_over": 0.0,
+   "p50": 115.0,
+   "p95": 152.0,
+   "max": 376,
+   "over_512": 0
+  },
+  "techqa": {
+   "pairs": 30500,
+   "over_limit": 657,
+   "fraction_over": 0.021540983606557377,
+   "p50": 211.0,
+   "p95": 397.0,
+   "max": 932,
+   "over_512": 657
+  }
+ },
+ "bge": {
+  "limit": 8192,
+  "limit_source": "router log 'Maximum number of tokens per request: 8192' (no /info: container OOM)",
+  "pair_template_probe": [
+   "<s>",
+   "\u2581q",
+   "</s>",
+   "</s>",
+   "\u2581p",
+   "</s>"
+  ],
+  "esci": {
+   "pairs": 41500,
+   "over_limit": 0,
+   "fraction_over": 0.0,
+   "p50": 133.0,
+   "p95": 166.0,
+   "max": 316,
+   "over_512": 0
+  },
+  "techqa": {
+   "pairs": 30500,
+   "over_limit": 0,
+   "fraction_over": 0.0,
+   "p50": 219.0,
+   "p95": 402.0499999999993,
+   "max": 784,
+   "over_512": 718
+  }
+ }
+}
