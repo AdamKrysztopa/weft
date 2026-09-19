@@ -211,6 +211,12 @@ node shared by two papers counts once in the set and twice in the sum. `count(DI
 sum of per-group counts — any fan-out makes the sum an upper bound wearing a count's clothes. It
 recurred in the same phase in the *prefix* rule, where a target of 100,000 selected 99,724.
 
+**Where a new file lives is a claim about every reader of that directory** (`L27.1`). `40.2`
+wrote a pool manifest as `runs/<id>.pool.json`, and the next `weft eval experiment`'s resume scan read
+it as a `RunRecord` and died. Five readers glob `runs/`, and the writer's tests never ran a second
+invocation. Before a brief fixes a new file's path, `git grep 'glob('` over that directory and say in
+the brief what each reader does with it.
+
 **And two ways of enumerating that lie to you, both paid for at Phase 21a's close.**
 *"Who writes this?"* answered by `grep` has a blind spot **the size of every default**:
 `SourceStatus.ACTIVE` has no production writer anywhere — a grep across `packages/` returns test
