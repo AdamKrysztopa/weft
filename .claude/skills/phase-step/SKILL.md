@@ -323,6 +323,12 @@ the pinned return type; two lines of one test disagreed about whether a result w
 thing in exactly the dimension under test, and every assertion over that dimension is then
 vacuous.** Four shapes, all of them cheap to check once named:
 
+- **A failure's *meaning* is set by the caller, not by the stage.** A `Failed` returned by a stage
+  is an error to `weft ask` and **one silently counted exclusion** to `weft eval experiment`
+  (`eval_scoring.py`'s per-question `continue`), so a specification that says "an unreachable
+  server is a `Failed`" ships a reranker whose dead server excludes every question and still writes
+  a record that reads as a null. A fault of the *service* raises; only a fault of the *question* is
+  a `Failed` (`L28.1`). Read both consumers before writing that clause into a brief.
 - **A failure arrives two ways, and a double that raises tests one.** A stage fails by raising
   or by *returning* `Failed`; the runner lets the second through as a normal return, so code after
   `runner.run` only ever sees that one. Task 17.1's tests modelled failure as a raise, and
@@ -431,6 +437,18 @@ in an unrelated task the same day, from a one-line "remove this entry" instructi
 found one at a time by four different mechanisms, when one grep before writing each brief would
 have found them all (`L8.12`). The implementer cannot fix them — most live in tests it may not
 touch — so a brief that omits them is a dispatch that cannot succeed.
+
+**A brief that tells an agent what a file contains has read it, in that session.** `L28.3`: a
+brief said the pool manifests carry each question's `id` and `text`; they carry `id` and
+`text_sha256`, and the text lives in the question file. Quote the field list from the file or from
+`type(model).model_fields`, never from memory of what it ought to hold — which is `L19.4` arriving
+one step earlier, in the sentence that sends somebody looking.
+
+**A sentence that tells a reader what a measurement found cites the committed table, not the
+ledger's verdict.** `L28.7`: `manual/user-manual.md` said "`dedupe` and `mmr` changed nothing" while
+the committed table showed `mmr` at mrr@5 +0.041 [+0.013, +0.075] on one of its three question
+sets — the ledger's "within noise" was about `token_recall`, the metric that run was sized for. Name
+the metric and the question set, and read the table.
 
 **Before listing what a task touches, look up who quotes it.** `L5.14` says a list in a document is
 where to start looking; the sharper version is that the tree has already built the index for some of

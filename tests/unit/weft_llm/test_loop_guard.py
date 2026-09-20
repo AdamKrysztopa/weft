@@ -149,3 +149,29 @@ def test_loop_guard_config_is_frozen_and_refuses_an_unknown_field() -> None:
     assert config.min_period == 20
     with pytest.raises(ValidationError):
         LoopGuardConfig.model_validate({"not_a_real_field": 1})
+
+
+def test_a_long_json_list_being_generated_is_not_mistaken_for_a_loop() -> None:
+    # Arrange — ledger `R41.4`: a `PassageRelevance` answer is fifty near-identical objects, which
+    # is high similarity and low diversity by construction. 72 of 100 questions were excluded on a
+    # measured run because this fired (`L28.10`).
+    # The measured shape: a long run of irrelevant passages all scored 0.0, so only the index
+    # digits differ between objects — positionally similar, and low-diversity by construction.
+    entries = ",".join(f'{{"index":{index},"relevance":0.0}}' for index in range(20))
+    answer = '{"judgements":[' + entries
+
+    # Every prefix, because the guard runs on every token: the measured run died at 192
+    # characters, a length at which this answer is four objects in and still growing.
+    flagged_at = [
+        length for length in range(1, len(answer)) if detect_generation_loop(answer[:length])
+    ]
+
+    assert flagged_at == []
+
+
+def test_a_model_stuck_repeating_one_json_object_is_still_flagged() -> None:
+    # Arrange — the case the guard exists for, wearing JSON's clothes: the same object forever,
+    # so nothing advances. The exemption above must not reach this.
+    stuck = '{"judgements":[' + ",".join(['{"index":7,"relevance":0.00}'] * 60)
+
+    assert detect_generation_loop(stuck) is True

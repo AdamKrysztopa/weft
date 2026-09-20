@@ -138,6 +138,11 @@ The five statuses:
   the identical machinery, scored exactly dense's mrr@5 plus the full oracle ceiling
   (0.985542 against a predicted 0.985542; `eval/pool-promotion/instrument/`). The instrument can
   show the whole gain; these models do not deliver it.
+- **A local LLM could not do the job at all.** The same pool was put to `llm-rerank` with
+  `qwen2.5:7b-instruct` running locally: it excluded **823 of 830 questions**. The plugin asks for
+  one judgement per offered passage and refuses a set that is short — and the model returns 49
+  judgements for 50 passages, cleanly formatted, one item missing. If you want LLM reranking, size
+  the model for the list you ask it to enumerate, or offer it fewer passages.
 - **Changed.** `cross-encoder-rerank` ships opt-in, with its measurement in the catalogue. No
   default moved, and the planned adoption reading on untouched data was declined by the rule
   written before the run.

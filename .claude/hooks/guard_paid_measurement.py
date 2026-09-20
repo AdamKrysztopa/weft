@@ -28,23 +28,41 @@ _RUNS_EXPERIMENT = re.compile(r"\bev" + r"al\s+experiment\b")
 _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 _ACKNOWLEDGED = "WEFT_MEASUREMENT_CHECKED=1"
 
-REASON = """Refused: a paid measurement starts only after these are answered.
-(L24.4, L24.7, L24.9-L24.13, L25.4, L26.5, L26.7)
+REASON = """Refused: a measurement starts only after these are answered.
+(L24.4, L24.7, L24.9-L24.13, L25.4, L26.5, L26.7, L28.2, L28.5, L28.6, L28.8, L28.9)
 1. Scale smoke: has this harness run on the free embedder and scripted provider with more than 256
    questions, more than five searches per connection, a planted rung failure and an unparseable
    completion — and were its records read?
+1b. Shape smoke, for any arm that calls a model: one real input through that arm's own seam, and
+   what came back checked against what the consuming code requires — a count, not a status. A 7B
+   model returned 49 judgements for 50 passages, valid JSON, and six hours of running excluded 823
+   of 830 questions; one call showed it in twenty seconds (L28.9).
 2. Priced in three units: dollars, wall hours (calls / concurrency x seconds per call) and peak
-   memory (nodes per batch x vector width) — all three in the approval.
+   memory (nodes per batch x vector width) — all three in the approval. Memory on Apple silicon is
+   read with `footprint`, never RSS, which misses Metal buffers by ~10x (L28.5); a served model's
+   container carries `--memory`, sized from what it allocates at its maximum input length rather
+   than from its weights (L28.2).
+2b. A floor, watched while it runs: free disk and memory, checked on an interval, the run stopping
+   itself when either is crossed. A full disk and exhausted swap wedged the store and stalled a
+   nine-hour run for three hours while its log still printed elapsed minutes — so progress reports
+   work done since the last sample, never time (L28.8). Touching the container host (a VM resize)
+   stops every container: bring the stack back up and check its row counts afterwards (L28.2).
 3. Repeats: which arms reach a model? A deterministic arm's repetitions are identical by
    construction.
 4. A crash: can the run resume from its written records and finished batches, and if not, what
    would a restart re-pay — and is that in the approval? (L24.13)
-5. The host: nothing else heavy runs beside it — no implementer suites, no research fan-out.
+5. The host: nothing else heavy runs beside it — no implementer suites, no research fan-out, and
+   one served model at a time. Record the load average and the top processes before and after a
+   timed run: the OS's own indexers held this host near 8 with nothing of ours running, which is
+   +-5-10% on every throughput figure (L28.6).
 6. First record: n against the question count, excluded and why, tokens, peak memory — read before
    the rest runs, and the run stopped if any is not what the plan expects.
 7. The query side matches the index side: `[services] embed` names the index pipeline's embedder and
    model. A free smoke on `hash` uses one default for both, so it cannot catch this — and the paid
    run fails at its first question, after the embedding is paid for (L25.4).
+7b. The served model's identity is its name and every setting that changes its numbers — dtype,
+   maximum input length, backend — read from the server and recorded with the run. A Metal build
+   defaulted to float16 where the same version's container served float32 (L28.5).
 8. Every metric the plan names is in the free smoke's record — not only registered and unit-tested:
    a metric no real run has computed may be one the harness cannot produce (L26.5).
 9. The change moved what it should: each arm's downstream size caps are read in `weft pipeline

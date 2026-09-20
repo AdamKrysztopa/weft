@@ -33,9 +33,10 @@ sees it (task 3.6's own accumulation loop), which is exactly the shape this cont
 the reason the guard attaches there rather than inside a `TokenSink`.
 
 **Ordering, stated rather than nested.** The table check must run — and be seen to run —
-*before* either repetition pass. `_looks_like_table`'s own threshold is deliberately
-aggressive — a single table-like line is enough — because a table streamed one row at a
-time is legitimately repetitive until the last row arrives; running the
+*before* either repetition pass, and `_looks_like_advancing_json` beside it for the same
+reason in the format a schema instruction produces (`R41.4`). `_looks_like_table`'s own
+threshold is deliberately aggressive — a single table-like line is enough — because a table
+streamed one row at a time is legitimately repetitive until the last row arrives; running the
 repetition passes first would cut a streamed table off mid-render. `detect_generation_loop`
 below calls the two as two separate top-level functions with the table check first, rather
 than nesting the repetition check inside the table check's negative branch — the ordering
@@ -143,6 +144,8 @@ def detect_generation_loop(
         return False
     if _looks_like_table(accumulated_text, config=config):
         return False
+    if _looks_like_advancing_json(accumulated_text):
+        return False
     return _has_repeating_tail(accumulated_text, config=config)
 
 
@@ -163,6 +166,30 @@ def _looks_like_table(text: str, *, config: LoopGuardConfig) -> bool:
     return (
         pipe_lines >= config.table_line_threshold or formatting_lines >= config.table_line_threshold
     )
+
+
+def _looks_like_advancing_json(text: str) -> bool:
+    """Whether `text` reads as a JSON structure whose items are still *advancing* — ledger `R41.4`.
+
+    A schema-instructed answer is repetitive by construction: `PassageRelevance` is fifty objects
+    of the form `{"index": n, "relevance": 0.0}`, and a run of irrelevant passages differs only in
+    the index digits. That is positionally similar and low-diversity, so the repetition passes
+    stop it — measured, at 192 characters, on 72 of 100 questions of a paid run (`L28.10`). The
+    table check above is the same exemption for the same reason, one format earlier.
+
+    **It is not a blanket exemption for JSON**, because a model genuinely stuck inside a list is
+    the case the guard exists for. The distinction is whether anything advances: the last two
+    items are compared, and identical ones are left to the repetition passes.
+    """
+    opening = text.lstrip().lstrip("`").lstrip()
+    opening = opening[len("json") :].lstrip() if opening.lower().startswith("json") else opening
+    if not opening.startswith(("{", "[")):
+        return False
+    items = [item.strip().strip("{}[] \n") for item in text.split("},")]
+    items = [item for item in items if item]
+    if len(items) < 2:
+        return False
+    return items[-1] != items[-2]
 
 
 def _is_formatting_line(line: str, *, config: LoopGuardConfig) -> bool:
