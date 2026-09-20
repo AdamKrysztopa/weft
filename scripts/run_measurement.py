@@ -1,4 +1,8 @@
-"""Run one experiment document with the checks a long measurement needs — ledger 41.7.
+"""Run one experiment document with the checks a long measurement needs — ledger `R41.4`.
+
+*(Cited `41.7` until 2026-09-20, and no such task line has ever existed in `build-ledger.md` —
+`L19.9`'s shape, found by trying to update "the 41.4/41.7 entries" and looking for the second one.
+This file was built and committed under `R41.4`, which is what owns it.)*
 
 Phase 41 paid for the five things this does, in one night: a nine-hour replay stalled for three
 hours behind a full disk while its log printed elapsed minutes (`L28.8`); a six-hour arm was refused

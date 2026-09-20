@@ -52,7 +52,9 @@ those same questions.
   questions**, where it moved the right document down on every slice. A small reranker (MiniLM-L6)
   did the same: +0.014 and −0.107. `anchor-promote`, the cheap string-matching reorderer, also hurt
   TechQA (−0.027) and did not help product search. If you try a reranker, measure it on your own
-  questions before trusting it.
+  questions before trusting it. **Asking a strong LLM to do the reranking did roughly twice as
+  well** — `gpt-5.6-luna` gained +0.058 [+0.043, +0.074] on the same ESCI pool — but it is priced
+  per question rather than per server, it ran once, and every slice of it is underpowered.
 - **Multi-hop and corpus-wide questions: no evidence either way.** RAPTOR and the graph rungs exist
   for questions that need several documents, or a view of the whole corpus. Every question set
   Weft has measured on asks single-document questions. Nothing on this page tells you whether
@@ -110,6 +112,7 @@ The five statuses:
 | `index-with-deep-raptor` | wrong questions, and harms on them | `eval/raptor-baseline/after-16a/remeasurement.json` |
 | `graph-then-generate`, `graph-and-vector-rrf`, `index-with-facts`, `index-with-facts-openai`, `index-with-cooccurrence` | wrong questions (12 one-sentence documents, questions generated from the graph under test) | Phase 11 exit (ledger only) |
 | `cross-encoder-retrieve`, `cross-encoder-rerank-then-generate` | no gain on ESCI, harms on TechQA | `eval/pool-promotion/esci-ce-verdict.json`, `techqa-ce-verdict.json` |
+| `replay-llm-rerank` | helps on ESCI at ~$1.83/830 questions, underpowered, one repetition | ledger `41.4` |
 | `graph-2hop-then-generate`, `graph-then-rerank`, `rerank-then-generate`, `iterative-retrieve`, `corrective-retrieve`, `grade-then-generate`, `multi-query-then-retrieve`, `step-back-then-retrieve`, `rewrite-then-retrieve`, `boolean-then-retrieve`, `broad-and-refined-rrf`, `contradiction-aware`, `draft-then-refine`, `summarise-then-generate`, `no-retrieval`, `route`, `route-by-score`, `route-fixed`, `index-with-adrap`, `index-with-graph`, `index-with-keywords` | never | none |
 | `index-text` | helps (the leaves arm RAPTOR is measured against) | `eval/raptor-baseline/after-16a/remeasurement.json` |
 | `index-pdf*`, `index-messy-text`, `index-polish`, `index-openai*`, `index-qdrant` | never, as a comparison | none |
@@ -138,11 +141,27 @@ The five statuses:
   the identical machinery, scored exactly dense's mrr@5 plus the full oracle ceiling
   (0.985542 against a predicted 0.985542; `eval/pool-promotion/instrument/`). The instrument can
   show the whole gain; these models do not deliver it.
-- **A local LLM could not do the job at all.** The same pool was put to `llm-rerank` with
-  `qwen2.5:7b-instruct` running locally: it excluded **823 of 830 questions**. The plugin asks for
-  one judgement per offered passage and refuses a set that is short — and the model returns 49
-  judgements for 50 passages, cleanly formatted, one item missing. If you want LLM reranking, size
-  the model for the list you ask it to enumerate, or offer it fewer passages.
+- **An LLM reranker beat both cross-encoders, and cost money to do it.** The same frozen pool put to
+  `llm-rerank` with `gpt-5.6-luna` gained **+0.058 mrr@5 [+0.043, +0.074]** on ESCI's 830 questions,
+  **0 excluded**, moving 157 of them; `ndcg@10` gained +0.075 [+0.065, +0.086]. That is roughly
+  twice bge's +0.030, and the protocol reads it *worthwhile* — with two qualifications that are part
+  of the result: every slice is flagged **underpowered** (declared MDE 0.064 against an observed
+  0.058, and the interval straddles the 0.05 bar), and the 830 ran **once**, so no stability check
+  was possible. Three repetitions at n=100 read 0.918 / 0.921 / 0.931 against a dense control of
+  0.883. It cost ~$1.83 for the 830 against the cross-encoders' $0. Source: `m/llm-verdict.json`,
+  ledger `41.4`.
+- **The local 7B's failure was ours, not the model's** — and this correction is the phase's most
+  expensive lesson. `qwen2.5:7b-instruct` first excluded **823 of 830 questions**, which was written
+  up here as the model being unable to enumerate a fifty-item list. It was not. `llm-rerank`'s
+  prompt asked the model to *"judge every passage exactly once"* and **never said how many passages
+  there were**; the model read that as a selection task and returned the handful it judged relevant,
+  which the plugin correctly refuses as a partial set. Measured over the same pool: the old wording
+  returns a complete judgement set for 3 of 15 questions, the counted wording for 13 of 15. Repaired
+  at `R41.6`; through the shipped binary the arm now scores every question it is given. Whether a 7B
+  reranker *helps* is unmeasured beyond n=10, where it read below dense. Two earlier causes were
+  published before this one and were both wrong — the client's loop-breaker (real, fixed at `R41.4`,
+  and not this) and the unimplemented native structured-output tier (real, filed as `R41.5`, and not
+  this). **If an LLM reranker refuses your pool, read the prompt before blaming the model.**
 - **Changed.** `cross-encoder-rerank` ships opt-in, with its measurement in the catalogue. No
   default moved, and the planned adoption reading on untouched data was declined by the rule
   written before the run.
