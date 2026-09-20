@@ -122,7 +122,9 @@ class LlmRerank:
         lookup = ctx.require(StageLookup)
         prompt = await lookup.build_capability(Prompt, self._config.prompt)
         values = PassageRelevanceRequest(
-            question=payload.origin.text, passages=_offer(payload.hits)
+            question=payload.origin.text,
+            passages=_offer(payload.hits),
+            count=len(payload.hits),
         )
         judged = await execute(
             llm=llm,

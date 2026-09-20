@@ -51,6 +51,12 @@ class PassageRelevanceRequest(BaseModel):
 
     question: str
     passages: str
+    #: How many passages `passages` offers — stated to the model rather than left implicit.
+    #: Measured at `R41.6` on qwen2.5:7b over fifty candidates: asked to "judge every passage",
+    #: it returned a complete judgement set for 3 of 15 questions; told the count, 13 of 15. A
+    #: bare quantifier is not something a small model grounds against a long list, and
+    #: `llm-rerank` refuses a partial set, so the difference is the whole arm.
+    count: int = Field(ge=1)
 
 
 class PassageJudgement(BaseModel):
@@ -105,9 +111,11 @@ class PassageRelevancePrompt(TypedPrompt):
             user=(
                 "Question: ${question}\n\n"
                 "Passages:\n${passages}\n\n"
-                "Judge every passage exactly once, using the index shown in brackets. "
-                "Give each one a relevance between 0.0 (does not help at all) and 1.0 "
-                "(answers the question directly)."
+                "There are exactly ${count} passages, numbered from 0 in the brackets. "
+                "Return exactly ${count} judgements — one for every index, in ascending "
+                "order, including the passages you judge irrelevant. Give each one a "
+                "relevance between 0.0 (does not help at all) and 1.0 (answers the question "
+                "directly). Do not omit an index and do not stop early."
             ),
         ),
         "pl": PromptText(
@@ -119,9 +127,12 @@ class PassageRelevancePrompt(TypedPrompt):
             user=(
                 "Pytanie: ${question}\n\n"
                 "Fragmenty:\n${passages}\n\n"
-                "Oceń każdy fragment dokładnie raz, używając indeksu podanego w nawiasach "
-                "kwadratowych. Przypisz każdemu istotność od 0.0 (zupełnie nie pomaga) do "
-                "1.0 (odpowiada na pytanie wprost)."
+                "Fragmentów jest dokładnie ${count}, ponumerowanych od 0 w nawiasach "
+                "kwadratowych. Zwróć dokładnie ${count} ocen — po jednej dla każdego "
+                "indeksu, w kolejności rosnącej, w tym dla fragmentów, które uznasz za "
+                "nieistotne. Przypisz każdemu istotność od 0.0 (zupełnie nie pomaga) do "
+                "1.0 (odpowiada na pytanie wprost). Nie pomijaj żadnego indeksu i nie "
+                "kończ przedwcześnie."
             ),
         ),
     }

@@ -59,6 +59,9 @@ class _StubLLM:
     async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
         del role, ctx
         self.last_prompt = rendered.conversation.messages[-1].content
+        #: Tier 2 sends the schema instruction as a message of its own, so `last_prompt` is the
+        #: schema rather than the question — a test about what the model was *asked* reads this.
+        self.last_conversation = rendered.conversation
         reply = self._replies[min(self.calls, len(self._replies) - 1)]
         self.calls += 1
         return Produced(value=Completion(text=reply, model="stub-model"))
@@ -166,6 +169,28 @@ async def test_the_model_reorders_and_rescores_the_passages_it_was_given() -> No
     assert ranking.contributors == payload.contributors
     assert lookup.asked == [PASSAGE_RELEVANCE_NAME]
     assert llm.calls == 1
+
+
+async def test_the_offer_tells_the_model_how_many_passages_it_must_judge() -> None:
+    # Arrange — `R41.6`, and this is the wire rather than the wording: `_offer` numbers the
+    # candidates and `_scores_by_index` reads that numbering back, so the count the model is
+    # told must be the count this stage actually offered. Four passages, none of whose content
+    # contains a digit, so the number asserted below can only have come from the count.
+    payload = _ranking("alpha", "beta", "gamma", "delta")
+    llm = _StubLLM(
+        [
+            '{"judgements": [{"index": 0, "relevance": 0.4}, {"index": 1, "relevance": 0.1}, '
+            '{"index": 2, "relevance": 0.9}, {"index": 3, "relevance": 0.0}]}'
+        ]
+    )
+
+    # Act
+    outcome = await LlmRerank().run(payload, _ctx(_services(llm, _lookup())))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    asked = "\n".join(message.content for message in llm.last_conversation.messages)
+    assert str(len(payload.hits)) in asked
 
 
 async def test_top_n_keeps_the_best_and_drops_the_rest() -> None:

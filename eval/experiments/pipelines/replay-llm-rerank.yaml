@@ -1,0 +1,7 @@
+# Phase 41's llm-rerank arm, any model: the frozen pool judged by whatever `[llm.roles] rerank`
+# names — the rung names no model, because a role is where a model is chosen. Every passage kept,
+# so the ranking scored is the whole pool reordered (`protocol.toml` → [phase_41.llm_rerank]).
+name: replay-llm-rerank
+stages:
+  - {id: rerank, use: llm-rerank, with: {top_n: 50}}
+  - {id: pack,   use: repack, with: {method: reverse}}

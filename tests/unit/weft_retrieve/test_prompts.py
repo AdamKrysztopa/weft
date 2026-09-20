@@ -46,6 +46,7 @@ async def test_rendering_puts_the_question_and_the_offered_passages_in_the_conve
     values = PassageRelevanceRequest(
         question="why is mRMR preferred to plain relevance ranking?",
         passages="[0] mRMR penalises redundancy between selected features.\n[1] Unrelated.",
+        count=2,
     )
 
     # Act
@@ -64,10 +65,54 @@ async def test_rendering_puts_the_question_and_the_offered_passages_in_the_conve
     assert "[1] Unrelated." in user
 
 
+async def test_rendering_tells_the_model_how_many_passages_it_must_judge() -> None:
+    # Arrange — `R41.6`. "Judge every passage exactly once" is a quantifier a small model does
+    # not ground against a long list: measured on qwen2.5:7b over a fifty-passage offer, the
+    # wording without a count returned a complete judgement set for 3 of 15 questions and the
+    # wording with one for 13 of 15. The count is what the model is missing, so the request
+    # carries it and every locale's text states it.
+    three = PassageRelevanceRequest(
+        question="why is mRMR preferred to plain relevance ranking?",
+        passages="[0] alpha\n[1] beta\n[2] gamma",
+        count=3,
+    )
+    seven = three.model_copy(
+        update={"passages": "\n".join(f"[{i}] passage" for i in range(7)), "count": 7}
+    )
+
+    # Act
+    for_three = await PassageRelevancePrompt().render(three, _ctx())
+    for_seven = await PassageRelevancePrompt().render(seven, _ctx())
+
+    # Assert — the rendered instruction carries each offer's own count, rather than a constant
+    # the template happens to contain.
+    assert isinstance(for_three, Produced)
+    assert isinstance(for_seven, Produced)
+    said_three = for_three.value.conversation.messages[-1].content
+    said_seven = for_seven.value.conversation.messages[-1].content
+    assert "3" in said_three
+    assert "7" in said_seven
+    assert "7" not in said_three
+
+
+async def test_every_locale_states_the_count_not_only_the_fallback() -> None:
+    # Arrange — a translation that drops the count degrades the *answer*, not the language,
+    # which is the one thing `TypedPrompt`'s locale rule exists to prevent. `validate_template`
+    # enforces that every declared field is rendered; this asserts what the reader gets.
+    values = PassageRelevanceRequest(question="czy to działa?", passages="[0] tak", count=1)
+
+    # Act
+    outcome = await PassageRelevancePrompt().render(values, _ctx(locale="pl"))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert "1" in outcome.value.conversation.messages[-1].content
+
+
 async def test_a_locale_with_no_text_of_its_own_degrades_the_language_not_the_answer() -> None:
     # Arrange — selection is exact locale, then primary subtag, then `en`. A run under a
     # locale nobody translated still asks the question; it asks it in English.
-    values = PassageRelevanceRequest(question="czy to działa?", passages="[0] tak")
+    values = PassageRelevanceRequest(question="czy to działa?", passages="[0] tak", count=1)
 
     # Act
     outcome = await PassageRelevancePrompt().render(values, _ctx(locale="de-AT"))
