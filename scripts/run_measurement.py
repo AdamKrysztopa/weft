@@ -47,8 +47,8 @@ from typing import Any
 
 import httpx
 
-from weft_eval.run_record import load_run_record
-from weft_kernel.payload import Produced
+from weft_eval.run_record import RunRecord, load_run_record
+from weft_kernel.payload import Failed, Produced
 
 #: Free disk below this is what wedged the store on 2026-09-20. Swap is deliberately not a floor:
 #: macOS keeps it nearly full by design, and the first version of this check stopped a healthy run.
@@ -123,6 +123,46 @@ def records(runs: Path) -> list[Path]:
     return sorted(runs.glob("*.json")) if runs.exists() else []
 
 
+def _reason_histogram(record: RunRecord, metric: str) -> list[str]:
+    """Why each excluded question was excluded, counted by kind — `lessons.md` `L28.10`.
+
+    A count of exclusions names no cause, and the missing cause is what gets guessed at. Phase 41
+    read "823 of 830 excluded" as a 7B model's incapacity three times running, against two
+    different real defects and finally a defect in this project's own prompt; the per-question
+    `reason` field said which it was every time, and nothing printed it. So the verdict prints the
+    kinds, not only the total — a run whose exclusions are all one kind and one whose exclusions
+    are three kinds are different failures, and the summary that hides that is what `L28.10` cost.
+
+    Kinds are read from the reason's own words rather than a taxonomy, because the reasons are
+    written by the stages that refuse and no enum spans them.
+    """
+    keyed = (record.question_scores or {}).get(metric)
+    if keyed is None:
+        return []
+    counted: dict[str, int] = {}
+    for outcome in keyed.scores.values():
+        if not isinstance(outcome, Failed):
+            continue
+        reason = outcome.reason
+        kind = next(
+            (
+                phrase
+                for phrase in (
+                    "repeating span",
+                    "could not parse",
+                    "not judged at all",
+                    "more than once",
+                )
+                if phrase in reason
+            ),
+            reason.split(":")[-1].strip()[:60],
+        )
+        counted[kind] = counted.get(kind, 0) + 1
+    return [
+        f"      {count:>5} × {kind}" for kind, count in sorted(counted.items(), key=lambda p: -p[1])
+    ]
+
+
 def verdict_on(runs: Path, metric: str = "mrr@5") -> list[str]:
     """What each written record says about itself — and whether it is readable at all.
 
@@ -144,6 +184,8 @@ def verdict_on(runs: Path, metric: str = "mrr@5") -> list[str]:
             f"  {arm} r{repetition}: {metric} {aggregate.mean:.4f} over n={aggregate.n}, "
             f"excluded={aggregate.excluded} — {state}"
         )
+        if aggregate.excluded:
+            lines.extend(_reason_histogram(record, metric))
     return lines
 
 

@@ -329,3 +329,9 @@ Six live in `.claude/skills/`:
   number, a "nothing calls this" — carries something a reader can check, because the assessment that
   started this project got several of its own claims wrong and the corrections are logged. Measure
   before asserting, and re-measure before arguing from a number a phase could have changed.
+  **A *difference* owes this as much as a count, and is easier to miss** (`L28.11`): one question
+  put to a model two ways returned 49 judgements against 5, which was reported as a root cause
+  within the hour; over eight questions the comparison **inverted**. A one-input check licenses
+  running the measurement and never licenses concluding from it, so report it as what it is — a
+  seam probe — and settle a cause on the n a published result would need. A single dramatic A/B
+  reads as a mechanism rather than as a sample, which is exactly why it persuades.

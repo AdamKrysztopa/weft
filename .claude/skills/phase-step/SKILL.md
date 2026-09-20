@@ -340,6 +340,14 @@ vacuous.** Four shapes, all of them cheap to check once named:
   test renders a *collection*, the fixture holds at least two entries — or the separators, the
   ordering, the deduplication and above all *whether two entries are distinguishable* are untested
   (`L12.6`).
+- **Where the code refuses an answer for not matching the input's *cardinality*, the test offers a
+  realistic number of items** (`L28.12`). `llm-rerank` offers every pooled passage and refuses a
+  judgement set that is not exactly one per passage; every unit test of it offered **one or two**,
+  and at that length the defect is unreachable. The defect was in the prompt — it said *"judge every
+  passage exactly once"* and never said **how many** — so a local model returned the handful it
+  judged relevant and every question was refused. A quantifier a model must ground against a list is
+  not exercised by a list of two, and the shipped pool is fifty. Ask what length the real caller
+  passes, and write one case at it.
 - **A fixture that claims to be real is checked against the real thing, once.** `_INSTALLED` was
   commented *"the roles a real installation declares"* and named two of five, so the branch that
   refuses an unselected role was unreachable from it and `weft config get` exited 1 on every
