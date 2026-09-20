@@ -157,8 +157,12 @@ The five statuses:
   there were**; the model read that as a selection task and returned the handful it judged relevant,
   which the plugin correctly refuses as a partial set. Measured over the same pool: the old wording
   returns a complete judgement set for 3 of 15 questions, the counted wording for 13 of 15. Repaired
-  at `R41.6`; through the shipped binary the arm now scores every question it is given. Whether a 7B
-  reranker *helps* is unmeasured beyond n=10, where it read below dense. Two earlier causes were
+  at `R41.6`. **It still is not a usable arm, and now for a different reason.** Re-measured at n=100
+  on the fixed build: **84 questions scored, 16 excluded** — 11 unparseable answers and 5 partial
+  sets — so the fix moved the failure rather than removing it, and a run with exclusions is read as
+  invalid, never as a null. Where it does answer it reranks **worse than not reranking**: mrr@5
+  0.845 over its 84 against dense's 0.883 over 100. If you want local reranking, use
+  `cross-encoder-rerank`; if you want LLM reranking, the measurement above used a frontier model. Two earlier causes were
   published before this one and were both wrong — the client's loop-breaker (real, fixed at `R41.4`,
   and not this) and the unimplemented native structured-output tier (real, filed as `R41.5`, and not
   this). **If an LLM reranker refuses your pool, read the prompt before blaming the model.**
