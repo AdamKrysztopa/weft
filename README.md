@@ -109,6 +109,10 @@ writing a pack of your own in [`manual/pack-author-guide.md`](manual/pack-author
 `docs/08-manuals.md` §1 owns that order, and a check holds each page to naming the one after it, so
 a hand-off that stops being true fails the build rather than stranding a reader.
 
+**[`manual/evidence.md`](manual/evidence.md) is what Weft has measured and what it recommends
+running**: every experiment, its data and result, the evidence status of every shipped rung, and the
+questions not yet tested with the test proposed for each.
+
 Why it is shaped the way it is — for anyone reading the code rather than running it:
 
 | | |

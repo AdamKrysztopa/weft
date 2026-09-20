@@ -196,3 +196,21 @@ dtype = "float32"
 bge_max_input_length = 1024
 minilm_max_input_length = 512
 max_client_batch_size = 64
+
+[phase_41.llm_rerank]
+# Fixed before any llm-rerank score existed (41.4, 2026-09-19). The paid arm was declined by its own
+# bound (the cascade's three requests per question put ESCI's worst case at ~$11.4); the owner then
+# ordered it run on a local model at $0 instead. It is a different arm from the one priced: a 7.6B
+# model at 4-bit, read by 40.0's verdict against dense like every other arm.
+server = "ollama 0.6.2, OpenAI-compatible endpoint, Metal"
+model = "qwen2.5:7b-instruct"
+model_digest = "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e"
+quantisation = "Q4_K_M"
+num_ctx = 16384
+# Weft cannot set a provider's temperature from weft.toml (filed as a repair), so Ollama's
+# OpenAI endpoint samples at its default: temperature 1.0, top_p 1.0, unseeded. The two
+# repetitions show that spread; neither is read alone.
+temperature = 1.0
+top_n = 50
+corpora = ["esci"]
+truncation_check = "serve.log must hold no 'truncating' line for the run"

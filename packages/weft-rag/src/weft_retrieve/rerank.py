@@ -16,11 +16,11 @@ module knows whether a fuser ran, which fuser it was, or whether another reranke
 That is what "not a ladder" means mechanically: the sequence is data in a document, and
 `tests/unit/weft_retrieve/test_init.py` resolves four of those documents to prove it.
 
-**`cross-encoder-rerank` is deliberately not what ships here.** `.phase2-design.md` §10 states
-the reason rather than dropping the row quietly: it downloads a model on first use, which
-`10` §1.2 records as the cost, and `10` §1.2 files it on the index path anyway. `llm-rerank`
-adds no dependency — it asks the model an operator has already configured, under a role they
-already map.
+**`cross-encoder-rerank` ships in its own pack, not here** (`weft_cross_encoder`, ledger 41.2).
+It was kept out of this pack because a cross-encoder downloads a model; served through a TEI
+server, the weights are the server's and the pack carries only an HTTP client, behind its own
+extra. `llm-rerank` still adds no dependency — it asks the model an operator has already
+configured, under a role they already map.
 
 **How a technique reaches a prompt, recorded because the design record is silent on it.**
 `.phase2-design.md` publishes `Prompts` (render a prompt *by name*) and

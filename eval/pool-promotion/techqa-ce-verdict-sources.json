@@ -1,0 +1,6 @@
+{
+  "anchor-promote": "faeefd26-db7f-4c88-b286-a71300daf47a",
+  "cross-encoder-bge": ["cfd20e65-186f-4a1e-a33f-82965ab5bb1a", "f1049b62-e63b-4cb9-a43e-017af28b134a"],
+  "cross-encoder-minilm": ["0f8b19f3-faea-4063-bac0-43e5eab61c7e", "840c1005-f1a9-47ff-9fbc-b48583f874a7"],
+  "dense": "138b642d-34c1-45de-9985-afb7da2441c5"
+}

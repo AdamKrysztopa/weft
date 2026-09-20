@@ -1,0 +1,6 @@
+{
+  "anchor-promote": "a2f65162-be70-4e4b-bb58-34672944a22d",
+  "cross-encoder-bge": ["8d566cc0-ff9e-4802-81ee-008b024d5508", "a0b180b3-1a0c-4dc6-a693-7be432966243"],
+  "cross-encoder-minilm": ["635ed329-7824-48d6-8c16-4252705ffa94", "853d5253-341b-412f-9385-6ccf310c51ba"],
+  "dense": "cd1f1f31-d9a4-413d-a747-06e8e045d43f"
+}

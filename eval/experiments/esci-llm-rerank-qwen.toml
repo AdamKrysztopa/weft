@@ -1,0 +1,28 @@
+# Phase 41 task 41.4 on esci: llm-rerank through a local qwen2.5:7b-instruct (Ollama, $0) replayed
+# over the frozen fifty-chunk dense pool, paired against 40.8's dense record by
+# `scripts/rerank_verdict.py`. It samples at temperature 1.0 (Weft cannot set it), so it runs twice
+# and both repetitions are published (`protocol.toml` → [phase_41.llm_rerank]).
+
+[experiment]
+schema = 1
+name = "esci-llm-rerank-qwen"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = [1, 5, 10]
+metrics = ["mrr@5", "recall@1", "recall@5", "recall@10", "ndcg@10"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "llm-rerank-qwen"
+pipeline = "index-openai-large"
+query_pipeline = "replay-llm-rerank-qwen"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "replay-identity"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+repeats = 1

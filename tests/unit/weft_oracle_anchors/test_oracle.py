@@ -148,7 +148,7 @@ def test_a_labels_file_naming_one_question_twice_is_refused(tmp_path: Path) -> N
     assert "q-1" in str(caught.value)
 
 
-def test_it_registers_one_reranker_through_the_public_pack_entry() -> None:
+def test_it_registers_its_rerankers_through_the_public_pack_entry() -> None:
     # Arrange
     registry = Registry()
     registrar = PackRegistrar(registry, distribution="weft-oracle-anchors")
@@ -158,5 +158,6 @@ def test_it_registers_one_reranker_through_the_public_pack_entry() -> None:
     registrar.commit()
 
     # Assert
-    assert registry.names_for(Reranker) == {NAME}
+    # 41.3 added the gold-first instrument check beside the anchor oracle.
+    assert registry.names_for(Reranker) == {NAME, "oracle-gold-first"}
     assert NAME == "oracle-anchor-promote"

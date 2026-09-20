@@ -1,0 +1,29 @@
+# Phase 41 task 41.3's instrument check on esci, run because cross-encoder-bge's esci verdict read
+# "benefit ruled out" (`protocol.toml` → [phase_41.instrument]): a gold-first reorder of the frozen
+# fifty-chunk pool, which can only realise dense mrr@5 + the oracle ceiling. A shortfall would be
+# the instrument losing gains, not a reranker missing them. Deterministic, so each arm runs once.
+
+[experiment]
+schema = 1
+name = "esci-gold-first"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = [1, 5, 10]
+metrics = ["mrr@5", "recall@1", "recall@5", "recall@10", "ndcg@10"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "gold-first"
+pipeline = "index-openai-large"
+query_pipeline = "replay-gold-first-esci"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+repeats = 1
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "replay-identity"
+pool = "../../corpus/pools/6d9636c1-a4ff-414a-acd8-64b130ce88f7.json"
+repeats = 1

@@ -1,0 +1,6 @@
+# Phase 41's local llm-rerank arm (`protocol.toml` → [phase_41.llm_rerank]): the frozen pool judged
+# by the model `[llm.roles] rerank` names — qwen2.5:7b-instruct through Ollama — every passage kept.
+name: replay-llm-rerank-qwen
+stages:
+  - {id: rerank, use: llm-rerank, with: {top_n: 50}}
+  - {id: pack,   use: repack, with: {method: reverse}}

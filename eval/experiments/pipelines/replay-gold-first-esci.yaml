@@ -1,0 +1,8 @@
+# Phase 41's instrument check (`protocol.toml` → [phase_41.instrument]): the frozen esci pool with
+# every chunk of a relevant document moved first, through the test-only `weft-oracle-anchors` pack.
+# Its mrr@5 must equal dense's plus the oracle ceiling exactly. The labels path resolves against the
+# directory the run starts in, which holds a copy built by `scripts/pool_ceilings.py`'s resolver.
+name: replay-gold-first-esci
+stages:
+  - {id: gold, use: oracle-gold-first, with: {labels: gold-esci.jsonl}}
+  - {id: pack, use: repack, with: {method: reverse}}

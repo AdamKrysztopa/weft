@@ -39,6 +39,7 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, Outcome, Produced
+from weft_oracle_anchors.gold_first import GOLD_FIRST, OracleGoldFirst
 from weft_retrieve.anchor_promote import promote
 from weft_retrieve.contract import Reranker
 from weft_retrieve.payload import Ranking
@@ -161,9 +162,11 @@ class OracleAnchorPromote:
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """The entry point `weft.packs` resolves to — registers `oracle-anchor-promote` alone."""
+    """The entry point `weft.packs` resolves to — `oracle-anchor-promote` and, for Phase 41's
+    instrument check, `oracle-gold-first`."""
     del settings
     registrar.add(Reranker, NAME, OracleAnchorPromote)
+    registrar.add(Reranker, GOLD_FIRST, OracleGoldFirst)
 
 
 __all__ = [

@@ -1,0 +1,1752 @@
+{
+  "excluded": {
+    "cross-encoder-bge": [
+      0,
+      0
+    ],
+    "cross-encoder-minilm": [
+      0,
+      0
+    ]
+  },
+  "slices": {
+    "all": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 31,
+          "high": 0.013574799196787148,
+          "low": -0.0007228915662650605,
+          "mean": 0.006265060240963856,
+          "metric": "mrr@5",
+          "n": 830
+        },
+        "ndcg@10": {
+          "differing": 109,
+          "high": 0.012411152464487865,
+          "low": 0.003298804910003108,
+          "mean": 0.007886105651600417,
+          "metric": "ndcg@10",
+          "n": 830
+        },
+        "recall@1": {
+          "differing": 21,
+          "high": 0.009257072634351483,
+          "low": 0.0009590005877656481,
+          "mean": 0.004923997213946484,
+          "metric": "recall@1",
+          "n": 830
+        }
+      },
+      "breakeven_fraction": 0.3022578295702841,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 204,
+            "high": 0.042631024096385535,
+            "low": 0.005621987951807229,
+            "mean": 0.02345381526104418,
+            "metric": "mrr@5",
+            "n": 830
+          },
+          "ndcg@10": {
+            "differing": 623,
+            "high": 0.03065688969991745,
+            "low": 0.006747842461615854,
+            "mean": 0.018640253528743475,
+            "metric": "ndcg@10",
+            "n": 830
+          },
+          "recall@1": {
+            "differing": 150,
+            "high": 0.01090972972330668,
+            "low": -0.005771529492791024,
+            "mean": 0.0023405638883859064,
+            "metric": "recall@1",
+            "n": 830
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 208,
+            "high": 0.048594377510040164,
+            "low": 0.011224397590361446,
+            "mean": 0.029718875502008035,
+            "metric": "mrr@5",
+            "n": 830
+          },
+          "ndcg@10": {
+            "differing": 638,
+            "high": 0.037589881164287506,
+            "low": 0.014754577660089592,
+            "mean": 0.026526359180343892,
+            "metric": "ndcg@10",
+            "n": 830
+          },
+          "recall@1": {
+            "differing": 159,
+            "high": 0.016323166413212575,
+            "low": -0.0017786977162304446,
+            "mean": 0.007264561102332391,
+            "metric": "recall@1",
+            "n": 830
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 208,
+              "high": 0.048594377510040164,
+              "low": 0.011224397590361446,
+              "mean": 0.029718875502008035,
+              "metric": "mrr@5",
+              "n": 830
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 208,
+              "high": 0.048594377510040164,
+              "low": 0.011224397590361446,
+              "mean": 0.029718875502008035,
+              "metric": "mrr@5",
+              "n": 830
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 211,
+            "high": 0.02725050200803212,
+            "low": -0.012631024096385543,
+            "mean": 0.007329317269076305,
+            "metric": "mrr@5",
+            "n": 830
+          },
+          "ndcg@10": {
+            "differing": 621,
+            "high": 0.01924548488846103,
+            "low": -0.005574477559495576,
+            "mean": 0.006423218534253315,
+            "metric": "ndcg@10",
+            "n": 830
+          },
+          "recall@1": {
+            "differing": 160,
+            "high": 0.009906338214841751,
+            "low": -0.00919386541358129,
+            "mean": 0.0005030331126021187,
+            "metric": "recall@1",
+            "n": 830
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 217,
+            "high": 0.03408082329317267,
+            "low": -0.006165160642570281,
+            "mean": 0.01359437751004016,
+            "metric": "mrr@5",
+            "n": 830
+          },
+          "ndcg@10": {
+            "differing": 636,
+            "high": 0.026035665302402894,
+            "low": 0.0022040159933624003,
+            "mean": 0.01430932418585373,
+            "metric": "ndcg@10",
+            "n": 830
+          },
+          "recall@1": {
+            "differing": 169,
+            "high": 0.015523074439342439,
+            "low": -0.0047181857470611375,
+            "mean": 0.005427030326548603,
+            "metric": "recall@1",
+            "n": 830
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 217,
+              "high": 0.03408082329317267,
+              "low": -0.006165160642570281,
+              "mean": 0.01359437751004016,
+              "metric": "mrr@5",
+              "n": 830
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 217,
+              "high": 0.03408082329317267,
+              "low": -0.006165160642570281,
+              "mean": 0.01359437751004016,
+              "metric": "mrr@5",
+              "n": 830
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "mde_against_dense": 0.06428822485671962,
+      "mde_between_reorderers": 0.06822469345209484,
+      "n": 830,
+      "underpowered": true
+    },
+    "anchored=no": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 2,
+          "high": 0.0036144578313253013,
+          "low": -0.0018072289156626507,
+          "mean": 0.0006024096385542169,
+          "metric": "mrr@5",
+          "n": 415
+        },
+        "ndcg@10": {
+          "differing": 6,
+          "high": 0.0021995120537292826,
+          "low": -0.0010774711482745805,
+          "mean": 0.00048784545105933825,
+          "metric": "ndcg@10",
+          "n": 415
+        },
+        "recall@1": {
+          "differing": 1,
+          "high": 0.00019023462270133164,
+          "low": 0.0,
+          "mean": 6.341154090044388e-05,
+          "metric": "recall@1",
+          "n": 415
+        }
+      },
+      "breakeven_fraction": 0.152014652014652,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 113,
+            "high": 0.06963955823293172,
+            "low": 0.011482931726907628,
+            "mean": 0.040160642570281124,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 322,
+            "high": 0.04618262585078795,
+            "low": 0.010540750692743133,
+            "mean": 0.028180715007293324,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 83,
+            "high": 0.0178231793197115,
+            "low": -0.008612204615721654,
+            "mean": 0.004414376455803624,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 113,
+            "high": 0.07113353413654613,
+            "low": 0.011684738955823292,
+            "mean": 0.040763052208835346,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 322,
+            "high": 0.0470603450806201,
+            "low": 0.010519410400457969,
+            "mean": 0.028668560458352664,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 84,
+            "high": 0.01684569056820484,
+            "low": -0.008913854236944987,
+            "mean": 0.004477787996704068,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 113,
+              "high": 0.07113353413654613,
+              "low": 0.011684738955823292,
+              "mean": 0.040763052208835346,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "positive, below worthwhile"
+          },
+          {
+            "mrr@5": {
+              "differing": 113,
+              "high": 0.07113353413654613,
+              "low": 0.011684738955823292,
+              "mean": 0.040763052208835346,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "positive, below worthwhile"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "positive, below worthwhile"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 107,
+            "high": 0.054380522088353395,
+            "low": -0.0002038152610441766,
+            "mean": 0.026706827309236948,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 315,
+            "high": 0.038814778565629794,
+            "low": 0.0019953491588972174,
+            "mean": 0.020607708110551515,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 82,
+            "high": 0.016320175519200782,
+            "low": -0.006542950239071652,
+            "mean": 0.005321134690875113,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 108,
+            "high": 0.05486345381526102,
+            "low": -0.0004056224899598393,
+            "mean": 0.027309236947791166,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 315,
+            "high": 0.03822810999204258,
+            "low": 0.00330424810164149,
+            "mean": 0.021095553561610858,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 83,
+            "high": 0.016521138414823562,
+            "low": -0.006787968357313223,
+            "mean": 0.005384546231775557,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 108,
+              "high": 0.05486345381526102,
+              "low": -0.0004056224899598393,
+              "mean": 0.027309236947791166,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "inconclusive (underpowered)"
+          },
+          {
+            "mrr@5": {
+              "differing": 108,
+              "high": 0.05486345381526102,
+              "low": -0.0004056224899598393,
+              "mean": 0.027309236947791166,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "inconclusive (underpowered)"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "inconclusive (underpowered)"
+      },
+      "mde_against_dense": 0.09066048439241461,
+      "mde_between_reorderers": 0.0962480947699371,
+      "n": 415,
+      "underpowered": true
+    },
+    "anchored=yes": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 29,
+          "high": 0.02578413654618474,
+          "low": -0.0016094377510040166,
+          "mean": 0.011927710843373494,
+          "metric": "mrr@5",
+          "n": 415
+        },
+        "ndcg@10": {
+          "differing": 103,
+          "high": 0.023917485363053215,
+          "low": 0.006864790465128699,
+          "mean": 0.015284365852141494,
+          "metric": "ndcg@10",
+          "n": 415
+        },
+        "recall@1": {
+          "differing": 20,
+          "high": 0.019161665392840078,
+          "low": 0.001946094317329257,
+          "mean": 0.009784582886992525,
+          "metric": "recall@1",
+          "n": 415
+        }
+      },
+      "breakeven_fraction": 0.1503623188405797,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 91,
+            "high": 0.0316074297188755,
+            "low": -0.018156626506024096,
+            "mean": 0.006746987951807229,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 301,
+            "high": 0.024046834207435204,
+            "low": -0.005875618416843597,
+            "mean": 0.009099792050193626,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 67,
+            "high": 0.012501820970194458,
+            "low": -0.010755016319022342,
+            "mean": 0.0002667513209681884,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 95,
+            "high": 0.04526204819277108,
+            "low": -0.005906626506024097,
+            "mean": 0.018674698795180723,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 316,
+            "high": 0.0390303093140422,
+            "low": 0.008996283781180748,
+            "mean": 0.02438415790233512,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 75,
+            "high": 0.02342095504896709,
+            "low": -0.003867898667597463,
+            "mean": 0.010051334207960715,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 95,
+              "high": 0.04526204819277108,
+              "low": -0.005906626506024097,
+              "mean": 0.018674698795180723,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 95,
+              "high": 0.04526204819277108,
+              "low": -0.005906626506024097,
+              "mean": 0.018674698795180723,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 104,
+            "high": 0.015469879518072245,
+            "low": -0.039920682730923696,
+            "mean": -0.012048192771084338,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 306,
+            "high": 0.008590933872276423,
+            "low": -0.024935913430143872,
+            "mean": -0.007761271042044888,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 78,
+            "high": 0.009865128964074746,
+            "low": -0.019631767295622715,
+            "mean": -0.004315068465670875,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 109,
+            "high": 0.026869477911646577,
+            "low": -0.02895582329317269,
+            "mean": -0.00012048192771084361,
+            "metric": "mrr@5",
+            "n": 415
+          },
+          "ndcg@10": {
+            "differing": 321,
+            "high": 0.02412103734106569,
+            "low": -0.010097984982071137,
+            "mean": 0.007523094810096607,
+            "metric": "ndcg@10",
+            "n": 415
+          },
+          "recall@1": {
+            "differing": 86,
+            "high": 0.022240911264104022,
+            "low": -0.011557426659685696,
+            "mean": 0.00546951442132165,
+            "metric": "recall@1",
+            "n": 415
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 109,
+              "high": 0.026869477911646577,
+              "low": -0.02895582329317269,
+              "mean": -0.00012048192771084361,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 109,
+              "high": 0.026869477911646577,
+              "low": -0.02895582329317269,
+              "mean": -0.00012048192771084361,
+              "metric": "mrr@5",
+              "n": 415
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "mde_against_dense": 0.09117335131849282,
+      "mde_between_reorderers": 0.09671990198344113,
+      "n": 415,
+      "underpowered": true
+    },
+    "identifier-exact=yes": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 18,
+          "high": 0.04773462783171521,
+          "low": 0.006866909385113268,
+          "mean": 0.02588996763754045,
+          "metric": "mrr@5",
+          "n": 206
+        },
+        "ndcg@10": {
+          "differing": 65,
+          "high": 0.035023416033495326,
+          "low": 0.00999318421601212,
+          "mean": 0.022074927783110602,
+          "metric": "ndcg@10",
+          "n": 206
+        },
+        "recall@1": {
+          "differing": 15,
+          "high": 0.03362131194048668,
+          "low": 0.0054142762577228595,
+          "mean": 0.01775902091436072,
+          "metric": "recall@1",
+          "n": 206
+        }
+      },
+      "breakeven_fraction": 0.07330960854092526,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 39,
+            "high": 0.005989077669902903,
+            "low": -0.053483009708737865,
+            "mean": -0.023705501618122977,
+            "metric": "mrr@5",
+            "n": 206
+          },
+          "ndcg@10": {
+            "differing": 148,
+            "high": 0.01968126874425209,
+            "low": -0.014766961694373597,
+            "mean": 0.0026127924543231525,
+            "metric": "ndcg@10",
+            "n": 206
+          },
+          "recall@1": {
+            "differing": 30,
+            "high": -0.0017230872889246903,
+            "low": -0.0320769006478958,
+            "mean": -0.015539880831142966,
+            "metric": "recall@1",
+            "n": 206
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 45,
+            "high": 0.034552993527508055,
+            "low": -0.030588592233009707,
+            "mean": 0.0021844660194174754,
+            "metric": "mrr@5",
+            "n": 206
+          },
+          "ndcg@10": {
+            "differing": 158,
+            "high": 0.04359751081381544,
+            "low": 0.0049338551554931305,
+            "mean": 0.024687720237433753,
+            "metric": "ndcg@10",
+            "n": 206
+          },
+          "recall@1": {
+            "differing": 35,
+            "high": 0.021157335787190153,
+            "low": -0.015716741793804903,
+            "mean": 0.0022191400832177535,
+            "metric": "recall@1",
+            "n": 206
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 45,
+              "high": 0.034552993527508055,
+              "low": -0.030588592233009707,
+              "mean": 0.0021844660194174754,
+              "metric": "mrr@5",
+              "n": 206
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 45,
+              "high": 0.034552993527508055,
+              "low": -0.030588592233009707,
+              "mean": 0.0021844660194174754,
+              "metric": "mrr@5",
+              "n": 206
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 51,
+            "high": -0.00525687702265373,
+            "low": -0.08244943365695794,
+            "mean": -0.04255663430420712,
+            "metric": "mrr@5",
+            "n": 206
+          },
+          "ndcg@10": {
+            "differing": 154,
+            "high": 0.005662999895227783,
+            "low": -0.04218712952250244,
+            "mean": -0.017427531633925547,
+            "metric": "ndcg@10",
+            "n": 206
+          },
+          "recall@1": {
+            "differing": 43,
+            "high": -0.0034351188522911925,
+            "low": -0.04785861960315844,
+            "mean": -0.025351677718182572,
+            "metric": "recall@1",
+            "n": 206
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 59,
+            "high": 0.025568365695792874,
+            "low": -0.056636326860841434,
+            "mean": -0.016666666666666666,
+            "metric": "mrr@5",
+            "n": 206
+          },
+          "ndcg@10": {
+            "differing": 166,
+            "high": 0.02767045018280716,
+            "low": -0.021907468948812302,
+            "mean": 0.004647396149185051,
+            "metric": "ndcg@10",
+            "n": 206
+          },
+          "recall@1": {
+            "differing": 50,
+            "high": 0.01741268137202599,
+            "low": -0.03372292014889102,
+            "mean": -0.0075926568038218525,
+            "metric": "recall@1",
+            "n": 206
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 59,
+              "high": 0.025568365695792874,
+              "low": -0.056636326860841434,
+              "mean": -0.016666666666666666,
+              "metric": "mrr@5",
+              "n": 206
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 59,
+              "high": 0.025568365695792874,
+              "low": -0.056636326860841434,
+              "mean": -0.016666666666666666,
+              "metric": "mrr@5",
+              "n": 206
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "mde_against_dense": 0.13056387542633316,
+      "mde_between_reorderers": 0.13794609894300106,
+      "n": 206,
+      "underpowered": true
+    },
+    "oracle-labelled": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 26,
+          "high": 0.027706709956709954,
+          "low": -0.00043398268398268355,
+          "mean": 0.013203463203463203,
+          "metric": "mrr@5",
+          "n": 385
+        },
+        "ndcg@10": {
+          "differing": 93,
+          "high": 0.021581198730407508,
+          "low": 0.0049821984565083365,
+          "mean": 0.013141260083465708,
+          "metric": "ndcg@10",
+          "n": 385
+        },
+        "recall@1": {
+          "differing": 19,
+          "high": 0.01658630060415773,
+          "low": 0.0009398961428182206,
+          "mean": 0.00794961531974519,
+          "metric": "recall@1",
+          "n": 385
+        }
+      },
+      "breakeven_fraction": 0.1375,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 79,
+            "high": 0.01784090909090906,
+            "low": -0.0303495670995671,
+            "mean": -0.006839826839826839,
+            "metric": "mrr@5",
+            "n": 385
+          },
+          "ndcg@10": {
+            "differing": 276,
+            "high": 0.013839031977795827,
+            "low": -0.014010339587378259,
+            "mean": -0.00011611073558106882,
+            "metric": "ndcg@10",
+            "n": 385
+          },
+          "recall@1": {
+            "differing": 57,
+            "high": 0.005945076568453187,
+            "low": -0.01674216908632493,
+            "mean": -0.005524713381856239,
+            "metric": "recall@1",
+            "n": 385
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 83,
+            "high": 0.030737012987012976,
+            "low": -0.019915584415584418,
+            "mean": 0.006363636363636363,
+            "metric": "mrr@5",
+            "n": 385
+          },
+          "ndcg@10": {
+            "differing": 289,
+            "high": 0.027185990818725313,
+            "low": -0.0012572476478349933,
+            "mean": 0.013025149347884641,
+            "metric": "ndcg@10",
+            "n": 385
+          },
+          "recall@1": {
+            "differing": 64,
+            "high": 0.015100557991791752,
+            "low": -0.00968134733232136,
+            "mean": 0.0024249019378889507,
+            "metric": "recall@1",
+            "n": 385
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 83,
+              "high": 0.030737012987012976,
+              "low": -0.019915584415584418,
+              "mean": 0.006363636363636363,
+              "metric": "mrr@5",
+              "n": 385
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 83,
+              "high": 0.030737012987012976,
+              "low": -0.019915584415584418,
+              "mean": 0.006363636363636363,
+              "metric": "mrr@5",
+              "n": 385
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 91,
+            "high": 0.0018658008658008424,
+            "low": -0.05333441558441559,
+            "mean": -0.02515151515151515,
+            "metric": "mrr@5",
+            "n": 385
+          },
+          "ndcg@10": {
+            "differing": 278,
+            "high": 0.0021730495110253976,
+            "low": -0.031257952341392635,
+            "mean": -0.014480469424452002,
+            "metric": "ndcg@10",
+            "n": 385
+          },
+          "recall@1": {
+            "differing": 70,
+            "high": 0.0054840211556120375,
+            "low": -0.023795589006952642,
+            "mean": -0.008949390436403424,
+            "metric": "recall@1",
+            "n": 385
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 96,
+            "high": 0.017366883116883076,
+            "low": -0.040652597402597405,
+            "mean": -0.011948051948051949,
+            "metric": "mrr@5",
+            "n": 385
+          },
+          "ndcg@10": {
+            "differing": 292,
+            "high": 0.01703887522490878,
+            "low": -0.01836427020867753,
+            "mean": -0.0013392093409862916,
+            "metric": "ndcg@10",
+            "n": 385
+          },
+          "recall@1": {
+            "differing": 77,
+            "high": 0.014868441136785267,
+            "low": -0.01774801542252841,
+            "mean": -0.0009997751166582335,
+            "metric": "recall@1",
+            "n": 385
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 96,
+              "high": 0.017366883116883076,
+              "low": -0.040652597402597405,
+              "mean": -0.011948051948051949,
+              "metric": "mrr@5",
+              "n": 385
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 96,
+              "high": 0.017366883116883076,
+              "low": -0.040652597402597405,
+              "mean": -0.011948051948051949,
+              "metric": "mrr@5",
+              "n": 385
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "mde_against_dense": 0.09532745748522238,
+      "mde_between_reorderers": 0.10051109062607458,
+      "n": 385,
+      "underpowered": true
+    },
+    "rule-fires=false": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 0,
+          "high": 0.0,
+          "low": 0.0,
+          "mean": 0.0,
+          "metric": "mrr@5",
+          "n": 626
+        },
+        "ndcg@10": {
+          "differing": 0,
+          "high": 0.0,
+          "low": 0.0,
+          "mean": 0.0,
+          "metric": "ndcg@10",
+          "n": 626
+        },
+        "recall@1": {
+          "differing": 0,
+          "high": 0.0,
+          "low": 0.0,
+          "mean": 0.0,
+          "metric": "recall@1",
+          "n": 626
+        }
+      },
+      "breakeven_fraction": 0.2266473569876901,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 158,
+            "high": 0.048777289669861536,
+            "low": 0.0038864483493077726,
+            "mean": 0.026304579339723105,
+            "metric": "mrr@5",
+            "n": 626
+          },
+          "ndcg@10": {
+            "differing": 485,
+            "high": 0.03352298246087616,
+            "low": 0.005615295942138458,
+            "mean": 0.019956362152371482,
+            "metric": "ndcg@10",
+            "n": 626
+          },
+          "recall@1": {
+            "differing": 117,
+            "high": 0.011593573065942653,
+            "low": -0.009288816513195451,
+            "mean": 0.00136268528391895,
+            "metric": "recall@1",
+            "n": 626
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 158,
+            "high": 0.048777289669861536,
+            "low": 0.0038864483493077726,
+            "mean": 0.026304579339723105,
+            "metric": "mrr@5",
+            "n": 626
+          },
+          "ndcg@10": {
+            "differing": 485,
+            "high": 0.03352298246087616,
+            "low": 0.005615295942138458,
+            "mean": 0.019956362152371482,
+            "metric": "ndcg@10",
+            "n": 626
+          },
+          "recall@1": {
+            "differing": 117,
+            "high": 0.011593573065942653,
+            "low": -0.009288816513195451,
+            "mean": 0.00136268528391895,
+            "metric": "recall@1",
+            "n": 626
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 158,
+              "high": 0.048777289669861536,
+              "low": 0.0038864483493077726,
+              "mean": 0.026304579339723105,
+              "metric": "mrr@5",
+              "n": 626
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 158,
+              "high": 0.048777289669861536,
+              "low": 0.0038864483493077726,
+              "mean": 0.026304579339723105,
+              "metric": "mrr@5",
+              "n": 626
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 165,
+            "high": 0.03336062300319488,
+            "low": -0.014538072417465391,
+            "mean": 0.009877529286474972,
+            "metric": "mrr@5",
+            "n": 626
+          },
+          "ndcg@10": {
+            "differing": 480,
+            "high": 0.023920226716463343,
+            "low": -0.006019354777235138,
+            "mean": 0.008375664537070667,
+            "metric": "ndcg@10",
+            "n": 626
+          },
+          "recall@1": {
+            "differing": 126,
+            "high": 0.011888860753634331,
+            "low": -0.01061352173815238,
+            "mean": 0.0011217155241792223,
+            "metric": "recall@1",
+            "n": 626
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 165,
+            "high": 0.03336062300319488,
+            "low": -0.014538072417465391,
+            "mean": 0.009877529286474972,
+            "metric": "mrr@5",
+            "n": 626
+          },
+          "ndcg@10": {
+            "differing": 480,
+            "high": 0.023920226716463343,
+            "low": -0.006019354777235138,
+            "mean": 0.008375664537070667,
+            "metric": "ndcg@10",
+            "n": 626
+          },
+          "recall@1": {
+            "differing": 126,
+            "high": 0.011888860753634331,
+            "low": -0.01061352173815238,
+            "mean": 0.0011217155241792223,
+            "metric": "recall@1",
+            "n": 626
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 165,
+              "high": 0.03336062300319488,
+              "low": -0.014538072417465391,
+              "mean": 0.009877529286474972,
+              "metric": "mrr@5",
+              "n": 626
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 165,
+              "high": 0.03336062300319488,
+              "low": -0.014538072417465391,
+              "mean": 0.009877529286474972,
+              "metric": "mrr@5",
+              "n": 626
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "mde_against_dense": 0.07425801396306765,
+      "mde_between_reorderers": 0.07849808397667074,
+      "n": 626,
+      "underpowered": true
+    },
+    "rule-fires=true": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 31,
+          "high": 0.053766339869281005,
+          "low": -0.003515114379084969,
+          "mean": 0.025490196078431372,
+          "metric": "mrr@5",
+          "n": 204
+        },
+        "ndcg@10": {
+          "differing": 109,
+          "high": 0.049643532671502746,
+          "low": 0.014947194505722978,
+          "mean": 0.03208562593543307,
+          "metric": "ndcg@10",
+          "n": 204
+        },
+        "recall@1": {
+          "differing": 21,
+          "high": 0.039167190201439425,
+          "low": 0.0038473697086796933,
+          "mean": 0.020033910233213638,
+          "metric": "recall@1",
+          "n": 204
+        }
+      },
+      "breakeven_fraction": 0.07578008915304606,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 46,
+            "high": 0.04795751633986928,
+            "low": -0.018627450980392157,
+            "mean": 0.014705882352941178,
+            "metric": "mrr@5",
+            "n": 204
+          },
+          "ndcg@10": {
+            "differing": 138,
+            "high": 0.03407939622184476,
+            "low": -0.004690521870218344,
+            "mean": 0.014601606477806558,
+            "metric": "ndcg@10",
+            "n": 204
+          },
+          "recall@1": {
+            "differing": 33,
+            "high": 0.022657512524240454,
+            "low": -0.010531088090830738,
+            "mean": 0.005341309017779606,
+            "metric": "recall@1",
+            "n": 204
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 50,
+            "high": 0.07925040849673202,
+            "low": 0.0034272875816993465,
+            "mean": 0.04019607843137255,
+            "metric": "mrr@5",
+            "n": 204
+          },
+          "ndcg@10": {
+            "differing": 153,
+            "high": 0.06796335554951839,
+            "low": 0.02567849560502685,
+            "mean": 0.046687232413239625,
+            "metric": "ndcg@10",
+            "n": 204
+          },
+          "recall@1": {
+            "differing": 42,
+            "high": 0.04623318849300854,
+            "low": 0.005538310803403683,
+            "mean": 0.02537521925099324,
+            "metric": "recall@1",
+            "n": 204
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 50,
+              "high": 0.07925040849673202,
+              "low": 0.0034272875816993465,
+              "mean": 0.04019607843137255,
+              "metric": "mrr@5",
+              "n": 204
+            },
+            "verdict": "positive, below worthwhile"
+          },
+          {
+            "mrr@5": {
+              "differing": 50,
+              "high": 0.07925040849673202,
+              "low": 0.0034272875816993465,
+              "mean": 0.04019607843137255,
+              "metric": "mrr@5",
+              "n": 204
+            },
+            "verdict": "positive, below worthwhile"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "positive, below worthwhile"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 46,
+            "high": 0.03374591503267972,
+            "low": -0.03423202614379085,
+            "mean": -0.0004901960784313708,
+            "metric": "mrr@5",
+            "n": 204
+          },
+          "ndcg@10": {
+            "differing": 141,
+            "high": 0.018818723407051038,
+            "low": -0.01723194772926285,
+            "mean": 0.00043188913345104803,
+            "metric": "ndcg@10",
+            "n": 204
+          },
+          "recall@1": {
+            "differing": 34,
+            "high": 0.017121760150252786,
+            "low": -0.020535685549472316,
+            "mean": -0.0013954727190021307,
+            "metric": "recall@1",
+            "n": 204
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 52,
+            "high": 0.06397467320261437,
+            "low": -0.014142156862745095,
+            "mean": 0.025,
+            "metric": "mrr@5",
+            "n": 204
+          },
+          "ndcg@10": {
+            "differing": 156,
+            "high": 0.05459700402055056,
+            "low": 0.012259168264939129,
+            "mean": 0.03251751506888411,
+            "metric": "ndcg@10",
+            "n": 204
+          },
+          "recall@1": {
+            "differing": 43,
+            "high": 0.04377335967409491,
+            "low": -0.004112772726356318,
+            "mean": 0.018638437514211507,
+            "metric": "recall@1",
+            "n": 204
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 52,
+              "high": 0.06397467320261437,
+              "low": -0.014142156862745095,
+              "mean": 0.025,
+              "metric": "mrr@5",
+              "n": 204
+            },
+            "verdict": "inconclusive (underpowered)"
+          },
+          {
+            "mrr@5": {
+              "differing": 52,
+              "high": 0.06397467320261437,
+              "low": -0.014142156862745095,
+              "mean": 0.025,
+              "metric": "mrr@5",
+              "n": 204
+            },
+            "verdict": "inconclusive (underpowered)"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "inconclusive (underpowered)"
+      },
+      "mde_against_dense": 0.1284186305608534,
+      "mde_between_reorderers": 0.1379394693095024,
+      "n": 204,
+      "underpowered": true
+    },
+    "split=test": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 17,
+          "high": 0.016826923076923076,
+          "low": -0.0024469150641025644,
+          "mean": 0.006891025641025641,
+          "metric": "mrr@5",
+          "n": 416
+        },
+        "ndcg@10": {
+          "differing": 61,
+          "high": 0.017926103298006476,
+          "low": 0.0036401598732072166,
+          "mean": 0.010666574199424036,
+          "metric": "ndcg@10",
+          "n": 416
+        },
+        "recall@1": {
+          "differing": 10,
+          "high": 0.013757557546620046,
+          "low": 0.0011991213914290836,
+          "mean": 0.006647839340147033,
+          "metric": "recall@1",
+          "n": 416
+        }
+      },
+      "breakeven_fraction": 0.15226939970717424,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 105,
+            "high": 0.05921474358974359,
+            "low": 0.005085136217948719,
+            "mean": 0.03197115384615385,
+            "metric": "mrr@5",
+            "n": 416
+          },
+          "ndcg@10": {
+            "differing": 319,
+            "high": 0.036827109315741326,
+            "low": 0.0027671396454893725,
+            "mean": 0.01914607027790017,
+            "metric": "ndcg@10",
+            "n": 416
+          },
+          "recall@1": {
+            "differing": 81,
+            "high": 0.01770587686358564,
+            "low": -0.01003865258672951,
+            "mean": 0.004131830149878382,
+            "metric": "recall@1",
+            "n": 416
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 105,
+            "high": 0.06631410256410251,
+            "low": 0.010896434294871794,
+            "mean": 0.03886217948717949,
+            "metric": "mrr@5",
+            "n": 416
+          },
+          "ndcg@10": {
+            "differing": 326,
+            "high": 0.04653194213805589,
+            "low": 0.012937887572514533,
+            "mean": 0.029812644477324204,
+            "metric": "ndcg@10",
+            "n": 416
+          },
+          "recall@1": {
+            "differing": 81,
+            "high": 0.02568333380463836,
+            "low": -0.004262983989124847,
+            "mean": 0.010779669490025413,
+            "metric": "recall@1",
+            "n": 416
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 105,
+              "high": 0.06631410256410251,
+              "low": 0.010896434294871794,
+              "mean": 0.03886217948717949,
+              "metric": "mrr@5",
+              "n": 416
+            },
+            "verdict": "positive, below worthwhile"
+          },
+          {
+            "mrr@5": {
+              "differing": 105,
+              "high": 0.06631410256410251,
+              "low": 0.010896434294871794,
+              "mean": 0.03886217948717949,
+              "metric": "mrr@5",
+              "n": 416
+            },
+            "verdict": "positive, below worthwhile"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "positive, below worthwhile"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 113,
+            "high": 0.03578024839743588,
+            "low": -0.0233583733974359,
+            "mean": 0.006810897435897438,
+            "metric": "mrr@5",
+            "n": 416
+          },
+          "ndcg@10": {
+            "differing": 321,
+            "high": 0.02328452164321194,
+            "low": -0.014219025205428401,
+            "mean": 0.004692986339749945,
+            "metric": "ndcg@10",
+            "n": 416
+          },
+          "recall@1": {
+            "differing": 91,
+            "high": 0.011988017205667056,
+            "low": -0.017139339725703716,
+            "mean": -0.002177229713868982,
+            "metric": "recall@1",
+            "n": 416
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 115,
+            "high": 0.043394431089743564,
+            "low": -0.015505809294871794,
+            "mean": 0.013701923076923077,
+            "metric": "mrr@5",
+            "n": 416
+          },
+          "ndcg@10": {
+            "differing": 329,
+            "high": 0.03416629751085273,
+            "low": -0.004096379143847388,
+            "mean": 0.01535956053917398,
+            "metric": "ndcg@10",
+            "n": 416
+          },
+          "recall@1": {
+            "differing": 93,
+            "high": 0.020491629724119446,
+            "low": -0.011829492311822105,
+            "mean": 0.004470609626278051,
+            "metric": "recall@1",
+            "n": 416
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 115,
+              "high": 0.043394431089743564,
+              "low": -0.015505809294871794,
+              "mean": 0.013701923076923077,
+              "metric": "mrr@5",
+              "n": 416
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 115,
+              "high": 0.043394431089743564,
+              "low": -0.015505809294871794,
+              "mean": 0.013701923076923077,
+              "metric": "mrr@5",
+              "n": 416
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "mde_against_dense": 0.09058825259864406,
+      "mde_between_reorderers": 0.09648740221905784,
+      "n": 416,
+      "underpowered": true
+    },
+    "split=train": {
+      "anchor-promote against dense": {
+        "mrr@5": {
+          "differing": 14,
+          "high": 0.015901771336553943,
+          "low": -0.0045491143317230275,
+          "mean": 0.005636070853462157,
+          "metric": "mrr@5",
+          "n": 414
+        },
+        "ndcg@10": {
+          "differing": 48,
+          "high": 0.010763992236643066,
+          "low": 9.577089280350779e-05,
+          "mean": 0.005092204888569919,
+          "metric": "ndcg@10",
+          "n": 414
+        },
+        "recall@1": {
+          "differing": 11,
+          "high": 0.009815288930706548,
+          "low": -0.002058222944950634,
+          "mean": 0.0031918273480058376,
+          "metric": "recall@1",
+          "n": 414
+        }
+      },
+      "breakeven_fraction": 0.15010877447425672,
+      "cross-encoder-bge": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 99,
+            "high": 0.04170793075684379,
+            "low": -0.011917270531400967,
+            "mean": 0.014895330112721416,
+            "metric": "mrr@5",
+            "n": 414
+          },
+          "ndcg@10": {
+            "differing": 304,
+            "high": 0.03337411884855237,
+            "low": 0.002559423851270922,
+            "mean": 0.01813199322041211,
+            "metric": "ndcg@10",
+            "n": 414
+          },
+          "recall@1": {
+            "differing": 69,
+            "high": 0.011717066375723886,
+            "low": -0.009713302406022658,
+            "mean": 0.0005406441666929843,
+            "metric": "recall@1",
+            "n": 414
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 103,
+            "high": 0.048673510466988715,
+            "low": -0.006764291465378424,
+            "mean": 0.020531400966183576,
+            "metric": "mrr@5",
+            "n": 414
+          },
+          "ndcg@10": {
+            "differing": 312,
+            "high": 0.039384594627849774,
+            "low": 0.006869498795393277,
+            "mean": 0.02322419810898203,
+            "metric": "ndcg@10",
+            "n": 414
+          },
+          "recall@1": {
+            "differing": 78,
+            "high": 0.01659625089187444,
+            "low": -0.008103265265259925,
+            "mean": 0.003732471514698822,
+            "metric": "recall@1",
+            "n": 414
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 103,
+              "high": 0.048673510466988715,
+              "low": -0.006764291465378424,
+              "mean": 0.020531400966183576,
+              "metric": "mrr@5",
+              "n": 414
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 103,
+              "high": 0.048673510466988715,
+              "low": -0.006764291465378424,
+              "mean": 0.020531400966183576,
+              "metric": "mrr@5",
+              "n": 414
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "cross-encoder-minilm": {
+        "against anchor-promote (descriptive)": {
+          "mrr@5": {
+            "differing": 98,
+            "high": 0.03559983896940412,
+            "low": -0.017514090177133658,
+            "mean": 0.007850241545893718,
+            "metric": "mrr@5",
+            "n": 414
+          },
+          "ndcg@10": {
+            "differing": 300,
+            "high": 0.025303843967889407,
+            "low": -0.008082448442660208,
+            "mean": 0.008161809338391966,
+            "metric": "ndcg@10",
+            "n": 414
+          },
+          "recall@1": {
+            "differing": 69,
+            "high": 0.014747303784584475,
+            "low": -0.007919810052294796,
+            "mean": 0.003196244068669698,
+            "metric": "recall@1",
+            "n": 414
+          }
+        },
+        "against dense": {
+          "mrr@5": {
+            "differing": 102,
+            "high": 0.04078401771336552,
+            "low": -0.013448067632850242,
+            "mean": 0.013486312399355877,
+            "metric": "mrr@5",
+            "n": 414
+          },
+          "ndcg@10": {
+            "differing": 307,
+            "high": 0.03030669254300829,
+            "low": -0.0029655873098037347,
+            "mean": 0.013254014226961887,
+            "metric": "ndcg@10",
+            "n": 414
+          },
+          "recall@1": {
+            "differing": 76,
+            "high": 0.019992255815172482,
+            "low": -0.006137769901476042,
+            "mean": 0.006388071416675536,
+            "metric": "recall@1",
+            "n": 414
+          }
+        },
+        "repetitions": [
+          {
+            "mrr@5": {
+              "differing": 102,
+              "high": 0.04078401771336552,
+              "low": -0.013448067632850242,
+              "mean": 0.013486312399355877,
+              "metric": "mrr@5",
+              "n": 414
+            },
+            "verdict": "benefit ruled out"
+          },
+          {
+            "mrr@5": {
+              "differing": 102,
+              "high": 0.04078401771336552,
+              "low": -0.013448067632850242,
+              "mean": 0.013486312399355877,
+              "metric": "mrr@5",
+              "n": 414
+            },
+            "verdict": "benefit ruled out"
+          }
+        ],
+        "repetitions differ on": 0,
+        "verdict": "benefit ruled out"
+      },
+      "mde_against_dense": 0.09124776083894844,
+      "mde_between_reorderers": 0.09648057809063744,
+      "n": 414,
+      "underpowered": true
+    }
+  },
+  "worthwhile": 0.05
+}
