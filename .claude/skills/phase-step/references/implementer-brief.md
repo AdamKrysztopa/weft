@@ -199,6 +199,11 @@ result about neither — three unrelated red tests, naming nothing (`docs/intern
 `L6.22`). `isolation: "worktree"`, every dispatch's default since **G14**, gives an agent its own checkout; it does **not** give it its own
 container, so anything touching the database is serial whatever the isolation.
 
+**A brief's *Done when* names the exact test paths the agent may run** (`L28.21`). "Unit only, no
+database" was not a boundary: `tests/unit/weft_store` holds a pgvector test on the shared Postgres,
+and an agent ran it beside the dispatcher's gate. `guard_unstaged_gate.py` now refuses the full
+gate while an `agent-*` worktree is locked; the brief keeps the agent's own runs off the container.
+
 **A worktree brief opens with *Step 0 — apply the red tests*** (`docs/internal/lessons.md`
 `L22.19`): the worktree is built from `HEAD` and the failing tests are uncommitted in the
 dispatcher's checkout, so the brief names a patch path, says to `git apply --index` it (`L28.17`: plain

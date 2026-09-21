@@ -368,6 +368,15 @@ vacuous.** Four shapes, all of them cheap to check once named:
   in every message *about* that key. Name the leaf class, and match a fragment of the sentence's
   **claim**, not of its subject (`L12.12`).
 
+**A double of a store method implements the method's whole documented effect** (`L28.20`):
+`36.1` wrote a failure record and then released the source's nodes with `delete_source`, and every
+test passed against a double that only logged the call. A real store's `delete_source` removes the
+record too, so the exit found no record at all. Read the conformance check that specifies the
+method, and make the double do all of it. **And an exception's path is tested from where it
+starts to the handler that should catch it** (`L28.19`): `R38.17`'s tests asserted
+`ReaderGoneError` leaving the client, and the kernel seam then wrapped it again on the way to the
+CLI. Raise it where it originates, assert at the handler.
+
 **A comparison whose two sides come from one source cannot disagree, and this is not only a
 fitness-function rule.** *Finish* item 3 states it for checks; it applies identically to an ordinary
 unit test — an expected value read from the same literal as the value under test (`L9.28`), or a

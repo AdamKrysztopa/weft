@@ -2064,6 +2064,14 @@ All checks run in CI, before tests.
     and task 33.3 empties it. The blind spot is stated on the module: a store method a retriever
     calls inside its own `run` is timed only as part of that retriever's record.
     `tests/architecture/test_ff33_every_plugin_call_is_timed.py`.
+34. **Only a representation marker carries a `technique` field.** Added 2026-09-21 from
+    `L28.18`. `weft_generate.representation` cites a single-parent node carrying an ext value
+    with a `technique: str` as its parent, so any other ext model with that field turns the node
+    carrying it into a stand-in: `R38.13`'s marker did, and a degraded chunk was cited as its
+    whole document (`R38.20`). The walk imports every first-party package and checks every
+    `ExtModel` subclass (27 at filing) against `REPRESENTATION_MARKERS`, which holds
+    `Representation` alone.
+    `tests/architecture/test_ff34_only_a_representation_names_a_technique.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
