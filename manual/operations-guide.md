@@ -976,8 +976,10 @@ weft eval baseline corpus/manifest.toml eval/questions
 
 With no flags that is the published measurement: `--tiers fetch`, `--repeats 3`, `--top-k 10`,
 `--depths 5,10`, and the shipped `baseline` pipeline. Run from an install of the two wheels, outside
-this repository, against an empty Qdrant collection (2026-09-14), it exited `0` and wrote
-`baselines/8854c33f71ea-2026-09-14.json` — the same corpus digest the published file carries.
+this repository, against an empty Qdrant collection (2026-09-14), it exited `0` and wrote a
+report under the same corpus digest, `8854c33f71ea`, that the published
+`eval/baselines/8854c33f71ea-2026-08-25.json` carries. That run was not published; the published
+reports are the two files under `eval/baselines/`.
 
 **The pipeline is a shipped document, and the store has to hold nothing else.** `baseline` is
 `text` → `fixed-size` → `hash` → `qdrant`: single-vector top-k with no fusion, rerank or
