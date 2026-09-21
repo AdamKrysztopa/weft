@@ -447,6 +447,15 @@ class IndexArgs(BaseModel):
             "silently compute a different tree per batch."
         ),
     )
+    retry_failed: bool = Field(
+        default=False,
+        description=(
+            "retry a source a previous run recorded failed, instead of skipping it — paid "
+            "stages sit on the ingest path, so a failure is not retried unasked (ledger task "
+            "36.2). A source whose bytes or pipeline moved since it failed is indexed either "
+            "way, with or without this flag."
+        ),
+    )
 
 
 class AskArgs(BaseModel):
@@ -530,6 +539,8 @@ class IndexCommandResult(CommandResult):
     #: print what this run counts without importing that dataclass.
     documents_discovered: int = 0
     documents_indexed: int = 0
+    #: Ledger **36.3**: documents this run recorded failed.
+    documents_failed: int = 0
     #: Ledger task **31.14** — the payload index field paths the store ensured for this run, so
     #: an operator learns from the binary what `31.1` guarantees: every filter Weft itself issues
     #: against Qdrant is served by an index that exists *before the first point is written*. Empty
@@ -809,6 +820,7 @@ class IndexCommand:
             extractor=index_args.extract,
             reprocess=index_args.reprocess,
             batch_size=index_args.batch_size,
+            retry_failed=index_args.retry_failed,
         )
         if result.resolved_pipeline is not None:
             # Carried repair R11.2's second half: `stores_in_use`'s run-record source only ever
@@ -840,6 +852,7 @@ class IndexCommand:
                 defaulted_embedder=defaulted_embedder,
                 documents_discovered=len(result.document_ids),
                 documents_indexed=result.documents_indexed,
+                documents_failed=result.documents_failed,
                 payload_indexes=result.payload_indexes,
                 degraded_expansions=result.degraded_expansions,
             )

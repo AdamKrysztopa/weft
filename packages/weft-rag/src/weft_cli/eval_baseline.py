@@ -497,7 +497,14 @@ class EvalBaselineCommand:
         # A wall-clock-timed ingest must not silently skip an unchanged document (ledger task
         # 17.0).
         await run_index_for(
-            deps, corpus_dir, ctx=ctx, pipeline=baseline_args.pipeline, reprocess=True
+            deps,
+            corpus_dir,
+            ctx=ctx,
+            pipeline=baseline_args.pipeline,
+            reprocess=True,
+            # Ledger **36.2** — a baseline run does not retry a previously failed source either;
+            # today's behaviour, named rather than left to the default.
+            retry_failed=False,
         )
         ingest_seconds = time.monotonic() - ingest_started
 

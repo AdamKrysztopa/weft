@@ -551,28 +551,37 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
     before the new one runs. So the text says what now happens instead of warning about what
     used to, and an operator reading *"the earlier parse's nodes are still stored beside the new
     ones"* against a store where they are not would be worse served than by no line at all.
+
+    **`RETRIED` joins `INCOMPLETE` on the bulk footing, ledger `36.3`, and never as "did not
+    finish".** `--retry-failed` can retry a batch of thousands at once, arriving in bulk the same
+    way a `kill -9` does; but it is not the same fact — a run that finished and recorded a source
+    `FAILED` did not fail to finish, and carried repair `R36.0`'s own gap was exactly that wording
+    reused for a case it does not describe.
     """
+    bulked = {
+        SourceChange.INCOMPLETE: (
+            "a previous index of this document did not finish — indexed again",
+            "a previous index did not finish — indexed again",
+        ),
+        SourceChange.RETRIED: ("failed earlier — retried", "failed earlier — retried"),
+    }
     reportable = {
         SourceChange.CONTENT_CHANGED: "changed on disk — re-parsed, and its earlier parse released",
         SourceChange.PIPELINE_CHANGED: (
             "unchanged on disk but re-parsed by a different pipeline — its earlier parse released"
         ),
-        SourceChange.INCOMPLETE: "a previous index of this document did not finish — indexed again",
     }
     lines = [
         f"  {source}: {reportable[change]}"
         for source, change in sorted(changes.items())
-        if change in reportable and change is not SourceChange.INCOMPLETE
+        if change in reportable
     ]
-    incomplete = sorted(
-        source for source, change in changes.items() if change is SourceChange.INCOMPLETE
-    )
-    if len(incomplete) == 1:
-        lines.append(f"  {incomplete[0]}: {reportable[SourceChange.INCOMPLETE]}")
-    elif incomplete:
-        lines.append(
-            f"  {len(incomplete)} documents: a previous index did not finish — indexed again"
-        )
+    for change, (singular, plural) in bulked.items():
+        matched = sorted(source for source, found in changes.items() if found is change)
+        if len(matched) == 1:
+            lines.append(f"  {matched[0]}: {singular}")
+        elif matched:
+            lines.append(f"  {len(matched)} documents: {plural}")
     return lines
 
 
@@ -602,8 +611,14 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     stored = "unknown" if result.stored_count is None else str(result.stored_count)
     discovered = result.documents_discovered
     indexed = result.documents_indexed
+    failed_now = result.documents_failed
+    skipped_failed = sum(
+        1 for change in result.source_changes.values() if change is SourceChange.FAILED
+    )
+    unchanged = discovered - indexed - failed_now - skipped_failed
+    failed_part = f", {failed_now} failed" if failed_now else ""
     stdout = (
-        f"{discovered} documents: {indexed} indexed, {discovered - indexed} unchanged. "
+        f"{discovered} documents: {indexed} indexed, {unchanged} unchanged{failed_part}. "
         f"nodes now stored: {stored}."
     )
     if result.payload_indexes:
@@ -618,6 +633,19 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     reparsed = _reparse_lines(result.source_changes)
     if reparsed:
         stdout += "\n" + "\n".join(reparsed)
+    # Ledger **36.3** — every source this run skipped because an earlier run already recorded it
+    # `FAILED`, named as a count rather than per-document: it is a fact about the corpus's
+    # standing failures, not about this run, and the remedy is the same one flag regardless of
+    # how many there are.
+    failed_earlier = sum(
+        1 for change in result.source_changes.values() if change is SourceChange.FAILED
+    )
+    if failed_earlier:
+        pronoun = "it" if failed_earlier == 1 else "them"
+        stdout += (
+            f"\n{failed_earlier} failed earlier, skipped — weft index --retry-failed includes "
+            f"{pronoun}"
+        )
     if summary.failed:
         stdout += f"\n{summary.failed} batch failed."
     stderr_lines = [f"  failed: {reason}" for reason in summary.failed_reasons]

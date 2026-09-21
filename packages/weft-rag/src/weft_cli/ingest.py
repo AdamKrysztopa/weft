@@ -151,10 +151,19 @@ from weft_kernel.runner import (
     RunSummary,
     StageSpec,
 )
+from weft_kernel.seam import OutcomeKind, StageRecord, recording
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_store import NodeStore
-from weft_store.contract import Cursor, Filter, FilterOp, MetadataFilter, SourceRecord, SourceStatus
+from weft_store.contract import (
+    Cursor,
+    Filter,
+    FilterOp,
+    MetadataFilter,
+    SourceFailure,
+    SourceRecord,
+    SourceStatus,
+)
 
 #: What `SourceRecord.pipeline` records for the built-in four-stage path — `06` step 9's
 #: hardcoded pipeline, which resolves no `ResolvedPipeline` and so has no name to read.
@@ -451,10 +460,14 @@ class IndexResult:
     )
     #: The identity this run's pipeline ran under, so a caller can print or persist it.
     pipeline_identity: str = ""
-    #: Ledger task **17.4**. How many of `document_ids` were actually handed to the runner —
-    #: `len(work)` below, not `len(docs)`: task **17.0** skips a document whose `SourceChange` is
-    #: `UNCHANGED`, and that gap is the whole fact `weft index`'s own line exists to print.
+    #: Ledger task **17.4**, narrowed by **36.1**. How many documents this run actually recorded
+    #: `ACTIVE` — the sum of every batch that produced, never `len(work)`: a batch `runner.run`
+    #: failed or raised out of was handed to it too, but is recorded `FAILED`, not `ACTIVE`, so
+    #: counting `work` would claim documents were indexed that were not.
     documents_indexed: int = 0
+    #: Ledger **36.3** — documents this run recorded `FAILED`, so the summary line can count
+    #: what did not change without counting a failure as unchanged.
+    documents_failed: int = 0
     #: Ledger task **31.14** — the payload index field paths the store ensured, read off the
     #: built instance rather than re-derived from settings, so what is reported is what the run
     #: actually wrote. Empty when the store declares no such attribute, which is a stated absence
@@ -533,6 +546,7 @@ async def run_index(
     roles: RoleTable = _NO_ROLES,
     reprocess: bool = False,
     batch_size: int | None = None,
+    retry_failed: bool = False,
 ) -> IndexResult:
     """Extract, chunk, embed and store every file under `directory` an extractor claims.
 
@@ -602,6 +616,13 @@ async def run_index(
     `batch_membership_dependent_stages` — this is refused with `BatchScopedStageError` instead of
     silently computing a different tree per batch; the refusal happens before anything is written
     or deleted.
+
+    `retry_failed` — ledger **36.2**. `False`, the default, leaves a source this project already
+    recorded `FAILED` skipped exactly like `UNCHANGED` — paid stages sit on the ingest path, so a
+    failure is not retried unasked. `True` treats it as work instead (`SourceChange.RETRIED`),
+    released before the attempt the same way an `INCOMPLETE` source already is. Neither value
+    changes what a source whose bytes or pipeline moved since it failed reports: that is always
+    `CONTENT_CHANGED`/`PIPELINE_CHANGED`, and always work.
     """
     _validate_batch_size(batch_size)
     _require_corpus_directory(directory)
@@ -705,18 +726,25 @@ async def run_index(
         # Read *before* the run writes over them: the comparison is against what the last index
         # left, and `_record_sources` below replaces exactly those rows.
         previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
-        changes = changes_against_records(docs, previous, identity=identity)
+        changes = changes_against_records(
+            docs, previous, identity=identity, retry_failed=retry_failed
+        )
         await _release_reparsed_sources(runnable, store_stage_ids=store_stage_ids, changes=changes)
         # Ledger task **17.0** — a document whose change is `UNCHANGED` owes this run no work:
         # the store dedupes by content digest, so re-running it would only re-pay extraction,
         # chunking, every enhancer's LLM call and embedding to rewrite rows already right.
-        # `reprocess` overrides this for the one change `pipeline_identity` cannot see. The
+        # `reprocess` overrides this for the one change `pipeline_identity` cannot see. Ledger
+        # **36.2** — `FAILED` owes this run no work on the identical footing: paid stages sit on
+        # the ingest path, so a failure is not retried unasked, and `retry_failed` is the one
+        # thing that turns it into `RETRIED` work instead (see `changes_against_records`). The
         # report below stays over `docs` in full — this filtering is only what the runner sees.
         work = (
             docs
             if reprocess
             else tuple(
-                doc for doc in docs if changes.get(doc.source_id) is not SourceChange.UNCHANGED
+                doc
+                for doc in docs
+                if changes.get(doc.source_id) not in (SourceChange.UNCHANGED, SourceChange.FAILED)
             )
         )
         # Ledger task **17.1** — marked before the run so a crash mid-`runner.run` leaves these
@@ -749,9 +777,31 @@ async def run_index(
         # each batch is its own `runner.run`, flushed and recorded `ACTIVE` the moment it
         # produced, so a failed batch — or a run killed after batch k — leaves batches 1..k done
         # and only the rest `INDEXING`. `38.6`'s question index re-paid every model call twice.
+        #
+        # Ledger **36.1** — a batch this loop could not finish is recorded `FAILED` rather than
+        # left `INDEXING`: a batch `runner.run` returns `Failed` for is read off `RunSummary`
+        # below; a batch it raises out of is caught here, recorded, and re-raised unchanged —
+        # `CancelledError` above all is never one of the exceptions this catches.
         counts: list[RunSummary] = []
+        indexed_count = 0
+        failed_count = 0
         for batch in slices:
-            batch_summary = await runner.run(runnable, _one(batch), indexing_ctx)
+            with recording() as scope:
+                try:
+                    batch_summary = await runner.run(runnable, _one(batch), indexing_ctx)
+                except WeftError as exc:
+                    await _record_batch_failure(
+                        runnable,
+                        store_stage_ids=store_stage_ids,
+                        batch=batch,
+                        previous=previous,
+                        identity=identity,
+                        pipeline=pipeline,
+                        error_type=type(exc).__name__,
+                        stage=exc.stage,
+                        message=str(exc),
+                    )
+                    raise
             counts.append(batch_summary)
             if batch_summary.failed == 0:
                 await _record_sources(
@@ -761,12 +811,39 @@ async def run_index(
                     pipeline=pipeline,
                     identity=identity,
                 )
+                indexed_count += len(batch)
+            else:
+                message = "; ".join(batch_summary.failed_reasons) or "the batch failed"
+                await _record_batch_failure(
+                    runnable,
+                    store_stage_ids=store_stage_ids,
+                    batch=batch,
+                    previous=previous,
+                    identity=identity,
+                    pipeline=pipeline,
+                    error_type="Failed",
+                    stage=_failing_stage(scope.records),
+                    message=message,
+                )
+                failed_count += len(batch)
         summary = _summed(counts)
+        # Ledger **36.2** — a source this run left `FAILED` keeps that record exactly as
+        # `_record_batch_failure` wrote it: `attempted` already excludes it (it was never
+        # `work`), and it must also be excluded here, or this catch-up write — meant only for
+        # the `UNCHANGED` sources `work` skipped — would promote it back to `ACTIVE` for no
+        # reason but having been left alone this run.
         attempted = {doc.source_id for doc in work}
+        skipped_as_failed = {
+            doc.source_id for doc in docs if changes.get(doc.source_id) is SourceChange.FAILED
+        }
         await _record_sources(
             runnable,
             store_stage_ids=store_stage_ids,
-            docs=tuple(doc for doc in docs if doc.source_id not in attempted),
+            docs=tuple(
+                doc
+                for doc in docs
+                if doc.source_id not in attempted and doc.source_id not in skipped_as_failed
+            ),
             pipeline=pipeline,
             identity=identity,
         )
@@ -779,7 +856,8 @@ async def run_index(
             content_hashes=content_hashes_of(docs),
             source_changes={str(source): change for source, change in changes.items()},
             pipeline_identity=identity,
-            documents_indexed=len(work),
+            documents_indexed=indexed_count,
+            documents_failed=failed_count,
             payload_indexes=_payload_indexes(runnable, store_stage_id=store_stage_id),
             degraded_expansions=await _degraded_expansions(
                 runnable, resolved_pipeline=resolved_pipeline, store_stage_id=store_stage_id
@@ -813,6 +891,7 @@ async def run_index_for(
     extractor: str | None = None,
     reprocess: bool = False,
     batch_size: int | None = None,
+    retry_failed: bool = False,
 ) -> IndexResult:
     """The one production caller of `run_index` — `R19.17`.
 
@@ -841,6 +920,7 @@ async def run_index_for(
         roles=deps.roles,
         reprocess=reprocess,
         batch_size=batch_size,
+        retry_failed=retry_failed,
     )
 
 
@@ -1307,13 +1387,20 @@ async def _release_reparsed_sources(
     in the store together, both retrievable, under one `SourceRecord` that records only the
     later. Measured at Phase 11's exit as 23 nodes becoming 42 over four runs (`L11.46`).
 
-    **`CONTENT_CHANGED`, `PIPELINE_CHANGED` and `INCOMPLETE`.** `INCOMPLETE` joined at repair
-    **R38.14**: an interrupted run leaves its sources `INDEXING` with whatever nodes it wrote, and a
-    model-written node gets a new id each run, so `38.6`'s next arm retrieved 22,463 of them. `NEW`
+    **`CONTENT_CHANGED`, `PIPELINE_CHANGED`, `INCOMPLETE` and `RETRIED`.** `INCOMPLETE` joined at
+    repair **R38.14**: an interrupted run leaves its sources `INDEXING` with whatever nodes it
+    wrote, and a model-written node gets a new id each run, so `38.6`'s next arm retrieved 22,463
+    of them. `RETRIED` joined at ledger **36.2**, on the identical footing: a source `36.1` failed
+    partway may have written some of a batch's nodes before the stage that lost it, and a retry is
+    a fresh attempt, not a continuation of the old one. `NEW`
     has nothing to release, and
     `UNCHANGED` must not be touched: `02` §1 makes idempotent re-indexing the point of
     content-addressed ids, and releasing there would delete and rewrite an entire corpus to
-    arrive back where it started.
+    arrive back where it started. `FAILED` — skipped, not retried — must not be touched either:
+    its nodes were already released the moment `36.1` recorded the failure (see
+    `_record_batch_failure`), and releasing an already-empty claim a second time here would be
+    silent, harmless, and exactly the kind of redundant call this module elsewhere refuses to
+    write.
 
     **`delete_source` rather than a new contract method**, which is not a shortcut. `27.1` made
     it release *this* document's claim on a node and keep the node when another document still
@@ -1337,9 +1424,27 @@ async def _release_reparsed_sources(
         source
         for source, change in changes.items()
         if change
-        in (SourceChange.CONTENT_CHANGED, SourceChange.PIPELINE_CHANGED, SourceChange.INCOMPLETE)
+        in (
+            SourceChange.CONTENT_CHANGED,
+            SourceChange.PIPELINE_CHANGED,
+            SourceChange.INCOMPLETE,
+            SourceChange.RETRIED,
+        )
     )
-    if not stale:
+    await _release_sources(runnable, store_stage_ids=store_stage_ids, sources=stale)
+
+
+async def _release_sources(
+    runnable: RunnablePipeline, *, store_stage_ids: Sequence[str], sources: Iterable[SourceId]
+) -> None:
+    """`delete_source(source)` for every id in `sources`, on every store stage that has one.
+
+    The mechanical half of `_release_reparsed_sources`, factored out so ledger **36.1**'s own
+    failure path can release a batch's partial nodes the identical way without going through
+    `changes_against_records`'s vocabulary to name a set of ids it already has in hand.
+    """
+    sources = tuple(sources)
+    if not sources:
         return
     wanted = set(store_stage_ids)
     for stage in runnable.stages:
@@ -1348,7 +1453,7 @@ async def _release_reparsed_sources(
         delete_source = _delete_source_of(stage.instance)
         if delete_source is None:
             continue
-        for source in stale:
+        for source in sources:
             await delete_source(source)
 
 
@@ -1447,6 +1552,13 @@ class SourceChange(StrEnum):
     #: match on `content_hash` or `pipeline_identity` against it is not evidence of anything —
     #: this is reported ahead of both comparisons, never instead of one that ran.
     INCOMPLETE = "incomplete"
+    #: The record this source's last run left is `SourceStatus.FAILED`, its bytes and pipeline
+    #: identity both still match it, and `retry_failed` was not given — ledger **36.2**. Skipped
+    #: like `UNCHANGED`, but the record is left exactly as `36.1` wrote it rather than rewritten.
+    FAILED = "failed"
+    #: The record above, with `retry_failed` given: work, released before the attempt like an
+    #: `INCOMPLETE` source — ledger **36.2**.
+    RETRIED = "retried"
 
 
 def changes_against_records(
@@ -1454,6 +1566,7 @@ def changes_against_records(
     records: Mapping[SourceId, SourceRecord],
     *,
     identity: str,
+    retry_failed: bool = False,
 ) -> Mapping[SourceId, SourceChange]:
     """What re-indexing `docs` under `identity` changes, per source — task **9.17**.
 
@@ -1469,6 +1582,14 @@ def changes_against_records(
     a match against a comparison nobody finished is not evidence the store holds anything
     complete, so this check runs before `content_hash` and before `pipeline_identity` can even be
     asked.
+
+    **`FAILED` is checked before that, ledger 36.2, on the identical footing.** A source `36.1`
+    left `FAILED` is not `ACTIVE` either, but it is a *finished* attempt that did not succeed,
+    never an interrupted one — so it gets its own report rather than folding into `INCOMPLETE`,
+    and its own comparison: bytes or identity moving since the failure is still the operator-
+    actionable fact `CONTENT_CHANGED`/`PIPELINE_CHANGED` already are, checked first; only when
+    neither moved does whether `retry_failed` was given decide `RETRIED` (work) from `FAILED`
+    (skipped, record untouched).
 
     **An empty `pipeline_identity` on a stored record reports `PIPELINE_CHANGED`, not
     `UNCHANGED`.** Every record written before task 9.17 has one, and it is the *absence of
@@ -1492,6 +1613,16 @@ def changes_against_records(
         if record is None:
             found[doc.source_id] = SourceChange.NEW
             continue
+        if record.status is SourceStatus.FAILED:
+            if record.content_hash != _content_hash(doc):
+                found[doc.source_id] = SourceChange.CONTENT_CHANGED
+            elif record.pipeline_identity != identity:
+                found[doc.source_id] = SourceChange.PIPELINE_CHANGED
+            elif retry_failed:
+                found[doc.source_id] = SourceChange.RETRIED
+            else:
+                found[doc.source_id] = SourceChange.FAILED
+            continue
         if record.status is not SourceStatus.ACTIVE:
             found[doc.source_id] = SourceChange.INCOMPLETE
             continue
@@ -1513,10 +1644,19 @@ async def _record_sources(
     pipeline: str | None,
     identity: str = "",
     status: SourceStatus = SourceStatus.ACTIVE,
+    failures: Mapping[SourceId, SourceFailure] | None = None,
 ) -> None:
     """One `SourceRecord` per `SourceDoc` this run indexed, in **every** store it was written
     to — ledger task **6.24**'s repair of the defect `02` §1 documents, widened by carried
     repair **R11.4**.
+
+    **`failures`, ledger 36.1.** `None` for every `status` but `SourceStatus.FAILED`, on
+    `SourceRecord.failure`'s own rule: an `ACTIVE` write carries `failure=None` regardless of
+    what `failures` holds, because a source that just succeeded owes nothing to a mapping built
+    for the run's failed batch. A doc in `docs` with no entry in `failures` writes `failure=None`
+    too — `_record_batch_failure` builds one entry per doc in the batch it calls this for, so
+    the only way to reach this function with a `FAILED` status and a gap is a caller this module
+    does not have.
 
     **`status`, ledger task 17.1 — `delete_source`'s own tombstone shape, applied to the other
     direction.** `run_index` calls this function twice: once for `work` (the documents this run
@@ -1582,8 +1722,111 @@ async def _record_sources(
                     pipeline=name,
                     pipeline_identity=identity,
                     status=status,
+                    failure=(failures.get(doc.source_id) if failures is not None else None),
                 )
             )
+
+
+async def _record_batch_failure(
+    runnable: RunnablePipeline,
+    *,
+    store_stage_ids: Sequence[str],
+    batch: Sequence[SourceDoc],
+    previous: Mapping[SourceId, SourceRecord],
+    identity: str,
+    pipeline: str | None,
+    error_type: str,
+    stage: str | None,
+    message: str,
+) -> None:
+    """Every member of a batch that did not produce, recorded `SourceStatus.FAILED` and released
+    — ledger **36.1**.
+
+    Every document in `batch` gets the same `error_type`/`stage`/`message`: they shared the one
+    call that did not produce, and a good document caught in a bad batch got no nodes either,
+    which is what makes `FAILED` true of it too (see `changes_against_records` and the module
+    docstring on batching). Their `SourceFailure.attempts` may still differ — see `_next_attempts`
+    — because that count is a per-source history, not a per-batch fact.
+
+    Released the same run it is recorded, never left for the next one: a failed source is not
+    retried unasked (`36.2`), so whatever it half-wrote before the stage that lost it must not
+    stay retrievable under a record nothing will revisit until `--retry-failed`.
+    """
+    attempted_at = datetime.now(UTC)
+    failures = {
+        doc.source_id: SourceFailure(
+            error_type=error_type,
+            stage=stage,
+            message=message,
+            attempts=_next_attempts(
+                previous.get(doc.source_id), doc, identity=identity, batch_size=len(batch)
+            ),
+            last_attempt_at=attempted_at,
+        )
+        for doc in batch
+    }
+    # Released first: a store's `delete_source` removes the record as well as the nodes.
+    await _release_sources(
+        runnable,
+        store_stage_ids=store_stage_ids,
+        sources=tuple(doc.source_id for doc in batch),
+    )
+    await _record_sources(
+        runnable,
+        store_stage_ids=store_stage_ids,
+        docs=batch,
+        pipeline=pipeline,
+        identity=identity,
+        status=SourceStatus.FAILED,
+        failures=failures,
+    )
+
+
+def _next_attempts(
+    previous: SourceRecord | None, doc: SourceDoc, *, identity: str, batch_size: int
+) -> int:
+    """`SourceFailure.attempts` for `doc`'s next failed record — ledger **36.1**, owner-settled
+    2026-09-21.
+
+    `1` unless the previous record for this source was itself `FAILED` under the identical bytes
+    and pipeline identity — anything else (no record, a different hash, a different identity) is
+    the first attempt at *this* failure, whatever came before it. When it was, a batch of exactly
+    one document advances the count: the failure is unambiguously this document's own, attempt
+    after attempt. A batch of several does not: the cause may be any one of its members, so
+    marching every document's own count upward because it happened to share a batch with the one
+    that actually failed would overstate how many times *it* has failed.
+    """
+    if (
+        previous is not None
+        and previous.status is SourceStatus.FAILED
+        and previous.failure is not None
+        and previous.content_hash == _content_hash(doc)
+        and previous.pipeline_identity == identity
+    ):
+        return previous.failure.attempts + 1 if batch_size == 1 else previous.failure.attempts
+    return 1
+
+
+def _failing_stage(records: Sequence[StageRecord]) -> str | None:
+    """The `position` of the last top-level `wrap`-ed call a batch's `recording()` scope saw fail
+    — ledger **36.1**.
+
+    `parent is None` picks a stage boundary itself — the identical call `Runner._invoke_stage`
+    wraps — never a nested call a stage's own plugin made along the way (an `LLM` it asked, say),
+    which records under that stage's own id as `parent` rather than `None`. *Last*, because a
+    stage with a non-empty `applies_to` can call `_invoke_stage` more than once per batch — see
+    `Runner._run_stage`, `_segment_by_applicability` — and only the final one is the segment that
+    actually stopped the batch; every earlier one already produced. `None` when nothing recorded
+    `FAILED` at that level, which a raised exception (recorded `RAISED`, never `FAILED`, and
+    carrying its own `stage` on the exception instead) leaves this function no reason to be
+    asked about.
+    """
+    failing = [
+        record
+        for record in records
+        if record.parent is None and record.outcome is OutcomeKind.FAILED
+    ]
+    return failing[-1].position if failing else None
 
 
 def _count_of(instance: object) -> Callable[[], Awaitable[int]] | None:

@@ -1306,6 +1306,9 @@ async def index_and_score(
             # instead, so an index an operator already built is honoured rather than redone.
             reprocess=reprocess,
             batch_size=batch_size,
+            # Ledger **36.2** — an experiment does not retry a source another run already
+            # recorded failed; today's behaviour, named rather than left to the default.
+            retry_failed=False,
         )
         ingest_seconds = time.monotonic() - started
         if not result.document_ids:

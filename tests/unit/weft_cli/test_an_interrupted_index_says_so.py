@@ -25,6 +25,7 @@ state nothing writes and every reader answers emptily about (`L6.14`). The asser
 on the records a real `run_index` left behind, never on the enum.
 """
 
+import asyncio
 from collections.abc import Sequence
 from contextlib import suppress
 from functools import partial
@@ -34,6 +35,7 @@ from typing import ClassVar
 from weft_chunk import Chunker
 from weft_cli import render
 from weft_cli.commands import IndexCommandResult
+from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import SourceChange, changes_against_records, run_index
 from weft_command.contract import CommandResult
 from weft_embed import Embedder
@@ -76,6 +78,20 @@ class _ExplodingChunker(_Passthrough):
     async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
         if type(self).explode:
             raise RuntimeError("killed mid-index")
+        return await super().run(payload, ctx)
+
+
+class _CancelledChunker(_Passthrough):
+    """A run interrupted rather than failed — ledger **36.1**: since Phase 36 a stage that raises
+    or returns `Failed` records the source `FAILED`, so the interruption `17.1` is about is now
+    modelled by what a killed task actually receives, `CancelledError`, which records nothing
+    beyond the `INDEXING` already written."""
+
+    cancel: ClassVar[bool] = False
+
+    async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
+        if type(self).cancel:
+            raise asyncio.CancelledError
         return await super().run(payload, ctx)
 
 
@@ -131,6 +147,7 @@ def _store_factory(store: _RecordingStore, config: object) -> _RecordingStore:
 
 def _registry(store: _RecordingStore, chunker: type[_Passthrough] = _ExplodingChunker) -> Registry:
     _ExplodingChunker.explode = False
+    _CancelledChunker.cancel = False
     _RefusingChunker.refuse = None
     registry = Registry()
     registry.add(Extractor, "text", _Passthrough, distribution="weft-extract")
@@ -196,20 +213,17 @@ async def test_a_run_killed_midway_leaves_the_record_saying_indexing(tmp_path: P
     # Arrange
     (tmp_path / "one.txt").write_text("hello weft")
     store = _RecordingStore(None)
-    registry = _registry(store)
-    _ExplodingChunker.explode = True
+    registry = _registry(store, chunker=_CancelledChunker)
+    _CancelledChunker.cancel = True
 
     # Act
-    # `WeftError`, not `RuntimeError`: the seam attributes a stage's failure to the stage that
-    # raised it, so what escapes `run_index` is `'chunk' failed: RuntimeError: killed mid-index`
-    # — the class is there because `R31.9` put it there. The exception
-    # is not this test's subject — surviving it to read the record is.
-    with suppress(WeftError):
+    with suppress(asyncio.CancelledError):
         await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
 
     # Assert
     record = store.records[_source_id(tmp_path, "one.txt")]
     assert record.status is SourceStatus.INDEXING
+    assert record.failure is None
 
 
 async def test_a_record_left_indexing_is_not_reported_unchanged(tmp_path: Path) -> None:
@@ -249,17 +263,13 @@ async def test_an_interrupted_document_is_indexed_again_by_the_next_run(tmp_path
     # Arrange — a run that dies partway.
     (tmp_path / "one.txt").write_text("hello weft")
     store = _RecordingStore(None)
-    registry = _registry(store)
-    _ExplodingChunker.explode = True
-    # `WeftError`, not `RuntimeError`: the seam attributes a stage's failure to the stage that
-    # raised it, so what escapes `run_index` is `'chunk' failed: RuntimeError: killed mid-index`
-    # — the class is there because `R31.9` put it there. The exception
-    # is not this test's subject — surviving it to read the record is.
-    with suppress(WeftError):
+    registry = _registry(store, chunker=_CancelledChunker)
+    _CancelledChunker.cancel = True
+    with suppress(asyncio.CancelledError):
         await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
 
     # Act — the next run, with nothing on disk changed.
-    _ExplodingChunker.explode = False
+    _CancelledChunker.cancel = False
     result = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
 
     # Assert — it was work, it was done, and the record now says so.
@@ -294,7 +304,9 @@ async def test_a_document_whose_batch_failed_is_indexed_again_by_the_next_run(
     tmp_path: Path,
 ) -> None:
     """The conjunction that makes the record above matter (`L8.29`): the next run, with nothing on
-    disk changed, treats the document as work rather than skipping it as unchanged."""
+    disk changed, never calls the document unchanged. Since ledger **36.2** it skips it as
+    *failed* and says so, and only `--retry-failed` treats it as work (owner, 2026-09-21: paid
+    stages sit on the ingest path, so a failure is not retried unasked)."""
     # Arrange — a run whose only batch is refused.
     (tmp_path / "bad.txt").write_text("unreadable")
     store = _RecordingStore(None)
@@ -304,10 +316,17 @@ async def test_a_document_whose_batch_failed_is_indexed_again_by_the_next_run(
 
     # Act — the cause is gone, the bytes are not.
     _RefusingChunker.refuse = None
-    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+    skipped = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+    retried = await run_index(
+        tmp_path, registry=registry, ctx=_ctx(), extractor="text", retry_failed=True
+    )
 
     # Assert
-    assert result.documents_indexed == 1
+    bad = str(_source_id(tmp_path, "bad.txt"))
+    assert skipped.source_changes[bad] is SourceChange.FAILED
+    assert skipped.documents_indexed == 0
+    assert retried.source_changes[bad] is SourceChange.RETRIED
+    assert retried.documents_indexed == 1
     assert store.records[_source_id(tmp_path, "bad.txt")].status is SourceStatus.ACTIVE
 
 
@@ -452,10 +471,12 @@ async def test_a_run_killed_after_its_first_batch_keeps_that_batch_for_the_next_
         tmp_path, registry=registry, ctx=_ctx(), extractor="text", batch_size=1
     )
 
-    # Assert
+    # Assert — the finished batch is not redone, and since ledger 36.2 the failed one is skipped
+    # as failed rather than retried unasked.
     assert store.records[_source_id(tmp_path, "a_first.txt")].status is SourceStatus.ACTIVE
-    assert result.documents_indexed == 1
+    assert result.documents_indexed == 0
     assert result.source_changes[str(_source_id(tmp_path, "a_first.txt"))] is SourceChange.UNCHANGED
+    assert result.source_changes[str(_source_id(tmp_path, "b_second.txt"))] is SourceChange.FAILED
 
 
 # --- Repair R38.14 — what an interrupted run wrote is released before the document is redone.
@@ -467,7 +488,10 @@ class _DeletingStore(_RecordingStore):
         self.deleted: list[SourceId] = []
 
     async def delete_source(self, source: SourceId) -> None:
+        # A real store's `delete_source` removes the record as well as the nodes; a double that
+        # kept it hid 36.1 writing `FAILED` and then deleting what it wrote (found by the exit).
         self.deleted.append(source)
+        self.records.pop(source, None)
 
 
 async def test_an_interrupted_documents_nodes_are_released_before_it_is_indexed_again(
@@ -491,3 +515,236 @@ async def test_an_interrupted_documents_nodes_are_released_before_it_is_indexed_
 
     # Assert
     assert store.deleted == [_source_id(tmp_path, "one.txt")]
+
+
+# --- Ledger 36.1–36.3 — a failed source is recorded, skipped and reported, never lost. Settled by
+# the owner at Phase 36's opening (2026-09-21): every member of a failed batch is `FAILED` with one
+# `SourceFailure`; the stage comes from the seam's own record; only a batch of one advances an
+# attempt count; a `FAILED` source is skipped until `--retry-failed` or a change to its bytes or
+# pipeline identity, because paid stages sit on the ingest path.
+
+
+async def test_a_refused_document_is_recorded_failed_with_the_stage_that_refused_it(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    (tmp_path / "a_good.txt").write_text("hello weft")
+    (tmp_path / "b_bad.txt").write_text("unreadable")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "b_bad.txt"
+
+    # Act
+    result = await run_index(
+        tmp_path, registry=registry, ctx=_ctx(), extractor="text", batch_size=1
+    )
+
+    # Assert
+    bad = store.records[_source_id(tmp_path, "b_bad.txt")]
+    assert bad.status is SourceStatus.FAILED
+    assert bad.failure is not None
+    assert bad.failure.error_type == "Failed"
+    assert bad.failure.stage == "chunk"
+    assert "cannot chunk" in bad.failure.message
+    assert bad.failure.attempts == 1
+    assert store.records[_source_id(tmp_path, "a_good.txt")].failure is None
+    assert result.documents_indexed == 1
+    assert result.documents_failed == 1
+
+
+async def test_a_raised_stage_failure_is_recorded_and_still_raised(tmp_path: Path) -> None:
+    # Arrange
+    (tmp_path / "a_first.txt").write_text("hello weft")
+    (tmp_path / "b_second.txt").write_text("explodes here")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_ExplodingOnChunker)
+    _ExplodingOnChunker.explode_on = "b_second.txt"
+
+    # Act
+    raised: WeftError | None = None
+    try:
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text", batch_size=1)
+    except WeftError as exc:
+        raised = exc
+
+    # Assert — re-raised unchanged, and recorded first.
+    assert raised is not None
+    failed = store.records[_source_id(tmp_path, "b_second.txt")]
+    assert failed.status is SourceStatus.FAILED
+    assert failed.failure is not None
+    assert failed.failure.error_type == type(raised).__name__
+    assert failed.failure.stage == raised.stage
+    assert store.records[_source_id(tmp_path, "a_first.txt")].status is SourceStatus.ACTIVE
+
+
+async def test_a_cancelled_run_records_no_failure(tmp_path: Path) -> None:
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_CancelledChunker)
+    _CancelledChunker.cancel = True
+
+    # Act
+    with suppress(asyncio.CancelledError):
+        await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert
+    assert all(record.status is not SourceStatus.FAILED for record in store.records.values())
+
+
+async def test_every_member_of_a_failed_batch_is_failed_and_only_a_batch_of_one_counts(
+    tmp_path: Path,
+) -> None:
+    """A good document in a failed batch got no nodes, so `FAILED` is true of it too; but one bad
+    file must not march a whole corpus's attempt counts upward."""
+    # Arrange — the default batch is the whole corpus.
+    (tmp_path / "a_good.txt").write_text("hello weft")
+    (tmp_path / "b_bad.txt").write_text("unreadable")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "b_bad.txt"
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Act — retried together, still failing.
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text", retry_failed=True)
+
+    # Assert
+    for name in ("a_good.txt", "b_bad.txt"):
+        record = store.records[_source_id(tmp_path, name)]
+        assert record.status is SourceStatus.FAILED
+        assert record.failure is not None
+        assert record.failure.attempts == 1
+
+
+async def test_a_document_failing_alone_again_advances_its_attempts(tmp_path: Path) -> None:
+    # Arrange
+    (tmp_path / "bad.txt").write_text("unreadable")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "bad.txt"
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text", batch_size=1)
+
+    # Act
+    await run_index(
+        tmp_path,
+        registry=registry,
+        ctx=_ctx(),
+        extractor="text",
+        batch_size=1,
+        retry_failed=True,
+    )
+
+    # Assert
+    failure = store.records[_source_id(tmp_path, "bad.txt")].failure
+    assert failure is not None
+    assert failure.attempts == 2
+
+
+async def test_a_failed_document_whose_bytes_changed_is_indexed_without_the_flag(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    (tmp_path / "bad.txt").write_text("unreadable")
+    store = _RecordingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "unreadable"
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Act
+    (tmp_path / "bad.txt").write_text("fixed")
+    result = await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert
+    record = store.records[_source_id(tmp_path, "bad.txt")]
+    assert result.source_changes[str(_source_id(tmp_path, "bad.txt"))] is (
+        SourceChange.CONTENT_CHANGED
+    )
+    assert record.status is SourceStatus.ACTIVE
+    assert record.failure is None
+
+
+async def test_a_failed_documents_partial_nodes_are_released_when_it_fails(
+    tmp_path: Path,
+) -> None:
+    """A failed source is not retried unasked, so nothing it half-wrote may stay retrievable."""
+    # Arrange
+    (tmp_path / "bad.txt").write_text("unreadable")
+    store = _DeletingStore(None)
+    registry = _registry(store, chunker=_RefusingChunker)
+    _RefusingChunker.refuse = "bad.txt"
+
+    # Act
+    await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
+
+    # Assert — released, and the failure still on record afterwards.
+    assert store.deleted == [_source_id(tmp_path, "bad.txt")]
+    assert store.records[_source_id(tmp_path, "bad.txt")].status is SourceStatus.FAILED
+
+
+def _rendered_run(changes: dict[str, SourceChange], *, failed: int) -> tuple[str, ExitCode]:
+    outcome: Outcome[CommandResult] = Produced(
+        value=IndexCommandResult(
+            summary=RunSummary(produced=1, nothing_to_produce=0, failed=failed),
+            stored_count=1,
+            source_changes=changes,
+            documents_discovered=len(changes),
+            documents_indexed=0,
+        )
+    )
+    rendered = render.render_outcome(outcome)
+    return (rendered.stdout or "") + (rendered.stderr or ""), rendered.exit_code
+
+
+def test_a_run_that_only_skipped_failed_sources_says_so_and_exits_zero() -> None:
+    # Act
+    printed, exit_code = _rendered_run(
+        {"file:///c/bad.txt": SourceChange.FAILED, "file:///c/good.txt": SourceChange.UNCHANGED},
+        failed=0,
+    )
+
+    # Assert
+    assert "1 failed earlier, skipped — weft index --retry-failed includes it" in printed
+    assert exit_code is ExitCode.SUCCESS
+
+
+def test_a_run_where_something_failed_this_run_exits_one() -> None:
+    # Act
+    _, exit_code = _rendered_run({"file:///c/bad.txt": SourceChange.RETRIED}, failed=1)
+
+    # Assert
+    assert exit_code is ExitCode.OPERATION_FAILED
+
+
+def test_a_retried_document_is_not_called_unfinished() -> None:
+    """`R36.0`'s second gap: a run that finished and failed was reported "did not finish"."""
+    # Act
+    printed, _ = _rendered_run({"file:///c/bad.txt": SourceChange.RETRIED}, failed=1)
+
+    # Assert
+    assert "did not finish" not in printed
+    assert "retried" in printed
+
+
+def test_a_document_that_failed_this_run_is_not_counted_unchanged() -> None:
+    """Found running the exit from the wheel: after `36.1` stopped counting a failed document as
+    indexed, the summary's `discovered - indexed` called it unchanged."""
+    # Arrange
+    outcome: Outcome[CommandResult] = Produced(
+        value=IndexCommandResult(
+            summary=RunSummary(produced=1, nothing_to_produce=0, failed=1),
+            stored_count=1,
+            source_changes={
+                "file:///c/good.txt": SourceChange.NEW,
+                "file:///c/bad.txt": SourceChange.NEW,
+            },
+            documents_discovered=2,
+            documents_indexed=1,
+            documents_failed=1,
+        )
+    )
+
+    # Act
+    stdout = render.render_outcome(outcome).stdout or ""
+
+    # Assert
+    assert "2 documents: 1 indexed, 0 unchanged, 1 failed." in stdout

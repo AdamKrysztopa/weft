@@ -137,9 +137,7 @@ def test_an_empty_filtered_list_names_the_filter_rather_than_claiming_nothing_is
     "no sources recorded.", which is false."""
     # Act
     rendered = render.render_outcome(
-        Produced(
-            value=commands.SourcesListCommandResult(sources=(), status=SourceStatus.FAILED)
-        )
+        Produced(value=commands.SourcesListCommandResult(sources=(), status=SourceStatus.FAILED))
     )
 
     # Assert
