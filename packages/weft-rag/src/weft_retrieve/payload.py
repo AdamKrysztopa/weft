@@ -295,6 +295,14 @@ class Ranking(BaseModel):
     note: str = ""
     ext: ExtMap = Field(default_factory=dict, validate_default=True)
 
+    def __len__(self) -> int:
+        """The hits, so the seam counts a reranker's items for `--explain` (R32.3)."""
+        return len(self.hits)
+
+    def __bool__(self) -> bool:
+        # Defining `__len__` would make an empty ranking falsy; `if ranking:` means "given one".
+        return True
+
 
 class Passages(BaseModel):
     """Ordered, labelled evidence, ready to enter a prompt — what a `ContextPacker` produces.
@@ -346,6 +354,14 @@ class Passages(BaseModel):
                 f"resolves to two passages — both are citations a reader cannot follow."
             )
         return self
+
+    def __len__(self) -> int:
+        """The packed passages, so the seam counts a packer's items for `--explain` (R32.3)."""
+        return len(self.passages)
+
+    def __bool__(self) -> bool:
+        # As `Ranking.__bool__`: empty evidence is still a value that was given.
+        return True
 
     def best_ranked(self, limit: int) -> tuple[Passage, ...]:
         """The `limit` passages the ranking put first, in the order they were packed.

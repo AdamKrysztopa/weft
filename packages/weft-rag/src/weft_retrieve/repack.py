@@ -83,12 +83,37 @@ from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Failed, Outcome, Produced
+from weft_kernel.payload import ExtModel, Failed, Outcome, Produced
 from weft_llm.contract import LLM, TokenCounter
 from weft_retrieve.payload import Passage, Passages, Ranking
 
 #: The name this packer is registered and selectable under — see `weft_retrieve.register`.
 NAME = "repack"
+
+
+class RepackBudget(ExtModel):
+    """What a budgeted packing kept, against what it was offered — repair **R32.3**.
+
+    Rides `Passages.ext`, never a stored node, like `anchor_promote.AnchorPromotion`. Present
+    only when `budget_tokens` is set: without a budget nothing was counted.
+    """
+
+    __namespace__ = "weft-retrieve-repack"
+    __schema_version__ = "1"
+
+    offered: int
+    kept: int
+    packed_tokens: int
+    budget_tokens: int
+
+    produced_by: ClassVar[str] = NAME
+
+    def explained(self) -> str:
+        """The one-line sentence `weft_cli.explain.record_lines` prints under `--explain`."""
+        return (
+            f"packed {self.kept} of {self.offered} passages in "
+            f"{self.packed_tokens} of {self.budget_tokens} tokens"
+        )
 
 
 class RepackMethod(StrEnum):
@@ -188,11 +213,20 @@ class Repack:
         kept = (
             payload.hits[: self._config.top_n] if self._config.top_n is not None else payload.hits
         )
+        ext = payload.ext
         if self._config.budget_tokens is not None:
             budgeted = await self._within_budget(kept, self._config.budget_tokens, ctx)
             if isinstance(budgeted, Failed):
                 return budgeted
-            kept = budgeted
+            offered = len(kept)
+            kept, packed_tokens = budgeted
+            record = RepackBudget(
+                offered=offered,
+                kept=len(kept),
+                packed_tokens=packed_tokens,
+                budget_tokens=self._config.budget_tokens,
+            )
+            ext = {**ext, RepackBudget.__namespace__: record}
         ranked = tuple(
             passage.model_copy(update={"rank": position}) for position, passage in enumerate(kept)
         )
@@ -211,14 +245,15 @@ class Repack:
                 origin=payload.origin,
                 passages=passages,
                 contributors=payload.contributors,
-                ext=payload.ext,
+                ext=ext,
             )
         )
 
     async def _within_budget(
         self, kept: Sequence[Passage], budget: int, ctx: Context
-    ) -> Sequence[Passage] | Failed:
-        """The longest ranking-order prefix of `kept` whose rendered block fits `budget`.
+    ) -> tuple[tuple[Passage, ...], int] | Failed:
+        """The longest ranking-order prefix of `kept` whose rendered block fits `budget`, and
+        that block's token count.
 
         Renders each candidate prefix exactly as `weft_generate.cited_answer._offer` renders
         the final evidence block for labels `1..k` — the count this stage acts on has to be
@@ -237,6 +272,7 @@ class Repack:
                 )
             )
         selected: list[Passage] = []
+        packed_tokens = 0
         for passage in kept:
             candidate = (*selected, passage)
             text = "\n\n".join(f"[{i + 1}] {p.node.content}" for i, p in enumerate(candidate))
@@ -252,4 +288,5 @@ class Repack:
                     )
                 break
             selected.append(passage)
-        return tuple(selected)
+            packed_tokens = count
+        return tuple(selected), packed_tokens

@@ -176,7 +176,7 @@ as a flag beside a pack's existing status, exactly as `ambient` already is one.
 import contextlib
 import time
 import warnings
-from collections.abc import Awaitable, Callable, Generator, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping, Sequence, Sized
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum, StrEnum
@@ -461,11 +461,7 @@ def wrap[**P, T](
             record_id = next(scope.ids)
             record_token = _recording_parent.set(record_id)
             started = time.perf_counter()
-            items_in = (
-                len(cast("Sequence[object]", args[0]))
-                if args and isinstance(args[0], list | tuple)
-                else None
-            )
+            items_in = _item_count(args[0]) if args else None
         outcome_kind = OutcomeKind.RAISED
         items_out: int | None = None
         try:
@@ -599,8 +595,8 @@ class StageRecord(BaseModel):
 
     Task **33.1**. `id` is unique within its own scope, not across scopes; `parent` names the
     enclosing wrapped call's `id` when this call ran nested inside one — an `LLM` a stage asks,
-    say — else `None`. `items_in`/`items_out` read the same list/tuple shape concern 3 above
-    already draws on, and are `None` for anything else, including every non-`PRODUCED` outcome.
+    say — else `None`. `items_in`/`items_out` are `_item_count` of the payload and of the
+    produced value, and `None` for every non-`PRODUCED` outcome.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -678,13 +674,18 @@ def _outcome_kind[T](outcome: Outcome[T]) -> OutcomeKind:
 
 
 def _items_out[T](outcome: Outcome[T]) -> int | None:
-    """`len(outcome.value)` when `outcome` is `Produced` and its value is a `list` or `tuple`."""
-    if not isinstance(outcome, Produced):
+    """`_item_count` of a `Produced` value; `None` for every other outcome."""
+    return _item_count(outcome.value) if isinstance(outcome, Produced) else None
+
+
+def _item_count(value: object) -> int | None:
+    """`len(value)` for anything with a length but text or a mapping, whose length is not items.
+
+    A pack's own model answers `len()` to be counted here (R32.3); the kernel names no payload.
+    """
+    if isinstance(value, str | bytes | Mapping) or not isinstance(value, Sized):
         return None
-    value = outcome.value
-    if isinstance(value, list | tuple):
-        return len(cast("Sequence[object]", value))
-    return None
+    return len(value)
 
 
 def _attribute(

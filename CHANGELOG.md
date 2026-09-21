@@ -58,6 +58,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `ExpansionDegraded` marker naming the technique and why. After a run whose pipeline has an
   expansion stage, and whose store can filter, `weft index` prints
   `chunks stored without their expansion: N.` — so a questions arm that silently shrank says so.
+- **`weft ask --explain` counts each reranker's and packer's passages in and out**, and a
+  packer given a token budget records what it kept: `repack: packed 2 of 3 passages in 20 of 20
+  tokens`. Before, those stages printed a time and nothing else.
 - **A generating rung's run record says which retrieval arms fed each answer**, as a retrieval
   rung's already did. `Answer` carries `contributors`, copied from the passages it was given.
 

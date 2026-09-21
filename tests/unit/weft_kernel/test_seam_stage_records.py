@@ -151,3 +151,52 @@ async def test_concurrent_calls_in_one_scope_are_each_recorded() -> None:
     # Assert
     assert len(recording.records) == 3
     assert {record.items_in for record in recording.records} == {2, 4, 6}
+
+
+# --- Repair R32.3: a payload that is a model with a length is counted too ---------------------
+
+
+class _Batch:
+    """A payload the kernel knows nothing about except that it has a length — the shape a pack's
+    own model takes when it answers `len()`."""
+
+    def __init__(self, items: Sequence[int]) -> None:
+        self._items = tuple(items)
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+
+async def _halve_batch(payload: _Batch) -> Outcome[_Batch]:
+    return Produced(value=_Batch(range(len(payload) // 2)))
+
+
+async def _echo_text(payload: str) -> Outcome[str]:
+    return Produced(value=payload)
+
+
+async def test_a_payload_with_a_length_is_counted_in_and_out() -> None:
+    # Arrange
+    run = seam.wrap(_halve_batch, distribution="weft-test", contract="Halver", plugin="halve")
+
+    # Act
+    with seam.recording() as recording:
+        await run(_Batch([1, 2, 3, 4, 5, 6]))
+
+    # Assert
+    (record,) = recording.records
+    assert (record.items_in, record.items_out) == (6, 3)
+
+
+async def test_text_is_not_counted_as_items() -> None:
+    """A string has a length in characters, which is not a number of items."""
+    # Arrange
+    run = seam.wrap(_echo_text, distribution="weft-test", contract="Echo", plugin="echo")
+
+    # Act
+    with seam.recording() as recording:
+        await run("a question")
+
+    # Assert
+    (record,) = recording.records
+    assert (record.items_in, record.items_out) == (None, None)

@@ -19,7 +19,7 @@ from weft_kernel.payload import Failed, MediaType, Node, Produced
 from weft_llm.contract import LLM, TokenCounter
 from weft_llm.errors import TokenCountUnavailableError
 from weft_retrieve.payload import Passage, Query, Ranking
-from weft_retrieve.repack import Repack, RepackConfig, RepackMethod
+from weft_retrieve.repack import Repack, RepackBudget, RepackConfig, RepackMethod
 from weft_store.contract import Scored
 
 
@@ -179,3 +179,32 @@ async def test_an_llm_service_that_offers_no_counting_is_refused_by_name() -> No
     # Assert
     assert isinstance(outcome, Failed)
     assert TokenCounter.__name__ in outcome.reason
+
+
+# --- Repair R32.3: the tokens packing kept are recorded, so `--explain` can print them ---------
+
+
+async def test_a_budgeted_packing_records_what_it_kept_against_what_it_was_offered() -> None:
+    # Arrange — each `[n] w w w` is four words, and two joined by a blank line are eight.
+    counter = _WordCounter()
+    ranking = _ranking("w w w", "w w w", "w w w")
+
+    # Act
+    outcome = await Repack(RepackConfig(budget_tokens=9)).run(ranking, _ctx(counter))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    record = outcome.value.ext[RepackBudget.__namespace__]
+    assert isinstance(record, RepackBudget)
+    assert (record.offered, record.kept) == (3, 2)
+    assert (record.packed_tokens, record.budget_tokens) == (8, 9)
+    assert record.explained() == "packed 2 of 3 passages in 8 of 9 tokens"
+
+
+async def test_an_unbudgeted_packing_records_no_token_count_it_never_made() -> None:
+    # Act
+    outcome = await Repack(RepackConfig()).run(_ranking("a", "b"), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert RepackBudget.__namespace__ not in outcome.value.ext
