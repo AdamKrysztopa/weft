@@ -214,7 +214,7 @@ from typing import ClassVar, Final, cast
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from weft_cli.eval_scoring import score_pipeline
-from weft_cli.ingest import content_hashes_of, corpus_documents, run_index_for
+from weft_cli.ingest import SourceChange, content_hashes_of, corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
 from weft_cli.route_ask import resolve_named_pipeline
@@ -324,6 +324,14 @@ class EmptyCorpusError(WeftError):
         super().__init__(message)
         self.path = path
         self.pipeline = pipeline
+
+
+class CorpusHasFailedSourcesError(WeftError):
+    """An evaluation's index skipped sources an earlier run recorded `FAILED` — ledger 36.
+
+    A skipped source has no nodes, while the run record's corpus identity still covers it, so
+    the scores would be over a smaller corpus than the record names. Refused, naming the fix.
+    """
 
 
 class IncomparableRunsError(WeftError):
@@ -1306,8 +1314,6 @@ async def index_and_score(
             # instead, so an index an operator already built is honoured rather than redone.
             reprocess=reprocess,
             batch_size=batch_size,
-            # Ledger **36.2** — an experiment does not retry a source another run already
-            # recorded failed; today's behaviour, named rather than left to the default.
             retry_failed=False,
         )
         ingest_seconds = time.monotonic() - started
@@ -1318,6 +1324,18 @@ async def index_and_score(
                 f"directory pipeline '{pipeline}' can actually read.",
                 path=str(path),
                 pipeline=pipeline,
+            )
+        skipped = sorted(
+            source
+            for source, change in result.source_changes.items()
+            if change is SourceChange.FAILED
+        )
+        if skipped:
+            raise CorpusHasFailedSourcesError(
+                f"{len(skipped)} source(s) under '{path}' were recorded failed by an earlier "
+                f"index and were skipped, so this run would score a smaller corpus than its record "
+                f"names (first: {skipped[0]}). Run `weft index --retry-failed` over it first, or "
+                "remove them with `weft delete`."
             )
         # `run_index` always sets `resolved_pipeline` on the `pipeline=` path — see
         # `weft_cli.ingest.IndexResult`'s own docstring — and `pipeline` is required above.

@@ -26,6 +26,7 @@ there is nothing to judge, is `tests/unit/weft_eval/test_falsify.py`.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import io
 from collections.abc import Callable, Sequence
@@ -40,6 +41,7 @@ from weft_cli import eval_commands as eval_commands_module
 from weft_cli import ingest as ingest_module
 from weft_cli.eval_commands import (
     BaselineSelection,
+    CorpusHasFailedSourcesError,
     EmptyCorpusError,
     EvalCompareArgs,
     EvalCompareCommand,
@@ -58,6 +60,7 @@ from weft_cli.eval_commands import (
     UnknownRunIdError,
 )
 from weft_cli.eval_scoring import ScoredRun
+from weft_cli.ingest import IndexResult, SourceChange
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.render import render_outcome
 from weft_cli.sinks import PrintingSink
@@ -2201,3 +2204,32 @@ async def test_a_sliced_comparison_of_records_without_axes_pairs_nothing_and_say
     assert result.paired_differences_reason is not None
     assert "evidence=text-table" in result.paired_differences_reason
     assert result.paired_differences_reason in (render_outcome(outcome).stdout or "")
+
+
+async def test_eval_refuses_to_score_a_corpus_missing_a_source_that_failed_earlier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Phase 36's close review, F1: an index skips a source an earlier run recorded `FAILED`, so
+    an evaluation over it would score a smaller corpus under the full corpus's identity."""
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    real_run_index_for = ingest_module.run_index_for
+
+    async def _one_skipped_as_failed(*args: Any, **kwargs: Any) -> IndexResult:
+        result = await real_run_index_for(*args, **kwargs)
+        return dataclasses.replace(
+            result,
+            source_changes={source: SourceChange.FAILED for source in result.source_changes},
+        )
+
+    monkeypatch.setattr(eval_commands_module, "run_index_for", _one_skipped_as_failed)
+    deps = _deps()
+
+    # Act / Assert
+    with pytest.raises(CorpusHasFailedSourcesError) as excinfo:
+        await EvalRunCommand().run(EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(deps))
+    assert "weft index --retry-failed" in str(excinfo.value)
+    assert not (tmp_path / "runs").exists()

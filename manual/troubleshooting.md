@@ -4230,6 +4230,24 @@ file and run `weft index` again, or run `weft index --retry-failed` if the cause
 file. If the failed batch held several documents, re-index with `--batch-size 1` to find which one
 it was. `weft delete <source-id>` abandons it.
 
+### `CorpusHasFailedSourcesError`
+
+**What it looks like** — `weft eval run` or `weft eval experiment` over a corpus where an earlier
+`weft index` recorded a document as failed:
+
+```text
+1 source(s) under 'corpus' were recorded failed by an earlier index and were skipped, so this run
+would score a smaller corpus than its record names (first: file:///…/bad.txt). Run `weft index
+--retry-failed` over it first, or remove them with `weft delete`.
+```
+
+**Why** — a failed document is skipped rather than retried unasked. An evaluation over the rest
+would score a smaller corpus while its record names the whole one, so two runs could compare as
+the same corpus when one of them never saw that document.
+
+**What to do:** fix the document and run `weft index --retry-failed`, or remove it with `weft
+delete <source-id>`; `weft sources list --status failed` names each one.
+
 ### `UnknownSourceStatusError`
 
 **What it looks like** — any command that reads a store's source records, against a store a

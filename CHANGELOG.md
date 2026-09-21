@@ -65,6 +65,8 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `weft sources list [--status failed]` lists what the store recorded. The store contract moves to
   `2.8.0`: `SourceStatus` gains `FAILED` and `SourceRecord` an optional `failure`, and a status a
   newer `weft-rag` wrote is refused by name (`UnknownSourceStatusError`).
+  `weft eval run` and `weft eval experiment` refuse to score a corpus holding a failed document
+  (`CorpusHasFailedSourcesError`), since its record would name documents it never saw.
 - **`weft index` counts the chunks an expansion stage could not expand.** A chunk whose
   questions, cluster summary or facts could not be generated still degrades rather than failing
   the run, and now carries an `ExpansionDegraded` marker naming the stage and why — for
