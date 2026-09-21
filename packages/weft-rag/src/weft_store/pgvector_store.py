@@ -164,9 +164,9 @@ ALTER TABLE weft_sources
     ADD COLUMN IF NOT EXISTS pipeline_identity TEXT NOT NULL DEFAULT ''
 """
 
-# `embedding` is declared as a bare `vector`, with no fixed dimension: pgvector has allowed an
-# unconstrained column since 0.5.0, and this store has no reason to hard-code a dimension the
-# configured embedder (`weft-embed`, or any future one) already owns.
+# `embedding` is declared as a bare `vector`: its width is not known until the first node with an
+# embedding reaches `add()`. `_reconcile_vector_width` then pins the column to that width with
+# `ALTER TABLE ... TYPE vector(n)`.
 _CREATE_NODES_TABLE = """
 CREATE TABLE IF NOT EXISTS weft_nodes (
     id TEXT PRIMARY KEY,
