@@ -449,10 +449,11 @@ class AskArgs(BaseModel):
 
     Task **3.11**: `ask` routes by default — see `AskCommand`'s own docstring for the surface
     decision and `docs/internal/build-ledger.md`'s 3.11 entry for the argument in full. `pipeline`
-    and `retrieve_only` are mutually exclusive (`AskCommand.run` refuses both together, loudly,
-    before either resolves a plugin); `top_k`/`format` only take effect with `--retrieve-only` — a
-    routed or named-pipeline answer has no `top_k` of its own to report (each pipeline decides that
-    internally) and is always rendered the same way `_render_ask` already renders a routed answer.
+    and `retrieve_only` may be given together: `AskCommand.run` then retrieves through the named
+    pipeline's own stages, refused only when it ends in a `Generator` (repair **R21.5**).
+    `top_k`/`format` only take effect with `--retrieve-only` — a routed or named-pipeline answer
+    has no `top_k` of its own to report (each pipeline decides that internally) and is always
+    rendered the same way `_render_ask` already renders a routed answer.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -463,7 +464,8 @@ class AskArgs(BaseModel):
         description=(
             "name a pipeline directly, bypassing the router (a project-local document or an "
             "installed pack's own contribution — the same set `weft pipeline show` resolves "
-            "against). Mutually exclusive with --retrieve-only."
+            "against). With --retrieve-only, retrieves through this pipeline's own stages; "
+            "refused when it ends in a Generator."
         ),
     )
     explain: bool = Field(
