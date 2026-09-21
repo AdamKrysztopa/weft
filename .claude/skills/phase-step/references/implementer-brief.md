@@ -201,7 +201,8 @@ container, so anything touching the database is serial whatever the isolation.
 
 **A worktree brief opens with *Step 0 — apply the red tests*** (`docs/internal/lessons.md`
 `L22.19`): the worktree is built from `HEAD` and the failing tests are uncommitted in the
-dispatcher's checkout, so the brief names a patch path, says to `git apply` it, and asks for the
+dispatcher's checkout, so the brief names a patch path, says to `git apply --index` it (`L28.17`: plain
+`git apply` leaves a created test untracked and the gate hook refuses the worktree), and asks for the
 failure to be confirmed before any edit. A brief without it sends the agent to make pass a test
 that does not exist in its tree. **Before the patch, Step 0 runs `git merge --ff-only main` and names
 one symbol from the newest commit it depends on to confirm** (`L22.24`). The harness builds a

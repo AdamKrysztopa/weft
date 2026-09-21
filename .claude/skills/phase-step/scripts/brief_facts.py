@@ -14,6 +14,9 @@ Prints a `## Brief facts` block to paste into the brief; `guard_implementer_brie
    "unknown" for a reason of its own.
 2. **Every `path:line` citation into each owner module** (`L24.6`, recurring `L23.15`), so the
    brief says who re-points the ones the change will move.
+3. **The test files naming each `Protocol` an owner module defines** (`L28.16`). Widening one breaks
+   every double of it, in tests the implementer may not edit; the red file's clean count says
+   nothing about them. Type-check these against the changed signature before the brief orders it.
 
 Runs under bare `python3` (3.9), like the hooks: no 3.10+ syntax.
 """
@@ -28,6 +31,7 @@ from collections import defaultdict
 from pathlib import Path
 
 _QUOTED = re.compile(r'"([A-Za-z_][A-Za-z0-9_]*)"')
+_PROTOCOL = re.compile(r"^class ([A-Za-z_][A-Za-z0-9_]*)\([^)]*\bProtocol\b", re.MULTILINE)
 
 
 def _run(args: list[str]) -> str:
@@ -84,6 +88,29 @@ def citations(owners: list[str]) -> dict[str, list[str]]:
     return found
 
 
+def protocol_doubles(owners: list[str]) -> dict[str, tuple[list[str], list[str]]]:
+    """Per owner defining a `Protocol`: its Protocols, and the tests importing that module.
+
+    A double satisfies a Protocol structurally and rarely names it, so the population is the
+    tests that import the module, not the ones that mention the class.
+    """
+    found: dict[str, tuple[list[str], list[str]]] = {}
+    for owner in owners:
+        try:
+            source = Path(owner).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        protocols = _PROTOCOL.findall(source)
+        parts = Path(owner).with_suffix("").parts
+        if not protocols or "src" not in parts:
+            continue
+        module = ".".join(parts[parts.index("src") + 1 :])
+        pattern = rf"(from|import) {re.escape(module)}( |$|,)"
+        out = _run(["git", "grep", "-lE", pattern, "--", "tests", "testing"])
+        found[owner] = (protocols, [line for line in out.splitlines() if line.strip()])
+    return found
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -119,6 +146,18 @@ def main() -> int:
     if options.owners and any(citations(options.owners).values()):
         print()
         print("Say in the brief who re-points each citation the change moves (L23.15).")
+    for owner, (protocols, files) in protocol_doubles(options.owners).items():
+        print()
+        print(
+            f"{owner} defines Protocol(s) {', '.join(protocols)}; "
+            f"{len(files)} test file(s) import it:"
+        )
+        for line in files:
+            print("- " + line)
+        print(
+            "If the brief changes a Protocol's signature, sketch the change and run "
+            "`uv run pyright` on these first (L28.16)."
+        )
     return 0
 
 

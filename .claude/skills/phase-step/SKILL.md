@@ -98,7 +98,10 @@ and an error message names only its subject.** `L22.17`: `R22.9` was filed again
 `weft_kernel.resolution.resolve`, and framed as a gate question, because *"stage 'store' names
 plugin 'pgvector'"* reads like resolution. The raise was one layer up, in
 `weft_cli.compile.contracts_for`, and the fix needed no decision. Grep the message's literal text,
-read the function that raises it, then write the `owner`. **From a log, the owner is the exception
+read the function that raises it, then write the `owner`. **An import cost is owned by every
+importer, not the one `-X importtime` shows**: it charges a shared dependency to whoever imports it
+first, so `R29.5`'s remedy named half the cost (`L28.15`) — state the property (a fresh interpreter
+that did X has not imported Y) and assert it in a subprocess. **From a log, the owner is the exception
 on its last line and the `except` it escaped** (`L26.1`): a traceback printed under *"during closing
 of"* or *"Exception ignored in"* was swallowed by the runtime — `R39.1` was filed against one and
 the fix sat in `weft_cli/eval_scoring.py`. *(d)* **Before filing, search the open
@@ -526,7 +529,8 @@ an implementer's tables into a flaky red, and a 24 GB host killed a measurement 
 **And it is built from `HEAD`, where the red tests are not** (`L22.19`): *Red* leaves them
 uncommitted here, so write them to a patch in the scratchpad (`git diff` for edited files,
 `git diff --no-index /dev/null <file>` for new ones — `git add -N` needs a `git reset` to undo)
-and make applying it the brief's **Step 0**, with the agent confirming the tests fail before it
+and make applying it — `git apply --index`, so a file it creates is tracked before any gate runs
+(`L28.17`; `guard_implementer_brief.py` refuses the plain form) — the brief's **Step 0**, with the agent confirming the tests fail before it
 edits anything. Bring back its non-test diff only; the tests stay yours and land in the one commit.
 **And `HEAD` means the session's first commit, not the current one** (`L22.24`). Measured at Phase
 33: once commits land in a session, every new worktree still starts at the commit the session

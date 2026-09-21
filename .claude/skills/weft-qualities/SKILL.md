@@ -178,6 +178,11 @@ are.
 A silent fallback is worse than a crash, because it produces a plausible answer. Weft's `Outcome`
 type exists so a degraded path is *visible* rather than indistinguishable from success.
 
+**A new caller of a validating model is a new escape path** (`L28.13`). `R41.1` routed a provider's
+`config_model` to bind time, and `model_validate` there let pydantic's own error and documentation
+URL reach `weft ask` — task 7.4's defect, fixed at load time and re-opened one call site later. Ask
+of every new `model_validate(`: what does the operator see when this one fails?
+
 **Worked example:** asking for a metric by name returned **no error and no score** — 6 of 21
 evaluators never registered, and unknown names were silently dropped.
 

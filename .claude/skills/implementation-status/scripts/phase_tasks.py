@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -37,6 +38,7 @@ try:
     from next_task import (  # type: ignore[import-not-found]
         NEXT_ACTION_TASK,
         PHASE_IN_STATUS,
+        REPAIR_LINE,
         find_ledger,
         parse,
         status_block,
@@ -87,6 +89,30 @@ def next_action_task(readme: Path) -> str:
     return pointed.group("identifier") if pointed else ""
 
 
+def commit_subjects(repo: Path) -> list[tuple[str, str]]:
+    try:
+        # A fixed `git` argv over this checkout, the shape `brief_facts.py` runs.
+        out = subprocess.run(  # noqa: S603
+            ["git", "-C", str(repo), "log", "--format=%h %s"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"git log failed, committed-but-unticked not checked: {exc}", file=sys.stderr)
+        return []
+    return [tuple(line.split(" ", 1)) for line in out.splitlines() if " " in line]
+
+
+def committed_under(identifier: str, subjects: list[tuple[str, str]]) -> str:
+    """`L28.14`: an unticked id a commit subject names is committed, not unstarted."""
+    pattern = re.compile(rf"(?<![\w.]){re.escape(identifier)}(?![\w.]*\d)")
+    for sha, subject in subjects:
+        if pattern.search(subject):
+            return sha
+    return ""
+
+
 def collect(ledger: Path, wanted: str) -> dict:
     tasks, phases = parse(ledger.read_text(encoding="utf-8"))
     titles = [t for t in phases if phase_number(t) == wanted]
@@ -95,6 +121,7 @@ def collect(ledger: Path, wanted: str) -> dict:
     title = titles[0]
     phase = phases[title]
     rows = []
+    subjects = commit_subjects(ledger.parent)
     for task in tasks:
         if task.phase != title:
             continue
@@ -116,9 +143,20 @@ def collect(ledger: Path, wanted: str) -> dict:
                 "turns_on": task.fields.get("turns on", "—"),
                 "not_scheduled": bool(NOT_SCHEDULED.search(task.text)),
                 "makes_true": task.property_sentence,
+                "committed_unticked": ""
+                if task.checked
+                else committed_under(task.identifier, subjects),
             }
         )
+    open_repairs = []
+    for match in REPAIR_LINE.finditer(ledger.read_text(encoding="utf-8")):
+        if match.group(1) == " ":
+            identifier = match.group("identifier")
+            open_repairs.append(
+                {"id": identifier, "committed_unticked": committed_under(identifier, subjects)}
+            )
     return {
+        "open_repairs": open_repairs,
         "phase": title,
         "preamble_blocked_lines": [{"line": n, "text": t} for n, t in phase.blocked_lines],
         "tasks": rows,
@@ -144,8 +182,14 @@ def render(report: dict, readme: Path) -> None:
         if row["mentions_blocked"]:
             flags += f" {BLOCKED}?(read the line)"
         tail = "  NOT SCHEDULED" if row["not_scheduled"] else ""
+        if row["committed_unticked"]:
+            tail += f"  COMMITTED {row['committed_unticked']}, UNTICKED"
         print(f"[{box}] {row['id']}{flags}  sha {row['sha']}  L{row['line']}{tail}")
         print(f"      {row['makes_true']}")
+    committed = [r for r in report["open_repairs"] if r["committed_unticked"]]
+    print(f"\n{len(report['open_repairs'])} open carried repairs")
+    for repair in committed:
+        print(f"  {repair['id']}  COMMITTED {repair['committed_unticked']}, UNTICKED — tick it")
 
 
 def main() -> int:

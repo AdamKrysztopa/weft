@@ -16,11 +16,17 @@ the symbol they name, marking those naming no missing symbol, and lists every ci
 owner modules. Presence is all that is checked: the point is that the numbers were produced by a
 command, and the dispatcher still reads them.
 
-Every other agent type is untouched. Exit 2 with the reason on stderr blocks, per the PreToolUse
-convention. Runs under bare `python3` (3.9): nothing here uses 3.10+ syntax.
+**And a Step 0 that applies a patch without `--index` is refused, for any agent in a worktree**
+(`L28.17`). Plain `git apply` leaves a file the patch creates untracked, `guard_unstaged_gate.py`
+then refuses the gate in that worktree, and one implementer, refused `git add` there, returned green
+having never run the gate its brief named.
+
+Every other agent type is untouched by the facts check. Exit 2 with the reason on stderr blocks,
+per the PreToolUse convention. Runs under bare `python3` (3.9): nothing here uses 3.10+ syntax.
 """
 
 import json
+import re
 import sys
 
 REASON = (
@@ -31,6 +37,31 @@ REASON = (
     "then paste its output into the brief: account for every OTHER error group, and say who "
     "re-points each citation the change will move."
 )
+
+
+UNINDEXED_REASON = (
+    "Refused: this brief applies a patch with `git apply` and no `--index` (L28.17).\n"
+    "A file the patch creates stays untracked, and guard_unstaged_gate.py then refuses the gate\n"
+    "in the worktree. Write `git apply --index <patch>` in Step 0."
+)
+
+_APPLY = re.compile(r"\bgit apply\b([^\n`]*)")
+
+
+def applies_unindexed(tool_input):
+    if (
+        tool_input.get("subagent_type") != "weft-implementer"
+        and tool_input.get("isolation") != "worktree"
+    ):
+        return False
+    prompt = tool_input.get("prompt", "")
+    if not isinstance(prompt, str):
+        return False
+    for match in _APPLY.finditer(prompt):
+        flags = match.group(1)
+        if "--index" not in flags and "--check" not in flags:
+            return True
+    return False
 
 
 def needs_facts(tool_input):
@@ -50,8 +81,13 @@ def main():
     if payload.get("tool_name") not in ("Agent", "Task"):
         return 0
     tool_input = payload.get("tool_input", {})
-    if isinstance(tool_input, dict) and needs_facts(tool_input):
+    if not isinstance(tool_input, dict):
+        return 0
+    if needs_facts(tool_input):
         sys.stderr.write(REASON + "\n")
+        return 2
+    if applies_unindexed(tool_input):
+        sys.stderr.write(UNINDEXED_REASON + "\n")
         return 2
     return 0
 
