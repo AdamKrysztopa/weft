@@ -44,8 +44,9 @@ import psycopg
 import pytest
 from pydantic import SecretStr
 
+import weft_chunk
+from tests.discovery import register_ext_models_of
 from weft_chunk import Chunker, FixedSizeChunker
-from weft_chunk.payload import ChunkPosition
 from weft_embed import Embedder, HashEmbedder
 from weft_extract import Extractor, TextExtractor, discover_source_docs
 from weft_kernel.context import Context
@@ -93,39 +94,15 @@ async def store() -> AsyncIterator[PgVectorStore]:
 def _ingest_registry(store: PgVectorStore) -> Registry:
     """The four built-ins, wired by hand.
 
-    A hand-built `Registry` never runs any pack's `register()`, so nothing calls
-    `PackRegistrar.add_ext_model` and nothing reaches `weft_store.rehydrate`'s namespace
-    registry — and reading back a node carrying an unregistered namespace fails with
-    `no '<namespace>' is registered for ExtModel`. That is the latent dependency ledger task
-    **6.17** names in `tests/integration/test_ingest_pipeline.py`, which passed only because
-    some *other* test file ran a real `discover()` first and populated a process-global
-    registry; a test that depends on file order is a defect in the test
-    (`docs/internal/lessons.md` L5.21). `fixed-size` attaches `weft_chunk.payload.ChunkPosition`
-    (ledger `32.1`), so that one class is registered below.
-
-    **And when it is filled again, through `register_from_reports`, not `register_ext_model`.**
-    `rehydrate.py`'s own module docstring says the two give "the identical idempotent-or-refuse
-    behaviour either way" and names this exact caller — "a test, or a caller that builds a
-    registry without running full discovery". Measured, they differ: `register_ext_model`
-    refuses a second call even for the same class, so a suite where another file ran a real
-    `discover()` first fails here with `DuplicateRegistrationError`. Only
-    `register_from_reports` skips a namespace its own class already claimed.
-    `docs/internal/lessons.md` L6.28.
+    A hand-built `Registry` runs no pack's `register()`, so the chunker's `ExtModel`s are
+    registered from `weft_chunk`'s own declaration, or a node read back fails with
+    `no '<namespace>' is registered for ExtModel` (`L5.21`, `L6.28`, `R32.5`).
     """
 
     def store_factory(_config: object) -> PgVectorStore:
         return store
 
-    register_from_reports(
-        [
-            PackReport(
-                pack="weft-chunk",
-                distribution="weft-chunk",
-                status=PackStatus.ACTIVE,
-                ext_models=(ChunkPosition,),
-            )
-        ]
-    )
+    register_ext_models_of(weft_chunk)
     registry = Registry()
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")

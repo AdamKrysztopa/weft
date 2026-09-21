@@ -29,16 +29,18 @@ import psycopg
 import pytest
 from pydantic import SecretStr
 
+import weft_chunk
+import weft_extract
+import weft_pdf
+from tests.discovery import register_ext_models_of
 from weft_chunk import Chunker, FixedSizeChunker
-from weft_chunk.payload import ChunkPosition
 from weft_embed import Embedder, HashEmbedder
 from weft_extract.contract import Extractor, SourceDoc
-from weft_extract.payload import PageSpan
 from weft_kernel.context import Context
-from weft_kernel.payload import ExtModel, SourceId
+from weft_kernel.payload import SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Runner, StageSpec
-from weft_pdf import PdfPages, PdfTextExtractor
+from weft_pdf import PdfTextExtractor
 from weft_store import NodeStore
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
@@ -51,30 +53,6 @@ _PDF_PATH = Path(__file__).resolve().parents[2] / "corpus" / "arxiv" / "2508.189
 
 def _ctx() -> Context:
     return Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
-
-
-def _ensure_rehydrates(model: type[ExtModel]) -> None:
-    """Register `model` with `weft_store.rehydrate` if nothing has claimed its namespace yet.
-
-    This test hand-assembles a `Registry` and never calls `weft_kernel.discovery.discover`,
-    so `weft_pdf`'s own `register()` — which buffers `PdfPages` through
-    `PackRegistrar.add_ext_model` (task 5.2g) — never runs either.
-    `weft_store.rehydrate.register_from_reports` is the real, generic consumer of that
-    buffer; this wraps one bare model in a throwaway `PackReport` and hands it that same
-    function, rather than re-deriving its idempotent-or-refuse logic by hand a second time.
-    `store.scan()` needs both namespaces reconstructable to prove the stored node
-    round-trips clean, not only that the insert succeeded.
-    """
-    from weft_kernel.discovery import PackReport, PackStatus
-    from weft_store.rehydrate import register_from_reports
-
-    report = PackReport(
-        pack=model.__namespace__,
-        distribution=model.__namespace__,
-        status=PackStatus.ACTIVE,
-        ext_models=(model,),
-    )
-    register_from_reports((report,))
 
 
 async def _database_reachable() -> str | None:
@@ -105,9 +83,7 @@ async def test_the_corpus_pdf_carrying_nul_bytes_indexes_into_the_real_store(
     store: PgVectorStore,
 ) -> None:
     # Arrange — the exact document 2.34's own note measured, read as `weft index` would.
-    _ensure_rehydrates(PdfPages)
-    _ensure_rehydrates(PageSpan)
-    _ensure_rehydrates(ChunkPosition)
+    register_ext_models_of(weft_pdf, weft_extract, weft_chunk)
     if not _PDF_PATH.is_file():
         pytest.skip(f"corpus fixture missing: {_PDF_PATH}")
     content = _PDF_PATH.read_bytes()

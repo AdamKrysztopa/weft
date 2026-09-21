@@ -32,10 +32,12 @@ import sys
 import tomllib
 from importlib import import_module, metadata
 from pathlib import Path
+from types import ModuleType
 from typing import Final, cast
 
-from weft_kernel.discovery import PackRegistrar, discover
+from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, discover
 from weft_kernel.registry import Registry
+from weft_store.rehydrate import register_from_reports
 
 #: The one distribution a test session must never import. Named here, in the tests, because that
 #: is where the fact lives — `testing/weft-canary`'s whole purpose is to be refused, and fitness
@@ -91,6 +93,32 @@ def discover_for_tests() -> Registry:
         },
     )
     return registry
+
+
+def register_ext_models_of(*packs: ModuleType) -> None:
+    """Make every `ExtModel` each of `packs` declares readable back from a store — repair **R32.5**.
+
+    For a fixture that wires stages into a hand-built `Registry`: no pack's `register()` runs, so
+    nothing declares the pack's models and a stored `ext` namespace reads back as
+    `no '<namespace>' is registered for ExtModel`. Listing the classes by hand copied the pack's
+    declaration on the day it was written, and three times a pack gained a model and the copies did
+    not (`L5.21`, `L6.28`, `L26.3`). This runs the pack's own `register()` with its default
+    settings against a throwaway registry and hands what it declared to `register_from_reports` —
+    never `register_ext_model`, which refuses a namespace a real `discover()` already filled.
+    """
+    for pack in packs:
+        registrar = PackRegistrar(Registry(), distribution=pack.__name__)
+        pack.register(registrar, pack.Settings())
+        register_from_reports(
+            [
+                PackReport(
+                    pack=pack.__name__,
+                    distribution=pack.__name__,
+                    status=PackStatus.ACTIVE,
+                    ext_models=registrar.ext_models,
+                )
+            ]
+        )
 
 
 def register_out_of_tree_examples(registry: Registry) -> None:

@@ -27,14 +27,15 @@ import psycopg
 import pytest
 from pydantic import SecretStr
 
+import weft_index
+from tests.discovery import register_ext_models_of
 from weft_embed.contract import Embedder
 from weft_embed.hash_embedder import HashEmbedder
-from weft_index.payload import RaptorFacts, Representation
+from weft_index.payload import RaptorFacts
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt
 from weft_index.raptor import RaptorConfig, RaptorSummarizer
 from weft_kernel.context import Context, ServiceRegistry
-from weft_kernel.discovery import PackReport, PackStatus
-from weft_kernel.payload import ExtModel, MediaType, Node, Produced, SourceId
+from weft_kernel.payload import MediaType, Node, Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_llm.client import NullSink, llm_service
 from weft_llm.contract import LLM, LLMProvider, TokenSink
@@ -45,7 +46,6 @@ from weft_prompts.contract import Prompt, Prompts
 from weft_prompts.registry import prompts_service
 from weft_store.contract import Filter, FilterOp
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
-from weft_store.rehydrate import register_from_reports
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 _SOURCE = SourceId("/corpus/levels.txt")
@@ -54,29 +54,6 @@ _SOURCE = SourceId("/corpus/levels.txt")
 #: on `ext.weft-index.technique`, so this is the same grammar one namespace over — which is the
 #: point of keeping the level *beside* `Representation` rather than inside it.
 _LEVEL_FIELD = f"ext.{RaptorFacts.__namespace__}.level"
-
-
-def _ensure_rehydrates(*models: type[ExtModel]) -> None:
-    """Register `models` for read-back, as `weft_index.register`'s own `add_ext_model` calls do
-    once discovery has run.
-
-    This test composes a slice of stages by hand rather than discovering the pack, so nothing has
-    told `weft_store.rehydrate` which class owns which namespace — and without that a stored
-    `ext` value comes back as a plain mapping. `test_raptor_pipeline.py` carries the identical
-    helper for the identical reason. The failure it prevents is worth naming: the first draft of
-    this file omitted it and `store.get` raised `UnknownPluginError` naming the namespace, which
-    is the registration seam refusing loudly rather than handing back JSON nobody owns.
-    """
-    reports = tuple(
-        PackReport(
-            pack=model.__namespace__,
-            distribution=model.__namespace__,
-            status=PackStatus.ACTIVE,
-            ext_models=(model,),
-        )
-        for model in models
-    )
-    register_from_reports(reports)
 
 
 def _ctx(services: ServiceRegistry) -> Context:
@@ -139,7 +116,7 @@ async def _indexed(store: PgVectorStore) -> Sequence[Node]:
         root.derive(content="Conditional mutual information is defined here.", ordinal=0),
         root.derive(content="The optimisation problem the method solves.", ordinal=1),
     )
-    _ensure_rehydrates(RaptorFacts, Representation)
+    register_ext_models_of(weft_index)
     services = _services()
     embedded = await HashEmbedder().run(leaves, _ctx(services))
     assert isinstance(embedded, Produced)

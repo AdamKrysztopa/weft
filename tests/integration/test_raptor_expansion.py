@@ -33,14 +33,15 @@ import psycopg
 import pytest
 from pydantic import SecretStr
 
+import weft_index
+from tests.discovery import register_ext_models_of
 from weft_embed.contract import Embedder
 from weft_embed.hash_embedder import HashEmbedder
-from weft_index.payload import RaptorFacts, Representation
+from weft_index.payload import RaptorFacts
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt
 from weft_index.raptor import RaptorConfig, RaptorSummarizer
 from weft_kernel.context import Context, ServiceRegistry
-from weft_kernel.discovery import PackReport, PackStatus
-from weft_kernel.payload import ExtModel, MediaType, Node, NodeId, Produced, SourceId
+from weft_kernel.payload import MediaType, Node, NodeId, Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_llm.client import NullSink, llm_service
 from weft_llm.contract import LLM, LLMProvider, TokenSink
@@ -51,7 +52,6 @@ from weft_prompts.contract import Prompt, Prompts
 from weft_prompts.registry import prompts_service
 from weft_store.contract import Filter, FilterOp
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
-from weft_store.rehydrate import register_from_reports
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 _SOURCE = SourceId("/corpus/expansion.txt")
@@ -59,20 +59,6 @@ _SOURCE = SourceId("/corpus/expansion.txt")
 #: The field a reverse walk filters on. `weft_store.fields` gives `lineage.parents` the
 #: `TEXT_SET` kind, which is what admits `contains`.
 _PARENTS_FIELD = "lineage.parents"
-
-
-def _ensure_rehydrates(*models: type[ExtModel]) -> None:
-    register_from_reports(
-        tuple(
-            PackReport(
-                pack=model.__namespace__,
-                distribution=model.__namespace__,
-                status=PackStatus.ACTIVE,
-                ext_models=(model,),
-            )
-            for model in models
-        )
-    )
 
 
 def _ctx(services: ServiceRegistry) -> Context:
@@ -130,7 +116,7 @@ async def _two_level_tree(store: PgVectorStore) -> tuple[Sequence[Node], Sequenc
     over the leaves, the second over `over_level: 1` — so the shape under test is the one a
     document actually produces rather than a hand-assembled lineage.
     """
-    _ensure_rehydrates(RaptorFacts, Representation)
+    register_ext_models_of(weft_index)
     root = Node.synthetic(
         content="one",
         media_type=MediaType.TEXT,

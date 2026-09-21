@@ -42,9 +42,12 @@ import psycopg
 import pytest
 from pydantic import SecretStr
 
+import weft_chunk
+import weft_index
+import weft_pdf
+from tests.discovery import register_ext_models_of
 from weft_chunk import FixedSizeChunker
 from weft_chunk.contract import Chunker
-from weft_chunk.payload import ChunkPosition
 from weft_embed.contract import Embedder
 from weft_extract.contract import Extractor
 from weft_extract.text import discover_source_docs
@@ -55,7 +58,7 @@ from weft_index import Expander, HypotheticalQuestionGenerator
 from weft_index.payload import Representation
 from weft_index.prompts import GENERATE_QUESTIONS_NAME, GenerateQuestionsPrompt
 from weft_kernel.context import Context, ServiceRegistry
-from weft_kernel.payload import ExtModel, MediaType, Node, Produced
+from weft_kernel.payload import MediaType, Node, Produced
 from weft_kernel.registry import Registry
 from weft_llm.client import NullSink, llm_service
 from weft_llm.contract import LLM, LLMProvider, TokenSink
@@ -65,7 +68,7 @@ from weft_openai import OpenAIEmbedder, OpenAIEmbedderConfig, OpenAILLMProvider
 from weft_openai import Settings as OpenAISettings
 from weft_openai.llm import DEFAULT_MODEL
 from weft_pdf import EXTENSIONS as PDF_EXTENSIONS
-from weft_pdf import PdfPages, PdfTextExtractor
+from weft_pdf import PdfTextExtractor
 from weft_prompts.contract import Prompt, Prompts
 from weft_prompts.registry import prompts_service
 from weft_retrieve.contract import StageLookup
@@ -117,32 +120,6 @@ class _PromptLookup:
         self, contract: type[object], name: str, config: object = None
     ) -> object:
         return self._registry.entry(contract, name).factory(config)
-
-
-def _ensure_rehydrates(model: type[ExtModel]) -> None:
-    """Make `model` reconstructable by `weft_store.rehydrate` — this test's own use of
-    `weft_store.rehydrate.register_from_reports`, the generic consumer task 5.2g built.
-
-    This test hand-assembles a `Registry` and never calls `weft_kernel.discovery.discover`,
-    so no pack's own `register()` — which now buffers its `ExtModel`s through
-    `PackRegistrar.add_ext_model` — ever runs to populate `weft_store.rehydrate.
-    ext_models` for it. Wrapping one bare model in a throwaway `PackReport` and handing it
-    to `register_from_reports` reuses that function's own idempotent-or-refuse logic —
-    `rehydrate.py`'s own registry is process-wide, so a second call for a namespace
-    already claimed by the same class must be a no-op rather than
-    `DuplicateRegistrationError` the moment more than one test in this session needs it —
-    rather than re-deriving it by hand a second time.
-    """
-    from weft_kernel.discovery import PackReport, PackStatus
-    from weft_store.rehydrate import register_from_reports
-
-    report = PackReport(
-        pack=model.__namespace__,
-        distribution=model.__namespace__,
-        status=PackStatus.ACTIVE,
-        ext_models=(model,),
-    )
-    register_from_reports((report,))
 
 
 async def _database_reachable() -> str | None:
@@ -257,9 +234,7 @@ async def test_a_question_nobody_wrote_retrieves_its_chunk_and_cites_the_chunk(
     store: PgVectorStore, api_key: SecretStr, tmp_path: Path
 ) -> None:
     # Arrange — one real paper, extracted and chunked, trimmed to a bounded slice.
-    _ensure_rehydrates(PdfPages)
-    _ensure_rehydrates(Representation)
-    _ensure_rehydrates(ChunkPosition)
+    register_ext_models_of(weft_pdf, weft_index, weft_chunk)
     assert _PAPER.exists(), "corpus/arxiv/1706.07535v1.pdf must be materialised for this test"
     (tmp_path / _PAPER.name).write_bytes(_PAPER.read_bytes())
     docs = discover_source_docs(tmp_path, extensions=PDF_EXTENSIONS)

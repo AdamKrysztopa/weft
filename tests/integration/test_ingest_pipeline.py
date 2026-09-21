@@ -38,12 +38,12 @@ import psycopg
 import pytest
 from pydantic import SecretStr
 
+import weft_chunk
+from tests.discovery import register_ext_models_of
 from weft_chunk import Chunker, FixedSizeChunker
-from weft_chunk.payload import ChunkPosition
 from weft_embed import Embedder, HashEmbedder
 from weft_extract import Extractor, TextExtractor, discover_source_docs
 from weft_kernel.context import Context
-from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import MediaType, Node, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.runner import Runner, StageSpec
@@ -92,18 +92,7 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
     def store_factory(_config: object) -> PgVectorStore:
         return store
 
-    # A hand-built `Registry` runs no pack's `register()`, so `fixed-size`'s `ChunkPosition`
-    # (ledger `32.1`) is made rehydratable here or reading a node back fails (`L5.21`, `L6.28`).
-    register_from_reports(
-        [
-            PackReport(
-                pack="weft-chunk",
-                distribution="weft-chunk",
-                status=PackStatus.ACTIVE,
-                ext_models=(ChunkPosition,),
-            )
-        ]
-    )
+    register_ext_models_of(weft_chunk)
     registry = Registry()
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
