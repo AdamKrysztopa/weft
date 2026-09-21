@@ -81,6 +81,7 @@ document in the batch produced content, and its reason names every one of
 them.
 """
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import overload
 
@@ -465,6 +466,16 @@ def _extract_one(
             )
         )
 
+    surrogate_page = _first_surrogate_page(pages)
+    if surrogate_page is not None:
+        return Failed(
+            reason=(
+                f"'{doc.uri}' page {surrogate_page.number}: extracted text holds an "
+                "unpaired surrogate (a U+D800-U+DFFF code point) that cannot be encoded "
+                f"as UTF-8 — {backend} cannot build a node from this page."
+            )
+        )
+
     page_nodes = _page_nodes(doc, pages, backend=backend)
     if not page_nodes:
         return (), (), f"'{doc.uri}': {len(pages)} page(s), and no text on any of them"
@@ -581,3 +592,13 @@ def _first_unseen_page(pages: Sequence[PageText]) -> PageText | None:
         (page for page in pages if not page.text.strip() and page.images > 0),
         None,
     )
+
+
+#: A lone surrogate that a page's CMap produced makes `Node.synthetic`'s UTF-8 digest raise, ending
+#: the whole run; 2 of open_ragbench's 1,000 arXiv PDFs carry one (R29.2).
+_SURROGATE_PATTERN = re.compile(r"[\ud800-\udfff]")
+
+
+def _first_surrogate_page(pages: Sequence[PageText]) -> PageText | None:
+    """The first page whose text holds an unpaired surrogate, or `None` if there is none."""
+    return next((page for page in pages if _SURROGATE_PATTERN.search(page.text)), None)

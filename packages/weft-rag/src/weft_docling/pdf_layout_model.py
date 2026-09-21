@@ -21,6 +21,7 @@ swallowed: `to_thread` re-raises it at the `await`.
 """
 
 import asyncio
+import re
 from collections.abc import Sequence
 from enum import StrEnum
 from io import BytesIO
@@ -57,6 +58,9 @@ NAME = "pdf-layout-model"
 
 #: What this extractor reads — a `SourceDoc.uri` of any other suffix never reaches it.
 EXTENSIONS: tuple[str, ...] = (".pdf",)
+
+#: A lone surrogate makes `Node.synthetic`'s UTF-8 digest raise, ending the whole run (R29.2).
+_SURROGATE_PATTERN = re.compile(r"[\ud800-\udfff]")
 
 
 class TableMode(StrEnum):
@@ -216,6 +220,13 @@ class PdfLayoutModelExtractor:
                 return Failed(reason=f"could not read {doc.uri}: {error}")
             if not text.strip():
                 continue
+            if _SURROGATE_PATTERN.search(text):
+                return Failed(
+                    reason=(
+                        f"'{doc.uri}': extracted text holds an unpaired surrogate (a "
+                        "U+D800-U+DFFF code point) that cannot be encoded as UTF-8."
+                    )
+                )
             nodes.append(
                 Node.synthetic(
                     content=text,

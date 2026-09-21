@@ -261,6 +261,44 @@ def test_one_unreadable_document_fails_the_whole_batch_rather_than_shrinking_it(
     assert len(calls) == 2
 
 
+def test_a_page_holding_an_unpaired_surrogate_fails_by_name_rather_than_raising() -> None:
+    # Arrange — R29.2: two of open_ragbench's 1,000 arXiv PDFs read a page whose CMap
+    # passes a lone UTF-16 surrogate straight through into the returned `str`. Left alone,
+    # `Node.synthetic`'s content digest tries to encode it as UTF-8 and raises, which
+    # aborts the whole `weft index` run rather than failing this one document.
+    read = _reading(PageText(number=4, text="before \ud800 after", images=0))
+
+    # Act
+    outcome = _extract(read)
+
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "file:///paper.pdf" in outcome.reason
+    assert "surrogate" in outcome.reason
+    assert "page 4" in outcome.reason
+
+
+def test_a_batch_with_one_surrogate_document_fails_whole_rather_than_shrinking() -> None:
+    # Arrange — same "extracted whole or not at all" rule `test_one_unreadable_document_
+    # fails_the_whole_batch_rather_than_shrinking_it` checks for an unreadable document:
+    # a `Failed` from any one document aborts the batch, it does not drop that document
+    # and keep the rest.
+    good = SourceDoc(source_id=SourceId("a"), uri="file:///a.pdf", content=b"a")
+    bad = SourceDoc(source_id=SourceId("b"), uri="file:///b.pdf", content=b"b")
+
+    def read(content: bytes) -> Sequence[PageText]:
+        text = "fine" if content == b"a" else "broken \udc00 glyph"
+        return (PageText(number=1, text=text, images=0),)
+
+    # Act
+    outcome = _extract(read, payload=[good, bad])
+
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "file:///b.pdf" in outcome.reason
+    assert "surrogate" in outcome.reason
+
+
 _TWO_PAGES: Final[PageReader] = _reading(
     PageText(number=1, text="first page", images=0),
     PageText(number=2, text="second page", images=0),

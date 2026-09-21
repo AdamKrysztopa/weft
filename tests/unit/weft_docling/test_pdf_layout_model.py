@@ -165,6 +165,25 @@ async def test_an_unreadable_document_fails_naming_the_document(
     assert "/corpus/scanned.pdf" in outcome.reason
 
 
+async def test_a_document_holding_an_unpaired_surrogate_fails_by_name_rather_than_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # R29.2 — the same class of defect `weft_pdf.document` carries, reached through this
+    # pack's own `Node.synthetic` call instead: a lone surrogate the model read straight
+    # off a page's CMap survives until the content digest tries to encode it as UTF-8.
+    def read(content: bytes, **kwargs: object) -> str:
+        del content, kwargs
+        return "before \ud800 after"
+
+    monkeypatch.setattr(pdf_layout_model, "convert_pdf", read)
+
+    outcome = await PdfLayoutModelExtractor(None, PdfLayoutModelConfig()).run([_doc()], _ctx())
+
+    assert isinstance(outcome, Failed)
+    assert "/corpus/scanned.pdf" in outcome.reason
+    assert "surrogate" in outcome.reason
+
+
 async def test_cancellation_propagates_and_is_never_swallowed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
