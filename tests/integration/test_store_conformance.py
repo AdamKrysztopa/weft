@@ -376,12 +376,6 @@ async def test_search_text_answers_nothing_matching_with_an_empty_ranking(
 async def test_search_text_narrows_by_a_filter_rather_than_ignoring_it(
     store: FilterableTextStore,
 ) -> None:
-    if isinstance(store, QdrantStore):
-        # Repair R32.7: bound for the first time at Phase 32's close, and Qdrant's filtered text
-        # search drops the node the filter keeps. Pinned so the day it is fixed this fails.
-        with pytest.raises(AssertionError, match="a filter the match satisfies must keep it"):
-            await check_search_text_narrows_by_a_filter_rather_than_ignoring_it(store)
-        return
     await check_search_text_narrows_by_a_filter_rather_than_ignoring_it(store)
 
 

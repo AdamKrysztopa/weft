@@ -932,7 +932,9 @@ class QdrantStore:
         the `modifier=IDF` the collection was created with. `filter` narrows what may be
         ranked at the server, exactly as `search_vector` does — passed through to the same
         `to_qdrant_filter`, so a stronger match outside the filter can never win the way it
-        would if the filter were applied to an already-decided top-k.
+        would if the filter were applied to an already-decided top-k. A filtered query returns
+        the filter's non-matching points at score zero, and they are dropped because a node
+        sharing no term with the query is not a match.
 
         No match, including a query that analyses to no tokens at all, is an empty sequence —
         `TextSearch`'s own emptiness rule — and a query with nothing to ask requires no round
@@ -952,10 +954,12 @@ class QdrantStore:
             with_payload=True,
             with_vectors=True,
         )
-        # Positive and descending, straight from the server — the other backend's
-        # sign-crossing problem is `pg_textsearch`'s `<@>` alone, not this store's.
+        # Descending from the server, non-negative — the other backend's sign-crossing
+        # problem is `pg_textsearch`'s `<@>` alone, not this store's.
         return [
-            Scored(value=_to_node(point), score=point.score or 0.0) for point in answered.points
+            Scored(value=_to_node(point), score=point.score)
+            for point in answered.points
+            if point.score > 0
         ]
 
     async def aclose(self) -> None:

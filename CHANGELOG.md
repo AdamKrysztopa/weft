@@ -51,6 +51,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   over a corpus indexed before this release reports each file *"unchanged on disk but re-parsed
   by a different pipeline"* and re-parses it, once. Bare `weft index` is unaffected.
 
+### Fixed
+
+- **Qdrant's text search honours a filter the way pgvector's does.** A filtered lexical query
+  returned the filter's other nodes at score zero alongside the real matches; it now returns only
+  nodes that share a term with the query.
+
 ## [2.7.0] - 2026-09-14
 
 **`weft-kernel` moves `0.2.0` → `0.2.1` with no change to its code.** It is republished only
