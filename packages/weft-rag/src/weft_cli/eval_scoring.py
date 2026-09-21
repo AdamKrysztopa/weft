@@ -1068,10 +1068,10 @@ async def score_pipeline(
     a `Ranking` and `run_named_retrieve` refuses it, the refusal `weft eval experiment` makes
     before any index for the same reason. `run_named_ask` requires an `Answer` and refused a
     packer-ending rung outright, which is what left an experiment's earlier arms with orphaned
-    records once a later arm named one. `reports`/`llm`/`services`/`sink`/`contributions` are
-    only read on this path — `weft_cli.eval_commands.EvalRunCommand.run` already has all five
-    in scope from its own `Dependencies`, the identical set `run_named_ask`'s other caller,
-    `AskCommand`, already threads through.
+    records once a later arm named one. `reports`/`llm`/`services`/`contributions` are only
+    read on this path — `weft_cli.eval_commands.index_and_score` already has all four in scope
+    from its own `Dependencies`, the identical set `run_named_ask`'s other caller, `AskCommand`,
+    already threads through. `sink` is not the CLI's printing sink (R33.0).
 
     **Task 16.1 — one resolution answers for both the run and the record.** When `query_pipeline`
     is given, it is resolved exactly once, before the question loop, through

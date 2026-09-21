@@ -27,6 +27,7 @@ there is nothing to judge, is `tests/unit/weft_eval/test_falsify.py`.
 from __future__ import annotations
 
 import hashlib
+import io
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, ClassVar, cast
@@ -59,6 +60,7 @@ from weft_cli.eval_commands import (
 from weft_cli.eval_scoring import ScoredRun
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.render import render_outcome
+from weft_cli.sinks import PrintingSink
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
@@ -90,6 +92,8 @@ from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, SlotDeclaration, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage
+from weft_llm.contract import TokenSink
+from weft_llm.payload import TokenChunk
 from weft_llm.roles import LLMRoles, RoleMapping
 from weft_store import NodeStore
 
@@ -481,6 +485,63 @@ async def test_eval_run_with_questions_folds_the_scored_metrics_into_the_record(
     assert isinstance(result.record.metrics["precision@5"], Produced)
     assert result.record.metrics["precision@5"].value.mean == 0.8
     assert result.question_set_format is QuestionSetFormat.JSON
+
+
+async def test_eval_run_does_not_stream_generated_tokens_to_the_cli_sink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R33.0: `index_and_score` passed `deps.token_sink` — the CLI's own printing sink — straight
+    into `score_pipeline`, so a generating `--query-pipeline` streamed every answer's tokens to
+    stdout while scoring ran, with no separator between questions, ahead of the run summary.
+
+    Asserted the same way the sibling test above stubs `score_pipeline`'s own scoring logic out
+    (that arithmetic is `test_eval_scoring.py`'s job): the fake stands in for a generating rung
+    by emitting into whatever `sink` it was handed, and the property under test is that nothing
+    reaches the CLI's real, stdout-bound sink — never that scoring produced a particular answer.
+    """
+    # Arrange
+    (tmp_path / "one.txt").write_text("hello weft")
+    monkeypatch.setattr(
+        ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
+    )
+    questions_path = tmp_path / "questions.json"
+    questions_path.write_text('[{"query": "q", "relevant_documents": ["doc-a"]}]')
+
+    captured = io.StringIO()
+    printing_sink = PrintingSink(stream=captured)
+
+    async def _fake_score_pipeline(**kwargs: object) -> ScoredRun:
+        sink = cast(TokenSink, kwargs["sink"])
+        await sink.emit(TokenChunk(role="generate", stage="generate", text="a generated answer"))
+        await sink.close(reason=None)
+        return ScoredRun(
+            metrics={},
+            query_rung=NoQueryRung(reason="no query rung was named"),
+        )
+
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _fake_score_pipeline)
+    deps = Dependencies(
+        registry=_registry_with_fakes(),
+        reports=(),
+        services=ServiceSelection(),
+        token_sink=printing_sink,
+    )
+
+    # Act
+    outcome = await EvalRunCommand().run(
+        EvalRunArgs(path=str(tmp_path), pipeline="index", questions=str(questions_path)),
+        _ctx(deps),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, EvalRunCommandResult)
+    assert result.summary is not None
+    assert captured.getvalue() == "", (
+        "a generated answer reached the CLI's own printing sink during weft eval run's "
+        "scoring pass — stdout must carry the run summary alone"
+    )
 
 
 # --- Task 16.0 — the corpus digest is over the documents' bytes, not over where they sit.

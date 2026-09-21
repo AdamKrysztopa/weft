@@ -264,6 +264,7 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 from weft_kernel.runner import RunSummary
+from weft_llm.client import NullSink
 from weft_llm.roles import LLMRoles
 
 #: `EvalRunArgs.top_k` default — `weft ask`'s own default depth, task 4.9's own retrieval
@@ -1354,7 +1355,8 @@ async def index_and_score(
             llm=deps.llm,
             services=deps.services,
             roles=deps.roles,
-            sink=deps.token_sink,
+            # Not `deps.token_sink`: that prints to stdout (R33.0). Usage is recorded either way.
+            sink=NullSink(),
             contributions=deps.contributions,
             document_labels=document_labels,
             refuse_foreign_documents=refuse_foreign_documents,
