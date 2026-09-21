@@ -24,7 +24,29 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 
 
 class RoleMapping(BaseModel):
-    """One `[llm.roles]` entry: the `LLMProvider` name, and the model to ask it for."""
+    """One `[llm.roles]` entry: the `LLMProvider` name, the model, and that model's settings.
+
+    **`settings` is a sub-table, and the nesting is what keeps a typo loud** — `R41.1`. This
+    entry stays `extra="forbid"`, because task `7.4` found by running the binary that a mistyped
+    key here — `nonsense = 1` — printed a pydantic traceback, and the repair made it a named
+    refusal *while `weft.toml` is read*
+    (`tests/unit/weft_cli/test_malformed_config_refuses.py`). Flat sampler keys would make that
+    typo indistinguishable from a provider's own knob, so it could only be refused when the role
+    was first called — and never for a role a run does not reach. One level of nesting buys the
+    refusal back.
+
+    What goes *inside* `settings` is the named provider's own configuration, validated by **its**
+    `config_model` when the `LLM` service binds the role (`weft_llm.client._provider_config`) —
+    the same route `entry.factory(spec.config)` gives a pipeline stage. This module cannot check
+    those keys itself: it names no capability and holds no registry, which is why `provider` above
+    is unchecked here too. A typo inside the sub-table is refused by the provider's own model,
+    which is `extra="forbid"` for both `OpenAILLMConfig` and `OpenAIEmbedderConfig`.
+
+    Before this, `[llm.roles]` took `provider` and `model` and nothing else while
+    `OpenAILLMConfig`'s docstring described "a `generate` role and a `grade` role sharing one
+    account at two different temperatures". Nothing could express it, and every local measurement
+    in Phase 41 therefore ran at whatever the server's default sampler was.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -36,6 +58,11 @@ class RoleMapping(BaseModel):
     #: one model available has nothing to disambiguate. May carry a `provider/model` prefix,
     #: which `weft_llm.models.model_ref` checks against `provider` above.
     model: str | None = None
+
+    #: The named provider's own configuration. Empty when nothing was written, which is what lets
+    #: `_bind` tell "no settings" from "settings that did not arrive": the first builds the
+    #: provider with `None` exactly as before, and the second is now impossible rather than silent.
+    settings: Mapping[str, object] = Field(default_factory=dict)
 
 
 class UnmappedLLMRoleError(WeftError, UnresolvedNameError):

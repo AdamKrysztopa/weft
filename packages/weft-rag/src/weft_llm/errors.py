@@ -260,3 +260,19 @@ class TokenCountUnavailableError(WeftError):
         self.role = role
         self.provider = provider
         self.model = model
+
+
+class ProviderSettingsUnsupportedError(WeftError):
+    """A `[llm.roles]` entry wrote settings for a provider that declares no configuration.
+
+    Not an `LLMError` — nothing was asked of a model, and a caller catching the model taxonomy
+    must not swallow an operator's configuration mistake. `R41.1`: once a role may carry a
+    provider's own keys, the provider that has none must say so rather than let them fall on the
+    floor, which is the silent fallback `CLAUDE.md` forbids — an operator who sets a temperature
+    and gets the default back has no way to tell it did not apply.
+    """
+
+    def __init__(self, message: str, *, provider: str, settings: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.provider = provider
+        self.settings = settings

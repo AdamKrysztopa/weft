@@ -48,6 +48,8 @@ rather than left to mistake it for one that finished cleanly.
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from typing import cast
 
+from pydantic import BaseModel, ValidationError
+
 from weft_kernel.context import Context
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
@@ -65,13 +67,14 @@ from weft_llm.errors import (
     LLMGenerationLoopError,
     LLMProviderFaultError,
     NativeStructuredUnsupportedError,
+    ProviderSettingsUnsupportedError,
     TokenCountUnavailableError,
 )
 from weft_llm.loop_guard import LoopGuardConfig, detect_generation_loop
 from weft_llm.models import ModelRef, find_runtime_match, model_ref
 from weft_llm.payload import Completion, Rendered, TokenChunk, TokenUsage
 from weft_llm.retry import RetryPolicy, with_retry
-from weft_llm.roles import LLMRoles
+from weft_llm.roles import LLMRoles, RoleMapping
 from weft_llm.usage import UsageEntry, record_usage
 
 #: The contract name the seam stamps on every span and every attributed error raised through
@@ -131,10 +134,13 @@ class LLMClient:
     Satisfies `weft_llm.contract.LLM` structurally — this class never imports it as a base,
     the same path every plugin in this tree takes with its own contract.
 
-    **Providers are built once per provider name, not once per role.** Two roles naming the
-    same provider with different models share one instance and one connection pool, which is
-    the shape `LLMProvider`'s own docstring argues for: "`model` is a per-call argument, not
-    constructor state … the same account, many models".
+    **Providers are built once per provider name *and settings*, not once per role.** Two roles
+    naming the same provider with different models still share one instance and one connection
+    pool, which is the shape `LLMProvider`'s own docstring argues for: "`model` is a per-call
+    argument, not constructor state … the same account, many models". Two roles that write
+    *different* settings do not, because they are different providers in everything but name —
+    `R41.1`, and `OpenAILLMConfig`'s docstring names the case: "a `generate` role and a `grade`
+    role sharing one account at two different temperatures".
     """
 
     def __init__(
@@ -149,7 +155,7 @@ class LLMClient:
         self._roles = roles
         self._retry = retry if retry is not None else RetryPolicy()
         self._loop_guard = loop_guard if loop_guard is not None else LoopGuardConfig()
-        self._bound: dict[str, _Bound] = {}
+        self._bound: dict[tuple[str, str], _Bound] = {}
         #: Every provider name this deployment mapped — what makes a `provider/model` prefix
         #: recognisable as a prefix rather than half of a model id. See `weft_llm.models`.
         self._provider_names = frozenset(mapping.provider for mapping in roles.roles.values())
@@ -307,7 +313,13 @@ class LLMClient:
         catalogue = _declared_catalogue(entry.factory)
         if catalogue and ref.model:
             ref = find_runtime_match(ref, catalogue)
-        cached = self._bound.get(mapping.provider)
+        #: Keyed on the provider *and* the settings written for this role, not on the provider
+        #: alone — `R41.1`. Two roles naming one account at two temperatures are two providers,
+        #: which is the case `OpenAILLMConfig`'s docstring describes; with the old key the second
+        #: role silently reused the first's instance and its sampler. Roles that write the same
+        #: settings still share one instance, so a connection is not paid for twice.
+        key = (mapping.provider, mapping.model_dump_json(exclude={"model"}))
+        cached = self._bound.get(key)
         if cached is not None:
             return _Bound(
                 provider=cached.provider,
@@ -315,14 +327,14 @@ class LLMClient:
                 ref=ref,
                 distribution=cached.distribution,
             )
-        raw = entry.factory(None)
+        raw = entry.factory(_provider_config(entry.factory, mapping))
         bound = _Bound(
             provider=with_retry(cast("LLMProvider", raw), self._retry),
             raw=raw,
             ref=ref,
             distribution=entry.distribution,
         )
-        self._bound[mapping.provider] = bound
+        self._bound[key] = bound
         return bound
 
     def _sealed(
@@ -374,6 +386,48 @@ def llm_service(
     it built itself.
     """
     return LLMClient(registry=registry, roles=roles, retry=retry, loop_guard=loop_guard)
+
+
+def _provider_config(factory: Callable[..., object], mapping: RoleMapping) -> object | None:
+    """A role's own settings, validated by the provider's `config_model` — `R41.1`.
+
+    `None` when the role wrote none, so a provider built for a bare `{provider, model}` entry is
+    constructed exactly as it was before this existed. Read through `unwrap_factory` for
+    `_declared_catalogue`'s reason: `functools.partial` does not proxy attribute access, so a pack
+    binding its settings at registration would otherwise appear to declare nothing.
+
+    A provider that declares no `config_model` and is handed settings anyway **refuses**, naming
+    them. Dropping them would leave an operator who set a temperature unable to tell that it never
+    applied, which is the failure this whole repair exists to end.
+    """
+    settings = mapping.settings
+    if not settings:
+        return None
+    declared = getattr(unwrap_factory(factory), "config_model", None)
+    if not (isinstance(declared, type) and issubclass(declared, BaseModel)):
+        raise ProviderSettingsUnsupportedError(
+            f"role settings {sorted(settings)} were written for provider "
+            f"'{mapping.provider}', which declares no configuration of its own — remove them "
+            f"from this '[llm.roles]' entry, or name a provider that accepts them.",
+            provider=mapping.provider,
+            settings=tuple(sorted(settings)),
+        )
+    try:
+        return declared.model_validate(settings)
+    except ValidationError as invalid:
+        #: `7.4`'s defect, one route later: a config model reached through a *new* path lets
+        #: pydantic's own error — and its documentation URL — out to an operator who mistyped a
+        #: key. Named here instead, with the keys this provider does accept, which is what
+        #: `UnresolvedNameError`'s family does for every other name in this tree.
+        accepted = tuple(sorted(declared.model_fields))
+        offered = tuple(sorted(settings))
+        raise ProviderSettingsUnsupportedError(
+            f"[llm.roles] settings {list(offered)} are not all valid for provider "
+            f"'{mapping.provider}': {invalid.error_count()} rejected. That provider accepts "
+            f"{list(accepted)}.",
+            provider=mapping.provider,
+            settings=offered,
+        ) from invalid
 
 
 def _declared_catalogue(factory: Callable[..., object]) -> Sequence[str]:

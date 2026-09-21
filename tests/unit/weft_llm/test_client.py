@@ -13,8 +13,10 @@ reached production once already in this build.
 """
 
 from collections.abc import AsyncIterator
+from typing import ClassVar
 
 import pytest
+from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
@@ -58,6 +60,131 @@ def _registry() -> Registry:
     registry = Registry()
     registry.add(LLMProvider, "scripted", ScriptedProvider, distribution="weft-llm")
     return registry
+
+
+class _SamplerConfig(BaseModel):
+    """The knobs `_Sampled` declares — `OpenAILLMConfig`'s three, with its own bounds.
+
+    A real provider's config model is what decides which sampling keys a `[llm.roles]` entry may
+    carry and refuses the rest by name (`OpenAILLMConfig` is `extra="forbid"`), so the double
+    declares one rather than accepting a bare mapping: a test that asserted on an unvalidated dict
+    would pass against a build that never validates.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    max_tokens: int | None = Field(default=None, ge=1)
+
+
+class _Sampled:
+    """A provider constructed with its resolved configuration — `R41.1`'s seam.
+
+    Built the way this tree's other configurable plugins are: the factory takes the config as its
+    one positional argument, exactly as `entry.factory(spec.config)` hands a stage its own. A
+    provider handed `None` cannot tell "no settings were written" from "settings were written and
+    did not arrive", which is the defect.
+    """
+
+    def __init__(self, config: _SamplerConfig | None = None) -> None:
+        self.config = config
+
+    async def complete(
+        self, conv: Conversation, *, model: str, ctx: Context
+    ) -> Outcome[Completion]:
+        del conv, ctx
+        return Produced(value=Completion(text="ok", model=model))
+
+    async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:
+        del conv, model, ctx
+        yield "ok"
+
+    async def close(self) -> None: ...
+
+
+class _RecordingFactory:
+    """A registered factory that keeps every provider it built, and the config each was given.
+
+    A class rather than a closure because `config_model` is what the resolution seam reads to
+    decide how a `[llm.roles]` entry's sampling keys are validated, and it must be a real
+    `ClassVar` on the callable the registry holds.
+    """
+
+    config_model: ClassVar[type[_SamplerConfig]] = _SamplerConfig
+
+    def __init__(self) -> None:
+        self.built: list[_Sampled] = []
+
+    def __call__(self, config: _SamplerConfig | None = None) -> _Sampled:
+        provider = _Sampled(config)
+        self.built.append(provider)
+        return provider
+
+
+async def test_a_roles_sampling_settings_reach_the_provider_it_names() -> None:
+    # Arrange — `R41.1`. `[llm.roles]` accepted `provider` and `model` and nothing else, and
+    # `_bind` built every provider with `entry.factory(None)`, so `OpenAILLMConfig`'s
+    # `temperature`, `top_p` and `max_tokens` were unreachable from configuration: every local
+    # measurement in Phase 41 ran at the server's default temperature because of it.
+    factory = _RecordingFactory()
+    registry = Registry()
+    registry.add(LLMProvider, "sampled", factory, distribution="weft-sampled")
+    client = llm_service(
+        registry=registry,
+        roles=LLMRoles(
+            roles={
+                "generate": RoleMapping.model_validate(
+                    {
+                        "provider": "sampled",
+                        "model": "tiny",
+                        "settings": {"temperature": 0.0, "max_tokens": 4096},
+                    }
+                )
+            }
+        ),
+    )
+
+    # Act
+    outcome = await client.complete(RENDERED, role="generate", ctx=_ctx(_RecordingSink()))
+
+    # Assert — the values an operator wrote reached the thing that will use them.
+    assert isinstance(outcome, Produced)
+    assert len(factory.built) == 1
+    carried = factory.built[0].config
+    assert carried is not None
+    assert carried.temperature == 0.0
+    assert carried.max_tokens == 4096
+
+
+async def test_two_roles_on_one_account_get_their_own_samplers() -> None:
+    # Arrange — the case `OpenAILLMConfig`'s own docstring names, "a `generate` role and a `grade`
+    # role sharing one account at two different temperatures", and the one `_bind`'s cache made
+    # unreachable: it is keyed on `mapping.provider` alone, so the second role would silently
+    # reuse the first's instance and its settings.
+    factory = _RecordingFactory()
+    registry = Registry()
+    registry.add(LLMProvider, "sampled", factory, distribution="weft-sampled")
+    client = llm_service(
+        registry=registry,
+        roles=LLMRoles(
+            roles={
+                "generate": RoleMapping.model_validate(
+                    {"provider": "sampled", "model": "tiny", "settings": {"temperature": 0.7}}
+                ),
+                "grade": RoleMapping.model_validate(
+                    {"provider": "sampled", "model": "tiny", "settings": {"temperature": 0.0}}
+                ),
+            }
+        ),
+    )
+    sink = _RecordingSink()
+
+    # Act — both roles, same provider name, different settings.
+    await client.complete(RENDERED, role="generate", ctx=_ctx(sink))
+    await client.complete(RENDERED, role="grade", ctx=_ctx(sink))
+
+    # Assert — each role's own number, not whichever bound first.
+    assert [p.config.temperature for p in factory.built if p.config is not None] == [0.7, 0.0]
 
 
 async def test_a_mapped_role_reaches_its_provider_and_the_answer_is_decided() -> None:

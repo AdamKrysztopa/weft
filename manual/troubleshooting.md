@@ -4528,3 +4528,28 @@ rather than at every later query.
 **What to do.** Upgrade the server — pgvector 0.8.0 or later, which the image `compose.yaml` pins
 already carries. If you genuinely cannot, set `iterative_scan = "off"` deliberately: the refusal
 goes away and so does the guarantee that a filtered search returns `top_k` results.
+
+### `ProviderSettingsUnsupportedError`
+
+**What it looks like** — an `[llm.roles]` entry writes a `settings` sub-table for a provider that
+has no configuration of its own:
+
+```text
+ProviderSettingsUnsupportedError: role settings ['temperature'] were written for provider
+'scripted', which declares no configuration of its own — remove them from this '[llm.roles]'
+entry, or name a provider that accepts them.
+```
+
+**Why this refuses instead of ignoring them.** An operator who sets a temperature and gets the
+model's default back has no way to tell the setting never applied — the run succeeds, the answers
+look plausible, and the number they chose is nowhere. Phase 41 paid for the general form of this:
+every local measurement in it ran at the server's default sampler because `[llm.roles]` could not
+carry one at all, and that was invisible until somebody went looking. A setting that cannot be
+honoured is named rather than dropped.
+
+**What to do.** Check which provider the role names. `settings` is validated by *that provider's*
+own configuration model, so the keys it accepts are the keys that provider documents — for
+`openai` and `openai-compatible` those are `temperature`, `top_p` and `max_tokens`. A provider
+like `scripted`, which replays a script and calls no model, has none: delete the sub-table, or
+point the role at a provider that does. A key the provider does not recognise is refused by the
+provider's own model, naming the field.

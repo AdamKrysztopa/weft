@@ -148,5 +148,16 @@ If the user named a phase, show that phase only. Otherwise show the live phase f
 project rather than a phase, still give one phase's table (the live one) and let the second
 sentence carry the cross-phase fact, because a table of every task in eleven phases answers nothing.
 
+**When the live phase is closed, the table is the open carried repairs, not its ticked boxes.**
+Owner's instruction, 2026-09-21. Between phases the Status block's Phase row names wherever the
+ledger's first unticked box happens to sit — Phase 38 on that date, sixteen of seventeen ticked
+with a `COULD` left over — and a table of sixteen `done` rows answers nothing about where the work
+actually is. It is in the `R<phase>.<n>` lines, which belong to no phase and therefore appear in no
+phase's table. So: if the Status block's **Next action** row names a carried repair, or every task
+in the live phase is ticked but for lines the ledger itself marks conditional, give **one row per
+open carried repair** in ledger order — same four columns, the `id` being `R41.1` and the rest read
+the same way. Say in the second sentence which phase the repairs came out of. The fallback to a
+phase table stands whenever a phase genuinely has unticked work.
+
 Nothing in this skill restates what `docs/internal/build-ledger.md` and `docs/internal/README.md` own. It reads them
 and shapes what they say into a table; when they disagree with this file, they are right.
