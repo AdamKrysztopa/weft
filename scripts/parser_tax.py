@@ -6,7 +6,7 @@ and whether two run records are even comparable before their numbers are compare
 
 `quote_survival` answers the first. A dev quote is written against a document's *text*, not against
 any one chunker's boundaries, so it survives ingest when it sits **whole inside one stored chunk**
-of the document it names — the same test `38.4` published for the markdown corpus (1,510 of 1,548).
+of the document it names — the same test `38.4` published for the markdown corpus (1,511 of 1,548).
 A quote split across a chunk boundary, or landing in a document that was never stored at all, is
 counted and named rather than silently dropped from the average.
 
@@ -31,7 +31,6 @@ from weft_eval.question_set import Question, read_question_set
 from weft_eval.run_record import QueryRung, RunRecord, load_run_record
 from weft_kernel.payload import Produced
 
-_ARMS = ("dense", "lexical")
 _METRICS = ("recall@5", "mrr@5", "ndcg@5")
 
 
@@ -93,14 +92,23 @@ class CorpusSide(BaseModel):
     corpus_digest: str
     question_set_digest: str
     query_pipeline: str
+    #: The query rung's own `identity` (`QueryRung.identity`) — repair **R38.19**. Two rungs can
+    #: share a name and resolve to different pipelines, the identical distinction `weft eval
+    #: compare`'s `QueryRung` docstring draws between its `name` and `identity` fields.
+    query_identity: str
+    #: Repair **R38.19** — `weft eval compare`'s own `_incomparable_reasons` refuses a comparison
+    #: over differing `model_versions`; a parser-tax pair is refused on the identical fact.
+    model_versions: dict[str, str]
 
 
 def require_parser_pair(markdown: CorpusSide, pdf: CorpusSide) -> None:
     """Refuses to pair two sides unless the corpus is the only thing that differs between them.
 
-    Any other difference — a different question set, a different query pipeline — would let a
-    second cause ride along inside a number reported as "the cost of parsing", so it is refused by
-    name rather than absorbed into the comparison.
+    Any other difference — a different question set, a different query pipeline, a different
+    query rung identity, or a different model a role resolved to — would let a second cause ride
+    along inside a number reported as "the cost of parsing", so each is refused by name rather
+    than absorbed into the comparison. Mirrors what `weft eval compare`'s own
+    `_incomparable_reasons` refuses (`packages/weft-rag/src/weft_cli/eval_commands.py`).
     """
     if markdown.question_set_digest != pdf.question_set_digest:
         message = (
@@ -112,6 +120,18 @@ def require_parser_pair(markdown: CorpusSide, pdf: CorpusSide) -> None:
         message = (
             f"{markdown.label!r} and {pdf.label!r} are not a parser pair: they disagree on "
             f"query pipeline ({markdown.query_pipeline} vs {pdf.query_pipeline})."
+        )
+        raise ValueError(message)
+    if markdown.query_identity != pdf.query_identity:
+        message = (
+            f"{markdown.label!r} and {pdf.label!r} are not a parser pair: they disagree on "
+            f"query pipeline identity ({markdown.query_identity} vs {pdf.query_identity})."
+        )
+        raise ValueError(message)
+    if markdown.model_versions != pdf.model_versions:
+        message = (
+            f"{markdown.label!r} and {pdf.label!r} are not a parser pair: they disagree on "
+            f"model versions ({markdown.model_versions} vs {pdf.model_versions})."
         )
         raise ValueError(message)
     if markdown.corpus_digest == pdf.corpus_digest:
@@ -158,15 +178,30 @@ def _side(record: RunRecord, corpus: str) -> CorpusSide:
         corpus_digest=record.corpus.digest,
         question_set_digest=record.question_set_digest,
         query_pipeline=rung.name,
+        query_identity=rung.identity,
+        model_versions=dict(record.model_versions),
     )
 
 
 def _records(runs: Path) -> dict[tuple[str, int], RunRecord]:
+    """Every run record under `runs`, keyed by `(arm, repetition)` — repair **R38.19**: a second
+    record for one key is refused rather than silently overwriting the first, naming both files.
+    """
     found: dict[tuple[str, int], RunRecord] = {}
+    sources: dict[tuple[str, int], Path] = {}
     for path in sorted(runs.glob("*.json")):
         record = load_run_record(path)
-        if record.experiment is not None:
-            found[(record.experiment.arm, record.experiment.repetition)] = record
+        if record.experiment is None:
+            continue
+        key = (record.experiment.arm, record.experiment.repetition)
+        if key in found:
+            message = (
+                f"two records for arm {key[0]!r} repetition {key[1]} under {runs}: "
+                f"{sources[key].name} and {path.name}"
+            )
+            raise ValueError(message)
+        found[key] = record
+        sources[key] = path
     return found
 
 
@@ -179,12 +214,23 @@ def _mean(record: RunRecord, metric: str) -> float:
 
 
 def pairs(markdown_runs: Path, pdf_runs: Path) -> tuple[PairRow, ...]:
-    """Each arm and repetition both corpora ran, paired question by question, PDF minus markdown."""
+    """Each arm and repetition both corpora ran, paired question by question, PDF minus markdown.
+
+    Repair **R38.19**: a repetition either side ran alone used to be silently dropped from
+    pairing rather than refused, so a missing arm's cost never reached the table. Both sides are
+    required to hold exactly the same set of `(arm, repetition)` keys before anything is paired.
+    """
     markdown, pdf = _records(markdown_runs), _records(pdf_runs)
+    for key in sorted(set(markdown) ^ set(pdf)):
+        side = "markdown" if key in markdown else "pdf"
+        missing = "pdf" if key in markdown else "markdown"
+        message = (
+            f"arm {key[0]!r} repetition {key[1]} ran on {side} but not on {missing}: the two "
+            f"corpora must have run exactly the same arms and repetitions to be paired"
+        )
+        raise ValueError(message)
     rows: list[PairRow] = []
-    for key in sorted(set(markdown) & set(pdf)):
-        if key[0] not in _ARMS:
-            continue
+    for key in sorted(markdown):
         left, right = markdown[key], pdf[key]
         require_parser_pair(_side(left, "markdown"), _side(right, "pdf"))
         differences = paired_differences(left, right)
@@ -216,7 +262,17 @@ def stored_chunks(dsn: str) -> dict[str, tuple[str, ...]]:
 
 
 def table(measured: Measurement) -> str:
-    """The committed table, from the measurement alone."""
+    """The committed table, from the measurement alone.
+
+    Repair **R38.19**, `R38.16`'s rule: a table states the population it is over — so it names
+    the two corpora it measured, read off the rows' own `markdown_corpus`/`pdf_corpus` rather
+    than trusted from outside the measurement. Rows that disagree about which corpora were
+    measured are refused rather than reported as one population.
+    """
+    corpora = {(row.markdown_corpus, row.pdf_corpus) for row in measured.pairs}
+    if len(corpora) > 1:
+        message = f"pairs disagree about which corpora were measured: {sorted(corpora)}"
+        raise ValueError(message)
     lines = [
         "# The parser tax — Open RAGBench dev split, markdown rendering against raw PDFs",
         "",
@@ -227,6 +283,13 @@ def table(measured: Measurement) -> str:
         f"| of {measured.markdown_quotes.total} | {measured.markdown_quotes.whole} "
         f"| {measured.pdf_quotes.whole} |",
         "",
+    ]
+    if corpora:
+        markdown_corpus, pdf_corpus = next(iter(corpora))
+        lines.append(f"markdown corpus: {markdown_corpus}")
+        lines.append(f"pdf corpus: {pdf_corpus}")
+        lines.append("")
+    lines += [
         "| arm | rep | metric | markdown | pdf | pdf − markdown [95% CI] | n | differing |",
         "|---|---|---|---|---|---|---|---|",
     ]

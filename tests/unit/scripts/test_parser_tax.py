@@ -9,6 +9,7 @@ set and the query pipeline must match, and the corpora must not.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from parser_tax import (
     Measurement,
     PairRow,
     QuoteSurvival,
+    pairs,
     quote_survival,
     require_parser_pair,
     table,
@@ -101,12 +103,21 @@ def test_whitespace_differences_do_not_lose_a_quote(tmp_path: Path) -> None:
     assert survival.whole == 2
 
 
-def _side(corpus: str, *, questions: str = "q1", query: str = "vector-retrieve") -> CorpusSide:
+def _side(
+    corpus: str,
+    *,
+    questions: str = "q1",
+    query: str = "vector-retrieve",
+    query_identity: str = "8665e80becdc",
+    embed: str = "openai-embeddings:text-embedding-3-small",
+) -> CorpusSide:
     return CorpusSide(
         label=f"dense on {corpus}",
         corpus_digest=corpus,
         question_set_digest=questions,
         query_pipeline=query,
+        query_identity=query_identity,
+        model_versions={"embed": embed},
     )
 
 
@@ -120,8 +131,16 @@ def test_two_sides_that_differ_only_in_corpus_pair() -> None:
         (_side("pdf", questions="q2"), "question set"),
         (_side("pdf", query="lexical-wide-retrieve"), "query pipeline"),
         (_side("markdown"), "same corpus"),
+        (_side("pdf", embed="openai-embeddings:text-embedding-3-large"), "model versions"),
+        (_side("pdf", query_identity="0000aaaa1111"), "query pipeline"),
     ],
-    ids=["another-question-set", "another-query-pipeline", "one-corpus"],
+    ids=[
+        "another-question-set",
+        "another-query-pipeline",
+        "one-corpus",
+        "another-embedder",
+        "same-name-other-pipeline",
+    ],
 )
 def test_any_other_difference_is_refused_by_name(pdf: CorpusSide, names: str) -> None:
     with pytest.raises(ValueError, match=names):
@@ -163,3 +182,65 @@ def test_the_table_carries_each_row_with_its_labelled_interval() -> None:
         "| lexical | 1 | recall@5 | 0.900 | 0.800 | -0.100 [-0.110, -0.090] | 1548 | 40 |"
         in rendered
     )
+
+
+def test_the_table_names_the_two_corpora_it_measured() -> None:
+    """Repair **R38.19**, `R38.16`'s rule: a table states the population it is over."""
+    # Arrange
+    measured = Measurement(
+        markdown_quotes=QuoteSurvival(total=1548, whole=1510, lost=(), unstored=()),
+        pdf_quotes=QuoteSurvival(total=1548, whole=1100, lost=(), unstored=()),
+        pairs=(_row("dense", -0.02),),
+    )
+
+    # Act
+    rendered = table(measured)
+
+    # Assert
+    assert "markdown corpus: md-digest" in rendered
+    assert "pdf corpus: pdf-digest" in rendered
+
+
+_COMMITTED = Path(__file__).resolve().parents[3] / "eval" / "experiments"
+
+
+def _copied_runs(tmp_path: Path) -> tuple[Path, Path]:
+    markdown = tmp_path / "markdown"
+    pdf = tmp_path / "pdf"
+    shutil.copytree(_COMMITTED / "orb-parser-tax-markdown" / "runs", markdown)
+    shutil.copytree(_COMMITTED / "orb-parser-tax-pdf" / "runs", pdf)
+    return markdown, pdf
+
+
+def _record_of(runs: Path, arm: str, repetition: int) -> Path:
+    for path in sorted(runs.glob("*.json")):
+        text = path.read_text(encoding="utf-8")
+        if f'"arm":"{arm}"' in text.replace(" ", "") and (
+            f'"repetition":{repetition}' in text.replace(" ", "")
+        ):
+            return path
+    raise AssertionError(f"no committed record of {arm} r{repetition}")
+
+
+def test_a_repetition_only_one_corpus_ran_is_refused_by_name(tmp_path: Path) -> None:
+    """Repair **R38.19**: `pairs` kept only what both corpora ran, so a missing repetition made
+    no row and no message."""
+    # Arrange
+    markdown, pdf = _copied_runs(tmp_path)
+    _record_of(pdf, "lexical", 2).unlink()
+
+    # Act / Assert
+    with pytest.raises(ValueError, match=r"lexical.*2"):
+        pairs(markdown, pdf)
+
+
+def test_two_records_of_one_repetition_are_refused_by_name(tmp_path: Path) -> None:
+    """Repair **R38.19**: a second record for one (arm, repetition) silently replaced the first."""
+    # Arrange
+    markdown, pdf = _copied_runs(tmp_path)
+    original = _record_of(markdown, "dense", 1)
+    shutil.copy(original, markdown / "zz-a-second-record.json")
+
+    # Act / Assert
+    with pytest.raises(ValueError, match=r"dense.*1"):
+        pairs(markdown, pdf)
