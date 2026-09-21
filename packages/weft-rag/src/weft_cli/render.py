@@ -77,6 +77,7 @@ from weft_cli.commands import (
     PluginsListCommandResult,
     ReconcileCommandResult,
     RenderCommandResult,
+    SourcesListCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
 from weft_cli.deletion import ParticipantOutcome
@@ -839,6 +840,29 @@ def _render_pipeline_list(result: PipelineListCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
+    """`weft sources list` — task **36.4**: uri and status per line, and for a failed
+    source, what went wrong.
+    """
+    if not result.sources:
+        which = "" if result.status is None else f"{result.status.value} "
+        return Rendered(
+            stdout=f"no {which}sources recorded.", stderr=None, exit_code=ExitCode.SUCCESS
+        )
+    lines: list[str] = []
+    for record in result.sources:
+        line = f"{record.uri}  {record.status.value}"
+        failure = record.failure
+        if failure is not None:
+            line += (
+                f"  stage: {failure.stage or 'unknown'}  error: {failure.error_type}  "
+                f"attempts: {failure.attempts}  last: {failure.last_attempt_at.isoformat()}  "
+                f"{failure.message!r}"
+            )
+        lines.append(line)
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 def _render_pipeline_show(result: PipelineShowCommandResult) -> Rendered:
     """`weft pipeline show` — task 3.7's own bar: every stage's provenance, every var's
     final value, and — the two a pre-G2 `show` could never have printed at all, because
@@ -1585,6 +1609,10 @@ def _dispatch_pipeline_list(result: object) -> Rendered:
     return _render_pipeline_list(cast(PipelineListCommandResult, result))
 
 
+def _dispatch_sources_list(result: object) -> Rendered:
+    return _render_sources_list(cast(SourcesListCommandResult, result))
+
+
 def _dispatch_pipeline_show(result: object) -> Rendered:
     return _render_pipeline_show(cast(PipelineShowCommandResult, result))
 
@@ -1669,6 +1697,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(DeleteCommandResult, _dispatch_delete)
     registrar.add_renderer(ReconcileCommandResult, _dispatch_reconcile)
     registrar.add_renderer(PipelineListCommandResult, _dispatch_pipeline_list)
+    registrar.add_renderer(SourcesListCommandResult, _dispatch_sources_list)
     registrar.add_renderer(PipelineShowCommandResult, _dispatch_pipeline_show)
     registrar.add_renderer(PipelineDeriveCommandResult, _dispatch_pipeline_derive)
     registrar.add_renderer(PipelineValidateCommandResult, _dispatch_pipeline_validate)

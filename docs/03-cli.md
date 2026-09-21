@@ -93,6 +93,8 @@ weft eval table <file> [--runs <dir>] [--invocation <id>]
 weft eval metrics [--name <name>]  which registered metrics run in the deterministic gate
                                     subset — no credentials, no network — or ask about one
 weft trace <run-id>            print what one persisted run recorded
+weft sources list [--status <status>]
+                               list what the store recorded per document, and why one failed
 weft delete <source-id>        remove a source and everything derived from it, everywhere
 weft reconcile [--mode repair|full] [--dry-run]
                                converge derived state against the corpus

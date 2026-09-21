@@ -164,9 +164,9 @@ from weft_kernel.payload import Outcome, Produced, SourceId
 from weft_kernel.registry import DisplacedRegistration, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline
 from weft_kernel.runner import RunSummary
-from weft_kernel.seam import StageRecord, recording
+from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
-from weft_store import NodeStore, ReconcileMode
+from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
 
 _INDEX_HELP = (
     "run an ingest pipeline over a directory. Which formats are accepted is derived from "
@@ -204,6 +204,11 @@ _RECONCILE_HELP = (
 _PLUGINS_LIST_HELP = "one line per discovered pack"
 
 _PLUGINS_DOCTOR_HELP = "full status, reason and disclosure per discovered pack"
+
+_SOURCES_LIST_HELP = (
+    "list every source the configured node store has recorded, failures included; "
+    "--status keeps only sources at that status"
+)
 
 
 class TargetAlreadyExistsError(WeftError):
@@ -1223,6 +1228,91 @@ class PluginsDoctorCommand:
         )
 
 
+class SourcesListArgs(BaseModel):
+    """`weft sources list [--status <status>]` — task **36.4**.
+
+    `status` filters to one `SourceStatus`, e.g. `failed`; omitted, every recorded status
+    is listed.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: SourceStatus | None = Field(
+        default=None,
+        description=(
+            "keep only sources at this status (e.g. 'failed'). Omit to list every status."
+        ),
+    )
+
+
+class SourcesListCommandResult(CommandResult):
+    """`weft sources list`'s whole answer — every recorded `SourceRecord` the store's filter
+    left, sorted by `uri`.
+    """
+
+    sources: tuple[SourceRecord, ...]
+    #: The `--status` filter the list was taken under, so an empty answer can say which.
+    status: SourceStatus | None = None
+
+
+class SourcesListCommand:
+    """`weft sources list` — task **36.4**: an operator finds a failed source without reading
+    a database. Reads the configured node store's own `list_sources()`, filters by
+    `SourcesListArgs.status` when given, and reports every `SourceRecord` — a failed one
+    carries its own `SourceFailure`, which `weft_cli.render` prints.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = SourcesListArgs
+    result_model: ClassVar[type[CommandResult]] = SourcesListCommandResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = _SOURCES_LIST_HELP
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        typed = cast(SourcesListArgs, args)
+        deps = ctx.require(Dependencies)
+        _raise_for_plugin_refusal(
+            require_plugin(
+                deps.reports,
+                registry=deps.registry,
+                contract=NodeStore,
+                name=deps.services.store,
+                setting="[services] store",
+            )
+        )
+        entry = deps.registry.entry(NodeStore, deps.services.store)
+        store = cast(NodeStore, entry.factory(None))
+
+        async def _list() -> Outcome[tuple[SourceRecord, ...]]:
+            return Produced(value=tuple(await store.list_sources()))
+
+        wrapped = wrap(
+            _list,
+            distribution=entry.distribution,
+            contract=NodeStore.__qualname__,
+            plugin=deps.services.store,
+            stage="sources:list",
+        )
+        try:
+            listed = await wrapped()
+        finally:
+            await aclose(
+                store,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=deps.services.store,
+            )
+        if not isinstance(listed, Produced):
+            return listed
+        records = listed.value
+        if typed.status is not None:
+            records = tuple(record for record in records if record.status == typed.status)
+        sources = tuple(sorted(records, key=lambda record: record.uri))
+        return Produced(value=SourcesListCommandResult(sources=sources, status=typed.status))
+
+
 _INIT_HELP = (
     "scaffold weft.toml in the current directory — every key commented out, offline by default"
 )
@@ -1610,6 +1700,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Command, "ask", AskCommand)
     registrar.add(Command, "plugins list", PluginsListCommand)
     registrar.add(Command, "plugins doctor", PluginsDoctorCommand)
+    registrar.add(Command, "sources list", SourcesListCommand)
     registrar.add(Command, "init", InitCommand)
     registrar.add(Command, "pack new", PackNewCommand)
     registrar.add(Command, "delete", DeleteCommand)
@@ -1650,6 +1741,9 @@ __all__ = [
     "PluginsDoctorCommandResult",
     "PluginsListCommand",
     "PluginsListCommandResult",
+    "SourcesListArgs",
+    "SourcesListCommand",
+    "SourcesListCommandResult",
     "Settings",
     "TargetAlreadyExistsError",
     "UnresolvedPluginNameError",

@@ -160,6 +160,8 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "eval plan",
         "eval table",
         "trace",
+        # Task 36.4: the operator's view of what the store recorded, failures included.
+        "sources list",
     }
     expected_permissions = {
         "index": PermissionClass.WRITE,
@@ -209,6 +211,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         # `runs/`, and prints the table they produce; it writes nothing.
         "eval table": PermissionClass.READ,
         "trace": PermissionClass.READ,
+        "sources list": PermissionClass.READ,
     }
     for name, permission in expected_permissions.items():
         entry = registry.entry(Command, name)
