@@ -493,3 +493,25 @@ async def test_a_second_round_still_reads_the_best_ranked_once_new_evidence_is_m
     # Assert
     assert isinstance(outcome, Produced)
     assert [p.node.content for p in outcome.value.used] == ["middle passage", "best passage"]
+
+
+async def test_an_answer_carries_the_contributors_of_the_passages_it_was_given() -> None:
+    """Repair R39.2."""
+    # Arrange
+    arms = ("vector-top-k:intent", "text-search:anchors")
+    origin = _asked()
+    passages = Passages(
+        origin=origin,
+        passages=(_passage("1", "random forests average trees"),),
+        contributors=arms,
+    )
+    llm = _StubLLM(["Random forests average many trees [1]."])
+    signal = _FakeSignal([Produced(value=_assessment(sufficient=True, confidence=0.9))])
+    retriever = _FakeRetriever([Produced(value=_candidates(origin))])
+
+    # Act
+    outcome = await RefineOnUncertainty().run(passages, _ctx(_services(llm, signal, retriever)))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.contributors == arms

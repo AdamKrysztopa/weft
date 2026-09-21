@@ -1274,3 +1274,54 @@ async def test_a_captured_pool_holds_every_packed_chunk_in_ranking_order(
     assert chunks[0].node_id == str(packed[2].node.id)
     assert chunks[0].content_sha256 == hashlib.sha256(b"doc-a").hexdigest()
     assert scored.store_rows == 7
+
+
+# --- Repair R39.2 — a generating rung's record says which arms answered each question too.
+
+
+async def test_a_generating_rung_records_which_arms_each_questions_answer_was_fed_by(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """G24's "the run records which branch it took", for the rung Phase 39 ships ending in
+    `cited-answer`: the answer carries its passages' contributors, and the scored run keeps them
+    per question exactly as a retrieval rung's does."""
+    # Arrange
+    answered_by = {
+        "What is WRH123?": ("hybrid:vector", "hybrid:text"),
+        "What is a good controller?": ("hybrid:vector",),
+    }
+
+    async def _answer(question: str, *_args: object, **_kwargs: object) -> Answer:
+        return Answer.model_validate(
+            {
+                "text": "an answer",
+                "origin": Query(text=question),
+                "answered_by": "fixture",
+                "used": (_labelled_passage("doc-a", 0.9, 0),),
+                "contributors": answered_by[question],
+            }
+        )
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("QueryTransform", "Retriever", "Fuser", "ContextPacker", "Generator")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+    anchored = _answered("WRH123", identifier="anchored", text="What is WRH123?")
+    plain = _answered("a PID", identifier="plain", text="What is a good controller?")
+
+    # Act
+    report = await score_pipeline(
+        registry=_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=(anchored, plain),
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert report.question_contributors is not None
+    assert set(report.question_contributors["anchored"]) == {"hybrid:vector", "hybrid:text"}
+    assert tuple(report.question_contributors["plain"]) == ("hybrid:vector",)

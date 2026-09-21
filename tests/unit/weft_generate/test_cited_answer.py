@@ -422,3 +422,38 @@ async def test_reading_fewer_than_were_packed_reads_the_best_ranked_in_packed_or
     assert isinstance(outcome, Produced)
     assert [p.node.content for p in outcome.value.used] == ["middle passage", "best passage"]
     assert "worst passage" not in llm.last_prompt
+
+
+# --- Repair R39.2: an answer says which arms fed the passages it was given ----------------
+
+_ARMS = ("vector-top-k:intent", "text-search:anchors")
+
+
+async def test_an_answer_carries_the_contributors_of_the_passages_it_was_given() -> None:
+    # Arrange
+    payload = _passages(_passage("1", "mRMR reduces redundancy.")).model_copy(
+        update={"contributors": _ARMS}
+    )
+    llm = _StubLLM(["mRMR reduces redundancy [1]."])
+
+    # Act
+    outcome = await CitedAnswer().run(payload, _ctx(_services(llm)))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.contributors == _ARMS
+
+
+async def test_a_refusal_for_empty_evidence_still_says_which_arms_were_asked() -> None:
+    """No passage survived, and which arms were asked is exactly what a reader of the refusal
+    needs to tell "nothing matched" from "nothing was asked"."""
+    # Arrange
+    payload = _passages().model_copy(update={"contributors": _ARMS})
+
+    # Act
+    outcome = await CitedAnswer().run(payload, _ctx(_services(_StubLLM(["never asked"]))))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.stance == AnswerStance.NOT_IN_CORPUS
+    assert outcome.value.contributors == _ARMS

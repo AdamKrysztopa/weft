@@ -51,6 +51,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   over a corpus indexed before this release reports each file *"unchanged on disk but re-parsed
   by a different pipeline"* and re-parses it, once. Bare `weft index` is unaffected.
 
+### Added
+
+- **A generating rung's run record says which retrieval arms fed each answer**, as a retrieval
+  rung's already did. `Answer` carries `contributors`, copied from the passages it was given.
+
 ### Fixed
 
 - **Qdrant's text search honours a filter the way pgvector's does.** A filtered lexical query

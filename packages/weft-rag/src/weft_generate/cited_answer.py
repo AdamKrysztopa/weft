@@ -134,6 +134,7 @@ class CitedAnswer:
                         text="",
                         citations=(),
                         used=(),
+                        contributors=payload.contributors,
                         stance=AnswerStance.NOT_IN_CORPUS,
                         answered_by=NAME,
                     )
@@ -169,6 +170,7 @@ class CitedAnswer:
                 text=text,
                 citations=citations,
                 used=offered,
+                contributors=payload.contributors,
                 stance=AnswerStance.ANSWERED,
                 answered_by=NAME,
             )

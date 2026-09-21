@@ -90,6 +90,9 @@ class Answer(BaseModel):
     text: str
     citations: tuple[Citation, ...] = ()
     used: tuple[Passage, ...] = ()
+    #: The labels of the ranked lists the passages were fused from, copied from
+    #: `Passages.contributors`; empty when none — an absence, not a claim that no arm answered.
+    contributors: tuple[str, ...] = ()
     stance: AnswerStance = AnswerStance.ANSWERED
     #: The `Generator` plugin name — provenance for the same reason `Passage.retrieved_by`
     #: is refused empty, and the field a comparison across two derived pipelines reads.

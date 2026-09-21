@@ -761,6 +761,7 @@ async def _generating_question_hits(
     sink: TokenSink | None,
     contributions: tuple[Contribution, ...],
     generation_samples: list[tuple[str, GenerationSample]],
+    contributors: dict[str, tuple[str, ...]],
 ) -> Sequence[Scored[Node]]:
     """One question's own hits, on a generating rung — `run_named_ask`, and the `GenerationSample`
     `score_pipeline`'s own docstring says every answered question builds. Lifted out of the
@@ -780,6 +781,7 @@ async def _generating_question_hits(
         sink=sink if sink is not None else NullSink(),
         contributions=contributions,
     )
+    contributors[question.id] = tuple(getattr(answer, "contributors", ()))
     used_passages = passages_for_scoring(answer)
     hits = _scored_in_ranking_order(used_passages)
     generation_samples.append(
@@ -1264,6 +1266,7 @@ async def score_pipeline(
                             sink=sink,
                             contributions=contributions,
                             generation_samples=generation_samples,
+                            contributors=contributors,
                         )
                     elif pool is not None:
                         pool_entry = cast("Mapping[str, PoolQuestion]", pool_questions_by_id)[
@@ -1365,7 +1368,7 @@ async def score_pipeline(
         query_rung=query_rung,
         question_scores=question_scores,
         question_axes=axes,
-        question_contributors=contributors if is_retrieval_rung else None,
+        question_contributors=contributors if (is_retrieval_rung or is_generating_rung) else None,
         question_set=question_set_digest(questions),
         question_seconds=PerQuestionSeconds(keyed_by=keyed_by, seconds=seconds),
         token_usage=role_tokens(tally.entries),

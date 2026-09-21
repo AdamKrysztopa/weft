@@ -315,3 +315,26 @@ async def test_fewer_than_were_packed_offers_the_best_ranked_passages_in_packed_
     # Assert
     assert isinstance(outcome, Produced)
     assert outcome.value.used == (middle, best)
+
+
+async def test_an_answer_carries_the_contributors_of_the_passages_it_was_given() -> None:
+    """Repair R39.2."""
+    # Arrange
+    arms = ("vector-top-k:intent", "text-search:anchors")
+    payload = _passages(
+        _passage("1", "Study A found a 12% reduction."),
+        _passage("2", "Study B also found a reduction of about 12%."),
+    ).model_copy(update={"contributors": arms})
+    llm = _StubLLM(
+        [
+            '{"status": "agree", "agreed": ["Both studies found ~12% [1] [2]."], "conflicts": []}',
+            "Both studies found a reduction of about 12% [1] [2].",
+        ]
+    )
+
+    # Act
+    outcome = await ContradictionCheck().run(payload, _ctx(_services(llm)))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.contributors == arms

@@ -203,6 +203,7 @@ class ContradictionCheck:
                 text=text,
                 citations=citations,
                 used=offered,
+                contributors=payload.contributors,
                 stance=stance,
                 answered_by=NAME,
                 ext={

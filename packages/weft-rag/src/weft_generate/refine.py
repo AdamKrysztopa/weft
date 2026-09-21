@@ -299,6 +299,7 @@ class RefineOnUncertainty:
                 text=text,
                 citations=citations,
                 used=offered,
+                contributors=current.contributors,
                 stance=AnswerStance.ANSWERED,
                 answered_by=NAME,
                 ext={
