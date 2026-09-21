@@ -56,6 +56,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 - **Qdrant's text search honours a filter the way pgvector's does.** A filtered lexical query
   returned the filter's other nodes at score zero alongside the real matches; it now returns only
   nodes that share a term with the query.
+- **`[llm.retry]` is the only retry a model call gets.** The OpenAI SDK retried each failure
+  itself, so three attempts could send nine requests; the `openai` and `openai-compatible`
+  providers now turn the SDK's retries off for model calls. `max_retries` still applies to the
+  account's embeddings and image descriptions.
 
 ## [2.7.0] - 2026-09-14
 

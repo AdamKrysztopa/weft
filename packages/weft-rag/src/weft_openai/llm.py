@@ -426,6 +426,9 @@ class OpenAILLMProvider:
 
         `model` is only for the refusal message below — naming the call that would have run,
         not a fact this method otherwise needs, since one account answers under many models.
+
+        The SDK's own transport retries are disabled here because `[llm.retry]` wraps this
+        provider and is the sole retry mechanism for LLM calls (repair R41.2).
         """
         if self._client is not None:
             return self._client
@@ -440,7 +443,9 @@ class OpenAILLMProvider:
                 provider=self._account,
                 model=model,
             )
-        client = await asyncio.to_thread(build_client, settings)
+        client = await asyncio.to_thread(
+            build_client, settings.model_copy(update={"max_retries": 0})
+        )
         self._client = cast("ChatClient", client)
         return self._client
 

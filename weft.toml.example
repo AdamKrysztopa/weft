@@ -166,8 +166,9 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # timeout_seconds = 30.0
 #
-# The SDK retries transient failures itself, at the transport, below anything Weft can
-# see. Zero turns that off for an operator who wants the failure immediately.
+# The SDK retries transient failures itself, at the transport, for this account's
+# embeddings and image descriptions. Model calls ignore it: `[llm.retry]` is their one
+# retry, so the two cannot multiply. Zero turns it off.
 #
 # max_retries = 2
 #

@@ -59,8 +59,9 @@ class Settings(BaseModel):
     #: Seconds. Unset leaves the SDK's own default in force — which is *not* the same as
     #: passing it `None`, a value it honours as "no timeout at all". See `build_client`.
     timeout_seconds: float | None = Field(default=None, gt=0.0)
-    #: The SDK retries transient failures itself, at the transport, below anything Weft
-    #: can see. Zero turns that off for an operator who wants the failure immediately.
+    #: The SDK's own transport retries for this account's embeddings and image descriptions.
+    #: LLM calls are retried by `[llm.retry]` alone (repair R41.2), so this does not reach them.
+    #: Zero disables transport retries for embeddings and images.
     max_retries: int = Field(default=_DEFAULT_MAX_RETRIES, ge=0)
     #: Default `False`: a server that rejects `response_format` answers 400, and that is
     #: `LLMBadRequestError` at tier 1, which `weft_prompts/cascade.py`'s `skip_adapted` treats

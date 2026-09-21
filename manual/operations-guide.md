@@ -556,6 +556,12 @@ loop never swallows a cancellation to finish its attempts.
 There is no jitter. One `weft ask` is not a fleet of clients hammering one endpoint, and a
 deterministic backoff is one a test can assert on.
 
+**`attempts` is the number of requests a failing call sends, not a floor under it.** The OpenAI
+SDK retries on its own unless told not to, so an account's `max_retries` used to multiply this
+policy — three attempts could send nine requests. The `openai` and `openai-compatible` providers
+now turn the SDK's retries off for model calls; the account's `max_retries` still governs its
+embeddings and image descriptions, which nothing here wraps.
+
 ### Stopping a model stuck in a loop — `[llm.loop_guard]`
 
 A small or local model asked to keep generating can settle into repeating the same span of text
