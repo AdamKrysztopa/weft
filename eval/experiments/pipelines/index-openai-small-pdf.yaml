@@ -1,0 +1,6 @@
+# `index-pdf-text` with the same embedder as `index-openai-small`, so the two differ only in the
+# extractor — ledger 38.8's PDF arm.
+name: index-openai-small-pdf
+extends: index-pdf-text
+replace:
+  - {id: embed, use: openai-embeddings, with: {model: text-embedding-3-small}}

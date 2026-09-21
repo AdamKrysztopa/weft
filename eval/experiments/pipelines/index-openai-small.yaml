@@ -1,0 +1,5 @@
+# `index-openai` with the model named in the stage — ledger 38.8's markdown arm.
+name: index-openai-small
+extends: index-openai
+replace:
+  - {id: embed, use: openai-embeddings, with: {model: text-embedding-3-small}}

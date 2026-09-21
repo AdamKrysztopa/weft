@@ -246,3 +246,78 @@ def test_an_unknown_rendering_is_refused_listing_every_rendering_that_exists(
     # Assert
     assert "open-ragbench-md" in str(caught.value)
     assert "wikitext-md" in str(caught.value)
+
+
+# --- Ledger 38.8: the raw PDFs as a second corpus --------------------------------------------
+
+
+def _pdfs(root: Path, identifiers: tuple[str, ...]) -> Path:
+    """The downloaded PDFs, under the corpus directory as in this repository's own layout — a
+    manifest refuses a document that resolves outside its directory, and a link resolves."""
+    directory = root / "corpus" / "open_ragbench" / "pdfs"
+    directory.mkdir(parents=True)
+    for identifier in identifiers:
+        (directory / f"{identifier}.pdf").write_bytes(f"%PDF-1.4 {identifier}".encode())
+    return directory
+
+
+def test_staging_links_every_pdf_but_the_excluded_ones(tmp_path: Path) -> None:
+    # Arrange
+    pdfs = _pdfs(tmp_path, ("2401.00001v1", "2401.00002v1", "2407.07009v2"))
+    stage = tmp_path / "corpus" / "open-ragbench-pdf"
+
+    # Act
+    staged = open_ragbench.stage_pdfs(
+        pdfs, stage, excluded={"2407.07009v2": "pdf-text refuses page 16: no text layer"}
+    )
+
+    # Assert
+    assert staged == ("2401.00001v1", "2401.00002v1")
+    assert sorted(path.name for path in stage.iterdir()) == ["2401.00001v1.pdf", "2401.00002v1.pdf"]
+    assert (stage / "2401.00001v1.pdf").read_bytes() == b"%PDF-1.4 2401.00001v1"
+
+
+def test_the_pdf_manifest_pins_each_staged_pdf_at_its_arxiv_version(tmp_path: Path) -> None:
+    # Arrange
+    pdfs = _pdfs(tmp_path, ("2401.00001v1", "2401.00002v1", "2407.07009v2"))
+    corpus = tmp_path / "corpus"
+    stage = corpus / "open-ragbench-pdf"
+    excluded = {"2407.07009v2": "pdf-text refuses page 16: no text layer"}
+    open_ragbench.stage_pdfs(pdfs, stage, excluded=excluded)
+    manifest = corpus / "open-ragbench-pdf.toml"
+
+    # Act
+    manifest.write_text(
+        open_ragbench.pdf_manifest_text(stage, manifest_dir=corpus, excluded=excluded),
+        encoding="utf-8",
+    )
+    name, documents = fetch_corpus.load_manifest(manifest)
+
+    # Assert
+    assert name == "open-ragbench-arxiv-pdf"
+    assert [document.id for document in documents] == ["2401.00001v1", "2401.00002v1"]
+    for document in documents:
+        body = (pdfs / f"{document.id}.pdf").read_bytes()
+        assert document.tier is fetch_corpus.Tier.FETCH
+        assert document.source == f"https://arxiv.org/pdf/{document.id}"
+        assert document.sha256 == hashlib.sha256(body).hexdigest()
+        assert document.path == (stage / f"{document.id}.pdf").resolve()
+    assert {document.id for document in load_manifest_from_wheel(manifest).documents} == {
+        "2401.00001v1",
+        "2401.00002v1",
+    }
+
+
+def test_the_pdf_manifest_says_which_pdfs_it_left_out_and_why(tmp_path: Path) -> None:
+    # Arrange
+    pdfs = _pdfs(tmp_path, ("2401.00001v1", "2412.00651v1"))
+    corpus = tmp_path / "corpus"
+    stage = corpus / "open-ragbench-pdf"
+    excluded = {"2412.00651v1": "pdf-text refuses page 4: an unpaired surrogate"}
+    open_ragbench.stage_pdfs(pdfs, stage, excluded=excluded)
+
+    # Act
+    text = open_ragbench.pdf_manifest_text(stage, manifest_dir=corpus, excluded=excluded)
+
+    # Assert
+    assert "2412.00651v1: pdf-text refuses page 4: an unpaired surrogate" in text

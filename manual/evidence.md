@@ -115,12 +115,32 @@ The five statuses:
 | `replay-llm-rerank` | helps on ESCI at ~$1.83/830 questions, underpowered, one repetition | ledger `41.4` |
 | `graph-2hop-then-generate`, `graph-then-rerank`, `rerank-then-generate`, `iterative-retrieve`, `corrective-retrieve`, `grade-then-generate`, `multi-query-then-retrieve`, `step-back-then-retrieve`, `rewrite-then-retrieve`, `boolean-then-retrieve`, `broad-and-refined-rrf`, `contradiction-aware`, `draft-then-refine`, `summarise-then-generate`, `no-retrieval`, `route`, `route-by-score`, `route-fixed`, `index-with-adrap`, `index-with-graph`, `index-with-keywords` | never | none |
 | `index-text` | helps (the leaves arm RAPTOR is measured against) | `eval/raptor-baseline/after-16a/remeasurement.json` |
-| `index-pdf*`, `index-messy-text`, `index-polish`, `index-openai*`, `index-qdrant` | never, as a comparison | none |
+| `index-pdf-text` | no dense cost against clean markdown; lexical recall@5 −0.037 | `eval/parser-tax/table.md` |
+| `index-pdf`, `index-pdf-described`, `index-pdf-learned`, `index-pdf-rows`, `index-pdf-undescribed`, `index-messy-text`, `index-polish`, `index-openai*`, `index-qdrant` | never, as a comparison | none |
 | `preview-plain`, `preview-markdown`, `baseline` | no retrieval claim to test | — |
 
 ---
 
 ## 4. The measurements, newest first
+
+### Phase 38: what reading the raw PDFs costs (2026-09-21)
+
+- **Question.** Every Open RAGBench result above was measured on the dataset's own clean markdown.
+  A user indexes the PDFs. How much retrieval does Weft lose by parsing them itself with
+  `pdf-text`, the *parser tax*?
+- **Data.** Open RAGBench dev, 1,548 questions. The same corpus twice: the dataset's markdown
+  (1,000 documents) and the raw arXiv PDFs (997; three that `pdf-text` refuses are excluded by
+  name, and no dev question rests on them). Both indexed with `text-embedding-3-small`, identical
+  chunking; the extractor is the only difference. About $1.12 in embeddings.
+- **Result.** Dense retrieval pays **no measurable tax**: recall@5 0.982 on markdown and 0.984 on
+  PDFs, a paired difference of +0.003 [−0.005, +0.010]; mrr@5 −0.002 [−0.012, +0.008]. Lexical
+  search does pay: recall@5 falls from 0.245 to 0.209, **−0.037 [−0.056, −0.017]**. The text is
+  where it goes: 1,200 of 1,548 quotes sit whole in one stored PDF chunk, against 1,511 for the
+  markdown. Both repetitions agree. Source: `eval/parser-tax/table.md`, from the records in
+  `eval/experiments/orb-parser-tax-*/`.
+- **What it means for you.** With a real embedder, `index-pdf-text` retrieves as well as clean text
+  on this corpus. Keyword search on PDFs loses about a sixth of its hits; a better extractor is
+  where that would come back, and none has been compared yet.
 
 ### Phase 41: a cross-encoder reranker over dense's own top 50 (2026-09-20)
 

@@ -1,0 +1,26 @@
+# The parser tax, pdf side — ledger 38.8. Open RAGBench's development split over
+# the raw arXiv PDFs read through `pdf-text`, indexed with `text-embedding-3-small`.
+# `orb-parser-tax-markdown.toml` and `orb-parser-tax-pdf.toml` differ only in corpus and index
+# pipeline, and the index pipelines only in their extractor; `scripts/parser_tax.py` pairs them.
+# An experiment refuses arms over two corpora, which is why this is two documents.
+
+[experiment]
+schema = 1
+name = "orb-parser-tax-pdf"
+questions = "../../corpus/open-ragbench-questions/dev.toml"
+corpus = "../../corpus/open-ragbench-pdf"
+manifest = "../../corpus/open-ragbench-pdf.toml"
+repeats = 2
+top_k = 5
+metrics = ["recall@5", "mrr@5", "ndcg@5"]
+minimum_detectable_effect = 0.03
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-small-pdf"
+query_pipeline = "vector-retrieve"
+
+[[arm]]
+name = "lexical"
+pipeline = "index-openai-small-pdf"
+query_pipeline = "lexical-wide-retrieve"
