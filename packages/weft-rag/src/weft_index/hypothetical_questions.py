@@ -20,16 +20,18 @@ source asks for. `weft_index.prompts`'s own module docstring records the second 
 also keeps this pack off `weft_prompts.cascade` and `weft_retrieve.contract.StageLookup`
 entirely, needing only `weft_prompts.contract.Prompts` and `weft_llm.contract.LLM`.
 
-**A node whose questions could not be generated stays in the output, unchanged — degrade,
-never fail the run.** `weft_index.contract.Expander`'s own docstring states this as the
-contract's rule, shared with task 2.32's `raptor`, and it applies to two distinct failure
-shapes the same way: a completion the model declined to give structured shape has no
-questions to add (an `Outcome` that is not `Produced`, never an exception), and a completion
-that parsed to zero valid lines has none either. Both leave the node itself untouched; only
-its own representations are absent. A misconfigured `prompt:` name or an unmapped `role:`
-is a different kind of failure — an operator's own document is wrong, not a model in a bad
-mood — and propagates as the registry's or `weft_llm.roles.LLMRoles`'s own exception,
-aborting the run the way every other plugin in this tree lets a configuration error abort it.
+**A node whose questions could not be generated stays in the output, under its own id —
+degrade, never fail the run — and, since repair R38.13, never silently.** `weft_index.
+contract.Expander`'s own docstring states this as the contract's rule, shared with task
+2.32's `raptor`, and it applies to two distinct failure shapes the same way: a completion the
+model declined to give structured shape has no questions to add (an `Outcome` that is not
+`Produced`, never an exception), and a completion that parsed to zero valid lines has none
+either. Both leave the node's id and content untouched and mark it `weft_index.payload.
+ExpansionDegraded`, so a store can be asked how many chunks a run lost. A misconfigured
+`prompt:` name or an unmapped `role:` is a different kind of failure — an operator's own
+document is wrong, not a model in a bad mood — and propagates as the registry's or
+`weft_llm.roles.LLMRoles`'s own exception, aborting the run the way every other plugin in this
+tree lets a configuration error abort it.
 """
 
 import asyncio
@@ -39,7 +41,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_index.payload import Representation
+from weft_index.payload import ExpansionDegraded, Representation
 from weft_index.prompts import GENERATE_QUESTIONS_NAME, GenerateQuestionsRequest
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NothingToProduce, Outcome, Produced
@@ -108,35 +110,49 @@ class HypotheticalQuestionGenerator:
         # the wave finished. See `max_concurrent_nodes` for why the bound exists at all.
         limit = asyncio.Semaphore(self._config.max_concurrent_nodes)
 
-        async def _bounded(node: Node) -> Sequence[Node]:
+        async def _bounded(node: Node) -> tuple[Node, tuple[Node, ...]]:
             async with limit:
                 return await self._questions_for(node, prompts=prompts, llm=llm, ctx=ctx)
 
-        derived_per_node = await asyncio.gather(*(_bounded(node) for node in payload))
-        derived = [child for children in derived_per_node for child in children]
-        return Produced(value=(*payload, *derived))
+        results = await asyncio.gather(*(_bounded(node) for node in payload))
+        survivors = tuple(survivor for survivor, _ in results)
+        derived = [child for _, children in results for child in children]
+        return Produced(value=(*survivors, *derived))
 
     async def _questions_for(
         self, node: Node, *, prompts: Prompts, llm: LLM, ctx: Context
-    ) -> tuple[Node, ...]:
-        """This one node's derived question-nodes — `()` when generation degrades, never raised."""
+    ) -> tuple[Node, tuple[Node, ...]]:
+        """This node — unchanged if it grew children, marked `ExpansionDegraded` if it did not
+        — paired with its own derived question-nodes, `()` when generation degrades.
+        """
         values = GenerateQuestionsRequest(
             passage=node.content, count=self._config.questions_per_node
         )
         rendered = await prompts.render(self._config.prompt, values, ctx)
         if not isinstance(rendered, Produced):
-            return ()
+            return self._degraded(node, reason=f"the prompt did not render: {rendered.reason}"), ()
         completion = await llm.complete(rendered.value, role=self._config.role, ctx=ctx)
         if not isinstance(completion, Produced):
-            return ()
+            return (
+                self._degraded(node, reason=f"the model gave no completion: {completion.reason}"),
+                (),
+            )
 
         questions = _parse_questions(completion.value.text, limit=self._config.questions_per_node)
-        return tuple(
+        if not questions:
+            return self._degraded(node, reason="the completion held no question"), ()
+        children = tuple(
             node.derive(content=question, media_type=MediaType.TEXT, ordinal=ordinal).with_ext(
                 Representation(technique=NAME)
             )
             for ordinal, question in enumerate(questions)
         )
+        return node, children
+
+    @staticmethod
+    def _degraded(node: Node, *, reason: str) -> Node:
+        """`node`, under its own id and content, marked as an expansion this technique lost."""
+        return node.with_ext(ExpansionDegraded(technique=NAME, reason=reason))
 
 
 def _parse_questions(text: str, *, limit: int) -> tuple[str, ...]:

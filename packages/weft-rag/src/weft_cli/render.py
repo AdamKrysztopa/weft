@@ -611,6 +611,9 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         # `[packs.qdrant] payload_indexes` they wrote. Silent when the store declared nothing,
         # which is not the same as a store reporting none.
         stdout += f"\npayload indexes: {', '.join(result.payload_indexes)}."
+    if result.degraded_expansions is not None:
+        # A zero is printed because it was counted; `None` means the store was never asked.
+        stdout += f"\nchunks stored without their expansion: {result.degraded_expansions}."
     reparsed = _reparse_lines(result.source_changes)
     if reparsed:
         stdout += "\n" + "\n".join(reparsed)

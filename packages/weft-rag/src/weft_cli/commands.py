@@ -533,6 +533,10 @@ class IndexCommandResult(CommandResult):
     #: prints nothing at all in that case. Read off the built store the way `31.8` reads its index
     #: kind, so no `NodeStore` Protocol member and no `STORE_CONTRACT_VERSION` move is needed.
     payload_indexes: tuple[str, ...] = ()
+    #: Repair **R38.13** — how many stored chunks carry `weft_index.payload.
+    #: ExpansionDegraded`, copied from `weft_cli.ingest.IndexResult`. `None` when this run
+    #: cannot answer — see that field's own docstring for exactly when it can.
+    degraded_expansions: int | None = None
 
 
 class AskCommandResult(CommandResult):
@@ -832,6 +836,7 @@ class IndexCommand:
                 documents_discovered=len(result.document_ids),
                 documents_indexed=result.documents_indexed,
                 payload_indexes=result.payload_indexes,
+                degraded_expansions=result.degraded_expansions,
             )
         )
 

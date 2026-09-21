@@ -270,11 +270,12 @@ Every node handed in, unchanged, plus zero or more nodes derived from it.
 A batch with nothing to expand still answers `NothingToProduce`, never a silently
 empty `Produced([])` — the same ambiguous-empty-case fix every other contract in this
 tree documents. A single node this plugin could not generate a representation for is not
-that case: the node itself is still in the output, unchanged, and only its own
+that case: the node itself is still in the output, under its own id, and only its own
 representations are missing — degrade, never fail the run, the same posture `10` §1.2's
 `raptor` row (task 2.32) states for a summary that cannot be produced, because both
 techniques are meant to share this one mechanism rather than invent their own failure
-policy apiece.
+policy apiece. Since repair **R38.13**, that node also carries `weft_index.payload.
+ExpansionDegraded`, naming which technique could not expand it and why.
 
 ### Methods
 

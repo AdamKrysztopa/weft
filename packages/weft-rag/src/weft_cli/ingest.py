@@ -130,7 +130,8 @@ from weft_extract import (
     discover_source_docs,
     present_suffixes,
 )
-from weft_index.contract import Revisable
+from weft_index.contract import Expander, Revisable
+from weft_index.payload import ExpansionDegraded
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
@@ -153,7 +154,7 @@ from weft_kernel.runner import (
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_store import NodeStore
-from weft_store.contract import SourceRecord, SourceStatus
+from weft_store.contract import Cursor, Filter, FilterOp, MetadataFilter, SourceRecord, SourceStatus
 
 #: What `SourceRecord.pipeline` records for the built-in four-stage path — `06` step 9's
 #: hardcoded pipeline, which resolves no `ResolvedPipeline` and so has no name to read.
@@ -460,6 +461,31 @@ class IndexResult:
     #: and not a claim that it ensured none: pgvector ensures none and says nothing, and the
     #: renderer prints nothing for it.
     payload_indexes: tuple[str, ...] = ()
+    #: Repair **R38.13** — how many stored chunks carry `weft_index.payload.
+    #: ExpansionDegraded`, or `None` when this run cannot answer that. Set only when the
+    #: resolved pipeline names an `Expander` stage *and* the built store instance is a
+    #: `weft_store.contract.MetadataFilter` — a store that cannot evaluate a filter is not
+    #: asked, and the default four-stage path resolves no pipeline document at all, so it is
+    #: always `None` there.
+    degraded_expansions: int | None = None
+
+
+async def count_degraded_expansions(store: MetadataFilter) -> int:
+    """Every stored node carrying `weft_index.payload.ExpansionDegraded`, paged to the end.
+
+    Repair **R38.13**. The store is the authority: the marker lives outside a node's id, so
+    only a query over what is actually stored — not over what a run's own `RunSummary`
+    counted — answers how many chunks a questions arm actually lost.
+    """
+    total = 0
+    cursor: Cursor | None = None
+    filter_ = Filter(op=FilterOp.EXISTS, field=f"ext.{ExpansionDegraded.__namespace__}.technique")
+    while True:
+        page = await store.matching(filter_, cursor)
+        total += len(page.items)
+        if page.next_cursor is None:
+            return total
+        cursor = page.next_cursor
 
 
 def _validate_batch_size(batch_size: int | None) -> None:
@@ -755,6 +781,9 @@ async def run_index(
             pipeline_identity=identity,
             documents_indexed=len(work),
             payload_indexes=_payload_indexes(runnable, store_stage_id=store_stage_id),
+            degraded_expansions=await _degraded_expansions(
+                runnable, resolved_pipeline=resolved_pipeline, store_stage_id=store_stage_id
+            ),
         )
     except BaseException as failure:
         in_flight = failure
@@ -1234,6 +1263,34 @@ def _payload_indexes(runnable: RunnablePipeline, *, store_stage_id: str | None) 
         declared: tuple[str, ...] = getattr(stage.instance, "payload_index_fields", ())
         return declared
     return ()
+
+
+async def _degraded_expansions(
+    runnable: RunnablePipeline,
+    *,
+    resolved_pipeline: ResolvedPipeline | None,
+    store_stage_id: str | None,
+) -> int | None:
+    """How many stored chunks carry `ExpansionDegraded`, or `None` when this run cannot say —
+    repair **R38.13**.
+
+    `None` on the default four-stage path, honestly: `index_specs` resolves no
+    `ResolvedPipeline` at all, so there is no document to ask whether an `Expander` stage
+    ran. On a `--pipeline` run, `None` unless the document names an `Expander` stage *and*
+    the built store for this run is a `weft_store.contract.MetadataFilter` — a store that
+    cannot evaluate a filter is not asked, on `count_degraded_expansions`'s own footing.
+    """
+    if resolved_pipeline is None or store_stage_id is None:
+        return None
+    if not any(stage.contract == Expander.__name__ for stage in resolved_pipeline.stages):
+        return None
+    for stage in runnable.stages:
+        if stage.id != store_stage_id:
+            continue
+        if isinstance(stage.instance, MetadataFilter):
+            return await count_degraded_expansions(stage.instance)
+        return None
+    return None
 
 
 async def _release_reparsed_sources(

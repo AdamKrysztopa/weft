@@ -53,6 +53,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`weft index` counts the chunks `hypothetical-questions` could not expand.** A chunk whose
+  questions failed to generate still degrades rather than failing the run, and now carries an
+  `ExpansionDegraded` marker naming the technique and why. After a run whose pipeline has an
+  expansion stage, and whose store can filter, `weft index` prints
+  `chunks stored without their expansion: N.` — so a questions arm that silently shrank says so.
 - **A generating rung's run record says which retrieval arms fed each answer**, as a retrieval
   rung's already did. `Answer` carries `contributors`, copied from the passages it was given.
 

@@ -25,7 +25,7 @@ from weft_index.hypothetical_questions import (
     HypotheticalQuestionGenerator,
     HypotheticalQuestionsConfig,
 )
-from weft_index.payload import Representation
+from weft_index.payload import ExpansionDegraded, Representation
 from weft_index.prompts import GENERATE_QUESTIONS_NAME, GenerateQuestionsPrompt
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.payload import (
@@ -143,7 +143,9 @@ async def test_each_node_gets_its_own_derived_question_nodes() -> None:
     }
 
 
-async def test_a_node_whose_generation_degrades_still_survives_unchanged() -> None:
+async def test_a_node_whose_generation_degrades_survives_under_its_id_and_says_so() -> None:
+    """Degrade, never fail — and, since repair R38.13, never silently: the chunk keeps its id and
+    content and carries `ExpansionDegraded`, so a store can count what a questions arm lost."""
     # Arrange — the first node's completion fails outright; the second's succeeds.
     first, second = _node("passage one"), _node("passage two")
     llm = _ScriptedLLM([Failed(reason="the model declined"), _reply("What is passage two about?")])
@@ -152,14 +154,36 @@ async def test_a_node_whose_generation_degrades_still_survives_unchanged() -> No
     # Act
     outcome = await generator.run((first, second), _ctx(llm))
 
-    # Assert — both originals are still in the output; only `first` grew no children.
+    # Assert — both chunks are in the output under their own ids; only `first` grew no children,
+    # and only `first` is marked.
     assert isinstance(outcome, Produced)
-    nodes = outcome.value
-    assert first in nodes
-    assert second in nodes
-    derived = [node for node in nodes if node.id not in (first.id, second.id)]
+    by_id = {node.id: node for node in outcome.value}
+    assert by_id[first.id].content == first.content
+    marker = by_id[first.id].ext_as(ExpansionDegraded)
+    assert marker is not None
+    assert marker.technique == NAME
+    assert "the model declined" in marker.reason
+    assert by_id[second.id] is second
+    derived = [node for node in outcome.value if node.id not in (first.id, second.id)]
     assert len(derived) == 1
     assert derived[0].lineage.parents == (second.id,)
+
+
+async def test_a_completion_holding_no_question_is_a_degraded_expansion_too() -> None:
+    # Arrange — the model answered, with nothing that parses as a question.
+    chunk = _node("passage one")
+    generator = HypotheticalQuestionGenerator()
+
+    # Act
+    outcome = await generator.run((chunk,), _ctx(_ScriptedLLM([_reply("   \n\n")])))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [node.id for node in outcome.value] == [chunk.id]
+    marker = outcome.value[0].ext_as(ExpansionDegraded)
+    assert marker is not None
+    assert marker.technique == NAME
+    assert marker.reason
 
 
 async def test_an_empty_batch_is_nothing_to_produce() -> None:
