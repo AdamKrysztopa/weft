@@ -3668,8 +3668,8 @@ to do:** set `[packs.qdrant] collection` in `weft.toml` to a collection nothing 
 **R22.4d**, produced by the installed binary):
 
 ```text
-$ weft eval compare archive/baselines/8854c33f71ea-2026-08-25.json shifted.json
-'shifted.json' does not reproduce 'archive/baselines/8854c33f71ea-2026-08-25.json': document-recall@10: 0.5 is outside [0.5416666666666666, 0.5416666666666666]
+$ weft eval compare archive/baselines/8854c33f71ea-2026-09-21.json shifted.json
+'shifted.json' does not reproduce 'archive/baselines/8854c33f71ea-2026-09-21.json': document-recall@10: 0.5 is outside [0.5416666666666666, 0.5416666666666666]
 $ echo $?
 1
 ```
@@ -3686,7 +3686,7 @@ treating the published number as wrong.
 **What it looks like** — `weft eval compare` given a file that is not a baseline report:
 
 ```text
-$ weft eval compare archive/baselines/8854c33f71ea-2026-08-25.json notes.json
+$ weft eval compare archive/baselines/8854c33f71ea-2026-09-21.json notes.json
 'notes.json' is not a baseline report: 13 validation errors for BaselineReport
 ```
 

@@ -1001,10 +1001,10 @@ weft eval baseline corpus/manifest.toml eval/questions
 
 With no flags that is the published measurement: `--tiers fetch`, `--repeats 3`, `--top-k 10`,
 `--depths 5,10`, and the shipped `baseline` pipeline. Run from an install of the two wheels, outside
-this repository, against an empty Qdrant collection (2026-09-14), it exited `0` and wrote a
-report under the same corpus digest, `8854c33f71ea`, that the published
-`eval/baselines/8854c33f71ea-2026-08-25.json` carries. That run was not published; the published
-reports are the two files under `eval/baselines/`.
+this repository, against an empty Qdrant collection (2026-09-21), it exited `0` and wrote
+`eval/baselines/8854c33f71ea-2026-09-21.json`, the published baseline. The two earlier files under
+`eval/baselines/` are kept as the record of what was measured before: `2026-08-25` stores the hash
+embedder's stage with no configuration, which a newer `weft-rag` refuses to compare against.
 
 **The pipeline is a shipped document, and the store has to hold nothing else.** `baseline` is
 `text` → `fixed-size` → `hash` → `qdrant`: single-vector top-k with no fusion, rerank or
@@ -1020,14 +1020,8 @@ repetitions spanned**, and that interval is the only tolerance a later run is ju
 picks a number. `weft eval compare` judges two baseline report files:
 
 ```text
-$ weft eval compare archive/baselines/8854c33f71ea-2026-08-25.json mine.json
-'mine.json' reproduces 'archive/baselines/8854c33f71ea-2026-08-25.json': 12 of 12 metric(s) inside the intervals 'archive/baselines/8854c33f71ea-2026-08-25.json' recorded
-installation differs at stage 'extract': distribution weft-extract -> weft-rag
-installation differs at stage 'chunk': distribution weft-chunk -> weft-rag
-installation differs at stage 'chunk': applies_to [] -> [{"constraints": [], "fact": null, "media_type": ["text"]}]
-installation differs at stage 'embed': distribution weft-embed -> weft-rag
-installation differs at stage 'store': distribution weft-qdrant -> weft-rag
-installation differs at stage 'store': contract_version 2.0.0 -> 2.6.0
+$ weft eval compare archive/baselines/8854c33f71ea-2026-09-21.json mine.json
+'mine.json' reproduces 'archive/baselines/8854c33f71ea-2026-09-21.json': 12 of 12 metric(s) inside the intervals 'archive/baselines/8854c33f71ea-2026-09-21.json' recorded
   document-mrr@10: 0.26875 inside [0.26875, 0.26875]
   …
 ```

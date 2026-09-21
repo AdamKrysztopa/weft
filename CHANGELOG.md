@@ -43,6 +43,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **The published baseline is re-taken: `baselines/8854c33f71ea-2026-09-21.json`.** The earlier
+  `2026-08-25` file recorded the `hash` embedder's stage with no configuration, and a `weft-rag`
+  newer than 2.7.0 writes its default `dimension: 64`, so `weft eval compare` refused it. Every
+  metric is unchanged; `docs/REPRODUCING.md` now judges against the new file.
 - **A pipeline's identity is computed from a stage's configuration fields, keys sorted**, not from
   the text pydantic prints for them — so reordering a plugin's config fields, or a pydantic release
   that prints them differently, no longer re-parses a corpus nothing about had changed. **This

@@ -5,7 +5,8 @@ hold that archive and an installed `weft-rag`, and nothing else — no clone of 
 
 `docs/09-release.md` §5.2: *"Fails if reproducing the published number requires cloning."* This
 page is the procedure that clause asks for. Every command and every transcript below was run as
-written on 2026-09-14, from a directory outside the repository, against wheels built from the tree.
+written on 2026-09-14, and §3 and §4 again on 2026-09-21, from a directory outside the repository,
+against wheels built from the tree.
 
 **Which release.** The procedure needs `weft eval baseline` and a `weft eval compare` that reads a
 baseline report, both added after `v2.6.0`. It also needs the fetcher, and `v2.6.0`'s archive
@@ -70,7 +71,7 @@ weft eval baseline corpus-manifest.toml questions --out mine.json
 ```
 
 ```text
-{"path":"mine.json","report":{"recorded_at":"2026-09-14T11:34:28+00:00","corpus_name":"mrmr-v1","tiers":["fetch"],"extractor":"text", …
+{"path":"mine.json","report":{"recorded_at":"2026-09-21T12:13:28+00:00","corpus_name":"mrmr-v1","tiers":["fetch"],"extractor":"text", …
 ```
 
 It prints the report it wrote. With no other flags this is the published measurement: the `fetch`
@@ -80,26 +81,19 @@ question three times, all in one process.
 
 ## 4. Judge it against the published baseline
 
-> **Until the baseline is re-taken, a `weft-rag` newer than 2.7.0 refuses this comparison**, saying
-> `stage 'embed' config differs ({} vs {'dimension': 64})`. The hash embedder gained the
-> `config_model` it had always lacked, so its own default `dimension: 64` is now written into the
-> resolved record where it used to be omitted. The embedder, the width and the vectors are
-> unchanged; only the record is. Use `weft-rag` 2.7.0 against this file, or the re-taken baseline
-> once it is published. The refusal is the reproduction check working — a run that measured
-> something different must not be reported as reproducing this one.
+> **Judge against `baselines/8854c33f71ea-2026-09-21.json`.** The earlier
+> `8854c33f71ea-2026-08-25.json` recorded the hash embedder's stage with no configuration, and a
+> `weft-rag` newer than 2.7.0 writes its default `dimension: 64` into the record, so that file
+> refuses the comparison: `stage 'embed' config differs ({} vs {'dimension': 64})`. The vectors
+> and every metric are unchanged; only the record is. The refusal is the reproduction check
+> working, and the re-take is its answer.
 
 ```bash
-weft eval compare baselines/8854c33f71ea-2026-08-25.json mine.json
+weft eval compare baselines/8854c33f71ea-2026-09-21.json mine.json
 ```
 
 ```text
-'mine.json' reproduces 'baselines/8854c33f71ea-2026-08-25.json': 12 of 12 metric(s) inside the intervals 'baselines/8854c33f71ea-2026-08-25.json' recorded
-installation differs at stage 'extract': distribution weft-extract -> weft-rag
-installation differs at stage 'chunk': distribution weft-chunk -> weft-rag
-installation differs at stage 'chunk': applies_to [] -> [{"constraints": [], "fact": null, "media_type": ["text"]}]
-installation differs at stage 'embed': distribution weft-embed -> weft-rag
-installation differs at stage 'store': distribution weft-qdrant -> weft-rag
-installation differs at stage 'store': contract_version 2.0.0 -> 2.6.0
+'mine.json' reproduces 'baselines/8854c33f71ea-2026-09-21.json': 12 of 12 metric(s) inside the intervals 'baselines/8854c33f71ea-2026-09-21.json' recorded
   document-mrr@10: 0.26875 inside [0.26875, 0.26875]
   document-mrr@5: 0.25 inside [0.25, 0.25]
   document-ndcg@10: 0.3275977762880931 inside [0.3275977762880931, 0.3275977762880931]
@@ -116,15 +110,15 @@ installation differs at stage 'store': contract_version 2.0.0 -> 2.6.0
 
 **Every metric inside the interval the published run's own repetitions spanned** is a reproduction.
 No tolerance is chosen anywhere: the interval is what three passes produced, and this pipeline is
-deterministic, so every interval has zero width. The *installation differs* lines are not failures.
-They report that the plugins now ship in one distribution, `weft-rag`, with a newer declared
-contract version. Anything that changed retrieval would have moved a metric.
+deterministic, so every interval has zero width. An *installation differs* line, when a later
+release prints one, is not a failure: it reports a plugin shipping from another distribution or
+at a newer declared contract version. Anything that changed retrieval would have moved a metric.
 
 A metric outside its interval, or one your run did not measure, exits `1` and names each:
 
 ```text
-$ weft eval compare baselines/8854c33f71ea-2026-08-25.json shifted.json
-'shifted.json' does not reproduce 'baselines/8854c33f71ea-2026-08-25.json': document-recall@10: 0.5 is outside [0.5416666666666666, 0.5416666666666666]
+$ weft eval compare baselines/8854c33f71ea-2026-09-21.json shifted.json
+'shifted.json' does not reproduce 'baselines/8854c33f71ea-2026-09-21.json': document-recall@10: 0.5 is outside [0.5416666666666666, 0.5416666666666666]
 ```
 
 A run over a different corpus, stage configuration, model version, retrieval depth or question set
