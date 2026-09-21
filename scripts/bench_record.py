@@ -334,8 +334,9 @@ def arms_from_qdrant(run: bench_qdrant.QdrantRun) -> tuple[ArmRecord, ...]:
 
 def _positions_for_settings_arm(arm: bench_settings.Arm) -> tuple[G22Position, ...]:
     """Mirrors what the Phase 29 adapter gives the arm of the same configuration
-    (`arms_from_filtered:165`, `arms_from_quantised:196-200`, `arms_from_qdrant:315`), so a
-    comparison against Phase 29's arm of the same name is meaningful.
+    (`arms_from_filtered:165`, `arms_from_quantised:196-200`, `arms_from_qdrant:315`). That makes
+    the positions line up, not the numbers: recall does not transfer from Phase 29's hash vectors,
+    so `31.6` compares an arm only against its own control.
     """
     if arm.backend is bench_settings.Backend.QDRANT:
         return (G22Position.UNINDEXED_CEILING,)
