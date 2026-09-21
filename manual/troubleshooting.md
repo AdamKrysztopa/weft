@@ -4212,6 +4212,24 @@ and an agent passing it on every call is that sentence with the human removed.
   [`manual/operations-guide.md`](operations-guide.md).
 - **Writing a pack of your own?** [`manual/pack-author-guide.md`](pack-author-guide.md).
 
+### A document is reported "failed earlier, skipped"
+
+**What it looks like:**
+
+```text
+$ weft index corpus
+2 documents: 0 indexed, 1 unchanged.
+1 failed earlier, skipped — weft index --retry-failed includes it
+```
+
+**Why** — an earlier run recorded that document as failed, and `weft index` does not retry a
+failure unasked: on a pipeline with a model stage, every retry is paid for.
+
+**What to do:** run `weft sources list --status failed` to see which stage failed and why. Fix the
+file and run `weft index` again, or run `weft index --retry-failed` if the cause was outside the
+file. If the failed batch held several documents, re-index with `--batch-size 1` to find which one
+it was. `weft delete <source-id>` abandons it.
+
 ### `UnknownSourceStatusError`
 
 **What it looks like** — any command that reads a store's source records, against a store a

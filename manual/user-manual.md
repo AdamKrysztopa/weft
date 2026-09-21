@@ -218,6 +218,28 @@ on marked as still indexing, and the next `weft index` re-does exactly those —
 previous index of this document did not finish*. Before this, a killed run left no record at all
 and the half-written documents were indistinguishable from ones nobody had ever indexed.
 
+**A document that failed is recorded as failed, and later runs skip it until you ask.** When a
+stage refuses or raises on a batch, every document in that batch is recorded *failed*, with the
+stage, the error and an attempt count. The nodes it half-wrote are removed. The next `weft index`
+does not try it again unasked, because on a pipeline with a model stage every retry is paid for.
+It says so instead:
+
+```text
+2 documents: 0 indexed, 1 unchanged.
+1 failed earlier, skipped — weft index --retry-failed includes it
+```
+
+- **`weft sources list --status failed`** shows each failed document with its stage, error,
+  attempts, last attempt and message.
+- **`weft index --retry-failed`** tries them again. A run where anything failed this time exits
+  `1`; a run that only skipped documents that failed before exits `0`, because that failure was
+  already reported by the run that met it.
+- **Changing a failed file's bytes**, or the pipeline that reads it, re-indexes it with no flag.
+- **A multi-document batch fails as a whole**, so a good document sharing a batch with a bad one is
+  recorded failed too, and only a batch of one document counts as another attempt. Index with
+  `--batch-size 1` to find which document it was.
+- **`weft delete <source-id>`** removes a failed document and anything it left, like any other.
+
 **Six PDF rungs** — `index-pdf` and its five siblings — differ in what they do with what is not
 text: the tables, the figures and the captions. `index-pdf-learned` is the one behind the `docling`
 extra.

@@ -1490,7 +1490,7 @@ class PgVectorStore:
         the authority on what exists, and a pass that deleted nodes because no `weft_sources`
         row named them would erase a corpus indexed before source records were written. What
         this store genuinely owns is the other half of `SourceRecord.status`'s reason for
-        existing — "a crash leaves `status=DELETING`, so the next call or `weft doctor` can
+        existing — "a crash leaves `status=DELETING`, so the next call or `weft reconcile` can
         finish the job rather than leaving it half-deleted and invisible". Every tombstone is
         a deletion that started and did not end, and finishing them is convergence for this
         backend.

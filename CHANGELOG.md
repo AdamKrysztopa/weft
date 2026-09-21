@@ -57,6 +57,14 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A document that failed to index is recorded as failed, and you can find it.** `weft index`
+  records every document of a batch that a stage refused or raised on as `failed`, with the
+  stage, the error, an attempt count and the time, and removes what it half-wrote. Later runs skip
+  it and say so, naming `--retry-failed`, instead of retrying it unasked, because a pipeline with a
+  model stage pays for every retry; changing the file or the pipeline retries it with no flag.
+  `weft sources list [--status failed]` lists what the store recorded. The store contract moves to
+  `2.8.0`: `SourceStatus` gains `FAILED` and `SourceRecord` an optional `failure`, and a status a
+  newer `weft-rag` wrote is refused by name (`UnknownSourceStatusError`).
 - **`weft index` counts the chunks an expansion stage could not expand.** A chunk whose
   questions, cluster summary or facts could not be generated still degrades rather than failing
   the run, and now carries an `ExpansionDegraded` marker naming the stage and why — for

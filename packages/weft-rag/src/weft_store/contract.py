@@ -218,7 +218,7 @@ class SourceRecord(BaseModel):
     idempotent and resumable*, "`delete_source` writes a tombstone — a
     status on the `SourceRecord` — deletes by filter on `lineage.sources`,
     then clears it." A crash leaves `status=DELETING`, so the next call or
-    `weft doctor` can finish the job rather than leaving it half-deleted and
+    `weft reconcile` can finish the job rather than leaving it half-deleted and
     invisible.
     """
 

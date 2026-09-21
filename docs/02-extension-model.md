@@ -1163,13 +1163,16 @@ cancelled one durable to its last finished batch.
 **Deletion is idempotent and resumable rather than atomic**, because atomicity would disqualify
 every backend without transactions and `05` requires two backends satisfying this without stubs.
 `delete_source` writes a tombstone — a status on the `SourceRecord` — deletes by filter on
-`lineage.sources`, then clears it. A crash leaves the tombstone, so the next call or `weft doctor`
+`lineage.sources`, then clears it. A crash leaves the tombstone, so the next call or `weft reconcile`
 finishes the job, and nothing is ever half-deleted invisibly. It returns counts and affected
 sources with a cursor for ids rather than materialising a cascade that can span a corpus.
 
 **`SourceRecord` closes the last reach-through.** `id`, `uri`, `content_hash`, `indexed_at`,
-`pipeline`, `status` — one structure serving change detection (re-index skips an unchanged file
-instead of re-paying for every enhancer's LLM calls), cascade resumption, and `doctor`'s inventory.
+`pipeline`, `pipeline_identity`, `status`, `failure` — one structure serving change detection
+(re-index skips an unchanged file instead of re-paying for every enhancer's LLM calls), cascade
+resumption, the inventory `weft sources list` prints, and the failure record: a source whose
+indexing failed is recorded `FAILED` with what failed and where, and later runs skip it, saying
+so, until `weft index --retry-failed` or a change to its bytes or pipeline.
 `pipeline` is what lets `weft index` say *"already indexed, by a different pipeline"* rather than
 silently skipping or silently duplicating.
 
