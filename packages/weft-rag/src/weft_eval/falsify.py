@@ -40,6 +40,9 @@ unregistered functions.
 
 Repair **R38.16**: `paired_differences`' own `PairedDifference` also states how many of its
 paired questions actually differ, because `n` alone hides a mean carried by almost none of them.
+
+Repair **R41.3**: `paired_differences` refuses two records whose pool manifests or question-set
+digests disagree, `40.2`'s rule, rather than pairing them on question keys alone.
 """
 
 from __future__ import annotations
@@ -71,6 +74,14 @@ class TooFewRepetitionsError(WeftError):
     def __init__(self, message: str, *, repetitions: int) -> None:
         super().__init__(message)
         self.repetitions = repetitions
+
+
+class UnpairableRecordsError(WeftError):
+    """Two records carry pool manifests or question-set digests that disagree — repair R41.3."""
+
+    def __init__(self, message: str, *, reasons: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.reasons = reasons
 
 
 class BaselineSpread(BaseModel):
@@ -318,6 +329,37 @@ class PairedDifference(BaseModel):
     differing: int = Field(ge=0)
 
 
+def _pairing_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
+    """Why `a` and `b` cannot pair. A digest either side lacks, or two digests over different
+    bases, is not a disagreement.
+    """
+    reasons: list[str] = []
+
+    if (
+        a.experiment is not None
+        and b.experiment is not None
+        and a.experiment.pool_manifest is not None
+        and b.experiment.pool_manifest is not None
+        and a.experiment.pool_manifest != b.experiment.pool_manifest
+    ):
+        reasons.append(
+            f"pool manifest differs ({a.experiment.pool_manifest[:12]}… vs "
+            f"{b.experiment.pool_manifest[:12]}…)"
+        )
+
+    if (
+        a.question_set_digest_basis == b.question_set_digest_basis
+        and a.question_set_digest is not None
+        and b.question_set_digest is not None
+        and a.question_set_digest != b.question_set_digest
+    ):
+        reasons.append(
+            f"question set differs ({a.question_set_digest[:12]}… vs {b.question_set_digest[:12]}…)"
+        )
+
+    return tuple(reasons)
+
+
 def _percentile(sorted_values: Sequence[float], pct: float) -> float:
     """The `pct`-th percentile of `sorted_values`, already sorted, linearly interpolated
     between the two nearest ranks — the same interpolation `numpy.percentile`'s default uses,
@@ -400,7 +442,19 @@ def paired_differences(
     `question_keys` — repair R38.1 — restricts the pairing to that set alone, on top of the
     "present in both" rule above: `None` (the default) is today's behaviour, pairing every
     question both records scored.
+
+    Raises `UnpairableRecordsError` when the records' pool manifests or question-set digests
+    disagree — repair R41.3.
     """
+    reasons = _pairing_reasons(a, b)
+    if reasons:
+        raise UnpairableRecordsError(
+            f"these two records do not pair question by question: "
+            f"{'; '.join(reasons)} — task 40.2: two arms compare only on the same pool "
+            f"manifest and question-set digests",
+            reasons=reasons,
+        )
+
     if a.question_scores is None or b.question_scores is None:
         return MappingProxyType({})
 
@@ -436,6 +490,7 @@ __all__ = [
     "NoSpread",
     "PairedDifference",
     "TooFewRepetitionsError",
+    "UnpairableRecordsError",
     "Verdict",
     "baseline_spreads",
     "judge_differences",

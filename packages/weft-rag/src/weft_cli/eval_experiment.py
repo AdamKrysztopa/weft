@@ -105,7 +105,7 @@ _EVAL_EXPERIMENT_HELP = (
     "run every arm of an experiment document (eval/experiments/*.toml) for every repetition, "
     "through the identical index-and-score path 'weft eval run' uses, and persist one run "
     "record per arm and repetition — refuses before indexing anything if two arms are not "
-    "comparable by corpus digest, question-set digest or model version"
+    "comparable by corpus digest, question-set digest, pool manifest or model version"
 )
 
 
@@ -243,6 +243,7 @@ class _ArmIdentity:
     corpus_digest: str
     question_set_digest: str
     model_versions: dict[str, str]
+    pool_manifest: str | None
 
 
 def _arm_identity(
@@ -270,6 +271,7 @@ def _arm_identity(
             corpus_digest=pool.manifest.corpus_digest,
             question_set_digest=question_set.digest,
             model_versions=dict(model_versions_of(resolved, roles=deps.llm.roles)),
+            pool_manifest=pool.sha256,
         )
     resolved, _specs, documents = corpus_documents(
         experiment.corpus_for(arm),
@@ -284,6 +286,7 @@ def _arm_identity(
         corpus_digest=corpus_identity(arm.name, content_hashes_of(documents)).digest,
         question_set_digest=question_set.digest,
         model_versions=dict(model_versions_of(resolved, roles=deps.llm.roles)),
+        pool_manifest=None,
     )
 
 
@@ -303,6 +306,15 @@ def _arm_incomparable_reasons(
         reasons.append(
             f"question set differs ('{baseline_name}' {baseline.question_set_digest[:12]}… vs "
             f"'{arm_name}' {candidate.question_set_digest[:12]}…)"
+        )
+    if (
+        baseline.pool_manifest is not None
+        and candidate.pool_manifest is not None
+        and candidate.pool_manifest != baseline.pool_manifest
+    ):
+        reasons.append(
+            f"pool manifest differs ('{baseline_name}' {baseline.pool_manifest[:12]}… vs "
+            f"'{arm_name}' {candidate.pool_manifest[:12]}…)"
         )
     shared = sorted(set(baseline.model_versions) & set(candidate.model_versions))
     for key in shared:

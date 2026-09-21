@@ -1053,6 +1053,35 @@ async def test_a_replay_arm_is_planned_without_reading_the_corpus(
     assert plan.corpora == ()
 
 
+async def test_two_arms_replaying_different_pools_are_refused_before_anything_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Repair R41.3: `40.2` settled that two arms compare only on the same manifest, and a
+    refusal after every arm had run would spend the experiment before saying so."""
+    # Arrange — a second manifest identical but for its store row count, so only its sha differs.
+    _, manifest = await _captured(tmp_path, monkeypatch)
+    other = manifest.with_name("other.json")
+    other.write_text(
+        manifest.read_text(encoding="utf-8").replace('"store_rows": 11', '"store_rows": 12'),
+        encoding="utf-8",
+    )
+    assert load_pool_manifest(other).sha256 != load_pool_manifest(manifest).sha256
+    replay = _replay_document(tmp_path, manifest)
+    head, tail = replay.read_text(encoding="utf-8").rsplit(f'pool = "{manifest}"', 1)
+    replay.write_text(f'{head}pool = "{other}"{tail}', encoding="utf-8")
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub(calls))
+
+    # Act
+    with pytest.raises(IncomparableArmsError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(replay)), _ctx())
+
+    # Assert
+    assert caught.value.arm == "again"
+    assert any("pool manifest differs" in reason for reason in caught.value.reasons)
+    assert calls == []
+
+
 def test_an_arm_both_capturing_and_replaying_a_pool_is_refused_naming_both_keys(
     tmp_path: Path,
 ) -> None:

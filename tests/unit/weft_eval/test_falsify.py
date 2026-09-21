@@ -30,6 +30,7 @@ from weft_eval.falsify import (
     DifferenceJudgement,
     NoSpread,
     TooFewRepetitionsError,
+    UnpairableRecordsError,
     Verdict,
     baseline_spreads,
     judge_differences,
@@ -37,9 +38,11 @@ from weft_eval.falsify import (
 )
 from weft_eval.run_record import (
     CorpusIdentity,
+    ExperimentRun,
     NotScored,
     PerQuestionScores,
     QuestionKey,
+    QuestionSetDigestBasis,
     RunRecord,
     build_run_record,
 )
@@ -399,3 +402,100 @@ def test_the_interval_is_drawn_from_every_question_not_the_first_256() -> None:
     assert difference.high is not None
     assert difference.low <= difference.mean <= difference.high
     assert difference.high - difference.low < 0.1
+
+
+# --- Repair R41.3 — two records pair only when they scored the same questions over the same pool.
+
+
+def _provenanced(
+    *,
+    pool: str | None,
+    question_set: str,
+    basis: QuestionSetDigestBasis | None = QuestionSetDigestBasis.QUESTION_SET,
+) -> RunRecord:
+    """A record that beats nothing on every question, carrying the two digests `40.2` pairs on."""
+    return RunRecord(
+        recorded_at="2026-09-19T00:00:00Z",
+        resolved_pipeline=ResolvedPipeline(name="rung"),
+        corpus=CorpusIdentity(name="corpus", digest="a" * 64),
+        question_scores={"mrr@5": _per_question(q1=0.5, q2=0.25)},
+        question_set_digest=question_set,
+        question_set_digest_basis=basis,
+        experiment=ExperimentRun(
+            name="replay",
+            digest="e" * 64,
+            invocation="inv",
+            arm="arm",
+            repetition=1,
+            pool_manifest=pool,
+        ),
+    )
+
+
+def test_records_replaying_two_different_pools_are_refused_naming_both_manifests() -> None:
+    # Arrange
+    a = _provenanced(pool="1" * 64, question_set="q" * 64)
+    b = _provenanced(pool="2" * 64, question_set="q" * 64)
+
+    # Act
+    with pytest.raises(UnpairableRecordsError) as caught:
+        paired_differences(a, b)
+
+    # Assert
+    assert len(caught.value.reasons) == 1
+    assert "pool manifest differs" in caught.value.reasons[0]
+    assert "111111111111" in str(caught.value)
+    assert "222222222222" in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "basis",
+    [
+        pytest.param(QuestionSetDigestBasis.QUESTION_SET, id="current-basis"),
+        pytest.param(None, id="both-before-task-38.11"),
+    ],
+)
+def test_records_scored_on_two_different_question_sets_are_refused(
+    basis: QuestionSetDigestBasis | None,
+) -> None:
+    # Arrange — the same questions keys, so pairing on keys alone would succeed silently.
+    a = _provenanced(pool="1" * 64, question_set="q" * 64, basis=basis)
+    b = _provenanced(pool="1" * 64, question_set="r" * 64, basis=basis)
+
+    # Act
+    with pytest.raises(UnpairableRecordsError) as caught:
+        paired_differences(a, b, question_keys=frozenset({"q1"}))
+
+    # Assert
+    assert len(caught.value.reasons) == 1
+    assert "question set differs" in caught.value.reasons[0]
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        pytest.param(
+            _provenanced(pool="1" * 64, question_set="q" * 64),
+            _provenanced(pool="1" * 64, question_set="q" * 64),
+            id="same-pool-same-questions",
+        ),
+        pytest.param(
+            _provenanced(pool=None, question_set="q" * 64),
+            _provenanced(pool="1" * 64, question_set="q" * 64),
+            id="one-side-replayed-no-pool",
+        ),
+        pytest.param(
+            _provenanced(pool="1" * 64, question_set="q" * 64, basis=None),
+            _provenanced(pool="1" * 64, question_set="r" * 64),
+            id="digests-over-different-bases-cannot-disagree",
+        ),
+    ],
+)
+def test_records_whose_provenance_does_not_disagree_still_pair(a: RunRecord, b: RunRecord) -> None:
+    # Arrange — see the parametrisation.
+
+    # Act
+    paired = paired_differences(a, b)
+
+    # Assert
+    assert paired["mrr@5"].n == 2

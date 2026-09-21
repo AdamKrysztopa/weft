@@ -3119,6 +3119,29 @@ over identical files. **What to do:** re-take the older arm on this version. The
 migration — the bytes an old record digested were never written down. `manual/operations-guide.md`
 → *What the corpus digest is over, and why a record says so* has the reproduction.
 
+### `UnpairableRecordsError`
+
+**What it looks like** — `weft eval compare` given two replay records of the same corpus and
+question set whose pool manifests differ, reproduced from the built wheels on 2026-09-21 with a
+Phase 40 record and a copy of it naming another manifest:
+
+```text
+$ weft eval compare aaaaaaaa-0000-0000-0000-000000000001 aaaaaaaa-0000-0000-0000-000000000002
+these two records do not pair question by question: pool manifest differs (8593b58c918a… vs ffffffffffff…) — task 40.2: two arms compare only on the same pool manifest and question-set digests
+$ echo $?
+1
+```
+
+A paired difference subtracts one record's score on a question from the other's. Two records that
+replayed different pools, or were scored on different question sets, can share every question id
+and still be answering different questions, so the difference would be about nothing. Records that
+carry no pool manifest, or whose question-set digests were computed two different ways, are not
+refused; there is nothing to disagree. `weft eval experiment` makes the same check before any arm
+runs and reports it as `IncomparableArmsError`. **What to do:** pair records that replayed the same
+manifest over the same question file. The message prints the first twelve characters of each
+digest; the full values are in each record, `runs/<run>.json`, as `experiment.pool_manifest` and
+`question_set_digest`.
+
 ### `PoolManifestError`
 
 **What it looks like** — reading a frozen retrieval pool (`runs/pools/<run_id>.json`, written by an
