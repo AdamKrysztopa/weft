@@ -73,8 +73,10 @@ from weft_store.contract import (
     ReconcileMode,
     ReconcileReport,
     Removed,
+    SourceFailure,
     SourceRecord,
     SourceStatus,
+    source_status,
 )
 from weft_store.rehydrate import rehydrate_ext
 
@@ -150,6 +152,17 @@ CREATE TABLE IF NOT EXISTS kg_sources (
     status TEXT NOT NULL,
     pipeline_identity TEXT NOT NULL DEFAULT ''
 )
+"""
+
+#: Ledger task **36.0** — additive, like `weft_store.pgvector_store`'s identical column: nullable,
+#: so a row written before this task reads back `failure=None`. **Deliberately not a
+#: `KG_SCHEMA_VERSION` move** — `weft_store/pgvector_store.py`'s own `_ADD_SOURCES_FAILURE`
+#: doc explains why the pattern is additive rather than a rewrite; here it additionally means a
+#: `2.7.x` graph store keeps opening under `_check_schema_version` rather than tripping
+#: `GraphSchemaVersionRefusedError`.
+_ADD_SOURCES_FAILURE = """
+ALTER TABLE kg_sources
+    ADD COLUMN IF NOT EXISTS failure JSONB
 """
 
 #: The version row — see `KG_SCHEMA_VERSION`'s own docstring.
@@ -418,6 +431,7 @@ async def provision_schema(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> N
         await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
         await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
         await cur.execute(_CREATE_SOURCES_TABLE)
+        await cur.execute(_ADD_SOURCES_FAILURE)
         await cur.execute(_CREATE_SCHEMA_TABLE)
         await cur.execute(_CREATE_ENTITIES_TABLE)
         await cur.execute(_CREATE_ALIASES_TABLE)
@@ -1049,15 +1063,17 @@ class GraphStore:
             await cur.execute(
                 """
                 INSERT INTO kg_sources
-                    (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity,
+                     failure)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     uri = EXCLUDED.uri,
                     content_hash = EXCLUDED.content_hash,
                     indexed_at = EXCLUDED.indexed_at,
                     pipeline = EXCLUDED.pipeline,
                     status = EXCLUDED.status,
-                    pipeline_identity = EXCLUDED.pipeline_identity
+                    pipeline_identity = EXCLUDED.pipeline_identity,
+                    failure = EXCLUDED.failure
                 """,
                 (
                     record.id,
@@ -1067,6 +1083,9 @@ class GraphStore:
                     record.pipeline,
                     record.status.value,
                     record.pipeline_identity,
+                    Jsonb(record.failure.model_dump(mode="json"))
+                    if record.failure is not None
+                    else None,
                 ),
             )
 
@@ -1816,6 +1835,7 @@ def _row_to_node(row: Mapping[str, object]) -> Node:
 
 
 def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
+    raw_failure = row.get("failure")
     return SourceRecord(
         id=cast(SourceId, row["id"]),
         uri=cast(str, row["uri"]),
@@ -1823,7 +1843,8 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         indexed_at=cast(Any, row["indexed_at"]),
         pipeline=cast(str, row["pipeline"]),
         pipeline_identity=cast(str, row.get("pipeline_identity") or ""),
-        status=SourceStatus(row["status"]),
+        status=source_status(cast(str, row["status"])),
+        failure=SourceFailure.model_validate(raw_failure) if raw_failure is not None else None,
     )
 
 

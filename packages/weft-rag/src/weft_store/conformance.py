@@ -78,6 +78,7 @@ from weft_store.contract import (
     Page,
     Reconcilable,
     ReconcileMode,
+    SourceFailure,
     SourceRecord,
     SourceStatus,
     SupersedeNarrowsSourcesError,
@@ -1108,6 +1109,14 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
         indexed_at=datetime.now(UTC),
         pipeline="conformance",
         pipeline_identity="9f2c1a4e",
+        status=SourceStatus.FAILED,
+        failure=SourceFailure(
+            error_type="Failed",
+            stage="extract",
+            message="not valid UTF-8",
+            attempts=2,
+            last_attempt_at=datetime.now(UTC),
+        ),
     )
 
     # Act

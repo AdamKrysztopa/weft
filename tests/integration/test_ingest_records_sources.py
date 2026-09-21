@@ -42,8 +42,14 @@ from pydantic import SecretStr
 from weft_cli.ingest import run_index
 from weft_engine.registry_bootstrap import build_dependencies
 from weft_kernel.context import Context
+from weft_kernel.payload import SourceId
 from weft_kg.store import GraphSettings, GraphStore
-from weft_store.contract import SourceStatus
+from weft_store.contract import (
+    SourceFailure,
+    SourceRecord,
+    SourceStatus,
+    UnknownSourceStatusError,
+)
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -276,3 +282,54 @@ async def test_every_store_a_document_names_records_the_sources_it_was_given(
     assert {record.id for record in secondary} == {record.id for record in primary}
     assert secondary[0].pipeline == "index-with-graph"
     assert secondary[0].status is SourceStatus.ACTIVE
+
+
+async def test_the_graph_store_keeps_a_source_s_failure_whole(graph_store: GraphStore) -> None:
+    """Ledger **36.0**: the graph pack records sources too, and a `2.7.x` graph store is read
+    without `GraphSchemaVersionRefusedError` firing, because the failure is added beside it."""
+    # Arrange
+    record = SourceRecord(
+        id=SourceId("file:///corpus/bad.txt"),
+        uri="file:///corpus/bad.txt",
+        content_hash="hash-bad",
+        indexed_at=datetime.now(UTC),
+        pipeline="index-with-graph",
+        pipeline_identity="9f2c1a4e",
+        status=SourceStatus.FAILED,
+        failure=SourceFailure(
+            error_type="WeftError",
+            stage=None,
+            message="'extract' failed",
+            attempts=1,
+            last_attempt_at=datetime.now(UTC),
+        ),
+    )
+
+    # Act
+    await graph_store.put_source(record)
+    found = await graph_store.get_source(record.id)
+
+    # Assert
+    assert found == record
+
+
+async def test_a_status_a_newer_release_wrote_is_refused_by_name(
+    clean_database: None, store: PgVectorStore
+) -> None:
+    """Ledger **36.0**: release *n* meeting a status only *n*+1 knows says so, rather than
+    `ValueError: 'x' is not a valid SourceStatus` from deep inside a read."""
+    # Arrange — a row as a newer `weft-rag` would leave it.
+    conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+    async with conn.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO weft_sources (id, uri, content_hash, indexed_at, pipeline, status) "
+            "VALUES ('future', 'file:///future.txt', 'h', now(), 'index-text', 'quarantined')"
+        )
+    await conn.close()
+
+    # Act
+    with pytest.raises(UnknownSourceStatusError) as refused:
+        await store.get_source(SourceId("future"))
+
+    # Assert
+    assert "'quarantined'" in str(refused.value)

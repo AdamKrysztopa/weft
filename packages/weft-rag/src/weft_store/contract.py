@@ -145,7 +145,8 @@ from weft_kernel.runner import Stage
 #: **`2.5.0` → `2.6.0` at task 17.1** — `SourceStatus` gains `INDEXING`, minor for both audiences.
 #: **`2.6.0` → `2.7.0` at task 31.0** — `VectorIndexKind` and `VectorPrecision` publish a
 #: vocabulary, minor for both audiences: no Protocol gained a member.
-STORE_CONTRACT_VERSION = "2.7.0"
+#: **`2.7.0` → `2.8.0` at task 36.0** — `SourceStatus`/`SourceRecord` gain `FAILED`/`failure`.
+STORE_CONTRACT_VERSION = "2.8.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -205,6 +206,8 @@ class SourceStatus(StrEnum):
     DELETING = "deleting"
     #: Written before a run by `_record_sources`, then rewritten `ACTIVE` after — task **17.1**.
     INDEXING = "indexing"
+    #: Task **36.0**.
+    FAILED = "failed"
 
 
 class SourceRecord(BaseModel):
@@ -238,6 +241,56 @@ class SourceRecord(BaseModel):
     #: reparse for one, because claiming `UNCHANGED` there would claim a comparison nobody made.
     pipeline_identity: str = ""
     status: SourceStatus = SourceStatus.ACTIVE
+    #: `None` for every status but `FAILED` — task **36.0**. A forward reference: `SourceFailure`
+    #: is defined below this class so `contract.py`'s `status` line above does not move; resolved
+    #: by the `SourceRecord.model_rebuild()` call beneath `SourceFailure`.
+    failure: "SourceFailure | None" = None
+
+
+class SourceFailure(BaseModel):
+    """Why an indexing attempt for one source did not leave `SourceRecord.status` at `ACTIVE`
+    — task **36.0**. One frozen record rather than five loose optional fields on `SourceRecord`
+    itself, so "no failure" stays one fact to check: `record.failure is None`.
+
+    `stage` has no default — `None` means the failure crossed no `Stage` boundary this store can
+    name, and a caller building one must say that explicitly rather than an omitted keyword
+    reading as "unknown" by accident.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    error_type: str = Field(min_length=1)
+    stage: str | None
+    message: str
+    attempts: int = Field(ge=1)
+    last_attempt_at: datetime
+
+
+SourceRecord.model_rebuild()
+
+
+class UnknownSourceStatusError(WeftError):
+    """A stored `SourceRecord.status` value is not one this release's `SourceStatus` knows —
+    task **36.0**. Raised by `source_status`, so a store's read path fails loudly, naming the
+    value it met, rather than `SourceStatus(value)`'s own bare `ValueError` surfacing deep inside
+    a `get_source` or `list_sources` call with no word about why.
+    """
+
+
+def source_status(value: str) -> SourceStatus:
+    """Read a stored status string as `SourceStatus`, refusing by name — `UnknownSourceStatusError`
+    — rather than letting `SourceStatus(value)`'s own `ValueError` escape unexplained. Every store
+    reading a persisted status calls this rather than constructing `SourceStatus` directly, so an
+    unknown value always reads as "written by a release this one does not know" and never as a
+    corrupt row.
+    """
+    try:
+        return SourceStatus(value)
+    except ValueError as exc:
+        raise UnknownSourceStatusError(
+            f"a source record has status {value!r}, which this weft-rag does not know: a newer "
+            "weft-rag wrote it. Install the release that wrote it, or re-index with this one."
+        ) from exc
 
 
 def _freeze_removed(value: Mapping[str, int]) -> Mapping[str, int]:

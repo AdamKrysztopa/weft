@@ -197,8 +197,8 @@ def test_the_contract_version_is_its_own_and_moves_nothing_in_the_store_family()
     # It reads `2.7.0` since ledger `31.0` published `VectorIndexKind` and `VectorPrecision`
     # into the store family's vocabulary — again a store-family change made without this pack,
     # and again one that moves nothing about `GraphTraversal`, which is the whole point of
-    # asserting both numbers on adjacent lines.
-    assert STORE_CONTRACT_VERSION == "2.7.0"
+    # asserting both numbers on adjacent lines. `2.8.0` since ledger `36.0` (the failure record).
+    assert STORE_CONTRACT_VERSION == "2.8.0"
 
 
 def test_a_graph_backend_with_no_vectors_is_a_whole_graph_traversal() -> None:

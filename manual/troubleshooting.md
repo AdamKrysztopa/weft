@@ -4212,6 +4212,27 @@ and an agent passing it on every call is that sentence with the human removed.
   [`manual/operations-guide.md`](operations-guide.md).
 - **Writing a pack of your own?** [`manual/pack-author-guide.md`](pack-author-guide.md).
 
+### `UnknownSourceStatusError`
+
+**What it looks like** — any command that reads a store's source records, against a store a
+**newer** `weft-rag` has written to:
+
+```text
+$ weft index corpus
+a source record has status 'quarantined', which this weft-rag does not know: a newer weft-rag
+wrote it. Install the release that wrote it, or re-index with this one.
+$ echo $?
+1
+```
+
+**Why** — every store keeps one record per indexed document, and its status is a word from a
+closed list. A newer release can add a word this one has never seen. Reading it as one of the words
+this release does know would be a guess about a document another release was tracking.
+
+**What to do:** run the command with the `weft-rag` release that wrote the store. Or, if you mean to
+move this store back to the installed release, re-index its corpus with `--reprocess`: a re-index
+rewrites every record in a status this release knows.
+
 ### `GraphSchemaVersionRefusedError`
 
 **What it looks like** — two different sentences, because there are two different mistakes behind

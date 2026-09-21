@@ -96,6 +96,7 @@ from weft_store.contract import (
     UnhandledFilterOpError,
     VectorIndexKind,
     VectorPrecision,
+    source_status,
 )
 from weft_store.contract import (
     # Re-exported deliberately, `X as X`: these two moved to `weft_store.contract` at task
@@ -646,16 +647,7 @@ class QdrantStore:
         )
         existing = await self.get_source(source_id)
         if existing is not None:
-            await self.put_source(
-                SourceRecord(
-                    id=existing.id,
-                    uri=existing.uri,
-                    content_hash=existing.content_hash,
-                    indexed_at=existing.indexed_at,
-                    pipeline=existing.pipeline,
-                    status=SourceStatus.DELETING,
-                )
-            )
+            await self.put_source(existing.model_copy(update={"status": SourceStatus.DELETING}))
         node_count, narrowed_count = await self._delete_and_narrow(client, carries, source_id)
         await client.delete(
             self._sources,
@@ -1177,4 +1169,8 @@ def _to_node(record: models.Record | models.ScoredPoint) -> Node:
 
 
 def _to_source_record(record: models.Record) -> SourceRecord:
-    return SourceRecord.model_validate(record.payload or {})
+    payload = dict(record.payload or {})
+    status = payload.get("status")
+    if isinstance(status, str):
+        payload["status"] = source_status(status)
+    return SourceRecord.model_validate(payload)

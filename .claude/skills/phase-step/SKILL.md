@@ -224,7 +224,7 @@ the brief what each reader does with it.
 *"Who writes this?"* answered by `grep` has a blind spot **the size of every default**:
 `SourceStatus.ACTIVE` has no production writer anywhere — a grep across `packages/` returns test
 files only — and it is written on every single ingest, by the field default at
-`packages/weft-rag/src/weft_store/contract.py:238 "status: SourceStatus = SourceStatus.ACTIVE"`,
+`packages/weft-rag/src/weft_store/contract.py:243 "status: SourceStatus = SourceStatus.ACTIVE"`,
 because the one constructor passes no `status=` at all. So a writer audit over an enum reads the
 constructor sites for **absence** as well as searching for the member's name (`L19.3`). And
 *"which fields does this model have?"* answered by reading the class body stops at the first block

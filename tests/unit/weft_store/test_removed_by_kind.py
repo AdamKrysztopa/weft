@@ -1,7 +1,7 @@
 """`Removed` reports what a participant removed, by kind — ledger task `9.3`.
 
 `Removed` has carried `node_count` and nothing else since G4
-(`packages/weft-rag/src/weft_store/contract.py:185-209 'class Score'`), and G7 then made the fan-out
+(`packages/weft-rag/src/weft_store/contract.py:191-215 'class Score'`), and G7 then made the fan-out
 reach
 *every* plugin satisfying `SourceDeletable`, not only node stores
 (`docs/02-extension-model.md` → *Extended by G7*). A participant that removes something which is

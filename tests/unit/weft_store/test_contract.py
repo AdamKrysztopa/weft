@@ -364,7 +364,10 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # is a member of any Protocol yet, so nothing already satisfying the family is asked for
     # anything new. The maximum of two minors is a minor. Fitness function 6 binds this to the
     # publishing distribution, and `weft-rag` is `2.7.0`, so the bump stays inside its bound.
-    assert STORE_CONTRACT_VERSION == "2.7.0"
+    # Task **36.0** moves it to `2.8.0`: `SourceStatus` gains `FAILED` and `SourceRecord` an
+    # optional `failure` — minor for both audiences, as `17.1` was — and `weft-rag` to `2.8.0`
+    # with it, which FF6 requires.
+    assert STORE_CONTRACT_VERSION == "2.8.0"
 
 
 def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:

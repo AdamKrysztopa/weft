@@ -110,12 +110,14 @@ from weft_store.contract import (
     ReconcileReport,
     Removed,
     Scored,
+    SourceFailure,
     SourceRecord,
     SourceStatus,
     SupersedeNarrowsSourcesError,
     UnhandledFilterOpError,
     VectorIndexKind,
     VectorPrecision,
+    source_status,
 )
 from weft_store.contract import (
     # `X as X` for the same reason its sibling below carries it: both moved to
@@ -162,6 +164,15 @@ CREATE TABLE IF NOT EXISTS weft_sources (
 _ADD_SOURCES_PIPELINE_IDENTITY = """
 ALTER TABLE weft_sources
     ADD COLUMN IF NOT EXISTS pipeline_identity TEXT NOT NULL DEFAULT ''
+"""
+
+#: Ledger task **36.0**'s column, on the identical additive footing as
+#: `_ADD_SOURCES_PIPELINE_IDENTITY` above — nullable, so a row `put_source` wrote before this
+#: task reads back `failure=None` rather than failing to parse. Holds `SourceFailure.model_dump(
+#: mode="json")` or `NULL`.
+_ADD_SOURCES_FAILURE = """
+ALTER TABLE weft_sources
+    ADD COLUMN IF NOT EXISTS failure JSONB
 """
 
 # `embedding` is declared as a bare `vector`: its width is not known until the first node with an
@@ -1110,6 +1121,7 @@ class PgVectorStore:
         async with conn.cursor() as cur:
             await cur.execute(_CREATE_SOURCES_TABLE)
             await cur.execute(_ADD_SOURCES_PIPELINE_IDENTITY)
+            await cur.execute(_ADD_SOURCES_FAILURE)
             await cur.execute(_CREATE_NODES_TABLE)
             await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
             await cur.execute(_ADD_NODE_PRODUCTIONS_FK)
@@ -1567,15 +1579,17 @@ class PgVectorStore:
             await cur.execute(
                 """
                 INSERT INTO weft_sources
-                    (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity,
+                     failure)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     uri = EXCLUDED.uri,
                     content_hash = EXCLUDED.content_hash,
                     indexed_at = EXCLUDED.indexed_at,
                     pipeline = EXCLUDED.pipeline,
                     status = EXCLUDED.status,
-                    pipeline_identity = EXCLUDED.pipeline_identity
+                    pipeline_identity = EXCLUDED.pipeline_identity,
+                    failure = EXCLUDED.failure
                 """,
                 (
                     record.id,
@@ -1585,6 +1599,9 @@ class PgVectorStore:
                     record.pipeline,
                     record.status.value,
                     record.pipeline_identity,
+                    Jsonb(record.failure.model_dump(mode="json"))
+                    if record.failure is not None
+                    else None,
                 ),
             )
 
@@ -2035,6 +2052,7 @@ def _row_to_node(row: Mapping[str, object]) -> Node:
 
 
 def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
+    raw_failure = row.get("failure")
     return SourceRecord(
         id=SourceId(cast(str, row["id"])),
         uri=cast(str, row["uri"]),
@@ -2042,7 +2060,8 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         indexed_at=cast(datetime, row["indexed_at"]),
         pipeline=cast(str, row["pipeline"]),
         pipeline_identity=cast(str, row.get("pipeline_identity") or ""),
-        status=SourceStatus(cast(str, row["status"])),
+        status=source_status(cast(str, row["status"])),
+        failure=SourceFailure.model_validate(raw_failure) if raw_failure is not None else None,
     )
 
 
