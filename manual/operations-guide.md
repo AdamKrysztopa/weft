@@ -360,9 +360,9 @@ At width 1536, the width `openai-embeddings` returns by default, **p95 passes 10
 were timed on synthetic unit vectors, which an exact scan reads exactly as it reads a model's: its
 cost depends on how many vectors there are and how wide they are, not on what they mean. These are
 the store's numbers, not `weft ask`'s. Plan against them. End to end, a `weft ask --retrieve-only`
-at 10,000 chunks and width 64 takes about **3.4 s** (p50; p95 4.3 s, three runs of 200 queries),
-of which the search is under 3 ms. With the `[docling]` extra installed, about 2.8 s of that is
-importing docling and `transformers` when its pack loads, which every command pays.
+at 10,000 chunks and width 64 takes about **1.5 s** (p50; p95 1.7 s, three runs of 200 queries),
+of which the search is under 3 ms. Most of the rest is Python importing the installed packs, and
+the `[docling]` extra adds nothing to it until a pipeline uses its extractor.
 
 **Above that, choose the Qdrant backend.** Set `[services] store = "qdrant"` as shown at the top of
 this section and index the corpus into it. Qdrant keeps a vector index of its own, where the

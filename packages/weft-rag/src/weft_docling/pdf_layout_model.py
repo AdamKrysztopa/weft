@@ -27,15 +27,6 @@ from enum import StrEnum
 from io import BytesIO
 from typing import ClassVar
 
-from docling.datamodel.accelerator_options import AcceleratorDevice
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import (
-    PdfPipelineOptions,
-    TableFormerMode,
-    TableStructureOptions,
-)
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling_core.types.io import DocumentStream
 from pydantic import BaseModel, ConfigDict
 
 from weft_docling.weights import artifacts_dir
@@ -128,6 +119,16 @@ def convert_pdf(content: bytes, *, config: PdfLayoutModelConfig, artifacts_path:
     is what reports that). `PdfLayoutModelExtractor.run` reaches this through the module
     attribute at call time, so a test's `monkeypatch.setattr` on it is honoured.
     """
+    from docling.datamodel.accelerator_options import AcceleratorDevice
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import (
+        PdfPipelineOptions,
+        TableFormerMode,
+        TableStructureOptions,
+    )
+    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling_core.types.io import DocumentStream
+
     pipeline_options = PdfPipelineOptions(
         artifacts_path=artifacts_path,
         do_ocr=config.ocr,

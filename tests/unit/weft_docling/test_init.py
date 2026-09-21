@@ -17,6 +17,8 @@ status carries the notice an operator sees first.
 """
 
 import socket
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -173,3 +175,32 @@ def test_the_pack_settings_expose_only_where_the_weights_live() -> None:
     # it can differ between two pipelines in one deployment. Where 897 MB of weights live
     # cannot: registration reads it, and registration happens once per process.
     assert frozenset(Settings.model_fields) == frozenset({"artifacts_path"})
+
+
+def test_the_tableformer_folder_is_the_one_docling_itself_declares() -> None:
+    from docling.models.stages.table_structure.table_structure_model import TableStructureModel
+
+    assert vars(TableStructureModel)["_model_repo_folder"] in REQUIRED_MODEL_FOLDERS
+
+
+@pytest.mark.parametrize("artifacts_path", [None, "set"])
+def test_registration_imports_neither_torch_nor_transformers(
+    tmp_path: Path, artifacts_path: str | None
+) -> None:
+    # A fresh interpreter, because this one has already imported docling for the tests above.
+    # R29.5: discovery registers every allowed pack on every command, and these two cost 2.8 s.
+    path = None if artifacts_path is None else str(tmp_path)
+    probe = (
+        "import sys\n"
+        "from weft_docling import Settings, register\n"
+        "from weft_kernel.discovery import PackRegistrar\n"
+        "from weft_kernel.registry import Registry\n"
+        "registrar = PackRegistrar(Registry(), distribution='weft-docling')\n"
+        f"register(registrar, Settings(artifacts_path={path!r}))\n"
+        "print(sorted(m for m in ('torch', 'transformers') if m in sys.modules))\n"
+    )
+    result = subprocess.run(  # noqa: S603 — fixed argv, no shell, no user input
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+
+    assert result.stdout.strip() == "[]"
