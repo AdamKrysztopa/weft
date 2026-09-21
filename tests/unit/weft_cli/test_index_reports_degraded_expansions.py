@@ -22,14 +22,14 @@ from weft_kernel.payload import MediaType, Node, Produced
 from weft_kernel.runner import RunSummary
 from weft_store.contract import STORE_CONTRACT_VERSION, Cursor, Filter, FilterOp, Page
 
-_FIELD = f"ext.{ExpansionDegraded.__namespace__}.technique"
+_FIELD = f"ext.{ExpansionDegraded.__namespace__}.expander"
 
 
 def _node(content: str, *, degraded: bool) -> Node:
     node = Node.synthetic(content=content, media_type=MediaType.TEXT, reason="test fixture")
     if degraded:
         node = node.with_ext(
-            ExpansionDegraded(technique="hypothetical-questions", reason="the model declined")
+            ExpansionDegraded(expander="hypothetical-questions", reason="the model declined")
         )
     return node
 

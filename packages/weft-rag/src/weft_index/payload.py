@@ -42,19 +42,24 @@ class Representation(ExtModel):
 
 
 class ExpansionDegraded(ExtModel):
-    """Marks a node an `Expander` could not expand — repair **R38.13**.
+    """Marks a node an `Expander` could not expand — repair **R38.13**, every shipped
+    `Expander` since repair **R38.18**.
 
     Attached outside the node's own id, so the chunk keeps its identity and content
     unchanged; stored with it, so a store's `MetadataFilter.matching` can count how many
     chunks a questions arm actually lost, rather than that count being recoverable only by
     hand, the way `38.6` had to before this existed.
+
+    `expander`, not `technique` (**R38.20**): `weft_generate.representation` cites a
+    single-parent node carrying a `technique: str` as its parent, so a chunk marked with that
+    field was cited as its whole document.
     """
 
     __namespace__ = "weft-index-degraded"
-    __schema_version__ = "1.0.0"
+    __schema_version__ = "2.0.0"
 
     #: The `Expander` plugin name that could not expand this node.
-    technique: str
+    expander: str
     #: What went wrong — the model's own stated reason for a non-`Produced` outcome, or a
     #: description of why a completion parsed to no question at all.
     reason: str = Field(min_length=1)

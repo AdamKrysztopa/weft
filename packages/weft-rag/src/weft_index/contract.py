@@ -58,8 +58,10 @@ class Expander(Stage[Sequence[Node], Sequence[Node]], Protocol):
     representations are missing — degrade, never fail the run, the same posture `10` §1.2's
     `raptor` row (task 2.32) states for a summary that cannot be produced, because both
     techniques are meant to share this one mechanism rather than invent their own failure
-    policy apiece. Since repair **R38.13**, that node also carries `weft_index.payload.
-    ExpansionDegraded`, naming which technique could not expand it and why.
+    policy apiece. Since repair **R38.13**, and repair **R38.18** for every shipped
+    `Expander` rather than `hypothetical-questions` alone, that node also carries
+    `weft_index.payload.ExpansionDegraded`, naming which expander could not expand it and
+    why.
     """
 
     if TYPE_CHECKING:

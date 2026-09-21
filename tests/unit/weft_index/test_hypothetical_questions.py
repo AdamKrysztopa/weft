@@ -16,9 +16,12 @@ only the model's answer is scripted.
 """
 
 import asyncio
+from collections.abc import Sequence
+from typing import cast
 
 import pytest
 
+from weft_generate.representation import citable_nodes
 from weft_index.contract import Expander
 from weft_index.hypothetical_questions import (
     NAME,
@@ -32,6 +35,7 @@ from weft_kernel.payload import (
     Failed,
     MediaType,
     Node,
+    NodeId,
     NothingToProduce,
     Outcome,
     Produced,
@@ -41,6 +45,7 @@ from weft_kernel.seam import wrap
 from weft_llm.contract import LLM
 from weft_llm.payload import Completion, Rendered
 from weft_prompts.contract import Prompts
+from weft_store.contract import NodeStore
 
 _SOURCE = SourceId("doc-1")
 
@@ -161,7 +166,7 @@ async def test_a_node_whose_generation_degrades_survives_under_its_id_and_says_s
     assert by_id[first.id].content == first.content
     marker = by_id[first.id].ext_as(ExpansionDegraded)
     assert marker is not None
-    assert marker.technique == NAME
+    assert marker.expander == NAME
     assert "the model declined" in marker.reason
     assert by_id[second.id] is second
     derived = [node for node in outcome.value if node.id not in (first.id, second.id)]
@@ -182,7 +187,7 @@ async def test_a_completion_holding_no_question_is_a_degraded_expansion_too() ->
     assert [node.id for node in outcome.value] == [chunk.id]
     marker = outcome.value[0].ext_as(ExpansionDegraded)
     assert marker is not None
-    assert marker.technique == NAME
+    assert marker.expander == NAME
     assert marker.reason
 
 
@@ -307,3 +312,34 @@ async def test_the_cap_is_what_bounds_it_rather_than_the_batch_being_small() -> 
 
     # Assert
     assert llm.peak > 3
+
+
+class _DocumentStore:
+    """The one `NodeStore.get` `citable_nodes` calls, answering with the chunk's document."""
+
+    def __init__(self, document: Node) -> None:
+        self._document = document
+
+    async def get(self, ids: Sequence[NodeId]) -> tuple[Node, ...]:
+        return tuple(node for node in (self._document,) if node.id in ids)
+
+
+async def test_a_degraded_chunk_is_still_cited_as_itself() -> None:
+    """Repair **R38.20**: `citable_nodes` cites a single-parent node carrying an ext model with a
+    `technique: str` attribute as its parent — the rule for `Representation`. A real chunk has one
+    parent, its document, so a chunk marked `ExpansionDegraded` was cited as the whole document.
+    `_node` above has no parent at all, which is why the tests above could not see this."""
+    # Arrange — a chunk derived from its document, as a real chunker hands it over.
+    document = _node("the whole document")
+    chunk = document.derive(content="passage one", ordinal=0)
+    generator = HypotheticalQuestionGenerator()
+    outcome = await generator.run((chunk,), _ctx(_ScriptedLLM([Failed(reason="declined")])))
+    assert isinstance(outcome, Produced)
+    degraded = outcome.value[0]
+    assert degraded.ext_as(ExpansionDegraded) is not None
+
+    # Act
+    cited = await citable_nodes((degraded,), store=cast("NodeStore", _DocumentStore(document)))
+
+    # Assert
+    assert cited[degraded.id].id == chunk.id

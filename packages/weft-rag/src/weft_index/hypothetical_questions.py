@@ -152,7 +152,7 @@ class HypotheticalQuestionGenerator:
     @staticmethod
     def _degraded(node: Node, *, reason: str) -> Node:
         """`node`, under its own id and content, marked as an expansion this technique lost."""
-        return node.with_ext(ExpansionDegraded(technique=NAME, reason=reason))
+        return node.with_ext(ExpansionDegraded(expander=NAME, reason=reason))
 
 
 def _parse_questions(text: str, *, limit: int) -> tuple[str, ...]:

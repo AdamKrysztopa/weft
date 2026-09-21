@@ -479,7 +479,7 @@ async def count_degraded_expansions(store: MetadataFilter) -> int:
     """
     total = 0
     cursor: Cursor | None = None
-    filter_ = Filter(op=FilterOp.EXISTS, field=f"ext.{ExpansionDegraded.__namespace__}.technique")
+    filter_ = Filter(op=FilterOp.EXISTS, field=f"ext.{ExpansionDegraded.__namespace__}.expander")
     while True:
         page = await store.matching(filter_, cursor)
         total += len(page.items)

@@ -77,6 +77,7 @@ from typing import ClassVar, NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_index.payload import ExpansionDegraded
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NothingToProduce, Outcome, Produced
 from weft_kg.atomicity import MAX_ENTITY_WORDS, non_atomic_reason
@@ -112,8 +113,14 @@ class _NodeExtraction(NamedTuple):
     positionally at one call site is exactly the shape that reads wrong the first time
     somebody reorders it, and `candidates` and `kept` are two ints of the same type sitting
     next to each other.
+
+    `survivor` — repair **R38.18** — is the node `run` places in the output where this node
+    stood: itself, unchanged, when the cascade answered; a copy carrying `weft_index.payload.
+    ExpansionDegraded` under its own id and content when it did not, so `weft index` can count
+    what this stage lost the same way `hypothetical-questions` and `raptor` already do.
     """
 
+    survivor: Node
     derived: tuple[Node, ...]
     candidates: int
     kept: int
@@ -202,11 +209,13 @@ class LlmFactExtractor:
 
         results = await asyncio.gather(*(_bounded(node) for node in payload))
 
+        survivors: list[Node] = []
         derived: list[Node] = []
         total_candidates = 0
         total_kept = 0
         drop_counts: dict[DropReason, int] = {}
         for result in results:
+            survivors.append(result.survivor)
             derived.extend(result.derived)
             total_candidates += result.candidates
             total_kept += result.kept
@@ -222,7 +231,7 @@ class LlmFactExtractor:
             ),
         )
         derived = [node.with_ext(tally) for node in derived]
-        return Produced(value=(*payload, *derived))
+        return Produced(value=(*survivors, *derived))
 
     async def _facts_for(
         self, node: Node, *, llm: LLM, prompt: Prompt, ctx: Context, schema: GraphSchema | None
@@ -230,8 +239,10 @@ class LlmFactExtractor:
         """This one node's derived nodes, its candidate count, its kept-fact count and drops.
 
         Degrades to an empty extraction when the cascade could not produce a typed answer — the
-        node itself still returns unchanged in `run`'s own output, and this contributes nothing
-        to the run's tally: a model in a bad mood is not a candidate the operator asked about.
+        node itself still returns in `run`'s own output under its own id and content, marked
+        `weft_index.payload.ExpansionDegraded` since repair **R38.18**, and this contributes
+        nothing to the run's tally: a model in a bad mood is not a candidate the operator asked
+        about.
         """
         answered = await execute(
             llm=llm,
@@ -246,7 +257,13 @@ class LlmFactExtractor:
             ctx=ctx,
         )
         if not isinstance(answered, Produced):
-            return _NodeExtraction(derived=(), candidates=0, kept=0, dropped=())
+            marked = node.with_ext(
+                ExpansionDegraded(
+                    expander=NAME,
+                    reason=f"the cascade produced no typed answer: {answered.reason}",
+                )
+            )
+            return _NodeExtraction(survivor=marked, derived=(), candidates=0, kept=0, dropped=())
 
         proposed = answered.value.value.facts
         kept: list[ProposedFact] = []
@@ -300,6 +317,7 @@ class LlmFactExtractor:
         )
 
         return _NodeExtraction(
+            survivor=node,
             derived=(*fact_nodes, *mention_nodes),
             candidates=len(proposed),
             kept=len(kept),

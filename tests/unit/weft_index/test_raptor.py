@@ -30,7 +30,7 @@ import weft_index.raptor as raptor_module
 from weft_blob.contract import BlobStore
 from weft_embed.contract import Embedder
 from weft_index.contract import Expander
-from weft_index.payload import RaptorFacts, Representation
+from weft_index.payload import ExpansionDegraded, RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt
 from weft_index.raptor import NAME, Auto, RaptorConfig, RaptorSummarizer
 from weft_kernel.context import Context, ServiceRegistry, UnresolvedServiceError
@@ -273,14 +273,22 @@ async def test_a_failed_summary_leaves_its_cluster_retrievable_and_its_sibling_u
     # not absent, and the run still answers.
     assert isinstance(outcome, Produced)
     nodes = outcome.value
-    assert a in nodes
-    assert b in nodes
-    assert c in nodes
-    assert d in nodes
+    by_id = {node.id: node for node in nodes}
+    assert {a.id, b.id, c.id, d.id} <= set(by_id)
+    assert by_id[c.id] is c
+    assert by_id[d.id] is d
     derived = [node for node in nodes if node.id not in (a.id, b.id, c.id, d.id)]
     assert len(derived) == 1
     assert derived[0].lineage.parents == (c.id, d.id)
     assert not any(node.lineage.parents == (a.id, b.id) for node in nodes)
+    # Repair **R38.18**: the chunks whose summary was lost say so, under their own ids and
+    # content, the way `hypothetical-questions` marks its own (`weft_index/contract.py`).
+    for lost in (a, b):
+        assert by_id[lost.id].content == lost.content
+        marker = by_id[lost.id].ext_as(ExpansionDegraded)
+        assert marker is not None
+        assert marker.expander == NAME
+        assert marker.reason
 
 
 async def test_an_embedder_outage_fails_the_run_rather_than_degrading_to_unchanged() -> None:

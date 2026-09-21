@@ -343,7 +343,7 @@ from typing import Annotated, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_embed.contract import Embedder
-from weft_index.payload import RaptorFacts, Representation
+from weft_index.payload import ExpansionDegraded, RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterRequest
 from weft_kernel.context import Context
 from weft_kernel.payload import (
@@ -581,7 +581,7 @@ class RaptorSummarizer:
         llm = ctx.require(LLM)
         limit = asyncio.Semaphore(self._config.max_concurrent_summaries)
 
-        async def _bounded(cluster: Sequence[Node]) -> Node | None:
+        async def _bounded(cluster: Sequence[Node]) -> Node | str:
             async with limit:
                 return await self._summarize(
                     cluster,
@@ -593,7 +593,7 @@ class RaptorSummarizer:
                 )
 
         summaries = await asyncio.gather(*(_bounded(cluster) for cluster in summarizable))
-        derived = tuple(summary for summary in summaries if summary is not None)
+        derived = tuple(summary for summary in summaries if isinstance(summary, Node))
         if not derived:
             # Every cluster degraded. Answering `Produced(payload)` here would be
             # byte-identical to the "nothing clustered tightly enough" branch above, and to a
@@ -607,6 +607,14 @@ class RaptorSummarizer:
                     f"summary request degraded, so the tree gained no level"
                 )
             )
+        # R38.18: a degraded cluster's members are marked, so `weft index` can count them.
+        degraded_members = {
+            member.id: member.with_ext(ExpansionDegraded(expander=NAME, reason=summary))
+            for cluster, summary in zip(summarizable, summaries, strict=True)
+            if isinstance(summary, str)
+            for member in cluster
+        }
+        payload = tuple(degraded_members.get(node.id, node) for node in payload)
         # **The run-level tally, task 10.10.** Neither count is knowable inside `_summarize`,
         # which sees one cluster and never the run: `clusters_found` is the width of
         # `summarizable` and `clusters_summarised` is how many of `_bounded`'s results
@@ -755,11 +763,13 @@ class RaptorSummarizer:
         ctx: Context,
         resolved_similarity_threshold: float | None,
         resolved_cluster_size: int | None,
-    ) -> Node | None:
-        """One cluster's summary node, or `None` when generation degrades — never raised.
-        `_config.prompt` and `_config.role` naming nothing registered still raises: that is
-        an operator's own document being wrong, the identical split `hypothetical_
-        questions._questions_for`'s own docstring draws.
+    ) -> Node | str:
+        """One cluster's summary node, or the reason it could not be built — never raised, and
+        never `None`: `run` marks every member of a degraded cluster with `ExpansionDegraded`
+        (repair R38.18), and a reason string is what it marks them with. `_config.prompt` and
+        `_config.role` naming nothing registered still raises: that is an operator's own
+        document being wrong, the identical split `hypothetical_questions._questions_for`'s
+        own docstring draws.
 
         `resolved_similarity_threshold`/`resolved_cluster_size` are this run's own `auto`
         resolution — `None` when the operator typed the field instead — and ride onto the
@@ -778,6 +788,7 @@ class RaptorSummarizer:
         # is the only move retry cannot make: a smaller one.
         budget = self._config.max_cluster_chars
         characters_held = sum(len(member.content) for member in members)
+        reason = "the model gave no completion"
         for attempt in range(2):
             passages, characters_shown, members_truncated = format_cluster(members, budget=budget)
             if attempt == 1:
@@ -787,12 +798,14 @@ class RaptorSummarizer:
             values = SummarizeClusterRequest(passages=passages)
             rendered = await prompts.render(self._config.prompt, values, ctx)
             if not isinstance(rendered, Produced):
-                return None
+                return f"the prompt did not render: {rendered.reason}"
             completion = await llm.complete(rendered.value, role=self._config.role, ctx=ctx)
             if not isinstance(completion, Produced):
+                reason = f"the model gave no completion: {completion.reason}"
                 continue
             summary = completion.value.text.strip()
             if not summary:
+                reason = "the completion held no summary"
                 continue
             member_facts = (member.ext_as(RaptorFacts) for member in members)
             member_levels = (facts.level for facts in member_facts if facts is not None)
@@ -814,7 +827,7 @@ class RaptorSummarizer:
                 .with_ext(Representation(technique=NAME))
                 .with_ext(facts)
             )
-        return None
+        return reason
 
 
 def _with_run_counts(node: Node, *, clusters_found: int, clusters_summarised: int) -> Node:

@@ -57,9 +57,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
-- **`weft index` counts the chunks `hypothetical-questions` could not expand.** A chunk whose
-  questions failed to generate still degrades rather than failing the run, and now carries an
-  `ExpansionDegraded` marker naming the technique and why. After a run whose pipeline has an
+- **`weft index` counts the chunks an expansion stage could not expand.** A chunk whose
+  questions, cluster summary or facts could not be generated still degrades rather than failing
+  the run, and now carries an `ExpansionDegraded` marker naming the stage and why — for
+  `hypothetical-questions`, `raptor` and `llm-facts` alike. After a run whose pipeline has an
   expansion stage, and whose store can filter, `weft index` prints
   `chunks stored without their expansion: N.` — so a questions arm that silently shrank says so.
 - **`weft ask --explain` counts each reranker's and packer's passages in and out**, and a
@@ -70,6 +71,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Fixed
 
+- **`weft ask … | head -1` ends quietly.** When the reader of a streamed answer went away, the
+  command blamed the model provider and exited 1 with `'generate' failed: ReaderGoneError`. It now
+  exits without a message, the way other commands already did when their reader closed.
 - **An unmapped role's refusal prints a line that works.** It suggested
   `route = { provider = "scripted" }`, and following it exited 4 because `scripted` cannot give a
   role a structured answer; it also printed a second `[llm.roles]` header into files that already

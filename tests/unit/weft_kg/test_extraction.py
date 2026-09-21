@@ -48,6 +48,7 @@ from pydantic import ValidationError
 
 from weft_engine.run_services import class_provides
 from weft_index.contract import Expander
+from weft_index.payload import ExpansionDegraded
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.payload import (
     MediaType,
@@ -553,7 +554,7 @@ async def test_a_chunk_that_kept_nothing_still_has_its_drops_in_the_run_s_tally(
     }
 
 
-async def test_a_node_whose_completion_could_not_be_used_stays_in_the_output_unchanged() -> None:
+async def test_a_node_whose_completion_could_not_be_used_stays_in_the_output_marked() -> None:
     """`Expander`'s stated posture, shared with `raptor` and `hypothetical-questions`: degrade,
     never fail the run. A model in a bad mood is not an operator's configuration mistake.
     """
@@ -570,10 +571,18 @@ async def test_a_node_whose_completion_could_not_be_used_stays_in_the_output_unc
     # Act
     outcome = await LlmFactExtractor().run([good, bad], _ctx(llm))
 
-    # Assert
+    # Assert — repair **R38.18**: unchanged in id and content, and marked, so `weft index` can
+    # count what a facts arm lost rather than printing `0` over it.
     assert isinstance(outcome, Produced)
-    assert {found.id for found in outcome.value} >= {good.id, bad.id}
+    by_id = {found.id: found for found in outcome.value}
+    assert {good.id, bad.id} <= set(by_id)
     assert len(_derived(outcome, ExtractedFact)) == 1
+    assert by_id[bad.id].content == bad.content
+    marker = by_id[bad.id].ext_as(ExpansionDegraded)
+    assert marker is not None
+    assert marker.expander == NAME
+    assert marker.reason
+    assert by_id[good.id].ext_as(ExpansionDegraded) is None
 
 
 async def test_an_empty_batch_produces_nothing_and_calls_no_model() -> None:
@@ -609,7 +618,7 @@ def test_no_ext_model_this_stage_writes_carries_a_field_named_technique() -> Non
     it came from instead of itself — and nothing would report it.
     """
     # Assert
-    for model in (ExtractedFact, MentionedEntity, ExtractionTally):
+    for model in (ExtractedFact, MentionedEntity, ExtractionTally, ExpansionDegraded):
         assert "technique" not in model.model_fields
 
 
