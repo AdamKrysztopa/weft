@@ -101,12 +101,14 @@ from weft_store.conformance import (
     check_add_merges_a_nodes_sources_rather_than_replacing_them,
     check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend,
     check_delete_source_removes_exactly_the_nodes_carrying_it,
+    check_deleting_a_failed_source_removes_it_like_any_other,
     check_deleting_the_last_document_that_produced_a_node_deletes_it,
     check_estimate_counts_the_identical_tombstones_reconcile_itself_examines,
     check_estimate_reports_zero_model_calls_on_either_backend,
     check_every_operator_means_the_same_thing_to_both_backends,
     check_reconcile_finishes_a_deletion_that_was_interrupted,
     check_reconcile_leaves_a_healthy_store_alone_on_either_backend,
+    check_reconcile_neither_deletes_nor_clears_a_failed_source,
     check_scan_and_count_see_every_stored_node_whatever_order_a_backend_walks_in,
     check_search_text_answers_nothing_matching_with_an_empty_ranking,
     check_search_text_finds_the_node_that_carries_the_words,
@@ -318,6 +320,16 @@ async def test_estimate_counts_the_identical_tombstones_reconcile_itself_examine
 
 async def test_a_source_record_round_trips_and_is_listed(store: NodeStore) -> None:
     await check_a_source_record_round_trips_and_is_listed(store)
+
+
+async def test_deleting_a_failed_source_removes_it_like_any_other(store: NodeStore) -> None:
+    await check_deleting_a_failed_source_removes_it_like_any_other(store)
+
+
+async def test_reconcile_neither_deletes_nor_clears_a_failed_source(
+    store: ReconcilableStore,
+) -> None:
+    await check_reconcile_neither_deletes_nor_clears_a_failed_source(store)
 
 
 async def test_search_vector_ranks_by_cosine_similarity_on_either_backend(

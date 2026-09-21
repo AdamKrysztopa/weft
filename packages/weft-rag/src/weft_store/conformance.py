@@ -1135,6 +1135,67 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
     )
 
 
+def _failed_record(source_id: SourceId, name: str) -> SourceRecord:
+    return SourceRecord(
+        id=source_id,
+        uri=f"file:///corpus/{name}",
+        content_hash=f"hash-{name}",
+        indexed_at=datetime.now(UTC),
+        pipeline="conformance",
+        status=SourceStatus.FAILED,
+        failure=SourceFailure(
+            error_type="Failed",
+            stage="extract",
+            message="not valid UTF-8",
+            attempts=1,
+            last_attempt_at=datetime.now(UTC),
+        ),
+    )
+
+
+async def check_deleting_a_failed_source_removes_it_like_any_other(store: NodeStore) -> None:
+    """Ledger **36.5**: an operator abandoning a document that failed has one command that works —
+    its record goes, and so does every node it left behind."""
+    # Arrange
+    await store.add(conformance_corpus())
+    await store.put_source(_failed_record(_SOURCE_B, "b.txt"))
+
+    # Act
+    removed = await store.delete_source(_SOURCE_B)
+
+    # Assert
+    _require(
+        removed.node_count == 2,
+        "the store did not satisfy: removed.node_count == 2",
+    )
+    _require(
+        await store.get_source(_SOURCE_B) is None,
+        "the store did not satisfy: await store.get_source(_SOURCE_B) is None",
+    )
+
+
+async def check_reconcile_neither_deletes_nor_clears_a_failed_source(
+    store: ReconcilableStore,
+) -> None:
+    """Ledger **36.5**: reconcile finishes interrupted deletions; a failed source is not one, and
+    its record is the only place an operator can find what went wrong."""
+    # Arrange
+    await store.add(conformance_corpus())
+    record = _failed_record(_SOURCE_A, "a.txt")
+    await store.put_source(record)
+
+    # Act
+    await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
+    await store.reconcile(_conformance_context(), ReconcileMode.FULL)
+
+    # Assert
+    _require(
+        await store.get_source(_SOURCE_A) == record,
+        "the store did not satisfy: await store.get_source(_SOURCE_A) == record",
+    )
+    _require(await store.count() == 3, "the store did not satisfy: await store.count() == 3")
+
+
 async def check_search_vector_ranks_by_cosine_similarity_on_either_backend(
     store: SearchableStore,
 ) -> None:
