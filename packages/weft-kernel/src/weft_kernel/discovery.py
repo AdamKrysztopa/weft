@@ -162,6 +162,17 @@ class PackStatus(StrEnum):
     ALLOWED_NOT_INSTALLED = "allowed, not installed"
 
 
+class PackFailureKind(StrEnum):
+    """Why a `FAILED` `PackReport` is `FAILED`, where the operator's remedy differs.
+
+    `IMPORT` is the only kind an install fixes. `SETTINGS` means the pack imported and
+    `register()` never ran. Any other failure is `None`: unclassified, not misclassified.
+    """
+
+    IMPORT = "import"
+    SETTINGS = "settings"
+
+
 class Disclosure(BaseModel):
     """What a pack says it touches. Optional, informational, and enforces nothing.
 
@@ -326,6 +337,8 @@ class PackReport(BaseModel):
     static fact about the pack, and a pack whose settings failed must still be able to tell an
     operator that its `[services]` key exists — see `_read_service_roles` for the case that
     settles it.
+
+    `failure_kind` is `None` unless the status is `FAILED` — see `PackFailureKind`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -336,6 +349,7 @@ class PackReport(BaseModel):
     ambient: bool = False
     contributed: int = 0
     reason: str | None = None
+    failure_kind: PackFailureKind | None = None
     disclosure: Disclosure | None = None
     pipeline_resources: tuple[PipelineResource, ...] = ()
     deprecations: tuple[Deprecation, ...] = ()
@@ -1028,7 +1042,11 @@ def _activate(
         register_fn = entry_point.load()
     except Exception as exc:  # a pack's import can raise anything; that is FAILED, not a crash
         return PackReport(
-            pack=pack, distribution=distribution, status=PackStatus.FAILED, reason=str(exc)
+            pack=pack,
+            distribution=distribution,
+            status=PackStatus.FAILED,
+            reason=str(exc),
+            failure_kind=PackFailureKind.IMPORT,
         )
 
     try:
@@ -1048,6 +1066,20 @@ def _activate(
     registrar = PackRegistrar(registry, distribution=distribution)
     try:
         settings = _resolve_settings(register_fn, pack=pack, raw=raw_settings)
+    except Exception as exc:
+        # Broad: a validator may raise an exception pydantic does not wrap, and that is
+        # still a settings failure.
+        return PackReport(
+            pack=pack,
+            distribution=distribution,
+            status=PackStatus.FAILED,
+            ambient=ambient,
+            reason=str(exc),
+            disclosure=disclosure,
+            service_roles=service_roles,
+            failure_kind=PackFailureKind.SETTINGS,
+        )
+    try:
         register_fn(registrar, settings)
         registrar.commit()
     except Exception as exc:  # one broken pack must not stop the rest from loading
@@ -1059,6 +1091,7 @@ def _activate(
             reason=str(exc),
             disclosure=disclosure,
             service_roles=service_roles,
+            failure_kind=PackFailureKind.IMPORT if isinstance(exc, ImportError) else None,
         )
 
     deprecations = registrar.deprecations

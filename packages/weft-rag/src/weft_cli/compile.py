@@ -311,10 +311,8 @@ def _contract_for(
         refusal = attribute_to_packs(
             reports,
             name=use,
-            wanted=(
-                f"stage '{stage}' names plugin '{use}', which no installed distribution "
-                f"registered under any contract."
-            ),
+            subject=f"stage '{stage}' names plugin '{use}'",
+            not_found=", which no installed distribution registered under any contract.",
             registered=f"Installed plugin names: {', '.join(installed) or '(none)'}.",
             valid_options=installed,
         )

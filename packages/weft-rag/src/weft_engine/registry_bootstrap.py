@@ -568,16 +568,19 @@ def _unresolved(
     attribute_to_packs`, which `weft_cli.compile._contract_for` calls too, so the document
     path stops printing a bare list of every installed name and starts attaching the same
     reason `weft plugins doctor` already holds. This function is left a thin caller: it still
-    builds the two sentences only it knows how to phrase — `wanted` in `[services]`
+    builds the pieces only it knows how to phrase — `subject` and `not_found` in `[services]`
     vocabulary, `registered` from `_registered_names_sentence` — and hands them, plus `name`
-    and `exc.valid_options`, to the one place that composes the rest.
+    and `exc.valid_options`, to the one place that composes the rest, including which of
+    them a settings failure earns to lead the message instead.
     """
-    wanted = f"{setting} names '{name}', and no registered {contract.__name__} has that name."
+    subject = f"{setting} names '{name}'"
+    not_found = f", and no registered {contract.__name__} has that name."
     registered = _registered_names_sentence(contract, exc.valid_options)
     return attribute_to_packs(
         reports,
         name=name,
-        wanted=wanted,
+        subject=subject,
+        not_found=not_found,
         registered=registered,
         valid_options=exc.valid_options,
     )

@@ -893,7 +893,7 @@ seven `registrar.add` calls. **This is not optional if you want a node carrying 
 survive a round trip through a store.** Task 5.2g closed a real gap here — before it, a pack's
 `register()` did not contribute its `ExtModel`s automatically at all, and a namespace nobody
 registered raised `UnknownPluginError` the moment a store tried to rehydrate it. The kernel itself
-stays capability-blind: `registrar.add_ext_model` (`packages/weft-kernel/src/weft_kernel/discovery.py:426-405 "naming a"`)
+stays capability-blind: `registrar.add_ext_model` (`packages/weft-kernel/src/weft_kernel/discovery.py:440-405 "naming a"`)
 buffers a bare class reference — no validation, no instantiation — exactly like `add_pipeline_resource`
 and `deprecate` below; turning that buffer into something a store can actually use is
 `weft_store.rehydrate.register_from_reports`'s job, called once by whatever already calls `discover()`,
@@ -1005,7 +1005,7 @@ for one belongs.
 
 ### 9.8 A deprecation warning obliges a changelog entry
 
-`registrar.deprecate(surface, reason=...)` (`discovery.py:415-390 ", the on"`) buffers a notice — a plugin name,
+`registrar.deprecate(surface, reason=...)` (`discovery.py:429-390 ", the on"`) buffers a notice — a plugin name,
 a `"Contract:name"` pair, or your pack itself — attributed to your distribution and committed with
 everything else `register()` buffers. Once committed, `weft_kernel.seam.warn_deprecated`
 (`packages/weft-kernel/src/weft_kernel/seam.py:382-388 "Emit one"`) emits one `DeprecationWarning` per notice,

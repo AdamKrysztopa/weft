@@ -31,7 +31,7 @@ from weft_cli.exit_codes import ExitCode, exit_code_for
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
-from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.discovery import PackFailureKind, PackReport, PackStatus
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.pipeline import InsertOperator, Pipeline, SlotDeclaration, StageDeclaration
 from weft_kernel.registry import Registry
@@ -499,16 +499,28 @@ def test_a_replacement_naming_nothing_registered_is_still_refused_by_name() -> N
     assert "stage 'fuse' names plugin 'no-such-fuser'" in str(caught.value)
 
 
-def _report(pack: str | None, status: PackStatus, *, reason: str = "") -> PackReport:
+def _report(
+    pack: str | None,
+    status: PackStatus,
+    *,
+    reason: str = "",
+    failure_kind: PackFailureKind | None = None,
+) -> PackReport:
     """One `weft plugins doctor` row, built the way discovery builds it.
 
     `distribution` is `weft-rag` throughout because that is the fact the install line is
     derived from — G19 leaves exactly two published names, so a capability that needs an
     outside library is an **extra** of this distribution and never a distribution of its
     own. `pack` is the `weft.packs` entry-point name, which is what a `[packs.<pack>]`
-    block keys on and what the extra is named after.
+    block keys on and what the extra is named after. `failure_kind` mirrors what
+    `weft_kernel.discovery._activate` actually sets: `IMPORT` for a report whose reason
+    came from `entry_point.load()` raising, `SETTINGS` for one whose reason came from
+    `PackSettingsError`, `None` (the default) for every other status and for a `FAILED`
+    reason a caller has not bothered to classify.
     """
-    return PackReport(pack=pack, distribution="weft-rag", status=status, reason=reason)
+    return PackReport(
+        pack=pack, distribution="weft-rag", status=status, reason=reason, failure_kind=failure_kind
+    )
 
 
 def test_a_plugin_from_a_failed_pack_is_refused_with_that_packs_own_reason() -> None:
@@ -519,7 +531,12 @@ def test_a_plugin_from_a_failed_pack_is_refused_with_that_packs_own_reason() -> 
     # below is `reports` — the same registry, the same document, the same missing name.
     registry = _registry()
     reports = (
-        _report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),
+        _report(
+            "qdrant",
+            PackStatus.FAILED,
+            reason="No module named 'qdrant_client'",
+            failure_kind=PackFailureKind.IMPORT,
+        ),
         _report("chunk", PackStatus.ACTIVE),
     )
     pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
@@ -541,7 +558,14 @@ def test_the_refusal_names_the_extra_that_would_supply_the_missing_pack() -> Non
     # `weft-rag` genuinely declares `qdrant`, which is why this reads the real thing rather
     # than a double (`L7.6`: a metadata API is asked where it actually runs).
     registry = _registry()
-    reports = (_report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),)
+    reports = (
+        _report(
+            "qdrant",
+            PackStatus.FAILED,
+            reason="No module named 'qdrant_client'",
+            failure_kind=PackFailureKind.IMPORT,
+        ),
+    )
     pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
 
     # Act / Assert
@@ -556,7 +580,14 @@ def test_no_install_line_is_offered_for_a_pack_the_distribution_declares_no_extr
     # the branch that keeps the line above honest: an install line printed for every failed
     # pack would be advice that is right five times and wrong the sixth.
     registry = _registry()
-    reports = (_report("chunk", PackStatus.FAILED, reason="'chunk' settings failed validation"),)
+    reports = (
+        _report(
+            "chunk",
+            PackStatus.FAILED,
+            reason="'chunk' settings failed validation",
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+    )
     pipeline = Pipeline(name="q", stages=(StageDeclaration(id="chunk", use="fixed-sizes"),))
 
     # Act / Assert
@@ -565,6 +596,87 @@ def test_no_install_line_is_offered_for_a_pack_the_distribution_declares_no_extr
     message = str(caught.value)
     assert "'chunk' settings failed validation" in message
     assert "weft-rag[chunk]" not in message
+    assert "pip install" not in message
+
+
+def test_a_settings_failure_leads_the_message_instead_of_no_installed_distribution() -> None:
+    # Arrange — the real defect this test was written against: `weft pipeline show
+    # index-pdf-text`, run with no `weft.toml`, exits 4 with "stage 'store' names plugin
+    # 'pgvector', which no installed distribution registered under any contract" as its
+    # headline, and the true cause — `'store' settings failed validation ... dsn Field
+    # required` — only in the diagnostic detail below it. `store` and `blob` are both
+    # installed and imported; both failed on their own settings, so neither's absence from
+    # the registry is the "no installed distribution" a typo would produce.
+    registry = _registry()
+    reports = (
+        _report(
+            "store",
+            PackStatus.FAILED,
+            reason=(
+                "'store' settings failed validation: 1 validation error for "
+                "PgVectorSettings\ndsn\n  Field required"
+            ),
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+        _report(
+            "blob",
+            PackStatus.FAILED,
+            reason=(
+                "'blob' settings failed validation: 1 validation error for "
+                "Settings\nroot\n  Field required"
+            ),
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+    )
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="pgvector"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert exit_code_for(caught.value) is ExitCode.RESOLUTION_FAILED
+    # The leaf class stays the unresolved-plugin one, not a refusal: a settings failure is
+    # still `RESOLUTION_FAILED`, never `POLICY_REFUSED`.
+    assert isinstance(caught.value, UnknownStagePluginError)
+    # The misleading headline is gone outright, not just demoted.
+    assert "no installed distribution registered under any contract" not in message
+    # What leads instead names the pack, the setting key, and the validation message.
+    assert message.startswith("stage 'store' names plugin 'pgvector'")
+    assert "dsn" in message
+    assert "settings" in message
+    # No install hint: both packs are already installed, and their own settings are the
+    # cause — installing anything again would not fix either.
+    assert "pip install" not in message
+
+
+def test_a_settings_failure_gets_no_install_hint_even_when_the_pack_name_matches_the_plugin() -> (
+    None
+):
+    # Arrange — the other real defect: `[packs.qdrant] index = "diskann"` in `weft.toml`
+    # fails `QdrantSettings`'s own `model_validator`, and because the failing pack's entry
+    # point name ("qdrant") happens to equal the plugin name ("qdrant"),
+    # `weft_cli.compile._install_remedy`'s naming convention matched it and printed `pip
+    # install weft-rag[qdrant]` — advice for an extra genuinely already installed. Same
+    # convention, opposite outcome once `failure_kind` is read.
+    registry = _registry()
+    reports = (
+        _report(
+            "qdrant",
+            PackStatus.FAILED,
+            reason=(
+                "[packs.qdrant] index 'diskann' is not served by Qdrant. It serves: exact, hnsw."
+            ),
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+    )
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
+
+    # Act / Assert
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+    message = str(caught.value)
+    assert "is not served by Qdrant" in message
+    assert "weft-rag[qdrant]" not in message
     assert "pip install" not in message
 
 
@@ -609,7 +721,14 @@ def test_to_specs_attributes_a_failed_pack_the_same_way_contracts_for_does() -> 
     # transcript came from would leave the other printing the bare list. `to_specs` is
     # reached on every run that gets past `contracts_for`, so the two must not disagree.
     registry = _registry()
-    reports = (_report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),)
+    reports = (
+        _report(
+            "qdrant",
+            PackStatus.FAILED,
+            reason="No module named 'qdrant_client'",
+            failure_kind=PackFailureKind.IMPORT,
+        ),
+    )
     resolved = resolve(
         _baseline(),
         registry=registry,
@@ -642,8 +761,18 @@ def test_two_failed_packs_in_one_distribution_are_told_apart_in_the_message() ->
     # **two** reports, same distribution, different packs.
     registry = _registry()
     reports = (
-        _report("qdrant", PackStatus.FAILED, reason="No module named 'qdrant_client'"),
-        _report("pdf", PackStatus.FAILED, reason="No module named 'pdfplumber'"),
+        _report(
+            "qdrant",
+            PackStatus.FAILED,
+            reason="No module named 'qdrant_client'",
+            failure_kind=PackFailureKind.IMPORT,
+        ),
+        _report(
+            "pdf",
+            PackStatus.FAILED,
+            reason="No module named 'pdfplumber'",
+            failure_kind=PackFailureKind.IMPORT,
+        ),
     )
     pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
 

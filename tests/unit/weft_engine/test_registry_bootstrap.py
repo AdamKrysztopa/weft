@@ -29,13 +29,25 @@ from weft_engine.registry_bootstrap import (
     require_active,
     require_plugin,
 )
-from weft_kernel.discovery import InertPluginPinError, PackReport, PackStatus
+from weft_kernel.discovery import InertPluginPinError, PackFailureKind, PackReport, PackStatus
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry
 
 
-def _report(pack: str, status: PackStatus, *, reason: str | None = None) -> PackReport:
-    return PackReport(pack=pack, distribution=f"weft-{pack}", status=status, reason=reason)
+def _report(
+    pack: str,
+    status: PackStatus,
+    *,
+    reason: str | None = None,
+    failure_kind: PackFailureKind | None = None,
+) -> PackReport:
+    return PackReport(
+        pack=pack,
+        distribution=f"weft-{pack}",
+        status=status,
+        reason=reason,
+        failure_kind=failure_kind,
+    )
 
 
 def test_require_active_passes_when_every_pack_is_active() -> None:
@@ -227,7 +239,14 @@ def test_require_plugin_composes_its_own_message_rather_than_splicing_the_kernel
         "  Field required [type=missing, input_value={}, input_type=dict]\n"
         "    For further information visit https://errors.pydantic.dev/2.13/v/missing"
     )
-    reports = (_report("store", PackStatus.FAILED, reason=pydantic_style_dump),)
+    reports = (
+        _report(
+            "store",
+            PackStatus.FAILED,
+            reason=pydantic_style_dump,
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+    )
 
     # Act
     outcome = require_plugin(
@@ -251,6 +270,68 @@ def test_require_plugin_composes_its_own_message_rather_than_splicing_the_kernel
     # module's own sentence about the same fact.
     assert "is registered for" not in outcome.message
     assert "'qdrant'" in outcome.message
+
+
+def test_a_settings_failure_leads_the_services_message_too() -> None:
+    # Arrange — the real defect this test was written against: `weft ask --retrieve-only`
+    # with no `weft.toml` shows "[services] store names 'pgvector', and no registered
+    # NodeStore has that name" as its headline, the same misleading claim the document path
+    # made, because both paths compose through `weft_engine.pack_attribution.
+    # attribute_to_packs`. Fixing the shared function fixes both seams at once.
+    registry = Registry()
+    registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
+    reports = (
+        _report(
+            "store",
+            PackStatus.FAILED,
+            reason=(
+                "'store' settings failed validation: 1 validation error for "
+                "PgVectorSettings\ndsn\n  Field required"
+            ),
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+    )
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="pgvector", setting="[services] store"
+    )
+
+    # Assert
+    assert outcome is not None
+    assert outcome.exit_code is ExitCode.RESOLUTION_FAILED
+    assert "and no registered _Contract has that name" not in outcome.message
+    assert outcome.message.startswith("[services] store names 'pgvector'")
+    assert "dsn" in outcome.message
+    assert "settings" in outcome.message
+    assert "pip install" not in outcome.message
+
+
+def test_a_refused_pack_still_takes_priority_over_a_settings_failure_elsewhere() -> None:
+    # Arrange — a refused pack's exit code (3, policy) must not be demoted to 4 just because
+    # some unrelated pack also failed on its own settings; the two branches answer different
+    # questions and `attribute_to_packs` must still check `refused` first.
+    registry = Registry()
+    registry.add(_Contract, "hash", _plugin, distribution="weft-embed")
+    reports = (
+        _report("acme-openai", PackStatus.REFUSED, reason="not in [packs] allow"),
+        _report(
+            "store",
+            PackStatus.FAILED,
+            reason="'store' settings failed validation: dsn Field required",
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+    )
+
+    # Act
+    outcome = require_plugin(
+        reports, registry=registry, contract=_Contract, name="openai", setting="[services] embed"
+    )
+
+    # Assert
+    assert outcome is not None
+    assert outcome.exit_code is ExitCode.POLICY_REFUSED
+    assert "[packs] allow" in outcome.message
 
 
 def test_allow_list_from_file_is_none_when_no_config_file_exists(tmp_path: Path) -> None:
@@ -623,6 +704,7 @@ def test_require_plugin_names_the_extra_that_would_supply_a_failed_pack() -> Non
             distribution="weft-rag",
             status=PackStatus.FAILED,
             reason="No module named 'qdrant_client'",
+            failure_kind=PackFailureKind.IMPORT,
         ),
     )
 

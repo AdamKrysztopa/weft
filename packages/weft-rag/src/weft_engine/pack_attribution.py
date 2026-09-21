@@ -31,7 +31,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from weft_command.render import ExitCode
-from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.discovery import PackFailureKind, PackReport, PackStatus
 from weft_kernel.seam import Unavailable
 
 #: The statuses that mean a distribution is installed and permitted, and still did not put
@@ -74,43 +74,62 @@ def attribute_to_packs(
     reports: Sequence[PackReport],
     *,
     name: str,
-    wanted: str,
+    subject: str,
+    not_found: str,
     registered: str,
     valid_options: tuple[str, ...],
 ) -> PluginRefusal:
-    """`wanted` and `registered` composed with whatever `reports` can say about why `name`
-    did not resolve — `weft_engine.registry_bootstrap._unresolved`'s own body (repair,
-    2026-08-20, open item O4), generalised so a pipeline document's own `use:` field can
-    call it too, rather than reimplementing the same three branches a second time.
+    """`subject`, `not_found` and `registered` composed with whatever `reports` can say
+    about why `name` did not resolve — `weft_engine.registry_bootstrap._unresolved`'s own
+    body (repair, 2026-08-20, open item O4), generalised so a pipeline document's own
+    `use:` field can call it too, rather than reimplementing the same branches a second time.
 
-    `wanted` is the caller's own "what was asked for" sentence; `registered` is the
-    caller's own "what is registered" sentence, and may be empty. Both are composed as-is,
-    never re-derived here, so the two callers keep whatever vocabulary the site where the
-    name was typed already speaks (`[services] store`, or a stage id inside a document).
+    `subject` is the caller's own "what was asked for" fragment (`[services] store names
+    'pgvector'`, `stage 'store' names plugin 'pgvector'`) — never a claim about *why* it
+    failed, because that claim is this function's to make once `reports` has been read.
+    `not_found` is the caller's own "and nothing registered it" tail, used only where
+    `reports` genuinely gives no better cause — carrying its own leading punctuation
+    (`", which ..."`, `", and ..."`) since it is concatenated directly onto `subject` with
+    no separator of this function's own choosing. `registered` is the caller's own "what is
+    registered" sentence, and may be empty. All three are composed as-is, never re-derived
+    here, so the two callers keep whatever vocabulary the site where the name was typed
+    already speaks.
 
-    Three branches, in order:
+    Four branches, in order:
 
     - **A `REFUSED` pack is present** — `ExitCode.POLICY_REFUSED`, naming every refused
       distribution and `[packs] allow`. `valid_options` on the returned `PluginRefusal`
       stays `None` regardless of the `valid_options` argument: a refused pack is never
       imported, so nothing here can honestly claim what it would have registered — see
       `PluginRefusal`'s own docstring for the identical reasoning stated at the field.
-    - **A `FAILED`/`PARTIAL`/`ALLOWED_NOT_INSTALLED` pack is present** — `ExitCode.
-      RESOLUTION_FAILED`, naming every such distribution, its own reason
-      (`_diagnostic_detail`, which also carries the install line — see `install_hint`),
-      and `valid_options` carried through unchanged.
-    - **Nothing amiss** — `ExitCode.RESOLUTION_FAILED`, `wanted` and `registered` alone,
-      `valid_options` carried through unchanged. The ordinary typo: every pack that could
-      explain the miss is `ACTIVE`, so there is nothing left to attribute it to.
+    - **A `FAILED` pack with `failure_kind is PackFailureKind.SETTINGS` is present** —
+      `ExitCode.RESOLUTION_FAILED`, leading with *that* rather than `not_found`: the pack
+      is installed and imported cleanly, `register()` never ran, and repeating "no
+      installed distribution registered" would bury the one sentence — the pack's own
+      reason, carried whole in `_diagnostic_detail` — an operator can act on. Carried
+      repair for the defect `install_hint` and this branch both close: neither the
+      headline nor the diagnostic detail offers `pip install` for a pack that already
+      imported.
+    - **Some other `FAILED`/`PARTIAL`/`ALLOWED_NOT_INSTALLED` pack is present** —
+      `ExitCode.RESOLUTION_FAILED`, naming every such distribution, its own reason
+      (`_diagnostic_detail`, which also carries the install line for an `IMPORT` failure —
+      see `install_hint`), and `valid_options` carried through unchanged.
+    - **Nothing amiss** — `ExitCode.RESOLUTION_FAILED`, `subject`, `not_found` and
+      `registered` alone, `valid_options` carried through unchanged. The ordinary typo:
+      every pack that could explain the miss is `ACTIVE`, so there is nothing left to
+      attribute it to.
     """
     refused = tuple(report for report in reports if report.status is PackStatus.REFUSED)
     silent = tuple(report for report in reports if report.status in _CONTRIBUTED_INCOMPLETELY)
+    settings_failures = tuple(
+        report for report in silent if report.failure_kind is PackFailureKind.SETTINGS
+    )
     if refused:
         listed = ", ".join(sorted(report.distribution for report in refused))
         return PluginRefusal(
             exit_code=ExitCode.POLICY_REFUSED,
             message=_compose(
-                wanted,
+                f"{subject}{not_found}",
                 f"These distributions are refused by [packs] allow in weft.toml "
                 f"and were never imported, so what they would have registered is unknown: "
                 f"{listed}. Add the one that provides '{name}' to [packs] allow.",
@@ -121,6 +140,19 @@ def attribute_to_packs(
                 registered,
             ),
         )
+    if settings_failures:
+        listed = "; ".join(_label_of(report) for report in sorted(settings_failures, key=_label_of))
+        return PluginRefusal(
+            exit_code=ExitCode.RESOLUTION_FAILED,
+            message=_compose(
+                f"{subject}. No installed distribution is missing — {listed} imported "
+                f"cleanly and then failed on its own settings, which is why '{name}' does "
+                f"not resolve:",
+                _diagnostic_detail(silent),
+                registered,
+            ),
+            valid_options=valid_options,
+        )
     if silent:
         listed = "; ".join(
             f"{_label_of(report)} ({report.status.value})"
@@ -129,7 +161,7 @@ def attribute_to_packs(
         return PluginRefusal(
             exit_code=ExitCode.RESOLUTION_FAILED,
             message=_compose(
-                wanted,
+                f"{subject}{not_found}",
                 f"These packs contributed nothing, or only part of what they publish, "
                 f"and one of them may be the one that provides it: {listed}.",
                 registered,
@@ -139,7 +171,7 @@ def attribute_to_packs(
         )
     return PluginRefusal(
         exit_code=ExitCode.RESOLUTION_FAILED,
-        message=_compose(wanted, registered),
+        message=_compose(f"{subject}{not_found}", registered),
         valid_options=valid_options,
     )
 
@@ -188,9 +220,14 @@ def install_hint(report: PackReport) -> str | None:
 
     Read from `importlib.metadata`, never from a table in this tree — `docs/internal/lessons.md`
     `L7.6`: a claim about a distribution is asked of the distribution, not assumed from a
-    name written down somewhere else. `None` for three distinct reasons, all of them a
+    name written down somewhere else. `None` for four distinct reasons, all of them a
     correct absence rather than a defect:
 
+    - `report.failure_kind` is anything other than `PackFailureKind.IMPORT` — a pack whose
+      settings failed validation, or whose `DISCLOSURE`/`SERVICE_ROLES` was malformed, or
+      whose `register()`/`commit()` itself raised, is a pack that *did* import; installing
+      the extra it already has changes nothing about any of those failures. Checked before
+      the three reasons below, which all presuppose the library genuinely might be missing.
     - `report.pack` is `None` — the `ALLOWED_NOT_INSTALLED` case, where `[packs] allow`
       named a distribution nothing installed even claims; there is no entry point, so
       there is nothing to name an extra after.
@@ -207,6 +244,8 @@ def install_hint(report: PackReport) -> str | None:
     standing guard the other direction — that a pack which *should* have an extra is
     declared under its own name — so this function never has to guess at a mismatch.
     """
+    if report.failure_kind is not PackFailureKind.IMPORT:
+        return None
     if report.pack is None:
         return None
     try:

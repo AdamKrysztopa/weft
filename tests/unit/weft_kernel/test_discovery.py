@@ -41,13 +41,14 @@ import warnings
 from collections.abc import Callable, Generator
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from weft_kernel.context import ServiceRole
 from weft_kernel.discovery import (
     Disclosure,
     EnvInterpolationError,
     InertPluginPinError,
+    PackFailureKind,
     PackRegistrar,
     PackStatus,
     UnknownPackSettingsError,
@@ -114,6 +115,21 @@ class _NoDistEntryPoint:
             "must never be loaded: discover() cannot know which pack this is without "
             "distribution metadata, so nothing should reach load()"
         )
+
+
+class _ImportFailingEntryPoint:
+    """A double whose `.dist` is real but `.load()` raises — an optional dependency the
+    pack itself needs that is not installed, the one `FAILED` shape `PackFailureKind.IMPORT`
+    exists for.
+    """
+
+    def __init__(self, *, distribution: str, pack: str) -> None:
+        self.name = pack
+        self.module = f"_weft_test_{pack}_never_imported"
+        self.dist = _FakeDistribution(distribution)
+
+    def load(self) -> Callable[..., None]:
+        raise ModuleNotFoundError("No module named 'qdrant_client'")
 
 
 def _install_fake_module(name: str, **attributes: object) -> None:
@@ -238,7 +254,48 @@ def test_discover_folds_a_raising_register_into_failed_and_continues_with_the_re
     by_distribution = {report.distribution: report for report in reports}
     assert by_distribution["weft-broken"].status == PackStatus.FAILED
     assert "boom" in (by_distribution["weft-broken"].reason or "")
+    # `register()` itself raised — the pack imported and its settings validated, so this is
+    # neither an `IMPORT` nor a `SETTINGS` failure and `install_hint` must not treat it as one.
+    assert by_distribution["weft-broken"].failure_kind is None
     assert by_distribution["weft-good"].status == PackStatus.ACTIVE
+
+
+def test_discover_fails_a_pack_whose_entry_point_cannot_be_imported() -> None:
+    # Arrange — the other half of `PackFailureKind`: an optional dependency the pack itself
+    # needs (`qdrant-client`, say) is not installed, so `entry_point.load()` raises before
+    # `register()` is ever reached. `weft_engine.pack_attribution.install_hint` is the one
+    # place this distinction is spent — offering `pip install` here, and nowhere a pack's own
+    # settings failed instead.
+    registry = Registry()
+    entry_point = _ImportFailingEntryPoint(distribution="weft-rag", pack="qdrant")
+
+    # Act
+    [report] = discover(registry, entry_points=[entry_point])
+
+    # Assert
+    assert report.status == PackStatus.FAILED
+    assert "No module named 'qdrant_client'" in (report.reason or "")
+    assert report.failure_kind is PackFailureKind.IMPORT
+
+
+def test_discover_classes_an_import_inside_register_as_an_import_failure() -> None:
+    # Arrange — a pack that imports its optional library lazily, inside `register()`.
+    registry = Registry()
+
+    def lazy_register(registrar: PackRegistrar, settings: _Settings) -> None:
+        raise ModuleNotFoundError("No module named 'qdrant_client'")
+
+    _install_fake_module("_weft_test_lazy_pack")
+    lazy = _FakeEntryPoint(
+        distribution="weft-lazy", module="_weft_test_lazy_pack", target=lazy_register
+    )
+
+    # Act
+    [report] = discover(registry, entry_points=[lazy])
+
+    # Assert
+    assert report.status == PackStatus.FAILED
+    assert report.failure_kind is PackFailureKind.IMPORT
 
 
 def test_discover_fails_a_pack_whose_settings_do_not_validate_before_register_runs() -> None:
@@ -271,6 +328,62 @@ def test_discover_fails_a_pack_whose_settings_do_not_validate_before_register_ru
     # shipping fourteen of them would name thirteen innocents.
     assert "'misconfigured'" in (report.reason or "")
     assert called is False
+    # `register()` never ran — this pack imported cleanly, so `install_hint` must not offer
+    # `pip install` for it, and `attribute_to_packs` must lead a refusal with this reason
+    # rather than "no installed distribution registered". Both read `failure_kind`.
+    assert report.failure_kind is PackFailureKind.SETTINGS
+
+
+def test_discover_folds_a_settings_validator_that_raises_its_own_weft_error_kind_too() -> None:
+    # Arrange — found by running the binary, not by a test: `weft_store.contract.
+    # UnsupportedIndexKindError` and its kin are raised from inside a `@model_validator
+    # (mode="after")`, deliberately a `WeftError` subclass rather than a bare `ValueError`
+    # so the refusal can carry `valid_options` — and pydantic only wraps `ValueError`/
+    # `TypeError`/`AssertionError` into `ValidationError`. A first draft of this repair
+    # caught only `PackSettingsError` around `_resolve_settings`, which let a real refusal
+    # of this shape escape `_activate` uncaught entirely, past `discover()`, past
+    # `weft_engine.registry_bootstrap.build_dependencies`, printed bare by the CLI's
+    # generic `WeftError` handler instead of becoming a `FAILED` report at all — the one
+    # shape "one broken pack must not stop the rest from loading" exists to prevent.
+    class _OwnRefusalError(RuntimeError):
+        """Stands in for a `WeftError` subclass a pack's own validator raises — a plain
+        `RuntimeError` is enough to prove pydantic does not wrap it, without this file
+        importing anything `weft_kernel` does not already depend on."""
+
+    class _Picky(BaseModel):
+        index: str = "exact"
+
+        @model_validator(mode="after")
+        def _reject(self) -> "_Picky":
+            if self.index != "exact":
+                raise _OwnRefusalError(f"index '{self.index}' is not served.")
+            return self
+
+    called = False
+
+    def register(registrar: PackRegistrar, settings: _Picky) -> None:
+        nonlocal called
+        called = True
+
+    registry = Registry()
+    _install_fake_module("_weft_test_picky_pack")
+    entry_point = _FakeEntryPoint(
+        distribution="weft-picky", pack="picky", module="_weft_test_picky_pack", target=register
+    )
+
+    # Act
+    reports = discover(
+        registry, pack_settings={"picky": {"index": "diskann"}}, entry_points=[entry_point]
+    )
+
+    # Assert
+    [report] = reports
+    assert report.status == PackStatus.FAILED
+    assert "is not served" in (report.reason or "")
+    assert called is False
+    # The whole point: a non-`PackSettingsError` refusal from inside `_resolve_settings` is
+    # still a settings failure, not an unclassified one.
+    assert report.failure_kind is PackFailureKind.SETTINGS
 
 
 def test_discover_rolls_back_a_pack_that_registers_and_then_raises() -> None:
