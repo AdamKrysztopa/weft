@@ -34,12 +34,12 @@ contract was over-fitted to SQL until something else had to satisfy it:
   which is `TextSearch`'s job and is not something every store can rank; a
   filter is a predicate over stored values, not a second search engine.
 
-**An extension value that is an array is compared element-wise.** `ext.weft-pdf.
-starts > 100` is true of a node with a page starting after character 100, not of
-a node whose whole list somehow exceeds 100. That is Qdrant's native payload
-semantics and it is the only rule under which a single scalar and a one-element
-array answer the same question, so `weft_store.pgvector_store` implements it too
-rather than the other way round.
+**An extension value that is an array is compared element-wise.** `eq` on
+`ext.weft-enhance.terms` with `"raptor"` is true of a node whose keyword list holds
+`"raptor"` among others, not only of one whose whole list is `["raptor"]`. That is
+Qdrant's native payload semantics and it is the only rule under which a single
+scalar and a one-element array answer the same question, so
+`weft_store.pgvector_store` implements it too rather than the other way round.
 """
 
 from enum import StrEnum
