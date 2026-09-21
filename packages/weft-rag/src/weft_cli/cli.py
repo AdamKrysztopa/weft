@@ -79,7 +79,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_cli.argparse_gen import add_model_arguments, build_command_arguments_error
 from weft_cli.exit_codes import ExitCode
-from weft_cli.sinks import JsonSink, PrintingSink
+from weft_cli.sinks import JsonSink, PrintingSink, ReaderGoneError
 from weft_command.contract import Command
 from weft_command.invocation import invoke
 from weft_engine.api import new_context
@@ -795,29 +795,64 @@ def main() -> None:
         sys.exit(int(ExitCode.RESOLUTION_FAILED))
 
     if command_hint is None and not wants_help(argv):
-        from weft_cli.repl import run_repl
-
-        try:
-            repl_exit_code = asyncio.run(run_repl(deps, parser))
-        except Exception as exc:  # noqa: BLE001 — see `_report_unexpected`
-            _report_unexpected("<repl>", exc)
-            sys.exit(int(ExitCode.OPERATION_FAILED))
-        sys.exit(int(repl_exit_code))
+        sys.exit(_run_repl_to_exit_code(deps, parser))
 
     args = parser.parse_args(argv)
     command_name = cast(str, getattr(args, COMMAND_NAME_ATTR))
 
+    rendered = _run_command_to_rendered(command_name, args, deps)
+    _print_rendered_output(rendered)
+    sys.exit(int(rendered.exit_code))
+
+
+def _run_repl_to_exit_code(deps: Dependencies, parser: argparse.ArgumentParser) -> int:
+    from weft_cli.repl import run_repl
+
     try:
-        rendered = asyncio.run(run_command(command_name, args, deps))
+        return int(asyncio.run(run_repl(deps, parser)))
+    except ReaderGoneError:
+        _silence_stdout()
+        return int(ExitCode.OPERATION_FAILED)
+    except Exception as exc:  # noqa: BLE001 — see `_report_unexpected`
+        _report_unexpected("<repl>", exc)
+        return int(ExitCode.OPERATION_FAILED)
+
+
+def _run_command_to_rendered(
+    command_name: str, args: argparse.Namespace, deps: Dependencies
+) -> Rendered:
+    """Exits rather than returning when no `Rendered` exists to print.
+
+    A reader gone mid-stream stops the command, which may still be spending model calls, and exits
+    `OPERATION_FAILED` quietly because it did not complete (R38.15).
+    """
+    try:
+        return asyncio.run(run_command(command_name, args, deps))
+    except ReaderGoneError:
+        _silence_stdout()
+        sys.exit(int(ExitCode.OPERATION_FAILED))
     except Exception as exc:  # noqa: BLE001 — see `_report_unexpected`; this is the last resort
         _report_unexpected(command_name, exc)
         sys.exit(int(ExitCode.OPERATION_FAILED))
 
-    if rendered.stdout is not None:
-        print(rendered.stdout)
-    if rendered.stderr is not None:
-        print(rendered.stderr, file=sys.stderr)
-    sys.exit(int(rendered.exit_code))
+
+def _print_rendered_output(rendered: Rendered) -> None:
+    """A reader that leaves now changes nothing about `rendered.exit_code` (R38.15)."""
+    try:
+        if rendered.stdout is not None:
+            print(rendered.stdout)
+        if rendered.stderr is not None:
+            print(rendered.stderr, file=sys.stderr)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _silence_stdout()
+
+
+def _silence_stdout() -> None:
+    """The `signal` module's SIGPIPE recipe: the interpreter's shutdown flush then has no broken
+    descriptor to fail on."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull, sys.stdout.fileno())
 
 
 def _report_unexpected(command_name: str, exc: Exception) -> None:

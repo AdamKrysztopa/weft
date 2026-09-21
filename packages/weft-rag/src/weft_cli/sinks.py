@@ -51,6 +51,7 @@ call and with what reason; see that function's own docstring.
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from collections.abc import Set
 from enum import StrEnum
@@ -149,6 +150,14 @@ def _visible(chunk: TokenChunk, display_roles: Set[str], display_stage: str | No
     return display_stage is None or chunk.stage in {"", display_stage}
 
 
+class ReaderGoneError(BrokenPipeError):
+    """A sink's reader closed its end of the pipe while the command was still producing — R38.15.
+
+    Raised by `emit` alone, so `weft_cli.cli` can stop the command quietly on exactly this and
+    still report a `BrokenPipeError` from a socket, which is the same class and a real failure.
+    """
+
+
 class PrintingSink:
     """Writes a chunk's text to `stream` the instant it arrives — the default sink, the one
     a human reads. Satisfies `weft_llm.contract.TokenSink` structurally, the same path
@@ -210,16 +219,22 @@ class PrintingSink:
     async def emit(self, chunk: TokenChunk) -> None:
         if not _visible(chunk, self._display_roles, self._display_stage):
             return
-        self._stream.write(chunk.text)
-        self._stream.flush()
+        try:
+            self._stream.write(chunk.text)
+            self._stream.flush()
+        except BrokenPipeError as exc:
+            raise ReaderGoneError(*exc.args) from exc
         self.wrote_anything = True
 
     async def close(self, *, reason: str | None = None) -> None:
-        if self.wrote_anything:
-            self._stream.write("\n")
-        if reason is not None:
-            self._stream.write(f"[stream error: {reason}]\n")
-        self._stream.flush()
+        try:
+            if self.wrote_anything:
+                self._stream.write("\n")
+            if reason is not None:
+                self._stream.write(f"[stream error: {reason}]\n")
+            self._stream.flush()
+        except BrokenPipeError:
+            pass
 
 
 class JsonSink:
@@ -275,13 +290,19 @@ class JsonSink:
         if not _visible(chunk, self._display_roles, self._display_stage):
             return
         self.wrote_anything = True
-        self._write(StreamEvent(type=StreamEventType.CHUNK, role=chunk.role, text=chunk.text))
+        try:
+            self._write(StreamEvent(type=StreamEventType.CHUNK, role=chunk.role, text=chunk.text))
+        except BrokenPipeError as exc:
+            raise ReaderGoneError(*exc.args) from exc
 
     async def close(self, *, reason: str | None = None) -> None:
-        if reason is None:
-            self._write(StreamEvent(type=StreamEventType.DONE))
-        else:
-            self._write(StreamEvent(type=StreamEventType.ERROR, message=reason))
+        event = (
+            StreamEvent(type=StreamEventType.DONE)
+            if reason is None
+            else StreamEvent(type=StreamEventType.ERROR, message=reason)
+        )
+        with contextlib.suppress(BrokenPipeError):
+            self._write(event)
 
     def _write(self, event: StreamEvent) -> None:
         # One `write` call per event, not two — a reader watching the stream should see one
@@ -295,6 +316,7 @@ __all__ = [
     "DEFAULT_DISPLAY_ROLES",
     "JsonSink",
     "PrintingSink",
+    "ReaderGoneError",
     "StreamEvent",
     "StreamEventType",
 ]
