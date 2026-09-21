@@ -20,6 +20,7 @@ silence because someone would act on it.
 """
 
 import pytest
+from pydantic import BaseModel
 
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage, pipeline_identity
 
@@ -145,3 +146,69 @@ def test_a_stages_contract_facts_are_part_of_the_identity(field: str) -> None:
 
     # Act / Assert
     assert pipeline_identity(_pipeline("p", base)) != pipeline_identity(_pipeline("p", changed))
+
+
+# --- Repair R32.0: a validated `config_model` is hashed by its fields, not by its printed text --
+
+
+class _ChunkConfig(BaseModel):
+    size: int = 512
+    overlap: int = 50
+
+
+class _ChunkConfigReordered(BaseModel):
+    overlap: int = 50
+    size: int = 512
+
+
+class _ChunkConfigPrintedDifferently(_ChunkConfig):
+    def __str__(self) -> str:
+        return f"<chunk config {self.size}/{self.overlap}>"
+
+
+def _chunk_stage(config: object) -> ResolvedStage:
+    return ResolvedStage(
+        id="chunk",
+        contract="Chunker",
+        contract_version="1.0.0",
+        use="fixed-size",
+        config=config,
+        distribution="weft-rag",
+        provenance="base",
+    )
+
+
+def test_a_config_model_hashes_as_its_fields_with_their_keys_sorted() -> None:
+    """`pipeline_identity`'s docstring: *"`config` with its keys sorted"*. `_ChunkConfig` declares
+    `size` before `overlap`, so a digest following declaration order and one following sorted
+    keys disagree — the mapping written in sorted order is what the docstring promises."""
+    # Arrange
+    as_model = _pipeline("p", _chunk_stage(_ChunkConfig()))
+    as_fields = _pipeline("p", _chunk_stage({"overlap": 50, "size": 512}))
+
+    # Act / Assert
+    assert pipeline_identity(as_model) == pipeline_identity(as_fields)
+
+
+def test_reordering_a_config_models_fields_does_not_move_the_identity() -> None:
+    """Nothing a stage runs changed, so no corpus may be re-derived."""
+    # Act / Assert
+    assert pipeline_identity(_pipeline("p", _chunk_stage(_ChunkConfig()))) == pipeline_identity(
+        _pipeline("p", _chunk_stage(_ChunkConfigReordered()))
+    )
+
+
+def test_how_a_config_model_prints_itself_does_not_move_the_identity() -> None:
+    """A pydantic release changing `__str__` is the other trigger the repair names."""
+    # Act / Assert
+    assert pipeline_identity(_pipeline("p", _chunk_stage(_ChunkConfig()))) == pipeline_identity(
+        _pipeline("p", _chunk_stage(_ChunkConfigPrintedDifferently()))
+    )
+
+
+def test_a_different_value_in_a_config_model_still_moves_the_identity() -> None:
+    """Hashing by fields must not collapse every model to one digest."""
+    # Act / Assert
+    assert pipeline_identity(_pipeline("p", _chunk_stage(_ChunkConfig()))) != pipeline_identity(
+        _pipeline("p", _chunk_stage(_ChunkConfig(size=1024)))
+    )

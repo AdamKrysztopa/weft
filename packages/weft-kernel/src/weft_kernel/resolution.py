@@ -794,10 +794,10 @@ def pipeline_identity(pipeline: ResolvedPipeline) -> str:
 def _identity_parts(pipeline: ResolvedPipeline) -> tuple[str, ...]:
     """Everything `pipeline_identity` hashes, in order — see its docstring for what is left out.
 
-    `default=str` on the config dump is deliberate rather than lax: a `config` value pydantic
-    validated but `json` cannot encode would otherwise make this function *raise*, and an identity
-    function able to fail a run that was otherwise fine is a worse outcome than a value rendered
-    through `str`. The digest stays stable either way, which is the only property asked of it.
+    A config model goes through `_dump_stage_config` first, so its fields are hashed with keys
+    sorted rather than as the text pydantic prints for it (repair R32.0). `default=str` is left for
+    a value inside a plain mapping that `json` cannot encode: an identity function able to fail an
+    otherwise fine run is worse than a value rendered through `str`.
     """
     parts: list[str] = [
         json.dumps(dict(sorted(pipeline.vars.items())), sort_keys=True, default=str)
@@ -810,7 +810,7 @@ def _identity_parts(pipeline: ResolvedPipeline) -> tuple[str, ...]:
                 stage.contract_version or "",
                 stage.use,
                 stage.distribution,
-                json.dumps(cast("Mapping[str, object]", stage.config), sort_keys=True, default=str),
+                json.dumps(_dump_stage_config(stage.config), sort_keys=True, default=str),
             )
         )
     return tuple(parts)

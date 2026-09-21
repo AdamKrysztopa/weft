@@ -41,6 +41,16 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   thing that stops working. `weft plugins doctor` prints the notice. **Removed in `weft-rag`
   3.0.0.**
 
+### Changed
+
+- **A pipeline's identity is computed from a stage's configuration fields, keys sorted**, not from
+  the text pydantic prints for them — so reordering a plugin's config fields, or a pydantic release
+  that prints them differently, no longer re-parses a corpus nothing about had changed. **This
+  moves the identity once**, for every pipeline document with a stage whose plugin declares a
+  configuration model, whether or not the document sets it: the next `weft index --pipeline …`
+  over a corpus indexed before this release reports each file *"unchanged on disk but re-parsed
+  by a different pipeline"* and re-parses it, once. Bare `weft index` is unaffected.
+
 ## [2.7.0] - 2026-09-14
 
 **`weft-kernel` moves `0.2.0` → `0.2.1` with no change to its code.** It is republished only
