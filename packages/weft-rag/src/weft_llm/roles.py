@@ -16,11 +16,12 @@ without needing a `weft.toml` parser. `weft_engine.llm_roles` keeps the parse an
 names, so an operator's one file is still read exactly once.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.errors import UnresolvedNameError, WeftError
+from weft_llm.scripted import NAME as _SCRIPTED
 
 
 class RoleMapping(BaseModel):
@@ -93,8 +94,11 @@ class LLMRoles(BaseModel):
 
     roles: Mapping[str, RoleMapping] = Field(default_factory=dict)
 
-    def resolve(self, role: str) -> RoleMapping:
-        """`role`'s mapping, or `UnmappedLLMRoleError` naming it and every role that is mapped."""
+    def resolve(self, role: str, *, providers: Sequence[str] = ()) -> RoleMapping:
+        """`role`'s mapping, or `UnmappedLLMRoleError` naming it and every role that is mapped.
+
+        `providers` is every installed `LLMProvider` name; the refusal suggests one of them.
+        """
         mapped = self.roles.get(role)
         if mapped is not None:
             return mapped
@@ -102,9 +106,24 @@ class LLMRoles(BaseModel):
         available = ", ".join(options) or "(none mapped)"
         raise UnmappedLLMRoleError(
             f"no [llm.roles] entry maps role '{role}'. Roles mapped in weft.toml: {available}. "
-            # A literal newline, not `\\n`: this line is meant to be pasted into weft.toml, and
-            # the escape printed itself. Found by running the binary at Phase 8's close review.
-            f"Add, e.g., these two lines to weft.toml:\n"
-            f'[llm.roles]\n{role} = {{ provider = "scripted" }}',
+            + _remedy(role, providers=providers, has_table=bool(self.roles)),
             valid_options=options,
         )
+
+
+def _remedy(role: str, *, providers: Sequence[str], has_table: bool) -> str:
+    """The line to paste — never `scripted`, which cannot give a role a structured answer (R41.7).
+
+    A literal newline, not `\\n`: the line is pasted into weft.toml, and the escape printed itself
+    once (Phase 8's close review).
+    """
+    answering = sorted(name for name in providers if name != _SCRIPTED)
+    if not answering:
+        return (
+            f"No provider that can answer '{role}' is installed: "
+            'pip install "weft-rag[openai]", then map the role to it.'
+        )
+    entry = f'{role} = {{ provider = "{answering[0]}", model = "<model>" }}'
+    if has_table:
+        return f"Add this line under [llm.roles] in weft.toml:\n{entry}"
+    return f"Add these two lines to weft.toml:\n[llm.roles]\n{entry}"

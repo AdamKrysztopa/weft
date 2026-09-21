@@ -490,3 +490,21 @@ async def test_a_tighter_loop_guard_configuration_is_honoured() -> None:
     # start checking an 80-character answer; the tighter one supplied here does.
     with pytest.raises(LLMGenerationLoopError):
         await client.complete(RENDERED, role="generate", ctx=_ctx(NullSink()))
+
+
+async def test_the_unmapped_role_refusal_suggests_a_provider_the_registry_holds() -> None:
+    """Repair R41.7: the client knows what is installed, so the suggestion comes from there."""
+    # Arrange
+    registry = _registry()
+    registry.add(LLMProvider, "vendor-x", ScriptedProvider, distribution="third-party")
+    client = llm_service(
+        registry=registry,
+        roles=LLMRoles(roles={"generate": RoleMapping(provider="scripted")}),
+    )
+
+    # Act
+    with pytest.raises(UnmappedLLMRoleError) as raised:
+        await client.complete(RENDERED, role="route", ctx=_ctx(NullSink()))
+
+    # Assert
+    assert 'route = { provider = "vendor-x", model = "<model>" }' in str(raised.value)

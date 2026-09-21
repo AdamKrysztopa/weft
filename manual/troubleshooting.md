@@ -2711,14 +2711,16 @@ the model explaining, in prose, why it declined the shape asked for.
 
 ```text
 UnmappedLLMRoleError: no [llm.roles] entry maps role 'grade'. Roles mapped in weft.toml: generate,
-route. Add, e.g., `[llm.roles]
-grade = { provider = "scripted" }` to weft.toml.
+route. Add this line under [llm.roles] in weft.toml:
+grade = { provider = "openai", model = "<model>" }
 ```
 
-**What to do:** add the role the message names to `[llm.roles]` in `weft.toml` — see
-[`manual/operations-guide.md`](operations-guide.md) → *Choosing which model answers*. The message
-lists every role that *is* mapped, so a typo in a technique plugin's own `role:` configuration
-reads as a typo rather than a mystery.
+**What to do:** add the line the message prints under `[llm.roles]` in `weft.toml`, with a real
+model name — see [`manual/operations-guide.md`](operations-guide.md) → *Choosing which model
+answers*. The suggested provider is one that is installed; it is never `scripted`, which cannot
+give a role that needs a structured answer one. When no other provider is installed, the message
+says to `pip install "weft-rag[openai]"` instead. It lists every role that *is* mapped, so a typo
+in a technique plugin's own `role:` configuration reads as a typo rather than a mystery.
 
 ---
 

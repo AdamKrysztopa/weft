@@ -305,7 +305,7 @@ class LLMClient:
         one (the registry's own `UnknownPluginError`), and a model a provider's declared
         catalogue does not offer names the catalogue (`UnknownModelError`).
         """
-        mapping = self._roles.resolve(role)
+        mapping = self._roles.resolve(role, providers=tuple(self._registry.names_for(LLMProvider)))
         entry = self._registry.entry(LLMProvider, mapping.provider)
         ref = model_ref(
             provider=mapping.provider, requested=mapping.model, providers=self._provider_names

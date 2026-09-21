@@ -63,6 +63,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Fixed
 
+- **An unmapped role's refusal prints a line that works.** It suggested
+  `route = { provider = "scripted" }`, and following it exited 4 because `scripted` cannot give a
+  role a structured answer; it also printed a second `[llm.roles]` header into files that already
+  had one. It now names an installed provider with a `<model>` placeholder, prints only the entry
+  line when the table exists, and says to `pip install "weft-rag[openai]"` when nothing else is
+  installed.
 - **Qdrant's text search honours a filter the way pgvector's does.** A filtered lexical query
   returned the filter's other nodes at score zero alongside the real matches; it now returns only
   nodes that share a term with the query.
