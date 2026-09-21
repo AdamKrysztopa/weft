@@ -603,6 +603,10 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
         )
         succeeded = True
     except WeftError as exc:
+        # R38.17: the seam wraps whatever a stage raises, so a reader leaving mid-stream arrives
+        # as the cause of a stage failure rather than as itself.
+        if (gone := _reader_gone_in(exc)) is not None:
+            raise gone from None
         failure_reason = str(exc)
         # Task 5.2d — see this function's own docstring, sixth job.
         return render_refusal(exc, as_json=isinstance(deps.token_sink, JsonSink))
@@ -803,6 +807,15 @@ def main() -> None:
     rendered = _run_command_to_rendered(command_name, args, deps)
     _print_rendered_output(rendered)
     sys.exit(int(rendered.exit_code))
+
+
+def _reader_gone_in(exc: BaseException) -> ReaderGoneError | None:
+    cause = exc.__cause__
+    while cause is not None:
+        if isinstance(cause, ReaderGoneError):
+            return cause
+        cause = cause.__cause__
+    return None
 
 
 def _run_repl_to_exit_code(deps: Dependencies, parser: argparse.ArgumentParser) -> int:

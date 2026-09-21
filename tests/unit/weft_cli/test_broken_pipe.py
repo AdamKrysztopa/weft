@@ -26,8 +26,14 @@ from pathlib import Path
 import pytest
 
 from weft_cli import cli
-from weft_cli.sinks import JsonSink, PrintingSink
-from weft_llm.payload import TokenChunk
+from weft_cli.sinks import JsonSink, PrintingSink, ReaderGoneError
+from weft_kernel.context import Context, ServiceRegistry
+from weft_kernel.registry import Registry
+from weft_llm.client import llm_service
+from weft_llm.contract import LLMProvider, TokenSink
+from weft_llm.payload import Conversation, Message, MessageRole, Rendered, TokenChunk
+from weft_llm.roles import LLMRoles, RoleMapping
+from weft_llm.scripted import ScriptedProvider
 
 
 async def _run(cwd: Path, argv: tuple[str, ...], *, stdout: int) -> tuple[int, str]:
@@ -147,3 +153,71 @@ def test_a_broken_socket_is_still_reported(
     # Assert
     assert exited.value.code == 1
     assert "BrokenPipeError" in capsys.readouterr().err
+
+
+async def test_a_streamed_answer_whose_reader_has_gone_stops_as_the_reader_leaving() -> None:
+    """Repair **R38.17**: every chunk of a model's answer reaches the sink from inside
+    `LLMClient`'s stream loop, whose catch-all re-raised the sink's `ReaderGoneError` as
+    `LLMProviderFaultError` — so `weft ask … | head -1` blamed the provider adapter. The tests
+    above call `sink.emit` directly and never went through the client that wraps it."""
+    # Arrange
+    registry = Registry()
+    registry.add(LLMProvider, "scripted", ScriptedProvider, distribution="weft-llm")
+    client = llm_service(
+        registry=registry, roles=LLMRoles(roles={"generate": RoleMapping(provider="scripted")})
+    )
+    services = ServiceRegistry()
+    services.add(TokenSink, PrintingSink(stream=_ClosedPipe()))
+    ctx = Context(tenant_id="t", run_id="r", trace_id="x", locale="en", services=services)
+    rendered = Rendered(
+        conversation=Conversation(messages=(Message(role=MessageRole.USER, content="why?"),))
+    )
+
+    # Act / Assert
+    with pytest.raises(ReaderGoneError):
+        await client.complete(rendered, role="generate", ctx=ctx)
+
+
+_STAGE_FAILS = """
+import sys
+from weft_cli import cli
+from weft_cli.sinks import ReaderGoneError
+from weft_kernel.errors import WeftError
+
+async def a_stage_fails(**_):
+    raise WeftError("'generate' failed", stage="generate") from {cause}(32, "Broken pipe")
+
+cli.invoke = a_stage_fails
+sys.argv = ["weft", "pipeline", "list"]
+cli.main()
+"""
+
+
+@pytest.mark.parametrize(
+    ("cause", "quiet"),
+    [("ReaderGoneError", True), ("BrokenPipeError", False)],
+    ids=["reader-gone", "socket"],
+)
+async def test_a_stage_that_failed_because_its_reader_left_exits_quietly(
+    cause: str, quiet: bool, tmp_path: Path
+) -> None:
+    """Repair **R38.17**, found by running the wheel: `weft ask …` into a closed pipe printed
+    `'generate' failed: ReaderGoneError: [Errno 32] Broken pipe` and exited 1, because the kernel
+    seam wraps anything a stage raises in a `WeftError`, so the reader leaving arrived wrapped.
+    A subprocess, because the quiet exit silences the process's own stdout descriptor."""
+    # Arrange
+    child = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-c",
+        _STAGE_FAILS.format(cause=cause),
+        cwd=tmp_path,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    # Act
+    _, stderr = await child.communicate()
+
+    # Assert
+    assert await child.wait() == 1
+    assert (stderr.decode() == "") is quiet

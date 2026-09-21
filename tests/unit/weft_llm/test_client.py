@@ -508,3 +508,29 @@ async def test_the_unmapped_role_refusal_suggests_a_provider_the_registry_holds(
 
     # Assert
     assert 'route = { provider = "vendor-x", model = "<model>" }' in str(raised.value)
+
+
+async def test_a_sink_failing_is_not_reported_as_a_provider_fault() -> None:
+    """Repair **R38.17**: the taxonomy wraps what a *provider* raises. A sink is the reader's
+    side of the call, and its own failure — a reader that went away — reached the operator as
+    "a defect in the provider adapter"."""
+
+    # Arrange
+    class _SinkGoneError(Exception):
+        pass
+
+    class _FailingSink:
+        async def emit(self, chunk: TokenChunk) -> None:
+            del chunk
+            raise _SinkGoneError
+
+        async def close(self, *, reason: str | None = None) -> None:
+            del reason
+
+    client = llm_service(
+        registry=_registry(), roles=LLMRoles(roles={"generate": RoleMapping(provider="scripted")})
+    )
+
+    # Act / Assert
+    with pytest.raises(_SinkGoneError):
+        await client.complete(RENDERED, role="generate", ctx=_ctx(_FailingSink()))

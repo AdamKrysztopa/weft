@@ -171,8 +171,10 @@ class LLMClient:
         bound = self._bind(role)
         sink = ctx.require(TokenSink)
         reporting = isinstance(bound.provider, UsageReporting)
+        sink_exception: Exception | None = None
 
         async def run() -> Outcome[Completion]:
+            nonlocal sink_exception
             parts: list[str] = []
             captured: list[TokenUsage] = []
             source = (
@@ -185,23 +187,32 @@ class LLMClient:
                 if reporting
                 else bound.provider.stream(rendered.conversation, model=bound.ref.model, ctx=ctx)
             )
-            try:
-                async for chunk in source:
-                    parts.append(chunk)
+            _exhausted = object()
+            while True:
+                try:
+                    chunk_or_exhausted = await anext(source, _exhausted)
+                except LLMError:
+                    raise
+                except Exception as fault:
+                    raise self._fault(bound, role, fault) from fault
+                if chunk_or_exhausted is _exhausted:
+                    break
+                chunk = cast(str, chunk_or_exhausted)
+                parts.append(chunk)
+                try:
                     await sink.emit(TokenChunk(role=role, stage=current_stage(), text=chunk))
-                    # Task 3.10: `parts` already holds the whole answer accumulated so far —
-                    # exactly the cumulative-text contract `weft_llm.loop_guard` requires — so
-                    # this is where the guard attaches rather than inside a `TokenSink`, which
-                    # only ever sees one chunk at a time. The chunk that revealed the loop has
-                    # already been emitted above, so a reader still sees it before the stream
-                    # stops; nothing after it is generated or shown.
-                    accumulated = "".join(parts)
-                    if detect_generation_loop(accumulated, config=self._loop_guard):
-                        raise self._loop_detected(bound, role, accumulated)
-            except LLMError:
-                raise
-            except Exception as fault:
-                raise self._fault(bound, role, fault) from fault
+                except Exception as exc:
+                    sink_exception = exc
+                    raise
+                # Task 3.10: `parts` already holds the whole answer accumulated so far —
+                # exactly the cumulative-text contract `weft_llm.loop_guard` requires — so
+                # this is where the guard attaches rather than inside a `TokenSink`, which
+                # only ever sees one chunk at a time. The chunk that revealed the loop has
+                # already been emitted above, so a reader still sees it before the stream
+                # stops; nothing after it is generated or shown.
+                accumulated = "".join(parts)
+                if detect_generation_loop(accumulated, config=self._loop_guard):
+                    raise self._loop_detected(bound, role, accumulated)
             usage = captured[0] if captured else None
             record_usage(
                 UsageEntry(
@@ -226,7 +237,12 @@ class LLMClient:
                 value=Completion(text=text, model=bound.ref.model, finish_reason="", usage=usage)
             )
 
-        return await self._sealed(bound, role, run)()
+        try:
+            return await self._sealed(bound, role, run)()
+        except Exception as exc:
+            if sink_exception is not None and exc.__cause__ is sink_exception:
+                raise sink_exception from None
+            raise
 
     async def complete_structured(
         self, rendered: Rendered, schema: Mapping[str, object], *, role: str, ctx: Context
