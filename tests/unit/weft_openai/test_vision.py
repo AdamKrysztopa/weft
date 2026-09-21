@@ -267,7 +267,7 @@ def test_the_plugin_name_is_registered_under_the_describer_contract() -> None:
 # Three green suites, a green gate and `weft plugins doctor` reporting the pack `active`.
 #
 # `weft_openai.embedder.build_client` is awaited through `asyncio.to_thread` at both of its
-# other call sites — `embedder.py:349 'asyncio.to_thread'` and `llm.py:413 'client ='` — and
+# other call sites — `embedder.py:349 'asyncio.to_thread'` and `llm.py:443 'client ='` — and
 # `llm.py`'s own docstring says why: *"The client is built off the event loop, for the same
 # measured reason."* This plugin was the third caller and the only one that did not.
 # `docs/internal/lessons.md` L8.24.

@@ -171,6 +171,13 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # max_retries = 2
 #
+# `structured_output` sends a typed answer's JSON Schema as `response_format`, so the endpoint
+# constrains the answer's shape rather than reading the schema from the prompt. Off by default
+# on both accounts: a server that rejects the field answers 400, and the answer then falls past
+# the schema-in-the-prompt tier to a plain one. Turn it on once the endpoint is known to accept it.
+#
+# structured_output = false
+#
 # Which embedding model this account serves when no pipeline stage names one. Unset means
 # the vendor's `text-embedding-3-small`. This is the only surface the *query* side can
 # reach: `weft ask` embeds a question through `[services] embed`, never through a pipeline
@@ -203,6 +210,7 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # project = "proj_..."
 # timeout_seconds = 30.0
 # max_retries = 2
+# structured_output = false
 #
 # **Set this one for a local server.** A model name is what an OpenAI-compatible server
 # routes on, and a server you run serves the names it has — `nomic-embed-text` under

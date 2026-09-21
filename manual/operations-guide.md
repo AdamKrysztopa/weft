@@ -658,6 +658,25 @@ nothing else. A stage that does name one still wins for that stage, being one ru
 rather than what the account serves. (Added 2026-09-13 by `R22.1`: before it, a local server had
 to answer to `text-embedding-3-small` or the query side could not reach it at all.)
 
+**Asking the server to answer in a schema is opt-in, per account.** Every typed answer — a grade,
+a relevance judgement, an extracted anchor — is asked with its JSON Schema written into the prompt
+unless the account says the endpoint can take the schema itself:
+
+```toml
+[packs.openai-compatible]
+base_url = "http://localhost:11434/v1"
+structured_output = true
+```
+
+With it set, the request carries `response_format` of type `json_schema` and the server constrains
+the answer's shape; `Structured.tier` on the result then reads `native` rather than `adapted`. The
+default is `false` on both `[packs.openai]` and `[packs.openai-compatible]`, because a server that
+rejects the field answers with a 400, and a rejected schema-shaped request skips the
+schema-in-the-prompt tier and falls to the last, a plain answer parsed as best it can be. Set it
+once the server is known to accept the field; Ollama, vLLM and llama.cpp serve it. It changes how
+every typed answer is asked, so a comparison of runs either side of the switch is a comparison of
+two askings, not of two models. (Repair `R41.5`, 2026-09-21.)
+
 **A wrong `base_url` fails at the first call, not at startup.** Nothing here reaches the network,
 so `weft plugins doctor` reports the pack `active` whether or not the address answers; the error
 arrives from the first stage that calls out, naming the model and the endpoint. That entry in

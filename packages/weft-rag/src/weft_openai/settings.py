@@ -62,3 +62,9 @@ class Settings(BaseModel):
     #: The SDK retries transient failures itself, at the transport, below anything Weft
     #: can see. Zero turns that off for an operator who wants the failure immediately.
     max_retries: int = Field(default=_DEFAULT_MAX_RETRIES, ge=0)
+    #: Default `False`: a server that rejects `response_format` answers 400, and that is
+    #: `LLMBadRequestError` at tier 1, which `weft_prompts/cascade.py`'s `skip_adapted` treats
+    #: as a reason to skip tier 2 — repair **R41.5**. Set `true` once the account is known to
+    #: honour the field; `weft_openai_compatible.Settings` subclasses this class, so this
+    #: account and that one opt in independently.
+    structured_output: bool = False

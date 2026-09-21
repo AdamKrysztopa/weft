@@ -43,6 +43,7 @@ docstring gives.** Constructing `AsyncOpenAI` loads a CA bundle through `open()`
 """
 
 import asyncio
+import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import TYPE_CHECKING, ClassVar, Final, Protocol, cast
 
@@ -119,6 +120,15 @@ _CONTEXT_LENGTH_CODES = frozenset({"context_length_exceeded"})
 
 #: Likewise for a request the vendor's own moderation refused.
 _CONTENT_FILTER_CODES = frozenset({"content_filter", "content_policy_violation"})
+
+#: `json_schema.name`'s own character rule — `openai/types/shared_params/
+#: response_format_json_schema.py` (read 2026-09-21): "must be a-z, A-Z, 0-9, or contain
+#: underscores and dashes, with a maximum length of 64."
+_STRUCTURED_NAME_DISALLOWED = re.compile(r"[^A-Za-z0-9_-]")
+_STRUCTURED_NAME_MAX_LENGTH = 64
+#: What `complete_structured` names the schema when it carries no string `title` — see
+#: `_schema_name`.
+_DEFAULT_STRUCTURED_NAME = "answer"
 
 
 class OpenAILLMConfig(BaseModel):
@@ -221,6 +231,8 @@ class ChatCompletionsResource(Protocol):
 
     `stream_options` is sent only by `stream_reporting_usage` — `stream` itself never sends
     it, so a compatible endpoint that rejects the argument still serves a plain `stream` call.
+    `response_format` is sent only by `complete_structured`, through
+    `_StructuredChatCompletionsResource`.
     """
 
     async def create(
@@ -234,6 +246,23 @@ class ChatCompletionsResource(Protocol):
         max_tokens: int | Omit = omit,
         top_p: float | Omit = omit,
     ) -> ChatCompletionResponse | AsyncIterator[ChatCompletionChunk]: ...
+
+
+class _StructuredChatCompletionsResource(Protocol):
+    """`ChatCompletionsResource` plus `response_format`, which only `complete_structured` sends —
+    so doubles of the shared Protocol need not grow a parameter their call shape never uses."""
+
+    async def create(
+        self,
+        *,
+        model: str,
+        messages: Sequence[Mapping[str, str]],
+        stream: bool = False,
+        response_format: Mapping[str, object] | None = None,
+        temperature: float | Omit = omit,
+        max_tokens: int | Omit = omit,
+        top_p: float | Omit = omit,
+    ) -> ChatCompletionResponse: ...
 
 
 class ChatResource(Protocol):
@@ -428,6 +457,78 @@ class OpenAILLMProvider:
         return await asyncio.to_thread(_count_tokens, text, model)
 
 
+class NativeStructuredOpenAILLMProvider(OpenAILLMProvider):
+    """`OpenAILLMProvider`, with `complete_structured` added — repair **R41.5**.
+
+    Registered instead of `OpenAILLMProvider` when `Settings.structured_output` is true — see
+    `weft_openai.register` and `weft_openai_compatible.register`, which choose the class at
+    registration time, the same precedent R33.1 set for `stream_usage`. Satisfies
+    `weft_llm.contract.NativeStructured` structurally: nothing declares the capability, the
+    method's presence is the whole claim, the pattern every derived capability in that module
+    takes.
+
+    **A subclass, not a method on `OpenAILLMProvider` itself**, because the capability is
+    opt-in per account: an account that has not set `structured_output` must register a class
+    with no `complete_structured` attribute at all, or `isinstance(provider,
+    NativeStructured)` would be true regardless of what the account's own settings say.
+    """
+
+    async def complete_structured(
+        self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
+    ) -> Outcome[Completion]:
+        del ctx  # no service or locale this provider needs — same as `complete`
+        client = await self._connected(model=model)
+        temperature, max_tokens, top_p = _generation_kwargs(self._config)
+        completions = cast("_StructuredChatCompletionsResource", client.chat.completions)
+        try:
+            response = await completions.create(
+                model=model,
+                messages=_messages_of(conv),
+                stream=False,
+                response_format=_response_format_of(schema),
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+            )
+        except APIError as exc:
+            raise map_openai_error(exc, model=model) from exc
+        choice = response.choices[0]
+        text = choice.message.content or ""
+        usage = (
+            TokenUsage(
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+            )
+            if response.usage is not None
+            else None
+        )
+        return Produced(
+            value=Completion(
+                text=text, model=model, finish_reason=choice.finish_reason or "", usage=usage
+            )
+        )
+
+
+def _response_format_of(schema: Mapping[str, object]) -> Mapping[str, object]:
+    """`schema`, wrapped in the SDK's own `ResponseFormatJSONSchema` wire shape.
+
+    No `strict` key: unset is the API's own default, and `OpenAILLMConfig`'s rule for every
+    knob this pack sends is that unset means omitted, never sent as an explicit falsy value.
+    """
+    return {"type": "json_schema", "json_schema": {"name": _schema_name(schema), "schema": schema}}
+
+
+def _schema_name(schema: Mapping[str, object]) -> str:
+    """`json_schema.name` for `schema` — its own `title` with every disallowed character
+    replaced by `_` and cut to 64, or `_DEFAULT_STRUCTURED_NAME` where `title` is missing or
+    not a string.
+    """
+    title = schema.get("title")
+    if not isinstance(title, str):
+        return _DEFAULT_STRUCTURED_NAME
+    return _STRUCTURED_NAME_DISALLOWED.sub("_", title)[:_STRUCTURED_NAME_MAX_LENGTH]
+
+
 def _count_tokens(text: str, model: str) -> int | None:
     try:
         encoding = tiktoken.encoding_for_model(model)
@@ -505,6 +606,7 @@ __all__ = [
     "ChatCompletionResponse",
     "ChatCompletionsResource",
     "ChatResource",
+    "NativeStructuredOpenAILLMProvider",
     "OpenAILLMConfig",
     "OpenAILLMProvider",
     "map_openai_error",

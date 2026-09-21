@@ -39,7 +39,7 @@ mechanism would be built for a population of one, which is the shape `L5.19` ref
 wanting it is the trigger to reopen this as a gate.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from functools import partial
 from typing import ClassVar, cast
 
@@ -47,10 +47,15 @@ from weft_embed.contract import Embedder
 from weft_kernel.context import Context
 from weft_kernel.discovery import Disclosure, PackRegistrar
 from weft_kernel.payload import Outcome
-from weft_llm.contract import LLMProvider, UsageReporting
+from weft_llm.contract import LLMProvider, NativeStructured, UsageReporting
 from weft_llm.payload import Completion, Conversation, TokenUsage
 from weft_openai.embedder import OpenAIEmbedder
-from weft_openai.llm import ChatClient, OpenAILLMConfig, OpenAILLMProvider
+from weft_openai.llm import (
+    ChatClient,
+    NativeStructuredOpenAILLMProvider,
+    OpenAILLMConfig,
+    OpenAILLMProvider,
+)
 from weft_openai.settings import Settings as VendorSettings
 from weft_openai.vision import OpenAIVisionDescriber
 from weft_vision import Describer
@@ -132,6 +137,11 @@ class StreamOnlyOpenAILLMProvider:
     """
 
     config_model: ClassVar[type[OpenAILLMConfig]] = OpenAILLMConfig
+    #: The class the delegated calls actually run against. Overridden by the two `Structured*`
+    #: subclasses below to `NativeStructuredOpenAILLMProvider`, so `self._inner` carries
+    #: `complete_structured` only when the account this wrapper serves opted in — repair
+    #: **R41.5**. Declared here rather than duplicating `__init__` per combination.
+    _inner_cls: ClassVar[type[OpenAILLMProvider]] = OpenAILLMProvider
 
     def __init__(
         self,
@@ -141,7 +151,7 @@ class StreamOnlyOpenAILLMProvider:
         client: ChatClient | None = None,
         account: str = ACCOUNT,
     ) -> None:
-        self._inner = OpenAILLMProvider(settings, config, client=client, account=account)
+        self._inner = self._inner_cls(settings, config, client=client, account=account)
 
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
@@ -179,6 +189,45 @@ class UsageReportingOnlyOpenAILLMProvider(StreamOnlyOpenAILLMProvider):
             yield item
 
 
+class StructuredStreamOnlyOpenAILLMProvider(StreamOnlyOpenAILLMProvider):
+    """`StreamOnlyOpenAILLMProvider`, with `complete_structured` added back — repair **R41.5**.
+
+    Registered for `openai-compatible` when `Settings.structured_output` is true and
+    `Settings.stream_usage` is false — see `register`. `_inner_cls` is the only override:
+    `self._inner` is a `NativeStructuredOpenAILLMProvider`, so the delegated method exists to
+    forward, the same shape `stream_reporting_usage` above already takes for usage reporting.
+    """
+
+    _inner_cls: ClassVar[type[OpenAILLMProvider]] = NativeStructuredOpenAILLMProvider
+
+    async def complete_structured(
+        self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
+    ) -> Outcome[Completion]:
+        return await cast("NativeStructured", self._inner).complete_structured(
+            conv, schema, model=model, ctx=ctx
+        )
+
+
+class StructuredUsageReportingOnlyOpenAILLMProvider(UsageReportingOnlyOpenAILLMProvider):
+    """`UsageReportingOnlyOpenAILLMProvider`, with `complete_structured` added back.
+
+    Registered for `openai-compatible` when both `Settings.structured_output` and
+    `Settings.stream_usage` are true — see `register`. Inherits `stream_reporting_usage` from
+    `UsageReportingOnlyOpenAILLMProvider` and `complete_structured` below forwards the same way
+    `StructuredStreamOnlyOpenAILLMProvider` does; still not `TokenCounting`, for the reason
+    `UsageReportingOnlyOpenAILLMProvider`'s own docstring gives.
+    """
+
+    _inner_cls: ClassVar[type[OpenAILLMProvider]] = NativeStructuredOpenAILLMProvider
+
+    async def complete_structured(
+        self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
+    ) -> Outcome[Completion]:
+        return await cast("NativeStructured", self._inner).complete_structured(
+            conv, schema, model=model, ctx=ctx
+        )
+
+
 def register(registrar: PackRegistrar, settings: Settings) -> None:
     """Register the three `weft_openai` adapters against this account's own settings.
 
@@ -187,11 +236,14 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     which is the whole mechanism: one class describes what an account *is*, and each pack's block
     says what one account *holds*.
 
-    **The `LLMProvider` class is chosen from `settings.stream_usage` at registration time**
-    (repair R33.1, widened by task **32.6**): `UsageReportingOnlyOpenAILLMProvider` when the
-    account has opted in to the vendor's `stream_options.include_usage` field,
-    `StreamOnlyOpenAILLMProvider` — neither of which satisfies `weft_llm.contract.TokenCounting`
-    — otherwise. Never `OpenAILLMProvider` itself: since task 32.6 that class also satisfies
+    **The `LLMProvider` class is chosen from `settings.stream_usage` and
+    `settings.structured_output` at registration time** (repair R33.1, widened by task
+    **32.6** and again by **R41.5**): the `Structured*` variant when the account has opted in
+    to `response_format`, plain otherwise; `UsageReportingOnlyOpenAILLMProvider` or its
+    `Structured` sibling when the account has opted in to the vendor's
+    `stream_options.include_usage` field, `StreamOnlyOpenAILLMProvider` or its `Structured`
+    sibling otherwise — none of the four satisfies `weft_llm.contract.TokenCounting`. Never
+    `OpenAILLMProvider` or `NativeStructuredOpenAILLMProvider` directly: both also satisfy
     `TokenCounting`, and this account's model names are not the vendor's to count.
 
     `partial`, never a closure, for the reason `weft_openai.register` states and ledger task 9.4
@@ -200,11 +252,19 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     instance — which once cost a pack a silent absence from `weft delete`'s fan-out (`L9.55`).
     """
     registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings, account=ACCOUNT))
-    provider_class = (
-        UsageReportingOnlyOpenAILLMProvider
-        if settings.stream_usage
-        else StreamOnlyOpenAILLMProvider
-    )
+    provider_class: type[StreamOnlyOpenAILLMProvider]
+    if settings.structured_output:
+        provider_class = (
+            StructuredUsageReportingOnlyOpenAILLMProvider
+            if settings.stream_usage
+            else StructuredStreamOnlyOpenAILLMProvider
+        )
+    else:
+        provider_class = (
+            UsageReportingOnlyOpenAILLMProvider
+            if settings.stream_usage
+            else StreamOnlyOpenAILLMProvider
+        )
     registrar.add(LLMProvider, PROVIDER_NAME, partial(provider_class, settings, account=ACCOUNT))
     registrar.add(Describer, VISION_NAME, partial(OpenAIVisionDescriber, settings, account=ACCOUNT))
 
@@ -217,6 +277,8 @@ __all__ = [
     "VISION_NAME",
     "Settings",
     "StreamOnlyOpenAILLMProvider",
+    "StructuredStreamOnlyOpenAILLMProvider",
+    "StructuredUsageReportingOnlyOpenAILLMProvider",
     "UsageReportingOnlyOpenAILLMProvider",
     "register",
 ]

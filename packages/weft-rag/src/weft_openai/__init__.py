@@ -59,7 +59,7 @@ from weft_openai.embedder import (
 from weft_openai.embedder import NAME as EMBEDDER_NAME
 from weft_openai.llm import DEFAULT_MODEL as DEFAULT_LLM_MODEL
 from weft_openai.llm import NAME as PROVIDER_NAME
-from weft_openai.llm import OpenAILLMConfig, OpenAILLMProvider
+from weft_openai.llm import NativeStructuredOpenAILLMProvider, OpenAILLMConfig, OpenAILLMProvider
 from weft_openai.settings import Settings
 from weft_openai.vision import OpenAIVisionDescriber
 from weft_vision import Describer
@@ -129,9 +129,18 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     stage `with:` of its own — see `weft_llm.contract.LLMProvider`'s module
     docstring on why `model` is a per-call argument rather than constructor
     state — so its factory ignores the second positional argument entirely.
+
+    **The `LLMProvider` class is chosen from `settings.structured_output` at registration
+    time** — repair **R41.5**, the same precedent R33.1 set for `weft_openai_compatible`'s
+    `stream_usage`: `NativeStructuredOpenAILLMProvider` when the account has opted in to
+    `response_format`, plain `OpenAILLMProvider` — which carries no `complete_structured`
+    attribute at all — otherwise.
     """
     registrar.add(Embedder, EMBEDDER_NAME, partial(OpenAIEmbedder, settings, account=ACCOUNT))
-    registrar.add(LLMProvider, PROVIDER_NAME, partial(OpenAILLMProvider, settings, account=ACCOUNT))
+    provider_class = (
+        NativeStructuredOpenAILLMProvider if settings.structured_output else OpenAILLMProvider
+    )
+    registrar.add(LLMProvider, PROVIDER_NAME, partial(provider_class, settings, account=ACCOUNT))
     # `partial`, never a closure: `weft_kernel.registry.unwrap_factory` peels a `partial` and
     # nothing else, so a closure makes the class invisible to every reader that inspects a
     # factory rather than an instance — which cost ledger task 9.4 a pack silently absent from
@@ -147,6 +156,7 @@ __all__ = [
     "PROVIDER_NAME",
     "EmbeddingRequestFailedError",
     "MissingApiKeyError",
+    "NativeStructuredOpenAILLMProvider",
     "OpenAIEmbedder",
     "OpenAIEmbedderConfig",
     "OpenAILLMConfig",
