@@ -252,3 +252,65 @@ async def test_four_handles_opening_one_fresh_database_at_once_all_succeed(
     # Assert
     assert [c for c in counts if isinstance(c, BaseException)] == []
     assert counts == [0, 0, 0, 0]
+
+
+async def test_opening_a_handle_while_another_writes_never_deadlocks_the_writer(
+    store: PgVectorStore,
+) -> None:
+    """Carried repair **R43.5**, found by Exit A's first repeat after `R43.4`: the run died in
+    `store` with `DeadlockDetected` on `weft_node_productions`. Each `weft ask` opening the store
+    runs the productions backfill, which inserts a production for every committed node that has
+    none, and `add()` committed its nodes before their productions, so the backfill and the writer
+    inserted the same keys in two transactions in opposite orders. A node and its productions are
+    one write: no reader ever sees a node without them."""
+    # Arrange
+    sources = frozenset(SourceId(f"doc-{i}") for i in range(4))
+    batches = [
+        [
+            Node.synthetic(
+                content=f"batch {b} node {n}",
+                media_type=MediaType.TEXT,
+                reason="R43.5",
+                sources=sources,
+            ).with_embedding(Vector(values=(1.0, float(n), float(b))))
+            for n in range(300)
+        ]
+        for b in range(20)
+    ]
+    await store.add(batches[0])
+    writing = True
+
+    async def write() -> None:
+        nonlocal writing
+        try:
+            for batch in batches[1:]:
+                await store.add(batch)
+        finally:
+            writing = False
+
+    async def open_and_count() -> int:
+        opened = 0
+        while writing:
+            reader = _store()
+            try:
+                await reader.count()
+            finally:
+                await reader.aclose()
+            opened += 1
+        return opened
+
+    # Act
+    outcomes = await asyncio.gather(
+        write(), *(open_and_count() for _ in range(3)), return_exceptions=True
+    )
+
+    # Assert
+    assert [o for o in outcomes if isinstance(o, BaseException)] == []
+    assert await store.count() == 20 * 300
+    rows = await _execute(
+        sql.SQL(
+            "SELECT count(*) FROM weft_nodes n WHERE NOT EXISTS "
+            "(SELECT 1 FROM weft_node_productions p WHERE p.node_id = n.id)"
+        )
+    )
+    assert rows == [(0,)]

@@ -50,7 +50,8 @@ tuning this store needs.
 one. `autocommit=True` is deliberate — Phase 0's contract already states
 "durability is a guarantee, not a call" and "deletion is idempotent and
 resumable rather than atomic", so per-statement autocommit is sufficient and
-avoids a manual transaction lifecycle this contract does not ask for. The
+avoids a manual transaction lifecycle this contract does not ask for — except
+`add()`, whose nodes and productions commit together (R43.5). The
 `vector` extension and this store's two tables are created, idempotently, on
 first connect — a store that requires a human to have already run a
 migration before `weft index` works once is exactly the friction a walking
@@ -1406,7 +1407,9 @@ class PgVectorStore:
             for node in nodes
             for source in node.lineage.sources
         ]
-        async with conn.cursor() as cur:
+        # One transaction, R43.5: committed apart, a node without its productions is what the
+        # backfill a concurrent opener runs inserts for, and the two writers deadlock on the keys.
+        async with conn.transaction(), conn.cursor() as cur:
             await cur.executemany(
                 """
                 INSERT INTO weft_nodes (id, parents, sources, content, media_type, embedding, ext)
