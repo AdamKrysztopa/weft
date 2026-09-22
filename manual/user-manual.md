@@ -219,8 +219,10 @@ previous index of this document did not finish*. Before this, a killed run left 
 and the half-written documents were indistinguishable from ones nobody had ever indexed.
 
 **A document that failed is recorded as failed, and later runs skip it until you ask.** When a
-stage refuses or raises on a batch, every document in that batch is recorded *failed*, with the
-stage, the error and an attempt count. The nodes it half-wrote are removed. The next `weft index`
+stage refuses a batch, `weft index` runs that batch's documents again one at a time, so only a
+document that fails on its own is recorded *failed*, with the stage, the error and an attempt
+count. When a stage raises instead, which is how a service fault arrives, every document in the
+batch is recorded *failed* and the run stops. The nodes a failure half-wrote are removed. The next `weft index`
 does not try it again unasked, because on a pipeline with a model stage every retry is paid for.
 It says so instead:
 

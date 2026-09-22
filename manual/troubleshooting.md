@@ -4227,8 +4227,9 @@ failure unasked: on a pipeline with a model stage, every retry is paid for.
 
 **What to do:** run `weft sources list --status failed` to see which stage failed and why. Fix the
 file and run `weft index` again, or run `weft index --retry-failed` if the cause was outside the
-file. If the failed batch held several documents, re-index with `--batch-size 1` to find which one
-it was. `weft delete <source-id>` abandons it.
+file. A refused document is recorded on its own, since the others in its batch are run again
+without it. A stage that raised records every document of its batch. `weft delete <source-id>`
+abandons it.
 
 ### `CorpusHasFailedSourcesError`
 

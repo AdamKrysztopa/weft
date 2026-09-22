@@ -592,12 +592,13 @@ async def test_a_cancelled_run_records_no_failure(tmp_path: Path) -> None:
     assert all(record.status is not SourceStatus.FAILED for record in store.records.values())
 
 
-async def test_every_member_of_a_failed_batch_is_failed_and_only_a_batch_of_one_counts(
+async def test_a_failed_batch_fails_only_its_bad_document_and_counts_only_its_attempts(
     tmp_path: Path,
 ) -> None:
-    """A good document in a failed batch got no nodes, so `FAILED` is true of it too; but one bad
-    file must not march a whole corpus's attempt counts upward."""
-    # Arrange — the default batch is the whole corpus.
+    """Carried repair R43.1 supersedes this test's 36.1 form, in which every member of a failed
+    batch was `FAILED`. Now the batch's documents are run again one at a time, so the good one is
+    `ACTIVE`. One bad file still does not advance anything but its own attempts."""
+    # Arrange: the default batch is the whole corpus.
     (tmp_path / "a_good.txt").write_text("hello weft")
     (tmp_path / "b_bad.txt").write_text("unreadable")
     store = _RecordingStore(None)
@@ -605,15 +606,17 @@ async def test_every_member_of_a_failed_batch_is_failed_and_only_a_batch_of_one_
     _RefusingChunker.refuse = "b_bad.txt"
     await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text")
 
-    # Act — retried together, still failing.
+    # Act: retried, still failing.
     await run_index(tmp_path, registry=registry, ctx=_ctx(), extractor="text", retry_failed=True)
 
     # Assert
-    for name in ("a_good.txt", "b_bad.txt"):
-        record = store.records[_source_id(tmp_path, name)]
-        assert record.status is SourceStatus.FAILED
-        assert record.failure is not None
-        assert record.failure.attempts == 1
+    good = store.records[_source_id(tmp_path, "a_good.txt")]
+    bad = store.records[_source_id(tmp_path, "b_bad.txt")]
+    assert good.status is SourceStatus.ACTIVE
+    assert good.failure is None
+    assert bad.status is SourceStatus.FAILED
+    assert bad.failure is not None
+    assert bad.failure.attempts == 2
 
 
 async def test_a_document_failing_alone_again_advances_its_attempts(tmp_path: Path) -> None:

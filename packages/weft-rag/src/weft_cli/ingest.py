@@ -819,7 +819,10 @@ async def run_index(
         # Ledger **36.1** — a batch this loop could not finish is recorded `FAILED` rather than
         # left `INDEXING`: a batch `runner.run` returns `Failed` for is read off `RunSummary`
         # below; a batch it raises out of is caught here, recorded, and re-raised unchanged —
-        # `CancelledError` above all is never one of the exceptions this catches.
+        # `CancelledError` above all is never one of the exceptions this catches. **R43.1**
+        # narrows this: a batch of more than one document that returns `Failed` is re-run one
+        # document at a time before anything is recorded, so a service fault still raises and
+        # stops the run, but only a document that fails alone is recorded `FAILED`.
         counts: list[RunSummary] = []
         indexed_count = 0
         failed_count = 0
@@ -840,8 +843,8 @@ async def run_index(
                         message=str(exc),
                     )
                     raise
-            counts.append(batch_summary)
             if batch_summary.failed == 0:
+                counts.append(batch_summary)
                 await _record_sources(
                     runnable,
                     store_stage_ids=store_stage_ids,
@@ -850,7 +853,8 @@ async def run_index(
                     identity=identity,
                 )
                 indexed_count += len(batch)
-            else:
+            elif len(batch) == 1:
+                counts.append(batch_summary)
                 message = "; ".join(batch_summary.failed_reasons) or "the batch failed"
                 await _record_batch_failure(
                     runnable,
@@ -863,7 +867,21 @@ async def run_index(
                     stage=_failing_stage(scope.records),
                     message=message,
                 )
-                failed_count += len(batch)
+                failed_count += 1
+            else:
+                singles, indexed_delta, failed_delta = await _rerun_batch_singly(
+                    runner,
+                    runnable,
+                    batch,
+                    indexing_ctx,
+                    store_stage_ids=store_stage_ids,
+                    previous=previous,
+                    identity=identity,
+                    pipeline=pipeline,
+                )
+                counts.extend(singles)
+                indexed_count += indexed_delta
+                failed_count += failed_delta
         summary = _summed(counts)
         # Ledger **36.2** — a source this run left `FAILED` keeps that record exactly as
         # `_record_batch_failure` wrote it: `attempted` already excludes it (it was never
@@ -1421,6 +1439,68 @@ def _require_corpus_directory(directory: Path) -> None:
 
 async def _one(batch: tuple[SourceDoc, ...]) -> AsyncIterator[object]:
     yield batch
+
+
+async def _rerun_batch_singly(
+    runner: Runner,
+    runnable: RunnablePipeline,
+    batch: Sequence[SourceDoc],
+    indexing_ctx: Context,
+    *,
+    store_stage_ids: Sequence[str],
+    previous: Mapping[SourceId, SourceRecord],
+    identity: str,
+    pipeline: str | None,
+) -> tuple[list[RunSummary], int, int]:
+    """R43.1 — a batch of more than one document that returned `Failed` is re-run alone, one
+    document at a time, so only a document that fails alone is recorded `FAILED`; a service
+    fault still raises through `_record_batch_failure` for that one document and stops the run.
+    """
+    summaries: list[RunSummary] = []
+    indexed = 0
+    failed = 0
+    for doc in batch:
+        with recording() as doc_scope:
+            try:
+                doc_summary = await runner.run(runnable, _one((doc,)), indexing_ctx)
+            except WeftError as exc:
+                await _record_batch_failure(
+                    runnable,
+                    store_stage_ids=store_stage_ids,
+                    batch=(doc,),
+                    previous=previous,
+                    identity=identity,
+                    pipeline=pipeline,
+                    error_type=type(exc).__name__,
+                    stage=exc.stage,
+                    message=str(exc),
+                )
+                raise
+        summaries.append(doc_summary)
+        if doc_summary.failed == 0:
+            await _record_sources(
+                runnable,
+                store_stage_ids=store_stage_ids,
+                docs=(doc,),
+                pipeline=pipeline,
+                identity=identity,
+            )
+            indexed += 1
+        else:
+            message = "; ".join(doc_summary.failed_reasons) or "the batch failed"
+            await _record_batch_failure(
+                runnable,
+                store_stage_ids=store_stage_ids,
+                batch=(doc,),
+                previous=previous,
+                identity=identity,
+                pipeline=pipeline,
+                error_type="Failed",
+                stage=_failing_stage(doc_scope.records),
+                message=message,
+            )
+            failed += 1
+    return summaries, indexed, failed
 
 
 def _summed(summaries: Sequence[RunSummary]) -> RunSummary:
