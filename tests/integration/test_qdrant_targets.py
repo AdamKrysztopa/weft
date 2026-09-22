@@ -184,3 +184,24 @@ async def test_a_store_opened_after_a_promote_reads_the_new_live_target(
     assert count_after == 2
     assert (await store.target_catalogue()).live == "w128"
     await store.aclose()
+
+
+async def test_reading_a_store_creates_no_catalogue_collection(settings: QdrantSettings) -> None:
+    """Found when Qdrant was OOM-killed twice at `34.7`: every store that opened created
+    `<collection>__targets`, and every older test fixture drops only the pair it knew of, so each
+    gate run leaked hundreds of catalogues — 1,025 of 1,039 collections, 8.3 GiB at start. The
+    catalogue is created by the first thing that writes to it, never by opening or reading."""
+    # Arrange
+    store = QdrantStore(settings)
+
+    # Act
+    await store.add([_node("live", (1.0, 0.0, 0.0))])
+    catalogue = await store.target_catalogue()
+    await store.aclose()
+    client = AsyncQdrantClient(url=_QDRANT_URL)
+    catalogue_exists = await client.collection_exists(f"{settings.collection}__targets")
+    await client.close()
+
+    # Assert
+    assert catalogue.live == DEFAULT_TARGET
+    assert not catalogue_exists

@@ -439,12 +439,6 @@ class QdrantStore:
                 timeout=self._settings.timeout_seconds,
             )
         )
-        if not await client.collection_exists(self._catalogue):
-            # Vector-less, like `self._sources` — a catalogue point has nothing to be similar
-            # to either. Created here, before the live target is even read, so a database
-            # written before targets existed (no catalogue collection at all) gets one with
-            # nothing in it rather than failing to resolve `default` at all.
-            await client.create_collection(self._catalogue, vectors_config={})
         target = self._bound if self._bound is not None else await self._read_live_target(client)
         self._active_target = target
         if target == DEFAULT_TARGET:
@@ -620,6 +614,8 @@ class QdrantStore:
         """The live target the pointer point names, or `DEFAULT_TARGET` when there is none yet
         — `34.2`'s upgrade clause, held for this handle's lifetime by its one caller.
         """
+        if not await client.collection_exists(self._catalogue):
+            return DEFAULT_TARGET
         records = await client.retrieve(self._catalogue, ids=[_POINTER_POINT_ID], with_payload=True)
         if not records or records[0].payload is None:
             return DEFAULT_TARGET
@@ -630,10 +626,20 @@ class QdrantStore:
         the fact `_open_candidate` reads to decide "catalogued" and `claim_embedding` reads to
         decide whether an identity is already held.
         """
+        if not await client.collection_exists(self._catalogue):
+            return None
         records = await client.retrieve(
             self._catalogue, ids=[_target_point_id(name)], with_payload=True
         )
         return records[0] if records else None
+
+    async def _ensure_catalogue(self, client: AsyncQdrantClient) -> None:
+        """Create `<collection>__targets` before the first write to it, and never on open or on a
+        read: a store that only ever serves `default` keeps the two collections it always had.
+        Vector-less, like `self._sources`.
+        """
+        if not await client.collection_exists(self._catalogue):
+            await client.create_collection(self._catalogue, vectors_config={})
 
     async def _register_target_if_needed(self, client: AsyncQdrantClient) -> None:
         """The catalogue point a non-default target earns on its first write — never on a bind,
@@ -645,6 +651,7 @@ class QdrantStore:
             return
         if await self._catalogue_point(client, target) is not None:
             return
+        await self._ensure_catalogue(client)
         await client.upsert(
             self._catalogue,
             points=[
@@ -662,6 +669,8 @@ class QdrantStore:
         "the targets that exist" offers.
         """
         names: set[str] = {DEFAULT_TARGET}
+        if not await client.collection_exists(self._catalogue):
+            return tuple(sorted(names))
         offset: models.ExtendedPointId | None = None
         while True:
             records, next_offset = await client.scroll(
@@ -1272,6 +1281,13 @@ class QdrantStore:
 
     async def target_catalogue(self) -> TargetCatalogue:
         client = await self._connection()
+        if not await client.collection_exists(self._catalogue):
+            return TargetCatalogue(
+                live=DEFAULT_TARGET,
+                previous=None,
+                targets=(TargetRecord(name=DEFAULT_TARGET),),
+                promotion=None,
+            )
         pointer = await client.retrieve(self._catalogue, ids=[_POINTER_POINT_ID], with_payload=True)
         payload = pointer[0].payload if pointer and pointer[0].payload is not None else None
         live = TargetName(cast(str, payload["live"])) if payload is not None else DEFAULT_TARGET
@@ -1333,6 +1349,7 @@ class QdrantStore:
         held = point.payload.get("embedding") if point is not None and point.payload else None
         if held is not None:
             return EmbeddingIdentity.model_validate(held)
+        await self._ensure_catalogue(client)
         await client.upsert(
             self._catalogue,
             points=[
@@ -1359,6 +1376,7 @@ class QdrantStore:
                 promotion.target, valid_options=await self._catalogue_names(client)
             )
         old_live = await self._read_live_target(client)
+        await self._ensure_catalogue(client)
         await client.upsert(
             self._catalogue,
             points=[
@@ -1379,6 +1397,8 @@ class QdrantStore:
 
     async def rollback(self) -> TargetCatalogue:
         client = await self._connection()
+        if not await client.collection_exists(self._catalogue):
+            raise NoPreviousTargetError(DEFAULT_TARGET)
         pointer = await client.retrieve(self._catalogue, ids=[_POINTER_POINT_ID], with_payload=True)
         payload = pointer[0].payload if pointer and pointer[0].payload is not None else None
         live = TargetName(cast(str, payload["live"])) if payload is not None else DEFAULT_TARGET
@@ -1388,6 +1408,7 @@ class QdrantStore:
         # `promotion` is carried over unchanged — the record of the last `promote` call, not
         # reset by a `rollback`, matching `weft_store.pgvector_store.PgVectorStore.rollback`.
         promotion_json = payload.get("promotion") if payload is not None else None
+        await self._ensure_catalogue(client)
         await client.upsert(
             self._catalogue,
             points=[
@@ -1423,6 +1444,7 @@ class QdrantStore:
             if await client.collection_exists(name):
                 await client.delete_collection(name)
         # A no-op if `target` never earned a catalogue point — `default` usually has none.
+        await self._ensure_catalogue(client)
         await client.delete(
             self._catalogue,
             points_selector=models.PointIdsList(points=[_target_point_id(target)]),
