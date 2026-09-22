@@ -4899,3 +4899,20 @@ and the graph from another. Weft refuses rather than mix them.
 
 **What to do:** run the promote again: a store that already moved is left as it is, and the other
 catches up. Or roll back.
+
+### `EmbedConfigRefusedError`
+
+**What it looks like:** a `[services.embed_config]` key the selected embedder does not have:
+
+```text
+[services.embed_config] names 'dimensions', which the 'hash' embedder does not take — it takes:
+dimension
+```
+
+**Why:** `[services.embed_config]` configures the embedder that embeds your questions. It is
+checked against that embedder's own settings, and a key it would ignore is refused, because an
+ignored key makes the question embed differently from the index you think you are asking.
+
+**What to do:** use one of the keys the message lists. To ask an index built with a configured
+embedder, set the same configuration here, for example `dimension = 128` for a hash index built at
+width 128. `weft target list` shows how each target was built.

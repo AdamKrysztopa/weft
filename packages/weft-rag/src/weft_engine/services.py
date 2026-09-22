@@ -66,10 +66,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Final, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_engine.service_roles import RoleTable
 from weft_kernel.errors import UnresolvedNameError, WeftError
+from weft_kernel.registry import Registry, unwrap_factory
 
 #: `weft-embed`'s deterministic embedder — see the module docstring on why the offline
 #: one is the default rather than merely available.
@@ -201,6 +202,11 @@ class ServiceSelection(BaseModel):
     #: (`weft_engine.service_roles.RoleTable`'s own module docstring).
     roles: Mapping[str, str] = {}
 
+    #: `[services.embed_config]` — carried repair **R34.4**: the configuration the *query* side
+    #: builds `embed` with, validated against that embedder's own `config_model` where it is
+    #: built (`embed_config_for`). Empty means the embedder's defaults, as before.
+    embed_config: Mapping[str, object] = {}
+
     def selection_for(self, key: str) -> str | None:
         """The plugin name selected for role `key`, or `None` where nothing is.
 
@@ -274,7 +280,14 @@ def service_selection_from_config(
             f"weft.toml's [services] must be a table, not {type(services).__name__} — found "
             f'`services = {services!r}`. Did you mean `[services]\\nembed = "openai-embeddings"`?'
         )
-    written = cast("dict[str, object]", services)
+    written = dict(cast("dict[str, object]", services))
+    embed_config = written.pop(_EMBED_CONFIG_KEY, None)
+    if embed_config is not None and not isinstance(embed_config, dict):
+        raise WeftError(
+            f"weft.toml's [services.{_EMBED_CONFIG_KEY}] must be a table, not "
+            f"{type(embed_config).__name__} — found `{_EMBED_CONFIG_KEY} = {embed_config!r}`. "
+            f"Did you mean `[services.{_EMBED_CONFIG_KEY}]` with `dimension = 128` under it?"
+        )
     unknown = sorted(key for key in written if key not in known)
     if unknown:
         raise UnknownServiceKeyError(
@@ -294,4 +307,56 @@ def service_selection_from_config(
         key: value for key, value in written.items() if key not in ("embed", "store", "route")
     }
     base = {key: value for key, value in written.items() if key in ("embed", "store", "route")}
-    return ServiceSelection.model_validate({**base, "roles": role_selections})
+    return ServiceSelection.model_validate(
+        {
+            **base,
+            "roles": role_selections,
+            "embed_config": cast("dict[str, object]", embed_config or {}),
+        }
+    )
+
+
+_EMBED_CONFIG_KEY: Final[str] = "embed_config"
+
+
+class EmbedConfigRefusedError(WeftError):
+    """`[services.embed_config]` does not fit the selected embedder — carried repair R34.4."""
+
+
+def embed_config_for(registry: Registry, selection: ServiceSelection) -> object:
+    """The query embedder's configuration: `None` for an empty `[services.embed_config]`,
+    otherwise the selected embedder's own `config_model` validated from it, refused by name when
+    a key does not fit. An ignored key would embed questions differently from the index being
+    asked, which the per-target identity check then refuses with less to go on.
+    """
+    if not selection.embed_config:
+        return None
+    # Imported here, not at module scope: `weft --version` imports this module and must load no
+    # pack's code (fitness function 8(b)).
+    from weft_embed import Embedder
+
+    declared = unwrap_factory(registry.entry(Embedder, selection.embed).factory)
+    config_model = getattr(declared, "config_model", None)
+    fields: tuple[str, ...] = (
+        tuple(sorted(cast("type[BaseModel]", config_model).model_fields))
+        if isinstance(config_model, type)
+        else ()
+    )
+    unknown = sorted(key for key in selection.embed_config if key not in fields)
+    if config_model is None or unknown:
+        named = ", ".join(repr(key) for key in unknown or sorted(selection.embed_config))
+        takes = ", ".join(fields) or "no settings"
+        raise EmbedConfigRefusedError(
+            f"[services.{_EMBED_CONFIG_KEY}] names {named}, which the {selection.embed!r} "
+            f"embedder does not take — it takes: {takes}"
+        )
+    try:
+        return cast("type[BaseModel]", config_model).model_validate(dict(selection.embed_config))
+    except ValidationError as exc:
+        raise EmbedConfigRefusedError(
+            f"[services.{_EMBED_CONFIG_KEY}] does not fit the {selection.embed!r} embedder: "
+            + "; ".join(
+                f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+                for error in exc.errors()
+            )
+        ) from exc

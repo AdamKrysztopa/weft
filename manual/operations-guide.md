@@ -317,7 +317,16 @@ stores, every command refuses (`TargetPointersDisagreeError`) until you run the 
 
 **4. Watch, then keep or roll back.** A running command finishes against the target it started
 with. The next command reads the new live target, including an embedded `Weft` session's next
-call. Questions must now be embedded with the new model, or they are refused by name.
+call. Questions must now be embedded the way the new target was built, or they are refused by
+name. Set `[services] embed` to the new embedder and, if its pipeline configured it, the same
+configuration under `[services.embed_config]`, for example:
+
+```toml
+[services.embed_config]
+dimension = 128
+```
+
+A key the embedder does not take is refused, naming the keys it does.
 
 ```bash
 weft target rollback

@@ -158,6 +158,7 @@ from weft_engine.registry_bootstrap import (
     require_active,
     require_plugin,
 )
+from weft_engine.services import embed_config_for
 from weft_engine.targets import StoreHoldsNoTargetsError, bind_store, require_existing_target
 from weft_eval.run_record import (
     CorpusDigestBasis,
@@ -1145,6 +1146,7 @@ class AskCommand:
             embedder=deps.services.embed,
             store=deps.services.store,
             target=ask_args.target,
+            embedder_config=embed_config_for(deps.registry, deps.services),
         )
         explanations: tuple[str, ...] = ()
         if ask_args.explain:

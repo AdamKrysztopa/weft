@@ -62,7 +62,7 @@ from weft_engine.contract_reference import capability_siblings
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.service_roles import RoleTable
-from weft_engine.services import ServiceSelection
+from weft_engine.services import ServiceSelection, embed_config_for
 from weft_engine.targets import (
     StoreHoldsNoTargetsError,
     bind_store,
@@ -573,7 +573,7 @@ async def build_services(
     )
     registered.add(NodeStore, store_instance)
     embedder_entry = registry.entry(Embedder, services.embed)
-    embedder_instance = embedder_entry.factory(None)
+    embedder_instance = embedder_entry.factory(embed_config_for(registry, services))
     registered.add(Embedder, cast(Embedder, embedder_instance))
     # Ledger task **34.4** — read-only, before any query-path stage can reach either service:
     # a query embedded a different way than the target it asks was built with is refused here,

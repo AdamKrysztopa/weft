@@ -106,6 +106,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   target (`TargetPointersDisagreeError`), until the promote is run again, which finishes it.
   Promoting the target that is already live changes nothing. A `weft index` that was writing the
   live target when another process promoted a different one finishes where it started and says so.
+- **`[services.embed_config]` configures the embedder that embeds your questions.** An index built
+  by a configured embedder, such as `hash` at `dimension: 128` or OpenAI with `dimensions`, can now
+  be asked: put the same configuration here. It is checked against the embedder's own settings,
+  and a key it does not take is refused by name (`EmbedConfigRefusedError`). A named pipeline's
+  own embed stage still wins.
 - **A document that failed to index is recorded as failed, and you can find it.** `weft index`
   records every document of a batch that a stage refused or raised on as `failed`, with the
   stage, the error, an attempt count and the time, and removes what it half-wrote. Later runs skip
