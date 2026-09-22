@@ -18,6 +18,7 @@ precedent.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -224,3 +225,30 @@ async def test_a_target_another_open_store_is_bound_to_cannot_be_dropped(
     await writer.aclose()
     await store.drop_target(target_name("w256"))
     assert "w256" not in {record.name for record in (await store.target_catalogue()).targets}
+
+
+async def test_four_handles_opening_one_fresh_database_at_once_all_succeed(
+    store: PgVectorStore,
+) -> None:
+    """Carried repair **R43.4**, found running Exit A: `weft ask` in a second shell opened the
+    store while the first `weft index` was still creating the schema, and the run died with
+    `UniqueViolation: duplicate key ... pg_extension_name_index`. `CREATE EXTENSION IF NOT
+    EXISTS` is not atomic against a concurrent creator, and neither is the rest of this store's
+    open-time DDL. Reproduced minimally: four handles opening one fresh database together, three
+    of them raised. That is precisely this phase's own scenario — asking while the corpus
+    indexes — so the store has to survive it."""
+    # Arrange: `store` owns a database nothing has opened yet, and is not itself opened first.
+    others = [_store() for _ in range(3)]
+
+    # Act
+    try:
+        counts = await asyncio.gather(
+            store.count(), *(other.count() for other in others), return_exceptions=True
+        )
+    finally:
+        for other in others:
+            await other.aclose()
+
+    # Assert
+    assert [c for c in counts if isinstance(c, BaseException)] == []
+    assert counts == [0, 0, 0, 0]

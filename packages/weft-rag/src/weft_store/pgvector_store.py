@@ -168,6 +168,10 @@ _PAGE_SIZE = 100
 
 _CREATE_EXTENSION = "CREATE EXTENSION IF NOT EXISTS vector"
 
+#: Shared by every opener of the *same database*, never per target — see `_connection`, which
+#: takes this before the open-time DDL block and releases it once that block finishes.
+_SCHEMA_LOCK_KEY = "weft_store:schema"
+
 _CREATE_SOURCES_TABLE = """
 CREATE TABLE IF NOT EXISTS weft_sources (
     id TEXT PRIMARY KEY,
@@ -1163,37 +1167,48 @@ class PgVectorStore:
         # target, would otherwise create `vector` inside that target's schema instead of the
         # home one, and every later default-target connection would find no `vector` type at
         # all — measured, `34.0`.
-        async with conn.cursor() as cur:
-            await cur.execute(_CREATE_EXTENSION)
-        # `pgvector`'s type adapter looks the `vector` type up by name in the database's own
-        # catalog, so it must register *after* `CREATE EXTENSION` has run at least once, never
-        # before — a fresh database has no `vector` type until this statement creates it.
-        await register_vector_async(conn)
-        target = await _pg_resolve_active_target(_TARGET_LAYOUT, conn, home_schema, self._bound)
-        self._active_target = target
-        async with conn.cursor() as cur:
-            await cur.execute(_CREATE_SOURCES_TABLE)
-            await cur.execute(_ADD_SOURCES_PIPELINE_IDENTITY)
-            await cur.execute(_ADD_SOURCES_FAILURE)
-            await cur.execute(_CREATE_NODES_TABLE)
-            await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
-            await cur.execute(_ADD_NODE_PRODUCTIONS_FK)
-            await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
-            await self._provision_text_index(cur)
-            # R38.7: a generic plan cannot know how many rows a question's words match — it
-            # estimated 948 of ~150,000 over Open RAGBench, and a lexical search took 1,880 ms
-            # against its own custom plan's 373 ms from the sixth execution on.
-            await cur.execute("SET plan_cache_mode = force_custom_plan")
-            if self._index is VectorIndexKind.HNSW:
-                await self._require_iterative_scan_support(cur)
-                # Set once per connection, not per query: this store owns `conn` exclusively for
-                # its lifetime (cached on `self._conn` above), so a session GUC set here already
-                # applies to every `search_vector` call the connection ever serves.
-                await cur.execute(
-                    sql.SQL("SET hnsw.iterative_scan = {value}").format(
-                        value=sql.Literal(self._iterative_scan.value)
+        #
+        # `IF NOT EXISTS` is not atomic against a concurrent creator — measured, R43.4: four
+        # handles opening one fresh database together, and `CREATE EXTENSION`, both catalogue
+        # tables and every table/index/column below each raised `DuplicateTable`/`UniqueViolation`
+        # against each other. `_SCHEMA_LOCK_KEY`, held for this block only and released in
+        # `finally`, serialises every opener of this database.
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT pg_advisory_lock(hashtext(%s))", (_SCHEMA_LOCK_KEY,))
+                await cur.execute(_CREATE_EXTENSION)
+            # `pgvector`'s type adapter looks the `vector` type up by name in the database's own
+            # catalog, so it must register *after* `CREATE EXTENSION` has run at least once, never
+            # before — a fresh database has no `vector` type until this statement creates it.
+            await register_vector_async(conn)
+            target = await _pg_resolve_active_target(_TARGET_LAYOUT, conn, home_schema, self._bound)
+            self._active_target = target
+            async with conn.cursor() as cur:
+                await cur.execute(_CREATE_SOURCES_TABLE)
+                await cur.execute(_ADD_SOURCES_PIPELINE_IDENTITY)
+                await cur.execute(_ADD_SOURCES_FAILURE)
+                await cur.execute(_CREATE_NODES_TABLE)
+                await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
+                await cur.execute(_ADD_NODE_PRODUCTIONS_FK)
+                await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
+                await self._provision_text_index(cur)
+                # R38.7: a generic plan cannot know how many rows a question's words match — it
+                # estimated 948 of ~150,000 over Open RAGBench, and a lexical search took 1,880 ms
+                # against its own custom plan's 373 ms from the sixth execution on.
+                await cur.execute("SET plan_cache_mode = force_custom_plan")
+                if self._index is VectorIndexKind.HNSW:
+                    await self._require_iterative_scan_support(cur)
+                    # Set once per connection, not per query: this store owns `conn` exclusively
+                    # for its lifetime (cached on `self._conn` above), so a session GUC set here
+                    # already applies to every `search_vector` call the connection ever serves.
+                    await cur.execute(
+                        sql.SQL("SET hnsw.iterative_scan = {value}").format(
+                            value=sql.Literal(self._iterative_scan.value)
+                        )
                     )
-                )
+        finally:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (_SCHEMA_LOCK_KEY,))
         self._conn = conn
         return conn
 
