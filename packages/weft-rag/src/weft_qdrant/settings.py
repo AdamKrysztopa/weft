@@ -119,6 +119,10 @@ class QdrantSettings(BaseModel):
     #: only way a test collection of a few hundred points ever leaves the exact-search regime.
     indexing_threshold: int | None = Field(default=None, ge=1)
 
+    #: How long a writer's lease on a non-`default` target outlives its last write — **R34.10**;
+    #: a writer that crashed blocks `drop_target` for at most this long.
+    target_lease_seconds: int = Field(default=600, gt=0)
+
     #: Every key filtered against Qdrant needs a payload index created **before** the first
     #: point is written — task **31.1**: filterable-HNSW edges are generated only for data
     #: indexed after the payload index exists, so an index created later still answers filters

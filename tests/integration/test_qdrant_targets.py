@@ -18,6 +18,7 @@ wider embedder is the case this phase exists for, and `vector_size` describes `d
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -30,7 +31,7 @@ from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedR
 from weft_kernel.payload import MediaType, Node, SourceId, Vector
 from weft_qdrant import QdrantSettings, QdrantStore
 from weft_qdrant.store import TargetCollectionMissingError
-from weft_store.contract import DEFAULT_TARGET, Promotion, target_name
+from weft_store.contract import DEFAULT_TARGET, Promotion, TargetInUseError, target_name
 
 _QDRANT_URL = os.environ.get("WEFT_QDRANT_URL", "http://localhost:6333")
 
@@ -205,3 +206,46 @@ async def test_reading_a_store_creates_no_catalogue_collection(settings: QdrantS
     # Assert
     assert catalogue.live == DEFAULT_TARGET
     assert not catalogue_exists
+
+
+async def test_a_target_another_open_store_has_written_to_cannot_be_dropped(
+    settings: QdrantSettings,
+) -> None:
+    """Carried repair **R34.10**: Qdrant has no session lock, so a handle that has written to a
+    target holds an expiring lease on it, and a drop is refused while that lease is live —
+    the refusal pgvector and the graph store make through an advisory lock."""
+    # Arrange
+    store = QdrantStore(settings)
+    await store.add([_node("live", (1.0, 0.0, 0.0))])
+    writer = await QdrantStore(settings).bind_target(target_name("w256"))
+    await writer.add([_node("candidate", (0.0, 1.0, 0.0))])
+
+    # Act / Assert
+    with pytest.raises(TargetInUseError) as caught:
+        await store.drop_target(target_name("w256"))
+    assert "'w256'" in str(caught.value)
+    await writer.aclose()
+    await store.drop_target(target_name("w256"))
+    assert "w256" not in {record.name for record in (await store.target_catalogue()).targets}
+    await store.aclose()
+
+
+async def test_a_lease_left_by_a_writer_that_never_closed_expires(
+    settings: QdrantSettings,
+) -> None:
+    """A writer that crashed never releases its lease, so the lease carries its own expiry
+    (`[packs.qdrant] target_lease_seconds`) rather than blocking a drop forever."""
+    # Arrange
+    short = settings.model_copy(update={"target_lease_seconds": 1})
+    store = QdrantStore(short)
+    await store.add([_node("live", (1.0, 0.0, 0.0))])
+    abandoned = await QdrantStore(short).bind_target(target_name("w128"))
+    await abandoned.add([_node("candidate", (0.0, 1.0, 0.0))])
+
+    # Act
+    await asyncio.sleep(1.5)
+    await store.drop_target(target_name("w128"))
+
+    # Assert
+    assert "w128" not in {record.name for record in (await store.target_catalogue()).targets}
+    await store.aclose()

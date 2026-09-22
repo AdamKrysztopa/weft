@@ -4695,11 +4695,14 @@ first write into it, so a candidate you have not indexed yet does not exist.
 ```
 
 **Why:** dropping a target deletes everything in it. The live target is serving reads, and the
-previous one is what a rollback would restore, so neither is dropped. On pgvector the same error
-also refuses a target another open connection is still using.
+previous one is what a rollback would restore, so neither is dropped. The same error, ending
+*another connection is bound to it* (pgvector) or *another handle is bound to it* (Qdrant), refuses
+a target another command is still writing to. On Qdrant that claim is a lease, so a writer that
+crashed holds it until `[packs.qdrant] target_lease_seconds` (default 600) has passed.
 
 **What to do:** promote another target first, so the one you want to drop is neither live nor
-previous. Or wait for the other command to finish.
+previous. Or wait for the other command to finish, or, on Qdrant after a crash, for the lease to
+expire.
 
 ### `NoPreviousTargetError`
 

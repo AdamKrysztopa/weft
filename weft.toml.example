@@ -255,6 +255,12 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # timeout_seconds = 30
 # bm25_avg_doc_len = 256.0
 #
+# `target_lease_seconds` is how long a writer's claim on a `--target` outlives its last
+# write. `weft target drop` refuses a target another process holds; a writer that crashed
+# without closing blocks the drop for at most this long.
+#
+# target_lease_seconds = 600
+#
 # The vector arm, named from the same closed vocabulary `[packs.store]` uses — one set of
 # words across both backends, so an index kind means the same thing wherever you write it.
 #

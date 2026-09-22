@@ -82,16 +82,21 @@ first `add()` or `put_source()` creates the pair, sized to the width of the firs
 vector that call carries rather than to `[packs.qdrant] vector_size`, which describes `default`
 alone; a read against it before that first write answers empty rather than touching Qdrant. A
 catalogued target whose collection has gone missing is refused by name
-(`TargetCollectionMissingError`) rather than silently recreated empty — Qdrant has no
-locking, so unlike `weft_store.pgvector_store`'s advisory lock this is the only refusal a
-missing target earns.
+(`TargetCollectionMissingError`) rather than silently recreated empty. Qdrant has no session
+lock, so `drop_target`'s refusal that another handle is bound to a target comes from an
+expiring lease instead (**R34.10**): a handle that writes to a non-`default` target holds a
+lease point in the catalogue, written on its first write and renewed on every later one,
+released by `aclose`, and left to expire after `[packs.qdrant] target_lease_seconds` if the
+writer never closes — so a crashed writer blocks a drop for at most that long, and a handle
+that only reads takes no lease at all.
 """
 
 import asyncio
+import time
 from collections.abc import Mapping, Sequence
 from functools import partial
 from typing import Any, ClassVar, Final, Self, cast
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from qdrant_client import AsyncQdrantClient, models
 
@@ -177,6 +182,14 @@ def _target_point_id(name: str) -> str:
     than accumulating a second one.
     """
     return str(uuid5(_TARGET_ID_NAMESPACE, name))
+
+
+def _lease_point_id(collection: str, target: str, holder: str) -> str:
+    """A handle's own write-lease point id on `target` — **R34.10**, deterministic per
+    `(collection, target, holder)` like `_target_point_id` is per `(catalogue, name)`, so a
+    renewal upserts the same point rather than accumulating one per write.
+    """
+    return str(uuid5(_TARGET_ID_NAMESPACE, f"lease:{collection}:{target}:{holder}"))
 
 
 #: Weft's own payload-index vocabulary, mapped onto the driver's — task **31.1**. A Weft-side
@@ -375,6 +388,9 @@ class QdrantStore:
         #: `default`, or a candidate's own first-write width once `_ensure_pair_provisioned` or
         #: `_open_candidate` has read it. `None` only before either has run.
         self._vector_width: int | None = None
+        self._holder: str = uuid4().hex
+        #: A handle that only reads never touches the catalogue, on close included (`L28.27`).
+        self._lease_written = False
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
@@ -664,6 +680,58 @@ class QdrantStore:
             wait=True,
         )
 
+    async def _touch_lease(self, client: AsyncQdrantClient) -> None:
+        """Write or renew this handle's lease on its non-`default` target — **R34.10**. Renewed
+        per write batch, so one long `add` cannot outlive its own lease."""
+        target = self._active_target
+        if target is None or target == DEFAULT_TARGET:
+            return
+        await self._ensure_catalogue(client)
+        await client.upsert(
+            self._catalogue,
+            points=[
+                models.PointStruct(
+                    id=_lease_point_id(self._settings.collection, target, self._holder),
+                    vector={},
+                    payload={
+                        "kind": "lease",
+                        "target": target,
+                        "holder": self._holder,
+                        "expires_at": time.time() + self._settings.target_lease_seconds,
+                    },
+                )
+            ],
+            wait=True,
+        )
+        self._lease_written = True
+
+    async def _leases_for(self, client: AsyncQdrantClient, target: str) -> list[models.Record]:
+        """Every lease point recorded against `target`, any holder, expired or not — what
+        `drop_target` reads to decide whether another handle still holds it, and what it
+        clears once a drop goes ahead.
+        """
+        if not await client.collection_exists(self._catalogue):
+            return []
+        found: list[models.Record] = []
+        offset: models.ExtendedPointId | None = None
+        while True:
+            records, next_offset = await client.scroll(
+                self._catalogue,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(key="kind", match=models.MatchValue(value="lease")),
+                        models.FieldCondition(key="target", match=models.MatchValue(value=target)),
+                    ]
+                ),
+                limit=_PAGE_SIZE,
+                with_payload=True,
+                offset=offset,
+            )
+            found.extend(records)
+            if next_offset is None:
+                return found
+            offset = cast("models.ExtendedPointId", next_offset)
+
     async def _catalogue_names(self, client: AsyncQdrantClient) -> tuple[str, ...]:
         """Every target name the catalogue holds, `default` included — what a refusal naming
         "the targets that exist" offers.
@@ -820,6 +888,7 @@ class QdrantStore:
             )
             await self._ensure_pair_provisioned(client, width_hint)
         for start in range(0, len(nodes), self._WRITE_BATCH):
+            await self._touch_lease(client)
             await self._add_batch(client, nodes[start : start + self._WRITE_BATCH])
 
     async def _add_batch(self, client: AsyncQdrantClient, nodes: Sequence[Node]) -> None:
@@ -1157,6 +1226,7 @@ class QdrantStore:
             # A bound, uncatalogued target's first write — `34.5`, point 3: `put_source` alone,
             # with no embedded node to measure, falls back to `vector_size`.
             await self._ensure_pair_provisioned(client, None)
+        await self._touch_lease(client)
         await client.upsert(
             self._sources,
             points=[
@@ -1272,8 +1342,21 @@ class QdrantStore:
         ]
 
     async def aclose(self) -> None:
-        """Close the underlying client, if one was ever opened. Not part of any contract."""
+        """Release this handle's lease, if it wrote one, and close the client. Not part of any
+        contract."""
         if self._client is not None:
+            if self._lease_written and self._active_target is not None:
+                await self._client.delete(
+                    self._catalogue,
+                    points_selector=models.PointIdsList(
+                        points=[
+                            _lease_point_id(
+                                self._settings.collection, self._active_target, self._holder
+                            )
+                        ]
+                    ),
+                    wait=True,
+                )
             await self._client.close()
             self._client = None
 
@@ -1441,6 +1524,17 @@ class QdrantStore:
             raise UnknownTargetError(target, valid_options=tuple(sorted(known)))
         if target == catalogue.live or target == catalogue.previous:
             raise TargetInUseError(target)
+        now = time.time()
+        leases = await self._leases_for(client, target)
+        blocking = [
+            lease
+            for lease in leases
+            if lease.payload is not None
+            and lease.payload.get("holder") != self._holder
+            and cast(float, lease.payload.get("expires_at", 0.0)) > now
+        ]
+        if blocking:
+            raise TargetInUseError(target, reason="another handle is bound to it")
         base = self._settings.collection
         if target == DEFAULT_TARGET:
             nodes, sources = base, f"{base}__sources"
@@ -1453,7 +1547,9 @@ class QdrantStore:
         await self._ensure_catalogue(client)
         await client.delete(
             self._catalogue,
-            points_selector=models.PointIdsList(points=[_target_point_id(target)]),
+            points_selector=models.PointIdsList(
+                points=[_target_point_id(target), *(str(lease.id) for lease in leases)]
+            ),
             wait=True,
         )
 
