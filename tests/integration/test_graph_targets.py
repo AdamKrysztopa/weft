@@ -70,7 +70,7 @@ def _target_checks() -> list[Callable[..., Awaitable[None]]]:
 def test_the_graph_store_holds_targets_and_is_offered_every_target_check() -> None:
     # Assert
     assert isinstance(GraphStore(GraphSettings()), TargetHolding)
-    assert len(_target_checks()) == 12
+    assert len(_target_checks()) == 13
 
 
 @pytest.mark.parametrize("check", _target_checks(), ids=lambda check: check.__name__)

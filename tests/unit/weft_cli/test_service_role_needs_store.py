@@ -6,7 +6,7 @@ be selected and aliased correctly and a stage's demand can still be validated ag
 instance, refused before aliasing could ever have helped.
 
 **The second enforcement point.** `check_store_capabilities`
-(`packages/weft-rag/src/weft_engine/run_services.py:129 'class MalformedNeed'`) validates every
+(`packages/weft-rag/src/weft_engine/run_services.py:137 'class MalformedNeed'`) validates every
 stage's `needs_store`
 against **the one configured store**, and its remedy names only `[services] store`. So a stage
 needing a capability that some *other* selected role provides is refused before assembly, with a

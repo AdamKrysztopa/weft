@@ -56,13 +56,19 @@ import dataclasses
 from collections.abc import Callable, Mapping, Sequence
 from typing import Final, cast
 
+from weft_blob import BlobStore
 from weft_embed import Embedder
 from weft_engine.contract_reference import capability_siblings
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import ServiceSelection
-from weft_engine.targets import bind_store, check_embedding_for_query, embedding_identity_of
+from weft_engine.targets import (
+    StoreHoldsNoTargetsError,
+    bind_store,
+    check_embedding_for_query,
+    embedding_identity_of,
+)
 from weft_kernel.context import ServiceRegistry, UnresolvedServiceError
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
@@ -75,6 +81,7 @@ from weft_prompts.registry import prompts_service
 from weft_retrieve.contract import RouteCatalogue, StageLookup
 from weft_retrieve.engine import route_catalogue, stage_lookup
 from weft_store import NodeStore
+from weft_store.contract import target_name
 
 #: Ledger task **9.0**'s own defaults for `build_services`/`build_index_services`'s new
 #: `roles`/`services` parameters — module-level singletons, never `RoleTable()`/
@@ -603,6 +610,7 @@ async def build_index_services(
     filled_by_stages: Sequence[type[object]] = (),
     store_for_revisable: NodeStore | None = None,
     offer_models: bool = True,
+    target: str | None = None,
 ) -> ServiceRegistry:
     """Assemble one **ingest** run's `ServiceRegistry` — task **8.10**.
 
@@ -732,8 +740,31 @@ async def build_index_services(
         ).items()
         if roles.roles[key].contract not in filled_by_stages
     }
+    if target is not None:
+        selected = {
+            key: await _bound_to_target(
+                instance,
+                target,
+                plugin=services.roles.get(key, key),
+                contract=roles.roles[key].contract,
+            )
+            for key, instance in selected.items()
+        }
     register_selected_roles(registered, selected=selected, table=roles, demanded=())
     return registered
+
+
+async def _bound_to_target(instance: object, target: str, *, plugin: str, contract: type) -> object:
+    """A role service bound to the run's `--target` — ledger `34.12`. A service with
+    `bind_target` is bound; a `BlobStore` without one is refused, because it would write a
+    candidate's figures over the live index's at the same key. Other roles hold no index data.
+    """
+    bind = getattr(instance, "bind_target", None)
+    if bind is not None:
+        return await bind(target_name(target))
+    if contract is BlobStore:
+        raise StoreHoldsNoTargetsError(store_name=plugin, target=target)
+    return instance
 
 
 class AmbiguousCapabilityError(WeftError):

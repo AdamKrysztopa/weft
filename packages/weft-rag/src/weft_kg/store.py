@@ -1288,7 +1288,7 @@ class GraphStore:
         for no service at all — a `full` run on a project that never configured a provider must
         converge, not fail (`test_a_full_pass_with_nothing_in_the_band_needs_no_model_at_all`).
         Only when there is at least one such pair does it call `ctx.require(LLM)`. Every command's
-        `Context` carries an `LLM` (`weft_engine/run_services.py:957 "for **every** command"`), so
+        `Context` carries an `LLM` (`weft_engine/run_services.py:988 "for **every** command"`), so
         the mode check is what keeps a `repair` pass from calling one.
         """
         conn = await self._connection()
@@ -1790,6 +1790,10 @@ class GraphStore:
         return EmbeddingIdentity.model_validate(row["embedding"])
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+        the already-live target, so a converging re-run after a crash leaves the rollback an
+        operator needs intact.
+        """
         conn = await self._connection()
         home_schema = self._require_home_schema()
         async with conn.transaction(), conn.cursor() as cur:
@@ -1810,6 +1814,8 @@ class GraphStore:
             )
             current = await cur.fetchone()
             old_live = TargetName(cast(str, current["live"])) if current else DEFAULT_TARGET
+            if old_live == promotion.target:
+                return await self.target_catalogue()
             await cur.execute(
                 sql.SQL(
                     "INSERT INTO {} (singleton, live, previous, promotion) "

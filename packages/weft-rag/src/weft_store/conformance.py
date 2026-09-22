@@ -1913,3 +1913,23 @@ async def check_a_target_whose_first_write_is_a_source_record_is_catalogued(
         _CANDIDATE in {record.name for record in (await store.target_catalogue()).targets},
         "a target whose first write was a source record must be in the catalogue",
     )
+
+
+async def check_promoting_the_live_target_again_changes_nothing(store: TargetHoldingStore) -> None:
+    """A promote that converges participants after a crash is re-run on the ones that already
+    moved, so promoting the live target keeps both pointers as they are. Were it to set `previous`
+    to the live target itself, the rollback the operator needs next would go nowhere."""
+    # Arrange
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+    await candidate.add(conformance_corpus()[:1])
+    first = await store.promote(_promotion(_CANDIDATE))
+
+    # Act
+    again = await store.promote(_promotion(_CANDIDATE))
+
+    # Assert
+    _require(again.live == _CANDIDATE, "promoting the live target must leave it live")
+    _require(
+        again.previous == first.previous == DEFAULT_TARGET,
+        f"promoting the live target must keep previous: {again.previous!r}",
+    )

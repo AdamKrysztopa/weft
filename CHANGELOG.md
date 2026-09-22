@@ -99,6 +99,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   store holds targets the same way, and the query-time graph walk reads whichever is live. Blob
   storage keeps each candidate's figures under `<root>/.targets/<name>/`, so a candidate never
   overwrites the live index's bytes. An existing blob root is read unchanged.
+- **A promote moves every store a project uses together.** With the graph pack active, `weft target
+  promote`, `rollback` and `drop` act on both the node store and the graph store. `drop` also
+  removes the target's figures, and `weft index --target` writes figures into the target's own
+  subtree. If a promote stops between two stores, every command refuses, naming each store's live
+  target (`TargetPointersDisagreeError`), until the promote is run again, which finishes it.
+  Promoting the target that is already live changes nothing. A `weft index` that was writing the
+  live target when another process promoted a different one finishes where it started and says so.
 - **A document that failed to index is recorded as failed, and you can find it.** `weft index`
   records every document of a batch that a stage refused or raised on as `failed`, with the
   stage, the error, an attempt count and the time, and removes what it half-wrote. Later runs skip

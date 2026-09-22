@@ -110,7 +110,12 @@ from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index_for
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
 from weft_cli.output import AskFormat
 from weft_cli.pack_new import PackNewCommand
-from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records, stores_in_use
+from weft_cli.participation import (
+    DEFAULT_INDEX_RUNS_DIR,
+    check_participants_agree,
+    load_run_records,
+    stores_in_use,
+)
 from weft_cli.pipeline_catalogue import (
     DEFAULT_PIPELINES_DIR,
     declared_slot_ids,
@@ -358,13 +363,15 @@ def _stores_in_use(deps: Dependencies) -> frozenset[str]:
 
 async def _require_target_exists(deps: Dependencies, target: str | None) -> None:
     """`weft_engine.targets.require_existing_target`, against `[services] store` — every read
-    command's own existence check, ledger task **34.6**. `None` returns without ever resolving
-    `[services] store`: a `--pipeline` run's own store stage may need no `[services] store` at
-    all (the module docstring's *"Q3, settled"*), so the common, untargeted case must not pay a
-    registry lookup — or risk `UnknownPluginError` — for a name a run reading the live target
-    never needed to resolve.
+    command's own existence check, ledger task **34.6**. `None` — every read naming no explicit
+    target — instead checks that this project's own `TargetHolding` participants agree on which
+    target is live (`weft_cli.target_commands.check_participants_agree`, ledger task **34.11**):
+    a `--pipeline` run's own store stage may need no `[services] store` at all (the module
+    docstring's *"Q3, settled"*), and that function's own docstring carries the identical
+    "resolving an unreachable name is not this check's job" footing this one always has.
     """
     if target is None:
+        await check_participants_agree(deps)
         return
     await require_existing_target(
         deps.registry.entry(NodeStore, deps.services.store).factory(None),
@@ -597,12 +604,20 @@ class IndexCommandResult(CommandResult):
     #: ExpansionDegraded`, copied from `weft_cli.ingest.IndexResult`. `None` when this run
     #: cannot answer — see that field's own docstring for exactly when it can.
     degraded_expansions: int | None = None
-    #: `--target`, ledger task **34.6** — copied from `weft_cli.ingest.IndexResult`, so the
-    #: renderer can say where this run wrote without importing that dataclass.
+    #: `--target`, ledger task **34.6**, widened by **34.10** — copied from `weft_cli.ingest.
+    #: IndexResult.target`, so the renderer can say where this run wrote without importing that
+    #: dataclass. Never `None` for a store that satisfies `TargetHolding`, whether or not
+    #: `--target` was given.
     target: str | None = None
-    #: The target that was live when this run started — `None` unless `target` is. Paired with
-    #: `target` so the renderer can say "(live)" or "(candidate; live is '...')".
+    #: The target that was live when this run started. Paired with `target` so the renderer can
+    #: say "(live)" or "(candidate; live is '...')".
     target_live: str | None = None
+    #: Ledger task **34.10** — `True` when this run wrote the live target and another promote
+    #: made a different one live before this run finished.
+    target_stopped_being_live: bool = False
+    #: The target that is live now, once this run finished — `None` unless
+    #: `target_stopped_being_live` is.
+    target_now_live: str | None = None
 
 
 class AskCommandResult(CommandResult):
@@ -815,6 +830,12 @@ class IndexCommand:
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         index_args = cast(IndexArgs, args)  # `args_model` is the isinstance contract
         deps = ctx.require(Dependencies)
+        if index_args.target is None:
+            # Ledger **34.11** — an untargeted index writes wherever the primary store's own
+            # live pointer says, so this refuses before writing anything if this project's own
+            # participants already disagree about what that is (`_require_target_exists`'s own
+            # footing for every read command).
+            await check_participants_agree(deps)
 
         if index_args.pipeline is not None and index_args.extract is not None:
             raise ConflictingIndexModeError(
@@ -910,6 +931,8 @@ class IndexCommand:
                 degraded_expansions=result.degraded_expansions,
                 target=result.target,
                 target_live=result.target_live,
+                target_stopped_being_live=result.target_stopped_being_live,
+                target_now_live=result.target_now_live,
             )
         )
 
@@ -1451,10 +1474,9 @@ class TargetListCommandResult(CommandResult):
 
 class TargetListCommand:
     """`weft target list` — ledger task **34.6**. Reads `[services] store`'s own catalogue,
-    and every other `NodeStore` `_stores_in_use` names that also satisfies `TargetHolding`
-    (a graph store, task 34.11, is silently not one yet and is left out rather than refused —
-    it is `_stores_in_use` widening the fan-out to a capability this store family does not
-    require, not a target-holding claim any store makes). `[services] store` itself is refused
+    and every other `NodeStore` `_stores_in_use` names that also satisfies `TargetHolding` — the
+    graph pack's store since task 34.11; a store in use that does not is left out rather than
+    refused, since it holds no targets to list. `[services] store` itself is refused
     by name — `StoreHoldsNoTargetsError` — when it does not satisfy `TargetHolding`: there is
     nothing this command could list, and silence would read as "no targets" rather than "this
     store has no notion of one".

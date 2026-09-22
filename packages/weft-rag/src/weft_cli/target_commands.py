@@ -15,10 +15,26 @@ same way `weft eval compare` judges two runs — `weft_cli.eval_commands.load_or
 `.incomparable_reasons`, reused rather than copied, so a promotion and a comparison can never
 come to disagree about what "comparable" means (owner decision Q-E).
 
-**Rollback and drop act on `[services] store` alone** — a later ledger task widens a target's own
-lifecycle to the graph pack and the blob pack this module must not name (fitness function 28(c)
-refuses any first-party file outside that pack's own directory from naming it at all); nothing
-here reaches for either one.
+**Promote, rollback and drop act on every `TargetHolding` participant** — ledger task **34.11**,
+its fan-out half, widening this module past `[services] store` alone: `weft_cli.participation.
+target_participants` (imported from there rather than defined here — that module already sits
+below both this one and `weft_cli.eval_commands`, so it is the one place a participant list can
+live that both can import from with no cycle) is every `NodeStore` name `stores_in_use` reaches
+for this project (the node store, and, once an active pack's own pipelines resolved a second
+one, that store too) that also satisfies `weft_store.contract.TargetHolding` — never a plugin
+name written here, so this module names no pack beyond what a project's own pipelines already
+resolved. Promote's own checks (existence, identity, not-ready, evidence) still read the primary
+`[services] store` alone; the fan-out is only the write, once those checks pass, and the target
+must exist in every participant or the write refuses by name (`weft_store.contract.
+UnknownTargetError`) rather than promoting some of them and not others.
+
+**Drop's blob subtree** — ledger task **34.12** — is reached the identical way: `_blob_instance`
+asks the registry which name, if any, is registered under `weft_blob.contract.BlobStore` (empty
+when `[packs.blob]` is not configured, never an error), so this module still names no pack. The
+target-lifecycle methods `FilesystemBlobStore` adds beyond that published contract —
+`bind_target`/`drop_target` — are reached through `_BlobTargetHolding`, a structural Protocol
+local to this module: a stranger's `BlobStore` that never grew a target concept is not asked to
+drop one.
 """
 
 from __future__ import annotations
@@ -26,11 +42,13 @@ from __future__ import annotations
 import getpass
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import ClassVar, cast
+from typing import ClassVar, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_blob.contract import BlobStore
 from weft_cli.eval_commands import incomparable_reasons, load_or_refuse_run
+from weft_cli.participation import target_participants
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
@@ -48,6 +66,7 @@ from weft_kernel.registry import RegistryEntry
 from weft_kernel.seam import aclose, wrap
 from weft_store import NodeStore, SourceRecord, SourceStatus
 from weft_store.contract import (
+    NoPreviousTargetError,
     Promotion,
     TargetCatalogue,
     TargetHolding,
@@ -68,6 +87,17 @@ _TARGET_DROP_HELP = (
     "remove a target that is neither live nor previous-live — never through delete_source "
     "(ledger task 34.9)"
 )
+
+
+@runtime_checkable
+class _BlobTargetHolding(Protocol):
+    """`FilesystemBlobStore`'s own target lifecycle — ledger task **34.12** — structural here
+    because `weft_blob.contract.BlobStore` itself declares no target concept (`put`/`open`/
+    `delete_prefix` only, the whole contract every blob plugin owes). A stranger's `BlobStore`
+    that never grew one is simply not asked to drop a subtree.
+    """
+
+    async def drop_target(self, target: TargetName) -> int: ...
 
 
 class _NoArgs(BaseModel):
@@ -99,12 +129,17 @@ class TargetPromoteArgs(BaseModel):
 
 
 class TargetPromoteCommandResult(CommandResult):
-    """`weft target promote`'s whole answer — the catalogue after the switch, and which store
-    it switched on.
+    """`weft target promote`'s whole answer — the catalogue after the switch on the primary
+    `[services] store`, and every `TargetHolding` participant it switched on.
     """
 
     catalogue: TargetCatalogue
     store: str
+    #: Ledger task **34.11** — every participant `target_participants` named, in the order they
+    #: were promoted (`store` first, always). A store already at `catalogue.live` before this
+    #: run — a re-run converging a crash — is still named here: its own `promote` was called and
+    #: is the store's own idempotent no-op, not a skip this command decided on its behalf.
+    stores: tuple[str, ...] = ()
 
 
 class TargetPromoteCommand:
@@ -168,7 +203,19 @@ class TargetPromoteCommand:
                 evidence=evidence,
                 without_evidence=typed.without_evidence,
             )
+            # Ledger **34.11** — every other `TargetHolding` participant must hold `name` too,
+            # checked before any of them is written, so a promote never writes some and refuses
+            # the rest partway through.
+            others = tuple(
+                participant
+                for participant in target_participants(deps)
+                if participant != store_name
+            )
+            for participant in others:
+                await self._require_target_in(participant, name, deps=deps)
             updated = await self._promoted(instance, promotion, entry=entry, store_name=store_name)
+            for participant in others:
+                await self._promote_participant(participant, promotion, deps=deps)
         finally:
             await aclose(
                 instance,
@@ -176,7 +223,52 @@ class TargetPromoteCommand:
                 contract=NodeStore.__qualname__,
                 plugin=store_name,
             )
-        return Produced(value=TargetPromoteCommandResult(catalogue=updated, store=store_name))
+        return Produced(
+            value=TargetPromoteCommandResult(
+                catalogue=updated, store=store_name, stores=(store_name, *others)
+            )
+        )
+
+    async def _require_target_in(
+        self, store_name: str, name: TargetName, *, deps: Dependencies
+    ) -> None:
+        """`name` must exist in `store_name`'s own catalogue too — every other `TargetHolding`
+        participant, checked before any of them is written.
+        """
+        entry = deps.registry.entry(NodeStore, store_name)
+        instance = cast(TargetHolding, entry.factory(None))
+        try:
+            catalogue = await self._catalogue_of(instance, entry=entry, store_name=store_name)
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=store_name,
+            )
+        valid = tuple(sorted(record.name for record in catalogue.targets))
+        if name not in valid:
+            raise UnknownTargetError(f"{name} (on {store_name!r})", valid_options=valid)
+
+    async def _promote_participant(
+        self, store_name: str, promotion: Promotion, *, deps: Dependencies
+    ) -> None:
+        """`store_name`'s own `promote`, through `_promoted` — a store already at
+        `promotion.target` treats this as its own idempotent no-op (`weft_store.conformance.
+        check_promoting_the_live_target_again_changes_nothing`), which is what lets a re-run
+        after a crash converge the participants that already moved.
+        """
+        entry = deps.registry.entry(NodeStore, store_name)
+        instance = cast(TargetHolding, entry.factory(None))
+        try:
+            await self._promoted(instance, promotion, entry=entry, store_name=store_name)
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=store_name,
+            )
 
     async def _catalogue_of(
         self, instance: TargetHolding, *, entry: RegistryEntry, store_name: str
@@ -283,17 +375,25 @@ class TargetPromoteCommand:
 
 class TargetRollbackCommandResult(CommandResult):
     """`weft target rollback`'s whole answer — the catalogue after restoring the previous
-    live target, and which store it restored it on.
+    live target on the primary `[services] store`, and every `TargetHolding` participant it
+    restored it on.
     """
 
     catalogue: TargetCatalogue
     store: str
+    #: Ledger task **34.11** — `store` first, then every other participant `rollback()` actually
+    #: changed. A non-primary participant with nothing to roll back to (`NoPreviousTargetError`)
+    #: is left alone rather than failing the whole command: it never diverged, so it is already
+    #: in the state this rollback is converging toward.
+    stores: tuple[str, ...] = ()
 
 
 class TargetRollbackCommand:
-    """`weft target rollback` — ledger task **34.9**. `[services] store`'s own `rollback()` is
-    the atomic write; a store with nothing to roll back to refuses by name
-    (`weft_store.contract.NoPreviousTargetError`), unchanged here.
+    """`weft target rollback` — ledger task **34.9**, widened by **34.11** to every
+    `TargetHolding` participant. `[services] store`'s own `rollback()` is the primary's atomic
+    write, and its own `NoPreviousTargetError` propagates exactly as before; every other
+    participant is rolled back too, and one with nothing to roll back to is skipped rather than
+    failing the command — see `TargetRollbackCommandResult.stores`.
     """
 
     args_model: ClassVar[type[BaseModel]] = _NoArgs
@@ -313,20 +413,7 @@ class TargetRollbackCommand:
         if not isinstance(instance, TargetHolding):
             raise StoreHoldsNoTargetsError(store_name=store_name, target=None)
         try:
-
-            async def _rollback(instance: TargetHolding = instance) -> Outcome[TargetCatalogue]:
-                return Produced(value=await instance.rollback())
-
-            catalogue = cast(
-                Produced[TargetCatalogue],
-                await wrap(
-                    _rollback,
-                    distribution=entry.distribution,
-                    contract=NodeStore.__qualname__,
-                    plugin=store_name,
-                    stage="target:rollback",
-                )(),
-            ).value
+            catalogue = await self._rolled_back(instance, entry=entry, store_name=store_name)
         finally:
             await aclose(
                 instance,
@@ -334,7 +421,56 @@ class TargetRollbackCommand:
                 contract=NodeStore.__qualname__,
                 plugin=store_name,
             )
-        return Produced(value=TargetRollbackCommandResult(catalogue=catalogue, store=store_name))
+        touched = [store_name]
+        for participant in target_participants(deps):
+            if participant == store_name:
+                continue
+            if await self._rollback_participant(participant, deps=deps):
+                touched.append(participant)
+        return Produced(
+            value=TargetRollbackCommandResult(
+                catalogue=catalogue, store=store_name, stores=tuple(touched)
+            )
+        )
+
+    async def _rolled_back(
+        self, instance: TargetHolding, *, entry: RegistryEntry, store_name: str
+    ) -> TargetCatalogue:
+        """`instance.rollback()`, through `wrap` — `TargetPromoteCommand._promoted`'s footing."""
+
+        async def _rollback(instance: TargetHolding = instance) -> Outcome[TargetCatalogue]:
+            return Produced(value=await instance.rollback())
+
+        return cast(
+            Produced[TargetCatalogue],
+            await wrap(
+                _rollback,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=store_name,
+                stage="target:rollback",
+            )(),
+        ).value
+
+    async def _rollback_participant(self, store_name: str, *, deps: Dependencies) -> bool:
+        """`store_name`'s own `rollback()` — `True` if it moved, `False` if it had nothing to
+        roll back to (`NoPreviousTargetError`, swallowed here: a participant that never diverged
+        needs no rollback of its own to converge).
+        """
+        entry = deps.registry.entry(NodeStore, store_name)
+        instance = cast(TargetHolding, entry.factory(None))
+        try:
+            await self._rolled_back(instance, entry=entry, store_name=store_name)
+        except NoPreviousTargetError:
+            return False
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=store_name,
+            )
+        return True
 
 
 class TargetDropArgs(BaseModel):
@@ -353,14 +489,20 @@ class TargetDropCommandResult(CommandResult):
     store: str
     target: str
     sources: int
+    #: Ledger task **34.11** — `store` first, then every other `TargetHolding` participant it
+    #: was also removed from.
+    stores: tuple[str, ...] = ()
 
 
 class TargetDropCommand:
-    """`weft target drop <name>` — ledger task **34.9**. Never `delete_source`: this removes a
-    whole target's own storage (`TargetHolding.drop_target`), not one document's derived state
-    from a target that keeps existing. `[services] store`'s own `drop_target` refuses a target
-    that does not exist, or one that is live or previous-live (`UnknownTargetError`/
-    `TargetInUseError`), unchanged here.
+    """`weft target drop <name>` — ledger task **34.9**, widened by **34.11**/**34.12**. Never
+    `delete_source`: this removes a whole target's own storage (`TargetHolding.drop_target`),
+    not one document's derived state from a target that keeps existing. `[services] store`'s
+    own `drop_target` refuses a target that does not exist, or one that is live or previous-live
+    (`UnknownTargetError`/`TargetInUseError`), unchanged here; every other `TargetHolding`
+    participant is then dropped too, and, once the primary has agreed to drop it,
+    `FilesystemBlobStore`'s own blob subtree for `name`, if `[packs.blob]` is configured — no
+    subtree is fine.
 
     **`describe_impact` names the target, not a source count** — `weft_cli.commands.
     DeleteCommand.describe_impact`'s own footing, for the identical reason that docstring
@@ -409,17 +551,7 @@ class TargetDropCommand:
                 )(),
             ).value
 
-            async def _drop(instance: TargetHolding = instance) -> Outcome[None]:
-                await instance.drop_target(name)
-                return Produced(value=None)
-
-            await wrap(
-                _drop,
-                distribution=entry.distribution,
-                contract=NodeStore.__qualname__,
-                plugin=store_name,
-                stage="target:drop",
-            )()
+            await self._dropped(instance, name, entry=entry, store_name=store_name)
         finally:
             await aclose(
                 instance,
@@ -427,9 +559,94 @@ class TargetDropCommand:
                 contract=NodeStore.__qualname__,
                 plugin=store_name,
             )
+        touched = [store_name]
+        for participant in target_participants(deps):
+            if participant == store_name:
+                continue
+            await self._drop_participant(participant, name, deps=deps)
+            touched.append(participant)
+        await self._drop_blob_subtree(name, deps=deps)
         return Produced(
-            value=TargetDropCommandResult(store=store_name, target=typed.name, sources=sources)
+            value=TargetDropCommandResult(
+                store=store_name, target=typed.name, sources=sources, stores=tuple(touched)
+            )
         )
+
+    async def _dropped(
+        self, instance: TargetHolding, name: TargetName, *, entry: RegistryEntry, store_name: str
+    ) -> None:
+        """`instance.drop_target(name)`, through `wrap` — `TargetPromoteCommand._promoted`'s
+        footing.
+        """
+
+        async def _drop(instance: TargetHolding = instance) -> Outcome[None]:
+            await instance.drop_target(name)
+            return Produced(value=None)
+
+        await wrap(
+            _drop,
+            distribution=entry.distribution,
+            contract=NodeStore.__qualname__,
+            plugin=store_name,
+            stage="target:drop",
+        )()
+
+    async def _drop_participant(
+        self, store_name: str, name: TargetName, *, deps: Dependencies
+    ) -> None:
+        """`store_name`'s own `drop_target` — every other `TargetHolding` participant
+        `target_participants` names.
+        """
+        entry = deps.registry.entry(NodeStore, store_name)
+        instance = cast(TargetHolding, entry.factory(None))
+        try:
+            await self._dropped(instance, name, entry=entry, store_name=store_name)
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=store_name,
+            )
+
+    async def _drop_blob_subtree(self, name: TargetName, *, deps: Dependencies) -> None:
+        """`name`'s own blob subtree, if `[packs.blob]` is configured — ledger task **34.12**.
+
+        Read directly off the registry (`deps.registry.names_for(BlobStore)`) rather than
+        through `[services] blob` role selection: dropping a target's own blob bytes is this
+        project's bookkeeping, not a pipeline capability a run opts into, and an operator who
+        configured `[packs.blob] root` but selected no `[services] blob` role still gets its
+        bytes reaped. Empty when `[packs.blob]` is not configured, never an error — "no subtree
+        is fine". `_BlobTargetHolding` is `FilesystemBlobStore`'s own extension beyond the
+        published `BlobStore` contract; a stranger's plugin that never grew one is left alone.
+        """
+        names = sorted(deps.registry.names_for(BlobStore))
+        if not names:
+            return
+        entry = deps.registry.entry(BlobStore, names[0])
+        instance = entry.factory(None)
+        if not isinstance(instance, _BlobTargetHolding):
+            return
+        try:
+
+            async def _drop(instance: _BlobTargetHolding = instance) -> Outcome[None]:
+                await instance.drop_target(name)
+                return Produced(value=None)
+
+            await wrap(
+                _drop,
+                distribution=entry.distribution,
+                contract=BlobStore.__qualname__,
+                plugin=names[0],
+                stage="target:blob-drop",
+            )()
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract=BlobStore.__qualname__,
+                plugin=names[0],
+            )
 
 
 def register_target_commands(registrar: PackRegistrar) -> None:

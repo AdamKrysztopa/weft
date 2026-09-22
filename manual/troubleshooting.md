@@ -4881,3 +4881,21 @@ the node store does, and it refuses rather than reading `default`'s table of the
 `TargetTableMissingError` above explains why.
 
 **What to do:** drop the target and build it again. If it is live, promote or roll back first.
+
+### `TargetPointersDisagreeError`
+
+**What it looks like:** any command that reads or writes a project whose stores hold targets
+separately, typically the node store and the graph pack's store:
+
+```text
+the stores this project uses disagree about which target is live — pgvector: 'default',
+pgvector-graph: 'w128' — a promote or rollback stopped between them. Run `weft target promote w128`
+again to finish it, or `weft target rollback` to undo it
+```
+
+**Why:** each store switches its live pointer atomically on its own, but there is no transaction
+across two stores. If a promote is interrupted between them, the vectors answer from one corpus
+and the graph from another. Weft refuses rather than mix them.
+
+**What to do:** run the promote again: a store that already moved is left as it is, and the other
+catches up. Or roll back.

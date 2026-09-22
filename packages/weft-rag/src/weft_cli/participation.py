@@ -30,15 +30,32 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
+from weft_cli.pipeline_catalogue import (
+    DEFAULT_PIPELINES_DIR,
+    full_catalogue,
+    load_pipeline_catalogue,
+)
+from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.targets import TargetPointersDisagreeError
 from weft_eval.run_record import RunRecord, load_run_record
 from weft_kernel.errors import WeftError
+from weft_kernel.payload import Outcome, Produced
 from weft_kernel.pipeline import Pipeline
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, UnknownPluginError
+from weft_kernel.seam import aclose, wrap
 from weft_store import NodeStore
+from weft_store.contract import TargetCatalogue, TargetHolding
 
 DEFAULT_INDEX_RUNS_DIR: Final[Path] = Path("runs/index")
+
+#: Mirrors `weft_cli.eval_commands.DEFAULT_RUNS_DIR` exactly — kept as its own literal rather
+#: than imported, because `weft_cli.eval_commands` imports `weft_cli.ingest`, which does not
+#: reach this module, but `weft_cli.target_commands` (which does need `target_participants`
+#: below) imports `weft_cli.eval_commands` for `load_or_refuse_run`/`incomparable_reasons` —
+#: importing `eval_commands.DEFAULT_RUNS_DIR` back from here would be that cycle.
+_DEFAULT_RUNS_DIR: Final[Path] = Path("runs")
 
 
 class UnreadableRunRecordError(WeftError):
@@ -167,9 +184,89 @@ def stores_in_use(
     return frozenset({configured}) | (named & node_store_names)
 
 
+def _stores_in_use_for(deps: Dependencies) -> frozenset[str]:
+    """`stores_in_use`, assembled from `deps` alone — `weft_cli.commands._stores_in_use`'s own
+    wrapper, duplicated here rather than imported: `weft_cli.commands` imports this module, and
+    importing back would be circular. Both wrappers read the same three sources — a project's
+    own pipeline documents, the full installed catalogue, and every persisted run record — so a
+    promote/rollback/drop and a `weft delete`/`weft reconcile` can never disagree about who is a
+    participant because one read a stale copy of the other's logic.
+    """
+    return stores_in_use(
+        configured=deps.services.store,
+        registry=deps.registry,
+        project=load_pipeline_catalogue(DEFAULT_PIPELINES_DIR),
+        catalogue=full_catalogue(reports=deps.reports),
+        records=load_run_records(_DEFAULT_RUNS_DIR) + load_run_records(DEFAULT_INDEX_RUNS_DIR),
+    )
+
+
+def target_participants(deps: Dependencies) -> tuple[str, ...]:
+    """Every `NodeStore` name this project reaches (`stores_in_use`) that also satisfies
+    `weft_store.contract.TargetHolding` — ledger task **34.11**: the node store, and, once an
+    active pack's own pipelines resolved a second one, that store too. Sorted, so a promote,
+    rollback, drop or a render of one always lists participants the same way.
+
+    A name `stores_in_use` names but nothing registered under `NodeStore` is not this function's
+    to diagnose — `stores_in_use`'s own docstring already gives the reason: repeating that
+    translation here would give the same mistake two different messages. `[services] store`
+    genuinely unregistered (a `--pipeline` run needing none) simply contributes no participant.
+    """
+    participants: list[str] = []
+    for name in sorted(_stores_in_use_for(deps)):
+        try:
+            entry = deps.registry.entry(NodeStore, name)
+        except UnknownPluginError:
+            continue
+        instance = entry.factory(None)
+        if isinstance(instance, TargetHolding):
+            participants.append(name)
+    return tuple(participants)
+
+
+async def check_participants_agree(deps: Dependencies) -> None:
+    """Refuse with `weft_engine.targets.TargetPointersDisagreeError` when this project's own
+    `TargetHolding` participants (`target_participants`) do not all report the same live
+    target — ledger task **34.11**. Every read and write command that resolves no explicit
+    `--target` calls this before doing anything else, so a crash between two participants' own
+    atomic promotes is caught before a read mixes their two corpora. Zero or one participant
+    agrees with itself trivially, which is also why this never runs against a `--target` a
+    caller did name: a read pinned to one name already says which corpus it means.
+    """
+    live: dict[str, str] = {}
+    for name in target_participants(deps):
+        entry = deps.registry.entry(NodeStore, name)
+        instance = cast(TargetHolding, entry.factory(None))
+        try:
+
+            async def _catalogue(instance: TargetHolding = instance) -> Outcome[TargetCatalogue]:
+                return Produced(value=await instance.target_catalogue())
+
+            outcome = await wrap(
+                _catalogue,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=name,
+                stage="target:catalogue",
+            )()
+            if isinstance(outcome, Produced):
+                live[name] = outcome.value.live
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=name,
+            )
+    if len(set(live.values())) > 1:
+        raise TargetPointersDisagreeError(live, primary=deps.services.store)
+
+
 __all__ = [
     "DEFAULT_INDEX_RUNS_DIR",
     "UnreadableRunRecordError",
+    "check_participants_agree",
     "load_run_records",
     "stores_in_use",
+    "target_participants",
 ]

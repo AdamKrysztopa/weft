@@ -14,6 +14,7 @@ rather than as a store that mysteriously cannot hold targets: `target_name` rais
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import cast
 
 from weft_embed.contract import IdentifiedEmbedder
@@ -307,6 +308,41 @@ class CandidateNotReadyError(WeftError):
         )
         self.target = target
         self.sources = sources
+
+
+class TargetPointersDisagreeError(WeftError):
+    """Every `TargetHolding` participant a project reaches (`weft_cli.participation.
+    target_participants` — the node store, and, once an active pack's own pipelines resolved a
+    second `NodeStore` for this project, that store too) must agree on which target is live —
+    ledger task **34.11**, its fan-out half. `promote`/`rollback` are each atomic on their own
+    store, never across two (owner decision Q1: no cross-store transaction), so a crash between
+    two participants' own writes leaves them naming different targets, and a read naming none of
+    its own would silently mix one participant's corpus with another's derived state. Every read
+    and write command that resolves no explicit `--target` refuses with this rather than mixing
+    them; `weft target list`, `promote` and `rollback` still run while they disagree, because
+    they are the only way to converge one.
+
+    `live` is every disagreeing participant's own store name mapped to the target it currently
+    holds live; `primary` is `[services] store`'s own name, so the remedy can name the target a
+    re-run promote needs to finish moving into — whichever live value a non-primary participant
+    already holds, since that is the one the crash left only partly applied.
+    """
+
+    def __init__(self, live: Mapping[str, str], *, primary: str) -> None:
+        ordered = sorted(live.items())
+        parts = ", ".join(f"{name}: {value!r}" for name, value in ordered)
+        remedy_target = next(
+            (value for name, value in ordered if name != primary),
+            next(iter(live.values())) if live else primary,
+        )
+        super().__init__(
+            "the stores this project uses disagree about which target is live — "
+            f"{parts} — a promote or rollback stopped between them. Run "
+            f"`weft target promote {remedy_target}` again to finish it, or "
+            "`weft target rollback` to undo it"
+        )
+        self.live = dict(live)
+        self.primary = primary
 
 
 class CandidateIdentityUnrecordedError(WeftError):

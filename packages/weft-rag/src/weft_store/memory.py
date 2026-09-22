@@ -328,9 +328,15 @@ class MemoryStore:
         return target.embedding
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        """Promoting the target that is already live is a no-op: `previous` stays what it was
+        (never rewritten to the already-live target), so a converging re-run after a crash leaves
+        the rollback an operator needs intact.
+        """
         state = self._state
         if promotion.target not in state.data:
             raise UnknownTargetError(promotion.target, valid_options=tuple(sorted(state.data)))
+        if promotion.target == state.live:
+            return await self.target_catalogue()
         state.previous = state.live
         state.live = TargetName(promotion.target)
         state.promotion = promotion

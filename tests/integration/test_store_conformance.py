@@ -117,6 +117,7 @@ from weft_store.conformance import (
     check_every_operator_means_the_same_thing_to_both_backends,
     check_promote_makes_a_target_live_and_rollback_restores_the_previous_one,
     check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do,
+    check_promoting_the_live_target_again_changes_nothing,
     check_reconcile_finishes_a_deletion_that_was_interrupted,
     check_reconcile_leaves_a_healthy_store_alone_on_either_backend,
     check_reconcile_neither_deletes_nor_clears_a_failed_source,
@@ -790,3 +791,9 @@ async def test_a_target_whose_first_write_is_a_source_record_is_catalogued(
     target_store: TargetHoldingStore,
 ) -> None:
     await check_a_target_whose_first_write_is_a_source_record_is_catalogued(target_store)
+
+
+async def test_promoting_the_live_target_again_changes_nothing(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_promoting_the_live_target_again_changes_nothing(target_store)

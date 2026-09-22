@@ -262,8 +262,71 @@ two unrelated spaces: when their widths differ the store refuses outright —
 weft ask: DataException: different vector dimensions 1536 and 64
 ```
 
-— and when they happen to match, nothing refuses at all and the ranking is confident nonsense. So
-after changing `[services] embed`, index into an empty store, or a store you have cleared.
+— and when they happen to match, the store has nothing to go on. So each index records the
+embedder that built it, and a question embedded any other way is refused before any vector is
+compared (`EmbeddingIdentityMismatchError`, which names both). To move to a new embedder, build a
+second index beside the live one and switch over (*Moving to a new embedder without downtime*,
+below). Changing `[services] embed` and asking the old index does not work.
+
+### Moving to a new embedder without downtime
+
+A store holds named **targets**: complete copies of an index, one of them **live**. Every command
+that does not name a target reads the live one. An existing index is the target `default`, with
+nothing to migrate. A migration builds a candidate beside it, scores both on the same questions,
+and switches over only when the evidence says so. Either backend works, and so does a project
+whose graph pack is active: the graph moves with the vectors, and each candidate keeps its own
+figures and page images.
+
+**1. Build the candidate.** Point the embedder at the new model in a pipeline document, or in
+`[services] embed`, and index into a new target:
+
+```bash
+weft index corpus --pipeline index-large --target large
+weft target list
+```
+
+`weft index` says which target it wrote into, and whether that target is live. `weft target list`
+prints each target with its live or previous mark, the embedder that built it and how many
+documents it holds. The live target keeps answering questions throughout.
+
+**2. Score both on one question set.** The same corpus and the same questions, one run per
+target:
+
+```bash
+weft eval run corpus index-text --reuse-index --target default --questions questions.json
+weft eval run corpus index-large --reuse-index --target large --questions questions.json
+weft eval compare <live-run> <candidate-run>
+```
+
+`eval compare` accepts two runs over different targets and opens with `comparing targets default
+→ large; subject: …`, naming the embedder change it is judging. Two runs of the same target that
+differ in model are still refused. That rule guards claims about techniques, and a promotion is
+not one (`docs/09-release.md` §4).
+
+**3. Promote on that evidence.**
+
+```bash
+weft target promote large --evidence <live-run> <candidate-run>
+```
+
+Promote asks first. It is refused with no evidence, with evidence for other targets or other
+questions, while a candidate document is still being indexed or deleted, and for a target whose
+embedder was never recorded. `--without-evidence` promotes on your judgement, and the promotion
+records that you did. Every store switches atomically on its own. If a promote stops between two
+stores, every command refuses (`TargetPointersDisagreeError`) until you run the promote again.
+
+**4. Watch, then keep or roll back.** A running command finishes against the target it started
+with. The next command reads the new live target, including an embedded `Weft` session's next
+call. Questions must now be embedded with the new model, or they are refused by name.
+
+```bash
+weft target rollback
+weft target drop default
+```
+
+`rollback` restores the previous target. `drop` deletes a target that is neither live nor
+previous, after asking and naming how many documents it holds. Drop the old one only once you
+are sure you won't roll back.
 
 **Where the credential comes from.** `weft-openai` reads its key from `[packs.openai] api_key`
 and from nowhere else. It deliberately does *not* fall back to the `OPENAI_API_KEY` the vendor's own

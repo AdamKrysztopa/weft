@@ -341,11 +341,17 @@ class InMemoryNodeStore:
         return target.embedding
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+        the already-live target, so a converging re-run after a crash leaves the rollback an
+        operator needs intact.
+        """
         catalogue = self._catalogue
         if promotion.target not in catalogue.targets:
             raise UnknownTargetError(
                 promotion.target, valid_options=tuple(sorted(catalogue.targets))
             )
+        if promotion.target == catalogue.live:
+            return await self.target_catalogue()
         catalogue.previous = catalogue.live
         catalogue.live = TargetName(promotion.target)
         catalogue.promotion = promotion

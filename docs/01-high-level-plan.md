@@ -850,7 +850,7 @@ expensive architecture is measured before it is built.
 
 **It runs first, and its first task is not multimodal.** Two of its tasks reach a run-wide service on
 the ingest path — a blob store and a describer — and today every path assembles its services from a
-hand-written list (`weft_engine/run_services.py:345 "for posi"`, `:399`; the command path in `weft_cli.cli`) against
+hand-written list (`weft_engine/run_services.py:353 "for posi"`, `:407`; the command path in `weft_cli.cli`) against
 three fixed keys (`weft_engine/services.py:161 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
 (`docs/internal/build-ledger.md:4364-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
@@ -922,7 +922,7 @@ figure in the same run:
   document's text, its table, or the figure's caption, and present only in what the describer
   wrote. **The clause's own wording — *"citing the `IMAGE` node"* — is satisfied in substance and
   is not observable**: `weft_generate.payload.Citation` carries `node_id`, and
-  `packages/weft-rag/src/weft_cli/render.py:697 "citation.node_id"` printed `[marker] uri` alone at
+  `packages/weft-rag/src/weft_cli/render.py:714 "citation.node_id"` printed `[marker] uri` alone at
   the time, so with three nodes from one source the rendered citation could not name which
   answered. Recorded as `lessons.md` `L9.88` rather than waved through; it was a renderer gap, not
   a provenance gap, and Phase 9 did not create it. *(Closed since: carried repair **R9.2** made

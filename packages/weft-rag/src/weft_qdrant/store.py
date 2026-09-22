@@ -1368,6 +1368,10 @@ class QdrantStore:
         return identity
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+        the already-live target, so a converging re-run after a crash leaves the rollback an
+        operator needs intact.
+        """
         client = await self._connection()
         if promotion.target != DEFAULT_TARGET and (
             await self._catalogue_point(client, promotion.target) is None
@@ -1376,6 +1380,8 @@ class QdrantStore:
                 promotion.target, valid_options=await self._catalogue_names(client)
             )
         old_live = await self._read_live_target(client)
+        if old_live == promotion.target:
+            return await self.target_catalogue()
         await self._ensure_catalogue(client)
         await client.upsert(
             self._catalogue,

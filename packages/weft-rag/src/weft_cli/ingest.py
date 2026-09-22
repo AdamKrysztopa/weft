@@ -483,14 +483,25 @@ class IndexResult:
     #: asked, and the default four-stage path resolves no pipeline document at all, so it is
     #: always `None` there.
     degraded_expansions: int | None = None
-    #: `--target`, ledger task **34.6** — the target this run wrote into, or `None` for the
-    #: live one (no `--target` given). Carried here so `weft_cli.render` can report where the
-    #: run wrote without re-deriving it.
+    #: `--target`, ledger task **34.6**, widened by **34.10** — the target this run actually
+    #: wrote into: the name given to `--target`, or, absent one, the live target this run
+    #: opened against (never `None` for a store that satisfies `TargetHolding`; `None` only
+    #: when the store has no notion of a target at all). Carried here so `weft_cli.render` can
+    #: report where the run wrote without re-deriving it.
     target: str | None = None
     #: The target that was live at the moment this run started, read once before any store
-    #: stage is bound — `None` unless `target` is, or the store could not answer. Paired with
-    #: `target` to say whether this run built a candidate or wrote the live target itself.
+    #: stage is bound — `None` only when the store could not answer. Paired with `target` to
+    #: say whether this run built a candidate or wrote the live target itself; equal to
+    #: `target` whenever no `--target` was given.
     target_live: str | None = None
+    #: Ledger task **34.10** — `True` when this run wrote the live target (no `--target`) and,
+    #: by the time it finished, another promote had made a different target live: the run still
+    #: finished into `target`, the one it opened against, never split across two.
+    target_stopped_being_live: bool = False
+    #: `target_stopped_being_live`'s own partner — the target that is live now that this run has
+    #: finished, `None` unless `target_stopped_being_live` is, since it is otherwise identical to
+    #: `target_live`.
+    target_now_live: str | None = None
 
 
 async def count_degraded_expansions(store: MetadataFilter) -> int:
@@ -713,7 +724,7 @@ async def run_index(
 
     runner = Runner(registry)
     runnable = runner.resolve(specs, tenant_id=ctx.tenant_id)
-    target_live = await _target_live_name(runnable, target=target)
+    target_live = await _target_live_name(runnable)
     runnable = await _bind_store_stages(runnable, target=target)
     # Before anything is written or deleted — `_release_reparsed_sources` and `_record_sources`
     # are both still ahead, in the `try` block below.
@@ -739,6 +750,7 @@ async def run_index(
             roles=roles,
             services=services,
             filled_by_stages=filled_by_stages,
+            target=target,
         ),
     )
 
@@ -874,6 +886,9 @@ async def run_index(
             identity=identity,
         )
         stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)
+        written_target, target_stopped_being_live, target_now_live = await _target_written(
+            runnable, target=target, target_live=target_live
+        )
         return IndexResult(
             summary=summary,
             stored_count=stored_count,
@@ -888,8 +903,10 @@ async def run_index(
             degraded_expansions=await _degraded_expansions(
                 runnable, resolved_pipeline=resolved_pipeline, store_stage_id=store_stage_id
             ),
-            target=target,
+            target=written_target,
             target_live=target_live,
+            target_stopped_being_live=target_stopped_being_live,
+            target_now_live=target_now_live,
         )
     except BaseException as failure:
         in_flight = failure
@@ -1117,19 +1134,19 @@ def _embedder_instance_of(
     return None
 
 
-async def _target_live_name(runnable: RunnablePipeline, *, target: str | None) -> str | None:
-    """The live target's name at the moment this run started, or `None` — ledger task **34.6**.
+async def _target_live_name(runnable: RunnablePipeline) -> str | None:
+    """The store's own live target name, right now — ledger task **34.6**, widened by **34.10**
+    to run unconditionally: `IndexResult.target` needs the live name whether or not `--target`
+    was given, and so does the post-run check for whether it moved.
 
-    Read off the **first** `NodeStore` stage's own unbound instance, before `run_index` binds
-    any of them to `target`: a bound handle still answers `target_catalogue()` (it is a
-    whole-store fact, not one scoped to the target it is bound to), but reading it first keeps
-    this a plain "what was live before this run touched anything" fact rather than one that
-    could itself be affected by the binding it is about to describe. `None` when no `target` was
-    given (nothing to report), or when the first store stage does not satisfy `TargetHolding` —
-    `bind_store` is what refuses that case, by name; this helper only informs a render line.
+    Read off the **first** `NodeStore` stage's own instance — a bound handle still answers
+    `target_catalogue()` (it is a whole-store fact, not one scoped to the target it is bound to),
+    so this reads the same way called before `run_index` binds any stage to `target` (`what was
+    live when this run opened`) or after (`what is live now that it finished`). `None` when the
+    first store stage does not satisfy `TargetHolding` — `bind_store` is what refuses a malformed
+    `--target`, by name; this helper only informs a render line and the 34.10 check — or when
+    this pipeline has no `NodeStore` stage at all.
     """
-    if target is None:
-        return None
     for stage in runnable.stages:
         if stage.contract_name != NodeStore.__name__:
             continue
@@ -1138,6 +1155,28 @@ async def _target_live_name(runnable: RunnablePipeline, *, target: str | None) -
             return catalogue.live
         return None
     return None
+
+
+async def _target_written(
+    runnable: RunnablePipeline, *, target: str | None, target_live: str | None
+) -> tuple[str | None, bool, str | None]:
+    """`(target this run wrote, target_stopped_being_live, target_now_live)` — ledger task
+    **34.10**. Lifted out of `run_index` so this branch stays out of that function's own
+    complexity budget, `_bind_store_stages`' own footing.
+
+    The target written is `target` if one was given, else `target_live` — what "finished into
+    the target it opened against" means for the common, untargeted case. `target_stopped_being_
+    live` is read a second time only then, never for an explicit `--target` build: a crash
+    between two participants is ledger **34.11**'s own concern, elsewhere; this is one store's
+    own pointer, before and after this run.
+    """
+    written = target if target is not None else target_live
+    if target is not None or target_live is None:
+        return written, False, None
+    live_now = await _target_live_name(runnable)
+    if live_now is None or live_now == target_live:
+        return written, False, None
+    return written, True, live_now
 
 
 async def _bind_store_stages(runnable: RunnablePipeline, *, target: str | None) -> RunnablePipeline:

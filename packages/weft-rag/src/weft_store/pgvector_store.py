@@ -2004,6 +2004,10 @@ class PgVectorStore:
         return EmbeddingIdentity.model_validate(row["embedding"])
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+        the already-live target, so a converging re-run after a crash leaves the rollback an
+        operator needs intact.
+        """
         conn = await self._connection()
         home_schema = self._require_home_schema()
         async with conn.transaction(), conn.cursor() as cur:
@@ -2024,6 +2028,8 @@ class PgVectorStore:
             )
             current = await cur.fetchone()
             old_live = TargetName(cast(str, current["live"])) if current else DEFAULT_TARGET
+            if old_live == promotion.target:
+                return await self.target_catalogue()
             await cur.execute(
                 sql.SQL(
                     "INSERT INTO {} (singleton, live, previous, promotion) "

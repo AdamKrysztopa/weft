@@ -604,6 +604,30 @@ def _defaulted_embedder_line(embedder: str) -> str:
     )
 
 
+def _index_target_lines(result: IndexCommandResult, stdout: str) -> str:
+    """`_render_index`'s own target-reporting lines, lifted out to stay under that function's
+    complexity budget — ledger tasks **34.6** and **34.10**.
+
+    Where this run wrote, before anything else it reports (`(live)`/`(candidate; live is
+    '...')`), and, only when `target_stopped_being_live`, a second line saying the live pointer
+    moved during this run rather than leaving an operator to notice on their own.
+    """
+    if result.target is not None:
+        marker = (
+            "(live)"
+            if result.target == result.target_live
+            else f"(candidate; live is '{result.target_live}')"
+        )
+        stdout = f"indexing into target '{result.target}' {marker}.\n{stdout}"
+    if result.target_stopped_being_live:
+        stdout += (
+            f"\ntarget {result.target!r} stopped being live during this run — it is now "
+            f"{result.target_now_live!r}; the documents above were indexed into "
+            f"{result.target!r}"
+        )
+    return stdout
+
+
 def _render_index(result: IndexCommandResult) -> Rendered:
     """`weft index`'s whole answer, plus the automatic post-index reconciliation pass, task
     **5.1c**. `result.reconcile` is rendered through `_render_reconcile` itself — one renderer
@@ -626,14 +650,7 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"{discovered} documents: {indexed} indexed, {unchanged} unchanged{failed_part}. "
         f"nodes now stored: {stored}."
     )
-    if result.target is not None:
-        # Ledger task **34.6** — where this run wrote, before anything else it reports.
-        marker = (
-            "(live)"
-            if result.target == result.target_live
-            else f"(candidate; live is '{result.target_live}')"
-        )
-        stdout = f"indexing into target '{result.target}' {marker}.\n{stdout}"
+    stdout = _index_target_lines(result, stdout)
     if result.payload_indexes:
         # Ledger task **31.14**. Named rather than counted: a number would satisfy "reports its
         # payload index" while telling an operator nothing they could check against the
@@ -930,29 +947,33 @@ def _render_target_list(result: TargetListCommandResult) -> Rendered:
 
 
 def _render_target_promote(result: TargetPromoteCommandResult) -> Rendered:
-    """`weft target promote` — ledger task **34.8**: which target is live now, and what was
-    live before it, so a person watching the switch happen does not have to run `target list`
-    to learn what `rollback` would restore.
+    """`weft target promote` — ledger task **34.8**, widened by **34.11**: which target is live
+    now, every `TargetHolding` participant it switched on, and what was live before it, so a
+    person watching the switch happen does not have to run `target list` to learn what
+    `rollback` would restore.
     """
+    stores = ", ".join(result.stores) if result.stores else result.store
     stdout = (
-        f"promoted {result.catalogue.live!r} on {result.store} "
+        f"promoted {result.catalogue.live!r} on {stores} "
         f"(previous live: {result.catalogue.previous!r})"
     )
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
 def _render_target_rollback(result: TargetRollbackCommandResult) -> Rendered:
-    """`weft target rollback` — ledger task **34.9**."""
-    stdout = f"live target is {result.catalogue.live!r} again on {result.store}"
+    """`weft target rollback` — ledger task **34.9**, widened by **34.11**."""
+    stores = ", ".join(result.stores) if result.stores else result.store
+    stdout = f"live target is {result.catalogue.live!r} again on {stores}"
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
 def _render_target_drop(result: TargetDropCommandResult) -> Rendered:
-    """`weft target drop` — ledger task **34.9**: names how many sources went with it, the one
-    fact `describe_impact`'s own confirmation prompt could not honestly state in advance (see
-    `weft_cli.target_commands.TargetDropCommand`'s own docstring).
+    """`weft target drop` — ledger task **34.9**, widened by **34.11**: names how many sources
+    went with it, the one fact `describe_impact`'s own confirmation prompt could not honestly
+    state in advance (see `weft_cli.target_commands.TargetDropCommand`'s own docstring).
     """
-    stdout = f"dropped target {result.target!r} from {result.store} ({result.sources} sources)"
+    stores = ", ".join(result.stores) if result.stores else result.store
+    stdout = f"dropped target {result.target!r} from {stores} ({result.sources} sources)"
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
