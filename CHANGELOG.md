@@ -67,6 +67,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   newer `weft-rag` wrote is refused by name (`UnknownSourceStatusError`).
   `weft eval run` and `weft eval experiment` refuse to score a corpus holding a failed document
   (`CorpusHasFailedSourcesError`), since its record would name documents it never saw.
+  **A store outside this repository has one new obligation:** keep `SourceRecord.failure` and
+  `pipeline_identity` as it is handed them, and accept the `failed` status. Read stored values
+  through `weft_store.source_status` and `weft_store.source_failure`, which refuse by name what a
+  newer release wrote. `weft_store.conformance`'s source-record checks test all of it; the example
+  graph store runs them.
 - **`weft index` counts the chunks an expansion stage could not expand.** A chunk whose
   questions, cluster summary or facts could not be generated still degrades rather than failing
   the run, and now carries an `ExpansionDegraded` marker naming the stage and why — for

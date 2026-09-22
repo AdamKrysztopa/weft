@@ -7,7 +7,7 @@ documents: a `pytestmark` computed once, from a synchronous reachability probe).
 
 import os
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 
 import psycopg
@@ -18,6 +18,10 @@ from weft_example_graph.store import GraphSettings, GraphStore
 
 from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.payload import MediaType, Node, NodeId, Produced, SourceId
+from weft_store.conformance import (
+    check_a_source_record_round_trips_and_is_listed,
+    check_deleting_a_failed_source_removes_it_like_any_other,
+)
 from weft_store.contract import Cursor, NodeStore, Page, ReconcileMode, SourceRecord
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -382,3 +386,32 @@ async def test_rebuild_recomputes_from_current_content(store: GraphStore) -> Non
     assert {entity.name for entity in data.entities} == {"New Name"}
     neighbors = await store.neighbors_of("Old Name")
     assert neighbors == ()
+
+
+def _truncate() -> None:
+    with psycopg.connect(_DSN, autocommit=True) as conn:
+        conn.execute("TRUNCATE exgraph_nodes, exgraph_sources CASCADE")
+
+
+@pytest.fixture
+async def clean_store(store: GraphStore) -> AsyncIterator[GraphStore]:
+    """The published source-record checks list every source, so they start from empty tables,
+    and leave none of the kit's corpus behind: its nodes carry ext namespaces this pack's tests
+    do not register."""
+    await store.count()  # provisions the schema through the public API
+    _truncate()
+    yield store
+    _truncate()
+
+
+async def test_a_source_record_round_trips_through_the_published_check(
+    clean_store: NodeStore,
+) -> None:
+    """`R36.2`: a store outside the tree keeps a failure it is handed, which the published
+    conformance kit checks. This store wrote neither `failure` nor `pipeline_identity`, so
+    `weft sources list` printed `failed` with no stage and attempts never advanced."""
+    await check_a_source_record_round_trips_and_is_listed(clean_store)
+
+
+async def test_deleting_a_failed_source_passes_the_published_check(clean_store: NodeStore) -> None:
+    await check_deleting_a_failed_source_removes_it_like_any_other(clean_store)

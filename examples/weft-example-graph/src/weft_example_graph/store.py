@@ -48,7 +48,8 @@ from weft_store.contract import (
     ReconcileReport,
     Removed,
     SourceRecord,
-    SourceStatus,
+    source_failure,
+    source_status,
 )
 from weft_store.rehydrate import rehydrate_ext
 
@@ -74,6 +75,13 @@ CREATE TABLE IF NOT EXISTS exgraph_sources (
     pipeline TEXT NOT NULL,
     status TEXT NOT NULL
 )
+"""
+
+#: Added in place, so a table an older version of this pack created is read and written as-is.
+_ADD_SOURCES_COLUMNS = """
+ALTER TABLE exgraph_sources
+    ADD COLUMN IF NOT EXISTS pipeline_identity TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS failure JSONB
 """
 
 #: `ON DELETE CASCADE` is what makes `exgraph_nodes`'s own row the one place a node's
@@ -167,6 +175,7 @@ class GraphStore:
         async with conn.cursor() as cur:
             await cur.execute(_CREATE_NODES_TABLE)
             await cur.execute(_CREATE_SOURCES_TABLE)
+            await cur.execute(_ADD_SOURCES_COLUMNS)
             await cur.execute(_CREATE_ENTITIES_TABLE)
             await cur.execute(_CREATE_RELATIONS_TABLE)
         self._conn = conn
@@ -251,14 +260,18 @@ class GraphStore:
         async with conn.cursor() as cur:
             await cur.execute(
                 """
-                INSERT INTO exgraph_sources (id, uri, content_hash, indexed_at, pipeline, status)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO exgraph_sources
+                    (id, uri, content_hash, indexed_at, pipeline, status,
+                     pipeline_identity, failure)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     uri = EXCLUDED.uri,
                     content_hash = EXCLUDED.content_hash,
                     indexed_at = EXCLUDED.indexed_at,
                     pipeline = EXCLUDED.pipeline,
-                    status = EXCLUDED.status
+                    status = EXCLUDED.status,
+                    pipeline_identity = EXCLUDED.pipeline_identity,
+                    failure = EXCLUDED.failure
                 """,
                 (
                     record.id,
@@ -267,6 +280,8 @@ class GraphStore:
                     record.indexed_at,
                     record.pipeline,
                     record.status.value,
+                    record.pipeline_identity,
+                    Jsonb(record.failure.model_dump(mode="json")) if record.failure else None,
                 ),
             )
 
@@ -657,7 +672,11 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         content_hash=cast(str, row["content_hash"]),
         indexed_at=cast(Any, row["indexed_at"]),
         pipeline=cast(str, row["pipeline"]),
-        status=SourceStatus(row["status"]),
+        pipeline_identity=cast(str, row.get("pipeline_identity") or ""),
+        status=source_status(cast(str, row["status"])),
+        failure=source_failure(cast("Mapping[str, object]", raw))
+        if (raw := row.get("failure")) is not None
+        else None,
     )
 
 
