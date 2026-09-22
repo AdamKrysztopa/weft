@@ -29,9 +29,10 @@ closes, so a `ClassVar` written directly in the body would make `version` a requ
 member and fail a third-party implementation that never restates it.
 """
 
-from typing import TYPE_CHECKING, ClassVar, NewType, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, NewType, Protocol, Self, runtime_checkable
 
 from weft_kernel.context import ServiceRole
+from weft_store.contract import TargetName
 
 #: Fitness function 6's subject for this contract — a mechanical fact, read by AST from this
 #: file. What a version *means* is G9's, still open; this constant states the shape only.
@@ -69,6 +70,22 @@ class BlobStore(Protocol):
 
 
 BlobStore.version = BLOB_CONTRACT_VERSION
+
+
+@runtime_checkable
+class BlobTargetHolding(Protocol):
+    """A blob store that keeps each index target's bytes apart — ledger **34.12**, published by
+    carried repair **R34.9** so a stranger's store joins `weft target drop`.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def bind_target(self, target: TargetName) -> Self: ...
+    async def drop_target(self, target: TargetName) -> int: ...
+
+
+BlobTargetHolding.version = BLOB_CONTRACT_VERSION
 
 #: Ledger task **9.0** — this pack's own declaration that `[services].blob` selects a
 #: `BlobStore`. A plain module-level constant beside the Protocol, never a `ClassVar` on

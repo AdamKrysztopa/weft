@@ -13,7 +13,9 @@ Collected by weft's own gate through its `examples-tests` step, and still runnab
 import pytest
 from weft_example_blob.memory_store import InMemoryBlobStore, UnknownBlobError
 
+from weft_blob.contract import BlobTargetHolding
 from weft_kernel.payload import SourceId
+from weft_store.contract import target_name
 
 
 async def test_bytes_written_come_back_byte_identical() -> None:
@@ -71,3 +73,22 @@ async def test_it_reports_what_it_removed_by_kind_when_a_source_is_deleted() -> 
     # Assert
     assert removed.node_count == 0
     assert dict(removed.removed) == {"blob": 2}
+
+
+async def test_it_holds_targets_through_the_published_protocol() -> None:
+    """weft's carried repair R34.9 published `BlobTargetHolding`, so a stranger's blob store
+    takes part in `weft target drop` the way the shipped filesystem store does."""
+    # Arrange
+    live = InMemoryBlobStore()
+    kept = await live.put("t/doc/0.png", b"live", "image/png")
+    candidate = await live.bind_target(target_name("w128"))
+    await candidate.put("t/doc/0.png", b"candidate", "image/png")
+    await candidate.put("t/doc/1.png", b"candidate", "image/png")
+
+    # Act
+    removed = await live.drop_target(target_name("w128"))
+
+    # Assert
+    assert isinstance(live, BlobTargetHolding)
+    assert removed == 2
+    assert await live.open(kept) == b"live"

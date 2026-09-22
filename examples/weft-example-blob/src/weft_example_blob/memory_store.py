@@ -13,15 +13,31 @@ column.
 It also implements `delete_source`, so it joins `weft delete`'s fan-out by capability with
 nothing declared, and answers in the per-kind vocabulary weft's `Removed.removed` opened up: a
 blob store that reaped forty blobs and removed no node says exactly that.
+
+**Targets — carried repair R34.9.** `bind_target` hands back a second handle over the same
+shared storage, bound to a target's own namespace: `default` keeps today's key/uri layout
+exactly, so nothing already written changes shape; any other target's bytes live in their own
+namespace of the same shared dict, addressed by a `.targets/<name>/` uri prefix the way
+`weft_blob.filesystem_store.FilesystemBlobStore` addresses one by a `.targets/<name>/`
+directory — so `drop_target` on one handle reaps only that namespace, and a uri any handle
+produced still opens from any handle sharing the storage, because `open` resolves against the
+shared object rather than against the handle's own binding.
 """
+
+from typing import Self
 
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import SourceId
-from weft_store import Removed
+from weft_store import DEFAULT_TARGET, Removed, TargetName, target_name
 
 #: This store's own uri scheme. Nothing in the contract fixes one — `put` answers with whatever
 #: address `open` will accept back, and that is the whole of the promise.
 _SCHEME = "memory:"
+
+#: A non-`default` target's own namespace is addressed under this uri segment — the identical
+#: dot-prefixed convention `FilesystemBlobStore._TARGETS_DIR_NAME` uses, chosen so it can never
+#: collide with a key `weft_blob.keys` derives.
+_TARGETS_PREFIX = ".targets/"
 
 
 class UnknownBlobError(WeftError):
@@ -33,25 +49,70 @@ class UnknownBlobError(WeftError):
     """
 
 
-class InMemoryBlobStore:
-    """Every blob this process was handed, by key. Nothing is persisted and nothing is shared
-    between instances — which is the point: a conformance subject with no environment.
+class TargetDropRefusedError(WeftError):
+    """`drop_target` was asked to remove `default` — its blobs are the shared storage's own,
+    not a target subtree this method owns the removal of, matching
+    `FilesystemBlobStore.drop_target`'s own refusal.
     """
 
-    def __init__(self, config: object = None) -> None:
+
+class InMemoryBlobStore:
+    """Every blob this process was handed, by key, namespaced by target. Nothing is persisted
+    and nothing is shared between instances that were not produced by one another's
+    `bind_target` — which is the point: a conformance subject with no environment.
+    """
+
+    def __init__(
+        self,
+        config: object = None,
+        *,
+        _shared: dict[TargetName, dict[str, bytes]] | None = None,
+        _target: TargetName = DEFAULT_TARGET,
+    ) -> None:
         del config  # a service takes no stage configuration; it has no pipeline position
-        self._blobs: dict[str, bytes] = {}
+        self._shared: dict[TargetName, dict[str, bytes]] = (
+            _shared if _shared is not None else {DEFAULT_TARGET: {}}
+        )
+        self._target = _target
+
+    @property
+    def _blobs(self) -> dict[str, bytes]:
+        return self._shared.setdefault(self._target, {})
+
+    async def bind_target(self, target: TargetName) -> Self:
+        """A second handle over the same shared storage, bound to `target`'s own namespace —
+        see the module docstring.
+        """
+        validated = target_name(str(target))
+        return type(self)(_shared=self._shared, _target=validated)
+
+    async def drop_target(self, target: TargetName) -> int:
+        """Remove `target`'s whole namespace from the shared storage, returning how many blobs
+        it held. `default` is refused: its blobs are the shared storage's own, not a namespace
+        this method owns the removal of.
+        """
+        validated = target_name(str(target))
+        if validated == DEFAULT_TARGET:
+            raise TargetDropRefusedError(
+                f"{validated!r} cannot be dropped through drop_target: default's blobs are the "
+                "shared storage's own bytes, not a target namespace this method may remove"
+            )
+        doomed = self._shared.pop(validated, None)
+        return 0 if doomed is None else len(doomed)
 
     async def put(self, key: str, data: bytes, media_type: str) -> str:
         del media_type  # carried on a `BlobRef`, not by this contract's own methods
         self._blobs[key] = data
-        return f"{_SCHEME}{key}"
+        if self._target == DEFAULT_TARGET:
+            return f"{_SCHEME}{key}"
+        return f"{_SCHEME}{_TARGETS_PREFIX}{self._target}/{key}"
 
     async def open(self, uri: str) -> bytes:
-        key = self._key_from_uri(uri)
-        if key not in self._blobs:
+        target, key = self._target_and_key_from_uri(uri)
+        blobs = self._shared.get(target, {})
+        if key not in blobs:
             raise UnknownBlobError(f"no blob was ever put at {uri!r} in this store")
-        return self._blobs[key]
+        return blobs[key]
 
     async def delete_prefix(self, prefix: str) -> int:
         doomed = [key for key in self._blobs if key.startswith(prefix)]
@@ -89,7 +150,12 @@ class InMemoryBlobStore:
         key = blob_key(tenant_id="t", source_id=source_id, ordinal=ordinal, extension="bin")
         return await self.put(key, data, media_type)
 
-    def _key_from_uri(self, uri: str) -> str:
+    def _target_and_key_from_uri(self, uri: str) -> tuple[TargetName, str]:
         if not uri.startswith(_SCHEME):
             raise UnknownBlobError(f"{uri!r} is not a uri this store ever produced")
-        return uri.removeprefix(_SCHEME)
+        rest = uri.removeprefix(_SCHEME)
+        if rest.startswith(_TARGETS_PREFIX):
+            remainder = rest.removeprefix(_TARGETS_PREFIX)
+            raw_target, _, key = remainder.partition("/")
+            return target_name(raw_target), key
+        return DEFAULT_TARGET, rest

@@ -32,9 +32,10 @@ UnknownTargetError`) rather than promoting some of them and not others.
 asks the registry which name, if any, is registered under `weft_blob.contract.BlobStore` (empty
 when `[packs.blob]` is not configured, never an error), so this module still names no pack. The
 target-lifecycle methods `FilesystemBlobStore` adds beyond that published contract —
-`bind_target`/`drop_target` — are reached through `_BlobTargetHolding`, a structural Protocol
-local to this module: a stranger's `BlobStore` that never grew a target concept is not asked to
-drop one.
+`bind_target`/`drop_target` — are reached through `weft_blob.contract.BlobTargetHolding`,
+published beside `BlobStore` (carried repair **R34.9**) as `weft_store.contract.TargetHolding`
+already is beside `NodeStore`: a stranger's `BlobStore` that never grew a target concept is not
+asked to drop one.
 """
 
 from __future__ import annotations
@@ -42,11 +43,11 @@ from __future__ import annotations
 import getpass
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import ClassVar, Protocol, cast, runtime_checkable
+from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_blob.contract import BlobStore
+from weft_blob.contract import BlobStore, BlobTargetHolding
 from weft_cli.eval_commands import incomparable_reasons, load_or_refuse_run
 from weft_cli.participation import target_participants
 from weft_command.contract import Command, CommandResult
@@ -87,17 +88,6 @@ _TARGET_DROP_HELP = (
     "remove a target that is neither live nor previous-live — never through delete_source "
     "(ledger task 34.9)"
 )
-
-
-@runtime_checkable
-class _BlobTargetHolding(Protocol):
-    """`FilesystemBlobStore`'s own target lifecycle — ledger task **34.12** — structural here
-    because `weft_blob.contract.BlobStore` itself declares no target concept (`put`/`open`/
-    `delete_prefix` only, the whole contract every blob plugin owes). A stranger's `BlobStore`
-    that never grew one is simply not asked to drop a subtree.
-    """
-
-    async def drop_target(self, target: TargetName) -> int: ...
 
 
 class _NoArgs(BaseModel):
@@ -617,19 +607,19 @@ class TargetDropCommand:
         project's bookkeeping, not a pipeline capability a run opts into, and an operator who
         configured `[packs.blob] root` but selected no `[services] blob` role still gets its
         bytes reaped. Empty when `[packs.blob]` is not configured, never an error — "no subtree
-        is fine". `_BlobTargetHolding` is `FilesystemBlobStore`'s own extension beyond the
-        published `BlobStore` contract; a stranger's plugin that never grew one is left alone.
+        is fine". A blob plugin that does not satisfy `BlobTargetHolding` holds no targets and is
+        left alone.
         """
         names = sorted(deps.registry.names_for(BlobStore))
         if not names:
             return
         entry = deps.registry.entry(BlobStore, names[0])
         instance = entry.factory(None)
-        if not isinstance(instance, _BlobTargetHolding):
+        if not isinstance(instance, BlobTargetHolding):
             return
         try:
 
-            async def _drop(instance: _BlobTargetHolding = instance) -> Outcome[None]:
+            async def _drop(instance: BlobTargetHolding = instance) -> Outcome[None]:
                 await instance.drop_target(name)
                 return Produced(value=None)
 

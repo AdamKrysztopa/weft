@@ -19,11 +19,20 @@ It joins `weft delete`'s fan-out by satisfying `SourceDeletable` structurally an
 — `weft_cli.fanout.participants_for` walks every registered contract and asks `issubclass`.
 """
 
-from typing import Any, Protocol, cast
+from pathlib import Path
+from typing import Any, Protocol, Self, cast
 
-from weft_blob.contract import BLOB_CONTRACT_VERSION, BLOB_ROLE, BlobStore, BlobUri
+from weft_blob.contract import (
+    BLOB_CONTRACT_VERSION,
+    BLOB_ROLE,
+    BlobStore,
+    BlobTargetHolding,
+    BlobUri,
+)
+from weft_blob.filesystem_store import FilesystemBlobSettings, FilesystemBlobStore
 from weft_kernel.context import ServiceRole
 from weft_store import SourceDeletable
+from weft_store.contract import TargetName
 
 
 def _protocol_members() -> set[str]:
@@ -134,3 +143,34 @@ def test_the_protocol_is_a_protocol_and_not_a_base_class_anyone_inherits() -> No
     """A stranger must never have to import this module to be a blob store."""
     # Act / Assert
     assert Protocol in cast("Any", BlobStore).__mro__
+
+
+class _StrangerTargetHoldingBlobStore(_StrangerBlobStore):
+    """A stranger's blob store that grew targets, importing nothing from the contract."""
+
+    async def bind_target(self, target: TargetName) -> Self:
+        del target
+        return self
+
+    async def drop_target(self, target: TargetName) -> int:
+        del target
+        return 0
+
+
+def test_blob_target_holding_is_published_beside_the_contract() -> None:
+    """Carried repair **R34.9**: a third party's blob store takes part in `weft target drop` by
+    satisfying a published Protocol, as `TargetHolding` does for a node store — not a private one
+    in `weft_cli.target_commands` a stranger could only find by reading it."""
+    # Act / Assert
+    assert isinstance(_StrangerTargetHoldingBlobStore(), BlobTargetHolding)
+    assert not isinstance(_StrangerBlobStore(), BlobTargetHolding)
+
+
+def test_the_shipped_filesystem_store_holds_targets(tmp_path: Path) -> None:
+    # Act / Assert
+    assert isinstance(FilesystemBlobStore(FilesystemBlobSettings(root=tmp_path)), BlobTargetHolding)
+
+
+def test_blob_target_holding_carries_the_blob_contract_version() -> None:
+    # Act / Assert
+    assert cast("Any", BlobTargetHolding).version == BLOB_CONTRACT_VERSION
