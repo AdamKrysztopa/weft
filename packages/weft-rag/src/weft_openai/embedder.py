@@ -259,9 +259,7 @@ class OpenAIEmbedder:
             return NothingToProduce(reason="no nodes to embed")
         texts = [_text_of(node) for node in payload]
         client = await self._connected()
-        vectors: list[Vector] = []
-        for batch in _batched(texts, self._config.batch_size):
-            vectors.extend(await self._embed(client, batch))
+        vectors = await self._embed_all(client, texts)
         # `strict` as a backstop to `_embed`'s own per-request index check: one vector per
         # node, in order, is the whole contract of this stage, and a batching bug here would
         # otherwise drop the last node's embedding rather than say anything.
@@ -353,6 +351,39 @@ class OpenAIEmbedder:
             )
         self._client = await asyncio.to_thread(build_client, settings)
         return self._client
+
+    async def _embed_all(self, client: EmbeddingsClient, texts: Sequence[str]) -> list[Vector]:
+        """Every `_batched` slice as its own request, at most `max_concurrent_requests` of
+        them in flight, vectors reassembled in slice order rather than completion order.
+
+        A failed request cancels every in-flight sibling; slices not yet started never start.
+        `asyncio.TaskGroup` wraps whatever a task raised in a `BaseExceptionGroup`, so the
+        group is unwrapped back to its leaf `WeftError` — `weft_cli/ingest.py`'s per-batch
+        `except WeftError` would otherwise let an `ExceptionGroup` past it uncaught. A
+        `CancelledError` a `TaskGroup` raises for a sibling it cancelled on its own behalf never
+        reaches this handler, so any exception found here is the real failure.
+        """
+        batches = list(_batched(texts, self._config.batch_size))
+        results: list[list[Vector] | None] = [None] * len(batches)
+        semaphore = asyncio.Semaphore(self._settings.max_concurrent_requests)
+
+        async def _slot(index: int, batch: Sequence[str]) -> None:
+            async with semaphore:
+                results[index] = await self._embed(client, batch)
+
+        try:
+            async with asyncio.TaskGroup() as tg:
+                for index, batch in enumerate(batches):
+                    tg.create_task(_slot(index, batch))
+        except BaseExceptionGroup as eg:
+            leaf = next(
+                (exc for exc in eg.exceptions if not isinstance(exc, asyncio.CancelledError)),
+                None,
+            )
+            if leaf is None:
+                raise
+            raise leaf from None
+        return [v for batch_vectors in results for v in batch_vectors or []]
 
 
 def build_client(settings: "Settings") -> EmbeddingsClient:

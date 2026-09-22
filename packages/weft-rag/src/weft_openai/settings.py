@@ -63,6 +63,10 @@ class Settings(BaseModel):
     #: LLM calls are retried by `[llm.retry]` alone (repair R41.2), so this does not reach them.
     #: Zero disables transport retries for embeddings and images.
     max_retries: int = Field(default=_DEFAULT_MAX_RETRIES, ge=0)
+    #: How many embeddings requests this account allows in flight at once — an account's own
+    #: rate limit, not a per-pipeline-stage tuning knob (task **43.3**), so it lives here rather
+    #: than on `weft_openai.embedder.OpenAIEmbedderConfig`.
+    max_concurrent_requests: int = Field(default=4, ge=1)
     #: Default `False`: a server that rejects `response_format` answers 400, and that is
     #: `LLMBadRequestError` at tier 1, which `weft_prompts/cascade.py`'s `skip_adapted` treats
     #: as a reason to skip tier 2 — repair **R41.5**. Set `true` once the account is known to

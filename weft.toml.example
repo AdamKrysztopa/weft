@@ -172,6 +172,13 @@ dsn = "${env:WEFT_DATABASE_URL}"
 #
 # max_retries = 2
 #
+# How many embeddings requests this account sends at once. A corpus becomes one request per
+# `batch_size` nodes, and they run concurrently up to this bound. Lower it if your rate limit
+# refuses the default. It is an account setting because a pipeline's `with:` block enters its
+# identity, and a speed knob must not make an index re-embed.
+#
+# max_concurrent_requests = 4
+#
 # `structured_output` sends a typed answer's JSON Schema as `response_format`, so the endpoint
 # constrains the answer's shape rather than reading the schema from the prompt. Off by default
 # on both accounts: a server that rejects the field answers 400, and the answer then falls past
@@ -211,6 +218,7 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # project = "proj_..."
 # timeout_seconds = 30.0
 # max_retries = 2
+# max_concurrent_requests = 4
 # structured_output = false
 #
 # **Set this one for a local server.** A model name is what an OpenAI-compatible server
