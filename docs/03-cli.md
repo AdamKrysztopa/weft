@@ -893,6 +893,13 @@ not a failure: the run exits `0`, the human path prints the refusal where the an
 gone, and the `--json` answer envelope carries `stance` so a script reads the same fact without
 parsing the sentence. The sentence is prose and unpromised (`09` §3); `stance` is the promise.
 
+**Coverage, while an ingest is running (task `43.4`).** `weft ask` reads `list_sources()` once
+from every store in use, and when any source is failed or still indexing it prints
+`sources: 412 indexed · 3 failed · 585 indexing` under the answer or the hits. The `--json`
+envelope carries the same counts as `coverage`. A refusal then says how many sources are not yet
+indexed. The count is of sources the store has recorded, not of files in a directory it has never
+seen. With every source active, nothing is printed and the envelope has no `coverage` key.
+
 > **Carried repair `R11.6` (2026-09-10), and the decision inside it.** Neither consumer read the
 > field. The human renderer printed `Answer.text`, which a refusal leaves empty, so
 > `weft ask "…" --pipeline graph-then-generate` against a corpus holding nothing on the subject

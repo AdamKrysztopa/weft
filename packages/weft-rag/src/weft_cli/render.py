@@ -84,6 +84,7 @@ from weft_cli.commands import (
     TargetRollbackCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
+from weft_cli.coverage import SourceCoverage
 from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import build_error_envelope
 from weft_cli.eval_commands import (
@@ -741,9 +742,17 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
             # even when `streamed` is `True`.
             from weft_cli.answer_envelope import build_answer_envelope
 
-            envelope = build_answer_envelope(result.answer, pipeline_name=result.pipeline_name)
+            envelope = build_answer_envelope(
+                result.answer, pipeline_name=result.pipeline_name, coverage=_stated_coverage(result)
+            )
+            # `coverage` alone is excluded when absent, never a blanket `exclude_none`: every
+            # other optional field (`pipeline_name` included) keeps serializing as it always
+            # has, so an existing envelope stays byte-identical (ledger task 43.4).
+            omit = {"coverage"} if envelope.coverage is None else None
             return Rendered(
-                stdout=envelope.model_dump_json(), stderr=None, exit_code=ExitCode.SUCCESS
+                stdout=envelope.model_dump_json(exclude=omit),
+                stderr=None,
+                exit_code=ExitCode.SUCCESS,
             )
         lines = [f"routed to: {result.pipeline_name}"]
         if result.answer.stance is AnswerStance.NOT_IN_CORPUS:
@@ -757,12 +766,23 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
             # sentence itself is unpromised prose under G9 (`09` §3); the exit code is not,
             # and stays `SUCCESS` — nothing failed, and both sibling empty paths in this same
             # function ("no matching passages found.", `NothingToProduce`) already exit 0.
-            lines.append("the corpus does not answer this.")
+            if result.coverage is not None and result.coverage.indexing > 0:
+                # Ledger task **43.4** — a source `weft ask` has not yet reached is not the same
+                # fact as one it searched and found nothing in; the plain sentence above still
+                # holds whenever nothing is known to be outstanding.
+                lines.append(
+                    "the corpus does not answer this — "
+                    f"{result.coverage.indexing} sources are not yet indexed."
+                )
+            else:
+                lines.append("the corpus does not answer this.")
         elif not streamed:
             lines.append(result.answer.text)
         lines.extend(_citation_line(citation) for citation in result.answer.citations)
         return Rendered(
-            stdout="\n".join([*lines, *_explain_lines(result), *_stage_lines(result)]),
+            stdout="\n".join(
+                [*lines, *_coverage_lines(result), *_explain_lines(result), *_stage_lines(result)]
+            ),
             stderr=None,
             exit_code=ExitCode.SUCCESS,
         )
@@ -784,6 +804,7 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
     if not result.hits:
         lines = [
             "no matching passages found.",
+            *_coverage_lines(result),
             *_explain_lines(result),
             *_stage_lines(result),
             *_record_lines(result),
@@ -793,11 +814,44 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
     lines = [f"{hit.rank}. {hit.content}" for hit in result.hits]
     return Rendered(
         stdout="\n".join(
-            [*lines, *_explain_lines(result), *_stage_lines(result), *_record_lines(result)]
+            [
+                *lines,
+                *_coverage_lines(result),
+                *_explain_lines(result),
+                *_stage_lines(result),
+                *_record_lines(result),
+            ]
         ),
         stderr=None,
         exit_code=ExitCode.SUCCESS,
     )
+
+
+def _stated_coverage(result: AskCommandResult) -> SourceCoverage | None:
+    """`result.coverage`, or `None` when there is nothing to say — ledger task **43.4**.
+
+    `None` both when no store answered `list_sources` at all and when every source it reported
+    is `ACTIVE`: either way, a caller reads the same silence a build before this task always
+    gave, which is the byte-identical guarantee this task promises.
+    """
+    if result.coverage is None or result.coverage.complete:
+        return None
+    return result.coverage
+
+
+def _coverage_lines(result: AskCommandResult) -> list[str]:
+    """`sources: N indexed · N failed · N indexing`, or nothing at all — ledger task **43.4**.
+
+    Empty unless `_stated_coverage` has something to say, the same byte-identical-without-the-
+    fact guarantee `_explain_lines`/`_record_lines` already give their own blocks.
+    """
+    coverage = _stated_coverage(result)
+    if coverage is None:
+        return []
+    return [
+        f"sources: {coverage.indexed} indexed · {coverage.failed} failed · "
+        f"{coverage.indexing} indexing"
+    ]
 
 
 def _record_lines(result: AskCommandResult) -> list[str]:

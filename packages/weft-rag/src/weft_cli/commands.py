@@ -91,6 +91,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.ask import AskHit, hits_for, run_ask
 from weft_cli.config_commands import register_config_commands
+from weft_cli.coverage import SourceCoverage, coverage_of
 from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
@@ -382,6 +383,66 @@ async def _require_target_exists(deps: Dependencies, target: str | None) -> None
     )
 
 
+async def _read_sources_by_store(
+    deps: Dependencies, target: str | None
+) -> Outcome[tuple[tuple[str, tuple[SourceRecord, ...]], ...]]:
+    """One `list_sources()` read per store `_stores_in_use` names, bound to `target` — the
+    fan-out `SourcesListCommand.run` and `AskCommand`'s own coverage line share, ledger task
+    **43.4**, through the identical `wrap(..., stage="sources:list")`/`aclose` seam, so the two
+    cannot disagree about which stores answer or how a failed read is reported. A store without
+    `list_sources` is skipped, not refused — the empty tuple this returns for "no store could
+    answer" is the same shape as "every store answered with nothing", and it is left to each
+    caller to tell those apart, exactly as `SourcesListCommand.run` always has.
+    """
+    by_store: list[tuple[str, tuple[SourceRecord, ...]]] = []
+    for name in sorted(_stores_in_use(deps)):
+        entry = deps.registry.entry(NodeStore, name)
+        store = await bind_store(entry.factory(None), target, store_name=name)
+        if not hasattr(store, "list_sources"):
+            continue
+
+        async def _list(store: NodeStore = store) -> Outcome[tuple[SourceRecord, ...]]:
+            return Produced(value=tuple(await store.list_sources()))
+
+        wrapped = wrap(
+            _list,
+            distribution=entry.distribution,
+            contract=NodeStore.__qualname__,
+            plugin=name,
+            stage="sources:list",
+        )
+        try:
+            listed = await wrapped()
+        finally:
+            await aclose(
+                store,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=name,
+            )
+        if not isinstance(listed, Produced):
+            return listed
+        by_store.append((name, listed.value))
+    return Produced(value=tuple(by_store))
+
+
+async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[SourceCoverage | None]:
+    """`AskCommandResult.coverage` for one ask — ledger task **43.4**. `None` only when no
+    store `_stores_in_use` names could answer `list_sources` at all, so a build with none does
+    (every existing test's own registry, `weft eval baseline`'s deterministic store included)
+    renders exactly as it did before this task; a store that answered with nothing outstanding
+    still sets `coverage`, `SourceCoverage.complete` and all, which is what lets `weft_cli.
+    render._render_ask` tell "nothing to say" from "nothing was asked".
+    """
+    read = await _read_sources_by_store(deps, target)
+    if not isinstance(read, Produced):
+        return read
+    if not read.value:
+        return Produced(value=None)
+    records = tuple(record for _, records in read.value for record in records)
+    return Produced(value=coverage_of(records))
+
+
 def _register_corpus(ctx: Context, deps: Dependencies) -> None:
     """Put the configured `NodeStore` on the `Context` a reconcile pass carries — task
     **6.19**, G13's second repair (`docs/02-extension-model.md` §1 → *Extended by G13*): "the
@@ -653,6 +714,11 @@ class AskCommandResult(CommandResult):
     #: Ledger task **40.3** — one line per `Passages.ext` entry, each in its own producer's
     #: words, populated only under `--explain`.
     records: tuple[str, ...] = ()
+    #: Ledger task **43.4** — one `list_sources()` read across every store in use, bound to
+    #: this ask's own target. `None` only when no store answered at all (none carries
+    #: `list_sources`), never when the answer is that nothing is outstanding — `weft_cli.
+    #: render._render_ask` reads `SourceCoverage.complete` for that distinction.
+    coverage: SourceCoverage | None = None
 
 
 _RENDER_HELP: Final[str] = (
@@ -1078,6 +1144,9 @@ class AskCommand:
             roles=deps.roles,
             target=ask_args.target,
         )
+        coverage_outcome = await _coverage_for(deps, ask_args.target)
+        if not isinstance(coverage_outcome, Produced):
+            return coverage_outcome
         return Produced(
             value=AskCommandResult(
                 question=ask_args.question,
@@ -1087,6 +1156,7 @@ class AskCommand:
                 answer=None,
                 hits=hits_for([p.scored for p in sorted(passages.passages, key=lambda p: p.rank)]),
                 records=record_lines(passages.ext) if ask_args.explain else (),
+                coverage=coverage_outcome.value,
             )
         )
 
@@ -1164,6 +1234,9 @@ class AskCommand:
                     attribute="vector_score_semantics",
                 ).rendered(),
             )
+        coverage_outcome = await _coverage_for(deps, ask_args.target)
+        if not isinstance(coverage_outcome, Produced):
+            return coverage_outcome
         return Produced(
             value=AskCommandResult(
                 question=ask_args.question,
@@ -1175,6 +1248,7 @@ class AskCommand:
                 # report — `incomparable_note` would return `None` for a one-element sequence and
                 # calling it would be asking a question whose answer is structural.
                 score_note=None,
+                coverage=coverage_outcome.value,
             )
         )
 
@@ -1270,6 +1344,9 @@ class AskCommand:
                 for explanation in arm_explanations(produced_by, producers=producers, store=store)
             )
             note = incomparable_note(produced_by)
+        coverage_outcome = await _coverage_for(deps, ask_args.target)
+        if not isinstance(coverage_outcome, Produced):
+            return coverage_outcome
         return Produced(
             value=AskCommandResult(
                 question=ask_args.question,
@@ -1279,6 +1356,7 @@ class AskCommand:
                 answer=answer,
                 explanations=explanations,
                 score_note=note,
+                coverage=coverage_outcome.value,
             )
         )
 
@@ -1413,38 +1491,15 @@ class SourcesListCommand:
             )
         )
         await _require_target_exists(deps, typed.target)
-        entries: list[ListedSource] = []
-        for name in sorted(_stores_in_use(deps)):
-            entry = deps.registry.entry(NodeStore, name)
-            store = await bind_store(entry.factory(None), typed.target, store_name=name)
-            if not hasattr(store, "list_sources"):
-                continue
-
-            async def _list(store: NodeStore = store) -> Outcome[tuple[SourceRecord, ...]]:
-                return Produced(value=tuple(await store.list_sources()))
-
-            wrapped = wrap(
-                _list,
-                distribution=entry.distribution,
-                contract=NodeStore.__qualname__,
-                plugin=name,
-                stage="sources:list",
-            )
-            try:
-                listed = await wrapped()
-            finally:
-                await aclose(
-                    store,
-                    distribution=entry.distribution,
-                    contract=NodeStore.__qualname__,
-                    plugin=name,
-                )
-            if not isinstance(listed, Produced):
-                return listed
-            records = listed.value
-            if typed.status is not None:
-                records = tuple(record for record in records if record.status == typed.status)
-            entries.extend(ListedSource(store=name, record=record) for record in records)
+        read = await _read_sources_by_store(deps, typed.target)
+        if not isinstance(read, Produced):
+            return read
+        entries: list[ListedSource] = [
+            ListedSource(store=name, record=record)
+            for name, records in read.value
+            for record in records
+            if typed.status is None or record.status == typed.status
+        ]
         sources = tuple(sorted(entries, key=lambda entry: (entry.record.uri, entry.store)))
         return Produced(value=SourcesListCommandResult(sources=sources, status=typed.status))
 
