@@ -80,7 +80,10 @@ def red_groups(red: list[str]) -> tuple[dict[tuple[str, str], int], int]:
 def citations(owners: list[str]) -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
     for owner in owners:
-        name = Path(owner).name
+        # Parent directory and file name, never the bare name: `contract.py:` matched every
+        # pack's contract, and a list mostly about other files was read as "none" (L28.24).
+        path = Path(owner)
+        name = f"{path.parent.name}/{path.name}" if path.parent.name else path.name
         out = _run(
             ["git", "grep", "-nE", r"(^|[^A-Za-z0-9_])" + re.escape(name) + r":[0-9]+", "--", "."]
         )
@@ -156,7 +159,9 @@ def main() -> int:
             print("- " + line)
         print(
             "If the brief changes a Protocol's signature, sketch the change and run "
-            "`uv run pyright` on these first (L28.16)."
+            "`uv run pyright` on these first (L28.16). If it adds a Protocol, name the "
+            "examples/ pack that will satisfy it: FF9(c) fails an exported Protocol with no "
+            "stranger (L28.23)."
         )
     return 0
 

@@ -205,7 +205,11 @@ hardest question into a grep, and it is the cheapest thing in this whole skill.
 1. **Apply every group**, and run `uv run poe ci-checks` — green, in the foreground. A new fitness
    function is in the composite in the same commit or FF0 fails.
 2. **If a hook was added or changed, trigger it** and read what it prints. A hook is code, and
-   `CLAUDE.md`'s rule holds: a green gate is not a working binary.
+   `CLAUDE.md`'s rule holds: a green gate is not a working binary. **Trigger it once per caller
+   it will meet and once per command shape it must allow** (`L28.22`): the dispatcher's seat, an
+   agent inside its own worktree, and several agents dispatched in parallel, plus the safe
+   neighbour of every command it refuses. A refusal tested from one seat misfired on the other
+   two the same day.
 3. **Move every entry out of `lessons.md`'s *Queue* into `lessons-archive.md`**, under a new dated
    `##` section for this drain. One line each — id, the rule in one sentence (or `declined` and the
    reason), where it landed, the commit, and **any edge to an earlier entry**. `lessons.md` ends the

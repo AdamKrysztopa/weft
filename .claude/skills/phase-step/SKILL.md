@@ -116,6 +116,11 @@ where its author's reading stopped — task 5.2b was given five and found nine. 
 itself. Read what a check *asserts*, not what its name says it is for, and check a property about
 caller shape structurally rather than textually. → `references/evidence.md`
 
+**A measured number is quoted with the invocation that produced it, flags included** (`L28.26`):
+Phase 43's proposal took "≈2 s/document" as the default `weft index`'s rate and built a 90-second
+bound on it, while the cited ledger line records `--batch-size 50`. Before a number or a proposed
+stage enters a task line, re-read the cited line and the code path it assumes.
+
 **A fix-plan or a review document is a hypothesis about the tree, and its per-task clauses are
 the part nothing checks.** `01`-through-`13`'s factual claims are held to `CLAUDE.md`'s evidence
 rule; a plan under `docs/internal/fix-plans/` is held to nothing, and a task line written from one
@@ -368,6 +373,14 @@ vacuous.** Four shapes, all of them cheap to check once named:
   in every message *about* that key. Name the leaf class, and match a fragment of the sentence's
   **claim**, not of its subject (`L12.12`).
 
+**A change that makes a store create something on open or on a read is checked against every
+fixture that cleans up after that store** (`L28.27`): `34.5` made Qdrant create
+`<collection>__targets` on every open, every older fixture dropped only the pair it knew of, and
+1,025 empty collections filled an 11.7 GiB Docker VM until Qdrant was OOM-killed. Create on the
+first write, or grep the fixtures. **And a call through `weft_kernel.seam.wrap` returns an
+`Outcome`** (`L28.25`): a plugin method returning a plain value is wrapped through a helper
+returning `Produced(value=...)`, or every success is recorded as a failed stage.
+
 **A double of a store method implements the method's whole documented effect** (`L28.20`):
 `36.1` wrote a failure record and then released the source's nodes with `delete_source`, and every
 test passed against a double that only logged the call. A real store's `delete_source` removes the
@@ -521,7 +534,10 @@ that is already red and you have silently handed over a diagnostic assignment in
 And while it runs: **do not edit the tree, and do not run the gate either.** One container, one
 lockfile, one `.venv` — two concurrent suites truncate each other's tables and produce a result
 about neither, which arrives as three unrelated red tests rather than as anything naming the cause
-(`L6.22`). **Every green-phase dispatch passes `isolation: "worktree"`** — **G14**, settled
+(`L6.22`). **Parallel dispatches cannot verify their own container-backed tests**
+(`L28.22`): `guard_unstaged_gate.py` refuses a container suite while any sibling worktree is locked,
+even a test that makes its own database, so run those tests yourself at the merge and say in each
+brief which ones the agent will not be able to run. **Every green-phase dispatch passes `isolation: "worktree"`** — **G14**, settled
 2026-09-14 — so that rule is unreachable rather than only forbidden: `L9.57`'s version of it was
 broken five times in one session. Measured 2026-09-14: the worktree lands at
 `.claude/worktrees/agent-<id>`, holds no `.venv`, no `docs/internal/` and no `WEFT_DATABASE_URL`,
@@ -717,7 +733,9 @@ A task is not done until all of these are true:
    plant-and-watch step the rule was written for.
 
 1. **`uv run poe ci-checks` is green, run by you, in the foreground** — and the whole suite, not the
-   part you touched. **When it is red and you think you know why, re-run the command that failed,
+   part you touched. **Read its skip count against the last run's, not only its exit code**
+   (`L28.27`): a dead Qdrant turns its tests into skips and the gate reads green — 101 skipped
+   against 16, the only signal, at `34.7`. **When it is red and you think you know why, re-run the command that failed,
    not a subset of it.** A green from a narrower scope confirms nothing about the change you just
    made, and where the failure is order-dependent the narrowing is exactly what makes it vanish:
    Phase 6 read a `uv sync` as a fix because the run *after* it was one file rather than the suite,
