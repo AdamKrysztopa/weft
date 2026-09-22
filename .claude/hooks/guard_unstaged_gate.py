@@ -17,6 +17,7 @@ Exit 2 with the paths on stderr blocks. Runs under bare `python3` (3.9).
 """
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -25,8 +26,12 @@ import sys
 _RUNS_GATE = re.compile(
     r"(^|[;&|(]\s*|\s)(poe\s+(ci-checks|ci-no-tests|arch)\b|pytest\b[^;&|]*tests/architecture)"
 )
+#: A named test file is allowed: the refusal is for the runs that sweep a directory, which is how
+#: the one pgvector test under `tests/unit/weft_store` reached the container.
 _RUNS_CONTAINER_SUITE = re.compile(
-    r"(^|[;&|(]\s*|\s)(poe\s+(ci-checks|test)\b|pytest\b[^;&|]*tests/(integration|unit))"
+    r"(^|[;&|(]\s*|\s)(poe\s+(ci-checks|test)\b"
+    r"|pytest\b[^;&|]*tests/integration"
+    r"|pytest\b[^;&|]*tests/unit(/[\w-]+)*/?(?=\s|$|[;&|)]))"
 )
 _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
@@ -76,7 +81,13 @@ def locked_agent_worktrees(cwd):
             current = line[len("worktree ") :]
         elif line.startswith("locked") and current and "/agent-" in current:
             locked.append(current)
-    return locked
+    # An agent running inside its own worktree is the one entitled to the container (L24.3).
+    here = os.path.realpath(cwd)
+    return [
+        path
+        for path in locked
+        if here != os.path.realpath(path) and not here.startswith(os.path.realpath(path) + os.sep)
+    ]
 
 
 def main():
