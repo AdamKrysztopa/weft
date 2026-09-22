@@ -1884,3 +1884,32 @@ async def check_claiming_an_identity_creates_the_target_as_a_first_write_does(
         "a claimed target must be in the catalogue",
     )
     _require(await reopened.count() == 0, "a claimed target must open, empty, on a new handle")
+
+
+async def check_a_target_whose_first_write_is_a_source_record_is_catalogued(
+    store: TargetHoldingStore,
+) -> None:
+    """Ingest writes a document's source record (`INDEXING`) before its nodes, so a run
+    interrupted between the two leaves a target holding sources and no nodes. That target exists:
+    it is in the catalogue, and every command naming it answers about it rather than calling it
+    unknown. Found at `34.8`: pgvector catalogued a target on its first node write only."""
+    # Arrange
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+
+    # Act
+    await candidate.put_source(
+        SourceRecord(
+            id=_SOURCE_A,
+            uri="file:///corpus/a.txt",
+            content_hash="hash-a",
+            indexed_at=datetime.now(UTC),
+            pipeline="conformance",
+            status=SourceStatus.INDEXING,
+        )
+    )
+
+    # Assert
+    _require(
+        _CANDIDATE in {record.name for record in (await store.target_catalogue()).targets},
+        "a target whose first write was a source record must be in the catalogue",
+    )

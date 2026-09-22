@@ -254,3 +254,70 @@ async def check_embedding_for_query(
         raise EmbedderStatesNoIdentityError(plugin=plugin, target=named)
     if identity != held:
         raise EmbeddingIdentityMismatchError.for_query(held=held, other=identity, target=named)
+
+
+# -- Promotion — ledger task 34.8 --------------------------------------------------------------
+#
+# `weft target promote` switches which target is live, and every reader naming no target follows
+# it — so it is gated on evidence, exactly the way a technique comparison is (`weft_cli.
+# eval_commands._incomparable_reasons`), reused rather than re-implemented: one definition of
+# "these two runs are comparable" for both `eval compare` and a promotion. The four errors below
+# are `weft_cli.target_commands.TargetPromoteCommand`'s own vocabulary; they live here, beside
+# every other target-shaped refusal this module already owns, rather than in `weft_cli`, on
+# `StoreHoldsNoTargetsError`'s own footing.
+
+
+class PromotionEvidenceMissingError(WeftError):
+    """A promote was asked for with neither `--evidence` nor `--without-evidence`."""
+
+    def __init__(self, target: str) -> None:
+        super().__init__(
+            f"promoting {target!r} needs evidence: two persisted runs, the first scoring the "
+            f"live target and the second scoring {target!r}, over one corpus and one question "
+            f"set — pass --evidence <live-run> <candidate-run>, or --without-evidence to "
+            f"promote on your own judgement (recorded on the promotion)"
+        )
+        self.target = target
+
+
+class PromotionEvidenceMismatchError(WeftError):
+    """The two runs given as `--evidence` do not show what a promotion needs — `reasons` names
+    every disagreeing fact: one run scoring the wrong target, or the two runs failing
+    `weft_cli.eval_commands._incomparable_reasons`' own comparability check.
+    """
+
+    def __init__(self, target: str, reasons: tuple[str, ...]) -> None:
+        super().__init__(
+            f"the evidence for promoting {target!r} does not show what a promotion needs: "
+            + "; ".join(reasons)
+        )
+        self.target = target
+        self.reasons = reasons
+
+
+class CandidateNotReadyError(WeftError):
+    """`target` still holds a source recorded as `SourceStatus.INDEXING` or `.DELETING` —
+    `sources` names each one, by id.
+    """
+
+    def __init__(self, target: str, sources: tuple[str, ...]) -> None:
+        super().__init__(
+            f"{target!r} cannot be promoted — it still holds a source recorded as indexing or "
+            f"deleting: {', '.join(sources)}. Let the run finish, or reconcile it, then promote."
+        )
+        self.target = target
+        self.sources = sources
+
+
+class CandidateIdentityUnrecordedError(WeftError):
+    """`target` has never had an embedding identity claimed against it — no write ever went
+    through an embedder that states one, so a query against it once live could not be checked.
+    """
+
+    def __init__(self, target: str) -> None:
+        super().__init__(
+            f"{target!r} has no recorded embedding identity — nothing ever wrote vectors into "
+            f"it through an embedder that states one, so a query against it could not be "
+            f"checked. Index it with `weft index --target {target}` before promoting it"
+        )
+        self.target = target

@@ -34,16 +34,21 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 import psycopg
-from psycopg.rows import dict_row
 
 from weft_kernel.payload import NodeId
 from weft_kg.contract import Entity, EntityId
-from weft_kg.store import GraphSettings, provision_schema, require_dsn
+from weft_kg.store import GraphSettings, require_dsn, resolve_target_connection
 
 
 class GraphWalk:
     """The bounded, undirected walk `weft_kg.contract.GraphTraversal` declares — see the module
     docstring for why this is not `GraphStore` reused under a second contract.
+
+    **Reads whichever graph target is live when it opens, ledger task `34.11`, and holds it for
+    this instance's lifetime (owner decision Q-C) — no `--target` threading into a walk.** A
+    query-time traversal has no candidate to compare against the way `weft target eval` does; it
+    answers against the target an ingest run already promoted, exactly as an unbound
+    `weft_store.pgvector_store.PgVectorStore` handle does.
     """
 
     def __init__(self, settings: GraphSettings, config: object = None) -> None:
@@ -53,15 +58,15 @@ class GraphWalk:
 
     async def _connection(self) -> "psycopg.AsyncConnection[dict[str, Any]]":
         """Lazily opened and schema-provisioned, exactly like `GraphStore`'s own — either class
-        may be the first to dial in a given process, so both provision identically.
+        may be the first to dial in a given process, so both resolve a target and provision
+        identically (`weft_kg.store.resolve_target_connection`). Always unbound (`bound=None`):
+        this class reads whichever target `kg_live_target` currently names, once, and keeps this
+        connection on it for the instance's lifetime — it never binds to a target by name.
         """
         if self._conn is not None:
             return self._conn
         dsn = require_dsn(self._settings)
-        conn = await psycopg.AsyncConnection[dict[str, Any]].connect(
-            dsn, autocommit=True, row_factory=dict_row
-        )
-        await provision_schema(conn)
+        conn, _home_schema, _target = await resolve_target_connection(dsn, bound=None)
         self._conn = conn
         return conn
 

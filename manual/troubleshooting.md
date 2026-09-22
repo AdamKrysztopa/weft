@@ -4808,3 +4808,76 @@ query a target whose identity is already recorded.
 
 **What to do:** use an embedder that states its identity (every embedder that ships with Weft
 does), or ask the embedder's author to implement `embedding_model()`. It is a one-method Protocol.
+
+### `PromotionEvidenceMissingError`
+
+**What it looks like:**
+
+```text
+promoting 'w128' needs evidence: two persisted runs, the first scoring the live target and the
+second scoring 'w128', over one corpus and one question set — pass --evidence <live-run>
+<candidate-run>, or --without-evidence to promote on your own judgement (recorded on the promotion)
+```
+
+**Why:** a promote changes what every question is answered from. Weft asks for the evaluation that
+justifies it, and if you skip that, it records that you did.
+
+**What to do:** score both targets with `weft eval run … --target <name>` on the same corpus and
+questions, then pass the two run ids, live first. Or promote with `--without-evidence`.
+
+### `PromotionEvidenceMismatchError`
+
+**What it looks like:** the evidence does not show what a promote needs. The message names which
+fact disagrees: the first run did not score the live target, the second did not score the
+candidate, or the two runs differ in corpus or question set.
+
+**Why:** evidence for a different pair of targets, or for different questions, says nothing about
+this switch.
+
+**What to do:** pass the live target's run first and the candidate's second, both scored over the
+same corpus and question set. `weft eval compare <live-run> <candidate-run>` shows whether they
+compare.
+
+### `CandidateNotReadyError`
+
+**What it looks like:** a promote refused because the candidate still holds a document recorded as
+being indexed or deleted. The message names the documents.
+
+**Why:** a candidate with a half-written document would answer from part of its corpus the moment it
+became live.
+
+**What to do:** let the index or delete finish, or re-run it (`weft index --target <name>`, or
+`weft reconcile --target <name>` for an interrupted delete), then promote.
+
+### `CandidateIdentityUnrecordedError`
+
+**What it looks like:**
+
+```text
+'w256' has no recorded embedding identity — nothing ever wrote vectors into it through an
+embedder that states one, so a query against it could not be checked. Index it with
+`weft index --target w256` before promoting it
+```
+
+**Why:** once promoted, every query is checked against the embedder that built the live target. A
+target that records none cannot be checked.
+
+**What to do:** index the target with an embedder that states its identity (every shipped embedder
+does), then promote.
+
+### `GraphTargetTableMissingError`
+
+**What it looks like:** any command that reads or writes the graph pack's store for a target whose
+schema has lost a table:
+
+```text
+target 'w128' is catalogued, but its table kg_entities is missing from schema kg_target_w128 —
+something outside Weft dropped it, or a drop was interrupted. Weft will not recreate it empty or
+read another target's table in its place. Drop the target and index it again.
+```
+
+**Why:** the graph pack keeps each target in its own Postgres schema, `kg_target_<name>`, exactly as
+the node store does, and it refuses rather than reading `default`'s table of the same name.
+`TargetTableMissingError` above explains why.
+
+**What to do:** drop the target and build it again. If it is live, promote or roll back first.

@@ -18,13 +18,19 @@ to every field of every registered command's `args_model`, first-party or a stra
   already worked before this task.
 
 **What this deliberately does not support.** A field whose annotation is not `str`, `int`,
-`bool`, an `X | None` wrapping any of those, or a `StrEnum`, refuses loudly at
+`bool`, `list[str]`, an `X | None` wrapping any of those, or a `StrEnum`, refuses loudly at
 parser-construction time — a `UnsupportedArgumentTypeError` naming the field and its
 annotation — rather than guessing a `type=str` and silently mis-parsing whatever a future
 command's richer `args_model` needs. This is the honest floor for the five commands task 3.2
 shipped (every field is one of the three shapes that existed then); a `Command` whose grammar
-needs a `list[str]`, a `Path`, or a nested model is outside this task's brief and gets a named
-refusal instead of a wrong parse.
+needs a `Path` or a nested model is outside this task's brief and gets a named refusal instead
+of a wrong parse.
+
+**`list[str]`, added ledger task 34.8, for `weft target promote --evidence <live-run>
+<candidate-run>`.** The one shape this generator gives a `list[str]` field: an optional flag
+taking exactly `nargs=2` values, never a required positional (there is no honest single-token
+spelling for "a list, required"), and never a variable count — `TargetPromoteCommand.run`'s own
+"exactly two run ids" is what the grammar enforces, not a runtime length check.
 
 **`bool`, added task 3.7, for `weft config get --origin`.** `docs/03-cli.md` → *Project
 context* needs one boolean flag and none of the three existing shapes can express it — a
@@ -95,6 +101,10 @@ def _add_field(parser: argparse.ArgumentParser, field_name: str, field_info: Fie
     if field_info.description:
         kwargs["help"] = field_info.description
 
+    if _is_str_list(field_info.annotation):
+        _add_str_list_field(parser, field_name, field_info, help_kwargs=kwargs)
+        return
+
     scalar = _scalar_type(field_info.annotation, field_name=field_name)
 
     if scalar is bool:
@@ -120,6 +130,41 @@ def _add_field(parser: argparse.ArgumentParser, field_name: str, field_info: Fie
     default = field_info.get_default(call_default_factory=True)
     parser.add_argument(
         field_spelling(field_name, field_info), dest=field_name, default=default, **kwargs
+    )
+
+
+def _is_str_list(annotation: object) -> bool:
+    """`annotation` is exactly `list[str]` — never `list[int]` or any other element type, which
+    this generator has no spelling for and refuses on `_scalar_type`'s own footing once this
+    returns `False` and `_add_field` falls through to it.
+    """
+    return typing.get_origin(annotation) is list and typing.get_args(annotation) == (str,)
+
+
+def _add_str_list_field(
+    parser: argparse.ArgumentParser,
+    field_name: str,
+    field_info: FieldInfo,
+    *,
+    help_kwargs: dict[str, Any],
+) -> None:
+    """`field_name` as an `nargs=2` flag — see the module docstring's own paragraph on why two
+    is the one count this generator commits to, and why a `list[str]` field is never a required
+    positional.
+    """
+    if field_info.is_required():
+        raise UnsupportedArgumentTypeError(
+            f"field '{field_name}' is a list[str] with no default — a list argument must be "
+            f"an optional flag taking two values (`--{field_name.replace('_', '-')} A B`), "
+            f"never a required positional. Give it a default of `[]`."
+        )
+    default = field_info.get_default(call_default_factory=True)
+    parser.add_argument(
+        field_spelling(field_name, field_info),
+        dest=field_name,
+        nargs=2,
+        default=default,
+        **help_kwargs,
     )
 
 

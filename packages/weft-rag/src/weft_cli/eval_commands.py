@@ -137,7 +137,7 @@ flag names a **pipeline**, never a run id: every persisted run under `DEFAULT_RU
 `resolved_pipeline.name` equals it is one of that baseline's repetitions, `--a`/`--b` themselves
 excluded (a rung is not one of its own baseline's repetitions). `NoBaselineRunsError` refuses a
 name nothing under `runs/` ran, naming every pipeline that actually did. Each kept repetition is
-checked against `run_a` with the identical `_incomparable_reasons` this module already uses for
+checked against `run_a` with the identical `incomparable_reasons` this module already uses for
 `run_a`/`run_b` themselves — **the pipeline is deliberately not part of that check**: a baseline
 is a different pipeline from the rung being judged by construction, which is the entire point,
 and corpus and model versions are what make its variability a measurement of the same system.
@@ -161,7 +161,7 @@ stage-by-stage structure.
 **`weft eval compare <a> <b>` over two baseline report files — ledger repair `R22.4d`.** `01` →
 Phase 6's Exit asks that "`weft eval compare` against the published baseline run reports every
 metric inside the interval that baseline recorded". A published baseline
-(`weft_eval.baseline.BaselineReport`) is not a persisted run — `_incomparable_reasons` above
+(`weft_eval.baseline.BaselineReport`) is not a persisted run — `incomparable_reasons` above
 compares `active_distributions` for exact equality, and G19 renamed every one of them, so that
 check can never answer this question for a published file. When `--a`/`--b` both name a file on
 disk, `EvalCompareCommand` takes a second path entirely: it loads each as a `BaselineReport` and
@@ -865,7 +865,7 @@ class BaselineSelection(StrEnum):
 
 class QueryRungDifference(BaseModel):
     """The query rung each of two compared runs scored with. A *difference*, never a reason to
-    refuse: the rung is the thing being compared, so it does not join `_incomparable_reasons`
+    refuse: the rung is the thing being compared, so it does not join `incomparable_reasons`
     the way the corpus does.
     """
 
@@ -1004,8 +1004,16 @@ def all_run_records(directory: Path = DEFAULT_RUNS_DIR) -> tuple[tuple[str, RunR
     return tuple((path.stem, load_run_record(path)) for path in sorted(directory.glob("*.json")))
 
 
-def _load_or_refuse(run_id: str, *, directory: Path = DEFAULT_RUNS_DIR) -> RunRecord:
-    """`run_id` loaded from `directory`, or `UnknownRunIdError` naming every id that does exist."""
+def load_or_refuse_run(run_id: str, *, directory: Path = DEFAULT_RUNS_DIR) -> RunRecord:
+    """`run_id` loaded from `directory`, or `UnknownRunIdError` naming every id that does exist.
+
+    **Public since ledger task 34.8** — `weft_cli.target_commands.TargetPromoteCommand` loads
+    its `--evidence` run ids through this exact function, so a promotion and `weft eval compare`
+    can never come to load a run two different ways. Renamed from `_load_or_refuse` in the same
+    commit: `pyright --strict`'s `reportPrivateUsage` refuses a second module reaching for a
+    single-underscore name, `test_phase3_exit_command_surface.py`'s own precedent for exactly
+    this rename.
+    """
     path = directory / f"{run_id}.json"
     if not path.is_file():
         options = _run_ids(directory)
@@ -1096,7 +1104,7 @@ def model_versions_of(
 
     *`[llm.roles]`*, `R10.3`'s own addition. A summarising or judging model is chosen per
     **role**, and no stage's config mentions it — so two eval arms differing *only* by their
-    summarising model produced byte-identical `model_versions` and `_incomparable_reasons` compared
+    summarising model produced byte-identical `model_versions` and `incomparable_reasons` compared
     them as though the only difference were the pipeline (`docs/internal/lessons.md` `L10.5`). That
     is the guard reading one fact and the run using another, and `09` §4's V2 pins a comparison to
     *"a different corpus, pipeline or model version"* — a role's model **is** a model version.
@@ -1173,16 +1181,21 @@ async def stated_embedding_models(
 
 def _is_promotion_comparison(a: RunRecord, b: RunRecord) -> bool:
     """Both `a` and `b` name a target, and it differs — owner decision Q-E: the widening
-    `_incomparable_reasons` applies below is only for a candidate index being judged against
+    `incomparable_reasons` applies below is only for a candidate index being judged against
     the live one, never for two runs of one target, and never for a record naming no target at
     all (every record written before ledger task 34.7).
     """
     return a.target is not None and b.target is not None and a.target != b.target
 
 
-def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
+def incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
     """Which of the identity facts a comparison depends on actually differ — see
     `IncomparableRunsError`'s own docstring. Empty means the two runs are comparable.
+
+    **Public since ledger task 34.8**, renamed from `_incomparable_reasons` in the same commit
+    that made `load_or_refuse_run` public — see that function's own docstring for why.
+    `weft_cli.target_commands.TargetPromoteCommand` calls this directly once its own two
+    target-identity checks pass, so "comparable" means one thing everywhere it is asked.
 
     **Packaging — which distributions were active, and at which versions — is not identity,
     repair `R22.11`.** It moved to `_packaging_differences`, reported beside a comparison
@@ -1236,6 +1249,15 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
     return tuple(reasons)
 
 
+#: Back-compat alias for the pre-34.8 private name. `tests/unit/weft_cli/test_eval_commands.py`
+#: reaches this function through `_private_member(module, "_incomparable_reasons")` — that
+#: file's own `getattr`-by-literal idiom, chosen specifically to avoid tripping pyright's
+#: `reportPrivateUsage` on a static import — and a test is never edited to follow a rename.
+#: New code should use `incomparable_reasons` directly; this name exists only so that test keeps
+#: reaching the same function.
+_incomparable_reasons = incomparable_reasons
+
+
 def _packaging_differences(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
     """Which distributions were active, and at which versions, differ between `a` and `b` —
     repair `R22.11`. Reported beside a comparison, never a reason to refuse it: see the module
@@ -1261,7 +1283,7 @@ def _packaging_differences(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
 def _promotion_subject(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
     """`EvalCompareCommandResult.subject` for a promotion comparison — what changed between the
     two targets, in the order a reader would ask about it: the embedder first, since that is
-    what a promotion is allowed to have changed (see `_incomparable_reasons`'s own paragraph),
+    what a promotion is allowed to have changed (see `incomparable_reasons`'s own paragraph),
     then every `model_versions` key that differs. Called only once `_is_promotion_comparison`
     holds; an ordinary comparison never reaches this function.
     """
@@ -1727,7 +1749,7 @@ def _falsify_against_baseline(
         # Deliberately not checking the pipeline here — a baseline is a different pipeline
         # from the rung being judged by construction, which is the entire point. Corpus and
         # model versions are what make its variability a measurement of the same system.
-        baseline_reasons = _incomparable_reasons(record_a, repetition)
+        baseline_reasons = incomparable_reasons(record_a, repetition)
         if baseline_reasons:
             raise IncomparableRunsError(
                 f"baseline run '{run_id}' ('{baseline}') is not comparable to '{run_a_id}': "
@@ -1842,10 +1864,10 @@ class EvalCompareCommand:
         if a_is_file or b_is_file:
             return _compare_baseline_reports(compare_args, a_is_file=a_is_file, b_is_file=b_is_file)
 
-        record_a = _load_or_refuse(compare_args.a)
-        record_b = _load_or_refuse(compare_args.b)
+        record_a = load_or_refuse_run(compare_args.a)
+        record_b = load_or_refuse_run(compare_args.b)
 
-        reasons = _incomparable_reasons(record_a, record_b)
+        reasons = incomparable_reasons(record_a, record_b)
         if reasons:
             raise IncomparableRunsError(
                 f"'{compare_args.a}' and '{compare_args.b}' are not comparable as a change of "
@@ -1887,7 +1909,7 @@ class EvalCompareCommand:
         subject: tuple[str, ...] = ()
         if _is_promotion_comparison(record_a, record_b):
             # `_is_promotion_comparison` already narrowed both to `str`; `cast` states that
-            # rather than re-checking it, on `_load_or_refuse`'s own footing for narrowed types.
+            # rather than re-checking it, on `load_or_refuse_run`'s own footing for narrowed types.
             targets = (cast(str, record_a.target), cast(str, record_b.target))
             subject = _promotion_subject(record_a, record_b)
 
@@ -1936,7 +1958,7 @@ class TraceCommand:
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         del ctx
         trace_args = cast(TraceArgs, args)
-        record = _load_or_refuse(trace_args.run_id)
+        record = load_or_refuse_run(trace_args.run_id)
         return Produced(value=TraceCommandResult(run_id=trace_args.run_id, record=record))
 
 
@@ -2008,7 +2030,9 @@ __all__ = [
     "UnknownRunIdError",
     "UnknownSliceError",
     "document_labels_from_manifest",
+    "incomparable_reasons",
     "index_and_score",
+    "load_or_refuse_run",
     "metrics_comparison_for_kind",
     "metrics_comparison_for_slice",
     "model_versions_of",

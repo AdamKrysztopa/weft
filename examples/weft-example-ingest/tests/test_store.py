@@ -220,4 +220,4 @@ async def test_a_strangers_store_holds_targets_and_passes_the_published_target_c
 
     # Assert
     assert isinstance(InMemoryNodeStore(), TargetHolding)
-    assert len(target_checks) == 11
+    assert len(target_checks) == 12

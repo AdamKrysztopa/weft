@@ -678,7 +678,10 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft reconcile` | `destroy` | `weft-rag` | converge derived state against what the corpus actually holds — every installed pack that can reconcile is asked, and one that fails is named. --mode full also backfills state that was never built, and prints what that will cost first; --dry-run names the participants (and, for full, the cost) and stops. --mode omitted uses weft.toml's own [reconcile] mode, or 'full' if that says nothing |
 | `weft render` | `read` | `weft-rag` | extract a directory and print it as one readable document: `weft render ./docs preview-markdown`. Answers 'what does Weft actually see in this file?' — the question you have before you trust an index built from it. The second argument names a pipeline whose last stage is a Renderer; 'preview-plain' and 'preview-markdown' ship. The rendered text goes to stdout alone, so it can be redirected to a file; what rendering cost goes to stderr. |
 | `weft sources list` | `read` | `weft-rag` | list every source recorded by every node store a project indexes into, failures included; --status keeps only sources at that status |
+| `weft target drop` | `destroy` | `weft-rag` | remove a target that is neither live nor previous-live — never through delete_source (ledger task 34.9) |
 | `weft target list` | `read` | `weft-rag` | one line per target a store holds: its name, whether it is live or the previous live target, its embedding identity if one is recorded, and its source count (ledger task 34.6) |
+| `weft target promote` | `overwrite` | `weft-rag` | make <name> the live target, atomically — refused with no evidence (unless --without-evidence), for a candidate still indexing or deleting, or one whose embedder was never recorded (ledger task 34.8) |
+| `weft target rollback` | `overwrite` | `weft-rag` | restore the previous live target, atomically (ledger task 34.9) |
 | `weft trace` | `read` | `weft-rag` | print what one persisted run recorded — its resolved pipeline, corpus, model versions and active distribution set |
 <!-- weft-cli:generated:command-table:end -->
 

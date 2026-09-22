@@ -163,6 +163,9 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         # Task 36.4: the operator's view of what the store recorded, failures included.
         "sources list",
         "target list",
+        "target promote",
+        "target rollback",
+        "target drop",
     }
     expected_permissions = {
         "index": PermissionClass.WRITE,
@@ -215,6 +218,11 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "sources list": PermissionClass.READ,
         # `target list` — task **34.6** — reads each target's catalogue entry and source count.
         "target list": PermissionClass.READ,
+        # `target promote` / `rollback` switch what every reader answers from — `03`'s
+        # `overwrite` row; `target drop` deletes a target's whole index — `destroy` (task 34.8).
+        "target promote": PermissionClass.OVERWRITE,
+        "target rollback": PermissionClass.OVERWRITE,
+        "target drop": PermissionClass.DESTROY,
     }
     for name, permission in expected_permissions.items():
         entry = registry.entry(Command, name)

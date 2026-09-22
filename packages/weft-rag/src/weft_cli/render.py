@@ -78,7 +78,10 @@ from weft_cli.commands import (
     ReconcileCommandResult,
     RenderCommandResult,
     SourcesListCommandResult,
+    TargetDropCommandResult,
     TargetListCommandResult,
+    TargetPromoteCommandResult,
+    TargetRollbackCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
 from weft_cli.deletion import ParticipantOutcome
@@ -926,6 +929,33 @@ def _render_target_list(result: TargetListCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_target_promote(result: TargetPromoteCommandResult) -> Rendered:
+    """`weft target promote` — ledger task **34.8**: which target is live now, and what was
+    live before it, so a person watching the switch happen does not have to run `target list`
+    to learn what `rollback` would restore.
+    """
+    stdout = (
+        f"promoted {result.catalogue.live!r} on {result.store} "
+        f"(previous live: {result.catalogue.previous!r})"
+    )
+    return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_target_rollback(result: TargetRollbackCommandResult) -> Rendered:
+    """`weft target rollback` — ledger task **34.9**."""
+    stdout = f"live target is {result.catalogue.live!r} again on {result.store}"
+    return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_target_drop(result: TargetDropCommandResult) -> Rendered:
+    """`weft target drop` — ledger task **34.9**: names how many sources went with it, the one
+    fact `describe_impact`'s own confirmation prompt could not honestly state in advance (see
+    `weft_cli.target_commands.TargetDropCommand`'s own docstring).
+    """
+    stdout = f"dropped target {result.target!r} from {result.store} ({result.sources} sources)"
+    return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 def _render_pipeline_show(result: PipelineShowCommandResult) -> Rendered:
     """`weft pipeline show` — task 3.7's own bar: every stage's provenance, every var's
     final value, and — the two a pre-G2 `show` could never have printed at all, because
@@ -1691,6 +1721,18 @@ def _dispatch_target_list(result: object) -> Rendered:
     return _render_target_list(cast(TargetListCommandResult, result))
 
 
+def _dispatch_target_promote(result: object) -> Rendered:
+    return _render_target_promote(cast(TargetPromoteCommandResult, result))
+
+
+def _dispatch_target_rollback(result: object) -> Rendered:
+    return _render_target_rollback(cast(TargetRollbackCommandResult, result))
+
+
+def _dispatch_target_drop(result: object) -> Rendered:
+    return _render_target_drop(cast(TargetDropCommandResult, result))
+
+
 def _dispatch_pipeline_show(result: object) -> Rendered:
     return _render_pipeline_show(cast(PipelineShowCommandResult, result))
 
@@ -1777,6 +1819,9 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(PipelineListCommandResult, _dispatch_pipeline_list)
     registrar.add_renderer(SourcesListCommandResult, _dispatch_sources_list)
     registrar.add_renderer(TargetListCommandResult, _dispatch_target_list)
+    registrar.add_renderer(TargetPromoteCommandResult, _dispatch_target_promote)
+    registrar.add_renderer(TargetRollbackCommandResult, _dispatch_target_rollback)
+    registrar.add_renderer(TargetDropCommandResult, _dispatch_target_drop)
     registrar.add_renderer(PipelineShowCommandResult, _dispatch_pipeline_show)
     registrar.add_renderer(PipelineDeriveCommandResult, _dispatch_pipeline_derive)
     registrar.add_renderer(PipelineValidateCommandResult, _dispatch_pipeline_validate)

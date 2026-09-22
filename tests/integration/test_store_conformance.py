@@ -103,6 +103,7 @@ from weft_store.conformance import (
     check_a_source_record_round_trips_and_is_listed,
     check_a_target_is_created_by_its_first_write_and_isolated_from_every_other,
     check_a_target_name_outside_the_grammar_is_refused_by_name,
+    check_a_target_whose_first_write_is_a_source_record_is_catalogued,
     check_add_merges_a_nodes_sources_rather_than_replacing_them,
     check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend,
     check_claiming_an_identity_creates_the_target_as_a_first_write_does,
@@ -783,3 +784,9 @@ async def test_claiming_an_identity_creates_the_target_as_a_first_write_does(
     target_store: TargetHoldingStore,
 ) -> None:
     await check_claiming_an_identity_creates_the_target_as_a_first_write_does(target_store)
+
+
+async def test_a_target_whose_first_write_is_a_source_record_is_catalogued(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_a_target_whose_first_write_is_a_source_record_is_catalogued(target_store)

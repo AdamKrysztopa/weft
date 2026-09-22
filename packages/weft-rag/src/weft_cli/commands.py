@@ -135,6 +135,12 @@ from weft_cli.route_ask import (
     run_routed_ask,
 )
 from weft_cli.skew import SkewReport, detect_skew
+from weft_cli.target_commands import (
+    TargetDropCommandResult,
+    TargetPromoteCommandResult,
+    TargetRollbackCommandResult,
+    register_target_commands,
+)
 from weft_cli.tracing_status import describe_tracing
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import CommandRefusalError as CommandRefusalError
@@ -1951,6 +1957,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Command, "plugins doctor", PluginsDoctorCommand)
     registrar.add(Command, "sources list", SourcesListCommand)
     registrar.add(Command, "target list", TargetListCommand)
+    register_target_commands(registrar)
     registrar.add(Command, "init", InitCommand)
     registrar.add(Command, "pack new", PackNewCommand)
     registrar.add(Command, "delete", DeleteCommand)
@@ -1998,8 +2005,11 @@ __all__ = [
     "SourcesListCommandResult",
     "Settings",
     "TargetAlreadyExistsError",
+    "TargetDropCommandResult",
     "TargetListCommand",
     "TargetListCommandResult",
+    "TargetPromoteCommandResult",
+    "TargetRollbackCommandResult",
     "UnresolvedPluginNameError",
     "register",
 ]

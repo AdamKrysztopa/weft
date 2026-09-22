@@ -1740,6 +1740,7 @@ class PgVectorStore:
     async def put_source(self, record: SourceRecord) -> None:
         conn = await self._connection()
         async with conn.cursor() as cur:
+            await self._register_target_if_needed(cur)
             await cur.execute(
                 """
                 INSERT INTO weft_sources

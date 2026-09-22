@@ -34,11 +34,26 @@ appears, exactly the shape `weft_store.pgvector_store.PgVectorStore.delete_sourc
 every tenant directory and reusing `delete_prefix` for each is what keeps this store from ever
 disagreeing with itself about where a source's blobs live — the identical derived-key argument
 `keys.py` makes for `put` and `delete_prefix` extended to a third caller.
+
+**Targets — ledger task 34.12, owner decision Q-D as revised 2026-09-22.** `bind_target` returns a
+second handle over the same configured root, bound to a target's own subtree: `default` keeps
+today's paths — the root itself — so a root a pre-target release wrote is read by an unbound
+handle with no operator action and `BLOB_LAYOUT_VERSION` does not move; any other target writes
+under `<root>/.targets/<name>/`, a plain path segment `delete_source`'s tenant walk already
+excludes because it starts with a dot. The layout marker stays at the configured root regardless
+of which target a handle is bound to — there is one root, one layout, and every target lives
+inside it — and `open` resolves a uri against that same configured root, so a uri any target
+produced opens from any handle sharing it. **A key never carries a target.** `keys.py` derives
+`{tenant_id}/{digest}/{ordinal}.{extension}` exactly as it did before targets existed; it is the
+handle a caller holds, not the key it passes, that decides which subtree a `put` lands in or an
+`open` is checked against — which is what lets a candidate index the same source as the live
+target without the two ever overwriting each other's bytes.
 """
 
 import asyncio
 import shutil
 from pathlib import Path
+from typing import Self
 
 from pydantic import BaseModel, ConfigDict
 
@@ -46,17 +61,24 @@ from weft_blob.contract import BlobUri
 from weft_blob.keys import source_prefix
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import SourceId
-from weft_store import Removed
+from weft_store import DEFAULT_TARGET, Removed, TargetName, target_name
 
 #: The layout this store writes and reads. Bumped whenever the on-disk shape of a root — the
 #: key format, the layout marker itself, anything a reader would need to know to make sense of
-#: an existing root — changes in a way an older reader would misinterpret.
+#: an existing root — changes in a way an older reader would misinterpret. Targets (ledger task
+#: 34.12, owner decision Q-D) did not move it: `default` keeps writing at the root exactly as
+#: before, so a root a pre-target release wrote needs no migration.
 BLOB_LAYOUT_VERSION = "1"
 
 #: Hidden so it never collides with a tenant directory name (`keys._checked_tenant_id` refuses
 #: any tenant id containing `/`, but nothing refuses `.weft-blob-layout` as one — this name is
 #: simply never derived by `keys.blob_key`, which produces only digest and ordinal segments).
 _LAYOUT_FILE_NAME = ".weft-blob-layout"
+
+#: Every non-`default` target's subtree lives under `<root>/.targets/<name>/`. A dot-prefixed
+#: name so `_tenant_ids_sync`'s existing "not `entry.name.startswith('.')`" filter already keeps
+#: it out of a tenant walk with no change to that filter.
+_TARGETS_DIR_NAME = ".targets"
 
 
 class BlobKeyRefusedError(WeftError):
@@ -106,9 +128,51 @@ class FilesystemBlobStore:
     which copy is the live one.
     """
 
-    def __init__(self, settings: FilesystemBlobSettings, config: object = None) -> None:
+    def __init__(
+        self,
+        settings: FilesystemBlobSettings,
+        config: object = None,
+        *,
+        _target: TargetName = DEFAULT_TARGET,
+    ) -> None:
         del config  # nothing at the stage level this service needs — it is not a stage
         self._root = settings.root
+        self._target = _target
+
+    @property
+    def _effective_root(self) -> Path:
+        """Where this handle's own reads and writes land — the configured root itself for
+        `default`, `<root>/.targets/<name>` for anything `bind_target` was asked for. The
+        configured root (`self._root`) is untouched by this: the layout marker and `open`'s
+        containment check both stay keyed to it, never to the effective root, so every target
+        under one root shares one layout and a uri any of them produced opens from any handle.
+        """
+        if self._target == DEFAULT_TARGET:
+            return self._root
+        return self._root / _TARGETS_DIR_NAME / self._target
+
+    async def bind_target(self, target: TargetName) -> Self:
+        """A second handle over the same configured root, bound to `target`'s own subtree — see
+        the module docstring. `target` is re-validated here even though `TargetName` is meant to
+        already be one: it becomes a directory segment, so this store does not trust that
+        whoever built the value checked it.
+        """
+        validated = target_name(str(target))
+        return type(self)(FilesystemBlobSettings(root=self._root), _target=validated)
+
+    async def drop_target(self, target: TargetName) -> int:
+        """Remove `<root>/.targets/<target>` and everything under it, returning how many files
+        it held. `default` is refused: its blobs are the configured root's own, not a target
+        subtree this method owns the removal of.
+        """
+        validated = target_name(str(target))
+        if validated == DEFAULT_TARGET:
+            raise BlobKeyRefusedError(
+                f"{validated!r} cannot be dropped through drop_target: default's blobs are the "
+                "configured root's own bytes, not a target subtree this method may remove"
+            )
+        path = self._root / _TARGETS_DIR_NAME / validated
+        return await asyncio.to_thread(self._delete_prefix_sync, path)
 
     async def put(self, key: str, data: bytes, media_type: str) -> BlobUri:
         del media_type  # carried in `BlobRef`, not by this contract's own methods
@@ -124,8 +188,9 @@ class FilesystemBlobStore:
         return await asyncio.to_thread(self._delete_prefix_sync, path)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
-        """Sum `delete_prefix` over every tenant directory under the root — see the module
-        docstring. `node_count=0` is honest: this participant never touched a node.
+        """Sum `delete_prefix` over every tenant directory under this handle's effective root —
+        see the module docstring. `node_count=0` is honest: this participant never touched a
+        node.
         """
         tenant_ids = await asyncio.to_thread(self._tenant_ids_sync)
         removed = 0
@@ -136,8 +201,9 @@ class FilesystemBlobStore:
         return Removed(source_id=source_id, node_count=0, removed={"blob": removed})
 
     def _checked_relative_path(self, value: str) -> Path:
-        """Refuse a `str` that would resolve outside `self._root`, or name the root itself — see
-        the module docstring's note that `keys.py` cannot be the only guard for a boundary
+        """Refuse a `str` that would resolve outside this handle's effective root, or name the
+        root itself — see the module docstring's note that `keys.py` cannot be the only guard
+        for a boundary
         strangers reach directly.
 
         The empty string is refused for its own reason: it resolves to the root, so
@@ -147,16 +213,16 @@ class FilesystemBlobStore:
         """
         if not value.strip("/"):
             raise BlobKeyRefusedError(
-                "an empty blob key or prefix is refused: it names the configured root itself, "
-                "and as a prefix it would reap every tenant in it. Name what is meant."
+                "an empty blob key or prefix is refused: it names this handle's effective root "
+                "itself, and as a prefix it would reap every tenant in it. Name what is meant."
             )
         candidate = Path(value)
         if candidate.is_absolute() or ".." in candidate.parts:
             raise BlobKeyRefusedError(
                 f"{value!r} is refused: a blob key or prefix must be a relative path with no "
-                f"'..' segment, so it cannot resolve outside the configured root"
+                f"'..' segment, so it cannot resolve outside this handle's effective root"
             )
-        return self._root / candidate
+        return self._effective_root / candidate
 
     def _path_from_uri(self, uri: BlobUri) -> Path:
         """The path a uri names, refused unless it lies inside this store's own root.
@@ -232,10 +298,11 @@ class FilesystemBlobStore:
 
     def _tenant_ids_sync(self) -> tuple[str, ...]:
         self._check_layout_sync(adopt=False)
-        if not self._root.is_dir():
+        effective_root = self._effective_root
+        if not effective_root.is_dir():
             return ()
         return tuple(
             entry.name
-            for entry in self._root.iterdir()
+            for entry in effective_root.iterdir()
             if entry.is_dir() and not entry.name.startswith(".")
         )
