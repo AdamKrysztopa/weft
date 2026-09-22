@@ -1,0 +1,19 @@
+name: questions-then-generate
+extends: retrieve-then-generate
+
+# Searches the chunks and the questions `enrich-with-questions` generated for them in one ranking,
+# then counts each question as the chunk it asks about, so a chunk found three ways takes one slot.
+# `route.requires` names that layer: until it is built on every source the router does not offer
+# this rung, and `weft ask --pipeline questions-then-generate` is refused (ledger task 43.9).
+
+vars:
+  route.summary: >-
+    One vector search over the corpus and the questions generated for each chunk, each question
+    counted as the chunk it asks about, then a cited answer. Helps a question worded unlike the
+    text that answers it.
+  route.cost: "one embedding call, one search, one model call"
+  route.requires: enrich-with-questions
+
+insert:
+  - after: fuse
+    stage: {id: collapse, use: collapse-to-parent, with: {policy: max}}

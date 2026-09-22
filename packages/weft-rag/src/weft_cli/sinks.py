@@ -262,7 +262,19 @@ class PrintingSink:
         Ends with the batch's own size in MB — ledger task **43.1** — when `event.bytes` is
         known, so one huge document is visible as the cause of a slow batch; unchanged when
         it is `0`, which `43.2`'s own tests pin.
+
+        `event.layer` — ledger task **43.8** — names its own line, distinct from the base's:
+        a layer batch counts sources, never documents queryable, and carries no
+        `whole_corpus_for`/`bytes` of its own to report.
         """
+        if event.layer is not None:
+            line = (
+                f"layer {event.layer} · batch {event.batch}/{event.batches} · "
+                f"{event.queryable}/{event.documents} sources · {event.seconds:.1f} s since start"
+            )
+            self._progress_stream.write(f"{line}\n")
+            self._progress_stream.flush()
+            return
         if event.whole_corpus_for:
             names = ", ".join(event.whole_corpus_for)
             head = f"one batch: '{names}' computes over the whole corpus"

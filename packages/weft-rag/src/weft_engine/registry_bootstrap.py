@@ -127,6 +127,11 @@ if TYPE_CHECKING:
     # `_register_ext_models` below already states for `weft_store`).
     # A type checker still needs the real name for the `Dependencies.reconcile_policy`
     # annotation, which this guard supplies with no runtime cost.
+    # `weft_engine.index_policy` carries no pack import today, but `Dependencies.
+    # index_policy` follows `reconcile_policy`'s own lazy pattern regardless, so the two
+    # fields cannot drift onto different rules the moment `[index]` grows a pack-scoped
+    # key of its own.
+    from weft_engine.index_policy import IndexPolicy
     from weft_engine.reconcile_policy import ReconcilePolicy
 from weft_kernel.discovery import (
     PackReport,
@@ -221,6 +226,11 @@ class Dependencies:
     #: `default_factory` is `_default_reconcile_policy`, not `ReconcilePolicy` itself — see
     #: that function's own docstring for why the import is lazy.
     reconcile_policy: ReconcilePolicy = field(default_factory=lambda: _default_reconcile_policy())
+    #: `[index]`, task **43.8** — a project's own standing layers for `weft index`, read the
+    #: identical way `reconcile_policy` above is: parsed from the same one `weft.toml`, with a
+    #: lazily-imported `default_factory` so a caller building `Dependencies` directly gets the
+    #: same empty-layers floor a real project with no `[index]` block would.
+    index_policy: IndexPolicy = field(default_factory=lambda: _default_index_policy())
     token_sink: TokenSink = field(default_factory=NullSink)
     #: Task **5.3a** (`S8`) — every `weft_kernel.resolution.Contribution` any installed pack's
     #: own `register()` buffered through `PackRegistrar.add_contribution`, concatenated across
@@ -273,6 +283,9 @@ def build_dependencies(
     from weft_engine.reconcile_policy import reconcile_policy_from_config
 
     reconcile_policy = reconcile_policy_from_config(document)
+    from weft_engine.index_policy import index_policy_from_config
+
+    index_policy = index_policy_from_config(document)
     registry = Registry(plugin_pins=pins)
     reports = discover(registry, allow=allow, pack_settings=settings, strict_pins=strict_pins)
     _register_ext_models(reports)
@@ -295,6 +308,7 @@ def build_dependencies(
         llm=llm,
         permissions=permissions,
         reconcile_policy=reconcile_policy,
+        index_policy=index_policy,
         token_sink=sink,
         contributions=contributions_from(reports),
     )
@@ -330,6 +344,17 @@ def _default_reconcile_policy() -> ReconcilePolicy:
     from weft_engine.reconcile_policy import ReconcilePolicy
 
     return ReconcilePolicy()
+
+
+def _default_index_policy() -> IndexPolicy:
+    """`Dependencies.index_policy`'s own `default_factory` — `_default_reconcile_policy`'s
+    own shape, one field over. `weft_engine.index_policy` imports no pack today, so this lazy
+    import costs nothing it would not already cost eagerly; it is here so the two fields stay
+    on one rule rather than agreeing by coincidence.
+    """
+    from weft_engine.index_policy import IndexPolicy
+
+    return IndexPolicy()
 
 
 def _register_ext_models(reports: tuple[PackReport, ...]) -> None:

@@ -905,6 +905,15 @@ writes one line per batch to stderr, `batch k/K · n/N documents queryable · t 
 Under `--json` it writes a line of `kind` `batch-progress` on the event stream instead. A pipeline
 that must see the whole corpus in one batch says so on that line and names the stage.
 
+**Layers, after the base (tasks `43.8`–`43.10`).** `weft index <path> --layers a,b` runs each named
+layer document over the stored leaves of every indexed source, after the last base batch, in
+batches of the same size. `--layers none` runs none, and `--layers-only` runs them without
+re-running the base. A layer batch writes `layer <name> · batch k/K · n/N sources · t s since
+start` to stderr. `weft ask` never routes to a rung whose `route.requires` layer is still pending
+on any source. `--pipeline` naming one is refused unless `--allow-pending` is given, and a pending
+layer is stated under the answer as `layers: <name> n/N`. `weft sources list` shows each source's
+layers, and `weft target list` shows the layers complete on a target.
+
 > **Carried repair `R11.6` (2026-09-10), and the decision inside it.** Neither consumer read the
 > field. The human renderer printed `Answer.text`, which a refusal leaves empty, so
 > `weft ask "…" --pipeline graph-then-generate` against a corpus holding nothing on the subject
@@ -1172,6 +1181,11 @@ carries the reasoning for why `read`/`write`/`network` are not keys here yet.
 > and reads nothing here on purpose, so a project cannot, by editing this file once, turn every
 > future `weft index` into a `full` run with nobody typing a flag for that particular
 > invocation. `weft_engine.reconcile_policy`'s own module docstring carries the argument in full.
+
+> **`[index]`, task `43.8` — one key, `layers`.** The layer documents `weft index` runs after the
+> base by default: `layers = ["enrich-with-questions"]`. `--layers` on the command line replaces the
+> list for that run, and `--layers none` empties it. `weft_engine.index_policy` reads it on
+> `[reconcile]`'s shape: an unknown key is refused naming `layers`.
 
 ## Is the REPL an agent?
 

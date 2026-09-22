@@ -619,3 +619,25 @@ async def test_index_can_ask_for_failed_sources_to_be_retried(tmp_path: Path) ->
     recorded = _IndexCommand.calls[-1]
     assert isinstance(recorded, IndexArgs)
     assert recorded.retry_failed is True
+
+
+async def test_index_can_name_its_layers_and_run_only_them(tmp_path: Path) -> None:
+    """Ledger **43.8**: `Weft.index` takes `layers` and `layers_only`, as `weft index` does."""
+    # Arrange
+    weft = Weft(_deps(_IndexCommand, name="index"))
+
+    # Act
+    await weft.index(tmp_path, layers=("enrich-with-questions", "enrich-with-facts"))
+    named = _IndexCommand.calls[-1]
+    await weft.index(tmp_path, layers=(), layers_only=False)
+    none = _IndexCommand.calls[-1]
+    await weft.index(tmp_path, layers_only=True)
+    only = _IndexCommand.calls[-1]
+
+    # Assert
+    assert isinstance(named, IndexArgs)
+    assert named.layers == "enrich-with-questions,enrich-with-facts"
+    assert isinstance(none, IndexArgs)
+    assert none.layers == "none"
+    assert isinstance(only, IndexArgs)
+    assert (only.layers, only.layers_only) == (None, True)

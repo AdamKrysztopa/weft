@@ -307,6 +307,17 @@ class ConflictingIndexModeError(WeftError):
     """
 
 
+class NoLayersToRunError(WeftError):
+    """`weft index --layers-only` was given, but no layer is named anywhere — ledger task
+    **43.8**. `--layers-only` says "run the layers and nothing else", and with none named
+    that is a run that does nothing at all, refused before `run_index_for` opens anything.
+
+    Not a name-resolution failure — there is no name to offer, only a flag with nothing to
+    act on — so this does not join `NAME_RESOLUTION_FAMILY`, `ConflictingIndexModeError`'s
+    own footing.
+    """
+
+
 class ConflictingAskModeError(WeftError):
     """`weft ask --retrieve-only --pipeline <name>` was given a pipeline that ends in a
     `Generator` — repair **R21.5** narrowed this from every `--retrieve-only`/`--pipeline`
@@ -562,6 +573,23 @@ class IndexArgs(BaseModel):
         description=(
             "write into this target instead of the live one — a candidate beside it, "
             "created on its first write (ledger task 34.6). Omit for the live target."
+        ),
+    )
+    layers: str | None = Field(
+        default=None,
+        description=(
+            "comma-separated layer document(s) to run after the base, or 'none' to run "
+            "none this invocation (ledger task 43.8). Omit to use [index] layers in "
+            "weft.toml; a layer named that is not installed is refused, naming every "
+            "installed layer."
+        ),
+    )
+    layers_only: bool = Field(
+        default=False,
+        description=(
+            "run only the layers named by --layers or [index] layers, over the sources "
+            "already indexed — no extraction, no base pipeline run. Refused when no "
+            "layer is named anywhere."
         ),
     )
 
@@ -914,7 +942,32 @@ class IndexCommand:
                 "its plugin. Choose one."
             )
 
-        if index_args.pipeline is None:
+        # Ledger task **43.8** — `--layers` overrides `[index] layers` for this one run;
+        # `--layers none` runs none whatever the project names. `deps.index_policy.layers`
+        # is read only when the flag is absent at all, never merged with it. Resolved before
+        # the default path's own plugin checks below, so `--layers-only` with nothing named
+        # anywhere is refused by name rather than by whatever `[services] embed` happens to
+        # resolve to.
+        layers = (
+            ()
+            if index_args.layers == "none"
+            else tuple(name.strip() for name in index_args.layers.split(",") if name.strip())
+            if index_args.layers is not None
+            else deps.index_policy.layers
+        )
+        if index_args.layers_only and not layers:
+            raise NoLayersToRunError(
+                "--layers-only was given, but no layer is named: pass --layers a,b or set "
+                "[index] layers in weft.toml."
+            )
+
+        if index_args.pipeline is None and not index_args.layers_only:
+            # `--layers-only` skips this block on the identical footing `--pipeline` already
+            # does, just below: `INDEX_PACKS`/`[services] embed`/`[services] store` are
+            # promises the *base* run makes, and `layers_only=True` means the base does not
+            # run at all (no extract, no base pipeline) — see `weft_cli.ingest.run_index`'s
+            # own docstring. Checking them here would refuse a layers-only run over an
+            # already-indexed corpus for a plugin that invocation never touches.
             active_refusal = require_active(deps.reports, packs=INDEX_PACKS)
             if active_refusal is not None:
                 # `require_active` never resolves `weft_kernel.registry.UnknownPluginError` —
@@ -969,6 +1022,8 @@ class IndexCommand:
             on_batch=on_batch,
             retry_failed=index_args.retry_failed,
             target=index_args.target,
+            layers=layers,
+            layers_only=index_args.layers_only,
         )
         if result.resolved_pipeline is not None:
             # Carried repair R11.2's second half: `stores_in_use`'s run-record source only ever

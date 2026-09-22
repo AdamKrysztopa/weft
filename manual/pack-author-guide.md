@@ -928,6 +928,21 @@ distribution — ship the YAML file under your package, call `add_pipeline_resou
 and `weft_cli.pipeline_catalogue.load_contributed` makes it visible to `weft pipeline list`/`show` and
 to `--pipeline <name>` the moment your pack is installed, with no core edit.
 
+**A layer is a pipeline document too**, shipped the same way. Its stages take stored nodes and
+return nodes (`Expander`, `Enhancer` or `Revisable`), and it names no embedder and no store:
+`weft index --layers <name>` runs it over the leaves a base document already stored and hands only
+the nodes it created to the base's own embed and store stages. `enrich-with-questions` is the whole
+of one:
+
+```yaml
+name: enrich-with-questions
+stages:
+  - {id: questions, use: hypothetical-questions, with: {questions_per_node: 3}}
+```
+
+A query rung that answers from a layer declares it in `vars` as `route.requires: <layer>`, and is
+not routed to until that layer is built on every indexed source.
+
 ### 9.7 Contributing into a slot
 
 `docs/02-extension-model.md` §3 → *Slots* specifies the design: a pack "may ship complete named

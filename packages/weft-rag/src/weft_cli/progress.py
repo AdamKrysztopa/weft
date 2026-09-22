@@ -33,6 +33,12 @@ class BatchProgress(BaseModel):
     footing does not zero it; an empty `work` batch simply is never emitted at all — see
     `weft_cli.ingest._emit_batch_progress`), which is what lets a reader carrying a huge
     document see the batch it slowed down.
+
+    `layer` — ledger task **43.8** — names the layer this event's batch belongs to, `None`
+    for a base-run event exactly as every event was before layers existed. `batch`/`batches`
+    then count that layer's own batches, `queryable` the sources whose record now carries
+    this layer `ACTIVE` (cumulative), and `documents` the sources eligible for it — never the
+    whole corpus, which `weft_cli.ingest._run_layers`'s own docstring states in full.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -45,6 +51,7 @@ class BatchProgress(BaseModel):
     seconds: float
     whole_corpus_for: tuple[str, ...] = ()
     bytes: int = 0
+    layer: str | None = None
 
 
 @runtime_checkable

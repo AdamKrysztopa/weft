@@ -113,7 +113,7 @@ The five statuses:
 | `graph-then-generate`, `graph-and-vector-rrf`, `index-with-facts`, `index-with-facts-openai`, `index-with-cooccurrence` | wrong questions (12 one-sentence documents, questions generated from the graph under test) | Phase 11 exit (ledger only) |
 | `cross-encoder-retrieve`, `cross-encoder-rerank-then-generate` | no gain on ESCI, harms on TechQA | `eval/pool-promotion/esci-ce-verdict.json`, `techqa-ce-verdict.json` |
 | `replay-llm-rerank` | helps on ESCI at ~$1.83/830 questions, underpowered, one repetition | ledger `41.4` |
-| `graph-2hop-then-generate`, `graph-then-rerank`, `rerank-then-generate`, `iterative-retrieve`, `corrective-retrieve`, `grade-then-generate`, `multi-query-then-retrieve`, `step-back-then-retrieve`, `rewrite-then-retrieve`, `boolean-then-retrieve`, `broad-and-refined-rrf`, `contradiction-aware`, `draft-then-refine`, `summarise-then-generate`, `no-retrieval`, `route`, `route-by-score`, `route-fixed`, `enrich-with-questions`, `index-with-adrap`, `index-with-graph`, `index-with-keywords` | never | none |
+| `graph-2hop-then-generate`, `graph-then-rerank`, `rerank-then-generate`, `iterative-retrieve`, `corrective-retrieve`, `grade-then-generate`, `multi-query-then-retrieve`, `step-back-then-retrieve`, `rewrite-then-retrieve`, `boolean-then-retrieve`, `broad-and-refined-rrf`, `contradiction-aware`, `draft-then-refine`, `summarise-then-generate`, `no-retrieval`, `route`, `route-by-score`, `route-fixed`, `enrich-with-questions`, `questions-then-generate`, `index-with-adrap`, `index-with-graph`, `index-with-keywords` | never | none |
 | `index-text` | helps (the leaves arm RAPTOR is measured against) | `eval/raptor-baseline/after-16a/remeasurement.json` |
 | `index-pdf-text` | no dense cost against clean markdown; lexical recall@5 −0.037 | `eval/parser-tax/table.md` |
 | `index-pdf`, `index-pdf-described`, `index-pdf-learned`, `index-pdf-rows`, `index-pdf-undescribed`, `index-messy-text`, `index-polish`, `index-openai*`, `index-qdrant` | never, as a comparison | none |
@@ -122,6 +122,24 @@ The five statuses:
 ---
 
 ## 4. The measurements, newest first
+
+### Phase 43: asking while indexing (2026-09-22)
+
+- **Question.** How soon after `weft index` starts can you ask about what it is reading, and does
+  asking slow down while it runs?
+- **Data.** 100 arXiv PDFs from Open RAGBench (243 MB), through `index-openai-large-pdf`
+  (`text-embedding-3-large`), default batch 25. Five runs on pgvector and one on Qdrant, each from
+  the built wheel into a fresh database, with `weft ask` running every 5 s in a second shell.
+  About $2 in total.
+- **Result.** The first document is queryable at **30.0 s** (median; 29.8–31.0), and a correct,
+  cited answer about it arrives at **34.2 s**. All 100 are queryable at **127.2 s** (126.4–127.8).
+  Before this phase the same run returned nothing until **226.8 s**. `weft ask` p95 is 3.87 s
+  during indexing against 3.65 s after, a ratio of 0.93–1.11 across runs. A question about a
+  document not yet reached is told so rather than answered from the rest. Qdrant (one run): 25.4 s,
+  27.2 s and 107.8 s. Source: `eval/fast-ingest/table.md`, from `exit-a-summary.jsonl`.
+- **What it means for you.** Point `weft index` at a folder and start asking at once. The answer
+  footer says how many documents are not yet indexed, so a missing answer can be told apart from
+  a missing document.
 
 ### Phase 38: what reading the raw PDFs costs (2026-09-21)
 

@@ -79,6 +79,12 @@ def _reconcile_keys() -> tuple[str, ...]:
     return tuple(sorted(ReconcilePolicy.model_fields))
 
 
+def _index_keys() -> tuple[str, ...]:
+    from weft_engine.index_policy import IndexPolicy
+
+    return tuple(sorted(IndexPolicy.model_fields))
+
+
 def _registered_embedders() -> tuple[str, ...]:
     from weft_embed import Embedder
     from weft_engine.registry_bootstrap import build_dependencies
@@ -93,6 +99,7 @@ _SOURCES: Final[Mapping[str, Callable[[], tuple[str, ...]]]] = {
     "UnknownPermissionKeyError": _permission_keys,
     "UnknownLLMKeyError": _llm_keys,
     "UnknownReconcileKeyError": _reconcile_keys,
+    "UnknownIndexKeyError": _index_keys,
     "UnresolvedPluginNameError": _registered_embedders,
 }
 

@@ -241,10 +241,40 @@ It says so instead:
   `1`; a run that only skipped documents that failed before exits `0`, because that failure was
   already reported by the run that met it.
 - **Changing a failed file's bytes**, or the pipeline that reads it, re-indexes it with no flag.
-- **A multi-document batch fails as a whole**, so a good document sharing a batch with a bad one is
-  recorded failed too, and only a batch of one document counts as another attempt. Index with
-  `--batch-size 1` to find which document it was.
 - **`weft delete <source-id>`** removes a failed document and anything it left, like any other.
+
+**Layers: enrichment that runs after the corpus is searchable.** `index-with-questions` makes a
+chunk findable by the questions it answers, and it pays one model call per chunk before that chunk
+can be searched. A **layer** does the same work later, over what is already stored, so the corpus
+is searchable at base speed first and the enrichment arrives behind it. `enrich-with-questions` is
+the layer twin of `index-with-questions`:
+
+```bash
+weft index corpus --layers enrich-with-questions        # the base, then the layer, in one run
+weft index corpus --layers enrich-with-questions --layers-only   # the layer only, over an indexed corpus
+```
+
+`[index] layers = ["enrich-with-questions"]` in `weft.toml` makes that the default for every run,
+and `--layers none` skips it for one. A layer document names only its enrichment stages. Its new
+nodes are embedded and stored by the base document's own embedder and store, so they land in the
+index the base built. A document that reads files cannot be offered as a layer, and is refused by
+name.
+
+- **Pending, then active, per document.** Each source records each layer it has: `indexing` while
+  its batch runs, `active` once its derived nodes are stored, `failed` with the stage and error if
+  the layer refused. `weft sources list` prints them. `weft target list` names the layers complete
+  on every source.
+- **A rung that needs a layer waits for it.** `questions-then-generate` searches the chunks and
+  their questions together, and declares `route.requires: enrich-with-questions`. Until that layer
+  is active on every indexed source, the router does not offer it, and `weft ask --explain` says so
+  with the count. `--pipeline questions-then-generate` is refused, naming how far the layer has got.
+  `--allow-pending` answers anyway, stating the pending layer under the answer.
+- **Resuming costs only what is left.** An interrupted layer run resumes where it stopped: sources
+  already `active` are skipped, and the base is not re-parsed. A layer that failed is retried only
+  under `--retry-failed`. A layer whose document changed since it ran is reported and not rebuilt
+  unasked; `--reprocess` rebuilds a source's base and layers together.
+- **A changed document loses its layers until they run again**, because the chunks they were
+  derived from are gone.
 
 **Six PDF rungs** — `index-pdf` and its five siblings — differ in what they do with what is not
 text: the tables, the figures and the captions. `index-pdf-learned` is the one behind the `docling`

@@ -286,6 +286,8 @@ class Weft:
         *,
         retry_failed: bool = False,
         target: str | None = None,
+        layers: tuple[str, ...] | None = None,
+        layers_only: bool = False,
         yes: bool = False,
         token_sink: TokenSink | None = None,
     ) -> CommandResult:
@@ -297,6 +299,12 @@ class Weft:
         `target` — ledger task **34.6** — writes into this target instead of the live one, a
         candidate beside it, created on its first write. Omit for the live target.
 
+        `layers`/`layers_only` — ledger task **43.8** — mirror `weft index --layers`/
+        `--layers-only`. `layers=None`, the default, omits the field so `IndexArgs.layers`
+        keeps its own default and `[index] layers` in `weft.toml` applies; `()` becomes
+        `"none"`, running no layer whatever the project names; any other tuple joins with
+        commas, `IndexArgs`' own comma-separated shape.
+
         `token_sink` is where this call's tokens stream, as `run` describes: an ingest rung that
         calls a model emits them too.
 
@@ -307,9 +315,16 @@ class Weft:
         unit tests could not see it, because their `Command` doubles declared the names this
         method was passing rather than the names the shipped commands declare (`L12.11`).
         """
+        layers_field = None if layers is None else "none" if not layers else ",".join(layers)
         return await self._invoke(
             "index",
-            {"path": str(directory), "retry_failed": retry_failed, "target": target},
+            {
+                "path": str(directory),
+                "retry_failed": retry_failed,
+                "target": target,
+                "layers": layers_field,
+                "layers_only": layers_only,
+            },
             yes=yes,
             token_sink=token_sink,
         )

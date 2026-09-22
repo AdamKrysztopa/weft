@@ -467,6 +467,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/hyde-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/step-back-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/multi-query-then-retrieve.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/questions-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/boolean-then-retrieve.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/rerank-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/mmr-then-generate.yaml")

@@ -1,0 +1,6 @@
+name: index-openai-large-pdf-qdrant
+extends: index-openai-large-pdf
+
+replace:
+  - id: store
+    use: qdrant

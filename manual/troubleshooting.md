@@ -1085,6 +1085,17 @@ $ echo $?
 1
 ```
 
+### `UnknownIndexKeyError`
+
+**What it looks like** — `[index]` in `weft.toml` names a key it does not read; `layers` is the
+only one:
+
+```text
+unknown [index] key(s) in weft.toml: 'layer'. [index] accepts layers.
+```
+
+`exc.valid_options == ("layers",)`. **What to do:** spell it `layers`, a list of layer documents
+that `weft index` runs after the base, such as `layers = ["enrich-with-questions"]`.
 ### `UnknownServiceKeyError`
 
 **What it looks like** — repair, 2026-08-20 (`docs/01-high-level-plan.md` item 12's own dated
@@ -2054,6 +2065,64 @@ are searchable in the same index the base built. A layer carrying its own embedd
 them differently, and asking would refuse the mismatch.
 
 **What to do:** delete the embedder and store stages from the layer document.
+
+### `UnknownLayerError`
+
+**What it looks like** — `--layers` or `[index] layers` names a document nothing provides:
+
+```text
+'enrich-with-nothing' is not an installed layer. Installed layers: enrich-with-questions.
+```
+
+**What to do:** name one of the listed layers. A layer is a pipeline document from an installed
+pack or from your project's `pipelines/` directory; `weft pipeline list` shows them all.
+
+### `LayerNeedsMetadataFilterError`
+
+**What it looks like** — layers were asked for against a store that cannot select stored nodes by
+their metadata:
+
+```text
+layers need a store that can select stored nodes by metadata (MetadataFilter), and the 'my-store'
+store cannot, so 'enrich-with-questions' has no way to read the leaves it enriches. Run without
+layers, or index into a store that implements MetadataFilter.
+```
+
+**Why** — a layer reads the chunks a base run already stored, by source, and skips what another
+layer derived. That selection is a metadata filter, and this store has none. Nothing was indexed:
+the refusal comes before the base runs.
+
+**What to do:** run with `--layers none`, or index into `pgvector` or `qdrant`, which both
+filter.
+
+### `LayerNodeCollisionError`
+
+**What it looks like** — a second layer derived a node another layer already stored:
+
+```text
+layer 'enrich-with-same' derived node 3f9a…, which the 'hypothetical-questions' layer already
+wrote: two layers producing one node would erase each other's marker. Run one of them, or change
+what one derives.
+```
+
+**Why** — a derived node's id is a digest of its content and its parent. Two layers that derive the
+same text from the same chunk produce the same node, and storing the second would overwrite the
+first's record of where it came from. That layer's batch is recorded failed and the run stops.
+
+**What to do:** run only one of the two layers over this corpus, or change the second so it
+derives something different.
+
+### `NoLayersToRunError`
+
+**What it looks like** — `weft index --layers-only` with no layer named anywhere:
+
+```text
+--layers-only was given, but no layer is named: pass --layers a,b or set [index] layers in
+weft.toml.
+```
+
+**What to do:** name the layers with `--layers`, or list them under `[index] layers` in
+`weft.toml`.
 
 ---
 

@@ -100,6 +100,24 @@ doctor` will then name it, at its version, with whatever it discloses about the 
 filesystem it touches — and what installing a pack actually trusts is stated on the release set's
 own page rather than left to inference.
 
+## Ask while it indexes
+
+`weft index` writes a folder in batches of 25, and each batch is searchable the moment it lands, so
+you can start asking in a second shell straight away. Measured from the release wheel on 100 arXiv
+PDFs (243 MB) with `text-embedding-3-large` and pgvector, median of five runs on one Apple Silicon
+laptop:
+
+| | seconds after `weft index` starts |
+|---|---|
+| first document queryable | **30** |
+| first correct, cited answer about it | **34** |
+| all 100 queryable | **127** (227 before batching, with nothing queryable until the end) |
+
+Asking while indexing runs is no slower than asking after: p95 3.9 s during, 3.7 s after. A
+question about a document not yet reached gets *"the corpus does not answer this — N sources are
+not yet indexed"*, not a guess. The runs, the harness and the Qdrant figures are in
+[`eval/fast-ingest/table.md`](eval/fast-ingest/table.md).
+
 ## Start here
 
 **[`manual/quickstart.md`](manual/quickstart.md) is the next page**: the four commands above with

@@ -43,6 +43,20 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **`weft index` works in batches of 25 by default, and each batch is searchable the moment it
+  lands.** A progress line on stderr says how many documents are queryable so far, and `--json`
+  carries it as a `batch-progress` line. Only one batch of files is held in memory at a time: on
+  1,000 PDFs, memory before the first batch fell from 3.4 GB to 261 MB. `--batch-size` still sets
+  the number. A pipeline with a stage that needs the whole corpus in one batch still gets one, and
+  the line names that stage.
+- **The OpenAI embedder sends up to 4 requests at once** (`max_concurrent_requests` in
+  `[packs.openai]`), so embedding 100 PDFs took 35.6 s rather than 117.1 s. Pipeline identity does
+  not move.
+- **`weft ask` says how much of the corpus it could see.** While some sources are still indexing,
+  or have failed, the answer's footer and `--json` envelope count them. A question the indexed
+  part cannot answer says *"N sources are not yet indexed"* rather than only *"the corpus does
+  not answer this"*.
+
 - **A pipeline's identity hashes each stage contract's major version, not its full version.**
   Before this, every minor release of a contract, such as the store contract's move to `2.9.0`,
   changed the identity of every pipeline, so the first `weft index` after an upgrade re-parsed
@@ -146,6 +160,19 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   rung's already did. `Answer` carries `contributors`, copied from the passages it was given.
 
 ### Fixed
+
+- **One document that fails no longer fails the documents batched with it.** A failed batch is
+  re-run a document at a time, so only the document that fails alone is recorded failed. Before
+  this, the default `weft index` over 1,000 PDFs with three unreadable ones indexed none of them.
+- **A PDF page `pdf-text` cannot read costs that page, not the whole document.** The page is
+  dropped, and every surviving node records which pages were dropped and why.
+- **`weft ask` while `weft index` runs no longer breaks or stalls the indexer.**
+  - Two processes opening one fresh pgvector database at once no longer race on creating the
+    schema.
+  - A reader no longer deadlocks the writer on its node productions.
+  - Opening a store whose schema is already in place no longer takes a table lock, which had held
+    asks behind the indexer for up to 29 s.
+- **A Qdrant store nothing writes to creates no collections.**
 
 - **A run's `model_versions` names the embedding model the run actually called.** A model chosen
   only by `[packs.openai] embedding_model` was recorded as the stage's default,
