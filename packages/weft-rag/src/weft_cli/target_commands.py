@@ -208,7 +208,7 @@ class TargetPromoteCommand:
             # the rest partway through.
             others = tuple(
                 participant
-                for participant in target_participants(deps)
+                for participant in await target_participants(deps)
                 if participant != store_name
             )
             for participant in others:
@@ -422,7 +422,7 @@ class TargetRollbackCommand:
                 plugin=store_name,
             )
         touched = [store_name]
-        for participant in target_participants(deps):
+        for participant in await target_participants(deps):
             if participant == store_name:
                 continue
             if await self._rollback_participant(participant, deps=deps):
@@ -560,7 +560,7 @@ class TargetDropCommand:
                 plugin=store_name,
             )
         touched = [store_name]
-        for participant in target_participants(deps):
+        for participant in await target_participants(deps):
             if participant == store_name:
                 continue
             await self._drop_participant(participant, name, deps=deps)

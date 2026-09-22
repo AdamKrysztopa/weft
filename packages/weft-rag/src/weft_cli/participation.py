@@ -43,10 +43,10 @@ from weft_eval.run_record import RunRecord, load_run_record
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.pipeline import Pipeline
-from weft_kernel.registry import Registry, UnknownPluginError
+from weft_kernel.registry import Registry, RegistryEntry, UnknownPluginError
 from weft_kernel.seam import aclose, wrap
 from weft_store import NodeStore
-from weft_store.contract import TargetCatalogue, TargetHolding
+from weft_store.contract import DEFAULT_TARGET, TargetCatalogue, TargetHolding
 
 DEFAULT_INDEX_RUNS_DIR: Final[Path] = Path("runs/index")
 
@@ -201,16 +201,20 @@ def _stores_in_use_for(deps: Dependencies) -> frozenset[str]:
     )
 
 
-def target_participants(deps: Dependencies) -> tuple[str, ...]:
-    """Every `NodeStore` name this project reaches (`stores_in_use`) that also satisfies
-    `weft_store.contract.TargetHolding` — ledger task **34.11**: the node store, and, once an
-    active pack's own pipelines resolved a second one, that store too. Sorted, so a promote,
-    rollback, drop or a render of one always lists participants the same way.
+async def target_participants(deps: Dependencies) -> tuple[str, ...]:
+    """Every `NodeStore` name this project reaches (`stores_in_use`) that satisfies
+    `weft_store.contract.TargetHolding` **and holds something** — ledger task **34.11**, narrowed
+    by carried repair **R34.5**. Sorted, so a promote, rollback, drop or a render of one always
+    lists participants the same way.
+
+    "Holds something" is a source in its live target or any target beyond `default`.
+    `stores_in_use` is deliberately broad, reaching every store a project's documents name,
+    which is right for delete and reconcile. For targets it counted a store the project never
+    wrote (`index-text`'s pgvector, under a pipeline that replaced it with Qdrant), and that empty
+    store refused every promote and, after one, would have disagreed on every read.
 
     A name `stores_in_use` names but nothing registered under `NodeStore` is not this function's
-    to diagnose — `stores_in_use`'s own docstring already gives the reason: repeating that
-    translation here would give the same mistake two different messages. `[services] store`
-    genuinely unregistered (a `--pipeline` run needing none) simply contributes no participant.
+    to diagnose, which is the footing `stores_in_use`'s own docstring gives.
     """
     participants: list[str] = []
     for name in sorted(_stores_in_use_for(deps)):
@@ -219,9 +223,40 @@ def target_participants(deps: Dependencies) -> tuple[str, ...]:
         except UnknownPluginError:
             continue
         instance = entry.factory(None)
-        if isinstance(instance, TargetHolding):
-            participants.append(name)
+        if not isinstance(instance, TargetHolding):
+            continue
+        try:
+            if await _holds_anything(instance, entry=entry, name=name):
+                participants.append(name)
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=name,
+            )
     return tuple(participants)
+
+
+async def _holds_anything(instance: TargetHolding, *, entry: RegistryEntry, name: str) -> bool:
+    """A source in the live target, or a target beyond `default` — see `target_participants`."""
+
+    async def _probe(instance: TargetHolding = instance) -> Outcome[bool]:
+        catalogue = await instance.target_catalogue()
+        if catalogue.live != DEFAULT_TARGET or any(
+            record.name != DEFAULT_TARGET for record in catalogue.targets
+        ):
+            return Produced(value=True)
+        return Produced(value=bool(await cast(NodeStore, instance).list_sources()))
+
+    outcome = await wrap(
+        _probe,
+        distribution=entry.distribution,
+        contract=NodeStore.__qualname__,
+        plugin=name,
+        stage="target:participant",
+    )()
+    return isinstance(outcome, Produced) and bool(outcome.value)
 
 
 async def check_participants_agree(deps: Dependencies) -> None:
@@ -234,7 +269,7 @@ async def check_participants_agree(deps: Dependencies) -> None:
     caller did name: a read pinned to one name already says which corpus it means.
     """
     live: dict[str, str] = {}
-    for name in target_participants(deps):
+    for name in await target_participants(deps):
         entry = deps.registry.entry(NodeStore, name)
         instance = cast(TargetHolding, entry.factory(None))
         try:
