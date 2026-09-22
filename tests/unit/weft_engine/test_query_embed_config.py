@@ -74,4 +74,5 @@ def test_a_key_the_embedder_does_not_have_is_refused_naming_the_ones_it_does(
     assert isinstance(caught.value, WeftError)
     assert "'dimensions'" in message
     assert "takes: dimension" in message
+    assert caught.value.valid_options == ("dimension",)
     assert "'hash'" in message

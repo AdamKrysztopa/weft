@@ -455,6 +455,11 @@ fluent docstring citing the section it was not in. It said so in its report, whi
 it was caught. Ask of every literal in an assertion: *would the documents have written this?*
 Where a task's evidence needs more than one test, the `test-patterns` skill owns suite discipline.
 
+**A new error whose raise site computes the names that would have been valid joins fitness
+function 12's family** (`L28.28`): mix in `UnresolvedNameError` and carry `valid_options` as a
+typed field. `R34.4`'s `EmbedConfigRefusedError` listed the embedder's keys in its message only;
+FF12 cannot see a class that never inherits the marker, and its own docstring says so.
+
 **When a brief introduces or re-parents an exception class, grep for every site keyed on its
 identity before writing *Already decided*.** *(This said "names a base class" until Phase 12, and
 the narrower wording is what let the fifth instance through: that brief deliberately named **no**

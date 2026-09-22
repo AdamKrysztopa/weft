@@ -319,8 +319,15 @@ def service_selection_from_config(
 _EMBED_CONFIG_KEY: Final[str] = "embed_config"
 
 
-class EmbedConfigRefusedError(WeftError):
-    """`[services.embed_config]` does not fit the selected embedder — carried repair R34.4."""
+class EmbedConfigRefusedError(WeftError, UnresolvedNameError):
+    """`[services.embed_config]` does not fit the selected embedder — carried repair R34.4.
+
+    `valid_options` is the embedder's own settings, a typed field (fitness function 12; `R34.6`).
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
 
 
 def embed_config_for(registry: Registry, selection: ServiceSelection) -> object:
@@ -348,7 +355,8 @@ def embed_config_for(registry: Registry, selection: ServiceSelection) -> object:
         takes = ", ".join(fields) or "no settings"
         raise EmbedConfigRefusedError(
             f"[services.{_EMBED_CONFIG_KEY}] names {named}, which the {selection.embed!r} "
-            f"embedder does not take — it takes: {takes}"
+            f"embedder does not take — it takes: {takes}",
+            valid_options=fields,
         )
     try:
         return cast("type[BaseModel]", config_model).model_validate(dict(selection.embed_config))
@@ -358,5 +366,6 @@ def embed_config_for(registry: Registry, selection: ServiceSelection) -> object:
             + "; ".join(
                 f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
                 for error in exc.errors()
-            )
+            ),
+            valid_options=fields,
         ) from exc

@@ -4656,8 +4656,8 @@ provider's own model, naming the field.
 
 A **target** is a named, complete copy of an index. One target is **live**, and everything that
 reads without naming a target reads the live one. You build a new index as a candidate target
-beside it, compare the two, and then promote the candidate or roll back. The command line for this
-arrives with the rest of Phase 34. Until then these errors come from the Python API.
+beside it, compare the two, and then promote the candidate or roll back (`weft target`, and
+`--target` on the commands that read or write an index).
 
 ### `InvalidTargetNameError`
 
