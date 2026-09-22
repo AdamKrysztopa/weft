@@ -551,7 +551,7 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > *(`weft_kernel.seam._sanitize_control_bytes`), riding the same `Produced` → `Node` / `tuple` / `list`*
 > *walk `_strip_transient` already performs, immediately after it — never `weft-extract`, never a*
 > *store. Not `weft-extract`: eight sites across `packages/` build a `Node` from text that came from*
-> *outside the process (`weft_extract/text.py:80 "Node.syn"`, `weft_pdf/document.py:205 "rows: tu"`, `weft_chunk/*
+> *outside the process (`weft_extract/text.py:80 "Node.syn"`, `weft_pdf/document.py:199 "rows: tu"`, `weft_chunk/*
 > *fixed_size.py:117 "destroys"`, `weft_clean/dictionary_spacing.py:116-117 "intact: "`, `weft_clean/hyphenation.py:71-72 "intact: "`,*
 > *`weft_clean/whitespace.py:64-65 "intact: "`, `weft_clean/table_linearizer.py:79 "destroys"`, `weft_index/raptor.py:254 "owns ret"`) —*
 > *a smaller-scale reproduction of the same twelve-call-site fragility observed elsewhere. Not a*

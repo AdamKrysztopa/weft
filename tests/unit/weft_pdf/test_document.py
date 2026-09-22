@@ -36,6 +36,7 @@ from weft_kernel.payload import (
     SourceId,
 )
 from weft_pdf.document import (
+    DroppedPages,
     ExtractedFigure,
     ExtractedTable,
     PageReader,
@@ -167,22 +168,62 @@ def test_a_document_read_with_no_text_and_no_images_is_nothing_to_produce() -> N
     assert "file:///paper.pdf" in outcome.reason
 
 
-def test_a_page_with_no_text_but_an_image_fails_so_another_backend_can_try() -> None:
-    # Arrange — this backend cannot tell a scan from a blank page, and the rule is
-    # that it must say so rather than report an empty document it did not verify.
+def test_a_page_with_no_text_layer_costs_its_page_and_is_named_on_the_others() -> None:
+    """Carried repair **R43.3**, from `43.0`: three of open_ragbench's 1,000 PDFs have one
+    page this backend cannot read, and each lost its whole document — with a batch, up to 24
+    innocent documents with it. The readable pages are kept, and every page that was dropped is
+    named on the nodes that survived, so a partial document is visible rather than silent."""
+    # Arrange
     read = _reading(
         PageText(number=1, text="a caption", images=0),
         PageText(number=2, text="", images=3),
+        PageText(number=3, text="the conclusion", images=0),
     )
 
     # Act
     outcome = _extract(read)
 
     # Assert
+    assert isinstance(outcome, Produced)
+    assert [node.content for node in outcome.value] == ["a caption", "the conclusion"]
+    for node in outcome.value:
+        dropped = node.ext_as(DroppedPages)
+        assert dropped is not None
+        [only] = dropped.dropped
+        assert only.page == 2
+        assert "no text layer" in only.reason
+        assert "3 image(s)" in only.reason
+
+
+def test_a_document_whose_every_page_was_dropped_is_still_failed() -> None:
+    """The floor R43.3 keeps: a document with nothing readable left is a `Failed` naming it,
+    not a `Produced` holding no nodes, which downstream cannot tell from an empty document.
+    `R43.1` re-runs a failed batch one document at a time, so only this document is recorded."""
+    # Arrange
+    read = _reading(PageText(number=1, text="", images=2))
+
+    # Act
+    outcome = _extract(read)
+
+    # Assert
     assert isinstance(outcome, Failed)
-    assert "page 2" in outcome.reason
-    assert "3 image(s)" in outcome.reason
-    assert "stand-in" in outcome.reason
+    assert "file:///paper.pdf" in outcome.reason
+    assert "page 1" in outcome.reason
+
+
+def test_a_document_that_lost_no_page_carries_no_dropped_pages_marker() -> None:
+    """The control: the marker appears only when something was actually lost, so every
+    document that reads cleanly is byte-identical to a build before this repair."""
+    # Arrange
+    read = _reading(PageText(number=1, text="all fine", images=1))
+
+    # Act
+    outcome = _extract(read)
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    [node] = outcome.value
+    assert node.ext_as(DroppedPages) is None
 
 
 def test_a_reading_that_recovered_no_pages_at_all_is_failed_not_empty() -> None:
@@ -261,28 +302,62 @@ def test_one_unreadable_document_fails_the_whole_batch_rather_than_shrinking_it(
     assert len(calls) == 2
 
 
-def test_a_page_holding_an_unpaired_surrogate_fails_by_name_rather_than_raising() -> None:
-    # Arrange — R29.2: two of open_ragbench's 1,000 arXiv PDFs read a page whose CMap
-    # passes a lone UTF-16 surrogate straight through into the returned `str`. Left alone,
-    # `Node.synthetic`'s content digest tries to encode it as UTF-8 and raises, which
-    # aborts the whole `weft index` run rather than failing this one document.
-    read = _reading(PageText(number=4, text="before \ud800 after", images=0))
+def test_a_page_holding_an_unpaired_surrogate_costs_its_page_and_is_named() -> None:
+    """R29.2 found it, R43.3 narrows what it costs: two of open_ragbench's 1,000 PDFs read a
+    page whose CMap passes a lone UTF-16 surrogate through, which `Node.synthetic`'s digest
+    cannot encode. That page is dropped and named; the rest of the document is indexed."""
+    # Arrange
+    read = _reading(
+        PageText(number=3, text="readable", images=0),
+        PageText(number=4, text="before \ud800 after", images=0),
+    )
 
     # Act
     outcome = _extract(read)
 
     # Assert
-    assert isinstance(outcome, Failed)
-    assert "file:///paper.pdf" in outcome.reason
-    assert "surrogate" in outcome.reason
-    assert "page 4" in outcome.reason
+    assert isinstance(outcome, Produced)
+    assert [node.content for node in outcome.value] == ["readable"]
+    dropped = outcome.value[0].ext_as(DroppedPages)
+    assert dropped is not None
+    [only] = dropped.dropped
+    assert only.page == 4
+    assert "surrogate" in only.reason
 
 
-def test_a_batch_with_one_surrogate_document_fails_whole_rather_than_shrinking() -> None:
-    # Arrange — same "extracted whole or not at all" rule `test_one_unreadable_document_
-    # fails_the_whole_batch_rather_than_shrinking_it` checks for an unreadable document:
-    # a `Failed` from any one document aborts the batch, it does not drop that document
-    # and keep the rest.
+def test_one_document_losing_a_page_leaves_the_rest_of_the_batch_untouched() -> None:
+    """The batch half of R43.3, and the defect `43.0` actually measured: before this, the
+    first `Failed` returned from the whole batch, so one bad page cost every document sharing
+    it — 72 good documents at batch 25, 147 at batch 50."""
+    # Arrange
+    good = SourceDoc(source_id=SourceId("a"), uri="file:///a.pdf", content=b"a")
+    lossy = SourceDoc(source_id=SourceId("b"), uri="file:///b.pdf", content=b"b")
+
+    def read(content: bytes) -> Sequence[PageText]:
+        if content == b"a":
+            return (PageText(number=1, text="fine", images=0),)
+        return (
+            PageText(number=1, text="kept", images=0),
+            PageText(number=2, text="broken \udc00 glyph", images=0),
+        )
+
+    # Act
+    outcome = _extract(read, payload=[good, lossy])
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert [node.content for node in outcome.value] == ["fine", "kept"]
+    assert outcome.value[0].ext_as(DroppedPages) is None
+    lossy_marker = outcome.value[1].ext_as(DroppedPages)
+    assert lossy_marker is not None
+    assert [d.page for d in lossy_marker.dropped] == [2]
+
+
+def test_a_document_with_nothing_left_still_fails_its_batch() -> None:
+    """R43.3 keeps this shape deliberately: a document that loses every page has nothing to
+    contribute, and `Produced` cannot say so. The batch fails, and `R43.1` then re-runs it one
+    document at a time, so only the document with nothing readable is recorded `FAILED`."""
+    # Arrange
     good = SourceDoc(source_id=SourceId("a"), uri="file:///a.pdf", content=b"a")
     bad = SourceDoc(source_id=SourceId("b"), uri="file:///b.pdf", content=b"b")
 

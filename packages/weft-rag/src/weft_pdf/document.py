@@ -24,9 +24,13 @@ glyphs is a page a backend **looked at** — nothing is there, and a second
 backend will find nothing either, so the chain must stop. A page with no text
 but with an embedded image is a page a text-layer backend **could not see**:
 it may be a scan, it may be a blank page with a logo, and this pack has no
-way to tell. That is `Failed`, so the chain continues to another backend and,
-if one is ever installed, to OCR. Both cases are unit-tested in this
-distribution, so the distinction is a checked fact rather than a promise.
+way to tell. **Carried repair `R43.3` narrowed what that costs:** the page is
+dropped, the rest of the document is indexed, and every surviving node carries
+`DroppedPages` naming what was lost, so the ambiguity is recorded rather than
+hidden. A document that loses *every* page is still `Failed`, and the chain
+continues to another backend and, if one is ever installed, to OCR. Both cases
+are unit-tested in this distribution, so the distinction is a checked fact
+rather than a promise.
 
 There is a third case, and it is the one a reviewer caught this module getting
 wrong: a reading that recovered **no pages at all**. `pdfplumber` answers zero
@@ -51,20 +55,13 @@ happens and the `Node` actually gets built.
 
 **A figure narrows what "unseen" means, and only for a caller that can look.** A caller with no
 `read_figures` — every caller before `9.7`, and `pdf_text.py` still today — has nothing beyond a
-bare count for a page with no text and an image, so the ambiguity is refused unconditionally,
-whatever the rest of the document holds: `test_document.py`'s own check pairs a real caption on
-page 1 with an unseen page 2 and still requires `Failed`, because losing page 2's content
-silently, uninspected, is the exact corpus-shrinkage this check exists to prevent, and having
-text elsewhere does not change what page 2 held. A `read_figures` reader has actually rendered
-every image on the page it sits on and searched under it for a caption — so for a `read_figures`
-caller specifically, that one page's ambiguity is resolved, not merely counted. This exception
-still stops short of "any unseen page is fine once a backend can crop": `pdf_layout`'s own
-`image_without_text` fixture is a single unseen page and the *entire* document, so letting it
-through would report the exact "genuinely empty" conclusion the check exists to prevent — it
-still `Failed`s, `read_figures` or not. Scoped to both facts together — a `read_figures` reader,
-**and** a document that is not otherwise blank — is what lets `9.7`'s own fixture
-(`figures_on_two_pages`, one page holding only a captionless figure beside a page of real text)
-through as `Produced` without also excusing a page that is the whole document.
+bare count for a page with no text and an image, so that page is dropped and named. A
+`read_figures` reader has rendered every image on the page and searched under it for a caption, so
+for that caller the page's ambiguity is resolved rather than merely counted and the page is kept.
+Since `R43.3` the two answers differ in what one page contributes, never in whether the document
+survives: `pdf_layout`'s own `image_without_text` fixture is a single unseen page and the entire
+document, so it loses every page and is `Failed` either way.
+
 
 **A batch that could not be *read* is refused whole. A batch containing an
 empty document is not.** The first document that raises, or that this pack
@@ -425,6 +422,78 @@ def extract_documents(
     return Produced(value=ExtractionResult(nodes=tuple(nodes), figures=tuple(figures)))
 
 
+class DroppedPage(BaseModel):
+    """One page `_extract_one` could not carry into a node, and why — **R43.3**.
+
+    Never constructed directly by a caller outside this module: `_dropped_pages` is the one
+    place that builds these, from the same two refusals `_extract_one` used to return as a
+    whole-document `Failed`.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    #: 1-based, matching `PageText.number`.
+    page: int = Field(ge=1)
+    reason: str
+
+
+class DroppedPages(ExtModel):
+    """Every page one document lost during extraction, stamped on every node that document
+    still produced — **R43.3**, ledger task `43.0`: 3 of open_ragbench's 1,000 PDFs each
+    carried one page this pack could not read, and before this repair each cost its whole
+    document, up to 24 innocent documents sharing its batch (`R43.1` bounds that to the one
+    document once this repair reaches the batch loop in `extract_documents`).
+
+    Absent from a node entirely when its document lost nothing — `PdfPages`'s own
+    convention: a marker only worth attaching when it has something to say.
+    """
+
+    __namespace__ = "weft-pdf-dropped-pages"
+    __schema_version__ = "1.0.0"
+
+    dropped: tuple[DroppedPage, ...]
+
+
+def _dropped_pages(pages: Sequence[PageText], *, backend: str) -> tuple[DroppedPage, ...]:
+    """Every page in `pages` this backend could not carry into a node, in page order.
+
+    The module docstring's own distinction — "there is nothing here" versus "I could not
+    see it" — applied per page rather than to the whole document, since **R43.3**: a page
+    genuinely blank and imageless contributes no node and is not listed here either,
+    silently skipped later by `_page_nodes`; a page with no text but an image present, or
+    one whose text holds an unpaired surrogate `Node.synthetic` cannot digest, is named
+    here and excluded from the pages `_page_nodes` ever sees. Before R43.3 either case
+    failed the whole document; **a caption already resolves the first case** for a
+    `read_figures` caller — task 9.7's finding, unchanged by this repair: a figure only
+    becomes a node if it has a caption, and a caption is text *on that page*, so a page a
+    `read_figures` reader found one on is never blank here in the first place.
+    """
+    dropped: list[DroppedPage] = []
+    for page in pages:
+        if not page.text.strip() and page.images > 0:
+            dropped.append(
+                DroppedPage(
+                    page=page.number,
+                    reason=(
+                        f"no text layer, {page.images} image(s) present — {backend} cannot "
+                        "tell a scanned page from a blank one"
+                    ),
+                )
+            )
+        elif _SURROGATE_PATTERN.search(page.text):
+            dropped.append(
+                DroppedPage(
+                    page=page.number,
+                    reason=(
+                        "extracted text holds an unpaired surrogate (a U+D800-U+DFFF code "
+                        f"point) that cannot be encoded as UTF-8 — {backend} cannot build a "
+                        "node from this page"
+                    ),
+                )
+            )
+    return tuple(dropped)
+
+
 def _extract_one(
     doc: SourceDoc,
     *,
@@ -439,6 +508,13 @@ def _extract_one(
     this directly. `Failed` aborts the whole batch, per the module docstring; otherwise this
     returns the nodes and figures this one document contributed, and a reason string in place of
     both when the document held no text at all.
+
+    **R43.3**: a page this backend could not see, or one whose text holds an unpaired
+    surrogate, no longer fails this whole document by itself — `_dropped_pages` names it and
+    `_page_nodes` never sees it, so the pages that remained readable are still indexed. This
+    function still returns `Failed` when nothing survived that: a document with zero readable
+    pages left has nothing to contribute, and `Produced` has no room to say so — see
+    `extract_documents`'s own module docstring for why a batch cannot carry a partial answer.
     """
     try:
         pages = read_pages(doc.content)
@@ -453,31 +529,16 @@ def _extract_one(
             )
         )
 
-    # Unchanged by task 9.7's figure path — `_first_unseen_page`'s own docstring records why it
-    # needed no narrowing, and the two that were nearly written instead.
     found = tuple(read_figures(doc.content)) if read_figures is not None else ()
-    unseen = _first_unseen_page(pages)
-    if unseen is not None:
-        return Failed(
-            reason=(
-                f"'{doc.uri}' page {unseen.number}: no text layer, "
-                f"{unseen.images} image(s) present — {backend} cannot tell a scanned "
-                f"page from a blank one, so another backend should try this document."
-            )
-        )
+    dropped = _dropped_pages(pages, backend=backend)
+    dropped_numbers = {page.page for page in dropped}
+    readable_pages = [page for page in pages if page.number not in dropped_numbers]
 
-    surrogate_page = _first_surrogate_page(pages)
-    if surrogate_page is not None:
-        return Failed(
-            reason=(
-                f"'{doc.uri}' page {surrogate_page.number}: extracted text holds an "
-                "unpaired surrogate (a U+D800-U+DFFF code point) that cannot be encoded "
-                f"as UTF-8 — {backend} cannot build a node from this page."
-            )
-        )
-
-    page_nodes = _page_nodes(doc, pages, backend=backend)
+    page_nodes = _page_nodes(doc, readable_pages, backend=backend)
     if not page_nodes:
+        if dropped:
+            lost = "; ".join(f"page {page.page}: {page.reason}" for page in dropped)
+            return Failed(reason=f"'{doc.uri}': every page dropped — {lost}")
         return (), (), f"'{doc.uri}': {len(pages)} page(s), and no text on any of them"
     nodes: list[Node] = list(page_nodes.values())
 
@@ -494,6 +555,10 @@ def _extract_one(
         pending = _pending_figure(root, doc.source_id, figure)
         if pending is not None:
             figures.append(pending)
+
+    if dropped:
+        marker = DroppedPages(dropped=dropped)
+        nodes = [node.with_ext(marker) for node in nodes]
 
     return tuple(nodes), tuple(figures), None
 
@@ -567,38 +632,24 @@ def _table_node(root: Node, table: ExtractedTable, *, ordinal: int) -> Node | No
     ).with_ext(grid)
 
 
-def _first_unseen_page(pages: Sequence[PageText]) -> PageText | None:
-    """The first page this backend could not see anything on, or `None` if there is none.
-
-    "Unseen" rather than "scanned" on purpose: this pack cannot tell a scan from
-    a photograph beside a caption that failed to extract, and naming it for the
-    guess would make the reason line claim more than the evidence supports.
-
-    **Task 9.7 examined this rule and left it alone, which is the finding.** Figure extraction
-    looked like it needed a narrowing here — surely a page whose content is a picture is not an
-    unread page — and two were written before the question was asked properly. It needs none. A
-    figure only becomes a node if it has a **caption**, and a caption is text *on that page*, so
-    `page.text.strip()` is non-empty and the page was never a candidate. A page with an image and
-    genuinely no text recovered nothing, and is exactly as ambiguous as it was before: it may be a
-    scan, and another backend should try it.
-
-    Both near-miss narrowings are worth naming, because both looked reasonable. Skipping the check
-    whenever a figure reader is configured *and the document holds any text* would pass a
-    fifty-page scan whose first page carries a running header. Treating any page a figure reader
-    touched as "seen" would pass a scanned page whose image the reader found and could not
-    caption — the same page, reported as read. `docs/internal/lessons.md` `L9.62`.
-    """
-    return next(
-        (page for page in pages if not page.text.strip() and page.images > 0),
-        None,
-    )
-
-
-#: A lone surrogate that a page's CMap produced makes `Node.synthetic`'s UTF-8 digest raise, ending
-#: the whole run; 2 of open_ragbench's 1,000 arXiv PDFs carry one (R29.2).
+#: What "unseen" means for a page — "unseen" rather than "scanned" on purpose: this pack
+#: cannot tell a scan from a photograph beside a caption that failed to extract, and naming
+#: it for the guess would make `_dropped_pages`'s own reason line claim more than the evidence
+#: supports.
+#:
+#: **Task 9.7 examined this rule and left it alone, which is the finding — unchanged by R43.3,
+#: which only moved what a hit here costs from the whole document to one page.** Figure
+#: extraction looked like it needed a narrowing here — surely a page whose content is a
+#: picture is not an unread page — and two were written before the question was asked
+#: properly. It needs none. A figure only becomes a node if it has a **caption**, and a
+#: caption is text *on that page*, so `page.text.strip()` is non-empty and the page was never
+#: a candidate. A page with an image and genuinely no text recovered nothing, and is exactly
+#: as ambiguous as it was before. Both near-miss narrowings are worth naming, because both
+#: looked reasonable: skipping this check whenever a figure reader is configured *and the
+#: document holds any text* would pass a fifty-page scan whose first page carries a running
+#: header; treating any page a figure reader touched as "seen" would pass a scanned page whose
+#: image the reader found and could not caption — the same page, reported as read.
+#: `docs/internal/lessons.md` `L9.62`.
+#: A lone surrogate that a page's CMap produced makes `Node.synthetic`'s UTF-8 digest raise,
+#: ending the whole run; 2 of open_ragbench's 1,000 arXiv PDFs carry one (R29.2).
 _SURROGATE_PATTERN = re.compile(r"[\ud800-\udfff]")
-
-
-def _first_surrogate_page(pages: Sequence[PageText]) -> PageText | None:
-    """The first page whose text holds an unpaired surrogate, or `None` if there is none."""
-    return next((page for page in pages if _SURROGATE_PATTERN.search(page.text)), None)

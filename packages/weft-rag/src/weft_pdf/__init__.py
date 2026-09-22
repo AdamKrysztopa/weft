@@ -35,7 +35,15 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_extract.contract import Extractor
 from weft_kernel.discovery import PackRegistrar
-from weft_pdf.document import EXTENSIONS, PageReader, PageText, PdfPages, extract_documents
+from weft_pdf.document import (
+    EXTENSIONS,
+    DroppedPage,
+    DroppedPages,
+    PageReader,
+    PageText,
+    PdfPages,
+    extract_documents,
+)
 from weft_pdf.pdf_layout import PdfLayoutExtractor, PdfLayoutExtractorConfig, TextDirection
 from weft_pdf.pdf_text import (
     ExtractionMode,
@@ -53,16 +61,20 @@ class Settings(BaseModel):
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
     """Register both backends for `Extractor`, under the names a pipeline selects them by,
-    and `PdfPages` as this pack's own `ExtModel` — task 5.2g, see the module docstring.
+    and `PdfPages`/`DroppedPages` as this pack's own `ExtModel`s — task 5.2g, `R43.3` — see
+    the module docstring.
     """
     del settings
     registrar.add(Extractor, "pdf-text", PdfTextExtractor)
     registrar.add(Extractor, "pdf-layout", PdfLayoutExtractor)
     registrar.add_ext_model(PdfPages)
+    registrar.add_ext_model(DroppedPages)
 
 
 __all__ = [
     "EXTENSIONS",
+    "DroppedPage",
+    "DroppedPages",
     "ExtractionMode",
     "PageOrientation",
     "PageReader",

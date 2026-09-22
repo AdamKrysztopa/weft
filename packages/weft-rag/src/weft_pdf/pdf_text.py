@@ -49,7 +49,7 @@ from weft_extract.contract import SourceDoc
 from weft_extract.payload import PageSpan
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Node, Outcome
-from weft_pdf.document import EXTENSIONS, PageText, PdfPages, extract_documents
+from weft_pdf.document import EXTENSIONS, DroppedPages, PageText, PdfPages, extract_documents
 
 #: The name this backend is registered and selected under — see `weft_pdf.register`.
 NAME = "pdf-text"
@@ -147,14 +147,14 @@ class PdfTextExtractor:
 
     extensions: tuple[str, ...] = EXTENSIONS
     config_model: type[PdfTextExtractorConfig] = PdfTextExtractorConfig
-    #: The two facts this backend attaches — `extract_documents` puts `PdfPages` and
-    #: `PageSpan` on every page node it builds. Declared for the reason
-    #: `pdf_layout.PdfLayoutExtractor.provides` states in full: a produced fact nothing
-    #: declares is invisible to `weft_kernel.resolution`'s `requires`/`provides` check, and
-    #: stays invisible until some stage asks for it. This backend recovers no tables and no
-    #: figures, so its tuple is the short one — which is the honest difference between the
-    #: two rungs, not an omission.
-    provides: ClassVar[tuple[type[ExtModel], ...]] = (PdfPages, PageSpan)
+    #: The facts this backend attaches — `extract_documents` puts `PdfPages` and `PageSpan` on
+    #: every page node it builds, and `DroppedPages` (`R43.3`) on every node of a document that
+    #: lost at least one page. Declared for the reason `pdf_layout.PdfLayoutExtractor.provides`
+    #: states in full: a produced fact nothing declares is invisible to
+    #: `weft_kernel.resolution`'s `requires`/`provides` check, and stays invisible until some
+    #: stage asks for it. This backend recovers no tables and no figures, so its tuple is the
+    #: short one — which is the honest difference between the two rungs, not an omission.
+    provides: ClassVar[tuple[type[ExtModel], ...]] = (PdfPages, PageSpan, DroppedPages)
 
     def __init__(self, config: PdfTextExtractorConfig | None = None) -> None:
         self._config = config if config is not None else PdfTextExtractorConfig()

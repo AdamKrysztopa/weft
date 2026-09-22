@@ -64,6 +64,7 @@ from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, MediaType, Node, Outcome, Produced
 from weft_pdf.document import (
     EXTENSIONS,
+    DroppedPages,
     ExtractedFigure,
     ExtractedTable,
     PageText,
@@ -188,8 +189,15 @@ class PdfLayoutExtractor:
     #: *"requires 'BlobRef' but no earlier stage provides it. Provided so far: (none)."* A
     #: producing side with no consuming side is invisible until the consumer arrives, which is
     #: `L5.15`'s shape; all four are declared rather than only the one that failed, because a
-    #: repair cut to the failing instance narrows to it (`L6.13`).
-    provides: ClassVar[tuple[type[ExtModel], ...]] = (PdfPages, TableGrid, BlobRef, PageSpan)
+    #: repair cut to the failing instance narrows to it (`L6.13`). `DroppedPages` (`R43.3`) is
+    #: the fifth: every node of a document that lost at least one page carries it.
+    provides: ClassVar[tuple[type[ExtModel], ...]] = (
+        PdfPages,
+        TableGrid,
+        BlobRef,
+        PageSpan,
+        DroppedPages,
+    )
 
     def __init__(self, config: PdfLayoutExtractorConfig | None = None) -> None:
         self._config = config if config is not None else PdfLayoutExtractorConfig()
