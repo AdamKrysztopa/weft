@@ -114,6 +114,7 @@ from weft_cli.participation import (
     DEFAULT_INDEX_RUNS_DIR,
     check_participants_agree,
     load_run_records,
+    produced_value,
     stores_in_use,
 )
 from weft_cli.pipeline_catalogue import (
@@ -1526,9 +1527,7 @@ class TargetListCommand:
                     stage="target:catalogue",
                 )
                 catalogue_outcome = await wrapped_catalogue()
-                if not isinstance(catalogue_outcome, Produced):
-                    continue
-                catalogue = catalogue_outcome.value
+                catalogue = produced_value(catalogue_outcome, stage="target:catalogue")
                 for record in catalogue.targets:
 
                     async def _sources_for(
@@ -1551,7 +1550,7 @@ class TargetListCommand:
                         stage="target:sources",
                     )
                     sources_outcome = await wrapped_sources()
-                    sources = sources_outcome.value if isinstance(sources_outcome, Produced) else 0
+                    sources = produced_value(sources_outcome, stage="target:sources")
                     listed.append(
                         ListedTarget(
                             store=name,

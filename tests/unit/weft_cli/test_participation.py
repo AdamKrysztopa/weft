@@ -39,9 +39,12 @@ import pytest
 from weft_cli.participation import (
     UnreadableRunRecordError,
     load_run_records,
+    produced_value,
     stores_in_use,
 )
 from weft_eval.run_record import CorpusIdentity, RunRecord, write_run_record
+from weft_kernel.errors import WeftError
+from weft_kernel.payload import Failed, NothingToProduce, Produced
 from weft_kernel.pipeline import InsertOperator, Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
@@ -410,3 +413,31 @@ def test_a_run_record_that_will_not_parse_is_refused_by_name(tmp_path: Path) -> 
     # Assert
     assert raised.value.path == broken
     assert str(broken) in str(raised.value)
+
+
+def test_a_wrapped_value_is_handed_back_as_itself() -> None:
+    """Carried repair **R34.7**: a closure wrapped by `weft_kernel.seam.wrap` that only produces
+    or raises is read through `produced_value`, never an `isinstance` guard whose `else` would
+    skip a participant silently."""
+    # Act
+    value = produced_value(Produced(value="w128"), stage="target:catalogue")
+
+    # Assert
+    assert value == "w128"
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [Failed(reason="store unreachable"), NothingToProduce(reason="empty catalogue")],
+    ids=["failed", "nothing-to-produce"],
+)
+def test_an_outcome_that_is_not_a_value_is_refused_naming_the_stage(
+    outcome: Failed | NothingToProduce,
+) -> None:
+    # Act
+    with pytest.raises(WeftError) as raised:
+        produced_value(outcome, stage="target:catalogue")
+
+    # Assert
+    assert "'target:catalogue'" in str(raised.value)
+    assert type(outcome).__name__ in str(raised.value)

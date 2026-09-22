@@ -73,6 +73,17 @@ class UnreadableRunRecordError(WeftError):
         self.path = path
 
 
+def produced_value[T](outcome: Outcome[T], *, stage: str) -> T:
+    """The value of a wrapped call that only produces or raises; anything else is refused loudly
+    rather than skipped (carried repair **R34.7**)."""
+    if isinstance(outcome, Produced):
+        return outcome.value
+    raise WeftError(
+        f"'{stage}' returned {type(outcome).__name__} ({outcome.reason}) where a wrapped call "
+        f"that only produces or raises was expected"
+    )
+
+
 def load_run_records(directory: Path) -> tuple[RunRecord, ...]:
     """Every persisted run record directly under `directory`, in sorted filename order.
 
@@ -256,7 +267,7 @@ async def _holds_anything(instance: TargetHolding, *, entry: RegistryEntry, name
         plugin=name,
         stage="target:participant",
     )()
-    return isinstance(outcome, Produced) and bool(outcome.value)
+    return bool(produced_value(outcome, stage="target:participant"))
 
 
 async def check_participants_agree(deps: Dependencies) -> None:
@@ -284,8 +295,7 @@ async def check_participants_agree(deps: Dependencies) -> None:
                 plugin=name,
                 stage="target:catalogue",
             )()
-            if isinstance(outcome, Produced):
-                live[name] = outcome.value.live
+            live[name] = produced_value(outcome, stage="target:catalogue").live
         finally:
             await aclose(
                 instance,
@@ -302,6 +312,7 @@ __all__ = [
     "UnreadableRunRecordError",
     "check_participants_agree",
     "load_run_records",
+    "produced_value",
     "stores_in_use",
     "target_participants",
 ]
