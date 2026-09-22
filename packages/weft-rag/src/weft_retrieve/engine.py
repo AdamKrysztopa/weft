@@ -56,6 +56,10 @@ from weft_retrieve.payload import RouteCandidate
 #: RouteCatalogue`'s own docstring, and `.phase2-design.md` §5's worked examples.
 _ROUTE_SUMMARY_VAR = "route.summary"
 _ROUTE_COST_VAR = "route.cost"
+#: Ledger task **43.9** — a query pipeline that only answers honestly once a named layer is
+#: built over the whole corpus writes the layer's own document name here. A candidate naming
+#: one is offered only when the caller's `ready_layers` says that layer is built everywhere.
+_ROUTE_REQUIRES_VAR = "route.requires"
 
 
 class RegistryStageLookup:
@@ -198,7 +202,9 @@ class PipelineRouteCatalogue:
     are routable changes mid-run.
     """
 
-    def __init__(self, catalogue: Mapping[str, Pipeline]) -> None:
+    def __init__(
+        self, catalogue: Mapping[str, Pipeline], ready_layers: frozenset[str] | None = None
+    ) -> None:
         self._candidates = tuple(
             RouteCandidate(
                 name=name,
@@ -206,7 +212,7 @@ class PipelineRouteCatalogue:
                 cost=str(pipeline.vars.get(_ROUTE_COST_VAR, "")),
             )
             for name, pipeline in sorted(catalogue.items())
-            if _ROUTE_SUMMARY_VAR in pipeline.vars
+            if _ROUTE_SUMMARY_VAR in pipeline.vars and _layer_ready(pipeline, ready_layers)
         )
 
     def candidates(self) -> tuple[RouteCandidate, ...]:
@@ -216,8 +222,34 @@ class PipelineRouteCatalogue:
         return frozenset(candidate.name for candidate in self._candidates)
 
 
-def route_catalogue(catalogue: Mapping[str, Pipeline]) -> PipelineRouteCatalogue:
-    """Build the run's `RouteCatalogue`. This pack's own constructor — see the module
-    docstring on `stage_lookup`, the identical shape.
+def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> bool:
+    """Whether `pipeline` may be offered — `ready_layers=None` (told nothing) offers
+    everything, on every caller before ledger task **43.9**'s own footing.
     """
-    return PipelineRouteCatalogue(catalogue)
+    if ready_layers is None:
+        return True
+    required = pipeline.vars.get(_ROUTE_REQUIRES_VAR)
+    return required is None or str(required) in ready_layers
+
+
+def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:
+    """Every document naming `route.requires`, its name mapped to the layer it needs — ledger
+    task **43.9**. `weft_cli.commands.PendingLayerError`'s own raise site reads this to learn
+    which layer a caller's own `--pipeline` choice would answer from.
+    """
+    return {
+        name: str(pipeline.vars[_ROUTE_REQUIRES_VAR])
+        for name, pipeline in catalogue.items()
+        if _ROUTE_REQUIRES_VAR in pipeline.vars
+    }
+
+
+def route_catalogue(
+    catalogue: Mapping[str, Pipeline], ready_layers: frozenset[str] | None = None
+) -> PipelineRouteCatalogue:
+    """Build the run's `RouteCatalogue`. This pack's own constructor — see the module
+    docstring on `stage_lookup`, the identical shape. `ready_layers` — ledger task **43.9**
+    — is which layers `weft_cli.coverage.ready_layers` found built on every indexed source;
+    `None` (every caller before this task) offers every candidate, unfiltered.
+    """
+    return PipelineRouteCatalogue(catalogue, ready_layers)

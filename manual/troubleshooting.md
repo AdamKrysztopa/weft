@@ -2128,6 +2128,25 @@ weft.toml.
 
 ## `weft ask` — `weft_cli.ask`
 
+### `PendingLayerError`
+
+**What it looks like** — `weft ask --pipeline` names a rung that answers from a layer not yet
+built over every document:
+
+```text
+'questions-then-generate' answers from the 'enrich-with-questions' layer, which is built on 412 of
+1,000 sources indexed with 'index-pdf-text'. Build it with `weft index <dir> --layers
+enrich-with-questions --layers-only`, or ask again with --allow-pending to answer from the part
+that is built.
+```
+
+**Why** — an answer from a half-built layer is drawn from part of the corpus while looking like
+it came from all of it. The router leaves such a rung out on its own; naming it is refused so the
+choice is yours.
+
+**What to do:** finish the layer with the command the message gives, or pass `--allow-pending`.
+The answer then says under it how far the layer has got.
+
 ### `ConflictingAskModeError`
 
 **What it looks like** — `weft ask --retrieve-only` was given a `--pipeline` whose last stage

@@ -184,6 +184,7 @@ async def run_routed_ask(
     contributions: tuple[Contribution, ...] = (),
     roles: RoleTable = _NO_ROLES,
     target: str | None = None,
+    ready_layers: frozenset[str] | None = None,
 ) -> tuple[str, Answer]:
     """Route `question` through the real router, run whichever pipeline it selects, and
     return `(the pipeline name selected, the Answer it produced)`.
@@ -215,7 +216,9 @@ async def run_routed_ask(
     to read a real one from — keeps registering exactly today's set.
 
     `target` — ledger task **34.6** — reaches `_prepared_runner`'s own `build_services` call
-    unchanged; `None` (every caller before this task) reads the live target.
+    unchanged; `None` (every caller before this task) reads the live target. `ready_layers`
+    — ledger task **43.9** — reaches it the same way, so the router never offers a rung whose
+    `route.requires` layer is not built everywhere.
 
     **Closes what it built — repair R38.6.** The store and embedder `_prepared_runner` builds
     for this call are closed before returning, success or error, through
@@ -250,6 +253,7 @@ async def run_routed_ask(
         sink=sink,
         roles=roles,
         target=target,
+        ready_layers=ready_layers,
     )
     in_flight: BaseException | None = None
     try:
@@ -747,6 +751,7 @@ async def _prepared_runner(
     sink: TokenSink,
     roles: RoleTable = _NO_ROLES,
     target: str | None = None,
+    ready_layers: frozenset[str] | None = None,
 ) -> PreparedRunner:
     """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
     registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
@@ -778,6 +783,9 @@ async def _prepared_runner(
 
     `target` — ledger task **34.6** — reaches `build_services` unchanged; `None` (every
     caller before this task) reads the live target.
+
+    `ready_layers` — ledger task **43.9** — reaches `build_services` unchanged; `None`
+    (every caller before this task) offers every candidate the catalogue holds.
     """
     role_instances = selected_role_instances(registry=registry, services=services, table=roles)
     service_registry = await build_services(
@@ -789,6 +797,7 @@ async def _prepared_runner(
         roles=roles,
         role_instances=role_instances,
         target=target,
+        ready_layers=ready_layers,
     )
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)

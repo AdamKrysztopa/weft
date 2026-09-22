@@ -59,7 +59,7 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_cli.coverage import SourceCoverage
+from weft_cli.coverage import LayerCoverage, SourceCoverage
 from weft_cli.sinks import LineKind
 from weft_generate.payload import Answer, AnswerStance, Citation
 
@@ -96,17 +96,26 @@ class AnswerEnvelope(BaseModel):
     #: Task **43.4**. Omitted from the serialized envelope when `None`, so every envelope a build
     #: before it wrote stays byte-identical (`09` §3, additive).
     coverage: SourceCoverage | None = None
+    #: Task **43.9** — the pending `LayerCoverage` entries only (`weft_cli.render`'s own
+    #: `_pending_layers`), so a script sees exactly what the text footer states under the
+    #: answer. `None`, and omitted from the serialized envelope, when nothing is pending —
+    #: `coverage`'s own additive rule, one field over.
+    layers: tuple[LayerCoverage, ...] | None = None
 
 
 def build_answer_envelope(
-    answer: Answer, *, pipeline_name: str | None, coverage: SourceCoverage | None = None
+    answer: Answer,
+    *,
+    pipeline_name: str | None,
+    coverage: SourceCoverage | None = None,
+    layers: tuple[LayerCoverage, ...] | None = None,
 ) -> AnswerEnvelope:
     """The one place an `Answer` becomes an `AnswerEnvelope`.
 
     `pipeline_name` is a parameter rather than read off `answer`, because an `Answer` does not
     carry one: it is `weft_cli.commands.AskCommandResult`'s own field, set by whichever of the
     router or `--pipeline` decided, and this module is not a second place that decision is made.
-    `coverage` is the identical "already decided elsewhere" shape, one field over.
+    `coverage`/`layers` are the identical "already decided elsewhere" shape, one field over.
     """
     return AnswerEnvelope(
         pipeline_name=pipeline_name,
@@ -114,6 +123,7 @@ def build_answer_envelope(
         citations=tuple(answer.citations),
         stance=answer.stance,
         coverage=coverage,
+        layers=layers,
     )
 
 

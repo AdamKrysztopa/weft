@@ -78,6 +78,22 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **Layers: enrichment that runs after a corpus is searchable.** `weft index --layers
+  enrich-with-questions` indexes the base, then generates questions for every stored chunk, and
+  embeds and stores only those questions with the base's own embedder. `--layers-only` runs a layer
+  over an already indexed corpus, `--layers none` skips the configured ones, and `[index] layers`
+  in `weft.toml` sets them for every run. Each source records the layer as indexing, active or
+  failed. A finished layer is skipped, a failed one is retried only under `--retry-failed`, and
+  `--reprocess` rebuilds a source's layers with its base. `Weft.index` takes `layers` and
+  `layers_only`.
+- **A query rung can require a layer**, with `route.requires` in its `vars`.
+  `questions-then-generate` is the first: it searches the chunks and their generated questions in
+  one ranking, then counts each question as the chunk it asks about. The router does not offer
+  it until `enrich-with-questions` is built on every indexed source, and `--explain` says why.
+  `weft ask --pipeline` naming it is refused with the layer's progress, unless `--allow-pending`
+  is given, and then a `layers:` line under the answer says how far the layer has got.
+  `weft sources list` shows each source's layers, and `weft target list` shows the layers
+  complete on each target.
 - **A source record says which layers have been built over it.** The store contract moves to
   `2.10.0`: `SourceRecord` gains `layers`, one `LayerRecord` per layer (its name, the identity of
   the document that built it, `indexing`, `active` or `failed`, its failure, attempts and when),

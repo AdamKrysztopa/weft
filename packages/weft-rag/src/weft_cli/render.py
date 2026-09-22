@@ -84,7 +84,7 @@ from weft_cli.commands import (
     TargetRollbackCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
-from weft_cli.coverage import SourceCoverage
+from weft_cli.coverage import LayerCoverage, SourceCoverage
 from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import build_error_envelope
 from weft_cli.eval_commands import (
@@ -743,12 +743,20 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
             from weft_cli.answer_envelope import build_answer_envelope
 
             envelope = build_answer_envelope(
-                result.answer, pipeline_name=result.pipeline_name, coverage=_stated_coverage(result)
+                result.answer,
+                pipeline_name=result.pipeline_name,
+                coverage=_stated_coverage(result),
+                layers=_pending_layers(result) or None,
             )
-            # `coverage` alone is excluded when absent, never a blanket `exclude_none`: every
-            # other optional field (`pipeline_name` included) keeps serializing as it always
-            # has, so an existing envelope stays byte-identical (ledger task 43.4).
-            omit = {"coverage"} if envelope.coverage is None else None
+            # `coverage`/`layers` alone are excluded when absent, never a blanket
+            # `exclude_none`: every other optional field (`pipeline_name` included) keeps
+            # serializing as it always has, so an existing envelope stays byte-identical
+            # (ledger tasks 43.4, 43.9).
+            omit: set[str] = set()
+            if envelope.coverage is None:
+                omit.add("coverage")
+            if envelope.layers is None:
+                omit.add("layers")
             return Rendered(
                 stdout=envelope.model_dump_json(exclude=omit),
                 stderr=None,
@@ -781,7 +789,13 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
         lines.extend(_citation_line(citation) for citation in result.answer.citations)
         return Rendered(
             stdout="\n".join(
-                [*lines, *_coverage_lines(result), *_explain_lines(result), *_stage_lines(result)]
+                [
+                    *lines,
+                    *_coverage_lines(result),
+                    *_layers_lines(result),
+                    *_explain_lines(result),
+                    *_stage_lines(result),
+                ]
             ),
             stderr=None,
             exit_code=ExitCode.SUCCESS,
@@ -805,6 +819,7 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
         lines = [
             "no matching passages found.",
             *_coverage_lines(result),
+            *_layers_lines(result),
             *_explain_lines(result),
             *_stage_lines(result),
             *_record_lines(result),
@@ -817,6 +832,7 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
             [
                 *lines,
                 *_coverage_lines(result),
+                *_layers_lines(result),
                 *_explain_lines(result),
                 *_stage_lines(result),
                 *_record_lines(result),
@@ -851,6 +867,30 @@ def _coverage_lines(result: AskCommandResult) -> list[str]:
     return [
         f"sources: {coverage.indexed} indexed · {coverage.failed} failed · "
         f"{coverage.indexing} indexing"
+    ]
+
+
+def _pending_layers(result: AskCommandResult) -> tuple[LayerCoverage, ...]:
+    """`result.layers`, narrowed to the ones not yet built everywhere — ledger task **43.9**.
+
+    `result.layers` carries every layer the coverage read found, built or not (`weft_cli.
+    commands.AskCommandResult`'s own docstring); a fully built one is not news, on
+    `_stated_coverage`'s identical reasoning one field over.
+    """
+    return tuple(layer for layer in result.layers if layer.built < layer.of)
+
+
+def _layers_lines(result: AskCommandResult) -> list[str]:
+    """`layers: <name> <built>/<of>; ...`, or nothing at all — ledger task **43.9**.
+
+    Empty unless `_pending_layers` has something to say, the same byte-identical-without-the-
+    fact guarantee `_coverage_lines` already gives its own line.
+    """
+    pending = _pending_layers(result)
+    if not pending:
+        return []
+    return [
+        "layers: " + "; ".join(f"{layer.name} {layer.built:,}/{layer.of:,}" for layer in pending)
     ]
 
 
@@ -957,6 +997,10 @@ def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
     for a failed source, what went wrong. When the entries came from more than one store, each
     line is prefixed with the store's own name — a project reading from a single store keeps
     today's plain `uri  status` line, unchanged.
+
+    **Ledger task 43.10.** A source carrying `layers` states each one's own status between the
+    source's own status and any source-level failure detail — a source with none keeps its line
+    byte-identical.
     """
     if not result.sources:
         which = "" if result.status is None else f"{result.status.value} "
@@ -969,6 +1013,14 @@ def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
         record = entry.record
         line = f"{entry.store}  " if multi_store else ""
         line += f"{record.uri}  {record.status.value}"
+        if record.layers:
+            parts: list[str] = []
+            for layer in record.layers:
+                part = f"{layer.name} {layer.status.value}"
+                if layer.failure is not None:
+                    part += f" (stage: {layer.failure.stage or 'unknown'})"
+                parts.append(part)
+            line += "  layers: " + ", ".join(parts)
         failure = record.failure
         if failure is not None:
             line += (
@@ -983,6 +1035,10 @@ def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
 def _render_target_list(result: TargetListCommandResult) -> Rendered:
     """`weft target list` — ledger task **34.6**: one line per target, naming which store it
     belongs to when more than one is in use, on `_render_sources_list`'s own precedent.
+
+    **Ledger task 43.10.** A target whose `layers_complete` is non-empty states which layers
+    are built on every one of its sources — a rung may require any of them (`43.9`); a target
+    with none keeps its line byte-identical.
     """
     if not result.targets:
         return Rendered(stdout="no targets recorded.", stderr=None, exit_code=ExitCode.SUCCESS)
@@ -996,7 +1052,10 @@ def _render_target_list(result: TargetListCommandResult) -> Rendered:
             else "embedding not recorded"
         )
         prefix = f"{target.store}  " if multi_store else ""
-        lines.append(f"{prefix}{target.name}  {mark}  {embedding}  {target.sources} sources")
+        line = f"{prefix}{target.name}  {mark}  {embedding}  {target.sources} sources"
+        if target.layers_complete:
+            line += f"  layers complete: {', '.join(target.layers_complete)}"
+        lines.append(line)
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 

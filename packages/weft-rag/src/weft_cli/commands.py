@@ -83,6 +83,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar, Final, cast
@@ -91,7 +92,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.ask import AskHit, hits_for, run_ask
 from weft_cli.config_commands import register_config_commands
-from weft_cli.coverage import SourceCoverage, coverage_of
+from weft_cli.coverage import (
+    LayerCoverage,
+    SourceCoverage,
+    coverage_of,
+    layer_coverage_of,
+    ready_layers,
+)
 from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
@@ -177,11 +184,13 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome, Produced, SourceId
+from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import DisplacedRegistration, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline
 from weft_kernel.runner import RunSummary
 from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
+from weft_retrieve.engine import route_requirements
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
 from weft_store.contract import EmbeddingIdentity, TargetCatalogue, TargetHolding, target_name
 
@@ -340,6 +349,20 @@ class ConflictingAskModeError(WeftError):
     """
 
 
+class PendingLayerError(WeftError):
+    """`--pipeline` named a rung whose `route.requires` layer is not built on every indexed
+    source — ledger task **43.9**. A rung reached through the router is simply not offered
+    (`weft_retrieve.engine.route_catalogue`'s own `ready_layers` filter); naming one directly
+    bypasses that filter, so it is refused here instead, unless `--allow-pending` says the
+    caller wants the part that is built.
+
+    A plain `WeftError`, on `ConflictingAskModeError`'s own footing: the failure mode is a
+    layer not yet ready, never a name nothing registered, so this does not join
+    `NAME_RESOLUTION_FAMILY` — `weft_cli.exit_codes.exit_code_for`'s own default,
+    `OPERATION_FAILED` (`1`), is the code.
+    """
+
+
 def _raise_for_plugin_refusal(refusal: PluginRefusal | None) -> None:
     """Turn `require_plugin`'s answer into the right raise — `None` does nothing.
 
@@ -438,21 +461,101 @@ async def _read_sources_by_store(
     return Produced(value=tuple(by_store))
 
 
-async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[SourceCoverage | None]:
-    """`AskCommandResult.coverage` for one ask — ledger task **43.4**. `None` only when no
-    store `_stores_in_use` names could answer `list_sources` at all, so a build with none does
-    (every existing test's own registry, `weft eval baseline`'s deterministic store included)
-    renders exactly as it did before this task; a store that answered with nothing outstanding
-    still sets `coverage`, `SourceCoverage.complete` and all, which is what lets `weft_cli.
-    render._render_ask` tell "nothing to say" from "nothing was asked".
+@dataclass(frozen=True, slots=True)
+class _AskCoverage:
+    """`_coverage_for`'s own answer — ledger tasks **43.4**/**43.9** share the one
+    `list_sources()` read this carries: `coverage`, every layer's own `LayerCoverage` (built
+    or not — `AskCommandResult.layers`'s own docstring), and the records both were computed
+    from, so a caller checking `PendingLayerError` reads `bases` off them rather than a second
+    read.
+    """
+
+    coverage: SourceCoverage | None
+    layers: tuple[LayerCoverage, ...]
+    records: tuple[SourceRecord, ...] = ()
+
+
+async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[_AskCoverage]:
+    """`AskCommandResult.coverage`/`.layers` for one ask — ledger task **43.4**, widened at
+    **43.9**. `coverage` is `None` only when no store `_stores_in_use` names could answer
+    `list_sources` at all, so a build with none does (every existing test's own registry,
+    `weft eval baseline`'s deterministic store included) renders exactly as it did before this
+    task; a store that answered with nothing outstanding still sets `coverage`,
+    `SourceCoverage.complete` and all, which is what lets `weft_cli.render._render_ask` tell
+    "nothing to say" from "nothing was asked".
     """
     read = await _read_sources_by_store(deps, target)
     if not isinstance(read, Produced):
         return read
     if not read.value:
-        return Produced(value=None)
+        return Produced(value=_AskCoverage(coverage=None, layers=()))
     records = tuple(record for _, records in read.value for record in records)
-    return Produced(value=coverage_of(records))
+    return Produced(
+        value=_AskCoverage(
+            coverage=coverage_of(records), layers=layer_coverage_of(records), records=records
+        )
+    )
+
+
+def _layer_progress(layer: str, ask_coverage: _AskCoverage) -> tuple[int, int]:
+    """`(built, of)` for `layer` off `ask_coverage.layers` — `0` built and every `ACTIVE`
+    source for `of` when no record carries the layer at all (the "Already decided" text
+    ledger task **43.9**'s brief states for `PendingLayerError`'s own message).
+    """
+    matched = next((c for c in ask_coverage.layers if c.name == layer), None)
+    if matched is not None:
+        return matched.built, matched.of
+    return 0, ask_coverage.coverage.indexed if ask_coverage.coverage is not None else 0
+
+
+def _raise_if_pending(
+    pipeline_name: str,
+    *,
+    catalogue: Mapping[str, Pipeline],
+    ask_coverage: _AskCoverage,
+) -> None:
+    """Refuse `pipeline_name` when its own `route.requires` layer is not built on every
+    indexed source — ledger task **43.9**. Does nothing for a rung naming no layer, or one
+    whose layer is already built everywhere.
+    """
+    layer = route_requirements(catalogue).get(pipeline_name)
+    if layer is None or layer in ready_layers(ask_coverage.layers):
+        return
+    built, of = _layer_progress(layer, ask_coverage)
+    bases = ", ".join(
+        f"'{name}'"
+        for name in sorted(
+            {
+                record.pipeline
+                for record in ask_coverage.records
+                if record.status is SourceStatus.ACTIVE
+            }
+        )
+    )
+    raise PendingLayerError(
+        f"'{pipeline_name}' answers from the '{layer}' layer, which is built on {built:,} of "
+        f"{of:,} sources indexed with {bases}. Build it with `weft index <dir> --layers "
+        f"{layer} --layers-only`, or ask again with --allow-pending to answer from the part "
+        f"that is built."
+    )
+
+
+def _excluded_rung_explanations(
+    catalogue: Mapping[str, Pipeline], *, ask_coverage: _AskCoverage, ready: frozenset[str]
+) -> tuple[str, ...]:
+    """`--explain`'s own line per catalogue document the router left out — ledger task **43.9**.
+    Routed path only: a rung named directly is refused or accepted before this point, never
+    silently excluded.
+    """
+    lines: list[str] = []
+    for name, layer in sorted(route_requirements(catalogue).items()):
+        if layer in ready:
+            continue
+        built, of = _layer_progress(layer, ask_coverage)
+        lines.append(
+            f"not offered: '{name}' needs the '{layer}' layer, built on {built:,} of {of:,} sources"
+        )
+    return tuple(lines)
 
 
 def _register_corpus(ctx: Context, deps: Dependencies) -> None:
@@ -651,6 +754,13 @@ class AskArgs(BaseModel):
             "target that does not exist, naming every target that does. Omit for the live one."
         ),
     )
+    allow_pending: bool = Field(
+        default=False,
+        description=(
+            "answer from a rung whose layer is not yet built on every source, stating how far "
+            "it has got"
+        ),
+    )
 
 
 class IndexCommandResult(CommandResult):
@@ -748,6 +858,11 @@ class AskCommandResult(CommandResult):
     #: `list_sources`), never when the answer is that nothing is outstanding — `weft_cli.
     #: render._render_ask` reads `SourceCoverage.complete` for that distinction.
     coverage: SourceCoverage | None = None
+    #: Ledger task **43.9** — every layer the same `list_sources()` read found, built or not,
+    #: filled on every ask path (`_coverage_for`'s own `_AskCoverage.layers`). `weft_cli.render`
+    #: narrows this to the pending ones before stating anything under the answer or in the
+    #: JSON envelope; a corpus with nothing pending renders exactly as it did before this task.
+    layers: tuple[LayerCoverage, ...] = ()
 
 
 _RENDER_HELP: Final[str] = (
@@ -1194,6 +1309,13 @@ class AskCommand:
                 f"retrieval stage and calls no model: "
                 f"{', '.join(repr(name) for name in alternatives) or '(none installed)'}."
             )
+        coverage_outcome = await _coverage_for(deps, ask_args.target)
+        if not isinstance(coverage_outcome, Produced):
+            return coverage_outcome
+        if not ask_args.allow_pending:
+            _raise_if_pending(
+                pipeline_name, catalogue=catalogue, ask_coverage=coverage_outcome.value
+            )
         passages = await run_named_retrieve(
             ask_args.question,
             pipeline_name=pipeline_name,
@@ -1207,9 +1329,6 @@ class AskCommand:
             roles=deps.roles,
             target=ask_args.target,
         )
-        coverage_outcome = await _coverage_for(deps, ask_args.target)
-        if not isinstance(coverage_outcome, Produced):
-            return coverage_outcome
         return Produced(
             value=AskCommandResult(
                 question=ask_args.question,
@@ -1219,7 +1338,8 @@ class AskCommand:
                 answer=None,
                 hits=hits_for([p.scored for p in sorted(passages.passages, key=lambda p: p.rank)]),
                 records=record_lines(passages.ext) if ask_args.explain else (),
-                coverage=coverage_outcome.value,
+                coverage=coverage_outcome.value.coverage,
+                layers=coverage_outcome.value.layers,
             )
         )
 
@@ -1311,7 +1431,8 @@ class AskCommand:
                 # report — `incomparable_note` would return `None` for a one-element sequence and
                 # calling it would be asking a question whose answer is structural.
                 score_note=None,
-                coverage=coverage_outcome.value,
+                coverage=coverage_outcome.value.coverage,
+                layers=coverage_outcome.value.layers,
             )
         )
 
@@ -1342,8 +1463,19 @@ class AskCommand:
             )
         _raise_for_plugin_refusal(refusal)
         await _require_target_exists(deps, ask_args.target)
+        # Ledger task **43.9** — read before routing or running, so a rung whose layer is
+        # not ready everywhere can be refused (or the router told to leave it out) before
+        # anything runs, on one `list_sources()` read.
+        coverage_outcome = await _coverage_for(deps, ask_args.target)
+        if not isinstance(coverage_outcome, Produced):
+            return coverage_outcome
+        ask_coverage = coverage_outcome.value
+        ready = ready_layers(ask_coverage.layers)
+        catalogue = full_catalogue(reports=deps.reports)
         if ask_args.pipeline is not None:
             pipeline_name = ask_args.pipeline
+            if not ask_args.allow_pending:
+                _raise_if_pending(pipeline_name, catalogue=catalogue, ask_coverage=ask_coverage)
             answer = await run_named_ask(
                 ask_args.question,
                 pipeline_name=pipeline_name,
@@ -1371,6 +1503,7 @@ class AskCommand:
                 contributions=deps.contributions,
                 roles=deps.roles,
                 target=ask_args.target,
+                ready_layers=ready,
             )
         explanations: tuple[str, ...] = ()
         note: str | None = None
@@ -1406,10 +1539,13 @@ class AskCommand:
                 explanation.rendered()
                 for explanation in arm_explanations(produced_by, producers=producers, store=store)
             )
+            if ask_args.pipeline is None:
+                # Ledger task **43.9** — routed path only: a rung reached by name was
+                # already refused or accepted above, so there is nothing left to exclude.
+                explanations += _excluded_rung_explanations(
+                    catalogue, ask_coverage=ask_coverage, ready=ready
+                )
             note = incomparable_note(produced_by)
-        coverage_outcome = await _coverage_for(deps, ask_args.target)
-        if not isinstance(coverage_outcome, Produced):
-            return coverage_outcome
         return Produced(
             value=AskCommandResult(
                 question=ask_args.question,
@@ -1419,7 +1555,8 @@ class AskCommand:
                 answer=answer,
                 explanations=explanations,
                 score_note=note,
-                coverage=coverage_outcome.value,
+                coverage=ask_coverage.coverage,
+                layers=ask_coverage.layers,
             )
         )
 
@@ -1583,6 +1720,10 @@ class ListedTarget(BaseModel):
     previous: bool
     embedding: EmbeddingIdentity | None
     sources: int
+    #: Ledger task **43.10** — every layer built on every source of this target
+    #: (`weft_cli.coverage.ready_layers`), sorted. Empty for a target with none, or none
+    #: complete on every one of its sources.
+    layers_complete: tuple[str, ...] = ()
 
 
 class TargetListCommandResult(CommandResult):
@@ -1650,7 +1791,7 @@ class TargetListCommand:
 
                     async def _sources_for(
                         instance: TargetHolding = instance, record_name: str = record.name
-                    ) -> Outcome[int]:
+                    ) -> Outcome[tuple[SourceRecord, ...]]:
                         # `bind_target`'s own `Self` is `TargetHolding`-typed here, this
                         # closure's own narrowing; the built instance is a `NodeStore` by
                         # construction (`entry` is `NodeStore`'s own registration), which is
@@ -1658,7 +1799,7 @@ class TargetListCommand:
                         handle = cast(
                             NodeStore, await instance.bind_target(target_name(record_name))
                         )
-                        return Produced(value=len(await handle.list_sources()))
+                        return Produced(value=tuple(await handle.list_sources()))
 
                     wrapped_sources = wrap(
                         _sources_for,
@@ -1668,7 +1809,7 @@ class TargetListCommand:
                         stage="target:sources",
                     )
                     sources_outcome = await wrapped_sources()
-                    sources = produced_value(sources_outcome, stage="target:sources")
+                    source_records = produced_value(sources_outcome, stage="target:sources")
                     listed.append(
                         ListedTarget(
                             store=name,
@@ -1676,7 +1817,12 @@ class TargetListCommand:
                             live=record.name == catalogue.live,
                             previous=record.name == catalogue.previous,
                             embedding=record.embedding,
-                            sources=sources,
+                            sources=len(source_records),
+                            # Ledger task **43.10** — the layers built on every source of
+                            # this target, from the same `list_sources()` read.
+                            layers_complete=tuple(
+                                sorted(ready_layers(layer_coverage_of(source_records)))
+                            ),
                         )
                     )
             finally:
