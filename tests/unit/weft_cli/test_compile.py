@@ -649,6 +649,59 @@ def test_a_settings_failure_leads_the_message_instead_of_no_installed_distributi
     assert "pip install" not in message
 
 
+def test_a_missing_extra_leads_the_message_even_beside_unrelated_settings_failures() -> None:
+    # Arrange — carried repair **R34.2**, found running `weft index` with `[services] store =
+    # "qdrant"` on an install without `weft-rag[qdrant]`: `store` and `blob` failed on their own
+    # settings, the settings branch won, and the first line said "No installed distribution is
+    # missing — blob; store" while `qdrant`'s import failure sat in the detail. The dimension
+    # varied against the settings-only test above is one `IMPORT` failure among them.
+    registry = _registry()
+    reports = (
+        _report(
+            "blob",
+            PackStatus.FAILED,
+            reason="'blob' settings failed validation: root Field required",
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+        _report(
+            "otel",
+            PackStatus.FAILED,
+            reason="No module named 'opentelemetry.sdk'",
+            failure_kind=PackFailureKind.IMPORT,
+        ),
+        _report(
+            "qdrant",
+            PackStatus.FAILED,
+            reason="No module named 'qdrant_client'",
+            failure_kind=PackFailureKind.IMPORT,
+        ),
+        _report(
+            "store",
+            PackStatus.FAILED,
+            reason="'store' settings failed validation: dsn Field required",
+            failure_kind=PackFailureKind.SETTINGS,
+        ),
+    )
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
+
+    # Act
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=registry, reports=reports, parents={})
+
+    # Assert
+    message = str(caught.value)
+    first_line = message.splitlines()[0]
+    assert exit_code_for(caught.value) is ExitCode.RESOLUTION_FAILED
+    assert first_line.startswith("stage 'store' names plugin 'qdrant'")
+    assert "pip install weft-rag[qdrant]" in first_line
+    # Found running the binary: every extra not installed led the line, six of them, when the
+    # pack named after the plugin was the one to install.
+    assert "weft-rag[otel]" not in first_line
+    assert "No installed distribution is missing" not in message
+    assert "'blob' settings failed validation" in message
+    assert "'store' settings failed validation" in message
+
+
 def test_a_settings_failure_gets_no_install_hint_even_when_the_pack_name_matches_the_plugin() -> (
     None
 ):

@@ -95,13 +95,18 @@ def attribute_to_packs(
     here, so the two callers keep whatever vocabulary the site where the name was typed
     already speaks.
 
-    Four branches, in order:
+    Five branches, in order:
 
     - **A `REFUSED` pack is present** — `ExitCode.POLICY_REFUSED`, naming every refused
       distribution and `[packs] allow`. `valid_options` on the returned `PluginRefusal`
       stays `None` regardless of the `valid_options` argument: a refused pack is never
       imported, so nothing here can honestly claim what it would have registered — see
       `PluginRefusal`'s own docstring for the identical reasoning stated at the field.
+    - **Some `silent` report has an `install_hint`** — `ExitCode.RESOLUTION_FAILED`, leading
+      with the missing extra rather than any settings failure among the same reports:
+      **carried repair R34.2**, found running `weft index` where `store` and `blob` both
+      failed on their own settings while `qdrant` sat silent on a missing extra — the
+      settings branch below would have won and buried the one line an operator can act on.
     - **A `FAILED` pack with `failure_kind is PackFailureKind.SETTINGS` is present** —
       `ExitCode.RESOLUTION_FAILED`, leading with *that* rather than `not_found`: the pack
       is installed and imported cleanly, `register()` never ran, and repeating "no
@@ -139,6 +144,25 @@ def attribute_to_packs(
                 # would have contributed — see that field's own docstring.
                 registered,
             ),
+        )
+    installable = tuple(
+        (report, hint)
+        for report in sorted(silent, key=_label_of)
+        if (hint := install_hint(report)) is not None
+    )
+    named = tuple((report, hint) for report, hint in installable if report.pack == name)
+    installable = named or installable
+    if installable:
+        listed = "; ".join(f"{_label_of(report)}: {hint}" for report, hint in installable)
+        return PluginRefusal(
+            exit_code=ExitCode.RESOLUTION_FAILED,
+            message=_compose(
+                f"{subject}. A pack it may need is not installed — {listed} — which is why "
+                f"'{name}' may not resolve:",
+                _diagnostic_detail(silent),
+                registered,
+            ),
+            valid_options=valid_options,
         )
     if settings_failures:
         listed = "; ".join(_label_of(report) for report in sorted(settings_failures, key=_label_of))
