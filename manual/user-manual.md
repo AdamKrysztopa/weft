@@ -414,7 +414,7 @@ What that prints — the resolved form, exactly as `resolved.model_dump(mode="js
     {
       "id": "embed",
       "contract": "Embedder",
-      "contract_version": "1.0.0",
+      "contract_version": "1.1.0",
       "use": "hash",
       "config": {
         "dimension": 64

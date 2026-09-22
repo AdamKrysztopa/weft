@@ -4764,3 +4764,47 @@ every query against the target answer "nothing found" instead of reporting a fai
 
 **What to do:** drop the target and build it again from its corpus. If the target is live, promote
 or roll back to another target first.
+
+### `EmbeddingIdentityMismatchError`
+
+**What it looks like:** a question embedded differently from the target it asks:
+
+```text
+this query embeds with 'hash' (model hash, width 64), and target 'w128' was built with 'hash'
+(model hash, width 128) — vectors from two embedders cannot be compared. Set the embedder to
+match the target, or query another target (`weft target rollback` restores the previous one).
+```
+
+or an index that would mix two embedders in one target:
+
+```text
+this index embeds with 'hash' (model hash, width 128) into target 'default', which was built with
+'hash' (model hash, width 64) — a target holds one embedder's vectors. Index into a new target
+with --target, or set the embedder back to match.
+```
+
+**Why:** each target records the embedder that made its first write: the plugin, its distribution,
+the model it calls and the vector width. Two models of the same width produce vectors that can
+still be compared numerically but mean nothing to each other, and no store notices that. Weft
+refuses before any vector is compared.
+
+**What to do:** configure the embedder that built the target. That means `[services] embed`, the
+stage's `with: model:`, or `[packs.openai] embedding_model`, whichever set it. To move to a new
+embedder, build a new target with `weft index --target`, compare it with the live one, and promote
+it.
+
+### `EmbedderStatesNoIdentityError`
+
+**What it looks like:**
+
+```text
+the embedder 'stranger' does not say which model and width it embeds with — it does not satisfy
+weft_embed.contract.IdentifiedEmbedder — so target 'w128' cannot record or check what built it
+```
+
+**Why:** a target only protects you from mixed embedders if it knows which embedder built it.
+Weft refuses an embedder that cannot say when you name a target with `--target`, and when you
+query a target whose identity is already recorded.
+
+**What to do:** use an embedder that states its identity (every embedder that ships with Weft
+does), or ask the embedder's author to implement `embedding_model()`. It is a one-method Protocol.

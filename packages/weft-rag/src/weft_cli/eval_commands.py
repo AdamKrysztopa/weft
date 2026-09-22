@@ -208,6 +208,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import ClassVar, Final, cast
 
@@ -220,6 +221,8 @@ from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
+from weft_embed import Embedder
+from weft_embed.contract import EmbeddingModel, IdentifiedEmbedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.baseline import (
@@ -262,8 +265,10 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome, Produced
+from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 from weft_kernel.runner import RunSummary
+from weft_kernel.seam import aclose, wrap
 from weft_llm.client import NullSink
 from weft_llm.roles import LLMRoles
 
@@ -1033,18 +1038,37 @@ def _model_field(config: object) -> str | None:
 #: default is one shared instance rather than a mutable built per call.
 _NO_ROLES: Final[LLMRoles] = LLMRoles()
 
+#: `model_versions_of`'s other default — a caller that never asked an embedder what it actually
+#: calls keeps this function's pre-`R34.0` reading, `_model_field` off the resolved config.
+_NO_STATED: Final[Mapping[str, str]] = {}
+
 
 def model_versions_of(
-    resolved_pipeline: ResolvedPipeline, *, roles: LLMRoles = _NO_ROLES
+    resolved_pipeline: ResolvedPipeline,
+    *,
+    roles: LLMRoles = _NO_ROLES,
+    stated: Mapping[str, str] = _NO_STATED,
 ) -> Mapping[str, str]:
-    """Every model this run actually used — **two sources, carried repair `R10.3`.**
+    """Every model this run actually used — **three sources, carried repairs `R10.3`, `R34.0`.**
 
-    *Stage config*, unchanged: every stage of `resolved_pipeline` whose own config names a
-    `model`, as `use:model`. Never reads `[services]` (Q3, task 4.0) and never a table of "which
-    stages carry a model" — `hash`, `pgvector` and every plugin whose `config_model` has no
-    `model` field simply contribute nothing, derived rather than special-cased.
+    *Stage config*, the original reading: every stage of `resolved_pipeline` whose own config
+    names a `model`, as `use:model`. Never reads `[services]` (Q3, task 4.0) and never a table
+    of "which stages carry a model" — `hash`, `pgvector` and every plugin whose `config_model`
+    has no `model` field simply contribute nothing, derived rather than special-cased.
 
-    *`[llm.roles]`*, and this is what `R10.3` adds. A summarising or judging model is chosen per
+    *`stated`*, and this is what `R34.0` adds — `stated_embedding_models`'s own return shape, a
+    stage id mapped to what the embedder itself said it calls. Found at ledger `34.0`: this
+    function used to read `config.model` for every stage, which resolution fills with a
+    plugin's own default for a stage that names none — `OpenAIEmbedderConfig.model` defaults to
+    `text-embedding-3-small` — while `OpenAIEmbedder` actually calls `[packs.<account>]
+    embedding_model` in exactly that case (`R22.1`). A run configured to call `-3-large`
+    through the account setting recorded `-3-small`, and two runs differing only in that
+    setting compared as though nothing but the pipeline differed — `L10.5`'s shape a second
+    time, this time between a run and itself. A stage id present in `stated` wins over its own
+    config reading; a stage id absent from it (an embedder that could not state one, or no
+    `stated` mapping at all) falls back to the config reading unchanged.
+
+    *`[llm.roles]`*, `R10.3`'s own addition. A summarising or judging model is chosen per
     **role**, and no stage's config mentions it — so two eval arms differing *only* by their
     summarising model produced byte-identical `model_versions` and `_incomparable_reasons` compared
     them as though the only difference were the pipeline (`docs/internal/lessons.md` `L10.5`). That
@@ -1059,6 +1083,9 @@ def model_versions_of(
     versions: dict[str, str] = {}
     stage: ResolvedStage
     for stage in resolved_pipeline.stages:
+        if stage.id in stated:
+            versions[stage.id] = f"{stage.use}:{stated[stage.id]}"
+            continue
         model = _model_field(stage.config)
         if model is not None:
             versions[stage.id] = f"{stage.use}:{model}"
@@ -1066,6 +1093,56 @@ def model_versions_of(
         if mapping.model:
             versions[f"role:{name}"] = f"{mapping.provider}:{mapping.model}"
     return versions
+
+
+async def _asked_identity(embedder: IdentifiedEmbedder) -> Outcome[EmbeddingModel]:
+    """`embedder.embedding_model()`, `Outcome`-shaped so `weft_kernel.seam.wrap` can carry it —
+    a standalone function rather than a call inline in `stated_embedding_models`, so the plugin
+    instance built there is never the one an awaited method is called on in the same function
+    (fitness function 33(b): every such call is handed to `wrap`).
+    """
+    return Produced(value=await embedder.embedding_model())
+
+
+async def stated_embedding_models(
+    resolved_pipeline: ResolvedPipeline, registry: Registry
+) -> Mapping[str, str]:
+    """Every embed stage's own stated model — `model_versions_of`'s `stated` argument.
+
+    Built fresh, one instance per embed stage, from the resolved stage's own `use` and
+    `config` — the identical construction `Runner.resolve` performs, run here only to ask
+    `weft_embed.contract.IdentifiedEmbedder.embedding_model()`, never to run the stage. A
+    stage not registered under the `Embedder` contract, or whose plugin does not satisfy
+    `IdentifiedEmbedder`, contributes nothing — `model_versions_of` falls back to its config
+    reading for exactly that stage id.
+    """
+    stated: dict[str, str] = {}
+    stage: ResolvedStage
+    for stage in resolved_pipeline.stages:
+        if stage.contract != "Embedder":
+            continue
+        entry = registry.entry(Embedder, stage.use)
+        instance = entry.factory(stage.config)
+        try:
+            if isinstance(instance, IdentifiedEmbedder):
+                wrapped = wrap(
+                    partial(_asked_identity, instance),
+                    distribution=entry.distribution,
+                    contract="Embedder",
+                    plugin=stage.use,
+                    stage=stage.id,
+                )
+                outcome = await wrapped()
+                stated[stage.id] = cast(Produced[EmbeddingModel], outcome).value.model
+        finally:
+            await aclose(
+                instance,
+                distribution=entry.distribution,
+                contract="Embedder",
+                plugin=stage.use,
+                stage=stage.id,
+            )
+    return stated
 
 
 def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
@@ -1413,7 +1490,11 @@ async def index_and_score(
         query_rung=query_rung,
         # Task 4.7's own gap to fill — see the module docstring's paragraph on
         # `model_versions_of`. Derived from what actually ran, never from `[services]`.
-        model_versions=model_versions_of(resolved, roles=deps.llm.roles),
+        model_versions=model_versions_of(
+            resolved,
+            roles=deps.llm.roles,
+            stated=await stated_embedding_models(resolved, deps.registry),
+        ),
         reports=deps.reports,
         distribution_versions=active_distribution_versions(deps.reports),
         metrics=metrics,

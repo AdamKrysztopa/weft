@@ -16,6 +16,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from weft_embed.contract import EmbeddingModel
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Vector
 
@@ -39,7 +40,9 @@ class ExampleEmbedderConfig(BaseModel):
 class ExampleChecksumEmbedder:
     """Attaches a deterministic, content-hashed `Vector` to every node it is handed.
 
-    Satisfies `weft_embed.contract.Embedder` structurally — this class never imports it.
+    Satisfies `weft_embed.contract.Embedder` and `weft_embed.contract.IdentifiedEmbedder`
+    structurally — this class never imports either Protocol, only `EmbeddingModel`, the data
+    shape `embedding_model` has to return.
     """
 
     def __init__(self, config: ExampleEmbedderConfig | None = None) -> None:
@@ -52,6 +55,9 @@ class ExampleChecksumEmbedder:
         dimension = self._config.dimension
         embedded = [node.with_embedding(_vector(node.content, dimension)) for node in payload]
         return Produced(value=embedded)
+
+    async def embedding_model(self) -> EmbeddingModel:
+        return EmbeddingModel(model="example-checksum", width=self._config.dimension)
 
 
 def _vector(content: str, dimension: int) -> Vector:

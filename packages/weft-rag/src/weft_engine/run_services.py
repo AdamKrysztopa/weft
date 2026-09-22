@@ -62,6 +62,7 @@ from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import ServiceSelection
+from weft_engine.targets import check_embedding_for_query, embedding_identity_of
 from weft_kernel.context import ServiceRegistry, UnresolvedServiceError
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
@@ -553,10 +554,18 @@ async def build_services(
     )
     registered.add(TokenSink, sink)
     registered.add(Prompts, prompts_service(registry))
-    registered.add(
-        NodeStore, cast(NodeStore, registry.entry(NodeStore, services.store).factory(None))
+    store_instance = registry.entry(NodeStore, services.store).factory(None)
+    registered.add(NodeStore, cast(NodeStore, store_instance))
+    embedder_entry = registry.entry(Embedder, services.embed)
+    embedder_instance = embedder_entry.factory(None)
+    registered.add(Embedder, cast(Embedder, embedder_instance))
+    # Ledger task **34.4** — read-only, before any query-path stage can reach either service:
+    # a query embedded a different way than the target it asks was built with is refused here,
+    # naming both identities, rather than answering with a confidently wrong ranking.
+    identity = await embedding_identity_of(
+        embedder_instance, plugin=services.embed, distribution=embedder_entry.distribution
     )
-    registered.add(Embedder, cast(Embedder, registry.entry(Embedder, services.embed).factory(None)))
+    await check_embedding_for_query(store_instance, identity, plugin=services.embed)
     registered.add(StageLookup, stage_lookup(registry))
     registered.add(RouteCatalogue, route_catalogue(catalogue))
 

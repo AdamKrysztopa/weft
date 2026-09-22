@@ -105,6 +105,7 @@ from weft_store.conformance import (
     check_a_target_name_outside_the_grammar_is_refused_by_name,
     check_add_merges_a_nodes_sources_rather_than_replacing_them,
     check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend,
+    check_claiming_an_identity_creates_the_target_as_a_first_write_does,
     check_delete_source_removes_exactly_the_nodes_carrying_it,
     check_deleting_a_failed_source_removes_it_like_any_other,
     check_deleting_the_last_document_that_produced_a_node_deletes_it,
@@ -776,3 +777,9 @@ async def test_a_target_name_outside_the_grammar_is_refused_by_name(
     target_store: TargetHoldingStore,
 ) -> None:
     await check_a_target_name_outside_the_grammar_is_refused_by_name(target_store)
+
+
+async def test_claiming_an_identity_creates_the_target_as_a_first_write_does(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_claiming_an_identity_creates_the_target_as_a_first_write_does(target_store)

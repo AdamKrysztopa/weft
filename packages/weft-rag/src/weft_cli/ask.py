@@ -43,6 +43,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from weft_cli.closing import CloseTarget, close_each
 from weft_embed import Embedder
 from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE
+from weft_engine.targets import check_embedding_for_query, embedding_identity_of
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node, Outcome, Produced
@@ -102,9 +103,41 @@ async def run_ask(
     "`--pipeline` never reads `[services]`" rule) hands back each stage's own resolved
     `config` instead, so retrieval scoring queries the plugin actually configured to run,
     never the `[services]` default beside it.
+
+    **The store is built first, ledger task 34.4**, so `check_embedding_for_query` can refuse
+    an embedder that states a different identity than the target was built with, before a
+    question is embedded or a vector compared — `EmbeddingIdentityMismatchError`/
+    `EmbedderStatesNoIdentityError`, named after both identities and the target.
     """
+    store_entry = registry.entry(NodeStore, store)
+    instance_store = store_entry.factory(store_config)
+    if not isinstance(instance_store, VectorSearch):
+        raise NotVectorSearchableError(
+            f"the registered '{store}' NodeStore does not satisfy VectorSearch; "
+            f"weft ask has nothing to search."
+        )
+
     embedder_entry = registry.entry(Embedder, embedder)
     instance = cast(Embedder, embedder_entry.factory(embedder_config))
+    identity = await embedding_identity_of(
+        instance, plugin=embedder, distribution=embedder_entry.distribution
+    )
+    try:
+        await check_embedding_for_query(instance_store, identity, plugin=embedder)
+    except BaseException as failure:
+        await close_each(
+            (
+                CloseTarget(
+                    instance=instance_store,
+                    distribution=store_entry.distribution,
+                    contract="NodeStore",
+                    plugin=store,
+                ),
+            ),
+            in_flight=failure,
+        )
+        raise
+
     wrapped_embed = wrap(
         instance.run,
         distribution=embedder_entry.distribution,
@@ -140,14 +173,6 @@ async def run_ask(
     if embedded.embedding is None:
         raise EmbeddingFailedError("the embedder produced a node with no embedding attached")
     question_vector = embedded.embedding
-
-    store_entry = registry.entry(NodeStore, store)
-    instance_store = store_entry.factory(store_config)
-    if not isinstance(instance_store, VectorSearch):
-        raise NotVectorSearchableError(
-            f"the registered '{store}' NodeStore does not satisfy VectorSearch; "
-            f"weft ask has nothing to search."
-        )
 
     async def _search() -> Outcome[tuple[Scored[Node], ...]]:
         return Produced(value=tuple(await instance_store.search_vector(question_vector, top_k)))

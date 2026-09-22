@@ -1244,7 +1244,7 @@ class GraphStore:
         for no service at all — a `full` run on a project that never configured a provider must
         converge, not fail (`test_a_full_pass_with_nothing_in_the_band_needs_no_model_at_all`).
         Only when there is at least one such pair does it call `ctx.require(LLM)`. Every command's
-        `Context` carries an `LLM` (`weft_engine/run_services.py:939 "for **every** command"`), so
+        `Context` carries an `LLM` (`weft_engine/run_services.py:948 "for **every** command"`), so
         the mode check is what keeps a `repair` pass from calling one.
         """
         conn = await self._connection()

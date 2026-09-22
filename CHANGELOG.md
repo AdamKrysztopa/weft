@@ -68,9 +68,16 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   migration.** The store contract moves to `2.9.0` with one optional capability,
   `weft_store.contract.TargetHolding`: bind a handle to a target, list the catalogue, promote,
   roll back, drop, and record the embedding identity a target was built with. The in-memory store
-  satisfies it and the published conformance kit gains ten checks for it. A store that does not
+  satisfies it and the published conformance kit gains eleven checks for it. A store that does not
   satisfy it keeps working exactly as before; it is refused only when asked for a target.
-
+- **An index remembers which embedder built it, and a question embedded any other way is
+  refused.** Each target records the embedder of its first write: plugin, distribution, the model
+  it calls and the vector width. `weft ask` and every evaluation that queries a store check the
+  query's embedder against that record before comparing any vector
+  (`EmbeddingIdentityMismatchError`). This catches the case nothing caught before: a different
+  model at the same width. An index written before this release records the embedder of its next
+  `weft index`. Embedders state their identity through a new optional Protocol,
+  `weft_embed.contract.IdentifiedEmbedder`, and the embedder contract moves to `1.1.0`.
 - **A document that failed to index is recorded as failed, and you can find it.** `weft index`
   records every document of a batch that a stage refused or raised on as `failed`, with the
   stage, the error, an attempt count and the time, and removes what it half-wrote. Later runs skip
@@ -99,6 +106,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   rung's already did. `Answer` carries `contributors`, copied from the passages it was given.
 
 ### Fixed
+
+- **A run's `model_versions` names the embedding model the run actually called.** A model chosen
+  only by `[packs.openai] embedding_model` was recorded as the stage's default,
+  `text-embedding-3-small`, so two runs that differed only in that setting compared as though
+  they did not differ.
 
 - **`weft ask … | head -1` ends quietly.** When the reader of a streamed answer went away, the
   command blamed the model provider and exited 1 with `'generate' failed: ReaderGoneError`. It now

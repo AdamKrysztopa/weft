@@ -123,6 +123,7 @@ from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.run_services import build_index_services
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE, ServiceSelection
+from weft_engine.targets import claim_embedding_for_write, embedding_identity_of
 from weft_extract import (
     Extractor,
     SourceDoc,
@@ -697,6 +698,10 @@ async def run_index(
     # are both still ahead, in the `try` block below.
     if batch_size is not None:
         _refuse_batch_scoped_stages(runnable)
+    embedder_instance = _embedder_instance_of(specs, runnable)
+    await _claim_embedding_for_stores(
+        specs, runnable, registry=registry, embedder_instance=embedder_instance
+    )
     # Ledger task **9.0** — every contract a stage in this resolved `specs` already fills is
     # excluded from the ambient role set `build_index_services` would otherwise register; see
     # that function's own docstring for why this is derived from the pipeline rather than a
@@ -708,7 +713,7 @@ async def run_index(
             registry=registry,
             llm=llm if llm is not None else LLMSection(),
             sink=sink if sink is not None else NullSink(),
-            embedder=_embedder_instance_of(specs, runnable),
+            embedder=embedder_instance,
             store_for_revisable=_store_instance_for_revisable(specs, runnable),
             roles=roles,
             services=services,
@@ -1085,6 +1090,38 @@ def _embedder_instance_of(
         if spec.contract is Embedder and spec.id in by_id:
             return cast(Embedder, by_id[spec.id])
     return None
+
+
+async def _claim_embedding_for_stores(
+    specs: Sequence[StageSpec],
+    runnable: RunnablePipeline,
+    *,
+    registry: Registry,
+    embedder_instance: Embedder | None,
+) -> None:
+    """Record `embedder_instance`'s identity against every store stage this document writes
+    through — ledger task **34.4**, `required=False`: an embedder that cannot state one keeps
+    indexing unrecorded rather than refusing plain, untargeted ingest (Q-B). A document with no
+    embed stage claims nothing — `embedder_instance` is `None` on `index_specs`' own footing,
+    `_embedder_instance_of`'s docstring above.
+
+    `--target` and `required=True` are ledger task **34.6**; this call always passes
+    `required=False` and no `target`, leaving both keywords for that task to reach.
+    """
+    if embedder_instance is None:
+        return
+    embed_spec = next((spec for spec in specs if spec.contract is Embedder), None)
+    if embed_spec is None:
+        return
+    plugin = embed_spec.name
+    identity = await embedding_identity_of(
+        embedder_instance, plugin=plugin, distribution=registry.entry(Embedder, plugin).distribution
+    )
+    by_id = {stage.id: stage.instance for stage in runnable.stages}
+    for store_id in _store_stage_ids_of(tuple(specs)):
+        store_instance = by_id.get(store_id)
+        if store_instance is not None:
+            await claim_embedding_for_write(store_instance, identity, plugin=plugin, required=False)
 
 
 def _store_instance_for_revisable(

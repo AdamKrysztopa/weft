@@ -1319,8 +1319,16 @@ class QdrantStore:
         return type(self)(self._settings, _bound=target)
 
     async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        """Record `identity` against this handle's target, provisioning it first if this is
+        its first write — ledger task **34.4**, point 6: a bound, uncatalogued target creates
+        its pair exactly as `add`'s first write does (`width_hint` above), sized to
+        `identity.width` rather than to a node's vector, so a target opened only to claim an
+        identity is not left half-created for the next handle to trip over.
+        """
         client = await self._connection()
         target = self._require_active_target()
+        if self._candidate_unprovisioned():
+            await self._ensure_pair_provisioned(client, identity.width)
         point = await self._catalogue_point(client, target)
         held = point.payload.get("embedding") if point is not None and point.payload else None
         if held is not None:

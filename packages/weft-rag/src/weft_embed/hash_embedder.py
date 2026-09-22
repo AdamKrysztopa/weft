@@ -36,6 +36,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from weft_embed.contract import EmbeddingModel
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Vector
 
@@ -100,6 +101,9 @@ class HashEmbedder:
             for node in payload
         ]
         return Produced(value=embedded)
+
+    async def embedding_model(self) -> EmbeddingModel:
+        return EmbeddingModel(model="hash", width=self._config.dimension)
 
 
 def _hash_vector(content: str, dimension: int) -> Vector:

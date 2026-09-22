@@ -72,6 +72,7 @@ from weft_cli.eval_commands import (
     document_labels_from_manifest,
     index_and_score,
     model_versions_of,
+    stated_embedding_models,
 )
 from weft_cli.ingest import content_hashes_of, corpus_documents
 from weft_cli.route_ask import resolve_named_pipeline
@@ -246,7 +247,7 @@ class _ArmIdentity:
     pool_manifest: str | None
 
 
-def _arm_identity(
+async def _arm_identity(
     experiment: Experiment,
     arm: ExperimentArm,
     question_set: QuestionSet,
@@ -270,7 +271,13 @@ def _arm_identity(
             resolved=resolved,
             corpus_digest=pool.manifest.corpus_digest,
             question_set_digest=question_set.digest,
-            model_versions=dict(model_versions_of(resolved, roles=deps.llm.roles)),
+            model_versions=dict(
+                model_versions_of(
+                    resolved,
+                    roles=deps.llm.roles,
+                    stated=await stated_embedding_models(resolved, deps.registry),
+                )
+            ),
             pool_manifest=pool.sha256,
         )
     resolved, _specs, documents = corpus_documents(
@@ -285,7 +292,13 @@ def _arm_identity(
         resolved=resolved,
         corpus_digest=corpus_identity(arm.name, content_hashes_of(documents)).digest,
         question_set_digest=question_set.digest,
-        model_versions=dict(model_versions_of(resolved, roles=deps.llm.roles)),
+        model_versions=dict(
+            model_versions_of(
+                resolved,
+                roles=deps.llm.roles,
+                stated=await stated_embedding_models(resolved, deps.registry),
+            )
+        ),
         pool_manifest=None,
     )
 
@@ -579,7 +592,7 @@ class EvalExperimentCommand:
         }
 
         identities: dict[str, _ArmIdentity] = {
-            arm.name: _arm_identity(
+            arm.name: await _arm_identity(
                 experiment, arm, question_sets[arm.name], deps=deps, pool=pools.get(arm.name)
             )
             for arm in experiment.arms

@@ -51,7 +51,7 @@ from typing import ClassVar, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.ask import run_ask
-from weft_cli.eval_commands import model_versions_of
+from weft_cli.eval_commands import model_versions_of, stated_embedding_models
 from weft_cli.eval_scoring import PipelineNotRetrievableError
 from weft_cli.ingest import corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
@@ -533,7 +533,11 @@ class EvalBaselineCommand:
                 (f"{document.id}\t{document.sha256}" for document in readable_documents),
             ),
             corpus_digest_basis=CorpusDigestBasis.MANIFEST_DIGESTS,
-            model_versions=model_versions_of(resolved, roles=deps.llm.roles),
+            model_versions=model_versions_of(
+                resolved,
+                roles=deps.llm.roles,
+                stated=await stated_embedding_models(resolved, deps.registry),
+            ),
             reports=deps.reports,
             distribution_versions=active_distribution_versions(deps.reports),
             durations=RunDurations(ingest_seconds=ingest_seconds, query_seconds=query_seconds),

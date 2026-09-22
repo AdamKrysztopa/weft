@@ -57,3 +57,18 @@ def test_embedder_config_refuses_a_non_positive_dimension() -> None:
 def test_embedder_satisfies_the_embedder_contract_structurally() -> None:
     # Act / Assert
     assert isinstance(ExampleChecksumEmbedder(), Embedder)
+
+
+async def test_a_strangers_embedder_states_its_identity() -> None:
+    """Ledger **34.4**: `IdentifiedEmbedder` is published, so a pack outside the tree states its
+    model and width in one method — FF9 clause (c)'s stranger for the new contract."""
+    # Arrange
+    from weft_embed.contract import EmbeddingModel, IdentifiedEmbedder
+
+    embedder = ExampleChecksumEmbedder(ExampleEmbedderConfig(dimension=16))
+
+    # Act / Assert
+    assert isinstance(embedder, IdentifiedEmbedder)
+    stated = await embedder.embedding_model()
+    assert isinstance(stated, EmbeddingModel)
+    assert stated.width == 16

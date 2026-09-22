@@ -1862,3 +1862,25 @@ async def check_a_target_name_outside_the_grammar_is_refused_by_name(
             _require(repr(bad) in str(exc), f"the refusal must quote the name: {exc}")
         else:
             raise AssertionError(f"the target name {bad!r} was accepted")
+
+
+async def check_claiming_an_identity_creates_the_target_as_a_first_write_does(
+    store: TargetHoldingStore,
+) -> None:
+    """Ingest records a target's identity before its first write, so a claim on a target that
+    does not exist yet creates it — catalogued and holding its storage, empty and readable."""
+    # Arrange
+    identity = EmbeddingIdentity(plugin="hash", distribution="weft-rag", model="hash", width=3)
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+
+    # Act
+    held = await candidate.claim_embedding(identity)
+    reopened = await store.bind_target(target_name(_CANDIDATE))
+
+    # Assert
+    _require(held == identity, "the claim must be recorded and returned")
+    _require(
+        _CANDIDATE in {record.name for record in (await store.target_catalogue()).targets},
+        "a claimed target must be in the catalogue",
+    )
+    _require(await reopened.count() == 0, "a claimed target must open, empty, on a new handle")

@@ -62,6 +62,7 @@ from openai import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_embed.contract import EmbeddingModel
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Vector
@@ -271,6 +272,10 @@ class OpenAIEmbedder:
         """Release the client's connections. Read defensively by `weft_cli.ingest`."""
         if self._client is not None:
             await self._client.close()
+
+    async def embedding_model(self) -> EmbeddingModel:
+        """`self._model`, the same property the request itself sends — no network call."""
+        return EmbeddingModel(model=self._model, width=self._config.dimensions)
 
     @property
     def _model(self) -> str:

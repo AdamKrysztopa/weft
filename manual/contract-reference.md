@@ -209,7 +209,7 @@ async def describe(
 
 **Module:** `weft_embed.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Attaches an embedding to each `Node` it is handed.
 
@@ -425,6 +425,23 @@ async def nodes_for_entities(
 ) -> collections.abc.Mapping[
     weft_kg.contract.EntityId, tuple[weft_kernel.payload.ids.NodeId, Ellipsis]
 ]: ...
+```
+
+## `IdentifiedEmbedder`
+
+**Module:** `weft_embed.contract`  
+**Registered by:** `weft-rag`  
+**Version:** `1.1.0`
+
+An embedder that can state what it embeds with — one member, `NodeSupersedable`'s
+shape (`weft_store.contract`), for the same reason: growing `Embedder` itself would be a
+major for every third-party implementer, for a capability most already have and a
+stranger with no declared model does not.
+
+### Methods
+
+```python
+async def embedding_model(self) -> weft_embed.contract.EmbeddingModel: ...
 ```
 
 ## `LLMProvider`

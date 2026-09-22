@@ -14,7 +14,13 @@ pack uses — fitness function 2 — with no shortcut for being first-party.
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_embed.contract import EMBED_ROLE, EMBEDDER_CONTRACT_VERSION, Embedder
+from weft_embed.contract import (
+    EMBED_ROLE,
+    EMBEDDER_CONTRACT_VERSION,
+    Embedder,
+    EmbeddingModel,
+    IdentifiedEmbedder,
+)
 from weft_embed.hash_embedder import HashEmbedder, HashEmbedderConfig
 from weft_kernel.discovery import Disclosure, PackRegistrar
 
@@ -67,8 +73,10 @@ __all__ = [
     "EMBEDDER_CONTRACT_VERSION",
     "EMBED_ROLE",
     "Embedder",
+    "EmbeddingModel",
     "HashEmbedder",
     "HashEmbedderConfig",
+    "IdentifiedEmbedder",
     "Settings",
     "register",
 ]
