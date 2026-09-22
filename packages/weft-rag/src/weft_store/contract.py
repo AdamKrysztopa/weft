@@ -293,6 +293,26 @@ def source_status(value: str) -> SourceStatus:
         ) from exc
 
 
+class UnknownSourceFailureError(WeftError):
+    """A stored `SourceRecord.failure` carries a field this release's `SourceFailure` does not
+    declare — repair **R36.3**. Raised by `source_failure`, `source_status`'s counterpart.
+    """
+
+
+def source_failure(raw: Mapping[str, object]) -> SourceFailure:
+    """Read a stored failure as `SourceFailure`, refusing by name a field a newer release added,
+    rather than letting pydantic's own `extra_forbidden` error reach an operator (`L28.13`).
+    """
+    unknown = set(raw) - set(SourceFailure.model_fields)
+    if unknown:
+        raise UnknownSourceFailureError(
+            f"a source record's failure carries field(s) "
+            f"{', '.join(repr(key) for key in sorted(unknown))} this weft-rag does not know: a "
+            "newer weft-rag wrote it. Install the release that wrote it, or re-index with this one."
+        )
+    return SourceFailure.model_validate(raw)
+
+
 def _freeze_removed(value: Mapping[str, int]) -> Mapping[str, int]:
     """Wrap a validated `removed` mapping in an immutable view.
 

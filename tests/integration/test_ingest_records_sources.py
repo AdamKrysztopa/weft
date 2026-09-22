@@ -48,6 +48,7 @@ from weft_store.contract import (
     SourceFailure,
     SourceRecord,
     SourceStatus,
+    UnknownSourceFailureError,
     UnknownSourceStatusError,
 )
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
@@ -333,3 +334,41 @@ async def test_a_status_a_newer_release_wrote_is_refused_by_name(
 
     # Assert
     assert "'quarantined'" in str(refused.value)
+
+
+async def test_a_failure_a_newer_release_wrote_is_refused_by_name(
+    clean_database: None, store: PgVectorStore
+) -> None:
+    """`R36.3`: the stored failure is read through the same named refusal as its status."""
+    # Arrange
+    await store.put_source(
+        SourceRecord(
+            id=SourceId("future-failure"),
+            uri="file:///future.txt",
+            content_hash="h",
+            indexed_at=datetime.now(UTC),
+            pipeline="index-text",
+            status=SourceStatus.FAILED,
+            failure=SourceFailure(
+                error_type="Failed",
+                stage="extract",
+                message="m",
+                attempts=1,
+                last_attempt_at=datetime.now(UTC),
+            ),
+        )
+    )
+    conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+    async with conn.cursor() as cur:
+        await cur.execute(
+            'UPDATE weft_sources SET failure = failure || \'{"retry_after": "x"}\'::jsonb '
+            "WHERE id = 'future-failure'"
+        )
+    await conn.close()
+
+    # Act
+    with pytest.raises(UnknownSourceFailureError) as refused:
+        await store.get_source(SourceId("future-failure"))
+
+    # Assert
+    assert "retry_after" in str(refused.value)

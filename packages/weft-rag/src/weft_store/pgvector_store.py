@@ -110,13 +110,13 @@ from weft_store.contract import (
     ReconcileReport,
     Removed,
     Scored,
-    SourceFailure,
     SourceRecord,
     SourceStatus,
     SupersedeNarrowsSourcesError,
     UnhandledFilterOpError,
     VectorIndexKind,
     VectorPrecision,
+    source_failure,
     source_status,
 )
 from weft_store.contract import (
@@ -2061,7 +2061,9 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         pipeline=cast(str, row["pipeline"]),
         pipeline_identity=cast(str, row.get("pipeline_identity") or ""),
         status=source_status(cast(str, row["status"])),
-        failure=SourceFailure.model_validate(raw_failure) if raw_failure is not None else None,
+        failure=source_failure(cast("Mapping[str, object]", raw_failure))
+        if raw_failure is not None
+        else None,
     )
 
 

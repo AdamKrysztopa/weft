@@ -49,12 +49,14 @@ from weft_store.contract import (
     SupersedeNarrowsSourcesError,
     TextSearch,
     UnhandledFilterOpError,
+    UnknownSourceFailureError,
     UnknownSourceStatusError,
     UnsupportedIndexKindError,
     UnsupportedPrecisionError,
     VectorIndexKind,
     VectorPrecision,
     VectorSearch,
+    source_failure,
     source_status,
 )
 from weft_store.fields import (
@@ -158,6 +160,7 @@ __all__ = [
     "TextSearch",
     "UnaddressableFieldError",
     "UnhandledFilterOpError",
+    "UnknownSourceFailureError",
     "UnknownSourceStatusError",
     "UnsupportedIndexKindError",
     "UnsupportedPrecisionError",
@@ -172,5 +175,6 @@ __all__ = [
     "register_from_reports",
     "rehydrate_ext",
     "reject_width_over_index_ceiling",
+    "source_failure",
     "source_status",
 ]

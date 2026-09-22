@@ -18,7 +18,9 @@ from weft_store.contract import (
     SourceFailure,
     SourceRecord,
     SourceStatus,
+    UnknownSourceFailureError,
     UnknownSourceStatusError,
+    source_failure,
     source_status,
 )
 
@@ -107,4 +109,28 @@ def test_a_status_written_by_a_newer_release_is_refused_by_name() -> None:
     # Assert — the value it met, and why a store can hold it.
     message = str(refused.value)
     assert "'quarantined'" in message
+    assert "newer weft-rag" in message
+
+
+def test_a_stored_failure_reads_back_through_the_named_reader() -> None:
+    # Act
+    failure = source_failure(_failure().model_dump(mode="json"))
+
+    # Assert
+    assert failure == _failure()
+
+
+def test_a_failure_a_newer_release_wrote_is_refused_by_name() -> None:
+    """`R36.3`: `SourceFailure` forbids unknown fields, so a failure a newer `weft-rag` wrote
+    reached the operator as pydantic's own error with a documentation URL (`L28.13`'s shape)."""
+    # Arrange
+    written = {**_failure().model_dump(mode="json"), "retry_after": "2026-09-22T00:00:00Z"}
+
+    # Act
+    with pytest.raises(UnknownSourceFailureError) as refused:
+        source_failure(written)
+
+    # Assert
+    message = str(refused.value)
+    assert "retry_after" in message
     assert "newer weft-rag" in message

@@ -4248,6 +4248,22 @@ the same corpus when one of them never saw that document.
 **What to do:** fix the document and run `weft index --retry-failed`, or remove it with `weft
 delete <source-id>`; `weft sources list --status failed` names each one.
 
+### `UnknownSourceFailureError`
+
+**What it looks like** — any command that reads a store's source records, against a store a
+**newer** `weft-rag` has written a failure into:
+
+```text
+a source record's failure carries field(s) 'retry_after' this weft-rag does not know: a newer
+weft-rag wrote it. Install the release that wrote it, or re-index with this one.
+```
+
+**Why** — the record of why a document failed has a fixed set of fields. A newer release can add
+one, and reading the record while ignoring it would be a guess about what that release meant.
+
+**What to do:** run the command with the release that wrote the store, or re-index the corpus
+with this one; a re-index rewrites each failed document's record in a form this release knows.
+
 ### `UnknownSourceStatusError`
 
 **What it looks like** — any command that reads a store's source records, against a store a

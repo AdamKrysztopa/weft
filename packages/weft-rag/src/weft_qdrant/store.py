@@ -96,6 +96,7 @@ from weft_store.contract import (
     UnhandledFilterOpError,
     VectorIndexKind,
     VectorPrecision,
+    source_failure,
     source_status,
 )
 from weft_store.contract import (
@@ -1173,4 +1174,7 @@ def _to_source_record(record: models.Record) -> SourceRecord:
     status = payload.get("status")
     if isinstance(status, str):
         payload["status"] = source_status(status)
+    failure = payload.get("failure")
+    if isinstance(failure, Mapping):
+        payload["failure"] = source_failure(cast("Mapping[str, object]", failure))
     return SourceRecord.model_validate(payload)
