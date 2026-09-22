@@ -1,0 +1,55 @@
+"""`weft index`'s per-batch progress — ledger task **43.2**.
+
+`BatchProgress` is one batch's line; its `kind` joins the `--json` stream's `LineKind` vocabulary
+additively. `ProgressReporter` is checked structurally at `IndexCommand.run`, never added to
+`weft_llm.contract.TokenSink`, so a caller-supplied sink without it gets no progress and no
+published contract moves.
+"""
+
+from __future__ import annotations
+
+from typing import Protocol, runtime_checkable
+
+from pydantic import BaseModel, ConfigDict
+
+from weft_cli.sinks import LineKind
+
+
+class BatchProgress(BaseModel):
+    """One batch's worth of `weft index` progress — what `ProgressReporter.batch_progress`
+    receives, and what a `--json` reader sees as one `batch-progress` line.
+
+    `queryable` is how many documents this run has recorded `ACTIVE` so far, cumulative
+    across every batch this run has already finished; `documents` is the whole corpus this
+    run works on, unchanged batch to batch, so a reader can compute a fraction from either
+    field alone. `whole_corpus_for` is empty unless a stage in this run's own pipeline
+    depends on which other nodes shared its batch (`weft_cli.ingest.
+    batch_membership_dependent_stages`) — non-empty only when the default kept the whole
+    corpus in one batch to protect that stage, naming it by plugin name.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: LineKind = LineKind.BATCH_PROGRESS
+    batch: int
+    batches: int
+    queryable: int
+    documents: int
+    seconds: float
+    whole_corpus_for: tuple[str, ...] = ()
+
+
+@runtime_checkable
+class ProgressReporter(Protocol):
+    """A token sink that can also receive `weft index`'s per-batch progress.
+
+    Checked structurally with `isinstance`, never declared: `weft_llm.contract.TokenSink`
+    stays exactly as every third-party provider already implements it, and a sink that adds
+    `batch_progress` opts into progress lines without the base contract ever naming this
+    Protocol.
+    """
+
+    async def batch_progress(self, event: BatchProgress) -> None: ...
+
+
+__all__ = ["BatchProgress", "ProgressReporter"]

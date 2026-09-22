@@ -79,6 +79,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_cli.argparse_gen import add_model_arguments, build_command_arguments_error
 from weft_cli.exit_codes import ExitCode
+from weft_cli.progress import BatchProgress, ProgressReporter
 from weft_cli.sinks import JsonSink, PrintingSink, ReaderGoneError
 from weft_command.contract import Command
 from weft_command.invocation import invoke
@@ -373,6 +374,12 @@ class _EmissionTrackingSink:
 
     async def close(self, *, reason: str | None = None) -> None:
         await self._sink.close(reason=reason)
+
+    async def batch_progress(self, event: BatchProgress) -> None:
+        """Forward task **43.2**'s per-batch line to the sink underneath, or drop it when that
+        sink cannot show one (`--quiet`'s `NullSink`) — `L12.13` again, one method over."""
+        if isinstance(self._sink, ProgressReporter):
+            await self._sink.batch_progress(event)
 
     def show_only_stage(self, stage: str) -> None:
         """Forward carried repair **R10.1**'s narrowing to the sink underneath.

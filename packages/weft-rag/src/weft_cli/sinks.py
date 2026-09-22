@@ -55,11 +55,17 @@ import contextlib
 import sys
 from collections.abc import Set
 from enum import StrEnum
-from typing import IO
+from typing import IO, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
 from weft_llm.payload import TokenChunk
+
+if TYPE_CHECKING:
+    # Not imported at runtime: `weft_cli.progress` imports `LineKind` from this module, and a
+    # real import back here would be the cycle. Every use below is attribute access, which
+    # `from __future__ import annotations` already lets stay a deferred string.
+    from weft_cli.progress import BatchProgress
 
 #: `weft_llm.payload.TokenChunk`'s own documented default — a critic's or a grader's own
 #: role never reaches a reader unless a caller widens this explicitly.
@@ -104,6 +110,9 @@ class LineKind(StrEnum):
     #: global `--json`. It joins the vocabulary rather than arriving beside it, for the reason
     #: this enum exists — a consumer reads `kind`, never which keys happen to be set.
     ANSWER_ENVELOPE = "answer-envelope"
+    #: Ledger task **43.2** — one `weft index` batch's own progress. Joins the vocabulary
+    #: additively, on the same footing `ANSWER_ENVELOPE` did.
+    BATCH_PROGRESS = "batch-progress"
 
 
 class StreamEvent(BaseModel):
@@ -192,12 +201,19 @@ class PrintingSink:
     """
 
     def __init__(
-        self, *, stream: IO[str] | None = None, display_roles: Set[str] = DEFAULT_DISPLAY_ROLES
+        self,
+        *,
+        stream: IO[str] | None = None,
+        display_roles: Set[str] = DEFAULT_DISPLAY_ROLES,
+        progress_stream: IO[str] | None = None,
     ) -> None:
         self._stream: IO[str] = stream if stream is not None else sys.stdout
         self._display_roles = display_roles
         self._display_stage: str | None = None
         self.wrote_anything = False
+        self._progress_stream: IO[str] = (
+            progress_stream if progress_stream is not None else sys.stderr
+        )
 
     def show_only_stage(self, stage: str) -> None:
         """Show chunks from `stage` alone (plus unstamped ones) — carried repair **R10.1**.
@@ -235,6 +251,24 @@ class PrintingSink:
             self._stream.flush()
         except BrokenPipeError:
             pass
+
+    async def batch_progress(self, event: BatchProgress) -> None:
+        """One line to `progress_stream` per `weft index` batch — ledger task **43.2**.
+
+        Names the stage that kept the corpus whole when `event.whole_corpus_for` is
+        non-empty, rather than the batch fraction: a run that never split is not a batch
+        count a reader should be tracking, it is a fact about one stage in the pipeline.
+        """
+        if event.whole_corpus_for:
+            names = ", ".join(event.whole_corpus_for)
+            head = f"one batch: '{names}' computes over the whole corpus"
+        else:
+            head = f"batch {event.batch}/{event.batches}"
+        self._progress_stream.write(
+            f"{head} · {event.queryable}/{event.documents} documents queryable · "
+            f"{event.seconds:.1f} s since start\n"
+        )
+        self._progress_stream.flush()
 
 
 class JsonSink:
@@ -303,6 +337,16 @@ class JsonSink:
         )
         with contextlib.suppress(BrokenPipeError):
             self._write(event)
+
+    async def batch_progress(self, event: BatchProgress) -> None:
+        """One `batch-progress` line per `weft index` batch — ledger task **43.2**.
+
+        `event.model_dump_json()` directly, not wrapped in a `StreamEvent`: `BatchProgress`
+        already carries its own `kind` discriminant, so a second envelope around it would
+        only duplicate that field under a different name.
+        """
+        self._stream.write(f"{event.model_dump_json()}\n")
+        self._stream.flush()
 
     def _write(self, event: StreamEvent) -> None:
         # One `write` call per event, not two — a reader watching the stream should see one

@@ -207,11 +207,15 @@ every enhancer's model call and every embedding — not a cache.
 - **`--reprocess`** does the work anyway. It exists for the one change the pipeline identity cannot
   see: a hosted model that moved behind a stable name. A different plugin, or the same plugin with
   a different configured model, already counts as changed and needs no flag.
-- **`--batch-size N`** walks the corpus `N` documents at a time, so peak memory is bounded by the
-  batch rather than by the corpus. It is **refused** for a pipeline holding a stage whose output
-  depends on which other documents shared its batch — `index-with-raptor` is the shipped one, and
-  the refusal names it and points at `index-with-adrap`. Splitting such a pipeline would build one
-  tree per batch instead of one per run, and nothing would tell you.
+- **Batches, by default.** `weft index` walks the corpus 25 documents at a time. Each batch is
+  queryable the moment it lands, so `weft ask` in a second shell answers from the first batches
+  while the rest index. Each batch prints a line to stderr, `batch 3/40 · 75/1000 documents
+  queryable · 48.2 s since start`, and under `--json` a `batch-progress` line. A pipeline holding a
+  stage whose output depends on which other documents shared its batch (`index-with-raptor` is the
+  shipped one) indexes the whole corpus in one batch instead, and its line names the stage.
+- **`--batch-size N`** sets the batch size. Given explicitly, it is **refused** for such a
+  pipeline, naming the stage and pointing at `index-with-adrap`. Splitting it would build one tree
+  per batch instead of one per run, and nothing would tell you.
 
 **An index that was interrupted says so.** A run killed partway leaves the documents it was working
 on marked as still indexing, and the next `weft index` re-does exactly those — reported as *a

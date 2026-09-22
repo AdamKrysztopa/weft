@@ -900,6 +900,11 @@ envelope carries the same counts as `coverage`. A refusal then says how many sou
 indexed. The count is of sources the store has recorded, not of files in a directory it has never
 seen. With every source active, nothing is printed and the envelope has no `coverage` key.
 
+**Progress, while `weft index` runs (task `43.2`).** `weft index` runs batches of 25 by default and
+writes one line per batch to stderr, `batch k/K · n/N documents queryable · t s since start`.
+Under `--json` it writes a line of `kind` `batch-progress` on the event stream instead. A pipeline
+that must see the whole corpus in one batch says so on that line and names the stage.
+
 > **Carried repair `R11.6` (2026-09-10), and the decision inside it.** Neither consumer read the
 > field. The human renderer printed `Answer.text`, which a refusal leaves empty, so
 > `weft ask "…" --pipeline graph-then-generate` against a corpus holding nothing on the subject

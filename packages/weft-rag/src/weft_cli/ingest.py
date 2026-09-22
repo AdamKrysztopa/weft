@@ -96,6 +96,7 @@ a real store too, which `01` requirement 5 rules out as firmly as a missing entr
 from __future__ import annotations
 
 import hashlib
+import time
 from collections.abc import (
     AsyncIterator,
     Awaitable,
@@ -117,6 +118,7 @@ from weft_chunk import Chunker
 from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
+from weft_cli.progress import BatchProgress
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
@@ -199,6 +201,13 @@ _NO_ROLES: Final[RoleTable] = RoleTable()
 #: these three (a third party's own extractor and embedder pack, say), so `IndexCommand`
 #: does not consult this tuple at all once `--pipeline` is given — see that class.
 INDEX_PACKS: tuple[str, ...] = ("extract", "chunk", "embed")
+
+#: Ledger task **43.2** — the batch size `weft index` runs with when nobody typed
+#: `--batch-size`. `43.0` measured it against a 100-PDF corpus: 25 brings first ACTIVE from
+#: 226.7 s to 49.1 s at no total cost. Only `weft_cli.commands.IndexCommand` passes this —
+#: `run_index_for`'s other caller, `weft eval run`, keeps whole-corpus runs so its own
+#: `ingest_seconds` stays comparable across arms.
+DEFAULT_BATCH_SIZE: Final[int] = 25
 
 
 class AmbiguousExtractorError(PipelineResolutionError, UnresolvedNameError):
@@ -550,6 +559,60 @@ def _refuse_batch_scoped_stages(runnable: RunnablePipeline) -> None:
     )
 
 
+def _batch_plan(
+    batch_size: int | None, default_batch_size: int | None, runnable: RunnablePipeline
+) -> tuple[int | None, tuple[str, ...]]:
+    """The effective batch size for this run, and the plugin names — if any — that kept the
+    whole corpus in one batch instead — ledger task **43.2**.
+
+    An explicit `batch_size` keeps its own meaning unchanged: `_refuse_batch_scoped_stages`
+    still refuses a batch-scoped pipeline outright rather than falling back to one batch.
+    `default_batch_size` treats the identical fact the other way — a reason to keep the
+    corpus whole rather than a reason to refuse — because nobody asked for a bound this run
+    cannot honour; `whole_corpus_for` is what a progress line then names.
+    """
+    if batch_size is not None:
+        _refuse_batch_scoped_stages(runnable)
+        return batch_size, ()
+    if default_batch_size is None:
+        return None, ()
+    dependent = batch_membership_dependent_stages(runnable)
+    if dependent:
+        return None, dependent
+    return default_batch_size, ()
+
+
+async def _emit_batch_progress(
+    on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
+    *,
+    batch_number: int,
+    batches: int,
+    queryable: int,
+    documents: int,
+    start_time: float,
+    whole_corpus_for: tuple[str, ...],
+) -> None:
+    """`on_batch`, fed one `BatchProgress` per finished batch — ledger task **43.2**.
+
+    A no-op for an empty `work` (`documents == 0`): task 17.0's fully-unchanged-corpus path
+    still runs one batch through `Runner.run` to preserve that behaviour, and a progress line
+    reporting 0/0 documents would tell an operator nothing they did not already know from the
+    run's own summary.
+    """
+    if on_batch is None or documents == 0:
+        return
+    await on_batch(
+        BatchProgress(
+            batch=batch_number,
+            batches=batches,
+            queryable=queryable,
+            documents=documents,
+            seconds=time.monotonic() - start_time,
+            whole_corpus_for=whole_corpus_for,
+        )
+    )
+
+
 async def run_index(
     directory: Path,
     *,
@@ -567,6 +630,8 @@ async def run_index(
     roles: RoleTable = _NO_ROLES,
     reprocess: bool = False,
     batch_size: int | None = None,
+    default_batch_size: int | None = None,
+    on_batch: Callable[[BatchProgress], Awaitable[None]] | None = None,
     retry_failed: bool = False,
     target: str | None = None,
 ) -> IndexResult:
@@ -638,6 +703,21 @@ async def run_index(
     `batch_membership_dependent_stages` — this is refused with `BatchScopedStageError` instead of
     silently computing a different tree per batch; the refusal happens before anything is written
     or deleted.
+
+    `default_batch_size` — ledger task **43.2**. Read only when `batch_size` is `None`: an
+    explicit `--batch-size` always wins, unchanged. Given a value, that many documents run per
+    batch unless the resolved pipeline holds a stage `batch_membership_dependent_stages` names —
+    such a pipeline is not refused under the default the way it is under an explicit
+    `batch_size`, since nobody asked for a bound this run cannot honour; it keeps the whole
+    corpus in one batch instead, and every `on_batch` event this run emits carries that stage's
+    plugin name in `whole_corpus_for`. `weft_cli.commands.IndexCommand` is the only caller that
+    passes this — `run_index_for`'s other caller, `weft eval run`, keeps whole-corpus runs.
+
+    `on_batch` — ledger task **43.2**. Awaited once per finished batch (success, R43.1's
+    per-document isolation, or a batch recorded `FAILED`), never for a batch a `WeftError`
+    raises out of, and never when `work` is empty. `weft_cli.commands.IndexCommand` feeds it a
+    sink's own `batch_progress` when that sink satisfies `weft_cli.progress.ProgressReporter`;
+    a caller of `run_index` directly gets no progress unless it passes one.
 
     `retry_failed` — ledger **36.2**. `False`, the default, leaves a source this project already
     recorded `FAILED` skipped exactly like `UNCHANGED` — paid stages sit on the ingest path, so a
@@ -728,8 +808,7 @@ async def run_index(
     runnable = await _bind_store_stages(runnable, target=target)
     # Before anything is written or deleted — `_release_reparsed_sources` and `_record_sources`
     # are both still ahead, in the `try` block below.
-    if batch_size is not None:
-        _refuse_batch_scoped_stages(runnable)
+    effective_batch_size, whole_corpus_for = _batch_plan(batch_size, default_batch_size, runnable)
     embedder_instance = _embedder_instance_of(specs, runnable)
     await _claim_embedding_for_stores(
         specs, runnable, registry=registry, embedder_instance=embedder_instance, target=target
@@ -799,17 +878,23 @@ async def run_index(
             status=SourceStatus.INDEXING,
         )
 
-        # Ledger task **17.3**. `None` is `work` as one batch, exactly as this function always has
-        # — including when `work` is empty, which task **17.0**'s fully-unchanged-corpus
-        # behaviour depends on. Otherwise, successive slices of `batch_size` documents, with a
-        # shorter final slice when the length is not an exact multiple.
+        # Ledger task **17.3**, widened by **43.2**. `None` is `work` as one batch, exactly as
+        # this function always has — including when `work` is empty, which task **17.0**'s
+        # fully-unchanged-corpus behaviour depends on. Otherwise, successive slices of
+        # `effective_batch_size` documents (an explicit `batch_size`, or `default_batch_size`
+        # when nothing refuses it — see `_batch_plan`), with a shorter final slice when the
+        # length is not an exact multiple.
         slices: list[tuple[SourceDoc, ...]] = (
             [tuple(work)]
-            if batch_size is None
+            if effective_batch_size is None
             else [
-                tuple(work[start : start + batch_size]) for start in range(0, len(work), batch_size)
+                tuple(work[start : start + effective_batch_size])
+                for start in range(0, len(work), effective_batch_size)
             ]
         )
+        # Ledger task **43.2** — recorded immediately before the loop below, so every batch's
+        # `seconds` is measured against the same start rather than against each other.
+        batch_loop_started = time.monotonic()
 
         # Task **38.14**, superseding carried repair R36.0's "a batch that did succeed is re-paid":
         # each batch is its own `runner.run`, flushed and recorded `ACTIVE` the moment it
@@ -826,7 +911,7 @@ async def run_index(
         counts: list[RunSummary] = []
         indexed_count = 0
         failed_count = 0
-        for batch in slices:
+        for batch_number, batch in enumerate(slices, start=1):
             with recording() as scope:
                 try:
                     batch_summary = await runner.run(runnable, _one(batch), indexing_ctx)
@@ -882,6 +967,15 @@ async def run_index(
                 counts.extend(singles)
                 indexed_count += indexed_delta
                 failed_count += failed_delta
+            await _emit_batch_progress(
+                on_batch,
+                batch_number=batch_number,
+                batches=len(slices),
+                queryable=indexed_count,
+                documents=len(work),
+                start_time=batch_loop_started,
+                whole_corpus_for=whole_corpus_for,
+            )
         summary = _summed(counts)
         # Ledger **36.2** — a source this run left `FAILED` keeps that record exactly as
         # `_record_batch_failure` wrote it: `attempted` already excludes it (it was never
@@ -954,6 +1048,8 @@ async def run_index_for(
     extractor: str | None = None,
     reprocess: bool = False,
     batch_size: int | None = None,
+    default_batch_size: int | None = None,
+    on_batch: Callable[[BatchProgress], Awaitable[None]] | None = None,
     retry_failed: bool = False,
     target: str | None = None,
 ) -> IndexResult:
@@ -967,6 +1063,10 @@ async def run_index_for(
     did not under it). `tests/unit/weft_cli/test_run_index_has_one_production_caller.py` holds
     this the only production caller of `run_index`; a test may still call `run_index` directly
     with doubles.
+
+    `default_batch_size`/`on_batch` — ledger task **43.2** — are forwarded straight through,
+    unread here: whether either is given at all is `weft_cli.commands.IndexCommand.run`'s own
+    decision, since it is the caller that knows which sink `deps.token_sink` is.
     """
     return await run_index(
         directory,
@@ -984,6 +1084,8 @@ async def run_index_for(
         roles=deps.roles,
         reprocess=reprocess,
         batch_size=batch_size,
+        default_batch_size=default_batch_size,
+        on_batch=on_batch,
         retry_failed=retry_failed,
         target=target,
     )

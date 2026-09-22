@@ -107,7 +107,7 @@ from weft_cli.explain import (
     record_lines,
 )
 from weft_cli.fanout import Participant
-from weft_cli.ingest import INDEX_PACKS, SourceChange, run_index_for
+from weft_cli.ingest import DEFAULT_BATCH_SIZE, INDEX_PACKS, SourceChange, run_index_for
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
 from weft_cli.output import AskFormat
 from weft_cli.pack_new import PackNewCommand
@@ -126,6 +126,7 @@ from weft_cli.pipeline_catalogue import (
 )
 from weft_cli.pipeline_commands import register_pipeline_commands
 from weft_cli.preview import run_render
+from weft_cli.progress import ProgressReporter
 from weft_cli.reconcile import (
     ReconcileEstimateOutcome,
     ReconcileOutcome,
@@ -540,11 +541,11 @@ class IndexArgs(BaseModel):
         default=None,
         gt=0,
         description=(
-            "index this many documents at a time instead of the whole corpus in one call, so "
-            "peak memory is bounded by the batch rather than by the corpus (ledger task "
-            "17.3). Refused, before anything runs, for a pipeline containing a stage whose "
-            "output depends on which other nodes shared its batch — such a stage would "
-            "silently compute a different tree per batch."
+            "index this many documents at a time (default 25, ledger task 43.2): each batch "
+            "is queryable the moment it lands and peak memory is bounded by the batch. Given "
+            "explicitly, it is refused before anything runs for a pipeline containing a stage "
+            "whose output depends on which other nodes shared its batch; without it, such a "
+            "pipeline indexes the whole corpus in one batch and says so."
         ),
     )
     retry_failed: bool = Field(
@@ -951,6 +952,11 @@ class IndexCommand:
                 )
             _raise_for_plugin_refusal(plugin_refusal)
 
+        on_batch = (
+            deps.token_sink.batch_progress
+            if isinstance(deps.token_sink, ProgressReporter)
+            else None
+        )
         result = await run_index_for(
             deps,
             Path(index_args.path),
@@ -959,6 +965,8 @@ class IndexCommand:
             extractor=index_args.extract,
             reprocess=index_args.reprocess,
             batch_size=index_args.batch_size,
+            default_batch_size=DEFAULT_BATCH_SIZE,
+            on_batch=on_batch,
             retry_failed=index_args.retry_failed,
             target=index_args.target,
         )
