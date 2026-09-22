@@ -367,8 +367,9 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # Task **36.0** moves it to `2.8.0`: `SourceStatus` gains `FAILED` and `SourceRecord` an
     # optional `failure` — minor for both audiences, as `17.1` was — and `weft-rag` to `2.8.0`
     # with it, which FF6 requires. Task **34.3** moves it to `2.9.0`: `TargetHolding` is a new
-    # optional Protocol, `NodeSupersedable`'s precedent.
-    assert STORE_CONTRACT_VERSION == "2.9.0"
+    # optional Protocol, `NodeSupersedable`'s precedent. Task **43.6** moves it to `2.10.0`:
+    # `SourceRecord` gains an optional `layers`, `36.0`'s shape.
+    assert STORE_CONTRACT_VERSION == "2.10.0"
 
 
 def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:

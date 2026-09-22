@@ -64,6 +64,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A source record says which layers have been built over it.** The store contract moves to
+  `2.10.0`: `SourceRecord` gains `layers`, one `LayerRecord` per layer (its name, the identity of
+  the document that built it, `indexing`, `active` or `failed`, its failure, attempts and when),
+  empty by default. Every shipped store keeps it, a store written by `2.9.0` reads back with no
+  layers, and a layer field or status a newer release wrote is refused by name
+  (`UnknownSourceLayerError`). The published conformance kit gains one check for it. No pipeline
+  identity moves.
 - **A store can hold named targets, one of them live — the start of blue-green index
   migration.** The store contract moves to `2.9.0` with one optional capability,
   `weft_store.contract.TargetHolding`: bind a handle to a target, list the catalogue, promote,

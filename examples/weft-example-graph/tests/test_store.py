@@ -20,6 +20,7 @@ from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.payload import MediaType, Node, NodeId, Produced, SourceId
 from weft_store.conformance import (
     check_a_source_record_round_trips_and_is_listed,
+    check_a_source_records_layers_round_trip_whole_and_are_listed,
     check_deleting_a_failed_source_removes_it_like_any_other,
 )
 from weft_store.contract import Cursor, NodeStore, Page, ReconcileMode, SourceRecord
@@ -415,3 +416,11 @@ async def test_a_source_record_round_trips_through_the_published_check(
 
 async def test_deleting_a_failed_source_passes_the_published_check(clean_store: NodeStore) -> None:
     await check_deleting_a_failed_source_removes_it_like_any_other(clean_store)
+
+
+async def test_a_source_s_layers_round_trip_through_the_published_check(
+    clean_store: NodeStore,
+) -> None:
+    """Ledger **43.6**: a store outside the tree keeps the layers it is handed, as `R36.2` made it
+    keep the failure."""
+    await check_a_source_records_layers_round_trip_whole_and_are_listed(clean_store)

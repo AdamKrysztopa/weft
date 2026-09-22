@@ -101,6 +101,7 @@ from weft_store.conformance import (
     check_a_parents_children_within_an_ordinal_range_are_one_filter_away,
     check_a_source_record_belongs_to_the_target_it_was_written_into,
     check_a_source_record_round_trips_and_is_listed,
+    check_a_source_records_layers_round_trip_whole_and_are_listed,
     check_a_target_is_created_by_its_first_write_and_isolated_from_every_other,
     check_a_target_name_outside_the_grammar_is_refused_by_name,
     check_a_target_whose_first_write_is_a_source_record_is_catalogued,
@@ -347,6 +348,10 @@ async def test_estimate_counts_the_identical_tombstones_reconcile_itself_examine
 
 async def test_a_source_record_round_trips_and_is_listed(store: NodeStore) -> None:
     await check_a_source_record_round_trips_and_is_listed(store)
+
+
+async def test_a_source_records_layers_round_trip_whole_and_are_listed(store: NodeStore) -> None:
+    await check_a_source_records_layers_round_trip_whole_and_are_listed(store)
 
 
 async def test_deleting_a_failed_source_removes_it_like_any_other(store: NodeStore) -> None:

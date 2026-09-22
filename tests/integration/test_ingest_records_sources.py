@@ -34,6 +34,7 @@ import os
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import psycopg
 import pytest
@@ -44,7 +45,9 @@ from weft_engine.registry_bootstrap import build_dependencies
 from weft_kernel.context import Context
 from weft_kernel.payload import SourceId
 from weft_kg.store import GraphSettings, GraphStore
+from weft_store.conformance import check_a_source_records_layers_round_trip_whole_and_are_listed
 from weft_store.contract import (
+    NodeStore,
     SourceFailure,
     SourceRecord,
     SourceStatus,
@@ -372,3 +375,10 @@ async def test_a_failure_a_newer_release_wrote_is_refused_by_name(
 
     # Assert
     assert "retry_after" in str(refused.value)
+
+
+async def test_the_graph_store_keeps_a_source_s_layers_whole(graph_store: GraphStore) -> None:
+    """Ledger **43.6**: the graph pack records sources, so it records their layers too."""
+    await check_a_source_records_layers_round_trip_whole_and_are_listed(
+        cast("NodeStore", graph_store)
+    )

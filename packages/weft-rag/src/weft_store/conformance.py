@@ -75,6 +75,8 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     InvalidTargetNameError,
+    LayerRecord,
+    LayerStatus,
     MetadataFilter,
     NodeStore,
     NodeSupersedable,
@@ -1147,6 +1149,66 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
     _require(
         tuple(item.id for item in listed) == (_SOURCE_A,),
         "the store did not satisfy: tuple(item.id for item in listed) == (_SOURCE_A,)",
+    )
+
+
+async def check_a_source_records_layers_round_trip_whole_and_are_listed(store: NodeStore) -> None:
+    """Ledger **43.6**: two layers in two statuses on one record, none on another — each read back
+    whole, by `get_source` and by `list_sources`. `==` on the frozen record, for the reason
+    `check_a_source_record_round_trips_and_is_listed` gives: a store that names its columns keeps
+    only the fields its author had heard of."""
+    # Arrange
+    when = datetime.now(UTC)
+    layered = SourceRecord(
+        id=_SOURCE_A,
+        uri="file:///corpus/a.txt",
+        content_hash="hash-a",
+        indexed_at=when,
+        pipeline="conformance",
+        pipeline_identity="base-a",
+        layers=(
+            LayerRecord(
+                name="enrich-with-questions",
+                pipeline_identity="layer-q",
+                status=LayerStatus.ACTIVE,
+                attempts=1,
+                at=when,
+            ),
+            LayerRecord(
+                name="enrich-with-facts",
+                pipeline_identity="layer-f",
+                status=LayerStatus.FAILED,
+                failure=SourceFailure(
+                    error_type="Failed",
+                    stage="facts",
+                    message="the model refused",
+                    attempts=2,
+                    last_attempt_at=when,
+                ),
+                attempts=2,
+                at=when,
+            ),
+        ),
+    )
+    bare = SourceRecord(
+        id=_SOURCE_B,
+        uri="file:///corpus/b.txt",
+        content_hash="hash-b",
+        indexed_at=when,
+        pipeline="conformance",
+    )
+
+    # Act
+    await store.put_source(layered)
+    await store.put_source(bare)
+    found = await store.get_source(_SOURCE_A)
+    listed = {record.id: record for record in await store.list_sources()}
+
+    # Assert
+    _require(found == layered, "the store did not satisfy: found == layered")
+    _require(
+        listed == {_SOURCE_A: layered, _SOURCE_B: bare},
+        "the store did not satisfy: listed == {_SOURCE_A: layered, _SOURCE_B: bare}",
     )
 
 

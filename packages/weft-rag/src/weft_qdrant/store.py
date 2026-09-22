@@ -132,6 +132,7 @@ from weft_store.contract import (
     VectorIndexKind,
     VectorPrecision,
     source_failure,
+    source_layers,
     source_status,
 )
 from weft_store.contract import (
@@ -1788,4 +1789,6 @@ def _to_source_record(record: models.Record) -> SourceRecord:
     failure = payload.get("failure")
     if isinstance(failure, Mapping):
         payload["failure"] = source_failure(cast("Mapping[str, object]", failure))
+    if "layers" in payload:
+        payload["layers"] = source_layers(cast("Sequence[Mapping[str, object]]", payload["layers"]))
     return SourceRecord.model_validate(payload)

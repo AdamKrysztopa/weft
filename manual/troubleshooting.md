@@ -2023,6 +2023,38 @@ Stages: chunk, embed, store.
 **What to do:** add a stage to the document whose `use:` names a registered `Extractor` plugin —
 `weft pipeline show <name>` prints what the document currently resolves to.
 
+### `NotALayerError`
+
+**What it looks like** — a document offered as a layer reads files instead of the nodes already
+stored:
+
+```text
+'index-with-questions' reads files — its stage 'extract' is an Extractor — so it cannot run as a
+layer over the nodes 'index-text' stored. Installed layers: enrich-with-questions.
+```
+
+**Why** — a layer enriches what a base document already indexed, such as adding generated
+questions to stored chunks. A document that starts by reading files is a base document, and
+running it as a layer would re-parse the whole corpus.
+
+**What to do:** name one of the installed layers the message lists, or run the document as the
+base with `weft index --pipeline <name>`.
+
+### `LayerDuplicatesBaseStageError`
+
+**What it looks like** — a layer document names its own embedder or store:
+
+```text
+'questions-and-embed' names 'embed' (Embedder:hash), which a layer takes from its base:
+'index-text' embeds with 'embed' and stores with 'store'. Remove it from the layer.
+```
+
+**Why** — a layer's new nodes are embedded and stored by the base document's own stages, so they
+are searchable in the same index the base built. A layer carrying its own embedder would embed
+them differently, and asking would refuse the mismatch.
+
+**What to do:** delete the embedder and store stages from the layer document.
+
 ---
 
 ## `weft ask` — `weft_cli.ask`
@@ -4289,6 +4321,23 @@ one, and reading the record while ignoring it would be a guess about what that r
 
 **What to do:** run the command with the release that wrote the store, or re-index the corpus
 with this one; a re-index rewrites each failed document's record in a form this release knows.
+
+### `UnknownSourceLayerError`
+
+**What it looks like** — any command that reads a store's source records, against a store a
+**newer** `weft-rag` has recorded a layer into:
+
+```text
+a source record's layer carries field(s) 'generation' this weft-rag does not know: a newer
+weft-rag wrote it. Install the release that wrote it, or re-index with this one.
+```
+
+**Why** — each layer built over a document, such as its generated questions, is recorded with a
+fixed set of fields and one of three statuses. A newer release can add a field or a status, and
+reading the record while ignoring it would be a guess about whether that layer is usable.
+
+**What to do:** run the command with the release that wrote the store, or re-index the corpus
+with this one.
 
 ### `UnknownSourceStatusError`
 

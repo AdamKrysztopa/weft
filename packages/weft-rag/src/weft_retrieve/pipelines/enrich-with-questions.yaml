@@ -1,0 +1,10 @@
+name: enrich-with-questions
+
+# The layer twin of `index-with-questions` (ledger task 43.7): the same `hypothetical-questions`
+# `Expander`, run over nodes a base document already stored rather than inserted before a fresh
+# `store`. A root document, not a derivation — a layer names only the stages it adds, and
+# `weft_cli.layers.compose_layer` supplies the rest by taking a base's own `embed`/`store` stages,
+# so the questions this generates are embedded and searchable in the exact index the base built.
+
+stages:
+  - {id: questions, use: hypothetical-questions, with: {questions_per_node: 3}}

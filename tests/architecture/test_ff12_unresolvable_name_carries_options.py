@@ -93,6 +93,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_cli.ingest.UnclaimedFormatError",
         "weft_cli.ingest.AmbiguousExtractorError",
         "weft_cli.ingest.PipelineMissingExtractStageError",
+        "weft_cli.layers.NotALayerError",
         "weft_cli.preview.PipelineMissingRenderStageError",
         "weft_cli.commands.UnresolvedPluginNameError",
         "weft_engine.llm_roles.UnknownLLMKeyError",

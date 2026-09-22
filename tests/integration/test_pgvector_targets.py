@@ -32,9 +32,12 @@ from pydantic import SecretStr
 from weft_kernel.payload import MediaType, Node, SourceId, Vector
 from weft_store.contract import (
     DEFAULT_TARGET,
+    LayerRecord,
+    LayerStatus,
     Promotion,
     SourceRecord,
     TargetInUseError,
+    UnknownSourceLayerError,
     target_name,
 )
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore, TargetTableMissingError
@@ -314,3 +317,102 @@ async def test_opening_a_handle_while_another_writes_never_deadlocks_the_writer(
         )
     )
     assert rows == [(0,)]
+
+
+async def test_a_source_a_2_9_0_store_wrote_reads_back_with_no_layers(
+    store: PgVectorStore,
+) -> None:
+    """Ledger **43.6**: `layers` is a column added beside the others, so a database a `2.9.0`
+    store wrote reads its records back with no layers rather than failing to parse them."""
+    # Arrange — a 2.9.0-shaped database: no `layers` column, and no `R43.6` stamp.
+    record = SourceRecord(
+        id=SourceId("doc"),
+        uri="file:///doc.txt",
+        content_hash="h",
+        indexed_at=datetime.now(UTC),
+        pipeline="index-text",
+    )
+    await store.put_source(record)
+    await store.aclose()
+    await _execute(
+        sql.SQL("ALTER TABLE weft_sources DROP COLUMN layers"),
+        sql.SQL("DROP TABLE weft_schema_stamp"),
+    )
+    upgraded = _store()
+
+    # Act
+    try:
+        found = await upgraded.get_source(SourceId("doc"))
+    finally:
+        await upgraded.aclose()
+
+    # Assert
+    assert found == record
+    assert found is not None and found.layers == ()
+
+
+async def test_a_layer_field_a_newer_release_wrote_is_refused_by_name(
+    store: PgVectorStore,
+) -> None:
+    """Ledger **43.6**, `R36.3`'s shape: pydantic's `extra_forbidden` never reaches an operator."""
+    # Arrange
+    when = datetime.now(UTC)
+    await store.put_source(
+        SourceRecord(
+            id=SourceId("doc"),
+            uri="file:///doc.txt",
+            content_hash="h",
+            indexed_at=when,
+            pipeline="index-text",
+            layers=(
+                LayerRecord(
+                    name="enrich-with-questions",
+                    pipeline_identity="q",
+                    status=LayerStatus.ACTIVE,
+                    attempts=1,
+                    at=when,
+                ),
+            ),
+        )
+    )
+    await _execute(
+        sql.SQL(
+            "UPDATE weft_sources SET layers = jsonb_build_array("
+            "layers->0 || '{\"generation\": 3}'::jsonb) WHERE id = 'doc'"
+        )
+    )
+
+    # Act
+    with pytest.raises(UnknownSourceLayerError) as refused:
+        await store.get_source(SourceId("doc"))
+
+    # Assert
+    assert "'generation'" in str(refused.value)
+
+
+async def test_opening_a_current_database_never_waits_behind_a_writer(
+    store: PgVectorStore,
+) -> None:
+    """Carried repair **R43.6**, found by Exit A's first complete repeat: a `weft ask` during
+    ingest took 28.8 s and another 15.1 s against 3.4 s after, because every open ran
+    `ALTER TABLE weft_nodes ADD COLUMN IF NOT EXISTS content_tsv ...` — an `ACCESS EXCLUSIVE` lock
+    even when the column exists — and queued behind the indexer's open write transaction. A
+    database whose schema this release already provisioned is opened without taking a table lock.
+    """
+    # Arrange — the schema is provisioned, and a writer holds `weft_nodes` mid-transaction.
+    await store.add([_node("provisioned", (1.0, 0.0, 0.0))])
+    await store.aclose()
+    writer = await psycopg.AsyncConnection.connect(_current["dsn"])
+    await writer.execute("LOCK TABLE weft_nodes, weft_sources IN ROW EXCLUSIVE MODE")
+    reader = _store()
+
+    # Act
+    try:
+        counted = await asyncio.wait_for(reader.count(), timeout=5.0)
+    finally:
+        await writer.rollback()
+        await writer.close()
+        await reader.aclose()
+
+    # Assert
+    assert counted == 1

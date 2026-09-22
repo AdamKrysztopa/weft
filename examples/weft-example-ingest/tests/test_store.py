@@ -1,6 +1,7 @@
 """This pack's own tests for `InMemoryNodeStore` — the whole store family in one class."""
 
 from datetime import UTC, datetime
+from typing import cast
 
 from weft_example_ingest.store import InMemoryNodeStore
 
@@ -221,3 +222,16 @@ async def test_a_strangers_store_holds_targets_and_passes_the_published_target_c
     # Assert
     assert isinstance(InMemoryNodeStore(), TargetHolding)
     assert len(target_checks) == 13
+
+
+async def test_a_source_s_layers_round_trip_through_the_published_check() -> None:
+    """Ledger **43.6**: the in-memory store keeps a record whole, layers included."""
+    # Arrange
+    from weft_store.conformance import (
+        check_a_source_records_layers_round_trip_whole_and_are_listed,
+    )
+
+    # Act / Assert — a stranger's store need not carry the Protocol's `version`.
+    await check_a_source_records_layers_round_trip_whole_and_are_listed(
+        cast("NodeStore", InMemoryNodeStore())
+    )

@@ -483,7 +483,7 @@ async def stream(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
 
@@ -564,7 +564,7 @@ async def complete_structured(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 The base every store implements all of — see the module docstring for `run`.
 
@@ -642,7 +642,7 @@ async def scan(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
 
@@ -762,7 +762,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
 
@@ -1042,7 +1042,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
 
@@ -1116,7 +1116,7 @@ async def assess(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 A store that holds named, complete targets, one of them live — ledger task **34.3**,
 Phase 34's blue-green index migration.
@@ -1161,7 +1161,7 @@ async def target_catalogue(self) -> weft_store.contract.TargetCatalogue: ...
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 A store that can rank `Node`s by lexical match on their own text.
 
@@ -1203,7 +1203,7 @@ async def search_text(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.9.0`
+**Version:** `2.10.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
 embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not

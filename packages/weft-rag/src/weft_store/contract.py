@@ -100,6 +100,7 @@ from typing import (
     NewType,
     Protocol,
     Self,
+    cast,
     runtime_checkable,
 )
 
@@ -158,7 +159,8 @@ from weft_kernel.runner import Stage
 #: **`2.7.0` → `2.8.0` at task 36.0** — `SourceStatus`/`SourceRecord` gain `FAILED`/`failure`.
 #: **`2.8.0` → `2.9.0` at task 34.3** — `TargetHolding` joins the family, `NodeSupersedable`'s
 #: precedent: a new optional Protocol is a minor for both audiences.
-STORE_CONTRACT_VERSION = "2.9.0"
+#: **`2.9.0` → `2.10.0` at task 43.6** — `SourceRecord` gains optional `layers`, `36.0`'s shape.
+STORE_CONTRACT_VERSION = "2.10.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -257,6 +259,17 @@ class SourceRecord(BaseModel):
     #: is defined below this class so `contract.py`'s `status` line above does not move; resolved
     #: by the `SourceRecord.model_rebuild()` call beneath `SourceFailure`.
     failure: "SourceFailure | None" = None
+    #: One `LayerRecord` per layer built over this source, defaulting to none — task **43.6**.
+    layers: "tuple[LayerRecord, ...]" = ()
+
+    @model_validator(mode="after")
+    def _reject_duplicate_layer_names(self) -> "SourceRecord":
+        seen: set[str] = set()
+        for layer in self.layers:
+            if layer.name in seen:
+                raise ValueError(f"a source record cannot carry two layers named {layer.name!r}")
+            seen.add(layer.name)
+        return self
 
 
 class SourceFailure(BaseModel):
@@ -276,6 +289,33 @@ class SourceFailure(BaseModel):
     message: str
     attempts: int = Field(ge=1)
     last_attempt_at: datetime
+
+
+class LayerStatus(StrEnum):
+    """Where one layer built over a source stands — task **43.6**. No `PENDING`: a layer never
+    run over a source has no record at all.
+    """
+
+    INDEXING = "indexing"
+    ACTIVE = "active"
+    FAILED = "failed"
+
+
+class LayerRecord(BaseModel):
+    """One derived layer built over a source — task **43.6**, Phase 43's per-source layer: a
+    pipeline document whose first stage consumes stored nodes, publishing one `LayerRecord` per
+    layer it builds. `failure` reuses `SourceFailure`: a layer fails the same way a source does,
+    and there is no reason for a second shape to say the same thing.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    pipeline_identity: str = Field(min_length=1)
+    status: LayerStatus
+    failure: SourceFailure | None = None
+    attempts: int = Field(ge=1)
+    at: datetime
 
 
 SourceRecord.model_rebuild()
@@ -323,6 +363,45 @@ def source_failure(raw: Mapping[str, object]) -> SourceFailure:
             "newer weft-rag wrote it. Install the release that wrote it, or re-index with this one."
         )
     return SourceFailure.model_validate(raw)
+
+
+class UnknownSourceLayerError(WeftError):
+    """A stored `SourceRecord.layers` entry carries a field this release's `LayerRecord` does not
+    declare, or a `status` this release's `LayerStatus` does not know — task **43.6**. Raised by
+    `source_layers`, `source_failure`'s counterpart for one layer.
+    """
+
+
+def source_layers(raw: Sequence[Mapping[str, object]]) -> tuple[LayerRecord, ...]:
+    """Read stored layers as `LayerRecord`s, refusing by name a field or a status value a newer
+    release wrote, rather than letting pydantic's own `extra_forbidden` or `ValueError` escape
+    unexplained — `source_failure`'s own shape, one layer at a time. A non-null `failure` is
+    read through `source_failure`, so an unknown field inside it still raises
+    `UnknownSourceFailureError` rather than this function's own error.
+    """
+    layers: list[LayerRecord] = []
+    for item in raw:
+        unknown = set(item) - set(LayerRecord.model_fields)
+        if unknown:
+            raise UnknownSourceLayerError(
+                f"a source record's layer carries field(s) "
+                f"{', '.join(repr(key) for key in sorted(unknown))} this weft-rag does not know: "
+                "a newer weft-rag wrote it. Install the release that wrote it, or re-index with "
+                "this one."
+            )
+        status_value = item["status"]
+        if status_value not in set(LayerStatus):
+            raise UnknownSourceLayerError(
+                f"a source record's layer {item['name']!r} has status {status_value!r}, which "
+                "this weft-rag does not know: a newer weft-rag wrote it. Install the release "
+                "that wrote it, or re-index with this one."
+            )
+        data = dict(item)
+        failure_raw = data.get("failure")
+        if failure_raw is not None:
+            data["failure"] = source_failure(cast("Mapping[str, object]", failure_raw))
+        layers.append(LayerRecord.model_validate(data))
+    return tuple(layers)
 
 
 def _freeze_removed(value: Mapping[str, int]) -> Mapping[str, int]:
