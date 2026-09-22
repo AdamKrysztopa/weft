@@ -28,10 +28,17 @@ import pytest
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
+from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, SourceId, Vector
 from weft_qdrant import QdrantSettings, QdrantStore
 from weft_qdrant.store import TargetCollectionMissingError
-from weft_store.contract import DEFAULT_TARGET, Promotion, TargetInUseError, target_name
+from weft_store.contract import (
+    DEFAULT_TARGET,
+    Promotion,
+    ReconcileMode,
+    TargetInUseError,
+    target_name,
+)
 
 _QDRANT_URL = os.environ.get("WEFT_QDRANT_URL", "http://localhost:6333")
 
@@ -249,3 +256,58 @@ async def test_a_lease_left_by_a_writer_that_never_closed_expires(
     # Assert
     assert "w128" not in {record.name for record in (await store.target_catalogue()).targets}
     await store.aclose()
+
+
+async def test_reading_a_store_nothing_wrote_to_creates_no_collection(
+    settings: QdrantSettings,
+) -> None:
+    """Carried repair R43.2, found at `43.0`. A project whose `pipelines/` held a Qdrant document
+    and whose index wrote to pgvector left `<collection>` and `<collection>__sources` behind.
+    `weft index` reaches every store a project names, through the participants check and the
+    automatic reconcile, and opening the default target created the pair. `R34.3` made the
+    catalogue lazy and left the pair eager. A read of a store nothing wrote to answers empty."""
+    # Arrange
+    store = QdrantStore(settings)
+    ctx = Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
+
+    # Act
+    catalogue = await store.target_catalogue()
+    sources = await store.list_sources()
+    counted = await store.count()
+    hits = await store.search_vector(Vector(values=(1.0, 0.0, 0.0)), top_k=3)
+    report = await store.reconcile(ctx, ReconcileMode.REPAIR)
+    await store.aclose()
+    client = AsyncQdrantClient(url=_QDRANT_URL)
+    created = [
+        name
+        for name in (settings.collection, f"{settings.collection}__sources")
+        if await client.collection_exists(name)
+    ]
+    await client.close()
+
+    # Assert
+    assert catalogue.live == DEFAULT_TARGET
+    assert list(sources) == []
+    assert counted == 0
+    assert list(hits) == []
+    assert report.removed == 0
+    assert created == []
+
+
+async def test_the_first_write_still_creates_the_pair(settings: QdrantSettings) -> None:
+    """R43.2's control: the collections a read no longer creates are created by the first write,
+    and a read after it sees what was written."""
+    # Arrange
+    store = QdrantStore(settings)
+
+    # Act
+    await store.add([_node("live", (1.0, 0.0, 0.0))])
+    counted = await store.count()
+    await store.aclose()
+    client = AsyncQdrantClient(url=_QDRANT_URL)
+    nodes_exist = await client.collection_exists(settings.collection)
+    await client.close()
+
+    # Assert
+    assert nodes_exist
+    assert counted == 1

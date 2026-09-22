@@ -428,10 +428,12 @@ class QdrantStore:
         """The lazily-opened, provisioned client this store reuses for its lifetime.
 
         Lazy for the reason `weft_store.pgvector_store` gives: creating a collection
-        is a coroutine and `__init__` cannot be one. Both collections are created
-        idempotently on first use — a store that required a human to have run a
-        provisioning step before `weft index` works once is exactly the friction a
-        walking skeleton exists to remove.
+        is a coroutine and `__init__` cannot be one. `default`'s pair, like a candidate
+        target's, is created by its first `add`/`put_source` rather than by opening it
+        (**R43.2**) — a store that required a human to have run a provisioning step
+        before `weft index` works once is exactly the friction a walking skeleton
+        exists to remove, and one nothing ever wrote to must not leave a collection
+        behind either.
 
         **The client is built off the loop, and that is not caution.** `AsyncQdrantClient`
         is async everywhere except its own constructor: `AsyncQdrantRemote.__init__` runs a
@@ -458,8 +460,7 @@ class QdrantStore:
         target = self._bound if self._bound is not None else await self._read_live_target(client)
         self._active_target = target
         if target == DEFAULT_TARGET:
-            await self._open_default(client)
-            self._provisioned = True
+            self._provisioned = await self._open_default(client)
         else:
             self._nodes = f"{self._settings.collection}__t_{target}"
             self._sources = f"{self._settings.collection}__t_{target}__sources"
@@ -467,56 +468,29 @@ class QdrantStore:
         self._client = client
         return client
 
-    async def _open_default(self, client: AsyncQdrantClient) -> None:
-        """`default`'s own pair — exactly today's behaviour, unchanged by targets existing.
+    async def _open_default(self, client: AsyncQdrantClient) -> bool:
+        """`default`'s own pair, verified and reconciled here when it already exists.
 
         `self._nodes`/`self._sources` are already `self._settings.collection` and its
-        `__sources` sibling from `__init__`; this is the identical create-or-reconcile body
-        `_connection` ran unconditionally before ledger task **34.5**.
+        `__sources` sibling from `__init__`; this is the identical verify-or-reconcile body
+        `_connection` ran unconditionally before ledger task **34.5** — minus the *creation*
+        half, which moved to `_ensure_pair_provisioned` at **R43.2** so a `default` nothing
+        has written to is opened without creating either collection. Returns whether the
+        pair is known to exist, exactly as `_open_candidate` does for a non-default target.
         """
         if not await client.collection_exists(self._nodes):
-            await client.create_collection(
-                self._nodes,
-                vectors_config={
-                    _VECTOR: models.VectorParams(
-                        size=self._settings.vector_size,
-                        # Cosine, not configurable, and matching pgvector's `<=>` on purpose:
-                        # `Scored.score` is per-search and comparable to nothing, but the
-                        # conformance kit compares two backends' *rankings*, and a distance
-                        # metric chosen per deployment would make that comparison meaningless.
-                        distance=models.Distance.COSINE,
-                        datatype=_datatype_for(self._settings.precision),
-                    )
-                },
-                sparse_vectors_config={
-                    # `modifier=IDF` is the load-bearing part: it is what applies collection
-                    # inverse document frequency at query time, over a sparse dot product that
-                    # would otherwise be plain term-frequency matching wearing BM25's name.
-                    # Measured working on the pinned `v1.12.4`.
-                    _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
-                },
-                quantization_config=_quantization_config_for(self._settings.precision),
-                optimizers_config=(
-                    models.OptimizersConfigDiff(
-                        indexing_threshold=self._settings.indexing_threshold
-                    )
-                    if self._settings.indexing_threshold is not None
-                    else None
-                ),
-            )
-            # Before the first point — task **31.1**: Qdrant generates filterable-HNSW edges
-            # only for data indexed after the payload index exists, so an index created later
-            # still answers filters but the graph it needed was already built without it.
-            await self._reconcile_payload_indexes(client)
-        else:
-            await self._refuse_if_schema_mismatch(client)
-            await self._reconcile_quantization(client)
-            await self._reconcile_payload_indexes(client)
+            return False
+        await self._refuse_if_schema_mismatch(client)
+        await self._reconcile_quantization(client)
+        await self._reconcile_payload_indexes(client)
         if not await client.collection_exists(self._sources):
             # No vectors at all: a source record has nothing to be similar to, and Qdrant
-            # is content to hold a payload-only collection.
+            # is content to hold a payload-only collection. Guarded rather than assumed
+            # alongside `self._nodes`, in case an earlier provisioning was interrupted
+            # between the two creates.
             await client.create_collection(self._sources, vectors_config={})
         self._vector_width = self._settings.vector_size
+        return True
 
     async def _open_candidate(self, client: AsyncQdrantClient, target: TargetName) -> bool:
         """Resolve a non-default target at open: refuse by name if it is catalogued and one of
@@ -548,39 +522,64 @@ class QdrantStore:
     async def _ensure_pair_provisioned(
         self, client: AsyncQdrantClient, width_hint: int | None
     ) -> None:
-        """A non-default target's first write: create its pair and catalogue point.
+        """The pair's first write: create `self._nodes`/`self._sources`, and, for a non-default
+        target, its catalogue point.
 
         A no-op once `self._provisioned` is true — every later `add`/`put_source` on this
         handle reaches this and returns immediately. `width_hint` is the width of the first
-        embedded node `add` carries, when it carries one; `put_source` and an `add` with no
-        embedded node pass `None`, which falls back to `[packs.qdrant] vector_size` — the width
-        `default` is described by, and the only one an uncatalogued target has to go on when
-        its first write carries nothing to measure.
+        embedded node `add` carries, when it carries one, for a non-default target; `put_source`,
+        an `add` with no embedded node, and every `default` write (**R43.2** — `default`'s width
+        is `[packs.qdrant] vector_size` alone, never a written node's, so the collection a first
+        write creates for it is identical to what `_open_default` created eagerly before) pass
+        `None`, which falls back to that same setting — the only width an uncatalogued target has
+        to go on when its first write carries nothing to measure.
+
+        The two collections created here are the identical pair `_open_default` used to create
+        unconditionally at open, moved here at **R43.2**: same vector configuration, same sparse
+        vector, same quantization, same optimizer setting, same payload indexes, same vector-less
+        `self._sources`.
         """
         if self._provisioned:
             return
         width = width_hint if width_hint is not None else self._settings.vector_size
-        await client.create_collection(
-            self._nodes,
-            vectors_config={
-                _VECTOR: models.VectorParams(
-                    size=width,
-                    distance=models.Distance.COSINE,
-                    datatype=_datatype_for(self._settings.precision),
-                )
-            },
-            sparse_vectors_config={
-                _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
-            },
-            quantization_config=_quantization_config_for(self._settings.precision),
-            optimizers_config=(
-                models.OptimizersConfigDiff(indexing_threshold=self._settings.indexing_threshold)
-                if self._settings.indexing_threshold is not None
-                else None
-            ),
-        )
+        if not await client.collection_exists(self._nodes):
+            await client.create_collection(
+                self._nodes,
+                vectors_config={
+                    _VECTOR: models.VectorParams(
+                        size=width,
+                        # Cosine, not configurable, and matching pgvector's `<=>` on purpose:
+                        # `Scored.score` is per-search and comparable to nothing, but the
+                        # conformance kit compares two backends' *rankings*, and a distance
+                        # metric chosen per deployment would make that comparison meaningless.
+                        distance=models.Distance.COSINE,
+                        datatype=_datatype_for(self._settings.precision),
+                    )
+                },
+                sparse_vectors_config={
+                    # `modifier=IDF` is the load-bearing part: it is what applies collection
+                    # inverse document frequency at query time, over a sparse dot product that
+                    # would otherwise be plain term-frequency matching wearing BM25's name.
+                    # Measured working on the pinned `v1.12.4`.
+                    _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
+                },
+                quantization_config=_quantization_config_for(self._settings.precision),
+                optimizers_config=(
+                    models.OptimizersConfigDiff(
+                        indexing_threshold=self._settings.indexing_threshold
+                    )
+                    if self._settings.indexing_threshold is not None
+                    else None
+                ),
+            )
+            # Before the first point — task **31.1**: Qdrant generates filterable-HNSW edges
+            # only for data indexed after the payload index exists, so an index created later
+            # still answers filters but the graph it needed was already built without it.
         await self._reconcile_payload_indexes(client)
-        await client.create_collection(self._sources, vectors_config={})
+        if not await client.collection_exists(self._sources):
+            # No vectors at all: a source record has nothing to be similar to, and Qdrant
+            # is content to hold a payload-only collection.
+            await client.create_collection(self._sources, vectors_config={})
         await self._register_target_if_needed(client)
         self._vector_width = width
         self._provisioned = True
@@ -604,8 +603,10 @@ class QdrantStore:
 
     def _candidate_unprovisioned(self) -> bool:
         """Whether this handle is bound to a non-default target whose pair does not exist yet —
-        the one state in which a write must provision before writing and a read must answer
-        empty rather than reach Qdrant (`34.5`, point 3).
+        the state `claim_embedding` alone still asks about by that narrower name, since a claim
+        provisions a candidate sized to the claimed identity's own width and must never do the
+        same to `default`, whose width is `[packs.qdrant] vector_size` and nothing else
+        (`34.5`, point 3; scope kept narrow at **R43.2**).
 
         `self._active_target is None` only when `_connection` was never really run — a test
         double replacing it wholesale, as `tests/unit/weft_qdrant/test_store_batches_large_writes
@@ -617,6 +618,15 @@ class QdrantStore:
             and self._active_target != DEFAULT_TARGET
             and not self._provisioned
         )
+
+    def _pair_unprovisioned(self) -> bool:
+        """Whether this handle's node/source pair does not exist yet — the general form of
+        `_candidate_unprovisioned`, widened at **R43.2** to include `default` before its first
+        write: every read reaching this must answer empty rather than touch Qdrant, and every
+        write reaching it must provision first. See `_candidate_unprovisioned` for why
+        `claim_embedding` keeps asking the narrower question instead.
+        """
+        return self._active_target is not None and not self._provisioned
 
     def _require_active_target(self) -> TargetName:
         """`self._active_target`, narrowed — same guarantee and the same reason as
@@ -880,11 +890,18 @@ class QdrantStore:
         if not nodes:
             return
         client = await self._connection()
-        if self._candidate_unprovisioned():
-            # A bound, uncatalogued target's first write — `34.5`, point 3: sized to the first
-            # embedded node this call carries, or `vector_size` when none of them are embedded.
-            width_hint = next(
-                (len(node.embedding.values) for node in nodes if node.embedding is not None), None
+        if self._pair_unprovisioned():
+            # A `default` or a bound, uncatalogued target's first write (`34.5`, point 3;
+            # `default`'s case added at **R43.2**). A candidate is sized to the first embedded
+            # node this call carries, or `vector_size` when none of them are embedded; `default`
+            # is always sized to `vector_size` alone, exactly as `_open_default` created it.
+            width_hint = (
+                next(
+                    (len(node.embedding.values) for node in nodes if node.embedding is not None),
+                    None,
+                )
+                if self._active_target != DEFAULT_TARGET
+                else None
             )
             await self._ensure_pair_provisioned(client, width_hint)
         for start in range(0, len(nodes), self._WRITE_BATCH):
@@ -985,9 +1002,10 @@ class QdrantStore:
         if not ids:
             return ()
         client = await self._connection()
-        if self._candidate_unprovisioned():
-            # A bound, uncatalogued target — `34.5`, point 3: a read here must not create the
-            # pair, and the honest answer is that it holds nothing yet.
+        if self._pair_unprovisioned():
+            # `default` or a bound, uncatalogued target — `34.5`, point 3, widened to `default`
+            # at **R43.2**: a read here must not create the pair, and the honest answer is that
+            # it holds nothing yet.
             return ()
         records = await client.retrieve(
             self._nodes,
@@ -1198,7 +1216,7 @@ class QdrantStore:
         only a corpus larger than a page could reveal.
         """
         client = await self._connection()
-        if self._candidate_unprovisioned():
+        if self._pair_unprovisioned():
             return Page(items=(), next_cursor=None)
         records, offset = await client.scroll(
             self._nodes,
@@ -1215,16 +1233,17 @@ class QdrantStore:
 
     async def count(self) -> int:
         client = await self._connection()
-        if self._candidate_unprovisioned():
+        if self._pair_unprovisioned():
             return 0
         counted = await client.count(self._nodes, exact=True)
         return counted.count
 
     async def put_source(self, record: SourceRecord) -> None:
         client = await self._connection()
-        if self._candidate_unprovisioned():
-            # A bound, uncatalogued target's first write — `34.5`, point 3: `put_source` alone,
-            # with no embedded node to measure, falls back to `vector_size`.
+        if self._pair_unprovisioned():
+            # `default`'s first write, or a bound, uncatalogued target's (`34.5`, point 3;
+            # `default`'s case at **R43.2**): `put_source` alone, with no embedded node to
+            # measure, always falls back to `vector_size` — which is `default`'s own width too.
             await self._ensure_pair_provisioned(client, None)
         await self._touch_lease(client)
         await client.upsert(
@@ -1239,7 +1258,7 @@ class QdrantStore:
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
         client = await self._connection()
-        if self._candidate_unprovisioned():
+        if self._pair_unprovisioned():
             return None
         records = await client.retrieve(
             self._sources, ids=[str(_point_id(source_id))], with_payload=True
@@ -1255,7 +1274,7 @@ class QdrantStore:
         it is talking to.
         """
         client = await self._connection()
-        if self._candidate_unprovisioned():
+        if self._pair_unprovisioned():
             return ()
         found: list[SourceRecord] = []
         offset: models.ExtendedPointId | None = None
@@ -1279,7 +1298,7 @@ class QdrantStore:
         same thing.
         """
         client = await self._connection()
-        if self._candidate_unprovisioned():
+        if self._pair_unprovisioned():
             return []
         answered = await client.query_points(
             self._nodes,
@@ -1321,7 +1340,7 @@ class QdrantStore:
         if not weights:
             return []
         client = await self._connection()
-        if self._candidate_unprovisioned():
+        if self._pair_unprovisioned():
             return []
         query = models.SparseVector(indices=list(weights.keys()), values=list(weights.values()))
         answered = await client.query_points(
