@@ -210,7 +210,7 @@ must not settle it by demonstrating one answer.
 (`02-extension-model.md:1366 "weft.yaml"`), while `02` §2 → *The trust model* shows `[packs] allow`
 in **`weft.toml`** (`:1422 "[packs]"`). `03` → *Project context* describes `weft.toml` as the file holding the
 project's default pipeline, collection, model profile and permission defaults
-(`03-cli.md:171-176 "Built in"`), and `03` → *Command surface* has `weft init` scaffold `weft.toml`
+(`03-cli.md:178-183 "Built in"`), and `03` → *Command surface* has `weft init` scaffold `weft.toml`
 (`03-cli.md:54 "— the sa"`). Nothing anywhere states whether these are one file or two, or which one an
 operator edits for what.
 

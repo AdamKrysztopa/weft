@@ -762,12 +762,17 @@ async def _generating_question_hits(
     contributions: tuple[Contribution, ...],
     generation_samples: list[tuple[str, GenerationSample]],
     contributors: dict[str, tuple[str, ...]],
+    target: str | None = None,
 ) -> Sequence[Scored[Node]]:
     """One question's own hits, on a generating rung — `run_named_ask`, and the `GenerationSample`
     `score_pipeline`'s own docstring says every answered question builds. Lifted out of the
     per-question loop so that loop's own branching stays inside `score_pipeline`'s complexity
     budget; raises `PipelineDidNotProduceError`/`weft_llm.errors.LLMGenerationLoopError`
     unchanged, for the caller's own per-question exclusion.
+
+    `target` — ledger task **34.6** — this function always builds its own `PreparedRunner`
+    (`run_named_ask`'s `prepared` is never given here), so `target` reaches it every time;
+    `None` (every caller before this task) reads the live target.
     """
     answer = await run_named_ask(
         question.text,
@@ -780,6 +785,7 @@ async def _generating_question_hits(
         roles=roles if roles is not None else RoleTable(),
         sink=sink if sink is not None else NullSink(),
         contributions=contributions,
+        target=target,
     )
     contributors[question.id] = tuple(getattr(answer, "contributors", ()))
     used_passages = passages_for_scoring(answer)
@@ -961,12 +967,16 @@ async def _prepared_retrieval(
     services: ServiceSelection | None,
     sink: TokenSink | None,
     roles: RoleTable | None,
+    target: str | None = None,
 ) -> tuple[PreparedRunner | None, Mapping[str, PoolQuestion] | None]:
     """The `PreparedRunner` a retrieval rung or a replay needs, and — only for a replay — every
     asked question's own `PoolQuestion`, checked once against `pool` and the store before the
     first question runs. Lifted out of `score_pipeline` so its own branching stays inside that
     function's complexity budget; see `_check_pool_before_loop`'s own docstring for what a
     replay refuses here.
+
+    `target` — ledger task **34.6** — reaches `prepared_services`'s own `build_services` call
+    unchanged; `None` (every caller before this task) reads the live target.
     """
     retrieval_services: PreparedRunner | None = None
     if query_pipeline is not None and not generates:
@@ -979,6 +989,7 @@ async def _prepared_retrieval(
                 services=services if services is not None else ServiceSelection(),
                 sink=sink if sink is not None else NullSink(),
                 roles=roles if roles is not None else RoleTable(),
+                target=target,
             )
         )
     pool_questions_by_id: Mapping[str, PoolQuestion] | None = None
@@ -1045,6 +1056,7 @@ async def score_pipeline(
     refuse_foreign_documents: bool = False,
     capture_pool: bool = False,
     pool: LoadedPool | None = None,
+    target: str | None = None,
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset
     over the result. Returns a `ScoredRun`: the scores, and the query rung they were scored
@@ -1177,6 +1189,12 @@ async def score_pipeline(
     propagates out of this function whole — never a per-question exclusion, because it means the
     replay itself cannot be trusted, not that one question's stage refused. `capture_pool=True`
     together with `pool` raises `ValueError`: a replay reads a pool, it never writes one.
+
+    **`target` — ledger task 34.6.** `None` (every caller before this task) scores against the
+    live target, unchanged. Given a name, every store this function reaches — the query-rung
+    path's own `PreparedRunner` (`_prepared_retrieval`), and the plain `run_ask` fallback below
+    — is bound to it, so `--reuse-index`'s own scoring reads the same target `weft eval run`'s
+    caller validated exists.
     """
     if capture_pool and pool is not None:
         raise ValueError(
@@ -1239,6 +1257,7 @@ async def score_pipeline(
             services=services,
             sink=sink,
             roles=roles,
+            target=target,
         )
         with recording_usage() as tally:
             for question in questions:
@@ -1267,6 +1286,7 @@ async def score_pipeline(
                             contributions=contributions,
                             generation_samples=generation_samples,
                             contributors=contributors,
+                            target=target,
                         )
                     elif pool is not None:
                         pool_entry = cast("Mapping[str, PoolQuestion]", pool_questions_by_id)[
@@ -1316,6 +1336,7 @@ async def score_pipeline(
                             store=store_stage.use,
                             embedder_config=_factory_config(embed_stage.config),
                             store_config=_factory_config(store_stage.config),
+                            target=target,
                         )
                 except (PipelineDidNotProduceError, LLMGenerationLoopError) as failure:
                     failed[question_key] = str(failure)

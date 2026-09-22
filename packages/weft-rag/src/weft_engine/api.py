@@ -245,6 +245,7 @@ class Weft:
         *,
         pipeline: str | None = None,
         top_k: int = 5,
+        target: str | None = None,
         token_sink: TokenSink | None = None,
     ) -> Answer:
         """Resolve the `Command` registered as `"ask"` and run it, returning its `Answer`.
@@ -253,6 +254,9 @@ class Weft:
         with no answer are `run("ask", {"question": ..., "retrieve_only": True})`'s result: a
         retrieve-only run fills `hits` and never `answer`, so it has no place behind `-> Answer`
         (carried repair `R22.6`).
+
+        `target` — ledger task **34.6** — which target to read; omit for the live one. Refused
+        for a target that does not exist, naming every target that does.
 
         Raises `WeftError` if the command produced no answer — an application handed `None`
         cannot tell "no answer for this question" from "the command does not answer at all",
@@ -264,6 +268,7 @@ class Weft:
                 "question": question,
                 "pipeline": pipeline,
                 "top_k": top_k,
+                "target": target,
             },
             token_sink=token_sink,
         )
@@ -280,6 +285,7 @@ class Weft:
         directory: Path | str,
         *,
         retry_failed: bool = False,
+        target: str | None = None,
         yes: bool = False,
         token_sink: TokenSink | None = None,
     ) -> CommandResult:
@@ -287,6 +293,9 @@ class Weft:
 
         `retry_failed` mirrors `weft index --retry-failed` (ledger **36.2**) — `R36.4`: the
         embedded verb had no counterpart on the CLI's own flag.
+
+        `target` — ledger task **34.6** — writes into this target instead of the live one, a
+        candidate beside it, created on its first write. Omit for the live target.
 
         `token_sink` is where this call's tokens stream, as `run` describes: an ingest rung that
         calls a model emits them too.
@@ -300,7 +309,7 @@ class Weft:
         """
         return await self._invoke(
             "index",
-            {"path": str(directory), "retry_failed": retry_failed},
+            {"path": str(directory), "retry_failed": retry_failed, "target": target},
             yes=yes,
             token_sink=token_sink,
         )

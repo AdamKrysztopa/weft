@@ -78,6 +78,7 @@ from weft_cli.commands import (
     ReconcileCommandResult,
     RenderCommandResult,
     SourcesListCommandResult,
+    TargetListCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
 from weft_cli.deletion import ParticipantOutcome
@@ -117,6 +118,7 @@ from weft_command import ExitCode
 from weft_command import Rendered as Rendered
 from weft_command.contract import CommandResult
 from weft_engine.services import DEFAULT_EMBEDDER_MEANING
+from weft_engine.targets import render_embedding_identity
 from weft_eval.baseline import Reproduction
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDifference
@@ -621,6 +623,14 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"{discovered} documents: {indexed} indexed, {unchanged} unchanged{failed_part}. "
         f"nodes now stored: {stored}."
     )
+    if result.target is not None:
+        # Ledger task **34.6** — where this run wrote, before anything else it reports.
+        marker = (
+            "(live)"
+            if result.target == result.target_live
+            else f"(candidate; live is '{result.target_live}')"
+        )
+        stdout = f"indexing into target '{result.target}' {marker}.\n{stdout}"
     if result.payload_indexes:
         # Ledger task **31.14**. Named rather than counted: a number would satisfy "reports its
         # payload index" while telling an operator nothing they could check against the
@@ -893,6 +903,26 @@ def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
                 f"{failure.message!r}"
             )
         lines.append(line)
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_target_list(result: TargetListCommandResult) -> Rendered:
+    """`weft target list` — ledger task **34.6**: one line per target, naming which store it
+    belongs to when more than one is in use, on `_render_sources_list`'s own precedent.
+    """
+    if not result.targets:
+        return Rendered(stdout="no targets recorded.", stderr=None, exit_code=ExitCode.SUCCESS)
+    multi_store = len({target.store for target in result.targets}) > 1
+    lines: list[str] = []
+    for target in result.targets:
+        mark = "live" if target.live else "previous" if target.previous else "-"
+        embedding = (
+            render_embedding_identity(target.embedding)
+            if target.embedding is not None
+            else "embedding not recorded"
+        )
+        prefix = f"{target.store}  " if multi_store else ""
+        lines.append(f"{prefix}{target.name}  {mark}  {embedding}  {target.sources} sources")
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
@@ -1646,6 +1676,10 @@ def _dispatch_sources_list(result: object) -> Rendered:
     return _render_sources_list(cast(SourcesListCommandResult, result))
 
 
+def _dispatch_target_list(result: object) -> Rendered:
+    return _render_target_list(cast(TargetListCommandResult, result))
+
+
 def _dispatch_pipeline_show(result: object) -> Rendered:
     return _render_pipeline_show(cast(PipelineShowCommandResult, result))
 
@@ -1731,6 +1765,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(ReconcileCommandResult, _dispatch_reconcile)
     registrar.add_renderer(PipelineListCommandResult, _dispatch_pipeline_list)
     registrar.add_renderer(SourcesListCommandResult, _dispatch_sources_list)
+    registrar.add_renderer(TargetListCommandResult, _dispatch_target_list)
     registrar.add_renderer(PipelineShowCommandResult, _dispatch_pipeline_show)
     registrar.add_renderer(PipelineDeriveCommandResult, _dispatch_pipeline_derive)
     registrar.add_renderer(PipelineValidateCommandResult, _dispatch_pipeline_validate)

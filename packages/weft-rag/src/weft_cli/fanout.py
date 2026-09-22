@@ -53,8 +53,10 @@ from dataclasses import dataclass
 
 from weft_cli.closing import CloseTarget, close_each
 from weft_engine.run_services import class_provides
+from weft_engine.targets import bind_store
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_store import NodeStore
+from weft_store.contract import TargetHolding
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +111,7 @@ def participants_for(
 
 
 @asynccontextmanager
-async def built(target: Participant) -> AsyncGenerator[object]:
+async def built(target: Participant, *, store_target: str | None = None) -> AsyncGenerator[object]:
     """`target`, built for the length of the block, and closed again on the way out.
 
     **The close goes through `weft_kernel.seam.aclose`, which reads `aclose` off the instance
@@ -127,8 +129,16 @@ async def built(target: Participant) -> AsyncGenerator[object]:
 
     **`CancelledError` passes through untouched, and so does anything else already propagating
     when the close itself fails** — the close failure becomes a note on it (`R18.1`).
+
+    **`store_target` — ledger task 34.6.** `None` (every caller before this task) builds and
+    yields `target`'s instance unchanged. Given a name, the instance is bound to it through
+    `weft_engine.targets.bind_store` **only when it derives `TargetHolding`** — a non-store
+    participant (a graph store, task 34.11) is left exactly as it is, since `bind_store` itself
+    would refuse it by name for a capability a fan-out participant was never asked to have.
     """
     instance = target.build(None)
+    if store_target is not None and isinstance(instance, TargetHolding):
+        instance = await bind_store(instance, store_target, store_name=target.name)
     in_flight: BaseException | None = None
     try:
         yield instance

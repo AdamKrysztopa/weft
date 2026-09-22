@@ -43,7 +43,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from weft_cli.closing import CloseTarget, close_each
 from weft_embed import Embedder
 from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE
-from weft_engine.targets import check_embedding_for_query, embedding_identity_of
+from weft_engine.targets import bind_store, check_embedding_for_query, embedding_identity_of
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node, Outcome, Produced
@@ -84,6 +84,7 @@ async def run_ask(
     store: str = DEFAULT_STORE,
     embedder_config: object = None,
     store_config: object = None,
+    target: str | None = None,
 ) -> tuple[Scored[Node], ...]:
     """Embed `question` and return its `top_k` nearest stored passages, by vector distance.
 
@@ -108,9 +109,14 @@ async def run_ask(
     an embedder that states a different identity than the target was built with, before a
     question is embedded or a vector compared — `EmbeddingIdentityMismatchError`/
     `EmbedderStatesNoIdentityError`, named after both identities and the target.
+
+    **`target` — ledger task 34.6.** `None` (every caller before this task) searches the live
+    target, unchanged. Given a name, the store this function builds is bound to it through
+    `weft_engine.targets.bind_store` before `VectorSearch` is even checked, so every read
+    below — the identity check, `search_vector` — reads that target rather than the live one.
     """
     store_entry = registry.entry(NodeStore, store)
-    instance_store = store_entry.factory(store_config)
+    instance_store = await bind_store(store_entry.factory(store_config), target, store_name=store)
     if not isinstance(instance_store, VectorSearch):
         raise NotVectorSearchableError(
             f"the registered '{store}' NodeStore does not satisfy VectorSearch; "
@@ -123,7 +129,7 @@ async def run_ask(
         instance, plugin=embedder, distribution=embedder_entry.distribution
     )
     try:
-        await check_embedding_for_query(instance_store, identity, plugin=embedder)
+        await check_embedding_for_query(instance_store, identity, plugin=embedder, target=target)
     except BaseException as failure:
         await close_each(
             (

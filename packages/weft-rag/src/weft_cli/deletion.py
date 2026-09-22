@@ -78,7 +78,7 @@ def participants(*, registry: Registry, store_names: frozenset[str]) -> tuple[Pa
 
 
 async def delete_everywhere(
-    source_id: SourceId, *, targets: tuple[Participant, ...]
+    source_id: SourceId, *, targets: tuple[Participant, ...], target: str | None = None
 ) -> tuple[ParticipantOutcome, ...]:
     """Ask every participant to delete `source_id`, in order, recording each answer.
 
@@ -87,14 +87,20 @@ async def delete_everywhere(
     which is the "some were never asked" failure written a second way. Construction is
     inside the loop and inside the `try` for the same reason a call is — a pack whose
     `__init__` raises is a participant that failed, not a crash that hides the four after it.
+
+    `target` — ledger task **34.6** — reaches every store participant through
+    `weft_cli.fanout.built`'s own `store_target`; `None` (every caller before this task)
+    deletes from the live target, unchanged.
     """
     outcomes: list[ParticipantOutcome] = []
-    for target in targets:
-        outcomes.append(await _ask(target, source_id))
+    for participant in targets:
+        outcomes.append(await _ask(participant, source_id, target_name=target))
     return tuple(outcomes)
 
 
-async def _ask(target: Participant, source_id: SourceId) -> ParticipantOutcome:
+async def _ask(
+    target: Participant, source_id: SourceId, *, target_name: str | None = None
+) -> ParticipantOutcome:
     """One participant's whole turn — build, call, and answer with what happened either way.
 
     The broad `except Exception` is this function's subject rather than a lapse: every
@@ -103,7 +109,7 @@ async def _ask(target: Participant, source_id: SourceId) -> ParticipantOutcome:
     is not an exception about this participant at all.
     """
     try:
-        async with built(target) as instance:
+        async with built(target, store_target=target_name) as instance:
             removed = await _delete_from(instance, source_id)
     except asyncio.CancelledError:
         raise

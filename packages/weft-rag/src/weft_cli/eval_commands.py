@@ -224,6 +224,7 @@ from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_embed.contract import EmbeddingModel, IdentifiedEmbedder
 from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.targets import require_existing_target
 from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.baseline import (
     BaselineReport,
@@ -271,6 +272,7 @@ from weft_kernel.runner import RunSummary
 from weft_kernel.seam import aclose, wrap
 from weft_llm.client import NullSink
 from weft_llm.roles import LLMRoles
+from weft_store import NodeStore
 
 #: `EvalRunArgs.top_k` default — `weft ask`'s own default depth, task 4.9's own retrieval
 #: scoring reuses it rather than inventing a second "how many results" default.
@@ -495,6 +497,14 @@ class EvalRunArgs(BaseModel):
             "Optional and distinct from 'pipeline': every baseline taken before this task "
             "named none, and those records must stay readable. Ignored when --questions is "
             "not given."
+        ),
+    )
+    target: str | None = Field(
+        default=None,
+        description=(
+            "which target to read (--reuse-index) or write; omit for the live one. Refused "
+            "for --reuse-index against a target that does not exist, naming every target "
+            "that does."
         ),
     )
 
@@ -1274,6 +1284,7 @@ async def index_and_score(
     cutoffs: tuple[int, ...] | None = None,
     capture_pool: bool = False,
     pool: LoadedPool | None = None,
+    target: str | None = None,
 ) -> IndexAndScoreResult:
     """Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
     with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own
@@ -1333,6 +1344,14 @@ async def index_and_score(
     measurement one branch up: this call spent no time reading a corpus either.
     `score_pipeline` is called with `pool=pool`, which replays every question through the
     manifest's own captured chunks rather than retrieving again.
+
+    **`target` — ledger task 34.6.** `None` (every caller before this task) reads or writes the
+    live target, unchanged. With `reuse_index`, `target` is validated to exist — `weft_engine.
+    targets.require_existing_target`, refusing by name against `[services] store` before
+    `corpus_documents` even walks the directory — and every question is then scored against it
+    (`score_pipeline`'s own `target`). Without `reuse_index`, `target` reaches `run_index_for`
+    unchanged, building a candidate beside the live target exactly as `weft index --target`
+    does.
     """
     resolved: ResolvedPipeline
     document_ids: tuple[str, ...]
@@ -1354,6 +1373,12 @@ async def index_and_score(
         stored_count = None
         ingest_seconds = 0.0
     elif reuse_index:
+        if target is not None:
+            await require_existing_target(
+                deps.registry.entry(NodeStore, deps.services.store).factory(None),
+                target,
+                store_name=deps.services.store,
+            )
         resolved, _specs, documents = corpus_documents(
             path,
             pipeline=pipeline,
@@ -1392,6 +1417,7 @@ async def index_and_score(
             reprocess=reprocess,
             batch_size=batch_size,
             retry_failed=False,
+            target=target,
         )
         ingest_seconds = time.monotonic() - started
         if not result.document_ids:
@@ -1460,6 +1486,7 @@ async def index_and_score(
             refuse_foreign_documents=refuse_foreign_documents,
             capture_pool=capture_pool,
             pool=pool,
+            target=target,
         )
         metrics = scored.metrics
         query_rung = scored.query_rung
@@ -1555,6 +1582,7 @@ class EvalRunCommand:
             top_k=run_args.top_k,
             query_pipeline=run_args.query_pipeline,
             reuse_index=run_args.reuse_index,
+            target=run_args.target,
         )
         return Produced(
             value=EvalRunCommandResult(

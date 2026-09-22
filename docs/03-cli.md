@@ -93,7 +93,11 @@ weft eval table <file> [--runs <dir>] [--invocation <id>]
 weft eval metrics [--name <name>]  which registered metrics run in the deterministic gate
                                     subset — no credentials, no network — or ask about one
 weft trace <run-id>            print what one persisted run recorded
-weft sources list [--status <status>]
+weft sources list [--status <status>] [--target <name>]
+weft target list|promote <name>|rollback|drop <name>
+                                    the named copies of an index a store holds; exactly one is
+                                    live, and `--target <name>` on index, ask, eval run,
+                                    reconcile, delete and sources list reads or writes another
                                list what the store recorded per document, and why one failed
 weft delete <source-id>        remove a source and everything derived from it, everywhere
 weft reconcile [--mode repair|full] [--dry-run]
@@ -439,7 +443,7 @@ they are visible.
 > diff is ever computed, rather than left for a reader to misattribute a number later.
 >
 > **Permission classes**: `eval run` is `write` (it indexes a corpus and writes a run
-> record — `docs/03-cli.md`'s own `write`-row example, "index into a new collection");
+> record — `docs/03-cli.md`'s own `write`-row example, "index into a new target");
 > `eval compare`/`trace` are `read` (both only load files already on disk). Neither
 > `overwrite` nor `destroy` fits any of the three — a run id is a fresh `uuid4` every call,
 > so `eval run` has nothing an invocation could ever collide with to ask a TTY about, and
@@ -536,6 +540,10 @@ running the same command.
 > generation and is not. This
 > task refuses to reproduce that failure in the opposite direction: state a session holds that
 > nothing ever reads back is the identical defect the other way round.
+>
+> *(Phase 34, 2026-09-22: the logical noun arrived as a **target**, not a collection — `[packs.qdrant]
+> collection` already names a physical collection (owner decision Q-F). Each command takes
+> `--target`; the session still holds none, since no turn yet needs to remember one.)*
 
 > **`/config`, shipped task 3.7 — a `run_command` alias for `weft config get`, `/plugins`'s
 > own pattern proven a second time.** `/config` with no argument is `config get` with no
@@ -689,9 +697,9 @@ Destructive operations ask before acting. The classes are named, not guessed per
 | Class | Examples | Default |
 |---|---|---|
 | `read` | ask, show, list, diff, trace | allow |
-| `write` | index into a new collection, write a derived pipeline | allow |
-| `overwrite` | reindex an existing collection, replace a pipeline file | **ask** |
-| `destroy` | drop a collection, delete blobs, purge a cache | **ask** |
+| `write` | index into a new target, write a derived pipeline | allow |
+| `overwrite` | reindex an existing target, promote or roll back a target, replace a pipeline file | **ask** |
+| `destroy` | drop a target, delete blobs, purge a cache | **ask** |
 | `network` | call a remote model, download a model | allow, configurable |
 
 Rules that matter more than the table:
@@ -700,7 +708,7 @@ Rules that matter more than the table:
   naming the flag that would permit it. It never proceeds silently. A pipeline that quietly drops a
   production collection because it could not prompt is the failure this prevents.
 - `--yes` permits `ask` classes for one invocation. Per-class defaults live in `weft.toml`.
-- The prompt states **what will be destroyed and how much of it** — collection name and document
+- The prompt states **what will be destroyed and how much of it** — target name and document
   count — not just "are you sure?".
 
 **A plugin-contributed command must declare its class, and there is no default** (G3). The class is a

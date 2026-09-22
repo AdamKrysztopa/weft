@@ -183,6 +183,7 @@ async def run_routed_ask(
     sink: TokenSink,
     contributions: tuple[Contribution, ...] = (),
     roles: RoleTable = _NO_ROLES,
+    target: str | None = None,
 ) -> tuple[str, Answer]:
     """Route `question` through the real router, run whichever pipeline it selects, and
     return `(the pipeline name selected, the Answer it produced)`.
@@ -212,6 +213,9 @@ async def run_routed_ask(
     threaded straight through to `_prepared_runner`'s own `build_services` call. Defaults to
     `_NO_ROLES` (empty), so `weft_cli.eval_scoring`'s own call — which holds no `Dependencies`
     to read a real one from — keeps registering exactly today's set.
+
+    `target` — ledger task **34.6** — reaches `_prepared_runner`'s own `build_services` call
+    unchanged; `None` (every caller before this task) reads the live target.
 
     **Closes what it built — repair R38.6.** The store and embedder `_prepared_runner` builds
     for this call are closed before returning, success or error, through
@@ -245,6 +249,7 @@ async def run_routed_ask(
         services=services,
         sink=sink,
         roles=roles,
+        target=target,
     )
     in_flight: BaseException | None = None
     try:
@@ -268,8 +273,8 @@ async def run_routed_ask(
         )
         route = _require(route, Route, pipeline=router_name, produced_by="routing")
 
-        target = catalogue.get(route.pipeline)
-        if target is None:
+        selected_pipeline = catalogue.get(route.pipeline)
+        if selected_pipeline is None:
             options = tuple(sorted(catalogue))
             raise UnroutedPipelineNameError(
                 f"the router selected '{route.pipeline}', which the pipeline catalogue does "
@@ -284,7 +289,7 @@ async def run_routed_ask(
             )
         query_set = QuerySet(origin=query, queries=(query,))
         answer = await _run_pipeline(
-            target,
+            selected_pipeline,
             query_set,
             sink=sink,
             entry_type=QuerySet,
@@ -475,6 +480,7 @@ async def run_named_ask(
     contributions: tuple[Contribution, ...] = (),
     roles: RoleTable = _NO_ROLES,
     prepared: PreparedRunner | None = None,
+    target: str | None = None,
 ) -> Answer:
     """Run `pipeline_name` directly against `question`, bypassing the router entirely.
 
@@ -510,9 +516,14 @@ async def run_named_ask(
     `weft_cli.route_ask.prepared_services` and passes it here for every question; this
     function then builds nothing of its own and closes nothing — the `async with` block that
     built it owns that, once, for the whole run.
+
+    `target` — ledger task **34.6** — reaches `_prepared_runner`'s own `build_services` call
+    when this function builds its own `PreparedRunner` (`prepared is None`); ignored when a
+    caller already built one, since that one's store is already bound to whatever `target` it
+    was given.
     """
     catalogue = full_catalogue(reports=reports)
-    target = named_pipeline(pipeline_name, catalogue=catalogue)
+    pipeline_doc = named_pipeline(pipeline_name, catalogue=catalogue)
     owns = prepared is None
     built = (
         prepared
@@ -525,6 +536,7 @@ async def run_named_ask(
             services=services,
             sink=sink,
             roles=roles,
+            target=target,
         )
     )
     in_flight: BaseException | None = None
@@ -532,7 +544,7 @@ async def run_named_ask(
         query = Query(text=question)
         query_set = QuerySet(origin=query, queries=(query,))
         answer = await _run_pipeline(
-            target,
+            pipeline_doc,
             query_set,
             sink=sink,
             entry_type=QuerySet,
@@ -576,6 +588,7 @@ async def run_named_retrieve(
     contributions: tuple[Contribution, ...] = (),
     roles: RoleTable = _NO_ROLES,
     prepared: PreparedRunner | None = None,
+    target: str | None = None,
 ) -> Passages:
     """`run_named_ask`'s retrieval-only twin — repair **R21.5**.
 
@@ -599,9 +612,13 @@ async def run_named_retrieve(
     `None` builds a `PreparedRunner` here and closes it before returning, whatever a caller
     already built through `weft_cli.route_ask.prepared_services` is used and left for that
     caller to close.
+
+    `target` — ledger task **34.6** — `run_named_ask`'s own docstring states the rule: reaches
+    `_prepared_runner`'s own `build_services` call when this function builds its own
+    `PreparedRunner`, ignored when a caller already built one.
     """
     catalogue = full_catalogue(reports=reports)
-    target = named_pipeline(pipeline_name, catalogue=catalogue)
+    pipeline_doc = named_pipeline(pipeline_name, catalogue=catalogue)
     owns = prepared is None
     built = (
         prepared
@@ -614,6 +631,7 @@ async def run_named_retrieve(
             services=services,
             sink=sink,
             roles=roles,
+            target=target,
         )
     )
     in_flight: BaseException | None = None
@@ -621,7 +639,7 @@ async def run_named_retrieve(
         query = Query(text=question)
         query_set = QuerySet(origin=query, queries=(query,))
         result = await _run_pipeline(
-            target,
+            pipeline_doc,
             query_set,
             sink=sink,
             entry_type=QuerySet,
@@ -728,6 +746,7 @@ async def _prepared_runner(
     services: ServiceSelection,
     sink: TokenSink,
     roles: RoleTable = _NO_ROLES,
+    target: str | None = None,
 ) -> PreparedRunner:
     """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
     registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
@@ -756,6 +775,9 @@ async def _prepared_runner(
     function still builds; it is now also the one place that knows what it built and what to
     close, so a caller closes through `PreparedRunner.close_targets` rather than each
     reconstructing that list from `registry`/`services`/`roles` itself.
+
+    `target` — ledger task **34.6** — reaches `build_services` unchanged; `None` (every
+    caller before this task) reads the live target.
     """
     role_instances = selected_role_instances(registry=registry, services=services, table=roles)
     service_registry = await build_services(
@@ -766,6 +788,7 @@ async def _prepared_runner(
         sink=sink,
         roles=roles,
         role_instances=role_instances,
+        target=target,
     )
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)
@@ -798,6 +821,7 @@ async def prepared_services(
     services: ServiceSelection,
     sink: TokenSink,
     roles: RoleTable = _NO_ROLES,
+    target: str | None = None,
 ) -> AsyncGenerator[PreparedRunner]:
     """One run's assembled services, built once and closed once — repair **R38.6**'s public
     seam for a caller that runs many questions through the same rung.
@@ -813,6 +837,9 @@ async def prepared_services(
     session held. A caller inside the block passes the yielded `PreparedRunner` as
     `run_named_ask`/`run_named_retrieve`'s own `prepared` keyword; both then build nothing and
     close nothing of their own.
+
+    `target` — ledger task **34.6** — reaches `_prepared_runner` unchanged; `None` (every
+    caller before this task) reads the live target.
     """
     catalogue = full_catalogue(reports=reports)
     built = await _prepared_runner(
@@ -823,6 +850,7 @@ async def prepared_services(
         services=services,
         sink=sink,
         roles=roles,
+        target=target,
     )
     in_flight: BaseException | None = None
     try:
@@ -1024,7 +1052,7 @@ async def run_named_rerank(
     on the identical terms `run_named_ask`/`run_named_retrieve` already document for themselves.
     """
     catalogue = full_catalogue(reports=reports)
-    target = named_pipeline(pipeline_name, catalogue=catalogue)
+    pipeline_doc = named_pipeline(pipeline_name, catalogue=catalogue)
     owns = prepared is None
     built = (
         prepared
@@ -1042,7 +1070,7 @@ async def run_named_rerank(
     in_flight: BaseException | None = None
     try:
         result = await _run_pipeline(
-            target,
+            pipeline_doc,
             ranking,
             sink=sink,
             entry_type=Ranking,

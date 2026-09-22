@@ -147,6 +147,7 @@ from weft_engine.registry_bootstrap import (
     require_active,
     require_plugin,
 )
+from weft_engine.targets import StoreHoldsNoTargetsError, bind_store, require_existing_target
 from weft_eval.run_record import (
     CorpusDigestBasis,
     build_run_record,
@@ -167,6 +168,7 @@ from weft_kernel.runner import RunSummary
 from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
+from weft_store.contract import EmbeddingIdentity, TargetCatalogue, TargetHolding, target_name
 
 _INDEX_HELP = (
     "run an ingest pipeline over a directory. Which formats are accepted is derived from "
@@ -208,6 +210,11 @@ _PLUGINS_DOCTOR_HELP = "full status, reason and disclosure per discovered pack"
 _SOURCES_LIST_HELP = (
     "list every source recorded by every node store a project indexes into, failures "
     "included; --status keeps only sources at that status"
+)
+
+_TARGET_LIST_HELP = (
+    "one line per target a store holds: its name, whether it is live or the previous live "
+    "target, its embedding identity if one is recorded, and its source count (ledger task 34.6)"
 )
 
 
@@ -343,6 +350,23 @@ def _stores_in_use(deps: Dependencies) -> frozenset[str]:
     )
 
 
+async def _require_target_exists(deps: Dependencies, target: str | None) -> None:
+    """`weft_engine.targets.require_existing_target`, against `[services] store` — every read
+    command's own existence check, ledger task **34.6**. `None` returns without ever resolving
+    `[services] store`: a `--pipeline` run's own store stage may need no `[services] store` at
+    all (the module docstring's *"Q3, settled"*), so the common, untargeted case must not pay a
+    registry lookup — or risk `UnknownPluginError` — for a name a run reading the live target
+    never needed to resolve.
+    """
+    if target is None:
+        return
+    await require_existing_target(
+        deps.registry.entry(NodeStore, deps.services.store).factory(None),
+        target,
+        store_name=deps.services.store,
+    )
+
+
 def _register_corpus(ctx: Context, deps: Dependencies) -> None:
     """Put the configured `NodeStore` on the `Context` a reconcile pass carries — task
     **6.19**, G13's second repair (`docs/02-extension-model.md` §1 → *Extended by G13*): "the
@@ -456,6 +480,13 @@ class IndexArgs(BaseModel):
             "way, with or without this flag."
         ),
     )
+    target: str | None = Field(
+        default=None,
+        description=(
+            "write into this target instead of the live one — a candidate beside it, "
+            "created on its first write (ledger task 34.6). Omit for the live target."
+        ),
+    )
 
 
 class AskArgs(BaseModel):
@@ -508,6 +539,13 @@ class AskArgs(BaseModel):
             "similarity score. Has no effect without --retrieve-only."
         ),
     )
+    target: str | None = Field(
+        default=None,
+        description=(
+            "which target to read instead of the live one (ledger task 34.6). Refused for a "
+            "target that does not exist, naming every target that does. Omit for the live one."
+        ),
+    )
 
 
 class IndexCommandResult(CommandResult):
@@ -553,6 +591,12 @@ class IndexCommandResult(CommandResult):
     #: ExpansionDegraded`, copied from `weft_cli.ingest.IndexResult`. `None` when this run
     #: cannot answer — see that field's own docstring for exactly when it can.
     degraded_expansions: int | None = None
+    #: `--target`, ledger task **34.6** — copied from `weft_cli.ingest.IndexResult`, so the
+    #: renderer can say where this run wrote without importing that dataclass.
+    target: str | None = None
+    #: The target that was live when this run started — `None` unless `target` is. Paired with
+    #: `target` so the renderer can say "(live)" or "(candidate; live is '...')".
+    target_live: str | None = None
 
 
 class AskCommandResult(CommandResult):
@@ -821,6 +865,7 @@ class IndexCommand:
             reprocess=index_args.reprocess,
             batch_size=index_args.batch_size,
             retry_failed=index_args.retry_failed,
+            target=index_args.target,
         )
         if result.resolved_pipeline is not None:
             # Carried repair R11.2's second half: `stores_in_use`'s run-record source only ever
@@ -841,7 +886,9 @@ class IndexCommand:
                 distribution_versions=active_distribution_versions(deps.reports),
             )
             write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
-        reconcile_result = await self._auto_reconcile(index_args.reconcile, deps=deps, ctx=ctx)
+        reconcile_result = await self._auto_reconcile(
+            index_args.reconcile, deps=deps, ctx=ctx, target=index_args.target
+        )
         defaulted_embedder = _defaulted_embedder(deps, result.resolved_pipeline)
         return Produced(
             value=IndexCommandResult(
@@ -855,11 +902,13 @@ class IndexCommand:
                 documents_failed=result.documents_failed,
                 payload_indexes=result.payload_indexes,
                 degraded_expansions=result.degraded_expansions,
+                target=result.target,
+                target_live=result.target_live,
             )
         )
 
     async def _auto_reconcile(
-        self, mode: ReconcileMode, *, deps: Dependencies, ctx: Context
+        self, mode: ReconcileMode, *, deps: Dependencies, ctx: Context, target: str | None
     ) -> ReconcileCommandResult:
         """The automatic post-index pass, task **5.1c** — `docs/02-extension-model.md` §3 →
         *Slots*, "Tested by G7": run unconditionally after a successful index, in whichever
@@ -884,11 +933,11 @@ class IndexCommand:
         targets = reconcile_participants(registry=deps.registry, store_names=_stores_in_use(deps))
         _register_corpus(ctx, deps)
         estimates = (
-            await estimate_everywhere(mode, targets=targets, ctx=ctx)
+            await estimate_everywhere(mode, targets=targets, ctx=ctx, target=target)
             if mode is ReconcileMode.FULL
             else ()
         )
-        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx)
+        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx, target=target)
         return ReconcileCommandResult(
             mode=mode, dry_run=False, participants=outcomes, estimates=estimates
         )
@@ -970,6 +1019,7 @@ class AskCommand:
         disagree about what "not found" means for a bare pipeline name (`_raise_for_plugin_
         refusal`'s own "one code path, not two" footing, one caller further).
         """
+        await _require_target_exists(deps, ask_args.target)
         pipeline_name = cast(str, ask_args.pipeline)
         catalogue = full_catalogue(reports=deps.reports)
         named_pipeline(pipeline_name, catalogue=catalogue)
@@ -995,6 +1045,7 @@ class AskCommand:
             sink=deps.token_sink,
             contributions=deps.contributions,
             roles=deps.roles,
+            target=ask_args.target,
         )
         return Produced(
             value=AskCommandResult(
@@ -1055,6 +1106,7 @@ class AskCommand:
                 setting="[services] store",
             )
         _raise_for_plugin_refusal(refusal)
+        await _require_target_exists(deps, ask_args.target)
 
         results = await run_ask(
             ask_args.question,
@@ -1063,6 +1115,7 @@ class AskCommand:
             top_k=ask_args.top_k,
             embedder=deps.services.embed,
             store=deps.services.store,
+            target=ask_args.target,
         )
         explanations: tuple[str, ...] = ()
         if ask_args.explain:
@@ -1119,6 +1172,7 @@ class AskCommand:
                 setting="[services] store",
             )
         _raise_for_plugin_refusal(refusal)
+        await _require_target_exists(deps, ask_args.target)
         if ask_args.pipeline is not None:
             pipeline_name = ask_args.pipeline
             answer = await run_named_ask(
@@ -1134,6 +1188,7 @@ class AskCommand:
                 # Ledger task **9.0** — every declared role `[services]` selected reaches
                 # this query-path run, exactly as `deps.llm` above already does.
                 roles=deps.roles,
+                target=ask_args.target,
             )
         else:
             pipeline_name, answer = await run_routed_ask(
@@ -1146,6 +1201,7 @@ class AskCommand:
                 sink=deps.token_sink,
                 contributions=deps.contributions,
                 roles=deps.roles,
+                target=ask_args.target,
             )
         explanations: tuple[str, ...] = ()
         note: str | None = None
@@ -1166,9 +1222,13 @@ class AskCommand:
             }
             # Built the way a query run builds it (`weft_engine.run_services`): a store
             # instance, not its class, because `text_score_semantics` since ledger **21.7** is
-            # a fact about `text_mode`, which only a configured instance carries.
-            store = cast(
-                NodeStore, deps.registry.entry(NodeStore, deps.services.store).factory(None)
+            # a fact about `text_mode`, which only a configured instance carries. Bound to
+            # `ask_args.target`, ledger task **34.6**, so an explanation reads the target this
+            # run actually answered from.
+            store = await bind_store(
+                deps.registry.entry(NodeStore, deps.services.store).factory(None),
+                ask_args.target,
+                store_name=deps.services.store,
             )
             explanations = tuple(
                 explanation.rendered()
@@ -1256,6 +1316,14 @@ class SourcesListArgs(BaseModel):
             "keep only sources at this status (e.g. 'failed'). Omit to list every status."
         ),
     )
+    target: str | None = Field(
+        default=None,
+        description=(
+            "list sources from this target instead of the live one (ledger task 34.6). "
+            "Refused for a target that does not exist, naming every target that does. Omit "
+            "for the live one."
+        ),
+    )
 
 
 class ListedSource(BaseModel):
@@ -1312,10 +1380,11 @@ class SourcesListCommand:
                 setting="[services] store",
             )
         )
+        await _require_target_exists(deps, typed.target)
         entries: list[ListedSource] = []
         for name in sorted(_stores_in_use(deps)):
             entry = deps.registry.entry(NodeStore, name)
-            store = cast(NodeStore, entry.factory(None))
+            store = await bind_store(entry.factory(None), typed.target, store_name=name)
             if not hasattr(store, "list_sources"):
                 continue
 
@@ -1346,6 +1415,132 @@ class SourcesListCommand:
             entries.extend(ListedSource(store=name, record=record) for record in records)
         sources = tuple(sorted(entries, key=lambda entry: (entry.record.uri, entry.store)))
         return Produced(value=SourcesListCommandResult(sources=sources, status=typed.status))
+
+
+class ListedTarget(BaseModel):
+    """One target in one store's own catalogue — `weft target list`'s own row, ledger task
+    **34.6**. `live`/`previous` mark this target against `weft_store.contract.TargetCatalogue.
+    live`/`.previous`; `embedding` is `None` when nothing has claimed this target yet
+    (`weft_engine.targets.claim_embedding_for_write` never ran against it), which
+    `weft_cli.render` reports as *"embedding not recorded"* rather than as an empty identity.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    store: str
+    name: str
+    live: bool
+    previous: bool
+    embedding: EmbeddingIdentity | None
+    sources: int
+
+
+class TargetListCommandResult(CommandResult):
+    """`weft target list`'s whole answer — every target every `TargetHolding` store in use
+    holds, sorted by `(store, name)`.
+    """
+
+    targets: tuple[ListedTarget, ...]
+
+
+class TargetListCommand:
+    """`weft target list` — ledger task **34.6**. Reads `[services] store`'s own catalogue,
+    and every other `NodeStore` `_stores_in_use` names that also satisfies `TargetHolding`
+    (a graph store, task 34.11, is silently not one yet and is left out rather than refused —
+    it is `_stores_in_use` widening the fan-out to a capability this store family does not
+    require, not a target-holding claim any store makes). `[services] store` itself is refused
+    by name — `StoreHoldsNoTargetsError` — when it does not satisfy `TargetHolding`: there is
+    nothing this command could list, and silence would read as "no targets" rather than "this
+    store has no notion of one".
+
+    Each target's source count is read by binding a fresh handle to it and calling
+    `list_sources()` — the identical walk `weft_cli.fanout.built` would perform, done directly
+    here since a target list is read-only and every handle is closed the moment its count is
+    taken.
+
+    `permission_class` is `READ`: it opens connections and reads catalogues, writing nothing.
+    """
+
+    args_model: ClassVar[type[BaseModel]] = NoArgs
+    result_model: ClassVar[type[CommandResult]] = TargetListCommandResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = _TARGET_LIST_HELP
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del args
+        deps = ctx.require(Dependencies)
+        store_names = sorted({deps.services.store} | _stores_in_use(deps))
+        listed: list[ListedTarget] = []
+        for name in store_names:
+            entry = deps.registry.entry(NodeStore, name)
+            instance = entry.factory(None)
+            if not isinstance(instance, TargetHolding):
+                if name == deps.services.store:
+                    raise StoreHoldsNoTargetsError(store_name=name, target=None)
+                continue
+            try:
+
+                async def _catalogue(
+                    instance: TargetHolding = instance,
+                ) -> Outcome[TargetCatalogue]:
+                    return Produced(value=await instance.target_catalogue())
+
+                wrapped_catalogue = wrap(
+                    _catalogue,
+                    distribution=entry.distribution,
+                    contract=NodeStore.__qualname__,
+                    plugin=name,
+                    stage="target:catalogue",
+                )
+                catalogue_outcome = await wrapped_catalogue()
+                if not isinstance(catalogue_outcome, Produced):
+                    continue
+                catalogue = catalogue_outcome.value
+                for record in catalogue.targets:
+
+                    async def _sources_for(
+                        instance: TargetHolding = instance, record_name: str = record.name
+                    ) -> Outcome[int]:
+                        # `bind_target`'s own `Self` is `TargetHolding`-typed here, this
+                        # closure's own narrowing; the built instance is a `NodeStore` by
+                        # construction (`entry` is `NodeStore`'s own registration), which is
+                        # the fact this `cast` states rather than invents.
+                        handle = cast(
+                            NodeStore, await instance.bind_target(target_name(record_name))
+                        )
+                        return Produced(value=len(await handle.list_sources()))
+
+                    wrapped_sources = wrap(
+                        _sources_for,
+                        distribution=entry.distribution,
+                        contract=NodeStore.__qualname__,
+                        plugin=name,
+                        stage="target:sources",
+                    )
+                    sources_outcome = await wrapped_sources()
+                    sources = sources_outcome.value if isinstance(sources_outcome, Produced) else 0
+                    listed.append(
+                        ListedTarget(
+                            store=name,
+                            name=record.name,
+                            live=record.name == catalogue.live,
+                            previous=record.name == catalogue.previous,
+                            embedding=record.embedding,
+                            sources=sources,
+                        )
+                    )
+            finally:
+                await aclose(
+                    instance,
+                    distribution=entry.distribution,
+                    contract=NodeStore.__qualname__,
+                    plugin=name,
+                )
+        listed.sort(key=lambda target: (target.store, target.name))
+        return Produced(value=TargetListCommandResult(targets=tuple(listed)))
 
 
 _INIT_HELP = (
@@ -1440,6 +1635,13 @@ class DeleteArgs(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     source_id: str
+    target: str | None = Field(
+        default=None,
+        description=(
+            "delete from this target instead of the live one (ledger task 34.6). Refused for "
+            "a target that does not exist, naming every target that does. Omit for the live one."
+        ),
+    )
 
 
 class DeleteCommandResult(CommandResult):
@@ -1519,8 +1721,12 @@ class DeleteCommand:
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         typed = cast(DeleteArgs, args)
-        targets = self._targets(ctx.require(Dependencies))
-        outcomes = await delete_everywhere(SourceId(typed.source_id), targets=targets)
+        deps = ctx.require(Dependencies)
+        targets = self._targets(deps)
+        await _require_target_exists(deps, typed.target)
+        outcomes = await delete_everywhere(
+            SourceId(typed.source_id), targets=targets, target=typed.target
+        )
         return Produced(value=DeleteCommandResult(source_id=typed.source_id, participants=outcomes))
 
     def _targets(self, deps: Dependencies) -> tuple[Participant, ...]:
@@ -1565,6 +1771,13 @@ class ReconcileArgs(BaseModel):
         ),
     )
     dry_run: bool = False
+    target: str | None = Field(
+        default=None,
+        description=(
+            "reconcile this target instead of the live one (ledger task 34.6). Refused for a "
+            "target that does not exist, naming every target that does. Omit for the live one."
+        ),
+    )
 
 
 class ReconcileCommandResult(CommandResult):
@@ -1647,9 +1860,10 @@ class ReconcileCommand:
         deps = ctx.require(Dependencies)
         mode = self._effective_mode(typed, deps)
         targets = self._targets(deps)
+        await _require_target_exists(deps, typed.target)
         _register_corpus(ctx, deps)
         estimates = (
-            await estimate_everywhere(mode, targets=targets, ctx=ctx)
+            await estimate_everywhere(mode, targets=targets, ctx=ctx, target=typed.target)
             if mode is ReconcileMode.FULL
             else ()
         )
@@ -1663,7 +1877,7 @@ class ReconcileCommand:
                     estimates=estimates,
                 )
             )
-        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx)
+        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx, target=typed.target)
         return Produced(
             value=ReconcileCommandResult(
                 mode=mode, dry_run=False, participants=outcomes, estimates=estimates
@@ -1736,6 +1950,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Command, "plugins list", PluginsListCommand)
     registrar.add(Command, "plugins doctor", PluginsDoctorCommand)
     registrar.add(Command, "sources list", SourcesListCommand)
+    registrar.add(Command, "target list", TargetListCommand)
     registrar.add(Command, "init", InitCommand)
     registrar.add(Command, "pack new", PackNewCommand)
     registrar.add(Command, "delete", DeleteCommand)
@@ -1772,6 +1987,7 @@ __all__ = [
     "InitCommand",
     "InitCommandResult",
     "ListedSource",
+    "ListedTarget",
     "NoArgs",
     "PluginsDoctorCommand",
     "PluginsDoctorCommandResult",
@@ -1782,6 +1998,8 @@ __all__ = [
     "SourcesListCommandResult",
     "Settings",
     "TargetAlreadyExistsError",
+    "TargetListCommand",
+    "TargetListCommandResult",
     "UnresolvedPluginNameError",
     "register",
 ]

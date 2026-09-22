@@ -78,6 +78,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   model at the same width. An index written before this release records the embedder of its next
   `weft index`. Embedders state their identity through a new optional Protocol,
   `weft_embed.contract.IdentifiedEmbedder`, and the embedder contract moves to `1.1.0`.
+- **`--target <name>` builds and reads a candidate index beside the live one.** `weft index
+  --target w128` writes into a new target, created by its first write, and says whether it is
+  live. `weft ask`, `weft eval run`, `weft reconcile`, `weft delete` and `weft sources list`
+  accept `--target` to read or act on one target, and refuse a target that does not exist,
+  naming the targets that do (`UnknownTargetError`). `weft target list` prints each target with
+  its live or previous mark, the embedder that built it and its source count. `Weft.index` and
+  `Weft.ask` take `target=`. Leaving out `--target` behaves exactly as before.
 - **A document that failed to index is recorded as failed, and you can find it.** `weft index`
   records every document of a batch that a stage refused or raised on as `failed`, with the
   stage, the error, an attempt count and the time, and removes what it half-wrote. Later runs skip

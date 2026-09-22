@@ -162,6 +162,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "trace",
         # Task 36.4: the operator's view of what the store recorded, failures included.
         "sources list",
+        "target list",
     }
     expected_permissions = {
         "index": PermissionClass.WRITE,
@@ -212,6 +213,8 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "eval table": PermissionClass.READ,
         "trace": PermissionClass.READ,
         "sources list": PermissionClass.READ,
+        # `target list` — task **34.6** — reads each target's catalogue entry and source count.
+        "target list": PermissionClass.READ,
     }
     for name, permission in expected_permissions.items():
         entry = registry.entry(Command, name)

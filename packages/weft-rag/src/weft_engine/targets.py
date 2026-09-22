@@ -18,7 +18,13 @@ from typing import cast
 
 from weft_embed.contract import IdentifiedEmbedder
 from weft_kernel.errors import WeftError
-from weft_store.contract import EmbeddingIdentity, NodeStore, TargetHolding, target_name
+from weft_store.contract import (
+    EmbeddingIdentity,
+    NodeStore,
+    TargetHolding,
+    UnknownTargetError,
+    target_name,
+)
 
 
 class StoreHoldsNoTargetsError(WeftError):
@@ -29,10 +35,15 @@ class StoreHoldsNoTargetsError(WeftError):
     name among alternatives, so there is nothing enumerable to offer instead.
     """
 
-    def __init__(self, *, store_name: str, target: str) -> None:
+    def __init__(self, *, store_name: str, target: str | None) -> None:
+        consequence = (
+            f"so --target {target!r} has nowhere to go"
+            if target is not None
+            else "so it has no targets to list"
+        )
         super().__init__(
             f"the store {store_name!r} cannot hold targets — it does not satisfy "
-            f"weft_store.contract.TargetHolding — so --target {target!r} has nowhere to go"
+            f"weft_store.contract.TargetHolding — {consequence}"
         )
 
 
@@ -103,10 +114,10 @@ class EmbeddingIdentityMismatchError(WeftError):
         cls, *, held: EmbeddingIdentity, other: EmbeddingIdentity, target: str
     ) -> EmbeddingIdentityMismatchError:
         return cls(
-            f"this query embeds with {_render(other)}, and target {target!r} was built with "
-            f"{_render(held)} — vectors from two embedders cannot be compared. Set the "
-            f"embedder to match the target, or query another target (`weft target rollback` "
-            f"restores the previous one).",
+            f"this query embeds with {render_embedding_identity(other)}, and target "
+            f"{target!r} was built with {render_embedding_identity(held)} — vectors from two "
+            f"embedders cannot be compared. Set the embedder to match the target, or query "
+            f"another target (`weft target rollback` restores the previous one).",
             held=held,
             other=other,
             target=target,
@@ -117,17 +128,24 @@ class EmbeddingIdentityMismatchError(WeftError):
         cls, *, held: EmbeddingIdentity, other: EmbeddingIdentity, target: str
     ) -> EmbeddingIdentityMismatchError:
         return cls(
-            f"this index embeds with {_render(other)} into target {target!r}, which was built "
-            f"with {_render(held)} — a target holds one embedder's vectors. Index into a new "
-            f"target with --target, or set the embedder back to match.",
+            f"this index embeds with {render_embedding_identity(other)} into target "
+            f"{target!r}, which was built with {render_embedding_identity(held)} — a target "
+            f"holds one embedder's vectors. Index into a new target with --target, or set "
+            f"the embedder back to match.",
             held=held,
             other=other,
             target=target,
         )
 
 
-def _render(identity: EmbeddingIdentity) -> str:
-    """`'<plugin>' (model <model>, width <width>)` — `width None` reads as `native width`."""
+def render_embedding_identity(identity: EmbeddingIdentity) -> str:
+    """`'<plugin>' (model <model>, width <width>)` — `width None` reads as `native width`.
+
+    Public since ledger task **34.6**: `weft_cli.commands.TargetListCommand` reuses this
+    exact rendering for `weft target list`'s own `embedding` column, so the wording an
+    operator meets in a mismatch refusal and the wording they meet listing targets cannot
+    drift apart.
+    """
     width = "native width" if identity.width is None else f"width {identity.width}"
     return f"{identity.plugin!r} (model {identity.model}, {width})"
 
@@ -172,6 +190,27 @@ async def claim_embedding_for_write(
     held = await store.claim_embedding(identity)
     if held != identity:
         raise EmbeddingIdentityMismatchError.for_write(held=held, other=identity, target=named)
+
+
+async def require_existing_target(store: object, target: str | None, *, store_name: str) -> None:
+    """Refuse a `--target` naming nothing a store's own catalogue holds — ledger task **34.6**.
+
+    `None` (no `--target` given) does nothing: every read command's own default is the live
+    target, which always exists. A malformed name is refused by `target_name` before `store`
+    is asked anything, on `bind_store`'s own footing; a well-formed one against a store that
+    does not satisfy `TargetHolding` is `StoreHoldsNoTargetsError`, naming the capability it
+    lacks. Otherwise the store's own `target_catalogue` is the authority: `target` not among
+    its names is `UnknownTargetError`, naming every target the catalogue does hold (FF12).
+    """
+    if target is None:
+        return
+    name = target_name(target)
+    if not isinstance(store, TargetHolding):
+        raise StoreHoldsNoTargetsError(store_name=store_name, target=name)
+    catalogue = await store.target_catalogue()
+    valid = tuple(sorted(record.name for record in catalogue.targets))
+    if name not in valid:
+        raise UnknownTargetError(name, valid_options=valid)
 
 
 async def check_embedding_for_query(

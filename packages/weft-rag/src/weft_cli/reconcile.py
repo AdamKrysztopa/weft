@@ -99,13 +99,26 @@ def participants(*, registry: Registry, store_names: frozenset[str]) -> tuple[Pa
 
 
 async def reconcile_everywhere(
-    mode: ReconcileMode, *, targets: tuple[Participant, ...], ctx: Context
+    mode: ReconcileMode,
+    *,
+    targets: tuple[Participant, ...],
+    ctx: Context,
+    target: str | None = None,
 ) -> tuple[ReconcileOutcome, ...]:
-    """Ask every participant to converge, in order, recording each answer."""
-    return tuple([await _ask(target, mode, ctx) for target in targets])
+    """Ask every participant to converge, in order, recording each answer.
+
+    `target` — ledger task **34.6** — reaches every store participant through
+    `weft_cli.fanout.built`'s own `store_target`; `None` (every caller before this task)
+    converges the live target, unchanged.
+    """
+    return tuple(
+        [await _ask(participant, mode, ctx, target_name=target) for participant in targets]
+    )
 
 
-async def _ask(target: Participant, mode: ReconcileMode, ctx: Context) -> ReconcileOutcome:
+async def _ask(
+    target: Participant, mode: ReconcileMode, ctx: Context, *, target_name: str | None = None
+) -> ReconcileOutcome:
     """One participant's whole turn — build, converge, and answer with what happened either way.
 
     The broad `except Exception` is this function's subject rather than a lapse: every
@@ -114,7 +127,7 @@ async def _ask(target: Participant, mode: ReconcileMode, ctx: Context) -> Reconc
     module docstring for why a cancelled pass needs nothing saved here.
     """
     try:
-        async with built(target) as instance:
+        async with built(target, store_target=target_name) as instance:
             report = await _converge(instance, mode, ctx)
     except asyncio.CancelledError:
         raise
@@ -149,7 +162,11 @@ async def _converge(instance: object, mode: ReconcileMode, ctx: Context) -> Reco
 
 
 async def estimate_everywhere(
-    mode: ReconcileMode, *, targets: tuple[Participant, ...], ctx: Context
+    mode: ReconcileMode,
+    *,
+    targets: tuple[Participant, ...],
+    ctx: Context,
+    target: str | None = None,
 ) -> tuple[ReconcileEstimateOutcome, ...]:
     """Ask every participant what converging would cost, in order, recording each answer.
 
@@ -158,12 +175,16 @@ async def estimate_everywhere(
     calling it costs nothing an operator did not already choose to spend by asking. Whether a
     caller calls this at all, for which mode, is `weft_cli.commands`' — see the module
     docstring.
+
+    `target` — ledger task **34.6** — `reconcile_everywhere`'s own rule, one function over.
     """
-    return tuple([await _ask_estimate(target, mode, ctx) for target in targets])
+    return tuple(
+        [await _ask_estimate(participant, mode, ctx, target_name=target) for participant in targets]
+    )
 
 
 async def _ask_estimate(
-    target: Participant, mode: ReconcileMode, ctx: Context
+    target: Participant, mode: ReconcileMode, ctx: Context, *, target_name: str | None = None
 ) -> ReconcileEstimateOutcome:
     """One participant's whole turn — build, ask, and answer with what happened either way.
 
@@ -172,7 +193,7 @@ async def _ask_estimate(
     into a fatal error for a caller that only wanted a number to print.
     """
     try:
-        async with built(target) as instance:
+        async with built(target, store_target=target_name) as instance:
             estimate = await _estimate_of(instance, mode, ctx)
     except asyncio.CancelledError:
         raise

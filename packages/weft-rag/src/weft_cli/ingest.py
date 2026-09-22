@@ -123,7 +123,7 @@ from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.run_services import build_index_services
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import DEFAULT_EMBEDDER, DEFAULT_STORE, ServiceSelection
-from weft_engine.targets import claim_embedding_for_write, embedding_identity_of
+from weft_engine.targets import bind_store, claim_embedding_for_write, embedding_identity_of
 from weft_extract import (
     Extractor,
     SourceDoc,
@@ -164,6 +164,7 @@ from weft_store.contract import (
     SourceFailure,
     SourceRecord,
     SourceStatus,
+    TargetHolding,
 )
 
 #: What `SourceRecord.pipeline` records for the built-in four-stage path — `06` step 9's
@@ -329,7 +330,7 @@ class BatchScopedStageError(WeftError):
     Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
     does not compose with this pipeline — so this does not join `PipelineResolutionError` and
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
-    (`weft_cli/commands.py:274 'class ConflictingIndexModeError(WeftError):'`).
+    (`weft_cli/commands.py:281 'class ConflictingIndexModeError(WeftError):'`).
     """
 
 
@@ -482,6 +483,14 @@ class IndexResult:
     #: asked, and the default four-stage path resolves no pipeline document at all, so it is
     #: always `None` there.
     degraded_expansions: int | None = None
+    #: `--target`, ledger task **34.6** — the target this run wrote into, or `None` for the
+    #: live one (no `--target` given). Carried here so `weft_cli.render` can report where the
+    #: run wrote without re-deriving it.
+    target: str | None = None
+    #: The target that was live at the moment this run started, read once before any store
+    #: stage is bound — `None` unless `target` is, or the store could not answer. Paired with
+    #: `target` to say whether this run built a candidate or wrote the live target itself.
+    target_live: str | None = None
 
 
 async def count_degraded_expansions(store: MetadataFilter) -> int:
@@ -548,6 +557,7 @@ async def run_index(
     reprocess: bool = False,
     batch_size: int | None = None,
     retry_failed: bool = False,
+    target: str | None = None,
 ) -> IndexResult:
     """Extract, chunk, embed and store every file under `directory` an extractor claims.
 
@@ -624,6 +634,15 @@ async def run_index(
     released before the attempt the same way an `INCOMPLETE` source already is. Neither value
     changes what a source whose bytes or pipeline moved since it failed reports: that is always
     `CONTENT_CHANGED`/`PIPELINE_CHANGED`, and always work.
+
+    `target` — ledger task **34.6**. `None`, the default, writes the live target, exactly
+    today's behaviour. Given a name, every `NodeStore` stage this run resolved is bound to it
+    through `weft_engine.targets.bind_store` — a candidate beside the live target, created on
+    its first write — immediately after resolution and before anything reads or writes through
+    it, so every helper below (`_store_instance_for_revisable`, `_record_sources`,
+    `_recorded_sources`, `_stored_count`, ...) already sees the bound handle. The embedding
+    identity claim then passes `required=True`: an embedder that cannot state its identity is
+    refused for a `--target` build (owner decision Q-B), rather than indexing unrecorded.
     """
     _validate_batch_size(batch_size)
     _require_corpus_directory(directory)
@@ -694,13 +713,15 @@ async def run_index(
 
     runner = Runner(registry)
     runnable = runner.resolve(specs, tenant_id=ctx.tenant_id)
+    target_live = await _target_live_name(runnable, target=target)
+    runnable = await _bind_store_stages(runnable, target=target)
     # Before anything is written or deleted — `_release_reparsed_sources` and `_record_sources`
     # are both still ahead, in the `try` block below.
     if batch_size is not None:
         _refuse_batch_scoped_stages(runnable)
     embedder_instance = _embedder_instance_of(specs, runnable)
     await _claim_embedding_for_stores(
-        specs, runnable, registry=registry, embedder_instance=embedder_instance
+        specs, runnable, registry=registry, embedder_instance=embedder_instance, target=target
     )
     # Ledger task **9.0** — every contract a stage in this resolved `specs` already fills is
     # excluded from the ambient role set `build_index_services` would otherwise register; see
@@ -867,6 +888,8 @@ async def run_index(
             degraded_expansions=await _degraded_expansions(
                 runnable, resolved_pipeline=resolved_pipeline, store_stage_id=store_stage_id
             ),
+            target=target,
+            target_live=target_live,
         )
     except BaseException as failure:
         in_flight = failure
@@ -897,6 +920,7 @@ async def run_index_for(
     reprocess: bool = False,
     batch_size: int | None = None,
     retry_failed: bool = False,
+    target: str | None = None,
 ) -> IndexResult:
     """The one production caller of `run_index` — `R19.17`.
 
@@ -926,6 +950,7 @@ async def run_index_for(
         reprocess=reprocess,
         batch_size=batch_size,
         retry_failed=retry_failed,
+        target=target,
     )
 
 
@@ -1092,21 +1117,66 @@ def _embedder_instance_of(
     return None
 
 
+async def _target_live_name(runnable: RunnablePipeline, *, target: str | None) -> str | None:
+    """The live target's name at the moment this run started, or `None` — ledger task **34.6**.
+
+    Read off the **first** `NodeStore` stage's own unbound instance, before `run_index` binds
+    any of them to `target`: a bound handle still answers `target_catalogue()` (it is a
+    whole-store fact, not one scoped to the target it is bound to), but reading it first keeps
+    this a plain "what was live before this run touched anything" fact rather than one that
+    could itself be affected by the binding it is about to describe. `None` when no `target` was
+    given (nothing to report), or when the first store stage does not satisfy `TargetHolding` —
+    `bind_store` is what refuses that case, by name; this helper only informs a render line.
+    """
+    if target is None:
+        return None
+    for stage in runnable.stages:
+        if stage.contract_name != NodeStore.__name__:
+            continue
+        if isinstance(stage.instance, TargetHolding):
+            catalogue = await stage.instance.target_catalogue()
+            return catalogue.live
+        return None
+    return None
+
+
+async def _bind_store_stages(runnable: RunnablePipeline, *, target: str | None) -> RunnablePipeline:
+    """`runnable`, with every `NodeStore` stage's instance bound to `target` — ledger task
+    **34.6**. `None` returns `runnable` unchanged, never touching a stage's instance: the
+    common, untargeted case must build and bind nothing beyond what already ran. Lifted out of
+    `run_index` so the branch this adds stays out of that function's own complexity budget.
+    """
+    if target is None:
+        return runnable
+    # `list(runnable.stages)`, not `[]` — an empty literal carries no element type for pyright
+    # to infer, and `weft_kernel.runner`'s own `_ResolvedStage` is private to that distribution,
+    # not a name this one spells; seeding from the tuple already typed gives every element its
+    # type for free.
+    bound_stages = list(runnable.stages)
+    for index, stage in enumerate(bound_stages):
+        if stage.contract_name == NodeStore.__name__:
+            bound = await bind_store(stage.instance, target, store_name=stage.plugin_name)
+            bound_stages[index] = replace(stage, instance=bound)
+    return replace(runnable, stages=tuple(bound_stages))
+
+
 async def _claim_embedding_for_stores(
     specs: Sequence[StageSpec],
     runnable: RunnablePipeline,
     *,
     registry: Registry,
     embedder_instance: Embedder | None,
+    target: str | None = None,
 ) -> None:
     """Record `embedder_instance`'s identity against every store stage this document writes
-    through — ledger task **34.4**, `required=False`: an embedder that cannot state one keeps
-    indexing unrecorded rather than refusing plain, untargeted ingest (Q-B). A document with no
-    embed stage claims nothing — `embedder_instance` is `None` on `index_specs`' own footing,
-    `_embedder_instance_of`'s docstring above.
+    through — ledger task **34.4**. A document with no embed stage claims nothing —
+    `embedder_instance` is `None` on `index_specs`' own footing, `_embedder_instance_of`'s
+    docstring above.
 
-    `--target` and `required=True` are ledger task **34.6**; this call always passes
-    `required=False` and no `target`, leaving both keywords for that task to reach.
+    **`target`, ledger task 34.6.** `None` passes `required=False`, unchanged: an embedder that
+    cannot state one keeps indexing unrecorded rather than refusing plain, untargeted ingest
+    (Q-B). Given a name, `required=True`: an embedder that cannot state an identity is refused
+    for a `--target` build, since there would be nothing to check a later query against.
     """
     if embedder_instance is None:
         return
@@ -1121,7 +1191,13 @@ async def _claim_embedding_for_stores(
     for store_id in _store_stage_ids_of(tuple(specs)):
         store_instance = by_id.get(store_id)
         if store_instance is not None:
-            await claim_embedding_for_write(store_instance, identity, plugin=plugin, required=False)
+            await claim_embedding_for_write(
+                store_instance,
+                identity,
+                plugin=plugin,
+                required=target is not None,
+                target=target,
+            )
 
 
 def _store_instance_for_revisable(

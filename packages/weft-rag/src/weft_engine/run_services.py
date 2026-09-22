@@ -62,7 +62,7 @@ from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import ServiceSelection
-from weft_engine.targets import check_embedding_for_query, embedding_identity_of
+from weft_engine.targets import bind_store, check_embedding_for_query, embedding_identity_of
 from weft_kernel.context import ServiceRegistry, UnresolvedServiceError
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
@@ -493,6 +493,7 @@ async def build_services(
     sink: TokenSink,
     roles: RoleTable = _NO_ROLES,
     role_instances: Mapping[str, object] | None = None,
+    target: str | None = None,
 ) -> ServiceRegistry:
     """Assemble one run's `ServiceRegistry` — every service a query-path stage may reach
     through `ctx.require(...)`. See the module docstring's *"`build_services` — task 2.8's
@@ -546,6 +547,12 @@ async def build_services(
     always made. A caller that already built it — `_prepared_runner`, so the plugin behind
     each selected role is constructed once per run rather than twice — passes it here instead,
     and this function trusts it rather than calling `selected_role_instances` a second time.
+
+    **`target` — ledger task 34.6.** `None` (every caller before this task) reads the live
+    target, unchanged. Given a name, the `NodeStore` this function registers is bound to it
+    through `weft_engine.targets.bind_store` before anything else touches it, so a stage
+    reaching `ctx.require(NodeStore)` searches that target and `check_embedding_for_query`
+    below checks its own recorded identity rather than the live target's.
     """
     registered = ServiceRegistry()
     registered.add(
@@ -554,8 +561,10 @@ async def build_services(
     )
     registered.add(TokenSink, sink)
     registered.add(Prompts, prompts_service(registry))
-    store_instance = registry.entry(NodeStore, services.store).factory(None)
-    registered.add(NodeStore, cast(NodeStore, store_instance))
+    store_instance = await bind_store(
+        registry.entry(NodeStore, services.store).factory(None), target, store_name=services.store
+    )
+    registered.add(NodeStore, store_instance)
     embedder_entry = registry.entry(Embedder, services.embed)
     embedder_instance = embedder_entry.factory(None)
     registered.add(Embedder, cast(Embedder, embedder_instance))
@@ -565,7 +574,7 @@ async def build_services(
     identity = await embedding_identity_of(
         embedder_instance, plugin=services.embed, distribution=embedder_entry.distribution
     )
-    await check_embedding_for_query(store_instance, identity, plugin=services.embed)
+    await check_embedding_for_query(store_instance, identity, plugin=services.embed, target=target)
     registered.add(StageLookup, stage_lookup(registry))
     registered.add(RouteCatalogue, route_catalogue(catalogue))
 
@@ -767,7 +776,7 @@ class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameErro
     `pgvector` — a remedy nobody could carry out. Every other call site was a test supplying that
     name by hand, which is exactly why none of them could catch it. Repaired at ledger task
     **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities` call
-    (`weft_cli/route_ask.py:880 'contracts ='`) now takes `store_name` as a parameter fed from
+    (`weft_cli/route_ask.py:908 'contracts ='`) now takes `store_name` as a parameter fed from
     `[services] store` itself, threaded down from each of that module's three call sites, rather
     than deriving one from the instance.
 
