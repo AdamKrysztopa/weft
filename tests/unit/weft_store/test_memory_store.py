@@ -142,9 +142,10 @@ async def test_it_is_told_which_checks_it_cannot_answer_rather_than_failing_them
     # Act
     skipped = {capability for _check, capability in unsupported_checks(MemoryStore())}
 
-    # Assert — the two it deliberately does not have, and not the one it does.
+    # Assert — the two it deliberately does not have, and not the ones it does.
     assert {"MetadataFilter", "Reconcilable"} <= skipped
     assert "VectorSearch" not in skipped
+    assert "TargetHolding" not in skipped
 
 
 async def test_two_stores_share_nothing_so_a_pack_authors_tests_cannot_leak() -> None:

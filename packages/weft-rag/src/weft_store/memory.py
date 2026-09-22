@@ -13,14 +13,16 @@ tests, against the conformance kit and the ephemeral in-memory store"* — and c
 `R19.5` recorded that neither half existed. Task `26.4` published the kit; this is the other half.
 Without it, the kit a stranger can now import still needs two containers before it says anything.
 
-**What it satisfies, and what it deliberately does not.** `NodeStore` and `VectorSearch`. Not
-`MetadataFilter`: no in-Python evaluator for the filter AST exists anywhere in this tree —
-`pgvector_store` translates a `Filter` into SQL and `weft_qdrant` into Qdrant's own filter language
-— so answering `matching` here would mean writing a third evaluator from scratch and keeping it
-correct against two others that a real query engine already checks. `01` asks this store for a dict
-and brute-force cosine, which is exactly these two capabilities. `weft_store.conformance.checks_for`
-is what makes that a first-class store rather than a failing one: it is offered the checks it can
-answer and told which it cannot, with the capability each needs.
+**What it satisfies, and what it deliberately does not.** `NodeStore`, `VectorSearch` and, since
+ledger task **34.3**, `TargetHolding`. Not `MetadataFilter`: no in-Python evaluator for the filter
+AST exists anywhere in this tree — `pgvector_store` translates a `Filter` into SQL and
+`weft_qdrant` into Qdrant's own filter language — so answering `matching` here would mean writing
+a third evaluator from scratch and keeping it correct against two others that a real query engine
+already checks. `01` asks this store for a dict and brute-force cosine, which is exactly these two
+capabilities; `TargetHolding` costs nothing beyond a second dict, keyed by target name, because the
+store was already one instance's own state. `weft_store.conformance.checks_for` is what makes that
+a first-class store rather than a failing one: it is offered the checks it can answer and told
+which it cannot, with the capability each needs.
 
 **Not a backend, and that is a property rather than a limitation.** It opens no connection, writes
 no file and registers under no `[services] store` name, so nothing can select it from `weft.toml`
@@ -37,18 +39,27 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import ClassVar
+from typing import ClassVar, Self
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_store.contract import (
+    DEFAULT_TARGET,
     STORE_CONTRACT_VERSION,
     Cursor,
+    EmbeddingIdentity,
     Filter,
+    NoPreviousTargetError,
     Page,
+    Promotion,
     Removed,
     Scored,
     SourceRecord,
+    TargetCatalogue,
+    TargetInUseError,
+    TargetName,
+    TargetRecord,
+    UnknownTargetError,
 )
 
 
@@ -64,19 +75,16 @@ def _cosine(left: Sequence[float], right: Sequence[float]) -> float:
     return 0.0 if magnitude == 0.0 else dot / magnitude
 
 
-class MemoryStore:
-    """A `NodeStore` and `VectorSearch` that keeps everything in one instance's own dicts.
+class _TargetData:
+    """One target's own nodes, source records, productions and claimed embedding identity.
 
-    Satisfies both structurally, with nothing declared — `02` → *Capability is derived, never
-    declared*. Construct one per test; it is cheap and sharing one is the defect this class's
-    module docstring describes.
+    Never shared across targets — a `MemoryStore` handle bound to one target must see none of
+    another's, exactly as two `MemoryStore()` instances share nothing.
     """
 
-    version: ClassVar[str] = STORE_CONTRACT_VERSION
-
     def __init__(self) -> None:
-        self._nodes: dict[NodeId, Node] = {}
-        self._sources: dict[SourceId, SourceRecord] = {}
+        self.nodes: dict[NodeId, Node] = {}
+        self.sources: dict[SourceId, SourceRecord] = {}
         #: One entry per *arrival* of a node, holding the sources that arrival carried — never a
         #: flattened set. **G20 turns on exactly this distinction and a set cannot express it**: a
         #: node built by one `Node.combine` over two documents has a single production naming both,
@@ -85,7 +93,69 @@ class MemoryStore:
         #: so the node stays and its `sources` is recomputed. Both shapes have
         #: `lineage.sources == {A, B}`, which is why storing only that answers the two cases
         #: identically and wrongly.
-        self._productions: dict[NodeId, list[frozenset[SourceId]]] = {}
+        self.productions: dict[NodeId, list[frozenset[SourceId]]] = {}
+        self.embedding: EmbeddingIdentity | None = None
+
+
+class _StoreState:
+    """What every handle onto one `MemoryStore()` shares — task **34.3**.
+
+    `MemoryStore()` builds one of these; `bind_target` hands out another `MemoryStore` sharing
+    the same instance, which is the whole of how two handles onto one store see the same
+    catalogue. `default` exists from construction — `check_a_fresh_store_has_one_live_target_
+    named_default` — because a store nothing has targeted yet still has to answer `target_
+    catalogue()` with something live.
+    """
+
+    def __init__(self) -> None:
+        self.data: dict[TargetName, _TargetData] = {DEFAULT_TARGET: _TargetData()}
+        self.live: TargetName = DEFAULT_TARGET
+        self.previous: TargetName | None = None
+        self.promotion: Promotion | None = None
+
+
+class MemoryStore:
+    """A `NodeStore`, `VectorSearch` and `TargetHolding` that keeps everything in one store's
+    own dicts.
+
+    Satisfies all three structurally, with nothing declared — `02` → *Capability is derived,
+    never declared*. Construct one per test; it is cheap and sharing one is the defect this
+    class's module docstring describes. `bind_target` returns a second `MemoryStore` sharing the
+    first's state rather than a different kind of object, so every capability this class has
+    stays reachable through a bound handle too.
+    """
+
+    version: ClassVar[str] = STORE_CONTRACT_VERSION
+
+    def __init__(
+        self, *, _state: _StoreState | None = None, _bound: TargetName | None = None
+    ) -> None:
+        self._state = _state if _state is not None else _StoreState()
+        #: `None` on an unbound handle — see `_active_target`. Set once explicit targets are
+        #: bound through `bind_target`, and never changes after that: the name was given by name.
+        self._bound = _bound
+        #: An unbound handle's own resolution of "live", read once and held — Q-C, ledger 34.3.
+        self._resolved: TargetName | None = None
+
+    def _active_target(self) -> TargetName:
+        """The target this handle's storage operations read and write.
+
+        Explicit for a bound handle. For an unbound one, `self._state.live` is read the first
+        time any storage operation reaches this method and cached from then on, so a promote
+        that happens after this handle has already touched storage does not retarget it —
+        `test_an_unbound_handle_holds_the_target_that_was_live_when_it_first_read`.
+        """
+        if self._bound is not None:
+            return self._bound
+        if self._resolved is None:
+            self._resolved = self._state.live
+        return self._resolved
+
+    def _writable(self) -> _TargetData:
+        return self._state.data.setdefault(self._active_target(), _TargetData())
+
+    def _readable(self) -> _TargetData:
+        return self._state.data.get(self._active_target()) or _TargetData()
 
     # -- NodeStore ---------------------------------------------------------------------------
 
@@ -98,17 +168,18 @@ class MemoryStore:
         defect `02` → *Deletion is idempotent and resumable* and the kit's own merge check exist
         for.
         """
+        target = self._writable()
         for node in nodes:
             arrival = node.lineage.sources
-            existing = self._nodes.get(node.id)
-            productions = self._productions.setdefault(node.id, [])
+            existing = target.nodes.get(node.id)
+            productions = target.productions.setdefault(node.id, [])
             if arrival not in productions:
                 productions.append(arrival)
             if existing is None:
-                self._nodes[node.id] = node
+                target.nodes[node.id] = node
                 continue
             merged = existing.lineage.sources | arrival
-            self._nodes[node.id] = existing.model_copy(
+            target.nodes[node.id] = existing.model_copy(
                 update={"lineage": existing.lineage.model_copy(update={"sources": merged})}
             )
 
@@ -122,20 +193,21 @@ class MemoryStore:
         return
 
     async def count(self) -> int:
-        return len(self._nodes)
+        return len(self._readable().nodes)
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
         """The nodes that exist, in the order asked for. An id this store does not hold is absent
         from the answer rather than `None` in it, so a caller's `len()` means what it looks like.
         """
-        return tuple(self._nodes[node_id] for node_id in ids if node_id in self._nodes)
+        nodes = self._readable().nodes
+        return tuple(nodes[node_id] for node_id in ids if node_id in nodes)
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
         """Every node in one page. Paging exists for stores that cannot hold a corpus in memory,
         and this one is defined by being unable to hold one that large in the first place.
         """
         del cursor
-        return Page[Node](items=tuple(self._nodes.values()), next_cursor=None)
+        return Page[Node](items=tuple(self._readable().nodes.values()), next_cursor=None)
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         """The pipeline position: store what arrives and pass it through unchanged."""
@@ -144,13 +216,13 @@ class MemoryStore:
         return Produced(value=payload)
 
     async def put_source(self, record: SourceRecord) -> None:
-        self._sources[record.id] = record
+        self._writable().sources[record.id] = record
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        return self._sources.get(source_id)
+        return self._readable().sources.get(source_id)
 
     async def list_sources(self) -> Sequence[SourceRecord]:
-        return tuple(self._sources.values())
+        return tuple(self._readable().sources.values())
 
     async def delete_source(self, source_id: SourceId) -> Removed:
         """Remove this document's claim, and the node only when no document still produces it.
@@ -160,26 +232,27 @@ class MemoryStore:
         spends five checks on: a node two documents each produced whole survives the deletion of
         either, with its `sources` recomputed from what is left.
         """
+        target = self._writable()
         narrowed = 0
         removed: list[NodeId] = []
-        for node_id, node in list(self._nodes.items()):
-            productions = self._productions.get(node_id, [node.lineage.sources])
+        for node_id, node in list(target.nodes.items()):
+            productions = target.productions.get(node_id, [node.lineage.sources])
             surviving = [p for p in productions if source_id not in p]
             if len(surviving) == len(productions):
                 continue
             if not surviving:
                 removed.append(node_id)
                 continue
-            self._productions[node_id] = surviving
+            target.productions[node_id] = surviving
             remaining: frozenset[SourceId] = frozenset[SourceId]().union(*surviving)
-            self._nodes[node_id] = node.model_copy(
+            target.nodes[node_id] = node.model_copy(
                 update={"lineage": node.lineage.model_copy(update={"sources": remaining})}
             )
             narrowed += 1
         for node_id in removed:
-            del self._nodes[node_id]
-            self._productions.pop(node_id, None)
-        self._sources.pop(source_id, None)
+            del target.nodes[node_id]
+            target.productions.pop(node_id, None)
+        target.sources.pop(source_id, None)
         return Removed(source_id=source_id, node_count=len(removed), narrowed_count=narrowed)
 
     # -- VectorSearch ------------------------------------------------------------------------
@@ -205,7 +278,7 @@ class MemoryStore:
                 "it would have to ignore the filter and return results that look filtered and are "
                 "not. Use a store that implements `matching`, or drop the filter."
             )
-        stored = [node for node in self._nodes.values() if node.embedding is not None]
+        stored = [node for node in self._readable().nodes.values() if node.embedding is not None]
         for node in stored:
             embedding = node.embedding
             if embedding is not None and len(embedding.values) != len(vector.values):
@@ -220,3 +293,60 @@ class MemoryStore:
         ]
         scored.sort(key=lambda hit: (-hit.score, hit.value.id))
         return tuple(scored[:top_k])
+
+    # -- TargetHolding -------------------------------------------------------------------------
+
+    async def target_catalogue(self) -> TargetCatalogue:
+        records = tuple(
+            sorted(
+                (
+                    TargetRecord(name=name, embedding=data.embedding)
+                    for name, data in self._state.data.items()
+                ),
+                key=lambda record: record.name,
+            )
+        )
+        return TargetCatalogue(
+            live=self._state.live,
+            previous=self._state.previous,
+            targets=records,
+            promotion=self._state.promotion,
+        )
+
+    async def bind_target(self, target: TargetName) -> Self:
+        """A second handle onto this store's own state, bound to `target` — never `self`.
+
+        Binding creates nothing in the catalogue; the target is created by the handle's first
+        write (`add` or `put_source`), through `_writable`'s own `setdefault`.
+        """
+        return type(self)(_state=self._state, _bound=target)
+
+    async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        target = self._writable()
+        if target.embedding is None:
+            target.embedding = identity
+        return target.embedding
+
+    async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        state = self._state
+        if promotion.target not in state.data:
+            raise UnknownTargetError(promotion.target, valid_options=tuple(sorted(state.data)))
+        state.previous = state.live
+        state.live = TargetName(promotion.target)
+        state.promotion = promotion
+        return await self.target_catalogue()
+
+    async def rollback(self) -> TargetCatalogue:
+        state = self._state
+        if state.previous is None:
+            raise NoPreviousTargetError(state.live)
+        state.live, state.previous = state.previous, state.live
+        return await self.target_catalogue()
+
+    async def drop_target(self, target: TargetName) -> None:
+        state = self._state
+        if target == state.live or target == state.previous:
+            raise TargetInUseError(target)
+        if target not in state.data:
+            raise UnknownTargetError(target, valid_options=tuple(sorted(state.data)))
+        del state.data[target]

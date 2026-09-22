@@ -57,6 +57,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A store can hold named targets, one of them live — the start of blue-green index
+  migration.** The store contract moves to `2.9.0` with one optional capability,
+  `weft_store.contract.TargetHolding`: bind a handle to a target, list the catalogue, promote,
+  roll back, drop, and record the embedding identity a target was built with. The in-memory store
+  satisfies it and the published conformance kit gains ten checks for it. A store that does not
+  satisfy it keeps working exactly as before; it is refused only when asked for a target.
+
 - **A document that failed to index is recorded as failed, and you can find it.** `weft index`
   records every document of a batch that a stage refused or raised on as `failed`, with the
   stage, the error, an attempt count and the time, and removes what it half-wrote. Later runs skip

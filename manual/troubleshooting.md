@@ -4651,3 +4651,80 @@ own configuration model, so the keys it accepts are the keys that provider docum
 like `scripted`, which replays a script and calls no model, has none: delete the sub-table, or
 point the role at a provider that does. A key the provider does not recognise is refused by the
 provider's own model, naming the field.
+
+## Index targets — `weft_store`, `weft_engine.targets`
+
+A **target** is a named, complete copy of an index. One target is **live**, and everything that
+reads without naming a target reads the live one. You build a new index as a candidate target
+beside it, compare the two, and then promote the candidate or roll back. The command line for this
+arrives with the rest of Phase 34. Until then these errors come from the Python API.
+
+### `InvalidTargetNameError`
+
+**What it looks like:**
+
+```text
+'W-128' is not a valid target name — a target name is a lowercase letter first, then lowercase
+letters, digits and underscores, at most 40 characters total
+```
+
+**Why:** a target's name becomes a Postgres schema, a Qdrant collection name and a directory, so it
+is limited to the characters all three accept unquoted.
+
+**What to do:** choose a name that fits, such as `w128` or `large_2026`.
+
+### `UnknownTargetError`
+
+**What it looks like:**
+
+```text
+'w256' is not a target this store holds — valid targets: default, w128
+```
+
+**Why:** you promoted, dropped or read a target that does not exist. A target is created by the
+first write into it, so a candidate you have not indexed yet does not exist.
+
+**What to do:** use one of the names the message lists, or index into the new target first.
+
+### `TargetInUseError`
+
+**What it looks like:**
+
+```text
+'w128' cannot be dropped — it is the live target or the previous one, which a rollback needs
+```
+
+**Why:** dropping a target deletes everything in it. The live target is serving reads, and the
+previous one is what a rollback would restore, so neither is dropped. On pgvector the same error
+also refuses a target another open connection is still using.
+
+**What to do:** promote another target first, so the one you want to drop is neither live nor
+previous. Or wait for the other command to finish.
+
+### `NoPreviousTargetError`
+
+**What it looks like:**
+
+```text
+nothing to roll back to — 'default' is live and no previous target is recorded
+```
+
+**Why:** a rollback restores the target that was live before the last promote, and nothing has
+been promoted yet.
+
+**What to do:** nothing needs undoing. To switch targets, promote the one you want.
+
+### `StoreHoldsNoTargetsError`
+
+**What it looks like:**
+
+```text
+the store 'example-store' cannot hold targets — it does not satisfy
+weft_store.contract.TargetHolding — so --target 'w128' has nowhere to go
+```
+
+**Why:** the store you configured does not have the target capability, so it cannot keep a
+candidate beside the live index.
+
+**What to do:** leave out `--target` to use the store as it is, or switch to a store that holds
+targets. The published conformance kit's target checks show whether a store does.

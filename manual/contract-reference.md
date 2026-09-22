@@ -466,7 +466,7 @@ async def stream(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.8.0`
+**Version:** `2.9.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
 
@@ -547,7 +547,7 @@ async def complete_structured(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.8.0`
+**Version:** `2.9.0`
 
 The base every store implements all of — see the module docstring for `run`.
 
@@ -625,7 +625,7 @@ async def scan(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.8.0`
+**Version:** `2.9.0`
 
 A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
 
@@ -745,7 +745,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.8.0`
+**Version:** `2.9.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
 
@@ -1025,7 +1025,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.8.0`
+**Version:** `2.9.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
 
@@ -1095,11 +1095,56 @@ async def assess(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Assessment]: ...
 ```
 
+## `TargetHolding`
+
+**Module:** `weft_store.contract`  
+**Registered by:** —  
+**Version:** `2.9.0`
+
+A store that holds named, complete targets, one of them live — ledger task **34.3**,
+Phase 34's blue-green index migration.
+
+An unbound handle serves the **live** target, read once when the handle first touches
+storage and held for its lifetime (owner decision Q-C, ledger task 34.3) — so one
+operation never reads two targets. `bind_target` gives a handle onto one target by name
+instead. Embedding identity is recorded per target, through `claim_embedding`, never per
+node.
+
+### Methods
+
+```python
+async def bind_target(self, target: weft_store.contract.TargetName) -> typing.Self: ...
+```
+
+```python
+async def claim_embedding(
+    self, identity: weft_store.contract.EmbeddingIdentity
+) -> weft_store.contract.EmbeddingIdentity: ...
+```
+
+```python
+async def drop_target(self, target: weft_store.contract.TargetName) -> None: ...
+```
+
+```python
+async def promote(
+    self, promotion: weft_store.contract.Promotion
+) -> weft_store.contract.TargetCatalogue: ...
+```
+
+```python
+async def rollback(self) -> weft_store.contract.TargetCatalogue: ...
+```
+
+```python
+async def target_catalogue(self) -> weft_store.contract.TargetCatalogue: ...
+```
+
 ## `TextSearch`
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.8.0`
+**Version:** `2.9.0`
 
 A store that can rank `Node`s by lexical match on their own text.
 
@@ -1141,7 +1186,7 @@ async def search_text(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.8.0`
+**Version:** `2.9.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
 embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not

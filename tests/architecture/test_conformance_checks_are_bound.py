@@ -19,9 +19,23 @@ from .conftest import REPO_ROOT
 KIT: Final[Path] = REPO_ROOT / "packages/weft-rag/src/weft_store/conformance.py"
 SUITE: Final[Path] = REPO_ROOT / "tests/integration/test_store_conformance.py"
 
-#: Published checks no test binds. Each entry is a check that has never run; ledger `R32.4`
-#: binds them and empties this.
-UNBOUND_CHECKS_WAIVED: Final[frozenset[str]] = frozenset({})
+#: Published checks no test binds. Each entry is a check that has never run against a persistent
+#: backend. Ledger `34.3` published the target checks against the in-memory store; `34.1` binds
+#: them on pgvector and `34.5` on Qdrant, and together they empty this.
+UNBOUND_CHECKS_WAIVED: Final[frozenset[str]] = frozenset(
+    {
+        "check_a_fresh_store_has_one_live_target_named_default",
+        "check_a_target_is_created_by_its_first_write_and_isolated_from_every_other",
+        "check_a_source_record_belongs_to_the_target_it_was_written_into",
+        "check_promote_makes_a_target_live_and_rollback_restores_the_previous_one",
+        "check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do",
+        "check_rollback_with_nothing_to_roll_back_to_is_refused",
+        "check_drop_refuses_the_live_and_previous_targets_and_removes_another",
+        "check_drop_refuses_a_target_that_does_not_exist_naming_those_that_do",
+        "check_the_first_embedding_identity_claimed_is_the_one_a_target_keeps",
+        "check_a_target_name_outside_the_grammar_is_refused_by_name",
+    }
+)
 
 
 def published_checks(source: str) -> frozenset[str]:

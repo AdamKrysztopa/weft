@@ -111,6 +111,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_cli.route_ask.NoRouterPipelineError",
         "weft_engine.run_services.SelectedCapabilityMissingError",
         "weft_engine.run_services.StoreCapabilityMissingError",
+        "weft_store.contract.UnknownTargetError",
         "weft_llm.models.UnknownModelError",
         "weft_llm.models.AmbiguousModelError",
         "weft_llm.roles.UnmappedLLMRoleError",

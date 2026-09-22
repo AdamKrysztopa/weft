@@ -199,3 +199,25 @@ async def test_reconcile_finishes_a_deletion_that_was_interrupted() -> None:
     assert (first.examined, first.removed, first.converged) == (1, 2, True)
     assert (second.examined, second.removed, second.backfilled) == (0, 0, 0)
     assert await store.count() == 0
+
+
+async def test_a_strangers_store_holds_targets_and_passes_the_published_target_checks() -> None:
+    """Ledger **34.3**: `TargetHolding` is published, so a store written outside the tree proves it
+    with the published kit alone — FF9 clause (c)'s stranger for the new capability."""
+    # Arrange
+    from weft_store.conformance import checks_for
+    from weft_store.contract import TargetHolding
+
+    target_checks = [
+        check
+        for check in checks_for(InMemoryNodeStore())
+        if check.__annotations__.get("store") == "TargetHoldingStore"
+    ]
+
+    # Act — a fresh store per check: the kit owns no lifecycle.
+    for check in target_checks:
+        await check(InMemoryNodeStore())
+
+    # Assert
+    assert isinstance(InMemoryNodeStore(), TargetHolding)
+    assert len(target_checks) == 10

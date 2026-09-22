@@ -1,6 +1,6 @@
 """`InMemoryNodeStore` — a stranger's whole store family: `NodeStore`, `VectorSearch`,
-`TextSearch`, `MetadataFilter`, `SourceDeletable` and `Reconcilable`, all six, over one
-process-lifetime Python dict.
+`TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable` and, since ledger task
+**34.3**, `TargetHolding`, all seven, over one process-lifetime Python dict.
 
 **`Lifetime.PROCESS`, stated as the deliberate choice it is.** A plugin defaults to
 `Lifetime.RUN` — a fresh instance per pipeline run — which is exactly right for
@@ -27,16 +27,20 @@ already disagree with each other, which is none.
 """
 
 from collections.abc import Sequence
-from typing import ClassVar
+from typing import ClassVar, Self
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kernel.runner import Lifetime
 from weft_store.contract import (
+    DEFAULT_TARGET,
     Cursor,
+    EmbeddingIdentity,
     Filter,
     FilterOp,
+    NoPreviousTargetError,
     Page,
+    Promotion,
     ReconcileEstimate,
     ReconcileMode,
     ReconcileReport,
@@ -45,26 +49,90 @@ from weft_store.contract import (
     SourceRecord,
     SourceStatus,
     SupersedeNarrowsSourcesError,
+    TargetCatalogue,
+    TargetInUseError,
+    TargetName,
+    TargetRecord,
+    UnknownTargetError,
 )
 from weft_store.fields import FieldKind, FieldPath, field_for
 
 
+class _Target:
+    """One target's own nodes and source records — never shared across targets."""
+
+    def __init__(self) -> None:
+        self.nodes: dict[NodeId, Node] = {}
+        self.sources: dict[SourceId, SourceRecord] = {}
+        self.embedding: EmbeddingIdentity | None = None
+
+
+class _Catalogue:
+    """What every handle onto one `InMemoryNodeStore()` shares — task **34.3**.
+
+    `default` exists from construction, live, with nothing previous and nothing promoted —
+    `check_a_fresh_store_has_one_live_target_named_default`.
+    """
+
+    def __init__(self) -> None:
+        self.targets: dict[TargetName, _Target] = {DEFAULT_TARGET: _Target()}
+        self.live: TargetName = DEFAULT_TARGET
+        self.previous: TargetName | None = None
+        self.promotion: Promotion | None = None
+
+
 class InMemoryNodeStore:
     """The whole store family over a plain `dict`. Satisfies `weft_store.contract.NodeStore`,
-    `VectorSearch`, `TextSearch`, `MetadataFilter`, `SourceDeletable` and `Reconcilable`
-    structurally — this class never imports any of them. The last two arrived with G7 at tasks
-    5.1a and 5.1b, and `SourceDeletable` needed no code at all: `delete_source` was already
-    here, which is what "capability is derived, never declared" buys a pack author.
-    `Reconcilable` grew `estimate` at task 5.1c, a major bump for every implementer per G9 —
-    this stranger's own update is one small, honest method, not a rewrite.
+    `VectorSearch`, `TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable` and
+    `TargetHolding` structurally — this class never imports any of them. `SourceDeletable`
+    needed no code at all: `delete_source` was already here, which is what "capability is
+    derived, never declared" buys a pack author. `Reconcilable` grew `estimate` at task 5.1c,
+    a major bump for every implementer per G9 — this stranger's own update is one small,
+    honest method, not a rewrite.
+
+    **`TargetHolding`, task 34.3, costs one more dict, keyed by target name.** Every other
+    method above already worked against one process's own state; here that state is split
+    per target, and `bind_target` hands back a second `InMemoryNodeStore` sharing the same
+    catalogue rather than a different kind of object, so every other capability stays
+    reachable through a bound handle too. An unbound handle reads `live` the first time any
+    storage method touches it and holds that answer for its own lifetime, so a promote that
+    happens afterwards does not retarget a handle already in use.
     """
 
     lifetime: ClassVar[Lifetime] = Lifetime.PROCESS
 
-    def __init__(self, config: object = None) -> None:
+    def __init__(
+        self,
+        config: object = None,
+        *,
+        _catalogue: _Catalogue | None = None,
+        _bound: TargetName | None = None,
+    ) -> None:
         del config
-        self._nodes: dict[NodeId, Node] = {}
-        self._sources: dict[SourceId, SourceRecord] = {}
+        self._catalogue = _catalogue if _catalogue is not None else _Catalogue()
+        #: `None` on an unbound handle — see `_active_target`. Set once by `bind_target` and
+        #: never changed after that: the name was given by name.
+        self._bound = _bound
+        #: An unbound handle's own resolution of "live", read once and held.
+        self._resolved: TargetName | None = None
+
+    def _active_target(self) -> TargetName:
+        """The target this handle's storage operations read and write.
+
+        Explicit for a bound handle. For an unbound one, the catalogue's own `live` is read
+        the first time any storage operation reaches this method and cached from then on.
+        """
+        if self._bound is not None:
+            return self._bound
+        if self._resolved is None:
+            self._resolved = self._catalogue.live
+        return self._resolved
+
+    def _writable(self) -> _Target:
+        return self._catalogue.targets.setdefault(self._active_target(), _Target())
+
+    def _readable(self) -> _Target:
+        return self._catalogue.targets.get(self._active_target()) or _Target()
 
     # -- NodeStore -----------------------------------------------------------------------
 
@@ -74,26 +142,29 @@ class InMemoryNodeStore:
         return Produced(value=payload)
 
     async def add(self, nodes: Sequence[Node]) -> None:
+        target = self._writable()
         for node in nodes:
-            self._nodes[node.id] = node
+            target.nodes[node.id] = node
 
     async def flush(self) -> None:
         # Every write above is already durable within this process — nothing buffered.
         return
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
-        return tuple(self._nodes[node_id] for node_id in ids if node_id in self._nodes)
+        nodes = self._readable().nodes
+        return tuple(nodes[node_id] for node_id in ids if node_id in nodes)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
-        record = self._sources.get(source_id)
+        target = self._writable()
+        record = target.sources.get(source_id)
         if record is not None:
-            self._sources[source_id] = record.model_copy(update={"status": SourceStatus.DELETING})
+            target.sources[source_id] = record.model_copy(update={"status": SourceStatus.DELETING})
         removed = tuple(
-            node_id for node_id, node in self._nodes.items() if source_id in node.lineage.sources
+            node_id for node_id, node in target.nodes.items() if source_id in node.lineage.sources
         )
         for node_id in removed:
-            del self._nodes[node_id]
-        self._sources.pop(source_id, None)
+            del target.nodes[node_id]
+        target.sources.pop(source_id, None)
         return Removed(source_id=source_id, node_count=len(removed))
 
     async def supersede(self, old: NodeId, new: Node) -> None:
@@ -108,7 +179,8 @@ class InMemoryNodeStore:
         can find, and never a hole, which nothing can. Refuse first, changing nothing, when the
         replacement covers fewer sources than the node it replaces.
         """
-        stored = self._nodes.get(old)
+        target = self._writable()
+        stored = target.nodes.get(old)
         if stored is not None and not stored.lineage.sources <= new.lineage.sources:
             dropped = ", ".join(sorted(stored.lineage.sources - new.lineage.sources))
             raise SupersedeNarrowsSourcesError(
@@ -116,9 +188,9 @@ class InMemoryNodeStore:
                 f"{dropped}. A superseding node must carry at least the sources of the node "
                 f"it replaces."
             )
-        self._nodes[new.id] = new
+        target.nodes[new.id] = new
         if old != new.id:
-            self._nodes.pop(old, None)
+            target.nodes.pop(old, None)
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """`Reconcilable` — finish every deletion this store started and did not end.
@@ -133,17 +205,18 @@ class InMemoryNodeStore:
         primary nodes, so it has no derived state that was never built.
         """
         del ctx
+        target = self._writable()
         removed = 0
         examined = 0
         for source_id in tuple(self._tombstoned()):
             gone = tuple(
                 node_id
-                for node_id, node in self._nodes.items()
+                for node_id, node in target.nodes.items()
                 if source_id in node.lineage.sources
             )
             for node_id in gone:
-                del self._nodes[node_id]
-            self._sources.pop(source_id, None)
+                del target.nodes[node_id]
+            target.sources.pop(source_id, None)
             examined += 1
             removed += len(gone)
         return ReconcileReport(
@@ -169,32 +242,34 @@ class InMemoryNodeStore:
     def _tombstoned(self) -> tuple[SourceId, ...]:
         return tuple(
             source_id
-            for source_id, record in self._sources.items()
+            for source_id, record in self._readable().sources.items()
             if record.status is SourceStatus.DELETING
         )
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
         del cursor  # a single in-memory page holds the whole corpus — no real pagination
-        return Page(items=tuple(self._nodes.values()))
+        return Page(items=tuple(self._readable().nodes.values()))
 
     async def count(self) -> int:
-        return len(self._nodes)
+        return len(self._readable().nodes)
 
     async def put_source(self, record: SourceRecord) -> None:
-        self._sources[record.id] = record
+        self._writable().sources[record.id] = record
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        return self._sources.get(source_id)
+        return self._readable().sources.get(source_id)
 
     async def list_sources(self) -> Sequence[SourceRecord]:
-        return tuple(self._sources.values())
+        return tuple(self._readable().sources.values())
 
     # -- VectorSearch ----------------------------------------------------------------------
 
     async def search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
     ) -> Sequence[Scored[Node]]:
-        candidates = (node for node in self._nodes.values() if node.embedding is not None)
+        candidates = (
+            node for node in self._readable().nodes.values() if node.embedding is not None
+        )
         if filter is not None:
             candidates = (node for node in candidates if _matches(node, filter))
         scored = [
@@ -213,7 +288,7 @@ class InMemoryNodeStore:
         query_words = _words(text)
         if not query_words:
             return ()
-        candidates = self._nodes.values()
+        candidates = self._readable().nodes.values()
         if filter is not None:
             candidates = [node for node in candidates if _matches(node, filter)]
         scored: list[Scored[Node]] = []
@@ -228,7 +303,68 @@ class InMemoryNodeStore:
 
     async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
         del cursor  # see `scan` — no real pagination in this example store
-        return Page(items=tuple(node for node in self._nodes.values() if _matches(node, filter)))
+        return Page(
+            items=tuple(node for node in self._readable().nodes.values() if _matches(node, filter))
+        )
+
+    # -- TargetHolding -----------------------------------------------------------------------
+
+    async def target_catalogue(self) -> TargetCatalogue:
+        records = tuple(
+            sorted(
+                (
+                    TargetRecord(name=name, embedding=target.embedding)
+                    for name, target in self._catalogue.targets.items()
+                ),
+                key=lambda record: record.name,
+            )
+        )
+        return TargetCatalogue(
+            live=self._catalogue.live,
+            previous=self._catalogue.previous,
+            targets=records,
+            promotion=self._catalogue.promotion,
+        )
+
+    async def bind_target(self, target: TargetName) -> Self:
+        """A second handle onto this store's own catalogue, bound to `target` — never `self`.
+
+        Binding creates nothing in the catalogue; the target is created by the handle's first
+        write (`add` or `put_source`), through `_writable`'s own `setdefault`.
+        """
+        return type(self)(_catalogue=self._catalogue, _bound=target)
+
+    async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        target = self._writable()
+        if target.embedding is None:
+            target.embedding = identity
+        return target.embedding
+
+    async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        catalogue = self._catalogue
+        if promotion.target not in catalogue.targets:
+            raise UnknownTargetError(
+                promotion.target, valid_options=tuple(sorted(catalogue.targets))
+            )
+        catalogue.previous = catalogue.live
+        catalogue.live = TargetName(promotion.target)
+        catalogue.promotion = promotion
+        return await self.target_catalogue()
+
+    async def rollback(self) -> TargetCatalogue:
+        catalogue = self._catalogue
+        if catalogue.previous is None:
+            raise NoPreviousTargetError(catalogue.live)
+        catalogue.live, catalogue.previous = catalogue.previous, catalogue.live
+        return await self.target_catalogue()
+
+    async def drop_target(self, target: TargetName) -> None:
+        catalogue = self._catalogue
+        if target == catalogue.live or target == catalogue.previous:
+            raise TargetInUseError(target)
+        if target not in catalogue.targets:
+            raise UnknownTargetError(target, valid_options=tuple(sorted(catalogue.targets)))
+        del catalogue.targets[target]
 
 
 def _cosine(left: Vector, right: Vector) -> float:

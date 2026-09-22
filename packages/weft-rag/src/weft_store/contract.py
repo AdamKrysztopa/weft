@@ -87,11 +87,21 @@ only here, so the reference document stays the one place this fact is
 stated.
 """
 
+import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Annotated, ClassVar, NewType, Protocol, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    ClassVar,
+    Final,
+    NewType,
+    Protocol,
+    Self,
+    runtime_checkable,
+)
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
@@ -146,7 +156,9 @@ from weft_kernel.runner import Stage
 #: **`2.6.0` → `2.7.0` at task 31.0** — `VectorIndexKind` and `VectorPrecision` publish a
 #: vocabulary, minor for both audiences: no Protocol gained a member.
 #: **`2.7.0` → `2.8.0` at task 36.0** — `SourceStatus`/`SourceRecord` gain `FAILED`/`failure`.
-STORE_CONTRACT_VERSION = "2.8.0"
+#: **`2.8.0` → `2.9.0` at task 34.3** — `TargetHolding` joins the family, `NodeSupersedable`'s
+#: precedent: a new optional Protocol is a minor for both audiences.
+STORE_CONTRACT_VERSION = "2.9.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -1115,3 +1127,167 @@ class Reconcilable(Protocol):
 
 
 Reconcilable.version = STORE_CONTRACT_VERSION
+
+
+#: A store's own alphabet for a target's name — ledger task **34.3**. A target becomes a
+#: Postgres schema, a Qdrant collection name and a directory, and the intersection of what all
+#: three allow is a lowercase letter first, then lowercase letters, digits and underscores, at
+#: most 40 characters.
+_TARGET_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+
+#: A name a store resolves against its own catalogue of targets — never constructed directly;
+#: only ever the output of `target_name` below.
+TargetName = NewType("TargetName", str)
+
+#: The target every store holds before anything ever names one, and the one `bind_target` never
+#: has to be called to reach.
+DEFAULT_TARGET: Final[TargetName] = TargetName("default")
+
+
+class InvalidTargetNameError(WeftError):
+    """`target_name` was asked for something outside a target's own grammar.
+
+    See `target_name`'s own docstring for why the grammar is this narrow.
+    """
+
+
+def target_name(value: str) -> TargetName:
+    """`value` as a `TargetName`, or `InvalidTargetNameError` naming what was wrong with it.
+
+    A target becomes a Postgres schema, a Qdrant collection name and a directory, so its
+    alphabet is the intersection of what all three allow: a lowercase letter first, then
+    lowercase letters, digits and underscores, at most 40 characters.
+    """
+    if not _TARGET_NAME_PATTERN.fullmatch(value):
+        raise InvalidTargetNameError(
+            f"{value!r} is not a valid target name — a target name is a lowercase letter "
+            "first, then lowercase letters, digits and underscores, at most 40 characters "
+            "total"
+        )
+    return TargetName(value)
+
+
+class UnknownTargetError(WeftError, UnresolvedNameError):
+    """`target` was asked for by name against a store whose catalogue does not hold it —
+    fitness function 12's family: `valid_options` carries what the store does hold.
+    """
+
+    def __init__(self, target: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(
+            f"{target!r} is not a target this store holds — valid targets: "
+            f"{', '.join(sorted(valid_options))}"
+        )
+        self.target = target
+        self.valid_options = valid_options
+
+
+class TargetInUseError(WeftError):
+    """`target` cannot be dropped: it is the live target or the previous one, and a rollback
+    needs both to still be there.
+    """
+
+    def __init__(self, target: str) -> None:
+        super().__init__(
+            f"{target!r} cannot be dropped — it is the live target or the previous one, which "
+            "a rollback needs"
+        )
+        self.target = target
+
+
+class NoPreviousTargetError(WeftError):
+    """`rollback` was called with nothing recorded to roll back to."""
+
+    def __init__(self, live: str) -> None:
+        super().__init__(
+            f"nothing to roll back to — {live!r} is live and no previous target is recorded"
+        )
+        self.live = live
+
+
+class EmbeddingIdentity(BaseModel):
+    """What embedded a target's vectors — plugin, distribution, model, and the width they
+    produce, when the plugin can say. Task **34.4**'s embedder-side Protocol claims one of
+    these against a target through `TargetHolding.claim_embedding`; this is the shape it
+    claims, published here because the store is what persists it.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    plugin: str
+    distribution: str
+    model: str
+    width: int | None
+
+
+class TargetRecord(BaseModel):
+    """One target in a store's catalogue: its name, and the embedding identity claimed
+    against it, if any.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    embedding: EmbeddingIdentity | None = None
+
+
+class Promotion(BaseModel):
+    """One decision to make a target live — the record `TargetHolding.promote` keeps.
+
+    `evidence` and `without_evidence` are the two ways this decision is justified: a tuple of
+    whatever an operator or a policy judged the candidate on, or an explicit admission that
+    there was none. Neither is interpreted here — a store persists what it is given.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    target: str
+    at: datetime
+    by: str
+    evidence: tuple[str, ...]
+    without_evidence: bool
+
+
+class TargetCatalogue(BaseModel):
+    """Every target a store holds, which one is live, which was live before that, and the
+    promotion that made it so, if any.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    live: str
+    previous: str | None
+    targets: tuple[TargetRecord, ...]
+    promotion: Promotion | None
+
+
+@runtime_checkable
+class TargetHolding(Protocol):
+    """A store that holds named, complete targets, one of them live — ledger task **34.3**,
+    Phase 34's blue-green index migration.
+
+    An unbound handle serves the **live** target, read once when the handle first touches
+    storage and held for its lifetime (owner decision Q-C, ledger task 34.3) — so one
+    operation never reads two targets. `bind_target` gives a handle onto one target by name
+    instead. Embedding identity is recorded per target, through `claim_embedding`, never per
+    node.
+    """
+
+    if TYPE_CHECKING:
+        #: See `NodeStore.version`'s note above — the same `if TYPE_CHECKING:` mechanism,
+        #: assigned below.
+        version: ClassVar[str]
+
+    async def target_catalogue(self) -> TargetCatalogue: ...
+
+    async def bind_target(self, target: TargetName) -> Self: ...
+
+    async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity: ...
+
+    async def promote(self, promotion: Promotion) -> TargetCatalogue: ...
+
+    async def rollback(self) -> TargetCatalogue: ...
+
+    async def drop_target(self, target: TargetName) -> None: ...
+
+
+TargetHolding.version = STORE_CONTRACT_VERSION

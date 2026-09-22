@@ -70,20 +70,29 @@ from weft_kernel.errors import WeftError
 from weft_kernel.payload import ExtModel, MediaType, Node, SourceId, Vector
 from weft_kernel.registry import DuplicateRegistrationError
 from weft_store.contract import (
+    DEFAULT_TARGET,
+    EmbeddingIdentity,
     Filter,
     FilterOp,
+    InvalidTargetNameError,
     MetadataFilter,
     NodeStore,
     NodeSupersedable,
+    NoPreviousTargetError,
     Page,
+    Promotion,
     Reconcilable,
     ReconcileMode,
     SourceFailure,
     SourceRecord,
     SourceStatus,
     SupersedeNarrowsSourcesError,
+    TargetHolding,
+    TargetInUseError,
     TextSearch,
+    UnknownTargetError,
     VectorSearch,
+    target_name,
 )
 from weft_store.fields import FilterOpMismatchError, UnaddressableFieldError
 from weft_store.rehydrate import register_ext_model
@@ -153,6 +162,7 @@ _CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
     "FilterableStore": ("MetadataFilter", "matching"),
     "SupersedableStore": ("NodeSupersedable", "supersede"),
     "ReconcilableStore": ("Reconcilable", "reconcile"),
+    "TargetHoldingStore": ("TargetHolding", "target_catalogue"),
 }
 
 #: Every method `NodeStore` publishes. A thing missing any of them is refused rather than filtered.
@@ -322,6 +332,11 @@ class SupersedableStore(NodeStore, NodeSupersedable, Protocol):
 @runtime_checkable
 class ReconcilableStore(NodeStore, Reconcilable, Protocol):
     """A store that holds nodes and can converge its own deferred work."""
+
+
+@runtime_checkable
+class TargetHoldingStore(NodeStore, TargetHolding, Protocol):
+    """A store that holds nodes in named targets, one of them live — ledger task **34.3**."""
 
 
 _SOURCE_A = SourceId("source-a")
@@ -1614,3 +1629,230 @@ async def check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_ba
         _require("contains" in str(exc), f"the refusal must name the operator: {str(exc)!r}")
     else:
         raise AssertionError("an operator the field cannot carry was accepted; refuse it by name")
+
+
+#: The targets the checks create. The kit owns no lifecycle (`26.4`): a caller hands each check a
+#: fresh store, and a persistent backend's own suite removes what a check left behind.
+_CANDIDATE = "conformance_candidate"
+_OTHER = "conformance_other"
+
+
+def _promotion(target: str) -> Promotion:
+    return Promotion(
+        target=target,
+        at=datetime.now(UTC),
+        by="conformance",
+        evidence=("run-live", "run-candidate"),
+        without_evidence=False,
+    )
+
+
+async def check_a_fresh_store_has_one_live_target_named_default(
+    store: TargetHoldingStore,
+) -> None:
+    """Ledger **34.2**'s contract half: a store nothing has targeted reads as `default`, live."""
+    # Act
+    catalogue = await store.target_catalogue()
+
+    # Assert
+    _require(catalogue.live == DEFAULT_TARGET, f"live must be 'default': {catalogue.live!r}")
+    _require(catalogue.previous is None, f"previous must be None: {catalogue.previous!r}")
+    _require(
+        DEFAULT_TARGET in {record.name for record in catalogue.targets},
+        "the catalogue must list 'default' even before anything named a target",
+    )
+    _require(catalogue.promotion is None, "nothing was promoted, so no promotion is recorded")
+
+
+async def check_a_target_is_created_by_its_first_write_and_isolated_from_every_other(
+    store: TargetHoldingStore,
+) -> None:
+    """A node written into a candidate is invisible to the live target, and the reverse."""
+    # Arrange
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+    before = await store.target_catalogue()
+    _require(
+        _CANDIDATE not in {record.name for record in before.targets},
+        "binding a target must not create it; its first write does",
+    )
+    live_node, candidate_node = conformance_corpus()[:2]
+
+    # Act
+    await store.add((live_node,))
+    await candidate.add((candidate_node,))
+    after = await store.target_catalogue()
+
+    # Assert
+    _require(
+        _CANDIDATE in {record.name for record in after.targets},
+        "a target's first write must add it to the catalogue",
+    )
+    _require(after.live == DEFAULT_TARGET, "writing a candidate must not make it live")
+    _require(
+        tuple(node.id for node in await store.get((candidate_node.id,))) == (),
+        "the live target returned a node written only into the candidate",
+    )
+    _require(
+        tuple(node.id for node in await candidate.get((live_node.id,))) == (),
+        "the candidate returned a node written only into the live target",
+    )
+    _require(await candidate.count() == 1, "the candidate must count only its own node")
+
+
+async def check_a_source_record_belongs_to_the_target_it_was_written_into(
+    store: TargetHoldingStore,
+) -> None:
+    """Source records are per target too: a target's sources are listed from that target alone."""
+    # Arrange
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+    record = SourceRecord(
+        id=_SOURCE_A,
+        uri="file:///corpus/a.txt",
+        content_hash="hash-a",
+        indexed_at=datetime.now(UTC),
+        pipeline="conformance",
+    )
+
+    # Act
+    await candidate.put_source(record)
+
+    # Assert
+    _require(await store.get_source(_SOURCE_A) is None, "the live target saw a candidate's source")
+    _require(await candidate.get_source(_SOURCE_A) == record, "the candidate lost its source")
+
+
+async def check_promote_makes_a_target_live_and_rollback_restores_the_previous_one(
+    store: TargetHoldingStore,
+) -> None:
+    """One pointer, switched whole: live and previous move together, and the promotion is kept."""
+    # Arrange
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+    await candidate.add(conformance_corpus()[:1])
+    promotion = _promotion(_CANDIDATE)
+
+    # Act
+    promoted = await store.promote(promotion)
+    rolled_back = await store.rollback()
+
+    # Assert
+    _require(promoted.live == _CANDIDATE, f"promote must make the target live: {promoted.live!r}")
+    _require(promoted.previous == DEFAULT_TARGET, "promote must record what was live")
+    _require(promoted.promotion == promotion, "the promotion must be recorded whole")
+    _require(rolled_back.live == DEFAULT_TARGET, "rollback must restore the previous target")
+    _require(rolled_back.previous == _CANDIDATE, "rollback must remember what it replaced")
+    _require(
+        await store.target_catalogue() == rolled_back,
+        "the catalogue read back must be the one rollback returned",
+    )
+
+
+async def check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do(
+    store: TargetHoldingStore,
+) -> None:
+    # Act / Assert
+    try:
+        await store.promote(_promotion("conformance_absent"))
+    except UnknownTargetError as exc:
+        _require(
+            DEFAULT_TARGET in exc.valid_options,
+            f"the refusal must offer the targets that exist: {exc.valid_options!r}",
+        )
+        _require("conformance_absent" in str(exc), f"the refusal must name the target: {exc}")
+    else:
+        raise AssertionError("a promote to a target that does not exist was accepted")
+    _require(
+        (await store.target_catalogue()).live == DEFAULT_TARGET,
+        "a refused promote must change nothing",
+    )
+
+
+async def check_rollback_with_nothing_to_roll_back_to_is_refused(
+    store: TargetHoldingStore,
+) -> None:
+    # Act / Assert
+    try:
+        await store.rollback()
+    except NoPreviousTargetError as exc:
+        _require(DEFAULT_TARGET in str(exc), f"the refusal must name the live target: {exc}")
+    else:
+        raise AssertionError("a rollback with no previous target was accepted")
+
+
+async def check_drop_refuses_the_live_and_previous_targets_and_removes_another(
+    store: TargetHoldingStore,
+) -> None:
+    """`drop` is the one destructive verb, so the two targets a rollback needs are refused."""
+    # Arrange — `_CANDIDATE` live, `default` previous, `_OTHER` neither.
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+    other = await store.bind_target(target_name(_OTHER))
+    await candidate.add(conformance_corpus()[:1])
+    await other.add(conformance_corpus()[1:2])
+    await store.promote(_promotion(_CANDIDATE))
+
+    # Act / Assert
+    for protected in (_CANDIDATE, DEFAULT_TARGET):
+        try:
+            await store.drop_target(target_name(protected))
+        except TargetInUseError as exc:
+            _require(protected in str(exc), f"the refusal must name the target: {exc}")
+        else:
+            raise AssertionError(f"dropping {protected!r}, which a rollback needs, was accepted")
+    await store.drop_target(target_name(_OTHER))
+    names = {record.name for record in (await store.target_catalogue()).targets}
+    _require(_OTHER not in names, "a dropped target must leave the catalogue")
+
+
+async def check_drop_refuses_a_target_that_does_not_exist_naming_those_that_do(
+    store: TargetHoldingStore,
+) -> None:
+    # Act / Assert
+    try:
+        await store.drop_target(target_name("conformance_absent"))
+    except UnknownTargetError as exc:
+        _require(DEFAULT_TARGET in exc.valid_options, f"offer what exists: {exc.valid_options!r}")
+    else:
+        raise AssertionError("dropping a target that does not exist was accepted")
+
+
+async def check_the_first_embedding_identity_claimed_is_the_one_a_target_keeps(
+    store: TargetHoldingStore,
+) -> None:
+    """Ledger **34.4**'s storage half: recorded once, per target, never per node, never replaced.
+
+    `claim_embedding` answers with what the target holds, so the caller compares; the store does
+    not decide what counts as a mismatch.
+    """
+    # Arrange
+    candidate = await store.bind_target(target_name(_CANDIDATE))
+    first = EmbeddingIdentity(plugin="hash", distribution="weft-rag", model="hash", width=64)
+    second = EmbeddingIdentity(plugin="hash", distribution="weft-rag", model="hash", width=128)
+    await candidate.add(conformance_corpus()[:1])
+
+    # Act
+    recorded = await candidate.claim_embedding(first)
+    again = await candidate.claim_embedding(second)
+    catalogue = await store.target_catalogue()
+
+    # Assert
+    _require(recorded == first, "the first claim must be recorded and returned")
+    _require(again == first, "a second, different claim must return the recorded identity")
+    by_name = {record.name: record for record in catalogue.targets}
+    _require(by_name[_CANDIDATE].embedding == first, "the catalogue must carry the identity")
+    _require(
+        by_name[DEFAULT_TARGET].embedding is None,
+        "a claim on one target must not reach another",
+    )
+
+
+async def check_a_target_name_outside_the_grammar_is_refused_by_name(
+    store: TargetHoldingStore,
+) -> None:
+    """A target becomes a schema, a collection and a directory, so its alphabet is closed."""
+    del store
+    for bad in ("", "Default", "w-128", "1st", "a" * 41, "x;drop"):
+        try:
+            target_name(bad)
+        except InvalidTargetNameError as exc:
+            _require(repr(bad) in str(exc), f"the refusal must quote the name: {exc}")
+        else:
+            raise AssertionError(f"the target name {bad!r} was accepted")
