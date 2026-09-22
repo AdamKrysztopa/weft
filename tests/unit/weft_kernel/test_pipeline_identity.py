@@ -148,6 +148,32 @@ def test_a_stages_contract_facts_are_part_of_the_identity(field: str) -> None:
     assert pipeline_identity(_pipeline("p", base)) != pipeline_identity(_pipeline("p", changed))
 
 
+# --- Repair R34.1: only a contract's major moves the identity ------------------------------------
+
+
+@pytest.mark.parametrize("later", ["1.1.0", "1.0.1", "1.9.3"])
+def test_a_contract_minor_or_patch_does_not_move_the_identity(later: str) -> None:
+    """A minor is additive under G9 and cannot change what an existing plugin does, so it says
+    nothing about how a corpus was built. Hashing it re-parsed every corpus on every store-contract
+    bump — found running a 2.8.0-written store under 2.9.0 (ledger `34.2`)."""
+    # Arrange
+    base = _stage("extract", "text")
+    later_stage = base.model_copy(update={"contract_version": later})
+
+    # Act / Assert
+    assert later_stage.contract_version != base.contract_version
+    assert pipeline_identity(_pipeline("p", base)) == pipeline_identity(_pipeline("p", later_stage))
+
+
+def test_a_contract_major_still_moves_the_identity() -> None:
+    # Arrange
+    base = _stage("extract", "text")
+    major = base.model_copy(update={"contract_version": "2.0.0"})
+
+    # Act / Assert
+    assert pipeline_identity(_pipeline("p", base)) != pipeline_identity(_pipeline("p", major))
+
+
 # --- Repair R32.0: a validated `config_model` is hashed by its fields, not by its printed text --
 
 

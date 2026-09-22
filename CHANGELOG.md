@@ -43,6 +43,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **A pipeline's identity hashes each stage contract's major version, not its full version.**
+  Before this, every minor release of a contract, such as the store contract's move to `2.9.0`,
+  changed the identity of every pipeline, so the first `weft index` after an upgrade re-parsed
+  every document, paying again for any model stage. A minor only adds, so it says nothing about
+  how a corpus was built. **This moves the identity once more**: the first `weft index` after
+  installing this release re-parses each document once, reporting it *"unchanged on disk but
+  re-parsed by a different pipeline"*. Later minor releases do not.
 - **The published baseline is re-taken: `baselines/8854c33f71ea-2026-09-21.json`.** The earlier
   `2026-08-25` file recorded the `hash` embedder's stage with no configuration, and a `weft-rag`
   newer than 2.7.0 writes its default `dimension: 64`, so `weft eval compare` refused it. Every

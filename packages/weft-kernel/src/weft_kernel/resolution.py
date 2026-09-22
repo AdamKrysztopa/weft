@@ -762,8 +762,9 @@ def pipeline_identity(pipeline: ResolvedPipeline) -> str:
     `==` over two `ResolvedPipeline` values, reduced to one string a store column can carry and an
     operator can read.
 
-    **What moves it.** Every resolved stage in order, and for each: `id`, `contract`,
-    `contract_version`, `use`, `distribution`, and `config` with its keys sorted. Plus the
+    **What moves it.** Every resolved stage in order, and for each: `id`, `contract`, the
+    contract's **major** version, `use`, `distribution`, and `config` with its keys sorted. A minor
+    is additive under G9 and changes nothing an existing plugin does (repair R34.1). Plus the
     pipeline's `vars`, keys sorted — a var reaches a stage's config at resolution, but a var the
     document declares and no stage reads is still part of what an operator wrote, and excluding it
     would need an argument nobody has made.
@@ -807,7 +808,7 @@ def _identity_parts(pipeline: ResolvedPipeline) -> tuple[str, ...]:
             (
                 stage.id,
                 stage.contract,
-                stage.contract_version or "",
+                (stage.contract_version or "").split(".", 1)[0],
                 stage.use,
                 stage.distribution,
                 json.dumps(_dump_stage_config(stage.config), sort_keys=True, default=str),
