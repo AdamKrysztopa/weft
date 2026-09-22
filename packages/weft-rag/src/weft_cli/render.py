@@ -1335,6 +1335,12 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
 
     **Task 33.8's own two latency lines, one per run, always printed** — see `_run_latency_line`.
     Latency is reported beside the comparison, never gated and never part of `metrics_comparison`.
+
+    **Task 34.7's own first line, printed only when `result.targets` is set** — a promotion
+    comparison, owner decision Q-E: `result.targets` names the two targets and `result.subject`
+    is what changed between them, joined the way `IncomparableRunsError`'s own reasons already
+    are — printed before everything else, since it is the fact that makes the comparison below
+    a promotion judgement rather than an ordinary same-target one.
     """
     if result.reproduction is not None:
         return _render_reproduction(result, result.reproduction)
@@ -1354,6 +1360,11 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
         _run_latency_line(result.run_a, result.latency_a),
         _run_latency_line(result.run_b, result.latency_b),
     ]
+    if result.targets is not None:
+        live, candidate = result.targets
+        lines.insert(
+            0, f"comparing targets {live} → {candidate}; subject: {'; '.join(result.subject)}"
+        )
     if result.paired_differences:
         lines.extend(
             _paired_difference_lines(

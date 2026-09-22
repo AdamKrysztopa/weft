@@ -59,6 +59,7 @@ from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.targets import scored_target
 from weft_eval.baseline import (
     BaselineReport,
     DepthTooShallowError,
@@ -525,6 +526,11 @@ class EvalBaselineCommand:
 
         by_id = {document.id: document for document in selected}
         readable_documents = tuple(by_id[identifier] for identifier in readable)
+        # ledger task 34.7 — this command never takes `--target`, so it always scores the live
+        # one; `scored_target` records that name and its catalogue-held identity regardless.
+        baseline_target, baseline_target_embedding = await scored_target(
+            deps.registry.entry(NodeStore, deps.services.store).factory(None), None
+        )
         record = build_run_record(
             recorded_at=datetime.now(UTC).isoformat(),
             resolved_pipeline=resolved,
@@ -541,6 +547,8 @@ class EvalBaselineCommand:
             reports=deps.reports,
             distribution_versions=active_distribution_versions(deps.reports),
             durations=RunDurations(ingest_seconds=ingest_seconds, query_seconds=query_seconds),
+            target=baseline_target,
+            target_embedding=baseline_target_embedding,
         )
 
         reproducible = all(tier.reproducible for tier in tiers)

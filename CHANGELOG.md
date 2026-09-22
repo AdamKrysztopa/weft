@@ -85,6 +85,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   naming the targets that do (`UnknownTargetError`). `weft target list` prints each target with
   its live or previous mark, the embedder that built it and its source count. `Weft.index` and
   `Weft.ask` take `target=`. Leaving out `--target` behaves exactly as before.
+- **`weft eval compare` compares a live index with a candidate built by another embedder.** A run
+  records the target it scored and the embedder that built it. Two runs over two different
+  targets, with the same corpus and questions, now compare instead of being refused for differing
+  model versions, and the output opens with `comparing targets default → w128; subject: …`,
+  naming what changed. Two runs of the same target are refused as before.
 - **A document that failed to index is recorded as failed, and you can find it.** `weft index`
   records every document of a batch that a stage refused or raised on as `failed`, with the
   stage, the error, an attempt count and the time, and removes what it half-wrote. Later runs skip

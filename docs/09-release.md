@@ -638,6 +638,14 @@ failed.
 | **V5** | **Providers, cost and an offline subset** | Which providers and which model versions, pinned; the money and wall-clock cost of one full run; and a deterministic subset that runs in CI with no credentials and no network, so a regression is caught by the gate rather than by a quarterly ritual | A full run cannot be priced, or the whole suite requires credentials, in which case it will be run once |
 | **V6** | **A persisted, reproducible run** | The baseline is one of Phase 4's persisted runs, carrying the resolved pipeline, the corpus identity, the model versions and the active distribution set (fitness function 8(c)). **The corpus identity is derived from the documents' own bytes and states that it is** — a digest per document, sorted, and a record that says what its digest was computed over | The baseline exists only as terminal output, never persisted; **or its corpus digest is over anything a second machine could not reproduce from the same files**, which a digest over resolved filesystem paths is |
 
+**A promotion comparison is not a technique claim** (ledger `34.7`, owner decision Q-E,
+2026-09-22). V3's refusal of a comparison across model versions guards claims about techniques.
+Two runs that score two different **targets** over the same corpus and question set, typically a
+live index and a candidate built by a new embedder, answer a different question: does the
+candidate answer these questions at least as well as the live index? For them `weft eval compare`
+reports the embedding difference as the comparison's subject instead of refusing. Two runs of the
+same target, or runs that name no target, are still refused on a model-version difference.
+
 **The reproduction tolerance is derived, never declared.** No number in this plan says how close a
 re-run must be. Instead: V3 requires the baseline to be repeated and to record, per metric, the interval
 its own repetitions spanned. **A later run reproduces the baseline when every metric falls inside that

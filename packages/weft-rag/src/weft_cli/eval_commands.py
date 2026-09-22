@@ -224,7 +224,7 @@ from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_embed.contract import EmbeddingModel, IdentifiedEmbedder
 from weft_engine.registry_bootstrap import Dependencies
-from weft_engine.targets import require_existing_target
+from weft_engine.targets import render_embedding_identity, require_existing_target, scored_target
 from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.baseline import (
     BaselineReport,
@@ -912,6 +912,15 @@ class EvalCompareCommandResult(CommandResult):
     differences` found between the two runs, reported beside the comparison rather than a
     reason to refuse it — `()` for two runs packaged identically, the plain default so every
     existing construction site keeps working.
+
+    `targets`/`subject` are ledger task **34.7**'s own addition, on `packaging_differences`'s
+    own "report beside, never refuse" footing. `targets` is `(a.target, b.target)` when both
+    runs name a target and it differs — a promotion comparison, `_is_promotion_comparison` —
+    and `None` otherwise, the plain default every existing site keeps. `subject` is what
+    changed to make that widening safe: the embedding identity difference, rendered through
+    `weft_engine.targets.render_embedding_identity`, plus every `model_versions` key that
+    differs, `"key: a → b"` — `()` for an ordinary comparison, since there is nothing there to
+    report as the reason a refusal was widened away.
     """
 
     run_a: str
@@ -938,6 +947,13 @@ class EvalCompareCommandResult(CommandResult):
     paired_differences_reason: str | None = None
     reproduction: Reproduction | None = None
     packaging_differences: tuple[str, ...] = ()
+    #: Task **34.7** — set to `(a.target, b.target)` when both runs name a target and it
+    #: differs; `None` (the plain default) for every existing construction site and for an
+    #: ordinary same-target comparison.
+    targets: tuple[str, str] | None = None
+    #: Task **34.7** — what changed between the two targets, one entry per difference; `()`
+    #: (the plain default) when `targets` is `None`.
+    subject: tuple[str, ...] = ()
     #: Task 33.8 — each run's query latency; `None` when its record has no per-question timing.
     latency_a: LatencySummary | None = None
     latency_b: LatencySummary | None = None
@@ -1155,6 +1171,15 @@ async def stated_embedding_models(
     return stated
 
 
+def _is_promotion_comparison(a: RunRecord, b: RunRecord) -> bool:
+    """Both `a` and `b` name a target, and it differs — owner decision Q-E: the widening
+    `_incomparable_reasons` applies below is only for a candidate index being judged against
+    the live one, never for two runs of one target, and never for a record naming no target at
+    all (every record written before ledger task 34.7).
+    """
+    return a.target is not None and b.target is not None and a.target != b.target
+
+
 def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
     """Which of the identity facts a comparison depends on actually differ — see
     `IncomparableRunsError`'s own docstring. Empty means the two runs are comparable.
@@ -1163,6 +1188,17 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
     repair `R22.11`.** It moved to `_packaging_differences`, reported beside a comparison
     rather than refusing it: see that function's own docstring and the module docstring's
     R22.11 paragraph.
+
+    **A promotion comparison — ledger task 34.7 — widens this, and only this.** `09` §4's V3
+    ("a metric delta across model versions is not evidence about a technique") still governs
+    two runs of *one* target: a technique comparison earns nothing from a model change riding
+    along uninspected. But `a`/`b` naming two different targets is not a technique claim — it
+    asks whether the candidate index answers these questions at least as well as the live one,
+    and the embedder is exactly what a promotion is allowed to have changed. So when
+    `_is_promotion_comparison` holds, a `model_versions` difference is not a reason to refuse;
+    corpus, corpus-digest-basis and question-set checks are unconditional and refuse exactly as
+    they always have, because a promotion still claims nothing about scoring two different
+    corpora or two different question sets against each other.
     """
     reasons: list[str] = []
     if a.corpus != b.corpus:
@@ -1177,7 +1213,7 @@ def _incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
             f"was over each document's resolved path rather than its bytes, so these two "
             f"digests cannot be compared even over a corpus that never changed"
         )
-    if a.model_versions != b.model_versions:
+    if a.model_versions != b.model_versions and not _is_promotion_comparison(a, b):
         reasons.append(
             f"model versions differ ({dict(a.model_versions)} vs {dict(b.model_versions)})"
         )
@@ -1220,6 +1256,31 @@ def _packaging_differences(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
             f"{dict(b.distribution_versions)})"
         )
     return tuple(differences)
+
+
+def _promotion_subject(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
+    """`EvalCompareCommandResult.subject` for a promotion comparison — what changed between the
+    two targets, in the order a reader would ask about it: the embedder first, since that is
+    what a promotion is allowed to have changed (see `_incomparable_reasons`'s own paragraph),
+    then every `model_versions` key that differs. Called only once `_is_promotion_comparison`
+    holds; an ordinary comparison never reaches this function.
+    """
+    subject: list[str] = []
+    if (
+        a.target_embedding is not None
+        and b.target_embedding is not None
+        and a.target_embedding != b.target_embedding
+    ):
+        subject.append(
+            f"{render_embedding_identity(a.target_embedding)} → "
+            f"{render_embedding_identity(b.target_embedding)}"
+        )
+    for key in sorted(set(a.model_versions) | set(b.model_versions)):
+        value_a = a.model_versions.get(key)
+        value_b = b.model_versions.get(key)
+        if value_a != value_b:
+            subject.append(f"{key}: {value_a} → {value_b}")
+    return tuple(subject)
 
 
 def _basis_of(record: RunRecord) -> str:
@@ -1352,6 +1413,13 @@ async def index_and_score(
     (`score_pipeline`'s own `target`). Without `reuse_index`, `target` reaches `run_index_for`
     unchanged, building a candidate beside the live target exactly as `weft index --target`
     does.
+
+    **The persisted record names the target it scored — ledger task 34.7.** After the run,
+    `weft_engine.targets.scored_target` is asked what `[services] store` actually holds for
+    `target` — the `--target` given, or the catalogue's own `live` name when none was — through
+    the identical store name `require_existing_target` above already reads by. A store that does
+    not satisfy `weft_store.contract.TargetHolding` records `None` for both; owner decision Q-E
+    is what a promotion comparison (`weft eval compare`) reads this pair for.
     """
     resolved: ResolvedPipeline
     document_ids: tuple[str, ...]
@@ -1509,6 +1577,9 @@ async def index_and_score(
         if pool is not None
         else corpus_identity(resolved_corpus_name, content_hashes)
     )
+    scored_target_name, scored_target_embedding = await scored_target(
+        deps.registry.entry(NodeStore, deps.services.store).factory(None), target
+    )
     record = build_run_record(
         recorded_at=datetime.now(UTC).isoformat(),
         resolved_pipeline=resolved,
@@ -1534,6 +1605,8 @@ async def index_and_score(
         question_seconds=question_seconds,
         token_usage=token_usage,
         experiment=experiment,
+        target=scored_target_name,
+        target_embedding=scored_target_embedding,
     )
     run_id = str(uuid.uuid4())
     write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
@@ -1810,6 +1883,14 @@ class EvalCompareCommand:
             record_a, record_b, kind=compare_args.kind, slice_=compare_args.slice
         )
 
+        targets: tuple[str, str] | None = None
+        subject: tuple[str, ...] = ()
+        if _is_promotion_comparison(record_a, record_b):
+            # `_is_promotion_comparison` already narrowed both to `str`; `cast` states that
+            # rather than re-checking it, on `_load_or_refuse`'s own footing for narrowed types.
+            targets = (cast(str, record_a.target), cast(str, record_b.target))
+            subject = _promotion_subject(record_a, record_b)
+
         return Produced(
             value=EvalCompareCommandResult(
                 run_a=compare_args.a,
@@ -1835,6 +1916,8 @@ class EvalCompareCommand:
                 packaging_differences=_packaging_differences(record_a, record_b),
                 latency_a=latency_summary(record_a.question_seconds),
                 latency_b=latency_summary(record_b.question_seconds),
+                targets=targets,
+                subject=subject,
             )
         )
 

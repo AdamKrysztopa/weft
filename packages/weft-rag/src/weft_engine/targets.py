@@ -213,6 +213,27 @@ async def require_existing_target(store: object, target: str | None, *, store_na
         raise UnknownTargetError(name, valid_options=valid)
 
 
+async def scored_target(
+    store: object, target: str | None
+) -> tuple[str | None, EmbeddingIdentity | None]:
+    """The target a run scored, and the embedding identity its store's own catalogue records
+    for it — ledger task **34.7**, what `weft_eval.run_record.RunRecord.target`/
+    `target_embedding` persist.
+
+    Name: `target` if given, else the catalogue's own `live` — the identical default every
+    read command in this module already takes. Identity: the catalogue's own `TargetRecord.
+    embedding` for that name, `None` when nothing has claimed it yet, `claim_embedding_for_write`'s
+    own footing. A store that does not satisfy `TargetHolding` records neither: there is no
+    catalogue to read, and a target is `weft_store`'s own capability, never invented here.
+    """
+    if not isinstance(store, TargetHolding):
+        return None, None
+    catalogue = await store.target_catalogue()
+    name = target if target is not None else catalogue.live
+    identity = next((record.embedding for record in catalogue.targets if record.name == name), None)
+    return name, identity
+
+
 async def check_embedding_for_query(
     store: object, identity: EmbeddingIdentity | None, *, plugin: str, target: str | None = None
 ) -> None:

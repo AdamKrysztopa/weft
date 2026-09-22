@@ -84,6 +84,7 @@ from weft_eval.aggregate import MetricAggregate
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.resolution import ResolvedPipeline
+from weft_store.contract import EmbeddingIdentity
 
 _NO_MODEL_VERSIONS: Final[Mapping[str, str]] = MappingProxyType({})
 _NO_REPORTS: Final[tuple[PackReport, ...]] = ()
@@ -435,6 +436,20 @@ class RunRecord(BaseModel):
     #: Task **38.0** — which experiment, invocation, arm and repetition this run was. `None` for
     #: a run made outside an experiment, and for every record written before this task.
     experiment: ExperimentRun | None = None
+    #: Task **34.7** — the target this run scored against: the `--target` given, or the
+    #: catalogue's own `live` name when none was. `None` means *not recorded*: a store that does
+    #: not satisfy `weft_store.contract.TargetHolding` has no target to name, and every record
+    #: written before this task predates targets entirely — `distribution_versions`'s own
+    #: distinction one field up applies identically here, not `experiment`'s, because unlike an
+    #: experiment a plain run always scores *some* target when its store holds any at all.
+    target: str | None = None
+    #: Task **34.7** — the embedding identity the store's own catalogue records for `target`,
+    #: read through `weft_engine.targets.scored_target` at the moment this run scored — never
+    #: derived here, on `distribution_versions`'s own footing: only the caller that held the
+    #: store `TargetHolding.target_catalogue` came from can read it. `None` on the identical
+    #: two conditions `target` above is: no `TargetHolding` store, or a record written before
+    #: this task.
+    target_embedding: EmbeddingIdentity | None = None
 
 
 def build_run_record(
@@ -457,6 +472,8 @@ def build_run_record(
     question_seconds: PerQuestionSeconds | None = None,
     token_usage: Mapping[str, RoleTokens] | None = None,
     experiment: ExperimentRun | None = None,
+    target: str | None = None,
+    target_embedding: EmbeddingIdentity | None = None,
 ) -> RunRecord:
     """Assemble one `RunRecord`. `active_distributions` is always derived from `reports`
     through `active_distribution_set` — never accepted directly — so there is no second,
@@ -505,6 +522,11 @@ def build_run_record(
     `question_seconds`/`token_usage` — task 33.7 — are passed straight through as well, on the
     identical footing one field over: only the caller that ran the question loop
     (`weft_cli.eval_scoring.score_pipeline`) measured either.
+
+    `target`/`target_embedding` — task **34.7** — are passed straight through too, on the
+    identical footing: only the caller that scored against a store (`weft_engine.targets.
+    scored_target`) knows which target it read and what identity that store's own catalogue
+    recorded for it.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -525,6 +547,8 @@ def build_run_record(
         question_seconds=question_seconds,
         token_usage=token_usage,
         experiment=experiment,
+        target=target,
+        target_embedding=target_embedding,
     )
 
 
