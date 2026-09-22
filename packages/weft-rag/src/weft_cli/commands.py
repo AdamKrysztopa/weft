@@ -206,8 +206,8 @@ _PLUGINS_LIST_HELP = "one line per discovered pack"
 _PLUGINS_DOCTOR_HELP = "full status, reason and disclosure per discovered pack"
 
 _SOURCES_LIST_HELP = (
-    "list every source the configured node store has recorded, failures included; "
-    "--status keeps only sources at that status"
+    "list every source recorded by every node store a project indexes into, failures "
+    "included; --status keeps only sources at that status"
 )
 
 
@@ -1258,21 +1258,38 @@ class SourcesListArgs(BaseModel):
     )
 
 
-class SourcesListCommandResult(CommandResult):
-    """`weft sources list`'s whole answer — every recorded `SourceRecord` the store's filter
-    left, sorted by `uri`.
+class ListedSource(BaseModel):
+    """One recorded source, and which store's own records it came from.
+
+    `store` names the `NodeStore` plugin `SourcesListCommand.run` read the record off —
+    task **R36.4**: a project that indexes into more than one store (a pipeline naming a
+    second `NodeStore` stage, e.g. a graph store) can no longer be listed from `[services]
+    store` alone, so an entry has to say which store it is answering for.
     """
 
-    sources: tuple[SourceRecord, ...]
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    store: str
+    record: SourceRecord
+
+
+class SourcesListCommandResult(CommandResult):
+    """`weft sources list`'s whole answer — every recorded `SourceRecord` every store in use
+    reported, filter applied, sorted by `(record.uri, store)`.
+    """
+
+    sources: tuple[ListedSource, ...]
     #: The `--status` filter the list was taken under, so an empty answer can say which.
     status: SourceStatus | None = None
 
 
 class SourcesListCommand:
-    """`weft sources list` — task **36.4**: an operator finds a failed source without reading
-    a database. Reads the configured node store's own `list_sources()`, filters by
-    `SourcesListArgs.status` when given, and reports every `SourceRecord` — a failed one
-    carries its own `SourceFailure`, which `weft_cli.render` prints.
+    """`weft sources list` — task **36.4**, widened at **R36.4**: an operator finds a failed
+    source without reading a database. Reads `list_sources()` off every `NodeStore` a project
+    indexes into — the same set `weft delete`/`weft reconcile` fan out across, from
+    `_stores_in_use` — filters by `SourcesListArgs.status` when given, and reports every
+    `SourceRecord` alongside the store it came from; a failed one carries its own
+    `SourceFailure`, which `weft_cli.render` prints.
     """
 
     args_model: ClassVar[type[BaseModel]] = SourcesListArgs
@@ -1295,34 +1312,39 @@ class SourcesListCommand:
                 setting="[services] store",
             )
         )
-        entry = deps.registry.entry(NodeStore, deps.services.store)
-        store = cast(NodeStore, entry.factory(None))
+        entries: list[ListedSource] = []
+        for name in sorted(_stores_in_use(deps)):
+            entry = deps.registry.entry(NodeStore, name)
+            store = cast(NodeStore, entry.factory(None))
+            if not hasattr(store, "list_sources"):
+                continue
 
-        async def _list() -> Outcome[tuple[SourceRecord, ...]]:
-            return Produced(value=tuple(await store.list_sources()))
+            async def _list(store: NodeStore = store) -> Outcome[tuple[SourceRecord, ...]]:
+                return Produced(value=tuple(await store.list_sources()))
 
-        wrapped = wrap(
-            _list,
-            distribution=entry.distribution,
-            contract=NodeStore.__qualname__,
-            plugin=deps.services.store,
-            stage="sources:list",
-        )
-        try:
-            listed = await wrapped()
-        finally:
-            await aclose(
-                store,
+            wrapped = wrap(
+                _list,
                 distribution=entry.distribution,
                 contract=NodeStore.__qualname__,
-                plugin=deps.services.store,
+                plugin=name,
+                stage="sources:list",
             )
-        if not isinstance(listed, Produced):
-            return listed
-        records = listed.value
-        if typed.status is not None:
-            records = tuple(record for record in records if record.status == typed.status)
-        sources = tuple(sorted(records, key=lambda record: record.uri))
+            try:
+                listed = await wrapped()
+            finally:
+                await aclose(
+                    store,
+                    distribution=entry.distribution,
+                    contract=NodeStore.__qualname__,
+                    plugin=name,
+                )
+            if not isinstance(listed, Produced):
+                return listed
+            records = listed.value
+            if typed.status is not None:
+                records = tuple(record for record in records if record.status == typed.status)
+            entries.extend(ListedSource(store=name, record=record) for record in records)
+        sources = tuple(sorted(entries, key=lambda entry: (entry.record.uri, entry.store)))
         return Produced(value=SourcesListCommandResult(sources=sources, status=typed.status))
 
 
@@ -1749,6 +1771,7 @@ __all__ = [
     "IndexCommandResult",
     "InitCommand",
     "InitCommandResult",
+    "ListedSource",
     "NoArgs",
     "PluginsDoctorCommand",
     "PluginsDoctorCommandResult",

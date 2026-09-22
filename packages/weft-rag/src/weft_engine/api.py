@@ -279,10 +279,14 @@ class Weft:
         self,
         directory: Path | str,
         *,
+        retry_failed: bool = False,
         yes: bool = False,
         token_sink: TokenSink | None = None,
     ) -> CommandResult:
         """Resolve the `Command` registered as `"index"` and run it against `directory`.
+
+        `retry_failed` mirrors `weft index --retry-failed` (ledger **36.2**) — `R36.4`: the
+        embedded verb had no counterpart on the CLI's own flag.
 
         `token_sink` is where this call's tokens stream, as `run` describes: an ingest rung that
         calls a model emits them too.
@@ -294,7 +298,12 @@ class Weft:
         unit tests could not see it, because their `Command` doubles declared the names this
         method was passing rather than the names the shipped commands declare (`L12.11`).
         """
-        return await self._invoke("index", {"path": str(directory)}, yes=yes, token_sink=token_sink)
+        return await self._invoke(
+            "index",
+            {"path": str(directory), "retry_failed": retry_failed},
+            yes=yes,
+            token_sink=token_sink,
+        )
 
     async def delete(self, source: SourceId | str | Path, *, yes: bool = False) -> CommandResult:
         """Resolve the `Command` registered as `"delete"` and run it against `source`.

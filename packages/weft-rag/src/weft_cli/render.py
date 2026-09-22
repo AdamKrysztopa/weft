@@ -869,17 +869,22 @@ def _render_pipeline_list(result: PipelineListCommandResult) -> Rendered:
 
 
 def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
-    """`weft sources list` — task **36.4**: uri and status per line, and for a failed
-    source, what went wrong.
+    """`weft sources list` — task **36.4**, widened at **R36.4**: uri and status per line, and
+    for a failed source, what went wrong. When the entries came from more than one store, each
+    line is prefixed with the store's own name — a project reading from a single store keeps
+    today's plain `uri  status` line, unchanged.
     """
     if not result.sources:
         which = "" if result.status is None else f"{result.status.value} "
         return Rendered(
             stdout=f"no {which}sources recorded.", stderr=None, exit_code=ExitCode.SUCCESS
         )
+    multi_store = len({entry.store for entry in result.sources}) > 1
     lines: list[str] = []
-    for record in result.sources:
-        line = f"{record.uri}  {record.status.value}"
+    for entry in result.sources:
+        record = entry.record
+        line = f"{entry.store}  " if multi_store else ""
+        line += f"{record.uri}  {record.status.value}"
         failure = record.failure
         if failure is not None:
             line += (

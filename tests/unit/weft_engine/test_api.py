@@ -38,6 +38,7 @@ from typing import ClassVar
 import pytest
 from pydantic import BaseModel, ConfigDict
 
+from weft_cli.commands import IndexArgs
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import CommandRefusalError, PermissionClass
 from weft_engine.api import Weft
@@ -590,3 +591,31 @@ async def test_a_command_reached_by_name_takes_a_sink_for_the_call_too() -> None
     assert [chunk.text for chunk in call_sink.chunks] == ["alpha:0", "alpha:1", "alpha:2"]
     assert call_sink.closed_with == [None]
     assert session_sink.chunks == []
+
+
+class _IndexCommand(_RecordingCommand):
+    """Declares the shipped `IndexArgs`, so a field `Weft.index` passes that the real model does
+    not declare is dropped here exactly as it is in production (`L12.11`)."""
+
+    calls: ClassVar[list[BaseModel]] = []
+    args_model: ClassVar[type[BaseModel]] = IndexArgs
+    permission_class: ClassVar[PermissionClass] = PermissionClass.WRITE
+
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        del ctx
+        type(self).calls.append(args)
+        return Produced(value=_AskResult(question="indexed"))
+
+
+async def test_index_can_ask_for_failed_sources_to_be_retried(tmp_path: Path) -> None:
+    """`R36.4`: `weft index --retry-failed` had no counterpart on the embedded verb."""
+    # Arrange
+    weft = Weft(_deps(_IndexCommand, name="index"))
+
+    # Act
+    await weft.index(tmp_path, retry_failed=True)
+
+    # Assert
+    recorded = _IndexCommand.calls[-1]
+    assert isinstance(recorded, IndexArgs)
+    assert recorded.retry_failed is True
