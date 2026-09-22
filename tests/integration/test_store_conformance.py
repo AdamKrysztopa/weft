@@ -208,6 +208,19 @@ async def _drop(settings: QdrantSettings) -> None:
     await client.close()
 
 
+async def _drop_targets(settings: QdrantSettings) -> None:
+    """Delete every collection a target check can make under `settings.collection`, by name."""
+    client = AsyncQdrantClient(url=settings.url)
+    base = settings.collection
+    names = [base, f"{base}__sources", f"{base}__targets"]
+    for target in ("conformance_candidate", "conformance_other"):
+        names += [f"{base}__t_{target}", f"{base}__t_{target}__sources"]
+    for name in names:
+        if await client.collection_exists(name):
+            await client.delete_collection(name)
+    await client.close()
+
+
 #: The two backends *this checkout* provisions, and the fixture's own return type.
 #:
 #: **It stays a union of concrete classes, and that is the point of the split.** Every assertion
@@ -667,17 +680,26 @@ async def test_a_hybrid_run_without_text_search_is_refused_before_any_stage_runs
     assert "'pgvector' (weft-store)" in message
 
 
-@pytest.fixture(params=("pgvector",))
+@pytest.fixture(params=("pgvector", "qdrant"))
 async def target_store(request: pytest.FixtureRequest) -> AsyncIterator[ConformanceStore]:
     """A store of each backend that holds targets, on storage no other test reads — `34.1`.
 
     A target check changes which target is live, and every other test on a shared database or
     collection reads whatever target is live, so each arm gets storage of its own: pgvector a
-    database created and dropped here by exact name, `approximate_store`'s precedent. Qdrant joins
-    the parameters at `34.5`.
+    database created and dropped here by exact name, `approximate_store`'s precedent; Qdrant a
+    collection prefix of its own (`34.5`), every collection under it dropped by exact name.
     """
     backend = cast(str, request.param)
-    assert backend == "pgvector"
+    if backend == "qdrant":
+        await _require_qdrant()
+        settings = _qdrant_settings()
+        qdrant = QdrantStore(settings)
+        try:
+            yield qdrant
+        finally:
+            await qdrant.aclose()
+            await _drop_targets(settings)
+        return
     await _require_postgres()
     name = f"weft_conformance_{uuid4().hex[:12]}"
     admin = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)

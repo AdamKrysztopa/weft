@@ -4748,3 +4748,19 @@ opens and refuses instead.
 
 **What to do:** drop the target and build it again from its corpus. If the target is live, promote
 or roll back to another target first, because a live target is not dropped.
+
+### `TargetCollectionMissingError`
+
+**What it looks like:** any read or write against a Qdrant target whose collection is gone:
+
+```text
+target 'w128' is catalogued, but its collection weft_nodes__t_w128 does not exist — something
+outside Weft deleted it, or a drop was interrupted. Weft will not recreate it empty. Drop the
+target and index it again.
+```
+
+**Why:** a Qdrant target is two collections. If one is missing, recreating it empty would make
+every query against the target answer "nothing found" instead of reporting a failure.
+
+**What to do:** drop the target and build it again from its corpus. If the target is live, promote
+or roll back to another target first.

@@ -64,12 +64,33 @@ three Protocols and imports none of them; `isinstance(store, VectorSearch)` at
 registration is what makes the capability true, per `docs/02-extension-model.md`
 → *The store contract family*. Nothing here writes a flag, which is exactly why
 the missing fourth tier cannot be faked.
+
+**`TargetHolding` arrives at task 34.5, with 34.2's Qdrant half.** `default` is exactly the
+pair this store has always written, `self._nodes`/`self._sources` — a collection pair
+written before targets existed reads as `default`, live, with no operator action. Any other
+target `<name>` is its own pair, `<collection>__t_<name>` and `<collection>__t_<name>__sources`;
+the live pointer and each target's claimed embedding identity are points in a third,
+vector-less collection, `<collection>__targets`, read once when an unbound handle opens and
+held for that handle's lifetime (owner decision Q-C) — `bind_target` gives a handle onto one
+target by name instead. **No alias is ever used, measured rather than assumed** (`34.0`,
+2026-09-22, Qdrant v1.12.4): creating an alias named like an existing collection is refused
+(`409 … already exists`) and nothing renames a collection, so `default` could only have become
+an alias after a window where its name resolved to nothing; and a write through an alias
+follows a mid-request switch, which would split one ingest across two targets. Every name here
+is a concrete collection instead. A bound, uncatalogued target creates nothing at open — its
+first `add()` or `put_source()` creates the pair, sized to the width of the first embedded
+vector that call carries rather than to `[packs.qdrant] vector_size`, which describes `default`
+alone; a read against it before that first write answers empty rather than touching Qdrant. A
+catalogued target whose collection has gone missing is refused by name
+(`TargetCollectionMissingError`) rather than silently recreated empty — Qdrant has no
+locking, so unlike `weft_store.pgvector_store`'s advisory lock this is the only refusal a
+missing target earns.
 """
 
 import asyncio
 from collections.abc import Mapping, Sequence
 from functools import partial
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, Final, Self, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from qdrant_client import AsyncQdrantClient, models
@@ -80,11 +101,15 @@ from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vecto
 from weft_qdrant.lexical import analyze, document_weights, query_weights
 from weft_qdrant.settings import DEFAULT_PAYLOAD_INDEXES, PayloadIndexType, QdrantSettings
 from weft_store.contract import (
+    DEFAULT_TARGET,
     Cursor,
+    EmbeddingIdentity,
     Filter,
     FilterOp,
     FilterValue,
+    NoPreviousTargetError,
     Page,
+    Promotion,
     ReconcileEstimate,
     ReconcileMode,
     ReconcileReport,
@@ -93,7 +118,12 @@ from weft_store.contract import (
     SourceRecord,
     SourceStatus,
     SupersedeNarrowsSourcesError,
+    TargetCatalogue,
+    TargetInUseError,
+    TargetName,
+    TargetRecord,
     UnhandledFilterOpError,
+    UnknownTargetError,
     VectorIndexKind,
     VectorPrecision,
     source_failure,
@@ -130,6 +160,24 @@ _LEXICAL = "lexical"
 #: lands on the same point in every deployment and a re-index overwrites rather than
 #: duplicates — `uuid5` is a digest, not a random id, which is the whole reason to use it.
 _ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://weft.invalid/qdrant/point-id")
+
+#: The namespace a target's catalogue point id is derived under — its own, distinct from
+#: `_ID_NAMESPACE`, because a target's name and a node's id are two different alphabets that
+#: happen to collide in nothing but the collection they would collide in if they shared one.
+_TARGET_ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://weft.invalid/qdrant/target-id")
+
+#: The live pointer's own point id — fixed, because there is exactly one pointer per catalogue
+#: collection, never one per target.
+_POINTER_POINT_ID: Final[str] = str(uuid5(_TARGET_ID_NAMESPACE, "__pointer__"))
+
+
+def _target_point_id(name: str) -> str:
+    """A target's catalogue point id, deterministic like `_point_id` — `uuid5` under
+    `_TARGET_ID_NAMESPACE` so re-claiming or re-promoting a target finds the same point rather
+    than accumulating a second one.
+    """
+    return str(uuid5(_TARGET_ID_NAMESPACE, name))
+
 
 #: Weft's own payload-index vocabulary, mapped onto the driver's — task **31.1**. A Weft-side
 #: enum rather than the client's `PayloadSchemaType` re-exported, per `QdrantSettings.
@@ -260,6 +308,18 @@ class QuantizationMismatchError(WeftError):
     """
 
 
+class TargetCollectionMissingError(WeftError):
+    """A catalogued target's own point exists, but one of its two collections does not.
+
+    Qdrant's sibling of `weft_store.pgvector_store.TargetTableMissingError` — the identical
+    measured hazard, on a backend with no `search_path` to fall through: something outside Weft
+    deleted the collection, or a `drop_target` was interrupted after removing one of the pair
+    and before the other. This store refuses by name rather than silently recreating an empty
+    collection, which would answer every later query "nothing found" instead of reporting the
+    corpus is gone.
+    """
+
+
 class QdrantStore:
     """Every tier of the store family over a Qdrant deployment, since ledger task 21.8.
 
@@ -287,13 +347,34 @@ class QdrantStore:
         "with this store's own cosine similarity"
     )
 
-    def __init__(self, settings: QdrantSettings, config: object = None) -> None:
+    def __init__(
+        self, settings: QdrantSettings, config: object = None, *, _bound: TargetName | None = None
+    ) -> None:
         del config  # nothing at the stage level this store needs — as with pgvector
         self._settings = settings
         self._nodes = settings.collection
         #: A collection rather than a table, because Qdrant has no second table inside one.
         self._sources = f"{settings.collection}__sources"
+        #: The catalogue — every target this store has ever written to, the live pointer, and
+        #: the embedding identity claimed against each. Its name never varies with the active
+        #: target: `target_catalogue` must read the same collection whichever pair a handle is
+        #: currently bound to.
+        self._catalogue = f"{settings.collection}__targets"
         self._client: AsyncQdrantClient | None = None
+        #: `None` on an unbound handle — see `_connection`, which reads the live target once and
+        #: holds it here for this handle's lifetime (owner decision Q-C, ledger task 34.3).
+        self._bound = _bound
+        #: This handle's own resolved target — `self._bound`, or the live target read at connect.
+        self._active_target: TargetName | None = None
+        #: Whether `self._nodes`/`self._sources` are known to exist. Always true for `default`
+        #: and for a catalogued target (refused by `TargetCollectionMissingError` otherwise);
+        #: false for a bound, uncatalogued target until its first `add`/`put_source` provisions
+        #: the pair — a read against it before that must not create anything (`34.5`, point 3).
+        self._provisioned = False
+        #: The width `self._nodes`' vector is committed to — `self._settings.vector_size` for
+        #: `default`, or a candidate's own first-write width once `_ensure_pair_provisioned` or
+        #: `_open_candidate` has read it. `None` only before either has run.
+        self._vector_width: int | None = None
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
@@ -358,6 +439,31 @@ class QdrantStore:
                 timeout=self._settings.timeout_seconds,
             )
         )
+        if not await client.collection_exists(self._catalogue):
+            # Vector-less, like `self._sources` — a catalogue point has nothing to be similar
+            # to either. Created here, before the live target is even read, so a database
+            # written before targets existed (no catalogue collection at all) gets one with
+            # nothing in it rather than failing to resolve `default` at all.
+            await client.create_collection(self._catalogue, vectors_config={})
+        target = self._bound if self._bound is not None else await self._read_live_target(client)
+        self._active_target = target
+        if target == DEFAULT_TARGET:
+            await self._open_default(client)
+            self._provisioned = True
+        else:
+            self._nodes = f"{self._settings.collection}__t_{target}"
+            self._sources = f"{self._settings.collection}__t_{target}__sources"
+            self._provisioned = await self._open_candidate(client, target)
+        self._client = client
+        return client
+
+    async def _open_default(self, client: AsyncQdrantClient) -> None:
+        """`default`'s own pair — exactly today's behaviour, unchanged by targets existing.
+
+        `self._nodes`/`self._sources` are already `self._settings.collection` and its
+        `__sources` sibling from `__init__`; this is the identical create-or-reconcile body
+        `_connection` ran unconditionally before ledger task **34.5**.
+        """
         if not await client.collection_exists(self._nodes):
             await client.create_collection(
                 self._nodes,
@@ -400,8 +506,181 @@ class QdrantStore:
             # No vectors at all: a source record has nothing to be similar to, and Qdrant
             # is content to hold a payload-only collection.
             await client.create_collection(self._sources, vectors_config={})
-        self._client = client
-        return client
+        self._vector_width = self._settings.vector_size
+
+    async def _open_candidate(self, client: AsyncQdrantClient, target: TargetName) -> bool:
+        """Resolve a non-default target at open: refuse by name if it is catalogued and one of
+        its collections is gone, verify and reconcile if both are there, or leave it alone —
+        `self._nodes`/`self._sources` are already set — for an uncatalogued target's first
+        write to provision.
+
+        Returns whether the pair is known to exist, which is exactly `self._provisioned`.
+        """
+        point = await self._catalogue_point(client, target)
+        if point is None:
+            return False
+        nodes_exists = await client.collection_exists(self._nodes)
+        sources_exists = await client.collection_exists(self._sources)
+        if not nodes_exists or not sources_exists:
+            missing = self._nodes if not nodes_exists else self._sources
+            raise TargetCollectionMissingError(
+                f"target {target!r} is catalogued, but its collection {missing} does not "
+                f"exist — something outside Weft deleted it, or a drop was interrupted. "
+                f"Weft will not recreate it empty. Drop the target and index it again.",
+                pack="weft-qdrant",
+            )
+        await self._refuse_if_schema_mismatch(client)
+        await self._reconcile_quantization(client)
+        await self._reconcile_payload_indexes(client)
+        self._vector_width = await self._read_committed_width(client)
+        return True
+
+    async def _ensure_pair_provisioned(
+        self, client: AsyncQdrantClient, width_hint: int | None
+    ) -> None:
+        """A non-default target's first write: create its pair and catalogue point.
+
+        A no-op once `self._provisioned` is true — every later `add`/`put_source` on this
+        handle reaches this and returns immediately. `width_hint` is the width of the first
+        embedded node `add` carries, when it carries one; `put_source` and an `add` with no
+        embedded node pass `None`, which falls back to `[packs.qdrant] vector_size` — the width
+        `default` is described by, and the only one an uncatalogued target has to go on when
+        its first write carries nothing to measure.
+        """
+        if self._provisioned:
+            return
+        width = width_hint if width_hint is not None else self._settings.vector_size
+        await client.create_collection(
+            self._nodes,
+            vectors_config={
+                _VECTOR: models.VectorParams(
+                    size=width,
+                    distance=models.Distance.COSINE,
+                    datatype=_datatype_for(self._settings.precision),
+                )
+            },
+            sparse_vectors_config={
+                _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
+            },
+            quantization_config=_quantization_config_for(self._settings.precision),
+            optimizers_config=(
+                models.OptimizersConfigDiff(indexing_threshold=self._settings.indexing_threshold)
+                if self._settings.indexing_threshold is not None
+                else None
+            ),
+        )
+        await self._reconcile_payload_indexes(client)
+        await client.create_collection(self._sources, vectors_config={})
+        await self._register_target_if_needed(client)
+        self._vector_width = width
+        self._provisioned = True
+
+    async def _read_committed_width(self, client: AsyncQdrantClient) -> int:
+        """The width `self._nodes`' vector is actually configured for, read off the collection
+        itself rather than assumed — a catalogued candidate's width is whatever its first write
+        committed to, which `[packs.qdrant] vector_size` does not necessarily name.
+        """
+        info = await client.get_collection(self._nodes)
+        vectors = cast("dict[str, models.VectorParams]", info.config.params.vectors)
+        return vectors[_VECTOR].size
+
+    def _committed_width(self) -> int:
+        """The width `self._nodes`' vector is committed to — `self._vector_width` once
+        `_connection` (and, for a candidate, its first write) has set it, or `vector_size` when
+        neither has: a store whose `_connection` a test double replaced entirely never sets
+        `self._vector_width` at all, and that is `default`'s own configured width regardless.
+        """
+        return self._vector_width if self._vector_width is not None else self._settings.vector_size
+
+    def _candidate_unprovisioned(self) -> bool:
+        """Whether this handle is bound to a non-default target whose pair does not exist yet —
+        the one state in which a write must provision before writing and a read must answer
+        empty rather than reach Qdrant (`34.5`, point 3).
+
+        `self._active_target is None` only when `_connection` was never really run — a test
+        double replacing it wholesale, as `tests/unit/weft_qdrant/test_store_batches_large_writes
+        .py` does — and that case must behave exactly as it always has: an ordinary, already
+        writable `default` handle, never a candidate awaiting its first write.
+        """
+        return (
+            self._active_target is not None
+            and self._active_target != DEFAULT_TARGET
+            and not self._provisioned
+        )
+
+    def _require_active_target(self) -> TargetName:
+        """`self._active_target`, narrowed — same guarantee and the same reason as
+        `_require_vector_width` above.
+        """
+        if self._active_target is None:
+            raise AssertionError("_connection() must run before _active_target is read")
+        return self._active_target
+
+    async def _read_live_target(self, client: AsyncQdrantClient) -> TargetName:
+        """The live target the pointer point names, or `DEFAULT_TARGET` when there is none yet
+        — `34.2`'s upgrade clause, held for this handle's lifetime by its one caller.
+        """
+        records = await client.retrieve(self._catalogue, ids=[_POINTER_POINT_ID], with_payload=True)
+        if not records or records[0].payload is None:
+            return DEFAULT_TARGET
+        return TargetName(cast(str, records[0].payload["live"]))
+
+    async def _catalogue_point(self, client: AsyncQdrantClient, name: str) -> models.Record | None:
+        """The one catalogue point recording `name`, or `None` if it has never been written —
+        the fact `_open_candidate` reads to decide "catalogued" and `claim_embedding` reads to
+        decide whether an identity is already held.
+        """
+        records = await client.retrieve(
+            self._catalogue, ids=[_target_point_id(name)], with_payload=True
+        )
+        return records[0] if records else None
+
+    async def _register_target_if_needed(self, client: AsyncQdrantClient) -> None:
+        """The catalogue point a non-default target earns on its first write — never on a bind,
+        never on a read, and never overwriting an identity `claim_embedding` already recorded.
+        `default` needs none: the catalogue lists it regardless (`target_catalogue` below).
+        """
+        target = self._active_target
+        if target is None or target == DEFAULT_TARGET:
+            return
+        if await self._catalogue_point(client, target) is not None:
+            return
+        await client.upsert(
+            self._catalogue,
+            points=[
+                models.PointStruct(
+                    id=_target_point_id(target),
+                    vector={},
+                    payload={"kind": "target", "name": target, "embedding": None},
+                )
+            ],
+            wait=True,
+        )
+
+    async def _catalogue_names(self, client: AsyncQdrantClient) -> tuple[str, ...]:
+        """Every target name the catalogue holds, `default` included — what a refusal naming
+        "the targets that exist" offers.
+        """
+        names: set[str] = {DEFAULT_TARGET}
+        offset: models.ExtendedPointId | None = None
+        while True:
+            records, next_offset = await client.scroll(
+                self._catalogue,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(key="kind", match=models.MatchValue(value="target"))
+                    ]
+                ),
+                limit=_PAGE_SIZE,
+                with_payload=True,
+                offset=offset,
+            )
+            for record in records:
+                if record.payload is not None:
+                    names.add(cast(str, record.payload["name"]))
+            if next_offset is None:
+                return tuple(sorted(names))
+            offset = cast("models.ExtendedPointId", next_offset)
 
     async def _refuse_if_schema_mismatch(self, client: AsyncQdrantClient) -> None:
         """Read the nodes collection's own layout and refuse before any point is touched.
@@ -524,6 +803,13 @@ class QdrantStore:
         if not nodes:
             return
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            # A bound, uncatalogued target's first write — `34.5`, point 3: sized to the first
+            # embedded node this call carries, or `vector_size` when none of them are embedded.
+            width_hint = next(
+                (len(node.embedding.values) for node in nodes if node.embedding is not None), None
+            )
+            await self._ensure_pair_provisioned(client, width_hint)
         for start in range(0, len(nodes), self._WRITE_BATCH):
             await self._add_batch(client, nodes[start : start + self._WRITE_BATCH])
 
@@ -572,11 +858,12 @@ class QdrantStore:
         vector: dict[str, list[float] | models.SparseVector] = {}
         if node.embedding is not None:
             values = list(node.embedding.values)
-            if len(values) != self._settings.vector_size:
+            committed = self._committed_width()
+            if len(values) != committed:
                 raise VectorWidthMismatchError(
                     f"node {node.id} carries a {len(values)}-component embedding and "
                     f"collection '{self._nodes}' was created for "
-                    f"{self._settings.vector_size}. A Qdrant collection's width is fixed at "
+                    f"{committed}. A Qdrant collection's width is fixed at "
                     f"creation and cannot be altered, so either [packs.qdrant] "
                     f"vector_size names the wrong width for the configured embedder, or "
                     f"this collection was written by a different one — re-index into a new "
@@ -620,6 +907,10 @@ class QdrantStore:
         if not ids:
             return ()
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            # A bound, uncatalogued target — `34.5`, point 3: a read here must not create the
+            # pair, and the honest answer is that it holds nothing yet.
+            return ()
         records = await client.retrieve(
             self._nodes,
             ids=[str(_point_id(node_id)) for node_id in ids],
@@ -829,6 +1120,8 @@ class QdrantStore:
         only a corpus larger than a page could reveal.
         """
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            return Page(items=(), next_cursor=None)
         records, offset = await client.scroll(
             self._nodes,
             scroll_filter=selector,
@@ -844,11 +1137,17 @@ class QdrantStore:
 
     async def count(self) -> int:
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            return 0
         counted = await client.count(self._nodes, exact=True)
         return counted.count
 
     async def put_source(self, record: SourceRecord) -> None:
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            # A bound, uncatalogued target's first write — `34.5`, point 3: `put_source` alone,
+            # with no embedded node to measure, falls back to `vector_size`.
+            await self._ensure_pair_provisioned(client, None)
         await client.upsert(
             self._sources,
             points=[
@@ -861,6 +1160,8 @@ class QdrantStore:
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            return None
         records = await client.retrieve(
             self._sources, ids=[str(_point_id(source_id))], with_payload=True
         )
@@ -875,6 +1176,8 @@ class QdrantStore:
         it is talking to.
         """
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            return ()
         found: list[SourceRecord] = []
         offset: models.ExtendedPointId | None = None
         while True:
@@ -897,6 +1200,8 @@ class QdrantStore:
         same thing.
         """
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            return []
         answered = await client.query_points(
             self._nodes,
             query=list(vector.values),
@@ -937,6 +1242,8 @@ class QdrantStore:
         if not weights:
             return []
         client = await self._connection()
+        if self._candidate_unprovisioned():
+            return []
         query = models.SparseVector(indices=list(weights.keys()), values=list(weights.values()))
         answered = await client.query_points(
             self._nodes,
@@ -960,6 +1267,159 @@ class QdrantStore:
         if self._client is not None:
             await self._client.close()
             self._client = None
+
+    # -- TargetHolding — ledger task **34.5**, with `34.2`'s Qdrant half ---------------------
+
+    async def target_catalogue(self) -> TargetCatalogue:
+        client = await self._connection()
+        pointer = await client.retrieve(self._catalogue, ids=[_POINTER_POINT_ID], with_payload=True)
+        payload = pointer[0].payload if pointer and pointer[0].payload is not None else None
+        live = TargetName(cast(str, payload["live"])) if payload is not None else DEFAULT_TARGET
+        previous = cast("str | None", payload.get("previous")) if payload is not None else None
+        promotion_json = payload.get("promotion") if payload is not None else None
+        promotion = Promotion.model_validate(promotion_json) if promotion_json is not None else None
+        embeddings: dict[str, EmbeddingIdentity | None] = {DEFAULT_TARGET: None}
+        offset: models.ExtendedPointId | None = None
+        while True:
+            records, next_offset = await client.scroll(
+                self._catalogue,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(key="kind", match=models.MatchValue(value="target"))
+                    ]
+                ),
+                limit=_PAGE_SIZE,
+                with_payload=True,
+                offset=offset,
+            )
+            for record in records:
+                if record.payload is None:
+                    continue
+                name = cast(str, record.payload["name"])
+                identity_json = record.payload.get("embedding")
+                embeddings[name] = (
+                    EmbeddingIdentity.model_validate(identity_json)
+                    if identity_json is not None
+                    else None
+                )
+            if next_offset is None:
+                break
+            offset = cast("models.ExtendedPointId", next_offset)
+        records_out = tuple(
+            TargetRecord(name=name, embedding=embeddings[name]) for name in sorted(embeddings)
+        )
+        return TargetCatalogue(
+            live=live, previous=previous, targets=records_out, promotion=promotion
+        )
+
+    async def bind_target(self, target: TargetName) -> Self:
+        """A second handle onto the same deployment, bound to `target` — its own client,
+        opened lazily on first use exactly as an unbound handle's is.
+        """
+        return type(self)(self._settings, _bound=target)
+
+    async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        client = await self._connection()
+        target = self._require_active_target()
+        point = await self._catalogue_point(client, target)
+        held = point.payload.get("embedding") if point is not None and point.payload else None
+        if held is not None:
+            return EmbeddingIdentity.model_validate(held)
+        await client.upsert(
+            self._catalogue,
+            points=[
+                models.PointStruct(
+                    id=_target_point_id(target),
+                    vector={},
+                    payload={
+                        "kind": "target",
+                        "name": target,
+                        "embedding": identity.model_dump(mode="json"),
+                    },
+                )
+            ],
+            wait=True,
+        )
+        return identity
+
+    async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        client = await self._connection()
+        if promotion.target != DEFAULT_TARGET and (
+            await self._catalogue_point(client, promotion.target) is None
+        ):
+            raise UnknownTargetError(
+                promotion.target, valid_options=await self._catalogue_names(client)
+            )
+        old_live = await self._read_live_target(client)
+        await client.upsert(
+            self._catalogue,
+            points=[
+                models.PointStruct(
+                    id=_POINTER_POINT_ID,
+                    vector={},
+                    payload={
+                        "kind": "pointer",
+                        "live": promotion.target,
+                        "previous": old_live,
+                        "promotion": promotion.model_dump(mode="json"),
+                    },
+                )
+            ],
+            wait=True,
+        )
+        return await self.target_catalogue()
+
+    async def rollback(self) -> TargetCatalogue:
+        client = await self._connection()
+        pointer = await client.retrieve(self._catalogue, ids=[_POINTER_POINT_ID], with_payload=True)
+        payload = pointer[0].payload if pointer and pointer[0].payload is not None else None
+        live = TargetName(cast(str, payload["live"])) if payload is not None else DEFAULT_TARGET
+        previous = cast("str | None", payload.get("previous")) if payload is not None else None
+        if previous is None:
+            raise NoPreviousTargetError(live)
+        # `promotion` is carried over unchanged — the record of the last `promote` call, not
+        # reset by a `rollback`, matching `weft_store.pgvector_store.PgVectorStore.rollback`.
+        promotion_json = payload.get("promotion") if payload is not None else None
+        await client.upsert(
+            self._catalogue,
+            points=[
+                models.PointStruct(
+                    id=_POINTER_POINT_ID,
+                    vector={},
+                    payload={
+                        "kind": "pointer",
+                        "live": previous,
+                        "previous": live,
+                        "promotion": promotion_json,
+                    },
+                )
+            ],
+            wait=True,
+        )
+        return await self.target_catalogue()
+
+    async def drop_target(self, target: TargetName) -> None:
+        client = await self._connection()
+        catalogue = await self.target_catalogue()
+        known = {record.name for record in catalogue.targets}
+        if target != DEFAULT_TARGET and target not in known:
+            raise UnknownTargetError(target, valid_options=tuple(sorted(known)))
+        if target == catalogue.live or target == catalogue.previous:
+            raise TargetInUseError(target)
+        base = self._settings.collection
+        if target == DEFAULT_TARGET:
+            nodes, sources = base, f"{base}__sources"
+        else:
+            nodes, sources = f"{base}__t_{target}", f"{base}__t_{target}__sources"
+        for name in (nodes, sources):
+            if await client.collection_exists(name):
+                await client.delete_collection(name)
+        # A no-op if `target` never earned a catalogue point — `default` usually has none.
+        await client.delete(
+            self._catalogue,
+            points_selector=models.PointIdsList(points=[_target_point_id(target)]),
+            wait=True,
+        )
 
 
 #: The nine operators that reach a single leaf condition rather than combining others —
