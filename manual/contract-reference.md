@@ -1098,7 +1098,7 @@ async def assess(
 ## `TargetHolding`
 
 **Module:** `weft_store.contract`  
-**Registered by:** —  
+**Registered by:** `weft-rag`  
 **Version:** `2.9.0`
 
 A store that holds named, complete targets, one of them live — ledger task **34.3**,

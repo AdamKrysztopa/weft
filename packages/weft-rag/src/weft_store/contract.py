@@ -1183,13 +1183,20 @@ class UnknownTargetError(WeftError, UnresolvedNameError):
 
 class TargetInUseError(WeftError):
     """`target` cannot be dropped: it is the live target or the previous one, and a rollback
-    needs both to still be there.
+    needs both to still be there — or, `reason` given, some other handle is still using it.
+
+    `reason` is optional so the default message stays exactly what it was before task **34.1**
+    added it: a store that has no second way for a target to be "in use" never has to pass one.
     """
 
-    def __init__(self, target: str) -> None:
+    def __init__(self, target: str, *, reason: str | None = None) -> None:
         super().__init__(
-            f"{target!r} cannot be dropped — it is the live target or the previous one, which "
-            "a rollback needs"
+            f"{target!r} cannot be dropped — "
+            + (
+                reason
+                if reason is not None
+                else "it is the live target or the previous one, which a rollback needs"
+            )
         )
         self.target = target
 

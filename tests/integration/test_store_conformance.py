@@ -85,30 +85,40 @@ from weft_store.conformance import (
     ReconcilableStore,
     SearchableStore,
     SupersedableStore,
+    TargetHoldingStore,
     TextSearchableStore,
     check_a_deleted_nodes_productions_do_not_outlive_it,
     check_a_derived_node_and_a_collided_one_are_told_apart_in_the_same_store,
     check_a_field_no_node_can_have_is_refused_by_name_on_either_backend,
     check_a_filter_reaches_vector_search_rather_than_being_ignored,
     check_a_filtered_search_returns_top_k_in_the_approximate_regime,
+    check_a_fresh_store_has_one_live_target_named_default,
     check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext,
     check_a_node_two_documents_each_produced_whole_is_narrowed_not_deleted,
     check_a_node_written_twice_by_one_document_is_one_production_not_two,
     check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything,
     check_a_parent_is_one_filter_away_from_its_child_on_either_backend,
     check_a_parents_children_within_an_ordinal_range_are_one_filter_away,
+    check_a_source_record_belongs_to_the_target_it_was_written_into,
     check_a_source_record_round_trips_and_is_listed,
+    check_a_target_is_created_by_its_first_write_and_isolated_from_every_other,
+    check_a_target_name_outside_the_grammar_is_refused_by_name,
     check_add_merges_a_nodes_sources_rather_than_replacing_them,
     check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend,
     check_delete_source_removes_exactly_the_nodes_carrying_it,
     check_deleting_a_failed_source_removes_it_like_any_other,
     check_deleting_the_last_document_that_produced_a_node_deletes_it,
+    check_drop_refuses_a_target_that_does_not_exist_naming_those_that_do,
+    check_drop_refuses_the_live_and_previous_targets_and_removes_another,
     check_estimate_counts_the_identical_tombstones_reconcile_itself_examines,
     check_estimate_reports_zero_model_calls_on_either_backend,
     check_every_operator_means_the_same_thing_to_both_backends,
+    check_promote_makes_a_target_live_and_rollback_restores_the_previous_one,
+    check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do,
     check_reconcile_finishes_a_deletion_that_was_interrupted,
     check_reconcile_leaves_a_healthy_store_alone_on_either_backend,
     check_reconcile_neither_deletes_nor_clears_a_failed_source,
+    check_rollback_with_nothing_to_roll_back_to_is_refused,
     check_scan_and_count_see_every_stored_node_whatever_order_a_backend_walks_in,
     check_search_text_answers_nothing_matching_with_an_empty_ranking,
     check_search_text_finds_the_node_that_carries_the_words,
@@ -117,6 +127,7 @@ from weft_store.conformance import (
     check_supersede_is_idempotent_so_an_interrupted_one_can_be_retried,
     check_supersede_refuses_a_replacement_that_drops_a_source,
     check_supersede_replaces_a_node_and_leaves_its_neighbours_alone,
+    check_the_first_embedding_identity_claimed_is_the_one_a_target_keeps,
     check_the_multimodal_facts_round_trip_through_every_store,
     check_writing_a_node_again_under_its_id_replaces_its_ext,
     conformance_corpus,
@@ -654,3 +665,92 @@ async def test_a_hybrid_run_without_text_search_is_refused_before_any_stage_runs
     message = str(raised.value)
     assert "TextSearch" in message
     assert "'pgvector' (weft-store)" in message
+
+
+@pytest.fixture(params=("pgvector",))
+async def target_store(request: pytest.FixtureRequest) -> AsyncIterator[ConformanceStore]:
+    """A store of each backend that holds targets, on storage no other test reads — `34.1`.
+
+    A target check changes which target is live, and every other test on a shared database or
+    collection reads whatever target is live, so each arm gets storage of its own: pgvector a
+    database created and dropped here by exact name, `approximate_store`'s precedent. Qdrant joins
+    the parameters at `34.5`.
+    """
+    backend = cast(str, request.param)
+    assert backend == "pgvector"
+    await _require_postgres()
+    name = f"weft_conformance_{uuid4().hex[:12]}"
+    admin = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+    async with admin.cursor() as cur:
+        await cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    dsn = f"{_DSN.rsplit('/', 1)[0]}/{name}"
+    pg = PgVectorStore(PgVectorSettings(dsn=SecretStr(dsn)))
+    try:
+        yield pg
+    finally:
+        await pg.aclose()
+        async with admin.cursor() as cur:
+            await cur.execute(
+                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+            )
+        await admin.close()
+
+
+async def test_a_fresh_store_has_one_live_target_named_default(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_a_fresh_store_has_one_live_target_named_default(target_store)
+
+
+async def test_a_target_is_created_by_its_first_write_and_isolated_from_every_other(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_a_target_is_created_by_its_first_write_and_isolated_from_every_other(target_store)
+
+
+async def test_a_source_record_belongs_to_the_target_it_was_written_into(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_a_source_record_belongs_to_the_target_it_was_written_into(target_store)
+
+
+async def test_promote_makes_a_target_live_and_rollback_restores_the_previous_one(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_promote_makes_a_target_live_and_rollback_restores_the_previous_one(target_store)
+
+
+async def test_promote_refuses_a_target_that_does_not_exist_naming_those_that_do(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do(target_store)
+
+
+async def test_rollback_with_nothing_to_roll_back_to_is_refused(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_rollback_with_nothing_to_roll_back_to_is_refused(target_store)
+
+
+async def test_drop_refuses_the_live_and_previous_targets_and_removes_another(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_drop_refuses_the_live_and_previous_targets_and_removes_another(target_store)
+
+
+async def test_drop_refuses_a_target_that_does_not_exist_naming_those_that_do(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_drop_refuses_a_target_that_does_not_exist_naming_those_that_do(target_store)
+
+
+async def test_the_first_embedding_identity_claimed_is_the_one_a_target_keeps(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_the_first_embedding_identity_claimed_is_the_one_a_target_keeps(target_store)
+
+
+async def test_a_target_name_outside_the_grammar_is_refused_by_name(
+    target_store: TargetHoldingStore,
+) -> None:
+    await check_a_target_name_outside_the_grammar_is_refused_by_name(target_store)

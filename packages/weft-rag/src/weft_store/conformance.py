@@ -1788,6 +1788,12 @@ async def check_drop_refuses_the_live_and_previous_targets_and_removes_another(
     await candidate.add(conformance_corpus()[:1])
     await other.add(conformance_corpus()[1:2])
     await store.promote(_promotion(_CANDIDATE))
+    # A store may refuse to drop a target an open handle still holds — pgvector does, because the
+    # handle's next statement would reach `default`'s tables — so the writer lets go first.
+    # `aclose` is read off the handle, never a contract member, as `weft_kernel.seam.aclose` does.
+    close = getattr(other, "aclose", None)
+    if close is not None:
+        await close()
 
     # Act / Assert
     for protected in (_CANDIDATE, DEFAULT_TARGET):

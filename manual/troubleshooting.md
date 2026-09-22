@@ -4728,3 +4728,23 @@ candidate beside the live index.
 
 **What to do:** leave out `--target` to use the store as it is, or switch to a store that holds
 targets. The published conformance kit's target checks show whether a store does.
+
+### `TargetTableMissingError`
+
+**What it looks like:** any read or write against a pgvector target whose schema has lost a table:
+
+```text
+target 'w128' is catalogued, but its table weft_nodes is missing from schema weft_target_w128 —
+something outside Weft dropped it, or a drop was interrupted. Weft will not recreate it empty or
+read another target's table in its place. Drop the target and index it again.
+```
+
+**Why:** each pgvector target is a Postgres schema, and the store finds its tables through
+`search_path`, with the schema that holds the `vector` extension, usually `public`, after the
+target's own schema. If a target table goes missing, Postgres would quietly resolve the name to
+the table of the same name in `public`, which belongs to the `default` target. The query would
+then answer from the wrong corpus without any error. The store checks each table's schema when it
+opens and refuses instead.
+
+**What to do:** drop the target and build it again from its corpus. If the target is live, promote
+or roll back to another target first, because a live target is not dropped.
