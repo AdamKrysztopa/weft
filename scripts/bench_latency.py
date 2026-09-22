@@ -215,7 +215,7 @@ class LatencyRun(BaseModel):
 # The driving half: not unit-tested, run against a real database by the dispatcher.
 # ---------------------------------------------------------------------------------------------
 
-#: The statement `weft_store/pgvector_store.py:1872 "embedding <=> %(vector)s AS distance"`
+#: The statement `weft_store/pgvector_store.py:1789 "embedding <=> %(vector)s AS distance"`
 #: sends for `search_vector` with `filter=None`, which `_predicate_or_true` renders as `TRUE`.
 _SEARCH_VECTOR_SQL = sql.SQL(
     "SELECT *, embedding <=> %(vector)s AS distance "

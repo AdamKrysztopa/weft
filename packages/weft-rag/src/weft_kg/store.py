@@ -34,21 +34,17 @@ of evidence that named it in a single `UPDATE`, and deletes nothing. `put_entity
 alias id it upserted, not the entity id — `weft_kg.traversal.GraphWalk` is what resolves an alias
 to the canonical entity a caller asks about.
 
-**`TargetHolding` arrives at task 34.11, mirroring `weft_store.pgvector_store.PgVectorStore`'s
-own target machinery (`34.1`) exactly, in this pack's own alphabet.** `default` is the pre-target
-`kg_*` tables where they already are; a target `<name>` is schema `kg_target_<name>` on the
-graph dsn, entered by `SET search_path = kg_target_<name>, <home schema>` right after connect, so
-every one of this module's ~176 unqualified `kg_*` statements keeps meaning "the active target's
-own table" with no rewrite. The catalogue — `kg_targets` and `kg_live_target`, the vector store's
-`weft_targets`/`weft_live_target` under this pack's own names, never the same names, because the
-graph dsn may point at the same database as the node store's and each participant keeps its own
-pointer — lives schema-qualified in the home schema regardless of which target's schema is
-currently on the path. A catalogued target whose schema or any `kg_*` table has gone missing is
-refused by name (`GraphTargetTableMissingError`) rather than silently re-provisioned empty or read
-through to `default`'s table of the same name, and a shared advisory lock on `'kg_target:' ||
-name` — distinct from pgvector's own key — is held for the connection's lifetime by every handle
-bound to a non-default target. `weft_kg.traversal.GraphWalk` reads whichever target is live when
-it opens and holds that target for its own connection's lifetime; it does not bind to one by name.
+**`TargetHolding` arrives at task 34.11, over the identical mechanics `weft_store.pg_targets`
+gives `weft_store.pgvector_store.PgVectorStore` at task 34.1** — the schema-per-target design,
+the catalogue tables, the advisory lock, and refusing a catalogued target whose table has gone
+missing rather than silently re-provisioning it empty or reading through to `default`'s table of
+the same name; see that module's own docstring for the reasoning. This pack supplies its own
+naming through a `PgTargetLayout`: schema prefix `kg_target_`, catalogue tables `kg_targets` and
+`kg_live_target`, lock-key prefix `kg_target:` — distinct from pgvector's own names throughout,
+because the graph dsn may point at the same database as the node store's and each participant
+keeps its own pointer — and `GraphTargetTableMissingError` as the missing-table refusal.
+`weft_kg.traversal.GraphWalk` reads whichever target is live when it opens and holds that target
+for its own connection's lifetime; it does not bind to one by name.
 """
 
 import asyncio
@@ -60,7 +56,6 @@ from typing import Any, Final, NewType, Self, cast
 import psycopg
 from pgvector import Vector as PgVector
 from pgvector.psycopg import register_vector_async
-from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
@@ -84,10 +79,8 @@ from weft_llm.contract import LLM
 from weft_prompts.cascade import execute as cascade_execute
 from weft_prompts.contract import Prompt
 from weft_store.contract import (
-    DEFAULT_TARGET,
     Cursor,
     EmbeddingIdentity,
-    NoPreviousTargetError,
     Page,
     Promotion,
     ReconcileEstimate,
@@ -97,13 +90,18 @@ from weft_store.contract import (
     SourceRecord,
     SourceStatus,
     TargetCatalogue,
-    TargetInUseError,
     TargetName,
-    TargetRecord,
-    UnknownTargetError,
     source_failure,
     source_status,
 )
+from weft_store.pg_targets import PgTargetLayout
+from weft_store.pg_targets import claim_embedding as _pg_claim_embedding
+from weft_store.pg_targets import drop_target as _pg_drop_target
+from weft_store.pg_targets import promote as _pg_promote
+from weft_store.pg_targets import register_target_if_needed as _pg_register_target_if_needed
+from weft_store.pg_targets import resolve_active_target as _pg_resolve_active_target
+from weft_store.pg_targets import rollback as _pg_rollback
+from weft_store.pg_targets import target_catalogue as _pg_target_catalogue
 from weft_store.rehydrate import rehydrate_ext
 
 _PAGE_SIZE = 100
@@ -1730,36 +1728,7 @@ class GraphStore:
 
     async def target_catalogue(self) -> TargetCatalogue:
         conn = await self._connection()
-        home_schema = self._require_home_schema()
-        async with conn.cursor() as cur:
-            await cur.execute(
-                sql.SQL("SELECT live, previous, promotion FROM {}").format(
-                    _home_table(home_schema, "kg_live_target")
-                )
-            )
-            live_row = await cur.fetchone()
-            await cur.execute(
-                sql.SQL("SELECT name, embedding FROM {} ORDER BY name").format(
-                    _home_table(home_schema, "kg_targets")
-                )
-            )
-            target_rows = await cur.fetchall()
-        live = TargetName(cast(str, live_row["live"])) if live_row is not None else DEFAULT_TARGET
-        previous = live_row["previous"] if live_row is not None else None
-        promotion_json = live_row["promotion"] if live_row is not None else None
-        promotion = Promotion.model_validate(promotion_json) if promotion_json is not None else None
-        names = {DEFAULT_TARGET, *(cast(str, row["name"]) for row in target_rows)}
-        embeddings = {cast(str, row["name"]): row["embedding"] for row in target_rows}
-        records = tuple(
-            TargetRecord(
-                name=name,
-                embedding=EmbeddingIdentity.model_validate(embeddings[name])
-                if embeddings.get(name) is not None
-                else None,
-            )
-            for name in sorted(names)
-        )
-        return TargetCatalogue(live=live, previous=previous, targets=records, promotion=promotion)
+        return await _pg_target_catalogue(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def bind_target(self, target: TargetName) -> Self:
         """A second handle onto the same database, bound to `target` — its own connection,
@@ -1769,25 +1738,13 @@ class GraphStore:
 
     async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
         conn = await self._connection()
-        home_schema = self._require_home_schema()
-        target = self._require_active_target()
-        async with conn.cursor() as cur:
-            await cur.execute(
-                sql.SQL(
-                    "INSERT INTO {} (name, embedding) VALUES (%(name)s, %(embedding)s) "
-                    "ON CONFLICT (name) DO UPDATE SET "
-                    "embedding = COALESCE({}.embedding, EXCLUDED.embedding) "
-                    "RETURNING embedding"
-                ).format(
-                    _home_table(home_schema, "kg_targets"),
-                    _home_table(home_schema, "kg_targets"),
-                ),
-                {"name": target, "embedding": Jsonb(identity.model_dump(mode="json"))},
-            )
-            row = await cur.fetchone()
-        if row is None:
-            raise AssertionError("INSERT ... RETURNING must return exactly one row")
-        return EmbeddingIdentity.model_validate(row["embedding"])
+        return await _pg_claim_embedding(
+            _TARGET_LAYOUT,
+            conn,
+            self._require_home_schema(),
+            self._require_active_target(),
+            identity,
+        )
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
         """Promoting the target that is already live is a no-op: `previous` is never rewritten to
@@ -1795,132 +1752,22 @@ class GraphStore:
         operator needs intact.
         """
         conn = await self._connection()
-        home_schema = self._require_home_schema()
-        async with conn.transaction(), conn.cursor() as cur:
-            if promotion.target != DEFAULT_TARGET:
-                await cur.execute(
-                    sql.SQL("SELECT name FROM {} WHERE name = %s FOR SHARE").format(
-                        _home_table(home_schema, "kg_targets")
-                    ),
-                    (promotion.target,),
-                )
-                if await cur.fetchone() is None:
-                    raise UnknownTargetError(
-                        promotion.target,
-                        valid_options=await self._catalogue_names(cur, home_schema),
-                    )
-            await cur.execute(
-                sql.SQL("SELECT live FROM {}").format(_home_table(home_schema, "kg_live_target"))
-            )
-            current = await cur.fetchone()
-            old_live = TargetName(cast(str, current["live"])) if current else DEFAULT_TARGET
-            if old_live == promotion.target:
-                return await self.target_catalogue()
-            await cur.execute(
-                sql.SQL(
-                    "INSERT INTO {} (singleton, live, previous, promotion) "
-                    "VALUES (true, %(live)s, %(previous)s, %(promotion)s) "
-                    "ON CONFLICT (singleton) DO UPDATE SET "
-                    "live = EXCLUDED.live, previous = EXCLUDED.previous, "
-                    "promotion = EXCLUDED.promotion"
-                ).format(_home_table(home_schema, "kg_live_target")),
-                {
-                    "live": promotion.target,
-                    "previous": old_live,
-                    "promotion": Jsonb(promotion.model_dump(mode="json")),
-                },
-            )
-        return await self.target_catalogue()
+        return await _pg_promote(_TARGET_LAYOUT, conn, self._require_home_schema(), promotion)
 
     async def rollback(self) -> TargetCatalogue:
         conn = await self._connection()
-        home_schema = self._require_home_schema()
-        async with conn.transaction(), conn.cursor() as cur:
-            await cur.execute(
-                sql.SQL("SELECT live, previous FROM {}").format(
-                    _home_table(home_schema, "kg_live_target")
-                )
-            )
-            current = await cur.fetchone()
-            live = TargetName(cast(str, current["live"])) if current else DEFAULT_TARGET
-            previous = current["previous"] if current else None
-            if previous is None:
-                raise NoPreviousTargetError(live)
-            await cur.execute(
-                sql.SQL("UPDATE {} SET live = %(live)s, previous = %(previous)s").format(
-                    _home_table(home_schema, "kg_live_target")
-                ),
-                {"live": previous, "previous": live},
-            )
-        return await self.target_catalogue()
+        return await _pg_rollback(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def drop_target(self, target: TargetName) -> None:
         conn = await self._connection()
-        home_schema = self._require_home_schema()
-        catalogue = await self.target_catalogue()
-        known = {record.name for record in catalogue.targets}
-        if target != DEFAULT_TARGET and target not in known:
-            raise UnknownTargetError(target, valid_options=tuple(sorted(known)))
-        if target == catalogue.live or target == catalogue.previous:
-            raise TargetInUseError(target)
-        locked = target == DEFAULT_TARGET
-        if not locked:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT pg_try_advisory_lock(hashtext(%s)) AS acquired", (_lock_key(target),)
-                )
-                row = await cur.fetchone()
-                locked = bool(row["acquired"]) if row is not None else False
-            if not locked:
-                raise TargetInUseError(target, reason="another connection is bound to it")
-        try:
-            async with conn.transaction(), conn.cursor() as cur:
-                if target == DEFAULT_TARGET:
-                    for table in _TARGET_TABLES:
-                        await cur.execute(
-                            sql.SQL("DROP TABLE IF EXISTS {} CASCADE").format(
-                                _home_table(home_schema, table)
-                            )
-                        )
-                else:
-                    await cur.execute(
-                        sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(_target_schema(target))
-                    )
-                await cur.execute(
-                    sql.SQL("DELETE FROM {} WHERE name = %s").format(
-                        _home_table(home_schema, "kg_targets")
-                    ),
-                    (target,),
-                )
-        finally:
-            if target != DEFAULT_TARGET:
-                async with conn.cursor() as cur:
-                    await cur.execute(
-                        "SELECT pg_advisory_unlock(hashtext(%s))", (_lock_key(target),)
-                    )
-
-    async def _catalogue_names(
-        self, cur: "psycopg.AsyncCursor[dict[str, Any]]", home_schema: str
-    ) -> tuple[str, ...]:
-        await cur.execute(
-            sql.SQL("SELECT name FROM {}").format(_home_table(home_schema, "kg_targets"))
-        )
-        rows = await cur.fetchall()
-        return tuple(sorted({DEFAULT_TARGET, *(cast(str, row["name"]) for row in rows)}))
+        await _pg_drop_target(_TARGET_LAYOUT, conn, self._require_home_schema(), target)
 
     async def _register_target_if_needed(self, cur: "psycopg.AsyncCursor[dict[str, Any]]") -> None:
         """The catalogue row a non-default target earns on its first write — never on a bind,
         never on a read. `default` needs none: the catalogue lists it regardless.
         """
-        target = self._active_target
-        home_schema = self._home_schema
-        if target is None or target == DEFAULT_TARGET or home_schema is None:
-            return
-        await cur.execute(
-            sql.SQL("INSERT INTO {} (name) VALUES (%s) ON CONFLICT (name) DO NOTHING").format(
-                _home_table(home_schema, "kg_targets")
-            ),
-            (target,),
+        await _pg_register_target_if_needed(
+            _TARGET_LAYOUT, cur, target=self._active_target, home_schema=self._home_schema
         )
 
     def _require_home_schema(self) -> str:
@@ -2148,82 +1995,28 @@ def _bridge_candidate_of(row: Mapping[str, object]) -> BridgeCandidate:
 
 # --- Targets: one schema per target, reached through `search_path` — ledger task **34.11** -------
 #
-# Grouped at the end of the module for the identical reason `weft_store.pgvector_store`'s own
-# Targets section is (see that module's own note): no citation in this tree names a line number in
-# this file yet (`git grep 'weft_kg/store.py:[0-9]'` finds none), so there is nothing here for new
-# names to shift out from under, but the convention is kept regardless.
-
-
-def _target_schema(target: TargetName) -> sql.Identifier:
-    """A target's own schema — `kg_target_<name>`, composed with `sql.Identifier` rather than
-    string formatting, never interpolated from anything but a `TargetName`, which
-    `weft_store.contract.target_name` has already checked against a closed grammar before a
-    caller ever reaches this store.
-    """
-    return sql.Identifier(f"kg_target_{target}")
-
-
-def _home_table(home_schema: str, table: str) -> sql.Composed:
-    """`<home_schema>.<table>`, composed of two `sql.Identifier`s — every catalogue statement's
-    own qualification, so a candidate's `search_path` never decides which `kg_targets` a
-    catalogue read means.
-    """
-    return sql.SQL(".").join([sql.Identifier(home_schema), sql.Identifier(table)])
-
-
-def _lock_key(target: TargetName) -> str:
-    """What `hashtext()` turns into this target's advisory lock key.
-
-    `'kg_target:' || name`, distinct from `weft_store.pgvector_store`'s own `'weft_target:' ||
-    name` — this pack's own graph dsn may name the same database the node store's does, so the
-    two packs' locks must never collide on the same key.
-    """
-    return f"kg_target:{target}"
-
-
-def _create_targets_table_sql(home_schema: str) -> sql.Composed:
-    """`kg_targets`: every target this store has ever written to, and the embedding identity
-    claimed against it, if any — `weft_store.pgvector_store`'s `weft_targets`, in this pack's own
-    alphabet rather than sharing that name, since the two catalogues may live in one database.
-    `default` needs no row here — `target_catalogue` lists it regardless — so this table only
-    ever holds a target `bind_target` was asked for by name.
-    """
-    return sql.SQL(
-        "CREATE TABLE IF NOT EXISTS {} ("
-        "name TEXT PRIMARY KEY, embedding JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
-    ).format(_home_table(home_schema, "kg_targets"))
-
-
-def _create_live_target_table_sql(home_schema: str) -> sql.Composed:
-    """`kg_live_target`: the one row naming which target is live, which was live before that,
-    and the `Promotion` that made it so. `singleton` is checked rather than merely a primary key
-    of one value, so a second row is refused by the schema itself rather than by convention.
-    """
-    return sql.SQL(
-        "CREATE TABLE IF NOT EXISTS {} ("
-        "singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton), "
-        "live TEXT NOT NULL, previous TEXT, promotion JSONB)"
-    ).format(_home_table(home_schema, "kg_live_target"))
+# The mechanics live in `weft_store.pg_targets`, shared with `weft_store.pgvector_store.
+# PgVectorStore` (task **34.1**) — this pack's own contribution is `_TARGET_LAYOUT` below, naming
+# this pack's tables, prefixes and refusal, and `GraphTargetTableMissingError`, kept a sibling
+# class rather than a shared one because nothing else in this tree imports one pack's backend
+# module from another's.
 
 
 class GraphTargetTableMissingError(WeftError):
     """A catalogued target's schema is missing one of its `kg_*` tables.
 
     The identical hazard `weft_store.pgvector_store.TargetTableMissingError` closes for the
-    vector store — a sibling class rather than a shared one, because nothing else in this tree
-    imports one pack's backend module from another's; every existing cross-pack import in this
-    tree reaches `weft_store.contract`, never `weft_store.pgvector_store` directly. With
-    `search_path = kg_target_x, <home>`, an unqualified `kg_nodes` missing from `kg_target_x`
-    resolves silently to `<home>.kg_nodes`, which is `default`'s. This store checks every
-    catalogued target's tables when a handle first connects to it and refuses by name instead of
-    ever falling through to another target's data.
+    vector store. With `search_path = kg_target_x, <home>`, an unqualified `kg_nodes` missing
+    from `kg_target_x` resolves silently to `<home>.kg_nodes`, which is `default`'s. This store
+    checks every catalogued target's tables when a handle first connects to it and refuses by
+    name instead of ever falling through to another target's data.
     """
 
 
 #: Every table `provision_schema` creates inside whichever schema is active — what
-#: `_verify_target_tables` checks for on a catalogued target, and what `GraphStore.drop_target`
-#: removes when the target being dropped is `default` (a non-default target is one `DROP SCHEMA
-#: ... CASCADE`, so it needs no per-table list).
+#: `weft_store.pg_targets.verify_target_tables` checks for on a catalogued target, and what
+#: `GraphStore.drop_target` removes when the target being dropped is `default` (a non-default
+#: target is one `DROP SCHEMA ... CASCADE`, so it needs no per-table list).
 _TARGET_TABLES: Final[tuple[str, ...]] = (
     "kg_nodes",
     "kg_node_productions",
@@ -2236,78 +2029,16 @@ _TARGET_TABLES: Final[tuple[str, ...]] = (
     "kg_active_schema",
 )
 
-
-async def _read_live_target(
-    conn: "psycopg.AsyncConnection[dict[str, Any]]", home_schema: str
-) -> TargetName:
-    """The live target `kg_live_target` names, or `DEFAULT_TARGET` when it holds no row yet — the
-    upgrade clause: a graph database written before targets existed reads as `default`, live,
-    with no operator action.
-    """
-    async with conn.cursor() as cur:
-        await cur.execute(
-            sql.SQL("SELECT live FROM {}").format(_home_table(home_schema, "kg_live_target"))
-        )
-        row = await cur.fetchone()
-    return TargetName(cast(str, row["live"])) if row is not None else DEFAULT_TARGET
-
-
-async def _verify_target_tables(
-    conn: "psycopg.AsyncConnection[dict[str, Any]]", target: TargetName
-) -> None:
-    """Refuse `target` by name the moment one of its `kg_*` tables is gone, rather than let
-    `search_path` quietly resolve the bare name to `default`'s own table.
-    """
-    schema_name = f"kg_target_{target}"
-    for table in _TARGET_TABLES:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT to_regclass(%s) IS NULL AS missing", (f"{schema_name}.{table}",)
-            )
-            row = await cur.fetchone()
-        if row is not None and row["missing"]:
-            raise GraphTargetTableMissingError(
-                f"target {target!r} is catalogued, but its table {table} is missing from "
-                f"schema {schema_name} — something outside Weft dropped it, or a drop was "
-                f"interrupted. Weft will not recreate it empty or read another target's "
-                f"table in its place. Drop the target and index it again.",
-                pack="weft-rag",
-            )
-
-
-async def _enter_target_schema(
-    conn: "psycopg.AsyncConnection[dict[str, Any]]",
-    home_schema: str,
-    target: TargetName,
-) -> None:
-    """Reach `target`'s own tables through `search_path`, without rewriting a single one of this
-    module's unqualified `kg_*` statements — the identical mechanism
-    `weft_store.pgvector_store.PgVectorStore._enter_target_schema` uses.
-
-    A catalogued target's tables must already exist (`_verify_target_tables` refuses by name,
-    never recreates); an uncatalogued one is a candidate about to be written for the first time,
-    and gets a fresh schema. Either way the schema is entered by `search_path`, home schema kept
-    on it second so `vector` and `pg_trgm`'s own operators keep resolving.
-    """
-    schema = _target_schema(target)
-    async with conn.cursor() as cur:
-        await cur.execute(
-            sql.SQL("SELECT 1 AS present FROM {} WHERE name = %s").format(
-                _home_table(home_schema, "kg_targets")
-            ),
-            (target,),
-        )
-        catalogued = await cur.fetchone() is not None
-    if catalogued:
-        await _verify_target_tables(conn, target)
-    else:
-        async with conn.cursor() as cur:
-            await cur.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(schema))
-    async with conn.cursor() as cur:
-        await cur.execute(
-            sql.SQL("SET search_path = {}, {}").format(schema, sql.Identifier(home_schema))
-        )
-        await cur.execute("SELECT pg_advisory_lock_shared(hashtext(%s))", (_lock_key(target),))
+#: This pack's own naming for `weft_store.pg_targets`'s shared mechanics — see that module's
+#: docstring for what each field means and why the design is shaped this way.
+_TARGET_LAYOUT = PgTargetLayout(
+    schema_prefix="kg_target_",
+    lock_key_prefix="kg_target:",
+    targets_table="kg_targets",
+    live_target_table="kg_live_target",
+    target_tables=_TARGET_TABLES,
+    missing_table_error=lambda message: GraphTargetTableMissingError(message, pack="weft-rag"),
+)
 
 
 async def resolve_target_connection(
@@ -2322,10 +2053,10 @@ async def resolve_target_connection(
 
     Shared by `GraphStore._connection` and `GraphWalk._connection` (`weft_kg/traversal.py`)
     because either class may be the first handle to dial in for a given target, and both must
-    resolve it identically for the reason `PgVectorStore._connection`'s own docstring gives: a
-    first-ever connection bound straight to a candidate target must still create `vector` and
-    `pg_trgm` in the home schema, never inside the target's, or every later default-target
-    connection finds neither extension's objects on its own path at all.
+    resolve it identically for the reason `weft_store.pg_targets.resolve_active_target`'s own
+    docstring gives: a first-ever connection bound straight to a candidate target must still
+    create `vector` and `pg_trgm` in the home schema, never inside the target's, or every later
+    default-target connection finds neither extension's objects on its own path at all.
     """
     conn = await psycopg.AsyncConnection[dict[str, Any]].connect(
         dsn, autocommit=True, row_factory=dict_row
@@ -2341,12 +2072,7 @@ async def resolve_target_connection(
         await cur.execute(_CREATE_EXTENSION)
         await cur.execute(_CREATE_TRGM_EXTENSION)
     await register_vector_async(conn)
-    async with conn.cursor() as cur:
-        await cur.execute(_create_targets_table_sql(home_schema))
-        await cur.execute(_create_live_target_table_sql(home_schema))
-    target = bound if bound is not None else await _read_live_target(conn, home_schema)
-    if target != DEFAULT_TARGET:
-        await _enter_target_schema(conn, home_schema, target)
+    target = await _pg_resolve_active_target(_TARGET_LAYOUT, conn, home_schema, bound)
     await provision_schema(conn)
     return conn, home_schema, target
 
