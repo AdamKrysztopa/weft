@@ -26,6 +26,13 @@ class BatchProgress(BaseModel):
     depends on which other nodes shared its batch (`weft_cli.ingest.
     batch_membership_dependent_stages`) — non-empty only when the default kept the whole
     corpus in one batch to protect that stage, naming it by plugin name.
+
+    `bytes` — ledger task **43.1** — is this batch's files' combined size, read off the
+    `SourceRef`s inventoried for it rather than the loaded bytes, so it is known before the
+    batch is loaded at all. `0` for a batch this run never measured (`whole_corpus_for`'s own
+    footing does not zero it; an empty `work` batch simply is never emitted at all — see
+    `weft_cli.ingest._emit_batch_progress`), which is what lets a reader carrying a huge
+    document see the batch it slowed down.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -37,6 +44,7 @@ class BatchProgress(BaseModel):
     documents: int
     seconds: float
     whole_corpus_for: tuple[str, ...] = ()
+    bytes: int = 0
 
 
 @runtime_checkable

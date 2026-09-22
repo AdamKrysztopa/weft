@@ -1808,6 +1808,31 @@ answer. **What to do:** drop one of the two flags — `--extract <name>` to narr
 path's own discovery, or `--pipeline <name>` to run a specific document. With neither, `weft index`
 auto-discovers as before.
 
+### `SourceChangedDuringIndexError`
+
+**What it looks like** — ledger task 43.1: a file was edited, replaced or deleted while
+`weft index` was running. The run takes each file's hash at the start and loads that file's bytes
+when its batch begins, so a file that moves in between no longer matches what the run recorded:
+
+```text
+$ weft index corpus
+batch 1/4 · 25/100 documents queryable · 13.1 s since start
+'file:///corpus/report.pdf' changed since this run's inventory: its bytes no longer match the hash
+taken at the start of this run. Indexing was refused rather than recording it under a stale
+identity — the next run over this directory will see it as changed.
+$ echo $?
+1
+```
+
+**Why this is refused rather than indexed.** The hash is the document's identity: the next run
+compares it to decide what is unchanged. Indexing the new bytes under the old hash would leave a
+record claiming a document Weft never read, and every later run would report it unchanged. The
+batches that finished before the refusal keep their documents, which are already `ACTIVE`.
+
+**What to do:** run `weft index` again once the directory is settled. The changed file is seen as
+changed and indexed; everything else is unchanged and costs nothing. If a directory is written to
+continuously, index a snapshot of it rather than the live directory.
+
 ### `BatchScopedStageError`
 
 **What it looks like** — ledger task 17.3: `weft index --batch-size` was given a pipeline holding a

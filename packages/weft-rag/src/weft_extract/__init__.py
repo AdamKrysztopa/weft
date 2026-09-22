@@ -44,7 +44,16 @@ from weft_extract.render import (
     PlainRendererConfig,
 )
 from weft_extract.table_text import index_text, prompt_markdown
-from weft_extract.text import EXTENSIONS, TextExtractor, TextExtractorConfig, discover_source_docs
+from weft_extract.text import (
+    EXTENSIONS,
+    SourceChangedDuringIndexError,
+    SourceRef,
+    TextExtractor,
+    TextExtractorConfig,
+    discover_source_docs,
+    inventory_source_refs,
+    load_source_docs,
+)
 from weft_kernel.discovery import PackRegistrar
 
 
@@ -88,13 +97,17 @@ __all__ = [
     "Renderer",
     "Rendition",
     "Settings",
+    "SourceChangedDuringIndexError",
     "SourceDoc",
+    "SourceRef",
     "TableGrid",
     "TextExtractor",
     "TextExtractorConfig",
     "claimed_extensions",
     "discover_source_docs",
     "index_text",
+    "inventory_source_refs",
+    "load_source_docs",
     "present_suffixes",
     "prompt_markdown",
     "register",

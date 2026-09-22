@@ -22,6 +22,7 @@ their union — never this constant alone — that decides what ingest accepts.
 reason.
 """
 
+import hashlib
 from collections.abc import Collection, Sequence
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_extract.contract import SourceDoc
 from weft_kernel.context import Context
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import (
     Failed,
     MediaType,
@@ -119,3 +121,106 @@ def discover_source_docs(directory: Path, *, extensions: Collection[str]) -> tup
         )
         for path in paths
     )
+
+
+class SourceRef(BaseModel):
+    """A source document's identity and content hash — never its bytes. Ledger task **43.1**.
+
+    `discover_source_docs` measured 3.45 GB resident before the first batch of a 1,000-PDF
+    corpus, because it reads every file's bytes into one `SourceDoc` tuple before indexing
+    starts anything. `SourceRef` is what a directory walk hands back instead: `source_id` and
+    `uri` are the identical values `discover_source_docs` derives from the same resolved
+    `path`, so the two walks agree on identity, and `size`/`content_hash` are enough for
+    change detection and for `load_source_docs`' own check — everything `weft_cli.ingest`
+    needs before a batch is actually loaded.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_id: SourceId
+    uri: str
+    path: Path
+    size: int
+    content_hash: str
+
+
+#: `_stream_hash`'s own chunk size — task **43.1**. Fixed regardless of file size, which is the
+#: whole point: resident memory for one file's hash is bounded by this constant, never by that
+#: file's own length.
+_HASH_CHUNK_BYTES: int = 1 << 20
+
+
+def _stream_hash(path: Path) -> str:
+    """sha256 of `path`'s bytes, read in `_HASH_CHUNK_BYTES` chunks — never the whole file at
+    once, which is `inventory_source_refs`' whole reason to exist.
+    """
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(_HASH_CHUNK_BYTES), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def inventory_source_refs(directory: Path, *, extensions: Collection[str]) -> tuple[SourceRef, ...]:
+    """Every file under `directory` an extension in `extensions` claims, as a `SourceRef` —
+    the same walk and sorted order `discover_source_docs` uses, holding no file's bytes.
+
+    Ledger task **43.1**. Resident memory before the first batch is now bounded by one file's
+    hashing buffer, not by the corpus: `discover_source_docs` read every claimed file into one
+    tuple before indexing could start anything, which is the 3.45 GB `43.0` measured. Each
+    file is stream-hashed by `_stream_hash` and never held whole.
+    """
+    paths = sorted(
+        path for path in directory.rglob("*") if path.is_file() and path.suffix in extensions
+    )
+    return tuple(
+        SourceRef(
+            source_id=SourceId(str(path.resolve())),
+            uri=path.resolve().as_uri(),
+            path=path.resolve(),
+            size=path.stat().st_size,
+            content_hash=_stream_hash(path),
+        )
+        for path in paths
+    )
+
+
+class SourceChangedDuringIndexError(WeftError):
+    """A file named by a `SourceRef` no longer matches the hash its inventory took, or is gone.
+
+    Ledger task **43.1**. `inventory_source_refs` and `load_source_docs` run at different
+    points of a possibly long batched run — a large corpus takes long enough for a file to be
+    edited or removed underneath it — so a batch's load re-hashes each file before trusting it
+    and refuses by name rather than silently indexing bytes under a stale identity: the record
+    `weft_cli.ingest` writes for a source is keyed on the hash its inventory took, and writing
+    it against different bytes would make that record a claim about content nobody checked.
+    The next run over the same directory sees the file as changed and indexes it fresh.
+    """
+
+
+def load_source_docs(refs: Sequence[SourceRef]) -> tuple[SourceDoc, ...]:
+    """`refs`, read into `SourceDoc`s, in the order given — one batch's worth of bytes.
+
+    Ledger task **43.1**. Re-hashes each file and raises `SourceChangedDuringIndexError`,
+    naming the file's `uri`, when the file is gone or its bytes no longer match the hash
+    `inventory_source_refs` took for it — the inventory and the load are two different points
+    in time, and a batched run may span long enough for a file to move between them.
+    """
+    docs: list[SourceDoc] = []
+    for ref in refs:
+        if not ref.path.is_file():
+            raise SourceChangedDuringIndexError(
+                f"'{ref.uri}' changed since this run's inventory: it is no longer on disk. "
+                "Indexing was refused rather than recording it under a stale identity — the "
+                "next run over this directory will see it as changed."
+            )
+        content = ref.path.read_bytes()
+        if hashlib.sha256(content).hexdigest() != ref.content_hash:
+            raise SourceChangedDuringIndexError(
+                f"'{ref.uri}' changed since this run's inventory: its bytes no longer match "
+                "the hash taken at the start of this run. Indexing was refused rather than "
+                "recording it under a stale identity — the next run over this directory will "
+                "see it as changed."
+            )
+        docs.append(SourceDoc(source_id=ref.source_id, uri=ref.uri, content=content))
+    return tuple(docs)

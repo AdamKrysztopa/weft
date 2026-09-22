@@ -130,9 +130,9 @@ from weft_extract import (
     Extractor,
     SourceDoc,
     claimed_extensions,
-    discover_source_docs,
     present_suffixes,
 )
+from weft_extract.text import SourceRef, inventory_source_refs, load_source_docs
 from weft_index.contract import Expander, Revisable
 from weft_index.payload import ExpansionDegraded
 from weft_kernel.context import Context
@@ -591,6 +591,7 @@ async def _emit_batch_progress(
     documents: int,
     start_time: float,
     whole_corpus_for: tuple[str, ...],
+    batch_bytes: int = 0,
 ) -> None:
     """`on_batch`, fed one `BatchProgress` per finished batch — ledger task **43.2**.
 
@@ -609,6 +610,7 @@ async def _emit_batch_progress(
             documents=documents,
             seconds=time.monotonic() - start_time,
             whole_corpus_for=whole_corpus_for,
+            bytes=batch_bytes,
         )
     )
 
@@ -760,7 +762,7 @@ async def run_index(
         # Carried repair **R10.4**: the same call `weft eval run --reuse-index` makes, so the
         # corpus identity an indexing run records and the one a reusing run records cannot
         # disagree. `accepted` is not recomputed here — `corpus_documents` already applied it.
-        resolved_pipeline, specs, pipeline_docs = corpus_documents(
+        resolved_pipeline, specs, pipeline_refs = corpus_documents(
             directory,
             pipeline=pipeline,
             registry=registry,
@@ -777,17 +779,17 @@ async def run_index(
             claims, registry=registry, extractor=_extractor_name_of(specs, pipeline=pipeline)
         )
     else:
-        pipeline_docs = None
+        pipeline_refs = None
         accepted = _accepted_extensions(claims, registry=registry, extractor=extractor)
         specs = None  # chosen below, once the sole claimant (or --extract) is known
 
     present = present_suffixes(directory)
     readable = present & accepted
-    if pipeline_docs is not None:
-        docs = pipeline_docs
+    if pipeline_refs is not None:
+        refs = pipeline_refs
     else:
-        docs = discover_source_docs(directory, extensions=readable)
-    if not docs:
+        refs = inventory_source_refs(directory, extensions=readable)
+    if not refs:
         return IndexResult(
             summary=_nothing_found(directory, present=present, accepted=accepted),
             stored_count=None,
@@ -844,7 +846,7 @@ async def run_index(
         # left, and `_record_sources` below replaces exactly those rows.
         previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
         changes = changes_against_records(
-            docs, previous, identity=identity, retry_failed=retry_failed
+            refs, previous, identity=identity, retry_failed=retry_failed
         )
         await _release_reparsed_sources(runnable, store_stage_ids=store_stage_ids, changes=changes)
         # Ledger task **17.0** — a document whose change is `UNCHANGED` owes this run no work:
@@ -854,19 +856,19 @@ async def run_index(
         # **36.2** — `FAILED` owes this run no work on the identical footing: paid stages sit on
         # the ingest path, so a failure is not retried unasked, and `retry_failed` is the one
         # thing that turns it into `RETRIED` work instead (see `changes_against_records`). The
-        # report below stays over `docs` in full — this filtering is only what the runner sees.
+        # report below stays over `refs` in full — this filtering is only what the runner sees.
         work = (
-            docs
+            refs
             if reprocess
             else tuple(
-                doc
-                for doc in docs
-                if changes.get(doc.source_id) not in (SourceChange.UNCHANGED, SourceChange.FAILED)
+                ref
+                for ref in refs
+                if changes.get(ref.source_id) not in (SourceChange.UNCHANGED, SourceChange.FAILED)
             )
         )
         # Ledger task **17.1** — marked before the run so a crash mid-`runner.run` leaves these
         # documents' records saying `INDEXING` rather than the previous run's stale `ACTIVE` or
-        # no record at all. Narrowed to `work`, not `docs`: an `UNCHANGED` document's own record
+        # no record at all. Narrowed to `work`, not `refs`: an `UNCHANGED` document's own record
         # is still accurate and this write must not overwrite it with a status the run below
         # never touches it under.
         await _record_sources(
@@ -881,10 +883,10 @@ async def run_index(
         # Ledger task **17.3**, widened by **43.2**. `None` is `work` as one batch, exactly as
         # this function always has — including when `work` is empty, which task **17.0**'s
         # fully-unchanged-corpus behaviour depends on. Otherwise, successive slices of
-        # `effective_batch_size` documents (an explicit `batch_size`, or `default_batch_size`
+        # `effective_batch_size` refs (an explicit `batch_size`, or `default_batch_size`
         # when nothing refuses it — see `_batch_plan`), with a shorter final slice when the
         # length is not an exact multiple.
-        slices: list[tuple[SourceDoc, ...]] = (
+        ref_slices: list[tuple[SourceRef, ...]] = (
             [tuple(work)]
             if effective_batch_size is None
             else [
@@ -911,15 +913,16 @@ async def run_index(
         counts: list[RunSummary] = []
         indexed_count = 0
         failed_count = 0
-        for batch_number, batch in enumerate(slices, start=1):
+        for batch_number, batch_refs in enumerate(ref_slices, start=1):
             with recording() as scope:
                 try:
-                    batch_summary = await runner.run(runnable, _one(batch), indexing_ctx)
+                    batch_docs = load_source_docs(batch_refs)
+                    batch_summary = await runner.run(runnable, _one(batch_docs), indexing_ctx)
                 except WeftError as exc:
                     await _record_batch_failure(
                         runnable,
                         store_stage_ids=store_stage_ids,
-                        batch=batch,
+                        batch=batch_refs,
                         previous=previous,
                         identity=identity,
                         pipeline=pipeline,
@@ -933,18 +936,18 @@ async def run_index(
                 await _record_sources(
                     runnable,
                     store_stage_ids=store_stage_ids,
-                    docs=batch,
+                    docs=batch_refs,
                     pipeline=pipeline,
                     identity=identity,
                 )
-                indexed_count += len(batch)
-            elif len(batch) == 1:
+                indexed_count += len(batch_refs)
+            elif len(batch_refs) == 1:
                 counts.append(batch_summary)
                 message = "; ".join(batch_summary.failed_reasons) or "the batch failed"
                 await _record_batch_failure(
                     runnable,
                     store_stage_ids=store_stage_ids,
-                    batch=batch,
+                    batch=batch_refs,
                     previous=previous,
                     identity=identity,
                     pipeline=pipeline,
@@ -957,7 +960,7 @@ async def run_index(
                 singles, indexed_delta, failed_delta = await _rerun_batch_singly(
                     runner,
                     runnable,
-                    batch,
+                    batch_docs,
                     indexing_ctx,
                     store_stage_ids=store_stage_ids,
                     previous=previous,
@@ -970,11 +973,12 @@ async def run_index(
             await _emit_batch_progress(
                 on_batch,
                 batch_number=batch_number,
-                batches=len(slices),
+                batches=len(ref_slices),
                 queryable=indexed_count,
                 documents=len(work),
                 start_time=batch_loop_started,
                 whole_corpus_for=whole_corpus_for,
+                batch_bytes=sum(ref.size for ref in batch_refs),
             )
         summary = _summed(counts)
         # Ledger **36.2** — a source this run left `FAILED` keeps that record exactly as
@@ -982,17 +986,17 @@ async def run_index(
         # `work`), and it must also be excluded here, or this catch-up write — meant only for
         # the `UNCHANGED` sources `work` skipped — would promote it back to `ACTIVE` for no
         # reason but having been left alone this run.
-        attempted = {doc.source_id for doc in work}
+        attempted = {ref.source_id for ref in work}
         skipped_as_failed = {
-            doc.source_id for doc in docs if changes.get(doc.source_id) is SourceChange.FAILED
+            ref.source_id for ref in refs if changes.get(ref.source_id) is SourceChange.FAILED
         }
         await _record_sources(
             runnable,
             store_stage_ids=store_stage_ids,
             docs=tuple(
-                doc
-                for doc in docs
-                if doc.source_id not in attempted and doc.source_id not in skipped_as_failed
+                ref
+                for ref in refs
+                if ref.source_id not in attempted and ref.source_id not in skipped_as_failed
             ),
             pipeline=pipeline,
             identity=identity,
@@ -1005,8 +1009,8 @@ async def run_index(
             summary=summary,
             stored_count=stored_count,
             resolved_pipeline=resolved_pipeline,
-            document_ids=tuple(str(doc.source_id) for doc in docs),
-            content_hashes=content_hashes_of(docs),
+            document_ids=tuple(str(ref.source_id) for ref in refs),
+            content_hashes=content_hashes_of(refs),
             source_changes={str(source): change for source, change in changes.items()},
             pipeline_identity=identity,
             documents_indexed=indexed_count,
@@ -1098,8 +1102,8 @@ def corpus_documents(
     registry: Registry,
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
-) -> tuple[ResolvedPipeline, tuple[StageSpec, ...], tuple[SourceDoc, ...]]:
-    """The resolved pipeline, its specs, and the documents under `directory` it can read.
+) -> tuple[ResolvedPipeline, tuple[StageSpec, ...], tuple[SourceRef, ...]]:
+    """The resolved pipeline, its specs, and the refs under `directory` it can read.
 
     **One derivation, and carried repair `R10.4` is why it is public.** `weft eval run --reuse-
     index` scores a query rung against a corpus that is already stored, so it needs the corpus
@@ -1109,7 +1113,10 @@ def corpus_documents(
     which is the opposite of the repair. So `run_index` below and the evaluator call this one
     function rather than each composing the same four steps.
 
-    Nothing here runs: resolving a document and reading a directory listing are the whole of it.
+    Nothing here runs: resolving a document and inventorying a directory listing are the whole
+    of it. **Refs, not documents, since ledger task 43.1** — this path is bounded the same way
+    the default four-stage path is; `weft eval run --reuse-index` only ever needed `source_id`,
+    `uri` and the content hash this already carried, never the bytes.
     """
     _require_corpus_directory(directory)
     resolved, specs = _specs_from_document(
@@ -1120,24 +1127,35 @@ def corpus_documents(
         claimed_extensions(registry), registry=registry, extractor=extractor
     )
     readable = present_suffixes(directory) & accepted
-    return resolved, specs, discover_source_docs(directory, extensions=readable)
+    return resolved, specs, inventory_source_refs(directory, extensions=readable)
 
 
-def content_hashes_of(docs: Iterable[SourceDoc]) -> tuple[str, ...]:
-    """Each document's sha256 over its own bytes, in the order given — the entries a run
-    record's corpus digest is over (ledger task **16.0**).
+def content_hashes_of(sources: Iterable[SourceDoc | SourceRef]) -> tuple[str, ...]:
+    """Each source's sha256 content hash, in the order given — the entries a run record's
+    corpus digest is over (ledger task **16.0**), widened by **43.1** to a `SourceRef` as
+    readily as a `SourceDoc`: both name the same sha256 over the same bytes, and a `SourceRef`
+    already carries it without needing the bytes reread.
 
     Not deduplicated: two byte-identical documents are two documents, which G20 (ledger 27.1)
     settled for the node they produce and is no less true of the corpus they belong to.
     """
-    return tuple(_content_hash(doc) for doc in docs)
+    return tuple(_content_hash(source) for source in sources)
 
 
-def _content_hash(doc: SourceDoc) -> str:
-    """One document's content hash, and this module's only definition of it — read by
+def _content_hash(doc: SourceDoc | SourceRef) -> str:
+    """One source's content hash, and this module's only definition of it — read by
     `SourceRecord.content_hash`, by `changes_against_records`' comparison, and by the corpus
     digest, three readers that have to agree about what "the same document" means.
+
+    **Read off a `SourceRef` rather than re-derived, since ledger task 43.1.** A `SourceRef`
+    already carries the sha256 `inventory_source_refs` stream-hashed it under, and re-hashing
+    its bytes here would mean doing so up to four times over the same corpus — once from this
+    function's three call sites plus `_next_attempts` — for a value already known. A `SourceDoc`
+    (an already-loaded batch, or an eval path still holding real bytes) is hashed directly, on
+    identical footing to before this task.
     """
+    if isinstance(doc, SourceRef):
+        return doc.content_hash
     return hashlib.sha256(doc.content).hexdigest()
 
 
@@ -1896,7 +1914,7 @@ class SourceChange(StrEnum):
 
 
 def changes_against_records(
-    docs: Sequence[SourceDoc],
+    docs: Sequence[SourceDoc | SourceRef],
     records: Mapping[SourceId, SourceRecord],
     *,
     identity: str,
@@ -1974,7 +1992,7 @@ async def _record_sources(
     runnable: RunnablePipeline,
     *,
     store_stage_ids: Sequence[str],
-    docs: Sequence[SourceDoc],
+    docs: Sequence[SourceDoc | SourceRef],
     pipeline: str | None,
     identity: str = "",
     status: SourceStatus = SourceStatus.ACTIVE,
@@ -2065,7 +2083,7 @@ async def _record_batch_failure(
     runnable: RunnablePipeline,
     *,
     store_stage_ids: Sequence[str],
-    batch: Sequence[SourceDoc],
+    batch: Sequence[SourceDoc | SourceRef],
     previous: Mapping[SourceId, SourceRecord],
     identity: str,
     pipeline: str | None,
@@ -2117,7 +2135,7 @@ async def _record_batch_failure(
 
 
 def _next_attempts(
-    previous: SourceRecord | None, doc: SourceDoc, *, identity: str, batch_size: int
+    previous: SourceRecord | None, doc: SourceDoc | SourceRef, *, identity: str, batch_size: int
 ) -> int:
     """`SourceFailure.attempts` for `doc`'s next failed record — ledger **36.1**, owner-settled
     2026-09-21.

@@ -258,16 +258,23 @@ class PrintingSink:
         Names the stage that kept the corpus whole when `event.whole_corpus_for` is
         non-empty, rather than the batch fraction: a run that never split is not a batch
         count a reader should be tracking, it is a fact about one stage in the pipeline.
+
+        Ends with the batch's own size in MB — ledger task **43.1** — when `event.bytes` is
+        known, so one huge document is visible as the cause of a slow batch; unchanged when
+        it is `0`, which `43.2`'s own tests pin.
         """
         if event.whole_corpus_for:
             names = ", ".join(event.whole_corpus_for)
             head = f"one batch: '{names}' computes over the whole corpus"
         else:
             head = f"batch {event.batch}/{event.batches}"
-        self._progress_stream.write(
+        line = (
             f"{head} · {event.queryable}/{event.documents} documents queryable · "
-            f"{event.seconds:.1f} s since start\n"
+            f"{event.seconds:.1f} s since start"
         )
+        if event.bytes:
+            line += f" · {event.bytes / 1_000_000:.1f} MB"
+        self._progress_stream.write(f"{line}\n")
         self._progress_stream.flush()
 
 

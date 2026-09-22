@@ -79,7 +79,7 @@ from weft_eval.corpus_manifest import (
 )
 from weft_eval.question_set import Question, load_questions, reproducible_questions
 from weft_eval.run_record import CorpusDigestBasis, RunDurations, build_run_record, corpus_identity
-from weft_extract import Extractor, SourceDoc
+from weft_extract import Extractor, SourceRef
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.errors import WeftError
@@ -280,7 +280,7 @@ def _stage_corpus(
     return corpus_dir, known
 
 
-def _readable_ids(docs: Sequence[SourceDoc], *, known: Mapping[str, str]) -> tuple[str, ...]:
+def _readable_ids(docs: Sequence[SourceRef], *, known: Mapping[str, str]) -> tuple[str, ...]:
     """The manifest ids of every staged document the resolved pipeline actually reads, sorted."""
     ids = {
         known[resolved]
