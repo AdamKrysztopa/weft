@@ -163,7 +163,8 @@ from weft_kernel.runner import Stage
 #: **`2.10.0` → `2.11.0` at task 43.14** — `GenerationHolding` joins the family, `34.3`'s shape,
 #: and `SingleWriter` (task 43.18) joins the same unreleased minor.
 #: **`2.11.0` → `2.12.0` at task 43.21** — `LayerStatus` gains `STALE`, minor for both audiences.
-STORE_CONTRACT_VERSION = "2.12.0"
+#: **`2.12.0` → `2.13.0` at task 43.22** — `GenerationCarrying` joins the family, `43.14`'s shape.
+STORE_CONTRACT_VERSION = "2.13.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -1434,8 +1435,10 @@ class GenerationHolding(Protocol):
     search (`search_vector`, `search_text`, `matching`) leaves out members of a generation the
     reading handle cannot see, **before** top-k. A handle sees the generations published when it
     first touches storage, plus the one it is bound to, and keeps that set for its lifetime, so one
-    operation never mixes two trees (`TargetHolding`'s Q-C, applied again). A node no generation
-    wrote is always visible, and a node two generations wrote is visible when either is.
+    operation never mixes two trees (`TargetHolding`'s Q-C, applied again). Of those published, a
+    handle sees each layer's newest published generation, by `published_at` (repair **R43.25**),
+    so a reader opened between a publish and the retract after it sees one tree. A node no
+    generation wrote is always visible, and a node two generations wrote is visible when either is.
     `retract_generation` removes the nodes only that generation made and forgets it.
     """
 
@@ -1454,6 +1457,47 @@ class GenerationHolding(Protocol):
 
 
 GenerationHolding.version = STORE_CONTRACT_VERSION
+
+
+class NotAPublishedMemberError(WeftError):
+    """`GenerationCarrying.carry_forward` was asked to carry nodes no published generation holds
+    — ledger task **43.22**. `node_ids` is every refused id, sorted and deduplicated; nothing in
+    the refused call was carried.
+    """
+
+    def __init__(self, generation: GenerationId, *, node_ids: Sequence[NodeId]) -> None:
+        refused = tuple(sorted(set(node_ids)))
+        super().__init__(
+            f"cannot carry {len(refused)} node(s) into generation {generation!r}: no published "
+            f"generation holds {', '.join(refused)}. Only a member of a published generation can "
+            "be carried forward; write a new node through the generation's bound handle instead."
+        )
+        self.generation = generation
+        self.node_ids = refused
+
+
+@runtime_checkable
+class GenerationCarrying(Protocol):
+    """A store that carries a published generation's untouched members into a new one — ledger
+    task **43.22**.
+
+    `carry_forward` adds `into` to each node's generation membership and changes nothing else
+    about it: no rewrite, no re-embedding. Publishing `into` and retracting the generation it
+    replaces then keeps every carried node and drops every node `into` left out. Repeated ids
+    count once; the return is the number of distinct nodes carried. An unknown `into` raises
+    `UnknownGenerationError`; an id no published generation holds raises
+    `NotAPublishedMemberError` naming every such id, and nothing in that call is carried. A
+    separate Protocol rather than a method on `GenerationHolding`, `NodeSupersedable`'s
+    precedent: `09`'s table makes a method added to a Protocol a major for its implementers.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int: ...
+
+
+GenerationCarrying.version = STORE_CONTRACT_VERSION
 
 
 class WriterClaim(BaseModel):

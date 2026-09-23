@@ -257,7 +257,29 @@ async def test_a_strangers_store_holds_generations_and_passes_the_published_chec
 
     # Assert
     assert isinstance(InMemoryNodeStore(), GenerationHolding)
-    assert len(generation_checks) == 7
+    assert len(generation_checks) == 8
+
+
+async def test_a_strangers_store_carries_generations_and_passes_the_published_checks() -> None:
+    """Ledger **43.22**: `GenerationCarrying` is published, so the stranger proves it with the
+    kit alone — fitness function 9(c) for the new capability, on `43.14`'s footing."""
+    # Arrange
+    from weft_store.conformance import checks_for
+    from weft_store.contract import GenerationCarrying
+
+    carrying_checks = [
+        check
+        for check in checks_for(InMemoryNodeStore())
+        if check.__annotations__.get("store") == "GenerationCarryingStore"
+    ]
+
+    # Act — a fresh store per check: the kit owns no lifecycle.
+    for check in carrying_checks:
+        await check(InMemoryNodeStore())
+
+    # Assert
+    assert isinstance(InMemoryNodeStore(), GenerationCarrying)
+    assert len(carrying_checks) == 2
 
 
 async def test_a_strangers_store_admits_one_writer_and_passes_the_published_checks() -> None:

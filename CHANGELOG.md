@@ -85,6 +85,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A store can carry a layer's untouched nodes into its next generation.** `weft_store` publishes
+  `GenerationCarrying`: `carry_forward(into, node_ids)` adds a new generation to published nodes
+  without rewriting them, so a layer rebuild pays only for what it replaces. pgvector, Qdrant and the
+  conformance kit implement it, and the kit's checks prove it for a third-party store. The store
+  contract moves to `2.13.0`.
 - **An interrupted corpus-wide layer resumes instead of starting over.** Stopping `weft index
   --layers` part-way through a corpus-scoped RAPTOR build keeps every summary finished so far, in
   the generation nobody reads yet. The next run under the same pipeline and models picks that
@@ -228,6 +233,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `weft delete` now marks such a layer `stale` on every remaining source and prints so. `weft
   sources list` and `weft index` show it, the router stops offering its rung, and `weft index
   --layers <name>` rebuilds it. The store contract moves to `2.12.0` for the new `LayerStatus.STALE`.
+- **A reader sees one tree per layer while a rebuild is published.** A query that opened between a
+  corpus layer's publish and the retract after it saw the old and the rebuilt summaries together.
+  A store now serves, for each layer, only its newest published generation, on pgvector, Qdrant and
+  a store that passes the conformance kit.
 - **Deleting a source removes the graph relations only it stated.** A relation stayed reachable
   after the fact that stated it was deleted, while other documents still mentioned its two
   entities. The graph tables move to layout `3.0.0`: a graph indexed before this is refused by

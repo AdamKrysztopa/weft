@@ -123,6 +123,7 @@ from weft_store.contract import (
     GenerationRecord,
     GenerationStatus,
     NoPreviousTargetError,
+    NotAPublishedMemberError,
     Page,
     Promotion,
     ReconcileEstimate,
@@ -717,16 +718,19 @@ class QdrantStore:
 
     async def _resolve_visible_generations(self, client: AsyncQdrantClient) -> tuple[str, ...]:
         """The generations this handle may see, from this moment on — ledger **43.14**: `""`
-        (the base marker), every generation published right now, and `self._bound_generation`
-        whether or not it is published yet. Read once, by `_connection`, and held for this
-        handle's lifetime — `34.3`'s manifest shape, applied to generations.
+        (the base marker), each layer's newest published generation right now (repair
+        **R43.25**), and `self._bound_generation` whether or not it is published yet. Read once,
+        by `_connection`, and held for this handle's lifetime — `34.3`'s manifest shape, applied
+        to generations.
         """
-        published = {
-            record.id
-            for record in await self._all_generations(client)
-            if record.status is GenerationStatus.PUBLISHED
-        }
-        visible = {"", *published}
+        newest: dict[str, tuple[datetime, datetime, str]] = {}
+        for record in await self._all_generations(client):
+            if record.status is not GenerationStatus.PUBLISHED or record.published_at is None:
+                continue
+            # A tie on `published_at` goes to the later-opened generation.
+            order = (record.published_at, record.opened_at, record.id)
+            newest[record.layer] = max(newest.get(record.layer, order), order)
+        visible = {"", *(order[2] for order in newest.values())}
         if self._bound_generation is not None:
             visible.add(self._bound_generation)
         return tuple(sorted(visible))
@@ -926,6 +930,52 @@ class QdrantStore:
         client = await self._connection()
         records = await self._all_generations(client)
         return tuple(sorted(records, key=lambda record: (record.opened_at, record.id)))
+
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
+        """`into` joins each point's generations payload and nothing else about it changes — a
+        set-payload, never an upsert, so no re-embedding. `GenerationCarrying`, ledger **43.22**.
+        Every id is checked before any is carried, so a refused call writes nothing.
+        """
+        requested = list(dict.fromkeys(node_ids))
+        client = await self._connection()
+        catalogue = await self._all_generations(client)
+        if into not in {record.id for record in catalogue}:
+            raise UnknownGenerationError(
+                into, valid_options=tuple(sorted(record.id for record in catalogue))
+            )
+        published = {
+            record.id for record in catalogue if record.status is GenerationStatus.PUBLISHED
+        }
+        held: dict[str, list[str]] = {}
+        # Asked of Qdrant rather than `_pair_unprovisioned`: that flag is read once per handle,
+        # and the members being carried were written through other, bound handles.
+        if requested and await client.collection_exists(self._nodes):
+            records = await client.retrieve(
+                self._nodes,
+                ids=[str(_point_id(node_id)) for node_id in requested],
+                with_payload=True,
+            )
+            held = {
+                str(record.id): _generations_of(cast("Mapping[str, Any]", record.payload or {}))
+                for record in records
+            }
+        refused = [
+            node_id
+            for node_id in requested
+            if not published.intersection(held.get(str(_point_id(node_id)), ()))
+        ]
+        if refused:
+            raise NotAPublishedMemberError(into, node_ids=refused)
+        for node_id in requested:
+            point = str(_point_id(node_id))
+            if into not in held[point]:
+                await client.set_payload(
+                    self._nodes,
+                    payload={_GENERATIONS: sorted({*held[point], into})},
+                    points=[point],
+                    wait=True,
+                )
+        return len(requested)
 
     async def _read_live_target(self, client: AsyncQdrantClient) -> TargetName:
         """The live target the pointer point names, or `DEFAULT_TARGET` when there is none yet

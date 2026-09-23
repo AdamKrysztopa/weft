@@ -232,7 +232,7 @@ the brief what each reader does with it.
 *"Who writes this?"* answered by `grep` has a blind spot **the size of every default**:
 `SourceStatus.ACTIVE` has no production writer anywhere — a grep across `packages/` returns test
 files only — and it is written on every single ingest, by the field default at
-`packages/weft-rag/src/weft_store/contract.py:255 "status: SourceStatus = SourceStatus.ACTIVE"`,
+`packages/weft-rag/src/weft_store/contract.py:261 "status: SourceStatus = SourceStatus.ACTIVE"`,
 because the one constructor passes no `status=` at all. So a writer audit over an enum reads the
 constructor sites for **absence** as well as searching for the member's name (`L19.3`). And
 *"which fields does this model have?"* answered by reading the class body stops at the first block
@@ -753,8 +753,14 @@ A task is not done until all of these are true:
    you think — `L11.34`, which is `L8.10`'s **third** instance and its first outside the
    plant-and-watch step the rule was written for.
 
-1. **`uv run poe ci-checks` is green, run by you, in the foreground** — and the whole suite, not the
-   part you touched. **Read its skip count against the last run's, not only its exit code**
+1. **`uv run poe ci-task` is green, run by you** — format, lint and types over the whole tree, then
+   every test the uncommitted change can reach (`scripts/impacted_tests.py`, which over-selects on
+   purpose) and the example packs' suites when `examples/` moved. **The full `uv run poe ci-checks`
+   runs once, at *Close the phase*** (owner's instruction, 2026-09-23: a ~25-minute gate per task
+   bought almost nothing a scoped run did not), and a task whose change reshapes the workspace —
+   a new dependency, a root `pyproject.toml` or `conftest.py` edit — gets it anyway, because
+   `ci-task` then selects the whole tree. The rest of this step applies to whichever run it is.
+   **Read its skip count against the last run's, not only its exit code**
    (`L28.27`): a dead Qdrant turns its tests into skips and the gate reads green — 101 skipped
    against 16, the only signal, at `34.7`. **When it is red and you think you know why, re-run the command that failed,
    not a subset of it.** A green from a narrower scope confirms nothing about the change you just
@@ -959,6 +965,12 @@ first; a boundary skipped is a boundary skipped silently.
    decimals are filtered out, most of them renumbered rather than missing. `R10.2`'s
    four-to-one answer, a third time — the moment is known and the population is not clean, which
    is what a skill clause is for and a fitness function is not.*
+
+4d. **`uv run poe ci-checks`, the full gate, is green on the phase's last commit**, with its skip
+   count read against the last full run's. Tasks ran `ci-task` only, so this is the first run
+   since the phase opened that covers what no task's diff selected: `integration-alone`, a cold
+   lint cache, and the unit suites no change reached. A red here is a repair filed against the
+   task whose commit it names, fixed before the phase closes.
 
 5. **`python3 .claude/skills/phase-step/scripts/next_task.py --check-live` is green**, before
    and after you edit the Status block. A stale Status block does its most damage exactly here,

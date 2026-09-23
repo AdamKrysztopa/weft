@@ -199,8 +199,9 @@ def test_the_contract_version_is_its_own_and_moves_nothing_in_the_store_family()
     # and again one that moves nothing about `GraphTraversal`, which is the whole point of
     # asserting both numbers on adjacent lines. `2.8.0` since ledger `36.0` (the failure record),
     # `2.9.0` since `34.3` (`TargetHolding`), `2.10.0` since `43.6` (`SourceRecord.layers`),
-    # `2.11.0` since `43.14` (`GenerationHolding`), `2.12.0` since `43.21` (`LayerStatus.STALE`).
-    assert STORE_CONTRACT_VERSION == "2.12.0"
+    # `2.11.0` since `43.14` (`GenerationHolding`), `2.12.0` since `43.21` (`LayerStatus.STALE`),
+    # `2.13.0` since `43.22` (`GenerationCarrying`).
+    assert STORE_CONTRACT_VERSION == "2.13.0"
 
 
 def test_a_graph_backend_with_no_vectors_is_a_whole_graph_traversal() -> None:

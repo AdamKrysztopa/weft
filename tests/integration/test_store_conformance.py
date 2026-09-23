@@ -85,6 +85,7 @@ from weft_store.conformance import (
     FilterableSearchableStore,
     FilterableStore,
     FilterableTextStore,
+    GenerationCarryingStore,
     GenerationHoldingStore,
     ReconcilableStore,
     SearchableStore,
@@ -92,6 +93,7 @@ from weft_store.conformance import (
     SupersedableStore,
     TargetHoldingStore,
     TextSearchableStore,
+    check_a_carried_generation_keeps_what_it_carries_and_drops_what_it_replaces,
     check_a_deleted_nodes_productions_do_not_outlive_it,
     check_a_derived_node_and_a_collided_one_are_told_apart_in_the_same_store,
     check_a_field_no_node_can_have_is_refused_by_name_on_either_backend,
@@ -108,6 +110,7 @@ from weft_store.conformance import (
     check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything,
     check_a_parent_is_one_filter_away_from_its_child_on_either_backend,
     check_a_parents_children_within_an_ordinal_range_are_one_filter_away,
+    check_a_reader_sees_only_the_newest_published_generation_of_each_layer,
     check_a_released_claim_lets_the_next_writer_in,
     check_a_second_writer_is_refused_naming_the_first,
     check_a_source_record_belongs_to_the_target_it_was_written_into,
@@ -120,6 +123,7 @@ from weft_store.conformance import (
     check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend,
     check_an_unpublished_generation_is_invisible_until_it_is_published,
     check_base_nodes_are_visible_under_every_set_of_generations,
+    check_carrying_a_node_no_published_generation_holds_is_refused_by_name,
     check_claiming_an_identity_creates_the_target_as_a_first_write_does,
     check_delete_source_removes_exactly_the_nodes_carrying_it,
     check_deleting_a_failed_source_removes_it_like_any_other,
@@ -901,6 +905,31 @@ async def test_a_generation_bound_again_sees_and_extends_what_was_written(
     target_store: GenerationHoldingStore,
 ) -> None:
     await check_a_generation_bound_again_sees_and_extends_what_was_written(target_store)
+
+
+# Repair **R43.25** — between a publish and the retract that follows it, a reader opened in that
+# window must see one tree per layer, not both.
+
+
+async def test_a_reader_sees_only_the_newest_published_generation_of_each_layer(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_a_reader_sees_only_the_newest_published_generation_of_each_layer(target_store)
+
+
+# Ledger task **43.22** — a generation carries the published one's untouched members forward.
+
+
+async def test_a_carried_generation_keeps_what_it_carries_and_drops_what_it_replaces(
+    target_store: GenerationCarryingStore,
+) -> None:
+    await check_a_carried_generation_keeps_what_it_carries_and_drops_what_it_replaces(target_store)
+
+
+async def test_carrying_a_node_no_published_generation_holds_is_refused_by_name(
+    target_store: GenerationCarryingStore,
+) -> None:
+    await check_carrying_a_node_no_published_generation_holds_is_refused_by_name(target_store)
 
 
 # Ledger task **43.18** — one writer at a time, on `target_store`'s own storage.

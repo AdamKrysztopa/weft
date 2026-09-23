@@ -128,6 +128,7 @@ from weft_store.contract import (
     GenerationRecord,
     GenerationStatus,
     NodeStore,
+    NotAPublishedMemberError,
     Page,
     Promotion,
     ReconcileEstimate,
@@ -1284,9 +1285,12 @@ class PgVectorStore:
                 # `GenerationHolding`'s manifest — ledger task **43.14**: read once, here, and held
                 # on `self._published_generations` for this handle's lifetime, so one operation
                 # never mixes what two publishes made visible. A bare `SELECT` takes no lock
-                # beyond `ACCESS SHARE` — R43.6's own rule, applied to a second table.
+                # beyond `ACCESS SHARE` — R43.6's own rule, applied to a second table. One per
+                # layer, the newest published (repair **R43.25**), so a reader opened between a
+                # publish and the retract after it sees one tree of that layer, never two.
                 await cur.execute(
-                    "SELECT id FROM weft_generations WHERE status = %s",
+                    "SELECT DISTINCT ON (layer) id FROM weft_generations WHERE status = %s "
+                    "ORDER BY layer, published_at DESC, opened_at DESC, id DESC",
                     (GenerationStatus.PUBLISHED.value,),
                 )
                 generation_rows = await cur.fetchall()
@@ -2229,6 +2233,37 @@ class PgVectorStore:
             await cur.execute("SELECT * FROM weft_generations ORDER BY opened_at, id")
             rows = await cur.fetchall()
         return tuple(_row_to_generation_record(row) for row in rows)
+
+    # -- GenerationCarrying — ledger task **43.22** ------------------------------------------
+
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
+        """`into` joins each node's `generations` and nothing else about the row changes. One
+        transaction: every id is checked against the published generations before any is
+        carried, so a refused call writes nothing.
+        """
+        requested = list(dict.fromkeys(node_ids))
+        conn = await self._connection()
+        async with conn.transaction(), conn.cursor() as cur:
+            await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (into,))
+            if await cur.fetchone() is None:
+                raise UnknownGenerationError(
+                    into, valid_options=await self._known_generation_ids(cur)
+                )
+            await cur.execute(
+                "SELECT id FROM weft_nodes WHERE id = ANY(%s) AND generations && "
+                "ARRAY(SELECT id FROM weft_generations WHERE status = %s)",
+                (requested, GenerationStatus.PUBLISHED.value),
+            )
+            members = {cast(str, row["id"]) for row in await cur.fetchall()}
+            refused = [node_id for node_id in requested if node_id not in members]
+            if refused:
+                raise NotAPublishedMemberError(into, node_ids=refused)
+            await cur.execute(
+                "UPDATE weft_nodes SET generations = array_append(generations, %s) "
+                "WHERE id = ANY(%s) AND NOT (%s = ANY(generations))",
+                (into, requested, into),
+            )
+        return len(requested)
 
     async def _known_generation_ids(
         self, cur: psycopg.AsyncCursor[dict[str, Any]]

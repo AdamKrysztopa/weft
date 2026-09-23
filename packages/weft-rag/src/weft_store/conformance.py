@@ -74,6 +74,7 @@ from weft_store.contract import (
     EmbeddingIdentity,
     Filter,
     FilterOp,
+    GenerationCarrying,
     GenerationHolding,
     GenerationId,
     GenerationStatus,
@@ -84,6 +85,7 @@ from weft_store.contract import (
     NodeStore,
     NodeSupersedable,
     NoPreviousTargetError,
+    NotAPublishedMemberError,
     Page,
     Promotion,
     Reconcilable,
@@ -173,6 +175,7 @@ _CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
     "ReconcilableStore": ("Reconcilable", "reconcile"),
     "TargetHoldingStore": ("TargetHolding", "target_catalogue"),
     "GenerationHoldingStore": ("GenerationHolding", "open_generation"),
+    "GenerationCarryingStore": ("GenerationCarrying", "carry_forward"),
     "SingleWriterStore": ("SingleWriter", "claim_writer"),
 }
 
@@ -355,6 +358,11 @@ class GenerationHoldingStore(
     NodeStore, GenerationHolding, VectorSearch, TextSearch, MetadataFilter, Protocol
 ):
     """A store that holds layer generations and searches them — ledger task **43.14**."""
+
+
+@runtime_checkable
+class GenerationCarryingStore(GenerationHoldingStore, GenerationCarrying, Protocol):
+    """A store that carries a published generation's members into a new one — ledger **43.22**."""
 
 
 @runtime_checkable
@@ -2231,6 +2239,163 @@ async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by
     _require(refusal is not None, "an unknown generation must be refused")
     _require(
         refusal is not None and opened.id in refusal.valid_options,
+        "the refusal must name the generations that exist",
+    )
+
+
+async def check_a_reader_sees_only_the_newest_published_generation_of_each_layer(
+    store: GenerationHoldingStore,
+) -> None:
+    """Repair **R43.25**: the layer loop publishes a layer's new generation before it retracts
+    the old one, so a reader opened between the two must see one tree per layer — the newest
+    published generation of each — never both."""
+    # Arrange
+    older = await store.open_generation("summaries")
+    await (await store.bind_generation(older.id)).add([_member("amber", (1.0, 0.0, 0.0))])
+    await store.publish_generation(older.id)
+    newer = await store.open_generation("summaries")
+    await (await store.bind_generation(newer.id)).add([_member("birch", (0.0, 1.0, 0.0))])
+    await store.publish_generation(newer.id)
+    other = await store.open_generation("facts")
+    await (await store.bind_generation(other.id)).add([_member("cedar", (0.0, 0.0, 1.0))])
+    await store.publish_generation(other.id)
+
+    # Act
+    reader = await _next_operation(store)
+    replaced = await _visible(reader, "amber", (1.0, 0.0, 0.0))
+    newest = await _visible(reader, "birch", (0.0, 1.0, 0.0))
+    other_layer = await _visible(reader, "cedar", (0.0, 0.0, 1.0))
+
+    # Assert
+    _require(
+        replaced == (False, False, False),
+        f"a reader saw an older published generation of the same layer: {replaced}",
+    )
+    _require(newest == (True, True, True), f"the newest published generation was hidden: {newest}")
+    _require(
+        other_layer == (True, True, True),
+        f"another layer's published generation was hidden: {other_layer}",
+    )
+
+
+_OLD_TREE: Final[tuple[tuple[str, tuple[float, float, float]], ...]] = (
+    ("amber", (1.0, 0.0, 0.0)),
+    ("birch", (0.0, 1.0, 0.0)),
+    ("cedar", (0.0, 0.0, 1.0)),
+    ("dune", (0.5, 0.5, 0.0)),
+    ("ember", (0.0, 0.5, 0.5)),
+)
+_NEW_TREE: Final[tuple[tuple[str, tuple[float, float, float]], ...]] = (
+    ("fjord", (0.5, 0.0, 0.5)),
+    ("grove", (0.3, 0.3, 0.4)),
+)
+
+
+async def _seen(
+    store: GenerationHoldingStore, tree: tuple[tuple[str, tuple[float, float, float]], ...]
+) -> dict[str, tuple[bool, bool, bool]]:
+    return {word: await _visible(store, word, values) for word, values in tree}
+
+
+async def check_a_carried_generation_keeps_what_it_carries_and_drops_what_it_replaces(
+    store: GenerationCarryingStore,
+) -> None:
+    """Ledger **43.22**: a new generation carries three of the published generation's five
+    members and replaces the other two. Once it is published and the old one retracted, the three
+    carried and the two new are found by every read path and the two replaced by none; a handle
+    opened before the publish still sees the old five and nothing new; a carried node is the node
+    it was, never rewritten."""
+    # Arrange
+    old_members = [_member(word, values) for word, values in _OLD_TREE]
+    carried, replaced = _OLD_TREE[:3], _OLD_TREE[3:]
+    old = await store.open_generation("summaries")
+    await (await store.bind_generation(old.id)).add(old_members)
+    await store.publish_generation(old.id)
+    new = await store.open_generation("summaries")
+    await (await store.bind_generation(new.id)).add(
+        [_member(word, values) for word, values in _NEW_TREE]
+    )
+    before = await _next_operation(store)
+    await before.count()
+
+    # Act
+    moved = await store.carry_forward(new.id, [node.id for node in old_members[:3]])
+    await store.publish_generation(new.id)
+    seen_before = await _seen(before, _OLD_TREE + _NEW_TREE)
+    await store.retract_generation(old.id)
+    after = await _next_operation(store)
+    seen_after = await _seen(after, _OLD_TREE + _NEW_TREE)
+    kept = await after.get([node.id for node in old_members[:3]])
+
+    # Assert
+    everywhere, nowhere = (True, True, True), (False, False, False)
+    _require(moved == 3, f"carry_forward must report the 3 nodes it carried: {moved}")
+    _require(
+        all(seen_before[word] == everywhere for word, _ in _OLD_TREE)
+        and all(seen_before[word] == nowhere for word, _ in _NEW_TREE),
+        f"a handle opened before the publish must see the old five and nothing new: {seen_before}",
+    )
+    _require(
+        all(seen_after[word] == everywhere for word, _ in carried + _NEW_TREE),
+        f"every carried and every new member must be found by every read path: {seen_after}",
+    )
+    _require(
+        all(seen_after[word] == nowhere for word, _ in replaced),
+        f"a replaced member must be gone once the old generation is retracted: {seen_after}",
+    )
+    _require(
+        sorted(kept, key=lambda node: node.id) == sorted(old_members[:3], key=lambda node: node.id),
+        f"a carried node must be the node it was: {kept}",
+    )
+
+
+async def check_carrying_a_node_no_published_generation_holds_is_refused_by_name(
+    store: GenerationCarryingStore,
+) -> None:
+    """Ledger **43.22**: only a member of a published generation can be carried. A base node and
+    a member of an unpublished generation are refused together, named, and nothing in the call is
+    carried; a generation nobody opened is refused naming the ones that exist."""
+    # Arrange
+    published = _member("amber", (1.0, 0.0, 0.0))
+    unpublished = _member("birch", (0.0, 1.0, 0.0))
+    base = _member("cedar", (0.0, 0.0, 1.0))
+    await store.add([base])
+    old = await store.open_generation("summaries")
+    await (await store.bind_generation(old.id)).add([published])
+    await store.publish_generation(old.id)
+    stray = await store.open_generation("summaries")
+    await (await store.bind_generation(stray.id)).add([unpublished])
+    new = await store.open_generation("summaries")
+
+    # Act
+    try:
+        await store.carry_forward(new.id, [published.id, unpublished.id, base.id])
+    except NotAPublishedMemberError as refused:
+        refusal: NotAPublishedMemberError | None = refused
+    else:
+        refusal = None
+    try:
+        await store.carry_forward(GenerationId("no-such-generation"), [published.id])
+    except UnknownGenerationError as refused:
+        unknown: UnknownGenerationError | None = refused
+    else:
+        unknown = None
+    await store.publish_generation(new.id)
+    await store.retract_generation(old.id)
+    seen = await _visible(await _next_operation(store), "amber", (1.0, 0.0, 0.0))
+
+    # Assert
+    _require(refusal is not None, "carrying a node no published generation holds must be refused")
+    _require(
+        refusal is not None
+        and refusal.generation == new.id
+        and refusal.node_ids == tuple(sorted((unpublished.id, base.id))),
+        f"the refusal must name the generation and exactly the nodes it refused: {refusal!r}",
+    )
+    _require(seen == (False, False, False), f"a refused carry must carry nothing: {seen}")
+    _require(unknown is not None, "carrying into an unknown generation must be refused")
+    _require(
+        unknown is not None and new.id in unknown.valid_options,
         "the refusal must name the generations that exist",
     )
 

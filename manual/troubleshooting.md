@@ -4995,6 +4995,25 @@ was retracted.
 **What to do:** use one of the ids the message lists. `weft index --layers <name>` opens a new
 generation for the layer.
 
+### `NotAPublishedMemberError`
+
+**What it looks like:**
+
+```text
+cannot carry 1 node(s) into generation 'g-9e04': no published generation holds n-51c2. Only a
+member of a published generation can be carried forward; write a new node through the
+generation's bound handle instead.
+```
+
+**Why:** a store that carries a layer's untouched nodes into its next generation, so a rebuild
+does not rewrite them, carries only what readers can already see. The node named was never
+published, it belongs to a retracted generation, or its source has been deleted. Nothing in the
+call was carried.
+
+**What to do:** if you wrote the calling code, carry only ids read from the published generation,
+and store any other node through the new generation's bound handle. From `weft index --layers`,
+run the command again: the rebuild reads the published generation afresh.
+
 ### `TargetInUseError`
 
 **What it looks like:**

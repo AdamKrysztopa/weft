@@ -1,7 +1,8 @@
 """`InMemoryNodeStore` — a stranger's whole store family: `NodeStore`, `VectorSearch`,
 `TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable`, `TargetHolding` (ledger
-task **34.3**), `GenerationHolding` (ledger task **43.14**) and, since ledger task **43.18**,
-`SingleWriter`, all nine, over one process-lifetime Python dict.
+task **34.3**), `GenerationHolding` (ledger task **43.14**), `SingleWriter` (ledger task
+**43.18**) and, since ledger task **43.22**, `GenerationCarrying`, all ten, over one
+process-lifetime Python dict.
 
 **`Lifetime.PROCESS`, stated as the deliberate choice it is.** A plugin defaults to
 `Lifetime.RUN` — a fresh instance per pipeline run — which is exactly right for
@@ -54,6 +55,7 @@ from weft_store.contract import (
     GenerationRecord,
     GenerationStatus,
     NoPreviousTargetError,
+    NotAPublishedMemberError,
     Page,
     Promotion,
     ReconcileEstimate,
@@ -182,11 +184,7 @@ class InMemoryNodeStore:
             target = self._resolved
         if self._visible is None:
             state = self._catalogue.targets.get(target)
-            published = frozenset(
-                record.id
-                for record in (state.generations.values() if state is not None else ())
-                if record.status is GenerationStatus.PUBLISHED
-            )
+            published = _newest_published_per_layer(state.generations if state is not None else {})
             visible = {_BASE, *published}
             if self._bound_generation is not None:
                 visible.add(self._bound_generation)
@@ -527,6 +525,32 @@ class InMemoryNodeStore:
         records = self._readable().generations.values()
         return tuple(sorted(records, key=lambda record: (record.opened_at, record.id)))
 
+    # -- GenerationCarrying ------------------------------------------------------------------
+
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
+        """`GenerationCarrying`, ledger task **43.22** — `into` joins each node's membership and
+        nothing else about the node changes. Every id is checked before any is carried."""
+        target = self._writable()
+        if into not in target.generations:
+            raise UnknownGenerationError(into, valid_options=tuple(sorted(target.generations)))
+        published = {
+            generation
+            for generation, record in target.generations.items()
+            if record.status is GenerationStatus.PUBLISHED
+        }
+        requested = tuple(dict.fromkeys(node_ids))
+        refused = [
+            node_id
+            for node_id in requested
+            if node_id not in target.nodes
+            or not target.node_generations.get(node_id, frozenset()) & published
+        ]
+        if refused:
+            raise NotAPublishedMemberError(into, node_ids=refused)
+        for node_id in requested:
+            target.node_generations[node_id] = target.node_generations[node_id] | {into}
+        return len(requested)
+
     # -- SingleWriter ------------------------------------------------------------------------
 
     async def claim_writer(self, writer: WriterClaim) -> None:
@@ -544,6 +568,21 @@ class InMemoryNodeStore:
         if target.writer is not None and target.writer == self._claimed_writer:
             target.writer = None
         self._claimed_writer = None
+
+
+def _newest_published_per_layer(
+    generations: dict[GenerationId, GenerationRecord],
+) -> frozenset[GenerationId]:
+    """Each layer's newest published generation — repair **R43.25**. A tie on `published_at`
+    goes to the one opened later, which is the catalogue's insertion order."""
+    newest: dict[str, GenerationRecord] = {}
+    for record in generations.values():
+        if record.status is not GenerationStatus.PUBLISHED or record.published_at is None:
+            continue
+        held = newest.get(record.layer)
+        if held is None or held.published_at is None or record.published_at >= held.published_at:
+            newest[record.layer] = record
+    return frozenset(record.id for record in newest.values())
 
 
 def _cosine(left: Vector, right: Vector) -> float:
