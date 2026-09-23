@@ -448,6 +448,11 @@ class QdrantStore:
         #: **43.18**. `None` on a handle that never claimed, or after `release_writer`; read by
         #: `_touch_writer_lease` to renew it and by `release_writer` to know it holds one at all.
         self._writer_claim: WriterClaim | None = None
+        #: Renews `_writer_claim` every third of `target_lease_seconds` while it is held —
+        #: carried repair **R43.18**: `weft delete` and `weft reconcile` hold their claim
+        #: through a handle that never writes, and `add` was the only renewal. Stopped by
+        #: `release_writer` and `aclose`, so a holder that stops still lets its lease expire.
+        self._writer_renewal: asyncio.Task[None] | None = None
         #: The generations this handle may see: `""` (the base marker), every generation
         #: published when this handle first touched storage, and `self._bound_generation` if
         #: any — read once in `_connection` and held for this handle's lifetime, `34.3`'s shape
@@ -1728,7 +1733,7 @@ class QdrantStore:
         `(host, pid)`, the target is held and this call raises `WriterBusyError` naming that
         claim. Otherwise this claim is upserted over it — replacing an expired claim, or
         renewing this handle's own — with a fresh `expires_at`, exactly as `_touch_lease`
-        renews a target lease. `add` renews it again on every later batch through this handle.
+        renews a target lease, and keeps renewing it until `release_writer` or `aclose` (R43.18).
         """
         client = await self._connection()
         target = self._require_active_target()
@@ -1756,12 +1761,26 @@ class QdrantStore:
             wait=True,
         )
         self._writer_claim = writer
+        if self._writer_renewal is None:
+            self._writer_renewal = asyncio.create_task(self._renew_writer_claim())
+
+    async def _renew_writer_claim(self) -> None:
+        while True:
+            await asyncio.sleep(self._settings.target_lease_seconds / 3)
+            await self._touch_writer_lease(await self._connection())
+
+    async def _stop_writer_renewal(self) -> None:
+        renewal, self._writer_renewal = self._writer_renewal, None
+        if renewal is not None:
+            renewal.cancel()
+            await asyncio.wait({renewal})
 
     async def release_writer(self) -> None:
         """End this handle's own writer claim, if it holds one. A no-op on a handle that never
         claimed, and on one whose claim the catalogue no longer attributes to it — expired and
         replaced by another holder in the meantime.
         """
+        await self._stop_writer_renewal()
         if self._writer_claim is None:
             return
         client = await self._connection()
@@ -1785,6 +1804,7 @@ class QdrantStore:
     async def aclose(self) -> None:
         """Release this handle's lease, if it wrote one, and close the client. Not part of any
         contract."""
+        await self._stop_writer_renewal()
         if self._client is not None:
             if self._lease_written and self._active_target is not None:
                 await self._client.delete(

@@ -37,6 +37,8 @@ from weft_store.contract import (
     Promotion,
     ReconcileMode,
     TargetInUseError,
+    WriterBusyError,
+    WriterClaim,
     target_name,
 )
 
@@ -311,3 +313,51 @@ async def test_the_first_write_still_creates_the_pair(settings: QdrantSettings) 
     # Assert
     assert nodes_exist
     assert counted == 1
+
+
+def _writer(pid: int, command: str) -> WriterClaim:
+    return WriterClaim(host="test-host", pid=pid, started_at=datetime.now(UTC), command=command)
+
+
+async def test_a_writer_claim_holds_past_its_lease_while_its_holder_never_writes(
+    settings: QdrantSettings,
+) -> None:
+    """Carried repair R43.18, measured before the red: the claim was renewed only by `add`, so a
+    `weft delete` or `weft reconcile` holding it through a handle that never writes lost it at
+    `target_lease_seconds`, and a second writer was admitted beside it."""
+    # Arrange
+    short = settings.model_copy(update={"target_lease_seconds": 1})
+    holder, other = QdrantStore(short), QdrantStore(short)
+    await holder.claim_writer(_writer(1001, "weft reconcile"))
+
+    # Act
+    await asyncio.sleep(2.5)
+
+    # Assert — still held; then released, and the next writer gets in.
+    with pytest.raises(WriterBusyError, match="weft reconcile"):
+        await other.claim_writer(_writer(1002, "weft index"))
+    await holder.release_writer()
+    await other.claim_writer(_writer(1002, "weft index"))
+    await other.release_writer()
+    await holder.aclose()
+    await other.aclose()
+
+
+async def test_a_writer_claim_whose_holder_stopped_without_releasing_still_expires(
+    settings: QdrantSettings,
+) -> None:
+    """The lease is what frees a store a crashed writer held, so renewing it must stop when
+    the holder does."""
+    # Arrange
+    short = settings.model_copy(update={"target_lease_seconds": 1})
+    holder, other = QdrantStore(short), QdrantStore(short)
+    await holder.claim_writer(_writer(1001, "weft index"))
+    await holder.aclose()
+
+    # Act
+    await asyncio.sleep(1.5)
+    await other.claim_writer(_writer(1002, "weft index"))
+
+    # Assert
+    await other.release_writer()
+    await other.aclose()
