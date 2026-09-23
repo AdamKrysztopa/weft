@@ -68,12 +68,14 @@ from pydantic import SecretStr
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
+from weft_cli.layers import layer_leaf_filter
 from weft_engine.run_services import StoreCapabilityMissingError, check_store_capabilities
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import MediaType, Node, Outcome, Produced, SourceId, Vector
+from weft_kernel.payload import ExtModel, MediaType, Node, Outcome, Produced, SourceId, Vector
 from weft_kernel.registry import Registry
 from weft_kernel.runner import StageSpec
+from weft_kg.payload import ExtractedFact, MentionedEntity
 from weft_qdrant import QdrantSettings, QdrantStore
 from weft_retrieve.contract import Retriever
 from weft_retrieve.payload import Candidates, QuerySet
@@ -148,6 +150,7 @@ from weft_store.conformance import (
     register_conformance_ext_models,
 )
 from weft_store.contract import (
+    Cursor,
     Filter,
     MetadataFilter,
     NodeStore,
@@ -157,6 +160,7 @@ from weft_store.contract import (
 )
 from weft_store.memory import MemoryStore
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
+from weft_store.rehydrate import ext_models, register_ext_model
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 _QDRANT_URL = os.environ.get("WEFT_QDRANT_URL", "http://localhost:6333")
@@ -866,3 +870,53 @@ async def test_a_released_claim_lets_the_next_writer_in(
     target_store: SingleWriterStore,
 ) -> None:
     await check_a_released_claim_lets_the_next_writer_in(target_store)
+
+
+# Repair **R43.22** — a layer's leaves on a real store exclude every model declaring itself
+# `not_a_leaf`. The selection reads `ext.<namespace>.__schema_version__`, which each backend has
+# to read as present on every stored namespace, or fact nodes return to a layer with no error.
+
+
+async def test_a_layers_leaves_on_a_real_store_are_the_chunk_and_never_its_facts(
+    store: ConformanceStore,
+) -> None:
+    # Arrange
+    held = ext_models.names_for(ExtModel)
+    for model in (ExtractedFact, MentionedEntity):
+        if model.__namespace__ not in held:
+            register_ext_model(model)
+    source = SourceId("file:///corpus/curie.md")
+    chunk = Node.synthetic(
+        content="Marie Curie discovered polonium in Paris.",
+        media_type=MediaType.TEXT,
+        reason="R43.22 fixture chunk",
+        sources=frozenset({source}),
+    )
+    fact = chunk.derive(content="Marie Curie discovered polonium", ordinal=0).with_ext(
+        ExtractedFact(
+            source="Marie Curie",
+            source_type="Person",
+            predicate="discovered",
+            target="polonium",
+            target_type="Element",
+        )
+    )
+    mention = chunk.derive(content="Marie Curie", ordinal=1).with_ext(
+        MentionedEntity(name="Marie Curie", entity_type="Person")
+    )
+    await store.add(
+        [node.with_embedding(Vector(values=(1.0, 0.0, 0.0))) for node in (chunk, fact, mention)]
+    )
+
+    # Act
+    selected: set[str] = set()
+    cursor: Cursor | None = None
+    while True:
+        page = await store.matching(layer_leaf_filter((source,)), cursor)
+        selected.update(node.id for node in page.items)
+        if page.next_cursor is None:
+            break
+        cursor = page.next_cursor
+
+    # Assert
+    assert selected == {chunk.id}

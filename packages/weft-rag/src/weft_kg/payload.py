@@ -16,6 +16,7 @@ kept out of this pack's vocabulary from its very first ext model.
 """
 
 from enum import Enum
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -129,6 +130,8 @@ class ExtractedFact(ExtModel):
     #: `S5`: `11.11` gave this model a field, which is a persisted shape gaining a field — the
     #: rule this project follows for exactly that change, restated at `schema_id`'s own comment.
     __schema_version__ = "1.1.0"
+    #: R43.22: a fact node is derived evidence, never a leaf a layer enriches.
+    not_a_leaf: ClassVar[bool] = True
 
     source: str = Field(min_length=1)
     source_type: str = Field(min_length=1)
@@ -167,6 +170,8 @@ class MentionedEntity(ExtModel):
 
     __namespace__ = "weft-kg-mention"
     __schema_version__ = "1.0.0"
+    #: R43.22, as `ExtractedFact.not_a_leaf`.
+    not_a_leaf: ClassVar[bool] = True
 
     name: str = Field(min_length=1)
     entity_type: str = Field(min_length=1)
