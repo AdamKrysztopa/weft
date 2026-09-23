@@ -96,6 +96,8 @@ a real store too, which `01` requirement 5 rules out as firmly as a missing entr
 from __future__ import annotations
 
 import hashlib
+import os
+import socket
 import time
 from collections.abc import (
     AsyncIterator,
@@ -117,7 +119,13 @@ from pydantic import BaseModel
 from weft_chunk import Chunker
 from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import contracts_for, to_specs
-from weft_cli.layers import compose_layers, require_layers_metadata_filter, run_layers
+from weft_cli.layers import (
+    compose_layers,
+    require_corpus_layers_generation_holding,
+    require_layers_metadata_filter,
+    run_layers,
+    stale_corpus_layers,
+)
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
 from weft_cli.progress import BatchProgress
 from weft_embed import Embedder
@@ -165,10 +173,12 @@ from weft_store.contract import (
     FilterOp,
     LayerRecord,
     MetadataFilter,
+    SingleWriter,
     SourceFailure,
     SourceRecord,
     SourceStatus,
     TargetHolding,
+    WriterClaim,
 )
 
 #: What `SourceRecord.pipeline` records for the built-in four-stage path — `06` step 9's
@@ -517,6 +527,19 @@ class IndexResult:
     #: each name once, in the order named — never re-run unasked, only reported. `()` when no
     #: layer was named, or every named layer's identity still matches what is stored.
     layers_changed: tuple[str, ...] = ()
+    #: Ledger task **43.15** — every corpus-scoped layer document `ACTIVE` on at least one of
+    #: this run's `ACTIVE` sources but not on all of them, sorted by name. Computed regardless
+    #: of what `layers` this run itself named: a source indexed without naming the layer still
+    #: leaves it behind everybody else. `()` when nothing is stale, or no corpus-scoped layer
+    #: is installed at all.
+    layers_stale: tuple[str, ...] = ()
+    #: `(built, of)` for every name in `layers_stale`, so `weft_cli.render` can print how far a
+    #: stale layer has got without re-deriving it from the store a second time — the same
+    #: reason `payload_indexes`/`degraded_expansions` travel here rather than being recomputed
+    #: at render time.
+    layers_stale_progress: Mapping[str, tuple[int, int]] = field(
+        default_factory=lambda: cast("Mapping[str, tuple[int, int]]", {})
+    )
 
 
 async def count_degraded_expansions(store: MetadataFilter) -> int:
@@ -1067,6 +1090,7 @@ async def run_index(
     layer_runnables: list[RunnablePipeline] = []
 
     in_flight: BaseException | None = None
+    claimed: SingleWriter | None = None
     try:
         identity = (
             pipeline_identity(resolved_pipeline)
@@ -1086,6 +1110,21 @@ async def run_index(
         require_layers_metadata_filter(
             layers, runnable=runnable, store_stage_id=store_stage_id, specs=specs
         )
+        require_corpus_layers_generation_holding(
+            layer_compositions, runnable=runnable, store_stage_id=store_stage_id, specs=specs
+        )
+        # Ledger task **43.18**: one writer per store, claimed before the first write.
+        writer = next((st.instance for st in runnable.stages if st.id == store_stage_id), None)
+        if isinstance(writer, SingleWriter):
+            await writer.claim_writer(
+                WriterClaim(
+                    host=socket.gethostname(),
+                    pid=os.getpid(),
+                    started_at=datetime.now(UTC),
+                    command="weft index",
+                )
+            )
+            claimed = writer
         # Read *before* the run writes over them: the comparison is against what the last index
         # left, and `_record_sources` below replaces exactly those rows.
         previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
@@ -1130,6 +1169,14 @@ async def run_index(
         written_target, target_stopped_being_live, target_now_live = await _target_written(
             runnable, target=target, target_live=target_live
         )
+        layers_stale, layers_stale_progress = await stale_corpus_layers(
+            runnable=runnable,
+            store_stage_id=store_stage_id,
+            refs=refs,
+            registry=registry,
+            reports=reports,
+            contributions=contributions,
+        )
         return IndexResult(
             summary=summary,
             stored_count=stored_count,
@@ -1149,11 +1196,15 @@ async def run_index(
             target_stopped_being_live=target_stopped_being_live,
             target_now_live=target_now_live,
             layers_changed=layers_changed,
+            layers_stale=layers_stale,
+            layers_stale_progress=layers_stale_progress,
         )
     except BaseException as failure:
         in_flight = failure
         raise
     finally:
+        if claimed is not None:
+            await claimed.release_writer()
         await close_each(
             tuple(
                 CloseTarget(

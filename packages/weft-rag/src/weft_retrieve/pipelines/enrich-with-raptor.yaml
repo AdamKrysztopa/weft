@@ -1,0 +1,19 @@
+name: enrich-with-raptor
+
+# The layer twin of `index-with-raptor` (ledger task 43.7, shipped at 43.15): the same `raptor`
+# `Expander`, run over nodes a base document already stored. A root document with no `layer.scope`
+# var runs **source-scoped** by default — one tree per document, `weft_cli.layers.compose_layer`'s
+# own default — and a project derives the corpus-scoped variant with its own document:
+#
+#   name: enrich-with-raptor-corpus
+#   extends: enrich-with-raptor
+#   vars: {layer.scope: corpus}
+#
+# which builds one tree over every indexed source instead, as a generation published whole
+# (`weft_store.contract.GenerationHolding`) — a store that cannot hold one is refused by name.
+# `raptor` refuses a batch above `max_leaves`/`max_pairs` either way (ledger 43.13): a corpus-scoped
+# build hands it every eligible source's leaves at once, so that ceiling is reached at a smaller
+# corpus than the source-scoped default is.
+
+stages:
+  - {id: raptor, use: raptor}

@@ -160,7 +160,8 @@ from weft_kernel.runner import Stage
 #: **`2.8.0` → `2.9.0` at task 34.3** — `TargetHolding` joins the family, `NodeSupersedable`'s
 #: precedent: a new optional Protocol is a minor for both audiences.
 #: **`2.9.0` → `2.10.0` at task 43.6** — `SourceRecord` gains optional `layers`, `36.0`'s shape.
-#: **`2.10.0` → `2.11.0` at task 43.14** — `GenerationHolding` joins the family, `34.3`'s shape.
+#: **`2.10.0` → `2.11.0` at task 43.14** — `GenerationHolding` joins the family, `34.3`'s shape,
+#: and `SingleWriter` (task 43.18) joins the same unreleased minor.
 STORE_CONTRACT_VERSION = "2.11.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
@@ -1448,3 +1449,47 @@ class GenerationHolding(Protocol):
 
 
 GenerationHolding.version = STORE_CONTRACT_VERSION
+
+
+class WriterClaim(BaseModel):
+    """Who is writing into a store — `SingleWriter.claim_writer`'s argument, and what a refusal
+    names. Ledger task **43.18**."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    host: str = Field(min_length=1)
+    pid: int = Field(ge=1)
+    started_at: datetime
+    command: str = Field(min_length=1)
+
+
+class WriterBusyError(WeftError):
+    """Another writer holds this store — ledger task **43.18**. `holder` is its claim."""
+
+    def __init__(self, holder: WriterClaim) -> None:
+        super().__init__(
+            f"another writer holds this store: {holder.command!r}, pid {holder.pid} on "
+            f"{holder.host}, started {holder.started_at.isoformat(timespec='seconds')}. Wait for "
+            "it to finish, or stop it."
+        )
+        self.holder = holder
+
+
+@runtime_checkable
+class SingleWriter(Protocol):
+    """A store that admits one writer at a time — ledger task **43.18**.
+
+    `claim_writer` either records the claim or raises `WriterBusyError` naming the claim another
+    handle holds. The claim ends at `release_writer`, and on a store that can tell, when the
+    holding process dies. A claim made by a crashed writer never blocks the next one forever.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def claim_writer(self, writer: WriterClaim) -> None: ...
+
+    async def release_writer(self) -> None: ...
+
+
+SingleWriter.version = STORE_CONTRACT_VERSION

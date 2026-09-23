@@ -100,6 +100,18 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   failed. A finished layer is skipped, a failed one is retried only under `--retry-failed`, and
   `--reprocess` rebuilds a source's layers with its base. `Weft.index` takes `layers` and
   `layers_only`.
+- **A layer can build one tree over the whole corpus, published only when it is complete.**
+  `enrich-with-raptor` builds a RAPTOR tree per document; a project derives it with
+  `vars: {layer.scope: corpus}` to build one tree over every document instead. That build is
+  written as a generation, invisible to every search until it finishes, then replaces the previous
+  tree in one step. A document indexed later leaves the tree stale; `weft index` says so, and the
+  next run naming the layer rebuilds it. A store that cannot hold generations is refused by name.
+- **A second `weft index` into a store another is still writing is refused**, naming the running
+  one's command, process and start time. A crashed run releases the store: on pgvector at once,
+  on Qdrant when its lease expires. `weft ask` is never refused.
+- **A pack outside Weft can ship a layer.** The example ingest pack ships
+  `example-first-sentences`, a layer over its own expander, and `weft index --layers` runs it from
+  the installed wheel.
 - **A query rung can require a layer**, with `route.requires` in its `vars`.
   `questions-then-generate` is the first: it searches the chunks and their generated questions in
   one ranking, then counts each question as the chunk it asks about. The router does not offer

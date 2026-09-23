@@ -76,3 +76,20 @@ def test_the_in_memory_store_holds_no_generations() -> None:
     # Assert — it has no text search or metadata filter to hide an unpublished member from, so it
     # is not offered the capability rather than offered half of it.
     assert not isinstance(MemoryStore(), GenerationHolding)
+
+
+def test_a_writer_busy_refusal_names_the_writer_that_holds_the_store() -> None:
+    """Ledger **43.18**, the contract half: the refusal carries the holder's claim whole."""
+    # Arrange
+    from weft_store.contract import SingleWriter, WriterBusyError, WriterClaim
+
+    holder = WriterClaim(host="laptop", pid=4242, started_at=_WHEN, command="weft index corpus")
+
+    # Act
+    refused = WriterBusyError(holder)
+
+    # Assert
+    assert refused.holder == holder
+    for fact in ("'weft index corpus'", "pid 4242", "laptop", "2026-09-23T12:00:00"):
+        assert fact in str(refused), fact
+    assert SingleWriter.version == "2.11.0"

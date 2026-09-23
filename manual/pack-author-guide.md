@@ -530,6 +530,8 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Enhancer, "example-enhancer", ExampleWordCountEnhancer)
     registrar.add(Embedder, "example-embedder", ExampleChecksumEmbedder)
     registrar.add(Expander, EXPANDER_NAME, ExampleFirstSentenceExpander)
+    # Ledger task 43.19: a layer is a pipeline document, so a stranger ships one like any other.
+    registrar.add_pipeline_resource("weft_example_ingest", "pipelines/example-first-sentences.yaml")
     # Ledger task 10.23 — fitness function 9 clause (c): a published contract needs an
     # implementation living outside the workspace, or the capability is first-party only.
     registrar.add(Revisable, REVISER_NAME, ExampleStoredCountReviser)

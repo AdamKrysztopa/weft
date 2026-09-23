@@ -88,6 +88,7 @@ from weft_store.contract import (
     Promotion,
     Reconcilable,
     ReconcileMode,
+    SingleWriter,
     SourceFailure,
     SourceRecord,
     SourceStatus,
@@ -98,6 +99,8 @@ from weft_store.contract import (
     UnknownGenerationError,
     UnknownTargetError,
     VectorSearch,
+    WriterBusyError,
+    WriterClaim,
     target_name,
 )
 from weft_store.fields import FilterOpMismatchError, UnaddressableFieldError
@@ -170,6 +173,7 @@ _CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
     "ReconcilableStore": ("Reconcilable", "reconcile"),
     "TargetHoldingStore": ("TargetHolding", "target_catalogue"),
     "GenerationHoldingStore": ("GenerationHolding", "open_generation"),
+    "SingleWriterStore": ("SingleWriter", "claim_writer"),
 }
 
 #: Every method `NodeStore` publishes. A thing missing any of them is refused rather than filtered.
@@ -351,6 +355,12 @@ class GenerationHoldingStore(
     NodeStore, GenerationHolding, VectorSearch, TextSearch, MetadataFilter, Protocol
 ):
     """A store that holds layer generations and searches them — ledger task **43.14**."""
+
+
+@runtime_checkable
+class SingleWriterStore(NodeStore, SingleWriter, TargetHolding, Protocol):
+    """A store that admits one writer at a time — ledger task **43.18**. `TargetHolding` is how a
+    check reaches a second handle onto the same storage."""
 
 
 _SOURCE_A = SourceId("source-a")
@@ -2176,3 +2186,46 @@ async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by
         refusal is not None and opened.id in refusal.valid_options,
         "the refusal must name the generations that exist",
     )
+
+
+def _claim(command: str, pid: int) -> WriterClaim:
+    return WriterClaim(
+        host="conformance-host", pid=pid, started_at=datetime.now(UTC), command=command
+    )
+
+
+async def check_a_second_writer_is_refused_naming_the_first(store: SingleWriterStore) -> None:
+    """Ledger **43.18**: two `weft index` runs interleaving their batch records into one store is
+    refused before the second writes, and the refusal names the writer that holds it."""
+    # Arrange
+    other = await store.bind_target(DEFAULT_TARGET)
+    first = _claim("weft index corpus", 101)
+    await store.claim_writer(first)
+
+    # Act
+    try:
+        await other.claim_writer(_claim("weft index elsewhere", 202))
+    except WriterBusyError as busy:
+        refusal: WriterBusyError | None = busy
+    else:
+        refusal = None
+    await store.release_writer()
+
+    # Assert
+    _require(refusal is not None, "a second writer was admitted while the first held the store")
+    _require(
+        refusal is not None and refusal.holder == first,
+        f"the refusal must name the writer that holds the store: {refusal and refusal.holder}",
+    )
+
+
+async def check_a_released_claim_lets_the_next_writer_in(store: SingleWriterStore) -> None:
+    """Ledger **43.18**: `release_writer` ends the claim, so the next writer is admitted."""
+    # Arrange
+    other = await store.bind_target(DEFAULT_TARGET)
+    await store.claim_writer(_claim("weft index corpus", 101))
+
+    # Act / Assert — the second claim raising `WriterBusyError` is the failure.
+    await store.release_writer()
+    await other.claim_writer(_claim("weft index corpus", 202))
+    await other.release_writer()

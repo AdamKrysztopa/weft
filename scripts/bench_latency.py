@@ -78,7 +78,7 @@ def percentile(samples: Sequence[float], q: float) -> float:
 
 
 def parse_nodes_stored(stdout: str) -> int:
-    """The count `weft_cli/render.py:651 "nodes now stored: {stored}."` prints."""
+    """The count `weft_cli/render.py:652 "nodes now stored: {stored}."` prints."""
     match = _NODES_STORED_RE.search(stdout)
     if match is not None:
         return int(match.group(1))
@@ -215,7 +215,7 @@ class LatencyRun(BaseModel):
 # The driving half: not unit-tested, run against a real database by the dispatcher.
 # ---------------------------------------------------------------------------------------------
 
-#: The statement `weft_store/pgvector_store.py:1964 "embedding <=> %(vector)s AS distance"`
+#: The statement `weft_store/pgvector_store.py:1972 "embedding <=> %(vector)s AS distance"`
 #: sends for `search_vector` with `filter=None`, which `_predicate_or_true` renders as `TRUE`.
 _SEARCH_VECTOR_SQL = sql.SQL(
     "SELECT *, embedding <=> %(vector)s AS distance "

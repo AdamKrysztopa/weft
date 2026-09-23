@@ -652,6 +652,9 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"nodes now stored: {stored}."
     )
     stdout = _index_target_lines(result, stdout)
+    stale_lines = _stale_layer_lines(result)
+    if stale_lines:
+        stdout += "\n" + "\n".join(stale_lines)
     if result.payload_indexes:
         # Ledger task **31.14**. Named rather than counted: a number would satisfy "reports its
         # payload index" while telling an operator nothing they could check against the
@@ -713,6 +716,21 @@ def _citation_line(citation: Citation) -> str:
     """
     page = f" p.{citation.page}" if citation.page is not None else ""
     return f"  [{citation.marker}] {citation.uri}{page} — {citation.node_id}"
+
+
+def _stale_layer_lines(result: IndexCommandResult) -> list[str]:
+    """One line per name in `result.layers_stale` — ledger task **43.15**. `layers_stale` is
+    already sorted by name (`weft_cli.layers.stale_corpus_layers`'s own contract); `(0, 0)` is
+    never reached in practice — every name in `layers_stale` has an entry in
+    `layers_stale_progress` — but is the honest default for a name this dict somehow lacked,
+    rather than a `KeyError` a render function has no business raising.
+    """
+    return [
+        f"layer '{name}' is stale: built over {built} of {of} sources — "
+        f"weft index --layers {name} rebuilds it."
+        for name in result.layers_stale
+        for built, of in (result.layers_stale_progress.get(name, (0, 0)),)
+    ]
 
 
 def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = False) -> Rendered:

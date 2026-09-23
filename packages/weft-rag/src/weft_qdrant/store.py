@@ -89,6 +89,12 @@ lease point in the catalogue, written on its first write and renewed on every la
 released by `aclose`, and left to expire after `[packs.qdrant] target_lease_seconds` if the
 writer never closes — so a crashed writer blocks a drop for at most that long, and a handle
 that only reads takes no lease at all.
+
+**`SingleWriter` arrives at task 43.18, the same expiring-lease shape applied to a target's
+own write claim rather than to a handle's bind.** One point per target rather than one per
+holder, since only one writer may hold a target at a time; `claim_writer` refuses naming the
+stored claim when it is another `(host, pid)`'s and has not yet expired, and `add` renews it
+on every later batch through the claiming handle, exactly as the R34.10 lease is renewed.
 """
 
 import asyncio
@@ -136,6 +142,8 @@ from weft_store.contract import (
     UnknownTargetError,
     VectorIndexKind,
     VectorPrecision,
+    WriterBusyError,
+    WriterClaim,
     source_failure,
     source_layers,
     source_status,
@@ -201,6 +209,14 @@ def _lease_point_id(collection: str, target: str, holder: str) -> str:
     renewal upserts the same point rather than accumulating one per write.
     """
     return str(uuid5(_TARGET_ID_NAMESPACE, f"lease:{collection}:{target}:{holder}"))
+
+
+def _writer_point_id(collection: str, target: str) -> str:
+    """The one write-claim point id for `(collection, target)` — **43.18**'s `SingleWriter`.
+    One per target, not one per holder like `_lease_point_id`: only one writer may hold a
+    target at a time, so a second claim upserts the same point rather than racing beside it.
+    """
+    return str(uuid5(_TARGET_ID_NAMESPACE, f"writer:{collection}:{target}"))
 
 
 #: The namespace a generation's catalogue point id is derived under — its own, for the same
@@ -428,6 +444,10 @@ class QdrantStore:
         self._holder: str = uuid4().hex
         #: A handle that only reads never touches the catalogue, on close included (`L28.27`).
         self._lease_written = False
+        #: This handle's own writer claim, once `claim_writer` has admitted it — ledger
+        #: **43.18**. `None` on a handle that never claimed, or after `release_writer`; read by
+        #: `_touch_writer_lease` to renew it and by `release_writer` to know it holds one at all.
+        self._writer_claim: WriterClaim | None = None
         #: The generations this handle may see: `""` (the base marker), every generation
         #: published when this handle first touched storage, and `self._bound_generation` if
         #: any — read once in `_connection` and held for this handle's lifetime, `34.3`'s shape
@@ -981,6 +1001,44 @@ class QdrantStore:
         )
         self._lease_written = True
 
+    async def _writer_point(self, client: AsyncQdrantClient, target: str) -> models.Record | None:
+        """The one write-claim point recorded against `target`, or `None` if no writer has
+        ever claimed it — what `claim_writer`, `release_writer` and `_touch_writer_lease` all
+        read, `_catalogue_point`'s own shape applied to a writer's id instead of a target's.
+        """
+        if not await client.collection_exists(self._catalogue):
+            return None
+        records = await client.retrieve(
+            self._catalogue,
+            ids=[_writer_point_id(self._settings.collection, target)],
+            with_payload=True,
+        )
+        return records[0] if records else None
+
+    async def _touch_writer_lease(self, client: AsyncQdrantClient) -> None:
+        """Renew this handle's own writer claim, if it holds one — ledger **43.18**,
+        `_touch_lease`'s own reasoning applied to the writer point: a long `add` must not
+        outlive the claim that admitted it.
+        """
+        if self._writer_claim is None:
+            return
+        target = self._require_active_target()
+        await self._ensure_catalogue(client)
+        await client.upsert(
+            self._catalogue,
+            points=[
+                models.PointStruct(
+                    id=_writer_point_id(self._settings.collection, target),
+                    vector={},
+                    payload={
+                        **self._writer_claim.model_dump(mode="json"),
+                        "expires_at": time.time() + self._settings.target_lease_seconds,
+                    },
+                )
+            ],
+            wait=True,
+        )
+
     async def _leases_for(self, client: AsyncQdrantClient, target: str) -> list[models.Record]:
         """Every lease point recorded against `target`, any holder, expired or not — what
         `drop_target` reads to decide whether another handle still holds it, and what it
@@ -1186,6 +1244,7 @@ class QdrantStore:
             await self._ensure_pair_provisioned(client, width_hint)
         for start in range(0, len(nodes), self._WRITE_BATCH):
             await self._touch_lease(client)
+            await self._touch_writer_lease(client)
             await self._add_batch(client, nodes[start : start + self._WRITE_BATCH])
 
     async def _add_batch(self, client: AsyncQdrantClient, nodes: Sequence[Node]) -> None:
@@ -1658,6 +1717,70 @@ class QdrantStore:
             for point in answered.points
             if point.score > 0
         ]
+
+    # -- SingleWriter — ledger task **43.18**, R34.10's precedent applied to a writer ------
+
+    async def claim_writer(self, writer: WriterClaim) -> None:
+        """Claim this handle's target for `writer` — one point in the catalogue per target,
+        `_writer_point_id`'s own id, holding the claim plus `expires_at`.
+
+        Reads that point first: if it exists, has not expired, and names a different
+        `(host, pid)`, the target is held and this call raises `WriterBusyError` naming that
+        claim. Otherwise this claim is upserted over it — replacing an expired claim, or
+        renewing this handle's own — with a fresh `expires_at`, exactly as `_touch_lease`
+        renews a target lease. `add` renews it again on every later batch through this handle.
+        """
+        client = await self._connection()
+        target = self._require_active_target()
+        point = await self._writer_point(client, target)
+        if point is not None and point.payload is not None:
+            held = WriterClaim.model_validate(
+                {key: value for key, value in point.payload.items() if key != "expires_at"}
+            )
+            expires_at = cast(float, point.payload.get("expires_at", 0.0))
+            if expires_at > time.time() and (held.host, held.pid) != (writer.host, writer.pid):
+                raise WriterBusyError(held)
+        await self._ensure_catalogue(client)
+        await client.upsert(
+            self._catalogue,
+            points=[
+                models.PointStruct(
+                    id=_writer_point_id(self._settings.collection, target),
+                    vector={},
+                    payload={
+                        **writer.model_dump(mode="json"),
+                        "expires_at": time.time() + self._settings.target_lease_seconds,
+                    },
+                )
+            ],
+            wait=True,
+        )
+        self._writer_claim = writer
+
+    async def release_writer(self) -> None:
+        """End this handle's own writer claim, if it holds one. A no-op on a handle that never
+        claimed, and on one whose claim the catalogue no longer attributes to it — expired and
+        replaced by another holder in the meantime.
+        """
+        if self._writer_claim is None:
+            return
+        client = await self._connection()
+        target = self._require_active_target()
+        point = await self._writer_point(client, target)
+        if (
+            point is not None
+            and point.payload is not None
+            and point.payload.get("host") == self._writer_claim.host
+            and point.payload.get("pid") == self._writer_claim.pid
+        ):
+            await client.delete(
+                self._catalogue,
+                points_selector=models.PointIdsList(
+                    points=[_writer_point_id(self._settings.collection, target)]
+                ),
+                wait=True,
+            )
+        self._writer_claim = None
 
     async def aclose(self) -> None:
         """Release this handle's lease, if it wrote one, and close the client. Not part of any

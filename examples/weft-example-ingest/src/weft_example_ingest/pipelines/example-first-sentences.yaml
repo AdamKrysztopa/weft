@@ -1,0 +1,8 @@
+name: example-first-sentences
+
+# A layer, written outside Weft: `weft index --layers example-first-sentences` runs this pack's
+# expander over the chunks a base document already stored, and the base's own embedder and store
+# take what it derives. Nothing here names either.
+
+stages:
+  - {id: first-sentence, use: example-first-sentence}

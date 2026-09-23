@@ -19,12 +19,10 @@ from weft_kernel.resolution import ResolvedPipeline
 
 #: A shipped enriching document with no layer twin, and why. Emptied as `43.15` ships them.
 NO_LAYER_TWIN: Final[dict[str, str]] = {
-    "index-with-raptor": "corpus-scoped: `enrich-with-raptor` ships as a generation at 43.15",
-    "index-with-deep-raptor": "corpus-scoped: `enrich-with-raptor` ships as a generation at 43.15",
-    "index-with-facts": "graph rows are one layer with the facts: `enrich-with-facts-and-graph`, "
-    "43.15",
-    "index-with-facts-openai": "graph rows are one layer with the facts: "
-    "`enrich-with-facts-and-graph`, 43.15",
+    "index-with-deep-raptor": "two raptor levels in one document; `enrich-with-raptor` is one "
+    "level, and a deeper tree over stored leaves has no task yet",
+    "index-with-facts": "the graph layer is `43.17`'s, by the owner's decision at `43.15`",
+    "index-with-facts-openai": "the graph layer is `43.17`'s, by the owner's decision at `43.15`",
 }
 
 

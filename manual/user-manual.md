@@ -275,6 +275,15 @@ name.
   unasked; `--reprocess` rebuilds a source's base and layers together.
 - **A changed document loses its layers until they run again**, because the chunks they were
   derived from are gone.
+- **A layer over the whole corpus is built as a unit.** `enrich-with-raptor` builds one RAPTOR
+  tree per document. A project that wants one tree over every document derives it:
+  `extends: enrich-with-raptor` with `vars: {layer.scope: corpus}`. That tree is written out of
+  sight and made searchable all at once, so a half-built tree is never searched. A document
+  indexed afterwards leaves the tree stale, which `weft index` reports, and the next run naming
+  the layer rebuilds it. RAPTOR refuses a corpus larger than it can cluster in reasonable time
+  (`max_leaves`, `max_pairs`, in the stage's `with:` block) and says which bound it hit.
+- **One writer at a time.** A second `weft index` into a store another one is still writing is
+  refused, naming the one that holds it. `weft ask` in another shell is never refused.
 
 **Six PDF rungs** — `index-pdf` and its five siblings — differ in what they do with what is not
 text: the tables, the figures and the captions. `index-pdf-learned` is the one behind the `docling`

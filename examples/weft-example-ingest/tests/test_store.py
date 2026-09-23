@@ -258,3 +258,25 @@ async def test_a_strangers_store_holds_generations_and_passes_the_published_chec
     # Assert
     assert isinstance(InMemoryNodeStore(), GenerationHolding)
     assert len(generation_checks) == 6
+
+
+async def test_a_strangers_store_admits_one_writer_and_passes_the_published_checks() -> None:
+    """Ledger **43.18**: `SingleWriter` is published, so the stranger proves it with the kit —
+    fitness function 9(c) for the new capability."""
+    # Arrange
+    from weft_store.conformance import checks_for
+    from weft_store.contract import SingleWriter
+
+    writer_checks = [
+        check
+        for check in checks_for(InMemoryNodeStore())
+        if check.__annotations__.get("store") == "SingleWriterStore"
+    ]
+
+    # Act
+    for check in writer_checks:
+        await check(InMemoryNodeStore())
+
+    # Assert
+    assert isinstance(InMemoryNodeStore(), SingleWriter)
+    assert len(writer_checks) == 2

@@ -1,7 +1,7 @@
 """`InMemoryNodeStore` — a stranger's whole store family: `NodeStore`, `VectorSearch`,
 `TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable`, `TargetHolding` (ledger
-task **34.3**) and, since ledger task **43.14**, `GenerationHolding`, all eight, over one
-process-lifetime Python dict.
+task **34.3**), `GenerationHolding` (ledger task **43.14**) and, since ledger task **43.18**,
+`SingleWriter`, all nine, over one process-lifetime Python dict.
 
 **`Lifetime.PROCESS`, stated as the deliberate choice it is.** A plugin defaults to
 `Lifetime.RUN` — a fresh instance per pipeline run — which is exactly right for
@@ -70,6 +70,8 @@ from weft_store.contract import (
     TargetRecord,
     UnknownGenerationError,
     UnknownTargetError,
+    WriterBusyError,
+    WriterClaim,
 )
 from weft_store.fields import FieldKind, FieldPath, field_for
 
@@ -92,6 +94,9 @@ class _Target:
         #: The generation ids that wrote each node — `_BASE` for an unbound write, merged by
         #: union on every further write, exactly as `sources` is merged on `add`.
         self.node_generations: dict[NodeId, frozenset[str]] = {}
+        #: `SingleWriter`, ledger task **43.18** — this target's own claim, or `None`. Held
+        #: on the target so every handle `bind_target` hands back onto it sees the same claim.
+        self.writer: WriterClaim | None = None
 
 
 class _Catalogue:
@@ -154,6 +159,10 @@ class InMemoryNodeStore:
         self._bound_generation = _bound_generation
         #: This handle's own visible generation set, read once — see `_active_target`.
         self._visible: frozenset[str] | None = None
+        #: `SingleWriter` — the claim *this handle* placed, or `None`. Compared against the
+        #: target's own `writer` on `release_writer`, on `pgvector`'s own footing: releasing
+        #: a claim this handle never placed is a no-op, never another holder's.
+        self._claimed_writer: WriterClaim | None = None
 
     def _active_target(self) -> TargetName:
         """The target this handle's storage operations read and write.
@@ -517,6 +526,24 @@ class InMemoryNodeStore:
     async def generations(self) -> tuple[GenerationRecord, ...]:
         records = self._readable().generations.values()
         return tuple(sorted(records, key=lambda record: (record.opened_at, record.id)))
+
+    # -- SingleWriter ------------------------------------------------------------------------
+
+    async def claim_writer(self, writer: WriterClaim) -> None:
+        """`SingleWriter`, ledger task **43.18** — the claim lives on the target, which every
+        handle `bind_target` hands back onto it shares, so a second handle on the same target
+        sees the first's claim immediately."""
+        target = self._writable()
+        if target.writer is not None:
+            raise WriterBusyError(target.writer)
+        target.writer = writer
+        self._claimed_writer = writer
+
+    async def release_writer(self) -> None:
+        target = self._writable()
+        if target.writer is not None and target.writer == self._claimed_writer:
+            target.writer = None
+        self._claimed_writer = None
 
 
 def _cosine(left: Vector, right: Vector) -> float:

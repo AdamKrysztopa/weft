@@ -34,7 +34,7 @@ from weft_index.payload import Representation
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import Failed, Node, NodeId, Produced, SourceId
+from weft_kernel.payload import Failed, Node, NodeId, Outcome, Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, pipeline_identity
 from weft_kernel.runner import PipelineResolutionError, RunnablePipeline, Runner, StageSpec
@@ -43,6 +43,8 @@ from weft_store.contract import (
     Cursor,
     Filter,
     FilterOp,
+    GenerationHolding,
+    GenerationStatus,
     LayerRecord,
     LayerStatus,
     Page,
@@ -56,6 +58,23 @@ from weft_store.contract import (
 LAYER_STAGE_CONTRACTS: Final[tuple[type[object], ...]] = (Expander, Enhancer, Revisable)
 
 _TAIL_CONTRACTS: Final[tuple[type[object], ...]] = (Embedder, NodeStore)
+
+#: `resolved.vars`' own key for a layer's scope — task **43.15**. Dotted, like every other
+#: pipeline-level var this tree names, and read straight off `ResolvedPipeline.vars` rather
+#: than promoted to a field of its own: a layer document says it the same way it says any
+#: other `with:`-adjacent fact about itself.
+_SCOPE_VAR: Final[str] = "layer.scope"
+
+
+class LayerScope(StrEnum):
+    """Where one layer's build runs — ledger task **43.15**. `SOURCE` is the default a layer
+    document with no `layer.scope` var gets, and the only scope before this task existed;
+    `CORPUS` runs the layer once over every `ACTIVE` source's leaves, as one generation
+    (`weft_store.contract.GenerationHolding`) published whole.
+    """
+
+    SOURCE = "source"
+    CORPUS = "corpus"
 
 
 class NotALayerError(PipelineResolutionError, UnresolvedNameError):
@@ -104,6 +123,18 @@ class UnknownLayerError(PipelineResolutionError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class LayerScopeError(PipelineResolutionError):
+    """A layer document's `layer.scope` var names neither `source` nor `corpus` — ledger task
+    **43.15**.
+
+    Not a name-resolution failure — there is no catalogue of valid scopes to offer an
+    alternative from, only two words a var can take — so this does not join
+    `UnresolvedNameError`, on `LayerDuplicatesBaseStageError`'s own footing. Raised at
+    composition, before a caller ever learns whether the store it named could run this layer
+    at all.
+    """
+
+
 class LayerNeedsMetadataFilterError(WeftError):
     """A layer was named against a store that cannot select stored nodes by metadata —
     task **43.8**.
@@ -112,6 +143,18 @@ class LayerNeedsMetadataFilterError(WeftError):
     MetadataFilter.matching`. A store that does not implement it has no way to read the
     leaves a layer enriches, so this is refused before the base runs at all — no extract,
     no write, nothing to undo.
+    """
+
+
+class LayerNeedsGenerationHoldingError(WeftError):
+    """A corpus-scoped layer was named against a store that cannot hold a generation —
+    ledger task **43.15**.
+
+    A corpus-scoped layer builds one tree over every source at once and publishes it whole
+    (`weft_store.contract.GenerationHolding`), so a half-built tree is never visible to a
+    search. A store that cannot open a generation has no way to hide what it is still
+    writing, so this is refused before the base runs at all — `require_layers_metadata_
+    filter`'s own footing, one contract over.
     """
 
 
@@ -143,6 +186,10 @@ class LayerComposition(BaseModel):
     `vars` or provenance; `layer_specs` is what the layer itself contributes and `tail_specs`
     is the base's own `Embedder`/`NodeStore` specs, in the base's order — the two halves
     ledger task **43.8**'s index loop runs in sequence, `layer_specs` first.
+
+    `scope` — ledger task **43.15** — is `resolved.vars`' own `layer.scope`, read once here
+    rather than re-read at every call site that needs it: `_layer_scope`, below, is the only
+    function that ever reads `_SCOPE_VAR` off a `ResolvedPipeline` directly.
     """
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
@@ -152,6 +199,22 @@ class LayerComposition(BaseModel):
     resolved: ResolvedPipeline
     layer_specs: tuple[StageSpec, ...]
     tail_specs: tuple[StageSpec, ...]
+    scope: LayerScope = LayerScope.SOURCE
+
+
+def _layer_scope(resolved: ResolvedPipeline, *, layer: str) -> LayerScope:
+    """`resolved.vars['layer.scope']` as a `LayerScope` — `LayerScope.SOURCE` when the var is
+    absent, `LayerScopeError` for any value that is neither `'source'` nor `'corpus'`.
+    """
+    value = resolved.vars.get(_SCOPE_VAR, LayerScope.SOURCE.value)
+    try:
+        return LayerScope(value)
+    except ValueError as exc:
+        raise LayerScopeError(
+            f"'{layer}' sets layer.scope to {value!r}; a layer runs per 'source' or over "
+            "the whole 'corpus'.",
+            pipeline=layer,
+        ) from exc
 
 
 def installed_layers(
@@ -207,6 +270,7 @@ def compose_layer_over(
     resolved_layer = resolve_named_pipeline(
         layer, registry=registry, reports=reports, contributions=contributions
     )
+    scope = _layer_scope(resolved_layer, layer=layer)
     layer_specs = to_specs(resolved_layer, registry=registry, reports=reports)
 
     for spec in layer_specs:
@@ -252,6 +316,7 @@ def compose_layer_over(
         resolved=resolved_layer,
         layer_specs=layer_specs,
         tail_specs=tail_specs,
+        scope=scope,
     )
 
 
@@ -410,6 +475,37 @@ def require_layers_metadata_filter(
     )
 
 
+def require_corpus_layers_generation_holding(
+    compositions: Sequence[LayerComposition],
+    *,
+    runnable: RunnablePipeline,
+    store_stage_id: str | None,
+    specs: tuple[StageSpec, ...],
+) -> None:
+    """`LayerNeedsGenerationHoldingError` unless the primary store's own instance is a
+    `weft_store.contract.GenerationHolding` — ledger task **43.15**, `require_layers_
+    metadata_filter`'s own footing, one contract over. A no-op when none of `compositions`
+    is corpus-scoped, and called only once every named layer has already composed cleanly,
+    before the base runs.
+    """
+    corpus_layer = next(
+        (composition for composition in compositions if composition.scope is LayerScope.CORPUS),
+        None,
+    )
+    if corpus_layer is None:
+        return
+    instance = _stage_instance(runnable, store_stage_id)
+    if isinstance(instance, GenerationHolding):
+        return
+    plugin = next((spec.name for spec in specs if spec.contract is NodeStore), "(none)")
+    raise LayerNeedsGenerationHoldingError(
+        f"'{corpus_layer.layer}' builds one tree over the whole corpus, as a generation "
+        f"published whole, and the '{plugin}' store cannot hold generations "
+        "(GenerationHolding). Run it per source (drop layer.scope: corpus), or index into "
+        "pgvector or qdrant."
+    )
+
+
 def _get_source_of(
     instance: object,
 ) -> Callable[[SourceId], Awaitable[SourceRecord | None]] | None:
@@ -438,6 +534,22 @@ def _get_of(instance: object) -> Callable[[Sequence[NodeId]], Awaitable[Sequence
     if found is None or not callable(found):
         return None
     return cast(Callable[[Sequence[NodeId]], Awaitable[Sequence[Node]]], found)
+
+
+def _matching_of(
+    instance: object,
+) -> Callable[[Filter, Cursor | None], Awaitable[Page[Node]]] | None:
+    """`instance.matching`, if it has one and it is callable — `_get_source_of`'s own shape.
+
+    `weft_store.contract.MetadataFilter` is not a base any `GenerationHolding` handle is
+    typed against, so a bound writer's own `matching` is read this way rather than as a
+    static attribute — `_run_corpus_layer`'s own reader for `require_layers_metadata_
+    filter`'s promise about the **unbound** store it checked.
+    """
+    found = getattr(instance, "matching", None)
+    if found is None or not callable(found):
+        return None
+    return cast(Callable[[Filter, Cursor | None], Awaitable[Page[Node]]], found)
 
 
 class _LayerRunDecision(StrEnum):
@@ -872,6 +984,287 @@ async def _emit_layer_progress(
     )
 
 
+def _corpus_layer_status(
+    eligible: Sequence[SourceRef],
+    records: Mapping[SourceId, SourceRecord],
+    *,
+    layer: str,
+    identity: str,
+) -> tuple[bool, bool, dict[SourceId, LayerRecord | None]]:
+    """`(build, changed, existing_by_source)` for one corpus-scoped layer over `eligible` —
+    ledger task **43.15**'s own all-or-nothing table, one level up from `_layer_decision`'s
+    per-source one. A corpus-scoped layer is one generation over every eligible source at
+    once, so there is no per-source `RUN`/`SKIP`: either the whole tree is already built
+    (every eligible source carries this layer `ACTIVE` under `identity`) and nothing runs, or
+    some source carries a *different* identity — reported, left alone, nothing runs either —
+    or the whole corpus is built, whether the gap is a stale identity's neighbour, a source
+    this layer never reached, or one an earlier build left `FAILED`/`INDEXING`.
+    """
+    existing_by_source: dict[SourceId, LayerRecord | None] = {}
+    all_active = True
+    changed = False
+    for ref in eligible:
+        record = records[ref.source_id]
+        existing = next((entry for entry in record.layers if entry.name == layer), None)
+        existing_by_source[ref.source_id] = existing
+        if existing is None:
+            all_active = False
+            continue
+        if existing.pipeline_identity != identity:
+            changed = True
+            all_active = False
+            continue
+        if existing.status is not LayerStatus.ACTIVE:
+            all_active = False
+    if all_active:
+        return False, False, existing_by_source
+    return (False, True, existing_by_source) if changed else (True, False, existing_by_source)
+
+
+async def _run_corpus_tail(
+    runner: Runner,
+    tail_runnable: RunnablePipeline,
+    created: Sequence[Node],
+    ctx: Context,
+    *,
+    store_stage_id: str,
+) -> Outcome[object]:
+    """A corpus-scoped tail's own two-step run — ledger task **43.15**. Every `NodeStore`
+    stage in `tail_runnable` is already bound to the generation's own writer by the caller;
+    this only decides what reaches the `Embedder` stage, if there is one: a node the layer
+    already embedded itself — as `raptor` embeds its own summaries — is never handed to it a
+    second time, on `index-with-raptor`'s own rule, one contract over. The embedder stage is
+    skipped **entirely**, never called with an empty payload, when nothing lacks a vector.
+    """
+    unembedded = tuple(node for node in created if node.embedding is None)
+    if unembedded:
+        embed_stages = tuple(stage for stage in tail_runnable.stages if stage.id != store_stage_id)
+        if embed_stages:
+            embed_outcome = await runner.run_once(
+                replace(tail_runnable, stages=embed_stages), unembedded, ctx
+            )
+            if not isinstance(embed_outcome, Produced):
+                return embed_outcome
+            embedded = cast("Sequence[Node]", embed_outcome.value)
+        else:
+            embedded = unembedded
+        to_store = (*(node for node in created if node.embedding is not None), *embedded)
+    else:
+        to_store = created
+    store_stages = tuple(stage for stage in tail_runnable.stages if stage.id == store_stage_id)
+    if not store_stages:
+        return Produced(value=to_store)
+    return await runner.run_once(replace(tail_runnable, stages=store_stages), to_store, ctx)
+
+
+async def _run_corpus_layer(
+    runnable: RunnablePipeline,
+    *,
+    runner: Runner,
+    layer_runnable: RunnablePipeline,
+    tail_runnable: RunnablePipeline,
+    primary: GenerationHolding,
+    store_stage_id: str,
+    store_stage_ids: Sequence[str],
+    composition: LayerComposition,
+    identity: str,
+    eligible: Sequence[SourceRef],
+    attempts_by_source: Mapping[SourceId, int],
+    indexing_ctx: Context,
+) -> bool:
+    """One corpus-scoped layer's whole build, as one generation published whole — ledger task
+    **43.15**, `_run_one_layer_batch`'s own contract one scope over: `True` once the build
+    published (whether or not there was anything to derive), `False` once it failed and was
+    recorded. `WeftError`/`LayerNodeCollisionError` always propagate after this build is
+    recorded `FAILED` on every eligible source and its generation retracted;
+    `CancelledError` above all is never caught here, so an interrupted build leaves its
+    generation `BUILDING` for the next build to retract.
+    """
+    now = datetime.now(UTC)
+    await _apply_layer_records(
+        runnable,
+        store_stage_id=store_stage_id,
+        store_stage_ids=store_stage_ids,
+        updates={
+            ref.source_id: LayerRecord(
+                name=composition.layer,
+                pipeline_identity=identity,
+                status=LayerStatus.INDEXING,
+                attempts=attempts_by_source[ref.source_id],
+                at=now,
+            )
+            for ref in eligible
+        },
+    )
+
+    generation = await primary.open_generation(composition.layer)
+    writer = await primary.bind_generation(generation.id)
+    writer_matching = _matching_of(writer)
+    writer_get = _get_of(writer)
+    if writer_matching is None:
+        # `require_layers_metadata_filter` already checked the *unbound* primary has one, and
+        # `bind_generation` returns `Self`, so a store that reaches here honours the contract.
+        raise LayerNeedsMetadataFilterError(
+            f"'{composition.layer}' bound a generation whose own handle carries no "
+            "MetadataFilter, though the store it was bound from did."
+        )
+
+    async def _fail(error_type: str, stage: str | None, message: str) -> None:
+        await primary.retract_generation(generation.id)
+        await _fail_layer_batch(
+            runnable,
+            store_stage_id=store_stage_id,
+            store_stage_ids=store_stage_ids,
+            layer=composition.layer,
+            identity=identity,
+            batch_refs=eligible,
+            attempts_by_source=attempts_by_source,
+            error_type=error_type,
+            stage=stage,
+            message=message,
+        )
+
+    ids = tuple(ref.source_id for ref in eligible)
+    leaves = await _paged_leaves(writer_matching, ids)
+
+    first_stage_id = composition.layer_specs[0].id
+    try:
+        outcome = await runner.run_once(layer_runnable, leaves, indexing_ctx)
+    except WeftError as exc:
+        await _fail(type(exc).__name__, exc.stage, str(exc))
+        raise
+    if isinstance(outcome, Failed):
+        await _fail("Failed", first_stage_id, outcome.reason)
+        return False
+
+    produced_nodes = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
+    created = layer_created(leaves, produced_nodes)
+
+    if created:
+        tail_ids = {spec.id for spec in composition.tail_specs}
+        bound_tail = replace(
+            tail_runnable,
+            stages=tuple(
+                replace(stage, instance=writer) if stage.id == store_stage_id else stage
+                for stage in tail_runnable.stages
+                if stage.id in tail_ids
+            ),
+        )
+        existing_nodes = (
+            await writer_get([node.id for node in created]) if writer_get is not None else ()
+        )
+        collision = _layer_collision(created, existing_nodes, layer=composition.layer)
+        if collision is not None:
+            await _fail(type(collision).__name__, first_stage_id, str(collision))
+            raise collision
+
+        try:
+            tail_outcome = await _run_corpus_tail(
+                runner, bound_tail, created, indexing_ctx, store_stage_id=store_stage_id
+            )
+        except WeftError as exc:
+            await _fail(type(exc).__name__, exc.stage, str(exc))
+            raise
+        if isinstance(tail_outcome, Failed):
+            await _fail("Failed", first_stage_id, tail_outcome.reason)
+            return False
+
+    await primary.publish_generation(generation.id)
+    for other in await primary.generations():
+        if (
+            other.layer == composition.layer
+            and other.id != generation.id
+            and other.status in (GenerationStatus.PUBLISHED, GenerationStatus.BUILDING)
+        ):
+            await primary.retract_generation(other.id)
+
+    await _apply_layer_records(
+        runnable,
+        store_stage_id=store_stage_id,
+        store_stage_ids=store_stage_ids,
+        updates={
+            ref.source_id: LayerRecord(
+                name=composition.layer,
+                pipeline_identity=identity,
+                status=LayerStatus.ACTIVE,
+                attempts=attempts_by_source[ref.source_id],
+                at=datetime.now(UTC),
+            )
+            for ref in eligible
+        },
+    )
+    return True
+
+
+async def _run_corpus_scoped_composition(
+    composition: LayerComposition,
+    *,
+    records: Mapping[SourceId, SourceRecord],
+    identity: str,
+    refs: Sequence[SourceRef],
+    runner: Runner,
+    runnable: RunnablePipeline,
+    primary: object,
+    store_stage_id: str,
+    store_stage_ids: Sequence[str],
+    on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
+    indexing_ctx: Context,
+    layer_runnables: list[RunnablePipeline],
+    layer_loop_started: float,
+) -> bool:
+    """One corpus-scoped composition's whole turn in `run_layers`' own loop — lifted out so
+    that function's per-composition branching stays under the complexity budget every
+    function in this tree already holds to. `True` when this layer's stored identity moved
+    (`run_layers`' own `layers_changed`), whatever else did or did not run.
+    """
+    eligible = [
+        ref
+        for ref in refs
+        if (record := records.get(ref.source_id)) is not None
+        and record.status is SourceStatus.ACTIVE
+    ]
+    if not eligible:
+        return False
+    build, changed, existing_by_source = _corpus_layer_status(
+        eligible, records, layer=composition.layer, identity=identity
+    )
+    if not build:
+        return changed
+
+    layer_runnable = runner.resolve(composition.layer_specs, tenant_id=runnable.tenant_id)
+    layer_runnables.append(layer_runnable)
+    tail_ids = {spec.id for spec in composition.tail_specs}
+    tail_runnable = replace(
+        runnable, stages=tuple(stage for stage in runnable.stages if stage.id in tail_ids)
+    )
+    attempts_by_source = _next_layer_attempts(existing_by_source, eligible)
+    succeeded = await _run_corpus_layer(
+        runnable,
+        runner=runner,
+        layer_runnable=layer_runnable,
+        tail_runnable=tail_runnable,
+        primary=cast(GenerationHolding, primary),
+        store_stage_id=store_stage_id,
+        store_stage_ids=store_stage_ids,
+        composition=composition,
+        identity=identity,
+        eligible=eligible,
+        attempts_by_source=attempts_by_source,
+        indexing_ctx=indexing_ctx,
+    )
+    if succeeded:
+        await _emit_layer_progress(
+            on_batch,
+            layer=composition.layer,
+            batch_number=1,
+            batches=1,
+            queryable=len(eligible),
+            documents=len(eligible),
+            start_time=layer_loop_started,
+        )
+    return changed
+
+
 async def run_layers(
     compositions: Sequence[LayerComposition],
     *,
@@ -907,7 +1300,7 @@ async def run_layers(
     primary = _stage_instance(runnable, store_stage_id)
     get_source = _get_source_of(primary) if primary is not None else None
     get_nodes = _get_of(primary) if primary is not None else None
-    matching = getattr(primary, "matching", None) if primary is not None else None
+    matching = _matching_of(primary) if primary is not None else None
     if get_source is None or matching is None:
         return ()
 
@@ -916,6 +1309,27 @@ async def run_layers(
     for composition in compositions:
         identity = pipeline_identity(composition.resolved)
         records = await _current_records(get_source, refs)
+
+        if composition.scope is LayerScope.CORPUS:
+            corpus_changed = await _run_corpus_scoped_composition(
+                composition,
+                records=records,
+                identity=identity,
+                refs=refs,
+                runner=runner,
+                runnable=runnable,
+                primary=primary,
+                store_stage_id=store_stage_id,
+                store_stage_ids=store_stage_ids,
+                on_batch=on_batch,
+                indexing_ctx=indexing_ctx,
+                layer_runnables=layer_runnables,
+                layer_loop_started=layer_loop_started,
+            )
+            if corpus_changed and composition.layer not in layers_changed:
+                layers_changed.append(composition.layer)
+            continue
+
         eligible, to_run, existing_by_source, queryable, changed = _layer_eligible(
             refs, records, layer=composition.layer, identity=identity, retry_failed=retry_failed
         )
@@ -966,12 +1380,87 @@ async def run_layers(
     return tuple(layers_changed)
 
 
+def _corpus_scoped_layer_names(
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+) -> tuple[str, ...]:
+    """Every `installed_layers` name whose own `layer.scope` var reads `corpus` — the
+    population `stale_corpus_layers` checks for staleness, independent of whatever `--layers`
+    a given run actually named. A layer that fails to resolve, here as in `installed_layers`
+    itself, is skipped rather than refused: this is a report, not a run.
+    """
+    names: list[str] = []
+    for name in installed_layers(registry=registry, reports=reports, contributions=contributions):
+        try:
+            resolved = resolve_named_pipeline(
+                name, registry=registry, reports=reports, contributions=contributions
+            )
+        except WeftError:
+            continue
+        if resolved.vars.get(_SCOPE_VAR) == LayerScope.CORPUS.value:
+            names.append(name)
+    return tuple(names)
+
+
+async def stale_corpus_layers(
+    *,
+    runnable: RunnablePipeline,
+    store_stage_id: str | None,
+    refs: Sequence[SourceRef],
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...] = (),
+) -> tuple[tuple[str, ...], dict[str, tuple[int, int]]]:
+    """`(layers_stale, progress)` — ledger task **43.15**. `layers_stale` is every
+    corpus-scoped layer document that is `ACTIVE` on at least one of `refs`' own `ACTIVE`
+    sources but not on all of them, sorted by name; `progress[name]` is `(built, of)`, the
+    pair `weft_cli.render`'s own stale line prints.
+
+    Read regardless of what this run itself named under `--layers`: a source indexed without
+    naming a corpus-scoped layer still leaves that layer behind everybody else, and an
+    operator finds out from the very run that caused it, not only from one that names the
+    layer to check.
+    """
+    if store_stage_id is None:
+        return (), {}
+    primary = _stage_instance(runnable, store_stage_id)
+    get_source = _get_source_of(primary) if primary is not None else None
+    if get_source is None:
+        return (), {}
+    records = await _current_records(get_source, refs)
+    active = [record for record in records.values() if record.status is SourceStatus.ACTIVE]
+    of = len(active)
+    if of == 0:
+        return (), {}
+    stale: list[str] = []
+    progress: dict[str, tuple[int, int]] = {}
+    for name in _corpus_scoped_layer_names(
+        registry=registry, reports=reports, contributions=contributions
+    ):
+        built = sum(
+            1
+            for record in active
+            if any(
+                entry.name == name and entry.status is LayerStatus.ACTIVE for entry in record.layers
+            )
+        )
+        if 0 < built < of:
+            stale.append(name)
+            progress[name] = (built, of)
+    return tuple(sorted(stale)), progress
+
+
 __all__ = [
     "LAYER_STAGE_CONTRACTS",
     "LayerComposition",
     "LayerDuplicatesBaseStageError",
+    "LayerNeedsGenerationHoldingError",
     "LayerNeedsMetadataFilterError",
     "LayerNodeCollisionError",
+    "LayerScope",
+    "LayerScopeError",
     "NotALayerError",
     "UnknownLayerError",
     "compose_layer",
@@ -980,6 +1469,8 @@ __all__ = [
     "installed_layers",
     "layer_created",
     "layer_leaf_filter",
+    "require_corpus_layers_generation_holding",
     "require_layers_metadata_filter",
     "run_layers",
+    "stale_corpus_layers",
 ]

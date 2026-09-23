@@ -2112,6 +2112,33 @@ first's record of where it came from. That layer's batch is recorded failed and 
 **What to do:** run only one of the two layers over this corpus, or change the second so it
 derives something different.
 
+### `LayerNeedsGenerationHoldingError`
+
+**What it looks like** — a corpus-scoped layer against a store that cannot hold generations:
+
+```text
+'my-raptor' builds one tree over the whole corpus, as a generation published whole, and the
+'my-store' store cannot hold generations (GenerationHolding). Run it per source (drop layer.scope:
+corpus), or index into pgvector or qdrant.
+```
+
+**Why** — a tree over every document is misleading while half built, so it is written invisibly
+and made searchable all at once. That needs a store that can keep nodes hidden until then.
+
+**What to do:** remove `layer.scope: corpus` to build one tree per document, or use pgvector or
+Qdrant, which both hold generations.
+
+### `LayerScopeError`
+
+**What it looks like** — a layer document's `layer.scope` is neither `source` nor `corpus`:
+
+```text
+'my-raptor' sets layer.scope to 'global'; a layer runs per 'source' or over the whole 'corpus'.
+```
+
+**What to do:** set `layer.scope: corpus` for one build over every document, or remove it to run
+per document.
+
 ### `NoLayersToRunError`
 
 **What it looks like** — `weft index --layers-only` with no layer named anywhere:
@@ -4848,6 +4875,23 @@ is limited to the characters all three accept unquoted.
 first write into it, so a candidate you have not indexed yet does not exist.
 
 **What to do:** use one of the names the message lists, or index into the new target first.
+
+### `WriterBusyError`
+
+**What it looks like** — a second `weft index` into a store another one is still writing:
+
+```text
+another writer holds this store: 'weft index', pid 48213 on laptop.local, started
+2026-09-23T14:02:11+00:00. Wait for it to finish, or stop it.
+```
+
+**Why** — two runs writing one store at once would interleave their records of which documents
+are indexed, and each would report the other's work wrongly. The first run holds the store until
+it ends. A run that crashed releases it: on pgvector at once, on Qdrant when its lease expires
+(`[packs.qdrant] target_lease_seconds`).
+
+**What to do:** let the first run finish, or stop it. `weft ask` is not a writer and is never
+refused.
 
 ### `UnknownGenerationError`
 

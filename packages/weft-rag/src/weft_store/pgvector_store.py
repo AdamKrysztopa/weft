@@ -144,6 +144,8 @@ from weft_store.contract import (
     UnknownGenerationError,
     VectorIndexKind,
     VectorPrecision,
+    WriterBusyError,
+    WriterClaim,
     source_failure,
     source_layers,
     source_status,
@@ -165,6 +167,7 @@ from weft_store.fields import FieldKind, FieldPath, NodeField, field_for
 from weft_store.pg_targets import PgTargetLayout
 from weft_store.pg_targets import claim_embedding as _pg_claim_embedding
 from weft_store.pg_targets import drop_target as _pg_drop_target
+from weft_store.pg_targets import home_table as _pg_home_table
 from weft_store.pg_targets import promote as _pg_promote
 from weft_store.pg_targets import register_target_if_needed as _pg_register_target_if_needed
 from weft_store.pg_targets import resolve_active_target as _pg_resolve_active_target
@@ -1199,6 +1202,8 @@ class PgVectorStore:
         #: once in `_connection()` and held for the handle's lifetime (`TargetHolding`'s Q-C,
         #: applied again), so one operation never mixes what two publishes made visible.
         self._published_generations: frozenset[GenerationId] | None = None
+        #: `SingleWriter`'s own claim flag, never the row's presence — task **43.18**.
+        self._writer_claimed = False
 
     def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
         """This store's lexical statement, from the same configuration name the column has.
@@ -1344,6 +1349,7 @@ class PgVectorStore:
             *bm25,
             _add_tsvector_column_sql(self._text_search_config),
             sql.SQL(_CREATE_TSVECTOR_INDEX),
+            _create_writers_table_sql(self._require_home_schema()),
         )
 
     async def _provision_unless_stamped(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> None:
@@ -2071,6 +2077,79 @@ class PgVectorStore:
         conn = await self._connection()
         await _pg_drop_target(_TARGET_LAYOUT, conn, self._require_home_schema(), target)
 
+    # -- SingleWriter — ledger task **43.18** -------------------------------------------------
+
+    async def claim_writer(self, writer: WriterClaim) -> None:
+        """`pg_try_advisory_lock`, on this handle's own connection, decides; the row is only
+        what a refusal reads back to name the holder. A crashed holder's session lock dies with
+        its connection, so a stale row from it is simply overwritten by the upsert below the next
+        time the lock is free to take.
+        """
+        conn = await self._connection()
+        target = self._require_active_target()
+        table = _pg_home_table(self._require_home_schema(), "weft_writers")
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT pg_try_advisory_lock(hashtext(%s)) AS acquired",
+                (_writer_lock_key(target),),
+            )
+            row = await cur.fetchone()
+            if row is None or not row["acquired"]:
+                await cur.execute(
+                    sql.SQL(
+                        "SELECT host, pid, started_at, command FROM {} WHERE target = %s"
+                    ).format(table),
+                    (target,),
+                )
+                holder_row = await cur.fetchone()
+                if holder_row is None:
+                    raise AssertionError(
+                        "pg_try_advisory_lock refused, but weft_writers holds no row for "
+                        f"target {target!r}"
+                    )
+                raise WriterBusyError(
+                    WriterClaim(
+                        host=cast(str, holder_row["host"]),
+                        pid=cast(int, holder_row["pid"]),
+                        started_at=cast(datetime, holder_row["started_at"]),
+                        command=cast(str, holder_row["command"]),
+                    )
+                )
+            await cur.execute(
+                sql.SQL(
+                    "INSERT INTO {} (target, host, pid, started_at, command) "
+                    "VALUES (%(target)s, %(host)s, %(pid)s, %(started_at)s, %(command)s) "
+                    "ON CONFLICT (target) DO UPDATE SET "
+                    "host = EXCLUDED.host, pid = EXCLUDED.pid, "
+                    "started_at = EXCLUDED.started_at, command = EXCLUDED.command"
+                ).format(table),
+                {
+                    "target": target,
+                    "host": writer.host,
+                    "pid": writer.pid,
+                    "started_at": writer.started_at,
+                    "command": writer.command,
+                },
+            )
+        self._writer_claimed = True
+
+    async def release_writer(self) -> None:
+        """A no-op on a handle that never claimed — `self._writer_claimed` is what a second
+        `release_writer` call, or one on a handle that lost `claim_writer` to a busy target,
+        must not treat as releasing someone else's claim.
+        """
+        if not self._writer_claimed:
+            return
+        conn = await self._connection()
+        target = self._require_active_target()
+        table = _pg_home_table(self._require_home_schema(), "weft_writers")
+        async with conn.cursor() as cur:
+            await cur.execute(sql.SQL("DELETE FROM {} WHERE target = %s").format(table), (target,))
+            await cur.execute(
+                "SELECT pg_advisory_unlock(hashtext(%s))", (_writer_lock_key(target),)
+            )
+        self._writer_claimed = False
+
     # -- GenerationHolding — ledger task **43.14** -------------------------------------------
 
     async def open_generation(self, layer: str) -> GenerationRecord:
@@ -2316,6 +2395,28 @@ _INDEX_WIDTH_CEILINGS: dict[VectorPrecision, int] = {
     VectorPrecision.FLOAT16: 4_000,
     VectorPrecision.BINARY: 64_000,
 }
+
+
+#: `SingleWriter`'s claim table — ledger task **43.18**. In the **home** schema, never a target's:
+#: a schema-qualified statement, unlike every other table in `_provisioning`, because one writer
+#: at a time is a property of the store's own database, not of whichever target a handle happens
+#: to be bound to. `target` is the primary key rather than a single-row table, so two targets'
+#: claims never collide. The row a crashed holder left behind is never read as authoritative —
+#: only the session advisory lock decides, and a stale row is simply overwritten by the next
+#: successful claim (see `PgVectorStore.claim_writer`).
+def _create_writers_table_sql(home_schema: str) -> sql.Composed:
+    return sql.SQL(
+        "CREATE TABLE IF NOT EXISTS {} ("
+        "target TEXT PRIMARY KEY, host TEXT NOT NULL, pid INTEGER NOT NULL, "
+        "started_at TIMESTAMPTZ NOT NULL, command TEXT NOT NULL)"
+    ).format(_pg_home_table(home_schema, "weft_writers"))
+
+
+#: The lock key `claim_writer`/`release_writer` take on the handle's own connection — its own
+#: prefix, distinct from `_SCHEMA_LOCK_KEY` and from `pg_targets.lock_key`'s `weft_target:`
+#: family, so none of the three ever collide over the same `hashtext()` input space.
+def _writer_lock_key(target: TargetName) -> str:
+    return f"weft_store:writer:{target}"
 
 
 def reject_width_over_index_ceiling(precision: VectorPrecision, width: int) -> None:

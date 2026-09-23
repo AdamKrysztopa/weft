@@ -85,6 +85,7 @@ from weft_store.conformance import (
     GenerationHoldingStore,
     ReconcilableStore,
     SearchableStore,
+    SingleWriterStore,
     SupersedableStore,
     TargetHoldingStore,
     TextSearchableStore,
@@ -103,6 +104,8 @@ from weft_store.conformance import (
     check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything,
     check_a_parent_is_one_filter_away_from_its_child_on_either_backend,
     check_a_parents_children_within_an_ordinal_range_are_one_filter_away,
+    check_a_released_claim_lets_the_next_writer_in,
+    check_a_second_writer_is_refused_naming_the_first,
     check_a_source_record_belongs_to_the_target_it_was_written_into,
     check_a_source_record_round_trips_and_is_listed,
     check_a_source_records_layers_round_trip_whole_and_are_listed,
@@ -848,3 +851,18 @@ async def test_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_
     target_store: GenerationHoldingStore,
 ) -> None:
     await check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(target_store)
+
+
+# Ledger task **43.18** — one writer at a time, on `target_store`'s own storage.
+
+
+async def test_a_second_writer_is_refused_naming_the_first(
+    target_store: SingleWriterStore,
+) -> None:
+    await check_a_second_writer_is_refused_naming_the_first(target_store)
+
+
+async def test_a_released_claim_lets_the_next_writer_in(
+    target_store: SingleWriterStore,
+) -> None:
+    await check_a_released_claim_lets_the_next_writer_in(target_store)

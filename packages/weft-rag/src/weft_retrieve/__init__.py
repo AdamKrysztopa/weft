@@ -528,6 +528,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-questions.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/enrich-with-questions.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-raptor.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/enrich-with-raptor.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-deep-raptor.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/index-with-adrap.yaml")
 

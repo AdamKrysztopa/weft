@@ -820,6 +820,13 @@ class IndexCommandResult(CommandResult):
     #: The target that is live now, once this run finished — `None` unless
     #: `target_stopped_being_live` is.
     target_now_live: str | None = None
+    #: Ledger task **43.15** — copied from `weft_cli.ingest.IndexResult.layers_stale`, so the
+    #: renderer can name a corpus-scoped layer that has fallen behind without importing that
+    #: dataclass.
+    layers_stale: tuple[str, ...] = ()
+    #: `layers_stale`'s own `(built, of)` pair per name — `weft_cli.ingest.IndexResult.
+    #: layers_stale_progress`, copied for the identical reason.
+    layers_stale_progress: Mapping[str, tuple[int, int]] = Field(default_factory=dict)
 
 
 class AskCommandResult(CommandResult):
@@ -1179,6 +1186,8 @@ class IndexCommand:
                 target_live=result.target_live,
                 target_stopped_being_live=result.target_stopped_being_live,
                 target_now_live=result.target_now_live,
+                layers_stale=result.layers_stale,
+                layers_stale_progress=result.layers_stale_progress,
             )
         )
 

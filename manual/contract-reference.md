@@ -1081,6 +1081,28 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Route]: ...
 ```
 
+## `SingleWriter`
+
+**Module:** `weft_store.contract`  
+**Registered by:** `weft-rag`  
+**Version:** `2.11.0`
+
+A store that admits one writer at a time — ledger task **43.18**.
+
+`claim_writer` either records the claim or raises `WriterBusyError` naming the claim another
+handle holds. The claim ends at `release_writer`, and on a store that can tell, when the
+holding process dies. A claim made by a crashed writer never blocks the next one forever.
+
+### Methods
+
+```python
+async def claim_writer(self, writer: weft_store.contract.WriterClaim) -> None: ...
+```
+
+```python
+async def release_writer(self) -> None: ...
+```
+
 ## `SourceDeletable`
 
 **Module:** `weft_store.contract`  
