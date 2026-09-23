@@ -19,6 +19,8 @@ them. Both times this cost a phase, the result read as a defect in the change un
 argument reaches — a directory walked, a glob expanded — is judged by `tests/conftest.py`'s
 `_CONTAINER_TOKENS`, read from that file so the two cannot drift. A run with no path sweeps
 `testpaths`, and a path that cannot be read counts as reaching the container, as there.
+Only a `pytest` in command position is a run, and `\`-continued lines are joined first
+(`L28.41`): a `grep pytest` refused two agents, and a continuation dropped every path.
 
 Exit 2 with the paths on stderr blocks. Runs under bare `python3` (3.9).
 """
@@ -36,7 +38,12 @@ _RUNS_GATE = re.compile(
     r"(^|[;&|(]\s*|\s)(poe\s+(ci-checks|ci-no-tests|arch)\b|pytest\b[^;&|]*tests/architecture)"
 )
 _CONTAINER_TASK = re.compile(r"(^|[;&|(]\s*|\s)poe\s+(ci-checks|test)\b")
-_PYTEST = re.compile(r"(?:^|\s|/)pytest(?![\w-])(.*)")
+# Command position only (`L28.41`): a `grep pytest` or a quoted string naming it runs nothing.
+_PYTEST = re.compile(
+    r"^\s*(?:\w+=\S*\s+)*(?:uv\s+run\s+(?:--?\S+\s+)*)?(?:\S*python3?\s+-m\s+)?"
+    r"(?:\S*/)?pytest(?![\w-])(.*)"
+)
+_CONTINUATION = re.compile(r"\\\n")
 _SEGMENT_BREAK = re.compile(r"[;&|\n()]")
 _TOKENS_LITERAL = re.compile(r"^_CONTAINER_TOKENS\b[^=]*=\s*\((.*?)\)", re.MULTILINE | re.DOTALL)
 _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
@@ -120,19 +127,23 @@ def container_reaching(command, cwd):
     root = Path((_git_lines(cwd, "rev-parse", "--show-toplevel") or [cwd])[0])
     tokens = _container_tokens(root)
     reached = []
-    for segment in _SEGMENT_BREAK.split(command):
+    for segment in _SEGMENT_BREAK.split(_CONTINUATION.sub(" ", command)):
         if _CONTAINER_TASK.search(segment):
             reached.append(segment.strip())
             continue
         call = _PYTEST.search(segment)
         if call is None:
             continue
-        for argument in _path_arguments(call.group(1)) or [str(root / "tests")]:
-            reached.extend(
-                os.path.relpath(found, root)
-                for found in _files_under(Path(cwd), argument)
-                if _reaches_a_container(found, root, tokens)
-            )
+        named = _path_arguments(call.group(1))
+        swept = [
+            os.path.relpath(found, root)
+            for argument in named or [str(root / "tests")]
+            for found in _files_under(Path(cwd), argument)
+            if _reaches_a_container(found, root, tokens)
+        ]
+        if swept and not named:
+            reached.append("(the run named no test path, so all of tests/ was assumed)")
+        reached.extend(swept)
     return reached
 
 

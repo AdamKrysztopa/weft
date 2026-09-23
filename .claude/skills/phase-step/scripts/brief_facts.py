@@ -23,6 +23,9 @@ Prints a `## Brief facts` block to paste into the brief; `guard_implementer_brie
 4. **Red files that fail at collection** (`L28.36`). An import error stands in front of every
    test's own reason to fail, and two dispatches in one phase returned blocked on fixture defects
    it hid. Stub the missing names in the scratchpad and run each test once before dispatch.
+5. **The generated pages an owner module feeds** (`L28.42`): a contract docstring feeds
+   `manual/contract-reference.md`, a command's `help` the manual's command table, and a brief that
+   forbids `manual/` while ordering such an edit orders a red the agent cannot clear.
 
 Runs under bare `python3` (3.9), like the hooks: no 3.10+ syntax.
 """
@@ -183,6 +186,36 @@ def protocol_doubles(owners: list[str]) -> dict[str, tuple[list[str], list[str]]
     return found
 
 
+#: A page generated from text an owner module carries, and the signature that says it does
+#: (`L28.42`): a contract's docstring feeds the contract reference, a command's `help` the table.
+_GENERATED_FROM = (
+    (
+        re.compile(r"^[A-Z]\w*\.version = ", re.MULTILINE),
+        "manual/contract-reference.md",
+        "uv run python scripts/generate_contract_reference.py",
+    ),
+    (
+        re.compile(r"^\s+help: ClassVar\[str\]", re.MULTILINE),
+        "manual/user-manual.md (command table)",
+        "uv run python scripts/generate_command_table.py",
+    ),
+)
+
+
+def generated_pages(owners):
+    """Every generated page an owner module's text feeds, with the command that regenerates it."""
+    found = {}
+    for owner in owners:
+        try:
+            source = Path(owner).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for pattern, page, command in _GENERATED_FROM:
+            if pattern.search(source):
+                found.setdefault((page, command), []).append(owner)
+    return found
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -218,6 +251,11 @@ def main() -> int:
     if options.owners and any(citations(options.owners).values()):
         print()
         print("Say in the brief who re-points each citation the change moves (L23.15).")
+    for (page, command), feeding in sorted(generated_pages(options.owners).items()):
+        print()
+        print(f"{', '.join(feeding)} feeds the generated {page}: an edit to its docstrings or")
+        print(f"help drifts it. Regenerate with `{command}` — name who does, since an agent")
+        print("told not to write manual/ cannot (L28.42).")
     failed = uncollectable(options.red)
     if failed:
         print()
