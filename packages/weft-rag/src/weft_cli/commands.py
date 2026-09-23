@@ -586,11 +586,12 @@ def _excluded_rung_explanations(
 ) -> tuple[str, ...]:
     """`--explain`'s own line per catalogue document the router left out — ledger task **43.9**.
     Routed path only: a rung named directly is refused or accepted before this point, never
-    silently excluded.
+    silently excluded. A document with no `route.summary` is never a candidate whatever its
+    layer, so it is not listed as left out (R43.21).
     """
     lines: list[str] = []
     for name, layer in sorted(route_requirements(catalogue).items()):
-        if layer in ready:
+        if layer in ready or "route.summary" not in catalogue[name].vars:
             continue
         built, of = _layer_progress(layer, ask_coverage)
         lines.append(
@@ -2015,10 +2016,32 @@ class DeleteCommandResult(CommandResult):
 
     source_id: str
     participants: tuple[ParticipantOutcome, ...]
+    #: Carried repair **R43.17** — whether any store recorded `source_id` before the fan-out,
+    #: so an id nothing held reads differently from a delete that removed something.
+    held: bool = True
 
     @property
     def failed(self) -> tuple[ParticipantOutcome, ...]:
         return tuple(outcome for outcome in self.participants if outcome.failed)
+
+
+async def _resolve_deletion_id(
+    deps: Dependencies, target: str | None, given: str
+) -> tuple[str, bool]:
+    """`(source_id, held)` for what `weft delete` was handed — carried repair **R43.17**.
+
+    `weft sources list` prints each record's `uri`, so a uri a record carries resolves to that
+    record's `id`. An unreadable store answers `(given, True)`: this read only words the answer,
+    and must never stand between an operator and a delete.
+    """
+    read = await _read_sources_by_store(deps, target)
+    if not isinstance(read, Produced):
+        return given, True
+    records = [record for _, records in read.value for record in records]
+    if any(str(record.id) == given for record in records):
+        return given, True
+    by_uri = next((str(record.id) for record in records if record.uri == given), None)
+    return (by_uri, True) if by_uri is not None else (given, False)
 
 
 class DeleteCommand:
@@ -2037,9 +2060,10 @@ class DeleteCommand:
     `overwrite`/`destroy` command and needs one". This is that command.
 
     **A source nothing holds is a success, not a refusal.** Every participant answers
-    `node_count=0`, the result says so, and the exit code is `0`: deletion is idempotent, so
-    re-running a delete that already finished has to be the ordinary case rather than an
-    error, and a fan-out resumed after a partial failure depends on it.
+    `node_count=0`, the result says nothing held it (R43.17), and the exit code is `0`:
+    deletion is idempotent, so re-running a delete that already finished has to be the
+    ordinary case rather than an error, and a fan-out resumed after a partial failure depends
+    on it.
     """
 
     args_model: ClassVar[type[BaseModel]] = DeleteArgs
@@ -2084,11 +2108,14 @@ class DeleteCommand:
         deps = ctx.require(Dependencies)
         targets = self._targets(deps)
         await _require_target_exists(deps, typed.target)
+        source_id, held = await _resolve_deletion_id(deps, typed.target, typed.source_id)
         async with claim_all_writers(targets, store_target=typed.target, command="weft delete"):
             outcomes = await delete_everywhere(
-                SourceId(typed.source_id), targets=targets, target=typed.target
+                SourceId(source_id), targets=targets, target=typed.target
             )
-        return Produced(value=DeleteCommandResult(source_id=typed.source_id, participants=outcomes))
+        return Produced(
+            value=DeleteCommandResult(source_id=source_id, participants=outcomes, held=held)
+        )
 
     def _targets(self, deps: Dependencies) -> tuple[Participant, ...]:
         """Who the fan-out will ask — refusing first if `[services] store` names nothing.

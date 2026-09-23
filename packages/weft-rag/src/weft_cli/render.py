@@ -301,6 +301,11 @@ def _render_delete(result: DeleteCommandResult) -> Rendered:
         )
         or None
     )
+    if not result.held and not failures and not any(o.node_count for o in result.participants):
+        lines.append(
+            f"nothing held '{result.source_id}' — nothing was deleted. `weft sources list` "
+            "shows the sources recorded."
+        )
     exit_code = ExitCode.SUCCESS if not failures else ExitCode.OPERATION_FAILED
     return Rendered(stdout="\n".join(lines), stderr=stderr, exit_code=exit_code)
 

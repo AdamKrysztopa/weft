@@ -365,3 +365,30 @@ async def test_a_routed_ask_over_a_rung_requiring_an_uninstalled_layer_is_refuse
     # Assert
     assert "'enrich-with-questons'" in str(refused.value)
     assert routed.kwargs == {}
+
+
+async def test_explain_leaves_out_a_document_the_router_could_never_offer(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — R43.21: no `route.summary`, so it is never a candidate whatever its layer.
+    (project / "pipelines" / "unroutable.yaml").write_text(
+        "name: unroutable\n"
+        "vars:\n"
+        f"  route.requires: {_LAYER}\n"
+        "stages:\n"
+        "  - {id: retrieve, use: vector-top-k}\n"
+    )
+    monkeypatch.setattr(commands, "run_routed_ask", _Routed())
+    ctx = await _ctx_with(_TWO_OF_THREE)
+
+    # Act
+    outcome = await commands.AskCommand().run(
+        commands.AskArgs(question="what changed?", explain=True), ctx
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, AskCommandResult)
+    assert not any("'unroutable'" in line for line in result.explanations)
+    assert any("'needs-questions'" in line for line in result.explanations)

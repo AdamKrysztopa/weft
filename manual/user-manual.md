@@ -765,7 +765,7 @@ from pathlib import Path
 from weft_engine.api import Weft
 
 # `.resolve()` matters: a source id is the resolved path the indexer recorded, so a
-# `delete` naming the unresolved one removes nothing and says so — `0 node(s) removed`.
+# `delete` naming the unresolved one removes nothing and says so — `nothing held '<id>'`.
 workspace = Path(tempfile.mkdtemp()).resolve()
 corpus = workspace / "corpus"
 corpus.mkdir()
