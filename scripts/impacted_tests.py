@@ -1,11 +1,15 @@
-"""Run only the tests a diff can have affected — a fast local and pull-request signal.
+"""Run only the tests a diff can have affected — the per-task check, and a pull-request signal.
 
-**This is not the gate and must never be wired in as one.** `uv run poe ci-checks` is the canonical
-full gate; fitness function 0 asserts every architecture check is reachable from it, and
-`docs/internal/lessons-archive.md` `L7.8` is what a run that quietly stopped covering part of the
-tree costs. What this buys is the minutes between making an edit and finding out it broke something
-— nothing else. Every selection here is a *guess about impact*, and a guess is exactly what the gate
-is not allowed to be.
+**It is not the gate.** `uv run poe ci-checks` is the canonical full gate, run at a phase's close
+(owner's instruction, 2026-09-23) and in CI; fitness function 0 asserts every architecture check is
+reachable from it, and `docs/internal/lessons-archive.md` `L7.8` is what a run that quietly stopped
+covering part of the tree costs. `poe ci-task` runs this after format, lint and types, per task.
+Every selection here is a *guess about impact* that over-selects on purpose, and the phase-close
+gate is what a wrong guess meets.
+
+`--version-diff <file>` takes `git diff -U3` of `uv.lock` and the distributions' `pyproject.toml`
+files: a diff moving only first-party `version =` lines is a contract bump, not a new dependency, so
+it no longer selects the whole tree.
 
 **Reads a change set on stdin, one repository-relative path per line, and runs pytest in this
 process.** Splitting it that way is not a style choice: a script under `scripts/` is shipped-shaped
@@ -166,6 +170,33 @@ def _reshapes_the_workspace(changed: frozenset[str]) -> bool:
     )
 
 
+def only_first_party_versions(diff: str) -> bool:
+    """Whether a unified diff of `uv.lock` and the distributions' `pyproject.toml` files moves
+    nothing but a first-party `version = ` line and comments — a contract bump, which changes no
+    dependency and so reshapes nothing. Needs `-U3` or wider: in `uv.lock` a package's `name =`
+    line sits directly above its `version =`, and the context is what names whose version moved.
+    """
+    in_lock = False
+    package = ""
+    for line in diff.splitlines():
+        if line.startswith("diff --git"):
+            in_lock = line.endswith(" b/uv.lock")
+            package = ""
+            continue
+        if line.startswith(("--- ", "+++ ", "index ", "@@", "new file", "deleted file")):
+            continue
+        body = line[1:].strip()
+        if body.startswith('name = "'):
+            package = body
+        if not line.startswith(("+", "-")) or not body or body.startswith("#"):
+            continue
+        if not body.startswith('version = "'):
+            return False
+        if in_lock and not package.startswith('name = "weft-'):
+            return False
+    return True
+
+
 def select(changed: frozenset[str]) -> Selection:
     """The tests a change set can have affected. Over-selects on purpose; never under-selects."""
     if not changed:
@@ -210,6 +241,20 @@ def read_change_set(lines: Iterable[str]) -> frozenset[str]:
 def main(argv: Sequence[str]) -> int:
     forwarded = [argument for argument in argv if argument != "--list"]
     changed = read_change_set(sys.stdin)
+    if "--version-diff" in forwarded:
+        at = forwarded.index("--version-diff")
+        diff = Path(forwarded[at + 1]).read_text(encoding="utf-8")
+        del forwarded[at : at + 2]
+        if only_first_party_versions(diff):
+            kept = frozenset(
+                name
+                for name in changed
+                if name != "uv.lock"
+                and not (name.startswith("packages/") and name.endswith("pyproject.toml"))
+            )
+            # A bare bump still moves what FF6 and FF10(b) pin, and those live in the whole-tree
+            # suites.
+            changed = kept or frozenset(WHOLE_TREE_SUITES)
     selection = select(changed)
 
     print(f"impacted: {selection.reason}")

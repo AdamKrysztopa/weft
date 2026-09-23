@@ -165,6 +165,25 @@ name = "extra"
 default = ""
 help = "Extra arguments forwarded to pytest, as one string."
 
+# **The per-task check; `ci-checks` runs at a phase's close** (owner's instruction, 2026-09-23).
+# The full gate took ~25 minutes per task to learn mostly nothing about the task; this runs the
+# static checks over the whole tree and the tests the uncommitted change can reach, plus the
+# example packs' suites when `examples/` moved.
+[tool.poe.tasks.test-task]
+help = "The tests an uncommitted change (staged, unstaged or untracked) can have affected."
+shell = """
+changed=$({ git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)
+versions=$(mktemp)
+git diff -U3 HEAD -- uv.lock 'packages/*/pyproject.toml' > "$versions"
+printf '%s\\n' "$changed" | python scripts/impacted_tests.py --version-diff "$versions" --numprocesses=auto --dist=loadgroup
+status=$?; rm -f "$versions"; [ $status -eq 0 ] || exit $status
+if printf '%s\\n' "$changed" | grep -q '^examples/'; then poe examples-tests; fi
+"""
+
+[tool.poe.tasks.ci-task]
+sequence = ["fmt", "lint", "types", "test-task"]
+help = "Per task: format, lint, types over the whole tree, then only the impacted tests. Not the gate — ci-checks runs at a phase's close."
+
 [tool.poe.tasks.ci-checks]
 sequence = ["cold-lint-cache", "fmt", "lint", "types", "arch", "test", "integration-alone", "examples-tests"]
 help = "The canonical full gate. Every architecture check must be reachable from here, and it starts from a cold lint cache — see cold-lint-cache."

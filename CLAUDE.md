@@ -146,7 +146,8 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
 
 ```bash
 uv run poe ci-no-tests     # format, lint, types, architecture
-uv run poe ci-checks       # the canonical full gate — everything, plus tests
+uv run poe ci-task         # per task: format, lint, types, then only the impacted tests
+uv run poe ci-checks       # the canonical full gate — everything, plus tests; at a phase's close
 uv run poe kernel-isolated # install weft-kernel alone in a clean env and import it
 ```
 

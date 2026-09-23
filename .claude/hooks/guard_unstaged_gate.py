@@ -5,9 +5,10 @@ architecture suite walks `git ls-files`, so a new file left untracked is invisib
 experiment documents passed a local gate and failed FF17 in CI once committed. Two red CI runs in
 Phase 32 were this shape.
 
-Refused: `poe ci-checks`, `poe ci-no-tests`, `poe arch` or a pytest run over `tests/architecture`
-while an untracked, non-ignored file sits under a top-level directory the repository tracks.
-Root-level untracked files are not refused — no fitness function walks the root alone.
+Refused: `poe ci-checks`, `poe ci-task`, `poe ci-no-tests`, `poe arch` or a pytest run over
+`tests/architecture` while an untracked, non-ignored file sits under a top-level directory the
+repository tracks. Root-level untracked files are not refused — no fitness function walks the
+root alone.
 **And the full gate is refused while a dispatched agent's worktree is still locked** (`L28.21`,
 recurring `L24.3`). A worktree is its own checkout, not its own container: an agent's suite and
 this one share Postgres and Qdrant, and a `unit` directory is no promise that a test stays off
@@ -35,9 +36,9 @@ import sys
 from pathlib import Path
 
 _RUNS_GATE = re.compile(
-    r"(^|[;&|(]\s*|\s)(poe\s+(ci-checks|ci-no-tests|arch)\b|pytest\b[^;&|]*tests/architecture)"
+    r"(^|[;&|(]\s*|\s)(poe\s+(ci-checks|ci-task|ci-no-tests|arch)\b|pytest\b[^;&|]*tests/architecture)"
 )
-_CONTAINER_TASK = re.compile(r"(^|[;&|(]\s*|\s)poe\s+(ci-checks|test)\b")
+_CONTAINER_TASK = re.compile(r"(^|[;&|(]\s*|\s)poe\s+(ci-checks|ci-task|test)\b")
 # Command position only (`L28.41`): a `grep pytest` or a quoted string naming it runs nothing.
 _PYTEST = re.compile(
     r"^\s*(?:\w+=\S*\s+)*(?:uv\s+run\s+(?:--?\S+\s+)*)?(?:\S*python3?\s+-m\s+)?"

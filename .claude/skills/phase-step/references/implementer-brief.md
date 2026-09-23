@@ -184,8 +184,9 @@ Then read the implementation itself against three questions:
    which you find out what only it saw. A neighbouring assertion it flagged as wrong is worth more
    than the diff.
 
-Then the whole gate, in the foreground, run by you — `uv run poe ci-checks`. The implementer ran the
-test node ids it was given, which is not the same evidence (`docs/internal/lessons.md` L5.12).
+Then the per-task check, run by you — `uv run poe ci-task`; the full `ci-checks` runs at the phase's
+close. The implementer ran the test node ids it was given, which is not the same evidence
+(`docs/internal/lessons.md` L5.12).
 
 ---
 
