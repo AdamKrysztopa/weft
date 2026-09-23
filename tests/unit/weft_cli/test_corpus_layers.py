@@ -211,6 +211,18 @@ class _GenerationStore(_Store):
         return tuple(self._state.generations.values())
 
 
+class _RefusingGenerationStore(_GenerationStore):
+    """A `_GenerationStore` whose write can be made to fail, as a second store's would. The flag
+    is the class's, because `bind_generation` builds the writer as a new instance."""
+
+    refuse: ClassVar[bool] = False
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        if self.refuse and self._generation is not None:
+            return Failed(reason="the second store refused the write")
+        return await super().run(payload, ctx)
+
+
 class _Summary:
     """A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
     by this stage itself, as `raptor` embeds its own summaries."""
@@ -438,3 +450,113 @@ def test_enrich_with_raptor_ships_source_scoped_and_composes_with_a_base(
     # Assert — no `layer.scope` means per source; a project derives it with `layer.scope: corpus`.
     assert [spec.name for spec in composed.layer_specs] == ["raptor"]
     assert "layer.scope" not in composed.resolved.vars
+
+
+def _write_two_store_base(project: Path) -> None:
+    (project / "pipelines" / "index-two-stores.yaml").write_text(
+        "name: index-two-stores\n"
+        "stages:\n"
+        "  - {id: extract, use: text}\n"
+        "  - {id: chunk, use: fixed-size}\n"
+        "  - {id: embed, use: hash}\n"
+        "  - {id: store, use: pgvector}\n"
+        "  - {id: second-store, use: second}\n"
+    )
+
+
+def _two_store_registry(primary: _Store, second: _Store) -> Registry:
+    registry = _registry(primary)
+    registry.add(NodeStore, "second", partial(_factory, second), distribution="weft-example")
+    return registry
+
+
+async def _index_two(
+    primary: _Store, second: _Store, corpus: Path, *, layers: tuple[str, ...] = ()
+) -> IndexResult:
+    return await run_index(
+        corpus,
+        registry=_two_store_registry(primary, second),
+        ctx=_ctx(),
+        pipeline="index-two-stores",
+        batch_size=4,
+        layers=layers,
+    )
+
+
+async def test_a_corpus_layer_over_two_stores_writes_each_inside_its_own_generation(
+    corpus: Path, tmp_path: Path
+) -> None:
+    # Arrange — R43.11: only the primary was bound, so the second store never got the summary.
+    _write_two_store_base(tmp_path)
+    primary, second = _GenerationStore(), _GenerationStore()
+
+    # Act
+    await _index_two(primary, second, corpus, layers=("enrich-with-summary",))
+
+    # Assert
+    for store in (primary, second):
+        (generation,) = await store.generations()
+        assert generation.status is GenerationStatus.PUBLISHED
+        (summary,) = _summaries(store)
+        assert store.state.members[summary.id] == {generation.id}
+    assert _CountingEmbedder.seen.count(1) == 0
+
+
+async def test_a_failed_second_store_retracts_every_generation_the_build_opened(
+    corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    _write_two_store_base(tmp_path)
+    primary, second = _GenerationStore(), _RefusingGenerationStore()
+    await _index_two(primary, second, corpus)
+    monkeypatch.setattr(_RefusingGenerationStore, "refuse", True)
+
+    # Act
+    result = await _index_two(primary, second, corpus, layers=("enrich-with-summary",))
+
+    # Assert — nothing of the half-written tree is left behind in either store.
+    assert await primary.generations() == ()
+    assert await second.generations() == ()
+    assert _summaries(primary) == []
+    assert _summaries(second) == []
+    assert [failure.layer for failure in result.layers_failed] == ["enrich-with-summary"]
+
+
+async def test_a_corpus_layer_over_a_second_store_without_generations_is_refused_naming_it(
+    corpus: Path, tmp_path: Path
+) -> None:
+    # Arrange
+    _write_two_store_base(tmp_path)
+    primary, second = _GenerationStore(), _Store()
+
+    # Act
+    with pytest.raises(LayerNeedsGenerationHoldingError) as refused:
+        await _index_two(primary, second, corpus, layers=("enrich-with-summary",))
+
+    # Assert — the stage that cannot hold one is named, and nothing was written anywhere.
+    message = str(refused.value)
+    assert "'second-store' (second)" in message
+    assert "'store' (pgvector)" not in message
+    assert primary.state.adds == []
+    assert second.state.adds == []
+
+
+async def test_the_refusal_names_the_installed_stores_that_hold_generations(
+    corpus: Path,
+) -> None:
+    # Arrange — R43.14: computed from what is installed, never two first-party names.
+    store = _Store()
+    registry = _registry(store)
+    registry.add(NodeStore, "stranger-held", _GenerationStore, distribution="weft-example")
+
+    # Act
+    with pytest.raises(LayerNeedsGenerationHoldingError) as refused:
+        await run_index(
+            corpus, registry=registry, ctx=_ctx(), batch_size=4, layers=("enrich-with-summary",)
+        )
+
+    # Assert
+    assert refused.value.valid_options == ("stranger-held",)
+    message = str(refused.value)
+    assert "stranger-held" in message
+    assert "qdrant" not in message

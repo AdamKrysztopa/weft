@@ -1084,7 +1084,10 @@ signature bug elsewhere is a capability declared unconditionally whose implement
 conditionally (`.doc`/`.ppt`). **Fitness function 5 holds here by construction**, provided the second
 half is respected: a pack with optional dependencies **probes at `register()` and registers the class
 that actually works**, so declaration and verification are one act. `weft plugins doctor` prints what
-registered, what didn't, and why.
+registered, what didn't, and why. A declaration a **contract's publisher** makes — `version`,
+`publishes_property_vocabulary`, `layer_stage` — is not such a flag: it states what every
+implementation of that contract promises, and a plugin inherits it by the contract it registers
+under, never by writing it.
 
 **Retrievers declare what they need.** `needs_store = (VectorSearch, MetadataFilter)`, checked at
 resolution against the configured store; failure names the store, the missing capability and the

@@ -247,6 +247,10 @@ nothing to enhance still answers `NothingToProduce`, never a silently empty
 `Produced([])` — the same fix every other contract in this tree documents for
 collapsing a legitimately empty result into the same ambiguous case as a failure.
 
+`layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
+takes nodes already stored and returns every node it was handed, each under its own id,
+plus whatever it derived from them — it neither embeds nor stores.
+
 ### Methods
 
 ```python
@@ -278,6 +282,10 @@ policy apiece. Since repair **R38.13**, and repair **R38.18** for every shipped
 `Expander` rather than `hypothetical-questions` alone, that node also carries
 `weft_index.payload.ExpansionDegraded`, naming which expander could not expand it and
 why.
+
+`layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
+takes nodes already stored and returns every node it was handed, each under its own id,
+plus whatever it derived from them — it neither embeds nor stores.
 
 ### Methods
 
@@ -1031,6 +1039,12 @@ a `Revisable` causes `weft_cli.ingest._store_instance_for_revisable` to hand the
 cited G13's `reconcile` precedent, `reconcile` is not a pipeline stage, and this contract,
 `NodeSupersedable` and `adrap` all shipped green over a call that could not resolve
 (`docs/internal/lessons.md` `L10.40`). An ordinary ingest document still gets no ambient store.
+
+`layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
+takes nodes already stored and returns every node it was handed, each under its own id,
+plus whatever it derived from them — it neither embeds nor stores. This is the contract's
+own declaration, not a plugin marker: a plugin never sets it, it inherits the promise by
+registering under `Revisable`.
 
 ### Methods
 

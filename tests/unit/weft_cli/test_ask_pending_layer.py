@@ -18,11 +18,13 @@ import pytest
 from weft_cli import commands, render
 from weft_cli.commands import AskCommandResult
 from weft_cli.coverage import LayerCoverage, layer_coverage_of, ready_layers
+from weft_cli.layers import UnknownLayerError
 from weft_cli.output import AskFormat
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_generate.payload import Answer, AnswerStance
+from weft_index import Expander
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Produced, SourceId
@@ -88,6 +90,10 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "stages:\n"
         "  - {id: retrieve, use: vector-top-k}\n"
     )
+    # R43.13: a required layer is checked against the installed layers, so the fixture has one.
+    (tmp_path / "pipelines" / f"{_LAYER}.yaml").write_text(
+        f"name: {_LAYER}\nstages:\n  - {{id: questions, use: echo-questions}}\n"
+    )
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
@@ -99,6 +105,7 @@ async def _ctx_with(records: tuple[SourceRecord, ...]) -> Context:
     registry = Registry()
     registry.add(NodeStore, "memory", _store_factory, distribution="weft-store")
     registry.add(Embedder, "hash", _null_factory, distribution="weft-embed")
+    registry.add(Expander, "echo-questions", _null_factory, distribution="weft-index")
     deps = Dependencies(
         registry=registry,
         reports=(PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),),
@@ -305,3 +312,56 @@ def test_the_json_envelope_carries_a_pending_layer_and_omits_a_built_one() -> No
     assert pending.stdout is not None
     assert json.loads(pending.stdout)["layers"] == [{"name": _LAYER, "built": 412, "of": 1000}]
     assert built == none
+
+
+def _misspelt(project: Path) -> None:
+    (project / "pipelines" / "needs-questions.yaml").write_text(
+        "name: needs-questions\n"
+        "vars:\n"
+        "  route.summary: answers from the generated questions\n"
+        "  route.requires: enrich-with-questons\n"
+        "stages:\n"
+        "  - {id: retrieve, use: vector-top-k}\n"
+    )
+
+
+async def test_naming_a_rung_whose_required_layer_is_not_installed_is_refused_listing_them(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — R43.13: the pending refusal's own remedy then failed with UnknownLayerError.
+    _misspelt(project)
+    named = _Named()
+    monkeypatch.setattr(commands, "run_named_ask", named)
+    ctx = await _ctx_with(_ALL_THREE)
+
+    # Act
+    with pytest.raises(UnknownLayerError) as refused:
+        await commands.AskCommand().run(
+            commands.AskArgs(question="what changed?", pipeline="needs-questions"), ctx
+        )
+
+    # Assert
+    message = str(refused.value)
+    assert "'needs-questions'" in message
+    assert "route.requires" in message
+    assert "'enrich-with-questons'" in message
+    assert refused.value.valid_options == (_LAYER,)
+    assert not named.called
+
+
+async def test_a_routed_ask_over_a_rung_requiring_an_uninstalled_layer_is_refused(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — a typo in a document is a fault, never a layer that is merely not built yet.
+    _misspelt(project)
+    routed = _Routed()
+    monkeypatch.setattr(commands, "run_routed_ask", routed)
+    ctx = await _ctx_with(_ALL_THREE)
+
+    # Act
+    with pytest.raises(UnknownLayerError) as refused:
+        await commands.AskCommand().run(commands.AskArgs(question="what changed?"), ctx)
+
+    # Assert
+    assert "'enrich-with-questons'" in str(refused.value)
+    assert routed.kwargs == {}

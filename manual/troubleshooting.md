@@ -2048,8 +2048,18 @@ layer over the nodes 'index-text' stored. Installed layers: enrich-with-question
 questions to stored chunks. A document that starts by reading files is a base document, and
 running it as a layer would re-parse the whole corpus.
 
+A document whose stage is some other contract is refused the same way, naming the contract: only
+a contract whose publisher declares `layer_stage` promises to hand back every node it was given.
+
+```text
+'my-reshaper' cannot run as a layer: its stage 'reshape' is a Chunker, which does not declare
+layer_stage — a layer's stages take stored nodes and return every one of them. Installed layers:
+enrich-with-questions.
+```
+
 **What to do:** name one of the installed layers the message lists, or run the document as the
-base with `weft index --pipeline <name>`.
+base with `weft index --pipeline <name>`. If you publish the contract yourself and its stages do
+return every node they are handed, declare it: `MyContract.layer_stage = True`.
 
 ### `LayerDuplicatesBaseStageError`
 
@@ -2074,8 +2084,17 @@ them differently, and asking would refuse the mismatch.
 'enrich-with-nothing' is not an installed layer. Installed layers: enrich-with-questions.
 ```
 
-**What to do:** name one of the listed layers. A layer is a pipeline document from an installed
-pack or from your project's `pipelines/` directory; `weft pipeline list` shows them all.
+`weft ask` gives the same refusal when a rung's `route.requires` names a layer nothing installs,
+before it would answer or report the rung as pending:
+
+```text
+'needs-questions' names 'enrich-with-questons' in route.requires, which is not an installed
+layer. Installed layers: enrich-with-questions.
+```
+
+**What to do:** name one of the listed layers — in `route.requires` when `weft ask` refused. A
+layer is a pipeline document from an installed pack or from your project's `pipelines/`
+directory; `weft pipeline list` shows them all.
 
 ### `LayerNeedsMetadataFilterError`
 
@@ -2114,19 +2133,23 @@ derives something different.
 
 ### `LayerNeedsGenerationHoldingError`
 
-**What it looks like** — a corpus-scoped layer against a store that cannot hold generations:
+**What it looks like** — a corpus-scoped layer over a base with a store stage that cannot hold
+generations:
 
 ```text
-'my-raptor' builds one tree over the whole corpus, as a generation published whole, and the
-'my-store' store cannot hold generations (GenerationHolding). Run it per source (drop layer.scope:
-corpus), or index into pgvector or qdrant.
+'my-raptor' builds one tree over the whole corpus, as a generation published whole, and store
+stage 'graph-store' (pgvector-graph) cannot hold generations (GenerationHolding). Run it per source
+(drop layer.scope: corpus), or remove or replace that stage, or index into a store that can:
+pgvector, qdrant.
 ```
 
 **Why** — a tree over every document is misleading while half built, so it is written invisibly
-and made searchable all at once. That needs a store that can keep nodes hidden until then.
+and made searchable all at once. Every store the base writes to receives the tree, so every one of
+them has to keep nodes hidden until then. The stores listed at the end are the installed ones that
+can.
 
-**What to do:** remove `layer.scope: corpus` to build one tree per document, or use pgvector or
-Qdrant, which both hold generations.
+**What to do:** remove `layer.scope: corpus` to build one tree per document, or index with a base
+whose every store stage is one of the listed stores.
 
 ### `LayerScopeError`
 
@@ -2138,6 +2161,20 @@ Qdrant, which both hold generations.
 
 **What to do:** set `layer.scope: corpus` for one build over every document, or remove it to run
 per document.
+
+### `UnknownLayerVarError`
+
+**What it looks like** — a layer document sets a `layer.` key no layer reads:
+
+```text
+'my-raptor' (or a document it extends) sets 'layer.scop', which no layer reads. A layer reads:
+layer.scope.
+```
+
+**Why** — a misspelt key would be ignored, so a layer meant to build one tree over the whole
+corpus would quietly run per document.
+
+**What to do:** correct the key to one the message lists, or remove it.
 
 ### `NoLayersToRunError`
 
@@ -2173,6 +2210,20 @@ choice is yours.
 
 **What to do:** finish the layer with the command the message gives, or pass `--allow-pending`.
 The answer then says under it how far the layer has got.
+
+### `UnknownRouteVarError`
+
+**What it looks like** — a pipeline document sets a `route.` key the router does not read:
+
+```text
+'my-rung' sets 'route.require', which the router does not read. A routable document reads:
+route.cost, route.requires, route.summary.
+```
+
+**Why** — a misspelt key would be ignored: `route.require` would leave a rung offered over a
+layer that is still being built, and `route.sumary` would leave it never offered at all.
+
+**What to do:** correct the key to one the message lists, or remove it.
 
 ### `ConflictingAskModeError`
 

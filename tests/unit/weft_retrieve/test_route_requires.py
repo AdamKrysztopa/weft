@@ -6,12 +6,15 @@ that requires one that is not. Told nothing, it leaves nothing out: every caller
 keeps the catalogue it had.
 """
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
+
+import pytest
 
 from weft_cli.pipeline_catalogue import load_contributed
 from weft_engine import registry_bootstrap
 from weft_kernel.pipeline import Pipeline
-from weft_retrieve.engine import route_catalogue, route_requirements
+from weft_retrieve.engine import UnknownRouteVarError, route_catalogue, route_requirements
 
 
 def _document(name: str, *, requires: str | None = None) -> Pipeline:
@@ -67,3 +70,46 @@ def test_the_shipped_questions_rung_requires_the_shipped_questions_layer(tmp_pat
 
     # Assert
     assert requirements.get("questions-then-generate") == "enrich-with-questions"
+
+
+def _with_var(name: str, key: str) -> Pipeline:
+    return Pipeline.model_validate(
+        {
+            "name": name,
+            "vars": {"route.summary": f"{name} answers", key: "enrich-with-questions"},
+            "stages": [{"id": "retrieve", "use": "vector-top-k"}],
+        }
+    )
+
+
+@pytest.mark.parametrize("read", [route_requirements, route_catalogue])
+def test_an_unknown_route_key_is_refused_naming_the_document_and_the_keys(
+    read: Callable[[Mapping[str, Pipeline]], object],
+) -> None:
+    # Arrange — R43.13: `route.require` was ignored, so the rung was offered over a pending layer.
+    catalogue = {**_CATALOGUE, "misspelt": _with_var("misspelt", "route.require")}
+
+    # Act
+    with pytest.raises(UnknownRouteVarError) as refused:
+        read(catalogue)
+
+    # Assert
+    message = str(refused.value)
+    assert "'misspelt'" in message
+    assert "'route.require'" in message
+    assert refused.value.valid_options == ("route.cost", "route.requires", "route.summary")
+
+
+def test_a_document_whose_only_route_key_is_misspelt_is_refused_too() -> None:
+    # Arrange — `route.sumary` drops the document out of the candidates, so it is never offered.
+    misspelt = Pipeline.model_validate(
+        {
+            "name": "misspelt",
+            "vars": {"route.sumary": "answers"},
+            "stages": [{"id": "retrieve", "use": "vector-top-k"}],
+        }
+    )
+
+    # Act / Assert
+    with pytest.raises(UnknownRouteVarError, match="'route.sumary'"):
+        route_catalogue({**_CATALOGUE, "misspelt": misspelt})

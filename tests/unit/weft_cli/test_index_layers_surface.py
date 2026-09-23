@@ -26,6 +26,7 @@ from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry
 from weft_kernel.runner import RunSummary
 from weft_store import NodeStore
@@ -169,6 +170,37 @@ def test_an_unknown_index_key_is_refused_naming_the_keys_it_takes() -> None:
     # Assert
     assert "'layer'" in str(refused.value)
     assert refused.value.valid_options == ("layers",)
+
+
+@pytest.mark.parametrize(
+    ("written", "shown"),
+    [("enrich-with-raptor", "'enrich-with-raptor'"), (["enrich-with-raptor", 3], "3")],
+)
+def test_a_wrong_typed_index_value_is_refused_naming_the_key_not_by_pydantic(
+    written: object, shown: str
+) -> None:
+    # Act — R43.12: pydantic's own error named no key a person wrote, and linked its docs.
+    with pytest.raises(WeftError) as refused:
+        index_policy_from_config({"index": {"layers": written}})
+
+    # Assert
+    message = str(refused.value)
+    assert "[index] layers must be a list of layer names" in message
+    assert shown in message
+    assert 'layers = ["enrich-with-raptor"]' in message
+    assert "pydantic" not in message
+
+
+def test_a_wrong_typed_index_value_refuses_every_command_s_dependencies_by_name(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    config = tmp_path / "weft.toml"
+    config.write_text('[index]\nlayers = "enrich-with-raptor"\n', encoding="utf-8")
+
+    # Act / Assert
+    with pytest.raises(WeftError, match=r"\[index\] layers must be a list of layer names"):
+        registry_bootstrap.build_dependencies(config_path=config)
 
 
 def test_a_project_s_weft_toml_reaches_its_dependencies(tmp_path: Path) -> None:

@@ -62,12 +62,17 @@ class Expander(Stage[Sequence[Node], Sequence[Node]], Protocol):
     `Expander` rather than `hypothetical-questions` alone, that node also carries
     `weft_index.payload.ExpansionDegraded`, naming which expander could not expand it and
     why.
+
+    `layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
+    takes nodes already stored and returns every node it was handed, each under its own id,
+    plus whatever it derived from them — it neither embeds nor stores.
     """
 
     if TYPE_CHECKING:
         #: See the module docstring — declared only for a type checker, assigned for real
         #: after the class body, so it never joins `__protocol_attrs__`.
         version: ClassVar[str]
+        layer_stage: ClassVar[bool]
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
 
@@ -130,15 +135,24 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
     cited G13's `reconcile` precedent, `reconcile` is not a pipeline stage, and this contract,
     `NodeSupersedable` and `adrap` all shipped green over a call that could not resolve
     (`docs/internal/lessons.md` `L10.40`). An ordinary ingest document still gets no ambient store.
+
+    `layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
+    takes nodes already stored and returns every node it was handed, each under its own id,
+    plus whatever it derived from them — it neither embeds nor stores. This is the contract's
+    own declaration, not a plugin marker: a plugin never sets it, it inherits the promise by
+    registering under `Revisable`.
     """
 
     if TYPE_CHECKING:
         #: See `Expander.version`'s own note — readable off the class, never in
         #: `__protocol_attrs__`, so `isinstance` does not demand it of an implementer.
         version: ClassVar[str]
+        layer_stage: ClassVar[bool]
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
 
 
 Expander.version = EXPANDER_CONTRACT_VERSION
+Expander.layer_stage = True
 Revisable.version = REVISABLE_CONTRACT_VERSION
+Revisable.layer_stage = True

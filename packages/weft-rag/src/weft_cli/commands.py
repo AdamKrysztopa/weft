@@ -116,7 +116,7 @@ from weft_cli.explain import (
 from weft_cli.fanout import Participant
 from weft_cli.ingest import DEFAULT_BATCH_SIZE, INDEX_PACKS, SourceChange, run_index_for
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
-from weft_cli.layers import LayerFailure
+from weft_cli.layers import LayerFailure, UnknownLayerError, installed_layers
 from weft_cli.output import AskFormat
 from weft_cli.pack_new import PackNewCommand
 from weft_cli.participation import (
@@ -158,6 +158,7 @@ from weft_cli.target_commands import (
     register_target_commands,
 )
 from weft_cli.tracing_status import describe_tracing
+from weft_cli.writer_claim import claim_all_writers
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import CommandRefusalError as CommandRefusalError
 from weft_command.permission import PermissionClass
@@ -509,11 +510,43 @@ def _layer_progress(layer: str, ask_coverage: _AskCoverage) -> tuple[int, int]:
     return 0, ask_coverage.coverage.indexed if ask_coverage.coverage is not None else 0
 
 
+def _raise_unknown_route_layer(doc: str, layer: str, *, deps: Dependencies) -> None:
+    """`UnknownLayerError` for `doc`'s own `route.requires`, naming `layer` — carried repair
+    **R43.13**. `installed_layers` is only computed here, once a refusal is certain, for
+    `valid_options` — the cheap membership check both call sites run first does not need it.
+    """
+    options = installed_layers(
+        registry=deps.registry, reports=deps.reports, contributions=deps.contributions
+    )
+    raise UnknownLayerError(
+        f"'{doc}' names '{layer}' in route.requires, which is not an installed layer. "
+        f"Installed layers: {', '.join(options) or '(none)'}.",
+        valid_options=options,
+        pipeline=doc,
+    )
+
+
+def _raise_for_uninstalled_route_layers(
+    catalogue: Mapping[str, Pipeline], *, deps: Dependencies
+) -> None:
+    """Refuse the whole ask, before either the router or a named pipeline ever runs, when any
+    catalogue document's own `route.requires` names something the catalogue does not hold at
+    all — carried repair **R43.13**, found by the exit review: a misspelt layer left the rung
+    never offered and `PendingLayerError`'s own remedy then failed with `UnknownLayerError`,
+    and a routed ask over such a document was never checked at all. `layer not in catalogue`
+    is a set lookup — cheap enough to run over every document on every ask.
+    """
+    for doc, layer in sorted(route_requirements(catalogue).items()):
+        if layer not in catalogue:
+            _raise_unknown_route_layer(doc, layer, deps=deps)
+
+
 def _raise_if_pending(
     pipeline_name: str,
     *,
     catalogue: Mapping[str, Pipeline],
     ask_coverage: _AskCoverage,
+    deps: Dependencies,
 ) -> None:
     """Refuse `pipeline_name` when its own `route.requires` layer is not built on every
     indexed source — ledger task **43.9**. Does nothing for a rung naming no layer, or one
@@ -522,6 +555,13 @@ def _raise_if_pending(
     layer = route_requirements(catalogue).get(pipeline_name)
     if layer is None or layer in ready_layers(ask_coverage.layers):
         return
+    if layer not in installed_layers(
+        registry=deps.registry, reports=deps.reports, contributions=deps.contributions
+    ):
+        # R43.13: the catalogue holds `layer` (`_raise_for_uninstalled_route_layers` already
+        # refused the alternative), but it is not a real layer — refused the same way, so this
+        # error's own remedy below is never reached over a document that cannot build one.
+        _raise_unknown_route_layer(pipeline_name, layer, deps=deps)
     built, of = _layer_progress(layer, ask_coverage)
     bases = ", ".join(
         f"'{name}'"
@@ -1223,12 +1263,13 @@ class IndexCommand:
         """
         targets = reconcile_participants(registry=deps.registry, store_names=_stores_in_use(deps))
         _register_corpus(ctx, deps)
-        estimates = (
-            await estimate_everywhere(mode, targets=targets, ctx=ctx, target=target)
-            if mode is ReconcileMode.FULL
-            else ()
-        )
-        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx, target=target)
+        async with claim_all_writers(targets, store_target=target, command="weft index"):
+            estimates = (
+                await estimate_everywhere(mode, targets=targets, ctx=ctx, target=target)
+                if mode is ReconcileMode.FULL
+                else ()
+            )
+            outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx, target=target)
         return ReconcileCommandResult(
             mode=mode, dry_run=False, participants=outcomes, estimates=estimates
         )
@@ -1328,9 +1369,13 @@ class AskCommand:
         coverage_outcome = await _coverage_for(deps, ask_args.target)
         if not isinstance(coverage_outcome, Produced):
             return coverage_outcome
+        _raise_for_uninstalled_route_layers(catalogue, deps=deps)
         if not ask_args.allow_pending:
             _raise_if_pending(
-                pipeline_name, catalogue=catalogue, ask_coverage=coverage_outcome.value
+                pipeline_name,
+                catalogue=catalogue,
+                ask_coverage=coverage_outcome.value,
+                deps=deps,
             )
         passages = await run_named_retrieve(
             ask_args.question,
@@ -1488,10 +1533,16 @@ class AskCommand:
         ask_coverage = coverage_outcome.value
         ready = ready_layers(ask_coverage.layers)
         catalogue = full_catalogue(reports=deps.reports)
+        # R43.13: a misspelt route.requires is a fault in the document, never a layer that is
+        # merely not built yet — checked over the whole catalogue before either branch below,
+        # so a routed ask over such a document is refused rather than routed around it.
+        _raise_for_uninstalled_route_layers(catalogue, deps=deps)
         if ask_args.pipeline is not None:
             pipeline_name = ask_args.pipeline
             if not ask_args.allow_pending:
-                _raise_if_pending(pipeline_name, catalogue=catalogue, ask_coverage=ask_coverage)
+                _raise_if_pending(
+                    pipeline_name, catalogue=catalogue, ask_coverage=ask_coverage, deps=deps
+                )
             answer = await run_named_ask(
                 ask_args.question,
                 pipeline_name=pipeline_name,
@@ -2033,9 +2084,10 @@ class DeleteCommand:
         deps = ctx.require(Dependencies)
         targets = self._targets(deps)
         await _require_target_exists(deps, typed.target)
-        outcomes = await delete_everywhere(
-            SourceId(typed.source_id), targets=targets, target=typed.target
-        )
+        async with claim_all_writers(targets, store_target=typed.target, command="weft delete"):
+            outcomes = await delete_everywhere(
+                SourceId(typed.source_id), targets=targets, target=typed.target
+            )
         return Produced(value=DeleteCommandResult(source_id=typed.source_id, participants=outcomes))
 
     def _targets(self, deps: Dependencies) -> tuple[Participant, ...]:
@@ -2171,12 +2223,12 @@ class ReconcileCommand:
         targets = self._targets(deps)
         await _require_target_exists(deps, typed.target)
         _register_corpus(ctx, deps)
-        estimates = (
-            await estimate_everywhere(mode, targets=targets, ctx=ctx, target=typed.target)
-            if mode is ReconcileMode.FULL
-            else ()
-        )
         if typed.dry_run:
+            estimates = (
+                await estimate_everywhere(mode, targets=targets, ctx=ctx, target=typed.target)
+                if mode is ReconcileMode.FULL
+                else ()
+            )
             return Produced(
                 value=ReconcileCommandResult(
                     mode=mode,
@@ -2186,7 +2238,15 @@ class ReconcileCommand:
                     estimates=estimates,
                 )
             )
-        outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx, target=typed.target)
+        async with claim_all_writers(targets, store_target=typed.target, command="weft reconcile"):
+            estimates = (
+                await estimate_everywhere(mode, targets=targets, ctx=ctx, target=typed.target)
+                if mode is ReconcileMode.FULL
+                else ()
+            )
+            outcomes = await reconcile_everywhere(
+                mode, targets=targets, ctx=ctx, target=typed.target
+            )
         return Produced(
             value=ReconcileCommandResult(
                 mode=mode, dry_run=False, participants=outcomes, estimates=estimates

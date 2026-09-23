@@ -1,13 +1,16 @@
 """A layer is composed with its base, never run on its own — ledger task **43.7**.
 
 A base document reads files and stores nodes; a layer enriches nodes a base already stored, so
-every stage a layer document may name takes nodes and returns nodes — `Expander`, `Revisable`
-(`weft_index`) and `Enhancer` (`weft_enhance`), the three contracts `LAYER_STAGE_CONTRACTS`
-names. Owner's decision, 2026-09-22: no contract lets a plugin drop the node it is handed, and a
-layer names no `Embedder`/`NodeStore` of its own — `compose_layer` takes those two from the base,
-in the base's own order, so a layer's new nodes are embedded and stored exactly as the base's
-were. No `derived-only` plugin and no new contract were introduced to say this; a document's own
-stage list already says it, and `compose_layer` is the one place that reads it that way.
+every stage a layer document may name takes nodes and returns nodes. Which contracts qualify is
+not this module's list to keep: a contract's own publisher declares `layer_stage = True` on it —
+`Expander`, `Revisable` (`weft_index`) and `Enhancer` (`weft_enhance`) are the three first-party
+contracts that do, and a third party's own nodes-in, nodes-out contract may declare it too, with
+zero edits here (R43.16). Owner's decision, 2026-09-22: no contract lets a plugin drop the node
+it is handed, and a layer names no `Embedder`/`NodeStore` of its own — `compose_layer` takes
+those two from the base, in the base's own order, so a layer's new nodes are embedded and stored
+exactly as the base's were. No `derived-only` plugin and no new contract were introduced to say
+this; a document's own stage list already says it, and `compose_layer` is the one place that
+reads it that way.
 """
 
 from __future__ import annotations
@@ -26,16 +29,15 @@ from weft_cli.pipeline_catalogue import full_catalogue
 from weft_cli.progress import BatchProgress
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_embed import Embedder
-from weft_enhance import Enhancer
+from weft_engine.run_services import class_provides
 from weft_extract import Extractor
 from weft_extract.text import SourceRef
-from weft_index import Expander, Revisable
 from weft_index.payload import Representation
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Failed, Node, NodeId, Outcome, Produced, SourceId
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline, pipeline_identity
 from weft_kernel.runner import PipelineResolutionError, RunnablePipeline, Runner, StageSpec
 from weft_store import NodeStore
@@ -44,6 +46,7 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     GenerationHolding,
+    GenerationRecord,
     GenerationStatus,
     LayerRecord,
     LayerStatus,
@@ -53,9 +56,14 @@ from weft_store.contract import (
     SourceStatus,
 )
 
-#: The contracts a layer's own stages may carry — every one that takes nodes and returns nodes.
-#: `Embedder`/`NodeStore` are not here: a layer never names either, it borrows the base's.
-LAYER_STAGE_CONTRACTS: Final[tuple[type[object], ...]] = (Expander, Enhancer, Revisable)
+
+def _is_layer_stage(contract: type[object]) -> bool:
+    """Whether `contract`'s own publisher declared it a layer stage (R43.16) — read off the
+    contract generically, the way `publishes_property_vocabulary` is read in
+    `weft_kernel.registry`, never off a closed tuple of first-party names.
+    """
+    return getattr(contract, "layer_stage", False) is True
+
 
 _TAIL_CONTRACTS: Final[tuple[type[object], ...]] = (Embedder, NodeStore)
 
@@ -81,9 +89,10 @@ class NotALayerError(PipelineResolutionError, UnresolvedNameError):
     """A document offered as a layer names a stage that does not take and return nodes.
 
     A layer runs over nodes a base document already stored, so every stage it names has to
-    take nodes and return nodes — `LAYER_STAGE_CONTRACTS`. A document naming an `Extractor`
-    reads files, which is a base document's job, not a layer's; any other disallowed
-    contract is refused the same way, on the same footing.
+    take nodes and return nodes — its contract's own publisher has to declare `layer_stage
+    = True` on it (R43.16). A document naming an `Extractor` reads files, which is a base
+    document's job, not a layer's; any other contract that does not declare itself a layer
+    stage is refused the same way, on the same footing.
 
     Fitness function 12's family: `valid_options` is every installed layer, from
     `installed_layers` — the document this caller could have named instead.
@@ -123,6 +132,28 @@ class UnknownLayerError(PipelineResolutionError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class UnknownLayerVarError(PipelineResolutionError, UnresolvedNameError):
+    """A layer document (or a document it extends) writes a `layer.` var no layer reads —
+    carried repair **R43.13**, found by the exit review: `layer.scop` (a typo for
+    `layer.scope`) was silently ignored, so a layer meant to build once over the whole corpus
+    ran per source instead, with nothing said.
+
+    Checked in `_layer_scope`, the one function that reads `_SCOPE_VAR` off a
+    `ResolvedPipeline` — `LayerComposition`'s own docstring already names it as such.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        valid_options: tuple[str, ...],
+        pipeline: str | None = None,
+        remedy: str = "",
+    ) -> None:
+        PipelineResolutionError.__init__(self, message, pipeline=pipeline, remedy=remedy)
+        self.valid_options = valid_options
+
+
 class LayerScopeError(PipelineResolutionError):
     """A layer document's `layer.scope` var names neither `source` nor `corpus` — ledger task
     **43.15**.
@@ -146,16 +177,22 @@ class LayerNeedsMetadataFilterError(WeftError):
     """
 
 
-class LayerNeedsGenerationHoldingError(WeftError):
+class LayerNeedsGenerationHoldingError(WeftError, UnresolvedNameError):
     """A corpus-scoped layer was named against a store that cannot hold a generation —
-    ledger task **43.15**.
+    ledger task **43.15**, carried repair **R43.14**.
 
     A corpus-scoped layer builds one tree over every source at once and publishes it whole
     (`weft_store.contract.GenerationHolding`), so a half-built tree is never visible to a
     search. A store that cannot open a generation has no way to hide what it is still
     writing, so this is refused before the base runs at all — `require_layers_metadata_
-    filter`'s own footing, one contract over.
+    filter`'s own footing, one contract over. Fitness function 12's family: `valid_options`
+    is every installed `NodeStore` name whose factory unwraps to a `GenerationHolding`
+    class, not two first-party names hardcoded into the message.
     """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
 
 
 class LayerNodeCollisionError(WeftError):
@@ -218,8 +255,19 @@ class LayerComposition(BaseModel):
 
 def _layer_scope(resolved: ResolvedPipeline, *, layer: str) -> LayerScope:
     """`resolved.vars['layer.scope']` as a `LayerScope` — `LayerScope.SOURCE` when the var is
-    absent, `LayerScopeError` for any value that is neither `'source'` nor `'corpus'`.
+    absent, `LayerScopeError` for any value that is neither `'source'` nor `'corpus'`, and
+    `UnknownLayerVarError` — carried repair **R43.13** — for any other `layer.` var: a layer
+    document reads `layer.scope` alone, so a key outside that one is a fault, not a fact this
+    function silently ignores.
     """
+    for key in resolved.vars:
+        if key.startswith("layer.") and key != _SCOPE_VAR:
+            raise UnknownLayerVarError(
+                f"'{layer}' (or a document it extends) sets '{key}', which no layer reads. "
+                "A layer reads: layer.scope.",
+                valid_options=(_SCOPE_VAR,),
+                pipeline=layer,
+            )
     value = resolved.vars.get(_SCOPE_VAR, LayerScope.SOURCE.value)
     try:
         return LayerScope(value)
@@ -241,12 +289,13 @@ def installed_layers(
     `weft index --pipeline` resolves against.
 
     A document is a layer when it resolves at all, names at least one stage, and every one
-    of those stages carries a contract in `LAYER_STAGE_CONTRACTS`. A document that fails to
-    resolve is skipped, not refused — `full_catalogue` holds every document a project or a
-    pack could name, most of which are not layers and some of which cannot resolve without
-    context this function was not given (an unmet `requires`, an unfilled slot), and neither
-    is this function's business to diagnose. Only `WeftError` is caught: a name resolving
-    into a bug should still crash loudly, not disappear from this list.
+    of those stages carries a contract whose own publisher declared `layer_stage = True`
+    (R43.16), so a third party's own nodes-in, nodes-out contract qualifies with no edit here.
+    A document that fails to resolve is skipped, not refused — `full_catalogue` holds every
+    document a project or a pack could name, most of which are not layers and some of which
+    cannot resolve without context this function was not given (an unmet `requires`, an
+    unfilled slot), and neither is this function's business to diagnose. Only `WeftError` is
+    caught: a name resolving into a bug should still crash loudly, not disappear from this list.
     """
     catalogue = full_catalogue(reports=reports)
     layers: list[str] = []
@@ -258,7 +307,7 @@ def installed_layers(
             specs = to_specs(resolved, registry=registry, reports=reports)
         except WeftError:
             continue
-        if specs and all(spec.contract in LAYER_STAGE_CONTRACTS for spec in specs):
+        if specs and all(_is_layer_stage(spec.contract) for spec in specs):
             layers.append(name)
     return tuple(sorted(layers))
 
@@ -288,7 +337,7 @@ def compose_layer_over(
     layer_specs = to_specs(resolved_layer, registry=registry, reports=reports)
 
     for spec in layer_specs:
-        if spec.contract in LAYER_STAGE_CONTRACTS or spec.contract in _TAIL_CONTRACTS:
+        if _is_layer_stage(spec.contract) or spec.contract in _TAIL_CONTRACTS:
             continue
         options = installed_layers(registry=registry, reports=reports, contributions=contributions)
         if spec.contract is Extractor:
@@ -300,8 +349,9 @@ def compose_layer_over(
         else:
             message = (
                 f"'{layer}' cannot run as a layer: its stage '{spec.id}' is a "
-                f"{spec.contract.__name__}, and a layer's stages take stored nodes and return "
-                f"nodes. Installed layers: {', '.join(options) or '(none)'}."
+                f"{spec.contract.__name__}, which does not declare layer_stage — a layer's "
+                f"stages take stored nodes and return every one of them. Installed layers: "
+                f"{', '.join(options) or '(none)'}."
             )
         raise NotALayerError(
             message,
@@ -489,18 +539,43 @@ def require_layers_metadata_filter(
     )
 
 
+def _generation_holding_store_names(registry: Registry) -> tuple[str, ...]:
+    """Every `NodeStore` name `registry` carries whose factory unwraps to a class that
+    structurally satisfies `weft_store.contract.GenerationHolding` — carried repair
+    **R43.14**, `LayerNeedsGenerationHoldingError`'s own `valid_options`.
+
+    `weft_kernel.registry.unwrap_factory` peels a `functools.partial` back to the class it
+    constructs; `weft_engine.run_services.class_provides` is the shared `issubclass`-that-
+    answers-`False`-instead-of-raising helper the store family already carries for exactly
+    this — a factory that unwraps to a plain function (`partial(fn, settings)`) is not a
+    class, and `class_provides` says so rather than crashing this computation.
+    """
+    return tuple(
+        sorted(
+            name
+            for name in registry.names_for(NodeStore)
+            if isinstance(candidate := unwrap_factory(registry.lookup(NodeStore, name)), type)
+            and class_provides(candidate, GenerationHolding)
+        )
+    )
+
+
 def require_corpus_layers_generation_holding(
     compositions: Sequence[LayerComposition],
     *,
     runnable: RunnablePipeline,
-    store_stage_id: str | None,
     specs: tuple[StageSpec, ...],
+    registry: Registry,
 ) -> None:
-    """`LayerNeedsGenerationHoldingError` unless the primary store's own instance is a
-    `weft_store.contract.GenerationHolding` — ledger task **43.15**, `require_layers_
-    metadata_filter`'s own footing, one contract over. A no-op when none of `compositions`
-    is corpus-scoped, and called only once every named layer has already composed cleanly,
-    before the base runs.
+    """`LayerNeedsGenerationHoldingError` unless every `NodeStore` stage `specs` names is a
+    `weft_store.contract.GenerationHolding` — ledger task **43.15**, carried repair
+    **R43.11**/**R43.14**, `require_layers_metadata_filter`'s own footing, one contract
+    over. A no-op when none of `compositions` is corpus-scoped, and called only once every
+    named layer has already composed cleanly, before the base runs.
+
+    Every failing stage is named — never only the first, and never a store that can
+    actually hold one — because a base naming two or more stores (`index-with-graph`
+    onward) may fail on any subset of them.
     """
     corpus_layer = next(
         (composition for composition in compositions if composition.scope is LayerScope.CORPUS),
@@ -508,15 +583,24 @@ def require_corpus_layers_generation_holding(
     )
     if corpus_layer is None:
         return
-    instance = _stage_instance(runnable, store_stage_id)
-    if isinstance(instance, GenerationHolding):
+    store_specs = tuple(spec for spec in specs if spec.contract is NodeStore)
+    failing = tuple(
+        spec
+        for spec in store_specs
+        if not isinstance(_stage_instance(runnable, spec.id), GenerationHolding)
+    )
+    if not failing:
         return
-    plugin = next((spec.name for spec in specs if spec.contract is NodeStore), "(none)")
+    valid_options = _generation_holding_store_names(registry)
+    stage_word = "store stage" if len(failing) == 1 else "store stages"
+    names = ", ".join(f"'{spec.id}' ({spec.name})" for spec in failing)
+    installed = ", ".join(valid_options) if valid_options else "(none installed)"
     raise LayerNeedsGenerationHoldingError(
         f"'{corpus_layer.layer}' builds one tree over the whole corpus, as a generation "
-        f"published whole, and the '{plugin}' store cannot hold generations "
-        "(GenerationHolding). Run it per source (drop layer.scope: corpus), or index into "
-        "pgvector or qdrant."
+        f"published whole, and {stage_word} {names} cannot hold generations "
+        "(GenerationHolding). Run it per source (drop layer.scope: corpus), or remove or "
+        f"replace that stage, or index into a store that can: {installed}.",
+        valid_options=valid_options,
     )
 
 
@@ -1045,18 +1129,28 @@ async def _run_corpus_tail(
     created: Sequence[Node],
     ctx: Context,
     *,
-    store_stage_id: str,
+    embed_stage_ids: frozenset[str],
+    store_stage_ids: frozenset[str],
 ) -> Outcome[object]:
-    """A corpus-scoped tail's own two-step run — ledger task **43.15**. Every `NodeStore`
-    stage in `tail_runnable` is already bound to the generation's own writer by the caller;
-    this only decides what reaches the `Embedder` stage, if there is one: a node the layer
-    already embedded itself — as `raptor` embeds its own summaries — is never handed to it a
-    second time, on `index-with-raptor`'s own rule, one contract over. The embedder stage is
+    """A corpus-scoped tail's own two-step run — ledger task **43.15**, carried repair
+    **R43.11**. Every `NodeStore` stage in `tail_runnable` is already bound to its *own*
+    generation's writer by the caller, one bound instance per store — so a node this build
+    creates reaches every store the base names, each inside its own generation, never only
+    the primary's.
+
+    `embed_stage_ids`/`store_stage_ids` are the tail's own `Embedder`/`NodeStore` stage ids,
+    read by the caller off `LayerComposition.tail_specs`' own contracts — never derived by
+    elimination here, so a tail naming stages under neither contract is never silently
+    folded into either half.
+
+    Decides only what reaches the `Embedder` stage(s), if any: a node the layer already
+    embedded itself — as `raptor` embeds its own summaries — is never handed to it a second
+    time, on `index-with-raptor`'s own rule, one contract over. The embedder stage is
     skipped **entirely**, never called with an empty payload, when nothing lacks a vector.
     """
     unembedded = tuple(node for node in created if node.embedding is None)
     if unembedded:
-        embed_stages = tuple(stage for stage in tail_runnable.stages if stage.id != store_stage_id)
+        embed_stages = tuple(stage for stage in tail_runnable.stages if stage.id in embed_stage_ids)
         if embed_stages:
             embed_outcome = await runner.run_once(
                 replace(tail_runnable, stages=embed_stages), unembedded, ctx
@@ -1069,10 +1163,63 @@ async def _run_corpus_tail(
         to_store = (*(node for node in created if node.embedding is not None), *embedded)
     else:
         to_store = created
-    store_stages = tuple(stage for stage in tail_runnable.stages if stage.id == store_stage_id)
+    store_stages = tuple(stage for stage in tail_runnable.stages if stage.id in store_stage_ids)
     if not store_stages:
         return Produced(value=to_store)
     return await runner.run_once(replace(tail_runnable, stages=store_stages), to_store, ctx)
+
+
+async def _open_corpus_generations(
+    runnable: RunnablePipeline, *, layer: str, tail_store_specs: Sequence[StageSpec]
+) -> tuple[dict[str, GenerationHolding], dict[str, object], dict[str, GenerationRecord]]:
+    """Every tail store's own generation, opened and bound **on its own instance** — carried
+    repair **R43.11**, lifted out of `_run_corpus_layer` for its own complexity budget.
+
+    `(holders, writers, opened)`, all keyed by stage id: `holders` is the unbound instance
+    every generation lifecycle call (`publish_generation`/`retract_generation`/
+    `generations`) is issued through; `writers` is the bound handle
+    (`GenerationHolding.bind_generation`'s own return) every write goes through, one per
+    store, never shared; `opened` is the record `open_generation` returned for each.
+    """
+    holders: dict[str, GenerationHolding] = {}
+    writers: dict[str, object] = {}
+    opened: dict[str, GenerationRecord] = {}
+    for spec in tail_store_specs:
+        holder = cast(GenerationHolding, _stage_instance(runnable, spec.id))
+        holders[spec.id] = holder
+        generation = await holder.open_generation(layer)
+        opened[spec.id] = generation
+        writers[spec.id] = await holder.bind_generation(generation.id)
+    return holders, writers, opened
+
+
+async def _publish_and_supersede_generations(
+    holders: Mapping[str, GenerationHolding],
+    opened: Mapping[str, GenerationRecord],
+    *,
+    layer: str,
+) -> None:
+    """Every generation `opened` published, then every **older** generation of `layer` each
+    store still holds retracted — carried repair **R43.11**, lifted out of `_run_corpus_
+    layer` for its own complexity budget.
+
+    The exclusion set is every id *this build* opened, across **every** store, not only the
+    one a given store's own loop iteration is superseding: pgvector's generations catalogue
+    can be shared per target, so excluding only a store's own freshly-opened id could still
+    let this loop retract a sibling store's fresh generation out from under it.
+    """
+    for stage_id, generation in opened.items():
+        await holders[stage_id].publish_generation(generation.id)
+    opened_ids = frozenset(generation.id for generation in opened.values())
+    for stage_id in opened:
+        holder = holders[stage_id]
+        for other in await holder.generations():
+            if (
+                other.layer == layer
+                and other.id not in opened_ids
+                and other.status in (GenerationStatus.PUBLISHED, GenerationStatus.BUILDING)
+            ):
+                await holder.retract_generation(other.id)
 
 
 async def _run_corpus_layer(
@@ -1081,7 +1228,6 @@ async def _run_corpus_layer(
     runner: Runner,
     layer_runnable: RunnablePipeline,
     tail_runnable: RunnablePipeline,
-    primary: GenerationHolding,
     store_stage_id: str,
     store_stage_ids: Sequence[str],
     composition: LayerComposition,
@@ -1090,13 +1236,21 @@ async def _run_corpus_layer(
     attempts_by_source: Mapping[SourceId, int],
     indexing_ctx: Context,
 ) -> str | None:
-    """One corpus-scoped layer's whole build, as one generation published whole — ledger task
-    **43.15**, `_run_one_layer_batch`'s own contract one scope over: `None` once the build
-    published (whether or not there was anything to derive), the failure's reason once it
-    failed and was recorded. `WeftError`/`LayerNodeCollisionError` always propagate after this
-    build is recorded `FAILED` on every eligible source and its generation retracted;
-    `CancelledError` above all is never caught here, so an interrupted build leaves its
-    generation `BUILDING` for the next build to retract.
+    """One corpus-scoped layer's whole build, as one generation **per store stage**,
+    published whole — ledger task **43.15**, carried repair **R43.11**,
+    `_run_one_layer_batch`'s own contract one scope over: `None` once the build published
+    (whether or not there was anything to derive), the failure's reason once it failed and
+    was recorded. `WeftError`/`LayerNodeCollisionError` always propagate after this build is
+    recorded `FAILED` on every eligible source and every generation it opened retracted —
+    every store's, not only the one that failed, since a half-written tree in any one of
+    them is exactly the state generations exist to hide; `CancelledError` above all is never
+    caught here, so an interrupted build leaves its generations `BUILDING` for the next
+    build to retract.
+
+    `store_stage_id` stays the **primary**'s: leaf reading (`matching`) and the collision
+    check (`_layer_collision`) read the primary's own bound writer only, on
+    `_apply_layer_records`'s own footing — every store holds the same nodes, so a second
+    check would only re-confirm the first.
     """
     now = datetime.now(UTC)
     await _apply_layer_records(
@@ -1115,10 +1269,19 @@ async def _run_corpus_layer(
         },
     )
 
-    generation = await primary.open_generation(composition.layer)
-    writer = await primary.bind_generation(generation.id)
-    writer_matching = _matching_of(writer)
-    writer_get = _get_of(writer)
+    tail_store_specs = tuple(spec for spec in composition.tail_specs if spec.contract is NodeStore)
+    tail_embed_ids = frozenset(
+        spec.id for spec in composition.tail_specs if spec.contract is Embedder
+    )
+    tail_store_ids = frozenset(spec.id for spec in tail_store_specs)
+
+    holders, writers, opened = await _open_corpus_generations(
+        runnable, layer=composition.layer, tail_store_specs=tail_store_specs
+    )
+
+    primary_writer = writers[store_stage_id]
+    writer_matching = _matching_of(primary_writer)
+    writer_get = _get_of(primary_writer)
     if writer_matching is None:
         # `require_layers_metadata_filter` already checked the *unbound* primary has one, and
         # `bind_generation` returns `Self`, so a store that reaches here honours the contract.
@@ -1127,8 +1290,12 @@ async def _run_corpus_layer(
             "MetadataFilter, though the store it was bound from did."
         )
 
+    async def _retract_opened() -> None:
+        for stage_id, generation in opened.items():
+            await holders[stage_id].retract_generation(generation.id)
+
     async def _fail(error_type: str, stage: str | None, message: str) -> None:
-        await primary.retract_generation(generation.id)
+        await _retract_opened()
         await _fail_layer_batch(
             runnable,
             store_stage_id=store_stage_id,
@@ -1163,7 +1330,7 @@ async def _run_corpus_layer(
         bound_tail = replace(
             tail_runnable,
             stages=tuple(
-                replace(stage, instance=writer) if stage.id == store_stage_id else stage
+                replace(stage, instance=writers[stage.id]) if stage.id in tail_store_ids else stage
                 for stage in tail_runnable.stages
                 if stage.id in tail_ids
             ),
@@ -1178,7 +1345,12 @@ async def _run_corpus_layer(
 
         try:
             tail_outcome = await _run_corpus_tail(
-                runner, bound_tail, created, indexing_ctx, store_stage_id=store_stage_id
+                runner,
+                bound_tail,
+                created,
+                indexing_ctx,
+                embed_stage_ids=tail_embed_ids,
+                store_stage_ids=tail_store_ids,
             )
         except WeftError as exc:
             await _fail(type(exc).__name__, exc.stage, str(exc))
@@ -1187,14 +1359,11 @@ async def _run_corpus_layer(
             await _fail("Failed", first_stage_id, tail_outcome.reason)
             return tail_outcome.reason
 
-    await primary.publish_generation(generation.id)
-    for other in await primary.generations():
-        if (
-            other.layer == composition.layer
-            and other.id != generation.id
-            and other.status in (GenerationStatus.PUBLISHED, GenerationStatus.BUILDING)
-        ):
-            await primary.retract_generation(other.id)
+    try:
+        await _publish_and_supersede_generations(holders, opened, layer=composition.layer)
+    except WeftError as exc:
+        await _fail(type(exc).__name__, exc.stage, str(exc))
+        raise
 
     await _apply_layer_records(
         runnable,
@@ -1222,7 +1391,6 @@ async def _run_corpus_scoped_composition(
     refs: Sequence[SourceRef],
     runner: Runner,
     runnable: RunnablePipeline,
-    primary: object,
     store_stage_id: str,
     store_stage_ids: Sequence[str],
     on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
@@ -1261,7 +1429,6 @@ async def _run_corpus_scoped_composition(
         runner=runner,
         layer_runnable=layer_runnable,
         tail_runnable=tail_runnable,
-        primary=cast(GenerationHolding, primary),
         store_stage_id=store_stage_id,
         store_stage_ids=store_stage_ids,
         composition=composition,
@@ -1346,7 +1513,6 @@ async def run_layers(
                 refs=refs,
                 runner=runner,
                 runnable=runnable,
-                primary=primary,
                 store_stage_id=store_stage_id,
                 store_stage_ids=store_stage_ids,
                 on_batch=on_batch,
@@ -1441,9 +1607,10 @@ def _corpus_scoped_layer_names(
             resolved = resolve_named_pipeline(
                 name, registry=registry, reports=reports, contributions=contributions
             )
+            scope = _layer_scope(resolved, layer=name)
         except WeftError:
             continue
-        if resolved.vars.get(_SCOPE_VAR) == LayerScope.CORPUS.value:
+        if scope is LayerScope.CORPUS:
             names.append(name)
     return tuple(names)
 
@@ -1497,7 +1664,6 @@ async def stale_corpus_layers(
 
 
 __all__ = [
-    "LAYER_STAGE_CONTRACTS",
     "LayerComposition",
     "LayerDuplicatesBaseStageError",
     "LayerFailure",
@@ -1508,6 +1674,7 @@ __all__ = [
     "LayerScopeError",
     "NotALayerError",
     "UnknownLayerError",
+    "UnknownLayerVarError",
     "compose_layer",
     "compose_layer_over",
     "compose_layers",

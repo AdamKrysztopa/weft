@@ -44,11 +44,11 @@ from typing import cast
 from pydantic import BaseModel, ValidationError
 
 from weft_kernel.context import Context
-from weft_kernel.errors import WeftError
+from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry, RegistryEntry, unwrap_factory
-from weft_kernel.runner import Stage
+from weft_kernel.runner import PipelineResolutionError, Stage
 from weft_kernel.seam import wrap
 from weft_retrieve.payload import RouteCandidate
 
@@ -60,6 +60,51 @@ _ROUTE_COST_VAR = "route.cost"
 #: built over the whole corpus writes the layer's own document name here. A candidate naming
 #: one is offered only when the caller's `ready_layers` says that layer is built everywhere.
 _ROUTE_REQUIRES_VAR = "route.requires"
+#: Carried repair **R43.13** — every `route.` var a routable document may write, sorted:
+#: `UnknownRouteVarError`'s own `valid_options`, derived rather than restated so the three
+#: constants above stay the one place this set is spelled.
+_ROUTE_VARS: tuple[str, ...] = tuple(
+    sorted((_ROUTE_SUMMARY_VAR, _ROUTE_COST_VAR, _ROUTE_REQUIRES_VAR))
+)
+
+
+class UnknownRouteVarError(PipelineResolutionError, UnresolvedNameError):
+    """A document in the routing catalogue writes a `route.` var the router does not read —
+    carried repair **R43.13**, found by the exit review: `route.require` (a typo for
+    `route.requires`) was silently ignored, so the rung it named was offered over a layer that
+    was not yet built everywhere; `route.sumary` (a typo for `route.summary`) dropped the
+    document out of the candidates entirely, with nothing said.
+
+    Checked over every document in the catalogue — not only ones already carrying
+    `route.summary` — because a document whose only route var is misspelt has no
+    `route.summary` key at all, and filtering by its presence first would let the typo pass
+    unseen.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        valid_options: tuple[str, ...],
+        pipeline: str | None = None,
+        remedy: str = "",
+    ) -> None:
+        PipelineResolutionError.__init__(self, message, pipeline=pipeline, remedy=remedy)
+        self.valid_options = valid_options
+
+
+def _check_route_vars(name: str, pipeline: Pipeline) -> None:
+    """Refuse `pipeline` when its own `vars` carry a `route.` key outside `_ROUTE_VARS` —
+    carried repair **R43.13**. Keys outside the `route.` namespace are untouched.
+    """
+    for key in pipeline.vars:
+        if key.startswith("route.") and key not in _ROUTE_VARS:
+            raise UnknownRouteVarError(
+                f"'{name}' sets '{key}', which the router does not read. A routable document "
+                f"reads: {', '.join(_ROUTE_VARS)}.",
+                valid_options=_ROUTE_VARS,
+                pipeline=name,
+            )
 
 
 class RegistryStageLookup:
@@ -205,15 +250,18 @@ class PipelineRouteCatalogue:
     def __init__(
         self, catalogue: Mapping[str, Pipeline], ready_layers: frozenset[str] | None = None
     ) -> None:
-        self._candidates = tuple(
-            RouteCandidate(
-                name=name,
-                summary=str(pipeline.vars[_ROUTE_SUMMARY_VAR]),
-                cost=str(pipeline.vars.get(_ROUTE_COST_VAR, "")),
-            )
-            for name, pipeline in sorted(catalogue.items())
-            if _ROUTE_SUMMARY_VAR in pipeline.vars and _layer_ready(pipeline, ready_layers)
-        )
+        candidates: list[RouteCandidate] = []
+        for name, pipeline in sorted(catalogue.items()):
+            _check_route_vars(name, pipeline)
+            if _ROUTE_SUMMARY_VAR in pipeline.vars and _layer_ready(pipeline, ready_layers):
+                candidates.append(
+                    RouteCandidate(
+                        name=name,
+                        summary=str(pipeline.vars[_ROUTE_SUMMARY_VAR]),
+                        cost=str(pipeline.vars.get(_ROUTE_COST_VAR, "")),
+                    )
+                )
+        self._candidates = tuple(candidates)
 
     def candidates(self) -> tuple[RouteCandidate, ...]:
         return self._candidates
@@ -237,6 +285,8 @@ def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:
     task **43.9**. `weft_cli.commands.PendingLayerError`'s own raise site reads this to learn
     which layer a caller's own `--pipeline` choice would answer from.
     """
+    for name, pipeline in catalogue.items():
+        _check_route_vars(name, pipeline)
     return {
         name: str(pipeline.vars[_ROUTE_REQUIRES_VAR])
         for name, pipeline in catalogue.items()

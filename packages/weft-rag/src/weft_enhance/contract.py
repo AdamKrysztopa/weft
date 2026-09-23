@@ -73,14 +73,20 @@ class Enhancer(Stage[Sequence[Node], Sequence[Node]], Protocol):
     nothing to enhance still answers `NothingToProduce`, never a silently empty
     `Produced([])` — the same fix every other contract in this tree documents for
     collapsing a legitimately empty result into the same ambiguous case as a failure.
+
+    `layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
+    takes nodes already stored and returns every node it was handed, each under its own id,
+    plus whatever it derived from them — it neither embeds nor stores.
     """
 
     if TYPE_CHECKING:
         #: See the module docstring — declared only for a type checker, assigned for real
         #: after the class body, so it never joins `__protocol_attrs__`.
         version: ClassVar[str]
+        layer_stage: ClassVar[bool]
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
 
 
 Enhancer.version = ENHANCER_CONTRACT_VERSION
+Enhancer.layer_stage = True

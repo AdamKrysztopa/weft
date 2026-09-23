@@ -9,6 +9,7 @@ module only reads the file.
 
 from __future__ import annotations
 
+import json
 from typing import cast
 
 from pydantic import BaseModel, ConfigDict
@@ -60,6 +61,20 @@ def index_policy_from_config(document: dict[str, object] | None) -> IndexPolicy:
             f"unknown [index] key(s) in weft.toml: "
             f"{', '.join(repr(key) for key in sorted(unknown))}. [index] accepts layers.",
             valid_options=tuple(sorted(IndexPolicy.model_fields)),
+        )
+    # R43.12: the value-type guard `reconcile_policy` has, so pydantic's own error never reaches
+    # every command that builds its dependencies.
+    layers: object = written.get("layers", [])
+    is_list = isinstance(layers, list)
+    items: list[object] = list(cast("list[object]", layers)) if is_list else [layers]
+    names = [name for name in items if isinstance(name, str)]
+    wrong = [name for name in items if not isinstance(name, str)] if is_list else [layers]
+    if wrong:
+        offending = wrong[0]
+        raise WeftError(
+            f"weft.toml's [index] layers must be a list of layer names, and {offending!r} is "
+            f"a {type(offending).__name__} — found `layers = {layers!r}`. Did you mean "
+            f"`layers = {json.dumps(names or ['...'])}`?"
         )
     return IndexPolicy.model_validate(written)
 

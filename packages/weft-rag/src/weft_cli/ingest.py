@@ -96,8 +96,6 @@ a real store too, which `01` requirement 5 rules out as firmly as a missing entr
 from __future__ import annotations
 
 import hashlib
-import os
-import socket
 import time
 from collections.abc import (
     AsyncIterator,
@@ -108,6 +106,7 @@ from collections.abc import (
     Mapping,
     Sequence,
 )
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -129,6 +128,7 @@ from weft_cli.layers import (
 )
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
 from weft_cli.progress import BatchProgress
+from weft_cli.writer_claim import claim_writer_for
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
@@ -174,12 +174,10 @@ from weft_store.contract import (
     FilterOp,
     LayerRecord,
     MetadataFilter,
-    SingleWriter,
     SourceFailure,
     SourceRecord,
     SourceStatus,
     TargetHolding,
-    WriterClaim,
 )
 
 #: What `SourceRecord.pipeline` records for the built-in four-stage path — `06` step 9's
@@ -1095,7 +1093,7 @@ async def run_index(
     layer_runnables: list[RunnablePipeline] = []
 
     in_flight: BaseException | None = None
-    claimed: SingleWriter | None = None
+    claim_stack: AsyncExitStack | None = None
     try:
         identity = (
             pipeline_identity(resolved_pipeline)
@@ -1116,20 +1114,12 @@ async def run_index(
             layers, runnable=runnable, store_stage_id=store_stage_id, specs=specs
         )
         require_corpus_layers_generation_holding(
-            layer_compositions, runnable=runnable, store_stage_id=store_stage_id, specs=specs
+            layer_compositions, runnable=runnable, specs=specs, registry=registry
         )
         # Ledger task **43.18**: one writer per store, claimed before the first write.
         writer = next((st.instance for st in runnable.stages if st.id == store_stage_id), None)
-        if isinstance(writer, SingleWriter):
-            await writer.claim_writer(
-                WriterClaim(
-                    host=socket.gethostname(),
-                    pid=os.getpid(),
-                    started_at=datetime.now(UTC),
-                    command="weft index",
-                )
-            )
-            claimed = writer
+        claim_stack = AsyncExitStack()
+        await claim_stack.enter_async_context(claim_writer_for(writer, command="weft index"))
         # Read *before* the run writes over them: the comparison is against what the last index
         # left, and `_record_sources` below replaces exactly those rows.
         previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
@@ -1210,8 +1200,8 @@ async def run_index(
         in_flight = failure
         raise
     finally:
-        if claimed is not None:
-            await claimed.release_writer()
+        if claim_stack is not None:
+            await claim_stack.aclose()
         await close_each(
             tuple(
                 CloseTarget(

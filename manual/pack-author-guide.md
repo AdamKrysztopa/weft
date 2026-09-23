@@ -931,7 +931,9 @@ and `weft_cli.pipeline_catalogue.load_contributed` makes it visible to `weft pip
 to `--pipeline <name>` the moment your pack is installed, with no core edit.
 
 **A layer is a pipeline document too**, shipped the same way. Its stages take stored nodes and
-return nodes (`Expander`, `Enhancer` or `Revisable`), and it names no embedder and no store:
+return every one of them plus whatever they derive — a contract whose publisher says so with
+`layer_stage = True`, as `Expander`, `Enhancer` and `Revisable` do and as a contract of your own can
+— and it names no embedder and no store:
 `weft index --layers <name>` runs it over the leaves a base document already stored and hands only
 the nodes it created to the base's own embed and store stages. `enrich-with-questions` is the whole
 of one:
