@@ -15,7 +15,7 @@ only the first page passes against a store that never pages. It implements `put_
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Protocol, runtime_checkable
 
 import pytest
 
@@ -31,9 +31,12 @@ from weft_cli.layers import (
 from weft_cli.progress import BatchProgress
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
+from weft_enhance import Enhancer
+from weft_enhance.keybert_stand_in import KeyBertKeywordExtractor
+from weft_enhance.keywords import Keywords
 from weft_extract import Extractor
 from weft_extract.text import TextExtractor
-from weft_index import Expander
+from weft_index import Expander, Revisable
 from weft_index.payload import Representation
 from weft_kernel.context import Context
 from weft_kernel.payload import (
@@ -47,6 +50,7 @@ from weft_kernel.payload import (
     SourceId,
 )
 from weft_kernel.registry import Registry
+from weft_kernel.runner import Stage
 from weft_store import NodeStore
 from weft_store.contract import (
     Cursor,
@@ -564,3 +568,95 @@ async def test_reprocess_rebuilds_a_layer_whose_identity_moved(
     assert len(_derived(store)) == 6
     assert result.layers_changed == ()
     assert {r.layers[0].status for r in store.records.values()} == {LayerStatus.ACTIVE}
+
+
+@runtime_checkable
+class _CorpusReader(Stage[Sequence[Node], Sequence[Node]], Protocol):
+    """A third party's own layer-stage contract whose stages read the store, as `Revisable`'s do."""
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+
+
+_CorpusReader.layer_stage = True  # pyright: ignore[reportAttributeAccessIssue]
+_CorpusReader.reads_corpus = True  # pyright: ignore[reportAttributeAccessIssue]
+
+
+class _StoreReading:
+    """A layer stage that reads the store it is handed, then derives one node per leaf."""
+
+    counted: ClassVar[list[int]] = []
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        _StoreReading.counted.append(await ctx.require(NodeStore).count())
+        derived = tuple(
+            node.derive(content=f"read {node.content[:8]!r}", media_type=MediaType.TEXT).with_ext(
+                Representation(technique="store-reading")
+            )
+            for node in payload
+        )
+        return Produced(value=(*payload, *derived))
+
+
+async def _index_with(
+    store: _Store, corpus: Path, contract: type[object], layer: str
+) -> IndexResult:
+    registry = _registry(store)
+    registry.add(contract, "store-reading", _StoreReading, distribution="weft-example-stranger")
+    (corpus.parent / "pipelines" / f"{layer}.yaml").write_text(
+        f"name: {layer}\nstages:\n  - {{id: read, use: store-reading}}\n"
+    )
+    return await run_index(corpus, registry=registry, ctx=_ctx(), batch_size=4, layers=(layer,))
+
+
+@pytest.mark.parametrize("contract", [_CorpusReader, Revisable])
+async def test_a_layer_stage_whose_contract_reads_the_corpus_is_handed_the_store(
+    corpus: Path, monkeypatch: pytest.MonkeyPatch, contract: type[object]
+) -> None:
+    # Arrange — R43.20: only a base naming a `Revisable` was handed the store, by identity.
+    monkeypatch.setattr(_StoreReading, "counted", [])
+    store = _PagingStore()
+
+    # Act
+    result = await _index_with(store, corpus, contract, "enrich-with-reading")
+
+    # Assert
+    assert result.layers_failed == ()
+    assert _StoreReading.counted
+    assert all(count > 0 for count in _StoreReading.counted)
+    assert len([n for n in store.nodes.values() if "weft-index" in n.ext]) == 6
+
+
+def test_revisable_declares_it_reads_the_corpus_and_expander_does_not() -> None:
+    # Act / Assert
+    assert getattr(Revisable, "reads_corpus", False) is True
+    assert getattr(Expander, "reads_corpus", False) is False
+
+
+async def test_a_layer_that_enriches_leaves_in_place_stores_the_enrichment(
+    corpus: Path,
+) -> None:
+    # Arrange — R43.19: an `Enhancer` hands back every node under its own id, so a tail fed
+    # only the nodes with new ids received nothing, and the enrichment was discarded.
+    store = _PagingStore()
+    registry = _registry(store)
+    registry.add(
+        Enhancer, "term-frequency-keywords", KeyBertKeywordExtractor, distribution="weft-enhance"
+    )
+    (corpus.parent / "pipelines" / "enrich-with-keywords.yaml").write_text(
+        "name: enrich-with-keywords\nstages:\n  - {id: keywords, use: term-frequency-keywords}\n"
+    )
+
+    # Act
+    result = await run_index(
+        corpus, registry=registry, ctx=_ctx(), batch_size=4, layers=("enrich-with-keywords",)
+    )
+
+    # Assert
+    assert result.layers_failed == ()
+    leaves = [n for n in store.nodes.values() if "weft-index" not in n.ext]
+    assert len(leaves) == 6
+    assert all(n.ext_as(Keywords) is not None for n in leaves)
+    assert all(n.embedding is not None for n in leaves)

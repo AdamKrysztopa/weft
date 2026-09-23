@@ -24,6 +24,8 @@ from weft_cli.layers import LayerFailure, LayerNeedsGenerationHoldingError, comp
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
 from weft_engine import registry_bootstrap
+from weft_enhance import Enhancer
+from weft_enhance.keybert_stand_in import KeyBertKeywordExtractor
 from weft_extract import Extractor
 from weft_extract.text import TextExtractor
 from weft_index import Expander
@@ -560,3 +562,29 @@ async def test_the_refusal_names_the_installed_stores_that_hold_generations(
     message = str(refused.value)
     assert "stranger-held" in message
     assert "qdrant" not in message
+
+
+async def test_a_corpus_layer_that_changes_leaves_in_place_is_refused_not_discarded(
+    corpus: Path, tmp_path: Path
+) -> None:
+    # Arrange — R43.19: a generation publishes what a build created, never a changed leaf.
+    (tmp_path / "pipelines" / "enrich-with-keywords.yaml").write_text(
+        "name: enrich-with-keywords\n"
+        "vars:\n  layer.scope: corpus\n"
+        "stages:\n  - {id: keywords, use: term-frequency-keywords}\n"
+    )
+    store = _GenerationStore()
+    registry = _registry(store)
+    registry.add(
+        Enhancer, "term-frequency-keywords", KeyBertKeywordExtractor, distribution="weft-enhance"
+    )
+
+    # Act
+    result = await run_index(
+        corpus, registry=registry, ctx=_ctx(), batch_size=4, layers=("enrich-with-keywords",)
+    )
+
+    # Assert
+    (failure,) = result.layers_failed
+    assert "in place" in failure.reason
+    assert await store.generations() == ()

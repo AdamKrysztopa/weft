@@ -731,7 +731,7 @@ async def build_index_services(
         # The `NodeStore` paragraph below still holds for every document that does not declare
         # a `Revisable`, which is all of them but one rung. What it argued against was a run
         # holding "two paths to the same store"; the caller supplies the object the `store`
-        # stage itself writes through (`weft_cli.ingest._store_instance_for_revisable`, the
+        # stage itself writes through (`weft_cli.ingest._store_instance_for_corpus_readers`, the
         # same walk `_embedder_instance_of` does one contract over), so there is one store and
         # the ordering is the `Revisable`'s declared position. `filled_by_stages` is untouched
         # and still filters *role*-selected stores, which is the second-instance case.

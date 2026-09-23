@@ -130,7 +130,7 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
 
     **How a `Revisable` actually receives the store, which G15 settled and never ran.**
     `ctx.require(NodeStore)` resolves on the ingest path **only because** a document declaring
-    a `Revisable` causes `weft_cli.ingest._store_instance_for_revisable` to hand the store
+    a `Revisable` causes `weft_cli.ingest._store_instance_for_corpus_readers` to hand the store
     *stage's own instance* to `build_index_services`. That plumbing is G16's, not G15's: G15
     cited G13's `reconcile` precedent, `reconcile` is not a pipeline stage, and this contract,
     `NodeSupersedable` and `adrap` all shipped green over a call that could not resolve
@@ -140,7 +140,8 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
     takes nodes already stored and returns every node it was handed, each under its own id,
     plus whatever it derived from them — it neither embeds nor stores. This is the contract's
     own declaration, not a plugin marker: a plugin never sets it, it inherits the promise by
-    registering under `Revisable`.
+    registering under `Revisable`. `reads_corpus = True` (R43.20) is the same kind of
+    declaration: a stage under this contract is handed the store its document writes to.
     """
 
     if TYPE_CHECKING:
@@ -148,6 +149,7 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
         #: `__protocol_attrs__`, so `isinstance` does not demand it of an implementer.
         version: ClassVar[str]
         layer_stage: ClassVar[bool]
+        reads_corpus: ClassVar[bool]
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
 
@@ -156,3 +158,4 @@ Expander.version = EXPANDER_CONTRACT_VERSION
 Expander.layer_stage = True
 Revisable.version = REVISABLE_CONTRACT_VERSION
 Revisable.layer_stage = True
+Revisable.reads_corpus = True

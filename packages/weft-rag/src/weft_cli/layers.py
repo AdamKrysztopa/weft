@@ -432,6 +432,20 @@ def layer_created(handed: Sequence[Node], returned: Sequence[Node]) -> tuple[Nod
     return tuple(node for node in returned if node.id not in handed_ids)
 
 
+def layer_enriched(handed: Sequence[Node], returned: Sequence[Node]) -> tuple[Node, ...]:
+    """The handed nodes a layer's stages changed in place — every node in `returned` whose id
+    is among `handed`'s and which differs from the node handed under it. Carried repair
+    **R43.19**: an `Enhancer` keeps each node's id and adds to it, so `layer_created` alone
+    handed the tail nothing and the enrichment was discarded.
+    """
+    handed_by_id = {node.id: node for node in handed}
+    return tuple(
+        node
+        for node in returned
+        if (before := handed_by_id.get(node.id)) is not None and node != before
+    )
+
+
 def layer_leaf_filter(sources: Sequence[SourceId]) -> Filter:
     """The selection a layer's own batch reads its leaves through — ledger task **43.8**.
 
@@ -986,7 +1000,8 @@ async def _run_one_layer_batch(
 
     produced_nodes = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
     created = layer_created(leaves, produced_nodes)
-    if created:
+    enriched = layer_enriched(leaves, produced_nodes)
+    if created or enriched:
         existing_nodes = (
             await get_nodes([node.id for node in created]) if get_nodes is not None else ()
         )
@@ -1007,7 +1022,18 @@ async def _run_one_layer_batch(
             raise collision
 
         try:
-            tail_outcome = await runner.run_once(tail_runnable, created, indexing_ctx)
+            tail_outcome = await _run_corpus_tail(
+                runner,
+                tail_runnable,
+                (*enriched, *created),
+                indexing_ctx,
+                embed_stage_ids=frozenset(
+                    spec.id for spec in composition.tail_specs if spec.contract is Embedder
+                ),
+                store_stage_ids=frozenset(
+                    spec.id for spec in composition.tail_specs if spec.contract is NodeStore
+                ),
+            )
         except WeftError as exc:
             await _fail_layer_batch(
                 runnable,
@@ -1222,6 +1248,26 @@ async def _publish_and_supersede_generations(
                 await holder.retract_generation(other.id)
 
 
+def _corpus_outcome_refusal(
+    outcome: Outcome[object], leaves: Sequence[Node], *, layer: str
+) -> tuple[str, str] | None:
+    """`(error_type, reason)` when a corpus-scoped build must stop at its layer's outcome: the
+    layer failed, or — carried repair **R43.19** — it changed stored nodes in place. A
+    generation publishes what a build created; a leaf changed in place would change under
+    every reader before the publish, so it is refused, never discarded.
+    """
+    if isinstance(outcome, Failed):
+        return "Failed", outcome.reason
+    produced = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
+    enriched = layer_enriched(leaves, produced)
+    if not enriched:
+        return None
+    return "LayerEnrichesInPlace", (
+        f"'{layer}' changed {len(enriched)} stored node(s) in place, and a corpus-scoped build "
+        "publishes only the nodes it creates. Run it per source (drop layer.scope: corpus)."
+    )
+
+
 async def _run_corpus_layer(
     runnable: RunnablePipeline,
     *,
@@ -1318,9 +1364,11 @@ async def _run_corpus_layer(
     except WeftError as exc:
         await _fail(type(exc).__name__, exc.stage, str(exc))
         raise
-    if isinstance(outcome, Failed):
-        await _fail("Failed", first_stage_id, outcome.reason)
-        return outcome.reason
+    refusal = _corpus_outcome_refusal(outcome, leaves, layer=composition.layer)
+    if refusal is not None:
+        error_type, reason = refusal
+        await _fail(error_type, first_stage_id, reason)
+        return reason
 
     produced_nodes = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
     created = layer_created(leaves, produced_nodes)
@@ -1680,6 +1728,7 @@ __all__ = [
     "compose_layers",
     "installed_layers",
     "layer_created",
+    "layer_enriched",
     "layer_leaf_filter",
     "require_corpus_layers_generation_holding",
     "require_layers_metadata_filter",

@@ -143,7 +143,7 @@ from weft_extract import (
     present_suffixes,
 )
 from weft_extract.text import SourceRef, inventory_source_refs, load_source_docs
-from weft_index.contract import Expander, Revisable
+from weft_index.contract import Expander
 from weft_index.payload import ExpansionDegraded
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
@@ -971,7 +971,7 @@ async def run_index(
     today's behaviour. Given a name, every `NodeStore` stage this run resolved is bound to it
     through `weft_engine.targets.bind_store` — a candidate beside the live target, created on
     its first write — immediately after resolution and before anything reads or writes through
-    it, so every helper below (`_store_instance_for_revisable`, `_record_sources`,
+    it, so every helper below (`_store_instance_for_corpus_readers`, `_record_sources`,
     `_recorded_sources`, `_stored_count`, ...) already sees the bound handle. The embedding
     identity claim then passes `required=True`: an embedder that cannot state its identity is
     refused for a `--target` build (owner decision Q-B), rather than indexing unrecorded.
@@ -1072,6 +1072,7 @@ async def run_index(
     # that function's own docstring for why this is derived from the pipeline rather than a
     # second hardcoded absence beside `NodeStore`'s own.
     filled_by_stages = tuple(spec.contract for spec in specs)
+    store_for_readers = _store_instance_for_corpus_readers(specs, runnable)
     indexing_ctx = replace(
         ctx,
         services=await build_index_services(
@@ -1079,7 +1080,7 @@ async def run_index(
             llm=llm if llm is not None else LLMSection(),
             sink=sink if sink is not None else NullSink(),
             embedder=embedder_instance,
-            store_for_revisable=_store_instance_for_revisable(specs, runnable),
+            store_for_revisable=store_for_readers,
             roles=roles,
             services=services,
             filled_by_stages=filled_by_stages,
@@ -1116,6 +1117,14 @@ async def run_index(
         require_corpus_layers_generation_holding(
             layer_compositions, runnable=runnable, specs=specs, registry=registry
         )
+        # R43.20: a layer stage whose contract reads the corpus is handed the base's store too.
+        if store_for_readers is None:
+            layer_specs = tuple(spec for c in layer_compositions for spec in c.layer_specs)
+            layer_readers_store = _store_instance_for_corpus_readers(
+                (*specs, *layer_specs), runnable
+            )
+            if layer_readers_store is not None:
+                indexing_ctx.services.add(NodeStore, layer_readers_store)
         # Ledger task **43.18**: one writer per store, claimed before the first write.
         writer = next((st.instance for st in runnable.stages if st.id == store_stage_id), None)
         claim_stack = AsyncExitStack()
@@ -1566,11 +1575,14 @@ async def _claim_embedding_for_stores(
             )
 
 
-def _store_instance_for_revisable(
+def _store_instance_for_corpus_readers(
     specs: Sequence[StageSpec], runnable: RunnablePipeline
 ) -> NodeStore | None:
     """The **built instance** of this document's store stage, but only when the document also
-    contains a `Revisable` — grilling session **G16**, ledger task 10.14.
+    contains a stage whose contract reads the corpus — grilling session **G16**, ledger task
+    10.14. `Revisable` is the first-party one; carried repair **R43.20** reads the contract's own
+    `reads_corpus` declaration instead of `Revisable`'s identity, so a third party's contract
+    qualifies with no edit here.
 
     `_embedder_instance_of`'s exact shape one contract over, and that is the whole design:
     `build_index_services` registers the embedder the *stage* built rather than resolving
@@ -1603,7 +1615,7 @@ def _store_instance_for_revisable(
     `Revisable`, `NodeSupersedable` and `adrap` all shipped green over a `ctx.require(NodeStore)`
     call that could not resolve on this path.
     """
-    if not any(spec.contract is Revisable for spec in specs):
+    if not any(getattr(spec.contract, "reads_corpus", False) is True for spec in specs):
         return None
     by_id = {stage.id: stage.instance for stage in runnable.stages}
     for spec in specs:
