@@ -2131,6 +2131,24 @@ first's record of where it came from. That layer's batch is recorded failed and 
 **What to do:** run only one of the two layers over this corpus, or change the second so it
 derives something different.
 
+### `LayerDemotionFailedError`
+
+**What it looks like** — `weft delete` removed the source, then could not mark a corpus-wide layer
+stale:
+
+```text
+the source was deleted, but marking corpus layer(s) raptor-corpus stale failed on 'pgvector':
+<the store's own error>. Their trees lost what the source contributed; weft index --layers
+raptor-corpus rebuilds one.
+```
+
+**Why** — a layer built over the whole corpus, such as one RAPTOR tree, loses whatever the deleted
+source contributed. Weft marks it stale so it is no longer served as whole. Here the source's data
+was removed, but the mark could not be written.
+
+**What to do:** run the `weft index --layers <name>` the message names, once the store is healthy.
+It rebuilds the tree over the sources that remain.
+
 ### `LayerNeedsConsumingStoreError`
 
 **What it looks like** — a layer that needs a particular store, over a base that does not name it:
@@ -4556,18 +4574,18 @@ before ledger task 11.8, where kg_entities and kg_relations keyed on entity ids 
 than on an alias. Those rows are an operator's own data, and this pack refuses to guess at their
 shape rather than silently reading or rewriting them: drop kg_nodes, kg_sources, kg_entities,
 kg_entity_nodes and kg_relations (they hold only state this pack can rebuild by re-indexing) and
-let it recreate them at '2.0.0', or migrate them to that layout by hand before running weft again.
+let it recreate them at '3.0.0', or migrate them to that layout by hand before running weft again.
 $ echo $?
 1
 ```
 
-The second, against a database a **newer** `weft-rag` has already written to:
+The second, against a database another `weft-rag` wrote at a different layout — `2.0.0` is every graph indexed before `R43.24`, which made each relation row name the node that stated it:
 
 ```text
-weft_kg's kg_schema row for surface 'tables' is at version '3.0.0', but this installed pack knows
-'2.0.0'. Refusing to read kg_* tables written by a different schema version rather than guessing
-at their shape: install the version of weft-rag that wrote '3.0.0', or migrate the tables to
-'2.0.0' and update the kg_schema row yourself.
+weft_kg's kg_schema row for surface 'tables' is at version '2.0.0', but this installed pack knows
+'3.0.0'. Refusing to read kg_* tables written by a different schema version rather than guessing
+at their shape: install the version of weft-rag that wrote '2.0.0', or migrate the tables to
+'3.0.0' and update the kg_schema row yourself.
 ```
 
 **What to do.** Either do what the message says, or — if the graph is one you can rebuild — drop

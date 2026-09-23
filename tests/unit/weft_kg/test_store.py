@@ -247,8 +247,8 @@ async def test_the_neighbourhood_walks_relations_in_both_directions(
     a = await store.put_entity(name="a", nodes=[node.id])
     b = await store.put_entity(name="b", nodes=[node.id])
     c = await store.put_entity(name="c", nodes=[node.id])
-    await store.put_relation(source=a, target=b, predicate="relates-to")
-    await store.put_relation(source=b, target=c, predicate="relates-to")
+    await store.put_relation(source=a, target=b, predicate="relates-to", node=node.id)
+    await store.put_relation(source=b, target=c, predicate="relates-to", node=node.id)
     seed_a, seed_b = await _entity_of(walk, "a"), await _entity_of(walk, "b")
 
     # Act
@@ -268,8 +268,8 @@ async def test_the_neighbourhood_is_bounded_by_hops(store: GraphStore, walk: Gra
     a = await store.put_entity(name="a", nodes=[node.id])
     b = await store.put_entity(name="b", nodes=[node.id])
     c = await store.put_entity(name="c", nodes=[node.id])
-    await store.put_relation(source=a, target=b, predicate="relates-to")
-    await store.put_relation(source=b, target=c, predicate="relates-to")
+    await store.put_relation(source=a, target=b, predicate="relates-to", node=node.id)
+    await store.put_relation(source=b, target=c, predicate="relates-to", node=node.id)
     seed = await _entity_of(walk, "a")
 
     # Act
@@ -609,7 +609,9 @@ async def test_an_edge_written_against_a_merged_alias_still_walks(
     other = await store.put_entity(
         name="RAPTOR", nodes=[], embedding=Vector(values=(0.0, 0.0, 1.0, 1.0))
     )
-    await store.put_relation(source=right, target=other, predicate="extends")
+    stating = _node("ADRAP extends RAPTOR.", source="doc-a")
+    await store.add([stating])
+    await store.put_relation(source=right, target=other, predicate="extends", node=stating.id)
     del left
 
     # Act
@@ -985,7 +987,7 @@ async def test_a_model_saying_yes_merges_the_two_and_moves_their_evidence(
     other = await store.put_entity(
         name="adRAP", nodes=[], embedding=Vector(values=(0.0, 0.0, 1.0, 0.0))
     )
-    await store.put_relation(source=left, target=other, predicate="wrote")
+    await store.put_relation(source=left, target=other, predicate="wrote", node=first.id)
     llm = _StubAdjudicator({"Chucri": _verdict("yes")})
 
     # Act

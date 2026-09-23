@@ -1175,10 +1175,13 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
 
 
 async def check_a_source_records_layers_round_trip_whole_and_are_listed(store: NodeStore) -> None:
-    """Ledger **43.6**: two layers in two statuses on one record, none on another — each read back
-    whole, by `get_source` and by `list_sources`. `==` on the frozen record, for the reason
-    `check_a_source_record_round_trips_and_is_listed` gives: a store that names its columns keeps
-    only the fields its author had heard of."""
+    """Ledger **43.6**, widened at **43.21**: three layers in three statuses on one record,
+    none on another — each read back whole, by `get_source` and by `list_sources`. `==` on the
+    frozen record, for the reason `check_a_source_record_round_trips_and_is_listed` gives: a
+    store that names its columns keeps only the fields its author had heard of. `STALE` joins
+    `ACTIVE`/`FAILED` here so a third-party store is held to round-tripping it too, the same
+    way `test_a_stale_layer_record_round_trips_whole_and_is_listed` holds the two first-party
+    ones."""
     # Arrange
     when = datetime.now(UTC)
     layered = SourceRecord(
@@ -1208,6 +1211,13 @@ async def check_a_source_records_layers_round_trip_whole_and_are_listed(store: N
                     last_attempt_at=when,
                 ),
                 attempts=2,
+                at=when,
+            ),
+            LayerRecord(
+                name="enrich-with-summary",
+                pipeline_identity="layer-s",
+                status=LayerStatus.STALE,
+                attempts=1,
                 at=when,
             ),
         ),

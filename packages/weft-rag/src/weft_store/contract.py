@@ -162,7 +162,8 @@ from weft_kernel.runner import Stage
 #: **`2.9.0` → `2.10.0` at task 43.6** — `SourceRecord` gains optional `layers`, `36.0`'s shape.
 #: **`2.10.0` → `2.11.0` at task 43.14** — `GenerationHolding` joins the family, `34.3`'s shape,
 #: and `SingleWriter` (task 43.18) joins the same unreleased minor.
-STORE_CONTRACT_VERSION = "2.11.0"
+#: **`2.11.0` → `2.12.0` at task 43.21** — `LayerStatus` gains `STALE`, minor for both audiences.
+STORE_CONTRACT_VERSION = "2.12.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -301,6 +302,10 @@ class LayerStatus(StrEnum):
     INDEXING = "indexing"
     ACTIVE = "active"
     FAILED = "failed"
+    #: Built, then a source its corpus-scoped tree covered was deleted — task **43.21**. A
+    #: source-scoped layer's record never moves here: its nodes left with the source they belonged
+    #: to, and no remaining source's tree grew a hole.
+    STALE = "stale"
 
 
 class LayerRecord(BaseModel):

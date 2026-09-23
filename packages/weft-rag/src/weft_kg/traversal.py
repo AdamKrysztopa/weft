@@ -162,7 +162,7 @@ class GraphWalk:
                     break
                 await cur.execute(
                     "SELECT sa.entity_id AS source_entity, ta.entity_id AS target_entity "
-                    "FROM kg_relations r "
+                    "FROM (SELECT DISTINCT source_alias, target_alias FROM kg_relations) r "
                     "JOIN kg_aliases sa ON sa.id = r.source_alias "
                     "JOIN kg_aliases ta ON ta.id = r.target_alias "
                     "WHERE sa.entity_id = ANY(%s) OR ta.entity_id = ANY(%s)",

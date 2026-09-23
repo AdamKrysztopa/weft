@@ -350,7 +350,7 @@ class BatchScopedStageError(WeftError):
     Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
     does not compose with this pipeline — so this does not join `PipelineResolutionError` and
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
-    (`weft_cli/commands.py:305 'class ConflictingIndexModeError(WeftError):'`).
+    (`weft_cli/commands.py:318 'class ConflictingIndexModeError(WeftError):'`).
     """
 
 
@@ -543,6 +543,8 @@ class IndexResult:
     layers_stale_progress: Mapping[str, tuple[int, int]] = field(
         default_factory=lambda: cast("Mapping[str, tuple[int, int]]", {})
     )
+    #: Ledger **43.21** — layers `weft delete` staled: `weft_cli.layers.stale_corpus_layers`.
+    layers_stale_deleted: tuple[str, ...] = ()
 
 
 async def count_degraded_expansions(store: MetadataFilter) -> int:
@@ -1174,7 +1176,7 @@ async def run_index(
         written_target, target_stopped_being_live, target_now_live = await _target_written(
             runnable, target=target, target_live=target_live
         )
-        layers_stale, layers_stale_progress = await stale_corpus_layers(
+        layers_stale, layers_stale_progress, layers_stale_deleted = await stale_corpus_layers(
             runnable=runnable,
             store_stage_id=store_stage_id,
             refs=refs,
@@ -1204,6 +1206,7 @@ async def run_index(
             layers_failed=layers_failed,
             layers_stale=layers_stale,
             layers_stale_progress=layers_stale_progress,
+            layers_stale_deleted=layers_stale_deleted,
         )
     except BaseException as failure:
         in_flight = failure

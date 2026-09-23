@@ -82,9 +82,10 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import ClassVar, Final, cast
 
@@ -116,7 +117,12 @@ from weft_cli.explain import (
 from weft_cli.fanout import Participant
 from weft_cli.ingest import DEFAULT_BATCH_SIZE, INDEX_PACKS, SourceChange, run_index_for
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
-from weft_cli.layers import LayerFailure, UnknownLayerError, installed_layers
+from weft_cli.layers import (
+    LayerFailure,
+    UnknownLayerError,
+    corpus_scoped_layer_names,
+    installed_layers,
+)
 from weft_cli.output import AskFormat
 from weft_cli.pack_new import PackNewCommand
 from weft_cli.participation import (
@@ -185,7 +191,7 @@ from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar, PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import Outcome, Produced, SourceId
+from weft_kernel.payload import Failed, Outcome, Produced, SourceId
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import DisplacedRegistration, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline
@@ -194,7 +200,13 @@ from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
 from weft_retrieve.engine import route_requirements
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
-from weft_store.contract import EmbeddingIdentity, TargetCatalogue, TargetHolding, target_name
+from weft_store.contract import (
+    EmbeddingIdentity,
+    LayerStatus,
+    TargetCatalogue,
+    TargetHolding,
+    target_name,
+)
 
 _INDEX_HELP = (
     "run an ingest pipeline over a directory. Which formats are accepted is derived from "
@@ -348,6 +360,13 @@ class ConflictingAskModeError(WeftError):
     `OPERATION_FAILED` (`1`), is the code, on the identical footing task 3.7's own
     `TargetAlreadyExistsError`/`PipelineAlreadyExistsError` argue for a certain answer that
     is not a policy question.
+    """
+
+
+class LayerDemotionFailedError(WeftError):
+    """`weft delete` removed a source, and marking a corpus layer it covered `STALE` then failed
+    on a store — task **43.21**. Raised rather than dropped: the unmarked tree is the silent
+    hole the demotion exists to report.
     """
 
 
@@ -873,6 +892,9 @@ class IndexCommandResult(CommandResult):
     #: `layers_stale`'s own `(built, of)` pair per name — `weft_cli.ingest.IndexResult.
     #: layers_stale_progress`, copied for the identical reason.
     layers_stale_progress: Mapping[str, tuple[int, int]] = Field(default_factory=dict)
+    #: Ledger task **43.21** — copied from `weft_cli.ingest.IndexResult.layers_stale_deleted`,
+    #: the identical reason `layers_stale` is.
+    layers_stale_deleted: tuple[str, ...] = ()
 
 
 class AskCommandResult(CommandResult):
@@ -1236,6 +1258,7 @@ class IndexCommand:
                 layers_failed=result.layers_failed,
                 layers_stale=result.layers_stale,
                 layers_stale_progress=result.layers_stale_progress,
+                layers_stale_deleted=result.layers_stale_deleted,
             )
         )
 
@@ -2019,6 +2042,10 @@ class DeleteCommandResult(CommandResult):
     #: Carried repair **R43.17** — whether any store recorded `source_id` before the fan-out,
     #: so an id nothing held reads differently from a delete that removed something.
     held: bool = True
+    #: Ledger task **43.21** — every corpus-scoped layer this delete demoted from `ACTIVE` to
+    #: `LayerStatus.STALE` on the sources it still covers, sorted by name. `()` when the
+    #: deleted source carried no corpus-scoped layer `ACTIVE`, or nothing was deleted at all.
+    layers_staled: tuple[str, ...] = ()
 
     @property
     def failed(self) -> tuple[ParticipantOutcome, ...]:
@@ -2042,6 +2069,122 @@ async def _resolve_deletion_id(
         return given, True
     by_uri = next((str(record.id) for record in records if record.uri == given), None)
     return (by_uri, True) if by_uri is not None else (given, False)
+
+
+async def _corpus_layers_held_active(
+    deps: Dependencies, target: str | None, source_id: str
+) -> Outcome[frozenset[str]]:
+    """Every corpus-scoped layer `source_id`'s own record carries `ACTIVE`, read across every
+    store `_stores_in_use` names — ledger task **43.21**. Read **before** the fan-out deletes
+    that record: a corpus-scoped tree this source never joined has no hole to leave behind, so
+    only a layer this source itself held is a candidate to demote everywhere else.
+    """
+    names = frozenset(
+        corpus_scoped_layer_names(
+            registry=deps.registry, reports=deps.reports, contributions=deps.contributions
+        )
+    )
+    if not names:
+        return Produced(value=frozenset())
+    read = await _read_sources_by_store(deps, target)
+    if not isinstance(read, Produced):
+        return cast("Outcome[frozenset[str]]", read)
+    held: set[str] = set()
+    for _, records in read.value:
+        record = next((candidate for candidate in records if str(candidate.id) == source_id), None)
+        if record is None:
+            continue
+        held.update(
+            layer.name
+            for layer in record.layers
+            if layer.name in names and layer.status is LayerStatus.ACTIVE
+        )
+    return Produced(value=frozenset(held))
+
+
+async def _demote_layer_records(
+    list_sources: Callable[[], Awaitable[Sequence[SourceRecord]]],
+    put_source: Callable[[SourceRecord], Awaitable[None]],
+    names: frozenset[str],
+) -> Outcome[tuple[str, ...]]:
+    """One store's records: every `ACTIVE` layer in `names` becomes `STALE` (task **43.21**)."""
+    here: set[str] = set()
+    for record in await list_sources():
+        layers = list(record.layers)
+        changed = False
+        for index, layer in enumerate(layers):
+            if layer.name in names and layer.status is LayerStatus.ACTIVE:
+                layers[index] = layer.model_copy(update={"status": LayerStatus.STALE})
+                changed = True
+                here.add(layer.name)
+        if changed:
+            await put_source(record.model_copy(update={"layers": tuple(layers)}))
+    return Produced(value=tuple(here))
+
+
+async def _demote_stale_corpus_layers(
+    deps: Dependencies, target: str | None, names: frozenset[str]
+) -> tuple[str, ...]:
+    """Demote `names` from `ACTIVE` to `LayerStatus.STALE` on every remaining source, on every
+    store `_stores_in_use` names — ledger task **43.21**, called *after* the fan-out, so the
+    deleted source's own record is already gone and needs no exclusion by hand. Existing record
+    APIs only (`list_sources`/`put_source`), the same ones `_read_sources_by_store` reads with,
+    never a new store method. Returns every name actually demoted somewhere, sorted — a name
+    that reaches no `ACTIVE` record on any remaining source is not reported as staled.
+    """
+    if not names:
+        return ()
+    demoted: set[str] = set()
+    failures: list[str] = []
+    for name in sorted(_stores_in_use(deps)):
+        entry = deps.registry.entry(NodeStore, name)
+        store = await bind_store(entry.factory(None), target, store_name=name)
+        raw_list_sources = getattr(store, "list_sources", None)
+        raw_put_source = getattr(store, "put_source", None)
+        if (
+            raw_list_sources is None
+            or raw_put_source is None
+            or not callable(raw_list_sources)
+            or not callable(raw_put_source)
+        ):
+            await aclose(
+                store, distribution=entry.distribution, contract=NodeStore.__qualname__, plugin=name
+            )
+            continue
+        _demote = partial(
+            _demote_layer_records,
+            cast("Callable[[], Awaitable[Sequence[SourceRecord]]]", raw_list_sources),
+            cast("Callable[[SourceRecord], Awaitable[None]]", raw_put_source),
+            names,
+        )
+        wrapped = wrap(
+            _demote,
+            distribution=entry.distribution,
+            contract=NodeStore.__qualname__,
+            plugin=name,
+            stage="layers:demote",
+        )
+        try:
+            outcome = await wrapped()
+        except WeftError as exc:
+            failures.append(f"'{name}': {exc}")
+            continue
+        finally:
+            await aclose(
+                store, distribution=entry.distribution, contract=NodeStore.__qualname__, plugin=name
+            )
+        if isinstance(outcome, Produced):
+            demoted.update(outcome.value)
+        elif isinstance(outcome, Failed):
+            failures.append(f"'{name}': {outcome.reason}")
+    if failures:
+        listed = ", ".join(sorted(names))
+        raise LayerDemotionFailedError(
+            f"the source was deleted, but marking corpus layer(s) {listed} stale failed on "
+            f"{'; '.join(failures)}. Their trees lost what the source contributed; "
+            f"weft index --layers {listed.split(', ')[0]} rebuilds one."
+        )
+    return tuple(sorted(demoted))
 
 
 class DeleteCommand:
@@ -2109,12 +2252,23 @@ class DeleteCommand:
         targets = self._targets(deps)
         await _require_target_exists(deps, typed.target)
         source_id, held = await _resolve_deletion_id(deps, typed.target, typed.source_id)
+        # Ledger **43.21** — read while the deleted source's own record still exists: a
+        # corpus-scoped layer it never held `ACTIVE` leaves no remaining source's tree with a
+        # hole, so it is never a candidate for demotion.
+        staled_names = await _corpus_layers_held_active(deps, typed.target, source_id)
+        if not isinstance(staled_names, Produced):
+            return cast("Outcome[CommandResult]", staled_names)
         async with claim_all_writers(targets, store_target=typed.target, command="weft delete"):
             outcomes = await delete_everywhere(
                 SourceId(source_id), targets=targets, target=typed.target
             )
+            layers_staled = await _demote_stale_corpus_layers(
+                deps, typed.target, staled_names.value
+            )
         return Produced(
-            value=DeleteCommandResult(source_id=source_id, participants=outcomes, held=held)
+            value=DeleteCommandResult(
+                source_id=source_id, participants=outcomes, held=held, layers_staled=layers_staled
+            )
         )
 
     def _targets(self, deps: Dependencies) -> tuple[Participant, ...]:

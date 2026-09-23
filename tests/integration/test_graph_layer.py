@@ -276,6 +276,31 @@ def _fact(source: str, subject: str, predicate: str, target: str) -> Node:
     )
 
 
+async def test_a_relation_only_the_deleted_source_stated_is_unreachable_after_it(
+    dsn: str,
+) -> None:
+    # Arrange — `doc-b`'s facts attach both of `doc-a`'s endpoints, so their aliases survive it.
+    store = GraphStore(GraphSettings(dsn=SecretStr(dsn)))
+    try:
+        await store.add(
+            [
+                _fact("doc-a", "Acme", "acquired", "Gamma"),
+                _fact("doc-b", "Acme", "supplies", "Beta"),
+                _fact("doc-b", "Gamma", "employs", "Delta"),
+            ]
+        )
+        assert await _neighbours(dsn, "Acme") == {"Beta", "Gamma"}
+
+        # Act
+        await store.delete_source(SourceId("doc-a"))
+    finally:
+        await store.aclose()
+
+    # Assert
+    assert await _neighbours(dsn, "Acme") == {"Beta"}
+    assert await _neighbours(dsn, "Gamma") == {"Delta"}
+
+
 async def test_a_relation_two_sources_stated_survives_deleting_one_of_them(dsn: str) -> None:
     # Arrange
     store = GraphStore(GraphSettings(dsn=SecretStr(dsn)))

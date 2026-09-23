@@ -85,6 +85,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`enrich-with-facts-and-graph`: the graph as a layer.** `weft index --layers
+  enrich-with-facts-and-graph` extracts facts, mentions and co-occurrence from each stored chunk
+  after the base is searchable, and the graph store turns them into entities and relations. Over a
+  base with no store that can hold them, the layer is refused before anything runs, naming the
+  installed stores that can. A layer document states which store it needs with
+  `layer.store-consumes`, and a store states what it turns into rows with `consumes`.
 - **A store can build a layer as a generation, published whole.** The store contract moves to
   `2.11.0` with one optional capability, `weft_store.contract.GenerationHolding`: open a generation,
   write its nodes through a bound handle, then publish or retract it. Until it is published, its
@@ -203,6 +209,24 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Fixed
 
+- **A layer no longer enriches fact and mention nodes.** Over an `index-with-facts` base,
+  `--layers enrich-with-questions` generated questions for the graph's own fact and mention nodes:
+  48 of 54 in a two-document run. An ext model now declares `not_a_leaf`, and a layer skips every
+  node carrying one.
+- **`index-with-adrap` no longer edits a layer's RAPTOR tree.** It joined new documents into any
+  RAPTOR tree in the store, including one a layer built. A layer now marks what it creates, and
+  `adrap` joins only the base tree. A tree a layer built before this release is unmarked until the
+  layer is rebuilt.
+- **Deleting a source marks a corpus-wide layer stale.** A layer built over the whole corpus, such
+  as one RAPTOR tree, lost the deleted source's part of the tree and went on being served as whole.
+  `weft delete` now marks such a layer `stale` on every remaining source and prints so. `weft
+  sources list` and `weft index` show it, the router stops offering its rung, and `weft index
+  --layers <name>` rebuilds it. The store contract moves to `2.12.0` for the new `LayerStatus.STALE`.
+- **Deleting a source removes the graph relations only it stated.** A relation stayed reachable
+  after the fact that stated it was deleted, while other documents still mentioned its two
+  entities. The graph tables move to layout `3.0.0`: a graph indexed before this is refused by
+  name, and dropping its `kg_*` tables and re-indexing rebuilds it (`manual/troubleshooting.md` →
+  `GraphSchemaVersionRefusedError`).
 - **A layer that fails is reported, and `weft index` exits 1.** The run prints each failed layer
   with how many of its sources failed and the first reason; before this it printed nothing and
   exited 0. A layer whose document changed is printed too, and one that failed under an older

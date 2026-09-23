@@ -1736,7 +1736,7 @@ async def run_layers(
     return tuple(layers_changed), tuple(layers_failed)
 
 
-def _corpus_scoped_layer_names(
+def corpus_scoped_layer_names(
     *,
     registry: Registry,
     reports: Sequence[PackReport],
@@ -1746,6 +1746,11 @@ def _corpus_scoped_layer_names(
     population `stale_corpus_layers` checks for staleness, independent of whatever `--layers`
     a given run actually named. A layer that fails to resolve, here as in `installed_layers`
     itself, is skipped rather than refused: this is a report, not a run.
+
+    Public (ledger **43.21**) — `weft_cli.commands.DeleteCommand` reads the same population,
+    to learn which of the sources it just deleted's own `ACTIVE` layers are corpus-scoped and
+    so must be demoted everywhere else. A leading-underscore name reached from another module
+    is `reportPrivateUsage` under `pyright --strict`.
     """
     names: list[str] = []
     for name in installed_layers(registry=registry, reports=reports, contributions=contributions):
@@ -1769,11 +1774,19 @@ async def stale_corpus_layers(
     registry: Registry,
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
-) -> tuple[tuple[str, ...], dict[str, tuple[int, int]]]:
-    """`(layers_stale, progress)` — ledger task **43.15**. `layers_stale` is every
-    corpus-scoped layer document that is `ACTIVE` on at least one of `refs`' own `ACTIVE`
-    sources but not on all of them, sorted by name; `progress[name]` is `(built, of)`, the
-    pair `weft_cli.render`'s own stale line prints.
+) -> tuple[tuple[str, ...], dict[str, tuple[int, int]], tuple[str, ...]]:
+    """`(layers_stale, progress, layers_stale_deleted)` — ledger tasks **43.15** and **43.21**.
+
+    `layers_stale` is every corpus-scoped layer document that is `ACTIVE` on at least one of
+    `refs`' own `ACTIVE` sources but not on all of them, sorted by name; `progress[name]` is
+    `(built, of)`, the pair `weft_cli.render`'s own stale line prints.
+
+    `layers_stale_deleted` (**43.21**) is every corpus-scoped layer carrying `LayerStatus.
+    STALE` on any `ACTIVE` source — `weft delete` demoted it there because a source its tree
+    covered was removed — reported separately because `weft_cli.render` prints a different
+    sentence for it, one that wins over `layers_stale`'s own: a tree missing a source is a
+    different problem from one still catching up to new ones, and a name never appears in
+    both.
 
     Read regardless of what this run itself named under `--layers`: a source indexed without
     naming a corpus-scoped layer still leaves that layer behind everybody else, and an
@@ -1781,32 +1794,31 @@ async def stale_corpus_layers(
     layer to check.
     """
     if store_stage_id is None:
-        return (), {}
+        return (), {}, ()
     primary = _stage_instance(runnable, store_stage_id)
     get_source = _get_source_of(primary) if primary is not None else None
     if get_source is None:
-        return (), {}
+        return (), {}, ()
     records = await _current_records(get_source, refs)
     active = [record for record in records.values() if record.status is SourceStatus.ACTIVE]
     of = len(active)
     if of == 0:
-        return (), {}
+        return (), {}, ()
     stale: list[str] = []
     progress: dict[str, tuple[int, int]] = {}
-    for name in _corpus_scoped_layer_names(
+    deleted: list[str] = []
+    for name in corpus_scoped_layer_names(
         registry=registry, reports=reports, contributions=contributions
     ):
-        built = sum(
-            1
-            for record in active
-            if any(
-                entry.name == name and entry.status is LayerStatus.ACTIVE for entry in record.layers
-            )
-        )
+        entries = [entry for record in active for entry in record.layers if entry.name == name]
+        if any(entry.status is LayerStatus.STALE for entry in entries):
+            deleted.append(name)
+            continue
+        built = sum(1 for entry in entries if entry.status is LayerStatus.ACTIVE)
         if 0 < built < of:
             stale.append(name)
             progress[name] = (built, of)
-    return tuple(sorted(stale)), progress
+    return tuple(sorted(stale)), progress, tuple(sorted(deleted))
 
 
 __all__ = [
@@ -1825,6 +1837,7 @@ __all__ = [
     "compose_layer",
     "compose_layer_over",
     "compose_layers",
+    "corpus_scoped_layer_names",
     "installed_layers",
     "layer_created",
     "layer_enriched",

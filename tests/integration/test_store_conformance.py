@@ -57,6 +57,7 @@ code and this half is about the environment it runs in.)*
 
 import os
 from collections.abc import AsyncIterator, Sequence
+from datetime import UTC, datetime
 from functools import partial
 from typing import cast
 from uuid import uuid4
@@ -152,8 +153,11 @@ from weft_store.conformance import (
 from weft_store.contract import (
     Cursor,
     Filter,
+    LayerRecord,
+    LayerStatus,
     MetadataFilter,
     NodeStore,
+    SourceRecord,
     TextSearch,
     VectorIndexKind,
     VectorSearch,
@@ -366,6 +370,37 @@ async def test_a_source_record_round_trips_and_is_listed(store: NodeStore) -> No
 
 async def test_a_source_records_layers_round_trip_whole_and_are_listed(store: NodeStore) -> None:
     await check_a_source_records_layers_round_trip_whole_and_are_listed(store)
+
+
+async def test_a_stale_layer_record_round_trips_whole_and_is_listed(store: NodeStore) -> None:
+    """Ledger **43.21**: `LayerStatus.STALE` reads back whole from either backend."""
+    # Arrange
+    when = datetime.now(UTC)
+    record = SourceRecord(
+        id=SourceId("stale-layer-source"),
+        uri="file:///corpus/stale.txt",
+        content_hash="hash-stale",
+        indexed_at=when,
+        pipeline="conformance",
+        layers=(
+            LayerRecord(
+                name="enrich-with-summary",
+                pipeline_identity="layer-s",
+                status=LayerStatus.STALE,
+                attempts=1,
+                at=when,
+            ),
+        ),
+    )
+
+    # Act
+    await store.put_source(record)
+    found = await store.get_source(record.id)
+    listed = {listed.id: listed for listed in await store.list_sources()}
+
+    # Assert
+    assert found == record
+    assert listed[record.id] == record
 
 
 async def test_deleting_a_failed_source_removes_it_like_any_other(store: NodeStore) -> None:

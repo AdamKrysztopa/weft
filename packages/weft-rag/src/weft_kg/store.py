@@ -129,7 +129,7 @@ _RESOLUTION_CONTENT_PAGE_SIZE: Final[int] = 500
 #: there before. A change that would earn a bump is one that makes an *existing* row mean
 #: something different than it did — dropping a column, changing a type, re-purposing a key —
 #: which this is not.
-KG_SCHEMA_VERSION: Final[str] = "2.0.0"
+KG_SCHEMA_VERSION: Final[str] = "3.0.0"
 KG_SCHEMA_SURFACE: Final[str] = "tables"
 
 #: An alias's identity — a surface form the corpus actually wrote, distinct from the entity it
@@ -244,12 +244,22 @@ CREATE TABLE IF NOT EXISTS kg_entity_nodes (
 #: — even though `GraphTraversal.neighbourhood` walks it undirected; see `traversal.py`. Keyed
 #: on the alias for the identical reason `kg_entity_nodes` is: a merge re-points both endpoints
 #: for free.
+#:
+#: **`node_id` — ledger R43.24 — is the node that stated this row, cascading directly from
+#: `kg_nodes` rather than through the alias.** Before this column, a relation outlived the one
+#: node that stated it for as long as *any* node still anchored either endpoint alias, which is
+#: the ordinary case the moment a second source mentions the same entities — `_derive_graph_rows`'s
+#: own docstring below is where this is spelled out. Part of the primary key rather than a plain
+#: column, so one relation stated by two nodes is two rows and it disappears only when the last
+#: of them goes; every reader collapses the duplicates back to one edge by reading `DISTINCT
+#: (source_alias, target_alias, predicate)` rather than a bare row count.
 _CREATE_RELATIONS_TABLE = """
 CREATE TABLE IF NOT EXISTS kg_relations (
     source_alias TEXT NOT NULL REFERENCES kg_aliases(id) ON DELETE CASCADE,
     target_alias TEXT NOT NULL REFERENCES kg_aliases(id) ON DELETE CASCADE,
     predicate TEXT NOT NULL,
-    PRIMARY KEY (source_alias, target_alias, predicate)
+    node_id TEXT NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+    PRIMARY KEY (source_alias, target_alias, predicate, node_id)
 )
 """
 
@@ -414,7 +424,7 @@ async def _refuse_pre_118_layout(conn: "psycopg.AsyncConnection[dict[str, Any]]"
             f"or rewriting them: drop kg_nodes, kg_sources, kg_entities, kg_entity_nodes and "
             f"kg_relations (they hold only state this pack can rebuild by re-indexing) and let "
             f"it recreate them at {KG_SCHEMA_VERSION!r}, or migrate them to that layout by hand "
-            f"before running weft again.",
+            "before running weft again.",
             pack="weft-rag",
         )
 
@@ -513,7 +523,8 @@ async def _row_census(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> dict[str, i
     await cur.execute(
         "SELECT (SELECT count(*) FROM kg_aliases) AS alias, "
         "(SELECT count(*) FROM kg_entities) AS entity, "
-        "(SELECT count(*) FROM kg_relations) AS relation"
+        "(SELECT count(*) FROM (SELECT DISTINCT source_alias, target_alias, predicate "
+        "FROM kg_relations) r) AS relation"
     )
     row = await cur.fetchone()
     if row is None:  # pragma: no cover — a scalar aggregate always returns a row
@@ -1050,10 +1061,10 @@ class GraphStore:
         writes the relation between them, and `CooccurrenceGraph` carries its own bundle of
         both shapes for the no-model rung. Attaching a fact's own two endpoints to the fact
         node (rather than to some other node that merely mentions them) is what keeps a
-        relation from outliving the evidence for it: `kg_relations` cascades from
-        `kg_aliases`, which cascades from `kg_entity_nodes`, which cascades from `kg_nodes` — so
-        deleting the fact node is what makes the relation it stated unreachable, per the module
-        docstring's G15 note.
+        relation from outliving the evidence for it: `kg_relations.node_id` cascades directly
+        from `kg_nodes` (ledger R43.24) — so deleting the fact node is what makes the relation it
+        stated unreachable, whether or not either endpoint alias also survives through some other
+        node, per the module docstring's G15 note.
 
         **`MentionedEntity`'s embedding is the mention node's own** — a mention node's content
         *is* the entity name and it went through the pipeline's own `embed` stage, so this is a
@@ -1073,7 +1084,9 @@ class GraphStore:
         if fact is not None:
             source_id = await self.put_entity(name=fact.source, nodes=[node.id])
             target_id = await self.put_entity(name=fact.target, nodes=[node.id])
-            await self.put_relation(source=source_id, target=target_id, predicate=fact.predicate)
+            await self.put_relation(
+                source=source_id, target=target_id, predicate=fact.predicate, node=node.id
+            )
 
         graph = node.ext_as(CooccurrenceGraph)
         if graph is not None:
@@ -1084,6 +1097,7 @@ class GraphStore:
                     source=_alias_id_for(edge.source),
                     target=_alias_id_for(edge.target),
                     predicate=edge.predicate,
+                    node=node.id,
                 )
 
     async def flush(self) -> None:
@@ -1544,7 +1558,10 @@ class GraphStore:
         """
         conn = await self._connection()
         async with conn.cursor() as cur:
-            await cur.execute("SELECT count(*) AS n FROM kg_relations")
+            await cur.execute(
+                "SELECT count(*) AS n FROM "
+                "(SELECT DISTINCT source_alias, target_alias, predicate FROM kg_relations) r"
+            )
             row = await cur.fetchone()
         return cast(int, row["n"]) if row is not None else 0
 
@@ -1606,18 +1623,21 @@ class GraphStore:
         async with conn.cursor() as cur:
             await cur.execute(
                 """
-                WITH edges AS (
+                WITH distinct_relations AS (
+                    SELECT DISTINCT source_alias, target_alias, predicate FROM kg_relations
+                ),
+                edges AS (
                     SELECT r.source_alias AS from_alias, r.target_alias AS to_alias,
                            r.predicate AS predicate, FALSE AS walked_backwards,
                            sa.entity_id AS from_entity, ta.entity_id AS to_entity
-                    FROM kg_relations r
+                    FROM distinct_relations r
                     JOIN kg_aliases sa ON sa.id = r.source_alias
                     JOIN kg_aliases ta ON ta.id = r.target_alias
                     UNION ALL
                     SELECT r.target_alias AS from_alias, r.source_alias AS to_alias,
                            r.predicate AS predicate, TRUE AS walked_backwards,
                            ta.entity_id AS from_entity, sa.entity_id AS to_entity
-                    FROM kg_relations r
+                    FROM distinct_relations r
                     JOIN kg_aliases sa ON sa.id = r.source_alias
                     JOIN kg_aliases ta ON ta.id = r.target_alias
                 ),
@@ -1877,13 +1897,20 @@ class GraphStore:
                 )
         return AliasId(alias_id)
 
-    async def put_relation(self, *, source: AliasId, target: AliasId, predicate: str) -> None:
+    async def put_relation(
+        self, *, source: AliasId, target: AliasId, predicate: str, node: NodeId
+    ) -> None:
+        """Write the edge, attributed to `node` — the row that stated it, ledger R43.24. `node`
+        is required rather than defaulted: a relation with no stating node is not evidence, it is
+        a claim nothing anchors, and `kg_relations.node_id` is `NOT NULL` on exactly that
+        argument.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
-                "INSERT INTO kg_relations (source_alias, target_alias, predicate) "
-                "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-                (source, target, predicate),
+                "INSERT INTO kg_relations (source_alias, target_alias, predicate, node_id) "
+                "VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                (source, target, predicate, node),
             )
 
 

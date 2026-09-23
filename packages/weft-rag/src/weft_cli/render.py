@@ -306,6 +306,7 @@ def _render_delete(result: DeleteCommandResult) -> Rendered:
             f"nothing held '{result.source_id}' — nothing was deleted. `weft sources list` "
             "shows the sources recorded."
         )
+    lines.extend(stale_deleted_layer_line(name) for name in result.layers_staled)
     exit_code = ExitCode.SUCCESS if not failures else ExitCode.OPERATION_FAILED
     return Rendered(stdout="\n".join(lines), stderr=stderr, exit_code=exit_code)
 
@@ -741,18 +742,35 @@ def _changed_layer_lines(result: IndexCommandResult) -> list[str]:
     ]
 
 
+def stale_deleted_layer_line(name: str) -> str:
+    """The one sentence `weft delete` and `weft index` both print for a corpus-scoped layer
+    carrying `LayerStatus.STALE` — ledger task **43.21**. One function so the two commands can
+    never say it two different ways.
+    """
+    return (
+        f"layer '{name}' is stale: a source it covered was deleted — "
+        f"weft index --layers {name} rebuilds it."
+    )
+
+
 def _stale_layer_lines(result: IndexCommandResult) -> list[str]:
-    """One line per name in `result.layers_stale` — ledger task **43.15**. `layers_stale` is
-    already sorted by name (`weft_cli.layers.stale_corpus_layers`'s own contract); `(0, 0)` is
-    never reached in practice — every name in `layers_stale` has an entry in
-    `layers_stale_progress` — but is the honest default for a name this dict somehow lacked,
-    rather than a `KeyError` a render function has no business raising.
+    """One line per name in `result.layers_stale`, plus one per name in `result.
+    layers_stale_deleted` — ledger tasks **43.15** and **43.21**. Both are already sorted by
+    name and, by `weft_cli.layers.stale_corpus_layers`'s own contract, disjoint — a name in
+    `layers_stale_deleted` never also appears in `layers_stale`, so the deletion wording wins
+    without this function needing to choose between them. `(0, 0)` is never reached in
+    practice — every name in `layers_stale` has an entry in `layers_stale_progress` — but is
+    the honest default for a name this dict somehow lacked, rather than a `KeyError` a render
+    function has no business raising.
     """
     return [
-        f"layer '{name}' is stale: built over {built} of {of} sources — "
-        f"weft index --layers {name} rebuilds it."
-        for name in result.layers_stale
-        for built, of in (result.layers_stale_progress.get(name, (0, 0)),)
+        *(
+            f"layer '{name}' is stale: built over {built} of {of} sources — "
+            f"weft index --layers {name} rebuilds it."
+            for name in result.layers_stale
+            for built, of in (result.layers_stale_progress.get(name, (0, 0)),)
+        ),
+        *(stale_deleted_layer_line(name) for name in result.layers_stale_deleted),
     ]
 
 

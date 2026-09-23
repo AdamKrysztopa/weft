@@ -30,7 +30,7 @@ def test_a_percentile_of_nothing_is_refused() -> None:
 
 
 def test_the_stored_count_is_read_from_what_weft_index_prints() -> None:
-    # Arrange — the real line, `weft_cli/render.py:657 "nodes now stored: {stored}."`.
+    # Arrange — the real line, `weft_cli/render.py:658 "nodes now stored: {stored}."`.
     stdout = "indexed 500 documents.\nnodes now stored: 10000.\n"
 
     # Act / Assert
