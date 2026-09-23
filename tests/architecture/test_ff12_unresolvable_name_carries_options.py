@@ -97,6 +97,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_cli.layers.UnknownLayerError",
         "weft_cli.layers.UnknownLayerVarError",
         "weft_cli.layers.LayerNeedsGenerationHoldingError",
+        "weft_cli.layers.LayerNeedsConsumingStoreError",
         "weft_cli.preview.PipelineMissingRenderStageError",
         "weft_cli.commands.UnresolvedPluginNameError",
         "weft_engine.llm_roles.UnknownLLMKeyError",

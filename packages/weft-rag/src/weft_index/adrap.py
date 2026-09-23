@@ -109,8 +109,18 @@ NAME = "adrap"
 
 #: The filter every fetch of "the tree" uses: any stored node carrying `RaptorFacts` at all,
 #: leaf or summary, states no level (see that model's own docstring) so this selects exactly
-#: the summaries.
-_SUMMARY_FILTER = Filter(op=FilterOp.EXISTS, field="ext.weft-index-raptor.level")
+#: the summaries, minus every summary a layer stamped `LayerMember` onto: a layer's tree is not
+#: the base tree's to edit (R43.23).
+_SUMMARY_FILTER = Filter(
+    op=FilterOp.AND,
+    clauses=(
+        Filter(op=FilterOp.EXISTS, field="ext.weft-index-raptor.level"),
+        Filter(
+            op=FilterOp.NOT,
+            clauses=(Filter(op=FilterOp.EXISTS, field="ext.weft-index-layer.layer"),),
+        ),
+    ),
+)
 
 
 @runtime_checkable

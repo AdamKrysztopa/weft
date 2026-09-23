@@ -2131,6 +2131,24 @@ first's record of where it came from. That layer's batch is recorded failed and 
 **What to do:** run only one of the two layers over this corpus, or change the second so it
 derives something different.
 
+### `LayerNeedsConsumingStoreError`
+
+**What it looks like** — a layer that needs a particular store, over a base that does not name it:
+
+```text
+'enrich-with-facts-and-graph' needs a store that turns 'weft-kg-fact' into rows of its own
+(consumes), and 'index-text' has none — it stores with 'pgvector'. Installed stores that can:
+pgvector-graph.
+```
+
+**Why** — the layer's output means something only once a store turns it into rows of its own.
+`enrich-with-facts-and-graph` produces facts and mentions, and a graph store builds entities and
+relations from them. Without such a store the facts would land in the vector store alone, and
+there would be no graph. The stores listed at the end are the installed ones that can.
+
+**What to do:** index with a base that names one of the listed stores, e.g. `index-with-graph`,
+then run the layer over it.
+
 ### `LayerNeedsGenerationHoldingError`
 
 **What it looks like** — a corpus-scoped layer over a base with a store stage that cannot hold

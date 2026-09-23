@@ -11,6 +11,7 @@ it has none. The population is what the installed packs contribute, never a dire
 from pathlib import Path
 from typing import Final
 
+from weft_cli.layers import installed_layers
 from weft_cli.pipeline_catalogue import load_contributed
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_engine import registry_bootstrap
@@ -21,8 +22,10 @@ from weft_kernel.resolution import ResolvedPipeline
 NO_LAYER_TWIN: Final[dict[str, str]] = {
     "index-with-deep-raptor": "two raptor levels in one document; `enrich-with-raptor` is one "
     "level, and a deeper tree over stored leaves has no task yet",
-    "index-with-facts": "the graph layer is `43.17`'s, by the owner's decision at `43.15`",
-    "index-with-facts-openai": "the graph layer is `43.17`'s, by the owner's decision at `43.15`",
+    "index-with-facts": "its layer is `enrich-with-facts-and-graph` (`43.17`), which runs "
+    "`cooccurrence-graph` before `llm-facts`, so no layer is `llm-facts` alone",
+    "index-with-facts-openai": "its layer is `enrich-with-facts-and-graph` (`43.17`), which runs "
+    "`cooccurrence-graph` before `llm-facts`, so no layer is `llm-facts` alone",
 }
 
 
@@ -50,24 +53,23 @@ def _enrichment(pipeline: ResolvedPipeline) -> tuple[str, ...]:
     return tuple(uses)
 
 
-def _is_layer(pipeline: ResolvedPipeline) -> bool:
-    return bool(pipeline.stages) and all(stage.contract == "Expander" for stage in pipeline.stages)
-
-
 def test_every_enriching_document_has_a_layer_twin_or_a_reason(tmp_path: Path) -> None:
-    # Arrange
-    resolved = _resolved(_deps(tmp_path))
+    # Arrange — a layer is what `weft_cli.layers` says is one (R43.16), not an all-`Expander` list:
+    # `enrich-with-facts-and-graph` opens with an `Enhancer`.
+    deps = _deps(tmp_path)
+    resolved = _resolved(deps)
+    installed = set(installed_layers(registry=deps.registry, reports=deps.reports))
     layers = {
         tuple(stage.use for stage in pipeline.stages): name
         for name, pipeline in resolved.items()
-        if _is_layer(pipeline)
+        if name in installed
     }
 
     # Act
     missing = sorted(
         name
         for name, pipeline in resolved.items()
-        if not _is_layer(pipeline)
+        if name not in installed
         and (enrichment := _enrichment(pipeline))
         and enrichment not in layers
         and name not in NO_LAYER_TWIN
@@ -82,11 +84,13 @@ def test_every_enriching_document_has_a_layer_twin_or_a_reason(tmp_path: Path) -
 
 def test_every_waived_document_still_enriches_and_still_lacks_a_twin(tmp_path: Path) -> None:
     # Arrange
-    resolved = _resolved(_deps(tmp_path))
+    deps = _deps(tmp_path)
+    resolved = _resolved(deps)
+    installed = set(installed_layers(registry=deps.registry, reports=deps.reports))
     layers = {
         tuple(stage.use for stage in pipeline.stages)
-        for pipeline in resolved.values()
-        if _is_layer(pipeline)
+        for name, pipeline in resolved.items()
+        if name in installed
     }
 
     # Act

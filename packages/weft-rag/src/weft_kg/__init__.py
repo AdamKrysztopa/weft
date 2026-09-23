@@ -208,6 +208,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     # Appended last, after every other resource, because `test_register.py` asserts the exact
     # order and this document extends `index-with-facts`, which must already be registered above.
     registrar.add_pipeline_resource("weft_kg", "pipelines/index-with-facts-openai.yaml")
+    registrar.add_pipeline_resource("weft_kg", "pipelines/enrich-with-facts-and-graph.yaml")
 
 
 __all__ = [

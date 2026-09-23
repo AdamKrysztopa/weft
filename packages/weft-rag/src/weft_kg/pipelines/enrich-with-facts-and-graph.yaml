@@ -1,0 +1,12 @@
+name: enrich-with-facts-and-graph
+
+# The layer twin of `index-with-facts` (43.17). `cooccurrence-graph` runs first so it never
+# draws edges over the fact and mention nodes `llm-facts` derives; a base with no store
+# consuming `weft-kg-fact` is refused by name before anything runs.
+
+vars:
+  layer.store-consumes: weft-kg-fact
+
+stages:
+  - {id: entities, use: cooccurrence-graph}
+  - {id: facts, use: llm-facts}

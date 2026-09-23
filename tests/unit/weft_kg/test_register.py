@@ -54,6 +54,7 @@ from weft_kg.traversal import GraphWalk
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import Retriever
 from weft_store.contract import NodeStore, Reconcilable, SourceDeletable
+from weft_store.pgvector_store import PgVectorStore
 
 
 def _registered() -> Registry:
@@ -188,6 +189,20 @@ def test_the_store_satisfies_the_three_contracts_it_registers_and_fans_out_under
     assert class_provides(GraphStore, Reconcilable)
 
 
+def test_the_store_declares_every_ext_model_it_turns_into_graph_rows() -> None:
+    """Ledger `43.17`: a layer document names the ext model its base must have a store for, and
+    `weft_cli.layers` finds that store by reading `consumes` off each registered class. The three
+    are the models `GraphStore._derive_graph_rows` reads; the vector store keeps the same nodes and
+    derives nothing from them, so it declares none.
+    """
+    # Act
+    consumed = getattr(GraphStore, "consumes", ())
+
+    # Assert
+    assert set(consumed) == {ExtractedFact, MentionedEntity, CooccurrenceGraph}
+    assert getattr(PgVectorStore, "consumes", ()) == ()
+
+
 def test_the_walk_satisfies_the_traversal_contract_and_is_not_a_node_store() -> None:
     """`L11.23`: the two capabilities are two classes precisely so that the fan-out's
     `NodeStore` filter cannot be escaped by whichever contract sorts first.
@@ -279,6 +294,7 @@ def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> N
         ("weft_kg", "pipelines/graph-and-vector-rrf.yaml"),
         ("weft_kg", "pipelines/graph-then-rerank.yaml"),
         ("weft_kg", "pipelines/index-with-facts-openai.yaml"),
+        ("weft_kg", "pipelines/enrich-with-facts-and-graph.yaml"),
     ]
 
 

@@ -41,6 +41,20 @@ class Representation(ExtModel):
     technique: str
 
 
+class LayerMember(ExtModel):
+    """Marks a node a layer created, naming the layer — repair **R43.23**.
+
+    Stamped by `weft_cli.layers` before the tail stores it; a leaf the layer was handed is never
+    stamped. `weft_index.adrap` reads only unstamped summaries, so a base run never edits a
+    layer's tree. No `technique` field: this is not a `Representation` (fitness function 34).
+    """
+
+    __namespace__ = "weft-index-layer"
+    __schema_version__ = "1"
+
+    layer: str
+
+
 class ExpansionDegraded(ExtModel):
     """Marks a node an `Expander` could not expand — repair **R38.13**, every shipped
     `Expander` since repair **R38.18**.

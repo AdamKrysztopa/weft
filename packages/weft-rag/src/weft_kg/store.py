@@ -51,7 +51,7 @@ import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from hashlib import sha256
-from typing import Any, Final, NewType, Self, cast
+from typing import Any, ClassVar, Final, NewType, Self, cast
 
 import psycopg
 from pgvector import Vector as PgVector
@@ -62,7 +62,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
+from weft_kernel.payload import ExtModel, Node, NodeId, Outcome, Produced, SourceId, Vector
 from weft_kg import resolution
 from weft_kg.adjudication import DEFAULT_ADJUDICATION_FLOOR, first_verdict, threshold_adjudicator
 from weft_kg.bridges import BridgeCandidate, BridgeHop
@@ -937,7 +937,16 @@ class GraphStore:
     `GraphWalk` — see `weft_kg/__init__.py`'s module docstring on `L11.23`: one class under both
     `NodeStore` and `GraphTraversal` would let the fan-out's `NodeStore` filter be skipped
     entirely.
+
+    `consumes` is every `ExtModel` `_derive_graph_rows` turns into rows of its own; a layer
+    naming one in `layer.store-consumes` is refused over a base without this store (43.17).
     """
+
+    consumes: ClassVar[tuple[type[ExtModel], ...]] = (
+        MentionedEntity,
+        ExtractedFact,
+        CooccurrenceGraph,
+    )
 
     def __init__(
         self, settings: GraphSettings, config: object = None, *, _bound: TargetName | None = None

@@ -32,7 +32,7 @@ from weft_embed import Embedder
 from weft_engine.run_services import class_provides
 from weft_extract import Extractor
 from weft_extract.text import SourceRef
-from weft_index.payload import Representation
+from weft_index.payload import LayerMember, Representation
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
@@ -82,6 +82,11 @@ _TAIL_CONTRACTS: Final[tuple[type[object], ...]] = (Embedder, NodeStore)
 #: than promoted to a field of its own: a layer document says it the same way it says any
 #: other `with:`-adjacent fact about itself.
 _SCOPE_VAR: Final[str] = "layer.scope"
+
+#: The ext-model namespace a layer's base must have a consuming store for — task **43.17**.
+_STORE_CONSUMES_VAR: Final[str] = "layer.store-consumes"
+
+_KNOWN_LAYER_VARS: Final[tuple[str, ...]] = (_SCOPE_VAR, _STORE_CONSUMES_VAR)
 
 
 class LayerScope(StrEnum):
@@ -205,6 +210,17 @@ class LayerNeedsGenerationHoldingError(WeftError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class LayerNeedsConsumingStoreError(WeftError, UnresolvedNameError):
+    """A layer sets `layer.store-consumes`, and no store its base names declares that ext model
+    in its `consumes` — task **43.17**. `valid_options` is every installed `NodeStore` whose
+    class does, read off the registry, so this module names no store (FF28).
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+
+
 class LayerNodeCollisionError(WeftError):
     """A second layer derived a node id another layer already stored — task **43.8**.
 
@@ -266,16 +282,15 @@ class LayerComposition(BaseModel):
 def _layer_scope(resolved: ResolvedPipeline, *, layer: str) -> LayerScope:
     """`resolved.vars['layer.scope']` as a `LayerScope` — `LayerScope.SOURCE` when the var is
     absent, `LayerScopeError` for any value that is neither `'source'` nor `'corpus'`, and
-    `UnknownLayerVarError` — carried repair **R43.13** — for any other `layer.` var: a layer
-    document reads `layer.scope` alone, so a key outside that one is a fault, not a fact this
-    function silently ignores.
+    `UnknownLayerVarError` — carried repair **R43.13** — for any `layer.` var outside
+    `_KNOWN_LAYER_VARS`.
     """
     for key in resolved.vars:
-        if key.startswith("layer.") and key != _SCOPE_VAR:
+        if key.startswith("layer.") and key not in _KNOWN_LAYER_VARS:
             raise UnknownLayerVarError(
                 f"'{layer}' (or a document it extends) sets '{key}', which no layer reads. "
-                "A layer reads: layer.scope.",
-                valid_options=(_SCOPE_VAR,),
+                f"A layer reads: {', '.join(_KNOWN_LAYER_VARS)}.",
+                valid_options=_KNOWN_LAYER_VARS,
                 pipeline=layer,
             )
     value = resolved.vars.get(_SCOPE_VAR, LayerScope.SOURCE.value)
@@ -287,6 +302,12 @@ def _layer_scope(resolved: ResolvedPipeline, *, layer: str) -> LayerScope:
             "the whole 'corpus'.",
             pipeline=layer,
         ) from exc
+
+
+def _layer_store_consumes(resolved: ResolvedPipeline) -> str | None:
+    """`resolved.vars['layer.store-consumes']`, or `None` when the document sets none."""
+    value = resolved.vars.get(_STORE_CONSUMES_VAR)
+    return None if value is None else str(value)
 
 
 def installed_layers(
@@ -322,6 +343,23 @@ def installed_layers(
     return tuple(sorted(layers))
 
 
+def _consuming_store_names(registry: Registry, *, namespace: str) -> tuple[str, ...]:
+    """Every registered `NodeStore` whose class lists a model of `namespace` in `consumes`,
+    in `_generation_holding_store_names`' shape.
+    """
+    return tuple(
+        sorted(
+            name
+            for name in registry.names_for(NodeStore)
+            if isinstance(candidate := unwrap_factory(registry.lookup(NodeStore, name)), type)
+            and any(
+                getattr(model, "__namespace__", None) == namespace
+                for model in getattr(candidate, "consumes", ())
+            )
+        )
+    )
+
+
 def compose_layer_over(
     layer: str,
     *,
@@ -344,6 +382,21 @@ def compose_layer_over(
         layer, registry=registry, reports=reports, contributions=contributions
     )
     scope = _layer_scope(resolved_layer, layer=layer)
+
+    store_consumes = _layer_store_consumes(resolved_layer)
+    if store_consumes is not None:
+        base_stores = tuple(spec.name for spec in tail_specs if spec.contract is NodeStore)
+        options = _consuming_store_names(registry, namespace=store_consumes)
+        if not set(base_stores) & set(options):
+            stores = ", ".join(f"'{name}'" for name in base_stores)
+            installed = ", ".join(options)
+            raise LayerNeedsConsumingStoreError(
+                f"'{layer}' needs a store that turns '{store_consumes}' into rows of its own "
+                f"(consumes), and '{base}' has none — it stores with {stores or '(none)'}. "
+                f"Installed stores that can: {installed or '(none)'}.",
+                valid_options=options,
+            )
+
     layer_specs = to_specs(resolved_layer, registry=registry, reports=reports)
 
     for spec in layer_specs:
@@ -454,6 +507,13 @@ def layer_enriched(handed: Sequence[Node], returned: Sequence[Node]) -> tuple[No
         for node in returned
         if (before := handed_by_id.get(node.id)) is not None and node != before
     )
+
+
+def _stamped(created: Sequence[Node], *, layer: str) -> tuple[Node, ...]:
+    """`created`, each carrying `LayerMember(layer=layer)` (R43.23). A leaf passed through or
+    enriched in place is the base's own node and is never passed here.
+    """
+    return tuple(node.with_ext(LayerMember(layer=layer)) for node in created)
 
 
 def _not_a_leaf_namespaces() -> tuple[str, ...]:
@@ -1063,7 +1123,7 @@ async def _run_one_layer_batch(
             tail_outcome = await _run_corpus_tail(
                 runner,
                 tail_runnable,
-                (*enriched, *created),
+                (*enriched, *_stamped(created, layer=composition.layer)),
                 indexing_ctx,
                 embed_stage_ids=frozenset(
                     spec.id for spec in composition.tail_specs if spec.contract is Embedder
@@ -1433,7 +1493,7 @@ async def _run_corpus_layer(
             tail_outcome = await _run_corpus_tail(
                 runner,
                 bound_tail,
-                created,
+                _stamped(created, layer=composition.layer),
                 indexing_ctx,
                 embed_stage_ids=tail_embed_ids,
                 store_stage_ids=tail_store_ids,
@@ -1753,6 +1813,7 @@ __all__ = [
     "LayerComposition",
     "LayerDuplicatesBaseStageError",
     "LayerFailure",
+    "LayerNeedsConsumingStoreError",
     "LayerNeedsGenerationHoldingError",
     "LayerNeedsMetadataFilterError",
     "LayerNodeCollisionError",
