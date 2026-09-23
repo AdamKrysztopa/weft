@@ -120,6 +120,7 @@ from weft_chunk import Chunker
 from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.layers import (
+    LayerFailure,
     compose_layers,
     require_corpus_layers_generation_holding,
     require_layers_metadata_filter,
@@ -527,6 +528,10 @@ class IndexResult:
     #: each name once, in the order named — never re-run unasked, only reported. `()` when no
     #: layer was named, or every named layer's identity still matches what is stored.
     layers_changed: tuple[str, ...] = ()
+    #: Carried repair **R43.9** — every named layer this run tried and could not build, with
+    #: how many of its sources failed and the first reason. A source skipped because an earlier
+    #: run recorded it failed is not counted: this run did not try it.
+    layers_failed: tuple[LayerFailure, ...] = ()
     #: Ledger task **43.15** — every corpus-scoped layer document `ACTIVE` on at least one of
     #: this run's `ACTIVE` sources but not on all of them, sorted by name. Computed regardless
     #: of what `layers` this run itself named: a source indexed without naming the layer still
@@ -1150,8 +1155,9 @@ async def run_index(
         summary = _summed(counts)
 
         layers_changed: tuple[str, ...] = ()
+        layers_failed: tuple[LayerFailure, ...] = ()
         if layer_compositions:
-            layers_changed = await run_layers(
+            layers_changed, layers_failed = await run_layers(
                 layer_compositions,
                 runner=runner,
                 runnable=runnable,
@@ -1196,6 +1202,7 @@ async def run_index(
             target_stopped_being_live=target_stopped_being_live,
             target_now_live=target_now_live,
             layers_changed=layers_changed,
+            layers_failed=layers_failed,
             layers_stale=layers_stale,
             layers_stale_progress=layers_stale_progress,
         )

@@ -203,6 +203,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Fixed
 
+- **A layer that fails is reported, and `weft index` exits 1.** The run prints each failed layer
+  with how many of its sources failed and the first reason; before this it printed nothing and
+  exited 0. A layer whose document changed is printed too, and one that failed under an older
+  version of its document runs again without `--retry-failed`, so raising a bound RAPTOR refused
+  on takes effect.
+- **`enrich-with-raptor` builds one tree per document, as documented.** It was handed a whole
+  batch of documents at once, one tree over up to 25 of them.
 - **A summary `adrap` rebuilds is embedded before it replaces the old one.** It was stored with
   no vector, so after `index-with-adrap` joined a new document to a RAPTOR tree, the rebuilt
   summaries dropped out of vector search.

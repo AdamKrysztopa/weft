@@ -179,6 +179,20 @@ class LayerDuplicatesBaseStageError(PipelineResolutionError):
     """
 
 
+class LayerFailure(BaseModel):
+    """A layer this run tried and could not build, on `failed` of the `of` sources it was
+    eligible for — carried repair **R43.9**. `reason` is the first failure's own message; the
+    rest are on each source's `LayerRecord`, which `weft sources list` prints.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    layer: str
+    failed: int
+    of: int
+    reason: str
+
+
 class LayerComposition(BaseModel):
     """A layer resolved and checked against its base — `compose_layer`'s return.
 
@@ -374,7 +388,7 @@ def layer_leaf_filter(sources: Sequence[SourceId]) -> Filter:
     `IN lineage.sources` narrows to this batch's own sources, and `NOT(EXISTS
     ext.weft-index.technique)` leaves out every node an `Expander` already derived, so a layer
     never re-enriches another layer's output. The graph pack's fact and mention nodes join this
-    filter with the first graph layer (`43.15`): fitness function 28 keeps its name out of here.
+    filter with the first graph layer (`43.17`): fitness function 28 keeps its name out of here.
     """
     return Filter(
         op=FilterOp.AND,
@@ -576,6 +590,10 @@ def _layer_decision(
     if existing is None or existing.status is LayerStatus.INDEXING:
         return _LayerRunDecision.RUN
     if existing.pipeline_identity != identity:
+        # R43.9: a failed build holds nothing to protect, and its refusal's own remedy — a
+        # bound raised in the stage's `with:` — is exactly what moves the identity.
+        if existing.status is LayerStatus.FAILED:
+            return _LayerRunDecision.RUN
         return _LayerRunDecision.CHANGED
     if existing.status is LayerStatus.ACTIVE:
         return _LayerRunDecision.SKIP
@@ -805,14 +823,14 @@ async def _run_one_layer_batch(
     batch_refs: Sequence[SourceRef],
     attempts_by_source: Mapping[SourceId, int],
     indexing_ctx: Context,
-) -> bool:
+) -> str | None:
     """One layer batch's whole mechanics, lifted out of `run_layers` so that function's own
     complexity stays under the budget every function in this tree already holds to — ledger
-    task **43.8**. `True` once every source in `batch_refs` is `ACTIVE` (whether or not there
-    was anything to derive); `False` once every one is `FAILED` and the loop above should move
-    on to the next batch. `WeftError`/`LayerNodeCollisionError` always propagate instead of
-    returning, after this batch is recorded `FAILED` the same way `_fail_layer_batch` always
-    records one.
+    task **43.8**. `None` once every source in `batch_refs` is `ACTIVE` (whether or not there
+    was anything to derive); the failure's reason once every one is `FAILED` and the loop above
+    should move on to the next batch. `WeftError`/`LayerNodeCollisionError` always propagate
+    instead of returning, after this batch is recorded `FAILED` the same way
+    `_fail_layer_batch` always records one.
     """
     await _apply_layer_records(
         runnable,
@@ -848,7 +866,7 @@ async def _run_one_layer_batch(
                 for ref in batch_refs
             },
         )
-        return True
+        return None
 
     first_stage_id = composition.layer_specs[0].id
     try:
@@ -880,7 +898,7 @@ async def _run_one_layer_batch(
             stage=first_stage_id,
             message=outcome.reason,
         )
-        return False
+        return outcome.reason
 
     produced_nodes = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
     created = layer_created(leaves, produced_nodes)
@@ -933,7 +951,7 @@ async def _run_one_layer_batch(
                 stage=first_stage_id,
                 message=tail_outcome.reason,
             )
-            return False
+            return tail_outcome.reason
 
     await _apply_layer_records(
         runnable,
@@ -950,7 +968,7 @@ async def _run_one_layer_batch(
             for ref in batch_refs
         },
     )
-    return True
+    return None
 
 
 async def _emit_layer_progress(
@@ -1010,7 +1028,7 @@ def _corpus_layer_status(
         if existing is None:
             all_active = False
             continue
-        if existing.pipeline_identity != identity:
+        if existing.pipeline_identity != identity and existing.status is not LayerStatus.FAILED:
             changed = True
             all_active = False
             continue
@@ -1071,12 +1089,12 @@ async def _run_corpus_layer(
     eligible: Sequence[SourceRef],
     attempts_by_source: Mapping[SourceId, int],
     indexing_ctx: Context,
-) -> bool:
+) -> str | None:
     """One corpus-scoped layer's whole build, as one generation published whole — ledger task
-    **43.15**, `_run_one_layer_batch`'s own contract one scope over: `True` once the build
-    published (whether or not there was anything to derive), `False` once it failed and was
-    recorded. `WeftError`/`LayerNodeCollisionError` always propagate after this build is
-    recorded `FAILED` on every eligible source and its generation retracted;
+    **43.15**, `_run_one_layer_batch`'s own contract one scope over: `None` once the build
+    published (whether or not there was anything to derive), the failure's reason once it
+    failed and was recorded. `WeftError`/`LayerNodeCollisionError` always propagate after this
+    build is recorded `FAILED` on every eligible source and its generation retracted;
     `CancelledError` above all is never caught here, so an interrupted build leaves its
     generation `BUILDING` for the next build to retract.
     """
@@ -1135,7 +1153,7 @@ async def _run_corpus_layer(
         raise
     if isinstance(outcome, Failed):
         await _fail("Failed", first_stage_id, outcome.reason)
-        return False
+        return outcome.reason
 
     produced_nodes = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
     created = layer_created(leaves, produced_nodes)
@@ -1167,7 +1185,7 @@ async def _run_corpus_layer(
             raise
         if isinstance(tail_outcome, Failed):
             await _fail("Failed", first_stage_id, tail_outcome.reason)
-            return False
+            return tail_outcome.reason
 
     await primary.publish_generation(generation.id)
     for other in await primary.generations():
@@ -1193,7 +1211,7 @@ async def _run_corpus_layer(
             for ref in eligible
         },
     )
-    return True
+    return None
 
 
 async def _run_corpus_scoped_composition(
@@ -1211,11 +1229,11 @@ async def _run_corpus_scoped_composition(
     indexing_ctx: Context,
     layer_runnables: list[RunnablePipeline],
     layer_loop_started: float,
-) -> bool:
+) -> tuple[bool, LayerFailure | None]:
     """One corpus-scoped composition's whole turn in `run_layers`' own loop — lifted out so
     that function's per-composition branching stays under the complexity budget every
-    function in this tree already holds to. `True` when this layer's stored identity moved
-    (`run_layers`' own `layers_changed`), whatever else did or did not run.
+    function in this tree already holds to. `(changed, failure)`: whether this layer's stored
+    identity moved (`run_layers`' own `layers_changed`), and the build's failure, if it failed.
     """
     eligible = [
         ref
@@ -1224,12 +1242,12 @@ async def _run_corpus_scoped_composition(
         and record.status is SourceStatus.ACTIVE
     ]
     if not eligible:
-        return False
+        return False, None
     build, changed, existing_by_source = _corpus_layer_status(
         eligible, records, layer=composition.layer, identity=identity
     )
     if not build:
-        return changed
+        return changed, None
 
     layer_runnable = runner.resolve(composition.layer_specs, tenant_id=runnable.tenant_id)
     layer_runnables.append(layer_runnable)
@@ -1238,7 +1256,7 @@ async def _run_corpus_scoped_composition(
         runnable, stages=tuple(stage for stage in runnable.stages if stage.id in tail_ids)
     )
     attempts_by_source = _next_layer_attempts(existing_by_source, eligible)
-    succeeded = await _run_corpus_layer(
+    reason = await _run_corpus_layer(
         runnable,
         runner=runner,
         layer_runnable=layer_runnable,
@@ -1252,17 +1270,21 @@ async def _run_corpus_scoped_composition(
         attempts_by_source=attempts_by_source,
         indexing_ctx=indexing_ctx,
     )
-    if succeeded:
-        await _emit_layer_progress(
-            on_batch,
-            layer=composition.layer,
-            batch_number=1,
-            batches=1,
-            queryable=len(eligible),
-            documents=len(eligible),
-            start_time=layer_loop_started,
+    if reason is not None:
+        failure = LayerFailure(
+            layer=composition.layer, failed=len(eligible), of=len(eligible), reason=reason
         )
-    return changed
+        return changed, failure
+    await _emit_layer_progress(
+        on_batch,
+        layer=composition.layer,
+        batch_number=1,
+        batches=1,
+        queryable=len(eligible),
+        documents=len(eligible),
+        start_time=layer_loop_started,
+    )
+    return changed, None
 
 
 async def run_layers(
@@ -1278,9 +1300,14 @@ async def run_layers(
     on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
     indexing_ctx: Context,
     layer_runnables: list[RunnablePipeline],
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], tuple[LayerFailure, ...]]:
     """Every named layer, in order, after the base run has finished or been skipped under
-    `layers_only` — ledger task **43.8**, `weft_cli.ingest.run_index`'s own loop.
+    `layers_only` — ledger task **43.8**, `weft_cli.ingest.run_index`'s own loop. Returns
+    `(layers_changed, layers_failed)`; the second is carried repair **R43.9**.
+
+    A layer with a stage whose output depends on batch membership — `raptor`, one tree per
+    document — runs one source per call (carried repair **R43.10**); every other layer runs in
+    the base's own batches, where batching changes the cost and never the output.
 
     Eligible sources are this run's own `refs` whose record — re-read from the primary store,
     never `run_index`'s own `previous`/`changes`, both computed before the base wrote anything
@@ -1296,22 +1323,23 @@ async def run_layers(
     layer, never once per batch, on `Runner.resolve`'s own process-cache footing.
     """
     if store_stage_id is None:
-        return ()
+        return (), ()
     primary = _stage_instance(runnable, store_stage_id)
     get_source = _get_source_of(primary) if primary is not None else None
     get_nodes = _get_of(primary) if primary is not None else None
     matching = _matching_of(primary) if primary is not None else None
     if get_source is None or matching is None:
-        return ()
+        return (), ()
 
     layers_changed: list[str] = []
+    layers_failed: list[LayerFailure] = []
     layer_loop_started = time.monotonic()
     for composition in compositions:
         identity = pipeline_identity(composition.resolved)
         records = await _current_records(get_source, refs)
 
         if composition.scope is LayerScope.CORPUS:
-            corpus_changed = await _run_corpus_scoped_composition(
+            corpus_changed, corpus_failure = await _run_corpus_scoped_composition(
                 composition,
                 records=records,
                 identity=identity,
@@ -1328,6 +1356,8 @@ async def run_layers(
             )
             if corpus_changed and composition.layer not in layers_changed:
                 layers_changed.append(composition.layer)
+            if corpus_failure is not None:
+                layers_failed.append(corpus_failure)
             continue
 
         eligible, to_run, existing_by_source, queryable, changed = _layer_eligible(
@@ -1346,10 +1376,16 @@ async def run_layers(
             runnable, stages=tuple(stage for stage in runnable.stages if stage.id in tail_ids)
         )
 
-        batches = _sliced(to_run, effective_batch_size)
+        per_source = any(
+            getattr(stage.instance, "depends_on_batch_membership", False)
+            for stage in layer_runnable.stages
+        )
+        batches = _sliced(to_run, 1 if per_source else effective_batch_size)
+        failed = 0
+        first_reason: str | None = None
         for batch_number, batch_refs in enumerate(batches, start=1):
             attempts_by_source = _next_layer_attempts(existing_by_source, batch_refs)
-            succeeded = await _run_one_layer_batch(
+            reason = await _run_one_layer_batch(
                 runnable,
                 runner=runner,
                 layer_runnable=layer_runnable,
@@ -1364,7 +1400,9 @@ async def run_layers(
                 attempts_by_source=attempts_by_source,
                 indexing_ctx=indexing_ctx,
             )
-            if not succeeded:
+            if reason is not None:
+                failed += len(batch_refs)
+                first_reason = first_reason or reason
                 continue
             queryable += len(batch_refs)
             await _emit_layer_progress(
@@ -1376,8 +1414,14 @@ async def run_layers(
                 documents=documents,
                 start_time=layer_loop_started,
             )
+        if first_reason is not None:
+            layers_failed.append(
+                LayerFailure(
+                    layer=composition.layer, failed=failed, of=len(to_run), reason=first_reason
+                )
+            )
 
-    return tuple(layers_changed)
+    return tuple(layers_changed), tuple(layers_failed)
 
 
 def _corpus_scoped_layer_names(
@@ -1456,6 +1500,7 @@ __all__ = [
     "LAYER_STAGE_CONTRACTS",
     "LayerComposition",
     "LayerDuplicatesBaseStageError",
+    "LayerFailure",
     "LayerNeedsGenerationHoldingError",
     "LayerNeedsMetadataFilterError",
     "LayerNodeCollisionError",

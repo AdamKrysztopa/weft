@@ -116,6 +116,7 @@ from weft_cli.explain import (
 from weft_cli.fanout import Participant
 from weft_cli.ingest import DEFAULT_BATCH_SIZE, INDEX_PACKS, SourceChange, run_index_for
 from weft_cli.installed_versions import active_distribution_versions, installed_versions
+from weft_cli.layers import LayerFailure
 from weft_cli.output import AskFormat
 from weft_cli.pack_new import PackNewCommand
 from weft_cli.participation import (
@@ -820,6 +821,10 @@ class IndexCommandResult(CommandResult):
     #: The target that is live now, once this run finished — `None` unless
     #: `target_stopped_being_live` is.
     target_now_live: str | None = None
+    #: Carried repair **R43.9** — copied from `weft_cli.ingest.IndexResult`: until then a
+    #: changed or failed layer was reported to nobody.
+    layers_changed: tuple[str, ...] = ()
+    layers_failed: tuple[LayerFailure, ...] = ()
     #: Ledger task **43.15** — copied from `weft_cli.ingest.IndexResult.layers_stale`, so the
     #: renderer can name a corpus-scoped layer that has fallen behind without importing that
     #: dataclass.
@@ -1186,6 +1191,8 @@ class IndexCommand:
                 target_live=result.target_live,
                 target_stopped_being_live=result.target_stopped_being_live,
                 target_now_live=result.target_now_live,
+                layers_changed=result.layers_changed,
+                layers_failed=result.layers_failed,
                 layers_stale=result.layers_stale,
                 layers_stale_progress=result.layers_stale_progress,
             )

@@ -652,7 +652,7 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"nodes now stored: {stored}."
     )
     stdout = _index_target_lines(result, stdout)
-    stale_lines = _stale_layer_lines(result)
+    stale_lines = [*_changed_layer_lines(result), *_stale_layer_lines(result)]
     if stale_lines:
         stdout += "\n" + "\n".join(stale_lines)
     if result.payload_indexes:
@@ -683,10 +683,19 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     if summary.failed:
         stdout += f"\n{summary.failed} batch failed."
     stderr_lines = [f"  failed: {reason}" for reason in summary.failed_reasons]
+    stderr_lines.extend(
+        f"  layer '{failure.layer}' failed on {failure.failed} of {failure.of} sources: "
+        f"{failure.reason}"
+        for failure in result.layers_failed
+    )
     if result.defaulted_embedder is not None:
         stderr_lines.append(_defaulted_embedder_line(result.defaulted_embedder))
     stderr = "\n".join(stderr_lines) or None
-    exit_code = ExitCode.SUCCESS if summary.failed == 0 else ExitCode.OPERATION_FAILED
+    exit_code = (
+        ExitCode.SUCCESS
+        if summary.failed == 0 and not result.layers_failed
+        else ExitCode.OPERATION_FAILED
+    )
     if result.reconcile is not None:
         reconciled = _render_reconcile(result.reconcile)
         if reconciled.stdout:
@@ -716,6 +725,15 @@ def _citation_line(citation: Citation) -> str:
     """
     page = f" p.{citation.page}" if citation.page is not None else ""
     return f"  [{citation.marker}] {citation.uri}{page} — {citation.node_id}"
+
+
+def _changed_layer_lines(result: IndexCommandResult) -> list[str]:
+    """One line per name in `result.layers_changed` — carried repair **R43.9**."""
+    return [
+        f"layer '{name}' changed since it last ran and was not rebuilt — "
+        f"weft index --layers {name} --reprocess rebuilds it."
+        for name in result.layers_changed
+    ]
 
 
 def _stale_layer_lines(result: IndexCommandResult) -> list[str]:

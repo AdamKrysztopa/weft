@@ -1233,6 +1233,28 @@ async def test_the_wrapper_tolerates_a_sink_that_offers_no_narrowing() -> None:
     tracking(_Plain()).show_only_stage("generate")
 
 
+def test_the_emission_tracking_wrapper_offers_every_method_a_cli_sink_adds() -> None:
+    # `L28.37`, recurring `L12.13`: `43.2` fed progress to the sink by `isinstance`, the wrapper
+    # forwarded only `emit`, `close` and `show_only_stage`, and `weft index` printed no progress
+    # while every test built a bare `PrintingSink`. The next optional method fails here.
+    import weft_cli.cli as cli_module
+    from weft_cli.sinks import JsonSink, PrintingSink
+    from weft_llm.client import NullSink
+
+    def public(cls: type) -> set[str]:
+        return {name for name, value in vars(cls).items() if callable(value) and name[0] != "_"}
+
+    offered = public(_private(cli_module, "_EmissionTrackingSink"))
+
+    # Act
+    unforwarded = {
+        sink.__name__: sorted(public(sink) - offered) for sink in (PrintingSink, JsonSink, NullSink)
+    }
+
+    # Assert
+    assert unforwarded == {"PrintingSink": [], "JsonSink": [], "NullSink": []}
+
+
 class _Narrowing(Protocol):
     """The one method carried repair `R10.1` asks an optional sink to offer."""
 

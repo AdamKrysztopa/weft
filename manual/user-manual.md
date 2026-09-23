@@ -263,7 +263,8 @@ name.
 - **Pending, then active, per document.** Each source records each layer it has: `indexing` while
   its batch runs, `active` once its derived nodes are stored, `failed` with the stage and error if
   the layer refused. `weft sources list` prints them. `weft target list` names the layers complete
-  on every source.
+  on every source. `weft index` prints each layer that failed, on how many sources and why, and
+  exits 1.
 - **A rung that needs a layer waits for it.** `questions-then-generate` searches the chunks and
   their questions together, and declares `route.requires: enrich-with-questions`. Until that layer
   is active on every indexed source, the router does not offer it, and `weft ask --explain` says so
@@ -271,8 +272,9 @@ name.
   `--allow-pending` answers anyway, stating the pending layer under the answer.
 - **Resuming costs only what is left.** An interrupted layer run resumes where it stopped: sources
   already `active` are skipped, and the base is not re-parsed. A layer that failed is retried only
-  under `--retry-failed`. A layer whose document changed since it ran is reported and not rebuilt
-  unasked; `--reprocess` rebuilds a source's base and layers together.
+  under `--retry-failed`, or once its document changes. A layer whose document changed since it
+  built is reported and not rebuilt unasked; `--reprocess` rebuilds a source's base and layers
+  together.
 - **A changed document loses its layers until they run again**, because the chunks they were
   derived from are gone.
 - **A layer over the whole corpus is built as a unit.** `enrich-with-raptor` builds one RAPTOR

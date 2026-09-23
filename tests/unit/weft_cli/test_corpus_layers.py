@@ -20,7 +20,7 @@ import pytest
 from weft_chunk import Chunker
 from weft_chunk.fixed_size import FixedSizeChunker
 from weft_cli.ingest import IndexResult, run_index
-from weft_cli.layers import LayerNeedsGenerationHoldingError, compose_layer
+from weft_cli.layers import LayerFailure, LayerNeedsGenerationHoldingError, compose_layer
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
 from weft_engine import registry_bootstrap
@@ -388,12 +388,37 @@ async def test_a_failed_corpus_build_leaves_no_generation_behind(corpus: Path) -
     _Summary.fail = True
 
     # Act
-    await _index(store, corpus, layers=("enrich-with-summary",))
+    result = await _index(store, corpus, layers=("enrich-with-summary",))
 
     # Assert
     assert await store.generations() == ()
     assert _summaries(store) == []
     assert {r.layers[0].status for r in store.state.records.values()} == {LayerStatus.FAILED}
+    assert result.layers_failed == (
+        LayerFailure(layer="enrich-with-summary", failed=6, of=6, reason="the model refused"),
+    )
+
+
+async def test_a_failed_corpus_build_whose_document_changed_builds_again_unasked(
+    corpus: Path, tmp_path: Path
+) -> None:
+    # Arrange
+    store = _GenerationStore()
+    _Summary.fail = True
+    await _index(store, corpus, layers=("enrich-with-summary",))
+    _Summary.fail = False
+    (tmp_path / "pipelines" / "enrich-with-summary.yaml").write_text(
+        "name: enrich-with-summary\n"
+        "vars:\n  layer.scope: corpus\n  moved: 'yes'\n"
+        "stages:\n  - {id: summary, use: echo-summary}\n"
+    )
+
+    # Act
+    result = await _index(store, corpus, layers=("enrich-with-summary",))
+
+    # Assert
+    assert result.layers_changed == ()
+    assert {r.layers[0].status for r in store.state.records.values()} == {LayerStatus.ACTIVE}
 
 
 def test_enrich_with_raptor_ships_source_scoped_and_composes_with_a_base(

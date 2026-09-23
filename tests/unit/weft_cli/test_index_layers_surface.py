@@ -12,9 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from weft_cli import commands
+from weft_cli import commands, render
 from weft_cli import ingest as ingest_module
+from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult
+from weft_cli.layers import LayerFailure
 from weft_cli.progress import BatchProgress
 from weft_cli.sinks import PrintingSink
 from weft_embed import Embedder
@@ -201,3 +203,41 @@ async def test_a_layer_batch_prints_its_own_progress_line() -> None:
     assert err.getvalue() == (
         "layer enrich-with-questions · batch 1/2 · 4/6 sources · 3.1 s since start\n"
     )
+
+
+async def test_a_failed_or_changed_layer_reaches_the_operator_and_a_failure_exits_1(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Carried repair **R43.9**: `IndexResult` carried a moved layer since 43.8 and the command
+    copied it nowhere, so neither a changed nor a failed layer was ever printed."""
+
+    # Arrange
+    async def ran(*_args: object, **_kwargs: object) -> IndexResult:
+        return IndexResult(
+            summary=RunSummary(produced=1, nothing_to_produce=0, failed=0),
+            stored_count=12,
+            layers_changed=("enrich-with-questions",),
+            layers_failed=(
+                LayerFailure(layer="raptor-corpus", failed=30, of=30, reason="above max_pairs"),
+            ),
+        )
+
+    monkeypatch.setattr(ingest_module, "run_index", ran)
+
+    # Act
+    outcome = await commands.IndexCommand().run(
+        commands.IndexArgs(path=str(tmp_path), layers="raptor-corpus"), _ctx(_deps(IndexPolicy()))
+    )
+    rendered = render.render_outcome(outcome)
+
+    # Assert
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+    assert rendered.stderr is not None
+    assert rendered.stdout is not None
+    assert "  layer 'raptor-corpus' failed on 30 of 30 sources: above max_pairs" in (
+        rendered.stderr.splitlines()
+    )
+    assert (
+        "layer 'enrich-with-questions' changed since it last ran and was not rebuilt — "
+        "weft index --layers enrich-with-questions --reprocess rebuilds it."
+    ) in rendered.stdout.splitlines()

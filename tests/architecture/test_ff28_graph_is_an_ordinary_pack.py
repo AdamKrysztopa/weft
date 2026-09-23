@@ -55,6 +55,10 @@ _PACK_GROUP: Final[str] = "weft.packs"
 #: are talking about the same thing.
 _PUBLISHED_HERE: Final[str] = "weft_kg.contract.GraphTraversal"
 
+#: Clause (c)'s words, matched as text, prose included. `.claude/hooks/guard_pack_prose.py` reads
+#: this literal to warn at the write rather than at the gate (`L28.31`, `L28.39`).
+GRAPH_PACK_NAMES: Final[tuple[str, ...]] = ("weft_kg", "pgvector-graph", "pgvector-traversal")
+
 
 def _pack_entry_points(distribution: Path) -> Mapping[str, str]:
     """The `weft.packs` table a distribution declares, as a mapping of name to target.
@@ -190,15 +194,13 @@ def test_nothing_else_in_the_wheel_or_the_kernel_reaches_into_the_graph_pack() -
     about a capability it must not. Before G19 an import here needed a dependency edit somebody
     would have seen in a diff; now it is one line inside a wheel that already contains both.
     """
-    leaks = naming_the_graph_pack(
-        ("weft_kg", "pgvector-graph", "pgvector-traversal"),
-        within=(KERNEL_ROOT, *_sibling_package_dirs()),
-    )
+    leaks = naming_the_graph_pack(GRAPH_PACK_NAMES, within=(KERNEL_ROOT, *_sibling_package_dirs()))
     assert not leaks, (
         "these first-party files name the graph pack or a plugin it registers:\n  "
         + "\n  ".join(f"{path.relative_to(REPO_ROOT)}: {name!r}" for path, name in leaks)
         + "\n\nFitness function 28(c): nothing in the kernel or in any other pack of this wheel "
-        "may know the graph pack exists. It is reached through discovery and by no other path."
+        "may know the graph pack exists. It is reached through discovery and by no other path. "
+        'The sweep is text, so a docstring naming it fails too: write "the graph pack" (L28.31).'
     )
 
 

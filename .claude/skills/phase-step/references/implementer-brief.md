@@ -203,6 +203,9 @@ container, so anything touching the database is serial whatever the isolation.
 database" was not a boundary: `tests/unit/weft_store` holds a pgvector test on the shared Postgres,
 and an agent ran it beside the dispatcher's gate. `guard_unstaged_gate.py` now refuses the full
 gate while an `agent-*` worktree is locked; the brief keeps the agent's own runs off the container.
+A directory in *Done when* is fine when nothing under it reaches a container: the hook judges what a
+run opens by `tests/conftest.py`'s `_CONTAINER_TOKENS`, not by its spelling (`L28.30`, `L28.34`), and
+refuses a parallel agent any run that does.
 
 **A worktree brief opens with *Step 0 — apply the red tests*** (`docs/internal/lessons.md`
 `L22.19`): the worktree is built from `HEAD` and the failing tests are uncommitted in the
@@ -324,6 +327,11 @@ the work. Run these against the brief, not against the code.
    function, and the property is the graph's rather than the name's. One command answers it before
    the brief is sent: import the module you are about to mandate and count `sys.modules`, or run
    FF8(b) alone against a sketch.
+
+   **And a brief that has one pack's code name another pack greps `tests/architecture` for that
+   pack's name first** (`L28.39`). `43.8`'s brief put a local `weft_kg` import in a sibling pack
+   "so fitness function 8(b) holds"; it did, and FF28(c), a text sweep with no waiver, failed.
+   `guard_pack_prose.py` now tells the writer at the edit; the brief is where it was decided.
 
 2. **Is *Already decided* derived from the contract, or from your own test?** `L10.37`, and it is
    `L5.6`'s rule — a comparison whose two sides come from one source cannot disagree. A brief

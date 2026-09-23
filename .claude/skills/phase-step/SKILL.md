@@ -119,7 +119,10 @@ caller shape structurally rather than textually. → `references/evidence.md`
 **A measured number is quoted with the invocation that produced it, flags included** (`L28.26`):
 Phase 43's proposal took "≈2 s/document" as the default `weft index`'s rate and built a 90-second
 bound on it, while the cited ledger line records `--batch-size 50`. Before a number or a proposed
-stage enters a task line, re-read the cited line and the code path it assumes.
+stage enters a task line, re-read the cited line and the code path it assumes. **And name the input
+it was measured on, format and corpus** (`L28.32`): three fix-plans sized Phase 43's PDF work from a
+correctly quoted invocation over 1,000 papers rendered to markdown, and named a pipeline for the PDF
+arms that reads only `.md`/`.txt`. Resolve a pipeline named for an arm against that arm's files.
 
 **A fix-plan or a review document is a hypothesis about the tree, and its per-task clauses are
 the part nothing checks.** `01`-through-`13`'s factual claims are held to `CLAUDE.md`'s evidence
@@ -292,7 +295,9 @@ docstring which roots it walks (`L12.17`).
 
 **Write the test before the implementation, and watch it fail for the right reason.** A test that
 passes against an empty implementation is testing nothing, and a test that fails with `ImportError`
-when you meant to check behaviour has not been read. Test-first is the project owner's standing
+when you meant to check behaviour has not been read. `brief_facts.py` lists red files that fail at
+collection: stub the missing names in the scratchpad and run each test once, so each fails for its
+own reason (`L28.36`, twice in Phase 43, each a blocked return on a fixture defect the import hid). Test-first is the project owner's standing
 direction (`build-ledger.md` → *The working protocol*), not a gate — it is not re-argued in a task.
 
 Shape: the mirroring path under `tests/`, happy path, one edge case, one error case, AAA with one
@@ -321,7 +326,10 @@ assertion it touched rather than trusting that lint would have said something.
 parametrised over backends is read *arm by arm for what each leaves behind*: one arm tore down and
 the other did not, and only the careless one touched shared state (`L23.13`). A red test that
 changes behaviour an earlier task established carries the superseded test in the same patch — grep
-the target file for the earlier task's id first (`L23.16`). And assert a property of a returned
+the target file for the earlier task's id first (`L23.16`), **then read the calls of every test of
+the entry point you change, not their names or assertion text** (`L28.35`): `R43.1` reversed a `36.1`
+test whose name did not say it ran at the default batch size, and a grep for `documents_failed ==`
+could not find it. And assert a property of a returned
 container — its length, its ids, its membership — not equality with a literal, unless you have read
 the pinned return type; two lines of one test disagreed about whether a result was a list or a tuple
 (`L23.17`). The same holds for `str | None`: `"x" in rendered.stdout` type-checks as unsound, and
@@ -347,7 +355,9 @@ vacuous.** Four shapes, all of them cheap to check once named:
   message keyed on `distribution` and **G19** had put fourteen packs in one. Where the thing under
   test renders a *collection*, the fixture holds at least two entries — or the separators, the
   ordering, the deduplication and above all *whether two entries are distinguishable* are untested
-  (`L12.6`).
+  (`L12.6`). **Discovery reports are such a collection at the size a real install produces**
+  (`L28.29`): a real wheel always has several uninstalled extras, and a headline built from one
+  `IMPORT`-failed pack printed six in the binary.
 - **Where the code refuses an answer for not matching the input's *cardinality*, the test offers a
   realistic number of items** (`L28.12`). `llm-rerank` offers every pooled passage and refuses a
   judgement set that is not exactly one per passage; every unit test of it offered **one or two**,
@@ -366,7 +376,8 @@ vacuous.** Four shapes, all of them cheap to check once named:
   An optional duck-typed method reached by `getattr` was written on both sinks and tested through
   a double that had it — while every real run hands over a decorator that forwards the contract
   and nothing else, so the feature was inert on every path. Ask *what type does the caller
-  actually receive*, and construct that (`L12.13`).
+  actually receive*, and construct that (`L12.13`). It recurred one method over (`L28.37`: `43.2`'s
+  progress), and `test_cli.py` now fails a wrapper missing any method a CLI sink adds.
 - **Assert the exception the code should raise, not the family it belongs to.**
   `pytest.raises(WeftError)` plus `"blob" in str(...)` passed against a build where the sibling
   error said the opposite of the truth — the substring made it worse, because a key's name appears
@@ -438,7 +449,12 @@ real composition before accepting anything.
 
 **Assert a behavioural property through the seam a caller uses.** Parsing or grepping first-party
 source to check *where* code lives asserts the current arrangement and forbids the refactor that
-would improve it (`L9.39`). And a value the test supplies by hand is one the caller's real
+would improve it (`L9.39`). A test that something is *not* called patches with `raising=False`, so
+it asserts the behaviour rather than the binding (`L28.38`: one forced a dead re-export to keep a
+name alive). **And a fact a result carries for an operator is asserted where the operator reads
+it** — the rendered line and the exit code — never on the dataclass one layer in (`L28.40`:
+`layers_changed` was tested on `IndexResult` and never printed; fitness function 35 now fails the
+copy, not the rendering). And a value the test supplies by hand is one the caller's real
 derivation was never asked for (`L9.26`): where a value's whole job is to travel from configuration
 to a call, one test must capture that call's arguments, or the wire is untested along its length
 (`L9.79`).

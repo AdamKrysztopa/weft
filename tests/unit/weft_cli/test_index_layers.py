@@ -23,6 +23,7 @@ from weft_chunk import Chunker
 from weft_chunk.fixed_size import FixedSizeChunker
 from weft_cli.ingest import IndexResult, run_index
 from weft_cli.layers import (
+    LayerFailure,
     LayerNeedsMetadataFilterError,
     LayerNodeCollisionError,
     UnknownLayerError,
@@ -171,6 +172,13 @@ class _SameQuestion(_EchoQuestion):
     technique: ClassVar[str] = "same-question"
 
 
+class _TreeQuestion(_EchoQuestion):
+    """A layer whose output depends on which leaves share its call, as `raptor`'s does."""
+
+    technique: ClassVar[str] = "tree-question"
+    depends_on_batch_membership: ClassVar[bool] = True
+
+
 def _factory(store: _Store, config: object) -> _Store:
     del config
     return store
@@ -184,6 +192,7 @@ def _registry(store: _Store) -> Registry:
     registry.add(NodeStore, "pgvector", partial(_factory, store), distribution="weft-store")
     registry.add(Expander, "echo-question", _EchoQuestion, distribution="weft-index")
     registry.add(Expander, "same-question", _SameQuestion, distribution="weft-index")
+    registry.add(Expander, "tree-question", _TreeQuestion, distribution="weft-index")
     return registry
 
 
@@ -205,6 +214,9 @@ def corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     (pipelines / "enrich-with-same.yaml").write_text(
         "name: enrich-with-same\nstages:\n  - {id: same, use: same-question}\n"
+    )
+    (pipelines / "enrich-with-tree.yaml").write_text(
+        "name: enrich-with-tree\nstages:\n  - {id: tree, use: tree-question}\n"
     )
     monkeypatch.chdir(tmp_path)
     _EchoQuestion.calls = []
@@ -378,6 +390,74 @@ async def test_a_layer_that_fails_records_failed_and_is_retried_only_when_asked(
     assert unasked == []
     assert {r.layers[0].status for r in store.records.values()} == {LayerStatus.ACTIVE}
     assert {r.layers[0].attempts for r in store.records.values()} == {2}
+
+
+async def test_a_failed_layer_is_reported_by_the_run_that_failed_it(corpus: Path) -> None:
+    """Carried repair **R43.9**: Exit C's corpus RAPTOR refused on all thirty sources and
+    `weft index` exited 0 printing nothing, because the loop reported only moved identities."""
+    # Arrange
+    store = _PagingStore()
+    _EchoQuestion.fail = True
+
+    # Act
+    result = await _index(store, corpus, layers=("enrich-with-echo",))
+
+    # Assert
+    assert result.layers_failed == (
+        LayerFailure(layer="enrich-with-echo", failed=6, of=6, reason="the model refused"),
+    )
+
+
+async def test_a_layer_skipped_as_failed_earlier_is_not_reported_as_failing_again(
+    corpus: Path,
+) -> None:
+    # Arrange
+    store = _PagingStore()
+    _EchoQuestion.fail = True
+    await _index(store, corpus, layers=("enrich-with-echo",))
+
+    # Act
+    result = await _index(store, corpus, layers=("enrich-with-echo",))
+
+    # Assert
+    assert result.layers_failed == ()
+
+
+async def test_a_failed_layer_whose_document_changed_runs_again_unasked(
+    corpus: Path, tmp_path: Path
+) -> None:
+    """R43.9: raptor's refusal says to raise a bound in the stage's `with:`, which moves the
+    identity; a failed record then read as `changed` and the remedy did nothing."""
+    # Arrange
+    store = _PagingStore()
+    _EchoQuestion.fail = True
+    await _index(store, corpus, layers=("enrich-with-echo",))
+    _EchoQuestion.fail = False
+    (tmp_path / "pipelines" / "enrich-with-echo.yaml").write_text(
+        "name: enrich-with-echo\nstages:\n  - {id: echo, use: same-question}\n"
+    )
+
+    # Act
+    result = await _index(store, corpus, layers=("enrich-with-echo",))
+
+    # Assert
+    assert result.layers_changed == ()
+    assert {r.layers[0].status for r in store.records.values()} == {LayerStatus.ACTIVE}
+
+
+async def test_a_layer_whose_output_depends_on_batch_membership_runs_once_per_source(
+    corpus: Path,
+) -> None:
+    """Carried repair **R43.10**: `enrich-with-raptor` is one tree per document, and Exit C
+    handed it twenty-five documents' leaves in one call, which is one tree per batch."""
+    # Arrange
+    store = _PagingStore()
+
+    # Act
+    await _index(store, corpus, layers=("enrich-with-tree",))
+
+    # Assert
+    assert _EchoQuestion.calls == [1] * 6
 
 
 async def test_a_layer_whose_identity_moved_is_reported_and_not_re_run(

@@ -13,13 +13,21 @@ Prints a `## Brief facts` block to paste into the brief; `guard_implementer_brie
    by message wording was the Applied rule, and it hid a `getattr` error whose message said
    "unknown" for a reason of its own.
 2. **Every `path:line` citation into each owner module** (`L24.6`, recurring `L23.15`), so the
-   brief says who re-points the ones the change will move.
+   brief says who re-points the ones the change will move. A citation counts when what it wrote
+   is a path suffix of the owner, and a bare basename counts only when its quoted fragment sits
+   within FF17's window in the owner (`L28.33`): matching directory plus name (`L28.24`) dropped
+   four basename citations across two briefs, which FF17 resolves just the same.
 3. **The test files naming each `Protocol` an owner module defines** (`L28.16`). Widening one breaks
    every double of it, in tests the implementer may not edit; the red file's clean count says
    nothing about them. Type-check these against the changed signature before the brief orders it.
+4. **Red files that fail at collection** (`L28.36`). An import error stands in front of every
+   test's own reason to fail, and two dispatches in one phase returned blocked on fixture defects
+   it hid. Stub the missing names in the scratchpad and run each test once before dispatch.
 
 Runs under bare `python3` (3.9), like the hooks: no 3.10+ syntax.
 """
+
+from __future__ import annotations
 
 import argparse
 import builtins
@@ -32,6 +40,13 @@ from pathlib import Path
 
 _QUOTED = re.compile(r'"([A-Za-z_][A-Za-z0-9_]*)"')
 _PROTOCOL = re.compile(r"^class ([A-Za-z_][A-Za-z0-9_]*)\([^)]*\bProtocol\b", re.MULTILINE)
+#: `tests/architecture/test_ff17_citations_resolve.py`'s `_CITATION_WITH_FRAGMENT`, and its window.
+_CITATION = re.compile(
+    r"([A-Za-z0-9_./-]+\.(?:py|md|toml|yaml|yml)):(\d+)(?:-\d+)?"
+    r"(?: (?:\"([^\"]{8,})\"|'([^']{8,})'))?"
+)
+_FF17 = Path("tests/architecture/test_ff17_citations_resolve.py")
+_WINDOW = re.compile(r"^_FRAGMENT_WINDOW\b[^=]*=\s*(\d+)", re.MULTILINE)
 
 
 def _run(args: list[str]) -> str:
@@ -77,18 +92,72 @@ def red_groups(red: list[str]) -> tuple[dict[tuple[str, str], int], int]:
     return groups, total
 
 
+def _window() -> int | None:
+    try:
+        found = _WINDOW.search(_FF17.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    return int(found.group(1)) if found else None
+
+
+def _cites(owner: Path, lines: list[str], window: int | None, text: str) -> bool:
+    for match in _CITATION.finditer(text):
+        cited = match.group(1)
+        if not ("/" + str(owner)).endswith("/" + cited.lstrip("./")):
+            continue
+        fragment = (match.group(3) or match.group(4) or "").replace('"', "")
+        if "/" in cited or not fragment:
+            return True
+        at = int(match.group(2))
+        if any(
+            fragment in body.replace('"', "") and (window is None or abs(n - at) <= window)
+            for n, body in enumerate(lines, start=1)
+        ):
+            return True
+    return False
+
+
 def citations(owners: list[str]) -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
+    window = _window()
     for owner in owners:
-        # Parent directory and file name, never the bare name: `contract.py:` matched every
-        # pack's contract, and a list mostly about other files was read as "none" (L28.24).
         path = Path(owner)
-        name = f"{path.parent.name}/{path.name}" if path.parent.name else path.name
+        try:
+            lines = path.read_text(encoding="utf-8").split("\n")
+        except OSError:
+            lines = []
         out = _run(
-            ["git", "grep", "-nE", r"(^|[^A-Za-z0-9_])" + re.escape(name) + r":[0-9]+", "--", "."]
+            [
+                "git",
+                "grep",
+                "-nE",
+                r"(^|[^A-Za-z0-9_])" + re.escape(path.name) + r":[0-9]+",
+                "--",
+                ".",
+            ]
         )
-        found[owner] = [line for line in out.splitlines() if line.strip()]
+        found[owner] = [
+            line for line in out.splitlines() if line.strip() and _cites(path, lines, window, line)
+        ]
     return found
+
+
+def uncollectable(red: list[str]) -> list[str]:
+    out = _run(
+        [
+            "uv",
+            "run",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "--color=no",
+            "-p",
+            "no:cacheprovider",
+            *red,
+        ]
+    )
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+    return [line for line in plain.splitlines() if line.startswith(("ERROR ", "E   "))]
 
 
 def protocol_doubles(owners: list[str]) -> dict[str, tuple[list[str], list[str]]]:
@@ -149,6 +218,17 @@ def main() -> int:
     if options.owners and any(citations(options.owners).values()):
         print()
         print("Say in the brief who re-points each citation the change moves (L23.15).")
+    failed = uncollectable(options.red)
+    if failed:
+        print()
+        count = sum(line.startswith("ERROR ") for line in failed)
+        print(f"{count} red file(s) fail at collection:")
+        for line in failed:
+            print("- " + line[:160])
+        print(
+            "Every test behind an import error is unread: stub the missing names in the "
+            "scratchpad and run each test once, so each fails for its own reason (L28.36)."
+        )
     for owner, (protocols, files) in protocol_doubles(options.owners).items():
         print()
         print(

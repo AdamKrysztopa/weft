@@ -922,7 +922,7 @@ figure in the same run:
   document's text, its table, or the figure's caption, and present only in what the describer
   wrote. **The clause's own wording — *"citing the `IMAGE` node"* — is satisfied in substance and
   is not observable**: `weft_generate.payload.Citation` carries `node_id`, and
-  `packages/weft-rag/src/weft_cli/render.py:714 "citation.node_id"` printed `[marker] uri` alone at
+  `packages/weft-rag/src/weft_cli/render.py:727 "citation.node_id"` printed `[marker] uri` alone at
   the time, so with three nodes from one source the rendered citation could not name which
   answered. Recorded as `lessons.md` `L9.88` rather than waved through; it was a renderer gap, not
   a provenance gap, and Phase 9 did not create it. *(Closed since: carried repair **R9.2** made
@@ -2072,6 +2072,14 @@ All checks run in CI, before tests.
     `ExtModel` subclass (27 at filing) against `REPRESENTATION_MARKERS`, which holds
     `Representation` alone.
     `tests/architecture/test_ff34_only_a_representation_names_a_technique.py`.
+35. **Every fact `weft index` computes reaches the result a renderer reads.** Added 2026-09-23
+    from `L28.40`. `IndexCommand.run` copies `IndexResult` into `IndexCommandResult` field by
+    field, so a field it skips is reported to nobody: `43.8`'s `layers_changed` was tested on
+    `IndexResult` and never printed, and `R43.9`'s failed layers went the same way. The walk
+    reads the dataclass's fields and the attributes the one `IndexCommandResult(...)` call reads:
+    19 fields at filing, three waived by name in `NOT_REPORTED` with who reads them instead. At
+    `61ac61a` it failed on `layers_changed`.
+    `tests/architecture/test_ff35_every_index_fact_reaches_the_command.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
