@@ -334,6 +334,7 @@ reader looks for it.
 """
 
 import asyncio
+import hashlib
 import math
 import statistics
 from collections.abc import Sequence
@@ -343,9 +344,10 @@ from typing import Annotated, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_embed.contract import Embedder
+from weft_index.contract import LayerCheckpoints
 from weft_index.payload import ExpansionDegraded, RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterRequest
-from weft_kernel.context import Context
+from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.payload import (
     Failed,
     MediaType,
@@ -586,11 +588,13 @@ class RaptorSummarizer:
         prompts = ctx.require(Prompts)
         llm = ctx.require(LLM)
         limit = asyncio.Semaphore(self._config.max_concurrent_summaries)
+        checkpoints = await self._checkpoints(prompts, ctx)
 
         async def _bounded(cluster: Sequence[Node]) -> Node | str:
             async with limit:
-                return await self._summarize(
+                return await self._summary_for(
                     cluster,
+                    checkpoints=checkpoints,
                     prompts=prompts,
                     llm=llm,
                     ctx=ctx,
@@ -636,10 +640,106 @@ class RaptorSummarizer:
             )
             for summary in derived
         )
-        embedded_derived = await self._embed_summaries(derived, ctx=ctx)
+        embedded_derived = await self._embed_unembedded(derived, ctx=ctx)
         if isinstance(embedded_derived, Failed):
             return embedded_derived
         return Produced(value=(*payload, *embedded_derived.value))
+
+    async def _embed_unembedded(
+        self, summaries: Sequence[Node], *, ctx: Context
+    ) -> Produced[tuple[Node, ...]] | Failed:
+        """`summaries`, every one still without a vector embedded in one batch call. A kept or
+        recalled summary already carries its own (task **43.20**); with no `LayerCheckpoints`
+        none does, and this is the one batch call it always was.
+        """
+        pending = tuple(summary for summary in summaries if summary.embedding is None)
+        if not pending:
+            return Produced(value=tuple(summaries))
+        embedded = await self._embed_summaries(pending, ctx=ctx)
+        if isinstance(embedded, Failed):
+            return embedded
+        already = tuple(summary for summary in summaries if summary.embedding is not None)
+        return Produced(value=(*already, *embedded.value))
+
+    async def _summary_for(
+        self,
+        cluster: Sequence[Node],
+        *,
+        checkpoints: tuple[LayerCheckpoints, str] | None,
+        prompts: Prompts,
+        llm: LLM,
+        ctx: Context,
+        resolved_similarity_threshold: float | None,
+        resolved_cluster_size: int | None,
+    ) -> Node | str:
+        """`_summarize`'s answer for `cluster`, or — given `checkpoints` — the summary an
+        interrupted build already kept for it, and otherwise a new one, kept as soon as it is
+        finished (task **43.20**).
+        """
+        key: str | None = None
+        if checkpoints is not None:
+            key = self._checkpoint_key(cluster, template_digest=checkpoints[1])
+            kept = await checkpoints[0].recall(key)
+            if kept is not None:
+                return kept
+        summary = await self._summarize(
+            cluster,
+            prompts=prompts,
+            llm=llm,
+            ctx=ctx,
+            resolved_similarity_threshold=resolved_similarity_threshold,
+            resolved_cluster_size=resolved_cluster_size,
+        )
+        if checkpoints is None or key is None or isinstance(summary, str):
+            return summary
+        return await self._kept(summary, service=checkpoints[0], key=key, ctx=ctx)
+
+    async def _checkpoints(
+        self, prompts: Prompts, ctx: Context
+    ) -> tuple[LayerCheckpoints, str] | None:
+        """The build's `LayerCheckpoints` and a digest of this run's rendered prompt template,
+        or `None` on a run that offers none — task **43.20**. A template that does not render
+        keeps nothing: every cluster degrades on the same render in `_summarize`.
+        """
+        try:
+            service = ctx.require(LayerCheckpoints)
+        except UnresolvedServiceError:
+            return None
+        template = await prompts.render(
+            self._config.prompt, SummarizeClusterRequest(passages=""), ctx
+        )
+        if not isinstance(template, Produced):
+            return None
+        return service, hashlib.sha256(template.value.model_dump_json().encode()).hexdigest()
+
+    def _checkpoint_key(self, members: Sequence[Node], *, template_digest: str) -> str:
+        """One cluster's `LayerCheckpoints` key: this plugin, the level it summarises, the role,
+        the prompt template and the members — everything its summary was built from except the
+        model, which the build scopes every key by itself.
+        """
+        parts = (
+            NAME,
+            str(self._config.over_level),
+            self._config.role,
+            template_digest,
+            *sorted(str(member.id) for member in members),
+        )
+        digest = hashlib.sha256("\n".join(parts).encode()).hexdigest()
+        return f"{NAME}:{digest}"
+
+    async def _kept(
+        self, summary: Node, *, service: LayerCheckpoints, key: str, ctx: Context
+    ) -> Node:
+        """`summary`, embedded and kept under `key` the moment it is finished — task **43.20**.
+        One the embedder could not vector is returned unkept, for `run`'s batch embed to fail
+        the stage over exactly as it did before checkpoints existed.
+        """
+        embedded = await self._embed_summaries((summary,), ctx=ctx)
+        if isinstance(embedded, Failed) or len(embedded.value) != 1:
+            return summary
+        node = embedded.value[0]
+        await service.keep(key, node)
+        return node
 
     def _resolve_auto_parameters(
         self, selected: Sequence[Node], embedded: Sequence[tuple[Node, Vector]]

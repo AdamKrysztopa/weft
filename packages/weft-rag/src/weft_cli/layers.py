@@ -15,9 +15,11 @@ reads it that way.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Final, cast
@@ -29,11 +31,13 @@ from weft_cli.pipeline_catalogue import full_catalogue
 from weft_cli.progress import BatchProgress
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_embed import Embedder
+from weft_engine.llm_roles import LLMSection
 from weft_engine.run_services import class_provides
 from weft_extract import Extractor
 from weft_extract.text import SourceRef
+from weft_index.contract import LayerCheckpoints
 from weft_index.payload import LayerMember, Representation
-from weft_kernel.context import Context
+from weft_kernel.context import Context, ServiceRegistry, UnresolvedServiceError
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import (
@@ -55,6 +59,7 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     GenerationHolding,
+    GenerationId,
     GenerationRecord,
     GenerationStatus,
     LayerRecord,
@@ -87,6 +92,12 @@ _SCOPE_VAR: Final[str] = "layer.scope"
 _STORE_CONSUMES_VAR: Final[str] = "layer.store-consumes"
 
 _KNOWN_LAYER_VARS: Final[tuple[str, ...]] = (_SCOPE_VAR, _STORE_CONSUMES_VAR)
+
+#: A layer's build statuses that left no finished tree behind — task **43.20**.
+_UNFINISHED: Final[frozenset[LayerStatus]] = frozenset({LayerStatus.FAILED, LayerStatus.INDEXING})
+
+_LAYER_FIELD: Final[str] = f"ext.{LayerMember.__namespace__}.layer"
+_CHECKPOINT_FIELD: Final[str] = f"ext.{LayerMember.__namespace__}.checkpoint"
 
 
 class LayerScope(StrEnum):
@@ -1224,7 +1235,9 @@ def _corpus_layer_status(
     (every eligible source carries this layer `ACTIVE` under `identity`) and nothing runs, or
     some source carries a *different* identity — reported, left alone, nothing runs either —
     or the whole corpus is built, whether the gap is a stale identity's neighbour, a source
-    this layer never reached, or one an earlier build left `FAILED`/`INDEXING`.
+    this layer never reached, or one an earlier build left `FAILED`/`INDEXING`. A build left
+    `FAILED` or `INDEXING` under another identity holds nothing to protect, so it is rebuilt
+    unasked rather than reported (R43.9, extended to an interrupted build at task 43.20).
     """
     existing_by_source: dict[SourceId, LayerRecord | None] = {}
     all_active = True
@@ -1236,7 +1249,7 @@ def _corpus_layer_status(
         if existing is None:
             all_active = False
             continue
-        if existing.pipeline_identity != identity and existing.status is not LayerStatus.FAILED:
+        if existing.pipeline_identity != identity and existing.status not in _UNFINISHED:
             changed = True
             all_active = False
             continue
@@ -1293,28 +1306,208 @@ async def _run_corpus_tail(
     return await runner.run_once(replace(tail_runnable, stages=store_stages), to_store, ctx)
 
 
-async def _open_corpus_generations(
-    runnable: RunnablePipeline, *, layer: str, tail_store_specs: Sequence[StageSpec]
-) -> tuple[dict[str, GenerationHolding], dict[str, object], dict[str, GenerationRecord]]:
-    """Every tail store's own generation, opened and bound **on its own instance** — carried
-    repair **R43.11**, lifted out of `_run_corpus_layer` for its own complexity budget.
-
-    `(holders, writers, opened)`, all keyed by stage id: `holders` is the unbound instance
-    every generation lifecycle call (`publish_generation`/`retract_generation`/
-    `generations`) is issued through; `writers` is the bound handle
-    (`GenerationHolding.bind_generation`'s own return) every write goes through, one per
-    store, never shared; `opened` is the record `open_generation` returned for each.
+@dataclass
+class _CorpusGenerations:
+    """One corpus build's generations, one per tail store — carried repair **R43.11**, task
+    **43.20**. All keyed by stage id: `holders` is the unbound instance every lifecycle call
+    (`publish_generation`/`retract_generation`/`generations`) is issued through; `writers` is
+    the bound handle every write goes through, one per store, never shared; `opened` is the
+    generation each writer is bound to. `adopted` says those were left `BUILDING` by an
+    interrupted build rather than opened by this one; `abandoned` holds what `reopen` let go,
+    so a failure retracts it too.
     """
-    holders: dict[str, GenerationHolding] = {}
-    writers: dict[str, object] = {}
-    opened: dict[str, GenerationRecord] = {}
-    for spec in tail_store_specs:
-        holder = cast(GenerationHolding, _stage_instance(runnable, spec.id))
-        holders[spec.id] = holder
-        generation = await holder.open_generation(layer)
-        opened[spec.id] = generation
-        writers[spec.id] = await holder.bind_generation(generation.id)
-    return holders, writers, opened
+
+    holders: dict[str, GenerationHolding]
+    writers: dict[str, object]
+    opened: dict[str, GenerationRecord]
+    adopted: bool
+    abandoned: list[tuple[str, GenerationId]] = field(
+        default_factory=list[tuple[str, GenerationId]]
+    )
+
+    async def reopen(self, layer: str) -> None:
+        """A fresh generation per store, bound in place of the one the build was writing into."""
+        self.abandoned.extend((stage_id, record.id) for stage_id, record in self.opened.items())
+        for stage_id, holder in self.holders.items():
+            self.opened[stage_id] = await holder.open_generation(layer)
+            self.writers[stage_id] = await holder.bind_generation(self.opened[stage_id].id)
+
+    async def retract(self) -> None:
+        opened = [(stage_id, record.id) for stage_id, record in self.opened.items()]
+        for stage_id, generation in (*self.abandoned, *opened):
+            await self.holders[stage_id].retract_generation(generation)
+
+
+def _newest_building(listed: Sequence[GenerationRecord], *, layer: str) -> GenerationRecord | None:
+    building = [
+        record
+        for record in listed
+        if record.layer == layer and record.status is GenerationStatus.BUILDING
+    ]
+    return max(building, key=lambda record: record.opened_at, default=None)
+
+
+async def _bind_corpus_generations(
+    runnable: RunnablePipeline,
+    *,
+    layer: str,
+    tail_store_specs: Sequence[StageSpec],
+    resume: bool,
+) -> _CorpusGenerations:
+    """Every tail store's generation, bound **on its own instance** — carried repair
+    **R43.11**, lifted out of `_run_corpus_layer` for its own complexity budget.
+
+    With `resume` — this layer's records say a build under this identity was interrupted —
+    each store's newest `BUILDING` generation of `layer` is adopted, so what that build kept is
+    recalled rather than paid for again (task **43.20**). Adoption is all or nothing: a store
+    with none to adopt means every store opens afresh. Either way every other `BUILDING`
+    generation of `layer` is retracted before the stage runs.
+    """
+    holders = {
+        spec.id: cast(GenerationHolding, _stage_instance(runnable, spec.id))
+        for spec in tail_store_specs
+    }
+    adopted: dict[str, GenerationRecord] = {}
+    if resume:
+        for stage_id, holder in holders.items():
+            newest = _newest_building(await holder.generations(), layer=layer)
+            if newest is None:
+                adopted = {}
+                break
+            adopted[stage_id] = newest
+    for stage_id, holder in holders.items():
+        kept = adopted[stage_id].id if stage_id in adopted else None
+        for other in await holder.generations():
+            if (
+                other.layer == layer
+                and other.status is GenerationStatus.BUILDING
+                and other.id != kept
+            ):
+                await holder.retract_generation(other.id)
+    opened = dict(adopted)
+    for stage_id, holder in holders.items():
+        if stage_id not in opened:
+            opened[stage_id] = await holder.open_generation(layer)
+    writers: dict[str, object] = {
+        stage_id: await holders[stage_id].bind_generation(record.id)
+        for stage_id, record in opened.items()
+    }
+    return _CorpusGenerations(
+        holders=holders, writers=writers, opened=opened, adopted=bool(adopted)
+    )
+
+
+def _checkpoint_namespace(layer: str, llm: LLMSection) -> str:
+    """What every `LayerCheckpoints` key of one build is scoped by: the layer, and a digest of
+    the run's `[llm.roles]`, since a stage asks a role and never sees which model answered.
+    """
+    roles = json.dumps(llm.roles.model_dump(mode="json"), sort_keys=True)
+    return f"{layer}/{hashlib.sha256(roles.encode()).hexdigest()[:16]}"
+
+
+class _GenerationCheckpoints:
+    """`weft_index.contract.LayerCheckpoints` over one corpus build's bound generations — task
+    **43.20**. `keep` writes through the tail's store stages, each bound to its own store's
+    generation, so a kept node reaches every store; `recall` reads the primary's bound handle,
+    which sees its own generation before anything is published.
+    """
+
+    def __init__(
+        self,
+        *,
+        runner: Runner,
+        store_tail: RunnablePipeline,
+        matching: Callable[[Filter, Cursor | None], Awaitable[Page[Node]]],
+        namespace: str,
+        layer: str,
+        ctx: Context,
+    ) -> None:
+        self._runner = runner
+        self._store_tail = store_tail
+        self._matching = matching
+        self._namespace = namespace
+        self._layer = layer
+        self._ctx = ctx
+        self.kept: set[NodeId] = set()
+
+    def _scoped(self, key: str) -> str:
+        return f"{self._namespace}/{key}"
+
+    async def recall(self, key: str) -> Node | None:
+        page = await self._matching(
+            Filter(op=FilterOp.EQ, field=_CHECKPOINT_FIELD, value=self._scoped(key)), None
+        )
+        return page.items[0] if page.items else None
+
+    async def keep(self, key: str, node: Node) -> None:
+        stamped = node.with_ext(LayerMember(layer=self._layer, checkpoint=self._scoped(key)))
+        outcome = await self._runner.run_once(self._store_tail, (stamped,), self._ctx)
+        if not isinstance(outcome, Produced):
+            raise WeftError(
+                f"'{self._layer}' could not keep a finished node in its building generation, "
+                f"so an interrupted build would pay for it again: {outcome.reason}"
+            )
+        self.kept.add(node.id)
+
+
+class _OfferedServices(ServiceRegistry):
+    """`base`'s services plus those one layer stage run is offered — task **43.20**. The run's
+    own registry is never added to, so a corpus build's checkpoints reach no other stage.
+    """
+
+    def __init__(self, base: ServiceRegistry) -> None:
+        super().__init__()
+        self._base = base
+
+    def resolve[T](self, contract: type[T]) -> T:
+        try:
+            return super().resolve(contract)
+        except UnresolvedServiceError as offered:
+            try:
+                return self._base.resolve(contract)
+            except UnresolvedServiceError as missing:
+                options = tuple(sorted({*offered.valid_options, *missing.valid_options}))
+                raise UnresolvedServiceError(
+                    f"no service is registered for {contract.__name__} on this run. It is "
+                    "unavailable because nothing resolved one before this stage ran. "
+                    f"Services available on this run: {', '.join(options)}.",
+                    valid_options=options,
+                ) from missing
+
+
+def _with_checkpoints(ctx: Context, checkpoints: _GenerationCheckpoints) -> Context:
+    services = _OfferedServices(ctx.services)
+    services.add(LayerCheckpoints, checkpoints)
+    return replace(ctx, services=services)
+
+
+async def _holds_unpublishable(
+    generations: _CorpusGenerations,
+    checkpoints: _GenerationCheckpoints,
+    matching: Callable[[Filter, Cursor | None], Awaitable[Page[Node]]],
+    *,
+    layer: str,
+    created: Sequence[Node],
+) -> bool:
+    """Whether the generation the build wrote into holds a kept node the build did not create
+    — task **43.20**. An adopted one may: a source added since, or another model, moves the
+    clusters its kept summaries answered. Publishing it would publish them.
+    """
+    created_ids = {node.id for node in created}
+    if checkpoints.kept - created_ids:
+        return True
+    if not generations.adopted:
+        return False
+    cursor: Cursor | None = None
+    while True:
+        page = await matching(Filter(op=FilterOp.EQ, field=_LAYER_FIELD, value=layer), cursor)
+        for node in page.items:
+            member = node.ext_as(LayerMember)
+            if member is not None and member.checkpoint is not None and node.id not in created_ids:
+                return True
+        if page.next_cursor is None:
+            return False
+        cursor = page.next_cursor
 
 
 async def _publish_and_supersede_generations(
@@ -1366,6 +1559,62 @@ def _corpus_outcome_refusal(
     )
 
 
+def _bound_tail(
+    tail_runnable: RunnablePipeline, writers: Mapping[str, object], *, stage_ids: frozenset[str]
+) -> RunnablePipeline:
+    """`tail_runnable`'s stages named in `stage_ids`, each store stage bound to its writer."""
+    return replace(
+        tail_runnable,
+        stages=tuple(
+            replace(stage, instance=writers[stage.id]) if stage.id in writers else stage
+            for stage in tail_runnable.stages
+            if stage.id in stage_ids
+        ),
+    )
+
+
+async def _write_corpus_created(
+    created: Sequence[Node],
+    *,
+    runner: Runner,
+    tail: RunnablePipeline,
+    primary_writer: object,
+    layer: str,
+    embed_stage_ids: frozenset[str],
+    store_stage_ids: frozenset[str],
+    first_stage_id: str,
+    ctx: Context,
+    fail: Callable[[str, str | None, str], Awaitable[None]],
+) -> str | None:
+    """`created`, checked for a collision and written through `tail` — `_run_corpus_layer`'s
+    own last step before publishing, lifted out for its complexity budget. `fail` is called
+    before a collision or a `WeftError` propagates, and before a `Failed` tail's reason is
+    returned.
+    """
+    writer_get = _get_of(primary_writer)
+    existing_nodes = await writer_get([node.id for node in created]) if writer_get else ()
+    collision = _layer_collision(created, existing_nodes, layer=layer)
+    if collision is not None:
+        await fail(type(collision).__name__, first_stage_id, str(collision))
+        raise collision
+    try:
+        tail_outcome = await _run_corpus_tail(
+            runner,
+            tail,
+            _stamped(created, layer=layer),
+            ctx,
+            embed_stage_ids=embed_stage_ids,
+            store_stage_ids=store_stage_ids,
+        )
+    except WeftError as exc:
+        await fail(type(exc).__name__, exc.stage, str(exc))
+        raise
+    if isinstance(tail_outcome, Failed):
+        await fail("Failed", first_stage_id, tail_outcome.reason)
+        return tail_outcome.reason
+    return None
+
+
 async def _run_corpus_layer(
     runnable: RunnablePipeline,
     *,
@@ -1379,6 +1628,8 @@ async def _run_corpus_layer(
     eligible: Sequence[SourceRef],
     attempts_by_source: Mapping[SourceId, int],
     indexing_ctx: Context,
+    resume: bool,
+    llm: LLMSection,
 ) -> str | None:
     """One corpus-scoped layer's whole build, as one generation **per store stage**,
     published whole — ledger task **43.15**, carried repair **R43.11**,
@@ -1388,11 +1639,15 @@ async def _run_corpus_layer(
     recorded `FAILED` on every eligible source and every generation it opened retracted —
     every store's, not only the one that failed, since a half-written tree in any one of
     them is exactly the state generations exist to hide; `CancelledError` above all is never
-    caught here, so an interrupted build leaves its generations `BUILDING` for the next
-    build to retract.
+    caught here, so an interrupted build leaves its generations `BUILDING`, holding what its
+    stages kept, for the next build to adopt (task **43.20**, `_bind_corpus_generations`).
 
-    `store_stage_id` stays the **primary**'s: leaf reading (`matching`) and the collision
-    check (`_layer_collision`) read the primary's own bound writer only, on
+    The stages are offered `LayerCheckpoints` over those generations. When the generation
+    holds a kept node the build did not create, the created nodes are written into a fresh
+    generation instead, and publishing that one retracts the other.
+
+    `store_stage_id` stays the **primary**'s: leaf reading (`matching`), recall and the
+    collision check (`_layer_collision`) read the primary's own bound writer only, on
     `_apply_layer_records`'s own footing — every store holds the same nodes, so a second
     check would only re-confirm the first.
     """
@@ -1419,13 +1674,11 @@ async def _run_corpus_layer(
     )
     tail_store_ids = frozenset(spec.id for spec in tail_store_specs)
 
-    holders, writers, opened = await _open_corpus_generations(
-        runnable, layer=composition.layer, tail_store_specs=tail_store_specs
+    generations = await _bind_corpus_generations(
+        runnable, layer=composition.layer, tail_store_specs=tail_store_specs, resume=resume
     )
 
-    primary_writer = writers[store_stage_id]
-    writer_matching = _matching_of(primary_writer)
-    writer_get = _get_of(primary_writer)
+    writer_matching = _matching_of(generations.writers[store_stage_id])
     if writer_matching is None:
         # `require_layers_metadata_filter` already checked the *unbound* primary has one, and
         # `bind_generation` returns `Self`, so a store that reaches here honours the contract.
@@ -1434,12 +1687,8 @@ async def _run_corpus_layer(
             "MetadataFilter, though the store it was bound from did."
         )
 
-    async def _retract_opened() -> None:
-        for stage_id, generation in opened.items():
-            await holders[stage_id].retract_generation(generation.id)
-
     async def _fail(error_type: str, stage: str | None, message: str) -> None:
-        await _retract_opened()
+        await generations.retract()
         await _fail_layer_batch(
             runnable,
             store_stage_id=store_stage_id,
@@ -1456,9 +1705,19 @@ async def _run_corpus_layer(
     ids = tuple(ref.source_id for ref in eligible)
     leaves = await _paged_leaves(writer_matching, ids)
 
+    checkpoints = _GenerationCheckpoints(
+        runner=runner,
+        store_tail=_bound_tail(tail_runnable, generations.writers, stage_ids=tail_store_ids),
+        matching=writer_matching,
+        namespace=_checkpoint_namespace(composition.layer, llm),
+        layer=composition.layer,
+        ctx=indexing_ctx,
+    )
     first_stage_id = composition.layer_specs[0].id
     try:
-        outcome = await runner.run_once(layer_runnable, leaves, indexing_ctx)
+        outcome = await runner.run_once(
+            layer_runnable, leaves, _with_checkpoints(indexing_ctx, checkpoints)
+        )
     except WeftError as exc:
         await _fail(type(exc).__name__, exc.stage, str(exc))
         raise
@@ -1470,43 +1729,35 @@ async def _run_corpus_layer(
 
     produced_nodes = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
     created = layer_created(leaves, produced_nodes)
+    if await _holds_unpublishable(
+        generations, checkpoints, writer_matching, layer=composition.layer, created=created
+    ):
+        await generations.reopen(composition.layer)
 
     if created:
-        tail_ids = {spec.id for spec in composition.tail_specs}
-        bound_tail = replace(
-            tail_runnable,
-            stages=tuple(
-                replace(stage, instance=writers[stage.id]) if stage.id in tail_store_ids else stage
-                for stage in tail_runnable.stages
-                if stage.id in tail_ids
+        reason = await _write_corpus_created(
+            created,
+            runner=runner,
+            tail=_bound_tail(
+                tail_runnable,
+                generations.writers,
+                stage_ids=frozenset(spec.id for spec in composition.tail_specs),
             ),
+            primary_writer=generations.writers[store_stage_id],
+            layer=composition.layer,
+            embed_stage_ids=tail_embed_ids,
+            store_stage_ids=tail_store_ids,
+            first_stage_id=first_stage_id,
+            ctx=indexing_ctx,
+            fail=_fail,
         )
-        existing_nodes = (
-            await writer_get([node.id for node in created]) if writer_get is not None else ()
-        )
-        collision = _layer_collision(created, existing_nodes, layer=composition.layer)
-        if collision is not None:
-            await _fail(type(collision).__name__, first_stage_id, str(collision))
-            raise collision
-
-        try:
-            tail_outcome = await _run_corpus_tail(
-                runner,
-                bound_tail,
-                _stamped(created, layer=composition.layer),
-                indexing_ctx,
-                embed_stage_ids=tail_embed_ids,
-                store_stage_ids=tail_store_ids,
-            )
-        except WeftError as exc:
-            await _fail(type(exc).__name__, exc.stage, str(exc))
-            raise
-        if isinstance(tail_outcome, Failed):
-            await _fail("Failed", first_stage_id, tail_outcome.reason)
-            return tail_outcome.reason
+        if reason is not None:
+            return reason
 
     try:
-        await _publish_and_supersede_generations(holders, opened, layer=composition.layer)
+        await _publish_and_supersede_generations(
+            generations.holders, generations.opened, layer=composition.layer
+        )
     except WeftError as exc:
         await _fail(type(exc).__name__, exc.stage, str(exc))
         raise
@@ -1543,6 +1794,7 @@ async def _run_corpus_scoped_composition(
     indexing_ctx: Context,
     layer_runnables: list[RunnablePipeline],
     layer_loop_started: float,
+    llm: LLMSection,
 ) -> tuple[bool, LayerFailure | None]:
     """One corpus-scoped composition's whole turn in `run_layers`' own loop — lifted out so
     that function's per-composition branching stays under the complexity budget every
@@ -1570,6 +1822,12 @@ async def _run_corpus_scoped_composition(
         runnable, stages=tuple(stage for stage in runnable.stages if stage.id in tail_ids)
     )
     attempts_by_source = _next_layer_attempts(existing_by_source, eligible)
+    interrupted = any(
+        existing is not None
+        and existing.status is LayerStatus.INDEXING
+        and existing.pipeline_identity == identity
+        for existing in existing_by_source.values()
+    )
     reason = await _run_corpus_layer(
         runnable,
         runner=runner,
@@ -1582,6 +1840,8 @@ async def _run_corpus_scoped_composition(
         eligible=eligible,
         attempts_by_source=attempts_by_source,
         indexing_ctx=indexing_ctx,
+        resume=interrupted,
+        llm=llm,
     )
     if reason is not None:
         failure = LayerFailure(
@@ -1613,6 +1873,7 @@ async def run_layers(
     on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
     indexing_ctx: Context,
     layer_runnables: list[RunnablePipeline],
+    llm: LLMSection,
 ) -> tuple[tuple[str, ...], tuple[LayerFailure, ...]]:
     """Every named layer, in order, after the base run has finished or been skipped under
     `layers_only` — ledger task **43.8**, `weft_cli.ingest.run_index`'s own loop. Returns
@@ -1634,6 +1895,9 @@ async def run_layers(
     Every resolved layer instance this call builds is appended to `layer_runnables`, so
     `run_index`'s own `finally` can close it beside the base's stages — resolved once per
     layer, never once per batch, on `Runner.resolve`'s own process-cache footing.
+
+    `llm` is the run's own `[llm]` section: a corpus build scopes its checkpoint keys by its
+    roles (task **43.20**).
     """
     if store_stage_id is None:
         return (), ()
@@ -1665,6 +1929,7 @@ async def run_layers(
                 indexing_ctx=indexing_ctx,
                 layer_runnables=layer_runnables,
                 layer_loop_started=layer_loop_started,
+                llm=llm,
             )
             if corpus_changed and composition.layer not in layers_changed:
                 layers_changed.append(composition.layer)

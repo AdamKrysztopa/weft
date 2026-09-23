@@ -39,7 +39,9 @@ from weft_kernel.payload import Node, Outcome
 from weft_kernel.runner import Stage
 
 #: Fitness function 6's subject for this contract — see the module docstring.
-EXPANDER_CONTRACT_VERSION = "1.0.0"
+#: **`1.0.0` → `1.1.0` at task 43.20** — the promise now admits storing through a
+#: `LayerCheckpoints` the stage was handed: minor, and a layer's identity hashes the major.
+EXPANDER_CONTRACT_VERSION = "1.1.0"
 
 #: `Revisable`'s own, ledger task **10.23** — separate from `EXPANDER_CONTRACT_VERSION`
 #: because the two contracts move for different reasons, and a shared constant would leave a
@@ -65,7 +67,9 @@ class Expander(Stage[Sequence[Node], Sequence[Node]], Protocol):
 
     `layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
     takes nodes already stored and returns every node it was handed, each under its own id,
-    plus whatever it derived from them — it neither embeds nor stores.
+    plus whatever it derived from them. It stores nothing except through a `LayerCheckpoints`
+    it was handed (task 43.20), into a generation no reader sees until it is published. It
+    may embed what it derives — `raptor` does, through `ctx.require(Embedder)`.
     """
 
     if TYPE_CHECKING:
@@ -85,9 +89,10 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
     Every other stage in an ingest document is a pure function of its payload. An incremental
     tree is not: `adrap` must read the summaries a previous run wrote in order to join a new
     document to them instead of founding a second tree beside it. Ledger `10.5` settled that
-    `raptor` performs **no store read** and says so in three shipped artefacts, and that
-    property is exactly why decision `D2` went unreached for two phases — so the capability
-    needed somewhere to live that did not quietly make it true of every `Expander`.
+    `raptor` performs **no store read** of the corpus, and that property is exactly why decision
+    `D2` went unreached for two phases — so the capability needed somewhere to live that did not
+    quietly make it true of every `Expander`. (`raptor`'s `LayerCheckpoints.recall`, task 43.20,
+    reads back only its own interrupted build's summaries, never the corpus.)
 
     **The corpus is reached through `ctx.require(NodeStore)`, and there is no new type for it.**
     G13 settled that move for `reconcile`: the primary store, from the context, zero kernel
@@ -152,6 +157,27 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
         reads_corpus: ClassVar[bool]
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+
+
+class LayerCheckpoints(Protocol):
+    """What a corpus-scoped layer build offers its stages, so an interrupted build resumes —
+    ledger task **43.20**. Reached by `ctx.require(LayerCheckpoints)`, and only on a corpus
+    build: a stage that must also run elsewhere catches `UnresolvedServiceError` and carries on
+    without it.
+
+    `keep` writes `node` into the build's open generation as soon as it is finished, under
+    `key`; `recall` returns what an earlier, interrupted build kept under the same key, or
+    `None`. The key is the stage's to choose, and must name everything the node was built from:
+    the build scopes keys by layer and by the run's model roles, since a stage cannot see which
+    model answered, and nothing else.
+
+    A service, never registered — so, like `weft_llm.contract.LLM`, it carries no `version`
+    and is not `@runtime_checkable`.
+    """
+
+    async def recall(self, key: str) -> Node | None: ...
+
+    async def keep(self, key: str, node: Node) -> None: ...
 
 
 Expander.version = EXPANDER_CONTRACT_VERSION

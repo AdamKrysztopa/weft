@@ -53,6 +53,9 @@ class LayerMember(ExtModel):
     __schema_version__ = "1"
 
     layer: str
+    #: The `LayerCheckpoints` key a corpus build kept this node under while its generation was
+    #: still building (task 43.20); `None` once the build's own tail has stored it.
+    checkpoint: str | None = None
 
 
 class ExpansionDegraded(ExtModel):

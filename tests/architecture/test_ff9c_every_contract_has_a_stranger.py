@@ -92,6 +92,9 @@ SERVICE_PROTOCOLS_WITHOUT_AN_EXAMPLE_PACK: Final[frozenset[str]] = frozenset(
         # `AttributeError` inside it; that is a usability choice about a service, not a claim to
         # be a contract.
         "weft_command.invocation.Consent",
+        # `LayerCheckpoints` is offered by the layer loop on a corpus build, never registered —
+        # `Consent`'s footing, task 43.20 (2026-09-23).
+        "weft_index.contract.LayerCheckpoints",
         "weft_kernel.discovery.EntryPointLike",
         "weft_kernel.runner.Stage",
         "weft_llm.contract.LLM",

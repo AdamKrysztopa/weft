@@ -257,7 +257,7 @@ async def test_a_strangers_store_holds_generations_and_passes_the_published_chec
 
     # Assert
     assert isinstance(InMemoryNodeStore(), GenerationHolding)
-    assert len(generation_checks) == 6
+    assert len(generation_checks) == 7
 
 
 async def test_a_strangers_store_admits_one_writer_and_passes_the_published_checks() -> None:

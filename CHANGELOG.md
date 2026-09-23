@@ -85,6 +85,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **An interrupted corpus-wide layer resumes instead of starting over.** Stopping `weft index
+  --layers` part-way through a corpus-scoped RAPTOR build keeps every summary finished so far, in
+  the generation nobody reads yet. The next run under the same pipeline and models picks that
+  generation up and pays only for the clusters still missing. A run whose prompt or models changed
+  starts afresh. A third-party layer stage can resume the same way through
+  `weft_index.contract.LayerCheckpoints`, and the `Expander` contract moves to `1.1.0`.
 - **`enrich-with-facts-and-graph`: the graph as a layer.** `weft index --layers
   enrich-with-facts-and-graph` extracts facts, mentions and co-occurrence from each stored chunk
   after the base is searchable, and the graph store turns them into entities and relations. Over a

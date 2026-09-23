@@ -98,6 +98,7 @@ from weft_store.conformance import (
     check_a_filter_reaches_vector_search_rather_than_being_ignored,
     check_a_filtered_search_returns_top_k_in_the_approximate_regime,
     check_a_fresh_store_has_one_live_target_named_default,
+    check_a_generation_bound_again_sees_and_extends_what_was_written,
     check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name,
     check_a_handle_keeps_the_generations_it_read_when_it_opened,
     check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext,
@@ -890,6 +891,16 @@ async def test_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_
     target_store: GenerationHoldingStore,
 ) -> None:
     await check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(target_store)
+
+
+# Ledger task **43.20** — a resumed corpus build binds a fresh handle to the generation an earlier,
+# interrupted process left BUILDING, and has to see and extend what that process wrote.
+
+
+async def test_a_generation_bound_again_sees_and_extends_what_was_written(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_a_generation_bound_again_sees_and_extends_what_was_written(target_store)
 
 
 # Ledger task **43.18** — one writer at a time, on `target_store`'s own storage.

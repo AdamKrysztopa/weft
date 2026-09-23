@@ -1075,11 +1075,12 @@ async def run_index(
     # second hardcoded absence beside `NodeStore`'s own.
     filled_by_stages = tuple(spec.contract for spec in specs)
     store_for_readers = _store_instance_for_corpus_readers(specs, runnable)
+    run_llm = llm if llm is not None else LLMSection()
     indexing_ctx = replace(
         ctx,
         services=await build_index_services(
             registry=registry,
-            llm=llm if llm is not None else LLMSection(),
+            llm=run_llm,
             sink=sink if sink is not None else NullSink(),
             embedder=embedder_instance,
             store_for_revisable=store_for_readers,
@@ -1170,6 +1171,7 @@ async def run_index(
                 on_batch=on_batch,
                 indexing_ctx=indexing_ctx,
                 layer_runnables=layer_runnables,
+                llm=run_llm,
             )
 
         stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)

@@ -267,7 +267,7 @@ async def run(
 
 **Module:** `weft_index.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Every node handed in, unchanged, plus zero or more nodes derived from it.
 
@@ -285,7 +285,9 @@ why.
 
 `layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
 takes nodes already stored and returns every node it was handed, each under its own id,
-plus whatever it derived from them — it neither embeds nor stores.
+plus whatever it derived from them. It stores nothing except through a `LayerCheckpoints`
+it was handed (task 43.20), into a generation no reader sees until it is published. It
+may embed what it derives — `raptor` does, through `ctx.require(Embedder)`.
 
 ### Methods
 
@@ -989,9 +991,10 @@ grilling session **G15**'s *Read* face, ledger task **10.23**.
 Every other stage in an ingest document is a pure function of its payload. An incremental
 tree is not: `adrap` must read the summaries a previous run wrote in order to join a new
 document to them instead of founding a second tree beside it. Ledger `10.5` settled that
-`raptor` performs **no store read** and says so in three shipped artefacts, and that
-property is exactly why decision `D2` went unreached for two phases — so the capability
-needed somewhere to live that did not quietly make it true of every `Expander`.
+`raptor` performs **no store read** of the corpus, and that property is exactly why decision
+`D2` went unreached for two phases — so the capability needed somewhere to live that did not
+quietly make it true of every `Expander`. (`raptor`'s `LayerCheckpoints.recall`, task 43.20,
+reads back only its own interrupted build's summaries, never the corpus.)
 
 **The corpus is reached through `ctx.require(NodeStore)`, and there is no new type for it.**
 G13 settled that move for `reconcile`: the primary store, from the context, zero kernel

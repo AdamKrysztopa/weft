@@ -2166,6 +2166,43 @@ async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_o
     )
 
 
+async def check_a_generation_bound_again_sees_and_extends_what_was_written(
+    store: GenerationHoldingStore,
+) -> None:
+    """Ledger **43.20**: a resumed corpus build binds a new handle to the generation an
+    interrupted one left `building`. That handle sees what the first wrote, what it writes joins
+    the same generation, and publishing makes both visible."""
+    # Arrange
+    generation = await store.open_generation("summaries")
+    first = await store.bind_generation(generation.id)
+    await first.add([_member("delta", (0.0, 0.0, 1.0))])
+    await first.flush()
+    # `aclose` is read off the handle, never a contract member, as `weft_kernel.seam.aclose` does.
+    close = getattr(first, "aclose", None)
+    if close is not None:
+        await close()
+
+    # Act
+    again = await store.bind_generation(generation.id)
+    seen = await again.matching(Filter(op=FilterOp.EQ, field="content", value="delta"))
+    await again.add([_member("epsilon", (0.0, 0.5, 0.5))])
+    await again.flush()
+    await store.publish_generation(generation.id)
+    reader = await _next_operation(store)
+    delta = await _visible(reader, "delta", (0.0, 0.0, 1.0))
+    epsilon = await _visible(reader, "epsilon", (0.0, 0.5, 0.5))
+
+    # Assert
+    _require(
+        [node.content for node in seen.items] == ["delta"],
+        f"a handle bound again must see what the first handle wrote: {seen.items}",
+    )
+    _require(delta == (True, True, True), f"the first handle's node was not published: {delta}")
+    _require(
+        epsilon == (True, True, True), f"the second handle's node was not published: {epsilon}"
+    )
+
+
 async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(
     store: GenerationHoldingStore,
 ) -> None:
