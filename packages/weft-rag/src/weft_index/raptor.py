@@ -420,6 +420,12 @@ class RaptorConfig(BaseModel):
     #: provider was configured. What a provider tolerates is an operator's fact, not this
     #: plugin's, which is why it is a field rather than a constant.
     max_concurrent_summaries: int = Field(default=8, ge=1)
+    #: Ledger **43.12**: `auto`'s pairwise pass measured 86 s and 339 MB at 500,000 pairs (1,000
+    #: leaves of 3,072 dimensions), quadratic in the leaves. Above this, `auto` is refused.
+    max_pairs: int = Field(default=500_000, ge=1)
+    #: Ledger **43.12**: greedy clustering projected at about 27 s for 5,000 leaves, growing with
+    #: their square. Above this, any threshold is refused.
+    max_leaves: int = Field(default=5_000, ge=2)
     prompt: str = Field(default=SUMMARIZE_CLUSTER_NAME, min_length=1)
     role: str = Field(default="index", min_length=1)
     #: The level this rung's input is drawn from — `0` meaning the leaves, which is the
@@ -655,6 +661,11 @@ class RaptorSummarizer:
         resolved_similarity_threshold: float | None = None
         cluster_size = _typed_cluster_size(self._config.cluster_size)
         similarity_threshold = _typed_similarity_threshold(self._config.similarity_threshold)
+        bound_refusal = _refuse_beyond_bounds(
+            len(embedded), config=self._config, auto_threshold=similarity_threshold is Auto.AUTO
+        )
+        if bound_refusal is not None:
+            return bound_refusal
         if cluster_size is Auto.AUTO:
             resolved_cluster_size = _resolve_cluster_size(
                 selected, max_cluster_chars=self._config.max_cluster_chars
@@ -1003,6 +1014,35 @@ def _resolve_cluster_size(selected: Sequence[Node], *, max_cluster_chars: int) -
     if mean_chars <= 0:
         return 2
     return max(2, int(max_cluster_chars // mean_chars))
+
+
+def _refuse_beyond_bounds(
+    leaves: int, *, config: RaptorConfig, auto_threshold: bool
+) -> Failed | None:
+    """Ledger **43.13** — refuse, before the quadratic passes run, a corpus `43.12` measured them
+    to be infeasible for: above `max_leaves` whatever the threshold, and above `max_pairs` under
+    `similarity_threshold: auto`, whose pass compares every pair."""
+    if leaves > config.max_leaves:
+        return Failed(
+            reason=(
+                f"'{NAME}' was handed {leaves:,} leaves, above max_leaves = "
+                f"{config.max_leaves:,}: clustering grows with the square of the leaves, about "
+                f"27 s at 5,000 (ledger 43.12). Index fewer documents per run, or raise "
+                f"max_leaves in this stage's with: block and accept the cost."
+            )
+        )
+    pairs = leaves * (leaves - 1) // 2
+    if auto_threshold and pairs > config.max_pairs:
+        return Failed(
+            reason=(
+                f"'{NAME}': similarity_threshold: auto compares every pair of the {leaves:,} "
+                f"leaves it was handed, {pairs:,} pairs, above max_pairs = {config.max_pairs:,} "
+                f"(86 s and 339 MB at 500,000, ledger 43.12). Type a similarity_threshold, which "
+                f"skips that pass, or raise max_pairs in this stage's with: block and accept the "
+                f"cost."
+            )
+        )
+    return None
 
 
 def _pairwise_similarities(embedded: Sequence[tuple[Node, Vector]]) -> list[float]:

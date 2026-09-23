@@ -104,6 +104,7 @@ from enum import StrEnum
 from functools import partial
 from hashlib import sha256
 from typing import Any, ClassVar, Self, cast
+from uuid import uuid4
 
 import psycopg
 from pgvector import Vector as PgVector
@@ -123,6 +124,9 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     FilterValue,
+    GenerationId,
+    GenerationRecord,
+    GenerationStatus,
     NodeStore,
     Page,
     Promotion,
@@ -137,6 +141,7 @@ from weft_store.contract import (
     TargetCatalogue,
     TargetName,
     UnhandledFilterOpError,
+    UnknownGenerationError,
     VectorIndexKind,
     VectorPrecision,
     source_failure,
@@ -231,6 +236,31 @@ CREATE TABLE IF NOT EXISTS weft_nodes (
 
 _CREATE_TSVECTOR_INDEX = """
 CREATE INDEX IF NOT EXISTS weft_nodes_content_tsv_idx ON weft_nodes USING GIN (content_tsv)
+"""
+
+#: Ledger task **43.14**'s column — `''` marks a node an unbound handle's `add` wrote (the
+#: base), a generation's own id marks one its bound handle wrote, and a legacy row predating
+#: this column reads back `'{}'`, empty. Its own `ALTER TABLE` statement, `_ADD_SOURCES_LAYERS`'s
+#: own footing above: `CREATE TABLE IF NOT EXISTS` does nothing to a database this store already
+#: provisioned.
+_ADD_NODES_GENERATIONS = (
+    "ALTER TABLE weft_nodes ADD COLUMN IF NOT EXISTS generations TEXT[] NOT NULL DEFAULT '{}'"
+)
+
+_CREATE_GENERATIONS_INDEX = """
+CREATE INDEX IF NOT EXISTS weft_nodes_generations_idx ON weft_nodes USING gin (generations)
+"""
+
+#: The catalogue `GenerationHolding.generations()` reads, in the same schema as `weft_nodes` —
+#: ledger task **43.14**.
+_CREATE_GENERATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS weft_generations (
+    id TEXT PRIMARY KEY,
+    layer TEXT NOT NULL,
+    status TEXT NOT NULL,
+    opened_at TIMESTAMPTZ NOT NULL,
+    published_at TIMESTAMPTZ
+)
 """
 
 # `index = "diskann"` — task **31.11**. No cast, unlike `_create_hnsw_index_sql`'s compressed
@@ -987,14 +1017,30 @@ _ORDERED_SQL: dict[FilterOp, sql.SQL] = {
 }
 
 
-def _predicate_or_true(filter: Filter | None, values: dict[str, object]) -> sql.Composable:
-    """A filter's predicate, or a constant true where there is no filter.
+def _predicate_or_true(
+    filter: Filter | None, values: dict[str, object], hidden: Sequence[str]
+) -> sql.Composable:
+    """A filter's predicate, or a constant true where there is no filter — AND-ed, either way,
+    with `GenerationHolding`'s membership rule (ledger task **43.14**).
 
     `TRUE` rather than two spellings of every statement: a search with no filter
     and a search with one must run the same SQL shape, or the filtered path is a
     second query that only a test with a filter in it ever exercises.
+
+    **Generation visibility is folded in here rather than kept a separate clause** — every
+    caller (`_search_vector_statement`, `search_text`, `matching`) already routes its predicate
+    through this function, so none of them can drift into forgetting the membership rule.
+    `hidden` is the generations this handle cannot see. A node is left out only when every
+    generation that wrote it is hidden; a legacy row (`'{}'`) and a base write (`''`) never are.
+    With nothing hidden, the usual case, the statement is exactly what it was before generations
+    existed: an always-true clause measurably changed the planner's choice of index.
     """
-    return sql.SQL("TRUE") if filter is None else _predicate(filter, values)
+    base = sql.SQL("TRUE") if filter is None else _predicate(filter, values)
+    if not hidden:
+        return base
+    values["hidden"] = list(hidden)
+    generation_clause = sql.SQL("(generations = '{}' OR NOT (generations <@ %(hidden)s))")
+    return sql.SQL("({} AND {})").format(base, generation_clause)
 
 
 #: Ledger task **27.1** — the production record `Removed.narrowed_count`'s docstring describes:
@@ -1110,7 +1156,12 @@ class PgVectorStore:
     text_score_semantics: str
 
     def __init__(
-        self, settings: PgVectorSettings, config: object = None, *, _bound: TargetName | None = None
+        self,
+        settings: PgVectorSettings,
+        config: object = None,
+        *,
+        _bound: TargetName | None = None,
+        _generation: GenerationId | None = None,
     ) -> None:
         del config  # nothing at the stage level this store needs — see the module docstring
         self._settings = settings
@@ -1140,6 +1191,14 @@ class PgVectorStore:
         self._home_schema: str | None = None
         #: This handle's own resolved target — `self._bound`, or the live target read at connect.
         self._active_target: TargetName | None = None
+        #: `None` on a handle no `bind_generation` ever produced — ledger task **43.14**. Set once,
+        #: at construction, never reassigned: a bound handle's own writes and its own visibility
+        #: both read this rather than a mutable "current generation" a caller could move mid-call.
+        self._generation: GenerationId | None = _generation
+        #: The published generation ids this handle read when it first touched storage — read
+        #: once in `_connection()` and held for the handle's lifetime (`TargetHolding`'s Q-C,
+        #: applied again), so one operation never mixes what two publishes made visible.
+        self._published_generations: frozenset[GenerationId] | None = None
 
     def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
         """This store's lexical statement, from the same configuration name the column has.
@@ -1217,6 +1276,18 @@ class PgVectorStore:
                             value=sql.Literal(self._iterative_scan.value)
                         )
                     )
+                # `GenerationHolding`'s manifest — ledger task **43.14**: read once, here, and held
+                # on `self._published_generations` for this handle's lifetime, so one operation
+                # never mixes what two publishes made visible. A bare `SELECT` takes no lock
+                # beyond `ACCESS SHARE` — R43.6's own rule, applied to a second table.
+                await cur.execute(
+                    "SELECT id FROM weft_generations WHERE status = %s",
+                    (GenerationStatus.PUBLISHED.value,),
+                )
+                generation_rows = await cur.fetchall()
+            self._published_generations = frozenset(
+                GenerationId(cast(str, row["id"])) for row in generation_rows
+            )
         finally:
             async with conn.cursor() as cur:
                 await cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (_SCHEMA_LOCK_KEY,))
@@ -1267,6 +1338,9 @@ class PgVectorStore:
             sql.SQL(_CREATE_NODE_PRODUCTIONS_TABLE),
             sql.SQL(_ADD_NODE_PRODUCTIONS_FK),
             sql.SQL(_BACKFILL_NODE_PRODUCTIONS),
+            sql.SQL(_CREATE_GENERATIONS_TABLE),
+            sql.SQL(_ADD_NODES_GENERATIONS),
+            sql.SQL(_CREATE_GENERATIONS_INDEX),
             *bm25,
             _add_tsvector_column_sql(self._text_search_config),
             sql.SQL(_CREATE_TSVECTOR_INDEX),
@@ -1433,6 +1507,32 @@ class PgVectorStore:
             raise AssertionError("_connection() must run before _active_target is read")
         return self._active_target
 
+    async def _hidden_generations(self) -> list[str]:
+        """The generations this handle cannot see — `GenerationHolding`, ledger **43.14**: every
+        one the catalogue holds now that was not published when this handle first touched
+        storage, other than the one it is bound to. Read per search, since a generation opened
+        after this handle's first touch is still hidden from it; the catalogue is one row per
+        generation, so the read is small.
+        """
+        visible = set(self._require_published_generations())
+        if self._generation is not None:
+            visible.add(self._generation)
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            # Unprepared: a parameterless statement prepared on its fifth run counts as a generic
+            # plan, which R38.7's check on this session reads as a regressed search.
+            await cur.execute("SELECT id FROM weft_generations", prepare=False)
+            rows = await cur.fetchall()
+        return sorted(cast(str, row["id"]) for row in rows if row["id"] not in visible)
+
+    def _require_published_generations(self) -> frozenset[GenerationId]:
+        """`self._published_generations`, narrowed — same guarantee and the same reason as
+        `_require_home_schema` above.
+        """
+        if self._published_generations is None:
+            raise AssertionError("_connection() must run before _published_generations is read")
+        return self._published_generations
+
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         """Store `payload` and pass it through — the module docstring's narrowing note."""
         del ctx
@@ -1445,6 +1545,13 @@ class PgVectorStore:
         conn = await self._connection()
         await self._reconcile_vector_width(conn, nodes)
         rows = [_node_to_row(node) for node in nodes]
+        # `GenerationHolding`'s base marker — ledger task **43.14**: an unbound handle writes the
+        # empty marker, a handle `bind_generation` produced writes its own id. Merged on conflict,
+        # below, exactly as `sources` is, so a node the base wrote stays visible whatever
+        # generation also writes it.
+        generation_marker = [self._generation] if self._generation is not None else [""]
+        for row in rows:
+            row["generations"] = generation_marker
         production_rows = [
             {
                 "node_id": node.id,
@@ -1459,9 +1566,10 @@ class PgVectorStore:
         async with conn.transaction(), conn.cursor() as cur:
             await cur.executemany(
                 """
-                INSERT INTO weft_nodes (id, parents, sources, content, media_type, embedding, ext)
+                INSERT INTO weft_nodes
+                    (id, parents, sources, content, media_type, embedding, ext, generations)
                 VALUES (%(id)s, %(parents)s, %(sources)s, %(content)s, %(media_type)s,
-                        %(embedding)s, %(ext)s)
+                        %(embedding)s, %(ext)s, %(generations)s)
                 ON CONFLICT (id) DO UPDATE SET
                     parents = EXCLUDED.parents,
                     sources = ARRAY(
@@ -1470,7 +1578,10 @@ class PgVectorStore:
                     content = EXCLUDED.content,
                     media_type = EXCLUDED.media_type,
                     embedding = EXCLUDED.embedding,
-                    ext = EXCLUDED.ext
+                    ext = EXCLUDED.ext,
+                    generations = ARRAY(
+                        SELECT DISTINCT unnest(weft_nodes.generations || EXCLUDED.generations)
+                    )
                 """,
                 rows,
             )
@@ -1773,13 +1884,13 @@ class PgVectorStore:
         cursor means something, and one page at a time because a predicate over a
         corpus can select all of it.
         """
+        conn = await self._connection()
         values: dict[str, object] = {"after": cursor if cursor is not None else ""}
         statement = sql.SQL(
             "SELECT * FROM weft_nodes WHERE id > %(after)s AND {predicate} "
             "ORDER BY id LIMIT %(limit)s"
-        ).format(predicate=_predicate(filter, values))
+        ).format(predicate=_predicate_or_true(filter, values, await self._hidden_generations()))
         values["limit"] = _PAGE_SIZE + 1
-        conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(statement, values)
             rows = await cur.fetchall()
@@ -1849,7 +1960,7 @@ class PgVectorStore:
         full-precision cosine and never the distance the inner query ranked by.
         """
         values: dict[str, object] = {}
-        predicate = _predicate_or_true(filter, values)
+        predicate = _predicate_or_true(filter, values, await self._hidden_generations())
         values["top_k"] = top_k
         plain = sql.SQL("""
                 SELECT *, embedding <=> %(vector)s AS distance
@@ -1898,7 +2009,7 @@ class PgVectorStore:
         """
         conn = await self._connection()
         values: dict[str, object] = {}
-        predicate = _predicate_or_true(filter, values)
+        predicate = _predicate_or_true(filter, values, await self._hidden_generations())
         statement = (
             _search_bm25_sql(predicate)
             if self._text_mode is TextMode.BM25
@@ -1959,6 +2070,96 @@ class PgVectorStore:
     async def drop_target(self, target: TargetName) -> None:
         conn = await self._connection()
         await _pg_drop_target(_TARGET_LAYOUT, conn, self._require_home_schema(), target)
+
+    # -- GenerationHolding — ledger task **43.14** -------------------------------------------
+
+    async def open_generation(self, layer: str) -> GenerationRecord:
+        conn = await self._connection()
+        generation_id = GenerationId(f"g-{uuid4().hex[:12]}")
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "INSERT INTO weft_generations (id, layer, status, opened_at) "
+                "VALUES (%s, %s, %s, now()) RETURNING *",
+                (generation_id, layer, GenerationStatus.BUILDING.value),
+            )
+            row = await cur.fetchone()
+        if row is None:
+            raise AssertionError("INSERT ... RETURNING must return exactly one row")
+        return _row_to_generation_record(row)
+
+    async def bind_generation(self, generation: GenerationId) -> Self:
+        """A second handle onto the same database and target, bound to `generation` — its own
+        connection, opened lazily on first use exactly as `bind_target`'s is.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (generation,))
+            found = await cur.fetchone()
+            if found is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+        return type(self)(self._settings, _bound=self._bound, _generation=generation)
+
+    async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE weft_generations SET status = %s, published_at = now() "
+                "WHERE id = %s RETURNING *",
+                (GenerationStatus.PUBLISHED.value, generation),
+            )
+            row = await cur.fetchone()
+            if row is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+        return _row_to_generation_record(row)
+
+    async def retract_generation(self, generation: GenerationId) -> Removed:
+        """Remove the nodes only `generation` made, keep every node another generation or the
+        base also holds, and forget `generation` — `GenerationHolding`, ledger **43.14**.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (generation,))
+            if await cur.fetchone() is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+            await cur.execute("SELECT id FROM weft_nodes WHERE generations = %s", ([generation],))
+            doomed = [cast(str, row["id"]) for row in await cur.fetchall()]
+            node_count = 0
+            if doomed:
+                await cur.execute("DELETE FROM weft_nodes WHERE id = ANY(%s)", (doomed,))
+                node_count = cur.rowcount
+                await cur.execute(
+                    "DELETE FROM weft_node_productions WHERE node_id = ANY(%s)", (doomed,)
+                )
+            await cur.execute(
+                "UPDATE weft_nodes SET generations = array_remove(generations, %s) "
+                "WHERE %s = ANY(generations)",
+                (generation, generation),
+            )
+            await cur.execute("DELETE FROM weft_generations WHERE id = %s", (generation,))
+        return Removed(source_id=SourceId(generation), node_count=node_count)
+
+    async def generations(self) -> tuple[GenerationRecord, ...]:
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT * FROM weft_generations ORDER BY opened_at, id")
+            rows = await cur.fetchall()
+        return tuple(_row_to_generation_record(row) for row in rows)
+
+    async def _known_generation_ids(
+        self, cur: psycopg.AsyncCursor[dict[str, Any]]
+    ) -> tuple[str, ...]:
+        """Every generation id this store's catalogue holds — fitness function 12's
+        `valid_options`, for `bind_generation`, `publish_generation` and `retract_generation`.
+        """
+        await cur.execute("SELECT id FROM weft_generations ORDER BY id")
+        rows = await cur.fetchall()
+        return tuple(cast(str, row["id"]) for row in rows)
 
     async def committed_width(self) -> int | None:
         """The width `weft_nodes.embedding` is typed to, or `None` while the column is still bare.
@@ -2253,6 +2454,16 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
     )
 
 
+def _row_to_generation_record(row: Mapping[str, object]) -> GenerationRecord:
+    return GenerationRecord(
+        id=GenerationId(cast(str, row["id"])),
+        layer=cast(str, row["layer"]),
+        status=GenerationStatus(cast(str, row["status"])),
+        opened_at=cast(datetime, row["opened_at"]),
+        published_at=cast("datetime | None", row.get("published_at")),
+    )
+
+
 # --- G22: the width is committed at first write --------------------------------------------------
 #
 # Grouped at the end of the module rather than beside `PgVectorStore.add` — fitness function 17
@@ -2354,6 +2565,6 @@ _TARGET_LAYOUT = PgTargetLayout(
     lock_key_prefix="weft_target:",
     targets_table="weft_targets",
     live_target_table="weft_live_target",
-    target_tables=("weft_sources", "weft_nodes", "weft_node_productions"),
+    target_tables=("weft_sources", "weft_nodes", "weft_node_productions", "weft_generations"),
     missing_table_error=lambda message: TargetTableMissingError(message, pack="weft-store"),
 )

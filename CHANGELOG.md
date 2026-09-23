@@ -43,6 +43,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **`raptor` refuses a corpus it cannot cluster in reasonable time, before starting.**
+  `similarity_threshold: auto` compares every pair of leaves. On 3,072-dimension vectors that
+  measured 86 s and 339 MB at 1,000 leaves, and it grows with the square of the leaves: about 8.6
+  hours at the 19,000 a 100-PDF corpus holds. So `auto` is refused above `max_pairs` (500,000
+  pairs), and clustering is refused above `max_leaves` (5,000) whatever the threshold. The message
+  names the leaf count, the bound and the remedies: type a `similarity_threshold`, or raise the
+  bound in the stage's `with:` block.
 - **`weft index` works in batches of 25 by default, and each batch is searchable the moment it
   lands.** A progress line on stderr says how many documents are queryable so far, and `--json`
   carries it as a `batch-progress` line. Only one batch of files is held in memory at a time: on
@@ -78,6 +85,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A store can build a layer as a generation, published whole.** The store contract moves to
+  `2.11.0` with one optional capability, `weft_store.contract.GenerationHolding`: open a generation,
+  write its nodes through a bound handle, then publish or retract it. Until it is published, its
+  nodes are left out of vector search, text search and metadata filters, before the top results
+  are taken. A handle keeps the set of generations it saw when it opened, so one question never
+  mixes two builds of a tree. The published conformance kit gains six checks for it. pgvector and
+  Qdrant hold generations; a store that does not keeps working exactly as before.
 - **Layers: enrichment that runs after a corpus is searchable.** `weft index --layers
   enrich-with-questions` indexes the base, then generates questions for every stored chunk, and
   embeds and stores only those questions with the base's own embedder. `--layers-only` runs a layer
@@ -177,6 +191,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Fixed
 
+- **A summary `adrap` rebuilds is embedded before it replaces the old one.** It was stored with
+  no vector, so after `index-with-adrap` joined a new document to a RAPTOR tree, the rebuilt
+  summaries dropped out of vector search.
 - **One document that fails no longer fails the documents batched with it.** A failed batch is
   re-run a document at a time, so only the document that fails alone is recorded failed. Before
   this, the default `weft index` over 1,000 PDFs with three unreadable ones indexed none of them.

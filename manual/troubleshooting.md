@@ -4849,6 +4849,21 @@ first write into it, so a candidate you have not indexed yet does not exist.
 
 **What to do:** use one of the names the message lists, or index into the new target first.
 
+### `UnknownGenerationError`
+
+**What it looks like:**
+
+```text
+'g-7f3a' is not a generation this store holds — generations: g-1c20, g-9e04
+```
+
+**Why:** a corpus-scoped layer, such as a RAPTOR tree over every document, is built as a
+generation and published whole. The generation you named was never opened in this store, or it
+was retracted.
+
+**What to do:** use one of the ids the message lists. `weft index --layers <name>` opens a new
+generation for the layer.
+
 ### `TargetInUseError`
 
 **What it looks like:**

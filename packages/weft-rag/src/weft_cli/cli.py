@@ -811,7 +811,12 @@ def main() -> None:
     args = parser.parse_args(argv)
     command_name = cast(str, getattr(args, COMMAND_NAME_ATTR))
 
-    rendered = _run_command_to_rendered(command_name, args, deps)
+    try:
+        rendered = _run_command_to_rendered(command_name, args, deps)
+    except KeyboardInterrupt:
+        # R43.8: one line, and 130, the shell's own code for a process ended by SIGINT.
+        print(f"weft {command_name}: interrupted", file=sys.stderr)
+        sys.exit(130)
     _print_rendered_output(rendered)
     sys.exit(int(rendered.exit_code))
 
@@ -894,7 +899,7 @@ def _report_unexpected(command_name: str, exc: Exception) -> None:
     message are printed, and the exit code is non-zero.
 
     `BaseException` is deliberately not caught, so `CancelledError` propagates untouched (G6)
-    and `KeyboardInterrupt` still ends the process the way a user expects.
+    and `KeyboardInterrupt` reaches `main`, which ends the process with one line and 130 (R43.8).
 
     `WEFT_TRACEBACK=1` re-raises instead, because "no traceback" is right for a user and wrong
     for whoever has to fix it.

@@ -1,6 +1,7 @@
 """`InMemoryNodeStore` — a stranger's whole store family: `NodeStore`, `VectorSearch`,
-`TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable` and, since ledger task
-**34.3**, `TargetHolding`, all seven, over one process-lifetime Python dict.
+`TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable`, `TargetHolding` (ledger
+task **34.3**) and, since ledger task **43.14**, `GenerationHolding`, all eight, over one
+process-lifetime Python dict.
 
 **`Lifetime.PROCESS`, stated as the deliberate choice it is.** A plugin defaults to
 `Lifetime.RUN` — a fresh instance per pipeline run — which is exactly right for
@@ -24,10 +25,21 @@ third translator exactly as it does to a second: `field_for` is the one call tha
 what a `Filter.field` reaches on a `Node` and which operators it admits, so this store
 disagrees with pgvector and Qdrant about a filter's meaning in no more ways than they
 already disagree with each other, which is none.
+
+**`GenerationHolding`, task 43.14, is `TargetHolding`'s shape run again one layer down.**
+Every target already keeps its own nodes; here it also keeps its own generation catalogue
+and, per node, the set of generation ids that wrote it — `""` standing for a write made
+through an unbound handle, the base marker `pgvector` and Qdrant both use so a legacy or
+never-generationed node reads as "no generation wrote this" rather than "wrote by nothing
+visible". A handle resolves which generations it can see at the same moment it resolves its
+target — first storage touch, cached for its lifetime, so a publish that happens afterwards
+is invisible to work already in flight, exactly as a promote already is under `TargetHolding`.
 """
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import ClassVar, Self
+from uuid import uuid4
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, NodeId, Outcome, Produced, SourceId, Vector
@@ -38,6 +50,9 @@ from weft_store.contract import (
     EmbeddingIdentity,
     Filter,
     FilterOp,
+    GenerationId,
+    GenerationRecord,
+    GenerationStatus,
     NoPreviousTargetError,
     Page,
     Promotion,
@@ -53,18 +68,30 @@ from weft_store.contract import (
     TargetInUseError,
     TargetName,
     TargetRecord,
+    UnknownGenerationError,
     UnknownTargetError,
 )
 from weft_store.fields import FieldKind, FieldPath, field_for
 
+#: The base marker — a node written through an unbound handle carries this in its own
+#: generation set, and it is always in a handle's visible set, so a base write is visible to
+#: everyone whatever generations they can or cannot see.
+_BASE = ""
+
 
 class _Target:
-    """One target's own nodes and source records — never shared across targets."""
+    """One target's own nodes, source records and generation catalogue — never shared
+    across targets, on the same footing as a pgvector schema or a Qdrant collection prefix.
+    """
 
     def __init__(self) -> None:
         self.nodes: dict[NodeId, Node] = {}
         self.sources: dict[SourceId, SourceRecord] = {}
         self.embedding: EmbeddingIdentity | None = None
+        self.generations: dict[GenerationId, GenerationRecord] = {}
+        #: The generation ids that wrote each node — `_BASE` for an unbound write, merged by
+        #: union on every further write, exactly as `sources` is merged on `add`.
+        self.node_generations: dict[NodeId, frozenset[str]] = {}
 
 
 class _Catalogue:
@@ -97,6 +124,12 @@ class InMemoryNodeStore:
     reachable through a bound handle too. An unbound handle reads `live` the first time any
     storage method touches it and holds that answer for its own lifetime, so a promote that
     happens afterwards does not retarget a handle already in use.
+
+    **`GenerationHolding`, task 43.14, follows the identical shape one level down**, inside
+    whichever target a handle resolves to: `bind_generation` hands back a third kind of bound
+    handle, sharing the same catalogue and the same target settings as the handle it was
+    asked from, and a handle's visible generation set is read once, at the same moment its
+    target is, and held for its own lifetime.
     """
 
     lifetime: ClassVar[Lifetime] = Lifetime.PROCESS
@@ -107,6 +140,7 @@ class InMemoryNodeStore:
         *,
         _catalogue: _Catalogue | None = None,
         _bound: TargetName | None = None,
+        _bound_generation: GenerationId | None = None,
     ) -> None:
         del config
         self._catalogue = _catalogue if _catalogue is not None else _Catalogue()
@@ -115,24 +149,60 @@ class InMemoryNodeStore:
         self._bound = _bound
         #: An unbound handle's own resolution of "live", read once and held.
         self._resolved: TargetName | None = None
+        #: `None` on a handle not bound to a generation. Set once by `bind_generation` and
+        #: never changed after that.
+        self._bound_generation = _bound_generation
+        #: This handle's own visible generation set, read once — see `_active_target`.
+        self._visible: frozenset[str] | None = None
 
     def _active_target(self) -> TargetName:
         """The target this handle's storage operations read and write.
 
         Explicit for a bound handle. For an unbound one, the catalogue's own `live` is read
         the first time any storage operation reaches this method and cached from then on.
+        This is also the moment `self._visible` — the generation ids this handle can see —
+        is resolved and cached, on `TargetHolding`'s own footing (`34.3`'s Q-C, applied again
+        at task `43.14`): one operation never mixes what two different reads of the
+        catalogue would have shown it.
         """
         if self._bound is not None:
-            return self._bound
-        if self._resolved is None:
-            self._resolved = self._catalogue.live
-        return self._resolved
+            target = self._bound
+        else:
+            if self._resolved is None:
+                self._resolved = self._catalogue.live
+            target = self._resolved
+        if self._visible is None:
+            state = self._catalogue.targets.get(target)
+            published = frozenset(
+                record.id
+                for record in (state.generations.values() if state is not None else ())
+                if record.status is GenerationStatus.PUBLISHED
+            )
+            visible = {_BASE, *published}
+            if self._bound_generation is not None:
+                visible.add(self._bound_generation)
+            self._visible = frozenset(visible)
+        return target
 
     def _writable(self) -> _Target:
         return self._catalogue.targets.setdefault(self._active_target(), _Target())
 
     def _readable(self) -> _Target:
         return self._catalogue.targets.get(self._active_target()) or _Target()
+
+    def _visible_node(self, target: _Target, node_id: NodeId) -> bool:
+        """Whether `node_id` is a member of a generation this handle can see.
+
+        A node no generation ever wrote has no entry at all — always visible, task 43.14's
+        own rule for content nothing gated. Otherwise visible exactly when its membership
+        and this handle's visible set share a generation, `_BASE` included, which is why a
+        write through an unbound handle is visible under every set of generations.
+        """
+        membership = target.node_generations.get(node_id)
+        if not membership:
+            return True
+        visible = self._visible
+        return visible is not None and bool(membership & visible)
 
     # -- NodeStore -----------------------------------------------------------------------
 
@@ -143,8 +213,12 @@ class InMemoryNodeStore:
 
     async def add(self, nodes: Sequence[Node]) -> None:
         target = self._writable()
+        marker = self._bound_generation if self._bound_generation is not None else _BASE
         for node in nodes:
             target.nodes[node.id] = node
+            target.node_generations[node.id] = target.node_generations.get(node.id, frozenset()) | {
+                marker
+            }
 
     async def flush(self) -> None:
         # Every write above is already durable within this process — nothing buffered.
@@ -267,8 +341,11 @@ class InMemoryNodeStore:
     async def search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
     ) -> Sequence[Scored[Node]]:
+        target = self._readable()
         candidates = (
-            node for node in self._readable().nodes.values() if node.embedding is not None
+            node
+            for node in target.nodes.values()
+            if node.embedding is not None and self._visible_node(target, node.id)
         )
         if filter is not None:
             candidates = (node for node in candidates if _matches(node, filter))
@@ -288,7 +365,8 @@ class InMemoryNodeStore:
         query_words = _words(text)
         if not query_words:
             return ()
-        candidates = self._readable().nodes.values()
+        target = self._readable()
+        candidates = [node for node in target.nodes.values() if self._visible_node(target, node.id)]
         if filter is not None:
             candidates = [node for node in candidates if _matches(node, filter)]
         scored: list[Scored[Node]] = []
@@ -303,8 +381,13 @@ class InMemoryNodeStore:
 
     async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
         del cursor  # see `scan` — no real pagination in this example store
+        target = self._readable()
         return Page(
-            items=tuple(node for node in self._readable().nodes.values() if _matches(node, filter))
+            items=tuple(
+                node
+                for node in target.nodes.values()
+                if self._visible_node(target, node.id) and _matches(node, filter)
+            )
         )
 
     # -- TargetHolding -----------------------------------------------------------------------
@@ -371,6 +454,69 @@ class InMemoryNodeStore:
         if target not in catalogue.targets:
             raise UnknownTargetError(target, valid_options=tuple(sorted(catalogue.targets)))
         del catalogue.targets[target]
+
+    # -- GenerationHolding -------------------------------------------------------------------
+
+    async def open_generation(self, layer: str) -> GenerationRecord:
+        target = self._writable()
+        record = GenerationRecord(
+            id=GenerationId(f"g-{uuid4().hex[:12]}"),
+            layer=layer,
+            status=GenerationStatus.BUILDING,
+            opened_at=datetime.now(UTC),
+        )
+        target.generations[record.id] = record
+        return record
+
+    async def bind_generation(self, generation: GenerationId) -> Self:
+        """A new handle on the same catalogue and the same target settings as this one,
+        bound to `generation` — `bind_target`'s own construction is the model."""
+        target_name = self._active_target()
+        state = self._catalogue.targets.get(target_name)
+        if state is None or generation not in state.generations:
+            valid = tuple(sorted(state.generations)) if state is not None else ()
+            raise UnknownGenerationError(generation, valid_options=valid)
+        return type(self)(
+            _catalogue=self._catalogue, _bound=self._bound, _bound_generation=generation
+        )
+
+    async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        target = self._writable()
+        record = target.generations.get(generation)
+        if record is None:
+            raise UnknownGenerationError(
+                generation, valid_options=tuple(sorted(target.generations))
+            )
+        published = record.model_copy(
+            update={"status": GenerationStatus.PUBLISHED, "published_at": datetime.now(UTC)}
+        )
+        target.generations[generation] = published
+        return published
+
+    async def retract_generation(self, generation: GenerationId) -> Removed:
+        target = self._writable()
+        if generation not in target.generations:
+            raise UnknownGenerationError(
+                generation, valid_options=tuple(sorted(target.generations))
+            )
+        doomed = frozenset({generation})
+        removed_ids = tuple(
+            node_id
+            for node_id, membership in target.node_generations.items()
+            if membership == doomed
+        )
+        for node_id in removed_ids:
+            target.nodes.pop(node_id, None)
+            target.node_generations.pop(node_id, None)
+        for node_id, membership in list(target.node_generations.items()):
+            if generation in membership:
+                target.node_generations[node_id] = membership - doomed
+        del target.generations[generation]
+        return Removed(source_id=SourceId(generation), node_count=len(removed_ids))
+
+    async def generations(self) -> tuple[GenerationRecord, ...]:
+        records = self._readable().generations.values()
+        return tuple(sorted(records, key=lambda record: (record.opened_at, record.id)))
 
 
 def _cosine(left: Vector, right: Vector) -> float:

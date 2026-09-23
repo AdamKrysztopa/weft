@@ -74,6 +74,9 @@ from weft_store.contract import (
     EmbeddingIdentity,
     Filter,
     FilterOp,
+    GenerationHolding,
+    GenerationId,
+    GenerationStatus,
     InvalidTargetNameError,
     LayerRecord,
     LayerStatus,
@@ -92,6 +95,7 @@ from weft_store.contract import (
     TargetHolding,
     TargetInUseError,
     TextSearch,
+    UnknownGenerationError,
     UnknownTargetError,
     VectorSearch,
     target_name,
@@ -165,6 +169,7 @@ _CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
     "SupersedableStore": ("NodeSupersedable", "supersede"),
     "ReconcilableStore": ("Reconcilable", "reconcile"),
     "TargetHoldingStore": ("TargetHolding", "target_catalogue"),
+    "GenerationHoldingStore": ("GenerationHolding", "open_generation"),
 }
 
 #: Every method `NodeStore` publishes. A thing missing any of them is refused rather than filtered.
@@ -339,6 +344,13 @@ class ReconcilableStore(NodeStore, Reconcilable, Protocol):
 @runtime_checkable
 class TargetHoldingStore(NodeStore, TargetHolding, Protocol):
     """A store that holds nodes in named targets, one of them live — ledger task **34.3**."""
+
+
+@runtime_checkable
+class GenerationHoldingStore(
+    NodeStore, GenerationHolding, VectorSearch, TextSearch, MetadataFilter, Protocol
+):
+    """A store that holds layer generations and searches them — ledger task **43.14**."""
 
 
 _SOURCE_A = SourceId("source-a")
@@ -1994,4 +2006,173 @@ async def check_promoting_the_live_target_again_changes_nothing(store: TargetHol
     _require(
         again.previous == first.previous == DEFAULT_TARGET,
         f"promoting the live target must keep previous: {again.previous!r}",
+    )
+
+
+def _member(content: str, values: tuple[float, float, float]) -> Node:
+    return _node(content, sources=frozenset({_SOURCE_A}), embedding=Vector(values=values))
+
+
+async def _visible(
+    store: GenerationHoldingStore, content: str, values: tuple[float, float, float]
+) -> tuple[bool, bool, bool]:
+    """Whether `content` is found by vector search, text search and a metadata filter."""
+    by_vector = any(
+        s.value.content == content
+        for s in await store.search_vector(Vector(values=values), top_k=10)
+    )
+    by_text = any(s.value.content == content for s in await store.search_text(content, top_k=10))
+    page = await store.matching(Filter(op=FilterOp.EQ, field="content", value=content))
+    return by_vector, by_text, any(node.content == content for node in page.items)
+
+
+async def _next_operation(store: GenerationHoldingStore) -> GenerationHoldingStore:
+    """A handle reading as the next operation would: bound to a fresh, empty generation, so its
+    manifest is whatever is published when it first touches storage, plus nothing of its own."""
+    probe = await store.open_generation("conformance-probe")
+    return await store.bind_generation(probe.id)
+
+
+async def check_an_unpublished_generation_is_invisible_until_it_is_published(
+    store: GenerationHoldingStore,
+) -> None:
+    """Ledger **43.14**: a half-built corpus-scoped layer is never searchable — its members are
+    absent from vector search, text search and metadata filters, before top-k — and all of it
+    becomes searchable at once when it is published."""
+    # Arrange
+    await store.add(conformance_corpus())
+    generation = await store.open_generation("summaries")
+    writer = await store.bind_generation(generation.id)
+    await writer.add([_member("delta", (0.0, 0.0, 1.0))])
+
+    # Act
+    before = await _visible(await _next_operation(store), "delta", (0.0, 0.0, 1.0))
+    await store.publish_generation(generation.id)
+    after = await _visible(await _next_operation(store), "delta", (0.0, 0.0, 1.0))
+
+    # Assert
+    _require(before == (False, False, False), f"an unpublished member was found: {before}")
+    _require(after == (True, True, True), f"a published member was not found: {after}")
+
+
+async def check_a_handle_keeps_the_generations_it_read_when_it_opened(
+    store: GenerationHoldingStore,
+) -> None:
+    """One operation sees one set of generations: a handle that touched storage before a publish
+    keeps what it read, so a multi-arm ask never mixes two trees."""
+    # Arrange
+    await store.add(conformance_corpus())
+    generation = await store.open_generation("summaries")
+    writer = await store.bind_generation(generation.id)
+    await writer.add([_member("delta", (0.0, 0.0, 1.0))])
+    reader = await _next_operation(store)
+    await reader.count()
+
+    # Act
+    await store.publish_generation(generation.id)
+    seen = await _visible(reader, "delta", (0.0, 0.0, 1.0))
+
+    # Assert
+    _require(seen == (False, False, False), f"a handle saw a publish made after it opened: {seen}")
+
+
+async def check_base_nodes_are_visible_under_every_set_of_generations(
+    store: GenerationHoldingStore,
+) -> None:
+    """A node no generation wrote — the base — is visible to every handle, published or not."""
+    # Arrange
+    await store.add(conformance_corpus())
+    building = await store.open_generation("summaries")
+    writer = await store.bind_generation(building.id)
+
+    # Act
+    unbound = await _visible(store, "alpha", (1.0, 0.0, 0.0))
+    bound = await _visible(writer, "alpha", (1.0, 0.0, 0.0))
+
+    # Assert
+    _require(
+        unbound == (True, True, True), f"a base node was hidden from an unbound handle: {unbound}"
+    )
+    _require(bound == (True, True, True), f"a base node was hidden from a bound handle: {bound}")
+
+
+async def check_a_node_shared_with_a_published_generation_stays_visible(
+    store: GenerationHoldingStore,
+) -> None:
+    """A node two generations both wrote belongs to both: the unpublished one cannot hide what
+    the published one made visible."""
+    # Arrange
+    shared = _member("delta", (0.0, 0.0, 1.0))
+    published = await store.open_generation("summaries")
+    await (await store.bind_generation(published.id)).add([shared])
+    await store.publish_generation(published.id)
+    building = await store.open_generation("summaries")
+
+    # Act
+    await (await store.bind_generation(building.id)).add([shared])
+    seen = await _visible(await _next_operation(store), "delta", (0.0, 0.0, 1.0))
+
+    # Assert
+    _require(seen == (True, True, True), f"a node a published generation holds was hidden: {seen}")
+
+
+async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones(
+    store: GenerationHoldingStore,
+) -> None:
+    """`retract_generation` removes the nodes only that generation made, keeps a node another
+    generation also holds and every base node, and forgets the generation."""
+    # Arrange
+    await store.add(conformance_corpus())
+    kept = await store.open_generation("summaries")
+    await (await store.bind_generation(kept.id)).add([_member("delta", (0.0, 0.0, 1.0))])
+    await store.publish_generation(kept.id)
+    doomed = await store.open_generation("summaries")
+    await (await store.bind_generation(doomed.id)).add(
+        [_member("delta", (0.0, 0.0, 1.0)), _member("epsilon", (0.0, 0.5, 0.5))]
+    )
+
+    # Act
+    removed = await store.retract_generation(doomed.id)
+
+    # Assert
+    _require(
+        removed.node_count == 1,
+        f"retract must remove exactly the sole member: {removed.node_count}",
+    )
+    _require(await store.count() == 4, f"base and shared nodes must survive: {await store.count()}")
+    _require(
+        doomed.id not in {record.id for record in await store.generations()},
+        "a retracted generation must be forgotten",
+    )
+
+
+async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(
+    store: GenerationHoldingStore,
+) -> None:
+    """`open_generation` records `building`, `publish_generation` records `published` with its
+    time, `generations()` returns both whole, and a generation nobody opened is refused naming
+    the ones that exist."""
+    # Arrange
+    opened = await store.open_generation("summaries")
+
+    # Act
+    published = await store.publish_generation(opened.id)
+    listed = await store.generations()
+    try:
+        await store.publish_generation(GenerationId("no-such-generation"))
+    except UnknownGenerationError as refused:
+        refusal: UnknownGenerationError | None = refused
+    else:
+        refusal = None
+
+    # Assert
+    _require(opened.status is GenerationStatus.BUILDING, f"opened as {opened.status}")
+    _require(opened.layer == "summaries", f"the layer must be recorded: {opened.layer!r}")
+    _require(published.status is GenerationStatus.PUBLISHED, f"published as {published.status}")
+    _require(published.published_at is not None, "a publish must record when")
+    _require(listed == (published,), f"the catalogue must hold the record whole: {listed}")
+    _require(refusal is not None, "an unknown generation must be refused")
+    _require(
+        refusal is not None and opened.id in refusal.valid_options,
+        "the refusal must name the generations that exist",
     )

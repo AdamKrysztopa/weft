@@ -160,7 +160,8 @@ from weft_kernel.runner import Stage
 #: **`2.8.0` → `2.9.0` at task 34.3** — `TargetHolding` joins the family, `NodeSupersedable`'s
 #: precedent: a new optional Protocol is a minor for both audiences.
 #: **`2.9.0` → `2.10.0` at task 43.6** — `SourceRecord` gains optional `layers`, `36.0`'s shape.
-STORE_CONTRACT_VERSION = "2.10.0"
+#: **`2.10.0` → `2.11.0` at task 43.14** — `GenerationHolding` joins the family, `34.3`'s shape.
+STORE_CONTRACT_VERSION = "2.11.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -1377,3 +1378,73 @@ class TargetHolding(Protocol):
 
 
 TargetHolding.version = STORE_CONTRACT_VERSION
+
+
+#: A generation's id, minted by the store in `GenerationHolding.open_generation`.
+GenerationId = NewType("GenerationId", str)
+
+
+class GenerationStatus(StrEnum):
+    """Where a layer generation stands — ledger task **43.14**."""
+
+    #: Opened, members being written, invisible to every search.
+    BUILDING = "building"
+    #: Visible to every handle that opens after the publish.
+    PUBLISHED = "published"
+
+
+class GenerationRecord(BaseModel):
+    """One generation in a store's catalogue — `GenerationHolding.generations()`'s element."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: GenerationId
+    layer: str = Field(min_length=1)
+    status: GenerationStatus
+    opened_at: datetime
+    published_at: datetime | None = None
+
+
+class UnknownGenerationError(WeftError, UnresolvedNameError):
+    """A generation was asked for by id that the store's catalogue does not hold — fitness
+    function 12's family: `valid_options` carries the ids it does hold.
+    """
+
+    def __init__(self, generation: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(
+            f"{generation!r} is not a generation this store holds — generations: "
+            f"{', '.join(sorted(valid_options)) or '(none)'}"
+        )
+        self.generation = generation
+        self.valid_options = valid_options
+
+
+@runtime_checkable
+class GenerationHolding(Protocol):
+    """A store that builds a corpus-scoped layer as a generation, published whole — ledger task
+    **43.14**.
+
+    A node written through `bind_generation`'s handle is a member of that generation, and every
+    search (`search_vector`, `search_text`, `matching`) leaves out members of a generation the
+    reading handle cannot see, **before** top-k. A handle sees the generations published when it
+    first touches storage, plus the one it is bound to, and keeps that set for its lifetime, so one
+    operation never mixes two trees (`TargetHolding`'s Q-C, applied again). A node no generation
+    wrote is always visible, and a node two generations wrote is visible when either is.
+    `retract_generation` removes the nodes only that generation made and forgets it.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def open_generation(self, layer: str) -> GenerationRecord: ...
+
+    async def bind_generation(self, generation: GenerationId) -> Self: ...
+
+    async def publish_generation(self, generation: GenerationId) -> GenerationRecord: ...
+
+    async def retract_generation(self, generation: GenerationId) -> Removed: ...
+
+    async def generations(self) -> tuple[GenerationRecord, ...]: ...
+
+
+GenerationHolding.version = STORE_CONTRACT_VERSION

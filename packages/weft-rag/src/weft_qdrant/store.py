@@ -94,6 +94,7 @@ that only reads takes no lease at all.
 import asyncio
 import time
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from functools import partial
 from typing import Any, ClassVar, Final, Self, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -112,6 +113,9 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     FilterValue,
+    GenerationId,
+    GenerationRecord,
+    GenerationStatus,
     NoPreviousTargetError,
     Page,
     Promotion,
@@ -128,6 +132,7 @@ from weft_store.contract import (
     TargetName,
     TargetRecord,
     UnhandledFilterOpError,
+    UnknownGenerationError,
     UnknownTargetError,
     VectorIndexKind,
     VectorPrecision,
@@ -162,6 +167,11 @@ _VECTOR = "content"
 #: point with no analysable content (see `_point`) can carry an empty one rather than none.
 _LEXICAL = "lexical"
 
+#: The payload field every point carries its generation membership under — ledger **43.14**.
+#: `""` is the base marker `_generations_of` reads a missing key as, so a point no
+#: generation ever wrote merges identically to one written before this feature existed.
+_GENERATIONS = "generations"
+
 #: The namespace every point id is derived under. A fixed, arbitrary URL, so the same node
 #: lands on the same point in every deployment and a re-index overwrites rather than
 #: duplicates — `uuid5` is a digest, not a random id, which is the whole reason to use it.
@@ -191,6 +201,20 @@ def _lease_point_id(collection: str, target: str, holder: str) -> str:
     renewal upserts the same point rather than accumulating one per write.
     """
     return str(uuid5(_TARGET_ID_NAMESPACE, f"lease:{collection}:{target}:{holder}"))
+
+
+#: The namespace a generation's catalogue point id is derived under — its own, for the same
+#: reason `_TARGET_ID_NAMESPACE` is distinct from `_ID_NAMESPACE`: a generation id and a
+#: target name are two different alphabets.
+_GENERATION_ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://weft.invalid/qdrant/generation-id")
+
+
+def _generation_point_id(generation_id: str) -> str:
+    """A generation's own catalogue point id, deterministic like `_target_point_id` — `uuid5`
+    under `_GENERATION_ID_NAMESPACE` so publishing or retracting a generation finds the same
+    point rather than accumulating a second one.
+    """
+    return str(uuid5(_GENERATION_ID_NAMESPACE, generation_id))
 
 
 #: Weft's own payload-index vocabulary, mapped onto the driver's — task **31.1**. A Weft-side
@@ -362,7 +386,12 @@ class QdrantStore:
     )
 
     def __init__(
-        self, settings: QdrantSettings, config: object = None, *, _bound: TargetName | None = None
+        self,
+        settings: QdrantSettings,
+        config: object = None,
+        *,
+        _bound: TargetName | None = None,
+        _bound_generation: GenerationId | None = None,
     ) -> None:
         del config  # nothing at the stage level this store needs — as with pgvector
         self._settings = settings
@@ -374,10 +403,17 @@ class QdrantStore:
         #: target: `target_catalogue` must read the same collection whichever pair a handle is
         #: currently bound to.
         self._catalogue = f"{settings.collection}__targets"
+        #: The generations catalogue — ledger **43.14**. Never varies with the active target,
+        #: like `self._catalogue`: a generation is corpus-scoped, not target-scoped.
+        self._generations_catalogue = f"{settings.collection}__generations"
         self._client: AsyncQdrantClient | None = None
         #: `None` on an unbound handle — see `_connection`, which reads the live target once and
         #: holds it here for this handle's lifetime (owner decision Q-C, ledger task 34.3).
         self._bound = _bound
+        #: `None` on a handle not bound to a generation — see `bind_generation`. The generation
+        #: this handle's own writes are attributed to, and one of the ids `_connection` folds
+        #: into `self._visible_generations` regardless of whether it is published yet.
+        self._bound_generation = _bound_generation
         #: This handle's own resolved target — `self._bound`, or the live target read at connect.
         self._active_target: TargetName | None = None
         #: Whether `self._nodes`/`self._sources` are known to exist. Always true for `default`
@@ -392,6 +428,11 @@ class QdrantStore:
         self._holder: str = uuid4().hex
         #: A handle that only reads never touches the catalogue, on close included (`L28.27`).
         self._lease_written = False
+        #: The generations this handle may see: `""` (the base marker), every generation
+        #: published when this handle first touched storage, and `self._bound_generation` if
+        #: any — read once in `_connection` and held for this handle's lifetime, `34.3`'s shape
+        #: applied again (ledger **43.14**). `None` only before `_connection` has run.
+        self._visible_generations: tuple[str, ...] | None = None
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
@@ -466,6 +507,7 @@ class QdrantStore:
             self._nodes = f"{self._settings.collection}__t_{target}"
             self._sources = f"{self._settings.collection}__t_{target}__sources"
             self._provisioned = await self._open_candidate(client, target)
+        self._visible_generations = await self._resolve_visible_generations(client)
         self._client = client
         return client
 
@@ -484,6 +526,7 @@ class QdrantStore:
         await self._refuse_if_schema_mismatch(client)
         await self._reconcile_quantization(client)
         await self._reconcile_payload_indexes(client)
+        await self._ensure_generations_payload_index(client)
         if not await client.collection_exists(self._sources):
             # No vectors at all: a source record has nothing to be similar to, and Qdrant
             # is content to hold a payload-only collection. Guarded rather than assumed
@@ -517,6 +560,7 @@ class QdrantStore:
         await self._refuse_if_schema_mismatch(client)
         await self._reconcile_quantization(client)
         await self._reconcile_payload_indexes(client)
+        await self._ensure_generations_payload_index(client)
         self._vector_width = await self._read_committed_width(client)
         return True
 
@@ -577,6 +621,7 @@ class QdrantStore:
             # only for data indexed after the payload index exists, so an index created later
             # still answers filters but the graph it needed was already built without it.
         await self._reconcile_payload_indexes(client)
+        await self._ensure_generations_payload_index(client)
         if not await client.collection_exists(self._sources):
             # No vectors at all: a source record has nothing to be similar to, and Qdrant
             # is content to hold a payload-only collection.
@@ -636,6 +681,226 @@ class QdrantStore:
         if self._active_target is None:
             raise AssertionError("_connection() must run before _active_target is read")
         return self._active_target
+
+    def _require_visible_generations(self) -> tuple[str, ...]:
+        """`self._visible_generations`, narrowed — same guarantee as `_require_active_target`,
+        set by the same `_connection` call.
+        """
+        if self._visible_generations is None:
+            raise AssertionError("_connection() must run before _visible_generations is read")
+        return self._visible_generations
+
+    async def _resolve_visible_generations(self, client: AsyncQdrantClient) -> tuple[str, ...]:
+        """The generations this handle may see, from this moment on — ledger **43.14**: `""`
+        (the base marker), every generation published right now, and `self._bound_generation`
+        whether or not it is published yet. Read once, by `_connection`, and held for this
+        handle's lifetime — `34.3`'s manifest shape, applied to generations.
+        """
+        published = {
+            record.id
+            for record in await self._all_generations(client)
+            if record.status is GenerationStatus.PUBLISHED
+        }
+        visible = {"", *published}
+        if self._bound_generation is not None:
+            visible.add(self._bound_generation)
+        return tuple(sorted(visible))
+
+    def _with_visibility(self, base: models.Filter | None) -> models.Filter:
+        """`base`, narrowed to this handle's visible generations — folded into `query_filter`/
+        `scroll_filter` by `search_vector`, `search_text` and `matching` alike, so a member of a
+        generation this handle cannot see is absent before top-k rather than after.
+        """
+        visibility = models.Filter(
+            should=[
+                # A point written before this feature carries no `_GENERATIONS` key at all —
+                # pgvector's legacy `'{}'` default, read the same way here.
+                models.IsEmptyCondition(is_empty=models.PayloadField(key=_GENERATIONS)),
+                models.FieldCondition(
+                    key=_GENERATIONS,
+                    match=models.MatchAny(any=list(self._require_visible_generations())),
+                ),
+            ]
+        )
+        return visibility if base is None else models.Filter(must=[visibility, base])
+
+    async def _generation_record(
+        self, client: AsyncQdrantClient, generation_id: str
+    ) -> GenerationRecord | None:
+        """The one catalogue point recording `generation_id`, or `None` if it has never been
+        written — what `bind_generation`, `publish_generation` and `retract_generation` all
+        refuse against.
+        """
+        if not await client.collection_exists(self._generations_catalogue):
+            return None
+        records = await client.retrieve(
+            self._generations_catalogue,
+            ids=[_generation_point_id(generation_id)],
+            with_payload=True,
+        )
+        if not records or records[0].payload is None:
+            return None
+        return GenerationRecord.model_validate(records[0].payload)
+
+    async def _all_generations(self, client: AsyncQdrantClient) -> list[GenerationRecord]:
+        """Every generation record this store has ever opened, published or not, in no
+        particular order — `generations()`'s own sort, and `_resolve_visible_generations`'s
+        filter, both read from this.
+        """
+        if not await client.collection_exists(self._generations_catalogue):
+            return []
+        found: list[GenerationRecord] = []
+        offset: models.ExtendedPointId | None = None
+        while True:
+            records, next_offset = await client.scroll(
+                self._generations_catalogue, limit=_PAGE_SIZE, with_payload=True, offset=offset
+            )
+            found.extend(
+                GenerationRecord.model_validate(record.payload)
+                for record in records
+                if record.payload is not None
+            )
+            if next_offset is None:
+                return found
+            offset = cast("models.ExtendedPointId", next_offset)
+
+    async def _generation_ids(self, client: AsyncQdrantClient) -> tuple[str, ...]:
+        """Every generation id this store's catalogue holds — what `UnknownGenerationError`
+        names as `valid_options`.
+        """
+        return tuple(sorted(record.id for record in await self._all_generations(client)))
+
+    async def _ensure_generations_catalogue(self, client: AsyncQdrantClient) -> None:
+        """Create `<collection>__generations` before its first write, and never on open or on a
+        read — `R43.2`'s rule, applied again: a store nothing has opened a generation on keeps
+        the collections it always had.
+        """
+        if not await client.collection_exists(self._generations_catalogue):
+            await client.create_collection(self._generations_catalogue, vectors_config={})
+
+    async def _retract_from_nodes(self, client: AsyncQdrantClient, generation: str) -> int:
+        """Delete every point whose generations are exactly `{generation}`, and strip
+        `generation` from every other point that carries it — `retract_generation`'s node-side
+        half, the read-modify-write `_delete_and_narrow` uses for the identical reason: Qdrant
+        has no `array_remove` and no upsert-merge.
+        """
+        carries = models.Filter(
+            must=[
+                models.FieldCondition(key=_GENERATIONS, match=models.MatchValue(value=generation))
+            ]
+        )
+        to_delete: list[models.ExtendedPointId] = []
+        offset: Any = None
+        while True:
+            records, offset = await client.scroll(
+                self._nodes,
+                scroll_filter=carries,
+                limit=_PAGE_SIZE,
+                with_payload=True,
+                offset=offset,
+            )
+            for record in records:
+                payload = cast("Mapping[str, Any]", record.payload or {})
+                held = _generations_of(payload)
+                if set(held) == {generation}:
+                    to_delete.append(record.id)
+                else:
+                    remaining = sorted(g for g in held if g != generation)
+                    await client.set_payload(
+                        self._nodes,
+                        payload={_GENERATIONS: remaining},
+                        points=[record.id],
+                        wait=True,
+                    )
+            if offset is None:
+                break
+        if to_delete:
+            await client.delete(
+                self._nodes, points_selector=models.PointIdsList(points=to_delete), wait=True
+            )
+        return len(to_delete)
+
+    async def open_generation(self, layer: str) -> GenerationRecord:
+        """A fresh generation on `layer`, `building` — `GenerationHolding`, ledger **43.14**.
+        Never creates `self._nodes`/`self._sources`: opening a generation is not a write to the
+        corpus, only to the catalogue that will later gate one.
+        """
+        client = await self._connection()
+        await self._ensure_generations_catalogue(client)
+        record = GenerationRecord(
+            id=GenerationId(f"g-{uuid4().hex[:12]}"),
+            layer=layer,
+            status=GenerationStatus.BUILDING,
+            opened_at=datetime.now(UTC),
+        )
+        await client.upsert(
+            self._generations_catalogue,
+            points=[
+                models.PointStruct(
+                    id=_generation_point_id(record.id),
+                    vector={},
+                    payload=record.model_dump(mode="json"),
+                )
+            ],
+            wait=True,
+        )
+        return record
+
+    async def bind_generation(self, generation: GenerationId) -> Self:
+        """A second handle onto the same deployment and target, bound to `generation` — the
+        model is `bind_target`'s own construction, one field over.
+        """
+        client = await self._connection()
+        if await self._generation_record(client, generation) is None:
+            raise UnknownGenerationError(
+                generation, valid_options=await self._generation_ids(client)
+            )
+        return type(self)(self._settings, _bound=self._bound, _bound_generation=generation)
+
+    async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        client = await self._connection()
+        record = await self._generation_record(client, generation)
+        if record is None:
+            raise UnknownGenerationError(
+                generation, valid_options=await self._generation_ids(client)
+            )
+        published = record.model_copy(
+            update={"status": GenerationStatus.PUBLISHED, "published_at": datetime.now(UTC)}
+        )
+        await client.upsert(
+            self._generations_catalogue,
+            points=[
+                models.PointStruct(
+                    id=_generation_point_id(generation),
+                    vector={},
+                    payload=published.model_dump(mode="json"),
+                )
+            ],
+            wait=True,
+        )
+        return published
+
+    async def retract_generation(self, generation: GenerationId) -> Removed:
+        client = await self._connection()
+        record = await self._generation_record(client, generation)
+        if record is None:
+            raise UnknownGenerationError(
+                generation, valid_options=await self._generation_ids(client)
+            )
+        node_count = (
+            0 if self._pair_unprovisioned() else await self._retract_from_nodes(client, generation)
+        )
+        await client.delete(
+            self._generations_catalogue,
+            points_selector=models.PointIdsList(points=[_generation_point_id(generation)]),
+            wait=True,
+        )
+        return Removed(source_id=SourceId(generation), node_count=node_count)
+
+    async def generations(self) -> tuple[GenerationRecord, ...]:
+        client = await self._connection()
+        records = await self._all_generations(client)
+        return tuple(sorted(records, key=lambda record: (record.opened_at, record.id)))
 
     async def _read_live_target(self, client: AsyncQdrantClient) -> TargetName:
         """The live target the pointer point names, or `DEFAULT_TARGET` when there is none yet
@@ -854,6 +1119,20 @@ class QdrantStore:
                 self._nodes, field_name=field, field_schema=_PAYLOAD_SCHEMA_TYPE[kind]
             )
 
+    async def _ensure_generations_payload_index(self, client: AsyncQdrantClient) -> None:
+        """A keyword index on `_GENERATIONS`, created once per collection — ledger **43.14**.
+
+        Unconditional, unlike `_reconcile_payload_indexes`'s declared set: every
+        generation-holding collection needs it to answer `MatchAny(any=visible)` and
+        `[packs.qdrant] payload_indexes` has no say over it.
+        """
+        info = await client.get_collection(self._nodes)
+        if _GENERATIONS in info.payload_schema:
+            return
+        await client.create_payload_index(
+            self._nodes, field_name=_GENERATIONS, field_schema=models.PayloadSchemaType.KEYWORD
+        )
+
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         """Store `payload` and pass it through — the narrowing `NodeStore` records."""
         del ctx
@@ -923,6 +1202,7 @@ class QdrantStore:
             for record in existing
             if record.payload is not None
         }
+        own_generation = self._bound_generation if self._bound_generation is not None else ""
         points: list[models.PointStruct] = []
         for node, point_id in zip(nodes, point_ids, strict=True):
             prior_payload = stored.get(point_id)
@@ -934,7 +1214,11 @@ class QdrantStore:
                 else [*prior_productions, incoming]
             )
             sources = frozenset[SourceId]().union(*productions) if productions else incoming
-            points.append(self._point(node, sources=sources, productions=productions))
+            prior_generations = _generations_of(prior_payload) if prior_payload is not None else []
+            generations = sorted({*prior_generations, own_generation})
+            points.append(
+                self._point(node, sources=sources, productions=productions, generations=generations)
+            )
         await client.upsert(
             self._nodes,
             points=points,
@@ -950,6 +1234,7 @@ class QdrantStore:
         *,
         sources: frozenset[SourceId] | None = None,
         productions: Sequence[frozenset[SourceId]] | None = None,
+        generations: Sequence[str] | None = None,
     ) -> models.PointStruct:
         vector: dict[str, list[float] | models.SparseVector] = {}
         if node.embedding is not None:
@@ -985,6 +1270,8 @@ class QdrantStore:
             # never a payload one"), and `_to_node` below reconstructs a node from exactly the
             # keys it names, so this key never reaches `Node.model_validate`.
             payload["productions"] = [sorted(group) for group in productions]
+        if generations is not None:
+            payload[_GENERATIONS] = list(generations)
         return models.PointStruct(
             id=str(_point_id(node.id)),
             # The driver types a named-vector map as `dict[str, Vector]`, where `Vector` is
@@ -1205,8 +1492,15 @@ class QdrantStore:
         return await self._walk(None, cursor)
 
     async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
-        """Every node `filter` selects, paged — `MetadataFilter`, task 2.6."""
-        return await self._walk(to_qdrant_filter(filter), cursor)
+        """Every node `filter` selects, paged — `MetadataFilter`, task 2.6.
+
+        Ledger **43.14**: a generation this handle cannot see is excluded here too, folded
+        into the same `scroll_filter` — `scan` is a raw walk and is not, per
+        `GenerationHolding`'s own docstring naming exactly `search_vector`, `search_text` and
+        `matching`.
+        """
+        await self._connection()
+        return await self._walk(self._with_visibility(to_qdrant_filter(filter)), cursor)
 
     async def _walk(self, selector: models.Filter | None, cursor: Cursor | None) -> Page[Node]:
         """One page of Qdrant's own point order, with the driver's offset as the cursor.
@@ -1305,7 +1599,9 @@ class QdrantStore:
             self._nodes,
             query=list(vector.values),
             using=_VECTOR,
-            query_filter=to_qdrant_filter(filter) if filter is not None else None,
+            query_filter=self._with_visibility(
+                to_qdrant_filter(filter) if filter is not None else None
+            ),
             search_params=search_params_for(
                 index=self._settings.index,
                 precision=self._settings.precision,
@@ -1348,7 +1644,9 @@ class QdrantStore:
             self._nodes,
             query=query,
             using=_LEXICAL,
-            query_filter=to_qdrant_filter(filter) if filter is not None else None,
+            query_filter=self._with_visibility(
+                to_qdrant_filter(filter) if filter is not None else None
+            ),
             limit=top_k,
             with_payload=True,
             with_vectors=True,
@@ -1748,6 +2046,20 @@ def _productions_of(payload: Mapping[str, Any]) -> list[frozenset[SourceId]]:
         lineage = cast("Mapping[str, Any]", payload["lineage"])
         return [frozenset(cast("list[SourceId]", lineage["sources"]))]
     return [frozenset(cast("list[SourceId]", group)) for group in cast("list[list[str]]", raw)]
+
+
+def _generations_of(payload: Mapping[str, Any]) -> list[str]:
+    """Every generation a stored point carries — ledger **43.14**.
+
+    `payload[_GENERATIONS]` is written by `QdrantStore._point` and read back nowhere but here
+    and `QdrantStore._retract_from_nodes`; a point written before this feature, or a legacy row
+    with no such key, reads as `[""]` — the base marker, always visible, matching pgvector's
+    `'{}'` default.
+    """
+    raw = payload.get(_GENERATIONS)
+    if raw is None:
+        return [""]
+    return list(cast("list[str]", raw))
 
 
 def _point_id(identifier: str) -> UUID:

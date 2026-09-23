@@ -542,7 +542,7 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > ever claimed it. Measured 2026-08-18, end to end: `corpus/arxiv/2508.18901v1.pdf` — a document
 > declared at `corpus/manifest.toml:122-129 "source ="` — extracts through Weft's own `pdf-text` to a `Produced`
 > `Node` whose `content` carries **65 NUL bytes**; `weft-store`'s schema is `content TEXT NOT NULL`
-> (`weft_store/pgvector_store.py:189 "was decl"`); psycopg against the live pgvector container answers
+> (`weft_store/pgvector_store.py:197 "was decl"`); psycopg against the live pgvector container answers
 > `DataError: PostgreSQL text fields cannot contain NUL (0x00) bytes`. Two of the corpus's nineteen
 > PDFs do this, both in the `fetch` tier, which is why the gate is green — the publishable baseline
 > rests only on the reproducible tiers.

@@ -235,3 +235,26 @@ async def test_a_source_s_layers_round_trip_through_the_published_check() -> Non
     await check_a_source_records_layers_round_trip_whole_and_are_listed(
         cast("NodeStore", InMemoryNodeStore())
     )
+
+
+async def test_a_strangers_store_holds_generations_and_passes_the_published_checks() -> None:
+    """Ledger **43.14**: `GenerationHolding` is published, so a store written outside the tree
+    proves it with the published kit alone — fitness function 9(c)'s stranger for the new
+    capability, on `34.3`'s footing."""
+    # Arrange
+    from weft_store.conformance import checks_for
+    from weft_store.contract import GenerationHolding
+
+    generation_checks = [
+        check
+        for check in checks_for(InMemoryNodeStore())
+        if check.__annotations__.get("store") == "GenerationHoldingStore"
+    ]
+
+    # Act — a fresh store per check: the kit owns no lifecycle.
+    for check in generation_checks:
+        await check(InMemoryNodeStore())
+
+    # Assert
+    assert isinstance(InMemoryNodeStore(), GenerationHolding)
+    assert len(generation_checks) == 6

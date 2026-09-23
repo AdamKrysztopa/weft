@@ -343,6 +343,49 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Ranking]: ...
 ```
 
+## `GenerationHolding`
+
+**Module:** `weft_store.contract`  
+**Registered by:** `weft-rag`  
+**Version:** `2.11.0`
+
+A store that builds a corpus-scoped layer as a generation, published whole — ledger task
+**43.14**.
+
+A node written through `bind_generation`'s handle is a member of that generation, and every
+search (`search_vector`, `search_text`, `matching`) leaves out members of a generation the
+reading handle cannot see, **before** top-k. A handle sees the generations published when it
+first touches storage, plus the one it is bound to, and keeps that set for its lifetime, so one
+operation never mixes two trees (`TargetHolding`'s Q-C, applied again). A node no generation
+wrote is always visible, and a node two generations wrote is visible when either is.
+`retract_generation` removes the nodes only that generation made and forgets it.
+
+### Methods
+
+```python
+async def bind_generation(self, generation: weft_store.contract.GenerationId) -> typing.Self: ...
+```
+
+```python
+async def generations(self) -> tuple[weft_store.contract.GenerationRecord, Ellipsis]: ...
+```
+
+```python
+async def open_generation(self, layer: str) -> weft_store.contract.GenerationRecord: ...
+```
+
+```python
+async def publish_generation(
+    self, generation: weft_store.contract.GenerationId
+) -> weft_store.contract.GenerationRecord: ...
+```
+
+```python
+async def retract_generation(
+    self, generation: weft_store.contract.GenerationId
+) -> weft_store.contract.Removed: ...
+```
+
 ## `GenerationMetric`
 
 **Module:** `weft_eval.contract`  
@@ -483,7 +526,7 @@ async def stream(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
 
@@ -564,7 +607,7 @@ async def complete_structured(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 The base every store implements all of — see the module docstring for `run`.
 
@@ -642,7 +685,7 @@ async def scan(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
 
@@ -762,7 +805,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
 
@@ -1042,7 +1085,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
 
@@ -1116,7 +1159,7 @@ async def assess(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 A store that holds named, complete targets, one of them live — ledger task **34.3**,
 Phase 34's blue-green index migration.
@@ -1161,7 +1204,7 @@ async def target_catalogue(self) -> weft_store.contract.TargetCatalogue: ...
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 A store that can rank `Node`s by lexical match on their own text.
 
@@ -1203,7 +1246,7 @@ async def search_text(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.10.0`
+**Version:** `2.11.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
 embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not

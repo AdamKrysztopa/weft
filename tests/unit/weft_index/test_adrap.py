@@ -35,6 +35,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel
 
+from weft_embed.contract import Embedder
 from weft_index.adrap import NAME, AdrapConfig, AdrapJoiner
 from weft_index.contract import Revisable
 from weft_index.payload import RaptorFacts, Representation
@@ -210,9 +211,28 @@ class _ScriptedLLM:
         return Produced(value=Completion(text=self._replies[index], model="stub-model"))
 
 
-def _ctx(*, store: object, llm: object | None = None) -> Context:
+#: What `_StubEmbedder` gives every node — a summary is the only thing `adrap` embeds.
+_SUMMARY_VECTOR = Vector(values=(0.6, 0.8))
+
+
+class _StubEmbedder:
+    """An `Embedder` giving every node `_SUMMARY_VECTOR`; `seen` records what it was handed."""
+
+    def __init__(self) -> None:
+        self.seen: list[tuple[Node, ...]] = []
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        del ctx
+        self.seen.append(tuple(payload))
+        return Produced(value=[node.with_embedding(_SUMMARY_VECTOR) for node in payload])
+
+
+def _ctx(
+    *, store: object, llm: object | None = None, embedder: _StubEmbedder | None = None
+) -> Context:
     services = ServiceRegistry()
     services.add(NodeStore, store)
+    services.add(Embedder, embedder if embedder is not None else _StubEmbedder())
     services.add(LLM, llm if llm is not None else _ScriptedLLM(["A rebuilt summary."]))
     services.add(Prompts, _StubPrompts())
     return Context(
@@ -412,3 +432,28 @@ def test_the_joiner_satisfies_revisable_and_not_by_declaring_it() -> None:
     # this asserts the structural fact rather than trying to tell them apart.
     assert isinstance(AdrapJoiner(), Revisable)
     assert AdrapJoiner.config_model is AdrapConfig
+
+
+async def test_every_rebuilt_summary_is_stored_with_an_embedding() -> None:
+    """Carried repair **R43.0**, confirmed from the binary before this test was written: after
+    `index-with-adrap` joined a document, both surviving RAPTOR summaries had no vector, so the
+    rebuilt tree dropped out of dense retrieval. `raptor` embeds the summaries it writes through
+    `ctx.require(Embedder)`; a summary `adrap` rebuilds is embedded the same way before it is
+    superseded in, at every level it rebuilds."""
+    # Arrange — a two-level tree, so an ancestor is rebuilt as well as the joined cluster.
+    a, b, level_one = _tree_of_one_cluster()
+    level_two = _summary((level_one,), content="A summary of the summary.", level=2)
+    store = _RecordingStore((a, b, level_one, level_two))
+    embedder = _StubEmbedder()
+
+    # Act
+    await AdrapJoiner().run(
+        (_leaf("passage a prime", _A_PRIME),), _ctx(store=store, embedder=embedder)
+    )
+
+    # Assert
+    rebuilt = _summaries(store)
+    assert len(rebuilt) == 2
+    assert all(summary.embedding == _SUMMARY_VECTOR for summary in rebuilt)
+    handed = {node.id for batch in embedder.seen for node in batch}
+    assert handed == {summary.id for summary in rebuilt}, "only the rebuilt summaries are embedded"

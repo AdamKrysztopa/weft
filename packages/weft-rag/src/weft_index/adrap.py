@@ -79,11 +79,12 @@ summary, joins the run's own new leaves into it, and touches nothing else.
 import math
 import statistics
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Annotated, ClassVar, NamedTuple, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from weft_embed.contract import Embedder
 from weft_index.payload import RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterRequest
 from weft_index.raptor import NAME as RAPTOR_NAME
@@ -282,6 +283,54 @@ class AdrapJoiner:
         remap: dict[NodeId, Node] = {}
         rebuilt: list[Node] = []
 
+        failure = await self._rebuild_joined(
+            clusters,
+            assignments,
+            store=cast(_JoiningStore, store),
+            prompts=prompts,
+            llm=llm,
+            ctx=ctx,
+            remap=remap,
+            rebuilt=rebuilt,
+            resolved_similarity_threshold=resolved_similarity_threshold,
+            resolved_cluster_size=resolved_cluster_size,
+        )
+        if failure is not None:
+            return failure
+
+        propagation = await self._propagate_to_ancestors(
+            summaries,
+            store=cast(_JoiningStore, store),
+            prompts=prompts,
+            llm=llm,
+            ctx=ctx,
+            remap=remap,
+            rebuilt=rebuilt,
+            resolved_similarity_threshold=resolved_similarity_threshold,
+            resolved_cluster_size=resolved_cluster_size,
+        )
+        if propagation is not None:
+            return propagation
+
+        return Produced(value=(*payload, *rebuilt))
+
+    async def _rebuild_joined(
+        self,
+        clusters: Sequence[_JoinCluster],
+        assignments: Mapping[NodeId, Sequence[Node]],
+        *,
+        store: _JoiningStore,
+        prompts: Prompts,
+        llm: LLM,
+        ctx: Context,
+        remap: dict[NodeId, Node],
+        rebuilt: list[Node],
+        resolved_similarity_threshold: float | None,
+        resolved_cluster_size: int | None,
+    ) -> Failed | None:
+        """Rebuild, embed and supersede every level-1 cluster a new leaf joined, filling `remap`
+        and `rebuilt` for the ancestor pass; `Failed` only when a summary could not be embedded.
+        """
         for cluster in clusters:
             assigned = assignments.get(cluster.summary.id)
             if not assigned:
@@ -300,23 +349,14 @@ class AdrapJoiner:
                 # `raptor`'s own posture for a cluster that cannot be summarised, taken
                 # here for the identical reason.
                 continue
-            await store.supersede(cluster.summary.id, new_summary)
-            remap[cluster.summary.id] = new_summary
-            rebuilt.append(new_summary)
+            embedded = await _embed_summary(new_summary, ctx=ctx)
+            if isinstance(embedded, Failed):
+                return embedded
+            await store.supersede(cluster.summary.id, embedded)
+            remap[cluster.summary.id] = embedded
+            rebuilt.append(embedded)
 
-        await self._propagate_to_ancestors(
-            summaries,
-            store=cast(_JoiningStore, store),
-            prompts=prompts,
-            llm=llm,
-            ctx=ctx,
-            remap=remap,
-            rebuilt=rebuilt,
-            resolved_similarity_threshold=resolved_similarity_threshold,
-            resolved_cluster_size=resolved_cluster_size,
-        )
-
-        return Produced(value=(*payload, *rebuilt))
+        return None
 
     def _resolve_parameters(
         self, summaries: Sequence[Node]
@@ -411,7 +451,7 @@ class AdrapJoiner:
         rebuilt: list[Node],
         resolved_similarity_threshold: float | None,
         resolved_cluster_size: int | None,
-    ) -> None:
+    ) -> Failed | None:
         """Rebuild and supersede every stored summary whose `lineage.parents` names an id
         `remap` just replaced, then repeat for whatever that rebuild itself just replaced —
         see the module docstring's own "Ancestors" paragraph for why this is necessary and
@@ -457,12 +497,33 @@ class AdrapJoiner:
                 )
                 if new_ancestor is None:
                     continue
-                await store.supersede(ancestor.id, new_ancestor)
-                remap[ancestor.id] = new_ancestor
-                rebuilt.append(new_ancestor)
+                embedded = await _embed_summary(new_ancestor, ctx=ctx)
+                if isinstance(embedded, Failed):
+                    return embedded
+                await store.supersede(ancestor.id, embedded)
+                remap[ancestor.id] = embedded
+                rebuilt.append(embedded)
                 changed = True
             if not changed:
-                return
+                return None
+
+
+async def _embed_summary(summary: Node, *, ctx: Context) -> Node | Failed:
+    """`summary` with its embedding, before it is superseded in — carried repair **R43.0**.
+
+    `Node.combine` carries no embedding and `index-with-adrap` inserts this stage after `embed`,
+    so a rebuilt summary nobody embeds here is stored with no vector and leaves dense retrieval.
+    `raptor` embeds its own summaries through the same `ctx.require(Embedder)`; an embedder that
+    fails, or answers without a vector, fails this run rather than storing an unfindable node.
+    """
+    outcome = await ctx.require(Embedder).run((summary,), ctx)
+    if not isinstance(outcome, Produced) or len(outcome.value) != 1:
+        reason = outcome.reason if isinstance(outcome, (Failed, NothingToProduce)) else "no node"
+        return Failed(reason=f"'{NAME}' could not embed a rebuilt summary: {reason}")
+    embedded = outcome.value[0]
+    if embedded.embedding is None:
+        return Failed(reason=f"'{NAME}': the configured embedder returned a summary with no vector")
+    return embedded
 
 
 async def _fetch_all_summaries(store: MetadataFilter) -> tuple[Node, ...]:

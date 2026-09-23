@@ -4,7 +4,7 @@ Before this task, `corpus/arxiv/2508.18901v1.pdf` — declared at
 `corpus/manifest.toml:122-129 'source ='` — extracted through `weft-pdf`'s `pdf-text`
 backend to a `Produced` `Node` whose `content` carried 65 NUL bytes (measured
 directly against `PdfTextExtractor.run`, 2026-08-18), and `weft-store`'s
-`weft_nodes.content` column (`weft_store/pgvector_store.py:189 'was declared, which is'`) is `TEXT
+`weft_nodes.content` column (`weft_store/pgvector_store.py:197 'was declared, which is'`) is `TEXT
 NOT NULL` — Postgres refuses a NUL byte in a `TEXT` value, so the real
 `PgVectorStore` against the real container answered `DataError: PostgreSQL
 text fields cannot contain NUL (0x00) bytes` for this document specifically.

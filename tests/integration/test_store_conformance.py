@@ -82,6 +82,7 @@ from weft_store.conformance import (
     FilterableSearchableStore,
     FilterableStore,
     FilterableTextStore,
+    GenerationHoldingStore,
     ReconcilableStore,
     SearchableStore,
     SupersedableStore,
@@ -93,7 +94,10 @@ from weft_store.conformance import (
     check_a_filter_reaches_vector_search_rather_than_being_ignored,
     check_a_filtered_search_returns_top_k_in_the_approximate_regime,
     check_a_fresh_store_has_one_live_target_named_default,
+    check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name,
+    check_a_handle_keeps_the_generations_it_read_when_it_opened,
     check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext,
+    check_a_node_shared_with_a_published_generation_stays_visible,
     check_a_node_two_documents_each_produced_whole_is_narrowed_not_deleted,
     check_a_node_written_twice_by_one_document_is_one_production_not_two,
     check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything,
@@ -107,6 +111,8 @@ from weft_store.conformance import (
     check_a_target_whose_first_write_is_a_source_record_is_catalogued,
     check_add_merges_a_nodes_sources_rather_than_replacing_them,
     check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_backend,
+    check_an_unpublished_generation_is_invisible_until_it_is_published,
+    check_base_nodes_are_visible_under_every_set_of_generations,
     check_claiming_an_identity_creates_the_target_as_a_first_write_does,
     check_delete_source_removes_exactly_the_nodes_carrying_it,
     check_deleting_a_failed_source_removes_it_like_any_other,
@@ -122,6 +128,7 @@ from weft_store.conformance import (
     check_reconcile_finishes_a_deletion_that_was_interrupted,
     check_reconcile_leaves_a_healthy_store_alone_on_either_backend,
     check_reconcile_neither_deletes_nor_clears_a_failed_source,
+    check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones,
     check_rollback_with_nothing_to_roll_back_to_is_refused,
     check_scan_and_count_see_every_stored_node_whatever_order_a_backend_walks_in,
     check_search_text_answers_nothing_matching_with_an_empty_ranking,
@@ -216,7 +223,7 @@ async def _drop_targets(settings: QdrantSettings) -> None:
     """Delete every collection a target check can make under `settings.collection`, by name."""
     client = AsyncQdrantClient(url=settings.url)
     base = settings.collection
-    names = [base, f"{base}__sources", f"{base}__targets"]
+    names = [base, f"{base}__sources", f"{base}__targets", f"{base}__generations"]
     for target in ("conformance_candidate", "conformance_other"):
         names += [f"{base}__t_{target}", f"{base}__t_{target}__sources"]
     for name in names:
@@ -802,3 +809,42 @@ async def test_promoting_the_live_target_again_changes_nothing(
     target_store: TargetHoldingStore,
 ) -> None:
     await check_promoting_the_live_target_again_changes_nothing(target_store)
+
+
+# Ledger task **43.14** — generations, on `target_store`'s storage of their own per test.
+
+
+async def test_an_unpublished_generation_is_invisible_until_it_is_published(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_an_unpublished_generation_is_invisible_until_it_is_published(target_store)
+
+
+async def test_a_handle_keeps_the_generations_it_read_when_it_opened(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_a_handle_keeps_the_generations_it_read_when_it_opened(target_store)
+
+
+async def test_base_nodes_are_visible_under_every_set_of_generations(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_base_nodes_are_visible_under_every_set_of_generations(target_store)
+
+
+async def test_a_node_shared_with_a_published_generation_stays_visible(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_a_node_shared_with_a_published_generation_stays_visible(target_store)
+
+
+async def test_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones(target_store)
+
+
+async def test_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(target_store)
