@@ -1303,7 +1303,10 @@ All checks run in CI, before tests.
 
    - **What is counted:** non-blank, non-comment, **non-docstring** Python lines in the `weft-kernel`
      distribution, tests excluded. Docstrings are excluded deliberately, so the budget can never
-     become an argument against documenting the kernel.
+     become an argument against documenting the kernel. **An attribute docstring, the string
+     directly under an assignment, is a docstring here too** (owner, 2026-09-24). Until then the
+     counter read only the first statement of a body, so 117 lines documenting fields counted as
+     code: 3,490 before the change, 3,373 after.
    - **The number: 3,500, failing the build. 2,800 (80%) is a review trigger** — crossing it does not
      fail anything, it puts kernel growth on the agenda before the ceiling is a crisis.
    - **The reason, because a number without one gets waived:** a codebase examined during design

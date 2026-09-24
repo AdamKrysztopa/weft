@@ -80,22 +80,35 @@ def _count_file(path: Path) -> int:
 
 
 def _docstring_lines(source: str) -> set[int]:
-    """Every line occupied by a module, class or function docstring."""
+    """Every line occupied by a module, class, function or attribute docstring.
+
+    An attribute docstring is the string statement directly under an assignment. Until
+    2026-09-24 it was counted as code — 117 kernel lines — which made documenting a field
+    cost budget while documenting a function did not.
+    """
     occupied: set[int] = set()
 
     for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
+        if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            occupied.update(_body_docstring_lines(node.body))
 
-        first = node.body[0] if node.body else None
+    return occupied
+
+
+def _body_docstring_lines(body: list[ast.stmt]) -> set[int]:
+    occupied: set[int] = set()
+    for index, statement in enumerate(body):
+        documents = index == 0 or isinstance(
+            body[index - 1], ast.Assign | ast.AnnAssign | ast.TypeAlias
+        )
         if (
-            isinstance(first, ast.Expr)
-            and isinstance(first.value, ast.Constant)
-            and isinstance(first.value.value, str)
-            and first.end_lineno is not None
+            documents
+            and isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+            and statement.end_lineno is not None
         ):
-            occupied.update(range(first.lineno, first.end_lineno + 1))
-
+            occupied.update(range(statement.lineno, statement.end_lineno + 1))
     return occupied
 
 
@@ -108,12 +121,12 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
     what has to be proved is that the *counter* discriminates, not that `>` works.
 
     The fixture is chosen to exercise every exclusion the counter makes — a module
-    docstring spanning three lines, a comment, a blank line, and a function docstring —
-    because a counter that silently stopped excluding docstrings would still pass
-    `test_kernel_is_within_budget` right up until it did not, and would then look like
-    kernel growth rather than like a broken count.
+    docstring spanning three lines, a comment, a blank line, an attribute docstring and a
+    function docstring — because a counter that silently stopped excluding docstrings would
+    still pass `test_kernel_is_within_budget` right up until it did not, and would then look
+    like kernel growth rather than like a broken count.
     """
-    # Arrange — four real code lines; everything else is docstring, comment or blank.
+    # Arrange — five real code lines; everything else is docstring, comment or blank.
     source = '''"""A module docstring.
 
     Spanning three lines.
@@ -122,6 +135,9 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
 # a comment
 
 import os
+LIMIT = 3
+"""An attribute docstring,
+on two lines."""
 
 
 def thing() -> int:
@@ -136,7 +152,9 @@ def thing() -> int:
     counted = _count_file(planted)
     docstrings = _docstring_lines(source)
 
-    # Assert — the four are `import os`, `def thing...`, `value = ...`, `return value`.
-    assert counted == 4
+    # Assert — the five are `import os`, `LIMIT = 3`, `def thing...`, `value = ...`,
+    # `return value`.
+    assert counted == 5
     assert 1 in docstrings and 3 in docstrings, "the module docstring was not excluded"
-    assert counted > 3, "a budget of 3 would fail on this file — the comparison discriminates"
+    assert {10, 11} <= docstrings, "the attribute docstring was not excluded"
+    assert counted > 4, "a budget of 4 would fail on this file — the comparison discriminates"
