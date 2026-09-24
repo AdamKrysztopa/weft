@@ -841,22 +841,22 @@ class _LayerRunDecision(StrEnum):
     #: `retry_failed`: leave it exactly as it is.
     SKIP = "skip"
     #: A record under a different identity than this run would build: reported, never re-run
-    #: unasked.
+    #: unasked — `reprocess` is the asking (R43.27).
     CHANGED = "changed"
 
 
 def _layer_decision(
-    existing: LayerRecord | None, *, identity: str, retry_failed: bool
+    existing: LayerRecord | None, *, identity: str, retry_failed: bool, reprocess: bool = False
 ) -> _LayerRunDecision:
     """Ledger task **43.8**'s own per-source table — see `run_layers`' own docstring for the
-    four cases this reads off `existing`.
+    four cases this reads off `existing`. Under `reprocess` a moved identity runs (R43.27).
     """
     if existing is None or existing.status is LayerStatus.INDEXING:
         return _LayerRunDecision.RUN
     if existing.pipeline_identity != identity:
         # R43.9: a failed build holds nothing to protect, and its refusal's own remedy — a
         # bound raised in the stage's `with:` — is exactly what moves the identity.
-        if existing.status is LayerStatus.FAILED:
+        if existing.status is LayerStatus.FAILED or reprocess:
             return _LayerRunDecision.RUN
         return _LayerRunDecision.CHANGED
     if existing.status is LayerStatus.ACTIVE:
@@ -987,6 +987,7 @@ def _layer_eligible(
     layer: str,
     identity: str,
     retry_failed: bool,
+    reprocess: bool,
 ) -> tuple[list[SourceRef], list[SourceRef], dict[SourceId, LayerRecord | None], int, bool]:
     """`(eligible, to_run, existing_by_source, queryable_baseline, changed)` for one layer —
     ledger task **43.8**'s own per-source table, applied over every `ACTIVE` source. `changed`
@@ -1005,7 +1006,9 @@ def _layer_eligible(
         eligible.append(ref)
         existing = next((entry for entry in record.layers if entry.name == layer), None)
         existing_by_source[ref.source_id] = existing
-        decision = _layer_decision(existing, identity=identity, retry_failed=retry_failed)
+        decision = _layer_decision(
+            existing, identity=identity, retry_failed=retry_failed, reprocess=reprocess
+        )
         if decision is _LayerRunDecision.RUN:
             to_run.append(ref)
         elif decision is _LayerRunDecision.CHANGED:
@@ -1284,6 +1287,7 @@ def _corpus_layer_status(
     *,
     layer: str,
     identity: str,
+    reprocess: bool,
 ) -> tuple[bool, bool, dict[SourceId, LayerRecord | None]]:
     """`(build, changed, existing_by_source)` for one corpus-scoped layer over `eligible` —
     ledger task **43.15**'s own all-or-nothing table, one level up from `_layer_decision`'s
@@ -1294,7 +1298,8 @@ def _corpus_layer_status(
     or the whole corpus is built, whether the gap is a stale identity's neighbour, a source
     this layer never reached, or one an earlier build left `FAILED`/`INDEXING`. A build left
     `FAILED` or `INDEXING` under another identity holds nothing to protect, so it is rebuilt
-    unasked rather than reported (R43.9, extended to an interrupted build at task 43.20).
+    unasked rather than reported (R43.9, extended to an interrupted build at task 43.20). Under
+    `reprocess` a moved identity is rebuilt rather than reported (R43.27).
     """
     existing_by_source: dict[SourceId, LayerRecord | None] = {}
     all_active = True
@@ -1307,7 +1312,7 @@ def _corpus_layer_status(
             all_active = False
             continue
         if existing.pipeline_identity != identity and existing.status not in _UNFINISHED:
-            changed = True
+            changed = changed or not reprocess
             all_active = False
             continue
         if existing.status is not LayerStatus.ACTIVE:
@@ -2053,6 +2058,7 @@ async def _run_corpus_scoped_composition(
     layer_runnables: list[RunnablePipeline],
     layer_loop_started: float,
     llm: LLMSection,
+    reprocess: bool,
 ) -> tuple[bool, LayerFailure | None, LayerJoin | None]:
     """One corpus-scoped composition's whole turn in `run_layers`' own loop — lifted out so
     that function's per-composition branching stays under the complexity budget every
@@ -2060,6 +2066,8 @@ async def _run_corpus_scoped_composition(
     stored identity moved (`run_layers`' own `layers_changed`), the build's failure, if it
     failed, and the join, when the layer was stale by addition only (task **43.23**,
     `_joinable`) and its incremental stage joined the uncovered sources instead of a rebuild.
+    Under `reprocess` a moved identity takes the full build, which `_joinable` already refuses
+    to join (R43.27).
     """
     eligible = [
         ref
@@ -2070,7 +2078,7 @@ async def _run_corpus_scoped_composition(
     if not eligible:
         return False, None, None
     build, changed, existing_by_source = _corpus_layer_status(
-        eligible, records, layer=composition.layer, identity=identity
+        eligible, records, layer=composition.layer, identity=identity, reprocess=reprocess
     )
     if not build:
         return changed, None, None
@@ -2181,6 +2189,7 @@ async def run_layers(
     indexing_ctx: Context,
     layer_runnables: list[RunnablePipeline],
     llm: LLMSection,
+    reprocess: bool = False,
 ) -> tuple[tuple[str, ...], tuple[LayerFailure, ...], tuple[LayerJoin, ...]]:
     """Every named layer, in order, after the base run has finished or been skipped under
     `layers_only` — ledger task **43.8**, `weft_cli.ingest.run_index`'s own loop. Returns
@@ -2206,6 +2215,10 @@ async def run_layers(
 
     `llm` is the run's own `[llm]` section: a corpus build scopes its checkpoint keys by its
     roles (task **43.20**).
+
+    `reprocess` rebuilds a layer whose identity moved instead of reporting it (R43.27). A
+    per-source layer's earlier output goes with its source, which `run_index` released and
+    indexed again before this runs (`sources_with_moved_layers`).
     """
     if store_stage_id is None:
         return (), (), ()
@@ -2239,6 +2252,7 @@ async def run_layers(
                 layer_runnables=layer_runnables,
                 layer_loop_started=layer_loop_started,
                 llm=llm,
+                reprocess=reprocess,
             )
             if corpus_changed and composition.layer not in layers_changed:
                 layers_changed.append(composition.layer)
@@ -2246,7 +2260,12 @@ async def run_layers(
             continue
 
         eligible, to_run, existing_by_source, queryable, changed = _layer_eligible(
-            refs, records, layer=composition.layer, identity=identity, retry_failed=retry_failed
+            refs,
+            records,
+            layer=composition.layer,
+            identity=identity,
+            retry_failed=retry_failed,
+            reprocess=reprocess,
         )
         if changed and composition.layer not in layers_changed:
             layers_changed.append(composition.layer)
@@ -2307,6 +2326,36 @@ async def run_layers(
             )
 
     return tuple(layers_changed), tuple(layers_failed), tuple(layers_joined)
+
+
+def sources_with_moved_layers(
+    compositions: Sequence[LayerComposition],
+    *,
+    refs: Sequence[SourceRef],
+    records: Mapping[SourceId, SourceRecord],
+) -> tuple[SourceRef, ...]:
+    """Every one of `refs` whose `ACTIVE` record carries a per-source layer of `compositions`
+    under a moved identity — the sources `--layers-only --reprocess` releases and indexes again,
+    base and layer, since no store removes a layer's nodes apart from their source (R43.27).
+    """
+    per_source = tuple(
+        (composition.layer, pipeline_identity(composition.resolved))
+        for composition in compositions
+        if composition.scope is not LayerScope.CORPUS
+    )
+    moved: list[SourceRef] = []
+    for ref in refs:
+        record = records.get(ref.source_id)
+        if record is None or record.status is not SourceStatus.ACTIVE:
+            continue
+        existing = {entry.name: entry for entry in record.layers}
+        if any(
+            _layer_decision(existing.get(layer), identity=identity, retry_failed=False)
+            is _LayerRunDecision.CHANGED
+            for layer, identity in per_source
+        ):
+            moved.append(ref)
+    return tuple(moved)
 
 
 def corpus_scoped_layer_names(

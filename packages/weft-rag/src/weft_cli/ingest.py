@@ -119,12 +119,14 @@ from weft_chunk import Chunker
 from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.layers import (
+    LayerComposition,
     LayerFailure,
     LayerJoin,
     compose_layers,
     require_corpus_layers_generation_holding,
     require_layers_metadata_filter,
     run_layers,
+    sources_with_moved_layers,
     stale_corpus_layers,
 )
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError, full_catalogue
@@ -858,6 +860,24 @@ async def _run_base(
     return changes, work, counts, indexed_count, failed_count
 
 
+def _base_scope(
+    compositions: Sequence[LayerComposition],
+    *,
+    refs: Sequence[SourceRef],
+    previous: Mapping[SourceId, SourceRecord],
+    layers_only: bool,
+    reprocess: bool,
+) -> tuple[Sequence[SourceRef], bool]:
+    """`(refs, layers_only)` for `_run_base`. Under `--layers-only --reprocess`, the sources
+    whose per-source layer moved run the base as if `--layers-only` were absent, and only those:
+    a layer's earlier output can only be released with its source (R43.27).
+    """
+    if not (layers_only and reprocess):
+        return refs, layers_only
+    moved = sources_with_moved_layers(compositions, refs=refs, records=previous)
+    return (moved, False) if moved else (refs, True)
+
+
 async def run_index(
     directory: Path,
     *,
@@ -1144,11 +1164,18 @@ async def run_index(
 
         # `work` is `_run_base`'s own concern — nothing here reads it back; `refs` is what
         # `IndexResult.document_ids`/`content_hashes` are built from, unconditionally.
+        base_refs, base_skipped = _base_scope(
+            layer_compositions,
+            refs=refs,
+            previous=previous,
+            layers_only=layers_only,
+            reprocess=reprocess,
+        )
         changes, _work, counts, indexed_count, failed_count = await _run_base(
             runnable,
             runner,
-            layers_only=layers_only,
-            refs=refs,
+            layers_only=base_skipped,
+            refs=base_refs,
             previous=previous,
             identity=identity,
             retry_failed=retry_failed,
@@ -1179,6 +1206,7 @@ async def run_index(
                 indexing_ctx=indexing_ctx,
                 layer_runnables=layer_runnables,
                 llm=run_llm,
+                reprocess=reprocess,
             )
 
         stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)
