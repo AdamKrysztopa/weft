@@ -295,6 +295,17 @@ class LayerJoin(BaseModel):
     unassigned: int
 
 
+class LayerRelease(BaseModel):
+    """A layer `--reprocess` released with `sources` of its sources and did not rebuild, because
+    this run did not name it — carried repair **R43.28**.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    layer: str
+    sources: int
+
+
 class LayerComposition(BaseModel):
     """A layer resolved and checked against its base — `compose_layer`'s return.
 

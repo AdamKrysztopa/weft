@@ -120,6 +120,7 @@ from weft_cli.installed_versions import active_distribution_versions, installed_
 from weft_cli.layers import (
     LayerFailure,
     LayerJoin,
+    LayerRelease,
     UnknownLayerError,
     corpus_scoped_layer_names,
     installed_layers,
@@ -889,6 +890,9 @@ class IndexCommandResult(CommandResult):
     #: Ledger task **43.23** — copied from `weft_cli.ingest.IndexResult.layers_joined`, so the
     #: renderer can say how many added leaves each corpus layer joined.
     layers_joined: tuple[LayerJoin, ...] = ()
+    #: Carried repair **R43.28** — copied from `weft_cli.ingest.IndexResult.layers_released`,
+    #: so the renderer can name a layer `--reprocess` released and did not rebuild.
+    layers_released: tuple[LayerRelease, ...] = ()
     #: Ledger task **43.15** — copied from `weft_cli.ingest.IndexResult.layers_stale`, so the
     #: renderer can name a corpus-scoped layer that has fallen behind without importing that
     #: dataclass.
@@ -1261,6 +1265,7 @@ class IndexCommand:
                 layers_changed=result.layers_changed,
                 layers_failed=result.layers_failed,
                 layers_joined=result.layers_joined,
+                layers_released=result.layers_released,
                 layers_stale=result.layers_stale,
                 layers_stale_progress=result.layers_stale_progress,
                 layers_stale_deleted=result.layers_stale_deleted,

@@ -97,6 +97,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+from collections import Counter
 from collections.abc import (
     AsyncIterator,
     Awaitable,
@@ -122,6 +123,7 @@ from weft_cli.layers import (
     LayerComposition,
     LayerFailure,
     LayerJoin,
+    LayerRelease,
     compose_layers,
     require_corpus_layers_generation_holding,
     require_layers_metadata_filter,
@@ -536,6 +538,9 @@ class IndexResult:
     #: Ledger task **43.23** — every corpus-scoped layer this run joined added sources into
     #: through its `layer.incremental` stage, rather than rebuilding it.
     layers_joined: tuple[LayerJoin, ...] = ()
+    #: Carried repair **R43.28** — every layer a source `--reprocess` released carried that this
+    #: run did not name, so released and not rebuilt, by name. `()` without `reprocess`.
+    layers_released: tuple[LayerRelease, ...] = ()
     #: Ledger task **43.15** — every corpus-scoped layer document `ACTIVE` on at least one of
     #: this run's `ACTIVE` sources but not on all of them, sorted by name. Computed regardless
     #: of what `layers` this run itself named: a source indexed without naming the layer still
@@ -702,13 +707,7 @@ async def _run_base(
         await _release_sources(
             runnable,
             store_stage_ids=store_stage_ids,
-            sources=(
-                source
-                for source, change in changes.items()
-                if change is SourceChange.UNCHANGED
-                and (record := previous.get(source)) is not None
-                and record.layers
-            ),
+            sources=_released_by_reprocess(changes, previous),
         )
     # Ledger task **17.0** — a document whose change is `UNCHANGED` owes this run no work: the
     # store dedupes by content digest, so re-running it would only re-pay extraction, chunking,
@@ -858,6 +857,43 @@ async def _run_base(
         previous=previous,
     )
     return changes, work, counts, indexed_count, failed_count
+
+
+def _released_by_reprocess(
+    changes: Mapping[SourceId, SourceChange], previous: Mapping[SourceId, SourceRecord]
+) -> dict[SourceId, SourceRecord]:
+    """Every `UNCHANGED` source whose previous record carries a layer, with that record — what
+    `--reprocess` releases beyond the reparsed sources (R43.7).
+    """
+    return {
+        source: record
+        for source, change in changes.items()
+        if change is SourceChange.UNCHANGED
+        and (record := previous.get(source)) is not None
+        and record.layers
+    }
+
+
+def _layers_released(
+    compositions: Sequence[LayerComposition],
+    *,
+    changes: Mapping[SourceId, SourceChange],
+    previous: Mapping[SourceId, SourceRecord],
+    reprocess: bool,
+) -> tuple[LayerRelease, ...]:
+    """Every layer a source `--reprocess` released carried and this run did not name, with how
+    many released sources carried it, by name — carried repair **R43.28**.
+    """
+    if not reprocess:
+        return ()
+    named = {composition.layer for composition in compositions}
+    carried = Counter(
+        entry.name
+        for record in _released_by_reprocess(changes, previous).values()
+        for entry in record.layers
+        if entry.name not in named
+    )
+    return tuple(LayerRelease(layer=name, sources=carried[name]) for name in sorted(carried))
 
 
 def _base_scope(
@@ -1188,6 +1224,9 @@ async def run_index(
             indexing_ctx=indexing_ctx,
         )
         summary = _summed(counts)
+        layers_released = _layers_released(
+            layer_compositions, changes=changes, previous=previous, reprocess=reprocess
+        )
 
         layers_changed: tuple[str, ...] = ()
         layers_failed: tuple[LayerFailure, ...] = ()
@@ -1242,6 +1281,7 @@ async def run_index(
             layers_changed=layers_changed,
             layers_failed=layers_failed,
             layers_joined=layers_joined,
+            layers_released=layers_released,
             layers_stale=layers_stale,
             layers_stale_progress=layers_stale_progress,
             layers_stale_deleted=layers_stale_deleted,
@@ -2344,7 +2384,8 @@ def _carried_layers(
     not re-parse it, so whatever layer this project already built over its nodes is still
     good. Any other change — a reparse, a fresh source, one this run could not compare —
     writes `()`, because the base produced a wholly new set of node ids and a layer recorded
-    against the old ones has nothing left to enrich.
+    against the old ones has nothing left to enrich. Under `--reprocess` no source reaches this
+    at all: every ref is `work`, and a source with layers was released with them (R43.28).
     """
     if changes is None or previous is None or changes.get(source_id) is not SourceChange.UNCHANGED:
         return ()

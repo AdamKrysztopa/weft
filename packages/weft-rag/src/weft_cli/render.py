@@ -661,6 +661,7 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     stale_lines = [
         *_joined_layer_lines(result),
         *_changed_layer_lines(result),
+        *_released_layer_lines(result),
         *_stale_layer_lines(result),
     ]
     if stale_lines:
@@ -751,6 +752,15 @@ def _changed_layer_lines(result: IndexCommandResult) -> list[str]:
         f"layer '{name}' changed since it last ran and was not rebuilt — "
         f"weft index --layers {name} --reprocess rebuilds it."
         for name in result.layers_changed
+    ]
+
+
+def _released_layer_lines(result: IndexCommandResult) -> list[str]:
+    """One line per `result.layers_released` — carried repair **R43.28**."""
+    return [
+        f"layer '{release.layer}' was released with {release.sources} source(s) and not "
+        f"rebuilt — weft index --layers {release.layer} rebuilds it."
+        for release in result.layers_released
     ]
 
 

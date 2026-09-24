@@ -244,6 +244,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `weft delete` now marks such a layer `stale` on every remaining source and prints so. `weft
   sources list` and `weft index` show it, the router stops offering its rung, and `weft index
   --layers <name>` rebuilds it. The store contract moves to `2.12.0` for the new `LayerStatus.STALE`.
+- **`weft index --reprocess` says which layers it removed and did not rebuild.** Reprocessing a
+  source removes everything built from it, including the output of layers this run did not name in
+  `--layers`. That output disappeared without a word. The run now prints `layer '<name>' was
+  released with <n> source(s) and not rebuilt — weft index --layers <name> rebuilds it`, and
+  `IndexResult.layers_released` carries the same list.
 - **`weft index --layers <name> --layers-only --reprocess` rebuilds a layer whose settings
   changed.** It printed "changed since it last ran and was not rebuilt — weft index --layers
   <name> --reprocess rebuilds it" and rebuilt nothing, which made the remedy it named the command
