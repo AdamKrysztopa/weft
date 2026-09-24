@@ -1,4 +1,6 @@
-"""Ledger task **43.20** — an interrupted corpus-scoped build resumes, paying only for what it
+"""Ledger task 43.20: an interrupted corpus-scoped build resumes, paying only for what is left.
+
+Ledger task **43.20** — an interrupted corpus-scoped build resumes, paying only for what it
 had not finished.
 
 A corpus-scoped `raptor` layer summarises every cluster before anything reaches its generation,

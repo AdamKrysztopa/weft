@@ -40,14 +40,18 @@ class _Readable:
 
 
 class _Reapable:
-    """A **fan-out** capability — many participants satisfy it at once, so a single-valued
+    """A fan-out capability stand-in, shaped like `SourceDeletable`.
+
+    A **fan-out** capability — many participants satisfy it at once, so a single-valued
     `ctx.require` for it could only answer with one arbitrary participant.
     `SourceDeletable`'s shape, named here as a stand-in so this file names no real capability.
     """
 
 
 class _FsBlobs(_BlobStore, _Readable, _Reapable):
-    """Satisfies its role's contract, one capability a stage can demand, and one fan-out
+    """A blob store satisfying its role, a demandable capability and a fan-out one.
+
+    Satisfies its role's contract, one capability a stage can demand, and one fan-out
     capability nothing may demand — all three at once, which is the whole point.
     """
 

@@ -54,6 +54,10 @@ def _selects(node: Node, filter: Filter) -> bool:
         return any(_selects(node, clause) for clause in filter.clauses)
     if filter.op is FilterOp.NOT:
         return not _selects(node, filter.clauses[0])
+    return _selects_field(node, filter)
+
+
+def _selects_field(node: Node, filter: Filter) -> bool:
     path = field_for(filter.op, filter.field or "")
     if filter.op is FilterOp.IN and path.kind is FieldKind.TEXT_SET:
         wanted = filter.value if isinstance(filter.value, tuple) else (filter.value,)

@@ -1,4 +1,6 @@
-"""Carried repair **R43.38** — `weft reconcile` says what it reclaimed, and a store that cannot
+"""Carried repair R43.38: `weft reconcile` says what it reclaimed and what it could not.
+
+Carried repair **R43.38** — `weft reconcile` says what it reclaimed, and a store that cannot
 withdraw or carry a generation says so.
 
 `reconcile._converge` discarded the `Removed` each `reclaim_withdrawn` returned. A
@@ -146,7 +148,9 @@ class _ReconcilingWithdrawingStore(_WithdrawingStore):
 
 
 def _write_layers(project: Path, *, incremental: bool) -> None:
-    """Two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`; with `incremental`, each declares
+    """Write two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`.
+
+    Two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`; with `incremental`, each declares
     an `adrap` join. `TersePrompt` sends the same request, so both trees hold the same summary ids
     (measured) — the reclaim tests seed their withdrawn trees for that reason.
     """
@@ -220,7 +224,9 @@ async def _built_then_grown(
     second: GenerationStore | None = None,
     **flags: object,
 ) -> render.Rendered:
-    """Both layers built, one document added, then `weft index` again: each layer is stale by
+    """Build both layers, add one document, then run `weft index` again.
+
+    Both layers built, one document added, then `weft index` again: each layer is stale by
     addition, so the second run rebuilds or joins both and supersedes both published trees.
     """
     first = await _index_command(store, corpus, second=second, layers=_BOTH, **flags)
@@ -465,7 +471,9 @@ def _published(store: GenerationStore, layer: str) -> GenerationId:
 
 
 async def _withdrawn_trees(store: _RecordingStore) -> tuple[GenerationId, GenerationId]:
-    """A withdrawn tree per layer: `LAYER`'s holds one node of its own and one its published tree
+    """Seed one withdrawn tree per layer.
+
+    A withdrawn tree per layer: `LAYER`'s holds one node of its own and one its published tree
     also holds, `_SECOND`'s two of its own — reclaiming removes 1 and 2, from two trees of two.
     """
     shared = next(

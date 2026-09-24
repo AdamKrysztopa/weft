@@ -397,7 +397,9 @@ async def test_a_layer_that_fails_records_failed_and_is_retried_only_when_asked(
 
 
 async def test_a_failed_layer_is_reported_by_the_run_that_failed_it(corpus: Path) -> None:
-    """Carried repair **R43.9**: Exit C's corpus RAPTOR refused on all thirty sources and
+    """Carried repair R43.9: a failed layer is reported by the run that failed it.
+
+    Carried repair **R43.9**: Exit C's corpus RAPTOR refused on all thirty sources and
     `weft index` exited 0 printing nothing, because the loop reported only moved identities.
     """
     # Arrange
@@ -431,7 +433,9 @@ async def test_a_layer_skipped_as_failed_earlier_is_not_reported_as_failing_agai
 async def test_a_failed_layer_whose_document_changed_runs_again_unasked(
     corpus: Path, tmp_path: Path
 ) -> None:
-    """R43.9: raptor's refusal says to raise a bound in the stage's `with:`, which moves the
+    """R43.9: a failed layer whose document changed runs again unasked.
+
+    R43.9: raptor's refusal says to raise a bound in the stage's `with:`, which moves the
     identity; a failed record then read as `changed` and the remedy did nothing.
     """
     # Arrange
@@ -454,7 +458,9 @@ async def test_a_failed_layer_whose_document_changed_runs_again_unasked(
 async def test_a_layer_whose_output_depends_on_batch_membership_runs_once_per_source(
     corpus: Path,
 ) -> None:
-    """Carried repair **R43.10**: `enrich-with-raptor` is one tree per document, and Exit C
+    """Carried repair R43.10: a batch-membership layer runs once per source.
+
+    Carried repair **R43.10**: `enrich-with-raptor` is one tree per document, and Exit C
     handed it twenty-five documents' leaves in one call, which is one tree per batch.
     """
     # Arrange
@@ -552,7 +558,9 @@ async def test_each_layer_batch_reports_its_progress_naming_the_layer(corpus: Pa
 async def test_reprocess_rebuilds_a_layer_whose_identity_moved(
     corpus: Path, tmp_path: Path
 ) -> None:
-    """`R43.7`, the owner's Q6: a moved layer is never rebuilt unasked, and `--reprocess` is how
+    """`R43.7`: `--reprocess` rebuilds a layer whose identity moved.
+
+    `R43.7`, the owner's Q6: a moved layer is never rebuilt unasked, and `--reprocess` is how
     it is asked. The source's old derived nodes go with its leaves, so nothing stale survives.
     """
     # Arrange

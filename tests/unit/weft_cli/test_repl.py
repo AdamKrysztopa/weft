@@ -78,7 +78,9 @@ class _StatusCommand:
 
 
 class _ConfigGetArgs(BaseModel):
-    """The one shape `/config`'s own forwarding needs to prove: an optional `key`, matching
+    """The arguments `/config` forwards: an optional `key`.
+
+    The one shape `/config`'s own forwarding needs to prove: an optional `key`, matching
     `weft_cli.config_commands.ConfigGetArgs`'s own `key: str | None` field closely enough to
     test `/config <key>` becoming `--key <key>`, without depending on that module directly.
     """
@@ -467,7 +469,9 @@ async def test_run_repl_does_not_swallow_cancellation_from_a_running_command(
 async def test_repl_does_not_read_the_next_line_while_a_stream_is_in_flight(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """O2 (task 3.4's open item, resolved by task 3.6, `.phase3-design.md` §4): does a token
+    """The REPL does not read the next line while a stream is in flight.
+
+    O2 (task 3.4's open item, resolved by task 3.6, `.phase3-design.md` §4): does a token
     now arrive while something else blocks the loop? Proven here, not asserted from reading
     the code — `read_line` sets a flag it can see the instant a "stream" (a scripted
     `run_command` that awaits real elapsed time before returning) is in flight, and the test

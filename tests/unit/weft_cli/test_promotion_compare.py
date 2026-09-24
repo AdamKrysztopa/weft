@@ -1,4 +1,6 @@
-"""`weft eval compare` treats two runs over two targets as a promotion comparison — ledger task
+"""`weft eval compare` treats two runs over two targets as a promotion comparison.
+
+`weft eval compare` treats two runs over two targets as a promotion comparison — ledger task
 **34.7**, owner decision Q-E, at the seam that decides comparability.
 
 Each fixture varies one fact. The records share corpus and question set and differ in embedding

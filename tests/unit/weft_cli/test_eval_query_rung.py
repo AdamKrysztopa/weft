@@ -94,7 +94,9 @@ def _stub_catalogue(catalogue: dict[str, Pipeline]) -> Callable[..., dict[str, P
 
 
 def _ingest_resolved() -> ResolvedPipeline:
-    """The *ingest* pipeline a run was corroborated over — it must carry an `Embedder` and a
+    """Return the ingest pipeline a run was corroborated over, with an embedder and a store.
+
+    The *ingest* pipeline a run was corroborated over — it must carry an `Embedder` and a
     `NodeStore`, because `score_pipeline` refuses one that does not.
     """
     return ResolvedPipeline(
@@ -351,7 +353,9 @@ async def test_a_named_rung_is_recorded_by_name_and_by_an_identity_of_its_own(
 async def test_naming_no_rung_is_recorded_as_a_measurement_not_as_an_absence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`--query-pipeline` absent means plain vector top-k against the ingest pipeline's own
+    """Naming no rung is recorded as a measurement, not as an absence.
+
+    `--query-pipeline` absent means plain vector top-k against the ingest pipeline's own
     stages — a thing that ran, and the thing every baseline taken so far ran. It must not
     persist as the same value a record written before 16.1 carries.
     """
@@ -377,7 +381,9 @@ async def test_naming_no_rung_is_recorded_as_a_measurement_not_as_an_absence(
 async def test_two_rungs_differing_only_in_configuration_are_not_one_rung(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A name is not an identity: two documents can carry one name across two projects, and one
+    """Two rungs differing only in configuration are not one rung.
+
+    A name is not an identity: two documents can carry one name across two projects, and one
     document can change under its own name. The identity is what `--baseline` will key on.
     """
     # Arrange — the same four stages, one `with:` value apart.
@@ -426,7 +432,9 @@ class _ClosableStore:
 
 
 def _retrieval_document(name: str = "rung-r") -> Pipeline:
-    """`_query_document` without its `Generator`: a rung ending in a `ContextPacker`, the shape
+    """Write a retrieval rung: `_query_document` without its `Generator`.
+
+    `_query_document` without its `Generator`: a rung ending in a `ContextPacker`, the shape
     `weft eval experiment`'s arms run through `run_named_retrieve`.
     """
     return Pipeline(
@@ -452,7 +460,9 @@ def _counted_registry(counts: _CountedStores) -> Registry:
 async def test_a_named_retrieval_closes_every_store_it_built(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`weft ask --retrieve-only --pipeline` and every REPL turn go through this function, so a
+    """A named retrieval closes every store it built.
+
+    `weft ask --retrieve-only --pipeline` and every REPL turn go through this function, so a
     store it builds and never closes is a connection held until the garbage collector happens by.
     """
     # Arrange
@@ -486,7 +496,9 @@ async def test_a_named_retrieval_closes_every_store_it_built(
 async def test_scoring_a_retrieval_rung_builds_its_store_once_and_closes_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """One store for the whole run, not one per question: a store's first search provisions its
+    """Scoring a retrieval rung builds its store once and closes it.
+
+    One store for the whole run, not one per question: a store's first search provisions its
     schema, so a per-question store puts that DDL and a connection handshake inside every
     question's recorded seconds, and 1,548 of them is what reached the connection limit.
     """

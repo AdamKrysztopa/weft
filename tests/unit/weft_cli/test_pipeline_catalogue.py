@@ -112,7 +112,9 @@ def test_load_pipeline_document_raises_for_valid_yaml_that_fails_pipeline_valida
 
 
 def _install_fake_resource_package(tmp_path: Path, *, name: str, files: dict[str, str]) -> None:
-    """A real, importable package under `tmp_path`, so `importlib.resources` resolves it
+    """Install a real, importable resource package under `tmp_path`.
+
+    A real, importable package under `tmp_path`, so `importlib.resources` resolves it
     exactly the way it resolves an installed wheel — the property `load_contributed`
     exists for. `files` maps a resource path (`"pipelines/route.yaml"`) to its text.
     """

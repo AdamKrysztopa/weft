@@ -1,4 +1,6 @@
-"""Carried repair **R43.29** — a query that opened before a corpus layer's publish reads the tree it
+"""Carried repair R43.29: a query reads the tree it opened on until it ends.
+
+Carried repair **R43.29** — a query that opened before a corpus layer's publish reads the tree it
 opened on until it ends.
 
 A handle fixes its manifest when it opens (`43.14`), and the layer loop retracted the superseded

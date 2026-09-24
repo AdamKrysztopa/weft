@@ -1,4 +1,6 @@
-"""`exit_code_for` — one mapping from a caught `WeftError` to the exit code `docs/03-cli.md`
+"""`exit_code_for`: one mapping from a caught `WeftError` to its reserved exit code.
+
+`exit_code_for` — one mapping from a caught `WeftError` to the exit code `docs/03-cli.md`
 reserves for it. Task 1.13.
 
 `docs/02-extension-model.md` §3 → *When resolution fails*: "The CLI maps the whole family to
@@ -32,7 +34,9 @@ from weft_kernel.runner import IntactViolationError, PipelineResolutionError
 
 
 def _boom(cls: type[PipelineResolutionError]) -> PipelineResolutionError:
-    """Construct `cls` with `"boom"` and, for every other keyword `__init__` requires,
+    """Construct `cls` with `"boom"` and a placeholder for every other required keyword.
+
+    Construct `cls` with `"boom"` and, for every other keyword `__init__` requires,
     a placeholder — fitness function 12 widened some family members to require
     `valid_options`, and this walk cannot know each subclass's own signature ahead of
     time, only that a required keyword named for options wants an empty tuple.

@@ -1,4 +1,6 @@
-"""Carried repair **R43.47** — a tree a `weft index` run withdrew outlives that run's own closing
+"""Carried repair R43.47: a tree withdrawn by a `weft index` run outlives its closing pass.
+
+Carried repair **R43.47** — a tree a `weft index` run withdrew outlives that run's own closing
 `repair` pass.
 
 R43.29 withdraws a superseded corpus-layer tree rather than deleting it, so a query that opened
@@ -124,7 +126,9 @@ class _ClosingPassStore(GenerationStore):
 
 
 class _OtherTreePrompt(SummarizeClusterPrompt):
-    """A request that differs from `summarize-cluster`'s, so the two layers share no summary —
+    """A request that differs from `summarize-cluster`'s, so the two layers share no summary.
+
+    A request that differs from `summarize-cluster`'s, so the two layers share no summary —
     `corpus_build_doubles.TersePrompt` sends the same request, and the scripted model digests it.
     """
 
@@ -136,7 +140,9 @@ class _OtherTreePrompt(SummarizeClusterPrompt):
 
 
 def _write_layers(project: Path, *, incremental: bool) -> None:
-    """Two corpus-scoped `raptor` layers under requests that differ; with `incremental`, each
+    """Write two corpus-scoped `raptor` layers under requests that differ.
+
+    Two corpus-scoped `raptor` layers under requests that differ; with `incremental`, each
     declares an `adrap` join.
     """
     (project / "pipelines").mkdir(exist_ok=True)
@@ -159,7 +165,9 @@ def _write_layers(project: Path, *, incremental: bool) -> None:
 
 
 def _registry(store: GenerationStore) -> Registry:
-    """`corpus_build_doubles.registry_for` with `adrap`, the store registered by its class so the
+    """Build the registry with `adrap` and the store registered by its class.
+
+    `corpus_build_doubles.registry_for` with `adrap`, the store registered by its class so the
     closing pass finds it `Reconcilable` — `registry_for`'s factory function hides the class.
     """
     registry = Registry()
@@ -210,7 +218,9 @@ async def _index(store: _ClosingPassStore, corpus: Path, *, layers: str) -> rend
 async def _grown(
     store: _ClosingPassStore, corpus: Path, *, label: str, layers: str = _BOTH
 ) -> render.Rendered:
-    """One more document, then `weft index --layers`: each named layer is stale by addition, so
+    """Add one more document, then run `weft index --layers`.
+
+    One more document, then `weft index --layers`: each named layer is stale by addition, so
     the run rebuilds or joins it and withdraws the tree it replaces.
     """
     (corpus / f"{label}.txt").write_text(f"a document that arrived for the {label} run.")
@@ -288,7 +298,7 @@ _REBUILD_AND_JOIN = pytest.mark.parametrize("incremental", [False, True], ids=["
 
 @_REBUILD_AND_JOIN
 async def test_a_tree_the_run_withdrew_is_still_withdrawn_and_stored_after_its_closing_pass(
-    corpus: Path, tmp_path: Path, incremental: bool
+    corpus: Path, tmp_path: Path, *, incremental: bool
 ) -> None:
     # Arrange
     _write_layers(tmp_path, incremental=incremental)
@@ -313,7 +323,7 @@ async def test_a_tree_the_run_withdrew_is_still_withdrawn_and_stored_after_its_c
 
 @_REBUILD_AND_JOIN
 async def test_a_reader_that_opened_before_the_run_keeps_its_tree_after_the_run_ends(
-    corpus: Path, tmp_path: Path, incremental: bool
+    corpus: Path, tmp_path: Path, *, incremental: bool
 ) -> None:
     # Arrange
     _write_layers(tmp_path, incremental=incremental)
@@ -332,7 +342,7 @@ async def test_a_reader_that_opened_before_the_run_keeps_its_tree_after_the_run_
 
 @_REBUILD_AND_JOIN
 async def test_the_next_build_reclaims_the_tree_the_run_before_it_withdrew(
-    corpus: Path, tmp_path: Path, incremental: bool
+    corpus: Path, tmp_path: Path, *, incremental: bool
 ) -> None:
     # Arrange
     _write_layers(tmp_path, incremental=incremental)

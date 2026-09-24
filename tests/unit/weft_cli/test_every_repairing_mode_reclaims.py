@@ -100,7 +100,9 @@ async def _tree(store: GenerationStore, layer: str, nodes: Sequence[Node]) -> Ge
 
 
 async def _two_withdrawn_trees(state: State) -> tuple[GenerationId, GenerationId, Node]:
-    """`LAYER`'s withdrawn tree holds one node of its own and one its successor shares;
+    """Seed a withdrawn tree for each of the two layers.
+
+    `LAYER`'s withdrawn tree holds one node of its own and one its successor shares;
     `_SECOND`'s holds two of its own. Reclaiming removes 1 + 2 and keeps the shared node.
     """
     store = _ReconcilingWithdrawingStore(state)

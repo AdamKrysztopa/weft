@@ -86,7 +86,9 @@ def _registry() -> Registry:
 
 
 def _kg_pipeline() -> Pipeline:
-    """The shape `examples/weft-example-graph`'s own `kg.yaml` has: an ordinary ingest path
+    """Build the shape of `examples/weft-example-graph`'s `kg.yaml`.
+
+    The shape `examples/weft-example-graph`'s own `kg.yaml` has: an ordinary ingest path
     whose last stage writes to a second `NodeStore`.
     """
     return Pipeline(
@@ -151,7 +153,9 @@ def test_a_store_a_project_document_names_joins_the_configured_one() -> None:
 
 
 def test_a_store_only_a_contributed_document_names_stays_out() -> None:
-    """**R11.2's whole point.** `index-qdrant` is installed and routable, and this project has
+    """R11.2: a store only a contributed document names stays out.
+
+    **R11.2's whole point.** `index-qdrant` is installed and routable, and this project has
     neither derived from it nor run it. Before the narrowing this put `qdrant` into every
     project's participant set, so `weft delete` and `weft index`'s repair pass both connected
     to a database the operator never asked for — `docs/internal/lessons.md` `L11.21`.
@@ -274,7 +278,9 @@ def test_an_extends_cycle_terminates() -> None:
 
 
 def test_a_store_only_a_persisted_run_names_joins() -> None:
-    """The catalogue is empty and the document is gone; the run history is the only record
+    """A store only a persisted run names joins the participants.
+
+    The catalogue is empty and the document is gone; the run history is the only record
     that this project ever wrote to that store, and `02` §1 makes it a participant anyway.
     """
     # Arrange
@@ -294,7 +300,9 @@ def test_a_store_only_a_persisted_run_names_joins() -> None:
 
 
 def test_a_registered_store_nothing_names_stays_out() -> None:
-    """Task 5.1a's narrowing, kept: `qdrant` is installed and registered, no document and no
+    """A registered store nothing names stays out.
+
+    Task 5.1a's narrowing, kept: `qdrant` is installed and registered, no document and no
     run names it, and connecting to it would be the operator's unused database.
     """
     # Arrange
@@ -338,7 +346,9 @@ def test_a_named_plugin_that_is_not_a_store_is_not_a_store() -> None:
 
 
 def test_a_store_named_by_an_operator_block_counts_as_named() -> None:
-    """A derived pipeline names its stores in `insert:`/`replace:` rather than in `stages:`,
+    """A store named by an operator block counts as named.
+
+    A derived pipeline names its stores in `insert:`/`replace:` rather than in `stages:`,
     and a store a derivation adds is one this project runs data through just the same.
     """
     # Arrange
@@ -417,7 +427,9 @@ def test_a_run_record_that_will_not_parse_is_refused_by_name(tmp_path: Path) -> 
 
 
 def test_a_wrapped_value_is_handed_back_as_itself() -> None:
-    """Carried repair **R34.7**: a closure wrapped by `weft_kernel.seam.wrap` that only produces
+    """Carried repair R34.7: a wrapped value is handed back as itself.
+
+    Carried repair **R34.7**: a closure wrapped by `weft_kernel.seam.wrap` that only produces
     or raises is read through `produced_value`, never an `isinstance` guard whose `else` would
     skip a participant silently.
     """

@@ -228,7 +228,9 @@ class _RefusingGenerationStore(_GenerationStore):
 
 
 class _Summary:
-    """A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
+    """A corpus-scope `Expander` returning every leaf plus one self-embedded summary over them.
+
+    A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
     by this stage itself, as `raptor` embeds its own summaries.
     """
 

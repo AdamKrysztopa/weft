@@ -68,7 +68,9 @@ class _EchoArgs(BaseModel):
 
 
 class _EchoCommand:
-    """A minimal, fake `Command` — registered by hand, never discovered, for `build_parser`
+    """A minimal fake `Command`, registered by hand and never discovered.
+
+    A minimal, fake `Command` — registered by hand, never discovered, for `build_parser`
     and `run_command` tests that must not depend on the real installed packs.
     """
 
@@ -95,7 +97,9 @@ class _BoomCommand(_EchoCommand):
 
 
 class _CancellingCommand(_EchoCommand):
-    """Raises `asyncio.CancelledError` from `run` — G6's own proof that `run_command`'s new
+    """A command that raises `asyncio.CancelledError` from `run`.
+
+    Raises `asyncio.CancelledError` from `run` — G6's own proof that `run_command`'s new
     `finally` (task 3.6, closing the token sink) does not turn into a second place cancellation
     can be swallowed.
     """
@@ -106,7 +110,9 @@ class _CancellingCommand(_EchoCommand):
 
 
 class _StreamingBoomCommand(_EchoCommand):
-    """Emits one chunk into `ctx.require(Dependencies).token_sink`, then raises a bare
+    """A command that emits one chunk, then raises a bare `WeftError`.
+
+    Emits one chunk into `ctx.require(Dependencies).token_sink`, then raises a bare
     `WeftError` — the positive case the 2026-08-20 repair's `_EmissionTrackingSink` exists to
     keep true: a command that genuinely starts streaming and then fails must still close with
     the error's own message, never `None`, which is what tells `--json` (`JsonSink`) and a
@@ -124,7 +130,9 @@ class _StreamingBoomCommand(_EchoCommand):
 
 
 class _StreamingCancellingCommand(_EchoCommand):
-    """Emits one chunk, then raises `asyncio.CancelledError` — the mid-stream-cancellation
+    """A command that emits one chunk, then raises `asyncio.CancelledError`.
+
+    Emits one chunk, then raises `asyncio.CancelledError` — the mid-stream-cancellation
     counterpart to `_StreamingBoomCommand` above, for the generic "command did not complete"
     fallback `run_command` uses when `failure_reason` was never set (`CancelledError` is not a
     `WeftError`, so `except WeftError` never captures a message for it).
@@ -138,7 +146,9 @@ class _StreamingCancellingCommand(_EchoCommand):
 
 
 class _RecordingSink:
-    """A `weft_llm.contract.TokenSink` that only records `close`'s own `reason` — task 3.6's
+    """A `TokenSink` that records only the `reason` passed to `close`.
+
+    A `weft_llm.contract.TokenSink` that only records `close`'s own `reason` — task 3.6's
     own proof that `run_command` closes the run's sink exactly once, with the right reason,
     on every exit path.
     """
@@ -154,7 +164,9 @@ class _RecordingSink:
 
 
 class _BlockingCommand(_EchoCommand):
-    """Does a real synchronous filesystem read from `run` — the exact shape of `weft index`'s
+    """A command that does a real synchronous filesystem read from `run`.
+
+    Does a real synchronous filesystem read from `run` — the exact shape of `weft index`'s
     own `weft_extract.accept` walk (`.phase3-design.md` O1) that tripped the blocking-call
     guard when task 3.2 first tried running `Command.run` through `weft_kernel.seam.wrap`
     unconditionally. Proof that O1's resolution (`guard_blocking_calls=False`) actually lets
@@ -192,7 +204,9 @@ class _WipeArgs(BaseModel):
 
 
 class _WipeCommand:
-    """A hand-registered `destroy`-class command — proof for design question 1: it declares
+    """A hand-registered `destroy`-class command that declares only `permission_class`.
+
+    A hand-registered `destroy`-class command — proof for design question 1: it declares
     `permission_class` and nothing else. It never imports `weft_cli.confirm`, never checks a
     TTY itself, and never reads `--yes` — the whole gate is the invocation seam's job, not this
     class's. `ran` is a `ClassVar` rather than an instance attribute because `run_command`
@@ -512,7 +526,9 @@ async def test_run_command_refuses_a_broken_argument_in_the_json_envelope() -> N
 
 
 async def test_the_shipped_index_command_refuses_a_zero_batch_size_naming_its_flag() -> None:
-    """The real `IndexArgs` through the real generated grammar, since a hand-built double
+    """The shipped index command refuses a zero batch size, naming its flag.
+
+    The real `IndexArgs` through the real generated grammar, since a hand-built double
     cannot say which constraints the shipped models carry.
     """
     # Arrange
@@ -691,7 +707,9 @@ async def test_run_command_permits_a_destroy_class_command_with_yes(
 async def test_run_command_does_not_double_print_a_gate_refusal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression for `weft init` in a genuinely empty directory (reproduced by hand, not
+    """`run_command` prints a gate refusal once, not twice.
+
+    Regression for `weft init` in a genuinely empty directory (reproduced by hand, not
     caught by any existing test): exit `3` and no file written were both already correct, but
     the refusal was printed **twice** — once correctly, via `render_refusal`'s `rendered.
     stderr`, and once more by `PrintingSink.close(reason=...)`, mislabelled `[stream error:
@@ -741,7 +759,9 @@ async def test_run_command_closes_the_token_sink_cleanly_on_success() -> None:
 
 
 async def test_run_command_closes_the_token_sink_with_none_when_nothing_streamed() -> None:
-    """Repair, 2026-08-20 — this test used to assert the **opposite**: that `_BoomCommand`'s
+    """`run_command` closes the token sink with `None` when nothing streamed.
+
+    Repair, 2026-08-20 — this test used to assert the **opposite**: that `_BoomCommand`'s
     own `WeftError` closed the sink with `"something in the library refused"` as `reason`.
     That was the bug (`run_command`'s own docstring, "Repaired, 2026-08-20", has the report in
     full): `_BoomCommand` never calls `token_sink.emit` at all, so under `PrintingSink` this
@@ -785,7 +805,9 @@ async def test_run_command_attributes_a_genuine_mid_stream_failure() -> None:
 async def test_run_command_closes_the_token_sink_with_none_on_a_gate_refusal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Repair, 2026-08-20 — the counterpart to `test_run_command_closes_the_token_sink_with_
+    """`run_command` closes the token sink with `None` on a gate refusal.
+
+    Repair, 2026-08-20 — the counterpart to `test_run_command_closes_the_token_sink_with_
     the_weft_error_s_own_reason` above: **that** test's `WeftError` is raised from inside
     `_BoomCommand.run`, after `gate` already let the command start, so the sink genuinely may
     have had something in flight and `reason` carries the message. A `gate` refusal is
@@ -1045,7 +1067,10 @@ def test_main_emits_a_structured_envelope_for_a_discovery_failure_under_json(
 
 
 def test_main_re_raises_when_weft_traceback_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    """ "No traceback" is right for a user and wrong for whoever has to fix it."""
+    """`WEFT_TRACEBACK` makes `main` re-raise the original exception.
+
+    "No traceback" is right for a user and wrong for whoever has to fix it.
+    """
     monkeypatch.setattr(sys, "argv", ["weft", "echo", "hi"])
     monkeypatch.setattr(cli, "wants_version", _wants_version_false)
     monkeypatch.setattr(cli, "build_dependencies", _fake_build_dependencies)
@@ -1262,7 +1287,9 @@ class _Narrowing(Protocol):
 
 
 def _private(module: object, name: str) -> Any:
-    """One private module member, by name — `tests/architecture/
+    """Return one private module member, by name.
+
+    One private module member, by name — `tests/architecture/
     test_ff13_filter_op_dispatch_is_exhaustive.py`'s own idiom, and it exists to satisfy two
     checks that disagree. Importing a `_`-prefixed name trips pyright's `reportPrivateUsage`;
     a `getattr` with a literal trips ruff's `B009`. Taking the name as a *parameter* is

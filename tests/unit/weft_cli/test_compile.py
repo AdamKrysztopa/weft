@@ -435,7 +435,9 @@ def test_an_inherited_stage_id_is_in_the_mapping_resolve_demands() -> None:
 
 
 def test_a_parents_plugin_the_child_replaces_is_never_looked_up() -> None:
-    """`R22.9`: `index-qdrant` replaces `index-text`'s `store: pgvector`, and was refused for
+    """`R22.9`: a parent's plugin that the child replaces is never looked up.
+
+    `R22.9`: `index-qdrant` replaces `index-text`'s `store: pgvector`, and was refused for
     `pgvector` in any project whose `store` pack could not register it.
     """
     # Arrange

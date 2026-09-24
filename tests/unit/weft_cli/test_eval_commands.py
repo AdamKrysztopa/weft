@@ -102,7 +102,9 @@ from weft_store import NodeStore
 
 
 class _PassThroughStage:
-    """`test_ingest.py`'s own stand-in, restated here rather than imported across test files —
+    """A pass-through stage, restated from `test_ingest.py` rather than imported.
+
+    `test_ingest.py`'s own stand-in, restated here rather than imported across test files —
     `test_ff11_pipeline_integrity.py`'s precedent for why a test tier's own doubles are not
     shared modules.
     """
@@ -253,7 +255,9 @@ def in_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_eval_run_places_a_pack_contribution_exactly_as_weft_index_does(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`R19.17`: `run_index` took every ingest concern by hand, and `weft eval run` passed all of
+    """`R19.17`: `weft eval run` places a pack contribution exactly as `weft index` does.
+
+    `R19.17`: `run_index` took every ingest concern by hand, and `weft eval run` passed all of
     them but `contributions`, so a pack's contributed stage ran under `weft index` and silently
     did not under `weft eval run` — measuring a pipeline that is not the one an operator indexes.
     """
@@ -493,7 +497,9 @@ async def test_eval_run_with_questions_folds_the_scored_metrics_into_the_record(
 async def test_eval_run_does_not_stream_generated_tokens_to_the_cli_sink(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """R33.0: `index_and_score` passed `deps.token_sink` — the CLI's own printing sink — straight
+    """R33.0: `weft eval run` does not stream generated tokens to the CLI sink.
+
+    R33.0: `index_and_score` passed `deps.token_sink` — the CLI's own printing sink — straight
     into `score_pipeline`, so a generating `--query-pipeline` streamed every answer's tokens to
     stdout while scoring ran, with no separator between questions, ahead of the run summary.
 
@@ -654,7 +660,7 @@ async def test_the_same_corpus_staged_in_a_second_directory_has_the_same_identit
 
 @pytest.mark.parametrize("reuse_index", [False, True])
 async def test_a_run_record_says_its_corpus_digest_is_over_document_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reuse_index: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, reuse_index: bool
 ) -> None:
     """Both record-writing paths say what their digest is over, or a comparison cannot explain.
 
@@ -705,7 +711,9 @@ def _write_record(
     active_distributions: tuple[str, ...] | None = None,
     model_versions: dict[str, str] | None = None,
 ) -> None:
-    """`corpus_digest_basis` defaults to `None` because that is what every record already
+    """Write a run record whose `corpus_digest_basis` defaults to `None`.
+
+    `corpus_digest_basis` defaults to `None` because that is what every record already
     committed carries — task 16.0's own constraint. A test wanting a record written *after*
     that task says so.
     """
@@ -1243,7 +1251,9 @@ def test_two_arms_differing_only_by_a_roles_model_are_refused_as_incomparable() 
 
 
 def _private_member(module: object, name: str) -> Any:
-    """One private module member, by name — the idiom
+    """Return one private module member, by name.
+
+    One private module member, by name — the idiom
     `tests/architecture/test_ff13_filter_op_dispatch_is_exhaustive.py` documents.
 
     Importing a `_`-prefixed name trips pyright's `reportPrivateUsage`; a `getattr` with a
@@ -1257,7 +1267,9 @@ def _private_member(module: object, name: str) -> Any:
 async def test_reuse_index_scores_against_what_is_already_stored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Carried repair **R10.4** (`docs/internal/lessons.md` `L10.25`, and `L11.46` from the other
+    """Carried repair R10.4: `--reuse-index` scores against what is already stored.
+
+    Carried repair **R10.4** (`docs/internal/lessons.md` `L10.25`, and `L11.46` from the other
     end).
 
     `weft eval run` always indexes. Comparing two **query** rungs therefore means running it
@@ -1333,7 +1345,9 @@ async def test_reuse_index_refuses_a_directory_with_nothing_to_score(
 
 
 def _corpus_of(outcome: object) -> str:
-    """The corpus digest a completed run recorded — read back off the persisted record rather
+    """Return the corpus digest a completed run recorded, read off the persisted record.
+
+    The corpus digest a completed run recorded — read back off the persisted record rather
     than off the command's own return value, because the record is what a later comparison will
     actually read.
     """
@@ -1346,7 +1360,9 @@ def _corpus_of(outcome: object) -> str:
 
 
 def _rung(name: str) -> QueryRung:
-    """A rung whose identity is derived from its name, so two named rungs never collide and the
+    """Build a rung whose identity is derived from its name.
+
+    A rung whose identity is derived from its name, so two named rungs never collide and the
     same name twice never differs. The real identity is `pipeline_identity`'s; what these tests
     need is only that it distinguishes.
     """
@@ -1494,7 +1510,9 @@ async def test_a_baseline_keys_on_the_ingest_pipeline_alone_when_a_record_names_
 async def test_a_run_that_named_no_rung_is_not_a_repetition_of_one_that_did(
     tmp_path: Path,
 ) -> None:
-    """`NoQueryRung` is a measurement, so it selects like any other rung rather than matching
+    """A run that named no rung is not a repetition of one that did.
+
+    `NoQueryRung` is a measurement, so it selects like any other rung rather than matching
     everything — the fallback above is for *absence*, not for a run that deliberately named none.
     """
     # Arrange
@@ -1647,7 +1665,9 @@ async def test_eval_compare_still_refuses_runs_whose_model_versions_differ(tmp_p
 async def test_eval_compare_does_not_refuse_a_run_that_recorded_no_versions(
     tmp_path: Path,
 ) -> None:
-    """Every record written before 16.3 names distributions and no versions, and those stay
+    """`weft eval compare` does not refuse a run that recorded no versions.
+
+    Every record written before 16.3 names distributions and no versions, and those stay
     comparable — the same posture the corpus basis and the query rung already take. An absence
     is not a disagreement.
     """
@@ -1778,7 +1798,9 @@ async def test_a_persisted_record_carries_one_score_per_question_per_metric(
 async def test_eval_compare_refuses_two_runs_scored_on_different_question_sets(
     tmp_path: Path,
 ) -> None:
-    """A metric delta between two rungs scored on two different sets of questions is a fact
+    """`weft eval compare` refuses two runs scored on different question sets.
+
+    A metric delta between two rungs scored on two different sets of questions is a fact
     about the questions, not about the rungs — the same shape as a corpus difference, one
     artefact over.
     """
@@ -1878,7 +1900,9 @@ async def test_eval_compare_reports_a_paired_difference_beside_the_spread_verdic
 async def test_eval_compare_reports_no_paired_difference_for_records_without_questions(
     tmp_path: Path,
 ) -> None:
-    """Two records from before task 16.4 carry means and not observations, so a paired
+    """Records without questions report no paired difference, as an empty mapping.
+
+    Two records from before task 16.4 carry means and not observations, so a paired
     comparison is not computable — and an empty mapping says so where a zero would lie.
     """
     # Arrange
@@ -2014,7 +2038,9 @@ async def test_eval_run_hands_the_scorer_the_one_question_model_read_from_toml(
 async def test_eval_run_resolves_manifest_ids_through_the_manifest_it_is_given(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`eval/questions/*.toml` names `ax-1304.7717v2`, and the staged corpus holds
+    """`weft eval run` resolves manifest ids through the manifest it is given.
+
+    `eval/questions/*.toml` names `ax-1304.7717v2`, and the staged corpus holds
     `arxiv/1304.7717v2.pdf`. `--manifest` is the one file that says which is which; each id maps
     to its document's path relative to the manifest's own directory, so the label resolves
     wherever the corpus is staged.
@@ -2104,7 +2130,9 @@ async def test_eval_run_without_questions_labels_no_digest_function(
 async def test_eval_compare_refuses_two_question_set_digests_taken_by_different_functions(
     tmp_path: Path,
 ) -> None:
-    """A record written before task 38.11 digested `weft_cli.eval_scoring.Question`'s canonical
+    """`weft eval compare` refuses question-set digests taken by different functions.
+
+    A record written before task 38.11 digested `weft_cli.eval_scoring.Question`'s canonical
     form, and one written since digests `weft_eval.question_set.Question`'s. The same 136
     questions give two digests, so the refusal has to say it is the *function* that differs, or
     a reader goes looking for a changed question that does not exist.
@@ -2215,7 +2243,9 @@ async def test_a_sliced_comparison_of_records_without_axes_pairs_nothing_and_say
 async def test_eval_refuses_to_score_a_corpus_missing_a_source_that_failed_earlier(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Phase 36's close review, F1: an index skips a source an earlier run recorded `FAILED`, so
+    """Evaluation refuses a corpus missing a source that failed in an earlier run.
+
+    Phase 36's close review, F1: an index skips a source an earlier run recorded `FAILED`, so
     an evaluation over it would score a smaller corpus under the full corpus's identity.
     """
     # Arrange

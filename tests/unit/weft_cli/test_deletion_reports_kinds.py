@@ -213,7 +213,9 @@ def test_a_failing_participant_reports_no_kinds_rather_than_a_wrong_count() -> N
 
 
 class _NarrowingParticipant:
-    """**G20, 2026-09-12.** A store deleting a document that shared content with another one:
+    """A store deleting a document that shared content: one node gone, one narrowed.
+
+    **G20, 2026-09-12.** A store deleting a document that shared content with another one:
     one node was this document's alone and is gone, one is still held by a live document and
     was narrowed rather than deleted. Before G20 this participant reported `node_count=0` for
     a deletion that had in fact taken a node, or `node_count=2` for one that had taken one.
@@ -271,7 +273,9 @@ def test_a_participant_that_narrowed_nothing_renders_exactly_as_it_always_did() 
 
 
 async def test_the_narrowed_count_survives_the_fan_out_to_the_rendered_line() -> None:
-    """`L9.79`: where a value's whole job is to travel from a store to an operator's screen,
+    """`L9.79`: the narrowed count survives the fan-out to the rendered line.
+
+    `L9.79`: where a value's whole job is to travel from a store to an operator's screen,
     one test must follow it along the wire. `_NarrowingParticipant` is a `SourceDeletable`,
     reached through the real registry and the real fan-out, not a hand-built outcome.
     """

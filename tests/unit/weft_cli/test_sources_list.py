@@ -145,7 +145,9 @@ def test_an_empty_store_says_so() -> None:
 
 
 def test_an_empty_filtered_list_names_the_filter_rather_than_claiming_nothing_is_recorded() -> None:
-    """Found running the wheel: `--status failed` over a store holding one active source printed
+    """An empty filtered list names the filter rather than claiming nothing is recorded.
+
+    Found running the wheel: `--status failed` over a store holding one active source printed
     "no sources recorded.", which is false.
     """
     # Act
@@ -160,7 +162,9 @@ def test_an_empty_filtered_list_names_the_filter_rather_than_claiming_nothing_is
 async def test_every_store_a_project_indexes_into_is_listed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`R36.4`: ingest records sources on every store its pipeline names, so a listing of
+    """`R36.4`: every store a project indexes into is listed.
+
+    `R36.4`: ingest records sources on every store its pipeline names, so a listing of
     `[services] store` alone missed a pipeline's second store. The same stores `weft delete`
     reaches are the ones listed, each entry naming its store.
     """

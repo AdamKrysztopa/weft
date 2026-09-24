@@ -335,7 +335,9 @@ class _EmbedderCancelledThatWillNotClose(_EmbedderThatWillNotClose):
 
 
 async def test_a_cancelled_ask_stays_cancelled_when_the_close_also_fails() -> None:
-    """`R18.1`: the close ran in a bare `finally`, so its `WeftError` replaced the `CancelledError`
+    """A cancelled ask stays cancelled when the close also fails.
+
+    `R18.1`: the close ran in a bare `finally`, so its `WeftError` replaced the `CancelledError`
     already propagating. `Runner._flush_all` keeps the in-flight exception and attaches the cleanup
     failure as a note, and so must every close.
     """

@@ -1,4 +1,6 @@
-"""Carried repair **R43.17** — `weft delete` takes the handle `weft sources list` prints, and says
+"""Carried repair R43.17: `weft delete` takes the handle `weft sources list` prints.
+
+Carried repair **R43.17** — `weft delete` takes the handle `weft sources list` prints, and says
 so when nothing held the one it was given.
 
 `weft sources list` prints each record's `uri`; `weft delete` took only the record's `id`. Handed

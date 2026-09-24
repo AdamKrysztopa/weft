@@ -78,7 +78,9 @@ class _Embedder:
 
 
 def _registry_with_a_blob_plugin() -> Registry:
-    """A registry shaped like a real install: the two roles that predate the mechanism are
+    """Build a registry shaped like a real install, with a stranger's role beside the defaults.
+
+    A registry shaped like a real install: the two roles that predate the mechanism are
     filled under their default names, and the stranger's role is filled beside them.
     """
     registry = Registry()

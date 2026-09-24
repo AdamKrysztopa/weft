@@ -36,7 +36,9 @@ from weft_store.contract import NodeStore, TextSearch, VectorSearch
 #: declaration. The role key stays `blobs` — a stranger's name — so nothing here depends on the
 #: role happening to be called `store`.
 class _ReadOnlyBlobs:
-    """Satisfies `NodeStore`'s role and `VectorSearch`, and never `TextSearch` — the asymmetry
+    """A store satisfying `NodeStore`'s role and `VectorSearch`, never `TextSearch`.
+
+    Satisfies `NodeStore`'s role and `VectorSearch`, and never `TextSearch` — the asymmetry
     `weft-qdrant` really has (`02` § *The store contract family*), used here so the refusal
     case is one a shipped backend actually produces.
     """
@@ -55,7 +57,9 @@ def _table(*roles: ServiceRole) -> RoleTable:
 
 
 def test_a_demand_is_checked_against_the_instance_its_own_role_resolves() -> None:
-    """A capability the selected instance provides passes, and passes *because that role's
+    """A demand is checked against the instance its own role resolves.
+
+    A capability the selected instance provides passes, and passes *because that role's
     instance* provides it — not because the configured node store happens to.
     """
     # Arrange

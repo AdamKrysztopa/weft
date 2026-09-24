@@ -352,7 +352,9 @@ def test_the_answer_envelope_carries_the_text_even_when_it_already_streamed() ->
 
 
 def _refused_answer() -> tuple[Query, Answer]:
-    """The shape `weft_generate.cited_answer` actually returns when `when_no_evidence` is
+    """Build the answer `cited_answer` returns when it refuses for lack of evidence.
+
+    The shape `weft_generate.cited_answer` actually returns when `when_no_evidence` is
     `REFUSE` and `Passages` is empty — copied from that call site
     (`cited_answer.py:130-139 'if self.'`) rather than written from its prose, so this double cannot
     encode a belief about the seam the seam does not hold (`L11.17`).
@@ -993,7 +995,9 @@ def test_render_eval_compare_confirms_the_environment_matched_before_the_diff() 
 
 
 def test_render_eval_compare_names_what_it_did_not_compare() -> None:
-    """`R19.6`: two arms of `21.3`'s sweep differed only in `[packs.store] text_rank_normalization`
+    """`R19.6`: `render_eval_compare` names what it did not compare.
+
+    `R19.6`: two arms of `21.3`'s sweep differed only in `[packs.store] text_rank_normalization`
     and compare printed that the pipeline was the only fact that may differ, which was true of
     everything a run record carries and silent about the setting that actually varied. A record
     carries no pack settings, so the comparison says so rather than implying it checked them.
@@ -1126,7 +1130,9 @@ def test_render_trace_prints_every_field_the_run_record_carries() -> None:
 
 
 def test_render_trace_names_the_experiment_a_record_was_run_as() -> None:
-    """Task 38.0 — the phase Exit runs `weft trace` on an experiment's record and reads its
+    """Task 38.0: `render_trace` names the experiment a record was run as.
+
+    Task 38.0 — the phase Exit runs `weft trace` on an experiment's record and reads its
     experiment digest; a record run outside an experiment says so.
     """
     from weft_cli.eval_commands import TraceCommandResult
@@ -1586,7 +1592,9 @@ def _render_stranger(result: CommandResult) -> render.Rendered:
 
 
 def _offer(result_type: type[CommandResult], renderer: object, *, distribution: str) -> PackReport:
-    """One pack's report carrying one renderer, built through the public seam rather than by
+    """Build one pack's report carrying one renderer, through the public seam.
+
+    One pack's report carrying one renderer, built through the public seam rather than by
     constructing a `RendererOffer` by hand — `PackRegistrar` is what fills in attribution.
     """
     registrar = PackRegistrar(Registry(), distribution=distribution)
@@ -1619,7 +1627,9 @@ def test_a_packs_result_renders_for_a_person_once_its_renderer_is_registered() -
 
 
 def test_a_result_with_no_registered_renderer_still_gets_the_honest_dump() -> None:
-    """The floor stays the floor, and stops being the ceiling: an unrendered result is a
+    """A result with no registered renderer still gets the honest dump.
+
+    The floor stays the floor, and stops being the ceiling: an unrendered result is a
     truthful structured dump rather than a crash or a silent blank.
     """
 
@@ -1636,7 +1646,9 @@ def test_a_result_with_no_registered_renderer_still_gets_the_honest_dump() -> No
 
 
 def test_two_packs_claiming_one_result_type_is_refused_rather_than_shadowed() -> None:
-    """Two renderers for one result type is a real collision, not a repeat of one fact —
+    """Two packs claiming one result type are refused rather than shadowed.
+
+    Two renderers for one result type is a real collision, not a repeat of one fact —
     the identical rule `weft_store.rehydrate.register_from_reports` holds a namespace to.
     """
 
@@ -1664,7 +1676,9 @@ def test_two_packs_claiming_one_result_type_is_refused_rather_than_shadowed() ->
 
 
 def test_registering_the_same_renderer_twice_is_a_repeat_not_a_collision() -> None:
-    """Discovery runs more than once in one process across this tree's own suite, and a
+    """Registering the same renderer twice is a repeat, not a collision.
+
+    Discovery runs more than once in one process across this tree's own suite, and a
     report re-read is the same fact stated again — the identical idempotence
     `weft_store.rehydrate.register_from_reports` already has.
     """
@@ -1692,7 +1706,9 @@ def test_registering_the_same_renderer_twice_is_a_repeat_not_a_collision() -> No
 
 
 def test_every_built_in_renderer_arrives_through_the_public_registration_seam() -> None:
-    """Requirement 4, checked rather than asserted: **no built-in keeps a private path.**
+    """Every built-in renderer arrives through the public registration seam.
+
+    Requirement 4, checked rather than asserted: **no built-in keeps a private path.**
     `weft_cli.render` holds no first-party dispatch table — the eighteen built-in renderers
     reach the dispatch by `weft-cli`'s own `register()` calling `add_renderer`, the same call
     a stranger's pack makes, so the two cannot be told apart at the seam.
@@ -1711,32 +1727,34 @@ def test_every_built_in_renderer_arrives_through_the_public_registration_seam() 
     assert all(offer.distribution == "weft-cli" for offer in registrar.renderers)
 
 
+def _result_types_in(value: object, *, depth: int = 0) -> bool:
+    """Whether `value` holds a `CommandResult` subclass anywhere shallow inside it.
+
+    Recursive on purpose, and that recursion is the whole check: the table the test below
+    exists to forbid was a tuple of `(result type, renderer)` **pairs**, so a one-level
+    scan finds only 2-tuples and passes vacuously — `docs/internal/lessons.md` L5.19's rule, met
+    by planting the real shape rather than a convenient one.
+    """
+    if isinstance(value, type):
+        return issubclass(value, CommandResult)
+    if depth >= 3:
+        return False
+    if isinstance(value, dict):
+        keys = cast("dict[object, object]", value).keys()
+        return any(_result_types_in(key, depth=depth + 1) for key in keys)
+    if isinstance(value, (tuple, list, set, frozenset)):
+        items = cast("Collection[object]", value)
+        return any(_result_types_in(item, depth=depth + 1) for item in items)
+    return False
+
+
 def test_render_holds_no_first_party_dispatch_table_of_its_own() -> None:
-    """The other half of the same property, read off the module rather than off the report: if
+    """`weft_cli.render` holds no first-party dispatch table of its own.
+
+    The other half of the same property, read off the module rather than off the report: if
     a private table survived anywhere in `weft_cli.render`, a built-in would render without
     ever having registered, and the seam would be decorative.
     """
-
-    def _result_types_in(value: object, *, depth: int = 0) -> bool:
-        """Whether `value` holds a `CommandResult` subclass anywhere shallow inside it.
-
-        Recursive on purpose, and that recursion is the whole check: the table this test
-        exists to forbid was a tuple of `(result type, renderer)` **pairs**, so a one-level
-        scan finds only 2-tuples and passes vacuously — `docs/internal/lessons.md` L5.19's rule, met
-        by planting the real shape rather than a convenient one.
-        """
-        if isinstance(value, type):
-            return issubclass(value, CommandResult)
-        if depth >= 3:
-            return False
-        if isinstance(value, dict):
-            keys = cast("dict[object, object]", value).keys()
-            return any(_result_types_in(key, depth=depth + 1) for key in keys)
-        if isinstance(value, (tuple, list, set, frozenset)):
-            items = cast("Collection[object]", value)
-            return any(_result_types_in(item, depth=depth + 1) for item in items)
-        return False
-
     # Act
     tables = [
         name
@@ -1975,7 +1993,9 @@ def test_reconcile_prints_what_nobody_could_decide_beside_what_it_did() -> None:
 
 
 def test_reconcile_says_nothing_about_abstentions_when_there_were_none() -> None:
-    """The clause is conditional, on `_reconcile_line`'s own precedent for `remaining`: a count
+    """Reconcile says nothing about abstentions when there were none.
+
+    The clause is conditional, on `_reconcile_line`'s own precedent for `remaining`: a count
     printed as `abstained 0` on every `repair` line is noise that trains a reader to skip the
     line the one time it says something.
     """

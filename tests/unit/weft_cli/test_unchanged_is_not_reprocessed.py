@@ -230,7 +230,9 @@ async def test_the_report_and_the_corpus_identity_still_cover_every_discovered_d
 
 
 async def test_reprocess_does_the_work_anyway(tmp_path: Path) -> None:
-    """The escape hatch, for the change `pipeline_identity` is structurally unable to see: a
+    """`--reprocess` does the work anyway.
+
+    The escape hatch, for the change `pipeline_identity` is structurally unable to see: a
     hosted model that moved behind a stable name.
     """
     # Arrange

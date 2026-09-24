@@ -15,7 +15,9 @@ PACKAGES: Final[Path] = Path(__file__).resolve().parents[3] / "packages"
 
 
 def discarded_reclaims(tree: ast.AST, *, module: str) -> list[str]:
-    """`module:line` for every expression statement whose value is a `reclaim_withdrawn` call,
+    """Return `module:line` for every expression statement discarding a `reclaim_withdrawn` call.
+
+    `module:line` for every expression statement whose value is a `reclaim_withdrawn` call,
     awaited or not.
     """
     found: list[str] = []

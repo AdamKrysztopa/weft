@@ -55,7 +55,9 @@ from weft_store import NodeStore, ReconcileEstimate, ReconcileMode, ReconcileRep
 
 
 class _ReconcilableStore:
-    """A `NodeStore` stand-in satisfying `Reconcilable` — copied from
+    """A `NodeStore` stand-in satisfying `Reconcilable`, copied from `test_commands.py`.
+
+    A `NodeStore` stand-in satisfying `Reconcilable` — copied from
     `tests/unit/weft_cli/test_commands.py`'s double of the same seam rather than written from
     the contract, so the two cannot come to disagree about what the fan-out actually calls.
     """
@@ -129,7 +131,9 @@ def _patch_run_index(
     document_ids: tuple[str, ...] = ("doc-a",),
     content_hashes: tuple[str, ...] = ("0" * 64,),
 ) -> None:
-    """`content_hashes` is a parameter because task **16.0** made it the corpus digest's own
+    """Patch `run_index` with a double that returns the given `content_hashes`.
+
+    `content_hashes` is a parameter because task **16.0** made it the corpus digest's own
     input: a double that always returns the same one cannot show which of the two tuples the
     caller actually digests.
     """
@@ -193,7 +197,9 @@ async def test_an_index_run_record_is_invisible_to_the_eval_baseline_search(
 async def test_the_default_path_persists_no_run_record(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The built-in four-stage path resolves no document, so there is no `resolved_pipeline`
+    """The default path persists no run record.
+
+    The built-in four-stage path resolves no document, so there is no `resolved_pipeline`
     to record — and the only store it writes to is `[services] store`, which participation
     counts unconditionally. Writing a record with an invented pipeline would be a fact about
     a document that does not exist.
@@ -212,7 +218,9 @@ async def test_the_default_path_persists_no_run_record(
 async def test_the_repair_pass_after_an_index_reaches_the_store_that_run_named(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """**The property R11.2's second half exists for.** No project document, no `[services]`
+    """The repair pass after an index reaches the store that run named.
+
+    **The property R11.2's second half exists for.** No project document, no `[services]`
     entry, no prior run — the graph store is named only by the contributed rung this
     invocation ran, and the automatic repair pass has to reach it anyway.
     """
@@ -308,7 +316,9 @@ def _resolved_embedding_with(embedder: str) -> ResolvedPipeline:
 async def test_a_pipeline_naming_a_real_embedder_reports_no_defaulted_embedder(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """`R22.12`: `--pipeline baseline-openai` wrote 1536-wide OpenAI vectors and printed
+    """`R22.12`: a pipeline naming a real embedder reports no defaulted embedder.
+
+    `R22.12`: `--pipeline baseline-openai` wrote 1536-wide OpenAI vectors and printed
     *"you did not choose an embedder — this ran with 'hash'"*, read off `[services] embed` alone.
     """
     # Arrange

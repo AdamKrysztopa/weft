@@ -81,7 +81,9 @@ class _Passthrough:
 
 
 class _Clusters(_Passthrough):
-    """A stage that says its output depends on batch membership — `raptor`'s declaration, on a
+    """A stage that declares its output depends on batch membership.
+
+    A stage that says its output depends on batch membership — `raptor`'s declaration, on a
     double, because the refusal is about *any* stage that declares it and not about one plugin.
     """
 
@@ -252,7 +254,9 @@ async def test_the_same_pipeline_without_the_flag_is_not_refused(tmp_path: Path)
 
 
 async def test_a_batch_size_below_one_is_refused(tmp_path: Path) -> None:
-    """`ValueError`, not a `WeftError`: this is a caller handing a library function a value no
+    """A batch size below one is refused with a `ValueError`.
+
+    `ValueError`, not a `WeftError`: this is a caller handing a library function a value no
     corpus could make sensible, which is Python's own vocabulary for the case. The CLI never
     produces it — `IndexArgs` bounds the flag — so it needs no troubleshooting entry.
     """

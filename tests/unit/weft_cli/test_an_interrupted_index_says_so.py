@@ -82,7 +82,9 @@ class _ExplodingChunker(_Passthrough):
 
 
 class _CancelledChunker(_Passthrough):
-    """A run interrupted rather than failed — ledger **36.1**: since Phase 36 a stage that raises
+    """A chunker whose run is interrupted rather than failed: it raises `CancelledError`.
+
+    A run interrupted rather than failed — ledger **36.1**: since Phase 36 a stage that raises
     or returns `Failed` records the source `FAILED`, so the interruption `17.1` is about is now
     modelled by what a killed task actually receives, `CancelledError`, which records nothing
     beyond the `INDEXING` already written.
@@ -243,7 +245,9 @@ async def test_a_record_left_indexing_is_not_reported_unchanged(tmp_path: Path) 
 
 
 async def test_an_active_record_with_matching_bytes_is_still_unchanged() -> None:
-    """The control for the case above, because a comparison that reported `INCOMPLETE` for
+    """An active record with matching bytes is still unchanged: the control for the case above.
+
+    The control for the case above, because a comparison that reported `INCOMPLETE` for
     everything would satisfy it and mean nothing. Same document, same identity, one field apart.
     """
     # Act / Assert
@@ -254,7 +258,9 @@ async def test_an_active_record_with_matching_bytes_is_still_unchanged() -> None
 
 
 async def test_an_interrupted_document_is_indexed_again_by_the_next_run(tmp_path: Path) -> None:
-    """End to end, because the two halves above are individually true of a build where the second
+    """An interrupted document is indexed again by the next run, end to end.
+
+    End to end, because the two halves above are individually true of a build where the second
     run still skips — `INCOMPLETE` has to be a member `17.0`'s filter treats as work, and nothing
     above asserts that.
 
@@ -280,7 +286,9 @@ async def test_an_interrupted_document_is_indexed_again_by_the_next_run(tmp_path
 
 
 async def test_a_run_whose_batch_failed_does_not_record_it_active(tmp_path: Path) -> None:
-    """Carried repair **R36.0**: a batch the runner counted `Failed` did no work, so its
+    """Carried repair R36.0: a batch counted `Failed` does not record its documents active.
+
+    Carried repair **R36.0**: a batch the runner counted `Failed` did no work, so its
     documents' records must not claim otherwise.
 
     Found by running the binary: one non-UTF-8 file failed its batch, every source was recorded
@@ -304,7 +312,9 @@ async def test_a_run_whose_batch_failed_does_not_record_it_active(tmp_path: Path
 async def test_a_document_whose_batch_failed_is_indexed_again_by_the_next_run(
     tmp_path: Path,
 ) -> None:
-    """The conjunction that makes the record above matter (`L8.29`): the next run, with nothing on
+    """A document whose batch failed is skipped as failed by the next run, and said so.
+
+    The conjunction that makes the record above matter (`L8.29`): the next run, with nothing on
     disk changed, never calls the document unchanged. Since ledger **36.2** it skips it as
     *failed* and says so, and only `--retry-failed` treats it as work (owner, 2026-09-21: paid
     stages sit on the ingest path, so a failure is not retried unasked).
@@ -333,7 +343,9 @@ async def test_a_document_whose_batch_failed_is_indexed_again_by_the_next_run(
 
 
 async def test_a_failed_run_leaves_an_unchanged_documents_record_active(tmp_path: Path) -> None:
-    """The control: withholding `ACTIVE` from the run's work must not reach a document the run
+    """A failed run leaves the record of a document it never touched active.
+
+    The control: withholding `ACTIVE` from the run's work must not reach a document the run
     never touched, whose record from the earlier run is still true.
     """
     # Arrange — one document indexed cleanly, then a second added that the next run refuses.
@@ -403,7 +415,9 @@ def test_an_interrupted_run_is_reported_once_and_not_once_per_document() -> None
 
 
 def test_one_incomplete_document_still_says_which_one() -> None:
-    """The boundary, because a summary that also hides the single case has traded one kind of
+    """With one incomplete document, the summary still names it.
+
+    The boundary, because a summary that also hides the single case has traded one kind of
     unreadable output for another: with one document the id *is* the useful fact.
     """
     # Act
@@ -419,7 +433,9 @@ def test_one_incomplete_document_still_says_which_one() -> None:
 
 
 class _ExplodingOnChunker(_Passthrough):
-    """Raises once a named document's batch reaches it: a run killed part-way, after earlier
+    """A chunker that raises once a named document's batch reaches it.
+
+    Raises once a named document's batch reaches it: a run killed part-way, after earlier
     batches finished.
     """
 
@@ -435,7 +451,9 @@ class _ExplodingOnChunker(_Passthrough):
 async def test_a_batch_that_succeeded_is_active_even_when_a_later_batch_failed(
     tmp_path: Path,
 ) -> None:
-    """`38.6`'s question index re-paid every model call after one failure, because `R36.0`
+    """A batch that succeeded is recorded active even when a later batch failed.
+
+    `38.6`'s question index re-paid every model call after one failure, because `R36.0`
     withholds `ACTIVE` from all of a run's work when any batch fails. One document per batch
     names exactly which documents failed.
     """
@@ -502,7 +520,9 @@ class _DeletingStore(_RecordingStore):
 async def test_an_interrupted_documents_nodes_are_released_before_it_is_indexed_again(
     tmp_path: Path,
 ) -> None:
-    """`38.6`'s fourth run retrieved 22,463 question nodes a killed run had written: the killed
+    """An interrupted document's nodes are released before it is indexed again.
+
+    `38.6`'s fourth run retrieved 22,463 question nodes a killed run had written: the killed
     run left its sources `INDEXING`, the next run read them `INCOMPLETE`, and only
     `CONTENT_CHANGED` and `PIPELINE_CHANGED` were released before re-indexing. Nodes a model wrote
     differ run to run, so they get new ids and pile up even under the same pipeline.
@@ -601,7 +621,9 @@ async def test_a_cancelled_run_records_no_failure(tmp_path: Path) -> None:
 async def test_a_failed_batch_fails_only_its_bad_document_and_counts_only_its_attempts(
     tmp_path: Path,
 ) -> None:
-    """Carried repair R43.1 supersedes this test's 36.1 form, in which every member of a failed
+    """A failed batch fails only its bad document and counts only that document's attempts.
+
+    Carried repair R43.1 supersedes this test's 36.1 form, in which every member of a failed
     batch was `FAILED`. Now the batch's documents are run again one at a time, so the good one is
     `ACTIVE`. One bad file still does not advance anything but its own attempts.
     """
@@ -736,7 +758,9 @@ def test_a_retried_document_is_not_called_unfinished() -> None:
 
 
 def test_a_document_that_failed_this_run_is_not_counted_unchanged() -> None:
-    """Found running the exit from the wheel: after `36.1` stopped counting a failed document as
+    """A document that failed this run is not counted unchanged.
+
+    Found running the exit from the wheel: after `36.1` stopped counting a failed document as
     indexed, the summary's `discovered - indexed` called it unchanged.
     """
     # Arrange

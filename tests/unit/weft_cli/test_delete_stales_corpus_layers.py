@@ -102,7 +102,9 @@ class _State:
 
 
 class _Store:
-    """`test_corpus_layers`' `_GenerationStore`, registered as a class so `weft delete`'s fan-out
+    """A generation store registered as a class, so `weft delete`'s fan-out counts it.
+
+    `test_corpus_layers`' `_GenerationStore`, registered as a class so `weft delete`'s fan-out
     (which asks `issubclass` of what was registered) counts it as a participant. Every instance
     reads the one class-held `state`, as every connection to one database would.
     """
@@ -224,7 +226,9 @@ class _Store:
 
 
 class _Summary:
-    """A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
+    """A corpus-scope `Expander` returning every leaf plus one self-embedded summary over them.
+
+    A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
     by this stage itself, as `raptor` embeds its own summaries.
     """
 
@@ -618,7 +622,9 @@ async def _refuse(self: _Store, record: SourceRecord) -> None:
 async def test_a_demotion_that_fails_stops_the_delete_before_anything_is_removed(
     corpus: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """R43.33 — a tree is marked before it is holed: a mark that cannot be written leaves the
+    """R43.33: a demotion that fails stops the delete before anything is removed.
+
+    R43.33 — a tree is marked before it is holed: a mark that cannot be written leaves the
     source, its nodes and every tree whole, and the refusal says so and names the retry.
     """
     # Arrange
@@ -647,7 +653,9 @@ async def test_a_demotion_that_fails_stops_the_delete_before_anything_is_removed
 async def test_the_remedy_a_failed_demotion_prints_ends_with_the_layer_rebuilt(
     corpus: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """R43.33 — the retry the refusal prints, then the rebuild the retry prints, run the stage
+    """R43.33: the remedy a failed demotion prints ends with the layer rebuilt.
+
+    R43.33 — the retry the refusal prints, then the rebuild the retry prints, run the stage
     again over what remains and publish a new tree in place of the one that lost a source.
     """
     # Arrange
@@ -684,7 +692,9 @@ async def test_the_remedy_a_failed_demotion_prints_ends_with_the_layer_rebuilt(
 async def test_a_corpus_layer_only_the_deleted_source_held_is_not_reported_stale(
     corpus: Path,
 ) -> None:
-    """R43.33 — marking before the fan-out must not count the source being deleted: a tree no
+    """R43.33: a corpus layer only the deleted source held is not reported stale.
+
+    R43.33 — marking before the fan-out must not count the source being deleted: a tree no
     remaining source carries has no remaining source to be stale on.
     """
     # Arrange — the tree is built while `a.txt` is the only document.

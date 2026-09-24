@@ -361,7 +361,9 @@ async def test_a_corpus_path_that_is_a_file_refuses_and_says_so(tmp_path: Path) 
 
 
 async def test_the_three_answers_are_distinguishable_from_each_other(tmp_path: Path) -> None:
-    """`R27.1` as one assertion: the property is not that each case says *something*, it is
+    """`R27.1`: no two of the three answers say the same thing.
+
+    `R27.1` as one assertion: the property is not that each case says *something*, it is
     that no two of them say the *same* thing. Three separate tests each asserting a substring
     would all pass against three identical messages.
     """
@@ -387,7 +389,9 @@ async def test_the_three_answers_are_distinguishable_from_each_other(tmp_path: P
 
 
 async def test_the_evaluators_own_corpus_walk_refuses_the_same_three_ways(tmp_path: Path) -> None:
-    """`corpus_documents` is the second caller of this walk — `weft eval run --reuse-index`
+    """The evaluator's own corpus walk refuses the same three ways.
+
+    `corpus_documents` is the second caller of this walk — `weft eval run --reuse-index`
     reaches it without going through `run_index` at all — so a guard only at `run_index`'s top
     would repair one command and leave its neighbour silent. `L8.24` is that shape twice over
     in one phase, and this is the assertion that stops a third.
@@ -454,7 +458,9 @@ def _document(name: str, *stages: StageDeclaration) -> Pipeline:
 def _stub_catalogue(
     catalogue: dict[str, Pipeline],
 ) -> Callable[..., dict[str, Pipeline]]:
-    """A typed stand-in for `weft_cli.pipeline_catalogue.full_catalogue`, so `monkeypatch.
+    """A typed stand-in for `weft_cli.pipeline_catalogue.full_catalogue`.
+
+    A typed stand-in for `weft_cli.pipeline_catalogue.full_catalogue`, so `monkeypatch.
     setattr` has a real signature to check rather than a bare lambda `pyright` cannot type.
     """
 
@@ -553,7 +559,9 @@ async def test_run_index_hashes_the_bytes_of_every_document_it_discovered(
 async def test_run_index_with_pipeline_runs_a_contribution_placed_in_its_declared_slot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Task **5.3a** (`S8`) end to end: a document declares a slot, a pack's own
+    """Task 5.3a: `run_index --pipeline` runs a contribution placed in its declared slot.
+
+    Task **5.3a** (`S8`) end to end: a document declares a slot, a pack's own
     `Contribution` names it, and the contributed stage actually runs — never merely
     resolves. `contributions=` reaches `run_index` through `_specs_from_document`'s own
     `contracts_for`/`resolve` calls, exactly the seam `weft_engine.registry_bootstrap.
@@ -802,7 +810,9 @@ async def test_the_default_path_registers_the_embedder_it_was_given(tmp_path: Pa
 async def test_an_ingest_run_does_not_offer_the_query_path_s_own_services(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`StageLookup` and `RouteCatalogue` are `weft-retrieve`'s, and an ingest stage that
+    """An ingest run does not offer the query path's own services.
+
+    `StageLookup` and `RouteCatalogue` are `weft-retrieve`'s, and an ingest stage that
     could reach them would be an ingest plugin depending on the query path. `NodeStore` is
     excluded for a different reason: an ingest document already names a store *stage*, so an
     ambient one would give a single run two paths to the same store. Asserted rather than
@@ -893,7 +903,9 @@ class _CancelledExtractorThatWillNotClose(_PassThroughStage):
 async def test_a_cancelled_index_stays_cancelled_and_still_closes_every_stage(
     tmp_path: Path,
 ) -> None:
-    """`R18.1`: `run_index`'s `finally` closed stages one at a time, so a failing close both
+    """`R18.1`: a cancelled index stays cancelled and still closes every stage.
+
+    `R18.1`: `run_index`'s `finally` closed stages one at a time, so a failing close both
     replaced the propagating `CancelledError` and left every later stage, the store among them,
     unclosed.
     """

@@ -121,7 +121,9 @@ def test_a_stage_that_declares_false_is_not_reported() -> None:
 
 
 def test_every_such_stage_is_named_in_pipeline_order() -> None:
-    """Two of them, because one entry cannot show ordering, separators or whether two entries are
+    """Every stage that declares batch membership is named, in pipeline order.
+
+    Two of them, because one entry cannot show ordering, separators or whether two entries are
     distinguishable at all — `docs/internal/lessons.md` `L12.6`, where six tests of an
     operator-facing message each held one row and the shipped binary printed seven identical ones.
     """

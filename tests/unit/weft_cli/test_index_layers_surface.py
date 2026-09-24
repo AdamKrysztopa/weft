@@ -240,7 +240,9 @@ async def test_a_layer_batch_prints_its_own_progress_line() -> None:
 async def test_a_failed_or_changed_layer_reaches_the_operator_and_a_failure_exits_1(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Carried repair **R43.9**: `IndexResult` carried a moved layer since 43.8 and the command
+    """Carried repair R43.9: a failed or changed layer reaches the operator.
+
+    Carried repair **R43.9**: `IndexResult` carried a moved layer since 43.8 and the command
     copied it nowhere, so neither a changed nor a failed layer was ever printed.
     """
 

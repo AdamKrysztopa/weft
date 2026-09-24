@@ -106,7 +106,9 @@ class _ClosedPipe(io.StringIO):
 async def test_a_sink_closes_quietly_when_its_reader_has_gone(
     sink_class: type[PrintingSink] | type[JsonSink],
 ) -> None:
-    """The `--json` refusal above broke here: the sink's closing event is written in
+    """A sink closes quietly when its reader has gone.
+
+    The `--json` refusal above broke here: the sink's closing event is written in
     `run_command`'s `finally`, and the exception replaced the refusal the command had returned.
     A closing event is for a reader, and there is none left to tell.
     """
@@ -122,7 +124,9 @@ async def test_a_sink_closes_quietly_when_its_reader_has_gone(
 async def test_a_chunk_written_to_a_gone_reader_still_stops_the_command(
     sink_class: type[PrintingSink] | type[JsonSink],
 ) -> None:
-    """A command whose output nobody reads is stopped rather than left spending model calls on
+    """A chunk written to a reader that has gone still stops the command.
+
+    A command whose output nobody reads is stopped rather than left spending model calls on
     it — so a chunk's write lets the broken pipe through, and only the closing event is quiet.
     """
     # Arrange
@@ -136,7 +140,9 @@ async def test_a_chunk_written_to_a_gone_reader_still_stops_the_command(
 def test_a_broken_socket_is_still_reported(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A dropped connection to a database or a provider raises the same class as a closed
+    """A broken socket is still reported as a failure.
+
+    A dropped connection to a database or a provider raises the same class as a closed
     reader; only the sink's own `ReaderGoneError` is the reader leaving, and anything else is a
     failure the operator is told about.
     """
@@ -159,7 +165,9 @@ def test_a_broken_socket_is_still_reported(
 
 
 async def test_a_streamed_answer_whose_reader_has_gone_stops_as_the_reader_leaving() -> None:
-    """Repair **R38.17**: every chunk of a model's answer reaches the sink from inside
+    """Repair R38.17: a streamed answer to a gone reader stops as the reader leaving.
+
+    Repair **R38.17**: every chunk of a model's answer reaches the sink from inside
     `LLMClient`'s stream loop, whose catch-all re-raised the sink's `ReaderGoneError` as
     `LLMProviderFaultError` — so `weft ask … | head -1` blamed the provider adapter. The tests
     above call `sink.emit` directly and never went through the client that wraps it.
@@ -203,9 +211,11 @@ cli.main()
     ids=["reader-gone", "socket"],
 )
 async def test_a_stage_that_failed_because_its_reader_left_exits_quietly(
-    cause: str, quiet: bool, tmp_path: Path
+    cause: str, tmp_path: Path, *, quiet: bool
 ) -> None:
-    """Repair **R38.17**, found by running the wheel: `weft ask …` into a closed pipe printed
+    """Repair R38.17: a stage that failed because its reader left exits quietly.
+
+    Repair **R38.17**, found by running the wheel: `weft ask …` into a closed pipe printed
     `'generate' failed: ReaderGoneError: [Errno 32] Broken pipe` and exited 1, because the kernel
     seam wraps anything a stage raises in a `WeftError`, so the reader leaving arrived wrapped.
     A subprocess, because the quiet exit silences the process's own stdout descriptor.

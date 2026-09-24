@@ -35,7 +35,9 @@ def _node(content: str, *, degraded: bool) -> Node:
 
 
 class _PagingStore:
-    """Answers `matching` for the one `EXISTS` filter the count asks, one node per page, so a
+    """A store that answers the count's `EXISTS` filter one node per page.
+
+    Answers `matching` for the one `EXISTS` filter the count asks, one node per page, so a
     count that reads only the first page is caught.
     """
 

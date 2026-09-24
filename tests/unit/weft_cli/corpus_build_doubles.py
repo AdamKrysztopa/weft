@@ -86,6 +86,10 @@ def holds(node: Node, filter: Filter) -> bool:
         return any(holds(node, clause) for clause in filter.clauses)
     if filter.op is FilterOp.NOT:
         return not holds(node, filter.clauses[0])
+    return _holds_field(node, filter)
+
+
+def _holds_field(node: Node, filter: Filter) -> bool:
     if filter.field is None:
         raise AssertionError(f"the build used an operator this double lacks: {filter}")
     if filter.op is FilterOp.EXISTS:
@@ -237,7 +241,9 @@ class GenerationStore:
 
 
 def plant_older_orphan(store: GenerationStore) -> GenerationId:
-    """A `BUILDING` generation of `LAYER` opened before every other, as a build interrupted
+    """Plant the oldest `BUILDING` generation of `LAYER`, as an interrupted build leaves one.
+
+    A `BUILDING` generation of `LAYER` opened before every other, as a build interrupted
     before task 43.20 would have left one.
     """
     orphan = GenerationId("g-000")
@@ -294,7 +300,9 @@ def memberships(summaries: Sequence[Node]) -> set[frozenset[NodeId]]:
 
 
 class ScriptedModel:
-    """An `LLMProvider` answering each request with a digest of it, tagged with the model that
+    """An `LLMProvider` that answers with a digest tagged by model and run label.
+
+    An `LLMProvider` answering each request with a digest of it, tagged with the model that
     was asked and the run's `label`, so a stored summary says which run wrote it.
     """
 
@@ -460,7 +468,9 @@ async def interrupt_after(
     model: str = "m1",
     second: GenerationStore | None = None,
 ) -> BaseException | None:
-    """Run the build and cancel it while the model writes summary `summaries + 1`; what the
+    """Run the build, cancel it mid-summary, and return what the cancelled task raised.
+
+    Run the build and cancel it while the model writes summary `summaries + 1`; what the
     cancelled task raised, which is `asyncio.CancelledError` when cancellation propagated.
     """
     ScriptedModel.trip = summaries + 1

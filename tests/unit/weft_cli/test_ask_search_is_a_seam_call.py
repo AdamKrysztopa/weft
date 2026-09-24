@@ -88,7 +88,9 @@ async def test_a_retrieve_only_ask_records_the_search_apart_from_the_embed() -> 
 
 
 async def test_a_search_that_raises_is_attributed_to_the_store_and_recorded() -> None:
-    """Through the seam, a store failure names the store — the attribution the direct call
+    """A search that raises through the seam is attributed to the store and recorded.
+
+    Through the seam, a store failure names the store — the attribution the direct call
     never had — and the record says the search raised.
     """
     # Act

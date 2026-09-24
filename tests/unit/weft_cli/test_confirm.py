@@ -30,7 +30,9 @@ class _Args(BaseModel):
 
 
 class _FakeCommand:
-    """`gate` reads `instance` through `getattr` alone (see its own docstring) — this stand-in
+    """A stand-in carrying only `permission_class`, which is all `gate` reads.
+
+    `gate` reads `instance` through `getattr` alone (see its own docstring) — this stand-in
     carries only `permission_class`, never the rest of `weft_command.contract.Command`'s shape,
     which is exactly the point being proven: `gate` needs nothing more.
     """
@@ -261,7 +263,9 @@ def test_a_command_with_no_describe_impact_keeps_the_floor_text(
 def test_an_enum_argument_is_rendered_as_its_value_not_as_its_repr(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Task **5.1b**, found by running `weft reconcile`: a bare `model_dump()` left the
+    """Task 5.1b: an enum argument is rendered as its value, not its repr.
+
+    Task **5.1b**, found by running `weft reconcile`: a bare `model_dump()` left the
     `ReconcileMode` member as an object, so the refusal read `{'mode': <ReconcileMode.FULL:
     'full'>}` — Phase 3's fourth repair recurring one raise site over.
     """

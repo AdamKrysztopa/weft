@@ -234,7 +234,9 @@ async def test_estimate_everywhere_propagates_cancellation() -> None:
 
 
 def test_a_node_store_that_cannot_reconcile_is_not_a_participant() -> None:
-    """`_DeleteOnlyStore` is a full `NodeStore` with no `reconcile` — capability derived, not
+    """A node store that cannot reconcile is not a participant.
+
+    `_DeleteOnlyStore` is a full `NodeStore` with no `reconcile` — capability derived, not
     declared, so it joins the delete fan-out and stays out of this one with nothing written
     down either way.
     """

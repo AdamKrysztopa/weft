@@ -137,7 +137,9 @@ def _question(
     relevant_documents: tuple[str, ...] = ("doc-a",),
     kind_axis: str | None = None,
 ) -> Question:
-    """A `weft_eval.question_set.Question` stating every field a scoring fixture does not need
+    """Build a `Question` stating absent every field a scoring fixture does not need.
+
+    A `weft_eval.question_set.Question` stating every field a scoring fixture does not need
     absent — the one model `score_pipeline` reads since task 38.11.
     """
     return Question.model_validate(
@@ -282,7 +284,9 @@ def test_a_bare_filename_still_resolves_when_it_names_one_document() -> None:
 
 
 def test_a_label_naming_no_document_is_refused_rather_than_scored_zero() -> None:
-    """The defect this rule exists for, and the ledger records it as a scar
+    """A label naming no document is refused rather than scored zero.
+
+    The defect this rule exists for, and the ledger records it as a scar
     (`docs/internal/build-ledger.md:5528 "an early run read"`): *"an early run read `0.000` at
     every cutoff and was not reported as a finding — ground truth names a `SourceDoc.source_id`,
     and bare filenames match nothing."* A `0.000` meaning *the harness is wrong* and a `0.000`
@@ -299,7 +303,9 @@ def test_a_label_naming_no_document_is_refused_rather_than_scored_zero() -> None
 
 
 def test_a_label_matching_two_documents_is_refused_naming_both() -> None:
-    """Ambiguity is silent otherwise: whichever document the resolution happened to pick would
+    """A label matching two documents is refused, naming both.
+
+    Ambiguity is silent otherwise: whichever document the resolution happened to pick would
     score, and the other would count as a miss for a question that named it.
     """
     # Arrange — the same filename under two directories, which a staged corpus can hold.
@@ -317,7 +323,9 @@ def test_a_label_matching_two_documents_is_refused_naming_both() -> None:
 
 
 def test_a_label_that_is_the_whole_resolved_path_still_resolves() -> None:
-    """Every questions file written before this task names absolute paths, because that is
+    """A label that is the whole resolved path still resolves.
+
+    Every questions file written before this task names absolute paths, because that is
     what `SourceId` is. They keep working — the rule is a suffix rule and a whole path is its
     own suffix.
     """
@@ -361,7 +369,9 @@ async def test_a_question_is_scored_against_the_document_its_label_resolved_to()
 async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`12` §3: *"Rank metrics are scored over `repack: reverse`'s deliberately inverted
+    """A rank metric sees retrieval order, not the packer's.
+
+    `12` §3: *"Rank metrics are scored over `repack: reverse`'s deliberately inverted
     order."* `Answer.used` is the right **set** — task 7.5 settled that, and it is what the
     generator actually saw — but it is not a ranking once the packer has reversed it. `repack`'s
     default *is* `reverse` (best hit last, immediately before the question), so every rank
@@ -374,7 +384,9 @@ async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
     captured: list[RetrievalSample] = []
 
     def _passage(source: str, score: float, rank: int) -> Passage:
-        """A real `Passage`, because that is what `passages_for_scoring` hands back — the
+        """Build a real `Passage`, since that is what `passages_for_scoring` hands back.
+
+        A real `Passage`, because that is what `passages_for_scoring` hands back — the
         existing double of this seam rather than one written from the contract (`L11.17`).
         """
         node = Node.synthetic(
@@ -642,7 +654,9 @@ def _rung(*contracts: str) -> ResolvedPipeline:
 async def test_a_rung_ending_in_a_packer_is_scored_over_its_passages_and_calls_no_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`lexical-retrieve` ends in `repack` and produces `Passages`. `run_named_ask` requires an
+    """A rung ending in a packer is scored over its passages and calls no model.
+
+    `lexical-retrieve` ends in `repack` and produces `Passages`. `run_named_ask` requires an
     `Answer` and refused it, which is what left `38.0`'s experiment with orphaned records; a
     retrieval rung is scored through `run_named_retrieve` instead, the path `weft ask
     --retrieve-only --pipeline` already takes, and no answer is generated for it.
@@ -735,7 +749,9 @@ async def test_a_rung_ending_in_a_generator_is_still_scored_over_the_answers_pas
 async def test_the_scored_run_carries_each_questions_axes_with_its_kind(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A paired difference restricted to a slice has to know which questions were in it, after the
+    """The scored run carries each question's axes, with its kind.
+
+    A paired difference restricted to a slice has to know which questions were in it, after the
     question file is gone; `kind`, when a question states one, is recorded as the axis `--kind`
     reads, so `--kind X` and `--slice kind=X` restrict the same questions.
     """
@@ -783,7 +799,9 @@ async def test_the_scored_run_carries_each_questions_axes_with_its_kind(
 async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_scores_the_rest(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`38.6`'s HyDE arm failed on one of 300 questions — a model's answer could not be parsed —
+    """A rung failing on one question excludes it with its reason and scores the rest.
+
+    `38.6`'s HyDE arm failed on one of 300 questions — a model's answer could not be parsed —
     and the exception left the question loop, so the arm wrote no record at all. `09` V4: a failed
     metric is an error, never a zero, and aggregates report how many were excluded. A question the
     rung could not answer is the same error one level up.
@@ -837,7 +855,9 @@ async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_sc
 async def test_a_model_looping_on_one_question_excludes_it_and_scores_the_rest(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`39.5`'s `rfc-rerank` run: `llm-rerank` looped on one question's prompt, the loop-breaker
+    """A model looping on one question excludes it and scores the rest.
+
+    `39.5`'s `rfc-rerank` run: `llm-rerank` looped on one question's prompt, the loop-breaker
     stopped it, and its `LLMGenerationLoopError` left the question loop, so the arm wrote no
     record. The loop is a fact about that question's prompt — retrying it "is likely to loop
     again" — so it is `R38.12`'s per-question failure, not a fault of the run.
@@ -889,7 +909,9 @@ async def test_a_model_looping_on_one_question_excludes_it_and_scores_the_rest(
 async def test_a_model_refusing_the_credential_still_aborts_the_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The control: a wrong key fails every question identically, so excluding them one by one
+    """A model refusing the credential still aborts the run.
+
+    The control: a wrong key fails every question identically, so excluding them one by one
     would write a record of nothing but exclusions. Only the per-question failure is caught.
     """
 
@@ -923,7 +945,9 @@ async def test_a_model_refusing_the_credential_still_aborts_the_run(
 async def test_a_retrieval_rung_records_which_arms_each_questions_passages_came_from(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """G24: a question with no anchor contributes no lexical ranking, and the run records which
+    """A retrieval rung records which arms each question's passages came from.
+
+    G24: a question with no anchor contributes no lexical ranking, and the run records which
     branch it took. The passages a retrieval rung returns carry the labels of the lists they were
     fused from; the scored run keeps them per question, keyed as its scores are.
     """
@@ -973,7 +997,9 @@ async def test_a_retrieval_rung_records_which_arms_each_questions_passages_came_
 async def test_a_run_with_no_query_rung_records_no_contributors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The hardwired vector search returns hits, not passages, so nothing states an arm; the
+    """A run with no query rung records no contributors.
+
+    The hardwired vector search returns hits, not passages, so nothing states an arm; the
     record says it does not know rather than inventing an answer.
     """
 
@@ -1038,7 +1064,9 @@ def _generating(monkeypatch: pytest.MonkeyPatch, answers: dict[str, str]) -> Non
 async def test_a_generating_rungs_answer_is_scored_against_the_reference_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`32.0` named `token-recall` and `rouge-l` as the metrics that can see `adjacent-chunks`;
+    """A generating rung's answer is scored against the reference answer.
+
+    `32.0` named `token-recall` and `rouge-l` as the metrics that can see `adjacent-chunks`;
     before this task the scored run kept only `Answer.used` and threw the text away, so no
     answer metric was ever computed in a real run.
     """
@@ -1167,7 +1195,9 @@ async def test_a_retrieval_rung_computes_no_answer_metrics(
 async def test_hits_tied_on_score_are_ranked_in_the_order_the_ranking_gave_them(
     monkeypatch: pytest.MonkeyPatch, ends_in: str
 ) -> None:
-    """`repack: reverse` packs the best hit last; two hits tied on score arrived at the stable
+    """Hits tied on score are ranked in the order the ranking gave them.
+
+    `repack: reverse` packs the best hit last; two hits tied on score arrived at the stable
     sort in that inverted order, so `[relevant, irrelevant]` at 3.5 each scored RR ½.
     """
     # Arrange
@@ -1248,7 +1278,7 @@ async def test_a_ranking_collapsed_once_is_scored_at_every_cutoff(
 
 @pytest.mark.parametrize("capture", [True, False])
 async def test_a_captured_pool_holds_every_packed_chunk_in_ranking_order(
-    monkeypatch: pytest.MonkeyPatch, capture: bool
+    monkeypatch: pytest.MonkeyPatch, *, capture: bool
 ) -> None:
     # Arrange — packed by `reverse`, so the tuple is worst-first; the pool must not be.
     packed = (
@@ -1300,7 +1330,9 @@ async def test_a_captured_pool_holds_every_packed_chunk_in_ranking_order(
 async def test_a_generating_rung_records_which_arms_each_questions_answer_was_fed_by(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """G24's "the run records which branch it took", for the rung Phase 39 ships ending in
+    """A generating rung records which arms fed each question's answer.
+
+    G24's "the run records which branch it took", for the rung Phase 39 ships ending in
     `cited-answer`: the answer carries its passages' contributors, and the scored run keeps them
     per question exactly as a retrieval rung's does.
     """

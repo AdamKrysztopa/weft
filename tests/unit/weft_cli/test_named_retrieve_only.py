@@ -124,7 +124,9 @@ def _registry() -> Registry:
 
 
 def _reports() -> tuple[PackReport, ...]:
-    """The shipped document itself, read through the same `importlib.resources` path a real
+    """Return the shipped document itself, read through `importlib.resources`.
+
+    The shipped document itself, read through the same `importlib.resources` path a real
     install uses — never a copy of its stages written into this file.
     """
     return (
@@ -182,7 +184,9 @@ async def test_a_named_retrieval_pipeline_runs_under_retrieve_only_with_no_model
 
 
 async def test_retrieve_only_refuses_a_pipeline_that_ends_in_a_generator() -> None:
-    """The narrowed refusal: the two flags still contradict each other when the pipeline
+    """Retrieve-only refuses a pipeline that ends in a generator.
+
+    The narrowed refusal: the two flags still contradict each other when the pipeline
     generates, and the message says which pipeline and what to run instead.
     """
     # Arrange — the real catalogue, so the alternatives the message offers are real names.
@@ -271,7 +275,7 @@ class _Undeclared(ExtModel):
 
 @pytest.mark.parametrize("explain", [True, False])
 async def test_explain_names_each_record_in_its_producers_own_sentence(
-    monkeypatch: pytest.MonkeyPatch, explain: bool
+    monkeypatch: pytest.MonkeyPatch, *, explain: bool
 ) -> None:
     # Arrange
     record = AnchorPromotion(branch=AnchorBranch.PROMOTED, anchors=("WRH123",), hits_promoted=1)

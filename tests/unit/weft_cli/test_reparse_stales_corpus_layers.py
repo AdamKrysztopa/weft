@@ -1,4 +1,6 @@
-"""Carried repair **R43.41** — a corpus layer is never served whole after a covered source is
+"""Carried repair R43.41: a corpus layer is never served whole after a source is re-parsed.
+
+Carried repair **R43.41** — a corpus layer is never served whole after a covered source is
 re-parsed.
 
 `weft index` releases a changed, failed-again or interrupted source's earlier parse with
@@ -81,7 +83,9 @@ class _DirectionEmbedder(HashEmbedder):
 
 
 class _Chunker(FixedSizeChunker):
-    """`fixed-size`, which cannot read a document saying `UNREADABLE` — by returning `Failed`,
+    """A `fixed-size` chunker that cannot read a document saying `UNREADABLE`.
+
+    `fixed-size`, which cannot read a document saying `UNREADABLE` — by returning `Failed`,
     by raising, or by being cancelled mid-call, as `mode` says.
     """
 
@@ -120,7 +124,9 @@ def _published_at(record: GenerationRecord) -> float:
 
 
 class _Store(GenerationStore):
-    """`test_corpus_layer_joins_through_adrap._JoinStore` — `carry_forward`, a reader of each
+    """A join store registered as a class, recording each layer status at `delete_source`.
+
+    `test_corpus_layer_joins_through_adrap._JoinStore` — `carry_forward`, a reader of each
     layer's newest published generation, a `supersede` that deletes what it replaces — registered
     as a class over one class-held `State`, as `test_delete_stales_corpus_layers._Store` is, so
     `weft delete`'s fan-out counts it. `released` records, at each `delete_source`, the corpus
@@ -374,7 +380,9 @@ async def _delete_then_layers(corpus: Path) -> render.Rendered:
 async def test_a_released_source_ends_in_a_rebuilt_tree_not_a_join_into_the_hole(
     corpus: Path, route: str, covers: set[str]
 ) -> None:
-    """R43.41 — releasing a covered source removes its summaries, so the next layer run owes the
+    """R43.41: a released source ends in a rebuilt tree, not a join into the hole.
+
+    R43.41 — releasing a covered source removes its summaries, so the next layer run owes the
     whole tree, as a deletion already does (task 43.23's `stale-by-deletion-rebuilds`).
     """
     # Arrange
@@ -419,7 +427,9 @@ async def test_the_rebuilt_tree_summarises_the_reparsed_text(corpus: Path) -> No
 async def test_a_successful_reparse_marks_every_other_source_stale_and_says_so(
     corpus: Path,
 ) -> None:
-    """R43.41 — the run that re-parses a covered source reports the tree it holed, and the
+    """R43.41: a successful reparse marks every other source stale and says so.
+
+    R43.41 — the run that re-parses a covered source reports the tree it holed, and the
     re-parsed source itself carries no layer record, as R43.33 excludes the deleted one.
     """
     # Arrange
@@ -440,7 +450,9 @@ async def test_a_successful_reparse_marks_every_other_source_stale_and_says_so(
 async def test_the_layer_is_marked_stale_before_the_reparsed_source_is_released(
     corpus: Path,
 ) -> None:
-    """R43.41, on R43.33's ordering — a tree is marked before it is holed, so an interruption
+    """R43.41: the layer is marked stale before the reparsed source is released.
+
+    R43.41, on R43.33's ordering — a tree is marked before it is holed, so an interruption
     between the two never leaves it read as whole.
     """
     # Arrange
@@ -475,7 +487,9 @@ async def _reparse_unreadably(corpus: Path, mode: str) -> render.Rendered | None
 async def test_a_reparse_that_does_not_finish_leaves_the_layer_stale_and_not_ready(
     corpus: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
-    """R43.41 — the source's earlier parse was released, so the tree it was in is missing a
+    """R43.41: a reparse that does not finish leaves the layer stale and not ready.
+
+    R43.41 — the source's earlier parse was released, so the tree it was in is missing a
     cluster, and the router must not be offered it as ready.
     """
     # Arrange
@@ -517,7 +531,9 @@ async def test_a_reparse_that_fails_says_in_the_same_run_that_the_layer_is_stale
 async def test_the_printed_remedy_after_an_unfinished_reparse_rebuilds_the_tree(
     corpus: Path, mode: str
 ) -> None:
-    """R43.41 — `weft index --layers <name>`, the remedy the stale line prints, rebuilds the tree
+    """R43.41: the printed remedy after an unfinished reparse rebuilds the tree.
+
+    R43.41 — `weft index --layers <name>`, the remedy the stale line prints, rebuilds the tree
     over the sources that remain rather than finding every eligible record `ACTIVE`.
     """
     # Arrange

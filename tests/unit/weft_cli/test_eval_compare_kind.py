@@ -68,7 +68,9 @@ def _record(run_id: str, mean: float, kinds: dict[str, float]) -> RunRecord:
 
 
 def test_no_kind_asked_for_compares_the_whole_run_as_it_always_did() -> None:
-    """The default is unchanged behaviour: `--kind` absent means the mean, not an empty
+    """With no `--kind`, compare reports the whole-run mean as it always did.
+
+    The default is unchanged behaviour: `--kind` absent means the mean, not an empty
     restriction — "no verdict was asked for" and "a verdict was reached" stay distinguishable,
     which is `falsification`'s own settled rule one flag over.
     """
@@ -87,7 +89,9 @@ def test_no_kind_asked_for_compares_the_whole_run_as_it_always_did() -> None:
 
 
 def test_a_kind_restricts_both_sides_to_that_kinds_own_number() -> None:
-    """The property: two runs whose whole-run means are identical and whose cross-document
+    """A kind restricts both sides of a comparison to that kind's own number.
+
+    The property: two runs whose whole-run means are identical and whose cross-document
     numbers are opposite compare as opposite once the kind is named.
     """
     # Arrange
@@ -121,7 +125,9 @@ def test_a_kind_no_run_recorded_is_refused_by_name_with_the_kinds_that_are_there
 
 
 def test_a_kind_only_one_run_recorded_is_not_a_refusal_and_not_a_zero() -> None:
-    """One run measured the kind and the other did not, which is a real and different fact from
+    """A kind only one run recorded is reported not-measured, neither refused nor zero.
+
+    One run measured the kind and the other did not, which is a real and different fact from
     neither having measured it: the side that has a number keeps it and the side that does not
     reports not-measured, exactly as `_metrics_comparison` already does for a whole metric.
     """

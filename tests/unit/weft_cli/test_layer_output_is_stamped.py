@@ -84,7 +84,9 @@ class _State:
 
 
 class _Store:
-    """A paging `MetadataFilter` store whose handles share one `_State`; a handle bound to a
+    """A paging `MetadataFilter` store whose handles share one `_State`.
+
+    A paging `MetadataFilter` store whose handles share one `_State`; a handle bound to a
     generation marks what it writes, and reads what is published plus its own.
     """
 
@@ -226,7 +228,9 @@ class _EchoQuestion:
 
 
 class _Summary:
-    """A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
+    """A corpus-scope `Expander` returning every leaf plus one self-embedded summary over them.
+
+    A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
     by this stage itself, as `raptor` embeds its own summaries.
     """
 

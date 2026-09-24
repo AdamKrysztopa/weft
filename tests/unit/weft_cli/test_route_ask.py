@@ -91,7 +91,9 @@ _SCORES_JSON = (
 
 
 class _FakeStore:
-    """A `NodeStore` stand-in — `no-retrieval`, `single-list`, `repack` and `cited-answer`
+    """A `NodeStore` stand-in that no stage here calls.
+
+    A `NodeStore` stand-in — `no-retrieval`, `single-list`, `repack` and `cited-answer`
     call no store method at all, so nothing here needs to answer one.
     """
 
@@ -131,7 +133,9 @@ def _registry() -> Registry:
 
 
 def _reports() -> Sequence[PackReport]:
-    """`weft-retrieve`'s own real, shipped resources — the exact two files its own
+    """Return `weft-retrieve`'s own shipped resources.
+
+    `weft-retrieve`'s own real, shipped resources — the exact two files its own
     `register()` contributes in production, read here through the same `importlib.
     resources` path a real install would use.
     """
@@ -195,7 +199,9 @@ async def test_run_routed_ask_selects_and_executes_the_only_routable_pipeline() 
 
 
 class _RecordingSink:
-    """A `TokenSink` that keeps everything it saw — no filtering, no printing — so a test
+    """A `TokenSink` that keeps everything it saw, tagged by role.
+
+    A `TokenSink` that keeps everything it saw — no filtering, no printing — so a test
     can inspect exactly what `weft_llm.client.LLMClient.complete` emitted, tagged by role.
     """
 
@@ -302,7 +308,9 @@ async def test_run_named_ask_resolves_a_derived_pipeline(
 async def test_run_named_ask_places_a_contribution_in_a_declared_slot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Task **5.3a** (`S8`): `contributions=` reaches `_run_pipeline`'s own `resolve()` call
+    """Task 5.3a: `run_named_ask` places a contribution in a declared slot.
+
+    Task **5.3a** (`S8`): `contributions=` reaches `_run_pipeline`'s own `resolve()` call
     for a directly-named pipeline, exactly as it does for `weft_cli.ingest.run_index`'s
     `--pipeline` path — a pack's own `Contribution` lands in a slot the document opted into
     and its stage actually runs, never merely resolves.
@@ -489,7 +497,9 @@ async def test_the_router_resolves_a_project_local_document_named_by_services_ro
 async def test_the_router_refuses_a_name_a_project_and_a_pack_both_declare(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Widening the router's search set must not introduce silent shadowing — `02` §3's
+    """The router refuses a name that a project and a pack both declare.
+
+    Widening the router's search set must not introduce silent shadowing — `02` §3's
     "never silently override" rule, which `full_catalogue` already enforces for every
     other command and which is the reason the widening is safe to make at all.
     """
@@ -597,7 +607,9 @@ async def test_a_router_that_cannot_accept_a_query_is_refused_by_name(
 async def test_a_stage_needing_a_service_no_role_provides_is_refused_before_anything_runs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The property `11.10`'s line names — *refused by name at assembly* — through the seam a
+    """A stage needing a service no role provides is refused before anything runs.
+
+    The property `11.10`'s line names — *refused by name at assembly* — through the seam a
     caller actually uses, rather than by calling the checker directly.
 
     `check_store_capabilities` cannot express this: it compares a declaration against the one
@@ -670,7 +682,9 @@ async def test_a_stage_needing_a_service_no_role_provides_is_refused_before_anyt
 
 
 class _StageNarrowingSink:
-    """A sink that records what it was told, and nothing else — `weft_llm.contract.TokenSink`
+    """A sink that records what it was told, and nothing else.
+
+    A sink that records what it was told, and nothing else — `weft_llm.contract.TokenSink`
     is satisfied structurally, the same path every plugin in this tree takes.
     """
 

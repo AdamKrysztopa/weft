@@ -36,7 +36,9 @@ from weft_kernel.runner import Stage
 
 
 class _StageContract(Stage[object, object], Protocol):
-    """A stand-in capability contract, `object -> object` so two of them compose trivially
+    """A stand-in capability contract, `object -> object`.
+
+    A stand-in capability contract, `object -> object` so two of them compose trivially
     in the diff test below. `resolve()` reads every optional declaration off a registered
     plugin defensively (`getattr(..., default)`), so a bare `Stage` subclass with nothing
     else declared behaves exactly like a real plugin that declares no `requires`/
@@ -122,7 +124,9 @@ async def test_pipeline_show_carries_the_fully_resolved_form(tmp_path: Path) -> 
 async def test_pipeline_show_places_a_contribution_in_a_pipeline_that_declares_its_slot(
     tmp_path: Path,
 ) -> None:
-    """Task **5.3a** (`S8`): `deps.contributions` reaches `resolve()` through this command,
+    """Task 5.3a: `pipeline show` places a contribution in a pipeline that declares its slot.
+
+    Task **5.3a** (`S8`): `deps.contributions` reaches `resolve()` through this command,
     and lands in the one pipeline that opted into the slot — `02` §3 → *Slots*.
     """
     # Arrange
@@ -224,7 +228,9 @@ def _the_example_packs_own_contribution() -> Contribution:
 async def test_a_shipped_ingest_document_opens_the_enrich_slot_between_chunk_and_embed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Carried repair **R9.10**: `index-text` — the ingest root eight documents derive from
+    """Carried repair R9.10: a shipped ingest document opens `enrich` between chunk and embed.
+
+    Carried repair **R9.10**: `index-text` — the ingest root eight documents derive from
     — declares `enrich`, so an installed pack's contribution lands in a real pipeline.
 
     The position is not a preference. `index-with-keywords` already states the rule in its own
@@ -264,7 +270,9 @@ async def test_a_shipped_ingest_document_opens_the_enrich_slot_between_chunk_and
 async def test_the_shipped_enrich_slot_adds_nothing_when_no_pack_contributes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The other half of **R9.10**, and the half that decides whether declaring the slot was
+    """R9.10: the shipped `enrich` slot adds nothing when no pack contributes.
+
+    The other half of **R9.10**, and the half that decides whether declaring the slot was
     safe: a slot nobody fills changes what `index-text` does by nothing at all.
 
     Its control is the sibling above rather than a hand-written list — the same document,
@@ -294,7 +302,9 @@ async def test_the_shipped_enrich_slot_adds_nothing_when_no_pack_contributes(
 async def test_pipeline_show_records_a_contribution_unplaced_against_a_pipeline_with_no_slot(
     tmp_path: Path,
 ) -> None:
-    """The other half of `02` §3 → *Slots*: "a contribution with no matching slot is a
+    """`pipeline show` records a contribution unplaced against a pipeline with no slot.
+
+    The other half of `02` §3 → *Slots*: "a contribution with no matching slot is a
     recorded no-op" — never a resolution failure, and printed rather than silently dropped.
     """
     # Arrange — the identical pipeline the sibling test above uses, minus the `slots:` block.

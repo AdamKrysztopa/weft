@@ -59,7 +59,9 @@ from weft_store import (
 
 
 class _DeletableStore:
-    """A `NodeStore` stand-in for the fan-out — `delete_source` is the only method reached,
+    """A `NodeStore` stand-in that satisfies `SourceDeletable`.
+
+    A `NodeStore` stand-in for the fan-out — `delete_source` is the only method reached,
     and `SourceDeletable` is satisfied by having it, which is the derivation under test.
     """
 
@@ -83,7 +85,9 @@ class _DerivedReconcilable(Protocol):
 
 
 class _ReconcilableStore:
-    """A `NodeStore` stand-in satisfying `Reconcilable` — `reconcile`/`estimate` are the only
+    """A `NodeStore` stand-in that satisfies `Reconcilable`.
+
+    A `NodeStore` stand-in satisfying `Reconcilable` — `reconcile`/`estimate` are the only
     two methods reached, which is all the fan-out ever calls (`weft_cli.fanout`'s own
     class-level `issubclass` check, never a constructed `NodeStore` used as one).
     """
@@ -712,7 +716,9 @@ async def test_plugins_doctor_command_reports_the_skew_detect_skew_finds() -> No
 
 
 async def test_plugins_doctor_command_flags_a_contribution_that_lands_nowhere() -> None:
-    """Task **5.3a** (`S8`) — `02` §3 → *Slots*: "`weft plugins doctor` flags a pack whose
+    """Task 5.3a: `plugins doctor` flags a contribution that lands in no pipeline.
+
+    Task **5.3a** (`S8`) — `02` §3 → *Slots*: "`weft plugins doctor` flags a pack whose
     contributions land in no pipeline at all." No pipeline in the (empty) catalogue this
     test resolves against declares any slot, so this pack's own offer is unreachable.
     """
@@ -792,7 +798,9 @@ class _PrimaryNodeStore:
 async def test_delete_empties_a_graph_store_a_catalogue_pipeline_names(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Task **6.18**, G13's first repair, reproduced the way `docs/internal/build-ledger.md` states
+    """Task 6.18: delete empties a graph store that a catalogue pipeline names.
+
+    Task **6.18**, G13's first repair, reproduced the way `docs/internal/build-ledger.md` states
     it:
     a pipeline in the catalogue names a second `NodeStore`, a source is deleted, and that
     store must no longer hold it. Before this task the graph store was outside the fan-out
@@ -839,7 +847,9 @@ async def test_delete_empties_a_graph_store_a_catalogue_pipeline_names(
 def test_delete_leaves_a_store_nothing_names_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The half of task 5.1a's narrowing G13 kept: an installed, registered `NodeStore` that
+    """Delete leaves alone a store that nothing names.
+
+    The half of task 5.1a's narrowing G13 kept: an installed, registered `NodeStore` that
     no document and no run record names is not asked, because it is the operator's unused
     database and connecting to it is the harm the narrowing existed to prevent.
     """
@@ -864,7 +874,9 @@ def test_delete_leaves_a_store_nothing_names_alone(
 
 
 def test_delete_refuses_an_unresolvable_store_before_it_describes_an_impact() -> None:
-    """The repair L5.9 records: the prompt used to state "nothing installed holds data" for a
+    """Delete refuses an unresolvable store before it describes an impact.
+
+    The repair L5.9 records: the prompt used to state "nothing installed holds data" for a
     store that was installed and had failed to register, and the real diagnosis was reachable
     only past `--yes`. `describe_impact` now makes the same check `run` does, first.
     """
@@ -915,7 +927,9 @@ class _CorpusAsking:
 async def test_reconcile_puts_the_configured_store_on_the_passport_it_carries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The property task **6.19** makes true: a participant that is not the primary store can
+    """Task 6.19: reconcile puts the configured store on the passport it carries.
+
+    The property task **6.19** makes true: a participant that is not the primary store can
     ask what the corpus holds, through `Context.require` — G1's one resolution seam — rather
     than through a wider `reconcile` signature. No contract moves to make this work.
     """
@@ -944,7 +958,9 @@ async def test_reconcile_puts_the_configured_store_on_the_passport_it_carries(
 async def test_a_participant_asking_for_a_corpus_that_is_not_there_is_told_so(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`weft index --pipeline ...` in a project with no `[services] store` still indexes, and
+    """A participant asking for a corpus that is not there is told so.
+
+    `weft index --pipeline ...` in a project with no `[services] store` still indexes, and
     its automatic post-index pass deliberately skips the store gate — so a participant that
     needs the corpus there finds nothing registered. It is told, by name, and the fan-out
     records it as that participant's own failure rather than swallowing it: an unavailable
@@ -1213,7 +1229,9 @@ async def test_the_batch_size_flag_reaches_run_index(
 
 
 async def test_a_batch_size_below_one_is_refused_at_the_flag(tmp_path: Path) -> None:
-    """Bounded where the flag is declared, so `run_index`'s own `ValueError` is unreachable from
+    """A batch size below one is refused at the flag.
+
+    Bounded where the flag is declared, so `run_index`'s own `ValueError` is unreachable from
     the CLI and an operator gets argparse's own message rather than a traceback.
     """
     # Act / Assert
@@ -1222,7 +1240,9 @@ async def test_a_batch_size_below_one_is_refused_at_the_flag(tmp_path: Path) -> 
 
 
 async def test_ask_command_generating_raises_a_refusal_for_an_unregistered_embedder() -> None:
-    """`R18.2`: the generating path resolved `[services]` inside `build_services` with a bare
+    """`R18.2`: generating `ask` refuses an unregistered embedder, naming why.
+
+    `R18.2`: the generating path resolved `[services]` inside `build_services` with a bare
     `Registry.entry`, so a failed pack surfaced as `UnknownPluginError` with no reason attached,
     on the CLI and through `weft_engine.api.Weft` alike. The retrieve-only path already refused
     through `require_plugin`, naming why.

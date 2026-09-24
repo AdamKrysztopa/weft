@@ -1,4 +1,6 @@
-"""Carried repair **R43.36** — a join stage cannot write the published tree, and a stranger's join
+"""Carried repair R43.36: a join stage cannot write the published tree.
+
+Carried repair **R43.36** — a join stage cannot write the published tree, and a stranger's join
 is tested.
 
 A corpus layer's join stage is offered `weft_index.contract.LayerRevision` and a `NodeStore` it may
@@ -50,7 +52,9 @@ _MEMBER_FIELD = f"ext.{LayerMember.__namespace__}.layer"
 
 
 class _Store(GenerationStore):
-    """`GenerationStore` plus what a join needs, copied from `test_corpus_layer_joins_through_adrap.
+    """A `GenerationStore` plus what a join needs.
+
+    `GenerationStore` plus what a join needs, copied from `test_corpus_layer_joins_through_adrap.
     _JoinStore`: `carry_forward`, a reader that sees each layer's newest published generation
     only, and a `supersede` that deletes from whatever holds the node, as the shipped stores' does.
     """
@@ -127,7 +131,9 @@ class _StrangerRoster:
 
 
 class _StrangerRejoin:
-    """A third party's join: reads the published roster through the store it is handed, and
+    """A third party's join, reading the published roster through the store it is handed.
+
+    A third party's join: reads the published roster through the store it is handed, and
     returns one over its members and every placed new leaf. `write`, when set, names the store
     write it attempts instead of reporting through `LayerRevision`.
     """

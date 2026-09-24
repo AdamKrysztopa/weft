@@ -1,4 +1,6 @@
-"""Carried repair **R43.28** — `--reprocess` says which per-source layers it released and did not
+"""Carried repair R43.28: `--reprocess` says which per-source layers it released.
+
+Carried repair **R43.28** — `--reprocess` says which per-source layers it released and did not
 rebuild.
 
 No store removes single nodes, so re-indexing a source releases everything derived from it,
