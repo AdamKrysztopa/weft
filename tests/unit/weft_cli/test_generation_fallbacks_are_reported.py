@@ -11,8 +11,14 @@ Two corpus-scoped layers over one corpus, so "once per run" is asked of two fall
 are `corpus_build_doubles.GenerationStore` plus the withdrawing half of
 `test_a_superseded_corpus_layer_is_withdrawn`'s double and the carrying half of
 `test_corpus_layer_joins_through_adrap`'s, each implementing its protocol's whole effect.
+
+Carried repair **R43.43** — `weft index` says what its corpus builds reclaimed. Every build binding
+its generations reclaims the layer's withdrawn ones and discarded the `Removed`, R43.38's defect
+left on that caller. Each layer that reclaimed nodes now prints one stdout line beside its other
+layer lines, and `--json` carries the count.
 """
 
+import json
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
@@ -33,6 +39,7 @@ from tests.unit.weft_cli.corpus_build_doubles import (
 )
 from weft_cli import commands, render
 from weft_cli.exit_codes import ExitCode
+from weft_command.contract import CommandResult
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_index import Revisable
@@ -40,7 +47,7 @@ from weft_index.adrap import AdrapJoiner
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
-from weft_kernel.payload import MediaType, Node, NodeId, SourceId
+from weft_kernel.payload import MediaType, Node, NodeId, Outcome, SourceId
 from weft_kernel.registry import Registry
 from weft_store import NodeStore
 from weft_store.contract import (
@@ -171,13 +178,13 @@ def corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return write_corpus(tmp_path)
 
 
-async def _index_command(
+async def _index_outcome(
     store: GenerationStore,
     corpus: Path,
     *,
     second: GenerationStore | None = None,
     **flags: object,
-) -> render.Rendered:
+) -> Outcome[CommandResult]:
     deps = Dependencies(
         registry=registry_for(store, second=second, extra=_with_adrap),
         reports=tuple(
@@ -189,10 +196,19 @@ async def _index_command(
     )
     ctx = make_ctx()
     ctx.services.add(Dependencies, deps)
-    outcome = await commands.IndexCommand().run(
+    return await commands.IndexCommand().run(
         commands.IndexArgs.model_validate({"path": str(corpus), **flags}), ctx
     )
-    return render.render_outcome(outcome)
+
+
+async def _index_command(
+    store: GenerationStore,
+    corpus: Path,
+    *,
+    second: GenerationStore | None = None,
+    **flags: object,
+) -> render.Rendered:
+    return render.render_outcome(await _index_outcome(store, corpus, second=second, **flags))
 
 
 async def _built_then_grown(
@@ -413,3 +429,146 @@ async def test_reconcile_with_nothing_withdrawn_prints_the_line_it_always_has(
         "  pgvector (weft-store): examined 0, removed 0, backfilled 0"
         in rendered.stdout.splitlines()
     )
+
+
+def _reclaimed(layer: str, nodes: int) -> str:
+    return f"layer '{layer}': reclaimed {nodes} node(s) from withdrawn generations"
+
+
+def _reclaimed_lines(rendered: render.Rendered) -> list[str]:
+    return [line for line in (rendered.stdout or "").splitlines() if ": reclaimed " in line]
+
+
+class _RecordingStore(_EveryWayStore):
+    """Every `Removed` a `reclaim_withdrawn` returned, by layer, so a zero is seen to be asked."""
+
+    def __init__(self, state: State | None = None, generation: GenerationId | None = None) -> None:
+        super().__init__(state, generation)
+        self.reclaims: list[tuple[str, int]] = []
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        removed = await super().reclaim_withdrawn(layer)
+        self.reclaims.append((layer, removed.node_count))
+        return removed
+
+
+def _published(store: GenerationStore, layer: str) -> GenerationId:
+    (live,) = [
+        g
+        for g, r in store.state.generations.items()
+        if r.layer == layer and r.status is GenerationStatus.PUBLISHED
+    ]
+    return live
+
+
+async def _withdrawn_trees(store: _RecordingStore) -> tuple[GenerationId, GenerationId]:
+    """A withdrawn tree per layer: `LAYER`'s holds one node of its own and one its published tree
+    also holds, `_SECOND`'s two of its own — reclaiming removes 1 and 2, from two trees of two."""
+    shared = next(
+        store.state.nodes[i]
+        for i, members in store.state.members.items()
+        if _published(store, LAYER) in members
+    )
+    first = await _tree(store, LAYER, [_summary("only the withdrawn first tree"), shared])
+    second = await _tree(store, _SECOND, [_summary("withdrawn second, a"), _summary("b")])
+    await store.withdraw_generation(first)
+    await store.withdraw_generation(second)
+    return first, second
+
+
+async def _built_withdrawn_then_grown(
+    store: _RecordingStore, corpus: Path, *, as_json: bool = False
+) -> tuple[render.Rendered, tuple[GenerationId, GenerationId]]:
+    built = await _index_command(store, corpus, layers=_BOTH)
+    assert built.exit_code is ExitCode.SUCCESS, built.stderr
+    withdrawn = await _withdrawn_trees(store)
+    store.reclaims.clear()
+    (corpus / "late.txt").write_text("a document that arrived after both layers were built.")
+    ScriptedModel.label = "second"
+    outcome = await _index_outcome(store, corpus, layers=_BOTH)
+    rendered = render.render_outcome(outcome, as_json=as_json)
+    return rendered, withdrawn
+
+
+async def test_a_rebuild_prints_how_many_nodes_each_layer_reclaimed(
+    corpus: Path, tmp_path: Path
+) -> None:
+    # Arrange
+    _write_layers(tmp_path, incremental=False)
+    store = _RecordingStore()
+
+    # Act
+    rendered, withdrawn = await _built_withdrawn_then_grown(store, corpus)
+
+    # Assert
+    assert not set(withdrawn) & set(store.state.generations), store.state.generations
+    assert sorted(store.reclaims) == sorted([(LAYER, 1), (_SECOND, 2)])
+    assert rendered.exit_code is ExitCode.SUCCESS, rendered.stderr
+    assert "joined" not in (rendered.stdout or "")
+    assert sorted(_reclaimed_lines(rendered)) == sorted(
+        [_reclaimed(LAYER, 1), _reclaimed(_SECOND, 2)]
+    )
+
+
+async def test_a_join_prints_how_many_nodes_each_layer_reclaimed(
+    corpus: Path, tmp_path: Path
+) -> None:
+    # Arrange
+    _write_layers(tmp_path, incremental=True)
+    store = _RecordingStore()
+
+    # Act
+    rendered, withdrawn = await _built_withdrawn_then_grown(store, corpus)
+
+    # Assert
+    assert not set(withdrawn) & set(store.state.generations), store.state.generations
+    assert rendered.exit_code is ExitCode.SUCCESS, rendered.stderr
+    joined = [line for line in (rendered.stdout or "").splitlines() if ": joined " in line]
+    assert sorted(line.split("'")[1] for line in joined) == sorted([LAYER, _SECOND])
+    assert sorted(_reclaimed_lines(rendered)) == sorted(
+        [_reclaimed(LAYER, 1), _reclaimed(_SECOND, 2)]
+    )
+
+
+async def test_json_carries_what_each_layer_reclaimed(corpus: Path, tmp_path: Path) -> None:
+    # Arrange
+    _write_layers(tmp_path, incremental=False)
+    store = _RecordingStore()
+
+    # Act
+    rendered, _ = await _built_withdrawn_then_grown(store, corpus, as_json=True)
+
+    # Assert
+    assert rendered.exit_code is ExitCode.SUCCESS, rendered.stderr
+    assert rendered.stdout is not None
+    carried = json.loads(rendered.stdout)["layers_reclaimed"]
+    assert sorted(carried, key=lambda entry: entry["layer"]) == sorted(
+        [{"layer": LAYER, "nodes": 1}, {"layer": _SECOND, "nodes": 2}],
+        key=lambda entry: entry["layer"],
+    )
+
+
+async def test_a_build_that_reclaimed_nothing_says_nothing_about_reclaiming(
+    corpus: Path, tmp_path: Path
+) -> None:
+    # Arrange — neither run's binds find a withdrawn tree: the grown run withdraws the trees it
+    # replaces only after, for the next build to reclaim.
+    _write_layers(tmp_path, incremental=False)
+    store = _RecordingStore()
+
+    # Act
+    first = render.render_outcome(await _index_outcome(store, corpus, layers=_BOTH), as_json=True)
+    first_reclaims = list(store.reclaims)
+    (corpus / "late.txt").write_text("a document that arrived after both layers were built.")
+    ScriptedModel.label = "second"
+    store.reclaims.clear()
+    rendered = await _index_command(store, corpus, layers=_BOTH)
+
+    # Assert
+    assert sorted(first_reclaims) == sorted([(LAYER, 0), (_SECOND, 0)])
+    assert first.stdout is not None
+    assert json.loads(first.stdout)["layers_reclaimed"] == []
+    assert _both_layers_published_twice(store), store.state.generations
+    assert sorted(store.reclaims) == sorted([(LAYER, 0), (_SECOND, 0)])
+    assert rendered.exit_code is ExitCode.SUCCESS, rendered.stderr
+    assert _reclaimed_lines(rendered) == []

@@ -120,6 +120,7 @@ from weft_cli.installed_versions import active_distribution_versions, installed_
 from weft_cli.layers import (
     LayerFailure,
     LayerJoin,
+    LayerReclaim,
     LayerRelease,
     LayerStoreFallback,
     UnknownLayerError,
@@ -908,6 +909,9 @@ class IndexCommandResult(CommandResult):
     #: store a corpus layer fell back on.
     stores_without_withdraw: tuple[LayerStoreFallback, ...] = ()
     stores_without_carry: tuple[LayerStoreFallback, ...] = ()
+    #: Repair **R43.43** — copied from `weft_cli.ingest.IndexResult.layers_reclaimed`, so the
+    #: renderer can say how many nodes each corpus layer's builds reclaimed.
+    layers_reclaimed: tuple[LayerReclaim, ...] = ()
     #: Carried repair **R43.28** — copied from `weft_cli.ingest.IndexResult.layers_released`,
     #: so the renderer can name a layer `--reprocess` released and did not rebuild.
     layers_released: tuple[LayerRelease, ...] = ()
@@ -1285,6 +1289,7 @@ class IndexCommand:
                 layers_joined=result.layers_joined,
                 stores_without_withdraw=result.stores_without_withdraw,
                 stores_without_carry=result.stores_without_carry,
+                layers_reclaimed=result.layers_reclaimed,
                 layers_released=result.layers_released,
                 layers_stale=result.layers_stale,
                 layers_stale_progress=result.layers_stale_progress,

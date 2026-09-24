@@ -664,6 +664,7 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     stdout = _index_target_lines(result, stdout)
     stale_lines = [
         *_joined_layer_lines(result),
+        *_reclaimed_layer_lines(result),
         *_changed_layer_lines(result),
         *_released_layer_lines(result),
         *_stale_layer_lines(result),
@@ -779,6 +780,14 @@ def _joined_layer_lines(result: IndexCommandResult) -> list[str]:
     return [
         f"layer '{join.layer}': joined {join.joined} leaves, {join.unassigned} unassigned"
         for join in result.layers_joined
+    ]
+
+
+def _reclaimed_layer_lines(result: IndexCommandResult) -> list[str]:
+    """One line per `result.layers_reclaimed` — repair **R43.43**; it carries no zero."""
+    return [
+        f"layer '{reclaim.layer}': reclaimed {reclaim.nodes} node(s) from withdrawn generations"
+        for reclaim in result.layers_reclaimed
     ]
 
 

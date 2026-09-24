@@ -1441,12 +1441,27 @@ async def _run_corpus_tail(
     return await runner.run_once(replace(tail_runnable, stages=store_stages), to_store, ctx)
 
 
+class LayerReclaim(BaseModel):
+    """A corpus-scoped layer whose builds this run reclaimed `nodes` from its withdrawn
+    generations, summed over every store stage — repair **R43.43**. Never `0`: a layer that
+    reclaimed nothing is not reported.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    layer: str
+    nodes: int
+
+
 @dataclass
 class _StoreFallbacks:
-    """Every `LayerStoreFallback` of one `run_layers` call, once per store stage, keyed by id."""
+    """Every `LayerStoreFallback` of one `run_layers` call, once per store stage, keyed by id —
+    and, riding the same thread, the nodes each layer's binds reclaimed (R43.43).
+    """
 
     withdraw: dict[str, LayerStoreFallback] = field(default_factory=dict[str, LayerStoreFallback])
     carry: dict[str, LayerStoreFallback] = field(default_factory=dict[str, LayerStoreFallback])
+    reclaimed: dict[str, int] = field(default_factory=dict[str, int])
 
     @staticmethod
     def note(into: dict[str, LayerStoreFallback], specs: Sequence[StageSpec]) -> None:
@@ -1457,6 +1472,16 @@ class _StoreFallbacks:
     def ordered(noted: Mapping[str, LayerStoreFallback]) -> tuple[LayerStoreFallback, ...]:
         return tuple(noted[stage] for stage in sorted(noted))
 
+    def note_reclaimed(self, layer: str, nodes: int) -> None:
+        self.reclaimed[layer] = self.reclaimed.get(layer, 0) + nodes
+
+    def reclaims(self) -> tuple[LayerReclaim, ...]:
+        return tuple(
+            LayerReclaim(layer=layer, nodes=self.reclaimed[layer])
+            for layer in sorted(self.reclaimed)
+            if self.reclaimed[layer]
+        )
+
 
 @dataclass
 class _CorpusGenerations:
@@ -1466,13 +1491,15 @@ class _CorpusGenerations:
     the bound handle every write goes through, one per store, never shared; `opened` is the
     generation each writer is bound to. `adopted` says those were left `BUILDING` by an
     interrupted build rather than opened by this one; `abandoned` holds what `reopen` let go,
-    so a failure retracts it too.
+    so a failure retracts it too. `reclaimed` is the nodes binding reclaimed, summed over every
+    store (R43.43).
     """
 
     holders: dict[str, GenerationHolding]
     writers: dict[str, object]
     opened: dict[str, GenerationRecord]
     adopted: bool
+    reclaimed: int = 0
     abandoned: list[tuple[str, GenerationId]] = field(
         default_factory=list[tuple[str, GenerationId]]
     )
@@ -1514,13 +1541,15 @@ async def _bind_corpus_generations(
     recalled rather than paid for again (task **43.20**). Adoption is all or nothing: a store
     with none to adopt means every store opens afresh. Either way every other `BUILDING`
     generation of `layer` is retracted before the stage runs, and each `GenerationWithdrawing`
-    store reclaims the generations of `layer` an earlier publish withdrew (repair **R43.29**).
+    store reclaims the generations of `layer` an earlier publish withdrew (repair **R43.29**),
+    counted into `reclaimed` (R43.43).
     """
     holders = {
         spec.id: cast(GenerationHolding, _stage_instance(runnable, spec.id))
         for spec in tail_store_specs
     }
     adopted: dict[str, GenerationRecord] = {}
+    reclaimed = 0
     if resume:
         for stage_id, holder in holders.items():
             newest = _newest_building(await holder.generations(), layer=layer)
@@ -1538,7 +1567,7 @@ async def _bind_corpus_generations(
             ):
                 await holder.retract_generation(other.id)
         if isinstance(holder, GenerationWithdrawing):
-            await holder.reclaim_withdrawn(layer)
+            reclaimed += (await holder.reclaim_withdrawn(layer)).node_count
     opened = dict(adopted)
     for stage_id, holder in holders.items():
         if stage_id not in opened:
@@ -1548,7 +1577,11 @@ async def _bind_corpus_generations(
         for stage_id, record in opened.items()
     }
     return _CorpusGenerations(
-        holders=holders, writers=writers, opened=opened, adopted=bool(adopted)
+        holders=holders,
+        writers=writers,
+        opened=opened,
+        adopted=bool(adopted),
+        reclaimed=reclaimed,
     )
 
 
@@ -2073,6 +2106,7 @@ async def _run_corpus_layer(
     generations = await _bind_corpus_generations(
         runnable, layer=composition.layer, tail_store_specs=tail_store_specs, resume=resume
     )
+    fallbacks.note_reclaimed(composition.layer, generations.reclaimed)
 
     writer_matching = _matching_of(generations.writers[store_stage_id])
     if writer_matching is None:
@@ -2264,6 +2298,7 @@ async def _run_corpus_join(
     generations = await _bind_corpus_generations(
         runnable, layer=composition.layer, tail_store_specs=tail_store_specs, resume=False
     )
+    fallbacks.note_reclaimed(composition.layer, generations.reclaimed)
     primary_writer = generations.writers[store_stage_id]
     writer_matching = _matching_of(primary_writer)
     if writer_matching is None:
@@ -2519,12 +2554,14 @@ async def run_layers(
     tuple[LayerJoin, ...],
     tuple[LayerStoreFallback, ...],
     tuple[LayerStoreFallback, ...],
+    tuple[LayerReclaim, ...],
 ]:
     """Every named layer, in order, after the base run has finished or been skipped under
     `layers_only` — ledger task **43.8**, `weft_cli.ingest.run_index`'s own loop. Returns
     `(layers_changed, layers_failed, layers_joined, stores_without_withdraw,
-    stores_without_carry)`; the second is carried repair **R43.9**, the third task **43.23**,
-    the last two repair **R43.38** — each store stage once, sorted by stage id.
+    stores_without_carry, layers_reclaimed)`; the second is carried repair **R43.9**, the third
+    task **43.23**, the fourth and fifth repair **R43.38** — each store stage once, sorted by
+    stage id — and the last repair **R43.43**, each layer that reclaimed nodes, sorted by name.
 
     A layer with a stage whose output depends on batch membership — `raptor`, one tree per
     document — runs one source per call (carried repair **R43.10**); every other layer runs in
@@ -2551,13 +2588,13 @@ async def run_layers(
     indexed again before this runs (`sources_with_moved_layers`).
     """
     if store_stage_id is None:
-        return (), (), (), (), ()
+        return (), (), (), (), (), ()
     primary = _stage_instance(runnable, store_stage_id)
     get_source = _get_source_of(primary) if primary is not None else None
     get_nodes = _get_of(primary) if primary is not None else None
     matching = _matching_of(primary) if primary is not None else None
     if get_source is None or matching is None:
-        return (), (), (), (), ()
+        return (), (), (), (), (), ()
 
     layers_changed: list[str] = []
     layers_failed: list[LayerFailure] = []
@@ -2663,6 +2700,7 @@ async def run_layers(
         tuple(layers_joined),
         _StoreFallbacks.ordered(fallbacks.withdraw),
         _StoreFallbacks.ordered(fallbacks.carry),
+        fallbacks.reclaims(),
     )
 
 
@@ -2818,6 +2856,7 @@ __all__ = [
     "LayerNeedsGenerationHoldingError",
     "LayerNeedsMetadataFilterError",
     "LayerNodeCollisionError",
+    "LayerReclaim",
     "LayerScope",
     "LayerScopeError",
     "NotALayerError",

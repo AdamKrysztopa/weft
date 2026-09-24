@@ -277,6 +277,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   wrote several at once, and pgvector refused the interleaved transactions
   (`OutOfOrderTransactionNesting`). The checkpoint service now makes one store call at a time;
   summarising stays concurrent.
+- **`weft index` says how many nodes a corpus layer's build reclaimed.** Every corpus-wide build
+  first reclaims the trees earlier builds withdrew, and discarded the count. It now prints
+  `layer '<name>': reclaimed <N> node(s) from withdrawn generations` for each layer that reclaimed
+  any, and `--json` carries it as `layers_reclaimed`. No call in the tree may discard what a
+  reclaim returns; a check walks for one.
 - **`weft reconcile` says how many nodes it reclaimed, and `weft index` says when a store made a
   layer build fall back.** Reconcile reclaimed withdrawn layer trees and printed nothing about it.
   Its line now ends `, reclaimed N` when N is not zero. A store that holds generations but cannot
