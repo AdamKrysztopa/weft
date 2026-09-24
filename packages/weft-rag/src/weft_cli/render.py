@@ -73,6 +73,7 @@ from weft_cli.commands import (
     DeleteCommandResult,
     IndexCommandResult,
     InitCommandResult,
+    ListedSource,
     PluginsDoctorCommandResult,
     PluginsListCommandResult,
     ReconcileCommandResult,
@@ -138,7 +139,7 @@ from weft_eval.run_record import (
     QueryRung,
     RoleTokens,
 )
-from weft_generate.payload import AnswerStance, Citation
+from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_index.payload import LayerMember
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
@@ -151,7 +152,9 @@ from weft_kernel.seam import StageRecord
 def render_outcome(
     outcome: Outcome[CommandResult], *, streamed: bool = False, as_json: bool = False
 ) -> Rendered:
-    """A successfully-run command's `Outcome`, rendered — the `Produced`/`NothingToProduce`/
+    """Render a successfully-run command's `Outcome`.
+
+    A successfully-run command's `Outcome`, rendered — the `Produced`/`NothingToProduce`/
     `Failed` vocabulary every contract answers in, `02` §1's own three-way decision applied to
     a `Command`'s own result.
 
@@ -183,7 +186,9 @@ def render_outcome(
 
 
 def render_refusal(exc: WeftError, *, as_json: bool = False) -> Rendered:
-    """A `WeftError` raised before or during `run()` — a `CommandRefusalError`'s own exit code,
+    """Render a `WeftError` raised before or during `run()` and pick its exit code.
+
+    A `WeftError` raised before or during `run()` — a `CommandRefusalError`'s own exit code,
     or `weft_cli.exit_codes.exit_code_for`'s mapping for every other `WeftError`.
 
     **`as_json`, task 5.2d.** `docs/internal/README.md` decision log, S6/G9: CLI error prose is not
@@ -369,7 +374,9 @@ def _render_reconcile(result: ReconcileCommandResult) -> Rendered:
 
 
 def _reconcile_line(outcome: ReconcileOutcome) -> str:
-    """One participant's own line — see `_render_reconcile`'s docstring for the three facts a
+    """Format one reconcile participant's line.
+
+    One participant's own line — see `_render_reconcile`'s docstring for the three facts a
     summary must not lose. `abstained` (ledger **11.9**) is appended to the same
     comma-separated run, ahead of the interrupted clause, and **only when non-zero**: printed
     unconditionally as `abstained 0` on every `repair` line it would be noise that trains a
@@ -393,7 +400,9 @@ def _reconcile_line(outcome: ReconcileOutcome) -> str:
 
 
 def _estimate_lines(outcome: ReconcileEstimateOutcome) -> tuple[str, ...]:
-    """One participant's own cost, in `docs/03-cli.md`'s own worked-example shape:
+    """Format one participant's reconcile cost estimate.
+
+    One participant's own cost, in `docs/03-cli.md`'s own worked-example shape:
 
     ```
     weft-kg: 4,312 nodes have no graph data
@@ -463,7 +472,9 @@ def register_renderers_from_reports(reports: Iterable[PackReport]) -> None:
 
 
 def _register_renderer_if_new(offer: RendererOffer) -> None:
-    """`_renderer_registry.add(...)` for `offer`, skipped only when `offer.result_type`
+    """Register `offer`'s renderer unless its result type already claims it.
+
+    `_renderer_registry.add(...)` for `offer`, skipped only when `offer.result_type`
     already claims `offer.render` itself — see `register_renderers_from_reports`'s own
     docstring for why.
     """
@@ -478,7 +489,9 @@ def _register_renderer_if_new(offer: RendererOffer) -> None:
 
 
 def _lookup_renderer(result: CommandResult) -> Callable[[object], object] | None:
-    """The registered renderer for `result`'s own type, or the first ancestor of it that has
+    """Find the renderer registered for `result`'s type or its nearest ancestor.
+
+    The registered renderer for `result`'s own type, or the first ancestor of it that has
     one — `type(result).__mro__`, walked most-specific first, so a subclass's own registered
     renderer wins over a base class's. `None` when nothing along that chain was ever
     registered, which `_render_result` reads as "fall through to `_render_unknown`."
@@ -602,7 +615,9 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
 
 
 def _defaulted_embedder_line(embedder: str) -> str:
-    """Carried repair `R17.6`'s own stderr line — printed only when `weft.toml` did not name
+    """The stderr line printed when `weft.toml` named no embedder.
+
+    Carried repair `R17.6`'s own stderr line — printed only when `weft.toml` did not name
     an embedder.
 
     The sentence itself is `weft_engine.services.DEFAULT_EMBEDDER_MEANING`, shared with
@@ -616,7 +631,9 @@ def _defaulted_embedder_line(embedder: str) -> str:
 
 
 def _index_target_lines(result: IndexCommandResult, stdout: str) -> str:
-    """`_render_index`'s own target-reporting lines, lifted out to stay under that function's
+    """The target-reporting lines of `weft index`'s output.
+
+    `_render_index`'s own target-reporting lines, lifted out to stay under that function's
     complexity budget — ledger tasks **34.6** and **34.10**.
 
     Where this run wrote, before anything else it reports (`(live)`/`(candidate; live is
@@ -639,15 +656,8 @@ def _index_target_lines(result: IndexCommandResult, stdout: str) -> str:
     return stdout
 
 
-def _render_index(result: IndexCommandResult) -> Rendered:
-    """`weft index`'s whole answer, plus the automatic post-index reconciliation pass, task
-    **5.1c**. `result.reconcile` is rendered through `_render_reconcile` itself — one renderer
-    for both `weft reconcile`'s own result and this command's automatic pass, so a participant
-    line, a cost estimate or a failure can never read differently depending on which command
-    produced it. `None` only when `run_index` itself raised before the pass could run, so there
-    is nothing to append; every successful run reports one, even an empty one.
-    """
-    summary = result.summary
+def _index_count_line(result: IndexCommandResult) -> str:
+    """The first line of `weft index`'s output: documents by fate, and nodes now stored."""
     stored = "unknown" if result.stored_count is None else str(result.stored_count)
     discovered = result.documents_discovered
     indexed = result.documents_indexed
@@ -657,32 +667,31 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     )
     unchanged = discovered - indexed - failed_now - skipped_failed
     failed_part = f", {failed_now} failed" if failed_now else ""
-    stdout = (
+    return (
         f"{discovered} documents: {indexed} indexed, {unchanged} unchanged{failed_part}. "
         f"nodes now stored: {stored}."
     )
-    stdout = _index_target_lines(result, stdout)
-    stale_lines = [
+
+
+def _index_trailing_lines(result: IndexCommandResult) -> list[str]:
+    """The stdout lines of `weft index` after its counts and target: layers, stores, failures."""
+    lines = [
         *_joined_layer_lines(result),
         *_reclaimed_layer_lines(result),
         *_changed_layer_lines(result),
         *_released_layer_lines(result),
         *_stale_layer_lines(result),
     ]
-    if stale_lines:
-        stdout += "\n" + "\n".join(stale_lines)
     if result.payload_indexes:
         # Ledger task **31.14**. Named rather than counted: a number would satisfy "reports its
         # payload index" while telling an operator nothing they could check against the
         # `[packs.qdrant] payload_indexes` they wrote. Silent when the store declared nothing,
         # which is not the same as a store reporting none.
-        stdout += f"\npayload indexes: {', '.join(result.payload_indexes)}."
+        lines.append(f"payload indexes: {', '.join(result.payload_indexes)}.")
     if result.degraded_expansions is not None:
         # A zero is printed because it was counted; `None` means the store was never asked.
-        stdout += f"\nchunks stored without their expansion: {result.degraded_expansions}."
-    reparsed = _reparse_lines(result.source_changes)
-    if reparsed:
-        stdout += "\n" + "\n".join(reparsed)
+        lines.append(f"chunks stored without their expansion: {result.degraded_expansions}.")
+    lines.extend(_reparse_lines(result.source_changes))
     # Ledger **36.3** — every source this run skipped because an earlier run already recorded it
     # `FAILED`, named as a count rather than per-document: it is a fact about the corpus's
     # standing failures, not about this run, and the remedy is the same one flag regardless of
@@ -692,13 +701,18 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     )
     if failed_earlier:
         pronoun = "it" if failed_earlier == 1 else "them"
-        stdout += (
-            f"\n{failed_earlier} failed earlier, skipped — weft index --retry-failed includes "
+        lines.append(
+            f"{failed_earlier} failed earlier, skipped — weft index --retry-failed includes "
             f"{pronoun}"
         )
-    if summary.failed:
-        stdout += f"\n{summary.failed} batch failed."
-    stderr_lines = [f"  failed: {reason}" for reason in summary.failed_reasons]
+    if result.summary.failed:
+        lines.append(f"{result.summary.failed} batch failed.")
+    return lines
+
+
+def _index_stderr_lines(result: IndexCommandResult) -> list[str]:
+    """The stderr lines of `weft index`: batch and layer failures, fallbacks, a default embedder."""
+    stderr_lines = [f"  failed: {reason}" for reason in result.summary.failed_reasons]
     stderr_lines.extend(
         f"  layer '{failure.layer}' failed on {failure.failed} of {failure.of} sources: "
         f"{failure.reason}"
@@ -707,7 +721,25 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     stderr_lines.extend(_store_fallback_lines(result))
     if result.defaulted_embedder is not None:
         stderr_lines.append(_defaulted_embedder_line(result.defaulted_embedder))
-    stderr = "\n".join(stderr_lines) or None
+    return stderr_lines
+
+
+def _render_index(result: IndexCommandResult) -> Rendered:
+    """Render `weft index`'s answer and its automatic reconcile pass.
+
+    `weft index`'s whole answer, plus the automatic post-index reconciliation pass, task
+    **5.1c**. `result.reconcile` is rendered through `_render_reconcile` itself — one renderer
+    for both `weft reconcile`'s own result and this command's automatic pass, so a participant
+    line, a cost estimate or a failure can never read differently depending on which command
+    produced it. `None` only when `run_index` itself raised before the pass could run, so there
+    is nothing to append; every successful run reports one, even an empty one.
+    """
+    summary = result.summary
+    stdout = _index_target_lines(result, _index_count_line(result))
+    trailing = _index_trailing_lines(result)
+    if trailing:
+        stdout += "\n" + "\n".join(trailing)
+    stderr = "\n".join(_index_stderr_lines(result)) or None
     exit_code = (
         ExitCode.SUCCESS
         if summary.failed == 0 and not result.layers_failed
@@ -810,7 +842,9 @@ def _released_layer_lines(result: IndexCommandResult) -> list[str]:
 
 
 def stale_deleted_layer_line(name: str) -> str:
-    """The one sentence `weft delete` and `weft index` both print for a corpus-scoped layer
+    """The sentence printed for a corpus-scoped layer left `STALE`.
+
+    The one sentence `weft delete` and `weft index` both print for a corpus-scoped layer
     carrying `LayerStatus.STALE` — ledger task **43.21**, and **R43.41** for a re-parse. One
     function so the two commands can never say it two different ways.
     """
@@ -821,7 +855,9 @@ def stale_deleted_layer_line(name: str) -> str:
 
 
 def _stale_layer_lines(result: IndexCommandResult) -> list[str]:
-    """One line per name in `result.layers_stale`, plus one per name in `result.
+    """One line per stale layer, and per stale layer a delete left behind.
+
+    One line per name in `result.layers_stale`, plus one per name in `result.
     layers_stale_deleted` — ledger tasks **43.15** and **43.21**. Both are already sorted by
     name and, by `weft_cli.layers.stale_corpus_layers`'s own contract, disjoint — a name in
     `layers_stale_deleted` never also appears in `layers_stale`, so the deletion wording wins
@@ -841,8 +877,83 @@ def _stale_layer_lines(result: IndexCommandResult) -> list[str]:
     ]
 
 
+def _render_answer_json(result: AskCommandResult, answer: Answer) -> Rendered:
+    """Render a generated answer as the one JSON envelope line the global `--json` prints."""
+    # Carried repair **R9.2**. One line, the run's last, on the same descriptor the
+    # `StreamEvent` lines used and discriminated the same way — see
+    # `weft_cli.answer_envelope` for what it carries and why `text` is present here
+    # even when `streamed` is `True`.
+    from weft_cli.answer_envelope import build_answer_envelope
+
+    envelope = build_answer_envelope(
+        answer,
+        pipeline_name=result.pipeline_name,
+        coverage=_stated_coverage(result),
+        layers=_pending_layers(result) or None,
+    )
+    # `coverage`/`layers` alone are excluded when absent, never a blanket
+    # `exclude_none`: every other optional field (`pipeline_name` included) keeps
+    # serializing as it always has, so an existing envelope stays byte-identical
+    # (ledger tasks 43.4, 43.9).
+    omit: set[str] = set()
+    if envelope.coverage is None:
+        omit.add("coverage")
+    if envelope.layers is None:
+        omit.add("layers")
+    return Rendered(
+        stdout=envelope.model_dump_json(exclude=omit),
+        stderr=None,
+        exit_code=ExitCode.SUCCESS,
+    )
+
+
+def _render_answer_text(result: AskCommandResult, answer: Answer, *, streamed: bool) -> Rendered:
+    """Render a generated answer as prose: route, text unless streamed, citations, notes."""
+    lines = [f"routed to: {result.pipeline_name}"]
+    if answer.stance is AnswerStance.NOT_IN_CORPUS:
+        # Carried repair **R11.6**, found by running the binary at task 11.10. A generator
+        # that refuses honestly returns `Answer(text="", citations=(),
+        # stance=NOT_IN_CORPUS)`, and printing `text` alone rendered that deliberate
+        # refusal as the routing line and nothing else — indistinguishable from a crash
+        # that happened to exit 0. Unconditional on `streamed`, because a refusal is
+        # exactly the case where nothing was streamed: `cited-answer`'s `REFUSE` branch
+        # calls no model at all, so the omission below would restore the silence. The
+        # sentence itself is unpromised prose under G9 (`09` §3); the exit code is not,
+        # and stays `SUCCESS` — nothing failed, and both sibling empty paths in this same
+        # function ("no matching passages found.", `NothingToProduce`) already exit 0.
+        if result.coverage is not None and result.coverage.indexing > 0:
+            # Ledger task **43.4** — a source `weft ask` has not yet reached is not the same
+            # fact as one it searched and found nothing in; the plain sentence above still
+            # holds whenever nothing is known to be outstanding.
+            lines.append(
+                "the corpus does not answer this — "
+                f"{result.coverage.indexing} sources are not yet indexed."
+            )
+        else:
+            lines.append("the corpus does not answer this.")
+    elif not streamed:
+        lines.append(answer.text)
+    cited = {passage.node.id: passage.node for passage in answer.used}
+    lines.extend(_citation_line(citation, cited[citation.node_id]) for citation in answer.citations)
+    return Rendered(
+        stdout="\n".join(
+            [
+                *lines,
+                *_coverage_lines(result),
+                *_layers_lines(result),
+                *_explain_lines(result),
+                *_stage_lines(result),
+            ]
+        ),
+        stderr=None,
+        exit_code=ExitCode.SUCCESS,
+    )
+
+
 def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = False) -> Rendered:
-    """`weft ask`'s own two shapes — see `AskCommandResult`'s own docstring for why exactly
+    """Render `weft ask`'s generated answer or its ranked passages.
+
+    `weft ask`'s own two shapes — see `AskCommandResult`'s own docstring for why exactly
     one of `answer`/`hits` is ever populated, and this module's own task-3.11 paragraph for
     `streamed`, which only the `answer` branch reads.
 
@@ -862,74 +973,8 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
         # `deps.token_sink.wrote_anything` is what decides). `--quiet`/a non-streaming sink
         # still gets the full text, because nothing showed it yet.
         if as_json:
-            # Carried repair **R9.2**. One line, the run's last, on the same descriptor the
-            # `StreamEvent` lines used and discriminated the same way — see
-            # `weft_cli.answer_envelope` for what it carries and why `text` is present here
-            # even when `streamed` is `True`.
-            from weft_cli.answer_envelope import build_answer_envelope
-
-            envelope = build_answer_envelope(
-                result.answer,
-                pipeline_name=result.pipeline_name,
-                coverage=_stated_coverage(result),
-                layers=_pending_layers(result) or None,
-            )
-            # `coverage`/`layers` alone are excluded when absent, never a blanket
-            # `exclude_none`: every other optional field (`pipeline_name` included) keeps
-            # serializing as it always has, so an existing envelope stays byte-identical
-            # (ledger tasks 43.4, 43.9).
-            omit: set[str] = set()
-            if envelope.coverage is None:
-                omit.add("coverage")
-            if envelope.layers is None:
-                omit.add("layers")
-            return Rendered(
-                stdout=envelope.model_dump_json(exclude=omit),
-                stderr=None,
-                exit_code=ExitCode.SUCCESS,
-            )
-        lines = [f"routed to: {result.pipeline_name}"]
-        if result.answer.stance is AnswerStance.NOT_IN_CORPUS:
-            # Carried repair **R11.6**, found by running the binary at task 11.10. A generator
-            # that refuses honestly returns `Answer(text="", citations=(),
-            # stance=NOT_IN_CORPUS)`, and printing `text` alone rendered that deliberate
-            # refusal as the routing line and nothing else — indistinguishable from a crash
-            # that happened to exit 0. Unconditional on `streamed`, because a refusal is
-            # exactly the case where nothing was streamed: `cited-answer`'s `REFUSE` branch
-            # calls no model at all, so the omission below would restore the silence. The
-            # sentence itself is unpromised prose under G9 (`09` §3); the exit code is not,
-            # and stays `SUCCESS` — nothing failed, and both sibling empty paths in this same
-            # function ("no matching passages found.", `NothingToProduce`) already exit 0.
-            if result.coverage is not None and result.coverage.indexing > 0:
-                # Ledger task **43.4** — a source `weft ask` has not yet reached is not the same
-                # fact as one it searched and found nothing in; the plain sentence above still
-                # holds whenever nothing is known to be outstanding.
-                lines.append(
-                    "the corpus does not answer this — "
-                    f"{result.coverage.indexing} sources are not yet indexed."
-                )
-            else:
-                lines.append("the corpus does not answer this.")
-        elif not streamed:
-            lines.append(result.answer.text)
-        cited = {passage.node.id: passage.node for passage in result.answer.used}
-        lines.extend(
-            _citation_line(citation, cited[citation.node_id])
-            for citation in result.answer.citations
-        )
-        return Rendered(
-            stdout="\n".join(
-                [
-                    *lines,
-                    *_coverage_lines(result),
-                    *_layers_lines(result),
-                    *_explain_lines(result),
-                    *_stage_lines(result),
-                ]
-            ),
-            stderr=None,
-            exit_code=ExitCode.SUCCESS,
-        )
+            return _render_answer_json(result, result.answer)
+        return _render_answer_text(result, result.answer, streamed=streamed)
 
     if result.format is AskFormat.JSON:
         # No empty-result special case on this side — a caller reading structured output
@@ -1101,7 +1146,9 @@ def _stage_lines(result: AskCommandResult) -> list[str]:
 
 
 def render_applies_to(applies: Applies) -> str:
-    """One `Applies` constraint, rendered the way `Applies` writes itself — carried repair
+    """Render one `Applies` constraint the way `Applies` writes itself.
+
+    One `Applies` constraint, rendered the way `Applies` writes itself — carried repair
     **R9.11** (`docs/internal/lessons.md` `L9.45`).
 
     `Applies.__repr__` was written for the one human audience there is: someone reading
@@ -1122,8 +1169,33 @@ def _render_pipeline_list(result: PipelineListCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _listed_source_line(entry: ListedSource, *, multi_store: bool) -> str:
+    """One `weft sources list` line: store when several, uri, status, layers, failure."""
+    record = entry.record
+    line = f"{entry.store}  " if multi_store else ""
+    line += f"{record.uri}  {record.status.value}"
+    if record.layers:
+        parts: list[str] = []
+        for layer in record.layers:
+            part = f"{layer.name} {layer.status.value}"
+            if layer.failure is not None:
+                part += f" (stage: {layer.failure.stage or 'unknown'})"
+            parts.append(part)
+        line += "  layers: " + ", ".join(parts)
+    failure = record.failure
+    if failure is not None:
+        line += (
+            f"  stage: {failure.stage or 'unknown'}  error: {failure.error_type}  "
+            f"attempts: {failure.attempts}  last: {failure.last_attempt_at.isoformat()}  "
+            f"{failure.message!r}"
+        )
+    return line
+
+
 def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
-    """`weft sources list` — task **36.4**, widened at **R36.4**: uri and status per line, and
+    """Render `weft sources list`: uri, status and failure per source.
+
+    `weft sources list` — task **36.4**, widened at **R36.4**: uri and status per line, and
     for a failed source, what went wrong. When the entries came from more than one store, each
     line is prefixed with the store's own name — a project reading from a single store keeps
     today's plain `uri  status` line, unchanged.
@@ -1138,32 +1210,14 @@ def _render_sources_list(result: SourcesListCommandResult) -> Rendered:
             stdout=f"no {which}sources recorded.", stderr=None, exit_code=ExitCode.SUCCESS
         )
     multi_store = len({entry.store for entry in result.sources}) > 1
-    lines: list[str] = []
-    for entry in result.sources:
-        record = entry.record
-        line = f"{entry.store}  " if multi_store else ""
-        line += f"{record.uri}  {record.status.value}"
-        if record.layers:
-            parts: list[str] = []
-            for layer in record.layers:
-                part = f"{layer.name} {layer.status.value}"
-                if layer.failure is not None:
-                    part += f" (stage: {layer.failure.stage or 'unknown'})"
-                parts.append(part)
-            line += "  layers: " + ", ".join(parts)
-        failure = record.failure
-        if failure is not None:
-            line += (
-                f"  stage: {failure.stage or 'unknown'}  error: {failure.error_type}  "
-                f"attempts: {failure.attempts}  last: {failure.last_attempt_at.isoformat()}  "
-                f"{failure.message!r}"
-            )
-        lines.append(line)
+    lines = [_listed_source_line(entry, multi_store=multi_store) for entry in result.sources]
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
 def _render_target_list(result: TargetListCommandResult) -> Rendered:
-    """`weft target list` — ledger task **34.6**: one line per target, naming which store it
+    """Render `weft target list`, one line per target.
+
+    `weft target list` — ledger task **34.6**: one line per target, naming which store it
     belongs to when more than one is in use, on `_render_sources_list`'s own precedent.
 
     **Ledger task 43.10.** A target whose `layers_complete` is non-empty states which layers
@@ -1190,7 +1244,9 @@ def _render_target_list(result: TargetListCommandResult) -> Rendered:
 
 
 def _render_target_promote(result: TargetPromoteCommandResult) -> Rendered:
-    """`weft target promote` — ledger task **34.8**, widened by **34.11**: which target is live
+    """Render `weft target promote`: the new live target and what it replaced.
+
+    `weft target promote` — ledger task **34.8**, widened by **34.11**: which target is live
     now, every `TargetHolding` participant it switched on, and what was live before it, so a
     person watching the switch happen does not have to run `target list` to learn what
     `rollback` would restore.
@@ -1211,7 +1267,9 @@ def _render_target_rollback(result: TargetRollbackCommandResult) -> Rendered:
 
 
 def _render_target_drop(result: TargetDropCommandResult) -> Rendered:
-    """`weft target drop` — ledger task **34.9**, widened by **34.11**: names how many sources
+    """Render `weft target drop`, naming how many sources went with it.
+
+    `weft target drop` — ledger task **34.9**, widened by **34.11**: names how many sources
     went with it, the one fact `describe_impact`'s own confirmation prompt could not honestly
     state in advance (see `weft_cli.target_commands.TargetDropCommand`'s own docstring).
     """
@@ -1221,7 +1279,9 @@ def _render_target_drop(result: TargetDropCommandResult) -> Rendered:
 
 
 def _render_pipeline_show(result: PipelineShowCommandResult) -> Rendered:
-    """`weft pipeline show` — task 3.7's own bar: every stage's provenance, every var's
+    """Render `weft pipeline show`: stage provenance and final var values.
+
+    `weft pipeline show` — task 3.7's own bar: every stage's provenance, every var's
     final value, and — the two a pre-G2 `show` could never have printed at all, because
     the fields did not exist before task 1.11 — unapplied operators and unplaced
     contributions, each explicit even when empty rather than a line that silently
@@ -1265,7 +1325,9 @@ def _render_pipeline_derive(result: PipelineDeriveCommandResult) -> Rendered:
 
 
 def _pipeline_diff_lines(diff: PipelineDiff) -> list[str]:
-    """The lines `weft pipeline diff` and `weft eval compare` both print for one `PipelineDiff`
+    """The lines printed for one `PipelineDiff`.
+
+    The lines `weft pipeline diff` and `weft eval compare` both print for one `PipelineDiff`
     — task **4.6** pulls this out of `_render_pipeline_diff` so `_render_eval_compare` reuses
     the identical formatting rather than a second, independently-drifting copy of it.
     """
@@ -1287,7 +1349,9 @@ def _pipeline_diff_lines(diff: PipelineDiff) -> list[str]:
 
 
 def _render_pipeline_diff(result: PipelineDiffCommandResult) -> Rendered:
-    """`weft pipeline diff` — the diff itself is proven exact by `weft_cli.pipeline_diff.
+    """Render `weft pipeline diff` from an exact structural diff.
+
+    `weft pipeline diff` — the diff itself is proven exact by `weft_cli.pipeline_diff.
     diff_resolved` (structural comparison of two resolved values, never rendered text);
     this function only turns that already-exact answer into lines for a human.
     """
@@ -1340,7 +1404,9 @@ def _render_config_get(result: ConfigGetCommandResult) -> Rendered:
 
 
 def _percentile_text(label: str, percentile: Produced[float] | NotAggregated, samples: int) -> str:
-    """One nearest-rank percentile, task 33.8 — `weft_eval.latency.LatencySummary`'s own field,
+    """Format one nearest-rank latency percentile.
+
+    One nearest-rank percentile, task 33.8 — `weft_eval.latency.LatencySummary`'s own field,
     for a human. `samples` is the summary's own count, not anything parsed from `NotAggregated.
     reason`, so the printed text does not depend on that string's exact wording.
     """
@@ -1350,7 +1416,9 @@ def _percentile_text(label: str, percentile: Produced[float] | NotAggregated, sa
 
 
 def _latency_summary_text(summary: LatencySummary) -> str:
-    """`p50: …, p95: …, p99: …` — the three percentiles task 33.8 prints beside a run's other
+    """Format the p50, p95 and p99 latency percentiles of a run.
+
+    `p50: …, p95: …, p99: …` — the three percentiles task 33.8 prints beside a run's other
     metrics, never gated and never compared for comparability (the module docstring's own
     "reported, never a reason to refuse").
     """
@@ -1365,7 +1433,9 @@ def _latency_summary_text(summary: LatencySummary) -> str:
 
 
 def _role_tokens_text(role: str, tokens: RoleTokens) -> str:
-    """One `[llm.roles]` role's line in `weft eval run`'s `tokens:` sentence — ledger task
+    """Format one `[llm.roles]` role's token usage.
+
+    One `[llm.roles]` role's line in `weft eval run`'s `tokens:` sentence — ledger task
     **33.10**. A role every call of which went unreported reads *not reported*, by name and
     call count, never `0 in / 0 out`; that number would claim a metering the provider never
     did.
@@ -1379,7 +1449,9 @@ def _role_tokens_text(role: str, tokens: RoleTokens) -> str:
 
 
 def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
-    """`weft eval run` — the run id first, since that is what `weft eval compare`/`weft trace`
+    """Render `weft eval run`: run id, index summary, corpus and metrics.
+
+    `weft eval run` — the run id first, since that is what `weft eval compare`/`weft trace`
     need next, then `weft_cli.render._render_index`'s own summary line, then the corpus this
     record now carries, then task 4.7's own wall-clock measurement — V5's half of a priced run
     an operator can see without opening the persisted file. Task 33.8 appends the query latency
@@ -1422,14 +1494,18 @@ def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
 
 
 def _slice_text(stdev: float | None) -> str:
-    """The `±stdev` fragment `_metric_result_text` prints, shared with its own per-modality
+    """Format the `±stdev` fragment of a metric result.
+
+    The `±stdev` fragment `_metric_result_text` prints, shared with its own per-modality
     lines below — one dispersion format for the whole aggregate and each of its slices.
     """
     return f"±{stdev:.3f}" if stdev is not None else "±n/a"
 
 
 def _metric_result_text(result: MetricRunResult) -> str:
-    """One `weft_eval.run_record.MetricRunResult`, for a human — a mean with its own dispersion
+    """Format one metric run result for a human.
+
+    One `weft_eval.run_record.MetricRunResult`, for a human — a mean with its own dispersion
     and sample count if the metric was scored, or the honest reason it was not, task 4.9's own
     "never a bare mean, and never silence for an unmeasured metric" pair of rules.
 
@@ -1454,7 +1530,9 @@ def _metric_result_text(result: MetricRunResult) -> str:
 
 
 def _metrics_comparison_lines(comparison: Mapping[str, MetricComparison]) -> list[str]:
-    """One line per metric name either compared run carries — `weft eval compare`'s own
+    """One comparison line per metric either compared run carries.
+
+    One line per metric name either compared run carries — `weft eval compare`'s own
     per-metric half, task 4.9. A metric both runs scored also gets a signed delta, computed
     here rather than stored, since `MetricComparison` carries the two aggregates, not their
     difference (`02` §1: derive, do not duplicate).
@@ -1473,7 +1551,9 @@ def _metrics_comparison_lines(comparison: Mapping[str, MetricComparison]) -> lis
 
 
 def _paired_difference_line(name: str, difference: PairedDifference) -> str:
-    """One metric's own line under the paired-difference block — task 16.9, `_falsification_
+    """Format one metric's line under the paired-difference block.
+
+    One metric's own line under the paired-difference block — task 16.9, `_falsification_
     line`'s own formatting (a signed difference to three decimals) applied to the second
     interval rather than the first. A single paired question has no interval to report — the
     identical rule `_falsification_line` states for a zero-width baseline spread, one
@@ -1582,7 +1662,9 @@ def _query_rung_difference_lines(query_rungs: QueryRungDifference | None) -> lis
 
 
 def _baseline_selection_line(selection: BaselineSelection) -> str:
-    """Which rule chose `--baseline`'s repetitions — task 16.1, printed so a reader of a
+    """Name the rule that chose `--baseline`'s repetitions.
+
+    Which rule chose `--baseline`'s repetitions — task 16.1, printed so a reader of a
     verdict can tell a rung-matched spread from a pipeline-matched one.
     """
     return f"baseline selection: {selection.value}"
@@ -1605,7 +1687,9 @@ def _run_latency_line(run_id: str, summary: LatencySummary | None) -> str:
 
 
 def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
-    """`weft eval compare` — reached only once `weft_cli.eval_commands.EvalCompareCommand`
+    """Render `weft eval compare` for two comparable runs.
+
+    `weft eval compare` — reached only once `weft_cli.eval_commands.EvalCompareCommand`
     has already confirmed corpus and model versions agree (`IncomparableRunsError` otherwise;
     packaging — the active distribution set and their versions — is reported beside the
     comparison rather than confirmed to agree, repair `R22.11`), so this prints that
@@ -1710,7 +1794,9 @@ def _render_reproduction(result: EvalCompareCommandResult, reproduction: Reprodu
 
 
 def _metric_kind(result: MetricRunResult) -> MetricKind:
-    """Which contract produced `result` — read straight off the persisted aggregate when there
+    """Which contract produced `result`.
+
+    Which contract produced `result` — read straight off the persisted aggregate when there
     is one. A `NotAggregated` metric carries no `kind` of its own — nothing was ever computed to
     read one off — so it falls back to `MetricKind.RETRIEVAL`, the same compromise
     `MetricAggregate.kind` itself documents; every metric this pack scores into a `RunRecord`
@@ -1827,7 +1913,9 @@ def _experiment_text(experiment: ExperimentRun | None) -> str:
 
 
 def _render_trace(result: TraceCommandResult) -> Rendered:
-    """`weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
+    """Render `weft trace`: every fact a `RunRecord` carries.
+
+    `weft trace` — every fact `weft_eval.run_record.RunRecord` carries, and nothing this
     module invents on top of it (Q2, `weft_cli.eval_commands`'s own module docstring: this is
     what the persisted record holds, never a stage-level replay nothing in this tree persists).
     Task 4.9 widened the record by one field, `metrics`, so this widens by one block to match.
@@ -1904,7 +1992,9 @@ def _render_eval_table(result: EvalTableCommandResult) -> Rendered:
 
 
 def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
-    """`weft eval metrics [<name>]` — task 4.7, V5's "the offline subset must be identifiable
+    """Render `weft eval metrics`, marking the offline subset.
+
+    `weft eval metrics [<name>]` — task 4.7, V5's "the offline subset must be identifiable
     as a subset". A metric that cannot run never reaches this renderer at all — `weft_eval.
     offline.require_gate_safe` raises before `EvalMetricsCommandResult` is ever constructed —
     so every line printed here names a metric that genuinely runs with no credentials and no

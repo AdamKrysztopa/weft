@@ -349,7 +349,9 @@ class PipelineMissingExtractStageError(PipelineResolutionError, UnresolvedNameEr
 
 
 class BatchScopedStageError(WeftError):
-    """`--batch-size` was given a pipeline containing a stage whose output depends on which
+    """Refusal for `--batch-size` over a stage whose output depends on its batch.
+
+    `--batch-size` was given a pipeline containing a stage whose output depends on which
     other nodes shared its batch — ledger task **17.3**.
 
     `Runner.run` puts each batch through the whole stage list independently, so a stage that
@@ -384,7 +386,9 @@ def index_specs(
 
 
 def _identity_of_specs(specs: tuple[StageSpec, ...], *, registry: Registry) -> str:
-    """`pipeline_identity` for the default four-stage path, which never calls `resolve()` —
+    """Compute `pipeline_identity` for the default four-stage path.
+
+    `pipeline_identity` for the default four-stage path, which never calls `resolve()` —
     ledger task **9.17** repaired, `L9.64`.
 
     `index_specs` builds its `StageSpec`s as constants, so this path never has a
@@ -424,7 +428,9 @@ def _identity_of_specs(specs: tuple[StageSpec, ...], *, registry: Registry) -> s
 
 
 def _reconstructed_config(config: object) -> Mapping[str, object]:
-    """`StageSpec.config` translated into the shape `ResolvedStage.config` holds — see
+    """Translate `StageSpec.config` into the shape `ResolvedStage.config` holds.
+
+    `StageSpec.config` translated into the shape `ResolvedStage.config` holds — see
     `_identity_of_specs`.
 
     `None`, what every stage `index_specs` builds today carries, becomes the same empty
@@ -606,7 +612,9 @@ def _validate_batch_size(batch_size: int | None) -> None:
 
 
 def _refuse_batch_scoped_stages(runnable: RunnablePipeline) -> None:
-    """`BatchScopedStageError`, when `runnable` holds a stage whose output depends on batch
+    """Raise `BatchScopedStageError` when `runnable` holds a batch-scoped stage.
+
+    `BatchScopedStageError`, when `runnable` holds a stage whose output depends on batch
     membership — see that class and `batch_membership_dependent_stages` for the whole argument.
     """
     dependent = batch_membership_dependent_stages(runnable)
@@ -625,7 +633,9 @@ def _refuse_batch_scoped_stages(runnable: RunnablePipeline) -> None:
 def _batch_plan(
     batch_size: int | None, default_batch_size: int | None, runnable: RunnablePipeline
 ) -> tuple[int | None, tuple[str, ...]]:
-    """The effective batch size for this run, and the plugin names — if any — that kept the
+    """Decide this run's effective batch size and the plugins that forced one batch.
+
+    The effective batch size for this run, and the plugin names — if any — that kept the
     whole corpus in one batch instead — ledger task **43.2**.
 
     An explicit `batch_size` keeps its own meaning unchanged: `_refuse_batch_scoped_stages`
@@ -679,12 +689,80 @@ async def _emit_batch_progress(
 
 
 def _sliced(items: Sequence[SourceRef], size: int | None) -> list[tuple[SourceRef, ...]]:
-    """`items`, in groups of `size` (or one whole group when `size` is `None`) — `run_index`'s
+    """Split `items` into groups of `size`, or one group when `size` is `None`.
+
+    `items`, in groups of `size` (or one whole group when `size` is `None`) — `run_index`'s
     own slicing of `work`, generalised so `_run_base` states it once rather than inline.
     """
     if size is None:
         return [tuple(items)]
     return [tuple(items[start : start + size]) for start in range(0, len(items), size)]
+
+
+async def _load_and_run_batch(
+    runner: Runner,
+    runnable: RunnablePipeline,
+    batch_refs: Sequence[SourceRef],
+    indexing_ctx: Context,
+) -> tuple[tuple[SourceDoc, ...], RunSummary]:
+    """Read one batch's sources and run them through `runnable` as one payload."""
+    batch_docs = load_source_docs(batch_refs)
+    return batch_docs, await runner.run(runnable, _one(batch_docs), indexing_ctx)
+
+
+async def _settle_batch(
+    runner: Runner,
+    runnable: RunnablePipeline,
+    batch_refs: Sequence[SourceRef],
+    batch_docs: Sequence[SourceDoc],
+    batch_summary: RunSummary,
+    indexing_ctx: Context,
+    *,
+    records: Sequence[StageRecord],
+    store_stage_ids: Sequence[str],
+    previous: Mapping[SourceId, SourceRecord],
+    identity: str,
+    pipeline: str | None,
+) -> tuple[list[RunSummary], int, int]:
+    """Record one finished batch's sources, re-running a failed multi-document batch singly.
+
+    Returns:
+        `(summaries, indexed, failed)`: the summaries this batch contributes, and how many of
+        its documents were indexed and how many recorded `FAILED`.
+    """
+    if batch_summary.failed == 0:
+        await _record_sources(
+            runnable,
+            store_stage_ids=store_stage_ids,
+            docs=batch_refs,
+            pipeline=pipeline,
+            identity=identity,
+        )
+        return [batch_summary], len(batch_refs), 0
+    if len(batch_refs) == 1:
+        message = "; ".join(batch_summary.failed_reasons) or "the batch failed"
+        await _record_batch_failure(
+            runnable,
+            store_stage_ids=store_stage_ids,
+            batch=batch_refs,
+            previous=previous,
+            identity=identity,
+            pipeline=pipeline,
+            error_type="Failed",
+            stage=_failing_stage(records),
+            message=message,
+        )
+        return [batch_summary], 0, 1
+    return await _rerun_batch_singly(
+        runner,
+        runnable,
+        batch_docs,
+        indexing_ctx,
+        store_stage_ids=store_stage_ids,
+        previous=previous,
+        identity=identity,
+        pipeline=pipeline,
+    )
 
 
 async def _run_base(
@@ -705,7 +783,9 @@ async def _run_base(
     indexing_ctx: Context,
     corpus_layers: frozenset[str],
 ) -> tuple[Mapping[SourceId, SourceChange], tuple[SourceRef, ...], list[RunSummary], int, int]:
-    """The base's own run — every batch of `work` through `runnable` — or nothing at all under
+    """Run every batch of `work` through `runnable`, or nothing under `layers_only`.
+
+    The base's own run — every batch of `work` through `runnable` — or nothing at all under
     `layers_only`, lifted out of `run_index` so ledger task **43.8**'s own addition does not
     push that function's complexity over the budget every function in this module already
     holds to. Returns `(changes, work, counts, indexed_count, failed_count)`, the five values
@@ -797,8 +877,9 @@ async def _run_base(
     for batch_number, batch_refs in enumerate(ref_slices, start=1):
         with recording() as scope:
             try:
-                batch_docs = load_source_docs(batch_refs)
-                batch_summary = await runner.run(runnable, _one(batch_docs), indexing_ctx)
+                batch_docs, batch_summary = await _load_and_run_batch(
+                    runner, runnable, batch_refs, indexing_ctx
+                )
             except WeftError as exc:
                 await _record_batch_failure(
                     runnable,
@@ -812,45 +893,22 @@ async def _run_base(
                     message=str(exc),
                 )
                 raise
-        if batch_summary.failed == 0:
-            counts.append(batch_summary)
-            await _record_sources(
-                runnable,
-                store_stage_ids=store_stage_ids,
-                docs=batch_refs,
-                pipeline=pipeline,
-                identity=identity,
-            )
-            indexed_count += len(batch_refs)
-        elif len(batch_refs) == 1:
-            counts.append(batch_summary)
-            message = "; ".join(batch_summary.failed_reasons) or "the batch failed"
-            await _record_batch_failure(
-                runnable,
-                store_stage_ids=store_stage_ids,
-                batch=batch_refs,
-                previous=previous,
-                identity=identity,
-                pipeline=pipeline,
-                error_type="Failed",
-                stage=_failing_stage(scope.records),
-                message=message,
-            )
-            failed_count += 1
-        else:
-            singles, indexed_delta, failed_delta = await _rerun_batch_singly(
-                runner,
-                runnable,
-                batch_docs,
-                indexing_ctx,
-                store_stage_ids=store_stage_ids,
-                previous=previous,
-                identity=identity,
-                pipeline=pipeline,
-            )
-            counts.extend(singles)
-            indexed_count += indexed_delta
-            failed_count += failed_delta
+        settled, indexed_delta, failed_delta = await _settle_batch(
+            runner,
+            runnable,
+            batch_refs,
+            batch_docs,
+            batch_summary,
+            indexing_ctx,
+            records=scope.records,
+            store_stage_ids=store_stage_ids,
+            previous=previous,
+            identity=identity,
+            pipeline=pipeline,
+        )
+        counts.extend(settled)
+        indexed_count += indexed_delta
+        failed_count += failed_delta
         await _emit_batch_progress(
             on_batch,
             batch_number=batch_number,
@@ -892,7 +950,9 @@ async def _run_base(
 def _released_by_reprocess(
     changes: Mapping[SourceId, SourceChange], previous: Mapping[SourceId, SourceRecord]
 ) -> dict[SourceId, SourceRecord]:
-    """Every `UNCHANGED` source whose previous record carries a layer, with that record — what
+    """Every unchanged source whose previous record carries a layer, with that record.
+
+    Every `UNCHANGED` source whose previous record carries a layer, with that record — what
     `--reprocess` releases beyond the reparsed sources (R43.7).
     """
     return {
@@ -911,7 +971,9 @@ def _layers_released(
     previous: Mapping[SourceId, SourceRecord],
     reprocess: bool,
 ) -> tuple[LayerRelease, ...]:
-    """Every layer a source `--reprocess` released carried and this run did not name, with how
+    """Count, by layer name, released sources carrying a layer this run did not name.
+
+    Every layer a source `--reprocess` released carried and this run did not name, with how
     many released sources carried it, by name — carried repair **R43.28**.
     """
     if not reprocess:
@@ -944,6 +1006,255 @@ def _base_scope(
         return refs, layers_only
     moved = sources_with_moved_layers(compositions, refs=refs, records=previous)
     return (moved, False) if moved else (refs, True)
+
+
+async def _layer_outcomes(
+    layer_compositions: Sequence[LayerComposition],
+    *,
+    runner: Runner,
+    runnable: RunnablePipeline,
+    refs: Sequence[SourceRef],
+    store_stage_id: str | None,
+    store_stage_ids: Sequence[str],
+    effective_batch_size: int | None,
+    retry_failed: bool,
+    on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
+    indexing_ctx: Context,
+    layer_runnables: list[RunnablePipeline],
+    llm: LLMSection,
+    reprocess: bool,
+) -> tuple[
+    tuple[str, ...],
+    tuple[LayerFailure, ...],
+    tuple[LayerJoin, ...],
+    tuple[LayerStoreFallback, ...],
+    tuple[LayerStoreFallback, ...],
+    tuple[LayerReclaim, ...],
+    tuple[GenerationId, ...],
+]:
+    """What `run_layers` reports for `layer_compositions`, or seven empty tuples for none."""
+    layers_changed: tuple[str, ...] = ()
+    layers_failed: tuple[LayerFailure, ...] = ()
+    layers_joined: tuple[LayerJoin, ...] = ()
+    stores_without_withdraw: tuple[LayerStoreFallback, ...] = ()
+    stores_without_carry: tuple[LayerStoreFallback, ...] = ()
+    layers_reclaimed: tuple[LayerReclaim, ...] = ()
+    generations_withdrawn: tuple[GenerationId, ...] = ()
+    if layer_compositions:
+        (
+            layers_changed,
+            layers_failed,
+            layers_joined,
+            stores_without_withdraw,
+            stores_without_carry,
+            layers_reclaimed,
+            generations_withdrawn,
+        ) = await run_layers(
+            layer_compositions,
+            runner=runner,
+            runnable=runnable,
+            refs=refs,
+            store_stage_id=store_stage_id,
+            store_stage_ids=store_stage_ids,
+            effective_batch_size=effective_batch_size,
+            retry_failed=retry_failed,
+            on_batch=on_batch,
+            indexing_ctx=indexing_ctx,
+            layer_runnables=layer_runnables,
+            llm=llm,
+            reprocess=reprocess,
+        )
+    return (
+        layers_changed,
+        layers_failed,
+        layers_joined,
+        stores_without_withdraw,
+        stores_without_carry,
+        layers_reclaimed,
+        generations_withdrawn,
+    )
+
+
+def _add_layer_readers_store(
+    indexing_ctx: Context,
+    specs: tuple[StageSpec, ...],
+    layer_compositions: Sequence[LayerComposition],
+    runnable: RunnablePipeline,
+) -> None:
+    """Offer the base's store to layer stages that read the corpus, when any does."""
+    layer_specs = tuple(
+        spec for c in layer_compositions for spec in (*c.layer_specs, *c.incremental_specs)
+    )
+    layer_readers_store = _store_instance_for_corpus_readers((*specs, *layer_specs), runnable)
+    if layer_readers_store is not None:
+        indexing_ctx.services.add(NodeStore, layer_readers_store)
+
+
+async def _index_claimed(
+    runner: Runner,
+    runnable: RunnablePipeline,
+    specs: tuple[StageSpec, ...],
+    refs: Sequence[SourceRef],
+    *,
+    claim_stack: AsyncExitStack,
+    layer_runnables: list[RunnablePipeline],
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+    resolved_pipeline: ResolvedPipeline | None,
+    pipeline: str | None,
+    base_name: str,
+    layers: tuple[str, ...],
+    layers_only: bool,
+    reprocess: bool,
+    retry_failed: bool,
+    store_stage_id: str | None,
+    store_stage_ids: tuple[str, ...],
+    store_for_readers: NodeStore | None,
+    indexing_ctx: Context,
+    effective_batch_size: int | None,
+    whole_corpus_for: tuple[str, ...],
+    on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
+    run_llm: LLMSection,
+    target: str | None,
+    target_live: str | None,
+) -> IndexResult:
+    """Check the layers, claim the store's writer, then run the base and every layer.
+
+    `run_index`'s own guarded body: `claim_stack` holds the writer claim and `layer_runnables`
+    collects every layer pipeline built, both for `run_index` to close whatever happens.
+    """
+    identity = (
+        pipeline_identity(resolved_pipeline)
+        if resolved_pipeline is not None
+        else _identity_of_specs(specs, registry=registry)
+    )
+    # Ledger task **43.8** — composed and checked before anything below is written or
+    # deleted: `_release_reparsed_sources` is the first write this function makes.
+    layer_compositions = compose_layers(
+        layers,
+        base=base_name,
+        specs=specs,
+        registry=registry,
+        reports=reports,
+        contributions=contributions,
+    )
+    require_layers_metadata_filter(
+        layers, runnable=runnable, store_stage_id=store_stage_id, specs=specs
+    )
+    require_corpus_layers_generation_holding(
+        layer_compositions, runnable=runnable, specs=specs, registry=registry
+    )
+    # R43.20: a layer stage whose contract reads the corpus is handed the base's store too.
+    if store_for_readers is None:
+        _add_layer_readers_store(indexing_ctx, specs, layer_compositions, runnable)
+    # Ledger task **43.18**: one writer per store, claimed before the first write.
+    writer = next((st.instance for st in runnable.stages if st.id == store_stage_id), None)
+    await claim_stack.enter_async_context(claim_writer_for(writer, command="weft index"))
+    # Read *before* the run writes over them: the comparison is against what the last index
+    # left, and `_record_sources` below replaces exactly those rows.
+    previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
+
+    # `work` is `_run_base`'s own concern — nothing here reads it back; `refs` is what
+    # `IndexResult.document_ids`/`content_hashes` are built from, unconditionally.
+    base_refs, base_skipped = _base_scope(
+        layer_compositions,
+        refs=refs,
+        previous=previous,
+        layers_only=layers_only,
+        reprocess=reprocess,
+    )
+    corpus_layers = frozenset(
+        corpus_scoped_layer_names(registry=registry, reports=reports, contributions=contributions)
+    )
+    changes, _work, counts, indexed_count, failed_count = await _run_base(
+        runnable,
+        runner,
+        layers_only=base_skipped,
+        refs=base_refs,
+        previous=previous,
+        identity=identity,
+        retry_failed=retry_failed,
+        reprocess=reprocess,
+        pipeline=pipeline,
+        store_stage_ids=store_stage_ids,
+        effective_batch_size=effective_batch_size,
+        whole_corpus_for=whole_corpus_for,
+        on_batch=on_batch,
+        indexing_ctx=indexing_ctx,
+        corpus_layers=corpus_layers,
+    )
+    summary = _summed(counts)
+    layers_released = _layers_released(
+        layer_compositions, changes=changes, previous=previous, reprocess=reprocess
+    )
+
+    (
+        layers_changed,
+        layers_failed,
+        layers_joined,
+        stores_without_withdraw,
+        stores_without_carry,
+        layers_reclaimed,
+        generations_withdrawn,
+    ) = await _layer_outcomes(
+        layer_compositions,
+        runner=runner,
+        runnable=runnable,
+        refs=refs,
+        store_stage_id=store_stage_id,
+        store_stage_ids=store_stage_ids,
+        effective_batch_size=effective_batch_size,
+        retry_failed=retry_failed,
+        on_batch=on_batch,
+        indexing_ctx=indexing_ctx,
+        layer_runnables=layer_runnables,
+        llm=run_llm,
+        reprocess=reprocess,
+    )
+
+    stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)
+    written_target, target_stopped_being_live, target_now_live = await _target_written(
+        runnable, target=target, target_live=target_live
+    )
+    layers_stale, layers_stale_progress, layers_stale_deleted = await stale_corpus_layers(
+        runnable=runnable,
+        store_stage_id=store_stage_id,
+        refs=refs,
+        registry=registry,
+        reports=reports,
+        contributions=contributions,
+    )
+    return IndexResult(
+        summary=summary,
+        stored_count=stored_count,
+        resolved_pipeline=resolved_pipeline,
+        document_ids=tuple(str(ref.source_id) for ref in refs),
+        content_hashes=content_hashes_of(refs),
+        source_changes={str(source): change for source, change in changes.items()},
+        pipeline_identity=identity,
+        documents_indexed=indexed_count,
+        documents_failed=failed_count,
+        payload_indexes=_payload_indexes(runnable, store_stage_id=store_stage_id),
+        degraded_expansions=await _degraded_expansions(
+            runnable, resolved_pipeline=resolved_pipeline, store_stage_id=store_stage_id
+        ),
+        target=written_target,
+        target_live=target_live,
+        target_stopped_being_live=target_stopped_being_live,
+        target_now_live=target_now_live,
+        layers_changed=layers_changed,
+        layers_failed=layers_failed,
+        layers_joined=layers_joined,
+        stores_without_withdraw=stores_without_withdraw,
+        stores_without_carry=stores_without_carry,
+        layers_reclaimed=layers_reclaimed,
+        generations_withdrawn=generations_withdrawn,
+        layers_released=layers_released,
+        layers_stale=layers_stale,
+        layers_stale_progress=layers_stale_progress,
+        layers_stale_deleted=layers_stale_deleted,
+    )
 
 
 async def run_index(
@@ -1189,163 +1500,41 @@ async def run_index(
     layer_runnables: list[RunnablePipeline] = []
 
     in_flight: BaseException | None = None
-    claim_stack: AsyncExitStack | None = None
+    claim_stack = AsyncExitStack()
     try:
-        identity = (
-            pipeline_identity(resolved_pipeline)
-            if resolved_pipeline is not None
-            else _identity_of_specs(specs, registry=registry)
-        )
-        # Ledger task **43.8** — composed and checked before anything below is written or
-        # deleted: `_release_reparsed_sources` is the first write this function makes.
-        layer_compositions = compose_layers(
-            layers,
-            base=base_name,
-            specs=specs,
+        return await _index_claimed(
+            runner,
+            runnable,
+            specs,
+            refs,
+            claim_stack=claim_stack,
+            layer_runnables=layer_runnables,
             registry=registry,
             reports=reports,
             contributions=contributions,
-        )
-        require_layers_metadata_filter(
-            layers, runnable=runnable, store_stage_id=store_stage_id, specs=specs
-        )
-        require_corpus_layers_generation_holding(
-            layer_compositions, runnable=runnable, specs=specs, registry=registry
-        )
-        # R43.20: a layer stage whose contract reads the corpus is handed the base's store too.
-        if store_for_readers is None:
-            layer_specs = tuple(
-                spec for c in layer_compositions for spec in (*c.layer_specs, *c.incremental_specs)
-            )
-            layer_readers_store = _store_instance_for_corpus_readers(
-                (*specs, *layer_specs), runnable
-            )
-            if layer_readers_store is not None:
-                indexing_ctx.services.add(NodeStore, layer_readers_store)
-        # Ledger task **43.18**: one writer per store, claimed before the first write.
-        writer = next((st.instance for st in runnable.stages if st.id == store_stage_id), None)
-        claim_stack = AsyncExitStack()
-        await claim_stack.enter_async_context(claim_writer_for(writer, command="weft index"))
-        # Read *before* the run writes over them: the comparison is against what the last index
-        # left, and `_record_sources` below replaces exactly those rows.
-        previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
-
-        # `work` is `_run_base`'s own concern — nothing here reads it back; `refs` is what
-        # `IndexResult.document_ids`/`content_hashes` are built from, unconditionally.
-        base_refs, base_skipped = _base_scope(
-            layer_compositions,
-            refs=refs,
-            previous=previous,
+            resolved_pipeline=resolved_pipeline,
+            pipeline=pipeline,
+            base_name=base_name,
+            layers=layers,
             layers_only=layers_only,
             reprocess=reprocess,
-        )
-        corpus_layers = frozenset(
-            corpus_scoped_layer_names(
-                registry=registry, reports=reports, contributions=contributions
-            )
-        )
-        changes, _work, counts, indexed_count, failed_count = await _run_base(
-            runnable,
-            runner,
-            layers_only=base_skipped,
-            refs=base_refs,
-            previous=previous,
-            identity=identity,
             retry_failed=retry_failed,
-            reprocess=reprocess,
-            pipeline=pipeline,
+            store_stage_id=store_stage_id,
             store_stage_ids=store_stage_ids,
+            store_for_readers=store_for_readers,
+            indexing_ctx=indexing_ctx,
             effective_batch_size=effective_batch_size,
             whole_corpus_for=whole_corpus_for,
             on_batch=on_batch,
-            indexing_ctx=indexing_ctx,
-            corpus_layers=corpus_layers,
-        )
-        summary = _summed(counts)
-        layers_released = _layers_released(
-            layer_compositions, changes=changes, previous=previous, reprocess=reprocess
-        )
-
-        layers_changed: tuple[str, ...] = ()
-        layers_failed: tuple[LayerFailure, ...] = ()
-        layers_joined: tuple[LayerJoin, ...] = ()
-        stores_without_withdraw: tuple[LayerStoreFallback, ...] = ()
-        stores_without_carry: tuple[LayerStoreFallback, ...] = ()
-        layers_reclaimed: tuple[LayerReclaim, ...] = ()
-        generations_withdrawn: tuple[GenerationId, ...] = ()
-        if layer_compositions:
-            (
-                layers_changed,
-                layers_failed,
-                layers_joined,
-                stores_without_withdraw,
-                stores_without_carry,
-                layers_reclaimed,
-                generations_withdrawn,
-            ) = await run_layers(
-                layer_compositions,
-                runner=runner,
-                runnable=runnable,
-                refs=refs,
-                store_stage_id=store_stage_id,
-                store_stage_ids=store_stage_ids,
-                effective_batch_size=effective_batch_size,
-                retry_failed=retry_failed,
-                on_batch=on_batch,
-                indexing_ctx=indexing_ctx,
-                layer_runnables=layer_runnables,
-                llm=run_llm,
-                reprocess=reprocess,
-            )
-
-        stored_count = await _stored_count(runnable, store_stage_id=store_stage_id)
-        written_target, target_stopped_being_live, target_now_live = await _target_written(
-            runnable, target=target, target_live=target_live
-        )
-        layers_stale, layers_stale_progress, layers_stale_deleted = await stale_corpus_layers(
-            runnable=runnable,
-            store_stage_id=store_stage_id,
-            refs=refs,
-            registry=registry,
-            reports=reports,
-            contributions=contributions,
-        )
-        return IndexResult(
-            summary=summary,
-            stored_count=stored_count,
-            resolved_pipeline=resolved_pipeline,
-            document_ids=tuple(str(ref.source_id) for ref in refs),
-            content_hashes=content_hashes_of(refs),
-            source_changes={str(source): change for source, change in changes.items()},
-            pipeline_identity=identity,
-            documents_indexed=indexed_count,
-            documents_failed=failed_count,
-            payload_indexes=_payload_indexes(runnable, store_stage_id=store_stage_id),
-            degraded_expansions=await _degraded_expansions(
-                runnable, resolved_pipeline=resolved_pipeline, store_stage_id=store_stage_id
-            ),
-            target=written_target,
+            run_llm=run_llm,
+            target=target,
             target_live=target_live,
-            target_stopped_being_live=target_stopped_being_live,
-            target_now_live=target_now_live,
-            layers_changed=layers_changed,
-            layers_failed=layers_failed,
-            layers_joined=layers_joined,
-            stores_without_withdraw=stores_without_withdraw,
-            stores_without_carry=stores_without_carry,
-            layers_reclaimed=layers_reclaimed,
-            generations_withdrawn=generations_withdrawn,
-            layers_released=layers_released,
-            layers_stale=layers_stale,
-            layers_stale_progress=layers_stale_progress,
-            layers_stale_deleted=layers_stale_deleted,
         )
     except BaseException as failure:
         in_flight = failure
         raise
     finally:
-        if claim_stack is not None:
-            await claim_stack.aclose()
+        await claim_stack.aclose()
         await close_each(
             tuple(
                 CloseTarget(
@@ -1464,7 +1653,9 @@ def corpus_documents(
 
 
 def content_hashes_of(sources: Iterable[SourceDoc | SourceRef]) -> tuple[str, ...]:
-    """Each source's sha256 content hash, in the order given — the entries a run record's
+    """Each source's sha256 content hash, in the order given.
+
+    Each source's sha256 content hash, in the order given — the entries a run record's
     corpus digest is over (ledger task **16.0**), widened by **43.1** to a `SourceRef` as
     readily as a `SourceDoc`: both name the same sha256 over the same bytes, and a `SourceRef`
     already carries it without needing the bytes reread.
@@ -1476,7 +1667,9 @@ def content_hashes_of(sources: Iterable[SourceDoc | SourceRef]) -> tuple[str, ..
 
 
 def _content_hash(doc: SourceDoc | SourceRef) -> str:
-    """One source's content hash, and this module's only definition of it — read by
+    """Compute one source's content hash.
+
+    One source's content hash, and this module's only definition of it — read by
     `SourceRecord.content_hash`, by `changes_against_records`' comparison, and by the corpus
     digest, three readers that have to agree about what "the same document" means.
 
@@ -1499,7 +1692,9 @@ def _specs_from_document(
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
 ) -> tuple[ResolvedPipeline, tuple[StageSpec, ...]]:
-    """`pipeline_name` resolved into a `ResolvedPipeline` and the `StageSpec` list `Runner.
+    """Resolve `pipeline_name` into a `ResolvedPipeline` and its `StageSpec` list.
+
+    `pipeline_name` resolved into a `ResolvedPipeline` and the `StageSpec` list `Runner.
     resolve` consumes.
 
     `contributions` — task **5.3a** (`S8`) — reaches both `contracts_for` and `resolve()`
@@ -1606,7 +1801,9 @@ def _embedder_instance_of(
 
 
 async def _target_live_name(runnable: RunnablePipeline) -> str | None:
-    """The store's own live target name, right now — ledger task **34.6**, widened by **34.10**
+    """Read the store's live target name right now.
+
+    The store's own live target name, right now — ledger task **34.6**, widened by **34.10**
     to run unconditionally: `IndexResult.target` needs the live name whether or not `--target`
     was given, and so does the post-run check for whether it moved.
 
@@ -1631,7 +1828,9 @@ async def _target_live_name(runnable: RunnablePipeline) -> str | None:
 async def _target_written(
     runnable: RunnablePipeline, *, target: str | None, target_live: str | None
 ) -> tuple[str | None, bool, str | None]:
-    """`(target this run wrote, target_stopped_being_live, target_now_live)` — ledger task
+    """Report the target this run wrote and how liveness moved.
+
+    `(target this run wrote, target_stopped_being_live, target_now_live)` — ledger task
     **34.10**. Lifted out of `run_index` so this branch stays out of that function's own
     complexity budget, `_bind_store_stages`' own footing.
 
@@ -1679,7 +1878,9 @@ async def _claim_embedding_for_stores(
     embedder_instance: Embedder | None,
     target: str | None = None,
 ) -> None:
-    """Record `embedder_instance`'s identity against every store stage this document writes
+    """Record the embedder's identity against every store stage the document writes.
+
+    Record `embedder_instance`'s identity against every store stage this document writes
     through — ledger task **34.4**. A document with no embed stage claims nothing —
     `embedder_instance` is `None` on `index_specs`' own footing, `_embedder_instance_of`'s
     docstring above.
@@ -1714,7 +1915,9 @@ async def _claim_embedding_for_stores(
 def _store_instance_for_corpus_readers(
     specs: Sequence[StageSpec], runnable: RunnablePipeline
 ) -> NodeStore | None:
-    """The **built instance** of this document's store stage, but only when the document also
+    """The built store instance, when the document also has a corpus-reading stage.
+
+    The **built instance** of this document's store stage, but only when the document also
     contains a stage whose contract reads the corpus — grilling session **G16**, ledger task
     10.14. `Revisable` is the first-party one; carried repair **R43.20** reads the contract's own
     `reads_corpus` declaration instead of `Revisable`'s identity, so a third party's contract
@@ -1761,7 +1964,9 @@ def _store_instance_for_corpus_readers(
 
 
 def _store_stage_id_of(specs: tuple[StageSpec, ...]) -> str | None:
-    """The id of the **first** stage in `specs` registered under the `NodeStore` contract, or
+    """The id of the first `NodeStore` stage in `specs`, or `None`.
+
+    The id of the **first** stage in `specs` registered under the `NodeStore` contract, or
     `None` if no stage is.
 
     Not mandatory the way `_extractor_name_of` is: a document that stores nowhere still
@@ -1909,7 +2114,9 @@ async def _rerun_batch_singly(
     identity: str,
     pipeline: str | None,
 ) -> tuple[list[RunSummary], int, int]:
-    """R43.1 — a batch of more than one document that returned `Failed` is re-run alone, one
+    """Re-run a failed multi-document batch one document at a time.
+
+    R43.1 — a batch of more than one document that returned `Failed` is re-run alone, one
     document at a time, so only a document that fails alone is recorded `FAILED`; a service
     fault still raises through `_record_batch_failure` for that one document and stops the run.
     """
@@ -2040,7 +2247,9 @@ async def _degraded_expansions(
     resolved_pipeline: ResolvedPipeline | None,
     store_stage_id: str | None,
 ) -> int | None:
-    """How many stored chunks carry `ExpansionDegraded`, or `None` when this run cannot say —
+    """Count stored chunks carrying `ExpansionDegraded`, or `None` when unknowable.
+
+    How many stored chunks carry `ExpansionDegraded`, or `None` when this run cannot say —
     repair **R38.13**.
 
     `None` on the default four-stage path, honestly: `index_specs` resolves no
@@ -2069,7 +2278,9 @@ async def _release_reparsed_sources(
     changes: Mapping[SourceId, SourceChange],
     corpus_layers: frozenset[str],
 ) -> tuple[str, ...]:
-    """Release what a re-parsed document's previous parse left, before the new one runs —
+    """Release what a re-parsed document's previous parse left, before the new run.
+
+    Release what a re-parsed document's previous parse left, before the new one runs —
     ledger task **27.2**, and `L9.37`'s half of Phase 27's one cause.
 
     A node id is a content digest, so a document whose bytes or whose pipeline moved produces a
@@ -2189,7 +2400,9 @@ async def _demote_released(
 
 
 def _delete_source_of(instance: object) -> Callable[[SourceId], Awaitable[object]] | None:
-    """`instance.delete_source`, if it has one and it is callable — the same defensive shape as
+    """The instance's `delete_source` if it has a callable one, else `None`.
+
+    `instance.delete_source`, if it has one and it is callable — the same defensive shape as
     `_put_source_of`, and on the same contract: `delete_source` **is** published on `NodeStore`,
     so this is a guard against a stage that only structurally resembles one, never a licence for
     a store to omit it.
@@ -2338,33 +2551,37 @@ def changes_against_records(
     owes a task of its own; 9.17's property is visibility, and quietly widening it here would be a
     deletion on the ingest path that nobody argued for.
     """
-    found: dict[SourceId, SourceChange] = {}
-    for doc in docs:
-        record = records.get(doc.source_id)
-        if record is None:
-            found[doc.source_id] = SourceChange.NEW
-            continue
-        if record.status is SourceStatus.FAILED:
-            if record.content_hash != _content_hash(doc):
-                found[doc.source_id] = SourceChange.CONTENT_CHANGED
-            elif record.pipeline_identity != identity:
-                found[doc.source_id] = SourceChange.PIPELINE_CHANGED
-            elif retry_failed:
-                found[doc.source_id] = SourceChange.RETRIED
-            else:
-                found[doc.source_id] = SourceChange.FAILED
-            continue
-        if record.status is not SourceStatus.ACTIVE:
-            found[doc.source_id] = SourceChange.INCOMPLETE
-            continue
+    return {
+        doc.source_id: _change_of(
+            doc, records.get(doc.source_id), identity=identity, retry_failed=retry_failed
+        )
+        for doc in docs
+    }
+
+
+def _change_of(
+    doc: SourceDoc | SourceRef,
+    record: SourceRecord | None,
+    *,
+    identity: str,
+    retry_failed: bool,
+) -> SourceChange:
+    """What re-indexing one source under `identity` changes, against its last `record`."""
+    if record is None:
+        return SourceChange.NEW
+    if record.status is SourceStatus.FAILED:
         if record.content_hash != _content_hash(doc):
-            found[doc.source_id] = SourceChange.CONTENT_CHANGED
-            continue
+            return SourceChange.CONTENT_CHANGED
         if record.pipeline_identity != identity:
-            found[doc.source_id] = SourceChange.PIPELINE_CHANGED
-            continue
-        found[doc.source_id] = SourceChange.UNCHANGED
-    return found
+            return SourceChange.PIPELINE_CHANGED
+        return SourceChange.RETRIED if retry_failed else SourceChange.FAILED
+    if record.status is not SourceStatus.ACTIVE:
+        return SourceChange.INCOMPLETE
+    if record.content_hash != _content_hash(doc):
+        return SourceChange.CONTENT_CHANGED
+    if record.pipeline_identity != identity:
+        return SourceChange.PIPELINE_CHANGED
+    return SourceChange.UNCHANGED
 
 
 async def _record_sources(
@@ -2380,7 +2597,9 @@ async def _record_sources(
     previous: Mapping[SourceId, SourceRecord] | None = None,
     demoted: frozenset[str] = frozenset(),
 ) -> None:
-    """One `SourceRecord` per `SourceDoc` this run indexed, in **every** store it was written
+    """Record one `SourceRecord` per indexed `SourceDoc` in every store written to.
+
+    One `SourceRecord` per `SourceDoc` this run indexed, in **every** store it was written
     to — ledger task **6.24**'s repair of the defect `02` §1 documents, widened by carried
     repair **R11.4**.
 
@@ -2516,7 +2735,9 @@ async def _record_batch_failure(
     stage: str | None,
     message: str,
 ) -> None:
-    """Every member of a batch that did not produce, recorded `SourceStatus.FAILED` and released
+    """Record every member of a failed batch as `FAILED` and release it.
+
+    Every member of a batch that did not produce, recorded `SourceStatus.FAILED` and released
     — ledger **36.1**.
 
     Every document in `batch` gets the same `error_type`/`stage`/`message`: they shared the one
@@ -2562,7 +2783,9 @@ async def _record_batch_failure(
 def _next_attempts(
     previous: SourceRecord | None, doc: SourceDoc | SourceRef, *, identity: str, batch_size: int
 ) -> int:
-    """`SourceFailure.attempts` for `doc`'s next failed record — ledger **36.1**, owner-settled
+    """Compute `SourceFailure.attempts` for a document's next failed record.
+
+    `SourceFailure.attempts` for `doc`'s next failed record — ledger **36.1**, owner-settled
     2026-09-21.
 
     `1` unless the previous record for this source was itself `FAILED` under the identical bytes
@@ -2585,7 +2808,9 @@ def _next_attempts(
 
 
 def _failing_stage(records: Sequence[StageRecord]) -> str | None:
-    """The `position` of the last top-level `wrap`-ed call a batch's `recording()` scope saw fail
+    """The position of the last top-level wrapped call a batch saw fail.
+
+    The `position` of the last top-level `wrap`-ed call a batch's `recording()` scope saw fail
     — ledger **36.1**.
 
     `parent is None` picks a stage boundary itself — the identical call `Runner._invoke_stage`
@@ -2623,7 +2848,9 @@ def _list_sources_of(instance: object) -> Callable[[], Awaitable[Sequence[Source
 
 
 def _put_source_of(instance: object) -> Callable[[SourceRecord], Awaitable[None]] | None:
-    """`instance.put_source`, if it has one and it is callable — the same defensive shape as
+    """The instance's `put_source` if it has a callable one, else `None`.
+
+    `instance.put_source`, if it has one and it is callable — the same defensive shape as
     `_count_of`. `put_source` **is** on the published `NodeStore` contract, so
     `None` here is not an admission the contract is optional; it is the identical spirit
     `_stored_count`'s own docstring already states for `count`.

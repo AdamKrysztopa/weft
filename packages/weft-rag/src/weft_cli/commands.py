@@ -291,7 +291,9 @@ class TargetAlreadyExistsError(WeftError):
 
 
 class UnresolvedPluginNameError(CommandRefusalError, UnresolvedNameError):
-    """`CommandRefusalError`'s own family member for a genuine name-resolution failure —
+    """Refusal for a plugin name that genuinely fails to resolve.
+
+    `CommandRefusalError`'s own family member for a genuine name-resolution failure —
     finding 2 of the 2026-08-20 Phase 3 review, repairing tasks 3.2/3.3/3.7 (`docs/build-ledger.
     md`'s dated paragraph carries the argument in full).
 
@@ -324,7 +326,9 @@ class UnresolvedPluginNameError(CommandRefusalError, UnresolvedNameError):
 
 
 class ConflictingIndexModeError(WeftError):
-    """`weft index` was given both `--extract` and `--pipeline` — two different, mutually
+    """Refusal for `weft index` given both `--extract` and `--pipeline`.
+
+    `weft index` was given both `--extract` and `--pipeline` — two different, mutually
     exclusive claims about what should run: narrow the default four-stage path's own
     auto-discovery to one named extractor, or run a whole document whose own `extract`
     stage already names its plugin (task **4.0**). Neither wins silently over the other,
@@ -350,7 +354,9 @@ class NoLayersToRunError(WeftError):
 
 
 class ConflictingAskModeError(WeftError):
-    """`weft ask --retrieve-only --pipeline <name>` was given a pipeline that ends in a
+    """Refusal for `weft ask --retrieve-only` naming a pipeline that ends in a `Generator`.
+
+    `weft ask --retrieve-only --pipeline <name>` was given a pipeline that ends in a
     `Generator` — repair **R21.5** narrowed this from every `--retrieve-only`/`--pipeline`
     pairing to exactly this one: `--retrieve-only` no longer refuses a named pipeline on
     sight, because a pipeline can end in a retrieval stage just as easily as a generating
@@ -372,14 +378,18 @@ class ConflictingAskModeError(WeftError):
 
 
 class LayerDemotionFailedError(WeftError):
-    """`weft delete` could not mark a corpus layer the source covered `STALE`, so the delete was
+    """Refusal for a `weft delete` that could not mark a covering corpus layer stale.
+
+    `weft delete` could not mark a corpus layer the source covered `STALE`, so the delete was
     refused before anything was removed — tasks **43.21** and **R43.33**. Deleting anyway would
     serve the unmarked tree whole with a hole in it.
     """
 
 
 class PendingLayerError(WeftError):
-    """`--pipeline` named a rung whose `route.requires` layer is not built on every indexed
+    """Refusal for a `--pipeline` rung whose required layer is not built everywhere.
+
+    `--pipeline` named a rung whose `route.requires` layer is not built on every indexed
     source — ledger task **43.9**. A rung reached through the router is simply not offered
     (`weft_retrieve.engine.route_catalogue`'s own `ready_layers` filter); naming one directly
     bypasses that filter, so it is refused here instead, unless `--allow-pending` says the
@@ -410,7 +420,9 @@ def _raise_for_plugin_refusal(refusal: PluginRefusal | None) -> None:
 
 
 def _stores_in_use(deps: Dependencies) -> frozenset[str]:
-    """Every `NodeStore` name `weft delete`/`weft reconcile` must reach — task **6.18**, G13's
+    """Every `NodeStore` name that `weft delete` and `weft reconcile` must reach.
+
+    Every `NodeStore` name `weft delete`/`weft reconcile` must reach — task **6.18**, G13's
     first repair (`docs/02-extension-model.md` §1 → *Extended by G13*), narrowed by carried
     repair **R11.2**: the configured `[services] store`, plus every `NodeStore` reachable from a
     project's *own* pipeline documents — including through their `extends:` chains — or named by
@@ -429,7 +441,9 @@ def _stores_in_use(deps: Dependencies) -> frozenset[str]:
 
 
 async def _require_target_exists(deps: Dependencies, target: str | None) -> None:
-    """`weft_engine.targets.require_existing_target`, against `[services] store` — every read
+    """Refuse a read command whose target does not exist in `[services] store`.
+
+    `weft_engine.targets.require_existing_target`, against `[services] store` — every read
     command's own existence check, ledger task **34.6**. `None` — every read naming no explicit
     target — instead checks that this project's own `TargetHolding` participants agree on which
     target is live (`weft_cli.target_commands.check_participants_agree`, ledger task **34.11**):
@@ -450,7 +464,9 @@ async def _require_target_exists(deps: Dependencies, target: str | None) -> None
 async def _read_sources_by_store(
     deps: Dependencies, target: str | None
 ) -> Outcome[tuple[tuple[str, tuple[SourceRecord, ...]], ...]]:
-    """One `list_sources()` read per store `_stores_in_use` names, bound to `target` — the
+    """Read `list_sources()` once per store in use, bound to `target`.
+
+    One `list_sources()` read per store `_stores_in_use` names, bound to `target` — the
     fan-out `SourcesListCommand.run` and `AskCommand`'s own coverage line share, ledger task
     **43.4**, through the identical `wrap(..., stage="sources:list")`/`aclose` seam, so the two
     cannot disagree about which stores answer or how a failed read is reported. A store without
@@ -492,7 +508,9 @@ async def _read_sources_by_store(
 
 @dataclass(frozen=True, slots=True)
 class _AskCoverage:
-    """`_coverage_for`'s own answer — ledger tasks **43.4**/**43.9** share the one
+    """What `_coverage_for` answers: coverage, layers, and the records behind them.
+
+    `_coverage_for`'s own answer — ledger tasks **43.4**/**43.9** share the one
     `list_sources()` read this carries: `coverage`, every layer's own `LayerCoverage` (built
     or not — `AskCommandResult.layers`'s own docstring), and the records both were computed
     from, so a caller checking `PendingLayerError` reads `bases` off them rather than a second
@@ -505,7 +523,9 @@ class _AskCoverage:
 
 
 async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[_AskCoverage]:
-    """`AskCommandResult.coverage`/`.layers` for one ask — ledger task **43.4**, widened at
+    """Compute `AskCommandResult.coverage` and `.layers` for one ask.
+
+    `AskCommandResult.coverage`/`.layers` for one ask — ledger task **43.4**, widened at
     **43.9**. `coverage` is `None` only when no store `_stores_in_use` names could answer
     `list_sources` at all, so a build with none does (every existing test's own registry,
     `weft eval baseline`'s deterministic store included) renders exactly as it did before this
@@ -527,7 +547,9 @@ async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[_AskC
 
 
 def _layer_progress(layer: str, ask_coverage: _AskCoverage) -> tuple[int, int]:
-    """`(built, of)` for `layer` off `ask_coverage.layers` — `0` built and every `ACTIVE`
+    """Count how many sources have `layer` built, out of how many it could cover.
+
+    `(built, of)` for `layer` off `ask_coverage.layers` — `0` built and every `ACTIVE`
     source for `of` when no record carries the layer at all (the "Already decided" text
     ledger task **43.9**'s brief states for `PendingLayerError`'s own message).
     """
@@ -538,7 +560,9 @@ def _layer_progress(layer: str, ask_coverage: _AskCoverage) -> tuple[int, int]:
 
 
 def _raise_unknown_route_layer(doc: str, layer: str, *, deps: Dependencies) -> None:
-    """`UnknownLayerError` for `doc`'s own `route.requires`, naming `layer` — carried repair
+    """Raise `UnknownLayerError` for a document's `route.requires` naming `layer`.
+
+    `UnknownLayerError` for `doc`'s own `route.requires`, naming `layer` — carried repair
     **R43.13**. `installed_layers` is only computed here, once a refusal is certain, for
     `valid_options` — the cheap membership check both call sites run first does not need it.
     """
@@ -556,7 +580,9 @@ def _raise_unknown_route_layer(doc: str, layer: str, *, deps: Dependencies) -> N
 def _raise_for_uninstalled_route_layers(
     catalogue: Mapping[str, Pipeline], *, deps: Dependencies
 ) -> None:
-    """Refuse the whole ask, before either the router or a named pipeline ever runs, when any
+    """Refuse an ask when a catalogue document requires a layer nothing installs.
+
+    Refuse the whole ask, before either the router or a named pipeline ever runs, when any
     catalogue document's own `route.requires` names something the catalogue does not hold at
     all — carried repair **R43.13**, found by the exit review: a misspelt layer left the rung
     never offered and `PendingLayerError`'s own remedy then failed with `UnknownLayerError`,
@@ -575,7 +601,9 @@ def _raise_if_pending(
     ask_coverage: _AskCoverage,
     deps: Dependencies,
 ) -> None:
-    """Refuse `pipeline_name` when its own `route.requires` layer is not built on every
+    """Refuse `pipeline_name` while its required layer is not built on every source.
+
+    Refuse `pipeline_name` when its own `route.requires` layer is not built on every
     indexed source — ledger task **43.9**. Does nothing for a rung naming no layer, or one
     whose layer is already built everywhere.
     """
@@ -640,7 +668,9 @@ def _excluded_rung_explanations(
 
 
 def _register_corpus(ctx: Context, deps: Dependencies) -> None:
-    """Put the configured `NodeStore` on the `Context` a reconcile pass carries — task
+    """Put the configured `NodeStore` on the `Context` a reconcile pass carries.
+
+    Put the configured `NodeStore` on the `Context` a reconcile pass carries — task
     **6.19**, G13's second repair (`docs/02-extension-model.md` §1 → *Extended by G13*): "the
     CLI registers the configured store into the `Context` a reconcile pass carries, and a
     participant reaches it with `ctx.require(NodeStore)`." No contract change: `Context.require`
@@ -673,7 +703,9 @@ class NoArgs(BaseModel):
 
 
 class IndexArgs(BaseModel):
-    """`weft index <path> [--extract NAME | --pipeline NAME] [--reconcile repair|full]` — see
+    """Command-line arguments for `weft index`.
+
+    `weft index <path> [--extract NAME | --pipeline NAME] [--reconcile repair|full]` — see
     `weft_cli.argparse_gen` for how a field with no default becomes a positional and one with
     a default becomes a flag.
 
@@ -845,7 +877,9 @@ class AskArgs(BaseModel):
 
 
 class IndexCommandResult(CommandResult):
-    """What `weft index` produced — the same two facts `weft_cli.ingest.IndexResult` always
+    """What `weft index` produced, as a `CommandResult` a renderer can format.
+
+    What `weft index` produced — the same two facts `weft_cli.ingest.IndexResult` always
     carried, now a `CommandResult` a renderer can format without importing that dataclass.
 
     **`reconcile`, task 5.1c.** The automatic post-index pass's own result, reusing
@@ -931,7 +965,9 @@ class IndexCommandResult(CommandResult):
 
 
 class AskCommandResult(CommandResult):
-    """What `weft ask` produced — a routed, generated `Answer` by default, or, with
+    """What `weft ask` produced: a generated `Answer` or ranked passages.
+
+    What `weft ask` produced — a routed, generated `Answer` by default, or, with
     `--retrieve-only`, the ranked passages Phase 0's own contract always returned.
 
     Exactly one of `answer` / `hits` is populated for a given run — `answer is not None`
@@ -1050,6 +1086,15 @@ class RenderCommand:
         del config  # this pack takes no `with:`-style configuration
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Extract and render one path through the named pipeline.
+
+        Args:
+            args: The parsed `RenderArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `RenderCommandResult`.
+        """
         render_args = cast(RenderArgs, args)
         deps = ctx.require(Dependencies)
         rendition = await run_render(
@@ -1072,7 +1117,9 @@ class PluginsListCommandResult(CommandResult):
 
 
 class PluginsDoctorCommandResult(CommandResult):
-    """`weft plugins doctor`'s fuller answer — reports, displacements, unconsulted pins, and
+    """The fuller answer of `weft plugins doctor`, including tracing status.
+
+    `weft plugins doctor`'s fuller answer — reports, displacements, unconsulted pins, and
     whether the process's `TracerProvider` is real. `tracing` — task **5.1d** — is
     `weft_cli.tracing_status.describe_tracing()`'s own words, read *after* discovery has run
     so it reflects whatever actually happened, `weft-otel` installed or not.
@@ -1125,6 +1172,96 @@ def _defaulted_embedder(deps: Dependencies, resolved: ResolvedPipeline | None) -
     return deps.services.embed if deps.services.embed in ran else None
 
 
+def _index_layers(index_args: IndexArgs, deps: Dependencies) -> tuple[str, ...]:
+    """The layers one `weft index` run builds, refusing `--layers-only` with none named.
+
+    Raises:
+        NoLayersToRunError: `--layers-only` was given and no layer is named anywhere.
+    """
+    # Ledger task **43.8** — `--layers` overrides `[index] layers` for this one run;
+    # `--layers none` runs none whatever the project names. `deps.index_policy.layers`
+    # is read only when the flag is absent at all, never merged with it. Resolved before
+    # the default path's own plugin checks below, so `--layers-only` with nothing named
+    # anywhere is refused by name rather than by whatever `[services] embed` happens to
+    # resolve to.
+    layers = (
+        ()
+        if index_args.layers == "none"
+        else tuple(name.strip() for name in index_args.layers.split(",") if name.strip())
+        if index_args.layers is not None
+        else deps.index_policy.layers
+    )
+    if index_args.layers_only and not layers:
+        raise NoLayersToRunError(
+            "--layers-only was given, but no layer is named: pass --layers a,b or set "
+            "[index] layers in weft.toml."
+        )
+    return layers
+
+
+def _require_default_index_plugins(index_args: IndexArgs, deps: Dependencies) -> None:
+    """Refuse the default four-stage path when a pack or plugin it promises is missing.
+
+    Raises:
+        CommandRefusalError: `INDEX_PACKS` are not all active, or the extractor, embedder or
+            store the run would use does not resolve.
+    """
+    active_refusal = require_active(deps.reports, packs=INDEX_PACKS)
+    if active_refusal is not None:
+        # `require_active` never resolves `weft_kernel.registry.UnknownPluginError` —
+        # it checks a fixed distribution list, not a plugin name — so it has no
+        # `valid_options` to lose in the first place; see `weft_engine.registry_bootstrap.
+        # require_active`'s own docstring for why it structurally cannot be the gate
+        # `require_plugin` below is.
+        code, message = active_refusal
+        raise CommandRefusalError(message, exit_code=code)
+
+    plugin_refusal: PluginRefusal | None = None
+    if index_args.extract is not None:
+        plugin_refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=Extractor,
+            name=index_args.extract,
+            setting="--extract",
+        )
+    if plugin_refusal is None:
+        plugin_refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=Embedder,
+            name=deps.services.embed,
+            setting="[services] embed",
+        )
+    if plugin_refusal is None:
+        plugin_refusal = require_plugin(
+            deps.reports,
+            registry=deps.registry,
+            contract=NodeStore,
+            name=deps.services.store,
+            setting="[services] store",
+        )
+    _raise_for_plugin_refusal(plugin_refusal)
+
+
+def _write_index_run_record(
+    deps: Dependencies,
+    path: str,
+    resolved_pipeline: ResolvedPipeline,
+    content_hashes: tuple[str, ...],
+) -> None:
+    """Persist the run record of one `--pipeline` index under `DEFAULT_INDEX_RUNS_DIR`."""
+    record = build_run_record(
+        recorded_at=datetime.now(UTC).isoformat(),
+        resolved_pipeline=resolved_pipeline,
+        corpus=corpus_identity(path, content_hashes),
+        corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
+        reports=deps.reports,
+        distribution_versions=active_distribution_versions(deps.reports),
+    )
+    write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
+
+
 class IndexCommand:
     """`weft index` — see the module docstring for what moved and what did not.
 
@@ -1148,6 +1285,20 @@ class IndexCommand:
         del config  # this pack takes no `with:`-style configuration
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Index one directory, then run the automatic reconcile pass.
+
+        Args:
+            args: The parsed `IndexArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `IndexCommandResult`.
+
+        Raises:
+            ConflictingIndexModeError: Both `--extract` and `--pipeline` were given.
+            NoLayersToRunError: `--layers-only` was given with no layer named.
+            CommandRefusalError: The default path's packs or plugins do not resolve.
+        """
         index_args = cast(IndexArgs, args)  # `args_model` is the isinstance contract
         deps = ctx.require(Dependencies)
         if index_args.target is None:
@@ -1165,24 +1316,7 @@ class IndexCommand:
                 "its plugin. Choose one."
             )
 
-        # Ledger task **43.8** — `--layers` overrides `[index] layers` for this one run;
-        # `--layers none` runs none whatever the project names. `deps.index_policy.layers`
-        # is read only when the flag is absent at all, never merged with it. Resolved before
-        # the default path's own plugin checks below, so `--layers-only` with nothing named
-        # anywhere is refused by name rather than by whatever `[services] embed` happens to
-        # resolve to.
-        layers = (
-            ()
-            if index_args.layers == "none"
-            else tuple(name.strip() for name in index_args.layers.split(",") if name.strip())
-            if index_args.layers is not None
-            else deps.index_policy.layers
-        )
-        if index_args.layers_only and not layers:
-            raise NoLayersToRunError(
-                "--layers-only was given, but no layer is named: pass --layers a,b or set "
-                "[index] layers in weft.toml."
-            )
+        layers = _index_layers(index_args, deps)
 
         if index_args.pipeline is None and not index_args.layers_only:
             # `--layers-only` skips this block on the identical footing `--pipeline` already
@@ -1191,42 +1325,7 @@ class IndexCommand:
             # run at all (no extract, no base pipeline) — see `weft_cli.ingest.run_index`'s
             # own docstring. Checking them here would refuse a layers-only run over an
             # already-indexed corpus for a plugin that invocation never touches.
-            active_refusal = require_active(deps.reports, packs=INDEX_PACKS)
-            if active_refusal is not None:
-                # `require_active` never resolves `weft_kernel.registry.UnknownPluginError` —
-                # it checks a fixed distribution list, not a plugin name — so it has no
-                # `valid_options` to lose in the first place; see `weft_engine.registry_bootstrap.
-                # require_active`'s own docstring for why it structurally cannot be the gate
-                # `require_plugin` below is.
-                code, message = active_refusal
-                raise CommandRefusalError(message, exit_code=code)
-
-            plugin_refusal: PluginRefusal | None = None
-            if index_args.extract is not None:
-                plugin_refusal = require_plugin(
-                    deps.reports,
-                    registry=deps.registry,
-                    contract=Extractor,
-                    name=index_args.extract,
-                    setting="--extract",
-                )
-            if plugin_refusal is None:
-                plugin_refusal = require_plugin(
-                    deps.reports,
-                    registry=deps.registry,
-                    contract=Embedder,
-                    name=deps.services.embed,
-                    setting="[services] embed",
-                )
-            if plugin_refusal is None:
-                plugin_refusal = require_plugin(
-                    deps.reports,
-                    registry=deps.registry,
-                    contract=NodeStore,
-                    name=deps.services.store,
-                    setting="[services] store",
-                )
-            _raise_for_plugin_refusal(plugin_refusal)
+            _require_default_index_plugins(index_args, deps)
 
         on_batch = (
             deps.token_sink.batch_progress
@@ -1258,15 +1357,9 @@ class IndexCommand:
             # four-stage path resolves no document, so it writes nothing: `RunRecord.
             # resolved_pipeline` is mandatory, and the only store that path writes to is
             # `[services] store`, which `stores_in_use` already counts unconditionally.
-            record = build_run_record(
-                recorded_at=datetime.now(UTC).isoformat(),
-                resolved_pipeline=result.resolved_pipeline,
-                corpus=corpus_identity(index_args.path, result.content_hashes),
-                corpus_digest_basis=CorpusDigestBasis.DOCUMENT_BYTES,
-                reports=deps.reports,
-                distribution_versions=active_distribution_versions(deps.reports),
+            _write_index_run_record(
+                deps, index_args.path, result.resolved_pipeline, result.content_hashes
             )
-            write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
         reconcile_result = await self._auto_reconcile(
             index_args.reconcile,
             deps=deps,
@@ -1313,7 +1406,9 @@ class IndexCommand:
         target: str | None,
         spare: frozenset[GenerationId],
     ) -> ReconcileCommandResult:
-        """The automatic post-index pass, task **5.1c** — `docs/02-extension-model.md` §3 →
+        """Run the automatic reconcile pass that follows a successful index.
+
+        The automatic post-index pass, task **5.1c** — `docs/02-extension-model.md` §3 →
         *Slots*, "Tested by G7": run unconditionally after a successful index, in whichever
         mode `--reconcile` named (hardcoded `repair` unless a person opted this run into
         `full`), against `[services] store` and every other registered `Reconcilable` — the
@@ -1353,7 +1448,9 @@ class IndexCommand:
 
 
 class AskCommand:
-    """`weft ask` — task **3.11**: routes by default, so the question a user asks reaches
+    """Route a `weft ask` question to a pipeline and answer it.
+
+    `weft ask` — task **3.11**: routes by default, so the question a user asks reaches
     the pipeline the router names without them knowing a second command exists.
 
     **The surface decision, argued against `docs/03-cli.md`.** Before this task, `ask` was
@@ -1391,6 +1488,15 @@ class AskCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Answer one question, recording each stage's timing under `--explain`.
+
+        Args:
+            args: The parsed `AskArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            The chosen branch's outcome, carrying stage records under `--explain`.
+        """
         ask_args = cast(AskArgs, args)
         deps = ctx.require(Dependencies)
 
@@ -1419,7 +1525,9 @@ class AskCommand:
     async def _run_retrieve_only_named(
         self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context
     ) -> Outcome[CommandResult]:
-        """`--retrieve-only --pipeline <name>` — repair **R21.5**: run the named pipeline
+        """Run a named pipeline to its last stage for `--retrieve-only`, with no model call.
+
+        `--retrieve-only --pipeline <name>` — repair **R21.5**: run the named pipeline
         through to its own last stage, with no router and no model call, unless that stage
         is a `Generator`, which is the one shape `--retrieve-only` still refuses.
 
@@ -1509,7 +1617,9 @@ class AskCommand:
     async def _run_retrieve_only(
         self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context
     ) -> Outcome[CommandResult]:
-        """Phase 0's own contract, unchanged: embed the question, search directly, print
+        """Answer `--retrieve-only` by embedding the question and searching directly.
+
+        Phase 0's own contract, unchanged: embed the question, search directly, print
         ranked passages — no router, no generation, no model call.
         """
         refusal = require_plugin(
@@ -1577,7 +1687,9 @@ class AskCommand:
     async def _run_generating(
         self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context
     ) -> Outcome[CommandResult]:
-        """The default: route through the installed router, or run `--pipeline`'s own
+        """Answer with a generated, cited `Answer` through the router or a named pipeline.
+
+        The default: route through the installed router, or run `--pipeline`'s own
         named pipeline directly — either way, a generated, cited `Answer`.
 
         `[services]` is checked first, as the retrieve-only path checks it: `build_services`
@@ -1717,6 +1829,15 @@ class PluginsListCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Report every discovered distribution.
+
+        Args:
+            args: The parsed `NoArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `PluginsListCommandResult`.
+        """
         del args
         deps = ctx.require(Dependencies)
         return Produced(value=PluginsListCommandResult(reports=deps.reports))
@@ -1734,6 +1855,15 @@ class PluginsDoctorCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Diagnose discovery: displacements, pins, tracing, skew and reachability.
+
+        Args:
+            args: The parsed `NoArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `PluginsDoctorCommandResult`.
+        """
         del args
         deps = ctx.require(Dependencies)
         catalogue = full_catalogue(reports=deps.reports)
@@ -1796,7 +1926,9 @@ class ListedSource(BaseModel):
 
 
 class SourcesListCommandResult(CommandResult):
-    """`weft sources list`'s whole answer — every recorded `SourceRecord` every store in use
+    """Every recorded `SourceRecord` that `weft sources list` found, filtered and sorted.
+
+    `weft sources list`'s whole answer — every recorded `SourceRecord` every store in use
     reported, filter applied, sorted by `(record.uri, store)`.
     """
 
@@ -1806,7 +1938,9 @@ class SourcesListCommandResult(CommandResult):
 
 
 class SourcesListCommand:
-    """`weft sources list` — task **36.4**, widened at **R36.4**: an operator finds a failed
+    """List every recorded source across the stores a project indexes into.
+
+    `weft sources list` — task **36.4**, widened at **R36.4**: an operator finds a failed
     source without reading a database. Reads `list_sources()` off every `NodeStore` a project
     indexes into — the same set `weft delete`/`weft reconcile` fan out across, from
     `_stores_in_use` — filters by `SourcesListArgs.status` when given, and reports every
@@ -1823,6 +1957,19 @@ class SourcesListCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """List every recorded source across the stores in use, filtered by status.
+
+        Args:
+            args: The parsed `SourcesListArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `SourcesListCommandResult`, or the first store read
+            that did not produce.
+
+        Raises:
+            UnresolvedPluginNameError: `[services] store` does not resolve.
+        """
         typed = cast(SourcesListArgs, args)
         deps = ctx.require(Dependencies)
         _raise_for_plugin_refusal(
@@ -1872,11 +2019,50 @@ class ListedTarget(BaseModel):
 
 
 class TargetListCommandResult(CommandResult):
-    """`weft target list`'s whole answer — every target every `TargetHolding` store in use
+    """Every target that `weft target list` found, sorted by store and name.
+
+    `weft target list`'s whole answer — every target every `TargetHolding` store in use
     holds, sorted by `(store, name)`.
     """
 
     targets: tuple[ListedTarget, ...]
+
+
+async def _listed_targets(
+    store: str,
+    catalogue_of: Callable[[], Awaitable[Outcome[TargetCatalogue]]],
+    sources_of: Callable[[str], Awaitable[Outcome[tuple[SourceRecord, ...]]]],
+) -> list[ListedTarget]:
+    """Every target one `TargetHolding` store holds, with its source count and complete layers.
+
+    Args:
+        store: The store's registered name.
+        catalogue_of: The wrapped read of the store's target catalogue.
+        sources_of: The wrapped read of one named target's source records.
+
+    Returns:
+        One `ListedTarget` per catalogued target, in catalogue order.
+    """
+    catalogue_outcome = await catalogue_of()
+    catalogue = produced_value(catalogue_outcome, stage="target:catalogue")
+    listed: list[ListedTarget] = []
+    for record in catalogue.targets:
+        sources_outcome = await sources_of(record.name)
+        source_records = produced_value(sources_outcome, stage="target:sources")
+        listed.append(
+            ListedTarget(
+                store=store,
+                name=record.name,
+                live=record.name == catalogue.live,
+                previous=record.name == catalogue.previous,
+                embedding=record.embedding,
+                sources=len(source_records),
+                # Ledger task **43.10** — the layers built on every source of
+                # this target, from the same `list_sources()` read.
+                layers_complete=tuple(sorted(ready_layers(layer_coverage_of(source_records)))),
+            )
+        )
+    return listed
 
 
 class TargetListCommand:
@@ -1906,6 +2092,15 @@ class TargetListCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """List every target held by each `TargetHolding` store in use.
+
+        Args:
+            args: The parsed `NoArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `TargetListCommandResult`.
+        """
         del args
         deps = ctx.require(Dependencies)
         store_names = sorted({deps.services.store} | _stores_in_use(deps))
@@ -1917,60 +2112,38 @@ class TargetListCommand:
                 if name == deps.services.store:
                     raise StoreHoldsNoTargetsError(store_name=name, target=None)
                 continue
+
+            async def _catalogue(
+                instance: TargetHolding = instance,
+            ) -> Outcome[TargetCatalogue]:
+                return Produced(value=await instance.target_catalogue())
+
+            async def _sources_for(
+                record_name: str, instance: TargetHolding = instance
+            ) -> Outcome[tuple[SourceRecord, ...]]:
+                # `bind_target`'s own `Self` is `TargetHolding`-typed here, this
+                # closure's own narrowing; the built instance is a `NodeStore` by
+                # construction (`entry` is `NodeStore`'s own registration), which is
+                # the fact this `cast` states rather than invents.
+                handle = cast(NodeStore, await instance.bind_target(target_name(record_name)))
+                return Produced(value=tuple(await handle.list_sources()))
+
+            wrapped_catalogue = wrap(
+                _catalogue,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=name,
+                stage="target:catalogue",
+            )
+            wrapped_sources = wrap(
+                _sources_for,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=name,
+                stage="target:sources",
+            )
             try:
-
-                async def _catalogue(
-                    instance: TargetHolding = instance,
-                ) -> Outcome[TargetCatalogue]:
-                    return Produced(value=await instance.target_catalogue())
-
-                wrapped_catalogue = wrap(
-                    _catalogue,
-                    distribution=entry.distribution,
-                    contract=NodeStore.__qualname__,
-                    plugin=name,
-                    stage="target:catalogue",
-                )
-                catalogue_outcome = await wrapped_catalogue()
-                catalogue = produced_value(catalogue_outcome, stage="target:catalogue")
-                for record in catalogue.targets:
-
-                    async def _sources_for(
-                        instance: TargetHolding = instance, record_name: str = record.name
-                    ) -> Outcome[tuple[SourceRecord, ...]]:
-                        # `bind_target`'s own `Self` is `TargetHolding`-typed here, this
-                        # closure's own narrowing; the built instance is a `NodeStore` by
-                        # construction (`entry` is `NodeStore`'s own registration), which is
-                        # the fact this `cast` states rather than invents.
-                        handle = cast(
-                            NodeStore, await instance.bind_target(target_name(record_name))
-                        )
-                        return Produced(value=tuple(await handle.list_sources()))
-
-                    wrapped_sources = wrap(
-                        _sources_for,
-                        distribution=entry.distribution,
-                        contract=NodeStore.__qualname__,
-                        plugin=name,
-                        stage="target:sources",
-                    )
-                    sources_outcome = await wrapped_sources()
-                    source_records = produced_value(sources_outcome, stage="target:sources")
-                    listed.append(
-                        ListedTarget(
-                            store=name,
-                            name=record.name,
-                            live=record.name == catalogue.live,
-                            previous=record.name == catalogue.previous,
-                            embedding=record.embedding,
-                            sources=len(source_records),
-                            # Ledger task **43.10** — the layers built on every source of
-                            # this target, from the same `list_sources()` read.
-                            layers_complete=tuple(
-                                sorted(ready_layers(layer_coverage_of(source_records)))
-                            ),
-                        )
-                    )
+                listed.extend(await _listed_targets(name, wrapped_catalogue, wrapped_sources))
             finally:
                 await aclose(
                     instance,
@@ -2056,6 +2229,18 @@ class InitCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Write a new project's `weft.toml`.
+
+        Args:
+            args: The parsed `NoArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `InitCommandResult` naming the written file.
+
+        Raises:
+            TargetAlreadyExistsError: `weft.toml` already exists.
+        """
         del args, ctx
         if DEFAULT_CONFIG_PATH.exists():
             raise TargetAlreadyExistsError(
@@ -2104,6 +2289,7 @@ class DeleteCommandResult(CommandResult):
 
     @property
     def failed(self) -> tuple[ParticipantOutcome, ...]:
+        """Every participant whose delete failed."""
         return tuple(outcome for outcome in self.participants if outcome.failed)
 
 
@@ -2129,7 +2315,9 @@ async def _resolve_deletion_id(
 async def _corpus_layers_held_active(
     deps: Dependencies, target: str | None, source_id: str
 ) -> Outcome[frozenset[str]]:
-    """Every corpus-scoped layer `source_id`'s own record carries `ACTIVE`, read across every
+    """Every corpus-scoped layer a source's record carries as `ACTIVE`.
+
+    Every corpus-scoped layer `source_id`'s own record carries `ACTIVE`, read across every
     store `_stores_in_use` names — ledger task **43.21**. Read **before** the fan-out deletes
     that record: a corpus-scoped tree this source never joined has no hole to leave behind, so
     only a layer this source itself held is a candidate to demote everywhere else.
@@ -2170,7 +2358,9 @@ async def _demote_layer_records(
 async def _demote_stale_corpus_layers(
     deps: Dependencies, target: str | None, names: frozenset[str], excluded: SourceId
 ) -> tuple[str, ...]:
-    """Demote `names` from `ACTIVE` to `LayerStatus.STALE` on every source but `excluded`, on
+    """Demote corpus layers `names` to `STALE` on every source but `excluded`.
+
+    Demote `names` from `ACTIVE` to `LayerStatus.STALE` on every source but `excluded`, on
     every store `_stores_in_use` names — ledger task **43.21**, called *before* the fan-out
     (**R43.33**) so a tree is marked before it is holed and a failed mark deletes nothing;
     `excluded` is the source about to be deleted. Existing record
@@ -2294,6 +2484,16 @@ class DeleteCommand:
         return f"'{typed.source_id}' will be removed from {len(targets)} participant(s): {listed}."
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Delete one source from every participant, demoting corpus layers it leaves holed.
+
+        Args:
+            args: The parsed `DeleteArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `DeleteCommandResult`, or the first read that did not
+            produce.
+        """
         typed = cast(DeleteArgs, args)
         deps = ctx.require(Dependencies)
         targets = self._targets(deps)
@@ -2391,6 +2591,7 @@ class ReconcileCommandResult(CommandResult):
 
     @property
     def failed(self) -> tuple[ReconcileOutcome, ...]:
+        """Every participant whose reconcile failed."""
         return tuple(outcome for outcome in self.participants if outcome.failed)
 
     @property
@@ -2435,6 +2636,15 @@ class ReconcileCommand:
         del config
 
     def describe_impact(self, args: BaseModel, ctx: Context) -> str:
+        """What the confirmation prompt says before anything is reconciled.
+
+        Args:
+            args: The parsed `ReconcileArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            The mode and every participant that will be asked, by label.
+        """
         typed = cast(ReconcileArgs, args)
         deps = ctx.require(Dependencies)
         mode = self._effective_mode(typed, deps)
@@ -2445,6 +2655,15 @@ class ReconcileCommand:
         return f"mode '{mode.value}' will run against {len(targets)} participant(s): {listed}."
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Reconcile every participant, or list who would be asked under `--dry-run`.
+
+        Args:
+            args: The parsed `ReconcileArgs`.
+            ctx: The command's context, carrying `Dependencies`.
+
+        Returns:
+            `Produced` with the `ReconcileCommandResult`.
+        """
         typed = cast(ReconcileArgs, args)
         deps = ctx.require(Dependencies)
         mode = self._effective_mode(typed, deps)
@@ -2509,7 +2728,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register every built-in command — the whole of what `weft_cli.cli.COMMANDS` used
+    """Register every built-in command through the public command seam.
+
+    Register every built-in command — the whole of what `weft_cli.cli.COMMANDS` used
     to declare by hand, now through the identical seam `weft-kg` or any other pack would
     use. Task **3.7** adds `init` here directly, and delegates `pipeline ...`/`config ...`
     to their own modules' `register_pipeline_commands`/`register_config_commands` — one
