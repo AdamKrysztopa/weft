@@ -376,7 +376,8 @@ def _reconcile_line(outcome: ReconcileOutcome) -> str:
     reader to skip the line the one time it says something — the same argument that already
     makes the `remaining`/interrupted clause beside it conditional. An abstention is a
     finished decision, not outstanding work, so its presence never changes `converged` or the
-    exit code this line's own outcome contributes to.
+    exit code this line's own outcome contributes to. `reclaimed` (repair **R43.38**) follows
+    the same rule.
     """
     if outcome.report is None:
         return "failed"
@@ -384,6 +385,8 @@ def _reconcile_line(outcome: ReconcileOutcome) -> str:
     counts = f"examined {report.examined}, removed {report.removed}, backfilled {report.backfilled}"
     if report.abstained:
         counts += f", abstained {report.abstained}"
+    if outcome.reclaimed:
+        counts += f", reclaimed {outcome.reclaimed}"
     if report.converged:
         return counts
     return f"{counts} — interrupted, {report.remaining} left; run again"
@@ -700,6 +703,7 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"{failure.reason}"
         for failure in result.layers_failed
     )
+    stderr_lines.extend(_store_fallback_lines(result))
     if result.defaulted_embedder is not None:
         stderr_lines.append(_defaulted_embedder_line(result.defaulted_embedder))
     stderr = "\n".join(stderr_lines) or None
@@ -751,6 +755,23 @@ def _citation_label(citation: Citation, node: Node) -> str:
     member = node.ext_as(LayerMember)
     layer = f" ({member.layer})" if member is not None else ""
     return f"summary of {sources} sources{layer}"
+
+
+def _store_fallback_lines(result: IndexCommandResult) -> list[str]:
+    """One line per store stage a corpus-scoped layer fell back on — repair **R43.38**."""
+    withdraw = [
+        f"  store stage '{store.stage}' ({store.plugin}) cannot withdraw a generation "
+        "(GenerationWithdrawing), so a layer tree this run replaced was retracted at once — "
+        "a query still reading it may have lost it."
+        for store in result.stores_without_withdraw
+    ]
+    carry = [
+        f"  store stage '{store.stage}' ({store.plugin}) cannot carry a generation forward "
+        "(GenerationCarrying), so a layer this run could have joined was rebuilt in full "
+        "instead."
+        for store in result.stores_without_carry
+    ]
+    return [*withdraw, *carry]
 
 
 def _joined_layer_lines(result: IndexCommandResult) -> list[str]:

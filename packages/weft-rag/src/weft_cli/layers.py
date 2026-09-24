@@ -337,6 +337,18 @@ class LayerRelease(BaseModel):
     sources: int
 
 
+class LayerStoreFallback(BaseModel):
+    """A store stage a corpus-scoped layer fell back on this run — repair **R43.38**: one that is
+    not `GenerationWithdrawing` retracted a published tree at once, or one that is not
+    `GenerationCarrying` had a layer stale by addition rebuilt in full instead of joined.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    stage: str
+    plugin: str
+
+
 class LayerComposition(BaseModel):
     """A layer resolved and checked against its base — `compose_layer`'s return.
 
@@ -1429,6 +1441,23 @@ async def _run_corpus_tail(
 
 
 @dataclass
+class _StoreFallbacks:
+    """Every `LayerStoreFallback` of one `run_layers` call, once per store stage, keyed by id."""
+
+    withdraw: dict[str, LayerStoreFallback] = field(default_factory=dict[str, LayerStoreFallback])
+    carry: dict[str, LayerStoreFallback] = field(default_factory=dict[str, LayerStoreFallback])
+
+    @staticmethod
+    def note(into: dict[str, LayerStoreFallback], specs: Sequence[StageSpec]) -> None:
+        for spec in specs:
+            into.setdefault(spec.id, LayerStoreFallback(stage=spec.id, plugin=spec.name))
+
+    @staticmethod
+    def ordered(noted: Mapping[str, LayerStoreFallback]) -> tuple[LayerStoreFallback, ...]:
+        return tuple(noted[stage] for stage in sorted(noted))
+
+
+@dataclass
 class _CorpusGenerations:
     """One corpus build's generations, one per tail store — carried repair **R43.11**, task
     **43.20**. All keyed by stage id: `holders` is the unbound instance every lifecycle call
@@ -1858,13 +1887,14 @@ async def _publish_and_supersede_generations(
     opened: Mapping[str, GenerationRecord],
     *,
     layer: str,
-) -> None:
+) -> frozenset[str]:
     """Every generation `opened` published, then every **older** generation of `layer` each
     store still holds superseded — carried repair **R43.11**, lifted out of `_run_corpus_
     layer` for its own complexity budget. A superseded `PUBLISHED` generation is withdrawn when
     the store is `GenerationWithdrawing`, so a reader that opened on it keeps it until the
     layer's next build reclaims it (repair **R43.29**); otherwise, and for an abandoned
-    `BUILDING` one, it is retracted.
+    `BUILDING` one, it is retracted. Returns the stage ids that retracted a `PUBLISHED` one
+    (repair **R43.38**).
 
     The exclusion set is every id *this build* opened, across **every** store, not only the
     one a given store's own loop iteration is superseding: pgvector's generations catalogue
@@ -1874,6 +1904,7 @@ async def _publish_and_supersede_generations(
     for stage_id, generation in opened.items():
         await holders[stage_id].publish_generation(generation.id)
     opened_ids = frozenset(generation.id for generation in opened.values())
+    retracted_published: set[str] = set()
     for stage_id in opened:
         holder = holders[stage_id]
         for other in await holder.generations():
@@ -1881,17 +1912,22 @@ async def _publish_and_supersede_generations(
                 other.layer == layer
                 and other.id not in opened_ids
                 and other.status in (GenerationStatus.PUBLISHED, GenerationStatus.BUILDING)
+                and await _supersede(holder, other)
             ):
-                await _supersede(holder, other)
+                retracted_published.add(stage_id)
+    return frozenset(retracted_published)
 
 
-async def _supersede(holder: GenerationHolding, generation: GenerationRecord) -> None:
-    if generation.status is GenerationStatus.PUBLISHED and isinstance(
-        holder, GenerationWithdrawing
-    ):
-        await holder.withdraw_generation(generation.id)
-    else:
+async def _supersede(holder: GenerationHolding, generation: GenerationRecord) -> bool:
+    """Withdraw or retract `generation`; whether a `PUBLISHED` one was retracted."""
+    if generation.status is not GenerationStatus.PUBLISHED:
         await holder.retract_generation(generation.id)
+        return False
+    if isinstance(holder, GenerationWithdrawing):
+        await holder.withdraw_generation(generation.id)
+        return False
+    await holder.retract_generation(generation.id)
+    return True
 
 
 def _corpus_outcome_refusal(
@@ -1985,6 +2021,7 @@ async def _run_corpus_layer(
     indexing_ctx: Context,
     resume: bool,
     llm: LLMSection,
+    fallbacks: _StoreFallbacks,
 ) -> str | None:
     """One corpus-scoped layer's whole build, as one generation **per store stage**,
     published whole — ledger task **43.15**, carried repair **R43.11**,
@@ -2110,12 +2147,13 @@ async def _run_corpus_layer(
             return reason
 
     try:
-        await _publish_and_supersede_generations(
+        retracted = await _publish_and_supersede_generations(
             generations.holders, generations.opened, layer=composition.layer
         )
     except WeftError as exc:
         await _fail(type(exc).__name__, exc.stage, str(exc))
         raise
+    fallbacks.note(fallbacks.withdraw, [spec for spec in tail_store_specs if spec.id in retracted])
 
     await _apply_layer_records(
         runnable,
@@ -2137,30 +2175,35 @@ async def _run_corpus_layer(
 
 def _joinable(
     composition: LayerComposition,
-    runnable: RunnablePipeline,
     existing_by_source: Mapping[SourceId, LayerRecord | None],
     *,
     identity: str,
 ) -> bool:
     """Whether a corpus-scoped layer is stale by addition only, so its incremental stage can join
     the uncovered sources into the published tree — task **43.23**. Every record `ACTIVE` under
-    `identity` or absent, at least one `ACTIVE`, and every tail store `GenerationCarrying`. A
-    `STALE` record means a source was deleted, which a join cannot remove, so deletion wins.
+    `identity` or absent, and at least one `ACTIVE`; `_stores_without_carry` must also be empty.
+    A `STALE` record means a source was deleted, which a join cannot remove, so deletion wins.
     """
     if not composition.incremental_specs:
         return False
     records = [existing for existing in existing_by_source.values() if existing is not None]
     if not records or len(records) == len(existing_by_source):
         return False
-    if any(
+    return not any(
         existing.status is not LayerStatus.ACTIVE or existing.pipeline_identity != identity
         for existing in records
-    ):
-        return False
-    return all(
-        isinstance(_stage_instance(runnable, spec.id), GenerationCarrying)
+    )
+
+
+def _stores_without_carry(
+    composition: LayerComposition, runnable: RunnablePipeline
+) -> tuple[StageSpec, ...]:
+    """Every tail store stage that is not `GenerationCarrying`, so cannot hold a join."""
+    return tuple(
+        spec
         for spec in composition.tail_specs
         if spec.contract is NodeStore
+        and not isinstance(_stage_instance(runnable, spec.id), GenerationCarrying)
     )
 
 
@@ -2180,13 +2223,15 @@ async def _layer_member_ids(
 
 async def _carry_and_publish(
     generations: _CorpusGenerations, carried: Sequence[NodeId], *, layer: str
-) -> None:
+) -> frozenset[str]:
     """`carried` into every store's new generation, then each published over the old one."""
     for stage_id, holder in generations.holders.items():
         await cast(GenerationCarrying, holder).carry_forward(
             generations.opened[stage_id].id, carried
         )
-    await _publish_and_supersede_generations(generations.holders, generations.opened, layer=layer)
+    return await _publish_and_supersede_generations(
+        generations.holders, generations.opened, layer=layer
+    )
 
 
 async def _run_corpus_join(
@@ -2202,6 +2247,7 @@ async def _run_corpus_join(
     attempts_by_source: Mapping[SourceId, int],
     indexing_ctx: Context,
     layer_runnables: list[RunnablePipeline],
+    fallbacks: _StoreFallbacks,
 ) -> LayerJoin | str:
     """`composition.incremental_specs` over only `uncovered`'s leaves, into a generation that
     carries every published member of the layer the stage did not replace — task **43.23**.
@@ -2281,10 +2327,11 @@ async def _run_corpus_join(
 
     carried = [node_id for node_id in published if node_id not in revision.replaced_ids]
     try:
-        await _carry_and_publish(generations, carried, layer=composition.layer)
+        retracted = await _carry_and_publish(generations, carried, layer=composition.layer)
     except WeftError as exc:
         await _fail(type(exc).__name__, exc.stage, str(exc))
         raise
+    fallbacks.note(fallbacks.withdraw, [spec for spec in tail_store_specs if spec.id in retracted])
 
     await _apply_layer_records(
         runnable,
@@ -2324,6 +2371,7 @@ async def _run_corpus_scoped_composition(
     layer_loop_started: float,
     llm: LLMSection,
     reprocess: bool,
+    fallbacks: _StoreFallbacks,
 ) -> tuple[bool, LayerFailure | None, LayerJoin | None]:
     """One corpus-scoped composition's whole turn in `run_layers`' own loop — lifted out so
     that function's per-composition branching stays under the complexity budget every
@@ -2332,7 +2380,8 @@ async def _run_corpus_scoped_composition(
     failed, and the join, when the layer was stale by addition only (task **43.23**,
     `_joinable`) and its incremental stage joined the uncovered sources instead of a rebuild.
     Under `reprocess` a moved identity takes the full build, which `_joinable` already refuses
-    to join (R43.27).
+    to join (R43.27). A layer that would have joined but for a store that cannot carry is noted
+    in `fallbacks` (R43.38).
     """
     eligible = [
         ref
@@ -2353,7 +2402,10 @@ async def _run_corpus_scoped_composition(
         runnable, stages=tuple(stage for stage in runnable.stages if stage.id in tail_ids)
     )
     joined: LayerJoin | None = None
-    if _joinable(composition, runnable, existing_by_source, identity=identity):
+    joinable = _joinable(composition, existing_by_source, identity=identity)
+    cannot_carry = _stores_without_carry(composition, runnable) if joinable else ()
+    fallbacks.note(fallbacks.carry, cannot_carry)
+    if joinable and not cannot_carry:
         built = [ref for ref in eligible if existing_by_source[ref.source_id] is None]
         outcome = await _run_corpus_join(
             runnable,
@@ -2367,6 +2419,7 @@ async def _run_corpus_scoped_composition(
             attempts_by_source=_next_layer_attempts(existing_by_source, built),
             indexing_ctx=indexing_ctx,
             layer_runnables=layer_runnables,
+            fallbacks=fallbacks,
         )
         reason = outcome if isinstance(outcome, str) else None
         joined = outcome if isinstance(outcome, LayerJoin) else None
@@ -2386,6 +2439,7 @@ async def _run_corpus_scoped_composition(
             indexing_ctx=indexing_ctx,
             resume=_interrupted(existing_by_source, identity=identity),
             llm=llm,
+            fallbacks=fallbacks,
         )
     if reason is not None:
         failure = LayerFailure(
@@ -2455,11 +2509,18 @@ async def run_layers(
     layer_runnables: list[RunnablePipeline],
     llm: LLMSection,
     reprocess: bool = False,
-) -> tuple[tuple[str, ...], tuple[LayerFailure, ...], tuple[LayerJoin, ...]]:
+) -> tuple[
+    tuple[str, ...],
+    tuple[LayerFailure, ...],
+    tuple[LayerJoin, ...],
+    tuple[LayerStoreFallback, ...],
+    tuple[LayerStoreFallback, ...],
+]:
     """Every named layer, in order, after the base run has finished or been skipped under
     `layers_only` — ledger task **43.8**, `weft_cli.ingest.run_index`'s own loop. Returns
-    `(layers_changed, layers_failed, layers_joined)`; the second is carried repair **R43.9**,
-    the third task **43.23**.
+    `(layers_changed, layers_failed, layers_joined, stores_without_withdraw,
+    stores_without_carry)`; the second is carried repair **R43.9**, the third task **43.23**,
+    the last two repair **R43.38** — each store stage once, sorted by stage id.
 
     A layer with a stage whose output depends on batch membership — `raptor`, one tree per
     document — runs one source per call (carried repair **R43.10**); every other layer runs in
@@ -2486,17 +2547,18 @@ async def run_layers(
     indexed again before this runs (`sources_with_moved_layers`).
     """
     if store_stage_id is None:
-        return (), (), ()
+        return (), (), (), (), ()
     primary = _stage_instance(runnable, store_stage_id)
     get_source = _get_source_of(primary) if primary is not None else None
     get_nodes = _get_of(primary) if primary is not None else None
     matching = _matching_of(primary) if primary is not None else None
     if get_source is None or matching is None:
-        return (), (), ()
+        return (), (), (), (), ()
 
     layers_changed: list[str] = []
     layers_failed: list[LayerFailure] = []
     layers_joined: list[LayerJoin] = []
+    fallbacks = _StoreFallbacks()
     layer_loop_started = time.monotonic()
     for composition in compositions:
         identity = pipeline_identity(composition.resolved)
@@ -2518,6 +2580,7 @@ async def run_layers(
                 layer_loop_started=layer_loop_started,
                 llm=llm,
                 reprocess=reprocess,
+                fallbacks=fallbacks,
             )
             if corpus_changed and composition.layer not in layers_changed:
                 layers_changed.append(composition.layer)
@@ -2590,7 +2653,13 @@ async def run_layers(
                 )
             )
 
-    return tuple(layers_changed), tuple(layers_failed), tuple(layers_joined)
+    return (
+        tuple(layers_changed),
+        tuple(layers_failed),
+        tuple(layers_joined),
+        _StoreFallbacks.ordered(fallbacks.withdraw),
+        _StoreFallbacks.ordered(fallbacks.carry),
+    )
 
 
 def sources_with_moved_layers(

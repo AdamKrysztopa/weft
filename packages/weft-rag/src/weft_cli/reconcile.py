@@ -62,6 +62,8 @@ class ReconcileOutcome(BaseModel):
     distribution: str
     report: ReconcileReport | None = None
     error: str | None = None
+    reclaimed: int = 0
+    """Nodes `reclaim_withdrawn` removed across every layer in `REPAIR` — repair **R43.38**."""
 
     @property
     def failed(self) -> bool:
@@ -136,7 +138,7 @@ async def _ask(
     """
     try:
         async with built(target, store_target=target_name) as instance:
-            report = await _converge(instance, mode, ctx)
+            report, reclaimed = await _converge(instance, mode, ctx)
     except asyncio.CancelledError:
         raise
     except Exception as exc:
@@ -151,18 +153,23 @@ async def _ask(
         plugin=target.name,
         distribution=target.distribution,
         report=report,
+        reclaimed=reclaimed,
     )
 
 
-async def _converge(instance: object, mode: ReconcileMode, ctx: Context) -> ReconcileReport:
-    """One participant's `reconcile`, with the `isinstance` that makes it callable.
+async def _converge(
+    instance: object, mode: ReconcileMode, ctx: Context
+) -> tuple[ReconcileReport, int]:
+    """One participant's `reconcile`, with the `isinstance` that makes it callable, and the
+    number of nodes its reclaim removed.
 
     The class-level `issubclass` in `participants_for` cannot be the last word: a factory may
     return something other than the class it was registered as, and a participant that is not
     what it claimed is a failure with a name rather than an `AttributeError` from deeper down.
 
     In `REPAIR` mode a `GenerationWithdrawing` participant then reclaims every layer's withdrawn
-    generations — repair **R43.29**.
+    generations — repair **R43.29** — and the count it removed is returned rather than discarded
+    (**R43.38**).
     """
     if not isinstance(instance, Reconcilable):
         raise TypeError(
@@ -175,14 +182,15 @@ async def _converge(instance: object, mode: ReconcileMode, ctx: Context) -> Reco
         and isinstance(instance, GenerationWithdrawing)
         and isinstance(instance, GenerationHolding)
     ):
-        await _reclaim_every_layer(instance, instance)
-    return report
+        return report, await _reclaim_every_layer(instance, instance)
+    return report, 0
 
 
 async def _reclaim_every_layer(
     withdrawing: GenerationWithdrawing, holding: GenerationHolding
-) -> None:
-    """`reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of."""
+) -> int:
+    """`reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of, and
+    the nodes it removed across all of them."""
     layers = sorted(
         {
             record.layer
@@ -190,8 +198,7 @@ async def _reclaim_every_layer(
             if record.status is GenerationStatus.WITHDRAWN
         }
     )
-    for layer in layers:
-        await withdrawing.reclaim_withdrawn(layer)
+    return sum([(await withdrawing.reclaim_withdrawn(layer)).node_count for layer in layers])
 
 
 async def estimate_everywhere(

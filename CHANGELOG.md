@@ -257,6 +257,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **`weft reconcile` says how many nodes it reclaimed, and `weft index` says when a store made a
+  layer build fall back.** Reconcile reclaimed withdrawn layer trees and printed nothing about it.
+  Its line now ends `, reclaimed N` when N is not zero. A store that holds generations but cannot
+  withdraw one makes a replaced tree vanish at once, under any query still reading it. One that
+  cannot carry a generation forward turns a join into a full rebuild. Both used to happen
+  silently. `weft index` now prints one line per such store, once per run, naming it and what it
+  cannot do.
 - **A layer's join stage can no longer write the tree readers are served.** The stage a corpus
   layer's `layer.incremental` names was handed the build's own writer as its `NodeStore`, so a
   join that ignored `LayerRevision` could supersede or delete a published node. It is now handed

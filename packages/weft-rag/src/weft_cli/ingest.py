@@ -124,6 +124,7 @@ from weft_cli.layers import (
     LayerFailure,
     LayerJoin,
     LayerRelease,
+    LayerStoreFallback,
     compose_layers,
     require_corpus_layers_generation_holding,
     require_layers_metadata_filter,
@@ -355,7 +356,7 @@ class BatchScopedStageError(WeftError):
     Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
     does not compose with this pipeline — so this does not join `PipelineResolutionError` and
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
-    (`weft_cli/commands.py:320 'class ConflictingIndexModeError(WeftError):'`).
+    (`weft_cli/commands.py:323 'class ConflictingIndexModeError(WeftError):'`).
     """
 
 
@@ -538,6 +539,10 @@ class IndexResult:
     #: Ledger task **43.23** — every corpus-scoped layer this run joined added sources into
     #: through its `layer.incremental` stage, rather than rebuilding it.
     layers_joined: tuple[LayerJoin, ...] = ()
+    #: Repair **R43.38** — each store stage a corpus layer fell back on this run, once: see
+    #: `weft_cli.layers.LayerStoreFallback`.
+    stores_without_withdraw: tuple[LayerStoreFallback, ...] = ()
+    stores_without_carry: tuple[LayerStoreFallback, ...] = ()
     #: Carried repair **R43.28** — every layer a source `--reprocess` released carried that this
     #: run did not name, so released and not rebuilt, by name. `()` without `reprocess`.
     layers_released: tuple[LayerRelease, ...] = ()
@@ -1231,8 +1236,16 @@ async def run_index(
         layers_changed: tuple[str, ...] = ()
         layers_failed: tuple[LayerFailure, ...] = ()
         layers_joined: tuple[LayerJoin, ...] = ()
+        stores_without_withdraw: tuple[LayerStoreFallback, ...] = ()
+        stores_without_carry: tuple[LayerStoreFallback, ...] = ()
         if layer_compositions:
-            layers_changed, layers_failed, layers_joined = await run_layers(
+            (
+                layers_changed,
+                layers_failed,
+                layers_joined,
+                stores_without_withdraw,
+                stores_without_carry,
+            ) = await run_layers(
                 layer_compositions,
                 runner=runner,
                 runnable=runnable,
@@ -1281,6 +1294,8 @@ async def run_index(
             layers_changed=layers_changed,
             layers_failed=layers_failed,
             layers_joined=layers_joined,
+            stores_without_withdraw=stores_without_withdraw,
+            stores_without_carry=stores_without_carry,
             layers_released=layers_released,
             layers_stale=layers_stale,
             layers_stale_progress=layers_stale_progress,
