@@ -238,6 +238,10 @@ operations-guide.md) covers what every status means and what to do about it, in 
   minutes above stop being a smoke test — `[services]` to swap the `hash` embedder for one that
   means something, `[llm.roles]` to map the model `weft ask` refused to guess at, and `--origin` to
   see which file a setting actually came from.
+- **A directory bigger than two files?** `weft index` writes it 25 documents at a time, and you
+  can ask from a second shell while it runs. [`manual/user-manual.md`](
+  user-manual.md#8-talking-to-your-documents-while-they-index) §8 walks that, and what to do when a
+  document fails.
 - **Writing a pack of your own?** The [pack author guide](pack-author-guide.md) walks the exact
   plugin this project keeps installed from outside its own workspace, as proof rather than a demo.
 - **Running Weft day to day** — bringing the container up, `weft.toml`, `doctor`'s statuses, exit

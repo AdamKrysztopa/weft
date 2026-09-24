@@ -209,8 +209,9 @@ every enhancer's model call and every embedding — not a cache.
   a different configured model, already counts as changed and needs no flag.
 - **Batches, by default.** `weft index` walks the corpus 25 documents at a time. Each batch is
   queryable the moment it lands, so `weft ask` in a second shell answers from the first batches
-  while the rest index. Each batch prints a line to stderr, `batch 3/40 · 75/1000 documents
-  queryable · 48.2 s since start`, and under `--json` a `batch-progress` line. A pipeline holding a
+  while the rest index. Each batch prints a line to stderr, `batch 2/5 · 50/121 documents
+  queryable · 0.0 s since start · 0.0 MB`, and under `--json` a `batch-progress` line (§8 walks
+  both). A pipeline holding a
   stage whose output depends on which other documents shared its batch (`index-with-raptor` is the
   shipped one) indexes the whole corpus in one batch instead, and its line names the stage.
 - **`--batch-size N`** sets the batch size. Given explicitly, it is **refused** for such a
@@ -282,7 +283,8 @@ name.
   `extends: enrich-with-raptor` with `vars: {layer.scope: corpus}`. That tree is written out of
   sight and made searchable all at once, so a half-built tree is never searched. A document
   indexed afterwards leaves the tree stale, which `weft index` reports, and the next run naming
-  the layer rebuilds it. RAPTOR refuses a corpus larger than it can cluster in reasonable time
+  the layer joins it into the tree. Deleting or re-parsing a covered document marks the tree
+  stale on every source, and the next run rebuilds it in full (§8 walks all three). RAPTOR refuses a corpus larger than it can cluster in reasonable time
   (`max_leaves`, `max_pairs`, in the stage's `with:` block) and says which bound it hit.
 - **One writer at a time.** A second `weft index` into a store another one is still writing is
   refused, naming the one that holds it. `weft ask` in another shell is never refused.
@@ -826,7 +828,292 @@ no run id, so without it their tokens arrive in one sink with nothing to separat
 
 **This section needs the container.** It indexes into a real store and reads back from it, so
 `WEFT_DATABASE_URL` must point at a running Postgres — `docker compose up -d` from the repository
-root, or your own. Every other example on this page runs against nothing at all.
+root, or your own. Every other runnable example on this page runs against nothing at all; §8's
+transcripts were taken against it too.
+
+## 8. Talking to your documents while they index
+
+A first `weft index` over a large directory does not make you wait for the last document before
+the first answer. It writes the corpus in batches, and each batch is searchable the moment it
+lands. Enrichment that costs a model call per chunk runs afterwards, as a **layer**, so the base is
+searchable at base speed and the enrichment catches up behind it. §2 states the rules. This
+section walks them once, with what each command printed.
+
+Every transcript below was run from the built `weft-rag` wheel, outside this repository, against a
+fresh database on the compose Postgres, with the default `hash` embedder. Paths are shortened to
+`…`, and the warning every `hash` run prints on stderr is left out. Where a stage needs a model,
+the project's `weft.toml` maps the role to `scripted`, the offline provider that answers without a
+network call:
+
+```toml
+[llm.roles]
+index    = { provider = "scripted" }
+generate = { provider = "scripted" }
+```
+
+A real model goes in its place. [`manual/operations-guide.md`](operations-guide.md) → *Choosing
+which model answers* covers wiring one. Under `hash` and `scripted` the rankings and answers mean
+nothing, and what matters here is the lines around them.
+
+### Batches, and what they print
+
+The directory holds 121 short notes, and one of them is not valid UTF-8:
+
+```bash
+weft index docs
+```
+
+```text
+batch 1/5 · 25/121 documents queryable · 0.0 s since start · 0.0 MB
+batch 2/5 · 50/121 documents queryable · 0.0 s since start · 0.0 MB
+batch 3/5 · 75/121 documents queryable · 0.0 s since start · 0.0 MB
+batch 4/5 · 100/121 documents queryable · 0.1 s since start · 0.0 MB
+batch 5/5 · 120/121 documents queryable · 0.1 s since start · 0.0 MB
+  failed: 'file:///…/docs/station-121.md' is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 33: invalid start byte
+indexing into target 'default' (live).
+121 documents: 120 indexed, 0 unchanged, 1 failed. nodes now stored: 120.
+1 batch failed.
+mode 'repair' — 1 participant(s):
+  pgvector (weft-rag): examined 0, removed 0, backfilled 0
+```
+
+The `batch` lines go to stderr, one per batch, and the summary goes to stdout. Each line gives the
+batch number, how many documents are searchable so far, the seconds since the batches started, and
+how many megabytes of files that batch read. The size is there so that one huge file shows up as
+the reason a batch was slow. Only the files of the batch in flight are held in memory.
+
+- **25 documents per batch by default.** `--batch-size N` changes it. A pipeline with a stage
+  that needs the whole corpus in one batch gets one batch, and the line names that stage. §2 says
+  why an explicit `--batch-size` is refused for such a pipeline.
+- **One bad document does not fail its batch.** Batch 5 still stored its other 20 documents,
+  which is why 120 are indexed. `1 batch failed.` counts the batch the failure came from, not
+  the documents lost with it.
+- **`--json` carries the same line as data**, one `batch-progress` object per batch, before the
+  result:
+
+```bash
+weft --json index docs --reprocess --batch-size 50
+```
+
+```text
+{"kind":"batch-progress","batch":1,"batches":3,"queryable":50,"documents":121,"seconds":0.031121165957301855,"whole_corpus_for":[],"bytes":5738,"layer":null}
+```
+
+`whole_corpus_for` names the stages that forced a single batch, and `layer` is set on a layer's
+batches. With `[packs.openai]` as the embedder, `max_concurrent_requests` sets how many embedding
+requests are in flight at once (`weft.toml.example:180 "# max_concurrent_requests = 4"`).
+
+### Asking from a second shell
+
+Once the first batch has landed, `weft ask` answers from what is stored so far. This came from a
+second shell while a first `weft index` was writing 4,000 notes of the same shape:
+
+```bash
+weft ask "flood threshold at station 3990" --retrieve-only --top-k 1
+```
+
+```text
+1. # Gauge station 0721
+
+Station 0721 sits on the Birch river, 2163 km above the estuary. The flood threshold is 321 cm.
+
+sources: 1026 indexed · 0 failed · 2974 indexing
+```
+
+- **The count is over what the store has recorded, not over the directory.** `weft index`
+  records every document it is about to write as `indexing` before its first batch, which is why
+  the three numbers add up to 4,000 here. `indexing` also covers documents an interrupted run left
+  half-done. A file this project has never indexed is not counted at all.
+- **The line goes away when there is nothing left to say.** The same question, asked after the
+  last batch landed, printed the passage and no `sources:` line.
+- **`weft --json ask` carries it as `coverage`.** A generated answer during the same run carried
+  `"coverage": {"indexed": 2093, "failed": 0, "indexing": 1907}`, and the field is absent once
+  every source is active.
+- **A generated answer that finds nothing says whether anything is still outstanding.** While
+  sources are `indexing`, it reads *the corpus does not answer this — N sources are not yet
+  indexed*, rather than a plain no
+  (`packages/weft-rag/src/weft_cli/render.py:909 "sources are not yet indexed."`).
+- **An ask is never refused while an index runs. A second writer is.** A second `weft index`
+  into the same store stops before it writes and names the one that is running
+  ([`manual/troubleshooting.md`](troubleshooting.md) → `WriterBusyError`).
+
+### When a document fails
+
+The failed document is recorded, not dropped. `weft sources list` shows it with the stage and the
+error:
+
+```bash
+weft sources list --status failed
+```
+
+```text
+file:///…/docs/station-121.md  failed  stage: extract  error: Failed  attempts: 1  last: 2026-09-24T12:40:30.108353+00:00  "'file:///…/docs/station-121.md' is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 33: invalid start byte"
+```
+
+The next run skips it and says how to include it. A run that only skips an earlier failure exits
+`0`:
+
+```text
+121 documents: 0 indexed, 120 unchanged. nodes now stored: 120.
+1 failed earlier, skipped — weft index --retry-failed includes it
+```
+
+`weft index docs --retry-failed` tries it again. Here it failed the same way, and the run exited
+`1`. Changing the file needs no flag. After converting it to UTF-8, and editing one of the notes
+that had indexed, a plain `weft index docs` did exactly those two:
+
+```text
+121 documents: 2 indexed, 119 unchanged. nodes now stored: 121.
+  /…/docs/station-007.md: changed on disk — re-parsed, and its earlier parse released
+  /…/docs/station-121.md: changed on disk — re-parsed, and its earlier parse released
+```
+
+### Layers, after the base
+
+`--layers` runs a layer document over what the base stored, in the same invocation. The base had
+nothing new here, so only the layer ran. It works in batches too, and its lines count sources:
+
+```bash
+weft index docs --layers enrich-with-questions
+```
+
+```text
+layer enrich-with-questions · batch 1/5 · 25/121 sources · 0.1 s since start
+layer enrich-with-questions · batch 2/5 · 50/121 sources · 0.2 s since start
+layer enrich-with-questions · batch 3/5 · 75/121 sources · 0.3 s since start
+layer enrich-with-questions · batch 4/5 · 100/121 sources · 0.3 s since start
+layer enrich-with-questions · batch 5/5 · 121/121 sources · 0.4 s since start
+indexing into target 'default' (live).
+121 documents: 0 indexed, 121 unchanged. nodes now stored: 484.
+mode 'repair' — 1 participant(s):
+  pgvector (weft-rag): examined 0, removed 0, backfilled 0
+```
+
+`weft sources list` then shows `layers: enrich-with-questions active` on each source, and
+`weft target list` says `layers complete: enrich-with-questions`. `--layers-only` runs the named
+layers over what is already indexed, with no base run. `[index] layers` in `weft.toml` names
+layers for every run, and `--layers none` skips them for one.
+
+A rung that needs a layer is not answered from half of it. With two notes added and indexed
+without the layer, `--pipeline questions-then-generate` exits `1`:
+
+```text
+'questions-then-generate' answers from the 'enrich-with-questions' layer, which is built on 121 of 123 sources indexed with 'built-in'. Build it with `weft index <dir> --layers enrich-with-questions --layers-only`, or ask again with --allow-pending to answer from the part that is built.
+```
+
+With `--allow-pending` it answers and ends with `layers: enrich-with-questions 121/123`.
+
+### One tree over the whole corpus
+
+`enrich-with-raptor` builds one RAPTOR tree per document. For one tree over every document, derive
+it in the project's `pipelines/`:
+
+```yaml
+name: raptor-corpus
+extends: enrich-with-raptor
+vars: {layer.scope: corpus}
+```
+
+Under `hash`, the tree's `similarity_threshold: auto` cannot always find a threshold. The median
+similarity of hash vectors sits near zero, and one run of this walkthrough refused on exactly
+that. So the project behind these transcripts also sets `raptor.similarity_threshold: 0.1` in the
+same `vars`. With a real embedder, leave it out.
+
+```bash
+weft index docs --layers raptor-corpus
+```
+
+```text
+layer raptor-corpus · batch 1/1 · 121/121 sources · 0.7 s since start
+indexing into target 'default' (live).
+121 documents: 0 indexed, 121 unchanged. nodes now stored: 495.
+```
+
+The tree is built out of sight and made searchable all at once, so a query never sees half of it.
+
+- **Adding documents joins them in.** With two new notes in `docs/`, the same command indexed them
+  and handed only their leaves to the layer's join stage. The join rebuilds the summaries those
+  leaves land in, and every other summary is carried into the new tree untouched:
+
+  ```text
+  123 documents: 2 indexed, 121 unchanged. nodes now stored: 499.
+  layer 'raptor-corpus': joined 2 leaves, 0 unassigned
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-rag): examined 0, removed 0, backfilled 0, reclaimed 2
+  ```
+
+  An *unassigned* leaf is one the join could not place in any existing cluster.
+  `reclaimed 2` is the replaced summaries being removed. The previous tree is withdrawn rather
+  than deleted when the new one is published, so a query already reading it is not cut off at
+  that moment. The run's closing repair pass then removes it. `weft reconcile --mode repair`
+  does the same for anything left withdrawn
+  (`packages/weft-rag/src/weft_cli/reconcile.py:181 "mode is ReconcileMode.REPAIR"`).
+- **An interrupted build resumes.** Summaries are kept as they finish, in the tree nobody reads
+  yet. Interrupting a build over 1,500 notes printed this and exited `130`:
+
+  ```text
+  ^C
+  [stream error: command did not complete]
+  weft index: interrupted
+  ```
+
+  `weft sources list` then showed `layers: raptor-corpus indexing`. Running the same command
+  again published a tree of 21 summaries, and the 3 finished before the interrupt were in it under
+  their original ids. The rerun asks the model only for the clusters still missing. A rerun
+  whose prompt, models or layer settings changed starts from scratch.
+- **Deleting a source marks the tree stale.** `weft delete` takes the path `weft index`
+  recorded, so give it the absolute path:
+
+  ```bash
+  weft delete "$PWD/docs/station-123.md" --yes
+  ```
+
+  ```text
+  '/…/docs/station-123.md' — 1 participant(s):
+    pgvector (weft-rag): 2 node(s) removed
+  layer 'raptor-corpus' is stale: a source it covered was deleted or re-parsed — weft index --layers raptor-corpus rebuilds it.
+  ```
+
+  Every remaining source now reads `raptor-corpus stale` in `weft sources list`. A rung whose
+  `route.requires` names the layer is not offered until it is rebuilt. The printed remedy
+  rebuilds the whole tree, because a join can add documents but cannot take one out. Deleting
+  the file from `docs/` does not remove it from the index. `weft delete` does.
+- **Re-parsing a covered source does the same.** After one note was edited, `weft index docs`
+  re-parsed it and printed the same `stale` line, and `weft index docs --layers raptor-corpus`
+  rebuilt the tree over all 122 sources.
+
+A layer that fails is reported by the run that failed it, naming the layer, how many sources and
+the first reason, and the run exits `1`.
+
+### The graph layer
+
+`enrich-with-facts-and-graph` builds the graph per source, over a base indexed with a graph store.
+It runs co-occurrence and then fact extraction on each stored chunk, and the graph store turns
+them into entities and relations. Over a base with no graph store it is refused before anything
+runs, with exit `1`:
+
+```text
+'enrich-with-facts-and-graph' needs a store that turns 'weft-kg-fact' into rows of its own (consumes), and 'built-in' has none — it stores with 'pgvector'. Installed stores that can: pgvector-graph.
+```
+
+With `[packs.graph]` wired ([`manual/operations-guide.md`](operations-guide.md) → *Wiring the
+graph pack*), this indexes and then builds the layer:
+
+```bash
+weft index docs --pipeline index-with-graph --layers enrich-with-facts-and-graph
+```
+
+```text
+batch 1/1 · 2/2 documents queryable · 0.0 s since start · 0.0 MB
+layer enrich-with-facts-and-graph · batch 1/1 · 2/2 sources · 0.1 s since start
+```
+
+`weft ask --pipeline graph-then-generate` then answers from it. The `scripted` provider states no
+facts, so in this run the graph held only co-occurrence: 7 entities and 20 relations from two
+short notes. A real model under the `index` role adds the facts. A later layer never takes a fact
+or mention node as a leaf. There is no corpus-wide graph: a document deriving this layer with
+`layer.scope: corpus` is refused at exit `1`, because the graph store cannot keep a layer's
+output hidden until it is complete.
 
 ## Where to go next
 
