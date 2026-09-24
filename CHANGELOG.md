@@ -244,6 +244,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `weft delete` now marks such a layer `stale` on every remaining source and prints so. `weft
   sources list` and `weft index` show it, the router stops offering its rung, and `weft index
   --layers <name>` rebuilds it. The store contract moves to `2.12.0` for the new `LayerStatus.STALE`.
+- **A citation of a summary says what it summarises.** An answer citing a corpus-wide RAPTOR
+  summary printed `[1]  — <id>` with an empty label, because a node built from several sources has
+  no single location. It now prints `summary of <n> sources (<layer>)`. A cited node with no source
+  prints `no source`. `--json` is unchanged: `uri` stays a location, empty when there is none.
 - **`weft index --reprocess` says which layers it removed and did not rebuild.** Reprocessing a
   source removes everything built from it, including the output of layers this run did not name in
   `--layers`. That output disappeared without a word. The run now prints `layer '<name>' was

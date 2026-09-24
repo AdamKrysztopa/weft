@@ -78,7 +78,7 @@ def percentile(samples: Sequence[float], q: float) -> float:
 
 
 def parse_nodes_stored(stdout: str) -> int:
-    """The count `weft_cli/render.py:658 "nodes now stored: {stored}."` prints."""
+    """The count `weft_cli/render.py:659 "nodes now stored: {stored}."` prints."""
     match = _NODES_STORED_RE.search(stdout)
     if match is not None:
         return int(match.group(1))

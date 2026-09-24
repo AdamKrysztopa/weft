@@ -139,9 +139,10 @@ from weft_eval.run_record import (
     RoleTokens,
 )
 from weft_generate.payload import AnswerStance, Citation
+from weft_index.payload import LayerMember
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus, RendererOffer
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import NothingToProduce, Outcome, Produced
+from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.payload.applicability import Applies
 from weft_kernel.registry import Registry, UnknownPluginError
 from weft_kernel.seam import StageRecord
@@ -718,7 +719,7 @@ def _render_index(result: IndexCommandResult) -> Rendered:
     return Rendered(stdout=stdout, stderr=stderr, exit_code=exit_code)
 
 
-def _citation_line(citation: Citation) -> str:
+def _citation_line(citation: Citation, node: Node) -> str:
     """One citation, for a human — carried repair **R9.2**, first half.
 
     This rendered `  [marker] uri` alone, and `docs/internal/build-ledger.md`'s R9.2 states what
@@ -733,9 +734,23 @@ def _citation_line(citation: Citation) -> str:
     paginated, or nothing in the pipeline attached either fact. `quote` reaches
     `weft_cli.answer_envelope.AnswerEnvelope` and deliberately not this line — it is a span of
     the passage, often a paragraph, and a human already has the answer text above it.
+
+    Carried repair **R43.31**: a node over several sources has no one `uri` by design
+    (`weft_generate.cited_answer._source_id`), so the label says what it is — never `uri`.
     """
     page = f" p.{citation.page}" if citation.page is not None else ""
-    return f"  [{citation.marker}] {citation.uri}{page} — {citation.node_id}"
+    return f"  [{citation.marker}] {_citation_label(citation, node)}{page} — {citation.node_id}"
+
+
+def _citation_label(citation: Citation, node: Node) -> str:
+    sources = len(node.lineage.sources)
+    if citation.uri or sources == 1:
+        return citation.uri
+    if sources == 0:
+        return "no source"
+    member = node.ext_as(LayerMember)
+    layer = f" ({member.layer})" if member is not None else ""
+    return f"summary of {sources} sources{layer}"
 
 
 def _joined_layer_lines(result: IndexCommandResult) -> list[str]:
@@ -867,7 +882,11 @@ def _render_ask(result: AskCommandResult, *, streamed: bool, as_json: bool = Fal
                 lines.append("the corpus does not answer this.")
         elif not streamed:
             lines.append(result.answer.text)
-        lines.extend(_citation_line(citation) for citation in result.answer.citations)
+        cited = {passage.node.id: passage.node for passage in result.answer.used}
+        lines.extend(
+            _citation_line(citation, cited[citation.node_id])
+            for citation in result.answer.citations
+        )
         return Rendered(
             stdout="\n".join(
                 [
