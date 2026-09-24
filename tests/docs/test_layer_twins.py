@@ -14,6 +14,7 @@ from typing import Final
 from weft_cli.layers import installed_layers
 from weft_cli.pipeline_catalogue import load_contributed
 from weft_cli.route_ask import resolve_named_pipeline
+from weft_docling.weights import REQUIRED_MODEL_FOLDERS
 from weft_engine import registry_bootstrap
 from weft_engine.registry_bootstrap import Dependencies
 from weft_kernel.resolution import ResolvedPipeline
@@ -30,8 +31,17 @@ NO_LAYER_TWIN: Final[dict[str, str]] = {
 
 
 def _deps(tmp_path: Path) -> Dependencies:
+    # `index-pdf-learned` resolves only while the docling pack sees its weights, and a CI runner
+    # has none: a folder per required model, each non-empty, is all `missing_weights` checks.
+    weights = tmp_path / "docling-weights"
+    for folder in REQUIRED_MODEL_FOLDERS:
+        (weights / folder).mkdir(parents=True)
+        (weights / folder / "model").write_text("")
     config = tmp_path / "weft.toml"
-    config.write_text('[packs.store]\ndsn = "postgresql://nobody@localhost:1/none"\n')
+    config.write_text(
+        '[packs.store]\ndsn = "postgresql://nobody@localhost:1/none"\n'
+        f'[packs.docling]\nartifacts_path = "{weights}"\n'
+    )
     return registry_bootstrap.build_dependencies(config_path=config)
 
 
