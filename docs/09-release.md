@@ -416,7 +416,8 @@ implement:
 | Change | Caller | Implementer | Bump |
 |---|---|---|---|
 | Add a method to a Protocol | minor | **major** | **major** |
-| Add an `Enum` member | minor | **major** | **major** |
+| Add an `Enum` member an implementer must interpret exhaustively (`FilterOp`) | minor | **major** | **major** |
+| Add a member to an `Enum` implementers only store and return, and test by named member (`SourceStatus`, `LayerStatus`, `GenerationStatus`) | minor | minor | minor |
 | Add a name to `required_declarations` | — | **major** | **major** |
 | Widen a parameter type | minor | **major** | **major** |
 | Narrow a return type | **major** | minor | **major** |
@@ -425,6 +426,14 @@ implement:
 This makes `COMMAND_CONTRACT_VERSION` **1.1.0 a mis-recorded major**: task 3.2 added `help` to
 `required_declarations`, which breaks every `Command` that does not declare one. It is corrected to
 **2.0.0**, and correcting it is what the two-audience rule is for.
+
+**The `Enum` row was split on 2026-09-24 (repair `R43.44`, the owner's decision).** The store
+contract's version trail had recorded `SourceStatus.INDEXING`, `LayerStatus.STALE` and
+`GenerationStatus.WITHDRAWN` as minors, while this table said major. Both were right about
+different enums. A store stores and returns a status and tests it by named member
+(`packages/weft-rag/src/weft_qdrant/store.py:745 "record.status is not GenerationStatus.PUBLISHED"`),
+so a new member reaches it as "not that member", which is what the new member means. A `FilterOp`
+must be interpreted, and a backend meeting an operator it cannot interpret has no right answer.
 
 **A version bump does not fix silence, so silence is a separate defect.** Adding an `Enum` member is
 textbook-additive and, in this tree, makes a backend answer the wrong query without erroring:
