@@ -126,6 +126,8 @@ from weft_cli.layers import (
     LayerRelease,
     LayerStoreFallback,
     compose_layers,
+    corpus_scoped_layer_names,
+    demote_layer_records,
     require_corpus_layers_generation_holding,
     require_layers_metadata_filter,
     run_layers,
@@ -179,6 +181,7 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     LayerRecord,
+    LayerStatus,
     MetadataFilter,
     SourceFailure,
     SourceRecord,
@@ -356,7 +359,7 @@ class BatchScopedStageError(WeftError):
     Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
     does not compose with this pipeline — so this does not join `PipelineResolutionError` and
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
-    (`weft_cli/commands.py:323 'class ConflictingIndexModeError(WeftError):'`).
+    (`weft_cli/commands.py:324 'class ConflictingIndexModeError(WeftError):'`).
     """
 
 
@@ -559,7 +562,8 @@ class IndexResult:
     layers_stale_progress: Mapping[str, tuple[int, int]] = field(
         default_factory=lambda: cast("Mapping[str, tuple[int, int]]", {})
     )
-    #: Ledger **43.21** — layers `weft delete` staled: `weft_cli.layers.stale_corpus_layers`.
+    #: Ledger **43.21**, **R43.41** — layers a deletion or a re-parse staled, this run's among
+    #: them: `weft_cli.layers.stale_corpus_layers`.
     layers_stale_deleted: tuple[str, ...] = ()
 
 
@@ -690,6 +694,7 @@ async def _run_base(
     whole_corpus_for: tuple[str, ...],
     on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
     indexing_ctx: Context,
+    corpus_layers: frozenset[str],
 ) -> tuple[Mapping[SourceId, SourceChange], tuple[SourceRef, ...], list[RunSummary], int, int]:
     """The base's own run — every batch of `work` through `runnable` — or nothing at all under
     `layers_only`, lifted out of `run_index` so ledger task **43.8**'s own addition does not
@@ -705,14 +710,24 @@ async def _run_base(
         return {}, (), [], 0, 0
 
     changes = changes_against_records(refs, previous, identity=identity, retry_failed=retry_failed)
-    await _release_reparsed_sources(runnable, store_stage_ids=store_stage_ids, changes=changes)
+    demoted = set(
+        await _release_reparsed_sources(
+            runnable,
+            store_stage_ids=store_stage_ids,
+            changes=changes,
+            corpus_layers=corpus_layers,
+        )
+    )
     if reprocess:
         # R43.7, the owner's Q6: `--reprocess` rebuilds a source's layers with its base, so an
         # unchanged source that has any gives up the nodes they derived along with its leaves.
-        await _release_sources(
-            runnable,
-            store_stage_ids=store_stage_ids,
-            sources=_released_by_reprocess(changes, previous),
+        demoted.update(
+            await _release_sources(
+                runnable,
+                store_stage_ids=store_stage_ids,
+                sources=_released_by_reprocess(changes, previous),
+                corpus_layers=corpus_layers,
+            )
         )
     # Ledger task **17.0** — a document whose change is `UNCHANGED` owes this run no work: the
     # store dedupes by content digest, so re-running it would only re-pay extraction, chunking,
@@ -860,6 +875,7 @@ async def _run_base(
         identity=identity,
         changes=changes,
         previous=previous,
+        demoted=frozenset(demoted),
     )
     return changes, work, counts, indexed_count, failed_count
 
@@ -1212,6 +1228,11 @@ async def run_index(
             layers_only=layers_only,
             reprocess=reprocess,
         )
+        corpus_layers = frozenset(
+            corpus_scoped_layer_names(
+                registry=registry, reports=reports, contributions=contributions
+            )
+        )
         changes, _work, counts, indexed_count, failed_count = await _run_base(
             runnable,
             runner,
@@ -1227,6 +1248,7 @@ async def run_index(
             whole_corpus_for=whole_corpus_for,
             on_batch=on_batch,
             indexing_ctx=indexing_ctx,
+            corpus_layers=corpus_layers,
         )
         summary = _summed(counts)
         layers_released = _layers_released(
@@ -2027,7 +2049,8 @@ async def _release_reparsed_sources(
     *,
     store_stage_ids: Sequence[str],
     changes: Mapping[SourceId, SourceChange],
-) -> None:
+    corpus_layers: frozenset[str],
+) -> tuple[str, ...]:
     """Release what a re-parsed document's previous parse left, before the new one runs —
     ledger task **27.2**, and `L9.37`'s half of Phase 27's one cause.
 
@@ -2080,30 +2103,69 @@ async def _release_reparsed_sources(
             SourceChange.RETRIED,
         )
     )
-    await _release_sources(runnable, store_stage_ids=store_stage_ids, sources=stale)
+    return await _release_sources(
+        runnable, store_stage_ids=store_stage_ids, sources=stale, corpus_layers=corpus_layers
+    )
 
 
 async def _release_sources(
-    runnable: RunnablePipeline, *, store_stage_ids: Sequence[str], sources: Iterable[SourceId]
-) -> None:
+    runnable: RunnablePipeline,
+    *,
+    store_stage_ids: Sequence[str],
+    sources: Iterable[SourceId],
+    corpus_layers: frozenset[str] = frozenset(),
+) -> tuple[str, ...]:
     """`delete_source(source)` for every id in `sources`, on every store stage that has one.
 
     The mechanical half of `_release_reparsed_sources`, factored out so ledger **36.1**'s own
     failure path can release a batch's partial nodes the identical way without going through
     `changes_against_records`'s vocabulary to name a set of ids it already has in hand.
+
+    **R43.41** — `delete_source` removes every summary naming a released source, so first, on
+    every store, each of `corpus_layers` a released source held `ACTIVE` is demoted to `STALE`
+    on every other source: R43.33's marked-before-holed, as `weft delete` does. Returns the
+    names demoted. The failed-batch release passes no `corpus_layers`: its sources were
+    already released and rewritten `INDEXING` with no layers.
     """
     sources = tuple(sources)
     if not sources:
-        return
+        return ()
     wanted = set(store_stage_ids)
-    for stage in runnable.stages:
-        if stage.id not in wanted:
-            continue
+    stages = [stage for stage in runnable.stages if stage.id in wanted]
+    demoted: set[str] = set()
+    if corpus_layers:
+        released = frozenset(sources)
+        for stage in stages:
+            demoted.update(await _demote_released(stage.instance, released, corpus_layers))
+    for stage in stages:
         delete_source = _delete_source_of(stage.instance)
         if delete_source is None:
             continue
         for source in sources:
             await delete_source(source)
+    return tuple(sorted(demoted))
+
+
+async def _demote_released(
+    instance: object, released: frozenset[SourceId], corpus_layers: frozenset[str]
+) -> tuple[str, ...]:
+    """One store's half of `_release_sources`'s demotion. A store with no callable
+    `list_sources`/`put_source` is skipped, as `_record_sources` skips one without `put_source`.
+    """
+    list_sources = _list_sources_of(instance)
+    put_source = _put_source_of(instance)
+    if list_sources is None or put_source is None:
+        return ()
+    held = frozenset(
+        layer.name
+        for record in await list_sources()
+        if record.id in released
+        for layer in record.layers
+        if layer.name in corpus_layers and layer.status is LayerStatus.ACTIVE
+    )
+    if not held:
+        return ()
+    return await demote_layer_records(list_sources, put_source, held, released)
 
 
 def _delete_source_of(instance: object) -> Callable[[SourceId], Awaitable[object]] | None:
@@ -2296,6 +2358,7 @@ async def _record_sources(
     failures: Mapping[SourceId, SourceFailure] | None = None,
     changes: Mapping[SourceId, SourceChange] | None = None,
     previous: Mapping[SourceId, SourceRecord] | None = None,
+    demoted: frozenset[str] = frozenset(),
 ) -> None:
     """One `SourceRecord` per `SourceDoc` this run indexed, in **every** store it was written
     to — ledger task **6.24**'s repair of the defect `02` §1 documents, widened by carried
@@ -2382,7 +2445,9 @@ async def _record_sources(
                     pipeline_identity=identity,
                     status=status,
                     failure=(failures.get(doc.source_id) if failures is not None else None),
-                    layers=_carried_layers(doc.source_id, changes=changes, previous=previous),
+                    layers=_carried_layers(
+                        doc.source_id, changes=changes, previous=previous, demoted=demoted
+                    ),
                 )
             )
 
@@ -2392,6 +2457,7 @@ def _carried_layers(
     *,
     changes: Mapping[SourceId, SourceChange] | None,
     previous: Mapping[SourceId, SourceRecord] | None,
+    demoted: frozenset[str] = frozenset(),
 ) -> tuple[LayerRecord, ...]:
     """The `layers` a `_record_sources` write should carry forward — ledger task **43.8**.
 
@@ -2401,11 +2467,21 @@ def _carried_layers(
     writes `()`, because the base produced a wholly new set of node ids and a layer recorded
     against the old ones has nothing left to enrich. Under `--reprocess` no source reaches this
     at all: every ref is `work`, and a source with layers was released with them (R43.28).
+
+    `demoted` (**R43.41**) is what this run's releases marked `STALE` after `previous` was read,
+    so an `ACTIVE` entry named there is carried `STALE` rather than written back over the mark.
     """
     if changes is None or previous is None or changes.get(source_id) is not SourceChange.UNCHANGED:
         return ()
     record = previous.get(source_id)
-    return record.layers if record is not None else ()
+    if record is None:
+        return ()
+    return tuple(
+        layer.model_copy(update={"status": LayerStatus.STALE})
+        if layer.name in demoted and layer.status is LayerStatus.ACTIVE
+        else layer
+        for layer in record.layers
+    )
 
 
 async def _record_batch_failure(
@@ -2516,6 +2592,14 @@ def _count_of(instance: object) -> Callable[[], Awaitable[int]] | None:
     if found is None or not callable(found):
         return None
     return cast(Callable[[], Awaitable[int]], found)
+
+
+def _list_sources_of(instance: object) -> Callable[[], Awaitable[Sequence[SourceRecord]]] | None:
+    """`instance.list_sources`, if it has one and it is callable — `_put_source_of`'s shape."""
+    found = getattr(instance, "list_sources", None)
+    if found is None or not callable(found):
+        return None
+    return cast(Callable[[], Awaitable[Sequence[SourceRecord]]], found)
 
 
 def _put_source_of(instance: object) -> Callable[[SourceRecord], Awaitable[None]] | None:

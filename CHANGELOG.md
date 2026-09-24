@@ -257,6 +257,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **Re-indexing a changed document never leaves a corpus-wide layer served with a hole in it.**
+  `weft index` released a changed, retried or incomplete source's nodes, the corpus tree's
+  summaries over it included, and every other record still read as current. So the layer stayed
+  ready, and the next `--layers` run joined into the hole instead of rebuilding. A failed re-parse
+  left it that way for good. The corpus layers the source covered are now marked stale before
+  anything is released, as `weft delete` does since the previous entry. The stale line reads "a
+  source it covered was deleted or re-parsed", and `weft index --layers <name>` rebuilds the tree.
 - **A corpus-wide RAPTOR build on pgvector no longer fails once it keeps two summaries.** Resumable
   builds (`LayerCheckpoints`) saved each summary through the one store connection while `raptor`
   wrote several at once, and pgvector refused the interleaved transactions

@@ -72,7 +72,7 @@ _CORPUS = "enrich-with-summary"
 _PER_SOURCE = "enrich-with-questions"
 _RUNG = "needs-summary"
 _STALE_LINE = (
-    f"layer '{_CORPUS}' is stale: a source it covered was deleted — "
+    f"layer '{_CORPUS}' is stale: a source it covered was deleted or re-parsed — "
     f"weft index --layers {_CORPUS} rebuilds it."
 )
 

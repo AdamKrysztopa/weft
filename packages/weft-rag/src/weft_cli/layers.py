@@ -2186,7 +2186,7 @@ def _joinable(
     """Whether a corpus-scoped layer is stale by addition only, so its incremental stage can join
     the uncovered sources into the published tree — task **43.23**. Every record `ACTIVE` under
     `identity` or absent, and at least one `ACTIVE`; `_stores_without_carry` must also be empty.
-    A `STALE` record means a source was deleted, which a join cannot remove, so deletion wins.
+    A `STALE` record means a covered source was released (deleted or re-parsed): deletion wins.
     """
     if not composition.incremental_specs:
         return False
@@ -2726,6 +2726,32 @@ def corpus_scoped_layer_names(
     return tuple(names)
 
 
+async def demote_layer_records(
+    list_sources: Callable[[], Awaitable[Sequence[SourceRecord]]],
+    put_source: Callable[[SourceRecord], Awaitable[None]],
+    names: frozenset[str],
+    excluded: frozenset[SourceId],
+) -> tuple[str, ...]:
+    """One store's records but `excluded`'s: every `ACTIVE` layer in `names` becomes `STALE` —
+    task **43.21**, and **R43.41**'s seam for `weft index`. `excluded` is every source about to
+    be released, by `weft delete` or by a re-parse; returns the names demoted here.
+    """
+    here: set[str] = set()
+    for record in await list_sources():
+        if record.id in excluded:
+            continue
+        layers = list(record.layers)
+        changed = False
+        for index, layer in enumerate(layers):
+            if layer.name in names and layer.status is LayerStatus.ACTIVE:
+                layers[index] = layer.model_copy(update={"status": LayerStatus.STALE})
+                changed = True
+                here.add(layer.name)
+        if changed:
+            await put_source(record.model_copy(update={"layers": tuple(layers)}))
+    return tuple(here)
+
+
 async def stale_corpus_layers(
     *,
     runnable: RunnablePipeline,
@@ -2742,11 +2768,11 @@ async def stale_corpus_layers(
     `(built, of)`, the pair `weft_cli.render`'s own stale line prints.
 
     `layers_stale_deleted` (**43.21**) is every corpus-scoped layer carrying `LayerStatus.
-    STALE` on any `ACTIVE` source — `weft delete` demoted it there because a source its tree
-    covered was removed — reported separately because `weft_cli.render` prints a different
-    sentence for it, one that wins over `layers_stale`'s own: a tree missing a source is a
-    different problem from one still catching up to new ones, and a name never appears in
-    both.
+    STALE` on any `ACTIVE` source — `weft delete` or a re-parse (**R43.41**) demoted it there
+    because a source its tree covered was released — reported separately because
+    `weft_cli.render` prints a different sentence for it, one that wins over `layers_stale`'s
+    own: a tree missing a source is a different problem from one still catching up to new
+    ones, and a name never appears in both.
 
     Read regardless of what this run itself named under `--layers`: a source indexed without
     naming a corpus-scoped layer still leaves that layer behind everybody else, and an
@@ -2801,6 +2827,7 @@ __all__ = [
     "compose_layer_over",
     "compose_layers",
     "corpus_scoped_layer_names",
+    "demote_layer_records",
     "installed_layers",
     "layer_created",
     "layer_enriched",

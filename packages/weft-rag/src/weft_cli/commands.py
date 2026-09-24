@@ -124,6 +124,7 @@ from weft_cli.layers import (
     LayerStoreFallback,
     UnknownLayerError,
     corpus_scoped_layer_names,
+    demote_layer_records,
     installed_layers,
 )
 from weft_cli.output import AskFormat
@@ -2135,24 +2136,10 @@ async def _demote_layer_records(
     list_sources: Callable[[], Awaitable[Sequence[SourceRecord]]],
     put_source: Callable[[SourceRecord], Awaitable[None]],
     names: frozenset[str],
-    excluded: SourceId,
+    excluded: frozenset[SourceId],
 ) -> Outcome[tuple[str, ...]]:
-    """One store's records but `excluded`'s: every `ACTIVE` layer in `names` becomes `STALE`
-    (task **43.21**)."""
-    here: set[str] = set()
-    for record in await list_sources():
-        if record.id == excluded:
-            continue
-        layers = list(record.layers)
-        changed = False
-        for index, layer in enumerate(layers):
-            if layer.name in names and layer.status is LayerStatus.ACTIVE:
-                layers[index] = layer.model_copy(update={"status": LayerStatus.STALE})
-                changed = True
-                here.add(layer.name)
-        if changed:
-            await put_source(record.model_copy(update={"layers": tuple(layers)}))
-    return Produced(value=tuple(here))
+    """`weft_cli.layers.demote_layer_records` as the `Outcome` the store seam's `wrap` takes."""
+    return Produced(value=await demote_layer_records(list_sources, put_source, names, excluded))
 
 
 async def _demote_stale_corpus_layers(
@@ -2190,7 +2177,7 @@ async def _demote_stale_corpus_layers(
             cast("Callable[[], Awaitable[Sequence[SourceRecord]]]", raw_list_sources),
             cast("Callable[[SourceRecord], Awaitable[None]]", raw_put_source),
             names,
-            excluded,
+            frozenset({excluded}),
         )
         wrapped = wrap(
             _demote,
