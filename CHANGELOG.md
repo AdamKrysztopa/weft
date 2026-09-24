@@ -92,6 +92,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   first-party role field carries it. `weft_llm.LLMRole` is new, and the LLM contract moves to
   `1.1.0`. `examples/weft-example-query` gains `example-llm-judge`, a reranker whose `judge_role`
   is seen this way.
+- **Ctrl-C prints one line, on stderr.** An interrupted `weft index` or `weft ask` also printed
+  `[stream error: command did not complete]` on stdout. An interrupt is not a stream error: the
+  stream now closes quietly, and `weft <command>: interrupted` with exit 130 is what says so.
 - **A misdeclared `SubPlugin` is refused by name.** A pack whose `SubPlugin(config="…")` named no
   field of its model crashed a routed `weft ask` with a bare `AttributeError`. It is now refused
   before any model call as `UnknownSubPluginConfigFieldError`, which names the rung, the field,

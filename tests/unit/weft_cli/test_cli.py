@@ -831,11 +831,10 @@ async def test_run_command_closes_the_token_sink_and_still_propagates_cancellati
     assert sink.closed_with == [None]
 
 
-async def test_run_command_uses_the_generic_reason_on_mid_stream_cancellation() -> None:
-    # Arrange — `_StreamingCancellingCommand` emits first, so cancellation this time interrupts
-    # a genuine stream: `failure_reason` stays unset (`CancelledError` is not a `WeftError`, so
-    # `except WeftError` never runs), and the generic "command did not complete" fallback —
-    # never a fabricated cause `run_command` does not actually know — is what a reader gets.
+async def test_run_command_closes_a_cancelled_stream_with_no_error_reason() -> None:
+    # Arrange — `_StreamingCancellingCommand` emits first, so cancellation interrupts a genuine
+    # stream. An interrupt is not a stream error: the sink closes with no reason, and exit 130
+    # is what tells a script it was interrupted (R43.48).
     registry = Registry()
     registry.add(Command, "streaming-cancel", _StreamingCancellingCommand, distribution="acme-cmd")
     sink = _RecordingSink()
@@ -845,7 +844,7 @@ async def test_run_command_uses_the_generic_reason_on_mid_stream_cancellation() 
     # Act / Assert
     with pytest.raises(asyncio.CancelledError):
         await cli.run_command("streaming-cancel", args, deps)
-    assert sink.closed_with == ["command did not complete"]
+    assert sink.closed_with == [None]
 
 
 def test_global_output_flags_recognises_json_before_the_subcommand() -> None:

@@ -492,8 +492,9 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     close it, rather than a rule every streaming `Command` author has to remember (CLAUDE.md:
     cross-cutting concerns live at the seam). `close(reason=None)` on a clean return;
     `close(reason=...)` naming what happened otherwise — a caught `WeftError`'s own message, or,
-    for anything else (a plain bug, `CancelledError`) that escapes uncaught below, a generic
-    "command did not complete" rather than fabricating a cause this function does not know. The
+    for anything else (a plain bug) that escapes uncaught below, a generic
+    "command did not complete" rather than fabricating a cause this function does not know; an
+    interrupt (`CancelledError`, `KeyboardInterrupt`) closes with no reason (R43.48). The
     `finally` below runs on every exit from the `try`, `CancelledError` included, and does not
     catch it — it closes the sink and lets propagation continue untouched (G6): closing a
     resource in `finally` during cancellation is ordinary asyncio cleanup, not a second
@@ -585,6 +586,7 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     yes = cast(bool, getattr(args, "yes", False))
 
     succeeded = False
+    interrupted = False
     failure_reason: str | None = None
     try:
         # Inside the `try`, so a broken bound is a usage refusal for a one-shot run and a REPL
@@ -617,8 +619,12 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
         failure_reason = str(exc)
         # Task 5.2d — see this function's own docstring, sixth job.
         return render_refusal(exc, as_json=isinstance(deps.token_sink, JsonSink))
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        # R43.48: an interrupt is not a stream error; exit 130 says it.
+        interrupted = True
+        raise
     finally:
-        if succeeded or not tracked_sink.emitted:
+        if succeeded or interrupted or not tracked_sink.emitted:
             reason = None
         else:
             reason = failure_reason or "command did not complete"
