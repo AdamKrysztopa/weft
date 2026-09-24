@@ -131,7 +131,7 @@ def test_a_stage_contract_is_never_derived_as_another_stages_sibling() -> None:
 
 @runtime_checkable
 class _UnregisteredRetriever(Stage[QuerySet, Candidates], Protocol):
-    """Stand-in with `Retriever`'s exact `In`/`Out` shape and `run` method, registered nowhere.
+    """Gives the sibling-derivation test a contract that shares a real one's shape but not its name.
 
     Stand-in: `Retriever`'s exact `In`/`Out` shape and `run` method name, satisfied
     structurally by `NoRetrieval` (and by every real `Retriever`), registered nowhere.

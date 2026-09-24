@@ -180,7 +180,7 @@ def _streaming_services(llm: object, lookup: object) -> ServiceRegistry:
 
 
 def _reply_provider(reply: str, *, chunked: bool) -> type[object]:
-    """A provider *class* that always answers `reply`.
+    """Builds a registrable fixed-answer provider whose streaming can be chunked or whole.
 
     A provider *class* that always answers `reply`, delegating every word of *how* to
     `weft_llm.scripted.ScriptedProvider` — never a second implementation of what a reply is.
@@ -335,7 +335,7 @@ async def test_a_cascade_that_could_not_produce_a_rewrite_is_relayed_not_papered
 
 
 async def test_driving_the_rewrite_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `ContextualQueryRewrite` working when called directly yet breaking under the seam.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -484,7 +484,7 @@ async def test_hyde_a_cascade_that_could_not_produce_documents_is_relayed_not_pa
 
 
 async def test_driving_hyde_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `Hyde` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -591,7 +591,7 @@ async def test_step_back_a_cascade_that_could_not_abstract_is_relayed_not_papere
 
 
 async def test_driving_step_back_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `StepBack` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -887,7 +887,7 @@ async def test_multi_query_a_group_answering_for_an_unoffered_index_is_refused_b
 
 
 async def test_driving_multi_query_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `MultiQuery` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered

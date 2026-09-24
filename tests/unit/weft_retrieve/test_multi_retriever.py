@@ -233,7 +233,7 @@ async def test_a_name_no_distribution_registered_is_refused_before_any_arm_runs(
 
 
 async def test_an_arm_that_fails_fails_the_retrieval_rather_than_returning_the_rest() -> None:
-    """A partial fan-out is a plausible answer against incomplete evidence.
+    """One failed arm makes `multi-retriever` return `Failed`, naming the arm and its reason.
 
     A partial fan-out is a plausible answer against incomplete evidence, which is the
     silent fallback `CLAUDE.md` refuses — so one arm's `Failed` is the whole outcome.
@@ -306,7 +306,7 @@ async def test_every_arm_declining_still_produces_candidates_rather_than_stoppin
 
 
 def test_two_arms_sharing_a_name_are_refused_at_config_time() -> None:
-    """`multi-arm`'s own rule: two arms under one label leave an operator no key to weight them.
+    """`multi-retriever` rejects duplicate arm names when its config is built, naming the rule.
 
     `multi-arm`'s own rule, for the same reason: a `Fuser` addresses an arm by its label,
     so two arms under one label leave an operator no key to weight them apart.
@@ -321,7 +321,7 @@ def test_two_arms_sharing_a_name_are_refused_at_config_time() -> None:
 
 
 def test_one_arm_is_refused_because_it_is_the_retriever_spelled_the_long_way() -> None:
-    """`multi-arm`'s rule again: a plugin whose purpose is arity, handed arity one, is refused.
+    """`multi-retriever` with a single arm is a `ValidationError`, not a fan-out of one.
 
     `multi-arm`'s rule again — a plugin whose whole purpose is arity, handed arity one, is
     a document mistake, and `02` §2 refuses those by name rather than tolerating them.

@@ -157,7 +157,7 @@ def test_the_slot_contribution_is_buffered_and_reuses_the_registered_plugin() ->
 
 
 def test_a_second_pack_colliding_on_every_name_leaves_the_first_untouched() -> None:
-    """Registration is transactional: a half-finished pack contributes exactly zero.
+    """Guards against an impostor pack displacing, or half-joining, a pack already registered.
 
     Registration is transactional — CLAUDE.md: "cross-cutting concerns live at the
     registration seam"; a half-finished pack must contribute exactly zero. A second,
@@ -203,7 +203,7 @@ def test_a_renderer_is_offered_for_this_packs_own_result_type() -> None:
 
 
 def test_this_packs_result_renders_as_text_a_person_can_read() -> None:
-    """The graph renderer returns prose about the graph, not the fallback's structured dump.
+    """Guards against `weft graph show` printing JSON at a person instead of text.
 
     And the renderer itself is real: what it returns is prose about the graph, not the
     structured dump the fallback would have produced.

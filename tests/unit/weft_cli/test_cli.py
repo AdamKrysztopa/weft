@@ -204,7 +204,7 @@ class _WipeArgs(BaseModel):
 
 
 class _WipeCommand:
-    """A hand-registered `destroy`-class command that declares only `permission_class`.
+    """A destructive command with no gate code of its own, so any refusal proves the seam gated it.
 
     A hand-registered `destroy`-class command — proof for design question 1: it declares
     `permission_class` and nothing else. It never imports `weft_cli.confirm`, never checks a
@@ -526,7 +526,7 @@ async def test_run_command_refuses_a_broken_argument_in_the_json_envelope() -> N
 
 
 async def test_the_shipped_index_command_refuses_a_zero_batch_size_naming_its_flag() -> None:
-    """The shipped index command refuses a zero batch size, naming its flag.
+    """An operator's `--batch-size 0` is a usage error naming the flag, not a deep traceback.
 
     The real `IndexArgs` through the real generated grammar, since a hand-built double
     cannot say which constraints the shipped models carry.
@@ -759,7 +759,7 @@ async def test_run_command_closes_the_token_sink_cleanly_on_success() -> None:
 
 
 async def test_run_command_closes_the_token_sink_with_none_when_nothing_streamed() -> None:
-    """`run_command` closes the token sink with `None` when nothing streamed.
+    """A command that raised before emitting anything prints no `[stream error: ...]` line.
 
     Repair, 2026-08-20 — this test used to assert the **opposite**: that `_BoomCommand`'s
     own `WeftError` closed the sink with `"something in the library refused"` as `reason`.
@@ -805,7 +805,7 @@ async def test_run_command_attributes_a_genuine_mid_stream_failure() -> None:
 async def test_run_command_closes_the_token_sink_with_none_on_a_gate_refusal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`run_command` closes the token sink with `None` on a gate refusal.
+    """A refused command never started, so its refusal text must not surface as a stream error.
 
     Repair, 2026-08-20 — the counterpart to `test_run_command_closes_the_token_sink_with_
     the_weft_error_s_own_reason` above: **that** test's `WeftError` is raised from inside

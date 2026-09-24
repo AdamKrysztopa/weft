@@ -1,4 +1,4 @@
-"""Report installed distributions that break another's declared dependency specifier.
+"""Surface a forced or editable install that broke a range the resolver would have refused.
 
 Version skew — `weft plugins doctor`'s report that an installed distribution does not
 satisfy another installed distribution's own declared dependency specifier.
@@ -60,7 +60,7 @@ _WEFT_PREFIX = "weft-"
 
 
 class SkewReport(BaseModel):
-    """An installed version that does not satisfy another distribution's specifier.
+    """One skew finding, enough for `weft plugins doctor` to name whose range was broken.
 
     `requiring_distribution` declares `specifier` on `required_distribution`, but the
     version actually installed does not satisfy it.
@@ -84,7 +84,7 @@ def detect_skew(
     requires: _RequiresFn | None = None,
     version: _VersionFn | None = None,
 ) -> tuple[SkewReport, ...]:
-    """Find every `weft-...` requirement whose installed version does not satisfy it.
+    """Catch skew in any installed distribution, third-party packs included, with no list to keep.
 
     Every declared requirement on a `weft-...` distribution whose installed version
     does not satisfy it.

@@ -174,7 +174,7 @@ def _stream_hash(path: Path) -> str:
 
 
 def inventory_source_refs(directory: Path, *, extensions: Collection[str]) -> tuple[SourceRef, ...]:
-    """Every file under `directory` an extension in `extensions` claims, as a `SourceRef`.
+    """Inventory a corpus without holding its bytes, so memory stays flat however large it is.
 
     Every file under `directory` an extension in `extensions` claims, as a `SourceRef` —
     the same walk and sorted order `discover_source_docs` uses, holding no file's bytes.

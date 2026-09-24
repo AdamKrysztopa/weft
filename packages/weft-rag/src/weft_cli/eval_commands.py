@@ -394,7 +394,7 @@ class UnknownRunIdError(WeftError, UnresolvedNameError):
 
 
 class NoBaselineRunsError(WeftError, UnresolvedNameError):
-    """Refuse a `--baseline` pipeline no persisted run ran.
+    """Turns a mistyped `--baseline` into a list of pipelines that have persisted runs.
 
     `weft eval compare --baseline <pipeline>` named a pipeline no persisted run under
     `DEFAULT_RUNS_DIR` ran.
@@ -613,7 +613,7 @@ class EvalMetricsArgs(BaseModel):
 
 
 class EvalRunCommandResult(CommandResult):
-    """The result of `weft eval run`.
+    """Everything a renderer needs to report one scored run and where its record lives.
 
     `weft eval run`'s whole answer — the run id it minted, what `run_index` produced, and
     the record it persisted.
@@ -766,7 +766,7 @@ def _slices_of(aggregate: MetricAggregate) -> set[str]:
 def _restricted_to_axis(
     result: MetricRunResult | None, *, axis: str, value: str
 ) -> MetricRunResult:
-    """Restrict a metric result to one `axis=value` slice.
+    """Report a metric per value of an axis, marking absent slices not measured.
 
     `result`, restricted to `axis=value`'s own slice — `_restricted_to_kind`'s twin, shaped
     identically (task 38.2). `_NOT_MEASURED` for a result this run never produced, or whose
@@ -1389,7 +1389,7 @@ def _question_set_basis_of(record: RunRecord) -> str:
 
 @dataclass(frozen=True)
 class IndexAndScoreResult:
-    """What `index_and_score` produced.
+    """Carries one scoring pass's record and timings to both eval commands without re-reading.
 
     Every fact `EvalRunCommand`/`EvalExperimentCommand`
     (task **38.0**) need to build their own result, from the one path both now index a corpus
@@ -1587,7 +1587,7 @@ async def index_and_score(
     pool: LoadedPool | None = None,
     target: str | None = None,
 ) -> IndexAndScoreResult:
-    """Index a corpus, or reuse what is stored, and score the given questions.
+    """Keep `weft eval run` and `weft eval experiment` scoring through one identical path.
 
     Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
     with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own

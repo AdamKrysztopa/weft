@@ -169,7 +169,7 @@ async def test_llm_sufficiency_relays_a_cascade_failure_exactly_as_it_answered()
 
 
 async def test_driving_llm_sufficiency_through_the_seam_produces_an_assessment() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `LlmSufficiency` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered

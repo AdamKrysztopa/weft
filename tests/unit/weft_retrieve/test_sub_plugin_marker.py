@@ -1,4 +1,4 @@
-"""Repair **R43.42**: `SubPlugin` is published by `weft_retrieve` beside `StageLookup`.
+"""Repair **R43.42**: a stranger's pack can import `SubPlugin`, and the contract version says so.
 
 Repair **R43.42**: `SubPlugin` is published by `weft_retrieve` beside `StageLookup`, and
 publishing it moves the retrieve contract family by a minor — an addition a stranger can depend on.

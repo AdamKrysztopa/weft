@@ -218,7 +218,7 @@ async def test_a_grade_set_that_is_not_one_per_passage_is_refused_by_name() -> N
 
 
 async def test_driving_graded_retrieval_through_the_seam_filters_a_ranking() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `GradedRetrieval` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call.

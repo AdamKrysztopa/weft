@@ -469,7 +469,7 @@ async def test_run_repl_does_not_swallow_cancellation_from_a_running_command(
 async def test_repl_does_not_read_the_next_line_while_a_stream_is_in_flight(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The REPL does not read the next line while a stream is in flight.
+    """Pins the REPL as strictly sequential, so a stream is never raced by the next prompt.
 
     O2 (task 3.4's open item, resolved by task 3.6, `.phase3-design.md` §4): does a token
     now arrive while something else blocks the loop? Proven here, not asserted from reading

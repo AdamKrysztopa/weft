@@ -462,7 +462,7 @@ def test_pack_settings_from_config_refuses_a_packs_value_that_is_not_a_table() -
 def test_build_dependencies_survives_its_own_repeated_ext_model_registration(
     tmp_path: Path,
 ) -> None:
-    """`build_dependencies` calls `_register_ext_models` once per command, many times per run.
+    """A second `build_dependencies` in one process must not raise on models already registered.
 
     `build_dependencies` calls `_register_ext_models` once per command, many times over
     within one test run — against the one, process-wide rehydration registry.
@@ -603,7 +603,7 @@ def test_build_dependencies_defaults_to_the_offline_embedder_with_no_config_file
 def test_build_dependencies_carries_the_permission_policy_from_weft_toml(
     tmp_path: Path,
 ) -> None:
-    """Task 3.3, design question 4: `[permissions]` travels with the registry it was read beside.
+    """Task 3.3: an operator's `destroy = "allow"` is honoured, not dropped between parse and run.
 
     Task 3.3, design question 4: `[permissions]` travels with the registry it was read
     beside, the same one-parse discipline `[services]`/`[llm]` already follow.

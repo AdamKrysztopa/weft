@@ -180,7 +180,7 @@ def find_anchors(text: str, *, entities: Sequence[str] = ()) -> tuple[Anchor, ..
 
 
 class IntentAndAnchorsConfig(BaseModel):
-    """`IntentAndAnchors`'s `with:` config.
+    """How anchors are found: by rule over a configured entity list, or by a model prompt.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied.

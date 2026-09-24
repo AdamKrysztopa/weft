@@ -44,7 +44,7 @@ def test_the_manifest_pins_the_three_files_the_question_set_is_built_from() -> N
 
 
 def test_the_question_files_are_pinned_to_the_same_revision_with_their_digests() -> None:
-    """A run record's question-set digest traces to one split of one build.
+    """Guards run-record traceability for question files that git does not track.
 
     `38.4`'s files are untracked; `corpus/open-ragbench-questions.toml` records the build that
     wrote them, so a run record's question-set digest traces to one split of one build.

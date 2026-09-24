@@ -118,7 +118,7 @@ class Settings(VendorSettings):
 
 
 class StreamOnlyOpenAILLMProvider:
-    """`OpenAILLMProvider`, without the methods that satisfy `UsageReporting` and `TokenCounting`.
+    """Keeps a server that cannot vouch for usage or token counts from claiming either.
 
     `OpenAILLMProvider`, with the methods that satisfy `UsageReporting` and `TokenCounting`
     withheld.

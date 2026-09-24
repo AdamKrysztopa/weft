@@ -284,7 +284,7 @@ def _summary_over(store: _JoinStore, ids: frozenset[NodeId], *names: str) -> Nod
 
 
 async def _delete(store: _JoinStore, corpus: Path, name: str) -> None:
-    """Delete the file as `weft delete` does, leaving the corpus layer `STALE` on what remains.
+    """Stage a deletion by hand, so the join under test meets a corpus layer that lost a member.
 
     What `weft delete` leaves (task 43.21): the file and its nodes gone, and the corpus layer
     `STALE` on every remaining source.

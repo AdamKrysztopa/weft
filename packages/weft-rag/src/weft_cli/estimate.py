@@ -185,7 +185,7 @@ def store_index_kind(store: object) -> VectorIndexKind | None:
 
 
 def store_precision(store: object) -> VectorPrecision | None:
-    """Read `store`'s declared vector precision, or `None`.
+    """Let a storage projection size vectors only when the store states their precision.
 
     `store`'s declared vector precision, or `None` — `store_index_kind`'s own reasoning,
     one attribute over.

@@ -97,7 +97,7 @@ class Agreement(ExtModel):
 
 
 class ContradictionCheckConfig(BaseModel):
-    """`ContradictionCheck`'s `with:` config.
+    """The critic and answer prompts and roles, how many passages each sees, and on-failure policy.
 
     Every field has a default, per this pack's own rule.
 

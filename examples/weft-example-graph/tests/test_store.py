@@ -115,7 +115,7 @@ class _CorpusStore:
 
 
 def _ctx_with_corpus(corpus: _CorpusStore) -> Context:
-    """One `Context` with the configured `NodeStore` on it.
+    """Give a reconcile pass a primary corpus to check orphans and backfill against.
 
     One `Context` with the configured `NodeStore` on it — what `weft_cli.commands` does for
     a real reconcile pass, done by hand here so the pack's own test needs no CLI.
@@ -322,7 +322,7 @@ async def test_full_without_a_corpus_on_the_passport_says_what_is_missing(
 async def test_repair_drops_a_node_whose_source_the_corpus_no_longer_holds(
     store: GraphStore,
 ) -> None:
-    """`repair` drops orphans the deletion fan-out missed (task 6.21).
+    """Guards orphan cleanup for a source gone from the corpus but not the graph (task 6.21).
 
     Task **6.21**, the last unbuilt row of `02` §4's own table: "`repair` drops orphans left
     by anything the [deletion] fan-out missed".
@@ -355,7 +355,7 @@ async def test_repair_drops_a_node_whose_source_the_corpus_no_longer_holds(
 async def test_repair_without_a_corpus_on_the_passport_says_what_is_missing(
     store: GraphStore,
 ) -> None:
-    """`repair` refuses without the corpus, for the same reason `full` does.
+    """Guards against a `repair` that reports converged while orphan detection was skipped.
 
     `repair` needs the corpus for the same reason `full` does, so it refuses for the same
     reason too. Doing the half it can and silently skipping orphan detection would be `01`
@@ -425,7 +425,7 @@ async def clean_store(store: GraphStore) -> AsyncIterator[GraphStore]:
 async def test_a_source_record_round_trips_through_the_published_check(
     clean_store: NodeStore,
 ) -> None:
-    """A store outside the tree keeps the failure it is handed (`R36.2`).
+    """Protects `weft sources list`'s failure detail for a stranger's store (`R36.2`).
 
     `R36.2`: a store outside the tree keeps a failure it is handed, which the published
     conformance kit checks. This store wrote neither `failure` nor `pipeline_identity`, so
@@ -441,7 +441,7 @@ async def test_deleting_a_failed_source_passes_the_published_check(clean_store: 
 async def test_a_source_s_layers_round_trip_through_the_published_check(
     clean_store: NodeStore,
 ) -> None:
-    """A store outside the tree keeps the layers it is handed (ledger 43.6).
+    """Keeps a stranger's store from silently losing a source's built layers (ledger 43.6).
 
     Ledger **43.6**: a store outside the tree keeps the layers it is handed, as `R36.2` made it
     keep the failure.

@@ -86,7 +86,7 @@ def _registry() -> Registry:
 
 
 def _kg_pipeline() -> Pipeline:
-    """Build the shape of `examples/weft-example-graph`'s `kg.yaml`.
+    """A pipeline that names a second store, mirroring the shipped graph example without reading it.
 
     The shape `examples/weft-example-graph`'s own `kg.yaml` has: an ordinary ingest path
     whose last stage writes to a second `NodeStore`.
@@ -278,7 +278,7 @@ def test_an_extends_cycle_terminates() -> None:
 
 
 def test_a_store_only_a_persisted_run_names_joins() -> None:
-    """A store only a persisted run names joins the participants.
+    """Run history alone keeps a store in the fan-out after its pipeline document is gone.
 
     The catalogue is empty and the document is gone; the run history is the only record
     that this project ever wrote to that store, and `02` §1 makes it a participant anyway.
@@ -300,7 +300,7 @@ def test_a_store_only_a_persisted_run_names_joins() -> None:
 
 
 def test_a_registered_store_nothing_names_stays_out() -> None:
-    """A registered store nothing names stays out.
+    """Installing a store is not enough to be connected to by the fan-out; something must name it.
 
     Task 5.1a's narrowing, kept: `qdrant` is installed and registered, no document and no
     run names it, and connecting to it would be the operator's unused database.
@@ -346,7 +346,7 @@ def test_a_named_plugin_that_is_not_a_store_is_not_a_store() -> None:
 
 
 def test_a_store_named_by_an_operator_block_counts_as_named() -> None:
-    """A store named by an operator block counts as named.
+    """Stores a derived pipeline adds by `insert:` or `replace:` are not missed by participation.
 
     A derived pipeline names its stores in `insert:`/`replace:` rather than in `stages:`,
     and a store a derivation adds is one this project runs data through just the same.

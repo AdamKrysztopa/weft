@@ -93,7 +93,7 @@ async def test_a_description_comes_back_as_produced() -> None:
 
 
 async def test_an_empty_reply_is_nothing_to_produce_rather_than_an_empty_string() -> None:
-    """A model that returned nothing has not described the image.
+    """A blank caption becomes `NothingToProduce`, so no node carries an empty description.
 
     A model that returned nothing has not described the image, and `""` in a node's content
     would be indistinguishable from a caption that happened to be blank — `02` §1's `Outcome` rule.
@@ -219,7 +219,7 @@ async def test_the_resize_runs_off_the_event_loop() -> None:
 
 
 async def test_the_instruction_reaches_the_provider() -> None:
-    """`instruction` is the contract's third argument and the caller's only control.
+    """The describer forwards the caller's `instruction` into the request the model receives.
 
     `instruction` is the contract's third argument and the caller's only control over what is
     said; a plugin that ignored it would satisfy every other test here.
@@ -235,7 +235,7 @@ async def test_the_instruction_reaches_the_provider() -> None:
 
 
 def test_the_pack_discloses_that_image_bytes_leave_the_process() -> None:
-    """`02` §2 → *The trust model*: the `note` names the **content class** that leaves.
+    """The `weft-openai` disclosure mentions images, so an operator knows page crops leave the host.
 
     `02` §2 → *The trust model*, and `9.9`'s own clause: the `note` names the **content class**
     that leaves, not merely that the network is reached. `weft-openai`'s existing disclosure said

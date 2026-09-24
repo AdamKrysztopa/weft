@@ -35,7 +35,7 @@ def _node(content: str, *, degraded: bool) -> Node:
 
 
 class _PagingStore:
-    """A store that answers the count's `EXISTS` filter one node per page.
+    """A deliberately stingy store for the degraded-expansion count, checking the filter it gets.
 
     Answers `matching` for the one `EXISTS` filter the count asks, one node per page, so a
     count that reads only the first page is caught.

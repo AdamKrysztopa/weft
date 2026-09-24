@@ -47,7 +47,7 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register the agent pack's prompt, command and renderer.
+    """Make `weft agent` and its prompt reachable through the same seam any pack uses.
 
     Register `NextActionPrompt` as `"next-action"` for `Prompt`, `AgentCommand` as `"agent"`
     for `Command`, and that command's own renderer.

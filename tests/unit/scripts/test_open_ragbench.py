@@ -145,7 +145,7 @@ def test_the_manifest_pins_every_document_twice_and_every_question_file_once(
 
 
 def test_the_manifest_reads_through_the_wheels_own_manifest_reader(tmp_path: Path) -> None:
-    """The eval commands read manifests through `weft_eval.corpus_manifest`, not this script.
+    """Keeps one manifest reader: the script's output must parse through the wheel's own.
 
     `weft eval run --manifest` and the experiment runner read manifests through
     `weft_eval.corpus_manifest`, not through this script.

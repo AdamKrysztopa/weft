@@ -1,4 +1,4 @@
-"""`exit_code_for`: one mapping from a caught `WeftError` to its reserved exit code.
+"""Pins the one `WeftError`-to-exit-code table every CLI handler shares, so no handler drifts.
 
 `exit_code_for` — one mapping from a caught `WeftError` to the exit code `docs/03-cli.md`
 reserves for it. Task 1.13.

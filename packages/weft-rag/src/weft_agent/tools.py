@@ -56,7 +56,7 @@ EXCLUDED_BY_NAME: Final[frozenset[str]] = frozenset(
 
 
 class AgentToolSpec(BaseModel):
-    """One command, described the way a model calling it needs.
+    """What a model is shown to choose and call a command: its name, help and argument schema.
 
     One command, described the way a model calling it needs — never a `Command` itself and
     never wired into the loop (that is task 7.3).
@@ -70,7 +70,7 @@ class AgentToolSpec(BaseModel):
 
 
 def tool_catalogue(registry: Registry) -> Mapping[str, AgentToolSpec]:
-    """Every registered `Command` G12's ceiling reaches, keyed by its full registered name.
+    """Decide which commands the agent may call, by permission class rather than a deny-list.
 
     Every registered `Command` G12's ceiling reaches, keyed by its registered name in full —
     `"pipeline list"`, with the space, exactly as `registry.names_for(Command)` reports it.

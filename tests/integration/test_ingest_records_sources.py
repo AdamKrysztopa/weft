@@ -158,7 +158,7 @@ async def test_re_indexing_the_same_directory_updates_rather_than_duplicates(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A source has one record, whatever pipeline it has been indexed by.
+    """Guards `weft index`'s different-pipeline warning, which needs one record per source.
 
     A source has one record, whatever it has been indexed by — `SourceRecord.id` is the
     identity. `02` §1's own purpose for `pipeline` depends on this: `weft index` can only say

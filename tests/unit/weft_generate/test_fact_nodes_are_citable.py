@@ -216,7 +216,7 @@ def _passage(node: Node, *, label: str, rank: int = 0) -> Passage:
 
 
 async def test_a_fact_carrying_its_parents_facts_resolves_to_the_page_of_its_evidence() -> None:
-    """The property `11.1` states: a fact node's page is its evidence's page.
+    """`11.1`: `page_for` answers a fact node's page without reaching the store for its evidence.
 
     The property `11.1` states: a fact node's page is its evidence's page, read off the
     fact node alone, because that is all `page_for` is ever given.
@@ -258,7 +258,7 @@ async def test_a_fact_that_does_not_carry_its_parents_facts_has_no_page_at_all()
 
 
 async def test_a_fact_node_is_offered_as_a_passage_labelled_and_cited_to_itself() -> None:
-    """The whole query path over a fact node: offered, labelled, cited and resolved.
+    """Proves a KG fact node can be the cited source of an answer, end to end through `CitedAnswer`.
 
     The whole query path over a fact node: offered, labelled, cited, and the citation
     names the **fact**, carries its page and resolves to the document it came from.

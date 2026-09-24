@@ -1,4 +1,4 @@
-"""A target keeps the embedding identity of its first write, ledger task **34.4**.
+"""Same-width model swaps are caught per target, the case no store refuses, ledger task **34.4**.
 
 A target keeps the embedding identity of its first write, and a query that embeds any other
 way is refused before a vector is compared — ledger task **34.4**.

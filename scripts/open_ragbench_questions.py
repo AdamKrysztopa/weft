@@ -70,7 +70,7 @@ class UnverifiedQuoteError(ValueError):
 
 @dataclass
 class Build:
-    """What one build did.
+    """Everything a build reports and pins, so no dropped question goes unaccounted for.
 
     How many questions it carried, which it could not and why, how many carried quotes no chunk
     window holds whole, and the digest of each file it wrote.
@@ -149,7 +149,7 @@ def _straddles(offset: int, length: int) -> bool:
 
 
 def _toml_string(value: str) -> str:
-    """A TOML basic string.
+    """Quote a value for the TOML this script writes by hand, through JSON's escaping.
 
     JSON's escapes are a subset of TOML's, except DEL, which TOML forbids raw.
     """

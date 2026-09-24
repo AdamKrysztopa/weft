@@ -1,4 +1,4 @@
-"""`GraphWalkRetriever` against a real Postgres.
+"""Checks graph-proximity ranking over entities a live database actually stored.
 
 `GraphWalkRetriever` against a real Postgres — see `test_store.py`'s own module docstring
 for the reachability-probe convention this file follows.

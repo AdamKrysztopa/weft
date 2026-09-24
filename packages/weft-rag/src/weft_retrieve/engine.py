@@ -121,7 +121,7 @@ class UnknownSubPluginConfigFieldError(PipelineResolutionError, UnresolvedNameEr
 
 
 def _check_route_vars(name: str, pipeline: Pipeline) -> None:
-    """Refuse `pipeline` when its `vars` carry an unknown `route.` key.
+    """Catch a misspelt `route.` key at load, naming the keys the router actually reads.
 
     Refuse `pipeline` when its own `vars` carry a `route.` key outside `_ROUTE_VARS` —
     carried repair **R43.13**. Keys outside the `route.` namespace are untouched.
@@ -195,7 +195,7 @@ class RegistryStageLookup:
 
 
 class SubPluginConfigError(WeftError):
-    """A sibling's `*_config` block does not fit that sibling's `config_model`.
+    """Raised as the sibling is built, so a mis-shaped config fails by name, not inside its `run`.
 
     A `*_config` block a plugin passed for a sibling it resolves by name does not fit
     that sibling's own `config_model`.
@@ -475,7 +475,7 @@ def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> boo
 
 
 def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:
-    """Every document naming `route.requires`, mapped to the layer it needs.
+    """Which layer each pipeline needs built, so naming one whose layer is pending is refused.
 
     Every document naming `route.requires`, its name mapped to the layer it needs — ledger
     task **43.9**. `weft_cli.commands.PendingLayerError`'s own raise site reads this to learn

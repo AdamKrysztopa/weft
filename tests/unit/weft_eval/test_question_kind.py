@@ -53,7 +53,7 @@ def _sample(kind: str = "", *, query: str = "q") -> RetrievalSample:
 
 
 def test_a_question_has_no_kind_unless_something_says_so() -> None:
-    """The default is the empty string, so an older question set loads unchanged.
+    """Keeps question sets written before `kind` existed loading, with no kind invented for them.
 
     The default is the empty string, so a question set written before this task loads
     unchanged — 9.12's own reasoning for defaulting `modality` to `TEXT`, one field over.
@@ -176,7 +176,7 @@ def test_a_failed_observation_excludes_rather_than_scoring_zero() -> None:
 
 
 def test_the_aggregate_round_trips_with_its_question_kinds_through_json() -> None:
-    """A slice has to survive serialisation, because `RunRecord` is read back off disk.
+    """Guards `by_question_kind` slices against being lost between `weft eval run` and `compare`.
 
     A `RunRecord` is read back off disk by `weft trace` and `weft eval compare`, so a slice
     that does not survive serialisation is a slice no comparison can be asked for.

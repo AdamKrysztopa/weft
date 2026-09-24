@@ -195,7 +195,7 @@ class Quote(BaseModel):
 
 
 class Question(BaseModel):
-    """One question, its reference answer and supporting spans, or why it has none.
+    """The unit a question set is scored in, checked as it loads so a bad entry names itself.
 
     One question, its reference answer, and the spans that support it — or a stated reason it
     carries none of these.

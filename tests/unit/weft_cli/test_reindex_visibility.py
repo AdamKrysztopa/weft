@@ -107,7 +107,7 @@ def test_the_same_bytes_through_a_different_pipeline_is_a_reparse() -> None:
 
 
 def test_both_changing_at_once_reports_the_document_rather_than_the_pipeline() -> None:
-    """When both change at once, the document is reported rather than the pipeline.
+    """Pins `CONTENT_CHANGED` precedence over `PIPELINE_CHANGED` in `changes_against_records`.
 
     An edited file through a new pipeline is re-parsed either way, so the reason an operator
     needs is the one they can act on: the document moved. Reporting the pipeline here would send
@@ -192,7 +192,7 @@ def test_the_identity_field_defaults_empty_so_every_existing_writer_keeps_workin
 
 
 class _RecordingStore:
-    """A `NodeStore` double that also keeps `SourceRecord`s.
+    """Lets `run_index` itself compute and store identities, the wiring hand-built records skip.
 
     A `NodeStore` double that also keeps `SourceRecord`s, so `run_index`'s own wiring of the
     comparison is exercised rather than only `changes_against_records`' arithmetic.
@@ -319,7 +319,7 @@ async def test_the_default_path_reports_unchanged_when_nothing_moved(tmp_path: P
 
 
 async def test_the_default_path_identity_is_not_empty(tmp_path: Path) -> None:
-    """The default path's identity is not empty.
+    """Guards default-path change detection, which an empty identity would leave blind to pipelines.
 
     The identity a default-path run writes is a real digest, so a record it leaves is
     comparable by a later run — an empty string compares equal to every other empty string.

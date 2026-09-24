@@ -79,7 +79,7 @@ NAME = "graded-retrieval"
 
 
 class GradedRetrievalConfig(BaseModel):
-    """`GradedRetrieval`'s `with:` config.
+    """Which prompt and model grade hits, where relevance is cut, and how far grading reaches.
 
     Every field has a default, per this pack's own rule. Every knob a hard-coded or absent version
     of this technique would fix in place is one of these: which wording grades (`prompt`), which

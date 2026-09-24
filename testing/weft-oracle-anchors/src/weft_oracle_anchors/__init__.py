@@ -55,7 +55,7 @@ class Settings(BaseModel):
 
 
 class OracleLabelsError(WeftError):
-    """A `40.5` labels file could not be read as written.
+    """Stops an oracle run on a bad labels file rather than scoring against partial truth.
 
     A `40.5` labels file could not be read as written — a duplicate question id or a
     malformed line, always naming the file and, for a malformed line, its line number.
@@ -63,7 +63,7 @@ class OracleLabelsError(WeftError):
 
 
 class OracleLabel(BaseModel):
-    """One person-written row from a `40.5` labels file.
+    """The truth the oracle reorders by, tied to the exact text it was labelled on by digest.
 
     One person-written row from a `40.5` labels file: a question, the text it was asked
     against, and the anchors a person found in it.

@@ -45,7 +45,7 @@ _WORDS = ("alpha", "beta", "gamma")
 
 
 class _SleepyProvider:
-    """An `LLMProvider` that streams `_WORDS`, sleeping for real between each.
+    """Paces a real stream, so a test can tell tokens printed on arrival from tokens held back.
 
     An `LLMProvider` that streams `_WORDS`, sleeping for real between each — the fake
     this file's timing tests need and `weft_llm.scripted.ScriptedProvider` does not
@@ -93,7 +93,7 @@ async def _stream_words(sink: TokenSink) -> None:
 
 
 class _TimedWrites(io.StringIO):
-    """A stream that records when each `write` reached it, not only what.
+    """Lets a timing test prove output reached the terminal as it streamed, not in one flush.
 
     A stream that records *when* each `write` reached it, not only what — the timing
     proof this module's own tests need. `time.monotonic()` per call, never `time.time()`,

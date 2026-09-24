@@ -116,7 +116,7 @@ def test_an_arm_may_name_its_own_corpus_and_questions_and_otherwise_inherits_the
 
 
 def test_the_digest_is_over_the_documents_bytes(tmp_path: Path) -> None:
-    """Not over the resolved model, because a resolved path names this machine.
+    """A committed experiment file digests the same on every checkout, whatever its path.
 
     Not over the resolved model: a resolved path names this machine, and the same committed
     file must digest the same wherever it is checked out.

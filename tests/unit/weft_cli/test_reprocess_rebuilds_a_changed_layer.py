@@ -1,4 +1,4 @@
-"""Carried repair R43.27: `--reprocess` rebuilds a layer whose identity moved.
+"""Carried repair R43.27: the remedy `weft index` prints for a moved layer actually works.
 
 Carried repair **R43.27** — `weft index --layers <name> --layers-only --reprocess` rebuilds a
 layer whose identity moved, as the message reporting it says.

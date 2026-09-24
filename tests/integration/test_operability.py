@@ -171,7 +171,7 @@ async def test_an_interrupted_run_keeps_everything_the_last_finished_batch_store
 async def test_a_delete_interrupted_after_its_tombstone_is_finished_by_the_next_command(
     store: PgVectorStore,
 ) -> None:
-    """A crash mid-delete leaves `status=DELETING`, so the next call can finish the job.
+    """Guards resumable deletion: a crash between tombstone and node removal is recoverable.
 
     `02` §1: "a crash leaves `status=DELETING`, so the next call or `weft doctor` can finish
     the job rather than leaving it half-deleted and invisible."
@@ -229,7 +229,7 @@ class _Reading(ExtModel):
 
 
 class _ReadingV2(ExtModel):
-    """The payload as release *n+1* defines it, with an `upgrade` that reads what *n* wrote.
+    """The newer schema of the test payload, proving stored data survives a field rename.
 
     The same payload as release *n+1* defines it — renamed field, and an `upgrade` that knows
     how to read what *n* wrote. This is the whole of what "an upgrade path exists" means for data

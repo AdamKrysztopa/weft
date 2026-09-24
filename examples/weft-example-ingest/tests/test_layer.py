@@ -1,4 +1,4 @@
-"""A pack written outside the tree ships a layer that `weft index --layers` runs (43.19).
+"""Guards the layer seam against growing a path only first-party packs can use (43.19).
 
 Ledger task **43.19** — a pack written outside the tree ships a layer, and `weft index --layers`
 runs it exactly as it runs `enrich-with-questions`.

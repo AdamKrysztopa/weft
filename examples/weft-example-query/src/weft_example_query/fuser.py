@@ -1,4 +1,4 @@
-"""`ExampleFuser`, a stranger's `Fuser`: every list's first sighting of a node, by score.
+"""Proves a `Fuser` can ship outside the tree, with the simplest merge rule that works.
 
 `ExampleFuser` — a stranger's `Fuser`: concatenates every list, keeps the first sighting of
 each node, sorted by score.

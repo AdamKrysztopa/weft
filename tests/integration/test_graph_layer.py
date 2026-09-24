@@ -1,4 +1,4 @@
-"""The graph layer over a real `index-with-graph` base, and what deleting a source leaves.
+"""Proves the graph layer is reachable by traversal, and cleaned up when its source goes.
 
 Ledger task **43.17** — the graph layer over a real `index-with-graph` base, and what deleting a
 source leaves of the relations it stated.

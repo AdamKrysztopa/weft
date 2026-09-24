@@ -1,4 +1,4 @@
-"""`GraphStore`: the whole store family this pack needs, over Postgres.
+"""Persist indexed nodes and their graph so a later `weft` process can walk it.
 
 `GraphStore` — the whole store family this pack needs, over Postgres: `NodeStore`,
 `SourceDeletable` and `Reconcilable`, all three structurally, the identical path
@@ -155,7 +155,7 @@ def _require_dsn(settings: GraphSettings) -> str:
 
 
 class GraphStore:
-    """`NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally.
+    """A second node store beside the primary, holding each batch plus its entity graph.
 
     `NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally —
     this class never imports one of the Protocols, the same path any third-party store
@@ -299,7 +299,7 @@ class GraphStore:
         return cast(int, row["n"]) if row is not None else 0
 
     async def put_source(self, record: SourceRecord) -> None:
-        """Upsert one source record.
+        """Record one source's indexing outcome, replacing any earlier record for it.
 
         Args:
             record: The record to write.
@@ -336,7 +336,7 @@ class GraphStore:
             )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        """Read one source record.
+        """Look up what this store recorded about one source's last indexing run.
 
         Args:
             source_id: The source to look up.
@@ -428,7 +428,7 @@ class GraphStore:
         )
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
-        """Repair this pack's own bookkeeping from its own stored content; `full` also backfills.
+        """Converge the graph tables with the corpus after a crash or a missed deletion.
 
         Repairs this pack's *own* bookkeeping against its *own* stored node content, and,
         for `full`, also backfills from the corpus.
@@ -502,7 +502,7 @@ class GraphStore:
         )
 
     async def _missing_from(self, nodes: Sequence[Node]) -> list[Node]:
-        """Which of `nodes` this store does not already hold.
+        """Find the corpus nodes a `full` reconcile still owes this store, to count or backfill.
 
         Which of `nodes` this store does not already hold — one batched `get` over their
         own ids, never assumed.
@@ -515,7 +515,7 @@ class GraphStore:
     # -- This pack's own additional surface, for its retriever and commands ----------------
 
     async def rebuild(self) -> tuple[int, int, int]:
-        """Recompute every stored node's `GraphData` from its own stored `content`.
+        """Pick up a changed extraction heuristic across everything already indexed.
 
         Recompute every stored node's `GraphData` from its own stored `content`, using
         the *current* `weft_example_graph.extraction.extract_graph_data` — `weft graph build`'s own

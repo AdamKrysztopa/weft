@@ -46,7 +46,7 @@ BlobUri = NewType("BlobUri", str)
 
 @runtime_checkable
 class BlobStore(Protocol):
-    """Store bytes under a caller-composed key, read them back by uri, and reap a prefix.
+    """Hold the raw bytes a describer reads, so they never travel in a pipeline payload.
 
     Puts bytes under a caller-composed key, opens them back by the returned uri, and reaps a
     prefix on delete. Three methods, and every one of them the whole surface a plugin owes.
@@ -107,7 +107,7 @@ BlobStore.version = BLOB_CONTRACT_VERSION
 
 @runtime_checkable
 class BlobTargetHolding(Protocol):
-    """A blob store that keeps each index target's bytes apart.
+    """Lets a candidate index write its own blobs and `weft target drop` reclaim them.
 
     A blob store that keeps each index target's bytes apart — ledger **34.12**, published by
     carried repair **R34.9** so a stranger's store joins `weft target drop`.

@@ -1,4 +1,4 @@
-"""The evidence table: an experiment's whole claim, recomputed from its own records.
+"""Makes a published experiment result reproducible byte for byte from its run records.
 
 The evidence table — ledger task **38.1**: an experiment's whole claim, recomputed from its
 own records rather than typed by hand.
@@ -73,7 +73,7 @@ type _MatchedRecord = tuple[RunRecord, ExperimentRun]
 
 
 class IncompleteExperimentError(WeftError):
-    """The chosen invocation lacks exactly one record for some `(arm, repetition)`.
+    """Refuses to build a table from a partial or ambiguous run, naming what is missing.
 
     The chosen invocation does not hold exactly one record for every `(arm, repetition)` this
     document names — see the module docstring's *"One invocation, chosen honestly"* paragraph.
@@ -137,7 +137,7 @@ class ArmCost(BaseModel):
 
 
 class EvidenceTable(BaseModel):
-    """One experiment document's whole claim, over one complete invocation of it.
+    """Puts each arm's difference beside both tests of whether it is real, with latency and cost.
 
     One experiment document's whole claim, over one complete invocation of it — see the
     module docstring. `render_evidence_table` is this table's only reader that matters: the

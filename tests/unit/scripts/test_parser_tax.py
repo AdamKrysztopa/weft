@@ -1,4 +1,4 @@
-"""`scripts/parser_tax.py`, ledger **38.8**: what reading the raw PDFs costs.
+"""Ledger **38.8**: keeps the markdown-versus-PDF comparison honest — whole quotes, fair pairs.
 
 `scripts/parser_tax.py` — ledger **38.8**: what reading the raw PDFs costs against the dataset's
 own rendering of them.
@@ -225,7 +225,7 @@ def _record_of(runs: Path, arm: str, repetition: int) -> Path:
 
 
 def test_a_repetition_only_one_corpus_ran_is_refused_by_name(tmp_path: Path) -> None:
-    """Repair **R38.19**: a missing repetition made no row and no message.
+    """Repair **R38.19**: a comparison cannot quietly shrink to the repetitions both corpora ran.
 
     Repair **R38.19**: `pairs` kept only what both corpora ran, so a missing repetition made
     no row and no message.

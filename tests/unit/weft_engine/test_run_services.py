@@ -67,7 +67,7 @@ class _HybridRetriever:
 
 
 class _DenseRetriever:
-    """Declares nothing, so the check must pass over it in silence.
+    """The control case: a plugin that declares no `needs_store` raises no refusal.
 
     Declares nothing: a plugin with no `needs_store` is not a plugin that needs nothing
     checked *badly*, it is one this check must pass over in silence.

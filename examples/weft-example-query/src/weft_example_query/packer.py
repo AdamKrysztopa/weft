@@ -1,4 +1,4 @@
-"""`ExampleContextPacker`, a stranger's `ContextPacker`: the top `top_n` hits, labelled.
+"""Proves a `ContextPacker` outside the tree can meet the label rule `Passages` enforces.
 
 `ExampleContextPacker` — a stranger's `ContextPacker`: top `top_n`, labelled `[1]`, `[2]`, …
 

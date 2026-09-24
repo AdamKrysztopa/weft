@@ -1,4 +1,4 @@
-"""Carried repair R43.29: a query reads the tree it opened on until it ends.
+"""Carried repair R43.29: publishing a corpus layer withdraws the old tree rather than deleting it.
 
 Carried repair **R43.29** — a query that opened before a corpus layer's publish reads the tree it
 opened on until it ends.

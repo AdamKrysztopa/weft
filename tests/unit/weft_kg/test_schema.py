@@ -76,7 +76,7 @@ def test_a_triple_the_schema_states_is_admitted() -> None:
 
 
 def test_an_arrangement_the_schema_does_not_state_is_refused() -> None:
-    """The case flat vocabularies cannot see, and the reason the shape is a rule.
+    """`GraphSchema.admits` checks whole triples, so approved words in an unstated order fail.
 
     **The case flat vocabularies cannot see, and the reason the shape is a rule.**
     `method wrote person` uses only approved words — an entity type the operator listed, a
@@ -117,7 +117,7 @@ def test_matching_is_case_and_space_insensitive() -> None:
 
 
 def test_a_schema_carries_its_version_in_its_own_fields() -> None:
-    """`S5`, at its most literal: this model is written to a file in somebody's repository.
+    """`S5`: `schema_version` is a field, so a dumped schema records the release that wrote it.
 
     `S5`, at its most literal: this model is written to a file in somebody's repository and
     read back by whatever `weft-rag` is installed then. A `ClassVar` would be read off the
@@ -178,7 +178,7 @@ def test_the_identity_is_a_function_of_the_rules_not_of_their_order() -> None:
 
 
 def test_the_identity_changes_when_the_name_does() -> None:
-    """Two schemas an operator named differently are two schemas, whatever the rules say.
+    """A schema's identity includes its name, so identical rules under two names stay two schemas.
 
     `weft graph show` prints which schemas a corpus holds, and two schemas an operator gave
     different names are two schemas to them whatever the rules say. The name is theirs; the
@@ -212,7 +212,7 @@ def test_a_proposal_is_the_shape_the_corpus_actually_produced() -> None:
 
 
 def test_a_proposal_can_drop_a_long_tail_and_the_control_disagrees() -> None:
-    """Requirement 6 and `L9.58`: the threshold is an operator's number and changes something.
+    """`L9.58`: raising `min_count` visibly drops the once-seen tail, so the threshold is not inert.
 
     Requirement 6, and `L9.58`: the threshold is an operator's number and has to be shown to
     change something. A corpus of any size produces a tail of triples seen once, and a proposal
@@ -230,7 +230,7 @@ def test_a_proposal_can_drop_a_long_tail_and_the_control_disagrees() -> None:
 
 
 def test_a_proposal_from_a_corpus_that_produced_nothing_is_refused() -> None:
-    """There is nothing to propose from an empty graph.
+    """`propose` over a graph with no facts raises `EmptyCorpusError` instead of an empty schema.
 
     There is nothing to propose from an empty graph, and printing an empty schema would
     invite an operator to activate one that admits nothing. Refused, saying what to run first.
@@ -241,7 +241,7 @@ def test_a_proposal_from_a_corpus_that_produced_nothing_is_refused() -> None:
 
 
 def test_a_threshold_that_hid_everything_says_so_rather_than_blaming_the_corpus() -> None:
-    """Found by running the binary.
+    """An empty proposal names the threshold that hid the corpus, not a re-index it does not need.
 
     **Found by running the binary.** A two-document corpus indexed through `index-with-facts`
     produced eleven distinct arrangements, every one of them seen once, and `propose` at its

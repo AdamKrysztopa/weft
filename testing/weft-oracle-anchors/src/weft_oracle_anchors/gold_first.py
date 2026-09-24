@@ -1,4 +1,4 @@
-"""`oracle-gold-first`: the instrument check Phase 41's pool-promotion protocol declares.
+"""A perfect reorderer, so a replay's shortfall from the ceiling measures the instrument.
 
 `oracle-gold-first` — the instrument check `eval/pool-promotion/protocol.toml` →
 `[phase_41.instrument]` declares, ledger **41.3**.
@@ -47,7 +47,7 @@ class GoldLabel(BaseModel):
 
 
 class OracleGoldFirstConfig(BaseModel):
-    """`oracle-gold-first`'s `with:` config.
+    """Names the file of relevant chunk ids the oracle moves to the top.
 
     Attributes:
         labels: The labels file, one `GoldLabel` per line.

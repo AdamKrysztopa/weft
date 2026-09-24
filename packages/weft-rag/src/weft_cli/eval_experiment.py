@@ -231,7 +231,7 @@ class ExperimentRunRef(BaseModel):
 
 
 class EvalExperimentCommandResult(CommandResult):
-    """The result of `weft eval experiment`.
+    """Lets a caller find every run record one experiment invocation wrote.
 
     `weft eval experiment`'s whole answer — the experiment's own identity, this invocation's
     id, and a reference to every record it wrote, in arm-then-repetition order.
@@ -319,7 +319,7 @@ async def _arm_identity(
 def _arm_incomparable_reasons(
     baseline_name: str, baseline: _ArmIdentity, arm_name: str, candidate: _ArmIdentity
 ) -> tuple[str, ...]:
-    """List every way `candidate` is not comparable to `baseline`.
+    """Keep an experiment from comparing arms that differ in more than the one variable.
 
     Every way `candidate` (arm `arm_name`) is not comparable to `baseline` (arm
     `baseline_name`) — see the module docstring's own paragraph. Empty means comparable.
@@ -359,7 +359,7 @@ def _arm_incomparable_reasons(
 async def _refuse_unrecordable_metrics(
     experiment: Experiment, *, deps: Dependencies, ctx: Context
 ) -> None:
-    """Refuse metrics no run at the experiment's cutoffs would record.
+    """Fail fast, before any costly indexing, on a metric the experiment could never record.
 
     Refuse before any arm is indexed if `experiment.metrics` names something no run at any of
     `experiment.cutoffs` would actually record. See the module docstring's own paragraph.
@@ -398,7 +398,7 @@ async def _refuse_unrecordable_metrics(
 
 
 def _corpus_name_for(document_root: Path, corpus_path: Path) -> str:
-    """Name `corpus_path` relative to the experiment document, POSIX-style.
+    """Keep a persisted record's corpus name the same on every machine and checkout.
 
     `corpus_path`, named as the document wrote it — relative to `document_root` (the
     experiment document's own resolved directory), POSIX-style. See the module docstring's own
@@ -794,7 +794,7 @@ def _incomplete_invocation(
 
 
 def register_eval_experiment_command(registrar: PackRegistrar) -> None:
-    """Register the `eval experiment` command.
+    """Make `weft eval experiment` and `weft eval plan` resolvable as registered commands.
 
     Register `eval experiment` — called from `weft_cli.commands.register`, right after
     `register_eval_baseline_command`, never from a second entry point.

@@ -140,7 +140,7 @@ class CorpusIdentity(BaseModel):
 
 
 def corpus_identity(name: str, document_ids: Iterable[str]) -> CorpusIdentity:
-    """An order-independent `CorpusIdentity` for `name` over `document_ids`.
+    """Lets two runs prove they measured the same documents, whatever order they came in.
 
     A `CorpusIdentity` for `name` over `document_ids` — order-independent, and over whatever
     its caller identifies a document by.
@@ -230,7 +230,7 @@ type MetricRunResult = Produced[MetricAggregate] | NotAggregated
 
 
 def _as_run_result(outcome: Outcome[MetricAggregate]) -> MetricRunResult:
-    """Collapse `aggregate()`'s three-state `Outcome` to `MetricRunResult`'s two.
+    """Persist a metric's result without a distinction its reason text already carries.
 
     `aggregate()`'s three-state `Outcome` collapsed to `MetricRunResult`'s two — see
     `NotAggregated`'s own docstring for why `Failed`/`NothingToProduce` fold into one shape here.
@@ -286,7 +286,7 @@ class PerQuestionScores(BaseModel):
 
 
 class PerQuestionSeconds(BaseModel):
-    """How long each question's own retrieval took.
+    """Lets a reader find the slow questions a run's total query time hides.
 
     How long each question's own retrieval took — task **33.7**, keyed identically to
     `PerQuestionScores` above so a reader pairing a score with its latency never has to guess
@@ -309,7 +309,7 @@ class PerQuestionSeconds(BaseModel):
 
 
 class RoleTokens(BaseModel):
-    """What one `[llm.roles]` role spent across a run.
+    """Attributes a run's token spend to the role that incurred it, unmetered calls included.
 
     What one `[llm.roles]` role spent across a run — task **33.7**, folded from
     `weft_llm.usage.UsageEntry`. `calls_not_reporting` is how a reader tells a role that made
@@ -486,7 +486,7 @@ def build_run_record(
     target: str | None = None,
     target_embedding: EmbeddingIdentity | None = None,
 ) -> RunRecord:
-    """Assemble one `RunRecord`.
+    """The one place a run record is built, so what was active is derived, never claimed.
 
     `active_distributions` is always derived from `reports` through `active_distribution_set` —
     never accepted directly — so there is no second, caller-supplied list of "what was active" that
@@ -578,7 +578,7 @@ def write_run_record(record: RunRecord, path: Path) -> Path:
 
 
 def load_run_record(path: Path) -> RunRecord:
-    """Read a `RunRecord` back from `path`.
+    """Let a past run be compared against a new one without rerunning it.
 
     Read a `RunRecord` back from `path` — the other half of "two runs can be diffed after
     the fact". Raises `pydantic.ValidationError`, naming the field, for a file that is not a

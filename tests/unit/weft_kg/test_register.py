@@ -106,7 +106,7 @@ def test_the_two_registrations_are_two_classes() -> None:
 
 
 def test_no_name_answers_to_both_contracts() -> None:
-    """Fitness function 18's property: a name under two contracts cannot be selected at all.
+    """Fitness function 18: `weft_kg`'s store and walk never share a name across their contracts.
 
     Fitness function 18's property, asserted here as well because this is the pack that made
     it a live question: a name under two contracts cannot be selected by a document at all.
@@ -193,7 +193,7 @@ def test_the_store_satisfies_the_three_contracts_it_registers_and_fans_out_under
 
 
 def test_the_store_declares_every_ext_model_it_turns_into_graph_rows() -> None:
-    """Ledger `43.17`: a layer document names the ext model its base must have a store for.
+    """Ledger `43.17`: `GraphStore.consumes` lists exactly the models its graph rows come from.
 
     Ledger `43.17`: a layer document names the ext model its base must have a store for, and
     `weft_cli.layers` finds that store by reading `consumes` off each registered class. The three
@@ -209,7 +209,7 @@ def test_the_store_declares_every_ext_model_it_turns_into_graph_rows() -> None:
 
 
 def test_the_walk_satisfies_the_traversal_contract_and_is_not_a_node_store() -> None:
-    """`L11.23`: the two capabilities are two classes so the `NodeStore` filter cannot be escaped.
+    """`L11.23`: `GraphWalk` is a `GraphTraversal` only, never also a `NodeStore`.
 
     `L11.23`: the two capabilities are two classes precisely so that the fan-out's
     `NodeStore` filter cannot be escaped by whichever contract sorts first.
@@ -260,7 +260,7 @@ def test_register_adds_the_cooccurrence_builder_under_enhancer() -> None:
 
 
 def test_the_pack_declares_its_ext_model_for_rehydration() -> None:
-    """Fitness function 14's property: this pack's ext data survives a round trip through any store.
+    """Fitness function 14: `register()` declares `weft_kg`'s ext models, so they rehydrate typed.
 
     Fitness function 14's property, asserted at the pack: a node carrying this pack's ext data
     survives a round trip through *any* store, because `register()` told the shared registry the
@@ -280,7 +280,7 @@ def test_the_pack_declares_its_ext_model_for_rehydration() -> None:
 
 
 def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> None:
-    """Fitness function 16's subject: a registered store is a pipeline position.
+    """Fitness function 16: `weft_kg` ships `index-with-graph`, so its graph store has a floor rung.
 
     Fitness function 16's subject: `NodeStore` inherits `Stage`, so a registered store is a
     pipeline position, and a position no shipped document names is a rung with no floor.
@@ -344,7 +344,7 @@ def test_the_pack_ships_a_rung_whose_entity_vectors_a_resolution_pass_can_use() 
 
 
 def test_register_adds_the_fact_extractor_under_expander() -> None:
-    """`llm-facts` is an `Expander`, registered the way `weft_index`'s two already are.
+    """Guards `llm-facts`' registration under `Expander`, attributed to `weft-rag`.
 
     `llm-facts` is an `Expander` — every node handed in continues and facts are added beside
     it — registered exactly the way `weft_index`'s two already are, from a different pack.
@@ -377,7 +377,7 @@ def test_register_adds_the_extraction_prompt_under_its_own_name() -> None:
 
 
 def test_the_question_the_expensive_pass_asks_is_registered_under_its_own_name() -> None:
-    """Ledger **11.9**, the same argument `extract-facts` makes one task over.
+    """Ledger **11.9**: the reconcile pass's prompt is registered, though no stage looks it up.
 
     Ledger **11.9** — the same argument `extract-facts` makes one task over, for the second
     text this pack sends to a provider.
@@ -445,7 +445,7 @@ def test_the_pack_discloses_that_chunk_content_leaves_through_the_configured_pro
 
 
 def test_the_model_calling_stage_is_inserted_before_the_embedder() -> None:
-    """A model-calling stage placed after `embed` produces nodes that are stored unsearchable.
+    """Guards `index-with-facts` against anchoring `llm-facts` where its nodes would miss `embed`.
 
     Ledger `8.2`/`8.10`'s rule, and the one arrangement fact this document has to get right:
     **a model-calling stage placed after `embed` produces nodes that are stored unsearchable.**
@@ -482,7 +482,7 @@ def test_the_model_calling_stage_is_inserted_before_the_embedder() -> None:
 
 
 def test_the_pack_registers_its_retriever_under_the_query_path_contract() -> None:
-    """`weft_kg` becomes a query-path pack here, which widens fitness function 16's scope over it.
+    """Guards `graph-walk`'s registration as a `Retriever` attributed to `weft-rag`.
 
     `weft_kg` becomes a query-path pack here, and that is what widens fitness function 16's
     scope over it: FF16's subject is every plugin a *pipeline-shipping* distribution registers
@@ -499,7 +499,7 @@ def test_the_pack_registers_its_retriever_under_the_query_path_contract() -> Non
 
 
 def test_every_rung_the_pack_ships_names_the_retriever_it_was_written_for() -> None:
-    """Read out of the shipped documents rather than asserted as a list here.
+    """Guards each `weft_kg` rung's `use:` against drifting from the retriever it was written for.
 
     Read out of the shipped documents rather than asserted as a list here, so a rung renamed
     or a `replace:` block edited fails at this test rather than at FF16's whole-tree sweep,

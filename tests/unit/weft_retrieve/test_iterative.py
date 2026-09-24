@@ -503,7 +503,7 @@ async def test_a_leaf_that_declines_to_act_is_relayed_exactly_as_it_answered() -
 
 
 async def test_driving_iterative_retrieval_through_the_seam_produces_candidates() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `IterativeRetrieval` working when called directly yet breaking under the seam.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered

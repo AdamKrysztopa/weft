@@ -291,7 +291,7 @@ async def test_a_mention_node_carries_the_type_the_fact_gave_it() -> None:
 
 
 async def test_the_chunk_itself_comes_back_unchanged() -> None:
-    """Every node handed in continues unchanged, and new nodes are added beside it.
+    """Guards `llm-facts` as an `Expander`: the input chunk passes through with no tally attached.
 
     `Expander`'s own contrast with `Chunker` and `Enhancer`: every node handed in continues,
     unchanged, and new nodes are added beside it.
@@ -353,7 +353,7 @@ async def test_no_more_than_max_concurrent_nodes_are_in_flight_at_once() -> None
 
 
 async def test_the_cap_is_what_bounds_it_rather_than_the_batch_being_small() -> None:
-    """The non-vacuity half: with the cap raised, the same double must report a higher peak.
+    """Proves `max_concurrent_nodes` is the limiter, not the size of the test's batch.
 
     The non-vacuity half: with the cap raised, the same double must report a peak above the
     previous cap — otherwise the assertion above holds for a plugin with no cap at all.
@@ -570,7 +570,7 @@ async def test_a_chunk_that_kept_nothing_still_has_its_drops_in_the_run_s_tally(
 
 
 async def test_a_node_whose_completion_could_not_be_used_stays_in_the_output_marked() -> None:
-    """Degrade, never fail the run, as `raptor` and `hypothetical-questions` do.
+    """Guards `llm-facts` against failing a whole run because one node's reply was unusable.
 
     `Expander`'s stated posture, shared with `raptor` and `hypothetical-questions`: degrade,
     never fail the run. A model in a bad mood is not an operator's configuration mistake.
@@ -783,7 +783,7 @@ async def test_a_fact_extracted_with_no_active_schema_says_so_rather_than_guessi
 async def test_the_active_schema_reaches_the_model_as_well_as_the_filter(
     tmp_path: Path,
 ) -> None:
-    """Constrain and verify, not verify alone.
+    """Guards that `llm-facts` puts the active schema in the prompt, not only in the post-filter.
 
     **Constrain and verify, not verify alone.** Dropping off-schema facts after the fact is a
     filter; telling the model what the corpus admits is what makes most of the call useful. Both,

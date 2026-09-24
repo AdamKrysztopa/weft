@@ -454,7 +454,7 @@ class QuestionAnchors(BaseModel):
 
 
 class QuestionAnchorsPrompt(TypedPrompt):
-    """Ask a model for the spans of a question a keyword search should look up.
+    """The `method: model` source of keyword anchors, for what a shape rule cannot tell apart.
 
     Ask a model for the spans of a question a keyword search should look up on their own —
     the model decomposition `intent-and-anchors`' `method: model` asks for, in place of the
@@ -544,7 +544,7 @@ MULTI_QUERY_VARIANTS_NAME = "multi-query-variants"
 
 
 class MultiQueryVariantsRequest(BaseModel):
-    """What `multi-query-variants` renders.
+    """The `input_model` of `multi-query-variants`, numbered so each answer maps to its seed.
 
     One or more seed questions, numbered, and how many alternatives to write for each.
 
@@ -835,7 +835,7 @@ class BooleanTokens(BaseModel):
 
 
 class BooleanParsePrompt(TypedPrompt):
-    """Ask a model to tokenise a Boolean query, never to decide how it combines.
+    """Keep operator precedence out of the model: it only splits, `parse_tokens` builds the tree.
 
     Ask a model to tokenise a Boolean query into terms, combinators and parentheses, in
     the order they appear — never to decide how they combine.
@@ -956,7 +956,7 @@ SUFFICIENCY_CHECK_NAME = "sufficiency-check"
 
 
 class SufficiencyCheckRequest(BaseModel):
-    """What `sufficiency-check` renders.
+    """The one `input_model` both `Sufficiency` consumers render, with or without a draft.
 
     The question, the evidence gathered so far, and — when there is one — a draft answer built from
     it.
@@ -1000,7 +1000,7 @@ ROUTE_QUERY_NAME = "route-query"
 
 
 class RouteQueryRequest(BaseModel):
-    """What `route-query` renders.
+    """The `input_model` of `route-query`, carrying the installed candidates rather than prose.
 
     The question, the dimensions to score it on, and the pipelines a router could currently choose
     between.
@@ -1052,7 +1052,7 @@ class RouteQueryScores(BaseModel):
 
 
 class RouteQueryPrompt(TypedPrompt):
-    """Ask a model to score a query along named dimensions.
+    """Gives a router's policy per-dimension scores to choose on, never the choice itself.
 
     Ask a model to score a query along named dimensions, informed by the pipelines a
     router could actually choose between.
@@ -1116,7 +1116,7 @@ class RouteQueryPrompt(TypedPrompt):
 
 
 class SufficiencyCheckPrompt(TypedPrompt):
-    """Ask a model whether the evidence in hand is enough to answer the question.
+    """The judgement `iterative-retrieval` and `refine-on-uncertainty` stop on, put to a model.
 
     Ask a model whether the evidence in hand — and, when given, a draft grounded in it —
     is enough to confidently answer the question.
@@ -1180,7 +1180,7 @@ SUMMARIZE_FOR_QUERY_NAME = "summarize-for-query"
 
 
 class SummarizeForQueryRequest(BaseModel):
-    """What `summarize-for-query` renders.
+    """The `input_model` a `summarize-for-query` template must use, variable for variable.
 
     The question, and one cluster of passages already numbered and joined into one string.
 

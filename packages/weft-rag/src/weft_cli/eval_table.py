@@ -61,7 +61,7 @@ class EvalTableArgs(BaseModel):
 
 
 class EvalTableCommandResult(CommandResult):
-    """The rendered evidence table `weft eval table` prints.
+    """Hands the renderer finished markdown, so the table is never reformatted on the way out.
 
     `weft eval table`'s whole answer — the rendered markdown, exactly as `weft_eval.evidence.
     render_evidence_table` wrote it.
@@ -105,7 +105,7 @@ class EvalTableCommand:
 
 
 def register_eval_table_command(registrar: PackRegistrar) -> None:
-    """Register the `eval table` command.
+    """Make `weft eval table` resolvable as an ordinary registered command.
 
     Register `eval table` — called from `weft_cli.commands.register`, right after
     `register_eval_experiment_command`.

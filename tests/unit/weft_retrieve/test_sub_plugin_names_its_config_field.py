@@ -1,4 +1,4 @@
-"""Repair **R43.45**: a `SubPlugin` whose `config` names no field of its model is refused.
+"""Repair **R43.45**: a misspelt `SubPlugin(config=...)` fails as a named error, not `getattr`'s.
 
 Repair **R43.45**: a `SubPlugin` whose `config` names no field of its model is refused, naming
 the fields the model has.

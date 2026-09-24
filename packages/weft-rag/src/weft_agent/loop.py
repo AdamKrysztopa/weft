@@ -49,7 +49,7 @@ from weft_prompts.contract import Prompt
 
 @runtime_checkable
 class AgentTool(Protocol):
-    """One tool the loop may offer a model: a description to pick it by, and the call itself.
+    """The minimum `run_agent` asks of a tool, so anything can be offered without subclassing.
 
     One tool the loop may offer a model: a name to call it under, a description to pick it
     by, and the call itself.

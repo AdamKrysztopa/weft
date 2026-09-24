@@ -283,7 +283,7 @@ def _offer_candidates(candidates: tuple[RouteCandidate, ...]) -> str:
 def _score_mapping(
     answer: RouteQueryScores, *, wanted: frozenset[str]
 ) -> dict[str, float] | Failed:
-    """Every wanted dimension, scored exactly once, or a `Failed`.
+    """Validate a model's dimension scores into a mapping a routing policy can trust.
 
     Every wanted dimension, scored exactly once — or a `Failed` naming exactly how the
     set was wrong. Mirrors `weft_retrieve.rerank._scores_by_index`'s own three-way refusal
@@ -313,7 +313,7 @@ def _score_mapping(
 
 
 def _keyword_intents(text: str, markers: Mapping[str, tuple[str, ...]]) -> frozenset[str]:
-    """A keyword classifier over `text`, with no model call.
+    """Tag which configured intents a text mentions, by case-insensitive substring match.
 
     A keyword classifier over `text` — no model call, `weft_retrieve.sufficiency.
     HedgePhrases`'s own `str.__contains__` mechanism applied to intent labels instead of a
@@ -441,7 +441,7 @@ _TEN_SEED_RULES: tuple[Rule, ...] = (
 
 
 class ThresholdLadderConfig(BaseModel):
-    """`ThresholdLadder`'s `with:` config.
+    """The ordered score rules a ladder tries, and the pipeline chosen when none of them fires.
 
     Every field has a default, per this pack's own rule — `rules` defaults to the ten illustrative
     seeds above, `default` to the same baseline pipeline the seeds already fall back to.
@@ -545,7 +545,7 @@ def _holds(condition: Condition, scores: Mapping[str, float]) -> bool:
 
 
 class NearestDescriptionConfig(BaseModel):
-    """`NearestDescription`'s `with:` config.
+    """The shared `OnFailure` policy, applied when the query and summaries cannot be compared.
 
     Every field has a default, per this pack's own rule — there is one knob, what happens when
     nothing can be embedded or compared.
@@ -557,7 +557,7 @@ class NearestDescriptionConfig(BaseModel):
 
 
 class NearestDescription:
-    """Select the candidate whose `route.summary` embeds nearest the query.
+    """Route by meaning rather than rules, so a newly installed pipeline is chosen with no edit.
 
     Embeds every candidate's own `route.summary` beside the query and selects the
     nearest by cosine similarity. Satisfies `weft_retrieve.contract.RoutingPolicy`

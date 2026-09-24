@@ -1,4 +1,4 @@
-"""Carried repair R43.47: a tree withdrawn by a `weft index` run outlives its closing pass.
+"""Carried repair R43.47: a run's closing `repair` pass spares the tree that same run withdrew.
 
 Carried repair **R43.47** — a tree a `weft index` run withdrew outlives that run's own closing
 `repair` pass.
@@ -126,7 +126,7 @@ class _ClosingPassStore(GenerationStore):
 
 
 class _OtherTreePrompt(SummarizeClusterPrompt):
-    """A request that differs from `summarize-cluster`'s, so the two layers share no summary.
+    """The second layer's prompt, prefixed so its summary digests never match the first layer's.
 
     A request that differs from `summarize-cluster`'s, so the two layers share no summary —
     `corpus_build_doubles.TersePrompt` sends the same request, and the scripted model digests it.
@@ -140,7 +140,7 @@ class _OtherTreePrompt(SummarizeClusterPrompt):
 
 
 def _write_layers(project: Path, *, incremental: bool) -> None:
-    """Write two corpus-scoped `raptor` layers under requests that differ.
+    """Give the project two layer pipelines whose trees share no node, full or incremental.
 
     Two corpus-scoped `raptor` layers under requests that differ; with `incremental`, each
     declares an `adrap` join.
@@ -218,7 +218,7 @@ async def _index(store: _ClosingPassStore, corpus: Path, *, layers: str) -> rend
 async def _grown(
     store: _ClosingPassStore, corpus: Path, *, label: str, layers: str = _BOTH
 ) -> render.Rendered:
-    """Add one more document, then run `weft index --layers`.
+    """Drive one more labelled index run, so its summaries are told apart from earlier runs'.
 
     One more document, then `weft index --layers`: each named layer is stale by addition, so
     the run rebuilds or joins it and withdraws the tree it replaces.

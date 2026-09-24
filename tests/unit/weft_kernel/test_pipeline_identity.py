@@ -138,7 +138,7 @@ def test_a_pipeline_with_no_stages_still_has_an_identity() -> None:
 
 @pytest.mark.parametrize("field", ["contract", "contract_version", "distribution"])
 def test_a_stages_contract_facts_are_part_of_the_identity(field: str) -> None:
-    """A different contract, or a contract at a different version, is a different pipeline.
+    """Guards `pipeline_identity` against missing a contract change behind the same plugin name.
 
     A plugin answering a different contract, or a contract at a different version, is a
     different pipeline even where the plugin name is unchanged — G9's whole point about a

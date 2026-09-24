@@ -409,7 +409,7 @@ async def test_the_manifests_rule_fires_becomes_an_axis_of_every_replayed_questi
 
 
 def _moved(case: str) -> tuple[LoadedPool, tuple[Question, ...], str]:
-    """One way the capture moved since it was taken, and the refusal fragment naming it.
+    """Replay drift scenarios: each `case` yields inputs and the word its refusal must contain.
 
     One way the pool, the question file or the store moved since capture, and the fragment of
     the refusal's claim that names it.

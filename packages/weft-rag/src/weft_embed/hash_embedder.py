@@ -1,4 +1,4 @@
-"""`HashEmbedder`, a deterministic, content-hashed vector, and not a quality embedder.
+"""A no-download embedder so ingest runs end to end; its vectors carry no meaning.
 
 `HashEmbedder` — a deterministic, content-hashed vector. **Not a quality embedder.**
 

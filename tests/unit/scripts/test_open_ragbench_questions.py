@@ -1,4 +1,4 @@
-"""`scripts/open_ragbench_questions.py`, ledger task **38.4**.
+"""Ledger task **38.4**: converted questions stay verified, traceable and leak-free by split.
 
 `scripts/open_ragbench_questions.py` — ledger task **38.4**: Open RAGBench's questions in the one
 question model.
@@ -251,7 +251,7 @@ def test_the_build_reports_how_many_quotes_straddle_a_chunk_boundary(tmp_path: P
 def test_the_build_refuses_a_question_whose_quote_the_quote_check_rejects(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The file is verified by `eval/check_questions.py`'s own check before it is written.
+    """Keeps one quote check: a span `eval/check_questions.py` rejects must stop the build.
 
     The file is verified by `eval/check_questions.py`'s own check before it is written, not by a
     copy of it — a span that does not survive that check is a bug in this script.
@@ -310,7 +310,7 @@ def _axed(identifier: str, evidence: str, form: str) -> Question:
 
 
 def test_a_stratified_subset_keeps_each_strata_share_and_sums_to_its_size() -> None:
-    """Q5: the 2x2's 300 questions are stratified on the dataset's own two labels.
+    """Q5: guards the 300-question subset against drifting from the full split's label mix.
 
     Q5: the 2x2's 300 questions are stratified on the dataset's own two labels, so a subset
     that happened to draw only text questions cannot stand in for the split.

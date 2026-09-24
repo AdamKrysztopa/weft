@@ -94,7 +94,7 @@ from weft_kernel.registry import Registry, unwrap_factory
 
 @dataclass(frozen=True)
 class SubsetScores:
-    """What every gate-safe `RetrievalMetric` produced, with its per-question observations.
+    """Lets a run record pair each metric's mean with the per-question scores behind it.
 
     What every gate-safe `RetrievalMetric` produced — the aggregate, and the observations
     under it, keyed identically.
@@ -143,7 +143,7 @@ class _KindAndModality(Protocol):
 def _modality_slices(
     samples: Sequence[_KindAndModality], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[QueryModality, PartitionSlice]:
-    """Aggregate `outcomes` per modality of the sample that produced each.
+    """Show how a metric fares per query modality, so one modality's misses do not hide.
 
     Partition `outcomes` by the `modality` of the `RetrievalSample` that produced each, fold
     each partition with `aggregate()`, and keep only the partitions that produced a mean.
@@ -171,7 +171,7 @@ def _modality_slices(
 def _question_kind_slices(
     samples: Sequence[_KindAndModality], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, PartitionSlice]:
-    """Aggregate `outcomes` per question kind of the sample that produced each.
+    """Show how a metric fares on each kind of question, leaving unclassified ones out.
 
     Partition `outcomes` by the `kind` of the `RetrievalSample` that produced each, fold each
     partition with `aggregate()`, and keep only the partitions that produced a mean.
@@ -202,7 +202,7 @@ def _question_kind_slices(
 def _axis_slices(
     samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, Mapping[str, PartitionSlice]]:
-    """Aggregate `outcomes` per axis the sample that produced each declares.
+    """Show where a metric's mean comes from along each axis the question set labels.
 
     Partition `outcomes` by every axis the `RetrievalSample` that produced each declares, fold
     each partition with `aggregate()`, and keep only the partitions that produced a mean.
@@ -232,7 +232,7 @@ def _axis_slices(
 
 
 def _as_question_outcome(outcome: Outcome[MetricScore]) -> QuestionOutcome:
-    """Narrow one question's outcome to a `QuestionOutcome`.
+    """Collapse a metric's three outcomes to scored or not scored, keeping the reason.
 
     One question's `Outcome[MetricScore]` narrowed to `QuestionOutcome` — task 16.4, the
     per-sample twin of `weft_eval.run_record._as_run_result` one granularity up.
@@ -443,7 +443,7 @@ async def score_generation_gate_subset(
     ctx: Context,
     failed_questions: Mapping[str, str] = _NO_FAILED_QUESTIONS,
 ) -> SubsetScores:
-    """Score every gate-safe `GenerationMetric` in `registry` over `samples`.
+    """Score generated answers with the metrics safe to gate on, folded as retrieval's are.
 
     Every gate-safe `GenerationMetric` registered in `registry`, scored over `samples` —
     `score_retrieval_gate_subset`'s twin, one contract over. Shares its collision guard

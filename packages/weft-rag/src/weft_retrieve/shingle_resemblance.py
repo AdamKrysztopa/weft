@@ -77,7 +77,7 @@ def _resemblance(a: frozenset[tuple[str, ...]], b: frozenset[tuple[str, ...]]) -
 
 
 class ShingleResemblanceConfig(BaseModel):
-    """`ShingleResemblance`'s `with:` config.
+    """How alike two passages must be to count as duplicates, and the shingle width compared.
 
     Every field has a default, per this pack's own rule — both quoted at the source that fixes them
     in the module docstring above.

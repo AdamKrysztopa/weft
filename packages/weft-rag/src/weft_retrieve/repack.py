@@ -152,7 +152,7 @@ class RepackConfig(BaseModel):
 
 
 def _forward(hits: Sequence[Passage]) -> Sequence[Passage]:
-    """Unchanged — the identity ordering.
+    """The `forward` order: passages reach the model in the order the ranking gave them.
 
     Unchanged — the identity ordering, named so it can be selected rather than merely
     achieved by omitting a `ContextPacker` a document still needs one of.
@@ -261,7 +261,7 @@ class Repack:
     async def _within_budget(
         self, kept: Sequence[Passage], budget: int, ctx: Context
     ) -> tuple[tuple[Passage, ...], int] | Failed:
-        """The longest ranking-order prefix of `kept` that fits `budget`.
+        """Trim the context to a token budget, counted exactly as the answering model will count it.
 
         The longest ranking-order prefix of `kept` whose rendered block fits `budget`, and
         that block's token count.

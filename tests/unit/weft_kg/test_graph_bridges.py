@@ -212,7 +212,7 @@ async def test_each_hop_carries_the_node_that_evidenced_it(store: GraphStore) ->
 
 
 async def test_a_hop_is_printed_in_the_direction_the_corpus_stated_it(store: GraphStore) -> None:
-    """A walk is undirected and a **fact is not**.
+    """Guards `weft graph bridges` against printing a hop the undirected walk reversed.
 
     A walk is undirected and a **fact is not**, and printing one as the other is a false claim
     standing beside a true citation.
@@ -268,7 +268,7 @@ async def test_two_entities_that_share_a_chunk_are_not_a_bridge(store: GraphStor
 async def test_a_corpus_with_relations_but_no_bridge_reports_it_rather_than_refusing(
     store: GraphStore,
 ) -> None:
-    """`11.10`'s measured finding, made printable: no question on which the graph must win.
+    """`11.10`: `weft graph bridges` reports an empty bridge set as a finding, not an error.
 
     `11.10`'s own measured finding, made printable: a corpus every one of whose relations is
     answerable from a single chunk has **no** question on which the graph must win, and saying so
@@ -301,7 +301,7 @@ async def test_a_corpus_with_no_relations_at_all_refuses_naming_the_rung_to_run(
 
 
 async def _one_chunk_two_derived_facts(store: GraphStore) -> Node:
-    """One chunk, two facts **derived from it**.
+    """Fixture where an entity's anchor node and its chunk differ, as `llm-facts` writes them.
 
     The shape `llm-facts` writes and no other fixture in this file has.
 
@@ -423,7 +423,7 @@ def test_a_ceiling_that_disagreed_with_the_walk_is_refused() -> None:
 
 
 def test_the_ceiling_agrees_when_the_two_queries_agree() -> None:
-    """The same comparison's other verdict, so the test above is about disagreement.
+    """Control for the test above: agreeing queries yield a bridge, so refusal is not the default.
 
     The same comparison's other verdict, so the test above is known to be about disagreement
     rather than about `bridges_from` refusing everything.
@@ -504,7 +504,7 @@ async def test_nothing_is_written_when_the_corpus_yields_no_bridge(
 def test_the_written_questions_read_back_as_one_question_per_bridge_keyed_by_its_id(
     tmp_path: Path,
 ) -> None:
-    """The pure half, with no container: one question per bridge, under the bridge's own id.
+    """Guards that each bridge's question can be paired across runs by its stable id.
 
     The pure half, with no container: what `questions_as_toml` produces reads through the one
     question model, one question per bridge, under the bridge's own stable id.
@@ -530,7 +530,7 @@ def test_the_written_questions_read_back_as_one_question_per_bridge_keyed_by_its
 
 
 def test_the_pasteable_toml_is_refused_by_the_v2_reader() -> None:
-    """Generated questions are diagnostic, never V2 ground truth.
+    """Guards the V2 question gate against admitting generated bridge questions as ground truth.
 
     *"Generated questions are diagnostic, never V2 ground truth."* Asserted through
     `eval/check_questions.py` itself — the reader the gate runs — so the guard is the real one and
@@ -574,7 +574,7 @@ def test_filling_the_reference_answer_alone_does_not_make_it_ground_truth() -> N
 
 
 def test_the_toml_carries_no_quote_because_a_fact_is_not_the_chunk_s_own_words() -> None:
-    """11.14's sentence, arriving where it is first load-bearing.
+    """11.14: the bridges TOML carries no quote, since a fact's text appears in no document.
 
     **11.14's sentence, arriving where it is first load-bearing.** A citation on a fact is a
     citation on a claim *derived from* a chunk. V2 verifies a quote by finding it verbatim in the
@@ -628,7 +628,7 @@ def test_the_command_declares_its_permission_class() -> None:
 
 
 def test_the_pack_discloses_the_file_this_command_writes() -> None:
-    """`02` §2: a pack that writes files while declaring none answers the question wrongly.
+    """`02` §2: `weft_kg`'s `DISCLOSURE` names the file `weft graph bridges` writes.
 
     `02` §2 → *The trust model*: a pack that writes files while declaring none answers the
     question wrongly rather than not at all — `11.11`'s own finding, one command later.
@@ -647,7 +647,7 @@ def test_the_pack_discloses_the_file_this_command_writes() -> None:
 
 
 def _candidate() -> BridgeCandidate:
-    """One `BridgeCandidate` as `GraphStore.two_hop_bridges` returns it, built by hand.
+    """The Azouz, mRMR, NCI two-hop bridge the pure tests in this file share.
 
     One `BridgeCandidate` as `GraphStore.two_hop_bridges` returns it, built by hand so the
     pure half can be exercised with no container — the same split `test_schema.py` uses for

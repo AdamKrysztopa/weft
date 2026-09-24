@@ -87,7 +87,7 @@ _BASE = ""
 
 
 class _Target:
-    """One target's own nodes, source records and generation catalogue.
+    """Keeps each target's state apart, so binding or dropping one never touches another.
 
     One target's own nodes, source records and generation catalogue — never shared
     across targets, on the same footing as a pgvector schema or a Qdrant collection prefix.
@@ -393,7 +393,7 @@ class InMemoryNodeStore:
         self._writable().sources[record.id] = record
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        """Read one source record.
+        """Look up what this target recorded about one source's last indexing run.
 
         Args:
             source_id: The source to look up.
@@ -613,7 +613,7 @@ class InMemoryNodeStore:
         return record
 
     async def bind_generation(self, generation: GenerationId) -> Self:
-        """A new handle on the same catalogue and target settings, bound to `generation`.
+        """Let a build write into, and read back, one generation before readers can see it.
 
         A new handle on the same catalogue and the same target settings as this one,
         bound to `generation` — `bind_target`'s own construction is the model.
@@ -628,7 +628,7 @@ class InMemoryNodeStore:
         )
 
     async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
-        """Mark `generation` published.
+        """Make `generation` what unbound readers of this target see for its layer.
 
         Args:
             generation: The generation to publish.
@@ -780,7 +780,7 @@ class InMemoryNodeStore:
 
 
 def _retract(target: _Target, generation: GenerationId) -> int:
-    """Delete the nodes only `generation` wrote, strip it from the rest, and forget it.
+    """Undo one generation's writes so the target reads as though it never ran.
 
     Delete the nodes only `generation` wrote, strip it from the rest, and forget it —
     `retract_generation`'s work, and `reclaim_withdrawn`'s per generation. Returns how many

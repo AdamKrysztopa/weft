@@ -250,7 +250,7 @@ class RendererOffer(BaseModel):
 
     @field_serializer("render")
     def _render_as_name(self, render: Callable[[object], object]) -> str:
-        """Likewise, for the callable.
+        """Emit the renderer as its dotted path wherever a `RendererOffer` is serialised.
 
         A function has no wire form; what a reader of the JSON can act on is which one it is, which
         is what a qualified name says.

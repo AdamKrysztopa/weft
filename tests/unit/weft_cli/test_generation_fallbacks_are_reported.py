@@ -1,4 +1,4 @@
-"""Carried repair R43.38: `weft reconcile` says what it reclaimed and what it could not.
+"""Carried repair R43.38: reclaims and silent generation fallbacks are now reported to the operator.
 
 Carried repair **R43.38** — `weft reconcile` says what it reclaimed, and a store that cannot
 withdraw or carry a generation says so.
@@ -148,7 +148,7 @@ class _ReconcilingWithdrawingStore(_WithdrawingStore):
 
 
 def _write_layers(project: Path, *, incremental: bool) -> None:
-    """Write two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`.
+    """Give the project two layer pipelines, full or incremental, whose trees share summary ids.
 
     Two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`; with `incremental`, each declares
     an `adrap` join. `TersePrompt` sends the same request, so both trees hold the same summary ids
@@ -224,7 +224,7 @@ async def _built_then_grown(
     second: GenerationStore | None = None,
     **flags: object,
 ) -> render.Rendered:
-    """Build both layers, add one document, then run `weft index` again.
+    """Produce a second run that supersedes both published trees, its summaries labelled `second`.
 
     Both layers built, one document added, then `weft index` again: each layer is stale by
     addition, so the second run rebuilds or joins both and supersedes both published trees.

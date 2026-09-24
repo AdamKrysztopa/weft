@@ -38,7 +38,7 @@ class _EchoConfig(BaseModel):
 
 
 class _Echo:
-    """A trivial `Stage[str, str]`, enough to prove `build()` resolves, constructs and wraps.
+    """Minimal stage for `build()` tests, so a failure points at the lookup, not at a real plugin.
 
     A trivial `Stage[str, str]` — enough to prove `build()` resolves, constructs, and
     wraps, with no dependency on any real query-path contract.
@@ -73,7 +73,7 @@ class _Boom:
 
 
 class _Capability:
-    """A named capability with no `run` at all, `build_capability`'s own subject.
+    """Stands in for a capability `build_capability` must return unwrapped, having nothing to wrap.
 
     A named capability with no `run` at all — `build_capability`'s own subject, the
     same shape `weft_retrieve.contract.Prompt` takes.
@@ -220,7 +220,7 @@ def test_route_catalogue_defaults_cost_to_empty_when_the_pipeline_names_none() -
 
 
 class _SubConfig(BaseModel):
-    """Declared the way every real Weft plugin config is: frozen, `extra="forbid"`.
+    """Gives the build tests a config that can refuse, so they prove validation rejects extras.
 
     Declared the way every real Weft plugin config is — frozen, `extra="forbid"` — so an
     unknown field is rejected here for the same reason it would be in production. A plain
@@ -278,7 +278,7 @@ async def test_build_validates_a_mapping_into_the_plugins_own_config_model() -> 
 
 
 async def test_build_leaves_an_already_built_config_object_alone() -> None:
-    """The other caller shape, which must keep working: a config handed over already typed.
+    """`build` passes an already-typed config through unchanged rather than re-validating it.
 
     The other caller shape, which must keep working: a plugin that has already
     constructed its sibling's config and hands it over typed.
@@ -332,7 +332,7 @@ async def test_build_refuses_a_mapping_for_a_plugin_that_publishes_no_config_mod
 
 
 async def test_build_capability_validates_the_same_way() -> None:
-    """`Sufficiency` is reached through `build_capability`, so the same repair covers it.
+    """`build_capability` validates a raw config mapping into the sibling's model, as `build` does.
 
     `Sufficiency` is reached through `build_capability`, and `iterative-retrieval`'s
     `sufficiency_config` is one of the seven fields — so the same repair has to cover it.

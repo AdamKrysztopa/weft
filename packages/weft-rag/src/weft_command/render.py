@@ -1,4 +1,4 @@
-"""`ExitCode` and `Rendered`, a renderer's own vocabulary, published beside `Command`.
+"""Lets a third-party pack render its own command's result without depending on `weft-cli`.
 
 `ExitCode` and `Rendered` — a renderer's own vocabulary, published beside the `Command`
 contract that produces the result a renderer formats.

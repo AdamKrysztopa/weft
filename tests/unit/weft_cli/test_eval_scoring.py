@@ -284,7 +284,7 @@ def test_a_bare_filename_still_resolves_when_it_names_one_document() -> None:
 
 
 def test_a_label_naming_no_document_is_refused_rather_than_scored_zero() -> None:
-    """A label naming no document is refused rather than scored zero.
+    """A mistyped label cannot pass as a real `0.000` score; the harness fails instead.
 
     The defect this rule exists for, and the ledger records it as a scar
     (`docs/internal/build-ledger.md:5528 "an early run read"`): *"an early run read `0.000` at
@@ -303,7 +303,7 @@ def test_a_label_naming_no_document_is_refused_rather_than_scored_zero() -> None
 
 
 def test_a_label_matching_two_documents_is_refused_naming_both() -> None:
-    """A label matching two documents is refused, naming both.
+    """An ambiguous label cannot silently score one document and count its namesake as a miss.
 
     Ambiguity is silent otherwise: whichever document the resolution happened to pick would
     score, and the other would count as a miss for a question that named it.
@@ -323,7 +323,7 @@ def test_a_label_matching_two_documents_is_refused_naming_both() -> None:
 
 
 def test_a_label_that_is_the_whole_resolved_path_still_resolves() -> None:
-    """A label that is the whole resolved path still resolves.
+    """Question files written with absolute `SourceId` paths keep resolving under the suffix rule.
 
     Every questions file written before this task names absolute paths, because that is
     what `SourceId` is. They keep working — the rule is a suffix rule and a whole path is its
@@ -369,7 +369,7 @@ async def test_a_question_is_scored_against_the_document_its_label_resolved_to()
 async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A rank metric sees retrieval order, not the packer's.
+    """Rank metrics are fed retrieval's own ranking, whatever order the packer handed the generator.
 
     `12` §3: *"Rank metrics are scored over `repack: reverse`'s deliberately inverted
     order."* `Answer.used` is the right **set** — task 7.5 settled that, and it is what the
@@ -654,7 +654,7 @@ def _rung(*contracts: str) -> ResolvedPipeline:
 async def test_a_rung_ending_in_a_packer_is_scored_over_its_passages_and_calls_no_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A rung ending in a packer is scored over its passages and calls no model.
+    """A retrieval-only rung is scored through `run_named_retrieve` and pays for no answer.
 
     `lexical-retrieve` ends in `repack` and produces `Passages`. `run_named_ask` requires an
     `Answer` and refused it, which is what left `38.0`'s experiment with orphaned records; a
@@ -749,7 +749,7 @@ async def test_a_rung_ending_in_a_generator_is_still_scored_over_the_answers_pas
 async def test_the_scored_run_carries_each_questions_axes_with_its_kind(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The scored run carries each question's axes, with its kind.
+    """`weft eval compare` can slice a stored run by question axes after the question file is gone.
 
     A paired difference restricted to a slice has to know which questions were in it, after the
     question file is gone; `kind`, when a question states one, is recorded as the axis `--kind`
@@ -799,7 +799,7 @@ async def test_the_scored_run_carries_each_questions_axes_with_its_kind(
 async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_scores_the_rest(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A rung failing on one question excludes it with its reason and scores the rest.
+    """Per-question failures become counted exclusions with a reason; the arm still writes a record.
 
     `38.6`'s HyDE arm failed on one of 300 questions — a model's answer could not be parsed —
     and the exception left the question loop, so the arm wrote no record at all. `09` V4: a failed
@@ -855,7 +855,7 @@ async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_sc
 async def test_a_model_looping_on_one_question_excludes_it_and_scores_the_rest(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A model looping on one question excludes it and scores the rest.
+    """One looping prompt costs its own question, not the arm's whole record.
 
     `39.5`'s `rfc-rerank` run: `llm-rerank` looped on one question's prompt, the loop-breaker
     stopped it, and its `LLMGenerationLoopError` left the question loop, so the arm wrote no
@@ -909,7 +909,7 @@ async def test_a_model_looping_on_one_question_excludes_it_and_scores_the_rest(
 async def test_a_model_refusing_the_credential_still_aborts_the_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A model refusing the credential still aborts the run.
+    """Control for the per-question catch: a run-wide `LLMAuthenticationError` still propagates.
 
     The control: a wrong key fails every question identically, so excluding them one by one
     would write a record of nothing but exclusions. Only the per-question failure is caught.
@@ -945,7 +945,7 @@ async def test_a_model_refusing_the_credential_still_aborts_the_run(
 async def test_a_retrieval_rung_records_which_arms_each_questions_passages_came_from(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A retrieval rung records which arms each question's passages came from.
+    """Per-question arm labels survive scoring, so a run shows which retrieval branch answered.
 
     G24: a question with no anchor contributes no lexical ranking, and the run records which
     branch it took. The passages a retrieval rung returns carry the labels of the lists they were
@@ -997,7 +997,7 @@ async def test_a_retrieval_rung_records_which_arms_each_questions_passages_came_
 async def test_a_run_with_no_query_rung_records_no_contributors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A run with no query rung records no contributors.
+    """Contributor attribution is left unknown, never invented, when retrieval carries no labels.
 
     The hardwired vector search returns hits, not passages, so nothing states an arm; the
     record says it does not know rather than inventing an answer.
@@ -1064,7 +1064,7 @@ def _generating(monkeypatch: pytest.MonkeyPatch, answers: dict[str, str]) -> Non
 async def test_a_generating_rungs_answer_is_scored_against_the_reference_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A generating rung's answer is scored against the reference answer.
+    """Answer metrics such as `token_recall` receive the answer text, so a real run computes them.
 
     `32.0` named `token-recall` and `rouge-l` as the metrics that can see `adjacent-chunks`;
     before this task the scored run kept only `Answer.used` and threw the text away, so no
@@ -1195,7 +1195,7 @@ async def test_a_retrieval_rung_computes_no_answer_metrics(
 async def test_hits_tied_on_score_are_ranked_in_the_order_the_ranking_gave_them(
     monkeypatch: pytest.MonkeyPatch, ends_in: str
 ) -> None:
-    """Hits tied on score are ranked in the order the ranking gave them.
+    """Tied scores cannot let a packer's `repack: reverse` order leak into rank metrics.
 
     `repack: reverse` packs the best hit last; two hits tied on score arrived at the stable
     sort in that inverted order, so `[relevant, irrelevant]` at 3.5 each scored RR ½.
@@ -1330,7 +1330,7 @@ async def test_a_captured_pool_holds_every_packed_chunk_in_ranking_order(
 async def test_a_generating_rung_records_which_arms_each_questions_answer_was_fed_by(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A generating rung records which arms fed each question's answer.
+    """Per-question arm attribution survives into generated answers, not just retrieved passages.
 
     G24's "the run records which branch it took", for the rung Phase 39 ships ending in
     `cited-answer`: the answer carries its passages' contributors, and the scored run keeps them

@@ -37,7 +37,7 @@ from weft_store.contract import STORE_CONTRACT_VERSION, SourceRecord
 
 
 def _node(content: str, vector: tuple[float, ...], source: str = "s-a") -> Node:
-    """Built the way the published kit builds its own: `Node.synthetic` then `with_embedding`.
+    """Builds an embedded test node through the public API, as a stranger's own tests would.
 
     Built the way the published kit builds its own — `Node.synthetic` then `with_embedding`,
     because `synthetic` takes no `embedding` and a double written from the signature I expected

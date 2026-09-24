@@ -228,7 +228,7 @@ def test_the_plugin_refuses_construction_with_no_config_by_name() -> None:
 
 
 async def test_driving_corrective_through_the_seam_produces_candidates() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `Corrective` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call.

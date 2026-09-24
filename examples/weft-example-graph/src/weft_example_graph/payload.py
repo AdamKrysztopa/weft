@@ -1,4 +1,4 @@
-"""`GraphData`: which entities a node mentions, and which of them co-occur.
+"""The entity facts this pack derives per node, carried on `Node.ext` under its own namespace.
 
 `GraphData` — this pack's own namespaced fact: which entities a node mentions, and which
 of them co-occur.

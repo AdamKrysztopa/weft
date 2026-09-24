@@ -112,7 +112,7 @@ class CollapsePolicy(StrEnum):
 
 
 class CollapseToParentConfig(BaseModel):
-    """`CollapseToParent`'s `with:` config.
+    """How the passages collapsing into one parent combine into its surviving score.
 
     Every field has a default, per this pack's own rule.
     """

@@ -1,4 +1,4 @@
-"""Carried repair R43.17: `weft delete` takes the handle `weft sources list` prints.
+"""Carried repair R43.17: a delete that matched nothing can no longer read like one that worked.
 
 Carried repair **R43.17** — `weft delete` takes the handle `weft sources list` prints, and says
 so when nothing held the one it was given.

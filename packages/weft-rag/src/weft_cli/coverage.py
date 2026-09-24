@@ -1,4 +1,4 @@
-"""Measure how much of the corpus `weft ask` could see, from one `list_sources()` read.
+"""Let `weft ask` warn when its answer came from only part of the corpus.
 
 How much of the corpus `weft ask` could see, from one `list_sources()` read — task **43.4**,
 widened at **43.9** to answer per-layer coverage from the identical read.

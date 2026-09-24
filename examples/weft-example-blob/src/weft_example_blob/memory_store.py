@@ -50,7 +50,7 @@ class UnknownBlobError(WeftError):
 
 
 class TargetDropRefusedError(WeftError):
-    """`drop_target` was asked to remove `default`, whose blobs are the shared storage's own.
+    """Refusal that keeps the live, untargeted blobs out of any target drop's reach.
 
     `drop_target` was asked to remove `default` — its blobs are the shared storage's own,
     not a target subtree this method owns the removal of, matching
@@ -83,7 +83,7 @@ class InMemoryBlobStore:
         return self._shared.setdefault(self._target, {})
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle over the same shared storage, bound to `target`'s own namespace.
+        """Let an index run write a candidate target's blobs without touching the live ones.
 
         A second handle over the same shared storage, bound to `target`'s own namespace —
         see the module docstring.
@@ -92,7 +92,7 @@ class InMemoryBlobStore:
         return type(self)(_shared=self._shared, _target=validated)
 
     async def drop_target(self, target: TargetName) -> int:
-        """Remove `target`'s whole namespace from the shared storage.
+        """Reclaim a retired target's blobs for `weft target drop`, never the untargeted ones.
 
         Remove `target`'s whole namespace from the shared storage, returning how many blobs
         it held. `default` is refused: its blobs are the shared storage's own, not a namespace

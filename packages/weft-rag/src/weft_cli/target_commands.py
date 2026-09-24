@@ -299,7 +299,7 @@ class TargetPromoteCommand:
     async def _catalogue_of(
         self, instance: TargetHolding, *, entry: RegistryEntry, store_name: str
     ) -> TargetCatalogue:
-        """Read `instance`'s target catalogue through `wrap`.
+        """Read a store's targets under `wrap`, so the call gets the seam's span and attribution.
 
         `instance.target_catalogue()`, through `wrap` — `weft_cli.commands.
         TargetListCommand`'s own footing: a local adapter handed to `wrap` *by name*, never
@@ -656,7 +656,7 @@ class TargetDropCommand:
     async def _dropped(
         self, instance: TargetHolding, name: TargetName, *, entry: RegistryEntry, store_name: str
     ) -> None:
-        """Drop `name` from `instance` through `wrap`.
+        """Run the drop under `wrap`, so a store's failure is attributed to its plugin.
 
         `instance.drop_target(name)`, through `wrap` — `TargetPromoteCommand._promoted`'s
         footing.
@@ -677,7 +677,7 @@ class TargetDropCommand:
     async def _drop_participant(
         self, store_name: str, name: TargetName, *, deps: Dependencies
     ) -> None:
-        """Drop target `name` from one other target-holding participant.
+        """Remove the target from a secondary store too, closing the instance opened to do it.
 
         `store_name`'s own `drop_target` — every other `TargetHolding` participant
         `target_participants` names.

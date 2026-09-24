@@ -89,7 +89,7 @@ def _record(record_id: int, seconds: float, parent: int | None = None) -> StageR
 
 
 def test_the_stage_block_accounts_for_the_calls_wall_time() -> None:
-    """The stage block accounts for the call's wall time.
+    """The totals line splits the call's wall time into staged time and time outside any stage.
 
     The nested record is inside its parent's time, so only top-level records are subtracted —
     counting the child too would make the time outside any stage come out negative.

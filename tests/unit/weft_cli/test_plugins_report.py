@@ -348,7 +348,7 @@ def test_render_doctor_names_the_installed_version_of_each_distribution() -> Non
 
 
 def test_render_doctor_says_when_a_version_is_not_recorded() -> None:
-    """`render_doctor` says when a version is not recorded.
+    """A pack with no known version reads `version not recorded`, never a blank the eye skips.
 
     `docs/internal/lessons.md` L5.9 — an absent measurement is reported, never rendered as a
     blank.

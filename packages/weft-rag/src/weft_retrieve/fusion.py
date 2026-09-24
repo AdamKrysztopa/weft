@@ -334,7 +334,7 @@ RRF_NAME = "reciprocal-rank-fusion"
 
 
 class ReciprocalRankFusionConfig(BaseModel):
-    """`ReciprocalRankFusion`'s `with:` config.
+    """The damping constant, per-contributor weights and truncation reciprocal rank applies.
 
     Every field has a default, per this pack's own rule — and per ledger 2.18's own line, which
     names every knob this technique has as configuration: the constant, the per-arm weight and the
@@ -452,7 +452,7 @@ NORMALIZED_SCORE_FUSION_NAME = "normalized-score-fusion"
 
 
 class NormalizedScoreFusionConfig(BaseModel):
-    """`NormalizedScoreFusion`'s `with:` config.
+    """The per-contributor weights and the truncation a normalised-score fusion applies.
 
     Every field has a default, per this pack's own rule. No `k`: that constant belongs to reciprocal
     rank's damping, which this technique does not use — a knob that means nothing here is worse than
@@ -627,7 +627,7 @@ class EmptyConjunction(StrEnum):
 
 
 class BooleanCombineConfig(BaseModel):
-    """`BooleanCombine`'s `with:` config.
+    """What a Boolean query's root `and` yields when no document satisfies every term.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied.

@@ -116,7 +116,7 @@ NAME = "contextual-query-rewrite"
 
 
 class ContextualQueryRewriteConfig(BaseModel):
-    """`ContextualQueryRewrite`'s `with:` config.
+    """How much history the rewrite sees, which prompt and role write it, and when it skips.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied.
@@ -219,7 +219,7 @@ HYDE_NAME = "hyde"
 
 
 class HydeConfig(BaseModel):
-    """`Hyde`'s `with:` config.
+    """How many hypothetical documents to write, which channels search them, and on failure.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied — and per ledger 2.16's own line, which names three of these
@@ -263,7 +263,7 @@ class HydeConfig(BaseModel):
 
 
 class Hyde:
-    """Retrieve against hypothetical answer documents instead of the question.
+    """Bridge the gap between a question and its passages by searching with written answers.
 
     Generates hypothetical answer documents and retrieves against them instead of the
     literal question. Satisfies `weft_retrieve.contract.QueryTransform` structurally.
@@ -351,7 +351,7 @@ STEP_BACK_NAME = "step-back"
 
 
 class StepBackConfig(BaseModel):
-    """`StepBack`'s `with:` config.
+    """The prompt and role that write the broader question, and whether the original stays.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied.
@@ -530,7 +530,7 @@ _EXPANSION_INSTRUCTIONS: dict[ExpansionKind, str] = {
 
 
 class MultiQueryConfig(BaseModel):
-    """`MultiQuery`'s `with:` config.
+    """The fan-out's width, strategy and seed selection, and the prompt and role that write it.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied — and per ledger 2.18a's own row, which names every one of
@@ -564,7 +564,7 @@ class MultiQueryConfig(BaseModel):
 
 
 class MultiQuery:
-    """Fan seed questions out into several alternative search queries.
+    """Reach documents one wording misses by searching several model-written rewrites of each seed.
 
     Fans one or more seed questions out into several alternative search queries, retrieved
     independently and combined downstream by a `Fuser`. Satisfies `weft_retrieve.contract.
@@ -612,7 +612,7 @@ class MultiQuery:
         self._config = config if config is not None else MultiQueryConfig()
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[QuerySet]:
-        """Expand every matching seed into `variants` alternative queries.
+        """Add model-written variants for the matched seeds, refusing a set in which none matches.
 
         `payload`, with every seed matching `expand_origins` expanded into `variants`
         alternative queries.

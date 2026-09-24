@@ -84,7 +84,7 @@ class _State:
 
 
 class _Store:
-    """A paging `MetadataFilter` store whose handles share one `_State`.
+    """The store the stamping tests inspect, with generation-scoped visibility per handle.
 
     A paging `MetadataFilter` store whose handles share one `_State`; a handle bound to a
     generation marks what it writes, and reads what is published plus its own.

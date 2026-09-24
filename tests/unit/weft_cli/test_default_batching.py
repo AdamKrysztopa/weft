@@ -314,7 +314,7 @@ async def test_the_json_sink_writes_a_batch_progress_line() -> None:
 
 
 async def test_the_sink_the_cli_really_hands_a_command_still_reports_progress() -> None:
-    """The sink the CLI really hands a command still reports progress.
+    """Guards `_EmissionTrackingSink` forwarding `batch_progress`, the method it silently dropped.
 
     Found by running the binary: `run_command` hands every command `_EmissionTrackingSink`
     around the real sink, which forwarded `emit`, `close` and `show_only_stage` only, so no

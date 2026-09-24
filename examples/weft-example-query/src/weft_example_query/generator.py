@@ -21,7 +21,7 @@ _SENTENCE_BREAK: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+")
 
 
 class ExampleGenerator:
-    """Answer with each offered passage's first sentence, cited by its packer label.
+    """Close the query path with a dependency-free answer, so the example needs no model.
 
     Answers with each offered passage's first sentence, cited by the label a `ContextPacker`
     assigned it. Satisfies `weft_generate.contract.Generator` structurally.

@@ -73,7 +73,7 @@ DEFAULT_DISPLAY_ROLES: frozenset[str] = frozenset({"generate"})
 
 
 class StreamEventType(StrEnum):
-    """One line's shape in `--json`'s newline-delimited event stream.
+    """Lets a script tell a finished stream from a broken one without parsing prose.
 
     One line's shape in `--json`'s newline-delimited event stream — see the module
     docstring's own paragraph on why this is three members, not seven.
@@ -171,7 +171,7 @@ class ReaderGoneError(BrokenPipeError):
 
 
 class PrintingSink:
-    """Write each chunk's text to `stream` the instant it arrives.
+    """Makes a streamed answer appear on the terminal as live, growing prose.
 
     Writes a chunk's text to `stream` the instant it arrives — the default sink, the one
     a human reads. Satisfies `weft_llm.contract.TokenSink` structurally, the same path

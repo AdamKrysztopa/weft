@@ -497,7 +497,7 @@ async def test_the_router_resolves_a_project_local_document_named_by_services_ro
 async def test_the_router_refuses_a_name_a_project_and_a_pack_both_declare(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The router refuses a name that a project and a pack both declare.
+    """Guards the widened router search set against silently shadowing a pack's pipeline.
 
     Widening the router's search set must not introduce silent shadowing — `02` §3's
     "never silently override" rule, which `full_catalogue` already enforces for every
@@ -607,7 +607,7 @@ async def test_a_router_that_cannot_accept_a_query_is_refused_by_name(
 async def test_a_stage_needing_a_service_no_role_provides_is_refused_before_anything_runs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A stage needing a service no role provides is refused before anything runs.
+    """`run_routed_ask` refuses an unprovided service at assembly, naming its `[services]` key.
 
     The property `11.10`'s line names — *refused by name at assembly* — through the seam a
     caller actually uses, rather than by calling the checker directly.
@@ -682,7 +682,7 @@ async def test_a_stage_needing_a_service_no_role_provides_is_refused_before_anyt
 
 
 class _StageNarrowingSink:
-    """A sink that records what it was told, and nothing else.
+    """Captures the stage a routed `ask` narrows its streamed output to, via `show_only_stage`.
 
     A sink that records what it was told, and nothing else — `weft_llm.contract.TokenSink`
     is satisfied structurally, the same path every plugin in this tree takes.

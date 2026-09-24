@@ -99,7 +99,7 @@ def _select(
 
 
 class Mmr:
-    """Reorder a ranking by relevance to the question and novelty against the chosen.
+    """Keep near-duplicate passages from crowding a ranking's top, trading relevance for novelty.
 
     Greedily reorders a ranking by relevance to the question and novelty against what is
     already chosen. Satisfies `weft_retrieve.contract.Reranker` structurally.

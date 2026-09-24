@@ -720,7 +720,7 @@ def test_strict_pins_false_returns_every_report_instead_of_raising() -> None:
 
 
 def test_a_committed_pack_reports_the_pipeline_resource_it_buffered() -> None:
-    """`add_pipeline_resource` is buffered exactly like `add`.
+    """Guards that a pack's pipeline resource reaches the report `RouteCatalogue` is built from.
 
     `add_pipeline_resource` is buffered exactly like `add`, and lands on the report
     once `register()` returns without raising — `weft_retrieve.contract.RouteCatalogue`'s
@@ -784,7 +784,7 @@ def test_a_raising_register_discards_its_buffered_pipeline_resource_too() -> Non
 
 
 def test_a_committed_pack_reports_the_deprecation_it_buffered_and_warns_once() -> None:
-    """`deprecate` is buffered exactly like `add_pipeline_resource`.
+    """Guards that a committed deprecation warns exactly once, from the seam rather than the pack.
 
     `deprecate` is buffered exactly like `add_pipeline_resource`, lands on the report
     once `register()` returns without raising, and the warning comes from the registration
@@ -856,7 +856,7 @@ def test_a_deprecation_from_a_real_distribution_carries_its_own_removal_release(
 
 
 def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothing() -> None:
-    """A pack that raises after marking a surface deprecated leaves no warning standing.
+    """Guards against a deprecation warning for a surface whose pack failed to register.
 
     The same atomicity as pipeline resources: a pack that raises after marking a
     surface deprecated must not leave a warning standing about a mark that never
@@ -891,7 +891,7 @@ def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothi
 
 
 def test_a_committed_pack_reports_the_renderer_it_buffered_with_its_own_attribution() -> None:
-    """`add_renderer` is buffered exactly like `add_contribution`.
+    """Guards that a pack's result renderer reaches the report, attributed by the registrar.
 
     `add_renderer` is buffered exactly like `add_contribution`, with `distribution` filled
     in by the registrar rather than stated by the pack.
@@ -966,7 +966,7 @@ def test_a_raising_register_discards_its_buffered_renderer_too() -> None:
 
 
 def test_a_committed_pack_reports_the_contribution_it_buffered_with_its_own_attribution() -> None:
-    """`add_contribution` is buffered exactly like `add_ext_model`.
+    """Guards contribution attribution: the registrar, never the pack, names the distribution.
 
     `add_contribution` is buffered exactly like `add_ext_model`, and `distribution` is
     filled in by the registrar — never something the pack states — on `add`'s own
@@ -1094,7 +1094,7 @@ def test_a_pack_that_declares_nothing_unavailable_is_still_active() -> None:
 
 
 def test_a_raising_register_discards_its_unavailability_notices() -> None:
-    """A pack whose `register()` raises must not leave a report standing about its mark.
+    """Guards `weft plugins doctor` against an unavailable surface a failed pack never committed.
 
     The same atomicity every other buffer here has: a pack whose `register()` raises must not
     leave a report standing about a mark that never committed.

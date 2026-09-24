@@ -81,7 +81,7 @@ def test_a_producer_that_declares_nothing_says_so_rather_than_guessing() -> None
 
 
 def test_a_non_callable_attribute_of_the_right_name_is_not_a_declaration() -> None:
-    """A non-callable attribute of the right name is not a declaration.
+    """A same-named attribute that is not a string never gets rendered into an explanation sentence.
 
     The same treatment `weft_kernel.runner._flush_of` gives an attribute that merely shares a
     name — here the failure would be rendering a `dict` into the middle of a sentence a person
@@ -166,7 +166,7 @@ def test_explanations_are_built_once_per_distinct_producer() -> None:
 
 
 def test_the_caller_names_which_capability_it_invoked() -> None:
-    """The caller names which capability it invoked.
+    """The explanation follows the arm the caller used, not a guess from a dual-capability store.
 
     A producer satisfying two capabilities has two meanings, and only the caller knows which
     arm it just used — so the attribute is a parameter rather than a guess from the object.

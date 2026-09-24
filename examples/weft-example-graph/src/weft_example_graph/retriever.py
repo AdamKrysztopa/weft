@@ -1,4 +1,4 @@
-"""`GraphWalkRetriever`: ranks nodes by graph proximity to the entities a query names.
+"""A retriever that answers from the pack's own graph store, never the configured one.
 
 `GraphWalkRetriever` — ranks nodes by graph proximity to the entities a query names,
 never by vector or lexical similarity. Satisfies `weft_retrieve.contract.Retriever`

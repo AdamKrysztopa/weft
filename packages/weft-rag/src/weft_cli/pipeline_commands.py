@@ -1,4 +1,4 @@
-"""The `weft pipeline list|show|derive|validate|diff|estimate` commands.
+"""How a project inspects, derives, checks, compares and estimates its pipelines from the shell.
 
 `weft pipeline list|show|derive|validate|diff|estimate` — task **3.7**'s five pipeline
 commands, plus `estimate`, task **31.8**'s own sixth.
@@ -705,7 +705,7 @@ class PipelineDeriveCommand:
 
 
 def register_pipeline_commands(registrar: PackRegistrar) -> None:
-    """Register all six `pipeline` commands.
+    """Make the `pipeline` subcommands reachable by the parser the same way any pack's commands are.
 
     Called from `weft_cli.commands.register`, never from a second entry point (see the module
     docstring).

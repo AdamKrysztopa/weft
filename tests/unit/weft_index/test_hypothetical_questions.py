@@ -151,7 +151,7 @@ async def test_each_node_gets_its_own_derived_question_nodes() -> None:
 
 
 async def test_a_node_whose_generation_degrades_survives_under_its_id_and_says_so() -> None:
-    """Degrade, never fail, and since repair R38.13 never silently.
+    """Repair R38.13: a failed completion leaves its chunk intact and marked, and the run succeeds.
 
     Degrade, never fail — and, since repair R38.13, never silently: the chunk keeps its id and
     content and carries `ExpansionDegraded`, so a store can count what a questions arm lost.
@@ -303,7 +303,7 @@ async def test_no_more_than_max_concurrent_nodes_are_in_flight_at_once() -> None
 
 
 async def test_the_cap_is_what_bounds_it_rather_than_the_batch_being_small() -> None:
-    """The non-vacuity half: with the cap raised, the same double must report a higher peak.
+    """Proves `max_concurrent_nodes` is the limiter, not the size of the test's batch.
 
     The non-vacuity half: with the cap raised above the batch, the same double must
     report a peak above the previous cap — otherwise the assertion above would hold for a

@@ -145,7 +145,7 @@ def test_an_empty_store_says_so() -> None:
 
 
 def test_an_empty_filtered_list_names_the_filter_rather_than_claiming_nothing_is_recorded() -> None:
-    """An empty filtered list names the filter rather than claiming nothing is recorded.
+    """Guards against a filtered `weft sources list` telling the operator the store is empty.
 
     Found running the wheel: `--status failed` over a store holding one active source printed
     "no sources recorded.", which is false.

@@ -67,7 +67,7 @@ _MAX_ENTITIES_PER_NODE = 25
 
 
 def _cleaned(raw: str) -> str | None:
-    """`raw`, whitespace-normalised and stripped of leading stopwords, or `None` if nothing is left.
+    """Keep a sentence-initial stopword out of an extracted entity name.
 
     `raw`, whitespace-normalised, with every *leading* stopword stripped — `None` if
     nothing is left. A multi-word match starting a sentence ("The Board met...") would

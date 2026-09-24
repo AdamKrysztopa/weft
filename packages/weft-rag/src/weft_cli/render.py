@@ -186,7 +186,7 @@ def render_outcome(
 
 
 def render_refusal(exc: WeftError, *, as_json: bool = False) -> Rendered:
-    """Render a `WeftError` raised before or during `run()` and pick its exit code.
+    """Turn a refusal into what the user sees and the exit code a script branches on.
 
     A `WeftError` raised before or during `run()` — a `CommandRefusalError`'s own exit code,
     or `weft_cli.exit_codes.exit_code_for`'s mapping for every other `WeftError`.
@@ -472,7 +472,7 @@ def register_renderers_from_reports(reports: Iterable[PackReport]) -> None:
 
 
 def _register_renderer_if_new(offer: RendererOffer) -> None:
-    """Register `offer`'s renderer unless its result type already claims it.
+    """Make re-registering the same renderer a no-op, so only a rival renderer collides.
 
     `_renderer_registry.add(...)` for `offer`, skipped only when `offer.result_type`
     already claims `offer.render` itself — see `register_renderers_from_reports`'s own
@@ -615,7 +615,7 @@ def _reparse_lines(changes: Mapping[str, SourceChange]) -> list[str]:
 
 
 def _defaulted_embedder_line(embedder: str) -> str:
-    """The stderr line printed when `weft.toml` named no embedder.
+    """Tell the user a run used an embedder they never chose, and what that default means.
 
     Carried repair `R17.6`'s own stderr line — printed only when `weft.toml` did not name
     an embedder.
@@ -1325,7 +1325,7 @@ def _render_pipeline_derive(result: PipelineDeriveCommandResult) -> Rendered:
 
 
 def _pipeline_diff_lines(diff: PipelineDiff) -> list[str]:
-    """The lines printed for one `PipelineDiff`.
+    """Stage additions, removals and swaps, and var changes, between two resolved pipelines.
 
     The lines `weft pipeline diff` and `weft eval compare` both print for one `PipelineDiff`
     — task **4.6** pulls this out of `_render_pipeline_diff` so `_render_eval_compare` reuses
@@ -1530,7 +1530,7 @@ def _metric_result_text(result: MetricRunResult) -> str:
 
 
 def _metrics_comparison_lines(comparison: Mapping[str, MetricComparison]) -> list[str]:
-    """One comparison line per metric either compared run carries.
+    """Let a reader see which metrics moved between two runs, and in which direction.
 
     One line per metric name either compared run carries — `weft eval compare`'s own
     per-metric half, task 4.9. A metric both runs scored also gets a signed delta, computed
@@ -1794,7 +1794,7 @@ def _render_reproduction(result: EvalCompareCommandResult, reproduction: Reprodu
 
 
 def _metric_kind(result: MetricRunResult) -> MetricKind:
-    """Which contract produced `result`.
+    """The metric's contract, so its line can be labelled even when nothing was aggregated.
 
     Which contract produced `result` — read straight off the persisted aggregate when there
     is one. A `NotAggregated` metric carries no `kind` of its own — nothing was ever computed to

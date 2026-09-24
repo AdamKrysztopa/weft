@@ -249,7 +249,7 @@ async def test_ask_passes_the_pipeline_name_it_was_given_to_the_command() -> Non
 
 
 def test_ask_offers_no_mode_whose_result_is_not_an_answer() -> None:
-    """`R22.6`: retrieve-only fills `hits` and never `answer`.
+    """`R22.6`: `Weft.ask` exposes no `retrieve_only` flag, since it could only ever raise.
 
     `R22.6`: retrieve-only fills `hits` and never `answer`, so `ask(retrieve_only=True)` raised
     on every call. Ranked passages are `run("ask", {...})`'s to return.
@@ -481,7 +481,7 @@ class _RecordingSink:
 
 
 class _StreamingCommand(_RecordingCommand):
-    """Streams three chunks through `ctx.require(TokenSink)`, yielding between each.
+    """Lets a test prove two concurrent calls on one `Weft` really interleave their streams.
 
     Streams three chunks through `ctx.require(TokenSink)` and yields between each, so two
     concurrent calls interleave the way two generations on one event loop do. `emitted` records
@@ -604,7 +604,7 @@ async def test_a_command_reached_by_name_takes_a_sink_for_the_call_too() -> None
 
 
 class _IndexCommand(_RecordingCommand):
-    """Declares the shipped `IndexArgs`, so an undeclared field is dropped as in production.
+    """Keeps `Weft.index`'s argument tests honest about what the real `IndexArgs` accepts.
 
     Declares the shipped `IndexArgs`, so a field `Weft.index` passes that the real model does
     not declare is dropped here exactly as it is in production (`L12.11`).

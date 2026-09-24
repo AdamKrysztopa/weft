@@ -1,4 +1,4 @@
-"""Ledger task 43.20: an interrupted corpus-scoped build resumes, paying only for what is left.
+"""Ledger task 43.20: Ctrl-C mid-build no longer throws away the summaries a layer already paid for.
 
 Ledger task **43.20** — an interrupted corpus-scoped build resumes, paying only for what it
 had not finished.

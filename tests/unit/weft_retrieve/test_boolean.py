@@ -382,7 +382,7 @@ async def test_a_query_using_a_disabled_operator_is_refused_naming_the_supported
 
 
 async def test_driving_boolean_retrieval_through_the_seam_produces_a_query_set() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `BooleanRetrieval` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered

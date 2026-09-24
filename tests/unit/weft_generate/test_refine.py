@@ -119,7 +119,7 @@ class _FakeRetriever:
 
 
 class _StubLookup:
-    """A `StageLookup` handing back one prompt, one signal and one retriever.
+    """Lets `refine-on-uncertainty` resolve its signal and retriever by contract without a registry.
 
     A `StageLookup` handing back one prompt, one signal and one retriever, dispatched by
     the contract asked for — the same dispatch-by-contract shape `test_iterative.py`'s own
@@ -364,7 +364,7 @@ async def test_a_hard_signal_failure_fails_the_whole_generation() -> None:
 
 
 async def test_driving_refine_on_uncertainty_through_the_seam_produces_an_answer() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Fitness function 7(b): `refine-on-uncertainty` still answers when wrapped by the seam.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call.

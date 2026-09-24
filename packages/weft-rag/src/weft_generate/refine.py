@@ -172,7 +172,7 @@ class RefinementTrace(ExtModel):
 
 
 class RefineOnUncertaintyConfig(BaseModel):
-    """`RefineOnUncertainty`'s `with:` config.
+    """What triggers a refinement round, which retriever it calls, and how many rounds it may take.
 
     Every field has a default, per this pack's own rule. `signal`, `retriever`, `threshold`,
     `max_rounds` and `on_signal_failure` are `.phase2-design.md` §10's own task-table fields for

@@ -1592,7 +1592,7 @@ def _render_stranger(result: CommandResult) -> render.Rendered:
 
 
 def _offer(result_type: type[CommandResult], renderer: object, *, distribution: str) -> PackReport:
-    """Build one pack's report carrying one renderer, through the public seam.
+    """Stand-in for a discovered pack offering one renderer, as the renderer registry reads it.
 
     One pack's report carrying one renderer, built through the public seam rather than by
     constructing a `RendererOffer` by hand — `PackRegistrar` is what fills in attribution.
@@ -1627,7 +1627,7 @@ def test_a_packs_result_renders_for_a_person_once_its_renderer_is_registered() -
 
 
 def test_a_result_with_no_registered_renderer_still_gets_the_honest_dump() -> None:
-    """A result with no registered renderer still gets the honest dump.
+    """A stranger's result type needs no renderer to be printed: JSON is the guaranteed floor.
 
     The floor stays the floor, and stops being the ceiling: an unrendered result is a
     truthful structured dump rather than a crash or a silent blank.
@@ -1646,7 +1646,7 @@ def test_a_result_with_no_registered_renderer_still_gets_the_honest_dump() -> No
 
 
 def test_two_packs_claiming_one_result_type_is_refused_rather_than_shadowed() -> None:
-    """Two packs claiming one result type are refused rather than shadowed.
+    """One result type cannot be rendered by whichever pack happened to register last.
 
     Two renderers for one result type is a real collision, not a repeat of one fact —
     the identical rule `weft_store.rehydrate.register_from_reports` holds a namespace to.
@@ -1676,7 +1676,7 @@ def test_two_packs_claiming_one_result_type_is_refused_rather_than_shadowed() ->
 
 
 def test_registering_the_same_renderer_twice_is_a_repeat_not_a_collision() -> None:
-    """Registering the same renderer twice is a repeat, not a collision.
+    """Renderer registration is idempotent, so repeated discovery in one process cannot fail.
 
     Discovery runs more than once in one process across this tree's own suite, and a
     report re-read is the same fact stated again — the identical idempotence
@@ -1706,7 +1706,7 @@ def test_registering_the_same_renderer_twice_is_a_repeat_not_a_collision() -> No
 
 
 def test_every_built_in_renderer_arrives_through_the_public_registration_seam() -> None:
-    """Every built-in renderer arrives through the public registration seam.
+    """Guards against a private first-party dispatch table creeping back into `weft_cli.render`.
 
     Requirement 4, checked rather than asserted: **no built-in keeps a private path.**
     `weft_cli.render` holds no first-party dispatch table — the eighteen built-in renderers
@@ -1993,7 +1993,7 @@ def test_reconcile_prints_what_nobody_could_decide_beside_what_it_did() -> None:
 
 
 def test_reconcile_says_nothing_about_abstentions_when_there_were_none() -> None:
-    """Reconcile says nothing about abstentions when there were none.
+    """Keeps `repair` output quiet: an `abstained 0` clause would be noise on every line.
 
     The clause is conditional, on `_reconcile_line`'s own precedent for `remaining`: a count
     printed as `abstained 0` on every `repair` line is noise that trains a reader to skip the

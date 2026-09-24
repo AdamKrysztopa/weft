@@ -248,7 +248,7 @@ async def test_a_target_another_open_store_has_written_to_cannot_be_dropped(
 async def test_a_lease_left_by_a_writer_that_never_closed_expires(
     settings: QdrantSettings,
 ) -> None:
-    """A crashed writer's lease expires rather than blocking a drop forever.
+    """Keeps a dead writer from pinning a candidate target, through the lease's own expiry.
 
     A writer that crashed never releases its lease, so the lease carries its own expiry
     (`[packs.qdrant] target_lease_seconds`) rather than blocking a drop forever.
@@ -309,7 +309,7 @@ async def test_reading_a_store_nothing_wrote_to_creates_no_collection(
 
 
 async def test_the_first_write_still_creates_the_pair(settings: QdrantSettings) -> None:
-    """The collections a read no longer creates are created by the first write.
+    """Guards the lazy-creation change, so a store's very first write still has a place to land.
 
     R43.2's control: the collections a read no longer creates are created by the first write,
     and a read after it sees what was written.

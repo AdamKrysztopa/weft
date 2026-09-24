@@ -1,4 +1,4 @@
-"""`cross-encoder-rerank`, ledger **41.2**: a TEI-served cross-encoder.
+"""`cross-encoder-rerank`, ledger **41.2**: its contract with the TEI server, from `/info` to a 422.
 
 `cross-encoder-rerank` — ledger **41.2**: a TEI-served cross-encoder, refused by name every way
 it cannot score honestly.

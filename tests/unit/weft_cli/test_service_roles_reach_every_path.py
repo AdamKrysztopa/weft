@@ -78,7 +78,7 @@ class _Embedder:
 
 
 def _registry_with_a_blob_plugin() -> Registry:
-    """Build a registry shaped like a real install, with a stranger's role beside the defaults.
+    """Fixture proving a third-party service role is resolved on the same terms as the shipped two.
 
     A registry shaped like a real install: the two roles that predate the mechanism are
     filled under their default names, and the stranger's role is filled beside them.

@@ -43,7 +43,7 @@ obligation, in exchange for the kernel reusing the instance across runs, cached 
 **Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
-Store bytes under a caller-composed key, read them back by uri, and reap a prefix.
+Hold the raw bytes a describer reads, so they never travel in a pipeline payload.
 
 Puts bytes under a caller-composed key, opens them back by the returned uri, and reaps a
 prefix on delete. Three methods, and every one of them the whole surface a plugin owes.
@@ -204,7 +204,7 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_command.contract.CommandResult]: ...
 ```
 
-Execute the command.
+Carry out the action and return a decided outcome for a renderer, never printed text.
 
 Args:
     args: An instance of this command's `args_model`.
@@ -480,7 +480,7 @@ Returns:
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
 
-A store that carries a published generation's untouched members into a new one.
+Lets an incremental rebuild keep unchanged nodes without rewriting or re-embedding them.
 
 A store that carries a published generation's untouched members into a new one — ledger
 task **43.22**.
@@ -523,7 +523,7 @@ Raises:
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
 
-A store that builds a corpus-scoped layer as a generation, published whole.
+Lets a corpus-wide layer be rebuilt without any reader seeing a half-built tree.
 
 A store that builds a corpus-scoped layer as a generation, published whole — ledger task
 **43.14**.
@@ -645,7 +645,7 @@ Returns:
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
 
-A store that withdraws a superseded generation now and reclaims its nodes later.
+Hides a replaced tree from new readers at once, while readers already open finish on it.
 
 A store that withdraws a superseded generation now and reclaims its nodes later — repair
 **R43.29**.
@@ -796,7 +796,7 @@ Returns:
 **Registered by:** `weft-rag`  
 **Version:** `1.1.0`
 
-An embedder that can state what it embeds with.
+Lets a target refuse vectors from a model other than the one it was built with.
 
 An embedder that can state what it embeds with — one member, `NodeSupersedable`'s
 shape (`weft_store.contract`), for the same reason: growing `Embedder` itself would be a
@@ -1063,7 +1063,7 @@ async def get_source(
 ) -> weft_store.contract.SourceRecord | None: ...
 ```
 
-Read one source's record.
+Look up one source's status, failure and layers without listing every source.
 
 Args:
     source_id: The source to read.
@@ -1779,7 +1779,7 @@ Returns:
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
 
-A store that holds named, complete targets, one of them live.
+Lets an index be rebuilt beside the one serving, then swapped in with a rollback.
 
 A store that holds named, complete targets, one of them live — ledger task **34.3**,
 Phase 34's blue-green index migration.

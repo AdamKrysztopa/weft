@@ -197,7 +197,7 @@ async def test_an_index_run_record_is_invisible_to_the_eval_baseline_search(
 async def test_the_default_path_persists_no_run_record(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The default path persists no run record.
+    """`weft index`'s built-in path records no run, rather than inventing a pipeline for one.
 
     The built-in four-stage path resolves no document, so there is no `resolved_pipeline`
     to record — and the only store it writes to is `[services] store`, which participation
@@ -218,7 +218,7 @@ async def test_the_default_path_persists_no_run_record(
 async def test_the_repair_pass_after_an_index_reaches_the_store_that_run_named(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The repair pass after an index reaches the store that run named.
+    """A store named only by the pipeline just run still gets the automatic post-index repair pass.
 
     **The property R11.2's second half exists for.** No project document, no `[services]`
     entry, no prior run — the graph store is named only by the contributed rung this

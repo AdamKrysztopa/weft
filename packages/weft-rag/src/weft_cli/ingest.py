@@ -428,7 +428,7 @@ def _identity_of_specs(specs: tuple[StageSpec, ...], *, registry: Registry) -> s
 
 
 def _reconstructed_config(config: object) -> Mapping[str, object]:
-    """Translate `StageSpec.config` into the shape `ResolvedStage.config` holds.
+    """Make a default-path stage's config hash the same way a resolved document's does.
 
     `StageSpec.config` translated into the shape `ResolvedStage.config` holds — see
     `_identity_of_specs`.
@@ -950,7 +950,7 @@ async def _run_base(
 def _released_by_reprocess(
     changes: Mapping[SourceId, SourceChange], previous: Mapping[SourceId, SourceRecord]
 ) -> dict[SourceId, SourceRecord]:
-    """Every unchanged source whose previous record carries a layer, with that record.
+    """Make `--reprocess` rebuild layers on sources whose own bytes did not change.
 
     Every `UNCHANGED` source whose previous record carries a layer, with that record — what
     `--reprocess` releases beyond the reparsed sources (R43.7).
@@ -1653,7 +1653,7 @@ def corpus_documents(
 
 
 def content_hashes_of(sources: Iterable[SourceDoc | SourceRef]) -> tuple[str, ...]:
-    """Each source's sha256 content hash, in the order given.
+    """Identify a corpus by its documents' bytes, so two runs can tell if they saw the same one.
 
     Each source's sha256 content hash, in the order given — the entries a run record's
     corpus digest is over (ledger task **16.0**), widened by **43.1** to a `SourceRef` as
@@ -1692,7 +1692,7 @@ def _specs_from_document(
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
 ) -> tuple[ResolvedPipeline, tuple[StageSpec, ...]]:
-    """Resolve `pipeline_name` into a `ResolvedPipeline` and its `StageSpec` list.
+    """Resolve an ingest pipeline by name once, for both the runner and a run record.
 
     `pipeline_name` resolved into a `ResolvedPipeline` and the `StageSpec` list `Runner.
     resolve` consumes.
@@ -1878,7 +1878,7 @@ async def _claim_embedding_for_stores(
     embedder_instance: Embedder | None,
     target: str | None = None,
 ) -> None:
-    """Record the embedder's identity against every store stage the document writes.
+    """Let a later query detect it was embedded with a different model than the store holds.
 
     Record `embedder_instance`'s identity against every store stage this document writes
     through — ledger task **34.4**. A document with no embed stage claims nothing —
@@ -1964,7 +1964,7 @@ def _store_instance_for_corpus_readers(
 
 
 def _store_stage_id_of(specs: tuple[StageSpec, ...]) -> str | None:
-    """The id of the first `NodeStore` stage in `specs`, or `None`.
+    """Pick the one store whose count and source records a run reports and diffs against.
 
     The id of the **first** stage in `specs` registered under the `NodeStore` contract, or
     `None` if no stage is.
@@ -2278,7 +2278,7 @@ async def _release_reparsed_sources(
     changes: Mapping[SourceId, SourceChange],
     corpus_layers: frozenset[str],
 ) -> tuple[str, ...]:
-    """Release what a re-parsed document's previous parse left, before the new run.
+    """Keep an old parse's nodes from staying retrievable beside a document's new parse.
 
     Release what a re-parsed document's previous parse left, before the new one runs —
     ledger task **27.2**, and `L9.37`'s half of Phase 27's one cause.
@@ -2808,7 +2808,7 @@ def _next_attempts(
 
 
 def _failing_stage(records: Sequence[StageRecord]) -> str | None:
-    """The position of the last top-level wrapped call a batch saw fail.
+    """Name the stage that stopped a batch, for its sources' failure records.
 
     The `position` of the last top-level `wrap`-ed call a batch's `recording()` scope saw fail
     — ledger **36.1**.

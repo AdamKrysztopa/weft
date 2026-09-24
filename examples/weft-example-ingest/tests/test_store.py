@@ -160,7 +160,7 @@ def test_store_satisfies_the_whole_capability_family_structurally() -> None:
 
 
 async def test_reconcile_finishes_a_deletion_that_was_interrupted() -> None:
-    """`Reconcilable` from a stranger's own pack finishes the deletion it finds, then has nothing.
+    """Guards against a crashed deletion leaving nodes behind in a stranger's store.
 
     `Reconcilable` from a stranger's own pack — the backlog is the tombstone, so the pass
     that finds it finishes it and the next one has nothing to do.
@@ -205,7 +205,7 @@ async def test_reconcile_finishes_a_deletion_that_was_interrupted() -> None:
 
 
 async def test_a_strangers_store_holds_targets_and_passes_the_published_target_checks() -> None:
-    """A store outside the tree proves `TargetHolding` with the published kit alone (34.3).
+    """Keeps the published target checks usable without any first-party store (34.3).
 
     Ledger **34.3**: `TargetHolding` is published, so a store written outside the tree proves it
     with the published kit alone — FF9 clause (c)'s stranger for the new capability.

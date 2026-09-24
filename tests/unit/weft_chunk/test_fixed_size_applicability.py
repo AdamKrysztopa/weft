@@ -98,7 +98,7 @@ async def _through_the_chunker(batch: Sequence[Node]) -> Sequence[Node]:
 
 
 async def test_a_table_node_reaches_the_next_stage_whole_and_in_position() -> None:
-    """9.2's property: a `TABLE` node passes the shipped chunker untouched while text is split.
+    """9.2's routing, checked on the shipped chunker with text it really splits, not an idle batch.
 
     9.2's property, on the product: a `TABLE` node between two long text nodes is the same
     object on the other side of the shipped chunker, while the text around it is split.

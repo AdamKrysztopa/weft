@@ -83,7 +83,7 @@ async def test_driving_the_provider_through_the_registration_seam_makes_no_block
 
 
 async def _drive_as_the_contract_type(provider: LLMProvider) -> list[str]:
-    """`provider.stream(...)` under `async for`, typed as the `LLMProvider` contract declares it.
+    """Streams through the `LLMProvider` protocol, so a calling-convention drift fails pyright here.
 
     `provider.stream(...)` under `async for`, with `provider` typed exactly as
     `weft_llm.contract.LLMProvider` declares it — never as the concrete class. This is what

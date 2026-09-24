@@ -404,7 +404,7 @@ def test_a_report_that_says_nothing_about_abstentions_reports_none() -> None:
 
 
 def test_the_reconcile_report_schema_version_moved_with_the_field() -> None:
-    """`S5`: the version travels **in the stored bytes**.
+    """`S5`: adding a field to `ReconcileReport` bumped its schema version to `1.1.0` with it.
 
     `S5`: the version travels **in the stored bytes**, because at the read site the pack that
     wrote the report may not be the one installed. A field added with the constant left alone is

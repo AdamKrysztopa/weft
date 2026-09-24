@@ -1,4 +1,4 @@
-"""The renderer for `weft_agent.command.AgentCommandResult`.
+"""Turn a finished agent run into a pipeable answer and an exit code a script can test.
 
 The renderer for `weft_agent.command.AgentCommandResult` — registered through the identical
 `weft_kernel.discovery.PackRegistrar.add_renderer` seam a stranger's pack uses (task **6.20**,

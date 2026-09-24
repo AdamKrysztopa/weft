@@ -119,7 +119,7 @@ class QueryModality(StrEnum):
 
 
 class MetricKind(StrEnum):
-    """Which metric contract produced a `MetricScore`.
+    """Tells a report whether a score judged the retrieved context or the generated answer.
 
     Which of the two metric contracts — `RetrievalMetric` or `GenerationMetric` — produced a
     `MetricScore`. Carried on `MetricAggregate` rather than looked up at report time; see

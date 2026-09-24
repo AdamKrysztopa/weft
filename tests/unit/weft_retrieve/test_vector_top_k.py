@@ -223,7 +223,7 @@ def test_config_refuses_a_channel_this_retriever_cannot_search() -> None:
 
 
 async def test_driving_vector_top_k_through_the_seam_produces_a_ranked_list() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `VectorTopK` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -259,7 +259,7 @@ def test_the_declared_cost_bound_is_zero_zero() -> None:
 
 
 async def test_an_arm_names_itself_so_a_fuser_can_weight_it_apart() -> None:
-    """Two `vector-top-k` stages over one index are two *bases* only if a `Fuser` tells them apart.
+    """`VectorTopKConfig.arm` becomes the list's channel, so two arms over one index fuse apart.
 
     Two `vector-top-k` stages over one index are two *bases* only if a `Fuser` can tell
     them apart. `weft_retrieve.fusion.contributor_label` is `retriever:channel`, and this

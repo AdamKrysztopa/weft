@@ -1,4 +1,4 @@
-"""Carried repair R43.28: `--reprocess` says which per-source layers it released.
+"""Carried repair R43.28: no per-source layer disappears in a `--reprocess` run unreported.
 
 Carried repair **R43.28** — `--reprocess` says which per-source layers it released and did not
 rebuild.

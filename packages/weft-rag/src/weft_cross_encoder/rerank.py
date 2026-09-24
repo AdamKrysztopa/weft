@@ -1,4 +1,4 @@
-"""`cross-encoder-rerank`: a TEI-served cross-encoder that refuses by name to score dishonestly.
+"""Reorders hits by a served cross-encoder, and aborts a run rather than fake an order.
 
 `cross-encoder-rerank` — ledger **41.2**: a TEI-served cross-encoder, refused by name every
 way it cannot score honestly.
@@ -45,7 +45,7 @@ class TruncationDirection(StrEnum):
 
 
 class CrossEncoderUnreachableError(WeftError):
-    """No TEI server answered at the configured address.
+    """Makes a stopped TEI server abort the run instead of producing an unranked record.
 
     No TEI server answered at the configured address — a connection failure or a timeout,
     the whole `httpx.TransportError` family. Raised before any score is trusted, on either
@@ -54,7 +54,7 @@ class CrossEncoderUnreachableError(WeftError):
 
 
 class CrossEncoderServerError(WeftError):
-    """TEI answered with a fault, or with a `/rerank` response not one score per passage sent.
+    """Aborts the run on a server fault, so an outage is not recorded as irrelevant questions.
 
     TEI answered with a fault: a non-2xx status other than 422, or a `/rerank` response that
     is not exactly one score per passage sent. Never guessed at — a passage list this stage
@@ -63,7 +63,7 @@ class CrossEncoderServerError(WeftError):
 
 
 class CrossEncoderModelUnsetError(WeftError):
-    """`cross-encoder-rerank` was constructed with no `with:` config at all.
+    """Refuses to rerank against whatever model a TEI server happens to be running.
 
     `cross-encoder-rerank` was constructed with no `with:` config at all — `model` is
     required and nothing here may assume one.
@@ -84,7 +84,7 @@ class CrossEncoderModelMismatchError(WeftError, UnresolvedNameError):
 
 
 class CrossEncoderRerankConfig(BaseModel):
-    """`CrossEncoderRerank`'s `with:` config.
+    """Which model the TEI server must be serving, how deep to rerank, and how to truncate.
 
     `model` is the one field this pack cannot default — see `CrossEncoderModelUnsetError` — because
     assuming one would score every passage against a server that may be running anything at all.

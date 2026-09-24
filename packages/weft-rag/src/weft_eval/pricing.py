@@ -48,7 +48,7 @@ RATES_AS_OF: Final[str] = "2026-09-05"
 
 
 class TokenRate(BaseModel):
-    """USD per 1,000 tokens, priced separately for input and output.
+    """What a model charges, so a run's token counts can be turned into a dollar cost.
 
     USD per 1,000 tokens, priced separately for input and output — every vendor Weft ships
     a provider for prices the two differently.

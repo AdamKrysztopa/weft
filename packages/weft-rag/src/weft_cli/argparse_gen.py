@@ -64,7 +64,7 @@ from weft_kernel.errors import WeftError
 
 
 class UnsupportedArgumentTypeError(WeftError):
-    """Raised when an `args_model` field's annotation has no argparse mapping.
+    """Names the pack-author field that keeps `weft --help` from building its grammar.
 
     A `Command.args_model` field's annotation has no generic argparse mapping — see the
     module docstring's *"What this deliberately does not support."*
@@ -87,7 +87,7 @@ def add_model_arguments(parser: argparse.ArgumentParser, model: type[BaseModel])
 
 
 def field_spelling(field_name: str, field_info: FieldInfo) -> str:
-    """Spell `field_name` the way the generated command line does.
+    """Keep the parser and its refusal messages naming each argument identically.
 
     How `field_name` is spelled on the generated command line — the bare name for a
     required positional, `--` plus the name with `_` -> `-` for a defaulted flag. The one

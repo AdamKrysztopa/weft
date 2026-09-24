@@ -1,4 +1,4 @@
-"""`--target` reaches a store through one binder, ledger task **34.3**.
+"""Pins how a named target is bound onto the store each invocation builds, ledger task **34.3**.
 
 `--target` reaches a store through one binder, and a store that cannot hold targets is refused
 by name — ledger task **34.3**.

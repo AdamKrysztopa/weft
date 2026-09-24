@@ -269,7 +269,7 @@ def members_without_the_typed_field(
 def _discovered_family_mismatch(
     *, pinned: frozenset[str], discovered: frozenset[str]
 ) -> tuple[frozenset[str], frozenset[str]]:
-    """Return `(unpinned, stale)`: members `pinned` never names, and names nothing discovers.
+    """Diff a pinned family against discovery, both ways, so the pin cannot drift unseen.
 
     `unpinned` is the discovered members `pinned` never names; `stale` is the pinned names
     nothing discovers any more. A pure function for the identical reason `members_

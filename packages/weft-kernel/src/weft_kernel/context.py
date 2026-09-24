@@ -105,7 +105,7 @@ class DuplicateServiceError(WeftError):
 
 
 class ServiceRole(BaseModel):
-    """Declare that `[services].<key>` selects an implementation of a pack's contract.
+    """Make a pack's contract selectable from `[services]` without a member on its Protocol.
 
     A pack's declaration, beside the contract it publishes, that `[services].<key>` selects an
     implementation of that contract for one run.

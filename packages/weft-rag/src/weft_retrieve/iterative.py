@@ -197,7 +197,7 @@ class IterativeRetrievalTrace(ExtModel):
 
 
 class IterativeRetrievalConfig(BaseModel):
-    """`IterativeRetrieval`'s `with:` config.
+    """Bounds the loop's rounds and names the critic and the leaf retriever it resolves.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied — and per ledger 2.20's own line, which names every bound this
@@ -275,7 +275,7 @@ class IterativeRetrievalConfig(BaseModel):
 
 
 class IterativeRetrieval:
-    """Retrieve, ask a critic whether the evidence suffices, and retrieve again.
+    """Close the gaps one retrieval leaves, spending another round only while a critic finds one.
 
     Retrieves, asks a critic whether the evidence suffices, and retrieves again on what is
     missing — the paper's own loop, owned end to end by this plugin. Satisfies `weft_retrieve.

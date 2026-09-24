@@ -1,4 +1,4 @@
-"""A promote committed during another command never mixes two targets in one operation.
+"""Guards the blue-green switch: work in flight finishes on its own target across a promote.
 
 A promote committed during another command never mixes two targets inside one operation —
 ledger task **34.10**, owner decision Q-C.

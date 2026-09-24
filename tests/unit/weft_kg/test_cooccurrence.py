@@ -184,7 +184,7 @@ async def test_the_run_length_is_a_configuration_field() -> None:
 
 
 async def test_the_minimum_mention_count_drops_a_name_below_it() -> None:
-    """An operator who wants only repeated names says so rather than editing a stopword list.
+    """Guards `min_mentions`: set to 2, a name mentioned once is dropped from the graph.
 
     The other knob: a corpus of prose throws off single capitalised words constantly, and an
     operator who wants only repeated names says so rather than editing a stopword list.
@@ -201,7 +201,7 @@ async def test_the_minimum_mention_count_drops_a_name_below_it() -> None:
 
 
 async def test_the_ext_model_declares_the_namespace_and_schema_version() -> None:
-    """`02` §1: a pack's ext data is namespaced by the pack and carries its own schema version.
+    """`02` §1: `CooccurrenceGraph` pins its `weft-kg` namespace and schema version for stored rows.
 
     `02` §1: a pack's ext data is namespaced by the pack, and carries its own schema version —
     G9's second axis, a fact about a schema in somebody's database rather than about a contract.
@@ -226,7 +226,7 @@ async def test_the_ext_model_carries_no_field_named_technique() -> None:
 
 @pytest.mark.parametrize("bad", [0, -1])
 async def test_a_run_length_below_one_is_refused(bad: int) -> None:
-    """A loud refusal, not a silent clamp: `max_name_words=0` can only mean a mistake.
+    """Guards `CooccurrenceSettings` against quietly repairing a `max_name_words` below one.
 
     A loud refusal, not a silent clamp: `max_name_words=0` can only mean a mistake, and a
     stage that quietly repaired it would produce an empty graph an operator would have to

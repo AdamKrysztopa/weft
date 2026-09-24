@@ -199,7 +199,7 @@ def test_a_page_with_no_text_layer_costs_its_page_and_is_named_on_the_others() -
 
 
 def test_a_document_whose_every_page_was_dropped_is_still_failed() -> None:
-    """The floor R43.3 keeps: a document with nothing readable left is a `Failed` naming it.
+    """R43.3: a PDF whose only page reads empty fails, naming its URI and the page it lost.
 
     The floor R43.3 keeps: a document with nothing readable left is a `Failed` naming it,
     not a `Produced` holding no nodes, which downstream cannot tell from an empty document.
@@ -218,7 +218,7 @@ def test_a_document_whose_every_page_was_dropped_is_still_failed() -> None:
 
 
 def test_a_document_that_lost_no_page_carries_no_dropped_pages_marker() -> None:
-    """The control: the marker appears only when something was actually lost.
+    """A fully read document carries no `DroppedPages`, so the marker's presence always means loss.
 
     The control: the marker appears only when something was actually lost, so every
     document that reads cleanly is byte-identical to a build before this repair.
@@ -369,7 +369,7 @@ def test_one_document_losing_a_page_leaves_the_rest_of_the_batch_untouched() -> 
 
 
 def test_a_document_with_nothing_left_still_fails_its_batch() -> None:
-    """R43.3 keeps this shape deliberately: a document that loses every page fails.
+    """R43.3: an unreadable document fails its whole batch, naming its URI and the surrogate cause.
 
     R43.3 keeps this shape deliberately: a document that loses every page has nothing to
     contribute, and `Produced` cannot say so. The batch fails, and `R43.1` then re-runs it one

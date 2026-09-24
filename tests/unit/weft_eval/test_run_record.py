@@ -501,7 +501,7 @@ def test_a_failed_question_persists_as_a_failure_and_survives_the_round_trip(
 
 
 def test_a_record_says_whether_its_question_keys_are_ids_or_positions() -> None:
-    """A key of `"0"` and a key of `"fetch-001"` are read differently when pairing runs.
+    """Guards against a positional question key being paired across runs as if it were a stable id.
 
     A key of `"0"` and a key of `"fetch-001"` are read differently by anyone pairing two
     runs, and a questions file with no ids is the normal case for `--questions`. Saying which

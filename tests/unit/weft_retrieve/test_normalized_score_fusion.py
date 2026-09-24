@@ -99,7 +99,7 @@ def _two_arms_rrf_cannot_separate() -> Candidates:
 
 
 async def test_the_fixture_is_one_rrf_genuinely_cannot_separate() -> None:
-    """The control, run through the shipped `ReciprocalRankFusion` rather than from a literal.
+    """Pins that the fixture ties under reciprocal rank, so the fusion test below isolates scores.
 
     The control, run through the shipped `ReciprocalRankFusion` rather than asserted from a
     literal. If this ever stops holding, the test below is no longer measuring what it claims.
@@ -210,7 +210,7 @@ async def test_weights_are_applied_by_contributor_label() -> None:
 
 
 async def test_a_non_finite_score_is_refused_by_name_rather_than_propagated() -> None:
-    """An `inf` or a `nan` poisons a min-max range and then every comparison downstream.
+    """`normalized-score-fusion` fails on `inf` or `nan`, naming the plugin and the offending arm.
 
     An `inf` or a `nan` poisons a min-max range and then every comparison downstream, and
     `nan` does it silently: it compares false against everything, so a sort puts it wherever the

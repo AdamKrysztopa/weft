@@ -121,7 +121,7 @@ def test_a_stored_failure_reads_back_through_the_named_reader() -> None:
 
 
 def test_a_failure_a_newer_release_wrote_is_refused_by_name() -> None:
-    """`R36.3`: `SourceFailure` forbids unknown fields.
+    """`R36.3`: a stored failure with a field this release lacks is refused as a newer release's.
 
     `R36.3`: `SourceFailure` forbids unknown fields, so a failure a newer `weft-rag` wrote
     reached the operator as pydantic's own error with a documentation URL (`L28.13`'s shape).

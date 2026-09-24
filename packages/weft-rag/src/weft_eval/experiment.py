@@ -93,7 +93,7 @@ _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
 
 
 class ExperimentDocumentError(WeftError):
-    """An experiment document could not be read as stated.
+    """Stops an experiment before anything runs when its document is wrong.
 
     An experiment document could not be read as stated — missing, malformed TOML, an unknown
     key, or a value that cannot be run (`repeats < 2`, an empty `metrics`, two arms sharing one
@@ -102,7 +102,7 @@ class ExperimentDocumentError(WeftError):
 
 
 class ExperimentSchemaError(ExperimentDocumentError):
-    """The document names a schema this `weft-rag` cannot read.
+    """Tells the user to upgrade `weft-rag` rather than misread an experiment file.
 
     The document names a schema this `weft-rag` cannot read — newer than `EXPERIMENT_SCHEMA_
     VERSION`, or older than any release ever wrote (`< 1`). The message names the file, the
@@ -111,7 +111,7 @@ class ExperimentSchemaError(ExperimentDocumentError):
 
 
 class ExperimentArm(BaseModel):
-    """One arm of an experiment: a pipeline, and optionally its own inputs.
+    """One variant under comparison, able to override the corpus, questions and repeats.
 
     One arm of an experiment — a pipeline, and optionally its own corpus/questions/query
     pipeline. `corpus`/`questions` are `None` when the arm inherits the experiment's own, resolved
@@ -316,7 +316,7 @@ def _build_experiment(
 
 
 def load_experiment(path: Path) -> Experiment:
-    """Read `path` as an experiment document.
+    """Parse and digest an experiment file, so its records can be matched to this exact text.
 
     Read `path` as an experiment document — see the module docstring for what each part
     means and what is refused.

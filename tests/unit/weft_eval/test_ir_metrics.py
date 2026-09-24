@@ -163,7 +163,7 @@ async def test_precision_at_k_scores_when_exactly_k_candidates_came_back() -> No
 
 
 async def test_recall_and_ndcg_refuse_on_the_same_condition() -> None:
-    """All three `TopKConfig` metrics carry a `k` in their name, so all three owe the refusal.
+    """Keeps `recall@k` and `ndcg@k` consistent with `precision@k` when fewer than k results return.
 
     All three `TopKConfig` metrics carry a `k` in the name they report, so all three owe the
     same refusal — one of them keeping the old behaviour would be the inconsistency a reader
@@ -176,7 +176,7 @@ async def test_recall_and_ndcg_refuse_on_the_same_condition() -> None:
 
 
 async def test_mrr_at_k_is_one_over_the_rank_of_the_first_relevant_result() -> None:
-    """Task 16.7's third defect: `mrr@k` existed only in the repo-level `eval/metrics.py`.
+    """Task 16.7: the shipped `MRRAtK` scores a first relevant hit at rank 3 as one third.
 
     Task 16.7's third defect: `mrr@k` existed only in the repo-level `eval/metrics.py`, which
     the baseline runner used and no shipped pipeline could reach. A registered metric is what

@@ -40,7 +40,7 @@ def _ctx() -> Context:
 
 
 class _Spy:
-    """Stands in for the expensive pass: records that it was reached, then answers degenerately.
+    """Lets a bounds test see whether `raptor` reached its expensive pass, with no model involved.
 
     Stands in for the expensive pass: records that it was reached, then answers degenerately
     so `run` stops without a model call.

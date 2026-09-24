@@ -379,7 +379,7 @@ async def test_a_representation_with_more_than_one_parent_is_cited_as_itself() -
 
 
 async def test_driving_cited_answer_through_the_seam_produces_an_answer() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Fitness function 7(b): `cited-answer` still answers when wrapped by the seam.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a
@@ -449,7 +449,7 @@ async def test_an_answer_carries_the_contributors_of_the_passages_it_was_given()
 
 
 async def test_a_refusal_for_empty_evidence_still_says_which_arms_were_asked() -> None:
-    """No passage survived, and the refusal says which arms were asked.
+    """Guards the one diagnosis an empty-evidence refusal owes: which retrieval arms ran at all.
 
     No passage survived, and which arms were asked is exactly what a reader of the refusal
     needs to tell "nothing matched" from "nothing was asked".

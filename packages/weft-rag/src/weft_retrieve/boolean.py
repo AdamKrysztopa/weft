@@ -345,7 +345,7 @@ class BooleanPlan(ExtModel):
 
 
 class BooleanRetrievalConfig(BaseModel):
-    """`BooleanRetrieval`'s `with:` config.
+    """Which prompt and role parse the query, and how deeply a parsed query may nest.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied.
@@ -381,7 +381,7 @@ class BooleanRetrievalConfig(BaseModel):
 
 
 class BooleanRetrieval:
-    """Parse a Boolean query into an expression tree and emit one query per leaf.
+    """Lets an `AND`/`OR`/`NOT` question retrieve each operand separately, combined after.
 
     Parses a Boolean query into a typed, precedence-respecting expression tree, and emits
     one operand `Query` per leaf. Satisfies `weft_retrieve.contract.QueryTransform`

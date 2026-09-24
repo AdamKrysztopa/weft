@@ -1,4 +1,4 @@
-"""Carried repair R43.41: a corpus layer is never served whole after a source is re-parsed.
+"""Carried repair R43.41: `weft index` stales a corpus layer whose source it released for re-parse.
 
 Carried repair **R43.41** — a corpus layer is never served whole after a covered source is
 re-parsed.
@@ -83,7 +83,7 @@ class _DirectionEmbedder(HashEmbedder):
 
 
 class _Chunker(FixedSizeChunker):
-    """A `fixed-size` chunker that cannot read a document saying `UNREADABLE`.
+    """Drives a source's re-parse to fail in each of the three ways `weft index` must survive.
 
     `fixed-size`, which cannot read a document saying `UNREADABLE` — by returning `Failed`,
     by raising, or by being cancelled mid-call, as `mode` says.

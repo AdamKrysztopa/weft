@@ -102,7 +102,7 @@ class _State:
 
 
 class _Store:
-    """A generation store registered as a class, so `weft delete`'s fan-out counts it.
+    """The store under test: one shared database whose corpus layers `weft delete` must mark stale.
 
     `test_corpus_layers`' `_GenerationStore`, registered as a class so `weft delete`'s fan-out
     (which asks `issubclass` of what was registered) counts it as a participant. Every instance

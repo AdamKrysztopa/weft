@@ -680,7 +680,7 @@ def test_a_normalisation_postgres_does_not_define_is_refused_by_name() -> None:
 
 
 def test_the_shipped_default_text_mode_is_postgres_full_text_search() -> None:
-    """The default does not move in this phase.
+    """`text_mode` defaults to `fts`, so an unconfigured store ranks text exactly as before.
 
     **The default does not move in this phase.** `21.9` is the measurement that would justify
     moving it, and until then an operator who configures nothing gets exactly what they got
@@ -694,7 +694,7 @@ def test_the_shipped_default_text_mode_is_postgres_full_text_search() -> None:
 
 
 def test_text_mode_is_an_enum_so_a_misspelling_is_refused_where_it_is_typed() -> None:
-    """`Enum` over `Literal`, and the refusal lands in `weft.toml` rather than at the first query.
+    """A misspelt `text_mode` fails `PgVectorSettings` validation, naming the field, before a query.
 
     `Enum` over `Literal`, per this project's own rule, and the refusal lands in `weft.toml`
     rather than at the first query.
@@ -866,7 +866,7 @@ async def test_a_bm25_score_is_higher_is_better_like_every_other_score_in_this_t
 async def test_bm25_weighs_a_rare_term_above_one_every_document_carries(
     bm25_database: str,
 ) -> None:
-    """The assertion that says BM25 rather than `ts_rank_cd`, and nothing else here does.
+    """IDF is applied: a rare term outscores a ubiquitous one, which `ts_rank_cd` cannot do.
 
     **This is the assertion that says BM25 rather than `ts_rank_cd`, and nothing else here
     does.** Postgres's rankers have no collection statistics at all — its own documentation says
@@ -1133,7 +1133,7 @@ def test_pgvector_now_serves_every_index_kind_the_vocabulary_names() -> None:
 
 
 def test_iterative_scan_defaults_to_relaxed_order_because_off_loses_rows_silently() -> None:
-    """Phase 29 `29.7`: `hnsw.iterative_scan = off` returns recall@10 **0.003** at 0.1%.
+    """Phase 29 `29.7`: the default stays `relaxed_order`, since `off` loses filtered rows silently.
 
     Phase 29 `29.7`, on 100,142 real chunks: at 0.1% selectivity `hnsw.iterative_scan = off`
     returns recall@10 **0.003** — a mean of 0.03 rows out of 10 — while `relaxed_order` recovers

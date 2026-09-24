@@ -161,7 +161,7 @@ async def test_an_embedding_of_the_wrong_width_is_refused_naming_both(
 async def legacy_collection(
     request: pytest.FixtureRequest, store: QdrantStore
 ) -> AsyncIterator[tuple[str, QdrantSettings]]:
-    """A collection missing one of the two named vectors this store writes.
+    """A pre-upgrade collection, so tests can check how the store treats data it did not lay out.
 
     A collection missing one of the two named vectors this store writes, the way `v2.4.0` left
     one before the lexical vector existed — skipped with `store` when Qdrant is absent. Yields
@@ -325,7 +325,7 @@ async def test_driving_the_store_through_the_registration_seam_makes_no_blocking
 
 
 async def test_the_store_advertises_text_search_at_all(store: QdrantStore) -> None:
-    """The headline, and it is one `isinstance`.
+    """`QdrantStore` satisfies `TextSearch`, so a retriever wanting a text channel can use Qdrant.
 
     **The headline, and it is one `isinstance`.** Capability is derived, never declared: a
     retriever asking for a text channel gets this store or is refused by name, and until this task

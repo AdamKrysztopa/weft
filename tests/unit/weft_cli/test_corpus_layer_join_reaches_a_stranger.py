@@ -1,4 +1,4 @@
-"""Carried repair R43.36: a join stage cannot write the published tree.
+"""Carried repair R43.36: a join revises a layer only by reporting, and that works for a stranger.
 
 Carried repair **R43.36** — a join stage cannot write the published tree, and a stranger's join
 is tested.
@@ -131,7 +131,7 @@ class _StrangerRoster:
 
 
 class _StrangerRejoin:
-    """A third party's join, reading the published roster through the store it is handed.
+    """A join written only against public contracts; `write` makes it try a forbidden store write.
 
     A third party's join: reads the published roster through the store it is handed, and
     returns one over its members and every placed new leaf. `write`, when set, names the store

@@ -262,7 +262,7 @@ class RetryingUsageReportingProvider(RetryingProvider):
 
 
 class RetryingNativeStructuredUsageReportingProvider(RetryingNativeStructuredProvider):
-    """`RetryingNativeStructuredProvider` for a provider that also satisfies `UsageReporting`.
+    """Keeps usage reporting visible through retries for a provider with native structured output.
 
     The fourth combination `with_retry` selects among, for a provider offering both.
     """

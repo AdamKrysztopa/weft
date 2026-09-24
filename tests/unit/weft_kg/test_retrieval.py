@@ -274,7 +274,7 @@ async def test_hits_are_ranked_nearest_first() -> None:
 
 
 async def test_a_question_naming_no_entity_returns_an_empty_list_not_no_list() -> None:
-    """`L5.9` at the retrieval seam: a searched query that matched nothing gets `hits=()`.
+    """`L5.9`: an unmatched question stays distinct from one the graph walk declined to search.
 
     `L5.9` at the retrieval seam, and `vector-top-k`'s own distinction: a query that *was*
     searched and matched nothing still gets a `RankedList` with `hits=()`. Returning no list at
@@ -344,7 +344,7 @@ async def test_the_walk_is_asked_once_for_every_seed_the_question_named() -> Non
 
 
 def test_the_plugin_declares_both_of_the_things_it_needs() -> None:
-    """The configured store must be a `NodeStore`, and the run must offer a `GraphTraversal`.
+    """Lets the assembler check a graph walk's wiring before a query runs, rather than inside one.
 
     The split this task exists for, asserted on the class because the assembler reads it
     there: the configured store must be a `NodeStore`, and the *run* must offer a

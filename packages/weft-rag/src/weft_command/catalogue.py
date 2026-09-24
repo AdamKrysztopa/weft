@@ -1,4 +1,4 @@
-"""The one walk of the `Command` registry that every command renderer reads.
+"""Keeps the parser, the manual and the agent describing commands from one source.
 
 The one walk of the `Command` registry — every renderer built on top of `Registry.names_for`
 reads it from here. Moved out of `weft_cli.command_table` at task **7.2a**.
@@ -29,7 +29,7 @@ from weft_kernel.registry import Registry, unwrap_factory
 
 
 class CommandNotDescribableError(WeftError):
-    """A registered `Command` this generator cannot describe.
+    """Refuses to invent a placeholder for a command missing its `help` or `permission_class`.
 
     A registered `Command` this generator cannot describe — see the module docstring's
     paragraph on why this exists even though `Command.required_declarations` already makes it

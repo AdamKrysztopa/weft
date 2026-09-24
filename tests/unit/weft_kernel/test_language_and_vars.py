@@ -118,7 +118,7 @@ class _PolishFix:
 
 
 class _Detect:
-    """Stand-in for "an ordinary `detect` stage", `02` §3's second source of the language fact.
+    """Makes `_Language` structurally provided upstream, so `_Translate`'s `requires` resolves.
 
     Stand-in for "an ordinary `detect` stage" — `02` §3's own second source of the
     language fact, the extractor being the first. A no-op on purpose: every fixture in this
@@ -144,7 +144,7 @@ class _Detect:
 
 
 class _TranslateConfig(BaseModel):
-    """`_Translate`'s typed `with:` model, carrying the one var this file is about.
+    """Carries `target_lang`, the var whose resolution against the language fact this file tests.
 
     `_Translate`'s typed `with:` model — task 1.5's mechanism, carrying the one var this
     file is about. `02` §3's own words for what it holds: "a translation target, a reply
@@ -189,7 +189,7 @@ class _Translate:
 
 
 class _Capture:
-    """An identity stage that records the batch it was handed.
+    """Records the nodes the language tests assert on, placed after the stages under test.
 
     An identity stage that records the batch it was handed, on `test_runner.py`'s own
     precedent: `Runner.run` returns only counts, so a test that needs the resulting nodes

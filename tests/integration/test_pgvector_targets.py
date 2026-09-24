@@ -332,7 +332,7 @@ async def test_opening_a_handle_while_another_writes_never_deadlocks_the_writer(
 async def test_a_source_a_2_9_0_store_wrote_reads_back_with_no_layers(
     store: PgVectorStore,
 ) -> None:
-    """A database a `2.9.0` store wrote reads back with no layers rather than failing.
+    """Keeps the upgrade to per-source layers from breaking reads of an existing database.
 
     Ledger **43.6**: `layers` is a column added beside the others, so a database a `2.9.0`
     store wrote reads its records back with no layers rather than failing to parse them.

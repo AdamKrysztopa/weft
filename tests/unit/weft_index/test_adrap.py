@@ -156,7 +156,7 @@ class _RecordingStore:
 
 
 class _StoreThatCannotSupersede:
-    """A `NodeStore` with no `supersede`, for the refusal path G15's *Remove* face anticipated.
+    """Drives `adrap` into a store it cannot use, so its refusal names what is missing.
 
     A `NodeStore` with no `supersede` — the refusal path G15's *Remove* face anticipated:
     "`adrap` asks the store it was handed and refuses by name when the answer is no."

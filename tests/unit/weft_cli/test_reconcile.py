@@ -234,7 +234,7 @@ async def test_estimate_everywhere_propagates_cancellation() -> None:
 
 
 def test_a_node_store_that_cannot_reconcile_is_not_a_participant() -> None:
-    """A node store that cannot reconcile is not a participant.
+    """Reconcile participation is derived from methods, so a delete-only store needs no opt-out.
 
     `_DeleteOnlyStore` is a full `NodeStore` with no `reconcile` — capability derived, not
     declared, so it joins the delete fan-out and stays out of this one with nothing written

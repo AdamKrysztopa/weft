@@ -200,7 +200,7 @@ class ContextRelevanceJudgement(BaseModel):
 
 
 class ContextRelevanceJudgePrompt(TypedPrompt):
-    """Which numbered sentences of the retrieved context help answer the question.
+    """Lets context relevance be judged per sentence, so on-topic filler does not count.
 
     Which numbered sentence, of the retrieved context's own sentences, helps answer the question.
     """
@@ -309,7 +309,7 @@ class FactualClassification(BaseModel):
 
 
 class AnswerCorrectnessJudgePrompt(TypedPrompt):
-    """Classify the prediction's factual statements against the reference's.
+    """Lets answer correctness be scored as an F1 over facts rather than one opaque grade.
 
     Classify the prediction's factual statements against the reference's, as a confusion matrix.
     """

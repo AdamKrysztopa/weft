@@ -70,7 +70,7 @@ def _ensure_registered(*models: type[ExtModel]) -> None:
 
 
 class _Derive:
-    """A per-source `Expander` returning every leaf plus one node derived from each.
+    """A deriving stage whose `_mark` decides whether two layers' nodes can be told apart.
 
     A per-source `Expander`: every leaf back, plus one node derived from each, marked by
     `_mark` — which is the dimension these tests vary.
@@ -162,7 +162,7 @@ def _write_layer(project: Path, name: str, *, use: str, corpus_scope: bool = Fal
 
 
 def _write_base(project: Path, *, use: str) -> None:
-    """Write a base pipeline that derives before `embed`, as `index-with-questions` does.
+    """Leave unstamped derived nodes in the store, so the collision check must judge by technique.
 
     A base pipeline deriving before `embed`, as `index-with-questions` does: its derived
     nodes are stored carrying no `LayerMember`.
@@ -220,7 +220,7 @@ def _created_by(store: GenerationStore, layer: str) -> dict[NodeId, Node]:
 
 
 def _left_indexing(store: GenerationStore, layer: str) -> None:
-    """Put each source's `layer` entry back to `INDEXING`, with its nodes stored.
+    """Rewind one layer's status by hand, so the next run meets an interrupted layer.
 
     Each source's `layer` entry put back to `INDEXING` with its nodes stored — the state an
     interrupt between the layer's tail and its `ACTIVE` flip leaves.
@@ -247,7 +247,7 @@ def _assert_names_both_layers(message: str) -> None:
 async def test_a_second_per_source_layer_deriving_the_firsts_nodes_is_refused_naming_both(
     corpus: Path, tmp_path: Path, use: str
 ) -> None:
-    """A second per-source layer deriving the first's nodes is refused, naming both.
+    """Two layers deriving identical nodes cannot silently share them; the refusal names both.
 
     A stranger's note, a graph mention, and one technique shared by two layers: none tells
     the two layers apart through `Representation`.
@@ -297,7 +297,7 @@ async def test_a_second_corpus_layer_deriving_the_firsts_node_is_refused_naming_
 async def test_a_layer_deriving_again_the_nodes_it_already_stored_is_not_a_collision(
     corpus: Path, tmp_path: Path, use: str
 ) -> None:
-    """A layer deriving again the nodes it already stored is not a collision.
+    """Re-running an interrupted layer adopts its own nodes instead of tripping the collision guard.
 
     An interrupted run's layer is run again over the same leaves: its own nodes are not
     another layer's.

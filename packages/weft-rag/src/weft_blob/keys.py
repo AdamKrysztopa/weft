@@ -75,7 +75,7 @@ def blob_key(*, tenant_id: str, source_id: SourceId, ordinal: int, extension: st
 
 
 def source_prefix(*, tenant_id: str, source_id: SourceId) -> str:
-    """The prefix every blob `blob_key` derives for this `(tenant_id, source_id)` pair lies under.
+    """Let `delete_source` reap every blob of one source with a single prefix.
 
     The prefix every blob `blob_key` derives for this `(tenant_id, source_id)` pair lies
     under — derived through the identical digest `blob_key` uses, so the two can never

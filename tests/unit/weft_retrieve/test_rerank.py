@@ -269,7 +269,7 @@ async def test_a_repeated_index_is_refused_rather_than_quietly_resolved() -> Non
 
 
 async def test_driving_llm_rerank_through_the_seam_produces_a_ranking() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `LlmRerank` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered

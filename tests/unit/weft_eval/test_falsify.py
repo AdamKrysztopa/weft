@@ -317,7 +317,7 @@ def test_a_metric_only_one_run_scored_is_absent_rather_than_zero() -> None:
 
 
 def test_a_record_carrying_no_per_question_scores_pairs_nothing() -> None:
-    """Every record written before task 16.4 answers with an empty mapping.
+    """Keeps records from before per-question scoring comparable without inventing a difference.
 
     Every record written before task 16.4 — and the answer is an empty mapping, which the
     renderer prints as *not computable* rather than as a difference of zero.
@@ -354,7 +354,7 @@ def test_the_interval_is_the_same_interval_twice() -> None:
 
 
 def test_one_paired_question_reports_no_interval_rather_than_a_zero_width_one() -> None:
-    """A single observation has no spread to report.
+    """Guards `paired_differences` against reporting false precision from a single question.
 
     `BaselineSpread`'s own rule one artefact over: a single observation has no spread to
     report, and a zero-width interval would read as certainty.

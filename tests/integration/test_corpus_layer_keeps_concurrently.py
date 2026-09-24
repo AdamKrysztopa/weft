@@ -1,4 +1,4 @@
-"""A corpus-scoped build keeping several summaries at once publishes its tree on pgvector.
+"""Guards `raptor`'s concurrent checkpoints against interleaving transactions on one handle.
 
 Carried repair **R43.40** — a corpus-scoped build that keeps two or more summaries at once
 publishes its tree on pgvector.

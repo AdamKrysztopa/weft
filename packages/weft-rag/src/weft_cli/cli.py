@@ -351,7 +351,7 @@ def _add_command_level(
 
 
 def _context() -> Context:
-    """One `Context` per invocation.
+    """Build each command's run context exactly as the Python API does.
 
     Now `weft_engine.api.new_context()` itself — task **24.1** made that the one context builder
     both driving adapters share, rather than two copies that could disagree; this name stays so

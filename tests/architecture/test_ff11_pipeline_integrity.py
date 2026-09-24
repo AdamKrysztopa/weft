@@ -829,7 +829,7 @@ def test_a_stale_operator_target_would_be_caught() -> None:
 
 
 def test_two_unrelated_documents_sharing_a_stage_id_each_resolve_against_their_own_plugin() -> None:
-    """Two documents sharing a stage id each resolve against their own plugin.
+    """Guards resolution against order-dependent failures when two documents reuse a stage id.
 
     Repair for a reviewer finding: two standalone documents naming the identical stage
     id (`chunk`, `02` §3's own example) but two different plugins from two different

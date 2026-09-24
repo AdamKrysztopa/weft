@@ -21,7 +21,7 @@ from weft_kernel.payload import Outcome, Produced
 
 
 class GraphBuildArgs(BaseModel):
-    """`weft graph build` takes no arguments.
+    """Nothing to parse: a rebuild always covers every stored node.
 
     `weft graph build` takes no arguments — it recomputes every stored node's own graph
     data from that node's own stored content, using the pack's current extraction logic.

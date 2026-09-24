@@ -472,7 +472,7 @@ class QdrantStore:
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
-        """The configured index kind.
+        """Lets `weft pipeline estimate` read which index this store builds, with no second copy.
 
         The configured index kind, read by `weft_cli.estimate.store_index_kind` —
         ledger task **31.8**. This class keeps `self._settings` whole rather than
@@ -484,7 +484,7 @@ class QdrantStore:
 
     @property
     def vector_precision(self) -> VectorPrecision:
-        """The configured vector precision.
+        """Lets `weft pipeline estimate` size stored vectors from the precision configured.
 
         The configured vector precision — `vector_index_kind`'s own reasoning, one setting over.
         """
@@ -685,7 +685,7 @@ class QdrantStore:
         return vectors[_VECTOR].size
 
     def _committed_width(self) -> int:
-        """The width `self._nodes`' vector is committed to.
+        """The width every write and search must match, else the configured size.
 
         The width `self._nodes`' vector is committed to — `self._vector_width` once
         `_connection` (and, for a candidate, its first write) has set it, or `vector_size` when
@@ -715,7 +715,7 @@ class QdrantStore:
         )
 
     async def _pair_unprovisioned(self, client: AsyncQdrantClient) -> bool:
-        """Whether this handle's node/source pair does not exist yet.
+        """Lets reads of a never-written target answer empty, and writes provision it first.
 
         Whether this handle's node/source pair does not exist yet — the general form of
         `_candidate_unprovisioned`, widened at **R43.2** to include `default` before its first
@@ -742,7 +742,7 @@ class QdrantStore:
         return False
 
     def _require_active_target(self) -> TargetName:
-        """`self._active_target`, narrowed.
+        """Fail loudly if the target is read before the connection has resolved it.
 
         `self._active_target`, narrowed — same guarantee and the same reason as
         `_require_vector_width` above.
@@ -752,7 +752,7 @@ class QdrantStore:
         return self._active_target
 
     def _require_visible_generations(self) -> tuple[str, ...]:
-        """`self._visible_generations`, narrowed.
+        """Fail loudly if visibility is read before the connection has resolved it.
 
         `self._visible_generations`, narrowed — same guarantee as `_require_active_target`,
         set by the same `_connection` call.
@@ -762,7 +762,7 @@ class QdrantStore:
         return self._visible_generations
 
     async def _resolve_visible_generations(self, client: AsyncQdrantClient) -> tuple[str, ...]:
-        """The generations this handle may see, from this moment on.
+        """Pins this handle's view, so a generation published mid-read never changes its results.
 
         The generations this handle may see, from this moment on — ledger **43.14**: `""`
         (the base marker), each layer's newest published generation right now (repair
@@ -823,7 +823,7 @@ class QdrantStore:
         return GenerationRecord.model_validate(records[0].payload)
 
     async def _all_generations(self, client: AsyncQdrantClient) -> list[GenerationRecord]:
-        """Every generation record this store has ever opened.
+        """The raw set the generation listing and the visibility filter are both built from.
 
         Every generation record this store has ever opened, published or not, in no
         particular order — `generations()`'s own sort, and `_resolve_visible_generations`'s
@@ -847,7 +847,7 @@ class QdrantStore:
             offset = cast("models.ExtendedPointId", next_offset)
 
     async def _generation_ids(self, client: AsyncQdrantClient) -> tuple[str, ...]:
-        """Every generation id this store's catalogue holds.
+        """The options an unknown-generation refusal lists.
 
         Every generation id this store's catalogue holds — what `UnknownGenerationError`
         names as `valid_options`.
@@ -944,7 +944,7 @@ class QdrantStore:
         return record
 
     async def bind_generation(self, generation: GenerationId) -> Self:
-        """A second handle onto the same deployment and target, bound to `generation`.
+        """Lets a reader pin one generation, refusing an unknown id with the ones that exist.
 
         A second handle onto the same deployment and target, bound to `generation` — the
         model is `bind_target`'s own construction, one field over.
@@ -1140,7 +1140,7 @@ class QdrantStore:
         return len(requested)
 
     async def _read_live_target(self, client: AsyncQdrantClient) -> TargetName:
-        """The live target the pointer point names, or `DEFAULT_TARGET`.
+        """Which target an unbound handle reads, so a store with no pointer opens `default`.
 
         The live target the pointer point names, or `DEFAULT_TARGET` when there is none yet
         — `34.2`'s upgrade clause, held for this handle's lifetime by its one caller.
@@ -1245,7 +1245,7 @@ class QdrantStore:
         return records[0] if records else None
 
     async def _touch_writer_lease(self, client: AsyncQdrantClient) -> None:
-        """Renew this handle's own writer claim, if it holds one.
+        """Push the claim's expiry forward so no other process seizes the target mid-write.
 
         Renew this handle's own writer claim, if it holds one — ledger **43.18**,
         `_touch_lease`'s own reasoning applied to the writer point: a long `add` must not
@@ -1271,7 +1271,7 @@ class QdrantStore:
         )
 
     async def _leases_for(self, client: AsyncQdrantClient, target: str) -> list[models.Record]:
-        """Every lease point recorded against `target`.
+        """Lets a drop see whether another handle still holds the target, and clear its leases.
 
         Every lease point recorded against `target`, any holder, expired or not — what
         `drop_target` reads to decide whether another handle still holds it, and what it
@@ -1300,7 +1300,7 @@ class QdrantStore:
             offset = cast("models.ExtendedPointId", next_offset)
 
     async def _catalogue_names(self, client: AsyncQdrantClient) -> tuple[str, ...]:
-        """Every target name the catalogue holds, `default` included.
+        """The options a refusal offers when a named target does not exist.
 
         Every target name the catalogue holds, `default` included — what a refusal naming
         "the targets that exist" offers.
@@ -1874,7 +1874,7 @@ class QdrantStore:
         )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        """Read one source's record.
+        """What was recorded when a source was last indexed: its hash, time and pipeline.
 
         Args:
             source_id: The source to read.
@@ -1992,7 +1992,7 @@ class QdrantStore:
     # -- SingleWriter — ledger task **43.18**, R34.10's precedent applied to a writer ------
 
     async def claim_writer(self, writer: WriterClaim) -> None:
-        """Claim this handle's target for `writer`.
+        """Keeps two processes from writing one target at once; a crashed holder's claim expires.
 
         Claim this handle's target for `writer` — one point in the catalogue per target,
         `_writer_point_id`'s own id, holding the claim plus `expires_at`.
@@ -2156,7 +2156,7 @@ class QdrantStore:
         return embeddings
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle onto the same deployment, bound to `target`.
+        """Lets one process work on a second target without disturbing this handle's binding.
 
         A second handle onto the same deployment, bound to `target` — its own client,
         opened lazily on first use exactly as an unbound handle's is.

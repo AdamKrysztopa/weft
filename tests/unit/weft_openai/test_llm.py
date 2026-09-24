@@ -292,7 +292,7 @@ async def test_complete_without_a_credential_names_the_configuration_line_that_s
 
 
 async def test_a_configured_temperature_and_max_tokens_reach_the_underlying_api_call() -> None:
-    """Repair for a reviewer finding against task 2.30: `config` used to be discarded.
+    """Task 2.30's repair: configured generation knobs reach the chat call instead of being dropped.
 
     Repair for a reviewer finding against task 2.30: `config` used to be discarded
     (`del config`) unconditionally. Two of the three knobs, one call, is enough to prove the
@@ -314,7 +314,7 @@ async def test_a_configured_temperature_and_max_tokens_reach_the_underlying_api_
 
 
 async def test_an_unconfigured_provider_omits_every_generation_knob_from_the_request() -> None:
-    """The edge case: unset must reach the vendor call as *omitted*, never as `None`.
+    """With no config, the chat request carries the SDK's `omit` sentinel for every generation knob.
 
     The edge case: unset must reach the vendor call as *omitted*, never as a literal
     `None` — an explicit `null` and "the API's own default" are not the same request.
@@ -334,7 +334,7 @@ async def test_an_unconfigured_provider_omits_every_generation_knob_from_the_req
 
 
 def test_a_configured_temperature_outside_the_apis_own_range_is_refused_at_construction() -> None:
-    """The error case: `OpenAILLMConfig` validates rather than forwarding a bad value.
+    """An out-of-range `temperature` raises when `OpenAILLMConfig` is built, before any request.
 
     The error case: `OpenAILLMConfig` validates rather than forwarding a value the vendor
     would refuse itself, three requests later.
@@ -345,7 +345,7 @@ def test_a_configured_temperature_outside_the_apis_own_range_is_refused_at_const
 
 
 async def _drive_as_the_contract_type(provider: LLMProvider) -> list[str]:
-    """`provider.stream(...)` under `async for`, typed as the `LLMProvider` contract declares it.
+    """Streams through the `LLMProvider` protocol, so a calling-convention drift fails pyright here.
 
     `provider.stream(...)` under `async for`, with `provider` typed exactly as
     `weft_llm.contract.LLMProvider` declares it — never as the concrete class. This is what

@@ -507,7 +507,7 @@ _BM25_TEXT_SCORE_SEMANTICS = (
 
 
 def _create_bm25_index_sql(config: str) -> sql.Composed:
-    """The BM25 index, on `content` alone.
+    """The DDL that gives text search a BM25 ranking, through `pg_textsearch`.
 
     The BM25 index, on `content` alone — `pg_textsearch 1.4.0` refuses a multicolumn one
     outright ("access method "bm25" does not support multicolumn indexes", measured 2026-09-13).
@@ -1507,7 +1507,7 @@ class PgVectorStore:
         await cur.execute(_CREATE_VECTORSCALE_EXTENSION)
 
     async def _register_target_if_needed(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> None:
-        """Record a non-default target's catalogue row on its first write.
+        """First-write cataloguing, delegated to `pg_targets` with this store's layout.
 
         The catalogue row a non-default target earns on its first write — never on a bind,
         never on a read. `default` needs none: the catalogue lists it regardless (`34.1`, point 2).
@@ -1517,7 +1517,7 @@ class PgVectorStore:
         )
 
     def _require_home_schema(self) -> str:
-        """`self._home_schema`, narrowed.
+        """Fail loudly if the home schema is read before the connection recorded it.
 
         `self._home_schema`, narrowed — every `TargetHolding` method calls `_connection()`
         first, which is what actually guarantees this is set; `raise` rather than `assert`
@@ -1529,7 +1529,7 @@ class PgVectorStore:
         return self._home_schema
 
     def _require_active_target(self) -> TargetName:
-        """`self._active_target`, narrowed.
+        """Fail loudly if the target is read before the connection resolved it.
 
         `self._active_target`, narrowed — same guarantee and the same reason as
         `_require_home_schema` above.
@@ -1539,7 +1539,7 @@ class PgVectorStore:
         return self._active_target
 
     async def _hidden_generations(self) -> list[str]:
-        """The generations this handle cannot see.
+        """The exclusion list every search applies before top-k, so no hidden member leaks.
 
         The generations this handle cannot see — `GenerationHolding`, ledger **43.14**: every
         one the catalogue holds now that was not published when this handle first touched
@@ -1559,7 +1559,7 @@ class PgVectorStore:
         return sorted(cast(str, row["id"]) for row in rows if row["id"] not in visible)
 
     def _require_published_generations(self) -> frozenset[GenerationId]:
-        """`self._published_generations`, narrowed.
+        """Fail loudly if generation visibility is read before the connection fixed it.
 
         `self._published_generations`, narrowed — same guarantee and the same reason as
         `_require_home_schema` above.
@@ -1943,7 +1943,7 @@ class PgVectorStore:
             )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        """Read one source's record.
+        """Fetch one `weft_sources` row from this handle's target and decode it.
 
         Args:
             source_id: The source to read.
@@ -2147,7 +2147,7 @@ class PgVectorStore:
         return await _pg_target_catalogue(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle onto the same database, bound to `target`.
+        """Reach a target beside the live one, to build or inspect it before it is promoted.
 
         A second handle onto the same database, bound to `target` — its own connection,
         opened lazily on first use exactly as an unbound handle's is.
@@ -2309,7 +2309,7 @@ class PgVectorStore:
         return _row_to_generation_record(row)
 
     async def bind_generation(self, generation: GenerationId) -> Self:
-        """A second handle onto the same database and target, bound to `generation`.
+        """Give a build its own handle whose writes join `generation`, refusing an unknown id.
 
         A second handle onto the same database and target, bound to `generation` — its own
         connection, opened lazily on first use exactly as `bind_target`'s is.
@@ -2461,7 +2461,7 @@ class PgVectorStore:
     async def _known_generation_ids(
         self, cur: psycopg.AsyncCursor[dict[str, Any]]
     ) -> tuple[str, ...]:
-        """Every generation id this store's catalogue holds.
+        """The choices a refusal lists when a generation id is unknown.
 
         Every generation id this store's catalogue holds — fitness function 12's
         `valid_options`, for `bind_generation`, `publish_generation` and `retract_generation`.
@@ -2607,7 +2607,7 @@ class PgVectorStore:
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
-        """The configured index kind.
+        """Lets the CLI's cost estimate say which vector index a search will use.
 
         The configured index kind, read by `weft_cli.estimate.store_index_kind` — ledger
         task **31.8**. Declared, never required: the same `getattr` idiom `weft_cli.explain`
@@ -2618,7 +2618,7 @@ class PgVectorStore:
 
     @property
     def vector_precision(self) -> VectorPrecision:
-        """The configured vector precision.
+        """Lets the CLI's estimate read the precision this store writes vectors at.
 
         The configured vector precision — `vector_index_kind`'s own reasoning, one setting
         over `self._precision`.
@@ -2913,7 +2913,7 @@ def _vector_width_mismatch_message(node_id: NodeId, width: int, committed: int) 
 
 
 class TargetTableMissingError(WeftError):
-    """A catalogued target's schema is missing one of its three tables.
+    """Stops a query from silently reading `default`'s rows when a target's table is gone.
 
     A catalogued target's schema is missing one of its three tables — `34.0`'s measured
     hazard, made refusable: with `search_path = weft_target_x, public`, an unqualified

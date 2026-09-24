@@ -39,7 +39,7 @@ async def test_the_hash_embedder_states_its_width() -> None:
 
 
 async def test_the_openai_embedder_states_the_model_it_will_call() -> None:
-    """The account-level `embedding_model` wins over the stage default, as the call does.
+    """Guards the recorded embedding identity against drifting from the model actually called.
 
     The account-level `embedding_model` wins over the stage default, exactly as the call
     does (`R22.1`) — the identity is what the request sends, not what the config printed.

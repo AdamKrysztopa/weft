@@ -125,7 +125,7 @@ _SUMMARY_FILTER = Filter(
 
 
 def _layer_summary_filter(layer: str) -> Filter:
-    """Select the summaries one tree's `layer` stamped, for a `LayerRevision` join.
+    """Scope a join to one layer's own tree, so another tree's summaries are never joined.
 
     `_SUMMARY_FILTER`'s inverse, for a join a `LayerRevision` offered (task 43.23): the
     summaries `layer` stamped, and no other tree's.
@@ -146,7 +146,7 @@ _Replace = Callable[[NodeId, Node], Awaitable[None]]
 
 @runtime_checkable
 class _JoiningStore(NodeStore, NodeSupersedable, Protocol):
-    """The two store capabilities a join without a `LayerRevision` calls.
+    """Lets a type checker see both store capabilities an ancestor's replacement needs.
 
     The two store capabilities a join without a `LayerRevision` calls once `run`'s own two
     refusals have already passed: `NodeStore.get`, to re-fetch an ancestor's untouched
@@ -159,7 +159,7 @@ class _JoiningStore(NodeStore, NodeSupersedable, Protocol):
 
 
 class AdrapConfig(BaseModel):
-    """`adrap`'s `with:` config.
+    """How close a new leaf must be to join a cluster, and how large a cluster may grow.
 
     The same shape `raptor.RaptorConfig` takes for the fields they share, because both plugins
     answer the same two questions (how similar is similar enough, how big may a cluster grow) and

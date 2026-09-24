@@ -84,7 +84,7 @@ class ExpansionDegraded(ExtModel):
 
 
 class RaptorFacts(ExtModel):
-    """What a RAPTOR summary's cluster held, and how much of it the model saw.
+    """Lets a reader tell a summary of a whole cluster from one built on a truncated share.
 
     What `raptor`'s cluster a summary was built from actually held, and how much of it the
     model that wrote the summary was actually shown. Ledger task **10.2**.

@@ -205,7 +205,7 @@ async def test_an_empty_rankings_note_survives_collapse_unchanged() -> None:
 
 
 async def test_driving_collapse_to_parent_through_the_seam_produces_a_ranking() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `CollapseToParent` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -236,7 +236,7 @@ def test_the_declared_cost_bound_is_zero_zero() -> None:
 
 
 async def test_a_summary_and_the_leaves_it_was_built_from_do_not_both_occupy_the_budget() -> None:
-    """A retrieved summary is evidence *about* the passages it abstracts.
+    """`collapse-to-parent` keeps the higher-scoring of a multi-parent summary and its own leaves.
 
     A retrieved summary is evidence *about* the passages it abstracts, not a passage beside
     them — so a ranking holding both spends several slots of the answer's budget on one piece of

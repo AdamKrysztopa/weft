@@ -106,7 +106,7 @@ class _ClosedPipe(io.StringIO):
 async def test_a_sink_closes_quietly_when_its_reader_has_gone(
     sink_class: type[PrintingSink] | type[JsonSink],
 ) -> None:
-    """A sink closes quietly when its reader has gone.
+    """A departed reader cannot turn a `--json` refusal into a traceback when the sink closes.
 
     The `--json` refusal above broke here: the sink's closing event is written in
     `run_command`'s `finally`, and the exception replaced the refusal the command had returned.
@@ -124,7 +124,7 @@ async def test_a_sink_closes_quietly_when_its_reader_has_gone(
 async def test_a_chunk_written_to_a_gone_reader_still_stops_the_command(
     sink_class: type[PrintingSink] | type[JsonSink],
 ) -> None:
-    """A chunk written to a reader that has gone still stops the command.
+    """Quiet closing must not spread to `emit`, or a command would stream answers into nothing.
 
     A command whose output nobody reads is stopped rather than left spending model calls on
     it — so a chunk's write lets the broken pipe through, and only the closing event is quiet.
@@ -140,7 +140,7 @@ async def test_a_chunk_written_to_a_gone_reader_still_stops_the_command(
 def test_a_broken_socket_is_still_reported(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A broken socket is still reported as a failure.
+    """A socket's `BrokenPipeError` is not mistaken for a departed reader and silently swallowed.
 
     A dropped connection to a database or a provider raises the same class as a closed
     reader; only the sink's own `ReaderGoneError` is the reader leaving, and anything else is a

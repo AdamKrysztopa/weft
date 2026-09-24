@@ -44,7 +44,7 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register the filesystem blob store and this pack's `BlobRef` extension.
+    """Put the filesystem store where `[services] blob` and `weft delete`'s fan-out find it.
 
     Register `FilesystemBlobStore` as `"filesystem"` for `BlobStore`, and `BlobRef` as this
     pack's own `ExtModel` — the module docstring.

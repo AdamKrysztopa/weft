@@ -89,7 +89,7 @@ def test_no_kind_asked_for_compares_the_whole_run_as_it_always_did() -> None:
 
 
 def test_a_kind_restricts_both_sides_to_that_kinds_own_number() -> None:
-    """A kind restricts both sides of a comparison to that kind's own number.
+    """Guards `--kind` against whole-run means that hide opposite per-kind results.
 
     The property: two runs whose whole-run means are identical and whose cross-document
     numbers are opposite compare as opposite once the kind is named.

@@ -536,7 +536,7 @@ async def test_two_spellings_of_one_name_become_one_entity_both_are_found_by(
 async def test_the_canonical_name_is_the_smallest_member_not_the_first_written(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """A function of the set, not of arrival order.
+    """`repair` keeps the sort-smallest spelling as canonical, whichever was written first.
 
     *A function of the set, not of arrival order.* Written in one order and asserted against
     the order-independent answer, so a pass that kept whichever row it saw first fails here.
@@ -711,7 +711,7 @@ async def test_the_pass_runs_under_repair_as_well_as_full(
 
 
 async def test_the_schema_carries_its_own_version(store: GraphStore) -> None:
-    """`S5`, per surface: a persisted schema carries a version in the stored bytes.
+    """`S5`: a fresh graph store's `kg_schema` row reads back as the version this release writes.
 
     `S5`, per surface: a persisted schema carries a version in the stored bytes, because at
     the read site the pack that wrote it may not be the one installed.
@@ -755,7 +755,7 @@ async def test_a_schema_version_this_pack_does_not_know_is_refused(store: GraphS
 
 
 async def test_deleting_a_source_reports_what_it_removed_by_kind(store: GraphStore) -> None:
-    """`11.3`'s own line: a store that reaped rows never answers with `node_count=0` alone.
+    """`11.3`: `delete_source` splits its node total into the facts, mentions and entities reaped.
 
     `11.3`'s own line: a store that reaped forty of its own rows never answers with
     `node_count=0` as its whole account.
@@ -953,7 +953,7 @@ async def test_a_pair_in_the_band_reaches_no_model_under_repair(
 
 
 async def test_full_states_its_model_calls_before_it_spends_any(store: GraphStore) -> None:
-    """`docs/03-cli.md`: `full` states its cost before it spends it.
+    """The `full` estimate counts adjudications from `reconcile`'s own query and calls no model.
 
     `docs/03-cli.md`: *"full states its cost before it spends it."* The number has to come
     from the same query `reconcile` then runs, or the stated cost and the spent cost are two
@@ -976,7 +976,7 @@ async def test_full_states_its_model_calls_before_it_spends_any(store: GraphStor
 async def test_repair_estimates_no_model_calls_however_much_is_in_the_band(
     store: GraphStore,
 ) -> None:
-    """`repair` never backfills, so its own honest `model_calls` is always `0`.
+    """An estimate that ignored the mode would bill `repair` for model calls it never makes.
 
     `ReconcileEstimate`'s own docstring: *"`repair` never backfills, so its own honest
     `model_calls` is always `0`."* Asserted with a full band, so a `model_calls` computed
@@ -1074,7 +1074,7 @@ async def test_a_model_that_is_unsure_abstains_and_the_pass_says_so(
 async def test_a_pair_below_the_floor_is_never_put_to_a_model(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """The floor keeps `model_calls` proportional to genuine ambiguity.
+    """A pair scoring `0.0` stays two entities, costs no model call and is not counted as abstained.
 
     The floor is what keeps `model_calls` proportional to genuine ambiguity rather than to
     the square of the corpus. Orthogonal vectors and no shared trigram put this pair at `0.0`.
@@ -1096,7 +1096,7 @@ async def test_a_pair_below_the_floor_is_never_put_to_a_model(
 async def test_the_winner_of_a_bridge_merge_is_the_smaller_name(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """`11.8`'s rule, extended: the canonical name is a function of the **set**.
+    """`11.8`: a model-licensed merge keeps the sort-smallest name however the pair arrived.
 
     `11.8`'s rule, extended to the merge a model licenses: the canonical name is a function of
     the **set**, not of arrival order. Written in the order that would give the wrong answer to a

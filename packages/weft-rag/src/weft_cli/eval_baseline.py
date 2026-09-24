@@ -184,7 +184,7 @@ class EvalBaselineCommandResult(CommandResult):
 
 
 def _parse_tiers(raw: str) -> tuple[Tier, ...]:
-    """Parse `--tiers` into tier members, refusing an unknown name.
+    """Let `weft eval baseline` run a chosen subset of the corpus manifest's tiers.
 
     `--tiers fetch,operator` as members, in the order given, refusing an unknown name by
     listing every real one.
@@ -612,7 +612,7 @@ class EvalBaselineCommand:
 
 
 def register_eval_baseline_command(registrar: PackRegistrar) -> None:
-    """Register the `eval baseline` command.
+    """Make `weft eval baseline` resolvable as an ordinary registered command.
 
     Register `eval baseline` — called from `weft_cli.commands.register`, right after
     `register_eval_commands`, never from a second entry point.

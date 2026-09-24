@@ -1,4 +1,4 @@
-"""Repair **R43.35**: `LLMRole` is published by `weft_llm`, moving its contract by a minor.
+"""Repair **R43.35**: a stranger's pack can import `LLMRole`, and the contract version says so.
 
 Repair **R43.35**: `LLMRole` is published by `weft_llm`, and publishing it moves the contract
 version by a minor — an addition a stranger's pack can now depend on.

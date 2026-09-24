@@ -115,7 +115,7 @@ class _StoreState:
 
 
 class MemoryStore:
-    """An in-memory `NodeStore`, `VectorSearch` and `TargetHolding`.
+    """A store with no database behind it, for tests, held to the same contracts as a real one.
 
     A `NodeStore`, `VectorSearch` and `TargetHolding` that keeps everything in one store's
     own dicts.
@@ -235,7 +235,7 @@ class MemoryStore:
         self._writable().sources[record.id] = record
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        """Read one source's record.
+        """Serve a source's record from the state this handle reads, with no I/O.
 
         Args:
             source_id: The source to read.

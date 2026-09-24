@@ -100,7 +100,7 @@ def test_every_method_is_async() -> None:
 
 
 def test_the_contract_declares_a_version_off_the_protocol_attribute_set() -> None:
-    """Fitness function 6's subject: a plugin restating nothing must still satisfy the Protocol.
+    """`BlobStore.version` is readable on the class yet absent from what `isinstance` demands.
 
     Fitness function 6's subject, and the `if TYPE_CHECKING:` split that keeps it out of
     `__protocol_attrs__` — a plugin restating nothing must still satisfy the Protocol.
@@ -160,7 +160,7 @@ class _StrangerTargetHoldingBlobStore(_StrangerBlobStore):
 
 
 def test_blob_target_holding_is_published_beside_the_contract() -> None:
-    """Carried repair **R34.9**: a third party's blob store takes part in `weft target drop`.
+    """Carried repair **R34.9**: target holding is opt-in, so a plain blob store is not a holder.
 
     Carried repair **R34.9**: a third party's blob store takes part in `weft target drop` by
     satisfying a published Protocol, as `TargetHolding` does for a node store — not a private one

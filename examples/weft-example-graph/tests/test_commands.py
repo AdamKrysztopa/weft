@@ -1,4 +1,4 @@
-"""`GraphBuildCommand` and `GraphShowCommand` against a real Postgres.
+"""Checks the graph commands report and rebuild what a live database actually holds.
 
 `GraphBuildCommand` and `GraphShowCommand` against a real Postgres — see `test_store.py`'s
 own module docstring for the reachability-probe convention this file follows.

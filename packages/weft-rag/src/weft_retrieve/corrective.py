@@ -1,4 +1,4 @@
-"""`corrective` — grades a primary retrieval, and reaches further when it is thin.
+"""Retrieval that answers thin graded evidence by consulting a different source, never the same.
 
 `corrective` — grades a primary retrieval, and reaches a *distinct* retriever when what
 survives grading is thin. `Retriever`, owning its own decision the way `weft_retrieve.
@@ -61,7 +61,7 @@ NAME = "corrective"
 
 
 class CorrectiveConfig(BaseModel):
-    """`Corrective`'s `with:` config.
+    """The retriever graded, its grader, and the distinct source reached when too little survives.
 
     Every field but one has a default — `knowledge_action` does not, deliberately (module docstring:
     "what makes a same-index `corrective` unconstructable"). `primary_config`, `grader_config` and

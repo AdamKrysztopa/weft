@@ -255,7 +255,7 @@ def in_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_eval_run_places_a_pack_contribution_exactly_as_weft_index_does(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`R19.17`: `weft eval run` places a pack contribution exactly as `weft index` does.
+    """`R19.17`: an eval measures the pipeline an operator indexes, contributed stages included.
 
     `R19.17`: `run_index` took every ingest concern by hand, and `weft eval run` passed all of
     them but `contributions`, so a pack's contributed stage ran under `weft index` and silently
@@ -1345,7 +1345,7 @@ async def test_reuse_index_refuses_a_directory_with_nothing_to_score(
 
 
 def _corpus_of(outcome: object) -> str:
-    """Return the corpus digest a completed run recorded, read off the persisted record.
+    """Unwrap a run's corpus digest from the stored record, the copy a later comparison trusts.
 
     The corpus digest a completed run recorded — read back off the persisted record rather
     than off the command's own return value, because the record is what a later comparison will
@@ -1360,7 +1360,7 @@ def _corpus_of(outcome: object) -> str:
 
 
 def _rung(name: str) -> QueryRung:
-    """Build a rung whose identity is derived from its name.
+    """A cheap stand-in for `pipeline_identity`, enough for tests that only need rungs told apart.
 
     A rung whose identity is derived from its name, so two named rungs never collide and the
     same name twice never differs. The real identity is `pipeline_identity`'s; what these tests
@@ -1510,7 +1510,7 @@ async def test_a_baseline_keys_on_the_ingest_pipeline_alone_when_a_record_names_
 async def test_a_run_that_named_no_rung_is_not_a_repetition_of_one_that_did(
     tmp_path: Path,
 ) -> None:
-    """A run that named no rung is not a repetition of one that did.
+    """`NoQueryRung` runs group only with each other, so a named rung's score cannot join them.
 
     `NoQueryRung` is a measurement, so it selects like any other rung rather than matching
     everything — the fallback above is for *absence*, not for a run that deliberately named none.
@@ -1665,7 +1665,7 @@ async def test_eval_compare_still_refuses_runs_whose_model_versions_differ(tmp_p
 async def test_eval_compare_does_not_refuse_a_run_that_recorded_no_versions(
     tmp_path: Path,
 ) -> None:
-    """`weft eval compare` does not refuse a run that recorded no versions.
+    """Version checks stay backward-compatible: silence about versions is never grounds to refuse.
 
     Every record written before 16.3 names distributions and no versions, and those stay
     comparable — the same posture the corpus basis and the query rung already take. An absence
@@ -1798,7 +1798,7 @@ async def test_a_persisted_record_carries_one_score_per_question_per_metric(
 async def test_eval_compare_refuses_two_runs_scored_on_different_question_sets(
     tmp_path: Path,
 ) -> None:
-    """`weft eval compare` refuses two runs scored on different question sets.
+    """A metric delta cannot be credited to a rung when the questions themselves changed.
 
     A metric delta between two rungs scored on two different sets of questions is a fact
     about the questions, not about the rungs — the same shape as a corpus difference, one
@@ -2038,7 +2038,7 @@ async def test_eval_run_hands_the_scorer_the_one_question_model_read_from_toml(
 async def test_eval_run_resolves_manifest_ids_through_the_manifest_it_is_given(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`weft eval run` resolves manifest ids through the manifest it is given.
+    """Question labels stay portable: a manifest id reaches its document through `--manifest`.
 
     `eval/questions/*.toml` names `ax-1304.7717v2`, and the staged corpus holds
     `arxiv/1304.7717v2.pdf`. `--manifest` is the one file that says which is which; each id maps
@@ -2130,7 +2130,7 @@ async def test_eval_run_without_questions_labels_no_digest_function(
 async def test_eval_compare_refuses_two_question_set_digests_taken_by_different_functions(
     tmp_path: Path,
 ) -> None:
-    """`weft eval compare` refuses question-set digests taken by different functions.
+    """A digest-basis mismatch is reported as a changed function, not as a changed question.
 
     A record written before task 38.11 digested `weft_cli.eval_scoring.Question`'s canonical
     form, and one written since digests `weft_eval.question_set.Question`'s. The same 136

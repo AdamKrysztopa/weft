@@ -103,7 +103,7 @@ class _Stranger:
 
 
 def test_a_class_that_never_imported_the_protocol_satisfies_it() -> None:
-    """Structural satisfaction, which is the whole of what `@runtime_checkable` buys here.
+    """Satisfying `GraphTraversal` needs its shape only, never an import: fitness function 9(c).
 
     Structural satisfaction, which is the whole of what `@runtime_checkable` buys here and
     what fitness function 9(c)'s stranger will be asked.
@@ -138,7 +138,7 @@ def test_a_class_missing_one_member_does_not_satisfy_it() -> None:
 
 
 def test_the_contract_is_not_a_stage_where_an_extractor_is() -> None:
-    """Traversal is reached through `ctx.require`, never run as a pipeline rung.
+    """Guards the runner from ever scheduling `GraphTraversal` as a pipeline stage.
 
     `VectorSearch`'s own rule, applied: traversal is reached through `ctx.require`, never run
     as a pipeline rung, so the runner must never be able to read `In`/`Out` off it.
@@ -260,7 +260,7 @@ def test_the_contract_no_longer_declares_the_member_that_moved() -> None:
 
 
 def test_the_pack_declares_the_protocol_selectable_without_a_kernel_line() -> None:
-    """Task `9.0`'s form: one `ServiceRole` constant beside the Protocol.
+    """Task `9.0`: `[services] graph` selects a traversal through `GRAPH_ROLE`, with no kernel edit.
 
     Task `9.0`'s form: one `ServiceRole` constant beside the Protocol, its `contract` field a
     bare `type` the kernel never names — so `[services] graph` selects a traversal implementation
@@ -273,7 +273,7 @@ def test_the_pack_declares_the_protocol_selectable_without_a_kernel_line() -> No
 
 
 def test_the_role_is_a_module_constant_and_not_an_attribute_of_the_protocol() -> None:
-    """An attribute on the Protocol body would break `issubclass` for every implementer.
+    """Guards `GraphTraversal` against gaining a `role` attribute every implementer must restate.
 
     The reason `9.0` fixed that form: an attribute on the body joins `__protocol_attrs__` and
     breaks `issubclass` for every implementer that does not restate it.

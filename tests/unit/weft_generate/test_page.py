@@ -21,7 +21,7 @@ from weft_kernel.payload import ExtModel, MediaType, Node
 
 
 class _Span(ExtModel):
-    """Structurally identical to `weft_extract.payload.PageSpan`, but declared fresh.
+    """Lets `page_for` be tested against a span class it has never imported.
 
     Structurally identical to `weft_extract.payload.PageSpan`, declared fresh so this test
     proves the duck-typed match rather than a same-class coincidence.

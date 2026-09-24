@@ -192,7 +192,7 @@ async def test_outside_a_scope_nothing_is_tallied_and_the_completion_still_carri
 
 
 def test_the_retry_wrapper_advertises_usage_reporting_exactly_when_the_provider_has_it() -> None:
-    """A wrapper that erased the capability would make every retried provider report nothing.
+    """`with_retry` preserves `UsageReporting` exactly when the wrapped provider offers it.
 
     A wrapper that erased the capability would make every retried provider silently report
     nothing — the failure `RetryingNativeStructuredProvider` exists to prevent, one protocol over.

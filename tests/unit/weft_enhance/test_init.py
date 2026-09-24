@@ -95,7 +95,7 @@ def test_the_published_name_keeps_working_so_an_existing_config_does_not_break()
 
 
 def test_the_old_name_is_marked_deprecated_rather_than_quietly_kept() -> None:
-    """The half that makes this a rename rather than an alias.
+    """Retiring `keybert` warns and names `term-frequency-keywords`, so the old name cannot linger.
 
     **The half that makes this a rename rather than an alias.** `09` §2.2: a contract may move
     inside 0.x, but never silently. An old name left registered and unmarked is exactly the silent

@@ -303,7 +303,7 @@ async def test_every_arm_runs_every_repetition_and_persists_one_record_each(
 async def test_scoring_refuses_a_passage_from_outside_the_arms_corpus(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Scoring refuses a passage from outside the arm's corpus.
+    """An arm's score cannot be dragged down by another corpus's documents sharing its store.
 
     An arm sharing a store with anything else would score passages from documents the
     question set never judged, as misses, silently. The runner asks the scorer to refuse them.
@@ -514,7 +514,7 @@ def _counting_index(calls: list[dict[str, Any]]) -> Callable[..., Any]:
 async def test_arms_sharing_an_ingest_pipeline_and_corpus_index_it_once_in_bounded_batches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Arms sharing an ingest pipeline and corpus index it once, in bounded batches.
+    """An experiment pays once for a shared corpus index, skipping unchanged documents, in batches.
 
     Three arms naming one ingest pipeline over one corpus measure the same index; re-embedding
     it per arm paid for the corpus three times and ignored an index an operator had already
@@ -561,7 +561,7 @@ async def test_arms_naming_two_ingest_pipelines_index_each_once(
 async def test_a_metric_no_run_would_record_is_refused_before_anything_is_indexed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A metric no run would record is refused before anything is indexed.
+    """A mistyped or too-deep metric fails before the paid run, naming what this depth can record.
 
     `recal@5` and `recall@10` beside `top_k = 5` passed every refusal and let the paid run go
     ahead, to render `unjudgeable` naming nothing. The names a run records are asked of the
@@ -660,7 +660,7 @@ def _interrupting_stub(calls: list[dict[str, object]], *, survive: int) -> Calla
 async def test_rerunning_an_interrupted_experiment_scores_only_what_it_had_not_written(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Rerunning an interrupted experiment scores only what it had not written.
+    """An interrupted experiment resumes from its written records, paying only for unfinished arms.
 
     `38.6` ran six times and three of the lost runs had already written valid records for
     whole arms, each re-paid from zero. A written record is never re-paid.
@@ -733,7 +733,7 @@ async def test_rerunning_a_completed_experiment_starts_a_new_invocation(
 async def test_the_plan_states_each_arms_size_and_runs_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The plan states each arm's size and runs nothing.
+    """`weft eval plan` shows an experiment's full cost to the operator before anything is paid.
 
     `38.6`'s spend was approved twice and its size — 33,856 generation calls, four hours, two
     gigabytes a batch — was never stated. What the document and the corpus can answer exactly is
@@ -772,7 +772,7 @@ def test_the_plan_command_only_reads() -> None:
 async def test_an_answer_metric_a_generating_arm_records_passes_the_pre_flight(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An answer metric a generating arm records passes the pre-flight.
+    """The pre-flight asks generating arms' answer metrics too, so `token_recall` is not refused.
 
     Ledger `32.14` scored a generating rung's answer; the pre-flight still asked only the
     retrieval metrics, so every document naming `token_recall` was refused before indexing —
@@ -973,7 +973,7 @@ async def test_capturing_an_arm_with_no_query_pipeline_is_refused_before_anythin
 async def test_a_captured_pool_is_not_read_back_as_a_run_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A captured pool is not read back as a run record.
+    """Captured pools stay out of `runs/`, so a later experiment's record readers never trip on one.
 
     Found by running the built wheel: a second `weft eval experiment` in a directory holding a
     manifest beside the records died reading it as a `RunRecord`, since every reader of `runs/`

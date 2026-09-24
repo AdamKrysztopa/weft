@@ -479,7 +479,7 @@ async def test_every_embeddings_call_records_the_tokens_it_was_billed_for() -> N
 
 
 async def test_a_server_that_reports_no_usage_is_recorded_as_unreported_not_as_free() -> None:
-    """R38.9's other half: a compatible server may leave `usage` out.
+    """R38.9: a missing `usage` is tallied as `None`, so an unmeasured call never reads as free.
 
     R38.9's other half: a compatible server may leave `usage` out, and `UsageEntry.usage` is
     `None` for exactly that case — a `0` would read as a call measured and found free.

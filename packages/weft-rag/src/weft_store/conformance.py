@@ -370,7 +370,7 @@ class GenerationCarryingStore(GenerationHoldingStore, GenerationCarrying, Protoc
 
 @runtime_checkable
 class GenerationWithdrawingStore(GenerationHoldingStore, GenerationWithdrawing, Protocol):
-    """A store that withdraws a published generation and reclaims its nodes later.
+    """The store shape the withdrawal checks need: generation holding and withdrawing at once.
 
     A store that withdraws a published generation now and reclaims its nodes later — repair
     **R43.29**.
@@ -1116,7 +1116,7 @@ async def check_reconcile_leaves_a_healthy_store_alone_on_either_backend(
 async def check_estimate_reports_zero_model_calls_on_either_backend(
     store: ReconcilableStore,
 ) -> None:
-    """`estimate` reports zero model calls on either backend.
+    """Keeps a store's reconcile estimate from inventing model cost it would never spend.
 
     Task **5.1c**'s own floor, on both real backends: a node store holds the primary data,
     so `full` has nothing to backfill and `estimate` says so honestly rather than guessing at
@@ -1630,7 +1630,7 @@ async def check_a_parents_children_within_an_ordinal_range_are_one_filter_away(
 async def check_writing_a_node_again_under_its_id_replaces_its_ext(
     store: FilterableStore,
 ) -> None:
-    """Writing a node again under an unchanged id replaces its `ext`.
+    """Guards the upsert against keeping stale extension data when a node is rewritten.
 
     `weft index --reprocess` is how a corpus indexed before `32.1` gains positions — Phase
     32's owner question 5, settled on measurement — and it works only if writing a node again
@@ -2091,7 +2091,7 @@ async def check_a_target_name_outside_the_grammar_is_refused_by_name(
 async def check_claiming_an_identity_creates_the_target_as_a_first_write_does(
     store: TargetHoldingStore,
 ) -> None:
-    """A claim on a target that does not exist yet creates it.
+    """Lets ingest pin an embedder to a new target before any node is written to it.
 
     Ingest records a target's identity before its first write, so a claim on a target that
     does not exist yet creates it — catalogued and holding its storage, empty and readable.
@@ -2151,7 +2151,7 @@ async def check_a_target_whose_first_write_is_a_source_record_is_catalogued(
 
 
 async def check_promoting_the_live_target_again_changes_nothing(store: TargetHoldingStore) -> None:
-    """Promoting the live target keeps both pointers as they are.
+    """Keeps a converging re-promote idempotent, so a rollback still has somewhere to go.
 
     A promote that converges participants after a crash is re-run on the ones that already
     moved, so promoting the live target keeps both pointers as they are. Were it to set `previous`
@@ -2235,7 +2235,7 @@ async def check_an_unpublished_generation_is_invisible_until_it_is_published(
 async def check_a_handle_keeps_the_generations_it_read_when_it_opened(
     store: GenerationHoldingStore,
 ) -> None:
-    """One operation sees one set of generations.
+    """Snapshot isolation for generations: a publish mid-operation stays invisible to it.
 
     One operation sees one set of generations: a handle that touched storage before a publish
     keeps what it read, so a multi-arm ask never mixes two trees.
@@ -2286,7 +2286,7 @@ async def check_base_nodes_are_visible_under_every_set_of_generations(
 async def check_a_node_shared_with_a_published_generation_stays_visible(
     store: GenerationHoldingStore,
 ) -> None:
-    """A node two generations both wrote belongs to both.
+    """Guards against a build in progress hiding a node that a published tree serves.
 
     A node two generations both wrote belongs to both: the unpublished one cannot hide what
     the published one made visible.
@@ -2312,7 +2312,7 @@ async def check_a_node_shared_with_a_published_generation_stays_visible(
 async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones(
     store: GenerationHoldingStore,
 ) -> None:
-    """`retract_generation` removes only the nodes that generation alone made.
+    """Protects shared and base nodes from the cleanup of an abandoned build.
 
     `retract_generation` removes the nodes only that generation made, keeps a node another
     generation also holds and every base node, and forgets the generation.
@@ -2348,7 +2348,7 @@ async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_o
 async def check_a_generation_bound_again_sees_and_extends_what_was_written(
     store: GenerationHoldingStore,
 ) -> None:
-    """A resumed build binds to the generation an interrupted one left building.
+    """Protects resume: an interrupted corpus build's work is kept, not rebuilt or orphaned.
 
     Ledger **43.20**: a resumed corpus build binds a new handle to the generation an
     interrupted one left `building`. That handle sees what the first wrote, what it writes joins
@@ -2803,7 +2803,7 @@ async def check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generati
 async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name(
     store: GenerationWithdrawingStore,
 ) -> None:
-    """Withdrawing an unknown or unpublished generation is refused by name.
+    """A mistaken withdraw must fail loudly with the valid choices, never pass as a silent no-op.
 
     Repair **R43.29**: a generation nobody opened is refused with `UnknownGenerationError`
     naming the ones that exist; a `building` one — an abandoned build is retracted, never

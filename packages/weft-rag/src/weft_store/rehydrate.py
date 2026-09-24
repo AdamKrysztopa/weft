@@ -136,7 +136,7 @@ def register_from_reports(reports: Iterable[PackReport]) -> None:
 
 
 def _register_if_new(model: type[ExtModel]) -> None:
-    """Register `model`'s namespace unless `model` itself already claimed it.
+    """Make rehydration safe to repeat, while a rival claim on the namespace still reaches it.
 
     `register_ext_model(model)`, skipped only when `model` itself already claimed
     this namespace — see `register_from_reports`'s own docstring for why.

@@ -1,4 +1,4 @@
-"""`KeyBertKeywordExtractor`, a deterministic, frequency-ranked keyword picker; not KeyBERT.
+"""Keyword enrichment for a pipeline that must run with no model download: it counts words.
 
 `KeyBertKeywordExtractor` — a deterministic, frequency-ranked keyword picker. **Not KeyBERT.**
 
@@ -141,7 +141,7 @@ class KeyBertKeywordExtractor:
 
 
 def _top_keywords(content: str, top_n: int) -> tuple[str, ...]:
-    """The `top_n` words of `content`, ranked by frequency then first occurrence.
+    """Rank deterministically, so re-indexing identical content yields identical keywords.
 
     `top_n` words from `content`, ranked by frequency then first occurrence — see the module
     docstring, *"Deterministic by construction"*.

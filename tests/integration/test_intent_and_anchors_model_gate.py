@@ -1,4 +1,4 @@
-"""Ledger task **39.1**'s gate, second form: the model decomposition on unseen questions.
+"""Ledger task **39.1**: the bar a model anchor finder must clear to replace the shape rule.
 
 The gate of ledger task **39.1**, second form: does the model decomposition find every anchor of
 eighty questions it never saw, without flooding the text arm? Opt-in, because it reaches a model.

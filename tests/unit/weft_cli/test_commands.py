@@ -847,7 +847,7 @@ async def test_delete_empties_a_graph_store_a_catalogue_pipeline_names(
 def test_delete_leaves_a_store_nothing_names_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Delete leaves alone a store that nothing names.
+    """`weft delete` never connects to an unused database just because its store is installed.
 
     The half of task 5.1a's narrowing G13 kept: an installed, registered `NodeStore` that
     no document and no run record names is not asked, because it is the operator's unused
@@ -874,7 +874,7 @@ def test_delete_leaves_a_store_nothing_names_alone(
 
 
 def test_delete_refuses_an_unresolvable_store_before_it_describes_an_impact() -> None:
-    """Delete refuses an unresolvable store before it describes an impact.
+    """A store that failed to register is diagnosed at the prompt, not hidden until past `--yes`.
 
     The repair L5.9 records: the prompt used to state "nothing installed holds data" for a
     store that was installed and had failed to register, and the real diagnosis was reachable
@@ -958,7 +958,7 @@ async def test_reconcile_puts_the_configured_store_on_the_passport_it_carries(
 async def test_a_participant_asking_for_a_corpus_that_is_not_there_is_told_so(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A participant asking for a corpus that is not there is told so.
+    """A post-index participant finding no `NodeStore` fails by name, never as a zero backfill.
 
     `weft index --pipeline ...` in a project with no `[services] store` still indexes, and
     its automatic post-index pass deliberately skips the store gate — so a participant that
@@ -1229,7 +1229,7 @@ async def test_the_batch_size_flag_reaches_run_index(
 
 
 async def test_a_batch_size_below_one_is_refused_at_the_flag(tmp_path: Path) -> None:
-    """A batch size below one is refused at the flag.
+    """Pins `batch_size`'s lower bound on `IndexArgs`, the model the CLI grammar is generated from.
 
     Bounded where the flag is declared, so `run_index`'s own `ValueError` is unreachable from
     the CLI and an operator gets argparse's own message rather than a traceback.

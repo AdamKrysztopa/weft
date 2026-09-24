@@ -57,7 +57,7 @@ def test_a_compatible_account_asks_for_usage_when_its_settings_opt_in(tmp_path: 
 
 
 def test_the_vendor_account_still_asks_for_usage(tmp_path: Path) -> None:
-    """The control: the setting belongs to the compatible account.
+    """Leaving the compatible block's `stream_usage` unset keeps `openai` reporting usage.
 
     The control: the setting belongs to the compatible account, and the vendor's documented
     field stays on whatever the compatible block says.

@@ -154,7 +154,7 @@ def test_an_unregistered_method_name_is_refused_at_configuration() -> None:
 
 
 async def test_driving_repack_through_the_seam_produces_passages() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `Repack` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered

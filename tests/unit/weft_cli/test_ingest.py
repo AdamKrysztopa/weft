@@ -389,7 +389,7 @@ async def test_the_three_answers_are_distinguishable_from_each_other(tmp_path: P
 
 
 async def test_the_evaluators_own_corpus_walk_refuses_the_same_three_ways(tmp_path: Path) -> None:
-    """The evaluator's own corpus walk refuses the same three ways.
+    """`--reuse-index` meets the corpus guards too, not only `weft index` through `run_index`.
 
     `corpus_documents` is the second caller of this walk — `weft eval run --reuse-index`
     reaches it without going through `run_index` at all — so a guard only at `run_index`'s top
@@ -458,7 +458,7 @@ def _document(name: str, *stages: StageDeclaration) -> Pipeline:
 def _stub_catalogue(
     catalogue: dict[str, Pipeline],
 ) -> Callable[..., dict[str, Pipeline]]:
-    """A typed stand-in for `weft_cli.pipeline_catalogue.full_catalogue`.
+    """Swap in a fixed pipeline catalogue for a test without touching `pipelines/` on disk.
 
     A typed stand-in for `weft_cli.pipeline_catalogue.full_catalogue`, so `monkeypatch.
     setattr` has a real signature to check rather than a bare lambda `pyright` cannot type.
@@ -810,7 +810,7 @@ async def test_the_default_path_registers_the_embedder_it_was_given(tmp_path: Pa
 async def test_an_ingest_run_does_not_offer_the_query_path_s_own_services(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An ingest run does not offer the query path's own services.
+    """Keeps ingest plugins off the query path's services and off a second route to the store.
 
     `StageLookup` and `RouteCatalogue` are `weft-retrieve`'s, and an ingest stage that
     could reach them would be an ingest plugin depending on the query path. `NodeStore` is

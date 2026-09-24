@@ -37,7 +37,7 @@ POOL_MANIFEST_SCHEMA_VERSION: Final[int] = 1
 
 
 class PoolManifestError(WeftError):
-    """A pool manifest could not be read as stated.
+    """The base refusal for any pool manifest a replay cannot trust as written.
 
     A pool manifest could not be read as stated — missing, malformed JSON, or a shape this
     release does not recognise. The message names the path.
@@ -45,7 +45,7 @@ class PoolManifestError(WeftError):
 
 
 class PoolManifestSchemaError(PoolManifestError):
-    """The manifest names a schema this release does not read.
+    """Refuses to replay a manifest written in a format this release cannot interpret.
 
     The manifest names a schema this release does not read — the message names the path, the
     schema it declares and the schema this release reads.
@@ -53,7 +53,7 @@ class PoolManifestSchemaError(PoolManifestError):
 
 
 class PoolIntegrityError(PoolManifestError):
-    """A replay's manifest, question file or store no longer agree.
+    """Aborts a replay whose inputs have drifted, rather than count drift as failed questions.
 
     A replay's manifest, question file or store no longer agree — ledger task **40.2**'s
     second half. Raised before or during the question loop, never turned into a per-question
@@ -76,7 +76,7 @@ class PoolIntegrityError(PoolManifestError):
 
 
 class PoolChunk(BaseModel):
-    """One packed chunk, in the ranking's own order.
+    """Lets a replay check the store still holds exactly what was packed, and at what score.
 
     One packed chunk, in the ranking's own order — `score` is the retrieval score it was
     packed with, never re-derived from a later search.
@@ -91,7 +91,7 @@ class PoolChunk(BaseModel):
 
 
 class PoolQuestion(BaseModel):
-    """One question's captured pool.
+    """Lets a replay prove it asks what the capture asked, and saw what the capture packed.
 
     `text_sha256`/`relevant_sha256` are hashes of the *facts*, never their spelling, so a replay can
     tell a question file that still asks the same thing from one that has drifted, whatever

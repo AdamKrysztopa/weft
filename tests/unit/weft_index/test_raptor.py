@@ -398,7 +398,7 @@ async def test_raptor_runs_through_the_seam() -> None:
 
 
 class _RecordingLLM:
-    """An `LLM` that keeps every rendered conversation, so a test can assert on the request.
+    """Captures what `raptor` sent the model and how many of its requests overlapped.
 
     An `LLM` that keeps every rendered conversation, so a test can assert on what the
     model was actually shown rather than only on what came back. `_ScriptedLLM` deliberately
@@ -427,7 +427,7 @@ class _RecordingLLM:
 
 
 async def test_a_cluster_larger_than_the_cap_is_truncated_before_the_model_sees_it() -> None:
-    """An uncapped `_format_cluster` lets one oversized cluster exceed a model's context.
+    """Guards `max_cluster_chars`: no member reaches the model longer than the configured cap.
 
     An uncapped `_format_cluster` joins every member whole, so one oversized cluster can
     exceed a model's context and take the whole cluster's summary with it.
@@ -450,7 +450,7 @@ async def test_a_cluster_larger_than_the_cap_is_truncated_before_the_model_sees_
 
 
 async def test_a_failed_completion_is_retried_once_with_the_cluster_halved() -> None:
-    """The branch that made small-context models usable, which `weft_llm.retry` cannot do.
+    """Guards the overflow recovery path: a second, strictly smaller request after a failed one.
 
     The specific branch that made small-context models usable, and the one thing
     `weft_llm.retry` structurally cannot do: it retries the same request, and an overflow
@@ -805,7 +805,7 @@ async def test_a_node_without_a_vector_is_refused_by_name() -> None:
 
 
 async def test_the_embedder_is_asked_for_the_summaries_and_never_for_a_leaf() -> None:
-    """*"Every leaf is embedded once per ingest"*, measured as embedder calls.
+    """Guards against `raptor` re-embedding leaves and so doubling an ingest's embedding cost.
 
     *"Every leaf is embedded once per ingest"* — measured as embedder calls, which is the
     only way it can be measured: neither shipped `Embedder` skips a node that already carries a
@@ -861,7 +861,7 @@ async def test_the_leaves_come_back_exactly_as_they_arrived() -> None:
 
 
 async def test_a_summary_the_embedder_could_not_vectorise_fails_the_run() -> None:
-    """A summary stored without a vector is retrievable by nothing.
+    """Guards against `raptor` storing an unfindable summary when the embedder returns no vector.
 
     A summary stored without a vector is retrievable by nothing, and nothing downstream will
     give it one now that this stage runs after `embed`. Degrading a *cluster* is this contract's
@@ -1266,7 +1266,7 @@ async def test_auto_is_the_default_and_a_typed_value_is_kept() -> None:
 
 
 async def test_auto_resolves_from_this_run_and_the_summary_records_what_it_resolved_to() -> None:
-    """A default computed by a rule says when it is computed and where its value lives.
+    """Guards `similarity_threshold = auto` against resolving invisibly or persisting between runs.
 
     *"A default computed by a rule rather than typed by an operator says when it is computed
     and where its value lives."*
@@ -1302,7 +1302,7 @@ async def test_auto_resolves_from_this_run_and_the_summary_records_what_it_resol
 
 
 async def test_a_typed_threshold_is_recorded_as_the_operator_s_and_not_as_derived() -> None:
-    """A reader has to be able to tell the two apart.
+    """Guards `RaptorFacts` provenance: a typed threshold is never recorded as `auto`-resolved.
 
     A reader has to be able to tell the two apart, or the record answers a different question
     from the one it looks like it answers.
@@ -1827,7 +1827,7 @@ def test_a_run_tally_that_was_never_computed_reads_as_absent_not_as_one() -> Non
 
 
 async def test_a_cluster_of_mixed_modalities_summarises_from_each_node_s_own_index_text() -> None:
-    """Every member is read through its `content` alone, and the summary is `TEXT`.
+    """Pins what `raptor` summarises for a table or figure member, so the choice is not implicit.
 
     **The rule, stated: every member is read through its `content` and nothing else — the
     index-form text its own extractor produced — and the summary is `TEXT`.**

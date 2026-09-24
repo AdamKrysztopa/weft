@@ -161,7 +161,7 @@ def test_a_contributor_label_names_the_retriever_and_the_arm_when_there_is_one(
 
 
 async def test_driving_single_list_through_the_seam_produces_a_ranking() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `SingleList` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -366,7 +366,7 @@ async def test_reciprocal_rank_fusion_carries_ext_across_the_arity_reduction() -
 
 
 async def test_driving_reciprocal_rank_fusion_through_the_seam_produces_a_ranking() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `ReciprocalRankFusion` working when called directly yet breaking under the seam.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -664,7 +664,7 @@ async def test_boolean_combine_fails_loudly_when_no_list_can_be_attributed_to_an
 
 
 async def test_driving_boolean_combine_through_the_seam_produces_a_ranking() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `BooleanCombine` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered

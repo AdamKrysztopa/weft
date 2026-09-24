@@ -62,7 +62,7 @@ async def test_deleting_a_prefix_nothing_wrote_is_zero_and_not_an_error() -> Non
 
 
 async def test_it_reports_what_it_removed_by_kind_when_a_source_is_deleted() -> None:
-    """The stranger joins `weft delete`'s fan-out by satisfying `SourceDeletable`.
+    """Deleting a source removes its blobs and reports them under `blob`, not as nodes.
 
     The stranger joins `weft delete`'s fan-out by satisfying `SourceDeletable`, declaring
     nothing — and answers in the per-kind vocabulary weft's task 9.3 opened up.
@@ -82,7 +82,7 @@ async def test_it_reports_what_it_removed_by_kind_when_a_source_is_deleted() -> 
 
 
 async def test_it_holds_targets_through_the_published_protocol() -> None:
-    """A stranger's blob store takes part in `weft target drop` through `BlobTargetHolding`.
+    """Dropping a candidate target frees exactly its blobs and leaves the live bytes readable.
 
     Weft's carried repair R34.9 published `BlobTargetHolding`, so a stranger's blob store
     takes part in `weft target drop` the way the shipped filesystem store does.

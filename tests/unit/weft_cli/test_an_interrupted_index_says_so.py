@@ -258,7 +258,7 @@ async def test_an_active_record_with_matching_bytes_is_still_unchanged() -> None
 
 
 async def test_an_interrupted_document_is_indexed_again_by_the_next_run(tmp_path: Path) -> None:
-    """An interrupted document is indexed again by the next run, end to end.
+    """A cancelled run's document is not stranded: the next run redoes it and records it `ACTIVE`.
 
     End to end, because the two halves above are individually true of a build where the second
     run still skips — `INCOMPLETE` has to be a member `17.0`'s filter treats as work, and nothing
@@ -286,7 +286,7 @@ async def test_an_interrupted_document_is_indexed_again_by_the_next_run(tmp_path
 
 
 async def test_a_run_whose_batch_failed_does_not_record_it_active(tmp_path: Path) -> None:
-    """Carried repair R36.0: a batch counted `Failed` does not record its documents active.
+    """Carried repair R36.0: a failed file is never skipped as unchanged by a later `weft index`.
 
     Carried repair **R36.0**: a batch the runner counted `Failed` did no work, so its
     documents' records must not claim otherwise.
@@ -433,7 +433,7 @@ def test_one_incomplete_document_still_says_which_one() -> None:
 
 
 class _ExplodingOnChunker(_Passthrough):
-    """A chunker that raises once a named document's batch reaches it.
+    """A failure injector keyed on a document name, so a test chooses which batch dies.
 
     Raises once a named document's batch reaches it: a run killed part-way, after earlier
     batches finished.
@@ -451,7 +451,7 @@ class _ExplodingOnChunker(_Passthrough):
 async def test_a_batch_that_succeeded_is_active_even_when_a_later_batch_failed(
     tmp_path: Path,
 ) -> None:
-    """A batch that succeeded is recorded active even when a later batch failed.
+    """One failed batch no longer makes the next run re-pay model calls for batches that succeeded.
 
     `38.6`'s question index re-paid every model call after one failure, because `R36.0`
     withholds `ACTIVE` from all of a run's work when any batch fails. One document per batch
@@ -520,7 +520,7 @@ class _DeletingStore(_RecordingStore):
 async def test_an_interrupted_documents_nodes_are_released_before_it_is_indexed_again(
     tmp_path: Path,
 ) -> None:
-    """An interrupted document's nodes are released before it is indexed again.
+    """A killed run's nodes are deleted, not duplicated, when its `INCOMPLETE` sources are redone.
 
     `38.6`'s fourth run retrieved 22,463 question nodes a killed run had written: the killed
     run left its sources `INDEXING`, the next run read them `INCOMPLETE`, and only
@@ -621,7 +621,7 @@ async def test_a_cancelled_run_records_no_failure(tmp_path: Path) -> None:
 async def test_a_failed_batch_fails_only_its_bad_document_and_counts_only_its_attempts(
     tmp_path: Path,
 ) -> None:
-    """A failed batch fails only its bad document and counts only that document's attempts.
+    """One unreadable file cannot drag a good batch-mate into `FAILED` or inflate its retry count.
 
     Carried repair R43.1 supersedes this test's 36.1 form, in which every member of a failed
     batch was `FAILED`. Now the batch's documents are run again one at a time, so the good one is
@@ -758,7 +758,7 @@ def test_a_retried_document_is_not_called_unfinished() -> None:
 
 
 def test_a_document_that_failed_this_run_is_not_counted_unchanged() -> None:
-    """A document that failed this run is not counted unchanged.
+    """The index summary's arithmetic: a failed document is neither indexed nor unchanged.
 
     Found running the exit from the wheel: after `36.1` stopped counting a failed document as
     indexed, the summary's `discovered - indexed` called it unchanged.

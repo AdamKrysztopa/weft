@@ -280,7 +280,7 @@ class SourceRecord(BaseModel):
 
 
 class SourceFailure(BaseModel):
-    """Why an indexing attempt for one source did not end `ACTIVE`.
+    """What an operator needs to diagnose and retry a failed source: error, stage, attempts.
 
     Why an indexing attempt for one source did not leave `SourceRecord.status` at `ACTIVE`
     — task **36.0**. One frozen record rather than five loose optional fields on `SourceRecord`
@@ -316,7 +316,7 @@ class LayerStatus(StrEnum):
 
 
 class LayerRecord(BaseModel):
-    """One derived layer built over a source.
+    """Tracks whether a derived layer over a source is built, and which pipeline built it.
 
     One derived layer built over a source — task **43.6**, Phase 43's per-source layer: a
     pipeline document whose first stage consumes stored nodes, publishing one `LayerRecord` per
@@ -338,7 +338,7 @@ SourceRecord.model_rebuild()
 
 
 class UnknownSourceStatusError(WeftError):
-    """A stored source status is not one this release's `SourceStatus` knows.
+    """Points an operator at the release that wrote an unknown status, not a bare crash.
 
     A stored `SourceRecord.status` value is not one this release's `SourceStatus` knows —
     task **36.0**. Raised by `source_status`, so a store's read path fails loudly, naming the
@@ -348,7 +348,7 @@ class UnknownSourceStatusError(WeftError):
 
 
 def source_status(value: str) -> SourceStatus:
-    """Read a stored status string as `SourceStatus`, refusing an unknown one by name.
+    """The one decoder for a persisted status, so a newer release's value fails by name.
 
     Read a stored status string as `SourceStatus`, refusing by name — `UnknownSourceStatusError`
     — rather than letting `SourceStatus(value)`'s own `ValueError` escape unexplained. Every store
@@ -366,7 +366,7 @@ def source_status(value: str) -> SourceStatus:
 
 
 class UnknownSourceFailureError(WeftError):
-    """A stored source failure carries a field `SourceFailure` does not declare.
+    """Names a failure record a newer release wrote, instead of misreading it as corrupt.
 
     A stored `SourceRecord.failure` carries a field this release's `SourceFailure` does not
     declare — repair **R36.3**. Raised by `source_failure`, `source_status`'s counterpart.
@@ -390,7 +390,7 @@ def source_failure(raw: Mapping[str, object]) -> SourceFailure:
 
 
 class UnknownSourceLayerError(WeftError):
-    """A stored layer entry carries an unknown field or status.
+    """Tells an older release a layer entry came from a newer one, rather than calling it corrupt.
 
     A stored `SourceRecord.layers` entry carries a field this release's `LayerRecord` does not
     declare, or a `status` this release's `LayerStatus` does not know — task **43.6**. Raised by
@@ -936,7 +936,7 @@ class NodeStore(Stage[Sequence[Node], Sequence[Node]], Protocol):
         ...
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
-        """Read one source's record.
+        """Look up one source's status, failure and layers without listing every source.
 
         Args:
             source_id: The source to read.
@@ -1480,7 +1480,7 @@ class NoPreviousTargetError(WeftError):
 
 
 class EmbeddingIdentity(BaseModel):
-    """What embedded a target's vectors, and the width they produce.
+    """The fingerprint a query's embedder is checked against before it searches a target.
 
     What embedded a target's vectors — plugin, distribution, model, and the width they
     produce, when the plugin can say. Task **34.4**'s embedder-side Protocol claims one of
@@ -1497,7 +1497,7 @@ class EmbeddingIdentity(BaseModel):
 
 
 class TargetRecord(BaseModel):
-    """One target in a store's catalogue, with its claimed embedding identity.
+    """One catalogue row, so an operator sees which embedder filled each target.
 
     One target in a store's catalogue: its name, and the embedding identity claimed
     against it, if any.
@@ -1527,7 +1527,7 @@ class Promotion(BaseModel):
 
 
 class TargetCatalogue(BaseModel):
-    """Every target a store holds, which is live, and which was live before.
+    """What `promote` returns and `target_catalogue` reports, so a rollback's destination shows.
 
     Every target a store holds, which one is live, which was live before that, and the
     promotion that made it so, if any.
@@ -1543,7 +1543,7 @@ class TargetCatalogue(BaseModel):
 
 @runtime_checkable
 class TargetHolding(Protocol):
-    """A store that holds named, complete targets, one of them live.
+    """Lets an index be rebuilt beside the one serving, then swapped in with a rollback.
 
     A store that holds named, complete targets, one of them live — ledger task **34.3**,
     Phase 34's blue-green index migration.
@@ -1678,7 +1678,7 @@ class UnknownGenerationError(WeftError, UnresolvedNameError):
 
 @runtime_checkable
 class GenerationHolding(Protocol):
-    """A store that builds a corpus-scoped layer as a generation, published whole.
+    """Lets a corpus-wide layer be rebuilt without any reader seeing a half-built tree.
 
     A store that builds a corpus-scoped layer as a generation, published whole — ledger task
     **43.14**.
@@ -1783,7 +1783,7 @@ class NotAPublishedMemberError(WeftError):
 
 @runtime_checkable
 class GenerationCarrying(Protocol):
-    """A store that carries a published generation's untouched members into a new one.
+    """Lets an incremental rebuild keep unchanged nodes without rewriting or re-embedding them.
 
     A store that carries a published generation's untouched members into a new one — ledger
     task **43.22**.
@@ -1847,7 +1847,7 @@ class NotAPublishedGenerationError(WeftError, UnresolvedNameError):
 
 @runtime_checkable
 class GenerationWithdrawing(Protocol):
-    """A store that withdraws a superseded generation now and reclaims its nodes later.
+    """Hides a replaced tree from new readers at once, while readers already open finish on it.
 
     A store that withdraws a superseded generation now and reclaims its nodes later — repair
     **R43.29**.
@@ -1894,7 +1894,7 @@ GenerationWithdrawing.version = STORE_CONTRACT_VERSION
 
 
 class WriterClaim(BaseModel):
-    """Who is writing into a store.
+    """The host, process, start time and command that let a second writer be refused by name.
 
     Who is writing into a store — `SingleWriter.claim_writer`'s argument, and what a refusal
     names. Ledger task **43.18**.

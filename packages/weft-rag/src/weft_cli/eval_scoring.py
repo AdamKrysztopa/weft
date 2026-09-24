@@ -181,7 +181,7 @@ class AmbiguousLabelError(WeftError, UnresolvedNameError):
 
 
 def _label_matches(label_parts: tuple[str, ...], document_parts: tuple[str, ...]) -> bool:
-    """Report whether `label_parts` is a component-wise suffix of `document_parts`.
+    """Keep a question's document label from matching a filename that merely ends the same.
 
     Whether `label_parts` is a **suffix** of `document_parts`, compared component-wise —
     task 16.5. Comparing the joined strings instead would let `7717v2.pdf` match a path merely
@@ -438,7 +438,7 @@ def _scored_in_ranking_order(passages: Sequence[Passage]) -> list[Scored[Node]]:
 def _deduplicated_by_document(
     hits: Sequence[Scored[Node]], *, top_k: int
 ) -> tuple[RetrievedPassage, ...]:
-    """Collapse ranked `hits` to at most `top_k` distinct documents.
+    """Score retrieval per document, so several chunks of one file count once.
 
     `hits`, ranked, collapsed to at most `top_k` entries — one per distinct document, kept at
     its first (best-ranked) occurrence. See the module docstring's own paragraph for why.
@@ -545,7 +545,7 @@ def _merge_generation_scores(
     metrics: dict[str, Outcome[MetricAggregate]],
     per_question: dict[str, Mapping[str, QuestionOutcome]],
 ) -> None:
-    """Fold generation-gate scores into the retrieval-side results, in place.
+    """Report retrieval and generation scores as one scored run, refusing a name clash.
 
     Fold `score_generation_gate_subset`'s own `SubsetScores` into `score_pipeline`'s
     retrieval-side `metrics`/`per_question`, in place — task **32.14**.
@@ -609,7 +609,7 @@ def _require_capturable_rung(*, capture_pool: bool, is_retrieval_rung: bool) -> 
 async def _captured_store_rows(
     *, capture_pool: bool, retrieval_services: PreparedRunner | None
 ) -> int | None:
-    """Read the store's row count once, when `capture_pool` asked for it.
+    """Pin the store size a pool was captured against, so a replay can refuse a changed store.
 
     `retrieval_services.store`'s own row count, read once after the question loop, only when
     `capture_pool` asked for it — task **40.2**. `retrieval_services` is never `None` when
@@ -741,7 +741,7 @@ async def _check_pool_after_loop(pool: LoadedPool, store: NodeStore) -> None:
 async def _hydrated_ranking(
     question: Question, entry: PoolQuestion, *, store: NodeStore, corpus_digest: str
 ) -> Ranking:
-    """Rebuild a captured entry's chunks into a `Ranking` a rerank rung can run.
+    """Rescore a rerank rung on the exact chunks a capture run saw, without searching.
 
     `entry`'s own captured chunks, hydrated from `store` by id and rebuilt into a `Ranking` a
     reranking rung can run — ledger task **40.2**'s second half. Never searches: every chunk is

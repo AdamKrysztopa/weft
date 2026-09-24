@@ -94,7 +94,7 @@ def _stub_catalogue(catalogue: dict[str, Pipeline]) -> Callable[..., dict[str, P
 
 
 def _ingest_resolved() -> ResolvedPipeline:
-    """Return the ingest pipeline a run was corroborated over, with an embedder and a store.
+    """The smallest ingest pipeline `score_pipeline` accepts: an `embed` stage and a `store` stage.
 
     The *ingest* pipeline a run was corroborated over — it must carry an `Embedder` and a
     `NodeStore`, because `score_pipeline` refuses one that does not.
@@ -353,7 +353,7 @@ async def test_a_named_rung_is_recorded_by_name_and_by_an_identity_of_its_own(
 async def test_naming_no_rung_is_recorded_as_a_measurement_not_as_an_absence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Naming no rung is recorded as a measurement, not as an absence.
+    """Plain vector top-k is a recorded rung of its own, distinguishable from a pre-16.1 record.
 
     `--query-pipeline` absent means plain vector top-k against the ingest pipeline's own
     stages — a thing that ran, and the thing every baseline taken so far ran. It must not
@@ -381,7 +381,7 @@ async def test_naming_no_rung_is_recorded_as_a_measurement_not_as_an_absence(
 async def test_two_rungs_differing_only_in_configuration_are_not_one_rung(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Two rungs differing only in configuration are not one rung.
+    """`pipeline_identity` follows `with:` values, so `--baseline` never pairs two different rungs.
 
     A name is not an identity: two documents can carry one name across two projects, and one
     document can change under its own name. The identity is what `--baseline` will key on.
@@ -460,7 +460,7 @@ def _counted_registry(counts: _CountedStores) -> Registry:
 async def test_a_named_retrieval_closes_every_store_it_built(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A named retrieval closes every store it built.
+    """Guards against leaked connections: each store `run_named_retrieve` builds is closed.
 
     `weft ask --retrieve-only --pipeline` and every REPL turn go through this function, so a
     store it builds and never closes is a connection held until the garbage collector happens by.
@@ -496,7 +496,7 @@ async def test_a_named_retrieval_closes_every_store_it_built(
 async def test_scoring_a_retrieval_rung_builds_its_store_once_and_closes_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scoring a retrieval rung builds its store once and closes it.
+    """Keeps store provisioning out of per-question timings and the run under the connection limit.
 
     One store for the whole run, not one per question: a store's first search provisions its
     schema, so a per-question store puts that DDL and a connection handshake inside every

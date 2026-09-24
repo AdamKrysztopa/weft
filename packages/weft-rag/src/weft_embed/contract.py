@@ -90,7 +90,7 @@ Embedder.version = EMBEDDER_CONTRACT_VERSION
 
 
 class EmbeddingModel(BaseModel):
-    """The model and width one call to `embedding_model` reports.
+    """What a target's embedding claim is built from, so a mismatched embedder is refused.
 
     The model and width one call to `embedding_model` reports — the request an embedder
     actually sends, never a stage's config default. `width` is `None` when the model's
@@ -106,7 +106,7 @@ class EmbeddingModel(BaseModel):
 
 @runtime_checkable
 class IdentifiedEmbedder(Protocol):
-    """An embedder that can state what it embeds with.
+    """Lets a target refuse vectors from a model other than the one it was built with.
 
     An embedder that can state what it embeds with — one member, `NodeSupersedable`'s
     shape (`weft_store.contract`), for the same reason: growing `Embedder` itself would be a

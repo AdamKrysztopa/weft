@@ -149,7 +149,7 @@ class UnknownStagePluginError(PipelineResolutionError, UnresolvedNameError):
 
 
 class RefusedStagePluginError(WeftError):
-    """Raised when a `use:` names a plugin whose only candidate pack is refused.
+    """Tells the operator which `[packs] allow` setting would admit a refused stage's pack.
 
     A document's `use:` names a plugin whose only candidate pack is `REFUSED` by
     `[packs] allow` — carried repair **R11.3**.
@@ -370,7 +370,7 @@ def _installed_names(registry: Registry) -> tuple[str, ...]:
 
 
 def _install_remedy(reports: Sequence[PackReport], *, use: str) -> str | None:
-    """Find the `install_hint` of the report whose `pack` matches `use`.
+    """Point an unresolved `use:` at the extra that installs its pack, before suggesting a typo.
 
     `install_hint` for whichever report's own `pack` matches `use` — `None` if no report
     names that pack, or if that report's own distribution declares no extra for it.

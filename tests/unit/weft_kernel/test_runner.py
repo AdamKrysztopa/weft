@@ -792,7 +792,7 @@ class _NaiveSplitterNoFilter:
 
 
 class _CapturesWhatItReceives:
-    """An identity stage that records the payload it was handed.
+    """A recorder placed downstream of the stage under test, to inspect the recombined batch.
 
     An identity stage that records the payload it was handed, so a test downstream of
     the stage under test can inspect the recombined batch — `Runner.run` itself returns
@@ -814,7 +814,7 @@ class _CapturesWhatItReceives:
 def _capture_factory(
     captured: list[Sequence[Node]],
 ) -> Callable[[object], _CapturesWhatItReceives]:
-    """A typed factory binding `captured` ahead of the `config` argument.
+    """Lets `Runner.resolve` build `_CapturesWhatItReceives` around the list the test inspects.
 
     A typed factory binding `captured` ahead of the `config` argument `Runner.resolve`
     calls every factory with — `functools.partial` cannot do this directly, since
@@ -1091,7 +1091,7 @@ def _fact_node(text: str, *, wide_columns: bool) -> Node:
 
 
 class _MarksNodesMatchingBothFacts:
-    """Appends `!` to whatever it is handed, proving `applies_to` is a conjunction.
+    """Guards `_segment_by_applicability` against reading `applies_to` as any-of, not all-of.
 
     Appends `!` to whatever it is handed — proof that a stage's `applies_to` tuple is
     a conjunction, never a disjunction. `docs/02-extension-model.md` §3 →

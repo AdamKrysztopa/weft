@@ -1,4 +1,4 @@
-"""Phase 4's exit criterion as a permanent, repeatable check — ledger task **4.9**.
+"""Guards ledger task **4.9**: `weft eval compare` tells two derived pipelines apart.
 
 Phase 4's exit criterion, made a permanent, repeatable check — `docs/internal/build-ledger.md`
 **4.9**.
@@ -185,7 +185,7 @@ def _write_pipelines(directory: Path) -> None:
 
 
 def _write_questions(path: Path, *, nitrogen_path: str, saffron_path: str) -> None:
-    """Write one question per document, its query the document's exact opening sentence.
+    """Make retrieval differ by construction: each query exactly matches one `specific` chunk.
 
     One question per document, its query the exact opening sentence — see the module
     docstring's paragraph on why this is a guaranteed exact hit under `specific` and not

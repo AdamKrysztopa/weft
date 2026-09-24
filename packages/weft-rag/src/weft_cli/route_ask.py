@@ -140,7 +140,7 @@ class NoRouterPipelineError(WeftError, UnresolvedNameError):
 
 
 class UnroutedPipelineNameError(PipelineResolutionError, UnresolvedNameError):
-    """The router selected a pipeline name the catalogue does not hold.
+    """Catches a third-party router that strays outside the catalogue it was handed.
 
     The router selected a pipeline `Route.pipeline` names, but the catalogue holds no
     document by that name.
@@ -168,7 +168,7 @@ class UnroutedPipelineNameError(PipelineResolutionError, UnresolvedNameError):
 
 
 class NoRungOfferedError(WeftError):
-    """No rung the router could offer has every model role it needs mapped.
+    """Tells the user which `[llm.roles]` entries to map before a routed ask can run.
 
     Every rung the router could offer needs a model role `[llm.roles]` does not map —
     carried repair **R43.30**. Raised before any model call, so the router is never paid to
@@ -200,7 +200,7 @@ async def run_routed_ask(
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
 ) -> tuple[str, Answer]:
-    """Route `question` to a pipeline, run it, and return its name and answer.
+    """`weft ask`'s default path: the router picks the pipeline, so the user need not name one.
 
     Route `question` through the real router, run whichever pipeline it selects, and
     return `(the pipeline name selected, the Answer it produced)`.
@@ -487,7 +487,7 @@ def _require[T](
 
 
 def named_pipeline(pipeline_name: str, *, catalogue: Mapping[str, Pipeline]) -> Pipeline:
-    """Look up `pipeline_name` in `catalogue`, refusing an unknown name.
+    """Give every command that takes a pipeline name the same loud, option-listing refusal.
 
     `pipeline_name` looked up in `catalogue`, or `UnknownPipelineNameError` naming every
     pipeline the catalogue does hold.

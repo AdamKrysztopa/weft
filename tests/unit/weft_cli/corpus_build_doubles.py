@@ -300,7 +300,7 @@ def memberships(summaries: Sequence[Node]) -> set[frozenset[NodeId]]:
 
 
 class ScriptedModel:
-    """An `LLMProvider` that answers with a digest tagged by model and run label.
+    """A deterministic model double whose output names its run, and which can cancel a build.
 
     An `LLMProvider` answering each request with a digest of it, tagged with the model that
     was asked and the run's `label`, so a stored summary says which run wrote it.

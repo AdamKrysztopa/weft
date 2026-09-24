@@ -215,7 +215,7 @@ class Command(Protocol):
     result_model: ClassVar[type[CommandResult]]
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
-        """Execute the command.
+        """Carry out the action and return a decided outcome for a renderer, never printed text.
 
         Args:
             args: An instance of this command's `args_model`.

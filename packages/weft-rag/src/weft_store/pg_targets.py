@@ -1,4 +1,4 @@
-"""Schema-per-target mechanics, shared by every Postgres-backed `TargetHolding`.
+"""One implementation of blue-green targets for both Postgres stores, so the two cannot drift.
 
 Schema-per-target mechanics, shared by every Postgres-backed `TargetHolding` — ledger task
 **R34.8**, factored out of `weft_store.pgvector_store.PgVectorStore` (task **34.1**) and a second
@@ -54,7 +54,7 @@ from weft_store.contract import (
 
 @dataclass(frozen=True, slots=True)
 class PgTargetLayout:
-    """One store's own naming for the schema-per-target mechanics.
+    """What lets two Postgres stores share the target code yet keep apart their schemas and locks.
 
     One store's own naming for the schema-per-target mechanics — the only thing that differs
     between `weft_store.pgvector_store.PgVectorStore` and the second store above that shares
@@ -92,7 +92,7 @@ def target_schema(layout: PgTargetLayout, target: TargetName) -> sql.Identifier:
 
 
 def home_table(home_schema: str, table: str) -> sql.Composed:
-    """`<home_schema>.<table>`, composed of two `sql.Identifier`s.
+    """Qualify a catalogue table so it resolves the same whatever `search_path` holds.
 
     `<home_schema>.<table>`, composed of two `sql.Identifier`s — every catalogue statement's
     own qualification, so a candidate's own `search_path` never decides which catalogue a read
@@ -139,7 +139,7 @@ def create_live_target_table_sql(layout: PgTargetLayout, home_schema: str) -> sq
 async def read_live_target(
     layout: PgTargetLayout, conn: "psycopg.AsyncConnection[dict[str, Any]]", home_schema: str
 ) -> TargetName:
-    """The live target the live-pointer table names, or `DEFAULT_TARGET`.
+    """Decide which target an unbound handle serves, from the home schema's live pointer.
 
     The live target the live-pointer table names, or `DEFAULT_TARGET` when it holds no row
     yet — the upgrade clause: a database written before targets existed reads as `default`, live,
@@ -156,7 +156,7 @@ async def read_live_target(
 async def verify_target_tables(
     layout: PgTargetLayout, conn: "psycopg.AsyncConnection[dict[str, Any]]", target: TargetName
 ) -> None:
-    """Refuse `target` by name the moment one of its own tables is gone.
+    """Guards against a dropped table silently serving another target's rows.
 
     Refuse `target` by name the moment one of its own tables is gone, rather than let
     `search_path` quietly resolve the bare name to `default`'s own table.
@@ -183,7 +183,7 @@ async def enter_target_schema(
     home_schema: str,
     target: TargetName,
 ) -> None:
-    """Reach `target`'s own tables through `search_path`.
+    """Make every later statement on this connection read and write `target`, catalogued or new.
 
     Reach `target`'s own tables through `search_path`, without rewriting a single one of a
     store's own unqualified statements.
@@ -222,7 +222,7 @@ async def resolve_active_target(
     home_schema: str,
     bound: TargetName | None,
 ) -> TargetName:
-    """Create the catalogue, resolve the target to use, and enter its schema.
+    """The last connection step, run after extension setup so nothing lands in a target's schema.
 
     Create the catalogue tables if needed, resolve `bound` or the live target, and enter its
     schema when it is not `default`.
@@ -250,7 +250,7 @@ async def register_target_if_needed(
     target: TargetName | None,
     home_schema: str | None,
 ) -> None:
-    """Record a non-default target's catalogue row on its first write.
+    """Catalogue a target only once it holds data, so a stray bind or read leaves no trace.
 
     The catalogue row a non-default target earns on its first write — never on a bind, never
     on a read. `default` needs none: the catalogue lists it regardless.

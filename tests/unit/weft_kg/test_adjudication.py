@@ -44,7 +44,7 @@ def _always(*, verdict: bool | None) -> Adjudicator:
 
 
 async def test_a_score_at_or_above_the_ceiling_is_the_same_thing() -> None:
-    """The ceiling is the cheap pass's own merge threshold.
+    """A pair at `DEFAULT_SIMILARITY_THRESHOLD` is merged without judgement, as the cheap pass did.
 
     The ceiling is the cheap pass's own merge threshold, so a pair that reaches it has
     already been merged and needs no judgement — the adjudicator agreeing is what makes the
@@ -94,7 +94,7 @@ async def test_a_score_inside_the_band_abstains_rather_than_guessing() -> None:
 
 
 async def test_the_floor_itself_is_inside_the_band_not_below_it() -> None:
-    """The band is closed at the bottom and open at the top: `[floor, ceiling)`.
+    """A pair scoring exactly `DEFAULT_ADJUDICATION_FLOOR` is handed on for judgement, not refused.
 
     The band is closed at the bottom and open at the top — `[floor, ceiling)`. Asserted
     because the two edges are the only places the three regions can be off by one, and an
@@ -111,7 +111,7 @@ async def test_the_floor_itself_is_inside_the_band_not_below_it() -> None:
 
 
 async def test_a_chain_asks_the_next_adjudicator_when_the_first_abstains() -> None:
-    """First-non-`None`-wins, which is why `weft_kernel.fallback.try_in_order` is not reused.
+    """Guards the adjudicator chain against stopping at the first abstention.
 
     First-non-`None`-wins, and the reason `weft_kernel.fallback.try_in_order` is not reused:
     an abstention must hand on, where a `NothingToProduce` would end the chain.

@@ -1,4 +1,4 @@
-"""`ExampleChecksumEmbedder`, a stranger's `Embedder`, and not a quality one.
+"""Gives the pack's tests real vectors with no model download or API key.
 
 `ExampleChecksumEmbedder` — a stranger's `Embedder`. **Not a quality embedder.**
 

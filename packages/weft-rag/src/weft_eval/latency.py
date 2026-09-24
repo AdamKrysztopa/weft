@@ -29,7 +29,7 @@ from weft_kernel.payload import Produced
 
 
 def nearest_rank(samples: Sequence[float], quantile: float) -> Produced[float] | NotAggregated:
-    """The `quantile` percentile of `samples`, at nearest rank.
+    """A latency percentile that is always an observed sample, never interpolated.
 
     The `quantile` percentile of `samples`, at nearest rank ⌈quantile·n⌉ — see the module
     docstring for why that rank is computed over `Fraction`, and why a rank of `n` is withheld

@@ -124,7 +124,7 @@ def _registry() -> Registry:
 
 
 def _reports() -> tuple[PackReport, ...]:
-    """Return the shipped document itself, read through `importlib.resources`.
+    """Offer the shipped lexical retrieval pipeline exactly as an installed `weft-retrieve` would.
 
     The shipped document itself, read through the same `importlib.resources` path a real
     install uses — never a copy of its stages written into this file.
@@ -184,7 +184,7 @@ async def test_a_named_retrieval_pipeline_runs_under_retrieve_only_with_no_model
 
 
 async def test_retrieve_only_refuses_a_pipeline_that_ends_in_a_generator() -> None:
-    """Retrieve-only refuses a pipeline that ends in a generator.
+    """`--retrieve-only` with a generating pipeline fails naming a retrieval-only one to use.
 
     The narrowed refusal: the two flags still contradict each other when the pipeline
     generates, and the message says which pipeline and what to run instead.

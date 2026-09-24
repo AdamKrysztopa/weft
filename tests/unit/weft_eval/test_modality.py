@@ -50,7 +50,7 @@ def test_a_query_is_text_unless_something_says_otherwise() -> None:
 
 
 def test_a_sample_can_declare_it_came_from_an_image_query() -> None:
-    """`describe-query-image` is unbuilt, but its image-question slice has to be nameable.
+    """Reserves `QueryModality.IMAGE` so `9.10`'s image-question slice can be recorded today.
 
     `describe-query-image` is reserved and unbuilt, but `9.10` measures an image-question
     slice, and the slice has to be nameable before it can be measured.
@@ -137,7 +137,7 @@ def test_a_run_that_scored_one_modality_slices_into_one() -> None:
 
 
 def test_slices_are_absent_rather_than_empty_when_nothing_asked_for_them() -> None:
-    """`{}` is the honest answer for a caller that did not partition.
+    """An unpartitioned `aggregate` leaves `by_modality` empty, so no slice poses as the whole.
 
     `{}` is the honest answer for a caller that did not partition, and every caller before
     this task is one. Never a single slice fabricated from the whole.

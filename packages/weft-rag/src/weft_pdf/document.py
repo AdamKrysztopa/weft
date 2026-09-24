@@ -123,7 +123,7 @@ class PageText(BaseModel):
 
 
 class PdfPages(ExtModel):
-    """Which backend read a document.
+    """Lets a reader attribute an extraction defect to the PDF parser that produced it.
 
     Which backend read a document — the payload's own answer to which backend won the
     fallback chain, a fact `weft_extract.payload.PageSpan` cannot give.
@@ -275,7 +275,7 @@ def _figure_ordinal(*, page: int, index_on_page: int) -> int:
 
 
 class PendingFigure(BaseModel):
-    """One captioned figure, waiting on the `BlobStore.put` call `extract_documents` cannot make.
+    """What `PdfLayoutExtractor.run` needs to finish a figure node once its image is stored.
 
     One figure with a caption, waiting on the `BlobStore.put` call `extract_documents` cannot
     make — see the module docstring for why the split exists. `PdfLayoutExtractor.run` is the
@@ -307,7 +307,7 @@ class PendingFigure(BaseModel):
 
 
 class ExtractionResult(BaseModel):
-    """`extract_documents`'s answer when a backend supplies `read_figures`.
+    """Separates the nodes a backend finished from figures still waiting on their image write.
 
     `extract_documents`'s answer when a backend supplies `read_figures` — the nodes it built
     outright, and the figures it found but could not finish. See the module docstring for why a

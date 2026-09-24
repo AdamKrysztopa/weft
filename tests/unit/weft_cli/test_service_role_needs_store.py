@@ -57,7 +57,7 @@ def _table(*roles: ServiceRole) -> RoleTable:
 
 
 def test_a_demand_is_checked_against_the_instance_its_own_role_resolves() -> None:
-    """A demand is checked against the instance its own role resolves.
+    """Guards against checking a role's demand against the node store instead of its own instance.
 
     A capability the selected instance provides passes, and passes *because that role's
     instance* provides it — not because the configured node store happens to.

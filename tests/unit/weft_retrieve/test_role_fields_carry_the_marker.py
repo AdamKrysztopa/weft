@@ -1,4 +1,4 @@
-"""Repairs **R43.35** and **R43.42**: role and sub-plugin fields carry their markers.
+"""Repairs **R43.35** and **R43.42**: no role or sub-plugin field escapes the walk unmarked.
 
 Repairs **R43.35** and **R43.42**: every registered config field named like a model role, or
 like a sub-plugin reference, is declared one, in a spelling pydantic keeps.
@@ -114,7 +114,7 @@ def _sibling_of(field: str, fields: Iterable[str]) -> str | None:
 
 
 def _references(models: Iterable[type[BaseModel]]) -> dict[str, str | None]:
-    """Each field spelt like a sub-plugin reference, to the `config` its `SubPlugin` names.
+    """Maps each reference field to its declared config sibling, so the test can pin known pairs.
 
     Each field spelt like a sub-plugin reference, to the `config` its `SubPlugin` names, or to
     `None` when it carries no marker.
@@ -131,7 +131,7 @@ def _references(models: Iterable[type[BaseModel]]) -> dict[str, str | None]:
 
 
 def _unpaired(models: Iterable[type[BaseModel]]) -> list[str]:
-    """Every reference that is unmarked or names the wrong sibling, or names no field.
+    """Collects every marker defect as a sorted message list, so one assertion reports them all.
 
     Every reference that is unmarked or names the wrong sibling, and every `SubPlugin` whose
     `config` names no field of its model.
@@ -267,7 +267,7 @@ def test_the_dropped_marker_check_can_actually_fail() -> None:
 
 
 def test_every_registered_sub_plugin_reference_is_declared_with_its_config() -> None:
-    """R43.42: a reference the walk cannot pair with its config is a sibling it never reads.
+    """R43.42: every sub-plugin reference in the registered configs names its sibling config field.
 
     R43.42: a reference the walk cannot pair with its config is a sibling whose roles it
     never reads, so a routed rung naming it is offered and refuses after a paid call.

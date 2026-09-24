@@ -53,7 +53,7 @@ def test_the_index_form_carries_every_cell() -> None:
 
 
 def test_the_index_form_repeats_the_header_on_every_row() -> None:
-    """The measured reason this form exists: row-level retrieval with the header propagated.
+    """Guards the table index form `11` §6 measured, in which every row is readable on its own.
 
     The measured reason this form exists — `11` §6 rank 3, corroborated by arXiv:2408.17008,
     is row-level retrieval with the header propagated. A row that reaches a retriever without its

@@ -348,7 +348,7 @@ def test_the_candidate_pairs_are_the_ones_whose_initials_actually_spell_the_shor
 
 
 def test_two_names_of_the_same_shape_are_never_a_candidate_pair() -> None:
-    """Signal 3 is *short form and its expansion*, so other pairs offer it nothing to gate.
+    """Keeps the initialism fetch narrow: two acronyms or two full names never form a pair.
 
     Signal 3 is *short form and its expansion*; two acronyms, or two ordinary names, offer it
     nothing to gate and would only widen the fetch this function exists to narrow.

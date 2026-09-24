@@ -67,7 +67,7 @@ _RESAMPLES = 2000
 
 
 class TooFewRepetitionsError(WeftError):
-    """A baseline was handed fewer than 2 repetitions.
+    """Stops any verdict from resting on a baseline measured only once.
 
     A baseline was handed fewer than 2 repetitions — V3's own failure clause: "the baseline
     was run once, in which case it records no interval and no later run can be judged against
@@ -151,7 +151,7 @@ class Verdict(StrEnum):
 
 
 class DifferenceJudgement(BaseModel):
-    """One metric's verdict, always with its reason.
+    """Whether one metric's change beat the baseline's own noise, and why it was so judged.
 
     One metric's verdict — `reason` is always populated, for every verdict, never only for
     the refused ones.
@@ -170,7 +170,7 @@ class DifferenceJudgement(BaseModel):
 
 
 def baseline_spreads(records: Sequence[RunRecord]) -> Mapping[str, BaselineMeasurement]:
-    """Fold each metric the records carry into the interval its means spanned.
+    """Measure how much the baseline varies from itself, the bar a difference must clear.
 
     Every metric name any of `records` carries, folded into the interval its own means
     spanned — or `NoSpread`, naming why, for a metric that did not measure in every repetition.

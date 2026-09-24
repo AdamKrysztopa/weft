@@ -279,7 +279,7 @@ async def test_llm_query_scorer_refuses_a_mismatched_dimension_set() -> None:
 
 
 async def test_driving_query_scorer_through_the_seam_produces_a_scorecard() -> None:
-    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+    """Catches `LlmQueryScorer` working when called directly yet breaking under the seam wrapper.
 
     Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
@@ -582,7 +582,7 @@ async def test_driving_always_through_the_seam_produces_a_route() -> None:
 
 
 async def test_swapping_the_policy_needs_no_edit_to_the_scorer() -> None:
-    """Ledger 2.25's property: one `Scorecard`, read by two unrelated `RoutingPolicy` classes.
+    """Ledger 2.25: a `Scorecard` is the whole interface between query scoring and routing policy.
 
     Ledger 2.25's stated property: one `Scorecard` a `query-scorer` produced, read by
     two different `RoutingPolicy` implementations with no shared code and no edit to

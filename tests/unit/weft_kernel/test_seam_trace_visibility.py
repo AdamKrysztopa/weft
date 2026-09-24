@@ -1,4 +1,4 @@
-"""Task 4.5: a stage's duration and attribution reach a *real* trace.
+"""Task 4.5: `wrap` alone yields exported spans a real OpenTelemetry SDK can read.
 
 Task 4.5 — proves a stage's duration and attribution reach a *real* trace, with no pack ever
 touching a span.

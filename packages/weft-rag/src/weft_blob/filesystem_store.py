@@ -82,7 +82,7 @@ _TARGETS_DIR_NAME = ".targets"
 
 
 class BlobKeyRefusedError(WeftError):
-    """A key or prefix is absolute, or contains a `..` segment.
+    """Keeps every blob write and reap inside the configured root.
 
     A key or prefix is absolute, or contains a `..` segment — plain `WeftError`, not a member
     of the `UnresolvedNameError` family: nothing here is a name failing to resolve against an
@@ -101,7 +101,7 @@ class BlobNotFoundError(WeftError):
 
 
 class BlobLayoutVersionError(WeftError):
-    """The root's recorded layout version does not match `BLOB_LAYOUT_VERSION`.
+    """Stops this store reading or writing a root laid out by a different version.
 
     The root's recorded layout version does not match `BLOB_LAYOUT_VERSION` — `S11`'s
     seventh-surface rule, enforced at the one place it can be: before this store reads or writes
@@ -111,7 +111,7 @@ class BlobLayoutVersionError(WeftError):
 
 
 class FilesystemBlobSettings(BaseModel):
-    """`[packs.blob] root`: required, with no default.
+    """Tells the blob pack which directory on disk holds an operator's bytes.
 
     `[packs.blob] root` — required, with no default, following `[packs.store] dsn`'s own
     precedent (`weft_store.pgvector_store.PgVectorSettings.dsn`): a pack cannot invent where an
@@ -124,7 +124,7 @@ class FilesystemBlobSettings(BaseModel):
 
 
 class FilesystemBlobStore:
-    """The shipped `BlobStore`.
+    """Keep extracted bytes on local disk under one configured root, with no service to run.
 
     Satisfies the Protocol structurally — this class never imports it — exactly the path any
     third-party store pack takes, and additionally implements `delete_source` so it joins `weft
@@ -149,7 +149,7 @@ class FilesystemBlobStore:
 
     @property
     def _effective_root(self) -> Path:
-        """Where this handle's own reads and writes land.
+        """Route each handle's I/O to its own target's directory while sharing one root.
 
         Where this handle's own reads and writes land — the configured root itself for
         `default`, `<root>/.targets/<name>` for anything `bind_target` was asked for. The
@@ -162,7 +162,7 @@ class FilesystemBlobStore:
         return self._root / _TARGETS_DIR_NAME / self._target
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle over the same configured root, bound to `target`'s own subtree.
+        """Let a candidate index write its blobs without touching the live root's bytes.
 
         A second handle over the same configured root, bound to `target`'s own subtree — see
         the module docstring. `target` is re-validated here even though `TargetName` is meant to
@@ -173,7 +173,7 @@ class FilesystemBlobStore:
         return type(self)(FilesystemBlobSettings(root=self._root), _target=validated)
 
     async def drop_target(self, target: TargetName) -> int:
-        """Remove `<root>/.targets/<target>` and everything under it.
+        """Reclaim a retired target's disk space for `weft target drop`, never the root's own blobs.
 
         Remove `<root>/.targets/<target>` and everything under it, returning how many files
         it held. `default` is refused: its blobs are the configured root's own, not a target

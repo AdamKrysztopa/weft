@@ -379,7 +379,7 @@ class Auto(StrEnum):
 
 
 class RaptorConfig(BaseModel):
-    """`raptor`'s `with:` config.
+    """How clusters form and grow, how much of each the model sees, and the build's limits.
 
     Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
     constructible with none supplied.
@@ -718,7 +718,7 @@ class RaptorSummarizer:
     async def _checkpoints(
         self, prompts: Prompts, ctx: Context
     ) -> tuple[LayerCheckpoints, str] | None:
-        """The build's `LayerCheckpoints` and this run's prompt digest, if offered.
+        """Lets an interrupted build resume, keyed to the exact prompt so an edit rebuilds.
 
         The build's `LayerCheckpoints` and a digest of this run's rendered prompt template,
         or `None` on a run that offers none — task **43.20**. A template that does not render
@@ -1003,7 +1003,7 @@ def _mark_degraded(
 
 
 def _with_run_counts(node: Node, *, clusters_found: int, clusters_summarised: int) -> Node:
-    """`node`'s own `RaptorFacts`, with this run's real cluster tally.
+    """Stamp the run's cluster tally on each summary, known only once every cluster ran.
 
     `node`'s own `RaptorFacts`, with `clusters_found`/`clusters_summarised` overwritten to
     this run's real tally — task **10.10**. Every node reaching here was just built by
@@ -1143,7 +1143,7 @@ def _refuse_cluster_size_below_minimum(
 
 
 def _typed_cluster_size(value: int | Auto | str) -> int | Auto:
-    """Narrow `RaptorConfig.cluster_size` to what a validated config holds.
+    """Give the type checker the `int | Auto` a validator already guaranteed.
 
     Narrows `RaptorConfig.cluster_size`'s own declared type back down to what a
     validated `RaptorConfig` instance can actually hold.

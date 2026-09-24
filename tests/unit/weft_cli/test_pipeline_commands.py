@@ -36,7 +36,7 @@ from weft_kernel.runner import Stage
 
 
 class _StageContract(Stage[object, object], Protocol):
-    """A stand-in capability contract, `object -> object`.
+    """The minimal contract a test plugin can register under, showing `resolve()` needs no extras.
 
     A stand-in capability contract, `object -> object` so two of them compose trivially
     in the diff test below. `resolve()` reads every optional declaration off a registered
@@ -302,7 +302,7 @@ async def test_the_shipped_enrich_slot_adds_nothing_when_no_pack_contributes(
 async def test_pipeline_show_records_a_contribution_unplaced_against_a_pipeline_with_no_slot(
     tmp_path: Path,
 ) -> None:
-    """`pipeline show` records a contribution unplaced against a pipeline with no slot.
+    """`pipeline show` tells an operator a pack's stage did not land, rather than hiding it.
 
     The other half of `02` §3 → *Slots*: "a contribution with no matching slot is a
     recorded no-op" — never a resolution failure, and printed rather than silently dropped.

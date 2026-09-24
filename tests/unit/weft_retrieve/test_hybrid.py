@@ -112,7 +112,7 @@ async def test_one_query_searches_both_arms_and_returns_both_rankings() -> None:
 
 
 async def test_the_two_arms_are_labelled_apart_so_a_fuser_can_weight_them() -> None:
-    """Without distinct labels the `weights` mapping has no key to type.
+    """`hybrid` labels its vector and text lists as separate arms a fuser's `weights` can address.
 
     Without distinct labels the `weights` mapping has no key to type, which is the whole
     reason `RankedList.channel` exists — `vector_top_k.VectorTopKConfig.arm`'s own docstring.

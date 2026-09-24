@@ -137,7 +137,7 @@ def test_a_capability_a_store_lacks_is_reported_rather_than_silently_dropped() -
 
 
 def test_gaining_a_capability_moves_checks_from_unsupported_to_offered() -> None:
-    """The two doubles differ by exactly one capability.
+    """Adding one capability offers new checks, so the conformance selector really reads the store.
 
     The two doubles differ by exactly one capability, so this is the assertion a selector that
     ignores the store cannot pass — it is the control for both tests above.
@@ -240,7 +240,7 @@ def test_a_store_with_a_text_arm_is_offered_the_text_checks() -> None:
 
 
 def test_a_store_without_a_text_arm_is_told_what_it_was_not_asked() -> None:
-    """The half that makes the filter honest: nothing is skipped silently.
+    """`unsupported_checks` names each skipped text check and the `TextSearch` capability it needs.
 
     The half that makes the filter honest: nothing is skipped silently, so an author whose
     store has no text arm learns which checks they did not answer and why.

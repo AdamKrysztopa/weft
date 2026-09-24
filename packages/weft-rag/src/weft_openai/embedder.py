@@ -239,7 +239,7 @@ class EmbeddingsClient(Protocol):
 
     @property
     def embeddings(self) -> EmbeddingsResource:
-        """The embeddings endpoint."""
+        """Where every batch is sent; the only part of the vendor client this pack depends on."""
         ...
 
     async def close(self) -> None:

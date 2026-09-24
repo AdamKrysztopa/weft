@@ -128,7 +128,7 @@ class _NodeExtraction(NamedTuple):
 
 
 class LlmFactsConfig(BaseModel):
-    """`llm-facts`'s `with:` config.
+    """How many facts a node may yield, how long an entity may be, and how many calls at once.
 
     Every field has a default, per this pack's own rule that a stage's settings must be
     constructible with none supplied.

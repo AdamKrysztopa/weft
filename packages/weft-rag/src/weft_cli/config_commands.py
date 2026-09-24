@@ -175,7 +175,7 @@ class ConfigSetCommand:
 
 
 def register_config_commands(registrar: PackRegistrar) -> None:
-    """Register both `config` commands.
+    """Make `weft config get` and `weft config set` resolvable as ordinary registered commands.
 
     Called from `weft_cli.commands.register`, never from a second entry point.
     """

@@ -61,7 +61,7 @@ def test_a_run_longer_than_the_cap_is_cut_to_the_cap() -> None:
 
 
 def test_text_naming_nothing_yields_nothing() -> None:
-    """An empty answer here means *this question named no entity*.
+    """Guards that a question with no capitalised run seeds no entity, rather than a guessed one.
 
     An empty answer here means *this question named no entity*, which the retriever reports
     as a searched-but-empty list rather than as a query it declined — `L5.9` one layer up.
@@ -86,7 +86,7 @@ def test_a_candidate_carries_its_own_shorter_spans() -> None:
 
 
 def test_sub_spans_are_contiguous_and_never_reordered() -> None:
-    """A name is a phrase, so its words are never recombined into a new one.
+    """Guards `with_subspans` against inventing names by skipping words inside a phrase.
 
     `Crime and Punishment` may be asked for as `Crime` or as `Punishment`, never as
     `Crime Punishment` — a name is a phrase, and recombining its words would invent one.
@@ -126,7 +126,7 @@ def test_a_cap_below_one_is_refused_rather_than_repaired() -> None:
 
 
 def test_a_name_that_does_not_start_with_a_capital_is_not_a_candidate() -> None:
-    """The blind spot, asserted rather than only written down.
+    """Pins the capital-letter rule `candidate_names` uses, so a change in what it misses is seen.
 
     **The blind spot, asserted rather than only written down.** The rule matches a run that
     *begins* at a capital, so `adRAP` — a real entity name in this project's own corpus — is

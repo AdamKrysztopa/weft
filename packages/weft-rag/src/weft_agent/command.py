@@ -1,4 +1,4 @@
-"""The `weft agent` command, driving `run_agent` through the published `Command` surface.
+"""Hand a goal to a model that works toward it using Weft's own commands.
 
 `weft agent` — the command that drives `weft_agent.loop.run_agent` through the published
 `weft_command.contract.Command` surface. Ledger task **7.4**.
@@ -82,7 +82,7 @@ class AgentCommandResult(CommandResult):
 
 
 class AgentCommand:
-    """Run one ReAct loop toward a goal, with the run's own command surface as its tools.
+    """Let a model reach a goal by calling the commands a person could, within G12's ceiling.
 
     `weft agent` — one ReAct run toward a goal, its tools drawn from the run's own
     published command surface. See this module's own docstring for the seam it needed opened.

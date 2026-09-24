@@ -378,7 +378,7 @@ class ConflictingAskModeError(WeftError):
 
 
 class LayerDemotionFailedError(WeftError):
-    """Refusal for a `weft delete` that could not mark a covering corpus layer stale.
+    """Stops a delete before a stale corpus layer could keep answering over the removed source.
 
     `weft delete` could not mark a corpus layer the source covered `STALE`, so the delete was
     refused before anything was removed — tasks **43.21** and **R43.33**. Deleting anyway would
@@ -523,7 +523,7 @@ class _AskCoverage:
 
 
 async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[_AskCoverage]:
-    """Compute `AskCommandResult.coverage` and `.layers` for one ask.
+    """Let `weft ask` say how much of the corpus, and which layers, its answer could see.
 
     `AskCommandResult.coverage`/`.layers` for one ask — ledger task **43.4**, widened at
     **43.9**. `coverage` is `None` only when no store `_stores_in_use` names could answer
@@ -601,7 +601,7 @@ def _raise_if_pending(
     ask_coverage: _AskCoverage,
     deps: Dependencies,
 ) -> None:
-    """Refuse `pipeline_name` while its required layer is not built on every source.
+    """Keep a directly named rung from silently answering over a half-built layer.
 
     Refuse `pipeline_name` when its own `route.requires` layer is not built on every
     indexed source — ledger task **43.9**. Does nothing for a rung naming no layer, or one
@@ -668,7 +668,7 @@ def _excluded_rung_explanations(
 
 
 def _register_corpus(ctx: Context, deps: Dependencies) -> None:
-    """Put the configured `NodeStore` on the `Context` a reconcile pass carries.
+    """Give reconcile participants the primary corpus they check orphans and backfill against.
 
     Put the configured `NodeStore` on the `Context` a reconcile pass carries — task
     **6.19**, G13's second repair (`docs/02-extension-model.md` §1 → *Extended by G13*): "the
@@ -1687,7 +1687,7 @@ class AskCommand:
     async def _run_generating(
         self, ask_args: AskArgs, *, deps: Dependencies, ctx: Context
     ) -> Outcome[CommandResult]:
-        """Answer with a generated, cited `Answer` through the router or a named pipeline.
+        """Serve `weft ask`'s default answer: generated text with citations, not raw passages.
 
         The default: route through the installed router, or run `--pipeline`'s own
         named pipeline directly — either way, a generated, cited `Answer`.
@@ -1926,7 +1926,7 @@ class ListedSource(BaseModel):
 
 
 class SourcesListCommandResult(CommandResult):
-    """Every recorded `SourceRecord` that `weft sources list` found, filtered and sorted.
+    """Lets an operator find a failed or stale source across every store in use.
 
     `weft sources list`'s whole answer — every recorded `SourceRecord` every store in use
     reported, filter applied, sorted by `(record.uri, store)`.
@@ -2019,7 +2019,7 @@ class ListedTarget(BaseModel):
 
 
 class TargetListCommandResult(CommandResult):
-    """Every target that `weft target list` found, sorted by store and name.
+    """Lets an operator see every index target before promoting or dropping one.
 
     `weft target list`'s whole answer — every target every `TargetHolding` store in use
     holds, sorted by `(store, name)`.

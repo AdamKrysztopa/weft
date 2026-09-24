@@ -52,7 +52,7 @@ class _InterleavedCallError(Exception):
 
 
 class _OneCallAtATimeStore(GenerationStore):
-    """A `Lifetime.RUN` store that records and refuses a call entered while another is in flight.
+    """Makes concurrent use of one store handle an observable failure instead of a silent race.
 
     A `Lifetime.RUN` store with no thread-safety of its own: a call entered while another is
     in flight on the same handle is recorded and refused.

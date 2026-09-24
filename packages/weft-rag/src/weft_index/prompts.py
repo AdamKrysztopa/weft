@@ -111,7 +111,7 @@ class SummarizeClusterRequest(BaseModel):
 
 
 class SummarizeClusterPrompt(TypedPrompt):
-    """Ask a model for one summary standing in for a cluster of passages.
+    """Makes a RAPTOR summary abstract its cluster, so a broad query can match it.
 
     Ask a model for the one summary that stands in for a cluster of passages, in the
     cluster's own dominant language.
