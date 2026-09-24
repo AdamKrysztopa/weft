@@ -114,10 +114,11 @@ def _lookup() -> _StubLookup:
 
 
 class _Note(ExtModel):
-    """A carrier extension, to prove `ext` survives a rerank — G5's mechanism is the settled
-    answer to "a strategy needs to pass something along", and a stage that rebuilds its
-    carrier from parts, as this one must to reorder the hits, is exactly where such a pass
-    -along is dropped without anything noticing.
+    """A carrier extension, to prove `ext` survives a rerank.
+
+    G5's mechanism is the settled answer to "a strategy needs to pass something along", and a stage
+    that rebuilds its carrier from parts, as this one must to reorder the hits, is exactly where
+    such a pass -along is dropped without anything noticing.
     """
 
     __namespace__ = "test-rerank"
@@ -268,7 +269,9 @@ async def test_a_repeated_index_is_refused_rather_than_quietly_resolved() -> Non
 
 
 async def test_driving_llm_rerank_through_the_seam_produces_a_ranking() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """
@@ -288,7 +291,9 @@ async def test_driving_llm_rerank_through_the_seam_produces_a_ranking() -> None:
 
 
 async def test_an_extension_attached_before_the_rerank_survives_it() -> None:
-    """The reranker rebuilds its `Ranking` to reorder it, and everything it does not name in
+    """The reranker rebuilds its `Ranking` to reorder it, and `ext` is named in that rebuild.
+
+    The reranker rebuilds its `Ranking` to reorder it, and everything it does not name in
     that construction is lost. `ext` is named, and this is what says so — driven through
     `weft_kernel.seam.wrap`, because the seam is where `__transient__` namespaces are stripped
     and a carrier extension must be shown to cross that too, not only the plugin.

@@ -37,7 +37,9 @@ from weft_store.contract import STORE_CONTRACT_VERSION, SourceRecord
 
 
 def _node(content: str, vector: tuple[float, ...], source: str = "s-a") -> Node:
-    """Built the way the published kit builds its own — `Node.synthetic` then `with_embedding`,
+    """Built the way the published kit builds its own: `Node.synthetic` then `with_embedding`.
+
+    Built the way the published kit builds its own — `Node.synthetic` then `with_embedding`,
     because `synthetic` takes no `embedding` and a double written from the signature I expected
     rather than the one that exists is `L11.17`.
     """
@@ -204,7 +206,7 @@ async def test_a_source_record_round_trips_and_deleting_it_takes_its_nodes() -> 
 
 
 def test_it_declares_the_contract_version_it_was_written_against() -> None:
-    """A store that does not say which contract it satisfies cannot be checked against a later one."""
+    """A store that does not name its contract cannot be checked against a later one."""
     from weft_store.memory import MemoryStore
 
     assert MemoryStore.version == STORE_CONTRACT_VERSION

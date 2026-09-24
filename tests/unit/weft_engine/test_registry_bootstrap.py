@@ -462,7 +462,9 @@ def test_pack_settings_from_config_refuses_a_packs_value_that_is_not_a_table() -
 def test_build_dependencies_survives_its_own_repeated_ext_model_registration(
     tmp_path: Path,
 ) -> None:
-    """`build_dependencies` calls `_register_ext_models` once per command, many times over
+    """`build_dependencies` calls `_register_ext_models` once per command, many times per run.
+
+    `build_dependencies` calls `_register_ext_models` once per command, many times over
     within one test run — against the one, process-wide rehydration registry.
 
     Task 5.2g renamed this from `_ensure_chunk_offset_rehydrates`, which used to name
@@ -601,7 +603,9 @@ def test_build_dependencies_defaults_to_the_offline_embedder_with_no_config_file
 def test_build_dependencies_carries_the_permission_policy_from_weft_toml(
     tmp_path: Path,
 ) -> None:
-    """Task 3.3, design question 4: `[permissions]` travels with the registry it was read
+    """Task 3.3, design question 4: `[permissions]` travels with the registry it was read beside.
+
+    Task 3.3, design question 4: `[permissions]` travels with the registry it was read
     beside, the same one-parse discipline `[services]`/`[llm]` already follow.
     """
     # Arrange
@@ -636,7 +640,9 @@ def test_build_dependencies_defaults_permissions_to_ask_with_no_config_file(
 
 
 def test_contributions_from_concatenates_every_reports_own_tuple() -> None:
-    """`contributions_from` is the one assembly point `weft_kernel.resolution.Contribution`'s
+    """`contributions_from` is the one assembly point `Contribution`'s own docstring names.
+
+    `contributions_from` is the one assembly point `weft_kernel.resolution.Contribution`'s
     own docstring names: "whatever assembled the `Registry` from every installed pack's own
     registration." Two reports, one carrying two contributions and one carrying none, come
     back as one flat tuple in report order — never filtered on `status` here, since only an
@@ -674,7 +680,9 @@ def test_contributions_from_concatenates_every_reports_own_tuple() -> None:
 def test_build_dependencies_carries_empty_contributions_when_no_pack_offers_one(
     tmp_path: Path,
 ) -> None:
-    """No first-party pack calls `add_contribution` yet, so a real discovery run against
+    """No first-party pack calls `add_contribution` yet, so discovery carries no contributions.
+
+    No first-party pack calls `add_contribution` yet, so a real discovery run against
     this repository's own installed distributions carries `Dependencies.contributions ==
     ()` — the same "leaves every existing caller unchanged" floor `render_doctor`'s own
     optional parameters carry, applied to assembly rather than rendering.
@@ -761,7 +769,7 @@ def test_no_install_line_is_offered_for_a_distribution_nothing_installed_claims(
     ids=["no-file-block", "block-without-embed", "embed-written-as-the-default", "embed-chosen"],
 )
 def test_build_dependencies_records_whether_the_file_named_an_embedder(
-    tmp_path: Path, written: str, expected: bool
+    tmp_path: Path, written: str, *, expected: bool
 ) -> None:
     """Carried repair `R17.6`, the fact the warning turns on.
 

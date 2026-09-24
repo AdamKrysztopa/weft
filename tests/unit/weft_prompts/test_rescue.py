@@ -49,11 +49,11 @@ def test_text_with_no_json_at_all_rescues_nothing() -> None:
 
 
 def test_a_backslash_json_does_not_allow_is_kept_as_a_backslash() -> None:
-    """Repair R38.11.
+    r"""Repair R38.11.
 
-    Models write LaTeX into JSON strings unescaped — `\\(N_x\\)` over Open RAGBench's arXiv
-    questions — and `\\(` is not a JSON escape, so the whole document was unreadable. Only a
-    backslash JSON cannot read is doubled; `\\n` and `\\"` keep their meaning.
+    Models write LaTeX into JSON strings unescaped — `\(N_x\)` over Open RAGBench's arXiv
+    questions — and `\(` is not a JSON escape, so the whole document was unreadable. Only a
+    backslash JSON cannot read is doubled; `\n` and `\"` keep their meaning.
     """
     # Arrange
     text = r'{"documents": ["a lattice of \(N_x \cdot N_y\) sites", "line\nbreak"]}'

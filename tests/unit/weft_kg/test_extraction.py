@@ -248,8 +248,10 @@ async def test_the_fact_a_node_carries_is_the_triple_and_both_its_types() -> Non
 
 
 async def test_every_entity_a_kept_fact_names_becomes_one_mention_node() -> None:
-    """Mentions are nodes too, and one per distinct name — `11.8` cascades its entity rows from
-    these node ids, so a name mentioned twice in one chunk must not become two anchors.
+    """Mentions are nodes too, and one per distinct name.
+
+    `11.8` cascades its entity rows from these node ids, so a name mentioned twice in one chunk must
+    not become two anchors.
     """
     # Arrange — `adRAP` is named by both facts, `Chucri` and `Azouz` by one each.
     node = _node("chunk-a: Chucri wrote adRAP and Azouz reviewed it.")
@@ -289,7 +291,9 @@ async def test_a_mention_node_carries_the_type_the_fact_gave_it() -> None:
 
 
 async def test_the_chunk_itself_comes_back_unchanged() -> None:
-    """`Expander`'s own contrast with `Chunker` and `Enhancer`: every node handed in continues,
+    """Every node handed in continues unchanged, and new nodes are added beside it.
+
+    `Expander`'s own contrast with `Chunker` and `Enhancer`: every node handed in continues,
     unchanged, and new nodes are added beside it.
 
     The tally is asserted absent from the chunk for the same reason: attaching ext to the payload
@@ -312,7 +316,9 @@ async def test_the_chunk_itself_comes_back_unchanged() -> None:
 
 
 async def test_one_model_call_per_node_never_one_for_the_batch() -> None:
-    """`hypothetical-questions`' own argument, and it applies with more force here: batching
+    """Chunks are not batched into one numbered prompt.
+
+    `hypothetical-questions`' own argument, and it applies with more force here: batching
     chunks into one numbered prompt makes the model's attention to any one passage a function of
     how many chunks happened to land in this run.
     """
@@ -328,7 +334,9 @@ async def test_one_model_call_per_node_never_one_for_the_batch() -> None:
 
 
 async def test_no_more_than_max_concurrent_nodes_are_in_flight_at_once() -> None:
-    """The cap `11.7` names, taking the field name task 8.7 gave `raptor` and
+    """The concurrency cap `11.7` names, under the field name `raptor` already uses.
+
+    The cap `11.7` names, taking the field name task 8.7 gave `raptor` and
     `hypothetical-questions` — what a provider tolerates is an operator's fact, and three stages
     fanning out against one configured provider should not disagree about it by accident.
     """
@@ -345,7 +353,9 @@ async def test_no_more_than_max_concurrent_nodes_are_in_flight_at_once() -> None
 
 
 async def test_the_cap_is_what_bounds_it_rather_than_the_batch_being_small() -> None:
-    """The non-vacuity half: with the cap raised, the same double must report a peak above the
+    """The non-vacuity half: with the cap raised, the same double must report a higher peak.
+
+    The non-vacuity half: with the cap raised, the same double must report a peak above the
     previous cap — otherwise the assertion above holds for a plugin with no cap at all.
     """
     # Arrange
@@ -417,7 +427,9 @@ async def test_a_row_with_a_blank_field_is_counted_rather_than_skipped_silently(
 
 
 async def test_the_same_triple_twice_in_one_chunk_is_one_node_and_one_counted_drop() -> None:
-    """A repeated triple would derive the same node id twice — same content, same parent, and a
+    """A repeated triple is counted rather than silently collapsed.
+
+    A repeated triple would derive the same node id twice — same content, same parent, and a
     duplicate in the batch handed to the store. Counted rather than silently collapsed, because
     a model repeating itself is a fact about the extraction worth seeing.
     """
@@ -502,8 +514,10 @@ async def test_the_tally_accounts_for_every_candidate_the_model_returned() -> No
 
 
 def test_the_tally_carries_no_total_and_refuses_a_repeated_reason() -> None:
-    """*Never summed*, enforced twice: there is no field to hold a total, and two entries under
-    one reason — which is how a total sneaks back in — is a validation failure.
+    """*Never summed*, enforced twice.
+
+    There is no field to hold a total, and two entries under one reason — which is how a total
+    sneaks back in — is a validation failure.
     """
     # Assert — no field whose name would invite a reader to treat it as the answer.
     assert set(ExtractionTally.model_fields) == {"candidates", "kept", "dropped"}
@@ -523,8 +537,9 @@ def test_the_tally_carries_no_total_and_refuses_a_repeated_reason() -> None:
 
 
 async def test_a_chunk_that_kept_nothing_still_has_its_drops_in_the_run_s_tally() -> None:
-    """Why the tally is the run's rather than the chunk's — `RaptorFacts.clusters_found`'s own
-    precedent, and the hole it closes.
+    """Why the tally is the run's rather than the chunk's.
+
+    `RaptorFacts.clusters_found`'s own precedent, and the hole it closes.
 
     A chunk whose every candidate was dropped derives no node, so a per-chunk tally would have
     nowhere to ride and those drops would vanish. Carried on every node the *run* derived, they
@@ -555,7 +570,9 @@ async def test_a_chunk_that_kept_nothing_still_has_its_drops_in_the_run_s_tally(
 
 
 async def test_a_node_whose_completion_could_not_be_used_stays_in_the_output_marked() -> None:
-    """`Expander`'s stated posture, shared with `raptor` and `hypothetical-questions`: degrade,
+    """Degrade, never fail the run, as `raptor` and `hypothetical-questions` do.
+
+    `Expander`'s stated posture, shared with `raptor` and `hypothetical-questions`: degrade,
     never fail the run. A model in a bad mood is not an operator's configuration mistake.
     """
     # Arrange — prose the cascade cannot rescue into the output model, on one of two nodes.
@@ -586,8 +603,10 @@ async def test_a_node_whose_completion_could_not_be_used_stays_in_the_output_mar
 
 
 async def test_an_empty_batch_produces_nothing_and_calls_no_model() -> None:
-    """The ambiguous-empty rule every contract in this tree documents — and the floor under the
-    cost of this stage, which is the only one in `weft_kg` that spends money.
+    """The ambiguous-empty rule every contract in this tree documents.
+
+    And the floor under the cost of this stage, which is the only one in `weft_kg` that spends
+    money.
     """
     # Arrange
     llm = _StubLLM({})
@@ -601,7 +620,9 @@ async def test_an_empty_batch_produces_nothing_and_calls_no_model() -> None:
 
 
 def test_the_extractor_satisfies_the_expander_contract() -> None:
-    """Structural, on the class — the same question `weft_kernel.resolution.resolve` asks of a
+    """Structural, on the class, through the tree's own `class_provides` wrapper.
+
+    Structural, on the class — the same question `weft_kernel.resolution.resolve` asks of a
     document's `use:` name, through `class_provides`, which is the tree's own wrapper (`L11.17`).
     """
     # Assert
@@ -627,7 +648,9 @@ def test_no_ext_model_this_stage_writes_carries_a_field_named_technique() -> Non
 )
 @pytest.mark.parametrize("bad", [0, -1])
 def test_a_count_below_one_is_refused(field: str, bad: int) -> None:
-    """A loud refusal, not a silent clamp — every one of these three can only mean a mistake, and
+    """A loud refusal, not a silent clamp, for each of these three settings.
+
+    A loud refusal, not a silent clamp — every one of these three can only mean a mistake, and
     a stage that quietly repaired it would produce an empty graph nobody could diagnose.
     """
     # Act / Assert
@@ -679,9 +702,10 @@ def _settings_with_schema(tmp_path: Path) -> GraphSettings:
 async def test_a_fact_outside_the_active_schema_is_dropped_and_counted(
     tmp_path: Path,
 ) -> None:
-    """The arrangement case, which is why the schema is rules rather than two word lists:
-    `adRAP wrote Chucri` uses only types and a predicate the operator approved, and says
-    something impossible. It is dropped under its own reason and the tally says so.
+    """The arrangement case, which is why the schema is rules rather than two word lists.
+
+    `adRAP wrote Chucri` uses only types and a predicate the operator approved, and says something
+    impossible. It is dropped under its own reason and the tally says so.
     """
     # Arrange
     node = _node("chunk-a: Chucri wrote adRAP.")
@@ -759,7 +783,9 @@ async def test_a_fact_extracted_with_no_active_schema_says_so_rather_than_guessi
 async def test_the_active_schema_reaches_the_model_as_well_as_the_filter(
     tmp_path: Path,
 ) -> None:
-    """**Constrain and verify, not verify alone.** Dropping off-schema facts after the fact is a
+    """Constrain and verify, not verify alone.
+
+    **Constrain and verify, not verify alone.** Dropping off-schema facts after the fact is a
     filter; telling the model what the corpus admits is what makes most of the call useful. Both,
     because either alone is weaker — and this asserts the first half actually reaches the wire,
     which is `L9.79`'s rule for a value whose whole job is to travel.

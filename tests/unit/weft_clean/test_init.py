@@ -62,7 +62,9 @@ def test_settings_refuses_an_unknown_field() -> None:
 
 
 def test_language_is_marked_deprecated_because_nothing_writes_it() -> None:
-    """`R19.12`, settled with the owner: `Language` is the one registered `ExtModel` with no
+    """`R19.12`: `Language` is registered with no production writer and must be deprecated first.
+
+    `R19.12`, settled with the owner: `Language` is the one registered `ExtModel` with no
     production writer, and removing a published class under G9 needs a deprecation first — the
     `keybert` precedent. `weft plugins doctor` prints the notice and its removal.
     """

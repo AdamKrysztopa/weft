@@ -151,7 +151,9 @@ async def _activate(directory: Path, path: Path) -> None:
 async def test_propose_reads_the_corpus_and_prints_the_shape_it_produced(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The headline for this command: what an operator curates is a measurement of their own
+    """What an operator curates is a measurement of their own corpus.
+
+    The headline for this command: what an operator curates is a measurement of their own
     corpus, ranked by how often the corpus wrote it, not a model's opinion of what it should be.
     """
     # Arrange
@@ -201,7 +203,9 @@ async def test_propose_persists_nothing(
 async def test_propose_from_a_corpus_that_produced_no_facts_refuses(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Printing an empty schema would invite an operator to activate one that admits nothing and
+    """Printing an empty schema would invite activating one that admits nothing.
+
+    Printing an empty schema would invite an operator to activate one that admits nothing and
     drops every fact in the corpus. Refused, naming what to run first.
     """
     # Arrange
@@ -216,7 +220,9 @@ async def test_propose_from_a_corpus_that_produced_no_facts_refuses(
 async def test_activate_records_the_schema_in_the_project_file_and_in_the_corpus(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """`S13`'s two halves, asserted together because either alone is the defect it settles: the
+    """`S13`'s two halves, asserted together: the file and the row.
+
+    `S13`'s two halves, asserted together because either alone is the defect it settles: the
     file is what a pull request shows, the row is what the corpus is under.
     """
     # Arrange
@@ -242,7 +248,9 @@ async def test_activate_records_the_schema_in_the_project_file_and_in_the_corpus
 async def test_the_corpus_answers_for_itself_not_the_operator_s_disk(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """**The property `S13` exists for.** A second checkout — a different directory, no
+    """The property `S13` exists for.
+
+    **The property `S13` exists for.** A second checkout — a different directory, no
     `weft.toml`, no schema file — pointed at the same database must read the same answer. If the
     file were the only record, the two would hold contradictory beliefs about one corpus and
     nothing could notice.
@@ -269,7 +277,9 @@ async def test_the_corpus_answers_for_itself_not_the_operator_s_disk(
 async def test_activate_refuses_a_file_that_is_not_a_schema_by_name(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A curated file is hand-edited, so a malformed one is the ordinary case rather than the
+    """A malformed curated file is refused naming the file, and nothing is written.
+
+    A curated file is hand-edited, so a malformed one is the ordinary case rather than the
     exotic one. Refused naming the file, and **nothing written** — a half-activation that
     recorded a name for a schema it could not read is the state nothing could diagnose.
     """
@@ -288,7 +298,9 @@ async def test_activate_refuses_a_file_that_is_not_a_schema_by_name(
 async def test_show_prints_every_schema_the_corpus_holds_not_only_the_active_one(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """**The sentence this task exists for**: *a corpus holding two schemas is a fact
+    """A corpus holding two schemas is a fact `weft graph show` prints, never a silence.
+
+    **The sentence this task exists for**: *a corpus holding two schemas is a fact
     `weft graph show` prints, never a silence.*
 
     A corpus indexed under one schema and re-indexed under another holds facts from both, and an
@@ -331,9 +343,10 @@ async def test_show_prints_every_schema_the_corpus_holds_not_only_the_active_one
 
 
 def _with_schema(node: Node, identity: str) -> ExtractedFact:
-    """That node's fact, re-stated under `identity` — the shape `llm-facts` writes when a schema
-    is active. Built from the node's own ext rather than repeated by hand, so a field added to
-    `ExtractedFact` does not silently stop being carried here.
+    """That node's fact, re-stated under `identity`.
+
+    The shape `llm-facts` writes when a schema is active. Built from the node's own ext rather than
+    repeated by hand, so a field added to `ExtractedFact` does not silently stop being carried here.
     """
     fact = node.ext_as(ExtractedFact)
     assert fact is not None
@@ -341,7 +354,9 @@ def _with_schema(node: Node, identity: str) -> ExtractedFact:
 
 
 def test_each_command_declares_its_permission_class() -> None:
-    """`03` → *Permissions*, G3's rule: a plugin-contributed command declares its class at
+    """`03` → *Permissions*, G3's rule: a plugin-contributed command has no default class.
+
+    `03` → *Permissions*, G3's rule: a plugin-contributed command declares its class at
     registration and there is **no default** — `read` silently under-protects and `destroy`
     trains people to pass `--yes` reflexively.
 

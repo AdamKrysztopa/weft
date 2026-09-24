@@ -176,8 +176,9 @@ async def test_deleting_a_source_removes_its_nodes_and_reports_the_count(
 
 
 async def test_a_reconcile_pass_reports_what_it_examined(store: GraphStore) -> None:
-    """`repair` over an intact graph examines what is there and removes nothing — the honest
-    answer, and the one the automatic post-index pass gets on a fresh corpus.
+    """`repair` over an intact graph examines what is there and removes nothing.
+
+    The honest answer, and the one the automatic post-index pass gets on a fresh corpus.
     """
     # Arrange
     await store.add([_node("one", source="doc-a")])
@@ -311,7 +312,9 @@ async def test_an_entity_can_carry_a_vector_the_traversal_does_not_yet_read(
 async def test_an_entity_row_dies_with_the_nodes_that_supported_it(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """The Phase 11 preamble's narrowing of G15 rests on exactly this: entity rows are a
+    """Entity rows cascade from mention node ids, so no row outlives the nodes that support it.
+
+    The Phase 11 preamble's narrowing of G15 rests on exactly this: entity rows are a
     backend's internal schema *"cascading from mention node ids, so no row outlives the nodes
     that support it"*. If that were untrue they would be durable state outside the node model,
     which G15's *"no rows that are not nodes"* forbids.
@@ -355,7 +358,7 @@ async def test_node_ids_come_back_ready_for_the_corpus(store: GraphStore, walk: 
 async def test_storing_a_node_derives_its_entity_and_relation_rows(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """**Ledger `11.6`'s other half, and the seam that keeps the enhancer store-free.**
+    """**Ledger `11.6`'s other half, and the seam that keeps the enhancer store-free**.
 
     `cooccurrence-graph` attaches ext data and writes no rows; `add` reads that ext and derives
     them. That split is what lets the stage run in a pipeline with no graph store configured —
@@ -533,7 +536,9 @@ async def test_two_spellings_of_one_name_become_one_entity_both_are_found_by(
 async def test_the_canonical_name_is_the_smallest_member_not_the_first_written(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """*A function of the set, not of arrival order.* Written in one order and asserted against
+    """A function of the set, not of arrival order.
+
+    *A function of the set, not of arrival order.* Written in one order and asserted against
     the order-independent answer, so a pass that kept whichever row it saw first fails here.
     """
     # Arrange — `ADRAP` sorts before `adRAP`, and is written second.
@@ -552,9 +557,10 @@ async def test_the_canonical_name_is_the_smallest_member_not_the_first_written(
 async def test_a_second_pass_changes_nothing_a_first_pass_decided(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """Idempotence against the database, not against the pure function — the pass runs on every
-    `weft reconcile`, so a canonical id that moved would re-point every alias each time and make
-    the entity's identity a fact about how often somebody ran the command.
+    """Idempotence against the database, not against the pure function.
+
+    The pass runs on every `weft reconcile`, so a canonical id that moved would re-point every alias
+    each time and make the entity's identity a fact about how often somebody ran the command.
     """
     # Arrange
     vector = Vector(values=(0.0, 0.0, 1.0, 0.0))
@@ -579,8 +585,10 @@ async def test_a_second_pass_changes_nothing_a_first_pass_decided(
 async def test_merging_two_aliases_merges_the_nodes_they_anchor(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """Why `kg_entity_nodes` keys on the **alias**: re-pointing the alias moves its evidence with
-    it, in one `UPDATE`, and nothing is deleted. `11.9`'s bridge-merge is the same operation.
+    """Why `kg_entity_nodes` keys on the **alias**.
+
+    Re-pointing the alias moves its evidence with it, in one `UPDATE`, and nothing is deleted.
+    `11.9`'s bridge-merge is the same operation.
     """
     # Arrange
     first = _node("Reciprocal Rank Fusion", source="doc-a")
@@ -703,7 +711,9 @@ async def test_the_pass_runs_under_repair_as_well_as_full(
 
 
 async def test_the_schema_carries_its_own_version(store: GraphStore) -> None:
-    """`S5`, per surface: a persisted schema carries a version in the stored bytes, because at
+    """`S5`, per surface: a persisted schema carries a version in the stored bytes.
+
+    `S5`, per surface: a persisted schema carries a version in the stored bytes, because at
     the read site the pack that wrote it may not be the one installed.
     """
     # Assert
@@ -745,7 +755,9 @@ async def test_a_schema_version_this_pack_does_not_know_is_refused(store: GraphS
 
 
 async def test_deleting_a_source_reports_what_it_removed_by_kind(store: GraphStore) -> None:
-    """`11.3`'s own line: a store that reaped forty of its own rows never answers with
+    """`11.3`'s own line: a store that reaped rows never answers with `node_count=0` alone.
+
+    `11.3`'s own line: a store that reaped forty of its own rows never answers with
     `node_count=0` as its whole account.
 
     Every non-graph half of this landed at `9.3` — `Removed.removed`, the fan-out carrying it,
@@ -898,9 +910,11 @@ def _verdict(answer: str, *, reason: str = "the stub said so") -> str:
 
 
 def _model_ctx(llm: object) -> Context:
-    """The `Context` `weft reconcile --mode full` carries — `_ctx()` above plus the one service
-    the expensive pass reaches for. `weft_cli.commands._register_model_services` is what puts it
-    there in a real run, and only when the mode is `full`.
+    """The `Context` `weft reconcile --mode full` carries.
+
+    `_ctx()` above plus the one service the expensive pass reaches for.
+    `weft_cli.commands._register_model_services` is what puts it there in a real run, and only when
+    the mode is `full`.
     """
     services = ServiceRegistry()
     services.add(LLM, llm)
@@ -919,7 +933,9 @@ async def _banded_pair(store: GraphStore) -> None:
 async def test_a_pair_in_the_band_reaches_no_model_under_repair(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """`repair` is the mode the automatic post-index pass runs in, unasked, after every
+    """`repair` makes no model call, because it runs unasked after every `weft index`.
+
+    `repair` is the mode the automatic post-index pass runs in, unasked, after every
     `weft index`. A model call there would be spend nobody consented to — G3's
     installed-and-ambient threat wearing the shape of a convergence pass.
     """
@@ -937,7 +953,9 @@ async def test_a_pair_in_the_band_reaches_no_model_under_repair(
 
 
 async def test_full_states_its_model_calls_before_it_spends_any(store: GraphStore) -> None:
-    """`docs/03-cli.md`: *"full states its cost before it spends it."* The number has to come
+    """`docs/03-cli.md`: `full` states its cost before it spends it.
+
+    `docs/03-cli.md`: *"full states its cost before it spends it."* The number has to come
     from the same query `reconcile` then runs, or the stated cost and the spent cost are two
     facts that can disagree — which is why the second assertion counts the calls the estimate
     itself made.
@@ -958,7 +976,9 @@ async def test_full_states_its_model_calls_before_it_spends_any(store: GraphStor
 async def test_repair_estimates_no_model_calls_however_much_is_in_the_band(
     store: GraphStore,
 ) -> None:
-    """`ReconcileEstimate`'s own docstring: *"`repair` never backfills, so its own honest
+    """`repair` never backfills, so its own honest `model_calls` is always `0`.
+
+    `ReconcileEstimate`'s own docstring: *"`repair` never backfills, so its own honest
     `model_calls` is always `0`."* Asserted with a full band, so a `model_calls` computed
     without reading the mode fails here rather than passing on an empty corpus.
     """
@@ -975,7 +995,9 @@ async def test_repair_estimates_no_model_calls_however_much_is_in_the_band(
 async def test_a_model_saying_yes_merges_the_two_and_moves_their_evidence(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """The headline property, and the reason `11.8` put the join on the alias: a bridge-merge is
+    """The headline property: a bridge-merge is one `UPDATE` of `kg_aliases.entity_id`.
+
+    The headline property, and the reason `11.8` put the join on the alias: a bridge-merge is
     one `UPDATE` of `kg_aliases.entity_id`, so both surface forms, both their nodes and every
     edge written against either endpoint arrive under the winner without anything being deleted.
     *The evidence for the judgement survives the judgement* is that sentence read as an
@@ -1010,8 +1032,10 @@ async def test_a_model_saying_yes_merges_the_two_and_moves_their_evidence(
 
 
 async def test_a_model_saying_no_leaves_two_entities(store: GraphStore, walk: GraphWalk) -> None:
-    """The refusal path, and the one that costs most if it is wrong: a merge cannot be undone by
-    a later pass, because the losing entity's id is gone from every row that pointed at it.
+    """The refusal path, and the one that costs most if it is wrong.
+
+    A merge cannot be undone by a later pass, because the losing entity's id is gone from every row
+    that pointed at it.
     """
     # Arrange
     await _banded_pair(store)
@@ -1050,7 +1074,9 @@ async def test_a_model_that_is_unsure_abstains_and_the_pass_says_so(
 async def test_a_pair_below_the_floor_is_never_put_to_a_model(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """The floor is what keeps `model_calls` proportional to genuine ambiguity rather than to
+    """The floor keeps `model_calls` proportional to genuine ambiguity.
+
+    The floor is what keeps `model_calls` proportional to genuine ambiguity rather than to
     the square of the corpus. Orthogonal vectors and no shared trigram put this pair at `0.0`.
     """
     # Arrange
@@ -1070,7 +1096,9 @@ async def test_a_pair_below_the_floor_is_never_put_to_a_model(
 async def test_the_winner_of_a_bridge_merge_is_the_smaller_name(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """`11.8`'s rule, extended to the merge a model licenses: the canonical name is a function of
+    """`11.8`'s rule, extended: the canonical name is a function of the **set**.
+
+    `11.8`'s rule, extended to the merge a model licenses: the canonical name is a function of
     the **set**, not of arrival order. Written in the order that would give the wrong answer to a
     pass that kept whichever entity it read first.
     """
@@ -1089,10 +1117,11 @@ async def test_the_winner_of_a_bridge_merge_is_the_smaller_name(
 async def test_a_second_full_pass_asks_nothing_and_changes_nothing(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """Idempotence against the database with a model in the loop — the property that makes
-    `weft reconcile --mode full` safe to run twice. Once the pair is one entity it leaves the
-    band by construction, because the band only ever holds pairs whose aliases currently point
-    at *different* entities, so the second pass spends nothing.
+    """Idempotence against the database with a model in the loop.
+
+    The property that makes `weft reconcile --mode full` safe to run twice. Once the pair is one
+    entity it leaves the band by construction, because the band only ever holds pairs whose aliases
+    currently point at *different* entities, so the second pass spends nothing.
     """
     # Arrange
     await _banded_pair(store)
@@ -1114,8 +1143,9 @@ async def test_a_second_full_pass_asks_nothing_and_changes_nothing(
 async def test_a_full_pass_with_nothing_in_the_band_needs_no_model_at_all(
     store: GraphStore,
 ) -> None:
-    """A `full` run on a project that never configured a provider must converge, not fail: the
-    service is reached only where a pair actually has to be judged. `_ctx()` here is the bare
+    """A `full` run on a project that never configured a provider must converge, not fail.
+
+    The service is reached only where a pair actually has to be judged. `_ctx()` here is the bare
     context every test above this section uses — no `LLM` registered — so a `ctx.require(LLM)`
     hoisted to the top of the pass raises `UnresolvedServiceError` and fails this test.
     """

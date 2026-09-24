@@ -161,7 +161,9 @@ async def test_an_embedding_of_the_wrong_width_is_refused_naming_both(
 async def legacy_collection(
     request: pytest.FixtureRequest, store: QdrantStore
 ) -> AsyncIterator[tuple[str, QdrantSettings]]:
-    """A collection missing one of the two named vectors this store writes, the way `v2.4.0` left
+    """A collection missing one of the two named vectors this store writes.
+
+    A collection missing one of the two named vectors this store writes, the way `v2.4.0` left
     one before the lexical vector existed — skipped with `store` when Qdrant is absent. Yields
     the missing vector's name and settings pointing at that collection.
     """
@@ -323,7 +325,9 @@ async def test_driving_the_store_through_the_registration_seam_makes_no_blocking
 
 
 async def test_the_store_advertises_text_search_at_all(store: QdrantStore) -> None:
-    """**The headline, and it is one `isinstance`.** Capability is derived, never declared: a
+    """The headline, and it is one `isinstance`.
+
+    **The headline, and it is one `isinstance`.** Capability is derived, never declared: a
     retriever asking for a text channel gets this store or is refused by name, and until this task
     every such refusal named Qdrant.
     """
@@ -334,8 +338,9 @@ async def test_the_store_advertises_text_search_at_all(store: QdrantStore) -> No
 async def test_search_text_ranks_by_lexical_match_with_higher_meaning_better(
     store: QdrantStore,
 ) -> None:
-    """`Scored.score` means the same thing in both stores or it means nothing — the conformance
-    kit compares two backends' rankings.
+    """`Scored.score` means the same thing in both stores or it means nothing.
+
+    The conformance kit compares two backends' rankings.
     """
     # Arrange
     await store.add(
@@ -360,7 +365,7 @@ async def test_search_text_ranks_by_lexical_match_with_higher_meaning_better(
 async def test_qdrant_weighs_a_rare_term_above_one_every_document_carries(
     store: QdrantStore,
 ) -> None:
-    """**The same assertion `pgvector`'s BM25 arm carries, against the other backend.**
+    """**The same assertion `pgvector`'s BM25 arm carries, against the other backend**.
 
     It is the one that says *BM25* rather than *some lexical ranking*: the weight of a term has to
     depend on how many documents hold it. Here that comes from Qdrant's `modifier: idf` applied to
@@ -386,7 +391,9 @@ async def test_qdrant_weighs_a_rare_term_above_one_every_document_carries(
 
 
 async def test_search_text_narrows_by_a_filter_the_server_evaluates(store: QdrantStore) -> None:
-    """The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
+    """The review's own words: tenant filters are applied server-side, not afterwards.
+
+    The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
     afterwards."* The stronger match is the excluded one, so a post-filter and a server-side
     filter give different answers here.
     """
@@ -426,7 +433,9 @@ async def test_nothing_matching_is_an_empty_ranking_rather_than_a_failure(
 
 
 async def test_the_analyzer_keeps_a_polish_word_whole(store: QdrantStore) -> None:
-    """**The corpus this project is built against is bilingual, and this is where an ASCII-only
+    """The corpus is bilingual, and an ASCII-only analyzer would fail on it silently.
+
+    **The corpus this project is built against is bilingual, and this is where an ASCII-only
     analyzer would fail silently.** `09` §4's V1 body is not English; `pgvector`'s text arm uses
     Postgres's `simple` configuration precisely because it folds case and splits on word boundaries
     and stems nothing, which is the one behaviour that is equally honest in both languages. A
@@ -447,7 +456,7 @@ async def test_the_analyzer_keeps_a_polish_word_whole(store: QdrantStore) -> Non
 async def test_the_average_document_length_is_a_disclosed_approximation_that_reaches_the_score(
     store: QdrantStore,
 ) -> None:
-    """**The equivalence trap, named so it is not rediscovered.**
+    """**The equivalence trap, named so it is not rediscovered**.
 
     Qdrant's own BM25 defaults `avg_doc_len` to **256**, and that is an *encoding* parameter — not
     the mean length of anybody's corpus. Collection IDF updates as documents arrive; document-side
@@ -492,8 +501,9 @@ async def test_the_average_document_length_is_a_disclosed_approximation_that_rea
 
 
 async def test_the_store_says_what_its_text_score_means(store: QdrantStore) -> None:
-    """Task `21.1`'s rule reaching the second backend: a number is shown only with its meaning,
-    and the meaning comes from whatever produced it.
+    """Task `21.1`'s rule reaching the second backend.
+
+    A number is shown only with its meaning, and the meaning comes from whatever produced it.
     """
     # Assert
     assert "bm25" in store.text_score_semantics.lower()

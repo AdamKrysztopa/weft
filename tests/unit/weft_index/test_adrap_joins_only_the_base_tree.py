@@ -103,7 +103,9 @@ def _value_at(node: Node, path: FieldPath) -> object:
 
 
 class _RecordingStore:
-    """A `NodeStore` + `MetadataFilter` + `NodeSupersedable` holding nodes in a dict, with
+    """A `NodeStore` + `MetadataFilter` + `NodeSupersedable` holding nodes in a dict.
+
+    A `NodeStore` + `MetadataFilter` + `NodeSupersedable` holding nodes in a dict, with
     `supersede` implemented write-new-then-delete-old, as the contract orders it.
     """
 

@@ -100,7 +100,9 @@ def test_renaming_the_pipeline_does_not_change_the_identity() -> None:
 
 
 def test_the_identity_is_a_short_stable_string() -> None:
-    """It is persisted in a `SourceRecord` column and printed to an operator, so it is neither a
+    """The pipeline identity is a digest a caller can persist and print.
+
+    It is persisted in a `SourceRecord` column and printed to an operator, so it is neither a
     Python object nor a paragraph. Asserted as the facts a caller depends on rather than as a
     length — a digest's width is a choice, its shape is not.
     """
@@ -136,7 +138,9 @@ def test_a_pipeline_with_no_stages_still_has_an_identity() -> None:
 
 @pytest.mark.parametrize("field", ["contract", "contract_version", "distribution"])
 def test_a_stages_contract_facts_are_part_of_the_identity(field: str) -> None:
-    """A plugin answering a different contract, or a contract at a different version, is a
+    """A different contract, or a contract at a different version, is a different pipeline.
+
+    A plugin answering a different contract, or a contract at a different version, is a
     different pipeline even where the plugin name is unchanged — G9's whole point about a
     published version meaning something.
     """
@@ -153,7 +157,9 @@ def test_a_stages_contract_facts_are_part_of_the_identity(field: str) -> None:
 
 @pytest.mark.parametrize("later", ["1.1.0", "1.0.1", "1.9.3"])
 def test_a_contract_minor_or_patch_does_not_move_the_identity(later: str) -> None:
-    """A minor is additive under G9 and cannot change what an existing plugin does, so it says
+    """A contract's minor version says nothing about how a corpus was built.
+
+    A minor is additive under G9 and cannot change what an existing plugin does, so it says
     nothing about how a corpus was built. Hashing it re-parsed every corpus on every store-contract
     bump — found running a 2.8.0-written store under 2.9.0 (ledger `34.2`).
     """

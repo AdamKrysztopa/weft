@@ -66,7 +66,9 @@ def test_mmr_selects_before_expansion_so_the_widened_list_is_bounded(tmp_path: P
     "name", ["adjacent-chunks-then-generate", "context-construction-then-generate"]
 )
 def test_the_generator_reads_every_passage_packing_kept(tmp_path: Path, name: str) -> None:
-    """`32.10`'s first run: `cited-answer` reads at most `max_passages` (8) from the front of
+    """`32.10`'s first run: `method: reverse` put the eight worst passages in front of the answer.
+
+    `32.10`'s first run: `cited-answer` reads at most `max_passages` (8) from the front of
     what `repack` hands it, and `method: reverse` puts the best passage last — so the widened
     24 were cut to the eight worst, and both arms scored far below the baseline for it.
     """

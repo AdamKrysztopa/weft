@@ -52,7 +52,9 @@ def _schema(*rules: tuple[str, str, str], name: str = "papers") -> GraphSchema:
 
 
 def test_the_vocabularies_are_derived_from_the_rules_never_listed_beside_them() -> None:
-    """Two lists and a set of rules that can disagree is exactly the drift this project opens by
+    """A schema's types are derived from its rules rather than listed beside them.
+
+    Two lists and a set of rules that can disagree is exactly the drift this project opens by
     refusing. Asserted as a derivation so a schema cannot name a type no rule uses, or use one it
     forgot to name.
     """
@@ -74,7 +76,9 @@ def test_a_triple_the_schema_states_is_admitted() -> None:
 
 
 def test_an_arrangement_the_schema_does_not_state_is_refused() -> None:
-    """**The case flat vocabularies cannot see, and the reason the shape is a rule.**
+    """The case flat vocabularies cannot see, and the reason the shape is a rule.
+
+    **The case flat vocabularies cannot see, and the reason the shape is a rule.**
     `method wrote person` uses only approved words — an entity type the operator listed, a
     predicate they listed — and says something impossible. A schema that admitted it would be
     catching typos and calling it structure.
@@ -87,8 +91,9 @@ def test_an_arrangement_the_schema_does_not_state_is_refused() -> None:
 
 
 def test_a_type_no_rule_names_is_refused() -> None:
-    """The case flat vocabularies *do* catch, kept because it is the common one: a model
-    inventing `organisation` where the operator approved `person` and `method`.
+    """The case flat vocabularies *do* catch, kept because it is the common one.
+
+    A model inventing `organisation` where the operator approved `person` and `method`.
     """
     # Arrange
     schema = _schema(("person", "wrote", "method"))
@@ -98,7 +103,9 @@ def test_a_type_no_rule_names_is_refused() -> None:
 
 
 def test_matching_is_case_and_space_insensitive() -> None:
-    """A model writes `Person` where the schema says `person`, and the corpus is no different for
+    """Capitalisation does not make a fact off-schema.
+
+    A model writes `Person` where the schema says `person`, and the corpus is no different for
     it. Refusing on capitalisation would make `off_schema_dropped` a count of formatting rather
     than of structure, which is the number nobody could act on.
     """
@@ -110,7 +117,9 @@ def test_matching_is_case_and_space_insensitive() -> None:
 
 
 def test_a_schema_carries_its_version_in_its_own_fields() -> None:
-    """`S5`, at its most literal: this model is written to a file in somebody's repository and
+    """`S5`, at its most literal: this model is written to a file in somebody's repository.
+
+    `S5`, at its most literal: this model is written to a file in somebody's repository and
     read back by whatever `weft-rag` is installed then. A `ClassVar` would be read off the
     importing module and could never disagree with it — `Filter.version`'s recorded mistake.
     """
@@ -123,7 +132,9 @@ def test_a_schema_carries_its_version_in_its_own_fields() -> None:
 
 
 def test_a_schema_with_no_rules_is_refused_at_construction() -> None:
-    """An empty schema admits nothing, so activating one would drop every fact in the corpus and
+    """An empty schema admits nothing, so it is refused where it is written.
+
+    An empty schema admits nothing, so activating one would drop every fact in the corpus and
     report it as a schema working. Refused where it is written, naming the field.
     """
     # Act / Assert
@@ -147,7 +158,9 @@ def test_a_schema_file_from_the_future_is_refused_rather_than_read() -> None:
 
 
 def test_the_identity_is_a_function_of_the_rules_not_of_their_order() -> None:
-    """The identity is what `activate` writes into the corpus and what every fact carries, so it
+    """The identity answers *is this the same schema*, whatever order the rules are in.
+
+    The identity is what `activate` writes into the corpus and what every fact carries, so it
     has to answer *is this the same schema* — and a curated file's rules are a set an operator
     reorders while editing. Two files stating the same rules in different orders are one schema;
     a file that gained a rule is not.
@@ -165,7 +178,9 @@ def test_the_identity_is_a_function_of_the_rules_not_of_their_order() -> None:
 
 
 def test_the_identity_changes_when_the_name_does() -> None:
-    """`weft graph show` prints which schemas a corpus holds, and two schemas an operator gave
+    """Two schemas an operator named differently are two schemas, whatever the rules say.
+
+    `weft graph show` prints which schemas a corpus holds, and two schemas an operator gave
     different names are two schemas to them whatever the rules say. The name is theirs; the
     identity must not quietly merge them.
     """
@@ -197,7 +212,9 @@ def test_a_proposal_is_the_shape_the_corpus_actually_produced() -> None:
 
 
 def test_a_proposal_can_drop_a_long_tail_and_the_control_disagrees() -> None:
-    """Requirement 6, and `L9.58`: the threshold is an operator's number and has to be shown to
+    """Requirement 6 and `L9.58`: the threshold is an operator's number and changes something.
+
+    Requirement 6, and `L9.58`: the threshold is an operator's number and has to be shown to
     change something. A corpus of any size produces a tail of triples seen once, and a proposal
     that listed all of them would be a transcript rather than a schema.
     """
@@ -213,7 +230,9 @@ def test_a_proposal_can_drop_a_long_tail_and_the_control_disagrees() -> None:
 
 
 def test_a_proposal_from_a_corpus_that_produced_nothing_is_refused() -> None:
-    """There is nothing to propose from an empty graph, and printing an empty schema would
+    """There is nothing to propose from an empty graph.
+
+    There is nothing to propose from an empty graph, and printing an empty schema would
     invite an operator to activate one that admits nothing. Refused, saying what to run first.
     """
     # Act / Assert
@@ -222,7 +241,9 @@ def test_a_proposal_from_a_corpus_that_produced_nothing_is_refused() -> None:
 
 
 def test_a_threshold_that_hid_everything_says_so_rather_than_blaming_the_corpus() -> None:
-    """**Found by running the binary.** A two-document corpus indexed through `index-with-facts`
+    """Found by running the binary.
+
+    **Found by running the binary.** A two-document corpus indexed through `index-with-facts`
     produced eleven distinct arrangements, every one of them seen once, and `propose` at its
     default `min_count=2` refused with *"index a corpus … and run this again"* — telling an
     operator to do the thing they had just done.

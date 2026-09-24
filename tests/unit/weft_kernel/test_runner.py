@@ -771,8 +771,9 @@ class _NaiveSplitter:
 
 
 class _NaiveSplitterNoFilter:
-    """`_NaiveSplitter`'s identical splitting logic, with no `applies_to` declared at all —
-    the default this task pins down: it "applies to everything, silently".
+    """`_NaiveSplitter`'s identical splitting logic, with no `applies_to` declared at all.
+
+    The default this task pins down: it "applies to everything, silently".
     """
 
     lifetime = runner.Lifetime.RUN
@@ -791,7 +792,9 @@ class _NaiveSplitterNoFilter:
 
 
 class _CapturesWhatItReceives:
-    """An identity stage that records the payload it was handed, so a test downstream of
+    """An identity stage that records the payload it was handed.
+
+    An identity stage that records the payload it was handed, so a test downstream of
     the stage under test can inspect the recombined batch — `Runner.run` itself returns
     only counts, never a batch's payload.
     """
@@ -811,7 +814,9 @@ class _CapturesWhatItReceives:
 def _capture_factory(
     captured: list[Sequence[Node]],
 ) -> Callable[[object], _CapturesWhatItReceives]:
-    """A typed factory binding `captured` ahead of the `config` argument `Runner.resolve`
+    """A typed factory binding `captured` ahead of the `config` argument.
+
+    A typed factory binding `captured` ahead of the `config` argument `Runner.resolve`
     calls every factory with — `functools.partial` cannot do this directly, since
     `_CapturesWhatItReceives.__init__` has no `config` parameter for it to also carry.
     """
@@ -936,7 +941,9 @@ async def test_run_preserves_order_across_two_separated_non_matching_runs() -> N
 
 
 class _UppercaseChecksApplicability:
-    """`_Uppercase`'s identical transform, but with `applies_to` declared over a fact that
+    """`_Uppercase` with `applies_to` over a fact, run on a payload whose elements are not nodes.
+
+    `_Uppercase`'s identical transform, but with `applies_to` declared over a fact that
     has nothing to do with `list[str]` — a repair test: before it, `_is_routable` checked
     only that the payload was *some* `Sequence`, so a stage declaring `applies_to` over a
     payload whose elements are not `Node` fell into `_segment_by_applicability` instead of
@@ -1009,7 +1016,9 @@ async def test_run_calls_a_stage_with_applies_to_unfiltered_over_a_non_node_payl
 
 
 class _MarksItWasCalled:
-    """A `_NodeStage`-shaped stage whose only job is to record every payload it is handed,
+    """A `_NodeStage`-shaped stage recording every payload it is handed, including an empty one.
+
+    A `_NodeStage`-shaped stage whose only job is to record every payload it is handed,
     including an empty one — the repair test for `_is_routable` excluding empty batches:
     a non-empty `applies_to` over zero items must let the stage answer for itself, never
     have the runner synthesize a `Produced(value=())` on its behalf without ever calling
@@ -1082,7 +1091,9 @@ def _fact_node(text: str, *, wide_columns: bool) -> Node:
 
 
 class _MarksNodesMatchingBothFacts:
-    """Appends `!` to whatever it is handed — proof that a stage's `applies_to` tuple is
+    """Appends `!` to whatever it is handed, proving `applies_to` is a conjunction.
+
+    Appends `!` to whatever it is handed — proof that a stage's `applies_to` tuple is
     a conjunction, never a disjunction. `docs/02-extension-model.md` §3 →
     *Applicability*: a node "not matching *every* `Applies` in the tuple... starts (or
     extends) a non-matching run instead" — the same reading `requires` already gives its

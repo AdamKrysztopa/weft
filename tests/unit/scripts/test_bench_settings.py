@@ -348,8 +348,9 @@ def test_every_arm_of_a_full_run_reaches_the_record() -> None:
 
 
 def _manifest(tmp_path: Path, *, documents: tuple[str, ...], excluded: tuple[str, ...]) -> Path:
-    """A corpus manifest in the shape `corpus/open-ragbench-pdfs.toml` actually has: the
-    `[[document]]` entries are already the filtered set, and `[[excluded]]` records why the
+    """A corpus manifest in the shape `corpus/open-ragbench-pdfs.toml` actually has.
+
+    The `[[document]]` entries are already the filtered set, and `[[excluded]]` records why the
     missing ones are missing.
     """
     lines = ['query = "fixture"', ""]

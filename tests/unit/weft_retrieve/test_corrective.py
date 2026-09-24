@@ -59,8 +59,9 @@ class _FakeRetriever:
 
 
 class _FakeGrader:
-    """A `Reranker`-shaped callable, scripted one `Outcome[Ranking]` per call — a stand-in
-    for `graded-retrieval` that keeps or drops whole hits by content rather than actually
+    """A `Reranker`-shaped callable, scripted one `Outcome[Ranking]` per call.
+
+    A stand-in for `graded-retrieval` that keeps or drops whole hits by content rather than actually
     grading, so this module's own trigger arithmetic is what is under test, not a grader.
     """
 
@@ -227,7 +228,9 @@ def test_the_plugin_refuses_construction_with_no_config_by_name() -> None:
 
 
 async def test_driving_corrective_through_the_seam_produces_candidates() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call.
     """
     origin = _asked()

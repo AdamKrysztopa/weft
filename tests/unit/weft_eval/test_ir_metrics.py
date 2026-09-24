@@ -117,14 +117,17 @@ async def test_ndcg_at_k_with_no_relevant_ids_is_nothing_to_produce() -> None:
 
 
 def _n_retrieved(count: int, *, relevant: str = "doc-0") -> RetrievalSample:
-    """`count` passages, `doc-0` first, and `relevant` as the one relevant id — the existing
-    `_sample` above takes explicit ids, which these `@k` cases do not need.
+    """`count` passages, `doc-0` first, and `relevant` as the one relevant id.
+
+    The existing `_sample` above takes explicit ids, which these `@k` cases do not need.
     """
     return _sample(tuple(f"doc-{index}" for index in range(count)), frozenset({relevant}))
 
 
 async def test_precision_at_k_refuses_when_fewer_than_k_candidates_came_back() -> None:
-    """`12` §3: *"`recall@10` is computed over at most 8 candidates"* — every shipped rung ends
+    """`12` §3: a metric named `@10` reported a number over 8 candidates.
+
+    `12` §3: *"`recall@10` is computed over at most 8 candidates"* — every shipped rung ends
     in `repack: {top_n: 8}` and the named path does not oversample, so a metric named `@10`
     reported a number over 8. V4's clause is that the `k` in a metric's name equals the `k` it
     computed, and this enforces it with a refusal rather than a comment.
@@ -160,7 +163,9 @@ async def test_precision_at_k_scores_when_exactly_k_candidates_came_back() -> No
 
 
 async def test_recall_and_ndcg_refuse_on_the_same_condition() -> None:
-    """All three `TopKConfig` metrics carry a `k` in the name they report, so all three owe the
+    """All three `TopKConfig` metrics carry a `k` in their name, so all three owe the refusal.
+
+    All three `TopKConfig` metrics carry a `k` in the name they report, so all three owe the
     same refusal — one of them keeping the old behaviour would be the inconsistency a reader
     could not see.
     """
@@ -171,7 +176,9 @@ async def test_recall_and_ndcg_refuse_on_the_same_condition() -> None:
 
 
 async def test_mrr_at_k_is_one_over_the_rank_of_the_first_relevant_result() -> None:
-    """Task 16.7's third defect: `mrr@k` existed only in the repo-level `eval/metrics.py`, which
+    """Task 16.7's third defect: `mrr@k` existed only in the repo-level `eval/metrics.py`.
+
+    Task 16.7's third defect: `mrr@k` existed only in the repo-level `eval/metrics.py`, which
     the baseline runner used and no shipped pipeline could reach. A registered metric is what
     makes it available to `weft eval run`.
     """
@@ -189,7 +196,9 @@ async def test_mrr_at_k_is_one_over_the_rank_of_the_first_relevant_result() -> N
 
 
 async def test_mrr_at_k_is_zero_when_nothing_relevant_came_back_within_k() -> None:
-    """A zero here is a measurement — nothing relevant was retrieved — not a failure, and the
+    """A zero here is a measurement, not a failure.
+
+    A zero here is a measurement — nothing relevant was retrieved — not a failure, and the
     two are kept apart the way `weft_eval.baseline.reciprocal_rank_at_k`'s own docstring already
     states for the identical arithmetic.
     """

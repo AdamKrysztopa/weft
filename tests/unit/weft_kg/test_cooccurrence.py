@@ -167,7 +167,9 @@ async def test_a_repeated_name_is_counted_rather_than_repeated() -> None:
 
 
 async def test_the_run_length_is_a_configuration_field() -> None:
-    """Requirement 6: shipped technique is parameterisable, and this is the one number the
+    """Requirement 6: the maximum name length is the one number the heuristic turns on.
+
+    Requirement 6: shipped technique is parameterisable, and this is the one number the
     heuristic actually turns on. At `max_name_words=1` a multi-word name becomes its parts.
     """
     # Act
@@ -182,7 +184,9 @@ async def test_the_run_length_is_a_configuration_field() -> None:
 
 
 async def test_the_minimum_mention_count_drops_a_name_below_it() -> None:
-    """The other knob: a corpus of prose throws off single capitalised words constantly, and an
+    """An operator who wants only repeated names says so rather than editing a stopword list.
+
+    The other knob: a corpus of prose throws off single capitalised words constantly, and an
     operator who wants only repeated names says so rather than editing a stopword list.
     """
     # Act
@@ -197,7 +201,9 @@ async def test_the_minimum_mention_count_drops_a_name_below_it() -> None:
 
 
 async def test_the_ext_model_declares_the_namespace_and_schema_version() -> None:
-    """`02` §1: a pack's ext data is namespaced by the pack, and carries its own schema version —
+    """`02` §1: a pack's ext data is namespaced by the pack and carries its own schema version.
+
+    `02` §1: a pack's ext data is namespaced by the pack, and carries its own schema version —
     G9's second axis, a fact about a schema in somebody's database rather than about a contract.
     """
     # Assert
@@ -220,7 +226,9 @@ async def test_the_ext_model_carries_no_field_named_technique() -> None:
 
 @pytest.mark.parametrize("bad", [0, -1])
 async def test_a_run_length_below_one_is_refused(bad: int) -> None:
-    """A loud refusal, not a silent clamp: `max_name_words=0` can only mean a mistake, and a
+    """A loud refusal, not a silent clamp: `max_name_words=0` can only mean a mistake.
+
+    A loud refusal, not a silent clamp: `max_name_words=0` can only mean a mistake, and a
     stage that quietly repaired it would produce an empty graph an operator would have to
     diagnose from the absence of results.
     """

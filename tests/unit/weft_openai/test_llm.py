@@ -126,10 +126,11 @@ class _Chunk:
 async def _chunks(
     pieces: Sequence[str | None], *, mid_stream_error: Exception | None = None
 ) -> AsyncIterator[_Chunk]:
-    """`pieces`, then `mid_stream_error` if one was given — a connection that answered, then
-    dropped, rather than one that never opened. `create()` raising is `error` below; this is
-    the other place a vendor exception can originate, reached only from inside the `async for`
-    a caller drives, which is the shape the mid-stream repair test needs.
+    """`pieces`, then `mid_stream_error` if one was given.
+
+    A connection that answered, then dropped, rather than one that never opened. `create()` raising
+    is `error` below; this is the other place a vendor exception can originate, reached only from
+    inside the `async for` a caller drives, which is the shape the mid-stream repair test needs.
     """
     for piece in pieces:
         yield _Chunk(choices=[_ChunkChoice(delta=_ChunkDelta(content=piece))])
@@ -250,7 +251,9 @@ async def test_stream_yields_the_same_reply_in_pieces() -> None:
 
 
 async def test_stream_maps_a_vendor_error_raised_mid_iteration_not_only_from_create() -> None:
-    """Repair for a reviewer finding against task 2.30: `create(..., stream=True)` succeeding
+    """Repair for a reviewer finding against task 2.30: a stream can fail after it opened.
+
+    Repair for a reviewer finding against task 2.30: `create(..., stream=True)` succeeding
     says nothing about the connection that stays open while it drains. The stub yields two
     real pieces before the connection drops — proving the exception was reached from inside
     the `async for`, the one place `map_openai_error` previously did not stand guard, rather
@@ -289,7 +292,9 @@ async def test_complete_without_a_credential_names_the_configuration_line_that_s
 
 
 async def test_a_configured_temperature_and_max_tokens_reach_the_underlying_api_call() -> None:
-    """Repair for a reviewer finding against task 2.30: `config` used to be discarded
+    """Repair for a reviewer finding against task 2.30: `config` used to be discarded.
+
+    Repair for a reviewer finding against task 2.30: `config` used to be discarded
     (`del config`) unconditionally. Two of the three knobs, one call, is enough to prove the
     plumbing — every knob shares the same `_generation_kwargs` code path.
     """
@@ -309,7 +314,9 @@ async def test_a_configured_temperature_and_max_tokens_reach_the_underlying_api_
 
 
 async def test_an_unconfigured_provider_omits_every_generation_knob_from_the_request() -> None:
-    """The edge case: unset must reach the vendor call as *omitted*, never as a literal
+    """The edge case: unset must reach the vendor call as *omitted*, never as `None`.
+
+    The edge case: unset must reach the vendor call as *omitted*, never as a literal
     `None` — an explicit `null` and "the API's own default" are not the same request.
     """
     # Arrange
@@ -327,7 +334,9 @@ async def test_an_unconfigured_provider_omits_every_generation_knob_from_the_req
 
 
 def test_a_configured_temperature_outside_the_apis_own_range_is_refused_at_construction() -> None:
-    """The error case: `OpenAILLMConfig` validates rather than forwarding a value the vendor
+    """The error case: `OpenAILLMConfig` validates rather than forwarding a bad value.
+
+    The error case: `OpenAILLMConfig` validates rather than forwarding a value the vendor
     would refuse itself, three requests later.
     """
     # Act / Assert
@@ -336,7 +345,9 @@ def test_a_configured_temperature_outside_the_apis_own_range_is_refused_at_const
 
 
 async def _drive_as_the_contract_type(provider: LLMProvider) -> list[str]:
-    """`provider.stream(...)` under `async for`, with `provider` typed exactly as
+    """`provider.stream(...)` under `async for`, typed as the `LLMProvider` contract declares it.
+
+    `provider.stream(...)` under `async for`, with `provider` typed exactly as
     `weft_llm.contract.LLMProvider` declares it — never as the concrete class. This is what
     makes the test below a check of the *contract's* calling convention rather than of
     whichever concrete `.stream()` pyright happens to see through the variable.
@@ -345,16 +356,16 @@ async def _drive_as_the_contract_type(provider: LLMProvider) -> list[str]:
 
 
 async def test_a_provider_typed_as_the_llmprovider_contract_can_stream_with_no_await() -> None:
-    """Repair for a reviewer finding against task 2.30's contract, not this pack: an `async
-    def` Protocol stub with an `Ellipsis` body types `.stream(...)` as a coroutine, not an
-    async generator, so a value typed `LLMProvider` could not be driven with a bare
-    `async for` — it would need an `await` first, which `OpenAILLMProvider` (a real async
-    generator) does not want and does not need. `cast` stands in only for the unrelated gap
-    every Weft contract shares — none of their `version: ClassVar[str]` is ever declared on a
-    concrete plugin, so pyright refuses the assignment on that ground alone, in every pack,
-    not on the ground this test exists to check; `tests/unit/weft_llm/test_scripted.py`
-    carries the same check for `ScriptedProvider`, since the defect under test was in the
-    shared Protocol, not in either plugin.
+    """Repair for a reviewer finding against task 2.30's contract, not this pack.
+
+    An `async def` Protocol stub with an `Ellipsis` body types `.stream(...)` as a coroutine, not an
+    async generator, so a value typed `LLMProvider` could not be driven with a bare `async for` — it
+    would need an `await` first, which `OpenAILLMProvider` (a real async generator) does not want
+    and does not need. `cast` stands in only for the unrelated gap every Weft contract shares — none
+    of their `version: ClassVar[str]` is ever declared on a concrete plugin, so pyright refuses the
+    assignment on that ground alone, in every pack, not on the ground this test exists to check;
+    `tests/unit/weft_llm/test_scripted.py` carries the same check for `ScriptedProvider`, since the
+    defect under test was in the shared Protocol, not in either plugin.
     """
     # Arrange
     client = _Client(chat=_Chat(completions=_Completions(reply="one two")))
@@ -380,8 +391,9 @@ async def test_aclose_closes_the_client_it_was_given() -> None:
 
 
 async def test_driving_the_provider_through_the_registration_seam_makes_no_blocking_call() -> None:
-    """Fitness function 7(b) against the one path every registered plugin is called through —
-    the group note against every task from 2.6 forward, applied to this pack's second plugin.
+    """Fitness function 7(b) against the one path every registered plugin is called through.
+
+    The group note against every task from 2.6 forward, applied to this pack's second plugin.
 
     An injected `client` is what every other test in this file uses, deliberately, to avoid a
     network call — but `_connected()` returns on its very first line when `self._client is not

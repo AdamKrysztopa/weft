@@ -87,7 +87,9 @@ def test_an_openai_compatible_account_never_counts(tmp_path: Path, compatible_bl
 
 
 async def test_counting_runs_off_the_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`32.10`'s paid run: `tiktoken` reads (and on first use downloads) its encoding file, and
+    """`32.10`'s paid run: `tiktoken` reading its encoding file tripped the blocking-call guard.
+
+    `32.10`'s paid run: `tiktoken` reads (and on first use downloads) its encoding file, and
     the seam's blocking-call guard stopped `repack` for `open()` on the event loop thread — no
     unit test could see it, because none ran under the guard.
     """

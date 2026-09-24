@@ -145,7 +145,9 @@ def test_the_word_cap_is_a_parameter_and_the_control_disagrees() -> None:
 
 @pytest.mark.parametrize("bad", [0, -1])
 def test_a_word_cap_below_one_is_refused(bad: int) -> None:
-    """A loud refusal, not a silent clamp: `max_words=0` drops every entity there is, and an
+    """A loud refusal, not a silent clamp: `max_words=0` drops every entity.
+
+    A loud refusal, not a silent clamp: `max_words=0` drops every entity there is, and an
     operator would have to diagnose that from an empty graph rather than from a message.
     """
     # Act / Assert

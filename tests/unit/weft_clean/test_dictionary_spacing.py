@@ -69,9 +69,10 @@ class _CapturesNodes:
 
 
 def _capture_factory(captured: list[Sequence[Node]]) -> Callable[[object], _CapturesNodes]:
-    """Binds `captured` ahead of the `config` argument `Runner.resolve` calls every factory
-    with — `functools.partial`, the one shape `weft_kernel.registry.unwrap_factory` also
-    knows how to see `destroys` through, unlike an ordinary closure.
+    """Binds `captured` ahead of the `config` argument `Runner.resolve` calls every factory with.
+
+    `functools.partial`, the one shape `weft_kernel.registry.unwrap_factory` also knows how to see
+    `destroys` through, unlike an ordinary closure.
     """
     return functools.partial(_CapturesNodes, captured)
 

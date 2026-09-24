@@ -1,4 +1,6 @@
-"""A target keeps the embedding identity of its first write, and a query that embeds any other
+"""A target keeps the embedding identity of its first write, ledger task **34.4**.
+
+A target keeps the embedding identity of its first write, and a query that embeds any other
 way is refused before a vector is compared — ledger task **34.4**.
 
 `target` names the target a handle was bound to, or `None` for an unbound handle, which serves the

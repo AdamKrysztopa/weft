@@ -64,8 +64,9 @@ from weft_store.contract import NodeStore, Scored, SourceRecord
 
 
 class _StubLLM:
-    """An `LLM` answering from a script, one reply per `complete` call — the same shape
-    `test_cited_answer.py`'s and `test_contradiction.py`'s own stubs take.
+    """An `LLM` answering from a script, one reply per `complete` call.
+
+    The same shape `test_cited_answer.py`'s and `test_contradiction.py`'s own stubs take.
     """
 
     def __init__(self, replies: list[str]) -> None:
@@ -87,8 +88,9 @@ class _StubLLM:
 
 
 class _FakeSignal:
-    """A `Sufficiency`, scripted one `Outcome[Assessment]` per call — the same repeat-last
-    shape `test_iterative.py`'s own `_FakeSufficiency` takes.
+    """A `Sufficiency`, scripted one `Outcome[Assessment]` per call.
+
+    The same repeat-last shape `test_iterative.py`'s own `_FakeSufficiency` takes.
     """
 
     def __init__(self, outcomes: list[Outcome[Assessment]]) -> None:
@@ -117,7 +119,9 @@ class _FakeRetriever:
 
 
 class _StubLookup:
-    """A `StageLookup` handing back one prompt, one signal and one retriever, dispatched by
+    """A `StageLookup` handing back one prompt, one signal and one retriever.
+
+    A `StageLookup` handing back one prompt, one signal and one retriever, dispatched by
     the contract asked for — the same dispatch-by-contract shape `test_iterative.py`'s own
     stub takes for `leaf`/`sufficiency`.
     """
@@ -360,7 +364,9 @@ async def test_a_hard_signal_failure_fails_the_whole_generation() -> None:
 
 
 async def test_driving_refine_on_uncertainty_through_the_seam_produces_an_answer() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call.
     """
     # Arrange
@@ -399,7 +405,9 @@ def test_the_config_model_has_defaults_for_every_field() -> None:
 
 
 async def test_a_real_hedge_phrases_signal_triggers_a_redraft_on_a_polish_hedge() -> None:
-    """`signal: hedge-phrases` resolves to `weft_retrieve.sufficiency.HedgePhrases` itself —
+    """`signal: hedge-phrases` resolves to the real `HedgePhrases`, not a fake.
+
+    `signal: hedge-phrases` resolves to `weft_retrieve.sufficiency.HedgePhrases` itself —
     not a fake standing in for it — through the same `StageLookup.build_capability` seam a
     real pipeline document would use. The first draft is written in Polish and hedges
     ("Nie jestem pewien …"); `HedgePhrases`'s own `"pl"` marker table is what recognises

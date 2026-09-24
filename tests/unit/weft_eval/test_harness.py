@@ -99,7 +99,9 @@ async def test_score_retrieval_gate_subset_over_no_samples_reports_failed_not_si
 
 
 async def test_the_subset_returns_one_outcome_per_question_per_metric() -> None:
-    """`aggregate()` folded the per-sample outcomes away and nothing else ever saw them, so a
+    """Per-sample outcomes are carried out of `aggregate()` rather than folded away.
+
+    `aggregate()` folded the per-sample outcomes away and nothing else ever saw them, so a
     paired comparison between two runs needed both runs re-run. They are carried out now.
 
     Keyed by the sample's own `question_key`, never by position inside this function: the
@@ -205,7 +207,9 @@ async def test_every_metric_keys_its_questions_under_the_name_the_aggregate_repo
 
 
 async def test_two_metrics_reporting_one_name_are_refused_rather_than_overwriting() -> None:
-    """`metrics` and `question_scores` are both keyed by `reported_name`, and the loop assigned
+    """A second metric reporting a name the first already reported no longer replaces it.
+
+    `metrics` and `question_scores` are both keyed by `reported_name`, and the loop assigned
     into a dict — so a second metric computing a name the first already reported replaced it,
     silently, taking a whole question set with it since task 16.4.
 

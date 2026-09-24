@@ -1,4 +1,6 @@
-"""Repair **R43.45**: a `SubPlugin` whose `config` names no field of its model is refused, naming
+"""Repair **R43.45**: a `SubPlugin` whose `config` names no field of its model is refused.
+
+Repair **R43.45**: a `SubPlugin` whose `config` names no field of its model is refused, naming
 the fields the model has.
 
 R43.42 published `SubPlugin(config="<field>")`, and the role walk read that field with a bare
@@ -163,8 +165,10 @@ def test_the_fields_named_are_the_declaring_models_own_when_it_is_nested() -> No
 
 
 def test_a_misdeclared_reference_is_refused_even_where_this_document_leaves_it_unset() -> None:
-    """The declaration is the pack's defect whatever a document sets; refusing only when a
-    document happens to set the field would leave the defect to surface on someone else's rung.
+    """The declaration is the pack's defect whatever a document sets.
+
+    Refusing only when a document happens to set the field would leave the defect to surface on
+    someone else's rung.
     """
     # Act
     with pytest.raises(UnknownSubPluginConfigFieldError) as refused:

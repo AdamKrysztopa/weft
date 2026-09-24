@@ -156,7 +156,9 @@ class _RecordingStore:
 
 
 class _StoreThatCannotSupersede:
-    """A `NodeStore` with no `supersede` — the refusal path G15's *Remove* face anticipated:
+    """A `NodeStore` with no `supersede`, for the refusal path G15's *Remove* face anticipated.
+
+    A `NodeStore` with no `supersede` — the refusal path G15's *Remove* face anticipated:
     "`adrap` asks the store it was handed and refuses by name when the answer is no."
     """
 
@@ -435,7 +437,9 @@ def test_the_joiner_satisfies_revisable_and_not_by_declaring_it() -> None:
 
 
 async def test_every_rebuilt_summary_is_stored_with_an_embedding() -> None:
-    """Carried repair **R43.0**, confirmed from the binary before this test was written: after
+    """Carried repair **R43.0**: a summary `adrap` rebuilds is embedded before it is superseded in.
+
+    Carried repair **R43.0**, confirmed from the binary before this test was written: after
     `index-with-adrap` joined a document, both surviving RAPTOR summaries had no vector, so the
     rebuilt tree dropped out of dense retrieval. `raptor` embeds the summaries it writes through
     `ctx.require(Embedder)`; a summary `adrap` rebuilds is embedded the same way before it is

@@ -68,7 +68,9 @@ from weft_kg.contract import (
 
 
 class _Stranger:
-    """A traversal implementation that imports none of the Protocol, the way a third party's
+    """A traversal implementation that imports none of the Protocol, as a third party's would.
+
+    A traversal implementation that imports none of the Protocol, the way a third party's
     would — the shape `weft_example_graph.store` takes for `NodeStore` and the shape fitness
     function 9(c) asks of a stranger.
     """
@@ -101,7 +103,9 @@ class _Stranger:
 
 
 def test_a_class_that_never_imported_the_protocol_satisfies_it() -> None:
-    """Structural satisfaction, which is the whole of what `@runtime_checkable` buys here and
+    """Structural satisfaction, which is the whole of what `@runtime_checkable` buys here.
+
+    Structural satisfaction, which is the whole of what `@runtime_checkable` buys here and
     what fitness function 9(c)'s stranger will be asked.
     """
     # Act / Assert
@@ -134,7 +138,9 @@ def test_a_class_missing_one_member_does_not_satisfy_it() -> None:
 
 
 def test_the_contract_is_not_a_stage_where_an_extractor_is() -> None:
-    """`VectorSearch`'s own rule, applied: traversal is reached through `ctx.require`, never run
+    """Traversal is reached through `ctx.require`, never run as a pipeline rung.
+
+    `VectorSearch`'s own rule, applied: traversal is reached through `ctx.require`, never run
     as a pipeline rung, so the runner must never be able to read `In`/`Out` off it.
 
     **Asked of the MRO, not with `issubclass`, and contrasted against a contract that *is* a
@@ -241,7 +247,9 @@ def test_a_graph_backend_with_no_vectors_is_a_whole_graph_traversal() -> None:
 
 
 def test_the_contract_no_longer_declares_the_member_that_moved() -> None:
-    """`nearest_entities` is gone from the Protocol, and a reader can check that rather than
+    """`nearest_entities` is gone from the Protocol, checked through `__protocol_attrs__`.
+
+    `nearest_entities` is gone from the Protocol, and a reader can check that rather than
     take the docstring's word — `__protocol_attrs__` is what `isinstance` actually consults.
     """
     # Act
@@ -252,7 +260,9 @@ def test_the_contract_no_longer_declares_the_member_that_moved() -> None:
 
 
 def test_the_pack_declares_the_protocol_selectable_without_a_kernel_line() -> None:
-    """Task `9.0`'s form: one `ServiceRole` constant beside the Protocol, its `contract` field a
+    """Task `9.0`'s form: one `ServiceRole` constant beside the Protocol.
+
+    Task `9.0`'s form: one `ServiceRole` constant beside the Protocol, its `contract` field a
     bare `type` the kernel never names — so `[services] graph` selects a traversal implementation
     with nothing added to `weft-kernel`.
     """
@@ -263,7 +273,9 @@ def test_the_pack_declares_the_protocol_selectable_without_a_kernel_line() -> No
 
 
 def test_the_role_is_a_module_constant_and_not_an_attribute_of_the_protocol() -> None:
-    """The reason `9.0` fixed that form: an attribute on the body joins `__protocol_attrs__` and
+    """An attribute on the Protocol body would break `issubclass` for every implementer.
+
+    The reason `9.0` fixed that form: an attribute on the body joins `__protocol_attrs__` and
     breaks `issubclass` for every implementer that does not restate it.
     """
     # Act / Assert
@@ -273,7 +285,9 @@ def test_the_role_is_a_module_constant_and_not_an_attribute_of_the_protocol() ->
 
 
 def test_an_entity_is_frozen_and_refuses_a_blank_name() -> None:
-    """A domain object, so frozen — a merge produces a new entity rather than editing one, which
+    """An entity is a frozen domain object, and its name is the member this contract leads with.
+
+    A domain object, so frozen — a merge produces a new entity rather than editing one, which
     is `S12`'s own reason these are rows and not `Node`s. And a nameless entity is one no question
     can ask for by name, which is the member this contract leads with.
     """
@@ -285,7 +299,9 @@ def test_an_entity_is_frozen_and_refuses_a_blank_name() -> None:
 
 
 async def test_the_four_members_answer_in_batch() -> None:
-    """Batch granularity is the ledger's word and it is the property that keeps a bounded walk
+    """Batch granularity keeps a bounded walk from becoming N round trips.
+
+    Batch granularity is the ledger's word and it is the property that keeps a bounded walk
     from becoming N round trips — `weft_example_graph.store.neighbors_of` takes a single name,
     which is exactly what this contract must not do.
     """

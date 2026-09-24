@@ -1,4 +1,6 @@
-"""Building, promoting or dropping one target never changes a byte another target's `BlobRef`
+"""Building, promoting or dropping one target never changes another target's bytes.
+
+Building, promoting or dropping one target never changes a byte another target's `BlobRef`
 resolves to — ledger task **34.12**, owner decision Q-D as revised 2026-09-22.
 
 `default` keeps today's paths, so a root written before targets existed is read with no operator
@@ -106,7 +108,9 @@ async def test_a_root_written_before_targets_is_read_with_no_layout_change(
 
 
 async def test_a_malformed_target_is_refused_before_anything_is_written(tmp_path: Path) -> None:
-    """A target becomes a directory, so the store re-checks a name it is handed rather than
+    """The store re-checks a target name it is handed rather than trusting its builder.
+
+    A target becomes a directory, so the store re-checks a name it is handed rather than
     trusting that whoever built the `TargetName` validated it.
     """
     # Act / Assert

@@ -38,7 +38,9 @@ class _EchoConfig(BaseModel):
 
 
 class _Echo:
-    """A trivial `Stage[str, str]` — enough to prove `build()` resolves, constructs, and
+    """A trivial `Stage[str, str]`, enough to prove `build()` resolves, constructs and wraps.
+
+    A trivial `Stage[str, str]` — enough to prove `build()` resolves, constructs, and
     wraps, with no dependency on any real query-path contract.
     """
 
@@ -53,7 +55,9 @@ class _Echo:
 
 
 class _Boom:
-    """A `Stage[str, str]` that always raises — proves `build()`'s callable runs through
+    """A `Stage[str, str]` that always raises, proving `build()` runs through the seam.
+
+    A `Stage[str, str]` that always raises — proves `build()`'s callable runs through
     the seam rather than around it: the seam is what turns a bare exception into a
     `WeftError` carrying attribution.
     """
@@ -69,7 +73,9 @@ class _Boom:
 
 
 class _Capability:
-    """A named capability with no `run` at all — `build_capability`'s own subject, the
+    """A named capability with no `run` at all, `build_capability`'s own subject.
+
+    A named capability with no `run` at all — `build_capability`'s own subject, the
     same shape `weft_retrieve.contract.Prompt` takes.
     """
 
@@ -214,7 +220,9 @@ def test_route_catalogue_defaults_cost_to_empty_when_the_pipeline_names_none() -
 
 
 class _SubConfig(BaseModel):
-    """Declared the way every real Weft plugin config is — frozen, `extra="forbid"` — so an
+    """Declared the way every real Weft plugin config is: frozen, `extra="forbid"`.
+
+    Declared the way every real Weft plugin config is — frozen, `extra="forbid"` — so an
     unknown field is rejected here for the same reason it would be in production. A plain
     `BaseModel` silently ignores extras, and a test using one would have proved that
     validation ran without proving it refuses anything.
@@ -270,7 +278,9 @@ async def test_build_validates_a_mapping_into_the_plugins_own_config_model() -> 
 
 
 async def test_build_leaves_an_already_built_config_object_alone() -> None:
-    """The other caller shape, which must keep working: a plugin that has already
+    """The other caller shape, which must keep working: a config handed over already typed.
+
+    The other caller shape, which must keep working: a plugin that has already
     constructed its sibling's config and hands it over typed.
     """
     # Arrange
@@ -304,7 +314,8 @@ async def test_build_refuses_a_mapping_the_config_model_rejects_naming_the_field
 
 
 async def test_build_refuses_a_mapping_for_a_plugin_that_publishes_no_config_model() -> None:
-    """A block with nowhere checked to land must never be silently accepted and dropped —
+    """A block with nowhere checked to land must never be silently accepted and dropped.
+
     `weft_kernel.resolution.StageNotConfigurableError`'s own rule, applied one seam over.
     """
     # Arrange
@@ -321,7 +332,9 @@ async def test_build_refuses_a_mapping_for_a_plugin_that_publishes_no_config_mod
 
 
 async def test_build_capability_validates_the_same_way() -> None:
-    """`Sufficiency` is reached through `build_capability`, and `iterative-retrieval`'s
+    """`Sufficiency` is reached through `build_capability`, so the same repair covers it.
+
+    `Sufficiency` is reached through `build_capability`, and `iterative-retrieval`'s
     `sufficiency_config` is one of the seven fields — so the same repair has to cover it.
     """
     # Arrange

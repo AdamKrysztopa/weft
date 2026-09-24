@@ -24,9 +24,10 @@ from weft_store.contract import Filter, FilterOp, NodeStore, Scored
 
 
 class _StubEmbedder:
-    """A vector deterministic on the query's own text length — `test_vector_top_k.py`'s own
-    double, restated rather than imported across test modules on this suite's "one
-    self-contained scenario" convention.
+    """A vector deterministic on the query's own text length.
+
+    `test_vector_top_k.py`'s own double, restated rather than imported across test modules on this
+    suite's "one self-contained scenario" convention.
     """
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
@@ -111,7 +112,9 @@ async def test_one_query_searches_both_arms_and_returns_both_rankings() -> None:
 
 
 async def test_the_two_arms_are_labelled_apart_so_a_fuser_can_weight_them() -> None:
-    """Without distinct labels the `weights` mapping has no key to type, which is the whole
+    """Without distinct labels the `weights` mapping has no key to type.
+
+    Without distinct labels the `weights` mapping has no key to type, which is the whole
     reason `RankedList.channel` exists — `vector_top_k.VectorTopKConfig.arm`'s own docstring.
     """
     # Arrange / Act
@@ -137,8 +140,9 @@ async def test_the_arm_labels_are_configurable_so_two_narrowings_can_be_told_apa
 
 
 async def test_one_filter_narrows_both_arms_and_is_combined_with_the_querys_own() -> None:
-    """`combined_filter`'s contract, reused rather than reimplemented — a document's filter
-    narrows, it never replaces what the query already asked for.
+    """`combined_filter`'s contract, reused rather than reimplemented.
+
+    A document's filter narrows, it never replaces what the query already asked for.
     """
     # Arrange
     store = _BothArmsStore()
@@ -188,7 +192,9 @@ async def test_a_store_that_cannot_do_lexical_search_fails_loudly_naming_the_cap
 
 
 def test_needs_store_declares_both_capabilities_whatever_channels_says() -> None:
-    """The declaration is read before any stage runs, by `check_store_capabilities`, so it has
+    """The declaration is read before any stage runs, so it covers the whole config surface.
+
+    The declaration is read before any stage runs, by `check_store_capabilities`, so it has
     to describe what this plugin may call under *its own* config surface — not under the one
     configuration it happens to hold. Deriving it from `channels` would let `[vector]` resolve
     against a store with no `TextSearch` and move the refusal to a later `with:` edit.
@@ -201,8 +207,9 @@ def test_needs_store_declares_both_capabilities_whatever_channels_says() -> None
 
 
 def test_no_channels_at_all_is_refused_rather_than_retrieving_nothing() -> None:
-    """An empty tuple is a valid tuple and a meaningless retrieval — every query produces no
-    list and the answer is "no evidence" from a run that never looked.
+    """An empty tuple is a valid tuple and a meaningless retrieval.
+
+    Every query produces no list and the answer is "no evidence" from a run that never looked.
     """
     # Arrange / Act / Assert
     with pytest.raises(ValidationError) as raised:

@@ -60,8 +60,10 @@ def _node(content: str) -> Node:
 
 
 class _StubPrompts:
-    """A `Prompts` holding this pack's own prompt for real — same shape `test_transforms.py`'s
-    `_StubLookup` takes for `StageLookup`, narrowed to the one method this pack calls.
+    """A `Prompts` holding this pack's own prompt for real.
+
+    Same shape `test_transforms.py`'s `_StubLookup` takes for `StageLookup`, narrowed to the one
+    method this pack calls.
     """
 
     def __init__(self) -> None:
@@ -149,7 +151,9 @@ async def test_each_node_gets_its_own_derived_question_nodes() -> None:
 
 
 async def test_a_node_whose_generation_degrades_survives_under_its_id_and_says_so() -> None:
-    """Degrade, never fail — and, since repair R38.13, never silently: the chunk keeps its id and
+    """Degrade, never fail, and since repair R38.13 never silently.
+
+    Degrade, never fail — and, since repair R38.13, never silently: the chunk keeps its id and
     content and carries `ExpansionDegraded`, so a store can count what a questions arm lost.
     """
     # Arrange — the first node's completion fails outright; the second's succeeds.
@@ -215,10 +219,10 @@ async def test_an_unmapped_prompt_name_propagates_rather_than_degrading() -> Non
 
 
 async def test_hypothetical_questions_runs_through_the_seam() -> None:
-    """FF7(b) shape: driven through `weft_kernel.seam.wrap`, not around it — the failure
-    mode `tests/unit/weft_retrieve/test_vector_top_k.py:198 'services ='`'s own module docstring
-    names:
-    a plugin whose entire suite calls its methods directly never notices a
+    """FF7(b) shape: driven through `weft_kernel.seam.wrap`, not around it.
+
+    The failure mode `tests/unit/weft_retrieve/test_vector_top_k.py:198 'services ='`'s own module
+    docstring names: a plugin whose entire suite calls its methods directly never notices a
     `BlockingCallError` it would raise the first time a real run reaches it.
     """
     # Arrange
@@ -299,7 +303,9 @@ async def test_no_more_than_max_concurrent_nodes_are_in_flight_at_once() -> None
 
 
 async def test_the_cap_is_what_bounds_it_rather_than_the_batch_being_small() -> None:
-    """The non-vacuity half: with the cap raised above the batch, the same double must
+    """The non-vacuity half: with the cap raised, the same double must report a higher peak.
+
+    The non-vacuity half: with the cap raised above the batch, the same double must
     report a peak above the previous cap — otherwise the assertion above would hold for a
     plugin that had no cap at all and simply never overlapped.
     """
@@ -328,7 +334,9 @@ class _DocumentStore:
 
 
 async def test_a_degraded_chunk_is_still_cited_as_itself() -> None:
-    """Repair **R38.20**: `citable_nodes` cites a single-parent node carrying an ext model with a
+    """Repair **R38.20**: a chunk marked `ExpansionDegraded` is not cited as the whole document.
+
+    Repair **R38.20**: `citable_nodes` cites a single-parent node carrying an ext model with a
     `technique: str` attribute as its parent — the rule for `Representation`. A real chunk has one
     parent, its document, so a chunk marked `ExpansionDegraded` was cited as the whole document.
     `_node` above has no parent at all, which is why the tests above could not see this.

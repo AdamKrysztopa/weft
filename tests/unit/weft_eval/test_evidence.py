@@ -375,8 +375,10 @@ def test_each_arms_mean_states_the_questions_it_is_over_and_how_many_were_exclud
 def test_a_baseline_run_once_is_complete_paired_and_its_spread_verdict_unjudgeable(
     tmp_path: Path,
 ) -> None:
-    """The paired interval over questions is the evidence for a deterministic baseline; a spread
-    needs at least two repetitions, and `falsify`'s own rule for one repetition is `UNJUDGEABLE`.
+    """The paired interval over questions is the evidence for a deterministic baseline.
+
+    A spread needs at least two repetitions, and `falsify`'s own rule for one repetition is
+    `UNJUDGEABLE`.
     """
     # Arrange
     path = tmp_path / "experiment.toml"
@@ -412,8 +414,10 @@ def _is_base_second(record: RunRecord) -> bool:
 
 
 def test_a_paired_difference_counts_the_questions_that_actually_differ(tmp_path: Path) -> None:
-    """An interval resting on one question of four says so: most per-question differences are
-    exactly zero, and the mean and its interval are carried by the few that are not.
+    """An interval resting on one question of four says so.
+
+    Most per-question differences are exactly zero, and the mean and its interval are carried by the
+    few that are not.
     """
     # Arrange
     experiment = fixture_experiment(tmp_path)
@@ -438,8 +442,10 @@ def test_a_paired_difference_counts_the_questions_that_actually_differ(tmp_path:
 
 
 def test_the_table_names_the_corpus_its_records_were_measured_on(tmp_path: Path) -> None:
-    """A table copied out of its directory still says which corpus it measured — the name and
-    digest every record already carries, never the experiment document's header comment.
+    """A table copied out of its directory still says which corpus it measured.
+
+    The name and digest every record already carries, never the experiment document's header
+    comment.
     """
     # Arrange
     experiment = fixture_experiment(tmp_path)

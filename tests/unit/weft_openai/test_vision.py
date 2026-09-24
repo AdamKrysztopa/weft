@@ -93,7 +93,9 @@ async def test_a_description_comes_back_as_produced() -> None:
 
 
 async def test_an_empty_reply_is_nothing_to_produce_rather_than_an_empty_string() -> None:
-    """A model that returned nothing has not described the image, and `""` in a node's content
+    """A model that returned nothing has not described the image.
+
+    A model that returned nothing has not described the image, and `""` in a node's content
     would be indistinguishable from a caption that happened to be blank — `02` §1's `Outcome` rule.
     """
     # Act
@@ -121,8 +123,9 @@ async def test_a_provider_error_is_failed_and_names_what_happened() -> None:
 
 
 async def test_cancellation_propagates_rather_than_becoming_a_failed_outcome() -> None:
-    """G6, and the reason a bare `except Exception` is wrong here: `CancelledError` is not a fact
-    about this image.
+    """G6, and the reason a bare `except Exception` is wrong here.
+
+    `CancelledError` is not a fact about this image.
     """
     # Arrange
     import asyncio
@@ -216,7 +219,9 @@ async def test_the_resize_runs_off_the_event_loop() -> None:
 
 
 async def test_the_instruction_reaches_the_provider() -> None:
-    """`instruction` is the contract's third argument and the caller's only control over what is
+    """`instruction` is the contract's third argument and the caller's only control.
+
+    `instruction` is the contract's third argument and the caller's only control over what is
     said; a plugin that ignored it would satisfy every other test here.
     """
     # Arrange
@@ -230,7 +235,9 @@ async def test_the_instruction_reaches_the_provider() -> None:
 
 
 def test_the_pack_discloses_that_image_bytes_leave_the_process() -> None:
-    """`02` §2 → *The trust model*, and `9.9`'s own clause: the `note` names the **content class**
+    """`02` §2 → *The trust model*: the `note` names the **content class** that leaves.
+
+    `02` §2 → *The trust model*, and `9.9`'s own clause: the `note` names the **content class**
     that leaves, not merely that the network is reached. `weft-openai`'s existing disclosure said
     completions and embeddings; page crops are a third thing and a more sensitive one.
     """

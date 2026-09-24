@@ -53,7 +53,9 @@ def _sample(kind: str = "", *, query: str = "q") -> RetrievalSample:
 
 
 def test_a_question_has_no_kind_unless_something_says_so() -> None:
-    """The default is the empty string, so a question set written before this task loads
+    """The default is the empty string, so an older question set loads unchanged.
+
+    The default is the empty string, so a question set written before this task loads
     unchanged — 9.12's own reasoning for defaulting `modality` to `TEXT`, one field over.
     """
     # Act
@@ -129,7 +131,9 @@ def test_a_rung_that_is_worse_at_one_kind_says_so_where_the_mean_does_not() -> N
 
 
 def test_a_kind_nothing_scored_is_absent_rather_than_zero() -> None:
-    """9.12's settled rule, and the point at which this deliberately diverges from the work
+    """9.12's settled rule: an empty subset reports no number rather than `0.0`.
+
+    9.12's settled rule, and the point at which this deliberately diverges from the work
     that contributed the idea: an empty subset there reports `0.0`, which is a number nobody
     measured standing where an absence belongs.
     """
@@ -143,7 +147,9 @@ def test_a_kind_nothing_scored_is_absent_rather_than_zero() -> None:
 
 
 def test_a_slice_carrying_no_observations_is_refused() -> None:
-    """`n` is `ge=1`: there is nothing to average over zero observations, so a zero-`n` entry
+    """`n` is `ge=1`, so a zero-`n` entry cannot be constructed at all.
+
+    `n` is `ge=1`: there is nothing to average over zero observations, so a zero-`n` entry
     cannot be constructed at all rather than being filtered out downstream.
     """
     # Act / Assert
@@ -152,9 +158,10 @@ def test_a_slice_carrying_no_observations_is_refused() -> None:
 
 
 def test_a_failed_observation_excludes_rather_than_scoring_zero() -> None:
-    """A metric that could not score is not a metric that scored badly — the distinction
-    `MetricAggregate.excluded` already keeps, asserted here because a per-kind slice is exactly
-    where a zero would be mistaken for a measurement.
+    """A metric that could not score is not a metric that scored badly.
+
+    The distinction `MetricAggregate.excluded` already keeps, asserted here because a per-kind slice
+    is exactly where a zero would be mistaken for a measurement.
     """
     # Arrange
     outcomes = [_scored(0.8), Failed(reason="the judge did not answer")]
@@ -169,7 +176,9 @@ def test_a_failed_observation_excludes_rather_than_scoring_zero() -> None:
 
 
 def test_the_aggregate_round_trips_with_its_question_kinds_through_json() -> None:
-    """A `RunRecord` is read back off disk by `weft trace` and `weft eval compare`, so a slice
+    """A slice has to survive serialisation, because `RunRecord` is read back off disk.
+
+    A `RunRecord` is read back off disk by `weft trace` and `weft eval compare`, so a slice
     that does not survive serialisation is a slice no comparison can be asked for.
     """
     # Arrange
@@ -188,9 +197,10 @@ def test_the_aggregate_round_trips_with_its_question_kinds_through_json() -> Non
 
 
 def test_the_slice_type_is_one_shape_under_one_name() -> None:
-    """`ModalitySlice` is renamed to `PartitionSlice` with no alias left behind: the type is
-    three numbers describing a partition, and two names for it is how a second, subtly different
-    copy starts (`L9.17`). `by_modality` and `by_question_kind` are the same type.
+    """`ModalitySlice` is renamed to `PartitionSlice` with no alias left behind.
+
+    The type is three numbers describing a partition, and two names for it is how a second, subtly
+    different copy starts (`L9.17`). `by_modality` and `by_question_kind` are the same type.
     """
     # Act
     import weft_eval.aggregate as aggregate_module

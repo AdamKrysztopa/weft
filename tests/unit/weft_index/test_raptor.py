@@ -96,8 +96,9 @@ def _embedded(nodes: Sequence[Node], vectors: Mapping[str, Vector]) -> tuple[Nod
 
 
 class _StubEmbedder:
-    """An `Embedder` answering from a fixed content-to-vector table — `test_routing.py`'s
-    own `_StubEmbedder`, one field over.
+    """An `Embedder` answering from a fixed content-to-vector table.
+
+    `test_routing.py`'s own `_StubEmbedder`, one field over.
 
     Since 10.4 this serves the **summaries** rather than the leaves, so it must answer for
     content no test wrote: anything absent from the table gets `_SUMMARY_VECTOR`. `seen`
@@ -292,7 +293,9 @@ async def test_a_failed_summary_leaves_its_cluster_retrievable_and_its_sibling_u
 
 
 async def test_an_embedder_outage_fails_the_run_rather_than_degrading_to_unchanged() -> None:
-    """A real infrastructure failure (auth error, rate limit, network outage) must not read
+    """A real infrastructure failure must not read the same as "no cluster met the threshold".
+
+    A real infrastructure failure (auth error, rate limit, network outage) must not read
     the same as "no cluster met the similarity threshold" — `Produced(value=tuple(payload))`
     for both would make every subsequent `raptor` run silently no-op forever, indistinguishable
     from a corpus with nothing to cluster. See the repair of task 2.32's reviewer findings.
@@ -368,8 +371,9 @@ async def test_an_unmapped_prompt_name_propagates_rather_than_degrading() -> Non
 
 
 async def test_raptor_runs_through_the_seam() -> None:
-    """FF7(b) shape: driven through `weft_kernel.seam.wrap`, not around it — the same
-    obligation `tests/unit/weft_index/test_hypothetical_questions.py`'s own seam test
+    """FF7(b) shape: driven through `weft_kernel.seam.wrap`, not around it.
+
+    The same obligation `tests/unit/weft_index/test_hypothetical_questions.py`'s own seam test
     carries for this pack's first `Expander`.
     """
     # Arrange
@@ -394,7 +398,9 @@ async def test_raptor_runs_through_the_seam() -> None:
 
 
 class _RecordingLLM:
-    """An `LLM` that keeps every rendered conversation, so a test can assert on what the
+    """An `LLM` that keeps every rendered conversation, so a test can assert on the request.
+
+    An `LLM` that keeps every rendered conversation, so a test can assert on what the
     model was actually shown rather than only on what came back. `_ScriptedLLM` deliberately
     discards `rendered`; the four behaviours below are all about the request side.
     """
@@ -421,7 +427,9 @@ class _RecordingLLM:
 
 
 async def test_a_cluster_larger_than_the_cap_is_truncated_before_the_model_sees_it() -> None:
-    """An uncapped `_format_cluster` joins every member whole, so one oversized cluster can
+    """An uncapped `_format_cluster` lets one oversized cluster exceed a model's context.
+
+    An uncapped `_format_cluster` joins every member whole, so one oversized cluster can
     exceed a model's context and take the whole cluster's summary with it.
     """
     # Arrange — two members of 400 characters each against a 100-character cap.
@@ -442,7 +450,9 @@ async def test_a_cluster_larger_than_the_cap_is_truncated_before_the_model_sees_
 
 
 async def test_a_failed_completion_is_retried_once_with_the_cluster_halved() -> None:
-    """The specific branch that made small-context models usable, and the one thing
+    """The branch that made small-context models usable, which `weft_llm.retry` cannot do.
+
+    The specific branch that made small-context models usable, and the one thing
     `weft_llm.retry` structurally cannot do: it retries the same request, and an overflow
     fails identically every time. `LLMContextLengthError` is classed *permanent* for exactly
     that reason (`weft_llm/errors.py:160 'class LLMContextLeng'`), so halving is the only move left.
@@ -521,7 +531,9 @@ async def test_concurrent_summaries_are_bounded_by_configuration() -> None:
 
 
 async def test_every_cluster_degrading_fails_rather_than_looking_like_a_complete_run() -> None:
-    """The silent failure mode this test closes: if every summary degraded and `run` still
+    """Every summary degrading must not read as a corpus with nothing to cluster.
+
+    The silent failure mode this test closes: if every summary degraded and `run` still
     returned `Produced(payload)`, that result would be byte-identical to the answer for a
     corpus that genuinely had nothing to cluster. Two different facts, one result.
     """
@@ -724,7 +736,9 @@ async def test_a_summary_that_saw_only_part_of_its_cluster_records_how_much() ->
 
 
 async def test_the_record_describes_the_request_that_succeeded_not_the_one_that_failed() -> None:
-    """The retry halves what was sent, so a record taken from the first attempt would overstate
+    """The record is taken from the retry that succeeded, not from the first attempt.
+
+    The retry halves what was sent, so a record taken from the first attempt would overstate
     what the summary is built on — by exactly the amount the retry gave up.
     """
     # Arrange — the first completion fails, the second is handed half the text.
@@ -791,7 +805,9 @@ async def test_a_node_without_a_vector_is_refused_by_name() -> None:
 
 
 async def test_the_embedder_is_asked_for_the_summaries_and_never_for_a_leaf() -> None:
-    """*"Every leaf is embedded once per ingest"* — measured as embedder calls, which is the
+    """*"Every leaf is embedded once per ingest"*, measured as embedder calls.
+
+    *"Every leaf is embedded once per ingest"* — measured as embedder calls, which is the
     only way it can be measured: neither shipped `Embedder` skips a node that already carries a
     vector (`weft_embed/hash_embedder.py`, `weft_openai/embedder.py` both call `with_embedding`
     unconditionally), so *once* is a property of the stage order and of what this plugin asks
@@ -845,7 +861,9 @@ async def test_the_leaves_come_back_exactly_as_they_arrived() -> None:
 
 
 async def test_a_summary_the_embedder_could_not_vectorise_fails_the_run() -> None:
-    """A summary stored without a vector is retrievable by nothing, and nothing downstream will
+    """A summary stored without a vector is retrievable by nothing.
+
+    A summary stored without a vector is retrievable by nothing, and nothing downstream will
     give it one now that this stage runs after `embed`. Degrading a *cluster* is this contract's
     posture; producing a node that cannot be found is not a degradation, it is a silent loss.
     """
@@ -984,10 +1002,12 @@ async def test_a_summary_over_leaves_states_level_one() -> None:
 
 
 async def test_a_leaf_states_no_level_at_all() -> None:
-    """A leaf is not level zero, it is *not a summary* — and the difference is what makes the
-    level a usable filter. `ext.weft-index-raptor.level` selects exactly the abstractions; a
-    leaf tagged `0` would need every reader to know that 0 means "not one of these", which is
-    the sentinel `weft_extract.payload`'s own `page` field refuses for the same reason.
+    """A leaf is not level zero, it is *not a summary*.
+
+    And the difference is what makes the level a usable filter. `ext.weft-index-raptor.level`
+    selects exactly the abstractions; a leaf tagged `0` would need every reader to know that 0 means
+    "not one of these", which is the sentinel `weft_extract.payload`'s own `page` field refuses for
+    the same reason.
     """
     # Arrange
     table = {"passage a": _A, "passage b": _B}
@@ -1147,7 +1167,7 @@ async def test_no_cluster_holds_a_node_and_an_abstraction_built_from_it() -> Non
 async def test_a_rung_whose_level_has_too_few_nodes_builds_nothing_and_passes_everything_on() -> (
     None
 ):
-    """**Weft's stop criterion, and it is stated here because no paper settles it.**
+    """**Weft's stop criterion, and it is stated here because no paper settles it**.
 
     A `raptor` stage builds a level only if the level below it holds at least `min_cluster_size`
     nodes to cluster. The *depth ceiling* is not the plugin's at all — it is however many rungs
@@ -1246,7 +1266,9 @@ async def test_auto_is_the_default_and_a_typed_value_is_kept() -> None:
 
 
 async def test_auto_resolves_from_this_run_and_the_summary_records_what_it_resolved_to() -> None:
-    """*"A default computed by a rule rather than typed by an operator says when it is computed
+    """A default computed by a rule says when it is computed and where its value lives.
+
+    *"A default computed by a rule rather than typed by an operator says when it is computed
     and where its value lives."*
 
     Computed **per run, from the run's own payload**, and written onto the nodes that run
@@ -1280,7 +1302,9 @@ async def test_auto_resolves_from_this_run_and_the_summary_records_what_it_resol
 
 
 async def test_a_typed_threshold_is_recorded_as_the_operator_s_and_not_as_derived() -> None:
-    """A reader has to be able to tell the two apart, or the record answers a different question
+    """A reader has to be able to tell the two apart.
+
+    A reader has to be able to tell the two apart, or the record answers a different question
     from the one it looks like it answers.
     """
     # Arrange
@@ -1307,7 +1331,7 @@ async def test_a_typed_threshold_is_recorded_as_the_operator_s_and_not_as_derive
 
 
 async def test_auto_refuses_a_distribution_with_no_structure_naming_the_embedder() -> None:
-    """**The degeneracy check, and the criterion is measured rather than intuited.**
+    """**The degeneracy check, and the criterion is measured rather than intuited**.
 
     A percentile always clears something, so a naive `auto` would turn today's honest silence
     under `hash` into confident summaries over meaningless groupings — a plausible answer against
@@ -1803,7 +1827,9 @@ def test_a_run_tally_that_was_never_computed_reads_as_absent_not_as_one() -> Non
 
 
 async def test_a_cluster_of_mixed_modalities_summarises_from_each_node_s_own_index_text() -> None:
-    """**The rule, stated: every member is read through its `content` and nothing else — the
+    """Every member is read through its `content` alone, and the summary is `TEXT`.
+
+    **The rule, stated: every member is read through its `content` and nothing else — the
     index-form text its own extractor produced — and the summary is `TEXT`.**
 
     It is **Weft's own, with no paper behind it.** The one paper in the four that touches modality

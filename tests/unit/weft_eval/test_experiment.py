@@ -116,7 +116,9 @@ def test_an_arm_may_name_its_own_corpus_and_questions_and_otherwise_inherits_the
 
 
 def test_the_digest_is_over_the_documents_bytes(tmp_path: Path) -> None:
-    """Not over the resolved model: a resolved path names this machine, and the same committed
+    """Not over the resolved model, because a resolved path names this machine.
+
+    Not over the resolved model: a resolved path names this machine, and the same committed
     file must digest the same wherever it is checked out.
     """
     # Arrange
@@ -278,7 +280,9 @@ def test_a_schema_no_release_wrote_is_refused_without_advice_to_upgrade(
 def test_an_arm_may_declare_its_own_repetitions_and_otherwise_inherits_the_documents(
     tmp_path: Path,
 ) -> None:
-    """`38.5`'s repetitions 2–3 were 65% of its query time and identical to repetition 1: retrieval
+    """An arm with no model call runs once; an arm reaching a model keeps its `repeats`.
+
+    `38.5`'s repetitions 2–3 were 65% of its query time and identical to repetition 1: retrieval
     with no model call cannot vary, so its author runs it once. An arm reaching a model keeps the
     document's `repeats`.
     """

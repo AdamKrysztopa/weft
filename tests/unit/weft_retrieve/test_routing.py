@@ -65,8 +65,9 @@ from weft_retrieve.routing import (
 
 
 class _StubLLM:
-    """An `LLM` answering tier 2 of the cascade from a script — the same shape every other
-    cascade-backed plugin's own test module in this pack already takes.
+    """An `LLM` answering tier 2 of the cascade from a script.
+
+    The same shape every other cascade-backed plugin's own test module in this pack already takes.
     """
 
     def __init__(self, replies: list[str | Failed]) -> None:
@@ -144,8 +145,9 @@ class _StubCatalogue:
 
 
 class _StubEmbedder:
-    """An `Embedder` answering from a fixed content-to-vector table — enough to make one
-    candidate deterministically nearest the query without a real model.
+    """An `Embedder` answering from a fixed content-to-vector table.
+
+    Enough to make one candidate deterministically nearest the query without a real model.
     """
 
     def __init__(self, vectors: Mapping[str, Vector]) -> None:
@@ -158,8 +160,9 @@ class _StubEmbedder:
 
 
 class _RefusingEmbedder:
-    """An `Embedder` that always raises — proves `nearest-description` never reaches it
-    when the catalogue has nothing to select between.
+    """An `Embedder` that always raises.
+
+    Proves `nearest-description` never reaches it when the catalogue has nothing to select between.
     """
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
@@ -276,7 +279,9 @@ async def test_llm_query_scorer_refuses_a_mismatched_dimension_set() -> None:
 
 
 async def test_driving_query_scorer_through_the_seam_produces_a_scorecard() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """
@@ -577,7 +582,9 @@ async def test_driving_always_through_the_seam_produces_a_route() -> None:
 
 
 async def test_swapping_the_policy_needs_no_edit_to_the_scorer() -> None:
-    """Ledger 2.25's stated property: one `Scorecard` a `query-scorer` produced, read by
+    """Ledger 2.25's property: one `Scorecard`, read by two unrelated `RoutingPolicy` classes.
+
+    Ledger 2.25's stated property: one `Scorecard` a `query-scorer` produced, read by
     two different `RoutingPolicy` implementations with no shared code and no edit to
     either. `_RefusingLLM` proves neither policy ever resolves the `LLM` `LlmQueryScorer`
     itself just used — the scorer's own service is untouched by the swap.

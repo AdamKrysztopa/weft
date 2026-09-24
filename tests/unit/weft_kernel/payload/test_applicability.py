@@ -28,7 +28,9 @@ class _Language(ExtModel):
 
 
 class _Prose(ExtModel):
-    """A fact an ordinary chunker cares about, for reasons that have nothing to do with
+    """A fact an ordinary chunker cares about, for reasons unrelated to tables.
+
+    A fact an ordinary chunker cares about, for reasons that have nothing to do with
     tables — the mechanism `docs/11-multimodal.md` §2 describes: the chunker declares
     what it needs, and an atomic node simply never carries it.
     """
@@ -38,7 +40,9 @@ class _Prose(ExtModel):
 
 
 class _Locale(ExtModel):
-    """A fact with two independent fields — nothing in the tree exercised `Applies` with
+    """A fact with two independent fields, exercising `Applies` with more than one constraint.
+
+    A fact with two independent fields — nothing in the tree exercised `Applies` with
     more than one keyword constraint before this repair, so a regression from "every
     field must equal" (`all(...)`) to "any field may equal" (`any(...)`) in `Applies.
     matches` would have passed every existing test in this file.

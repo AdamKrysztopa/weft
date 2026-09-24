@@ -463,7 +463,9 @@ def test_a_record_built_without_question_scores_does_not_claim_any() -> None:
 def test_a_failed_question_persists_as_a_failure_and_survives_the_round_trip(
     tmp_path: Path,
 ) -> None:
-    """V4, `docs/09-release.md`:620, at the granularity this task adds: the union's two members
+    """V4 at this task's granularity: `Produced[float]` and `NotScored` never round-trip.
+
+    V4, `docs/09-release.md`:620, at the granularity this task adds: the union's two members
     share no field name, so `Produced[float]` and `NotScored` never round-trip into each other
     — `MetricRunResult`'s own reason to be a union, one level down.
     """
@@ -499,7 +501,9 @@ def test_a_failed_question_persists_as_a_failure_and_survives_the_round_trip(
 
 
 def test_a_record_says_whether_its_question_keys_are_ids_or_positions() -> None:
-    """A key of `"0"` and a key of `"fetch-001"` are read differently by anyone pairing two
+    """A key of `"0"` and a key of `"fetch-001"` are read differently when pairing runs.
+
+    A key of `"0"` and a key of `"fetch-001"` are read differently by anyone pairing two
     runs, and a questions file with no ids is the normal case for `--questions`. Saying which
     is what stops a reader treating a position as a stable identity across two files.
     """

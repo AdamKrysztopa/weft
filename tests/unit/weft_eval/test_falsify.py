@@ -289,8 +289,9 @@ def test_a_difference_that_does_not_generalise_has_an_interval_straddling_zero()
 
 
 def test_only_questions_both_runs_scored_are_paired() -> None:
-    """A question one side could not score is not a zero for that side — V4 again, and the
-    pairing is over what both actually measured.
+    """A question one side could not score is not a zero for that side.
+
+    V4 again, and the pairing is over what both actually measured.
     """
     # Arrange — q3 is unscored on b, q4 exists only on a.
     a = _with_questions(**{"precision@5": _per_question(q1=0.4, q2=0.5, q3=0.6, q4=0.9)})
@@ -316,7 +317,9 @@ def test_a_metric_only_one_run_scored_is_absent_rather_than_zero() -> None:
 
 
 def test_a_record_carrying_no_per_question_scores_pairs_nothing() -> None:
-    """Every record written before task 16.4 — and the answer is an empty mapping, which the
+    """Every record written before task 16.4 answers with an empty mapping.
+
+    Every record written before task 16.4 — and the answer is an empty mapping, which the
     renderer prints as *not computable* rather than as a difference of zero.
     """
     # Arrange
@@ -332,7 +335,9 @@ def test_a_record_carrying_no_per_question_scores_pairs_nothing() -> None:
 
 
 def test_the_interval_is_the_same_interval_twice() -> None:
-    """A bootstrap resamples at random, and a verdict that changed between two readings of one
+    """The bootstrap generator is seeded from the data, not from a clock.
+
+    A bootstrap resamples at random, and a verdict that changed between two readings of one
     pair of records would be unciteable. The generator is seeded from the data, not from a
     clock.
     """
@@ -349,7 +354,9 @@ def test_the_interval_is_the_same_interval_twice() -> None:
 
 
 def test_one_paired_question_reports_no_interval_rather_than_a_zero_width_one() -> None:
-    """`BaselineSpread`'s own rule one artefact over: a single observation has no spread to
+    """A single observation has no spread to report.
+
+    `BaselineSpread`'s own rule one artefact over: a single observation has no spread to
     report, and a zero-width interval would read as certainty.
     """
     # Arrange

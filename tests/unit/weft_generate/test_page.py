@@ -21,7 +21,9 @@ from weft_kernel.payload import ExtModel, MediaType, Node
 
 
 class _Span(ExtModel):
-    """Structurally identical to `weft_extract.payload.PageSpan`, declared fresh so this test
+    """Structurally identical to `weft_extract.payload.PageSpan`, but declared fresh.
+
+    Structurally identical to `weft_extract.payload.PageSpan`, declared fresh so this test
     proves the duck-typed match rather than a same-class coincidence.
     """
 
@@ -80,7 +82,9 @@ def test_a_node_carrying_no_facts_at_all_resolves_to_no_page() -> None:
 
 
 def test_the_real_extraction_ext_models_satisfy_the_same_duck_typed_match() -> None:
-    """The production case, not a structural coincidence: the two real ext models this pack
+    """The two real ext models this pack never imports resolve through the same code.
+
+    The production case, not a structural coincidence: the two real ext models this pack
     never imports — `PageSpan` on a prose or figure node, `TableGrid` on a table node —
     resolve through exactly the same code as the stand-in above.
     """

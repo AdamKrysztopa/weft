@@ -49,8 +49,9 @@ from weft_store.contract import Scored
 
 
 class _StubLLM:
-    """An `LLM` answering tier 2 of the cascade from a script — the same shape
-    `test_rerank.py`'s and `test_graded.py`'s own stubs take.
+    """An `LLM` answering tier 2 of the cascade from a script.
+
+    The same shape `test_rerank.py`'s and `test_graded.py`'s own stubs take.
     """
 
     def __init__(self, replies: list[str | Failed]) -> None:
@@ -79,8 +80,9 @@ class _StubLLM:
 
 
 class _StubLookup:
-    """A `StageLookup` holding this pack's own prompt, and refusing the other verb — the same
-    refusal `test_rerank.py`'s own stub states: this plugin resolves a capability by name,
+    """A `StageLookup` holding this pack's own prompt, and refusing the other verb.
+
+    The same refusal `test_rerank.py`'s own stub states: this plugin resolves a capability by name,
     never a stage.
     """
 
@@ -167,7 +169,9 @@ async def test_llm_sufficiency_relays_a_cascade_failure_exactly_as_it_answered()
 
 
 async def test_driving_llm_sufficiency_through_the_seam_produces_an_assessment() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """
@@ -221,7 +225,9 @@ def test_the_config_model_has_defaults_for_every_field() -> None:
 async def test_hedge_phrases_detects_a_hedge_in_the_askers_own_language(
     locale: str, draft: str
 ) -> None:
-    """The evidence this ledger line asks for: a signal that fires on a hedge written in
+    """A hedge written in Polish fires the signal exactly as one written in English does.
+
+    The evidence this ledger line asks for: a signal that fires on a hedge written in
     Polish exactly as it does in English, because the marker table it reads is keyed by
     locale rather than being one English list a call site closed over. Delete the `"pl"`
     entry from `weft_retrieve.sufficiency.DEFAULT_HEDGE_MARKERS` and the Polish half of this

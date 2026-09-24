@@ -76,7 +76,9 @@ def test_the_registered_factory_is_one_the_fan_out_can_inspect() -> None:
 
 
 def test_the_pack_declares_its_services_role_at_module_level() -> None:
-    """Task 9.0 reads `SERVICE_ROLES` off the module at import, *before* settings are validated —
+    """Task 9.0 reads `SERVICE_ROLES` off the module at import, before settings are validated.
+
+    Task 9.0 reads `SERVICE_ROLES` off the module at import, *before* settings are validated —
     so an operator with no `[packs.blob] root` configured is still told the key exists.
     """
     # Act / Assert

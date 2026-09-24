@@ -33,9 +33,10 @@ from weft_store.contract import NodeStore, Scored
 
 
 class _Representation(ExtModel):
-    """A structural stand-in for `weft_index.payload.Representation`, deliberately not that
-    class — the same duck-typed shape `weft_generate.representation`'s own test suite
-    exercises, proving `collapse.py` reads no import of the pack that ships the real one.
+    """A structural stand-in for `weft_index.payload.Representation`, deliberately not that class.
+
+    The same duck-typed shape `weft_generate.representation`'s own test suite exercises, proving
+    `collapse.py` reads no import of the pack that ships the real one.
     """
 
     __namespace__ = "test-collapse"
@@ -45,8 +46,9 @@ class _Representation(ExtModel):
 
 
 class _StubStore:
-    """A `NodeStore` answering `get` from a fixed table, and nothing else — this plugin
-    calls no other method.
+    """A `NodeStore` answering `get` from a fixed table, and nothing else.
+
+    This plugin calls no other method.
     """
 
     def __init__(self, nodes: dict[NodeId, Node]) -> None:
@@ -181,7 +183,9 @@ async def test_an_empty_ranking_collapses_to_an_empty_ranking() -> None:
 
 
 async def test_an_empty_rankings_note_survives_collapse_unchanged() -> None:
-    """A `Fuser` upstream (e.g. `BooleanCombine` on an unsatisfiable AND) can produce an
+    """An empty `Ranking`'s diagnostic `note` passes through unchanged.
+
+    A `Fuser` upstream (e.g. `BooleanCombine` on an unsatisfiable AND) can produce an
     empty `Ranking` carrying a diagnostic `note` explaining *why* nothing matched. The
     emptiness rule this stage documents says `note` passes through unchanged same as
     `origin` and `contributors` — this regression guards that the empty-hits branch does
@@ -201,7 +205,9 @@ async def test_an_empty_rankings_note_survives_collapse_unchanged() -> None:
 
 
 async def test_driving_collapse_to_parent_through_the_seam_produces_a_ranking() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """
@@ -230,7 +236,9 @@ def test_the_declared_cost_bound_is_zero_zero() -> None:
 
 
 async def test_a_summary_and_the_leaves_it_was_built_from_do_not_both_occupy_the_budget() -> None:
-    """A retrieved summary is evidence *about* the passages it abstracts, not a passage beside
+    """A retrieved summary is evidence *about* the passages it abstracts.
+
+    A retrieved summary is evidence *about* the passages it abstracts, not a passage beside
     them — so a ranking holding both spends several slots of the answer's budget on one piece of
     evidence.
 
@@ -320,8 +328,10 @@ async def test_a_leaf_outscoring_its_own_summary_is_the_one_that_survives() -> N
 
 
 async def test_a_summary_whose_members_were_not_retrieved_is_untouched() -> None:
-    """The rule fires on an overlap, never on a summary alone — otherwise a broad question, which
-    is the one a summary exists to answer, would lose the only node that can answer it.
+    """The rule fires on an overlap, never on a summary alone.
+
+    Otherwise a broad question, which is the one a summary exists to answer, would lose the only
+    node that can answer it.
     """
     # Arrange
     root = Node.synthetic(

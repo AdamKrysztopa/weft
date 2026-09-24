@@ -71,7 +71,9 @@ class _NodeStage(Stage[Sequence[Node], Sequence[Node]], Protocol):
 
 
 class _Language(ExtModel):
-    """The source-language fact `02` §3 means: "provided per node by the extractor or by an
+    """The source-language fact `02` §3 means, declared test-locally.
+
+    The source-language fact `02` §3 means: "provided per node by the extractor or by an
     ordinary `detect` stage." Test-local — `02` §3 assigns no pack this namespace yet, and
     a real `detect` stage is later work this task does not need: every fixture below attaches
     (or withholds) this fact directly, standing in for whatever upstream stage would have.
@@ -116,7 +118,9 @@ class _PolishFix:
 
 
 class _Detect:
-    """Stand-in for "an ordinary `detect` stage" — `02` §3's own second source of the
+    """Stand-in for "an ordinary `detect` stage", `02` §3's second source of the language fact.
+
+    Stand-in for "an ordinary `detect` stage" — `02` §3's own second source of the
     language fact, the extractor being the first. A no-op on purpose: every fixture in this
     file attaches (or withholds) `_Language` directly, standing in for whatever a real
     detector decided, so this class's only job is to make that decision **structural** —
@@ -140,7 +144,9 @@ class _Detect:
 
 
 class _TranslateConfig(BaseModel):
-    """`_Translate`'s typed `with:` model — task 1.5's mechanism, carrying the one var this
+    """`_Translate`'s typed `with:` model, carrying the one var this file is about.
+
+    `_Translate`'s typed `with:` model — task 1.5's mechanism, carrying the one var this
     file is about. `02` §3's own words for what it holds: "a translation target, a reply
     language."
     """
@@ -183,7 +189,9 @@ class _Translate:
 
 
 class _Capture:
-    """An identity stage that records the batch it was handed, on `test_runner.py`'s own
+    """An identity stage that records the batch it was handed.
+
+    An identity stage that records the batch it was handed, on `test_runner.py`'s own
     precedent: `Runner.run` returns only counts, so a test that needs the resulting nodes
     puts a stage after the ones under test whose only job is to remember what it saw.
     """

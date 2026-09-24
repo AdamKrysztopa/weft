@@ -1,4 +1,6 @@
-"""`cross-encoder-rerank` — ledger **41.2**: a TEI-served cross-encoder, refused by name every way
+"""`cross-encoder-rerank`, ledger **41.2**: a TEI-served cross-encoder.
+
+`cross-encoder-rerank` — ledger **41.2**: a TEI-served cross-encoder, refused by name every way
 it cannot score honestly.
 
 Specified by `fix-plans/11` `20.6` as corrected at Phase 41's opening (`build-ledger.md` → 41):

@@ -1,4 +1,6 @@
-"""`scripts/parser_tax.py` — ledger **38.8**: what reading the raw PDFs costs against the dataset's
+"""`scripts/parser_tax.py`, ledger **38.8**: what reading the raw PDFs costs.
+
+`scripts/parser_tax.py` — ledger **38.8**: what reading the raw PDFs costs against the dataset's
 own rendering of them.
 
 Two measurements. A dev quote survives Weft's ingest when it sits whole inside one stored chunk of
@@ -223,7 +225,9 @@ def _record_of(runs: Path, arm: str, repetition: int) -> Path:
 
 
 def test_a_repetition_only_one_corpus_ran_is_refused_by_name(tmp_path: Path) -> None:
-    """Repair **R38.19**: `pairs` kept only what both corpora ran, so a missing repetition made
+    """Repair **R38.19**: a missing repetition made no row and no message.
+
+    Repair **R38.19**: `pairs` kept only what both corpora ran, so a missing repetition made
     no row and no message.
     """
     # Arrange

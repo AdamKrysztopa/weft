@@ -98,7 +98,9 @@ def test_the_node_kind_is_refused_because_node_count_already_carries_it() -> Non
 
 
 def test_a_reported_mapping_survives_a_round_trip_through_json() -> None:
-    """`L9.43`: a constraint that dumps correctly and reads back wrong is write-only, and this
+    """`L9.43`: a constraint that dumps correctly and reads back wrong is write-only.
+
+    `L9.43`: a constraint that dumps correctly and reads back wrong is write-only, and this
     module has paid for that shape before. Asserted in the red phase, not after the diff.
     """
     # Arrange

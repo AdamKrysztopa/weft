@@ -31,7 +31,9 @@ from weft_kernel.payload.node import Node
 
 
 class _Language(ExtModel):
-    """A fact declared at module level, because `_FactRef` persists `module:QualName` and a
+    """A fact declared at module level, because `_FactRef` persists `module:QualName`.
+
+    A fact declared at module level, because `_FactRef` persists `module:QualName` and a
     function-local class's qualname (`...<locals>._Language`) resolves against no module.
     """
 
@@ -55,7 +57,9 @@ def test_a_media_type_constraint_matches_a_node_of_that_type() -> None:
 
 
 def test_a_media_type_constraint_does_not_match_another_type() -> None:
-    """The property `9.2` exists for: a `TABLE` node is *not* claimed by a text-only stage, so the
+    """The property `9.2` exists for: a text-only stage does not claim a `TABLE` node.
+
+    The property `9.2` exists for: a `TABLE` node is *not* claimed by a text-only stage, so the
     runner routes it past rather than splitting it.
     """
     # Arrange
@@ -137,7 +141,9 @@ def test_a_fact_constraint_still_survives_the_same_round_trip() -> None:
 
 
 def test_applies_stating_no_constraint_at_all_is_refused() -> None:
-    """`fact` stopped being a required field so a media-type-only `Applies` could exist, and a
+    """A model that requires nothing accepts everything, so an empty `Applies()` is refused.
+
+    `fact` stopped being a required field so a media-type-only `Applies` could exist, and a
     model that requires nothing accepts everything. `Applies()` would otherwise construct an
     object that matches no node and reports no problem — the silent-fallback class `CLAUDE.md`
     rules out, arriving as a stage that quietly never runs.

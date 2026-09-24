@@ -113,7 +113,9 @@ async def test_bert_score_empty_reference_is_nothing_to_produce_even_when_unavai
 async def test_bert_score_asks_for_the_language_the_sample_declares(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`12` §3's language axis: `bert_score(lang="en")` was a constant, so a Polish answer was
+    """`12` §3's language axis: `bert_score(lang="en")` was a constant.
+
+    `12` §3's language axis: `bert_score(lang="en")` was a constant, so a Polish answer was
     scored against an English model and the number meant nothing. It is not configurable by any
     amount of `weft.toml`, which is what makes it a defect rather than a default.
 
@@ -162,7 +164,9 @@ async def test_bert_score_asks_for_the_language_the_sample_declares(
 async def test_a_sample_that_declares_no_language_is_scored_as_english(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The default is `en` and it is on the model where a reader can see it, rather than inside
+    """The default is `en`, and it lives on the model where a reader can see it.
+
+    The default is `en` and it is on the model where a reader can see it, rather than inside
     the metric where nothing could change it. Every sample built before this task is English by
     construction, so this is the compatible reading — and it is still a *default*, which is why
     `eval/questions/*.toml` states the language on every question explicitly.

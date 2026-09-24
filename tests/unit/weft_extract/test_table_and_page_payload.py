@@ -44,7 +44,9 @@ def _grid() -> TableGrid:
 
 
 def test_both_facts_are_ext_models_carrying_their_own_schema_version() -> None:
-    """`S5`: a persisted shape carries a version in the stored bytes, not in a `ClassVar` nobody
+    """`S5`: a persisted shape carries a version in the stored bytes.
+
+    `S5`: a persisted shape carries a version in the stored bytes, not in a `ClassVar` nobody
     serialises. `ExtModel` enforces both declarations at class definition, so this reads them back.
     """
     # Act / Assert
@@ -68,7 +70,9 @@ def test_the_two_facts_occupy_different_namespaces() -> None:
 
 
 def test_a_grid_survives_a_round_trip_through_json() -> None:
-    """`L9.43`: a model that dumps correctly and reads back wrong is write-only, and this tree has
+    """`L9.43`: a model that dumps correctly and reads back wrong is write-only.
+
+    `L9.43`: a model that dumps correctly and reads back wrong is write-only, and this tree has
     paid for that twice. Asserted in the red phase rather than after reading a diff.
     """
     # Arrange

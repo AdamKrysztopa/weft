@@ -99,16 +99,21 @@ class _Walk:
             frontier = [seed]
             seen = {seed}
             for _ in range(hops):
-                nxt: list[str] = []
-                for node in frontier:
-                    for other in self._neighbours.get(node, ()):
-                        if other not in seen:
-                            seen.add(EntityId(other))
-                            nxt.append(other)
-                            found.append(Entity(id=EntityId(other), name=other))
-                frontier = [EntityId(one) for one in nxt]
+                frontier = self._step(frontier, seen, found)
             reached[seed] = tuple(found)
         return reached
+
+    def _step(
+        self, frontier: list[EntityId], seen: set[EntityId], found: list[Entity]
+    ) -> list[EntityId]:
+        nxt: list[str] = []
+        for node in frontier:
+            for other in self._neighbours.get(node, ()):
+                if other not in seen:
+                    seen.add(EntityId(other))
+                    nxt.append(other)
+                    found.append(Entity(id=EntityId(other), name=other))
+        return [EntityId(one) for one in nxt]
 
 
 class _Store:
@@ -245,7 +250,9 @@ async def test_a_node_further_away_scores_lower_than_one_nearer() -> None:
 
 
 async def test_hits_are_ranked_nearest_first() -> None:
-    """`Passage.rank` is what a `Fuser` reads when it reads nothing else — `reciprocal-rank-
+    """`Passage.rank` must agree with the score's ordering.
+
+    `Passage.rank` is what a `Fuser` reads when it reads nothing else — `reciprocal-rank-
     fusion` uses rank alone — so an ordering that disagreed with the score would make the two
     fusers in this tree disagree about the same list.
     """
@@ -267,7 +274,9 @@ async def test_hits_are_ranked_nearest_first() -> None:
 
 
 async def test_a_question_naming_no_entity_returns_an_empty_list_not_no_list() -> None:
-    """`L5.9` at the retrieval seam, and `vector-top-k`'s own distinction: a query that *was*
+    """`L5.9` at the retrieval seam: a searched query that matched nothing gets `hits=()`.
+
+    `L5.9` at the retrieval seam, and `vector-top-k`'s own distinction: a query that *was*
     searched and matched nothing still gets a `RankedList` with `hits=()`. Returning no list at
     all would be indistinguishable from a query this retriever declined to search.
     """
@@ -286,7 +295,9 @@ async def test_a_question_naming_no_entity_returns_an_empty_list_not_no_list() -
 
 
 async def test_the_arm_label_is_configurable_so_a_fuser_can_weight_it() -> None:
-    """`vector-top-k`'s own argument, unchanged: with the channel hardcoded, two lists carry
+    """`vector-top-k`'s own argument: the channel is configurable, not hardcoded.
+
+    `vector-top-k`'s own argument, unchanged: with the channel hardcoded, two lists carry
     one label and an operator has no key to type in a `weights` mapping. `graph-and-vector-rrf`
     is the document that needs this to be true.
     """
@@ -305,9 +316,11 @@ async def test_the_arm_label_is_configurable_so_a_fuser_can_weight_it() -> None:
 
 
 async def test_the_walk_is_asked_once_for_every_seed_the_question_named() -> None:
-    """One round trip, not one per name — `weft_kg.contract.GraphTraversal`'s own module
-    docstring states that granularity, and a retriever that looped would make a question naming
-    five entities five times as expensive against a real database.
+    """One round trip, not one per name.
+
+    `weft_kg.contract.GraphTraversal`'s own module docstring states that granularity, and a
+    retriever that looped would make a question naming five entities five times as expensive against
+    a real database.
     """
     # Arrange
     walk, store, _ = _fixture()
@@ -331,7 +344,9 @@ async def test_the_walk_is_asked_once_for_every_seed_the_question_named() -> Non
 
 
 def test_the_plugin_declares_both_of_the_things_it_needs() -> None:
-    """The split this task exists for, asserted on the class because the assembler reads it
+    """The configured store must be a `NodeStore`, and the run must offer a `GraphTraversal`.
+
+    The split this task exists for, asserted on the class because the assembler reads it
     there: the configured store must be a `NodeStore`, and the *run* must offer a
     `GraphTraversal`, which no store provides and no `[services] store` can supply.
     """
@@ -341,9 +356,10 @@ def test_the_plugin_declares_both_of_the_things_it_needs() -> None:
 
 
 def test_the_plugin_claims_no_model_call() -> None:
-    """`cost_bound = (0, 0)` is a published claim, on `vector-top-k`'s own footing: it is true
-    here because seeding is a regular expression and the walk is SQL, and this module imports
-    nothing from `weft_llm`. A future seeding strategy that asked a model would have to move
+    """`cost_bound = (0, 0)` is a published claim, on `vector-top-k`'s own footing.
+
+    It is true here because seeding is a regular expression and the walk is SQL, and this module
+    imports nothing from `weft_llm`. A future seeding strategy that asked a model would have to move
     this number, which is the point of stating it.
     """
     # Assert

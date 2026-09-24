@@ -174,7 +174,7 @@ def test_one_accounts_opt_in_does_not_reach_the_other(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("stream_usage", [False, True])
 def test_a_compatible_accounts_opt_in_withholds_what_it_withheld_before(
-    tmp_path: Path, stream_usage: bool
+    tmp_path: Path, *, stream_usage: bool
 ) -> None:
     # Arrange
     block = f"structured_output = true\nstream_usage = {str(stream_usage).lower()}\n"
@@ -249,8 +249,10 @@ async def test_the_response_format_name_is_one_the_endpoint_accepts(
 
 
 async def test_a_server_that_rejects_the_response_format_is_a_bad_request(tmp_path: Path) -> None:
-    """The error the cascade's `skip_adapted` keys on — so an operator who opts in against a
-    server that refuses the field sees tier 3 in `Structured.tier`, not a crash.
+    """The error the cascade's `skip_adapted` keys on.
+
+    So an operator who opts in against a server that refuses the field sees tier 3 in
+    `Structured.tier`, not a crash.
     """
     # Arrange
     client = _Client(chat=_Chat(completions=_Completions(error=_bad_request())))

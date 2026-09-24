@@ -124,8 +124,9 @@ async def test_a_streamed_call_asks_for_usage_and_yields_it_after_the_text() -> 
 
 
 async def test_a_stream_the_vendor_sent_no_usage_for_yields_text_only() -> None:
-    """A compatible server that ignores `stream_options` sends no usage chunk; the provider then
-    reports nothing rather than inventing a count.
+    """A compatible server that ignores `stream_options` sends no usage chunk.
+
+    The provider then reports nothing rather than inventing a count.
     """
     # Arrange
     client = _Client()

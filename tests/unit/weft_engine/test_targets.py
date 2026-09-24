@@ -1,4 +1,6 @@
-"""`--target` reaches a store through one binder, and a store that cannot hold targets is refused
+"""`--target` reaches a store through one binder, ledger task **34.3**.
+
+`--target` reaches a store through one binder, and a store that cannot hold targets is refused
 by name — ledger task **34.3**.
 
 Every store is built per invocation from `registry.entry(NodeStore, name).factory(None)`, so the

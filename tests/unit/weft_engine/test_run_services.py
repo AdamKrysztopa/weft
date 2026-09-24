@@ -67,7 +67,9 @@ class _HybridRetriever:
 
 
 class _DenseRetriever:
-    """Declares nothing: a plugin with no `needs_store` is not a plugin that needs nothing
+    """Declares nothing, so the check must pass over it in silence.
+
+    Declares nothing: a plugin with no `needs_store` is not a plugin that needs nothing
     checked *badly*, it is one this check must pass over in silence.
     """
 
@@ -252,7 +254,9 @@ def test_a_needs_store_that_is_not_a_tuple_of_capabilities_is_refused_by_name() 
 
 
 class _FakeStore:
-    """A `NodeStore` stand-in — `build_services` never calls a method on it, only resolves
+    """A `NodeStore` stand-in that `build_services` only resolves and hands on.
+
+    A `NodeStore` stand-in — `build_services` never calls a method on it, only resolves
     the registered factory and hands the instance to the `ServiceRegistry`.
     """
 
@@ -400,7 +404,9 @@ async def test_build_services_raises_for_a_service_selection_naming_an_unregiste
 
 @runtime_checkable
 class _Traversal(Protocol):
-    """A capability no store in this tree provides — the shape `weft_kg.contract.GraphTraversal`
+    """A capability no store in this tree provides, shaped like `GraphTraversal`.
+
+    A capability no store in this tree provides — the shape `weft_kg.contract.GraphTraversal`
     has, declared here rather than imported so this module keeps testing the seam and not the
     graph pack.
     """
@@ -440,7 +446,9 @@ def _service_demand_registry() -> Registry:
 
 
 def test_a_stage_that_declares_a_service_need_is_mapped_to_its_own_stage_id() -> None:
-    """The stage id is the whole reason this is a mapping rather than a set: *"something needs
+    """The stage id is why this is a mapping rather than a set.
+
+    The stage id is the whole reason this is a mapping rather than a set: *"something needs
     this"* is not a thing an operator can act on, and `check_selected_capabilities`'s message
     puts the stage in the refusal.
     """
@@ -458,7 +466,9 @@ def test_a_stage_that_declares_a_service_need_is_mapped_to_its_own_stage_id() ->
 
 
 def test_a_stage_declaring_nothing_demands_nothing() -> None:
-    """Most stages never reach a run-wide service, and requiring every plugin author to declare
+    """Most stages never reach a run-wide service, so an undeclared demand means none.
+
+    Most stages never reach a run-wide service, and requiring every plugin author to declare
     an empty tuple would be a registration tax with no failure behind it — the identical
     argument `check_store_capabilities` already makes for `needs_store`.
     """
@@ -473,7 +483,9 @@ def test_a_stage_declaring_nothing_demands_nothing() -> None:
 
 
 def test_a_fallback_in_the_chain_declares_for_itself() -> None:
-    """`check_store_capabilities` checks the whole chain because a `fallback:` name is a
+    """A service demand is checked along the whole fallback chain, as `needs_store` is.
+
+    `check_store_capabilities` checks the whole chain because a `fallback:` name is a
     candidate the runner will actually construct and run. A service demand is no different, and
     the failure a chain-blind check lets through is the same one: reaching a fallback that calls
     a service nothing registered, mid-batch, as a bare `UnresolvedServiceError`.
@@ -493,8 +505,10 @@ def test_a_fallback_in_the_chain_declares_for_itself() -> None:
 
 
 def test_a_needs_services_that_is_not_a_tuple_of_capabilities_is_refused_by_name() -> None:
-    """A declaration nobody can check is not quietly skipped — skipping it would run the
-    pipeline the declaration existed to stop. `needs_store`'s own rule, one attribute over.
+    """A declaration nobody can check is not quietly skipped.
+
+    Skipping it would run the pipeline the declaration existed to stop. `needs_store`'s own rule,
+    one attribute over.
     """
     # Arrange
     specs = (StageSpec(id="retrieve", contract=Retriever, name="misdeclares"),)

@@ -118,7 +118,9 @@ class _NoDistEntryPoint:
 
 
 class _ImportFailingEntryPoint:
-    """A double whose `.dist` is real but `.load()` raises — an optional dependency the
+    """A double whose `.dist` is real but whose `.load()` raises.
+
+    A double whose `.dist` is real but `.load()` raises — an optional dependency the
     pack itself needs that is not installed, the one `FAILED` shape `PackFailureKind.IMPORT`
     exists for.
     """
@@ -346,8 +348,9 @@ def test_discover_folds_a_settings_validator_that_raises_its_own_weft_error_kind
     # generic `WeftError` handler instead of becoming a `FAILED` report at all — the one
     # shape "one broken pack must not stop the rest from loading" exists to prevent.
     class _OwnRefusalError(RuntimeError):
-        """Stands in for a `WeftError` subclass a pack's own validator raises — a plain
-        `RuntimeError` is enough to prove pydantic does not wrap it, without this file
+        """Stands in for a `WeftError` subclass a pack's own validator raises.
+
+        A plain `RuntimeError` is enough to prove pydantic does not wrap it, without this file
         importing anything `weft_kernel` does not already depend on.
         """
 
@@ -717,7 +720,9 @@ def test_strict_pins_false_returns_every_report_instead_of_raising() -> None:
 
 
 def test_a_committed_pack_reports_the_pipeline_resource_it_buffered() -> None:
-    """`add_pipeline_resource` is buffered exactly like `add`, and lands on the report
+    """`add_pipeline_resource` is buffered exactly like `add`.
+
+    `add_pipeline_resource` is buffered exactly like `add`, and lands on the report
     once `register()` returns without raising — `weft_retrieve.contract.RouteCatalogue`'s
     own docstring: "populated by the same eager discovery pass that builds the registry."
     """
@@ -745,7 +750,9 @@ def test_a_committed_pack_reports_the_pipeline_resource_it_buffered() -> None:
 
 
 def test_a_raising_register_discards_its_buffered_pipeline_resource_too() -> None:
-    """The same atomicity `add` gets: nothing a raising `register()` buffered — plugin
+    """The same atomicity `add` gets: nothing a raising `register()` buffered reaches the report.
+
+    The same atomicity `add` gets: nothing a raising `register()` buffered — plugin
     registration or pipeline resource alike — reaches the `PackReport`, because reporting
     a resource nobody actually contributed would make a catalogue advertise a pipeline the
     pack that named it never actually shipped.
@@ -777,7 +784,9 @@ def test_a_raising_register_discards_its_buffered_pipeline_resource_too() -> Non
 
 
 def test_a_committed_pack_reports_the_deprecation_it_buffered_and_warns_once() -> None:
-    """`deprecate` is buffered exactly like `add_pipeline_resource`, lands on the report
+    """`deprecate` is buffered exactly like `add_pipeline_resource`.
+
+    `deprecate` is buffered exactly like `add_pipeline_resource`, lands on the report
     once `register()` returns without raising, and the warning comes from the registration
     wrapper (`weft_kernel.seam.warn_deprecated`) rather than from the pack itself —
     `docs/09-release.md` §3: "the warning is emitted by the registration wrapper."
@@ -847,7 +856,9 @@ def test_a_deprecation_from_a_real_distribution_carries_its_own_removal_release(
 
 
 def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothing() -> None:
-    """The same atomicity as pipeline resources: a pack that raises after marking a
+    """A pack that raises after marking a surface deprecated leaves no warning standing.
+
+    The same atomicity as pipeline resources: a pack that raises after marking a
     surface deprecated must not leave a warning standing about a mark that never
     actually committed.
     """
@@ -880,7 +891,9 @@ def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothi
 
 
 def test_a_committed_pack_reports_the_renderer_it_buffered_with_its_own_attribution() -> None:
-    """`add_renderer` is buffered exactly like `add_contribution`, with `distribution` filled
+    """`add_renderer` is buffered exactly like `add_contribution`.
+
+    `add_renderer` is buffered exactly like `add_contribution`, with `distribution` filled
     in by the registrar rather than stated by the pack.
 
     Task **6.20**, G13's third repair (`docs/03-cli.md` → *Plugin-contributed commands*): a
@@ -919,7 +932,9 @@ def test_a_committed_pack_reports_the_renderer_it_buffered_with_its_own_attribut
 
 
 def test_a_raising_register_discards_its_buffered_renderer_too() -> None:
-    """The same atomicity as pipeline resources, ext models and contributions: nothing a
+    """Nothing a raising `register()` buffered may reach a report, renderers included.
+
+    The same atomicity as pipeline resources, ext models and contributions: nothing a
     raising `register()` buffered may reach a report, or the CLI would advertise a way to
     format a result the pack never actually finished offering.
     """
@@ -951,7 +966,9 @@ def test_a_raising_register_discards_its_buffered_renderer_too() -> None:
 
 
 def test_a_committed_pack_reports_the_contribution_it_buffered_with_its_own_attribution() -> None:
-    """`add_contribution` is buffered exactly like `add_ext_model`, and `distribution` is
+    """`add_contribution` is buffered exactly like `add_ext_model`.
+
+    `add_contribution` is buffered exactly like `add_ext_model`, and `distribution` is
     filled in by the registrar — never something the pack states — on `add`'s own
     footing (module docstring: "attribution is never something the author states").
     """
@@ -983,7 +1000,9 @@ def test_a_committed_pack_reports_the_contribution_it_buffered_with_its_own_attr
 
 
 def test_a_raising_register_discards_its_buffered_contribution_too() -> None:
-    """The same atomicity as pipeline resources and ext models: nothing a raising
+    """Nothing a raising `register()` buffered reaches the `PackReport`, contributions included.
+
+    The same atomicity as pipeline resources and ext models: nothing a raising
     `register()` buffered reaches the `PackReport` — a slot must never look filled by a
     pack that never actually committed.
     """
@@ -1016,7 +1035,9 @@ def test_a_raising_register_discards_its_buffered_contribution_too() -> None:
 
 
 def test_a_pack_that_declares_something_unavailable_reports_partial_and_says_why() -> None:
-    """Fitness function 5's second half — `01`: "or the plugin must declare it unavailable and
+    """Fitness function 5's second half: unavailability is declared at discovery time.
+
+    Fitness function 5's second half — `01`: "or the plugin must declare it unavailable and
     say why", **at discovery time**.
 
     `PackStatus.PARTIAL` has been in the vocabulary since Phase 0 and no pack could produce it:
@@ -1073,7 +1094,9 @@ def test_a_pack_that_declares_nothing_unavailable_is_still_active() -> None:
 
 
 def test_a_raising_register_discards_its_unavailability_notices() -> None:
-    """The same atomicity every other buffer here has: a pack whose `register()` raises must not
+    """A pack whose `register()` raises must not leave a report standing about its mark.
+
+    The same atomicity every other buffer here has: a pack whose `register()` raises must not
     leave a report standing about a mark that never committed.
     """
     # Arrange

@@ -255,7 +255,9 @@ async def test_search_text_ranks_by_lexical_match_and_advertises_text_search(
 async def test_a_search_repeated_on_one_connection_is_never_planned_generically(
     store: PgVectorStore,
 ) -> None:
-    """Repair R38.7. psycopg prepares a statement on its fifth execution and Postgres may then
+    """Repair R38.7: a generic plan misestimates a `tsquery`'s matches by orders of magnitude.
+
+    Repair R38.7. psycopg prepares a statement on its fifth execution and Postgres may then
     switch it to one generic plan, which for a `tsquery` cannot know how many rows the words
     match: over 189,523 Open RAGBench chunks it estimated 948 matches for a question matching
     ~150,000, and each lexical search went from 373 ms to 1,880 ms once `R38.6` gave a scored
@@ -349,8 +351,10 @@ async def test_query_mode_all_requires_every_word_of_the_question(store: PgVecto
 async def test_the_ranking_function_is_a_setting_rather_than_this_packs_opinion(
     store: PgVectorStore,
 ) -> None:
-    """Cover density and frequency answer different questions; which one a corpus wants is not
-    knowable from here. Measured on this container: 0.2 against 0.06079271 for the row below.
+    """Cover density and frequency answer different questions.
+
+    Which one a corpus wants is not knowable from here. Measured on this container: 0.2 against
+    0.06079271 for the row below.
     """
     # Arrange
     node = _node("mutual information redundancy criterion")
@@ -396,7 +400,9 @@ async def test_a_configured_stemmer_reaches_both_the_stored_column_and_the_query
 async def test_a_column_generated_under_another_configuration_is_refused_naming_both(
     fresh_database: str,
 ) -> None:
-    """`ADD COLUMN IF NOT EXISTS` no-ops on an existing column, so changing the setting later
+    """Changing the text-search configuration on an existing column is refused.
+
+    `ADD COLUMN IF NOT EXISTS` no-ops on an existing column, so changing the setting later
     would leave `to_tsvector('simple', …)` stored and `plainto_tsquery('english', …)` asked —
     near-zero matches, no error, and nothing for an operator to notice. It is refused instead.
     """
@@ -674,7 +680,9 @@ def test_a_normalisation_postgres_does_not_define_is_refused_by_name() -> None:
 
 
 def test_the_shipped_default_text_mode_is_postgres_full_text_search() -> None:
-    """**The default does not move in this phase.** `21.9` is the measurement that would justify
+    """The default does not move in this phase.
+
+    **The default does not move in this phase.** `21.9` is the measurement that would justify
     moving it, and until then an operator who configures nothing gets exactly what they got
     before this task existed.
     """
@@ -686,7 +694,9 @@ def test_the_shipped_default_text_mode_is_postgres_full_text_search() -> None:
 
 
 def test_text_mode_is_an_enum_so_a_misspelling_is_refused_where_it_is_typed() -> None:
-    """`Enum` over `Literal`, per this project's own rule, and the refusal lands in `weft.toml`
+    """`Enum` over `Literal`, and the refusal lands in `weft.toml` rather than at the first query.
+
+    `Enum` over `Literal`, per this project's own rule, and the refusal lands in `weft.toml`
     rather than at the first query.
     """
     # Arrange / Act / Assert
@@ -745,7 +755,9 @@ async def test_the_default_mode_never_probes_for_an_extension_it_does_not_need(
 
 
 def test_the_bm25_refusal_is_not_in_the_unresolved_name_family() -> None:
-    """**Measured against `test_ff12_unresolvable_name_carries_options.py`'s own family, and this
+    """Measured against FF12's family: a decision rather than an omission.
+
+    **Measured against `test_ff12_unresolvable_name_carries_options.py`'s own family, and this
     is a decision rather than an omission.** Every member of that family carries `valid_options`
     naming what the operator could have typed instead. Here `bm25` *is* a valid value of
     `text_mode` — it is the database that cannot serve it — so `valid_options` would have to
@@ -814,7 +826,7 @@ async def _bm25_store(dsn: str, nodes: Sequence[Node]) -> PgVectorStore:
 async def test_a_bm25_score_is_higher_is_better_like_every_other_score_in_this_tree(
     bm25_database: str,
 ) -> None:
-    """**The fidelity assertion, and it is measured rather than assumed.**
+    """**The fidelity assertion, and it is measured rather than assumed**.
 
     `pg_textsearch`'s own operator returns a *negative* score so that ascending order puts the best
     match first: on a three-row probe on 2026-09-13 the best match scored `-1.47`, the next
@@ -854,7 +866,9 @@ async def test_a_bm25_score_is_higher_is_better_like_every_other_score_in_this_t
 async def test_bm25_weighs_a_rare_term_above_one_every_document_carries(
     bm25_database: str,
 ) -> None:
-    """**This is the assertion that says BM25 rather than `ts_rank_cd`, and nothing else here
+    """The assertion that says BM25 rather than `ts_rank_cd`, and nothing else here does.
+
+    **This is the assertion that says BM25 rather than `ts_rank_cd`, and nothing else here
     does.** Postgres's rankers have no collection statistics at all — its own documentation says
     so — so a word in every document counts for exactly as much as a word in one. BM25's IDF is
     the difference: with three documents, a term in all three carries `ln(0.5/3.5 + 1) ≈ 0.13` and
@@ -892,7 +906,9 @@ async def test_bm25_weighs_a_rare_term_above_one_every_document_carries(
 async def test_bm25_narrows_by_a_filter_rather_than_filtering_a_global_top_k(
     bm25_database: str,
 ) -> None:
-    """The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
+    """The review's own words: tenant filters are applied in the query, not afterwards.
+
+    The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
     afterwards."* A post-filter returns fewer than `top_k` results for a reason the caller cannot
     see, and at a large corpus returns nothing at all while matching rows exist.
     """
@@ -924,7 +940,9 @@ async def test_bm25_narrows_by_a_filter_rather_than_filtering_a_global_top_k(
 async def test_nothing_matching_is_an_empty_ranking_rather_than_a_failure(
     bm25_database: str,
 ) -> None:
-    """`TextSearch`'s own emptiness rule: *"a store whose index holds nothing matching returns an
+    """`TextSearch`'s own emptiness rule: nothing matching is an empty sequence.
+
+    `TextSearch`'s own emptiness rule: *"a store whose index holds nothing matching returns an
     empty sequence; that is the honest answer, and it is a different fact from a store that could
     not look, which raises."* `21.6`'s refusal is the second case; this is the first.
     """
@@ -942,7 +960,7 @@ async def test_nothing_matching_is_an_empty_ranking_rather_than_a_failure(
 
 
 def test_the_store_says_which_ranking_its_text_score_came_from() -> None:
-    """**Task `21.1`'s rule, which `21.7` would otherwise silently break.**
+    """**Task `21.1`'s rule, which `21.7` would otherwise silently break**.
 
     `weft_cli.explain` prints a score only with its meaning, read off whatever produced it — and
     the meaning is a fixed sentence naming `ts_rank_cd`. A store switched to `bm25` returning that
@@ -1090,7 +1108,7 @@ def test_the_index_kind_defaults_to_the_exact_scan_this_store_has_always_done() 
 
 
 def test_pgvector_now_serves_every_index_kind_the_vocabulary_names() -> None:
-    """**Superseded at task 31.11, and the supersession is the point.**
+    """**Superseded at task 31.11, and the supersession is the point**.
 
     This test asserted that `diskann` is refused at settings validation — task `31.9`'s
     behaviour, with its own comment already anticipating that `31.11` would change it. `31.11`
@@ -1115,7 +1133,9 @@ def test_pgvector_now_serves_every_index_kind_the_vocabulary_names() -> None:
 
 
 def test_iterative_scan_defaults_to_relaxed_order_because_off_loses_rows_silently() -> None:
-    """Phase 29 `29.7`, on 100,142 real chunks: at 0.1% selectivity `hnsw.iterative_scan = off`
+    """Phase 29 `29.7`: `hnsw.iterative_scan = off` returns recall@10 **0.003** at 0.1%.
+
+    Phase 29 `29.7`, on 100,142 real chunks: at 0.1% selectivity `hnsw.iterative_scan = off`
     returns recall@10 **0.003** — a mean of 0.03 rows out of 10 — while `relaxed_order` recovers
     0.8895. `off` is pgvector's own default, so inheriting the backend's default here is the one
     choice that makes a filtered search quietly wrong. This assertion is the whole point of the
@@ -1230,7 +1250,9 @@ def test_the_precision_defaults_to_float32_until_a_run_moves_it() -> None:
 
 
 def test_rescore_oversampling_defaults_to_the_factor_that_stopped_paying() -> None:
-    """`29.8` on 100,142 real chunks, binary quantisation, recall@10 against the exact scan:
+    """Rescore oversampling defaults to four, where recall@10 stopped improving.
+
+    `29.8` on 100,142 real chunks, binary quantisation, recall@10 against the exact scan:
 
     | oversampling | 1 | 2 | 4 | 10 |
     |---|---|---|---|---|

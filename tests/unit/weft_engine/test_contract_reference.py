@@ -68,7 +68,9 @@ def test_published_contracts_includes_vectorsearch_beside_nodestore() -> None:
 
 
 def test_a_stage_contract_is_never_derived_as_another_stages_sibling() -> None:
-    """Repair for task 2.13: `weft-retrieve`'s pipeline positions share the one
+    """Repair for task 2.13: `issubclass` cannot tell the `run`-named retrieve positions apart.
+
+    Repair for task 2.13: `weft-retrieve`'s pipeline positions share the one
     method name `run`, so `issubclass` cannot structurally tell `Retriever` from
     `Fuser` from `QueryScorer` — before this filter, registering `no-retrieval`
     under `Retriever` made every one of them satisfied by structure alone, and this
@@ -129,7 +131,9 @@ def test_a_stage_contract_is_never_derived_as_another_stages_sibling() -> None:
 
 @runtime_checkable
 class _UnregisteredRetriever(Stage[QuerySet, Candidates], Protocol):
-    """Stand-in: `Retriever`'s exact `In`/`Out` shape and `run` method name, satisfied
+    """Stand-in with `Retriever`'s exact `In`/`Out` shape and `run` method, registered nowhere.
+
+    Stand-in: `Retriever`'s exact `In`/`Out` shape and `run` method name, satisfied
     structurally by `NoRetrieval` (and by every real `Retriever`), registered nowhere.
     See `test_a_stage_contract_is_never_derived_as_another_stages_sibling`'s own docstring
     for why a local stand-in replaced the last real "still open" example.
@@ -337,8 +341,10 @@ def test_weft_cli_declares_the_formatter_it_shells_out_to() -> None:
 def test_a_missing_formatter_is_refused_by_name_rather_than_as_a_subprocess_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An absent optional dependency says which extra installs it — `02` section 2's rule that a
-    refusal names what was wanted and how to get it, not `CalledProcessError` with a return code.
+    """An absent optional dependency says which extra installs it.
+
+    `02` section 2's rule that a refusal names what was wanted and how to get it, not
+    `CalledProcessError` with a return code.
     """
     # Arrange — an interpreter that certainly cannot run `ruff`, because it is not one. The
     # public renderer is the subject: what a caller must get back is the named refusal, and

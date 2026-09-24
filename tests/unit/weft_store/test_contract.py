@@ -394,7 +394,9 @@ def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:
 
 
 def test_a_report_that_says_nothing_about_abstentions_reports_none() -> None:
-    """The default every existing `Reconcilable` in and out of this tree keeps getting — which
+    """The default every existing `Reconcilable` keeps getting.
+
+    The default every existing `Reconcilable` in and out of this tree keeps getting — which
     is what makes the field's addition a minor for an implementer rather than a major.
     """
     # Act / Assert
@@ -402,7 +404,9 @@ def test_a_report_that_says_nothing_about_abstentions_reports_none() -> None:
 
 
 def test_the_reconcile_report_schema_version_moved_with_the_field() -> None:
-    """`S5`: the version travels **in the stored bytes**, because at the read site the pack that
+    """`S5`: the version travels **in the stored bytes**.
+
+    `S5`: the version travels **in the stored bytes**, because at the read site the pack that
     wrote the report may not be the one installed. A field added with the constant left alone is
     a persisted shape that changed with nothing in the data recording it.
     """

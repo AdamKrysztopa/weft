@@ -33,8 +33,10 @@ from weft_store.contract import Scored
 
 
 class _Note(ExtModel):
-    """A carrier extension, to prove `ext` survives a repack — G5's settled mechanism for
-    "a strategy needs to pass something along", dropped nowhere this plugin can help it.
+    """A carrier extension, to prove `ext` survives a repack.
+
+    G5's settled mechanism for "a strategy needs to pass something along", dropped nowhere this
+    plugin can help it.
     """
 
     __namespace__ = "test-repack"
@@ -152,7 +154,9 @@ def test_an_unregistered_method_name_is_refused_at_configuration() -> None:
 
 
 async def test_driving_repack_through_the_seam_produces_passages() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """

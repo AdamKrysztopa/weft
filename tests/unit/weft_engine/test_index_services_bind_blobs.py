@@ -1,5 +1,6 @@
-"""`weft index --target` binds the blob service it offers the run to that target — ledger task
-**34.12**, its wiring half.
+"""`weft index --target` binds the blob service it offers the run to that target.
+
+Ledger task **34.12**, its wiring half.
 
 A figure extractor writes through `ctx.require(BlobStore)`, the service `build_index_services`
 registers from the selected role. The store stages are bound to the target after `runner.resolve`

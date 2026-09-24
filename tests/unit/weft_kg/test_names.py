@@ -37,9 +37,10 @@ def test_a_title_case_run_is_one_candidate() -> None:
 
 
 def test_a_sentence_initial_stopword_is_not_part_of_the_name() -> None:
-    """`The Board met` is a board, not a *The Board* — stripped from the front only, because a
-    stopword there is a sentence artefact and the pattern only ever matches a run that starts at
-    a capital.
+    """`The Board met` is a board, not a *The Board*.
+
+    Stripped from the front only, because a stopword there is a sentence artefact and the pattern
+    only ever matches a run that starts at a capital.
 
     `Tuesday` comes back too, and that is the rule working rather than failing: this matches
     **every** Title-Case run, not the subject of the sentence. What separates a name from a
@@ -60,7 +61,9 @@ def test_a_run_longer_than_the_cap_is_cut_to_the_cap() -> None:
 
 
 def test_text_naming_nothing_yields_nothing() -> None:
-    """An empty answer here means *this question named no entity*, which the retriever reports
+    """An empty answer here means *this question named no entity*.
+
+    An empty answer here means *this question named no entity*, which the retriever reports
     as a searched-but-empty list rather than as a query it declined — `L5.9` one layer up.
     """
     # Act / Assert
@@ -68,7 +71,9 @@ def test_text_naming_nothing_yields_nothing() -> None:
 
 
 def test_a_candidate_carries_its_own_shorter_spans() -> None:
-    """The retriever's half: a question saying `Dostoevsky` must reach an entity the corpus
+    """A question naming part of an entity's name must reach it, and the reverse.
+
+    The retriever's half: a question saying `Dostoevsky` must reach an entity the corpus
     stored as `Fyodor Dostoevsky`, and the reverse. Longest first, so a caller that stops early
     stops on the most specific match.
     """
@@ -81,7 +86,9 @@ def test_a_candidate_carries_its_own_shorter_spans() -> None:
 
 
 def test_sub_spans_are_contiguous_and_never_reordered() -> None:
-    """`Crime and Punishment` may be asked for as `Crime` or as `Punishment`, never as
+    """A name is a phrase, so its words are never recombined into a new one.
+
+    `Crime and Punishment` may be asked for as `Crime` or as `Punishment`, never as
     `Crime Punishment` — a name is a phrase, and recombining its words would invent one.
     """
     # Act
@@ -94,9 +101,10 @@ def test_sub_spans_are_contiguous_and_never_reordered() -> None:
 
 
 def test_expansion_deduplicates_across_candidates() -> None:
-    """Two candidates sharing a word must not ask the graph the same name twice: the sequence
-    goes straight into one `entities_by_name` call, and a duplicate is a wasted comparison in
-    the database rather than a wrong answer — cheap, and still worth not doing.
+    """Two candidates sharing a word must not ask the graph the same name twice.
+
+    The sequence goes straight into one `entities_by_name` call, and a duplicate is a wasted
+    comparison in the database rather than a wrong answer — cheap, and still worth not doing.
     """
     # Act
     expanded = with_subspans(("Warsaw Institute", "Warsaw University"))
@@ -107,7 +115,9 @@ def test_expansion_deduplicates_across_candidates() -> None:
 
 
 def test_a_cap_below_one_is_refused_rather_than_repaired() -> None:
-    """`CooccurrenceSettings` already refuses `max_name_words < 1` at construction, naming the
+    """The function refuses `max_name_words < 1` as its settings do.
+
+    `CooccurrenceSettings` already refuses `max_name_words < 1` at construction, naming the
     field; the function it configures must not silently disagree by returning an empty tuple.
     """
     # Act / Assert
@@ -116,7 +126,9 @@ def test_a_cap_below_one_is_refused_rather_than_repaired() -> None:
 
 
 def test_a_name_that_does_not_start_with_a_capital_is_not_a_candidate() -> None:
-    """**The blind spot, asserted rather than only written down.** The rule matches a run that
+    """The blind spot, asserted rather than only written down.
+
+    **The blind spot, asserted rather than only written down.** The rule matches a run that
     *begins* at a capital, so `adRAP` — a real entity name in this project's own corpus — is
     invisible to it, and a question naming only that entity seeds nothing.
 

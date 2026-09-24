@@ -169,7 +169,9 @@ def test_a_document_read_with_no_text_and_no_images_is_nothing_to_produce() -> N
 
 
 def test_a_page_with_no_text_layer_costs_its_page_and_is_named_on_the_others() -> None:
-    """Carried repair **R43.3**, from `43.0`: three of open_ragbench's 1,000 PDFs have one
+    """Carried repair **R43.3**: an unreadable page no longer costs its whole document.
+
+    Carried repair **R43.3**, from `43.0`: three of open_ragbench's 1,000 PDFs have one
     page this backend cannot read, and each lost its whole document — with a batch, up to 24
     innocent documents with it. The readable pages are kept, and every page that was dropped is
     named on the nodes that survived, so a partial document is visible rather than silent.
@@ -197,7 +199,9 @@ def test_a_page_with_no_text_layer_costs_its_page_and_is_named_on_the_others() -
 
 
 def test_a_document_whose_every_page_was_dropped_is_still_failed() -> None:
-    """The floor R43.3 keeps: a document with nothing readable left is a `Failed` naming it,
+    """The floor R43.3 keeps: a document with nothing readable left is a `Failed` naming it.
+
+    The floor R43.3 keeps: a document with nothing readable left is a `Failed` naming it,
     not a `Produced` holding no nodes, which downstream cannot tell from an empty document.
     `R43.1` re-runs a failed batch one document at a time, so only this document is recorded.
     """
@@ -214,7 +218,9 @@ def test_a_document_whose_every_page_was_dropped_is_still_failed() -> None:
 
 
 def test_a_document_that_lost_no_page_carries_no_dropped_pages_marker() -> None:
-    """The control: the marker appears only when something was actually lost, so every
+    """The control: the marker appears only when something was actually lost.
+
+    The control: the marker appears only when something was actually lost, so every
     document that reads cleanly is byte-identical to a build before this repair.
     """
     # Arrange
@@ -306,7 +312,9 @@ def test_one_unreadable_document_fails_the_whole_batch_rather_than_shrinking_it(
 
 
 def test_a_page_holding_an_unpaired_surrogate_costs_its_page_and_is_named() -> None:
-    """R29.2 found it, R43.3 narrows what it costs: two of open_ragbench's 1,000 PDFs read a
+    """R29.2 found it, R43.3 narrows what it costs: a page with a lone surrogate is dropped.
+
+    R29.2 found it, R43.3 narrows what it costs: two of open_ragbench's 1,000 PDFs read a
     page whose CMap passes a lone UTF-16 surrogate through, which `Node.synthetic`'s digest
     cannot encode. That page is dropped and named; the rest of the document is indexed.
     """
@@ -330,7 +338,9 @@ def test_a_page_holding_an_unpaired_surrogate_costs_its_page_and_is_named() -> N
 
 
 def test_one_document_losing_a_page_leaves_the_rest_of_the_batch_untouched() -> None:
-    """The batch half of R43.3, and the defect `43.0` actually measured: before this, the
+    """The batch half of R43.3: one bad page no longer costs every document in its batch.
+
+    The batch half of R43.3, and the defect `43.0` actually measured: before this, the
     first `Failed` returned from the whole batch, so one bad page cost every document sharing
     it — 72 good documents at batch 25, 147 at batch 50.
     """
@@ -359,7 +369,9 @@ def test_one_document_losing_a_page_leaves_the_rest_of_the_batch_untouched() -> 
 
 
 def test_a_document_with_nothing_left_still_fails_its_batch() -> None:
-    """R43.3 keeps this shape deliberately: a document that loses every page has nothing to
+    """R43.3 keeps this shape deliberately: a document that loses every page fails.
+
+    R43.3 keeps this shape deliberately: a document that loses every page has nothing to
     contribute, and `Produced` cannot say so. The batch fails, and `R43.1` then re-runs it one
     document at a time, so only the document with nothing readable is recorded `FAILED`.
     """

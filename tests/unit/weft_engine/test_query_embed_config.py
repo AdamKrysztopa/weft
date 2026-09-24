@@ -1,5 +1,6 @@
-"""`[services.embed_config]` configures the embedder the query side builds — carried repair
-**R34.4**, owner's decision 2026-09-22.
+"""`[services.embed_config]` configures the embedder the query side builds.
+
+Carried repair **R34.4**, owner's decision 2026-09-22.
 
 Found preparing Phase 34's exit. Every query path builds `[services] embed` with no configuration
 (`build_services`, `run_ask`), so a target built by a configured embedder (hash at width 128,

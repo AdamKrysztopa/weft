@@ -137,7 +137,9 @@ def test_a_capability_a_store_lacks_is_reported_rather_than_silently_dropped() -
 
 
 def test_gaining_a_capability_moves_checks_from_unsupported_to_offered() -> None:
-    """The two doubles differ by exactly one capability, so this is the assertion a selector that
+    """The two doubles differ by exactly one capability.
+
+    The two doubles differ by exactly one capability, so this is the assertion a selector that
     ignores the store cannot pass — it is the control for both tests above.
     """
     # Arrange
@@ -212,8 +214,9 @@ def test_something_that_is_not_a_store_is_refused_rather_than_offered_nothing() 
 
 
 class _TextSearchableOnly(_NodeStoreOnly):
-    """A store with the base contract and `search_text` — the shape `pgvector` and `qdrant` share
-    and `MemoryStore` does not.
+    """A store with the base contract and `search_text`.
+
+    The shape `pgvector` and `qdrant` share and `MemoryStore` does not.
     """
 
     async def search_text(self, text: str, top_k: int, filter: object = None) -> Sequence[object]:
@@ -237,7 +240,9 @@ def test_a_store_with_a_text_arm_is_offered_the_text_checks() -> None:
 
 
 def test_a_store_without_a_text_arm_is_told_what_it_was_not_asked() -> None:
-    """The half that makes the filter honest: nothing is skipped silently, so an author whose
+    """The half that makes the filter honest: nothing is skipped silently.
+
+    The half that makes the filter honest: nothing is skipped silently, so an author whose
     store has no text arm learns which checks they did not answer and why.
     """
     # Arrange
@@ -255,7 +260,9 @@ def test_a_store_without_a_text_arm_is_told_what_it_was_not_asked() -> None:
 
 
 def test_gaining_a_text_arm_moves_those_checks_from_unsupported_to_offered() -> None:
-    """The property the whole selector exists for, asserted on the tier this repair adds — and
+    """The property the whole selector exists for, asserted as a *move*.
+
+    The property the whole selector exists for, asserted on the tier this repair adds — and
     asserted as a *move* rather than as two independent counts, so a check that appeared in
     neither list would fail here.
     """

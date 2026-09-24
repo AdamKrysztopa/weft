@@ -193,7 +193,9 @@ async def test_a_two_hop_path_whose_endpoints_share_no_chunk_is_found(store: Gra
 
 
 async def test_each_hop_carries_the_node_that_evidenced_it(store: GraphStore) -> None:
-    """*"each hop with its own citation"* — the node whose fact stated that hop, and the
+    """*"each hop with its own citation"*: the node that stated the hop and its document.
+
+    *"each hop with its own citation"* — the node whose fact stated that hop, and the
     document that node came from, never the path as one undifferentiated claim.
     """
     # Arrange
@@ -210,7 +212,9 @@ async def test_each_hop_carries_the_node_that_evidenced_it(store: GraphStore) ->
 
 
 async def test_a_hop_is_printed_in_the_direction_the_corpus_stated_it(store: GraphStore) -> None:
-    """A walk is undirected and a **fact is not**, and printing one as the other is a false claim
+    """A walk is undirected and a **fact is not**.
+
+    A walk is undirected and a **fact is not**, and printing one as the other is a false claim
     standing beside a true citation.
 
     `kg_relations` stores a direction and `GraphWalk.neighbourhood` walks it undirected, which has
@@ -264,7 +268,9 @@ async def test_two_entities_that_share_a_chunk_are_not_a_bridge(store: GraphStor
 async def test_a_corpus_with_relations_but_no_bridge_reports_it_rather_than_refusing(
     store: GraphStore,
 ) -> None:
-    """`11.10`'s own measured finding, made printable: a corpus every one of whose relations is
+    """`11.10`'s measured finding, made printable: no question on which the graph must win.
+
+    `11.10`'s own measured finding, made printable: a corpus every one of whose relations is
     answerable from a single chunk has **no** question on which the graph must win, and saying so
     is the diagnostic answer rather than a failure.
     """
@@ -295,8 +301,9 @@ async def test_a_corpus_with_no_relations_at_all_refuses_naming_the_rung_to_run(
 
 
 async def _one_chunk_two_derived_facts(store: GraphStore) -> Node:
-    """One chunk, two facts **derived from it** — the shape `llm-facts` writes and no other
-    fixture in this file has.
+    """One chunk, two facts **derived from it**.
+
+    The shape `llm-facts` writes and no other fixture in this file has.
 
     `cooccurrence-graph` anchors an entity to the chunk node itself, so for that rung "the nodes an
     entity is anchored to" and "the chunks it appears in" are one set. `llm-facts` anchors an
@@ -336,7 +343,7 @@ async def _one_chunk_two_derived_facts(store: GraphStore) -> Node:
 async def test_two_entities_one_sentence_names_are_not_a_bridge_however_they_were_derived(
     store: GraphStore,
 ) -> None:
-    """**The claim this command exists to make, on the rung the phase's Exit names.**
+    """**The claim this command exists to make, on the rung the phase's Exit names**.
 
     `Azouz` and `ranking` are both named in one sentence, so a single passage answers a question
     about the pair and no ceiling of `0` is true about them. They are anchored to two *different*
@@ -382,8 +389,10 @@ async def test_the_ceiling_counts_chunks_a_retriever_could_return_not_nodes_a_st
 
 
 async def test_the_vector_ceiling_is_measured_for_every_bridge(store: GraphStore) -> None:
-    """*"prints the vector ceiling on the same question"* — the best any single-passage retriever
-    could reach, which is a fact about the corpus rather than about an embedder.
+    """*"prints the vector ceiling on the same question"*.
+
+    The best any single-passage retriever could reach, which is a fact about the corpus rather than
+    about an embedder.
     """
     # Arrange
     await _two_document_bridge(store)
@@ -414,7 +423,9 @@ def test_a_ceiling_that_disagreed_with_the_walk_is_refused() -> None:
 
 
 def test_the_ceiling_agrees_when_the_two_queries_agree() -> None:
-    """The same comparison's other verdict, so the test above is known to be about disagreement
+    """The same comparison's other verdict, so the test above is about disagreement.
+
+    The same comparison's other verdict, so the test above is known to be about disagreement
     rather than about `bridges_from` refusing everything.
     """
     # Arrange
@@ -439,7 +450,9 @@ def test_the_ceiling_agrees_when_the_two_queries_agree() -> None:
 async def test_write_emits_the_question_file_weft_eval_run_reads(
     store: GraphStore, tmp_path: Path
 ) -> None:
-    """The clause that turns `01` → Phase 11's Exit into a measurement, asserted **through the
+    """The clause that turns Phase 11's Exit into a measurement, asserted through the real reader.
+
+    The clause that turns `01` → Phase 11's Exit into a measurement, asserted **through the
     real reader**: `weft_eval.question_set.read_question_set` is what `weft eval run --questions`
     calls since task 38.11, and the file states what a generated question cannot carry rather than
     leaving it silently empty.
@@ -471,8 +484,10 @@ async def test_write_emits_the_question_file_weft_eval_run_reads(
 async def test_nothing_is_written_when_the_corpus_yields_no_bridge(
     store: GraphStore, tmp_path: Path
 ) -> None:
-    """An empty question file is worse than none: `weft eval run --questions` would accept it and
-    score nothing, and a comparison over nothing reports `n=0` rather than saying why.
+    """An empty question file is worse than none.
+
+    `weft eval run --questions` would accept it and score nothing, and a comparison over nothing
+    reports `n=0` rather than saying why.
     """
     # Arrange
     await store.add([_fact_node("Azouz", "authored", "mRMR", document="doc-a")])
@@ -489,7 +504,9 @@ async def test_nothing_is_written_when_the_corpus_yields_no_bridge(
 def test_the_written_questions_read_back_as_one_question_per_bridge_keyed_by_its_id(
     tmp_path: Path,
 ) -> None:
-    """The pure half, with no container: what `questions_as_toml` produces reads through the one
+    """The pure half, with no container: one question per bridge, under the bridge's own id.
+
+    The pure half, with no container: what `questions_as_toml` produces reads through the one
     question model, one question per bridge, under the bridge's own stable id.
     """
     # Arrange
@@ -513,7 +530,9 @@ def test_the_written_questions_read_back_as_one_question_per_bridge_keyed_by_its
 
 
 def test_the_pasteable_toml_is_refused_by_the_v2_reader() -> None:
-    """*"Generated questions are diagnostic, never V2 ground truth."* Asserted through
+    """Generated questions are diagnostic, never V2 ground truth.
+
+    *"Generated questions are diagnostic, never V2 ground truth."* Asserted through
     `eval/check_questions.py` itself — the reader the gate runs — so the guard is the real one and
     not a restatement of it here. It is refused on **both** counts: no reference answer, and a
     kind V2 does not have.
@@ -555,7 +574,9 @@ def test_filling_the_reference_answer_alone_does_not_make_it_ground_truth() -> N
 
 
 def test_the_toml_carries_no_quote_because_a_fact_is_not_the_chunk_s_own_words() -> None:
-    """**11.14's sentence, arriving where it is first load-bearing.** A citation on a fact is a
+    """11.14's sentence, arriving where it is first load-bearing.
+
+    **11.14's sentence, arriving where it is first load-bearing.** A citation on a fact is a
     citation on a claim *derived from* a chunk. V2 verifies a quote by finding it verbatim in the
     extracted document; a span taken off a fact node is the model's rendering of a triple and is
     in no document, so writing one would be ground truth that is false about the corpus.
@@ -607,7 +628,9 @@ def test_the_command_declares_its_permission_class() -> None:
 
 
 def test_the_pack_discloses_the_file_this_command_writes() -> None:
-    """`02` §2 → *The trust model*: a pack that writes files while declaring none answers the
+    """`02` §2: a pack that writes files while declaring none answers the question wrongly.
+
+    `02` §2 → *The trust model*: a pack that writes files while declaring none answers the
     question wrongly rather than not at all — `11.11`'s own finding, one command later.
     """
     # Arrange
@@ -624,7 +647,9 @@ def test_the_pack_discloses_the_file_this_command_writes() -> None:
 
 
 def _candidate() -> BridgeCandidate:
-    """One `BridgeCandidate` as `GraphStore.two_hop_bridges` returns it, built by hand so the
+    """One `BridgeCandidate` as `GraphStore.two_hop_bridges` returns it, built by hand.
+
+    One `BridgeCandidate` as `GraphStore.two_hop_bridges` returns it, built by hand so the
     pure half can be exercised with no container — the same split `test_schema.py` uses for
     `propose_schema`.
     """

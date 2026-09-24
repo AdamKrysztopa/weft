@@ -249,7 +249,9 @@ async def test_ask_passes_the_pipeline_name_it_was_given_to_the_command() -> Non
 
 
 def test_ask_offers_no_mode_whose_result_is_not_an_answer() -> None:
-    """`R22.6`: retrieve-only fills `hits` and never `answer`, so `ask(retrieve_only=True)` raised
+    """`R22.6`: retrieve-only fills `hits` and never `answer`.
+
+    `R22.6`: retrieve-only fills `hits` and never `answer`, so `ask(retrieve_only=True)` raised
     on every call. Ranked passages are `run("ask", {...})`'s to return.
     """
     # Arrange
@@ -327,7 +329,9 @@ async def test_a_destroy_class_command_the_caller_authorised_runs() -> None:
 
 
 async def test_a_permissions_table_that_allows_destroy_permits_it_without_the_argument() -> None:
-    """`[permissions] destroy = "allow"` is the operator's standing answer, and the library
+    """`[permissions] destroy = "allow"` is honoured by the library exactly as by the CLI.
+
+    `[permissions] destroy = "allow"` is the operator's standing answer, and the library
     honours the same table the CLI does — one policy, read once, not a second one here.
     """
     # Arrange
@@ -439,8 +443,10 @@ async def test_any_registered_command_is_reachable_by_name_not_only_the_three_wi
 
 
 async def test_run_asks_consent_for_a_destructive_command_reached_by_name() -> None:
-    """The generic path is gated exactly as the three named ones are — a command reached by
-    string must not be a way around the permission the same command refuses by method.
+    """The generic path is gated exactly as the three named ones are.
+
+    A command reached by string must not be a way around the permission the same command refuses by
+    method.
     """
     # Arrange
     weft = Weft(_deps(_DestructiveCommand, name="graph wipe"))
@@ -475,7 +481,9 @@ class _RecordingSink:
 
 
 class _StreamingCommand(_RecordingCommand):
-    """Streams three chunks through `ctx.require(TokenSink)` and yields between each, so two
+    """Streams three chunks through `ctx.require(TokenSink)`, yielding between each.
+
+    Streams three chunks through `ctx.require(TokenSink)` and yields between each, so two
     concurrent calls interleave the way two generations on one event loop do. `emitted` records
     the order across both calls, which is what shows the interleaving happened at all.
     """
@@ -596,7 +604,9 @@ async def test_a_command_reached_by_name_takes_a_sink_for_the_call_too() -> None
 
 
 class _IndexCommand(_RecordingCommand):
-    """Declares the shipped `IndexArgs`, so a field `Weft.index` passes that the real model does
+    """Declares the shipped `IndexArgs`, so an undeclared field is dropped as in production.
+
+    Declares the shipped `IndexArgs`, so a field `Weft.index` passes that the real model does
     not declare is dropped here exactly as it is in production (`L12.11`).
     """
 

@@ -98,7 +98,9 @@ async def _through_the_chunker(batch: Sequence[Node]) -> Sequence[Node]:
 
 
 async def test_a_table_node_reaches_the_next_stage_whole_and_in_position() -> None:
-    """9.2's property, on the product: a `TABLE` node between two long text nodes is the same
+    """9.2's property: a `TABLE` node passes the shipped chunker untouched while text is split.
+
+    9.2's property, on the product: a `TABLE` node between two long text nodes is the same
     object on the other side of the shipped chunker, while the text around it is split.
     """
     # Arrange — the text is long enough that the chunker's default window splits it, so the
@@ -119,7 +121,9 @@ async def test_a_table_node_reaches_the_next_stage_whole_and_in_position() -> No
 
 
 async def test_a_batch_of_only_non_text_nodes_passes_through_untouched() -> None:
-    """The edge case the seam has to survive: nothing in the batch matches, so the chunker is
+    """When nothing in the batch matches, the chunker is never called and the run still succeeds.
+
+    The edge case the seam has to survive: nothing in the batch matches, so the chunker is
     never called at all and the run neither fails nor empties the batch.
     """
     # Arrange

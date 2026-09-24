@@ -58,9 +58,10 @@ def _ctx(services: ServiceRegistry | None = None) -> Context:
 
 
 class _StubEmbedder:
-    """A vector deterministic on the query's own text length — enough to prove this plugin
-    reaches for an embedding rather than inventing one: two different questions produce
-    two different vectors, and the same question always produces the same one.
+    """A vector deterministic on the query's own text length.
+
+    Enough to prove this plugin reaches for an embedding rather than inventing one: two different
+    questions produce two different vectors, and the same question always produces the same one.
     """
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
@@ -72,7 +73,9 @@ class _StubEmbedder:
 
 
 class _StubVectorStore:
-    """`search_vector`, answered from a canned table keyed by the vector's own first
+    """`search_vector`, answered from a canned table keyed by the vector's first component.
+
+    `search_vector`, answered from a canned table keyed by the vector's own first
     component — enough to route a fixture's canned hits back to the query that asked for
     them without this test needing a real index.
     """
@@ -220,7 +223,9 @@ def test_config_refuses_a_channel_this_retriever_cannot_search() -> None:
 
 
 async def test_driving_vector_top_k_through_the_seam_produces_a_ranked_list() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives. `VectorTopK` opens no connection and calls no model, so
     nothing here is expected to fail; the value of this test is structural, the same shape
@@ -254,7 +259,9 @@ def test_the_declared_cost_bound_is_zero_zero() -> None:
 
 
 async def test_an_arm_names_itself_so_a_fuser_can_weight_it_apart() -> None:
-    """Two `vector-top-k` stages over one index are two *bases* only if a `Fuser` can tell
+    """Two `vector-top-k` stages over one index are two *bases* only if a `Fuser` tells them apart.
+
+    Two `vector-top-k` stages over one index are two *bases* only if a `Fuser` can tell
     them apart. `weft_retrieve.fusion.contributor_label` is `retriever:channel`, and this
     plugin used to hardcode `channel="vector"` — so a summaries arm and a leaves arm produced
     the identical label and `reciprocal-rank-fusion`'s `weights` mapping could not address
@@ -329,7 +336,9 @@ async def test_an_arm_filter_and_a_query_filter_are_combined_never_replaced() ->
 
 
 async def test_a_retrieval_depth_of_zero_is_refused_at_construction() -> None:
-    """An unbounded `top_k` field lets `-5` or `0` construct cleanly and a `0` from a
+    """`top_k` is bounded like every sibling config's in this pack.
+
+    An unbounded `top_k` field lets `-5` or `0` construct cleanly and a `0` from a
     `with:` block reach the store; every sibling config in this pack already carries `ge`,
     so leaving this one field open would be the one inconsistency on precisely the value
     that is bounded everywhere else.

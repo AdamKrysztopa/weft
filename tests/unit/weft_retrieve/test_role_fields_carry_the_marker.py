@@ -1,4 +1,6 @@
-"""Repairs **R43.35** and **R43.42**: every registered config field named like a model role, or
+"""Repairs **R43.35** and **R43.42**: role and sub-plugin fields carry their markers.
+
+Repairs **R43.35** and **R43.42**: every registered config field named like a model role, or
 like a sub-plugin reference, is declared one, in a spelling pydantic keeps.
 
 The role walk reads `LLMRole` from field metadata and ignores names, so a field spelt `role` or
@@ -112,7 +114,9 @@ def _sibling_of(field: str, fields: Iterable[str]) -> str | None:
 
 
 def _references(models: Iterable[type[BaseModel]]) -> dict[str, str | None]:
-    """Each field spelt like a sub-plugin reference, to the `config` its `SubPlugin` names, or to
+    """Each field spelt like a sub-plugin reference, to the `config` its `SubPlugin` names.
+
+    Each field spelt like a sub-plugin reference, to the `config` its `SubPlugin` names, or to
     `None` when it carries no marker.
     """
     found: dict[str, str | None] = {}
@@ -127,22 +131,31 @@ def _references(models: Iterable[type[BaseModel]]) -> dict[str, str | None]:
 
 
 def _unpaired(models: Iterable[type[BaseModel]]) -> list[str]:
-    """Every reference that is unmarked or names the wrong sibling, and every `SubPlugin` whose
+    """Every reference that is unmarked or names the wrong sibling, or names no field.
+
+    Every reference that is unmarked or names the wrong sibling, and every `SubPlugin` whose
     `config` names no field of its model.
     """
     problems: list[str] = []
     for model in models:
         fields = model.model_fields
         for field, info in fields.items():
-            sibling = _sibling_of(field, fields)
-            for marker in (item for item in info.metadata if isinstance(item, SubPlugin)):
-                if marker.config is not None and marker.config not in fields:
-                    problems.append(f"{model.__qualname__}.{field}: names no field {marker.config}")
-                elif sibling is not None and marker.config != sibling:
-                    problems.append(f"{model.__qualname__}.{field}: pairs {marker.config}")
-            if sibling is not None and not any(isinstance(i, SubPlugin) for i in info.metadata):
-                problems.append(f"{model.__qualname__}.{field}: unmarked")
+            problems.extend(_field_problems(model, field, info.metadata))
     return sorted(problems)
+
+
+def _field_problems(model: type[BaseModel], field: str, metadata: list[object]) -> list[str]:
+    fields = model.model_fields
+    sibling = _sibling_of(field, fields)
+    problems: list[str] = []
+    for marker in (item for item in metadata if isinstance(item, SubPlugin)):
+        if marker.config is not None and marker.config not in fields:
+            problems.append(f"{model.__qualname__}.{field}: names no field {marker.config}")
+        elif sibling is not None and marker.config != sibling:
+            problems.append(f"{model.__qualname__}.{field}: pairs {marker.config}")
+    if sibling is not None and not any(isinstance(i, SubPlugin) for i in metadata):
+        problems.append(f"{model.__qualname__}.{field}: unmarked")
+    return problems
 
 
 def _named_like_a_role(models: Iterable[type[BaseModel]]) -> dict[str, bool]:
@@ -207,7 +220,8 @@ def test_the_check_can_actually_fail() -> None:
 
 
 def test_no_registered_config_field_spells_a_marker_where_pydantic_drops_it() -> None:
-    """R43.42: `Annotated[str, LLMRole()] | None` loses the marker from `FieldInfo.metadata`;
+    """R43.42: `Annotated[str, LLMRole()] | None` loses the marker from `FieldInfo.metadata`.
+
     `Annotated[str | None, LLMRole()]` keeps it, and is the spelling the tree uses.
     """
     # Arrange
@@ -253,7 +267,9 @@ def test_the_dropped_marker_check_can_actually_fail() -> None:
 
 
 def test_every_registered_sub_plugin_reference_is_declared_with_its_config() -> None:
-    """R43.42: a reference the walk cannot pair with its config is a sibling whose roles it
+    """R43.42: a reference the walk cannot pair with its config is a sibling it never reads.
+
+    R43.42: a reference the walk cannot pair with its config is a sibling whose roles it
     never reads, so a routed rung naming it is offered and refuses after a paid call.
     """
     # Arrange

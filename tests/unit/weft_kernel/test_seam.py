@@ -614,7 +614,9 @@ def test_the_clock_is_the_publishing_distributions_next_major() -> None:
 
 
 def test_a_0x_publisher_promises_no_deprecation_period_and_says_so() -> None:
-    """G9: "Inside 0.x a contract may move without a deprecation period but never silently."
+    """A 0.x publisher promises no deprecation period, and says so.
+
+    G9: "Inside 0.x a contract may move without a deprecation period but never silently."
 
     The honest answer for a 0.x distribution is not "removed in 1.0.0" — that would promise a
     window 0.x explicitly reserves the right not to give. It is that there is no window, said

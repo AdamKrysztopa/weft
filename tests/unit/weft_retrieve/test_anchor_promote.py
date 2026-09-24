@@ -74,7 +74,7 @@ def _ranking(question: str, *hits: Passage) -> Ranking:
     ],
 )
 def test_an_anchor_is_contained_only_as_whole_tokens_whatever_its_case_or_hyphens(
-    anchor: str, text: str, contained: bool
+    anchor: str, text: str, *, contained: bool
 ) -> None:
     assert anchor_contained(anchor, text) is contained
 

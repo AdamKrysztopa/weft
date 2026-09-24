@@ -1,4 +1,4 @@
-"""The two table serialisations — ledger task `9.6`, and `11` §6 rank 10.
+r"""The two table serialisations — ledger task `9.6`, and `11` §6 rank 10.
 
 *"Triplets for the index, markdown or HTML for the prompt. A single linearisation cannot serve
 both, which is the concrete reason the grid must survive extraction."* So there are two functions,
@@ -10,7 +10,7 @@ pdfplumber.
 
 **The property `9.6` states, in its own words: *a cell containing a pipe cannot break one extractor
 and not another*.** That is not a hypothetical about tidiness. Both renderings are delimited, a
-financial table legitimately contains `|`, `\\` and newlines, and an extractor that escaped them
+financial table legitimately contains `|`, `\` and newlines, and an extractor that escaped them
 while another did not would produce two different node contents for the same table — different
 digests, different chunks, and a retrieval difference nobody could attribute to the parser. One
 module, one escape, both directions.
@@ -53,7 +53,9 @@ def test_the_index_form_carries_every_cell() -> None:
 
 
 def test_the_index_form_repeats_the_header_on_every_row() -> None:
-    """The measured reason this form exists — `11` §6 rank 3, corroborated by arXiv:2408.17008,
+    """The measured reason this form exists: row-level retrieval with the header propagated.
+
+    The measured reason this form exists — `11` §6 rank 3, corroborated by arXiv:2408.17008,
     is row-level retrieval with the header propagated. A row that reaches a retriever without its
     header is a row of numbers nobody can read.
     """
@@ -146,7 +148,9 @@ def test_an_awkward_cell_never_adds_a_row_or_a_column(awkward: str) -> None:
 
 
 def test_both_renderings_are_deterministic() -> None:
-    """A node id is a digest of its content, so a serialiser that varied would re-index a corpus
+    """A node id is a digest of its content, so the serialiser must not vary.
+
+    A node id is a digest of its content, so a serialiser that varied would re-index a corpus
     that had not changed — and `9.17` is the task that makes a real reparse visible, not this.
     """
     # Arrange

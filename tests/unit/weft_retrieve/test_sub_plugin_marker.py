@@ -1,4 +1,6 @@
-"""Repair **R43.42**: `SubPlugin` is published by `weft_retrieve` beside `StageLookup`, and
+"""Repair **R43.42**: `SubPlugin` is published by `weft_retrieve` beside `StageLookup`.
+
+Repair **R43.42**: `SubPlugin` is published by `weft_retrieve` beside `StageLookup`, and
 publishing it moves the retrieve contract family by a minor — an addition a stranger can depend on.
 """
 

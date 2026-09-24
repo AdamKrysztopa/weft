@@ -131,10 +131,11 @@ async def test_each_arm_keeps_its_own_score_and_its_own_rank_for_a_node_both_ret
 
 
 async def test_a_node_one_arm_never_returned_is_absent_rather_than_scored_zero() -> None:
-    """Absence is not a measured zero — the review's *missing scores are the central fidelity
-    issue*. A `0.0` here would read as "this arm scored it lowest" when the truth is "this arm
-    did not return it within its cutoff", and a normalized fuser that believed the first would
-    invent a contribution nobody measured.
+    """Absence is not a measured zero.
+
+    The review's *missing scores are the central fidelity issue*. A `0.0` here would read as "this
+    arm scored it lowest" when the truth is "this arm did not return it within its cutoff", and a
+    normalized fuser that believed the first would invent a contribution nobody measured.
     """
     # Arrange
     fuser = ReciprocalRankFusion(ReciprocalRankFusionConfig())
@@ -154,7 +155,9 @@ async def test_a_node_one_arm_never_returned_is_absent_rather_than_scored_zero()
 
 
 async def test_evidence_does_not_evict_a_carrier_ext_in_the_neighbouring_namespace() -> None:
-    """`ReciprocalRankFusion.run` ends `Ranking(..., ext=payload.ext)`, and `CorrectiveTrace`
+    """Fusion evidence is not filed under `weft-retrieve`, which `CorrectiveTrace` already owns.
+
+    `ReciprocalRankFusion.run` ends `Ranking(..., ext=payload.ext)`, and `CorrectiveTrace`
     already owns `weft-retrieve` on a `Candidates`. One model per namespace, so evidence filed
     under that name would destroy it — with nothing to see afterwards.
     """
@@ -233,7 +236,9 @@ def test_a_ranking_nothing_recorded_evidence_on_reads_as_an_absence() -> None:
 
 
 def test_an_arm_with_a_blank_label_is_refused() -> None:
-    """`contributor_label` never produces one, so a blank arrives only from a caller that built
+    """A blank arm label arrives only from a caller that built an `ArmEvidence` by hand.
+
+    `contributor_label` never produces one, so a blank arrives only from a caller that built
     an `ArmEvidence` by hand — and an arm no reader can name is one no fuser can weight, which is
     `Passage.retrieved_by`'s own argument one type down.
     """

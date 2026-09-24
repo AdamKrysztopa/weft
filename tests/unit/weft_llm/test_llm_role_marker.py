@@ -1,4 +1,6 @@
-"""Repair **R43.35**: `LLMRole` is published by `weft_llm`, and publishing it moves the contract
+"""Repair **R43.35**: `LLMRole` is published by `weft_llm`, moving its contract by a minor.
+
+Repair **R43.35**: `LLMRole` is published by `weft_llm`, and publishing it moves the contract
 version by a minor — an addition a stranger's pack can now depend on.
 """
 

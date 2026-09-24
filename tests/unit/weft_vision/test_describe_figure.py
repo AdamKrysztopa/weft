@@ -98,8 +98,9 @@ class _SequenceDescriber:
 
 
 def _figure_node(ordinal: int = 1001) -> Node:
-    """An `IMAGE` node in exactly the shape `pdf-layout` leaves one: caption as content, a
-    `BlobRef` and a `PageSpan` in `ext` (`weft_pdf.pdf_layout:215`).
+    """An `IMAGE` node in exactly the shape `pdf-layout` leaves one.
+
+    Caption as content, a `BlobRef` and a `PageSpan` in `ext` (`weft_pdf.pdf_layout:215`).
     """
     root = Node.synthetic(
         content="Annual report",
@@ -256,10 +257,11 @@ async def test_a_describer_that_produces_nothing_leaves_the_node_exactly_as_it_w
 
 
 async def test_a_describer_that_fails_one_figure_does_not_take_the_batch_with_it() -> None:
-    """One figure's provider error is not the document's failure — `Describer`'s own docstring:
-    *"has to be able to say so without raising through a stage that has forty more figures to get
-    through."* That clause survives `9.14`'s narrowing below unchanged: what changes is only the
-    case where **nothing** could be described.
+    """One figure's provider error is not the document's failure.
+
+    `Describer`'s own docstring: *"has to be able to say so without raising through a stage that has
+    forty more figures to get through."* That clause survives `9.14`'s narrowing below unchanged:
+    what changes is only the case where **nothing** could be described.
     """
     # Arrange — two figures, and a describer that fails the first and answers the second.
     stage = FigureDescriber(None)
@@ -281,7 +283,7 @@ async def test_a_describer_that_fails_one_figure_does_not_take_the_batch_with_it
 
 
 async def test_a_batch_where_no_figure_could_be_described_is_a_failure() -> None:
-    """**Found by Phase 9's exit demonstration, and it is the narrowing `9.11` needed.**
+    """**Found by Phase 9's exit demonstration, and it is the narrowing `9.11` needed**.
 
     `9.11` decided that a `Failed` describer leaves its figure exactly as it was, on the
     argument quoted above — and that argument is about *one* figure among many. Applied to a
@@ -345,7 +347,9 @@ async def test_a_run_with_no_describer_configured_is_refused_naming_what_exists(
 
 
 async def test_the_stage_declares_that_it_operates_on_images_alone() -> None:
-    """Applicability, not an `if` — G2-c: the runner routes a `TEXT` node past this stage, so a
+    """Applicability, not an `if`: the runner routes a `TEXT` node past this stage.
+
+    Applicability, not an `if` — G2-c: the runner routes a `TEXT` node past this stage, so a
     text-only project that installs this pack pays for nothing and no author writes the guard.
     """
     # Arrange / Act
@@ -363,8 +367,10 @@ async def test_the_stage_declares_what_it_needs_and_what_it_adds() -> None:
 
 
 async def test_the_blob_role_is_how_the_store_is_reached() -> None:
-    """A guard on the wiring this stage depends on: `9.0`'s role table is what makes
-    `ctx.require(BlobStore)` answerable at all, and `BLOB_ROLE` is the key an operator sets.
+    """A guard on the wiring this stage depends on.
+
+    `9.0`'s role table is what makes `ctx.require(BlobStore)` answerable at all, and `BLOB_ROLE` is
+    the key an operator sets.
     """
     # Arrange / Act / Assert
     assert BLOB_ROLE.contract is BlobStore

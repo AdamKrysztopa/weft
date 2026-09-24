@@ -162,7 +162,7 @@ def test_a_bucket_page_yields_each_versioned_article_and_the_token_that_continue
     ],
 )
 def test_an_article_is_admitted_only_when_open_licensed_live_and_carrying_a_pdf(
-    overrides: dict[str, object], admitted: bool
+    overrides: dict[str, object], *, admitted: bool
 ) -> None:
     assert bench_vectors.admitted(_article(**overrides)) is admitted
 

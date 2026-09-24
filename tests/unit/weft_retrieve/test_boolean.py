@@ -207,8 +207,9 @@ def test_an_and_bool_expr_needs_two_or_more_clauses() -> None:
 
 
 class _StubLLM:
-    """An `LLM` answering tier 2 of the cascade from a script — same shape as `test_transforms.
-    py`'s own, reused rather than restated.
+    """An `LLM` answering tier 2 of the cascade from a script.
+
+    Same shape as `test_transforms. py`'s own, reused rather than restated.
     """
 
     def __init__(self, replies: list[str]) -> None:
@@ -254,8 +255,10 @@ class _StubLookup:
 
 
 class _RefusingLLM:
-    """An `LLM` that never answers usably — used for the parse-failure edge case, where the
-    cascade itself is what fails rather than `parse_tokens`.
+    """An `LLM` that never answers usably.
+
+    Used for the parse-failure edge case, where the cascade itself is what fails rather than
+    `parse_tokens`.
     """
 
     async def native_structured_available(self, role: str) -> bool:
@@ -379,7 +382,9 @@ async def test_a_query_using_a_disabled_operator_is_refused_naming_the_supported
 
 
 async def test_driving_boolean_retrieval_through_the_seam_produces_a_query_set() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """

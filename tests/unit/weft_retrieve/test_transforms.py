@@ -166,12 +166,13 @@ def _services(llm: object, lookup: object | None = None) -> ServiceRegistry:
 
 
 def _streaming_services(llm: object, lookup: object) -> ServiceRegistry:
-    """`_services`, plus a `TokenSink` — needed only by the equivalence test below, which
-    drives `StepBack` through a *real* `weft_llm.client.LLMClient` rather than `_StubLLM`.
-    A real client's `complete()` always resolves `TokenSink` (`.phase2-design.md` §7: "the
-    `LLM` client always calls `provider.stream(...)` … and emits each chunk to
-    `ctx.require(TokenSink)`"), which `_StubLLM` never does, so no earlier test in this
-    module needed one.
+    """`_services`, plus a `TokenSink`.
+
+    Needed only by the equivalence test below, which drives `StepBack` through a *real*
+    `weft_llm.client.LLMClient` rather than `_StubLLM`. A real client's `complete()` always resolves
+    `TokenSink` (`.phase2-design.md` §7: "the `LLM` client always calls `provider.stream(...)` … and
+    emits each chunk to `ctx.require(TokenSink)`"), which `_StubLLM` never does, so no earlier test
+    in this module needed one.
     """
     services = _services(llm, lookup)
     services.add(TokenSink, NullSink())
@@ -179,7 +180,9 @@ def _streaming_services(llm: object, lookup: object) -> ServiceRegistry:
 
 
 def _reply_provider(reply: str, *, chunked: bool) -> type[object]:
-    """A provider *class* that always answers `reply`, delegating every word of *how* to
+    """A provider *class* that always answers `reply`.
+
+    A provider *class* that always answers `reply`, delegating every word of *how* to
     `weft_llm.scripted.ScriptedProvider` — never a second implementation of what a reply is.
 
     A class, not an instance: `weft_llm.client.LLMClient._bind` always builds a provider by
@@ -226,9 +229,10 @@ def _reply_provider(reply: str, *, chunked: bool) -> type[object]:
 
 
 def _client_for(reply: str, *, chunked: bool) -> LLM:
-    """A real `LLM` service, wired to one provider answering `reply` under role `"stepback"`
-    — never `_StubLLM`, because the property under test lives in `weft_llm.client`, not in
-    this module.
+    """A real `LLM` service, wired to one provider answering `reply` under role `"stepback"`.
+
+    Never `_StubLLM`, because the property under test lives in `weft_llm.client`, not in this
+    module.
     """
     registry = Registry()
     registry.add(
@@ -331,7 +335,9 @@ async def test_a_cascade_that_could_not_produce_a_rewrite_is_relayed_not_papered
 
 
 async def test_driving_the_rewrite_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """
@@ -478,7 +484,9 @@ async def test_hyde_a_cascade_that_could_not_produce_documents_is_relayed_not_pa
 
 
 async def test_driving_hyde_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """
@@ -583,7 +591,9 @@ async def test_step_back_a_cascade_that_could_not_abstract_is_relayed_not_papere
 
 
 async def test_driving_step_back_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """
@@ -644,7 +654,9 @@ def test_step_back_and_hyde_and_contextual_query_rewrite_are_registered_under_di
 async def test_step_back_is_the_same_technique_whether_tokens_arrive_at_once_or_one_at_a_time() -> (
     None
 ):
-    """Ledger **2.17**: "`step-back` is the same technique whether tokens arrive at once or
+    """Ledger **2.17**: `step-back` is the same technique whether streamed or not.
+
+    Ledger **2.17**: "`step-back` is the same technique whether tokens arrive at once or
     one at a time." `10` §1.1's own entry for this technique is the failure mode this test
     checks directly rather than reasons about: a blocking path that keeps the literal and
     abstract contexts in separate prompt slots while a streaming path discards the split
@@ -875,7 +887,9 @@ async def test_multi_query_a_group_answering_for_an_unoffered_index_is_refused_b
 
 
 async def test_driving_multi_query_through_the_seam_composes_a_new_query_set() -> None:
-    """Fitness function 7(b) against the one path a registered plugin is actually called
+    """Fitness function 7(b), through `weft_kernel.seam.wrap` as production calls it.
+
+    Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives.
     """

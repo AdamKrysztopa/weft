@@ -142,7 +142,9 @@ async def test_a_provider_that_cannot_report_is_named_as_not_reporting_never_zer
 
 
 async def test_an_entry_names_the_pipeline_position_that_asked() -> None:
-    """Two roles can share a position and one role can serve two positions, so the position is
+    """The position is read off the seam, never inferred from the role.
+
+    Two roles can share a position and one role can serve two positions, so the position is
     read off the seam (`current_stage`, repair `R10.1`), never inferred from the role.
     """
     # Arrange
@@ -190,7 +192,9 @@ async def test_outside_a_scope_nothing_is_tallied_and_the_completion_still_carri
 
 
 def test_the_retry_wrapper_advertises_usage_reporting_exactly_when_the_provider_has_it() -> None:
-    """A wrapper that erased the capability would make every retried provider silently report
+    """A wrapper that erased the capability would make every retried provider report nothing.
+
+    A wrapper that erased the capability would make every retried provider silently report
     nothing — the failure `RetryingNativeStructuredProvider` exists to prevent, one protocol over.
     """
     # Arrange

@@ -213,8 +213,9 @@ def test_a_definition_is_reported_once_however_often_the_text_repeats_it() -> No
 
 
 def test_a_definition_the_text_states_merges_the_two_names() -> None:
-    """Signal 2 reaching the clustering, matched case-insensitively at both ends — a paper that
-    writes `adRAP` in one sentence and `ADRAP` in the next has defined one thing.
+    """Signal 2 reaching the clustering, matched case-insensitively at both ends.
+
+    A paper that writes `adRAP` in one sentence and `ADRAP` in the next has defined one thing.
     """
     # Act
     resolved = resolve_clusters(
@@ -309,7 +310,9 @@ def test_the_cosine_floor_is_a_parameter_and_the_control_disagrees() -> None:
 
 
 def test_a_pair_naming_something_absent_is_refused_rather_than_invented() -> None:
-    """A merge names two surface forms; one the caller did not list is a caller mistake, and
+    """A merge naming a surface form the caller did not list is a caller mistake.
+
+    A merge names two surface forms; one the caller did not list is a caller mistake, and
     silently adding it would put an entity in the graph that no mention supports.
     """
     # Act / Assert
@@ -329,8 +332,10 @@ def test_a_pair_naming_something_absent_is_refused_rather_than_invented() -> Non
 
 
 def test_the_candidate_pairs_are_the_ones_whose_initials_actually_spell_the_short_form() -> None:
-    """The narrowing has to be *exact*, not merely smaller: a pair signal 3 would have consulted
-    and this function omits is a merge that silently stops happening.
+    """The narrowing has to be *exact*, not merely smaller.
+
+    A pair signal 3 would have consulted and this function omits is a merge that silently stops
+    happening.
     """
     # Arrange — one real pair, one short form whose letters match nothing, one ordinary name.
     names = ["RRF", "Reciprocal Rank Fusion", "adRAP", "DHHS"]
@@ -343,7 +348,9 @@ def test_the_candidate_pairs_are_the_ones_whose_initials_actually_spell_the_shor
 
 
 def test_two_names_of_the_same_shape_are_never_a_candidate_pair() -> None:
-    """Signal 3 is *short form and its expansion*; two acronyms, or two ordinary names, offer it
+    """Signal 3 is *short form and its expansion*, so other pairs offer it nothing to gate.
+
+    Signal 3 is *short form and its expansion*; two acronyms, or two ordinary names, offer it
     nothing to gate and would only widen the fetch this function exists to narrow.
     """
     # Act / Assert
@@ -352,7 +359,9 @@ def test_two_names_of_the_same_shape_are_never_a_candidate_pair() -> None:
 
 
 def test_resolving_with_only_the_candidate_cosines_matches_resolving_with_every_pair() -> None:
-    """The property that licenses the store to stop fetching the whole matrix — asserted as an
+    """The narrowed fetch resolves exactly as the whole matrix does.
+
+    The property that licenses the store to stop fetching the whole matrix — asserted as an
     equality between two resolutions rather than as a claim about which lookups happen, because
     what matters is the clustering, not the map.
 

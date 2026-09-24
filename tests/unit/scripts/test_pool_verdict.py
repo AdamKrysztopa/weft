@@ -23,7 +23,7 @@ from pool_verdict import joint_reading, verdict
     ],
 )
 def test_the_verdict_is_the_first_protocol_outcome_the_interval_satisfies(
-    low: float, high: float, mean: float, underpowered: bool, expected: str
+    low: float, high: float, mean: float, *, underpowered: bool, expected: str
 ) -> None:
     assert verdict(low, high, mean, underpowered=underpowered) == expected
 

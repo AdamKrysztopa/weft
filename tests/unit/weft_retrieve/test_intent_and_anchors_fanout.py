@@ -37,7 +37,9 @@ class _StubEmbedder:
 
 
 class _BothArmsStore:
-    """`test_hybrid.py`'s own double, answering each text search with a hit named after what
+    """`test_hybrid.py`'s own double, answering each text search with a hit named after it.
+
+    `test_hybrid.py`'s own double, answering each text search with a hit named after what
     it was asked, so a ranking can be traced back to the anchor that produced it.
     """
 

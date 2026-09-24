@@ -106,7 +106,9 @@ def test_the_two_registrations_are_two_classes() -> None:
 
 
 def test_no_name_answers_to_both_contracts() -> None:
-    """Fitness function 18's property, asserted here as well because this is the pack that made
+    """Fitness function 18's property: a name under two contracts cannot be selected at all.
+
+    Fitness function 18's property, asserted here as well because this is the pack that made
     it a live question: a name under two contracts cannot be selected by a document at all.
     """
     # Act
@@ -117,9 +119,10 @@ def test_no_name_answers_to_both_contracts() -> None:
 
 
 def test_the_pack_declares_the_graph_service_role() -> None:
-    """`[services] graph` exists because this pack declares it, with no kernel line — ledger
-    `9.0`'s form, and `weft_kernel.discovery._read_service_roles` reads `SERVICE_ROLES` off the
-    module at import, before settings are validated.
+    """`[services] graph` exists because this pack declares it, with no kernel line.
+
+    Ledger `9.0`'s form, and `weft_kernel.discovery._read_service_roles` reads `SERVICE_ROLES` off
+    the module at import, before settings are validated.
     """
     # Arrange
     import weft_kg
@@ -190,7 +193,9 @@ def test_the_store_satisfies_the_three_contracts_it_registers_and_fans_out_under
 
 
 def test_the_store_declares_every_ext_model_it_turns_into_graph_rows() -> None:
-    """Ledger `43.17`: a layer document names the ext model its base must have a store for, and
+    """Ledger `43.17`: a layer document names the ext model its base must have a store for.
+
+    Ledger `43.17`: a layer document names the ext model its base must have a store for, and
     `weft_cli.layers` finds that store by reading `consumes` off each registered class. The three
     are the models `GraphStore._derive_graph_rows` reads; the vector store keeps the same nodes and
     derives nothing from them, so it declares none.
@@ -204,7 +209,9 @@ def test_the_store_declares_every_ext_model_it_turns_into_graph_rows() -> None:
 
 
 def test_the_walk_satisfies_the_traversal_contract_and_is_not_a_node_store() -> None:
-    """`L11.23`: the two capabilities are two classes precisely so that the fan-out's
+    """`L11.23`: the two capabilities are two classes so the `NodeStore` filter cannot be escaped.
+
+    `L11.23`: the two capabilities are two classes precisely so that the fan-out's
     `NodeStore` filter cannot be escaped by whichever contract sorts first.
     """
     # Assert
@@ -224,8 +231,10 @@ def test_the_entity_model_the_walk_answers_with_carries_two_fields() -> None:
 
 
 async def test_a_call_needing_a_connection_names_the_setting_when_the_dsn_is_unset() -> None:
-    """The error case, and it needs no container: `register()` must succeed with no settings at
-    all, so the refusal lands at the first call that genuinely dials.
+    """The error case, and it needs no container.
+
+    `register()` must succeed with no settings at all, so the refusal lands at the first call that
+    genuinely dials.
 
     It names `[packs.graph] dsn` and the environment variable an operator most likely already
     has, because a refusal an operator cannot act on is a crash with better manners.
@@ -251,7 +260,9 @@ def test_register_adds_the_cooccurrence_builder_under_enhancer() -> None:
 
 
 def test_the_pack_declares_its_ext_model_for_rehydration() -> None:
-    """Fitness function 14's property, asserted at the pack: a node carrying this pack's ext data
+    """Fitness function 14's property: this pack's ext data survives a round trip through any store.
+
+    Fitness function 14's property, asserted at the pack: a node carrying this pack's ext data
     survives a round trip through *any* store, because `register()` told the shared registry the
     namespace exists. A model declared and never registered comes back as a bare mapping and the
     only symptom is a downstream `AttributeError`.
@@ -269,7 +280,9 @@ def test_the_pack_declares_its_ext_model_for_rehydration() -> None:
 
 
 def test_the_pack_contributes_the_document_that_makes_its_store_reachable() -> None:
-    """Fitness function 16's subject: `NodeStore` inherits `Stage`, so a registered store is a
+    """Fitness function 16's subject: a registered store is a pipeline position.
+
+    Fitness function 16's subject: `NodeStore` inherits `Stage`, so a registered store is a
     pipeline position, and a position no shipped document names is a rung with no floor.
 
     The document is `index-with-graph` — `index-text` with the graph store inserted after the
@@ -331,7 +344,9 @@ def test_the_pack_ships_a_rung_whose_entity_vectors_a_resolution_pass_can_use() 
 
 
 def test_register_adds_the_fact_extractor_under_expander() -> None:
-    """`llm-facts` is an `Expander` — every node handed in continues and facts are added beside
+    """`llm-facts` is an `Expander`, registered the way `weft_index`'s two already are.
+
+    `llm-facts` is an `Expander` — every node handed in continues and facts are added beside
     it — registered exactly the way `weft_index`'s two already are, from a different pack.
     """
     # Act
@@ -362,7 +377,9 @@ def test_register_adds_the_extraction_prompt_under_its_own_name() -> None:
 
 
 def test_the_question_the_expensive_pass_asks_is_registered_under_its_own_name() -> None:
-    """Ledger **11.9** — the same argument `extract-facts` makes one task over, for the second
+    """Ledger **11.9**, the same argument `extract-facts` makes one task over.
+
+    Ledger **11.9** — the same argument `extract-facts` makes one task over, for the second
     text this pack sends to a provider.
 
     `GraphStore.reconcile` constructs `AdjudicateEntitiesPrompt` directly, for the identical
@@ -383,7 +400,9 @@ def test_the_question_the_expensive_pass_asks_is_registered_under_its_own_name()
 
 
 def test_the_pack_declares_every_ext_model_it_writes() -> None:
-    """Fitness function 14's property at the pack: a model declared and never registered comes
+    """Fitness function 14's property at the pack: every declared model is registered.
+
+    Fitness function 14's property at the pack: a model declared and never registered comes
     back off a store as a bare mapping, and the only symptom is a downstream `AttributeError`.
 
     All four, in one assertion, so a fifth model added without its registration fails here —
@@ -426,7 +445,9 @@ def test_the_pack_discloses_that_chunk_content_leaves_through_the_configured_pro
 
 
 def test_the_model_calling_stage_is_inserted_before_the_embedder() -> None:
-    """Ledger `8.2`/`8.10`'s rule, and the one arrangement fact this document has to get right:
+    """A model-calling stage placed after `embed` produces nodes that are stored unsearchable.
+
+    Ledger `8.2`/`8.10`'s rule, and the one arrangement fact this document has to get right:
     **a model-calling stage placed after `embed` produces nodes that are stored unsearchable.**
 
     Checked from two independently edited sources, so the comparison can actually disagree
@@ -461,7 +482,9 @@ def test_the_model_calling_stage_is_inserted_before_the_embedder() -> None:
 
 
 def test_the_pack_registers_its_retriever_under_the_query_path_contract() -> None:
-    """`weft_kg` becomes a query-path pack here, and that is what widens fitness function 16's
+    """`weft_kg` becomes a query-path pack here, which widens fitness function 16's scope over it.
+
+    `weft_kg` becomes a query-path pack here, and that is what widens fitness function 16's
     scope over it: FF16's subject is every plugin a *pipeline-shipping* distribution registers
     into a pipeline position, and `Retriever` is one. From this registration, a `graph-walk`
     no shipped document names is a rung with no floor and FF16 goes red — which is exactly the
@@ -476,7 +499,9 @@ def test_the_pack_registers_its_retriever_under_the_query_path_contract() -> Non
 
 
 def test_every_rung_the_pack_ships_names_the_retriever_it_was_written_for() -> None:
-    """Read out of the shipped documents rather than asserted as a list here, so a rung renamed
+    """Read out of the shipped documents rather than asserted as a list here.
+
+    Read out of the shipped documents rather than asserted as a list here, so a rung renamed
     or a `replace:` block edited fails at this test rather than at FF16's whole-tree sweep,
     where the message names a pair and not a file.
 
@@ -512,9 +537,10 @@ def test_every_rung_the_pack_ships_names_the_retriever_it_was_written_for() -> N
 
 
 def test_the_two_hop_rung_parameterises_rather_than_replaces() -> None:
-    """Requirement 6, as a fact about the document: `set:` changes a number on an inherited
-    stage; `replace:` would change the plugin. The ledger line names `set:` for this rung, and
-    the difference is what makes the pair a demonstration rather than two similar files.
+    """Requirement 6, as a fact about the document: `set:` changes a number on an inherited stage.
+
+    `replace:` would change the plugin. The ledger line names `set:` for this rung, and the
+    difference is what makes the pair a demonstration rather than two similar files.
     """
     # Arrange
     from importlib import resources

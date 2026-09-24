@@ -40,7 +40,7 @@ def test_revisable_is_satisfied_by_implementing_run_and_nothing_else() -> None:
 
 
 def test_revisable_and_expander_are_structurally_identical_and_that_is_recorded() -> None:
-    """**The distinction is the registration, not `isinstance`, and pinning that is the point.**
+    """**The distinction is the registration, not `isinstance`, and pinning that is the point**.
 
     Both contracts are `Stage[Sequence[Node], Sequence[Node]]` with `run` alone, so a class
     satisfying one satisfies the other and no runtime check can separate them. What separates them
