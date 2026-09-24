@@ -222,6 +222,15 @@ class WordChunker:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Split each node into one child node per whitespace-separated word.
+
+        Args:
+            payload: The nodes to split.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying every word node, or `NothingToProduce` when no node had a word.
+        """
         del ctx  # no service or locale this stage needs
         words: list[Node] = []
         for node in payload:
@@ -533,7 +542,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register this pack's seven plugins — one per contract it implements — its own
+    """Register this pack's seven plugins, its `WordCount` extension and a slot contribution.
+
+    Register this pack's seven plugins — one per contract it implements — its own
     `WordCount` `ExtModel` (task 5.2g), and a slot contribution (task 5.3a, `S8`): the real
     proof that a stranger's own contributed stage reaches a resolved pipeline with no core
     edit, since this distribution is installed rather than linked (fitness function 9(a)).
@@ -683,7 +694,9 @@ from weft_kernel.payload import Outcome, Produced
 
 
 class GreetArgs(BaseModel):
-    """`weft greet <name>` — one required positional, the shape `weft_cli.argparse_gen`
+    """`weft greet <name>`: one required positional.
+
+    `weft greet <name>` — one required positional, the shape `weft_cli.argparse_gen`
     (task 3.2) turns into a positional argument because it carries no default.
     """
 
@@ -693,7 +706,9 @@ class GreetArgs(BaseModel):
 
 
 class GreetResult(CommandResult):
-    """What `weft greet` produced — a typed result a renderer formats, never printed text
+    """What `weft greet` produced: a typed result a renderer formats, never printed text.
+
+    What `weft greet` produced — a typed result a renderer formats, never printed text
     (`docs/03-cli.md` → *Two modes, one implementation*), exactly as `weft-cli`'s own
     `IndexCommandResult` and friends are.
     """
@@ -702,7 +717,9 @@ class GreetResult(CommandResult):
 
 
 class GreetCommand:
-    """Satisfies `weft_command.contract.Command` structurally — this class never imports it,
+    """`weft greet`, a third-party command satisfying `Command` structurally.
+
+    Satisfies `weft_command.contract.Command` structurally — this class never imports it,
     the same path `docs/02-extension-model.md` describes for a third-party plugin.
 
     `permission_class` and `help` are both mandatory declarations
@@ -723,6 +740,15 @@ class GreetCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Greet `args.name`.
+
+        Args:
+            args: A `GreetArgs` carrying the name.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the greeting.
+        """
         del ctx  # no service or locale this command needs
         assert isinstance(args, GreetArgs)
         return Produced(value=GreetResult(greeting=f"Hello, {args.name}!"))
@@ -874,14 +900,25 @@ class WordCount(ExtModel):
 
 
 class ExampleWordCountEnhancer:
-    """Attaches a `WordCount` to every node it is handed. Satisfies `weft_enhance.contract.
-    Enhancer` structurally — this class never imports it.
+    """Attaches a `WordCount` to every node it is handed.
+
+    Satisfies `weft_enhance.contract. Enhancer` structurally — this class never imports it.
     """
 
     def __init__(self, config: object = None) -> None:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach each node's word count as a `WordCount` extension.
+
+        Args:
+            payload: The nodes to enhance.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying each node with its word count, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no node to enhance")
