@@ -92,6 +92,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   first-party role field carries it. `weft_llm.LLMRole` is new, and the LLM contract moves to
   `1.1.0`. `examples/weft-example-query` gains `example-llm-judge`, a reranker whose `judge_role`
   is seen this way.
+- **A misdeclared `SubPlugin` is refused by name.** A pack whose `SubPlugin(config="…")` named no
+  field of its model crashed a routed `weft ask` with a bare `AttributeError`. It is now refused
+  before any model call as `UnknownSubPluginConfigFieldError`, which names the rung, the field,
+  the missing name and the fields the model has (exit 4).
 - **A plugin that composes another declares it: `Annotated[str, SubPlugin(config="…")]`.** A
   routed `weft ask` followed a sub-plugin only through a field pair named `X`/`X_config`. So the
   shipped `broad-and-refined-rrf`, whose looping arm needs `grade`, was offered with `grade`

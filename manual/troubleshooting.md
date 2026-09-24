@@ -2245,7 +2245,7 @@ per document.
 
 ```text
 'my-raptor' (or a document it extends) sets 'layer.scop', which no layer reads. A layer reads:
-layer.scope.
+layer.scope, layer.store-consumes, layer.incremental.
 ```
 
 **Why** — a misspelt key would be ignored, so a layer meant to build one tree over the whole
@@ -2301,6 +2301,25 @@ route.cost, route.requires, route.summary.
 layer that is still being built, and `route.sumary` would leave it never offered at all.
 
 **What to do:** correct the key to one the message lists, or remove it.
+
+### `UnknownSubPluginConfigFieldError`
+
+**What it looks like** — a routed `weft ask`, or `weft ask --explain`, refuses before any model
+call:
+
+```text
+'judge-rung': PanelConfig.panelist is declared SubPlugin(config='setings'), but PanelConfig has
+no field 'setings'. PanelConfig's fields: panelist, settings.
+```
+
+**Why:** `SubPlugin(config=…)` names the field that holds the composed plugin's `with:` block.
+Without it, a routed ask cannot work out which model roles the rung needs, so it refuses rather
+than offer a rung that might fail after the router has paid for a call. The declaration is the
+pack's, so this is a defect in the pack, whatever your document sets.
+
+**What to do:** if you wrote the pack, set `config=` to one of the fields the message lists. If
+the pack is someone else's, report it to its author. Until it is fixed, ask with
+`--pipeline <name>`, which skips the router.
 
 ### `ConflictingAskModeError`
 

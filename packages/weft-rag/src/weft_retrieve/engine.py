@@ -99,6 +99,22 @@ class UnknownRouteVarError(PipelineResolutionError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class UnknownSubPluginConfigFieldError(PipelineResolutionError, UnresolvedNameError):
+    """A config model declares `SubPlugin(config=...)` naming no field of that model — carried
+    repair **R43.45**. `valid_options` is the declaring model's own fields, sorted."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        valid_options: tuple[str, ...],
+        pipeline: str | None = None,
+        remedy: str = "",
+    ) -> None:
+        PipelineResolutionError.__init__(self, message, pipeline=pipeline, remedy=remedy)
+        self.valid_options = valid_options
+
+
 def _check_route_vars(name: str, pipeline: Pipeline) -> None:
     """Refuse `pipeline` when its own `vars` carry a `route.` key outside `_ROUTE_VARS` —
     carried repair **R43.13**. Keys outside the `route.` namespace are untouched.
@@ -248,27 +264,48 @@ def roles_needed(pipeline: ResolvedPipeline, registry: Registry) -> frozenset[st
     """
     roles: set[str] = set()
     for stage in pipeline.stages:
-        roles |= _config_roles(stage.config, registry)
+        roles |= _config_roles(stage.config, registry, pipeline.name)
     return frozenset(roles)
 
 
-def _config_roles(config: object, registry: Registry) -> frozenset[str]:
+def _config_roles(config: object, registry: Registry, rung: str) -> frozenset[str]:
     if not isinstance(config, BaseModel):
         return frozenset()
+    model = type(config)
     roles: set[str] = set()
-    for field, info in type(config).model_fields.items():
+    for field, info in model.model_fields.items():
         value = getattr(config, field)
-        roles |= _nested_roles(value, registry)
+        roles |= _nested_roles(value, registry, rung)
+        markers = _markers(info)
+        for marker in markers:
+            if isinstance(marker, SubPlugin):
+                _check_sub_plugin_config(model, field, marker, rung)
         if not isinstance(value, str):
             continue
-        markers = _markers(info)
         if any(isinstance(item, LLMRole) for item in markers):
             roles.add(value)
         for marker in markers:
             if isinstance(marker, SubPlugin):
                 block = None if marker.config is None else getattr(config, marker.config)
-                roles |= _sub_plugin_roles(value, block, registry)
+                roles |= _sub_plugin_roles(value, block, registry, rung)
     return frozenset(roles)
+
+
+def _check_sub_plugin_config(
+    model: type[BaseModel], field: str, marker: SubPlugin, rung: str
+) -> None:
+    """Refuse `marker` when its `config` names no field of `model` — carried repair **R43.45**.
+    Run whatever the field's value, because the declaration is the pack's defect either way."""
+    if marker.config is None or marker.config in model.model_fields:
+        return
+    fields = tuple(sorted(model.model_fields))
+    name = model.__name__
+    raise UnknownSubPluginConfigFieldError(
+        f"'{rung}': {name}.{field} is declared SubPlugin(config='{marker.config}'), but {name} "
+        f"has no field '{marker.config}'. {name}'s fields: {', '.join(fields)}.",
+        valid_options=fields,
+        pipeline=rung,
+    )
 
 
 def _markers(info: FieldInfo) -> tuple[object, ...]:
@@ -282,9 +319,9 @@ def _markers(info: FieldInfo) -> tuple[object, ...]:
     return tuple(found)
 
 
-def _nested_roles(value: object, registry: Registry) -> frozenset[str]:
+def _nested_roles(value: object, registry: Registry, rung: str) -> frozenset[str]:
     if isinstance(value, BaseModel):
-        return _config_roles(value, registry)
+        return _config_roles(value, registry, rung)
     if isinstance(value, Mapping):
         items: Iterable[object] = cast("Mapping[object, object]", value).values()
     elif isinstance(value, tuple | list):
@@ -293,16 +330,16 @@ def _nested_roles(value: object, registry: Registry) -> frozenset[str]:
         return frozenset()
     roles: set[str] = set()
     for item in items:
-        roles |= _nested_roles(item, registry)
+        roles |= _nested_roles(item, registry, rung)
     return frozenset(roles)
 
 
-def _sub_plugin_roles(name: str, block: object, registry: Registry) -> frozenset[str]:
+def _sub_plugin_roles(name: str, block: object, registry: Registry, rung: str) -> frozenset[str]:
     roles: set[str] = set()
     for contract in registry.contracts():
         if name in registry.names_for(contract):
             entry = registry.entry(contract, name)
-            roles |= _config_roles(_sub_config(entry, name, block), registry)
+            roles |= _config_roles(_sub_config(entry, name, block), registry, rung)
     return frozenset(roles)
 
 

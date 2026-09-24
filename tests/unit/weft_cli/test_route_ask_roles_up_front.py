@@ -10,7 +10,7 @@ is left out the way a rung on a pending layer is, and `--explain` says which rol
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from pathlib import Path
 from typing import Annotated, ClassVar
 
@@ -21,7 +21,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from tests.discovery import installed_packs_except_the_canary
 from weft_cli import commands
 from weft_cli.commands import AskCommandResult
+from weft_cli.exit_codes import ExitCode
 from weft_cli.pipeline_catalogue import load_contributed
+from weft_cli.render import render_refusal
 from weft_cli.route_ask import routable_rung_roles, run_named_ask, run_routed_ask
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
@@ -56,8 +58,10 @@ from weft_retrieve import (
     RouteQueryPrompt,
     RoutingPolicy,
     SingleList,
+    SubPlugin,
 )
 from weft_retrieve.contract import Reranker, Sufficiency
+from weft_retrieve.engine import UnknownSubPluginConfigFieldError
 from weft_retrieve.graded import NAME as GRADED_RETRIEVAL
 from weft_retrieve.graded import GradedRetrieval
 from weft_retrieve.iterative import NAME as ITERATIVE_RETRIEVAL
@@ -667,3 +671,113 @@ def test_the_shipped_fanout_rung_needs_the_role_its_looping_arm_calls() -> None:
 
     # Assert
     assert rung_roles[_SHIPPED_FANOUT_RUNG] >= {"grade", "generate"}
+
+
+_MISDECLARED_RUNG = "misdeclared-rung"
+_MISDECLARED_PANEL = "stranger-misdeclared-panel"
+
+
+class _MisdeclaredPanelConfig(BaseModel):
+    """R43.45: a stranger's reference whose `SubPlugin.config` names no field of this model."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    panelist: Annotated[str, SubPlugin(config="setings")] = Field(min_length=1)
+    settings: Mapping[str, object] | None = None
+
+
+class _MisdeclaredPanel:
+    config_model: ClassVar[type[_MisdeclaredPanelConfig]] = _MisdeclaredPanelConfig
+
+    def __init__(self, config: _MisdeclaredPanelConfig) -> None:
+        self._config = config
+
+    async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
+        del ctx
+        return Produced(value=payload)
+
+
+def _registry_with_misdeclared_panel(calls: Calls) -> Registry:
+    registry = _registry_with_stranger(calls)
+    registry.add(
+        Reranker, _MISDECLARED_PANEL, _MisdeclaredPanel, distribution="weft-example-stranger"
+    )
+    return registry
+
+
+def _write_misdeclared_rung(root: Path) -> None:
+    pipelines = root / "pipelines"
+    pipelines.mkdir()
+    document = {
+        "name": _MISDECLARED_RUNG,
+        "vars": {"route.summary": _QUESTION},
+        "stages": [
+            {"id": "retrieve", "use": "one-hit"},
+            {"id": "fuse", "use": "single-list"},
+            {"id": "rerank", "use": _MISDECLARED_PANEL, "with": {"panelist": _STRANGER_JUDGE}},
+            {"id": "pack", "use": "repack"},
+            {"id": "generate", "use": "cited-answer"},
+        ],
+    }
+    (pipelines / f"{_MISDECLARED_RUNG}.yaml").write_text(yaml.safe_dump(document, sort_keys=False))
+
+
+def _assert_the_refusal_an_operator_reads(refusal: UnknownSubPluginConfigFieldError) -> None:
+    rendered = render_refusal(refusal)
+    stderr = rendered.stderr or ""
+    assert rendered.exit_code is ExitCode.RESOLUTION_FAILED
+    assert f"'{_MISDECLARED_RUNG}'" in stderr, stderr
+    assert f"{_MisdeclaredPanelConfig.__name__}.panelist" in stderr, stderr
+    assert "'setings'" in stderr, stderr
+    assert _names(stderr, "settings"), stderr
+    assert refusal.valid_options == ("panelist", "settings")
+
+
+async def test_a_routed_ask_over_a_misdeclared_sub_plugin_is_refused_before_any_model_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R43.45: the walk cannot compute the rung's roles, so it refuses before the router pays."""
+    # Arrange — every role mapped, so nothing but the declaration can stop the ask.
+    monkeypatch.chdir(tmp_path)
+    _write_misdeclared_rung(tmp_path)
+    calls: Calls = []
+
+    # Act
+    with pytest.raises(UnknownSubPluginConfigFieldError) as refused:
+        await run_routed_ask(
+            _QUESTION,
+            registry=_registry_with_misdeclared_panel(calls),
+            reports=_reports(*_ROUTER_AND_MEMORY),
+            ctx=_ctx(),
+            llm=_llm(route="scores", judge="grades", generate="answers"),
+            services=ServiceSelection(embed="hash", store="memory"),
+            sink=NullSink(),
+        )
+
+    # Assert
+    _assert_the_refusal_an_operator_reads(refused.value)
+    assert calls == []
+
+
+async def test_explain_over_a_misdeclared_sub_plugin_is_refused_naming_the_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _write_misdeclared_rung(tmp_path)
+    monkeypatch.setattr(commands, "run_routed_ask", _Routed())
+    deps = Dependencies(
+        registry=_registry_with_misdeclared_panel([]),
+        reports=_reports(*_ROUTER_AND_MEMORY),
+        services=ServiceSelection(embed="hash", store="memory"),
+        llm=_llm(route="scores", judge="grades", generate="answers"),
+    )
+    ctx = _ctx()
+    ctx.services.add(Dependencies, deps)
+
+    # Act
+    with pytest.raises(UnknownSubPluginConfigFieldError) as refused:
+        await commands.AskCommand().run(commands.AskArgs(question=_QUESTION, explain=True), ctx)
+
+    # Assert
+    _assert_the_refusal_an_operator_reads(refused.value)
