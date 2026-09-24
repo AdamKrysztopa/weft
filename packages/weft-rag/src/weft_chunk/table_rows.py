@@ -98,6 +98,16 @@ class TableRowChunker:
         self._config = config if config is not None else TableRowChunkerConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Carry each table node forward, followed by one child node per row of its grid.
+
+        Args:
+            payload: The table nodes to split.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying every table node and its rows, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no table nodes to split into rows")

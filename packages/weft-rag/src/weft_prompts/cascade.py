@@ -170,10 +170,10 @@ def _accept[T: BaseModel](
 
 
 def _validate[T: BaseModel](text: str, output: type[T]) -> T | None:
-    """`text` as `output`, or `None` to step down. The narrowed catch set, in one place.
+    r"""`text` as `output`, or `None` to step down. The narrowed catch set, in one place.
 
     A completion whose only fault is an unescaped backslash — a model writing LaTeX into a JSON
-    string, `\\(N_x\\)` — is retried once against `rescue.repair_backslash_escapes`'s output
+    string, `\(N_x\)` — is retried once against `rescue.repair_backslash_escapes`'s output
     before stepping down a tier that re-asks without the schema. R38.11. Only that repair: fence
     and bare-object extraction stay tier 3's, via `rescue_json`.
     """

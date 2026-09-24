@@ -1,4 +1,6 @@
-"""Minimal type stub for `nltk.stem.porter`, the same problem `typings/rouge_score` and
+"""Minimal type stub for `nltk.stem.porter`, covering only what `weft_eval.lexical` calls.
+
+Minimal type stub for `nltk.stem.porter`, the same problem `typings/rouge_score` and
 `typings/bert_score` already solve: `nltk` ships no `py.typed` marker, which strict pyright
 refuses at the `import` line under `reportMissingTypeStubs`. Covers only the surface
 `weft_eval.lexical` calls.

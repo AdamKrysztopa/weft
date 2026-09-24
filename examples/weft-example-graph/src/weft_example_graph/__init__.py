@@ -1,4 +1,6 @@
-"""`weft-example-graph` — the graph add-on `docs/02-extension-model.md` section 4
+"""`weft-example-graph`: a capability spanning several extension points, still one package.
+
+`weft-example-graph` — the graph add-on `docs/02-extension-model.md` section 4
 specifies, built for
 real by task 5.4: a capability spanning several extension points, still one package, one entry
 point, one `register()`, one settings model.
@@ -86,7 +88,9 @@ Settings = GraphSettings
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register this pack's six extension points from one entry point, per the module
+    """Register this pack's six extension points from its one entry point.
+
+    Register this pack's six extension points from one entry point, per the module
     docstring's own accounting — `SourceDeletable` and `Reconcilable` arrive structurally,
     with no `.add()` call of their own, the identical shape `examples/weft-example-ingest`'s
     own `register()` already demonstrates for its "eighth and ninth capability."

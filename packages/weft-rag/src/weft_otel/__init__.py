@@ -1,4 +1,6 @@
-"""First-party observability pack — closes `docs/internal/lessons.md` L5.1, the second add-on G7
+"""First-party observability pack, exporting the spans the registration seam already emits.
+
+First-party observability pack — closes `docs/internal/lessons.md` L5.1, the second add-on G7
 produced (`docs/02-extension-model.md` §4).
 
 **The gap this pack closes.** `weft_kernel.seam.wrap` has emitted an OpenTelemetry span for

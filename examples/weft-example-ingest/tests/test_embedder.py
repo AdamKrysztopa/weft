@@ -60,7 +60,9 @@ def test_embedder_satisfies_the_embedder_contract_structurally() -> None:
 
 
 async def test_a_strangers_embedder_states_its_identity() -> None:
-    """Ledger **34.4**: `IdentifiedEmbedder` is published, so a pack outside the tree states its
+    """A pack outside the tree states its model and width through `IdentifiedEmbedder` (34.4).
+
+    Ledger **34.4**: `IdentifiedEmbedder` is published, so a pack outside the tree states its
     model and width in one method — FF9 clause (c)'s stranger for the new contract.
     """
     # Arrange

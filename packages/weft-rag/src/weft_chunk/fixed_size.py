@@ -121,6 +121,15 @@ class FixedSizeChunker:
         self._config = config if config is not None else FixedSizeChunkerConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Split each node's content into overlapping windows of the configured size.
+
+        Args:
+            payload: The nodes to split.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying every window, or `NothingToProduce` when no node had content.
+        """
         del ctx  # no service or locale this stage needs
         chunks: list[Node] = []
         for node in payload:

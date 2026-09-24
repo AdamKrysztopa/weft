@@ -62,7 +62,18 @@ class Prompt(Protocol):
     #: vendor as a JSON schema.
     output_model: ClassVar[type[BaseModel] | None]
 
-    async def render(self, values: BaseModel, ctx: Context) -> Outcome[Rendered]: ...
+    async def render(self, values: BaseModel, ctx: Context) -> Outcome[Rendered]:
+        """Render this prompt's conversation for `values`.
+
+        Args:
+            values: An instance of `input_model`.
+            ctx: The run's context, whose locale selects the text.
+
+        Returns:
+            `Produced` carrying the rendered conversation, or `NothingToProduce` when there is
+            nothing to ask.
+        """
+        ...
 
 
 Prompt.version = PROMPT_CONTRACT_VERSION
@@ -77,4 +88,15 @@ class Prompts(Protocol):
     and `tests/unit/weft_prompts/test_contract.py` asserts them.
     """
 
-    async def render(self, name: str, values: BaseModel, ctx: Context) -> Outcome[Rendered]: ...
+    async def render(self, name: str, values: BaseModel, ctx: Context) -> Outcome[Rendered]:
+        """Render the prompt registered as `name` for `values`.
+
+        Args:
+            name: The registered prompt name.
+            values: An instance of that prompt's `input_model`.
+            ctx: The run's context.
+
+        Returns:
+            The named prompt's rendered `Outcome`.
+        """
+        ...

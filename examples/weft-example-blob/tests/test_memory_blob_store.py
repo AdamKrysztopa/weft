@@ -30,7 +30,9 @@ async def test_bytes_written_come_back_byte_identical() -> None:
 
 
 async def test_opening_something_never_written_fails_rather_than_answering_empty() -> None:
-    """An empty answer is not a fact about the world — weft's own rule, and it applies to a
+    """Opening a uri nothing was put at is refused, never answered empty.
+
+    An empty answer is not a fact about the world — weft's own rule, and it applies to a
     stranger's implementation exactly as much as to the shipped one.
     """
     # Act / Assert
@@ -60,7 +62,9 @@ async def test_deleting_a_prefix_nothing_wrote_is_zero_and_not_an_error() -> Non
 
 
 async def test_it_reports_what_it_removed_by_kind_when_a_source_is_deleted() -> None:
-    """The stranger joins `weft delete`'s fan-out by satisfying `SourceDeletable`, declaring
+    """The stranger joins `weft delete`'s fan-out by satisfying `SourceDeletable`.
+
+    The stranger joins `weft delete`'s fan-out by satisfying `SourceDeletable`, declaring
     nothing — and answers in the per-kind vocabulary weft's task 9.3 opened up.
     """
     # Arrange
@@ -78,7 +82,9 @@ async def test_it_reports_what_it_removed_by_kind_when_a_source_is_deleted() -> 
 
 
 async def test_it_holds_targets_through_the_published_protocol() -> None:
-    """Weft's carried repair R34.9 published `BlobTargetHolding`, so a stranger's blob store
+    """A stranger's blob store takes part in `weft target drop` through `BlobTargetHolding`.
+
+    Weft's carried repair R34.9 published `BlobTargetHolding`, so a stranger's blob store
     takes part in `weft target drop` the way the shipped filesystem store does.
     """
     # Arrange

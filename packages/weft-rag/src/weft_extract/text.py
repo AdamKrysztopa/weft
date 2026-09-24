@@ -68,6 +68,16 @@ class TextExtractor:
         del config  # nothing to configure — see TextExtractorConfig
 
     async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Decode each document as UTF-8 into one root text node.
+
+        Args:
+            payload: The source documents to extract.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one node per document, `NothingToProduce` for an empty `payload`,
+            or `Failed` naming the first document that is not valid UTF-8.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no source documents to extract")
@@ -151,7 +161,9 @@ _HASH_CHUNK_BYTES: int = 1 << 20
 
 
 def _stream_hash(path: Path) -> str:
-    """sha256 of `path`'s bytes, read in `_HASH_CHUNK_BYTES` chunks — never the whole file at
+    """The sha256 of `path`'s bytes, read in `_HASH_CHUNK_BYTES` chunks.
+
+    sha256 of `path`'s bytes, read in `_HASH_CHUNK_BYTES` chunks — never the whole file at
     once, which is `inventory_source_refs`' whole reason to exist.
     """
     digest = hashlib.sha256()
@@ -162,7 +174,9 @@ def _stream_hash(path: Path) -> str:
 
 
 def inventory_source_refs(directory: Path, *, extensions: Collection[str]) -> tuple[SourceRef, ...]:
-    """Every file under `directory` an extension in `extensions` claims, as a `SourceRef` —
+    """Every file under `directory` an extension in `extensions` claims, as a `SourceRef`.
+
+    Every file under `directory` an extension in `extensions` claims, as a `SourceRef` —
     the same walk and sorted order `discover_source_docs` uses, holding no file's bytes.
 
     Ledger task **43.1**. Resident memory before the first batch is now bounded by one file's

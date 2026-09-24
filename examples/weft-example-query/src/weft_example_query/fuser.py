@@ -1,4 +1,6 @@
-"""`ExampleFuser` — a stranger's `Fuser`: concatenates every list, keeps the first sighting of
+"""`ExampleFuser`, a stranger's `Fuser`: every list's first sighting of a node, by score.
+
+`ExampleFuser` — a stranger's `Fuser`: concatenates every list, keeps the first sighting of
 each node, sorted by score.
 
 `weft_retrieve.contract.Fuser`'s own load-bearing choice — `Out` is `Ranking`, never
@@ -21,6 +23,15 @@ class ExampleFuser:
         del config
 
     async def run(self, payload: Candidates, ctx: Context) -> Outcome[Ranking]:
+        """Merge every ranked list into one ranking, keeping each node's first sighting.
+
+        Args:
+            payload: The ranked lists to fuse.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the merged ranking, highest score first.
+        """
         del ctx
         seen: set[NodeId] = set()
         merged: list[Passage] = []

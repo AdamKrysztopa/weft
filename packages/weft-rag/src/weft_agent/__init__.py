@@ -47,7 +47,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `NextActionPrompt` as `"next-action"` for `Prompt`, `AgentCommand` as `"agent"`
+    """Register the agent pack's prompt, command and renderer.
+
+    Register `NextActionPrompt` as `"next-action"` for `Prompt`, `AgentCommand` as `"agent"`
     for `Command`, and that command's own renderer.
 
     `settings` is accepted, per the fixed two-parameter shape every pack declares, and unused —

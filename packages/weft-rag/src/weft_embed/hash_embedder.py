@@ -1,4 +1,6 @@
-"""`HashEmbedder` — a deterministic, content-hashed vector. **Not a quality embedder.**
+"""`HashEmbedder`, a deterministic, content-hashed vector, and not a quality embedder.
+
+`HashEmbedder` — a deterministic, content-hashed vector. **Not a quality embedder.**
 
 Specified in `docs/06-phase-0-build.md` step 8: "Phase 0 ships a deterministic
 local embedder (hashing to a fixed-dimension vector) whose only job is to be
@@ -93,6 +95,16 @@ class HashEmbedder:
         self._config = config if config is not None else HashEmbedderConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach a content-hashed vector of the configured dimension to each node.
+
+        Args:
+            payload: The nodes to embed.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying each node with its embedding, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to embed")
@@ -103,6 +115,11 @@ class HashEmbedder:
         return Produced(value=embedded)
 
     async def embedding_model(self) -> EmbeddingModel:
+        """Report `"hash"` at the configured dimension.
+
+        Returns:
+            The model name and vector width this embedder produces.
+        """
         return EmbeddingModel(model="hash", width=self._config.dimension)
 
 

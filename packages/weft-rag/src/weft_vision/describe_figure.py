@@ -109,6 +109,16 @@ class FigureDescriber:
         del config  # this stage takes no configuration
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Describe every figure node that carries a `BlobRef`, keeping the rest unchanged.
+
+        Args:
+            payload: The image nodes to describe.
+            ctx: The run's context, from which `BlobStore` and `Describer` are required.
+
+        Returns:
+            `Produced` carrying every node, described where possible; `NothingToProduce` for an
+            empty `payload`; or `Failed` when figures were asked about and none could be described.
+        """
         if not payload:
             return NothingToProduce(reason="no figures to describe")
         blobs = ctx.require(BlobStore)

@@ -71,7 +71,17 @@ class Cleaner(Stage[Sequence[Node], Sequence[Node]], Protocol):
         version: ClassVar[str]
         publishes_property_vocabulary: ClassVar[bool]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Clean each node in `payload`, returning the cleaned nodes.
+
+        Args:
+            payload: The nodes to clean.
+            ctx: The run's context.
+
+        Returns:
+            `Produced` carrying the cleaned nodes, or `NothingToProduce` when there were none.
+        """
+        ...
 
 
 Cleaner.version = CLEANER_CONTRACT_VERSION

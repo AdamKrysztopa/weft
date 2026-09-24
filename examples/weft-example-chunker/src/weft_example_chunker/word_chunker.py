@@ -56,6 +56,15 @@ class WordChunker:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Split each node into one child node per whitespace-separated word.
+
+        Args:
+            payload: The nodes to split.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying every word node, or `NothingToProduce` when no node had a word.
+        """
         del ctx  # no service or locale this stage needs
         words: list[Node] = []
         for node in payload:

@@ -1,4 +1,6 @@
-"""`ExitCode` and `Rendered` — a renderer's own vocabulary, published beside the `Command`
+"""`ExitCode` and `Rendered`, a renderer's own vocabulary, published beside `Command`.
+
+`ExitCode` and `Rendered` — a renderer's own vocabulary, published beside the `Command`
 contract that produces the result a renderer formats.
 
 Task **6.20**, G13's third repair (`docs/03-cli.md` → *Plugin-contributed commands*): "a
@@ -38,7 +40,9 @@ from enum import IntEnum
 
 
 class ExitCode(IntEnum):
-    """`docs/03-cli.md` → *Output*: "0 success, 1 operation failed, 2 bad usage, 3 refused for
+    """The process exit codes `docs/03-cli.md` → *Output* assigns.
+
+    `docs/03-cli.md` → *Output*: "0 success, 1 operation failed, 2 bad usage, 3 refused for
     permissions, 4 pipeline failed to resolve." `2` is never assigned by a renderer — `argparse`
     itself calls `sys.exit(2)` on a usage error, before any command runs, so nothing downstream
     of a `Command`'s own `run` ever needs to produce it.

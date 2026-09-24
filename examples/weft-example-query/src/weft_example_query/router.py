@@ -36,6 +36,15 @@ class ExampleRoutingPolicy:
         self._config = config if config is not None else ExampleRouteConfig()
 
     async def run(self, payload: Scorecard, ctx: Context) -> Outcome[Route]:
+        """Route every query to the configured pipeline.
+
+        Args:
+            payload: The query's scorecard.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the route.
+        """
         del ctx
         return Produced(
             value=Route(
@@ -47,5 +56,13 @@ class ExampleRoutingPolicy:
         )
 
     async def reachable(self, candidates: Sequence[RouteCandidate]) -> frozenset[str]:
+        """Name the one pipeline this policy can ever route to.
+
+        Args:
+            candidates: Unused.
+
+        Returns:
+            The configured pipeline.
+        """
         del candidates  # this policy never looks at what is offered — see the module docstring
         return frozenset({self._config.pipeline})

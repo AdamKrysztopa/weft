@@ -85,7 +85,18 @@ class Enhancer(Stage[Sequence[Node], Sequence[Node]], Protocol):
         version: ClassVar[str]
         layer_stage: ClassVar[bool]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach facts to each node in `payload`, keeping every node's identity.
+
+        Args:
+            payload: The nodes to enhance.
+            ctx: The run's context.
+
+        Returns:
+            `Produced` carrying every node it was handed plus anything derived from them, or
+            `NothingToProduce` when there was nothing to enhance.
+        """
+        ...
 
 
 Enhancer.version = ENHANCER_CONTRACT_VERSION

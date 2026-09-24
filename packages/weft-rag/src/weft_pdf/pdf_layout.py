@@ -106,6 +106,27 @@ class TextDirection(StrEnum):
     BOTTOM_TO_TOP = "btt"
 
 
+def _tables_on_page(number: int, page: Page) -> list[ExtractedTable]:
+    """Every table `pdfplumber` finds on `page` that yielded at least one cell row."""
+    tables: list[ExtractedTable] = []
+    for table in page.find_tables():
+        matrix = table.extract()
+        if not matrix:
+            continue
+        headers = tuple(cell or "" for cell in matrix[0])
+        rows = tuple(tuple(cell or "" for cell in row) for row in matrix[1:])
+        x0, top, x1, bottom = table.bbox
+        tables.append(
+            ExtractedTable(
+                page=number,
+                headers=headers,
+                rows=rows,
+                bbox=BoundingBox(x0=x0, y0=top, x1=x1, y1=bottom),
+            )
+        )
+    return tables
+
+
 class PdfLayoutExtractorConfig(BaseModel):
     """`PdfLayoutExtractor`'s `with:` configuration — see the module docstring for the numbers.
 
@@ -203,6 +224,16 @@ class PdfLayoutExtractor:
         self._config = config if config is not None else PdfLayoutExtractorConfig()
 
     async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Extract text, tables and captioned figures, storing each figure's PNG in the blob store.
+
+        Args:
+            payload: The PDF documents to read.
+            ctx: The run's context; `BlobStore` is required only when a captioned figure is found.
+
+        Returns:
+            `Produced` carrying every node, including one image node per stored figure, or the
+            `NothingToProduce`/`Failed` extraction answered.
+        """
         # `to_thread` rather than a direct call — see the module docstring, both for the
         # rule (`01` → *Colour*) and for what it weakens about cancellation.
         outcome = await asyncio.to_thread(
@@ -297,21 +328,7 @@ class PdfLayoutExtractor:
         tables: list[ExtractedTable] = []
         with pdfplumber.open(BytesIO(content), password=config.password) as document:
             for number, page in enumerate(document.pages, start=1):
-                for table in page.find_tables():
-                    matrix = table.extract()
-                    if not matrix:
-                        continue
-                    headers = tuple(cell or "" for cell in matrix[0])
-                    rows = tuple(tuple(cell or "" for cell in row) for row in matrix[1:])
-                    x0, top, x1, bottom = table.bbox
-                    tables.append(
-                        ExtractedTable(
-                            page=number,
-                            headers=headers,
-                            rows=rows,
-                            bbox=BoundingBox(x0=x0, y0=top, x1=x1, y1=bottom),
-                        )
-                    )
+                tables.extend(_tables_on_page(number, page))
         return tuple(tables)
 
     def _read_figures(self, content: bytes) -> Sequence[ExtractedFigure]:

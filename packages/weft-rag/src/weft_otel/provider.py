@@ -1,4 +1,6 @@
-"""Builds the `TracerProvider` `register()` installs — kept separate so it can be tested
+"""Build the `TracerProvider` `register()` installs, testable without the global slot.
+
+Builds the `TracerProvider` `register()` installs — kept separate so it can be tested
 without ever touching `opentelemetry.trace`'s real, process-global, set-once provider slot.
 
 `docs/02-extension-model.md` §1 -> *Capability is derived, never declared* states the rule

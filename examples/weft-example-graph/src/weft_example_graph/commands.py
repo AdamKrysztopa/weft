@@ -5,7 +5,7 @@ shared `graph`
 subparser (`weft_cli.cli.build_parser`'s own docstring: "grouping multi-word names... into
 nested subparsers by their shared first word"), the same mechanism `docs/03-cli.md` → *Plugin-
 contributed commands* shows for this exact pack: "`weft graph build` / `weft graph show
---entity \"Acme\"`".
+--entity "Acme"`".
 """
 
 from typing import ClassVar, cast
@@ -21,7 +21,9 @@ from weft_kernel.payload import Outcome, Produced
 
 
 class GraphBuildArgs(BaseModel):
-    """`weft graph build` takes no arguments — it recomputes every stored node's own graph
+    """`weft graph build` takes no arguments.
+
+    `weft graph build` takes no arguments — it recomputes every stored node's own graph
     data from that node's own stored content, using the pack's current extraction logic.
     """
 
@@ -59,6 +61,15 @@ class GraphBuildCommand:
         self._store = GraphStore(settings)
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Recompute every stored node's graph data from its stored content.
+
+        Args:
+            args: A `GraphBuildArgs`, which carries nothing.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying how many nodes were examined and the entities and relations found.
+        """
         del ctx
         assert isinstance(args, GraphBuildArgs)
         examined, entities, relations = await self._store.rebuild()
@@ -116,6 +127,16 @@ class GraphShowCommand:
         self._store = GraphStore(settings)
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Summarise the stored graph, or list one entity's neighbours.
+
+        Args:
+            args: A `GraphShowArgs`; `entity` selects one entity's neighbours.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the corpus summary, with the top entities or the named entity's
+            neighbours.
+        """
         del ctx
         assert isinstance(args, GraphShowArgs)
         nodes_with_data, entities, relations = await self._store.summary()

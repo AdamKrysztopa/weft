@@ -1,4 +1,6 @@
-"""One `register()`, one settings model, six contracts (task 5.4), plus a shipped pipeline and
+"""One `register()`, one settings model, six contracts, a pipeline and a slot contribution.
+
+One `register()`, one settings model, six contracts (task 5.4), plus a shipped pipeline and
 a slot contribution (task 5.5) — proven structurally against a real `weft_kernel.registry.
 Registry` rather than by reading the source and trusting it.
 """
@@ -155,7 +157,9 @@ def test_the_slot_contribution_is_buffered_and_reuses_the_registered_plugin() ->
 
 
 def test_a_second_pack_colliding_on_every_name_leaves_the_first_untouched() -> None:
-    """Registration is transactional — CLAUDE.md: "cross-cutting concerns live at the
+    """Registration is transactional: a half-finished pack contributes exactly zero.
+
+    Registration is transactional — CLAUDE.md: "cross-cutting concerns live at the
     registration seam"; a half-finished pack must contribute exactly zero. A second,
     impostor distribution registering under the identical five names raises
     `DuplicateRegistrationError` from inside `commit()` naming both distributions, and the
@@ -199,7 +203,9 @@ def test_a_renderer_is_offered_for_this_packs_own_result_type() -> None:
 
 
 def test_this_packs_result_renders_as_text_a_person_can_read() -> None:
-    """And the renderer itself is real: what it returns is prose about the graph, not the
+    """The graph renderer returns prose about the graph, not the fallback's structured dump.
+
+    And the renderer itself is real: what it returns is prose about the graph, not the
     structured dump the fallback would have produced.
     """
     # Arrange

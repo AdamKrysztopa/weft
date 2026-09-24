@@ -22,6 +22,15 @@ class ExampleReranker:
         del config
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
+        """Reorder the hits by the share of the question's words each one contains.
+
+        Args:
+            payload: The ranking to reorder.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the reordered, rescored hits.
+        """
         del ctx
         query_words = frozenset(payload.origin.text.lower().split())
         ordered = sorted(

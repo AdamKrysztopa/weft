@@ -1,4 +1,6 @@
-"""`weft agent` — the command that drives `weft_agent.loop.run_agent` through the published
+"""The `weft agent` command, driving `run_agent` through the published `Command` surface.
+
+`weft agent` — the command that drives `weft_agent.loop.run_agent` through the published
 `weft_command.contract.Command` surface. Ledger task **7.4**.
 
 **This is the seam Phase 8's own close review predicted, one phase early.**
@@ -66,7 +68,9 @@ class AgentArgs(BaseModel):
 
 
 class AgentCommandResult(CommandResult):
-    """What one agent run produced — the full transcript, the final answer if there is one,
+    """What one agent run produced, restated as a `CommandResult`.
+
+    What one agent run produced — the full transcript, the final answer if there is one,
     and why the loop stopped. The same three facts `weft_agent.loop.AgentOutcome` carries,
     restated as a `CommandResult` so `weft_cli`/a stranger's renderer can format them without
     depending on `weft_agent.loop` itself.
@@ -78,7 +82,9 @@ class AgentCommandResult(CommandResult):
 
 
 class AgentCommand:
-    """`weft agent` — one ReAct run toward a goal, its tools drawn from the run's own
+    """Run one ReAct loop toward a goal, with the run's own command surface as its tools.
+
+    `weft agent` — one ReAct run toward a goal, its tools drawn from the run's own
     published command surface. See this module's own docstring for the seam it needed opened.
     """
 
@@ -110,6 +116,15 @@ class AgentCommand:
         return self._settings.max_steps
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Run the agent loop toward `args.goal` and report what it produced.
+
+        Args:
+            args: An `AgentArgs` carrying the goal.
+            ctx: The run's context, from which `Registry` and `LLM` are required.
+
+        Returns:
+            `Produced` carrying an `AgentCommandResult`.
+        """
         # Local import: `weft_agent/__init__.py` imports `AgentCommand` from this module to
         # register it, so a module-scope `from weft_agent import Settings` here would be a
         # circular import at the moment `weft_agent` itself is still being defined — see this

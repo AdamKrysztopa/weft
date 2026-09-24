@@ -40,6 +40,16 @@ class ExampleLlmJudge:
         self._config = config if config is not None else ExampleJudgeConfig()
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
+        """Keep only the hits the model says help answer the question.
+
+        Args:
+            payload: The ranking to judge.
+            ctx: The run's context, from which `LLM` is required.
+
+        Returns:
+            `Produced` carrying the kept hits, re-ranked, or the first non-`Produced` outcome a
+            model call returned.
+        """
         llm = ctx.require(LLM)
         kept: list[Passage] = []
         for hit in payload.hits:

@@ -1,4 +1,6 @@
-"""`ExampleContextPacker` — a stranger's `ContextPacker`: top `top_n`, labelled `[1]`, `[2]`, …
+"""`ExampleContextPacker`, a stranger's `ContextPacker`: the top `top_n` hits, labelled.
+
+`ExampleContextPacker` — a stranger's `ContextPacker`: top `top_n`, labelled `[1]`, `[2]`, …
 
 Labels are assigned here and here alone — `weft_retrieve.payload.Passages`'s own validator
 refuses a blank or a repeated label, which this plugin satisfies by construction: every
@@ -33,6 +35,15 @@ class ExampleContextPacker:
         self._config = config if config is not None else ExampleContextPackerConfig()
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Passages]:
+        """Label the top `top_n` hits `[1]`, `[2]`, … in rank order.
+
+        Args:
+            payload: The ranking to pack.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the labelled passages.
+        """
         del ctx
         selected = payload.hits[: self._config.top_n]
         labelled = tuple(

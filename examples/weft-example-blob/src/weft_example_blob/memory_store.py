@@ -50,7 +50,9 @@ class UnknownBlobError(WeftError):
 
 
 class TargetDropRefusedError(WeftError):
-    """`drop_target` was asked to remove `default` — its blobs are the shared storage's own,
+    """`drop_target` was asked to remove `default`, whose blobs are the shared storage's own.
+
+    `drop_target` was asked to remove `default` — its blobs are the shared storage's own,
     not a target subtree this method owns the removal of, matching
     `FilesystemBlobStore.drop_target`'s own refusal.
     """
@@ -81,14 +83,18 @@ class InMemoryBlobStore:
         return self._shared.setdefault(self._target, {})
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle over the same shared storage, bound to `target`'s own namespace —
+        """A second handle over the same shared storage, bound to `target`'s own namespace.
+
+        A second handle over the same shared storage, bound to `target`'s own namespace —
         see the module docstring.
         """
         validated = target_name(str(target))
         return type(self)(_shared=self._shared, _target=validated)
 
     async def drop_target(self, target: TargetName) -> int:
-        """Remove `target`'s whole namespace from the shared storage, returning how many blobs
+        """Remove `target`'s whole namespace from the shared storage.
+
+        Remove `target`'s whole namespace from the shared storage, returning how many blobs
         it held. `default` is refused: its blobs are the shared storage's own, not a namespace
         this method owns the removal of.
         """
@@ -102,6 +108,16 @@ class InMemoryBlobStore:
         return 0 if doomed is None else len(doomed)
 
     async def put(self, key: str, data: bytes, media_type: str) -> str:
+        """Keep `data` under `key` in this handle's namespace.
+
+        Args:
+            key: The caller-composed key.
+            data: The bytes to keep.
+            media_type: Unused; the caller's `BlobRef` carries it.
+
+        Returns:
+            The `memory://` uri `open` reads the bytes back by.
+        """
         del media_type  # carried on a `BlobRef`, not by this contract's own methods
         self._blobs[key] = data
         if self._target == DEFAULT_TARGET:
@@ -109,6 +125,17 @@ class InMemoryBlobStore:
         return f"{_SCHEME}{_TARGETS_PREFIX}{self._target}/{key}"
 
     async def open(self, uri: str) -> bytes:
+        """Read back the bytes a `put` kept.
+
+        Args:
+            uri: A uri `put` returned, from any handle over the same shared storage.
+
+        Returns:
+            The kept bytes.
+
+        Raises:
+            UnknownBlobError: Nothing was put at `uri` in this store.
+        """
         target, key = self._target_and_key_from_uri(uri)
         blobs = self._shared.get(target, {})
         if key not in blobs:
@@ -116,6 +143,14 @@ class InMemoryBlobStore:
         return blobs[key]
 
     async def delete_prefix(self, prefix: str) -> int:
+        """Delete every blob in this handle's namespace whose key starts with `prefix`.
+
+        Args:
+            prefix: The key prefix to reap.
+
+        Returns:
+            How many blobs were deleted.
+        """
         doomed = [key for key in self._blobs if key.startswith(prefix)]
         for key in doomed:
             del self._blobs[key]

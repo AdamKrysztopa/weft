@@ -58,7 +58,18 @@ class Describer(Protocol):
         #: still satisfy `isinstance`. `weft_extract.contract` carries the reasoning in full.
         version: ClassVar[str]
 
-    async def describe(self, data: bytes, media_type: str, instruction: str) -> Outcome[str]: ...
+    async def describe(self, data: bytes, media_type: str, instruction: str) -> Outcome[str]:
+        """Say in words what `data` contains, as `instruction` asks.
+
+        Args:
+            data: The bytes to describe.
+            media_type: The IANA type saying how to read `data`.
+            instruction: What the caller wants said.
+
+        Returns:
+            `Produced` carrying the description, or `NothingToProduce`/`Failed`.
+        """
+        ...
 
 
 Describer.version = DESCRIBER_CONTRACT_VERSION

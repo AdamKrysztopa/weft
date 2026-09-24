@@ -52,6 +52,16 @@ class ExampleJudgePanel:
         self._config = config
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
+        """Keep the hits any panelist reranker keeps, in their original order.
+
+        Args:
+            payload: The ranking to judge.
+            ctx: The run's context, from which `StageLookup` is required.
+
+        Returns:
+            `Produced` carrying the kept hits, re-ranked, or the first non-`Produced` outcome a
+            panelist returned.
+        """
         lookup = ctx.require(StageLookup)
         reranker = cast("type[Stage[Ranking, Ranking]]", Reranker)
         kept: set[NodeId] = set()

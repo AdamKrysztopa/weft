@@ -123,7 +123,9 @@ class PageText(BaseModel):
 
 
 class PdfPages(ExtModel):
-    """Which backend read a document — the payload's own answer to which backend won the
+    """Which backend read a document.
+
+    Which backend read a document — the payload's own answer to which backend won the
     fallback chain, a fact `weft_extract.payload.PageSpan` cannot give.
 
     `.phase2-findings.md` finding 10: what a parser recovers beyond plain text
@@ -257,7 +259,9 @@ _FIGURE_ORDINAL_PAGE_STRIDE = 1000
 
 
 def _figure_ordinal(*, page: int, index_on_page: int) -> int:
-    """The stable composite ordinal a figure's `Node.derive` and `weft_blob.keys.blob_key` both
+    """The stable composite ordinal a figure's node and blob key both derive from.
+
+    The stable composite ordinal a figure's `Node.derive` and `weft_blob.keys.blob_key` both
     key off — see `_FIGURE_ORDINAL_PAGE_STRIDE`'s own comment for why it is derived from where
     the figure sits rather than from a running count over the document.
     """
@@ -271,7 +275,9 @@ def _figure_ordinal(*, page: int, index_on_page: int) -> int:
 
 
 class PendingFigure(BaseModel):
-    """One figure with a caption, waiting on the `BlobStore.put` call `extract_documents` cannot
+    """One captioned figure, waiting on the `BlobStore.put` call `extract_documents` cannot make.
+
+    One figure with a caption, waiting on the `BlobStore.put` call `extract_documents` cannot
     make — see the module docstring for why the split exists. `PdfLayoutExtractor.run` is the
     caller that finishes it: `await`s the blob write, then builds the `Node` this model is not.
     """
@@ -301,7 +307,9 @@ class PendingFigure(BaseModel):
 
 
 class ExtractionResult(BaseModel):
-    """`extract_documents`'s answer when a backend supplies `read_figures` — the nodes it built
+    """`extract_documents`'s answer when a backend supplies `read_figures`.
+
+    `extract_documents`'s answer when a backend supplies `read_figures` — the nodes it built
     outright, and the figures it found but could not finish. See the module docstring for why a
     figure's own `Node` is not among `nodes`.
     """
@@ -438,7 +446,9 @@ class DroppedPage(BaseModel):
 
 
 class DroppedPages(ExtModel):
-    """Every page one document lost during extraction, stamped on every node that document
+    """Every page one document lost during extraction, stamped on every node it still produced.
+
+    Every page one document lost during extraction, stamped on every node that document
     still produced — **R43.3**, ledger task `43.0`: 3 of open_ragbench's 1,000 PDFs each
     carried one page this pack could not read, and before this repair each cost its whole
     document, up to 24 innocent documents sharing its batch (`R43.1` bounds that to the one
@@ -503,7 +513,9 @@ def _extract_one(
     read_tables: TableReader | None,
     read_figures: FigureReader | None,
 ) -> Failed | tuple[tuple[Node, ...], tuple[PendingFigure, ...], str | None]:
-    """One document's worth of `extract_documents`'s own loop body, split out only to keep that
+    """Extract one document for `extract_documents`, or say why it contributed nothing.
+
+    One document's worth of `extract_documents`'s own loop body, split out only to keep that
     function's own branching under this tree's complexity budget — the two backends never call
     this directly. `Failed` aborts the whole batch, per the module docstring; otherwise this
     returns the nodes and figures this one document contributed, and a reason string in place of
@@ -536,31 +548,63 @@ def _extract_one(
 
     page_nodes = _page_nodes(doc, readable_pages, backend=backend)
     if not page_nodes:
-        if dropped:
-            lost = "; ".join(f"page {page.page}: {page.reason}" for page in dropped)
-            return Failed(reason=f"'{doc.uri}': every page dropped — {lost}")
-        return (), (), f"'{doc.uri}': {len(pages)} page(s), and no text on any of them"
+        return _nothing_readable(doc, pages, dropped)
     nodes: list[Node] = list(page_nodes.values())
 
     if read_tables is not None:
-        for ordinal, table in enumerate(read_tables(doc.content)):
-            root = _root_for_page(page_nodes, table.page, backend=backend, doc=doc, kind="table")
-            table_node = _table_node(root, table, ordinal=ordinal)
-            if table_node is not None:
-                nodes.append(table_node)
+        nodes.extend(_table_nodes(doc, page_nodes, read_tables(doc.content), backend=backend))
 
-    figures: list[PendingFigure] = []
-    for figure in found:
-        root = _root_for_page(page_nodes, figure.page, backend=backend, doc=doc, kind="figure")
-        pending = _pending_figure(root, doc.source_id, figure)
-        if pending is not None:
-            figures.append(pending)
+    figures = _pending_figures(doc, page_nodes, found, backend=backend)
 
     if dropped:
         marker = DroppedPages(dropped=dropped)
         nodes = [node.with_ext(marker) for node in nodes]
 
     return tuple(nodes), tuple(figures), None
+
+
+def _nothing_readable(
+    doc: SourceDoc, pages: Sequence[PageText], dropped: tuple[DroppedPage, ...]
+) -> Failed | tuple[tuple[Node, ...], tuple[PendingFigure, ...], str]:
+    """`_extract_one`'s answer for a document that kept no page node at all."""
+    if dropped:
+        lost = "; ".join(f"page {page.page}: {page.reason}" for page in dropped)
+        return Failed(reason=f"'{doc.uri}': every page dropped — {lost}")
+    return (), (), f"'{doc.uri}': {len(pages)} page(s), and no text on any of them"
+
+
+def _table_nodes(
+    doc: SourceDoc,
+    page_nodes: Mapping[int, Node],
+    tables: Sequence[ExtractedTable],
+    *,
+    backend: str,
+) -> list[Node]:
+    """Every table in `tables` whose grid could be built, as a child of its page's node."""
+    nodes: list[Node] = []
+    for ordinal, table in enumerate(tables):
+        root = _root_for_page(page_nodes, table.page, backend=backend, doc=doc, kind="table")
+        table_node = _table_node(root, table, ordinal=ordinal)
+        if table_node is not None:
+            nodes.append(table_node)
+    return nodes
+
+
+def _pending_figures(
+    doc: SourceDoc,
+    page_nodes: Mapping[int, Node],
+    found: Sequence[ExtractedFigure],
+    *,
+    backend: str,
+) -> list[PendingFigure]:
+    """Every figure in `found` that can become a node, anchored to its page's node."""
+    figures: list[PendingFigure] = []
+    for figure in found:
+        root = _root_for_page(page_nodes, figure.page, backend=backend, doc=doc, kind="figure")
+        pending = _pending_figure(root, doc.source_id, figure)
+        if pending is not None:
+            figures.append(pending)
+    return figures
 
 
 def _page_nodes(doc: SourceDoc, pages: Sequence[PageText], *, backend: str) -> dict[int, Node]:

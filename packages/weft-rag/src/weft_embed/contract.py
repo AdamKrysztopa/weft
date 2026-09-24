@@ -73,14 +73,26 @@ class Embedder(Stage[Sequence[Node], Sequence[Node]], Protocol):
         #: after the class body, so it never joins `__protocol_attrs__`.
         version: ClassVar[str]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach an embedding to each node in `payload`.
+
+        Args:
+            payload: The nodes to embed.
+            ctx: The run's context.
+
+        Returns:
+            `Produced` carrying the embedded nodes, or `NothingToProduce` when there were none.
+        """
+        ...
 
 
 Embedder.version = EMBEDDER_CONTRACT_VERSION
 
 
 class EmbeddingModel(BaseModel):
-    """The model and width one call to `embedding_model` reports — the request an embedder
+    """The model and width one call to `embedding_model` reports.
+
+    The model and width one call to `embedding_model` reports — the request an embedder
     actually sends, never a stage's config default. `width` is `None` when the model's
     dimensionality is not fixed by the embedder itself (an API embedder that has not been
     asked to truncate).
@@ -94,7 +106,9 @@ class EmbeddingModel(BaseModel):
 
 @runtime_checkable
 class IdentifiedEmbedder(Protocol):
-    """An embedder that can state what it embeds with — one member, `NodeSupersedable`'s
+    """An embedder that can state what it embeds with.
+
+    An embedder that can state what it embeds with — one member, `NodeSupersedable`'s
     shape (`weft_store.contract`), for the same reason: growing `Embedder` itself would be a
     major for every third-party implementer, for a capability most already have and a
     stranger with no declared model does not.
@@ -105,7 +119,13 @@ class IdentifiedEmbedder(Protocol):
         #: assigned below.
         version: ClassVar[str]
 
-    async def embedding_model(self) -> EmbeddingModel: ...
+    async def embedding_model(self) -> EmbeddingModel:
+        """Report the model and width this embedder's requests actually use.
+
+        Returns:
+            The model name and, when the embedder fixes it, the vector width.
+        """
+        ...
 
 
 IdentifiedEmbedder.version = EMBEDDER_CONTRACT_VERSION

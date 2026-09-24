@@ -1,4 +1,4 @@
-"""`ArtifactRemover` — strips page-number lines and separator lines, and nothing else.
+r"""`ArtifactRemover` — strips page-number lines and separator lines, and nothing else.
 
 Task **2.35** — the second of two cataloged cleaning processors `weft-clean` did not yet
 ship. **Header/footer removal by positional or interval analysis is deliberately not
@@ -33,8 +33,8 @@ Its separator-line filter is not affected — it reads Unicode alphanumeric prop
 a word, so it works the same for a Polish document's separator lines as an English one's.
 
 **`intact = (Newlines,)`.** Both of this stage's behaviours are line-oriented by
-construction: `_PAGE_NUMBER` is anchored `MULTILINE`, so `^`/`$` match at every `\\n`, and
-the separator filter runs `text.split("\\n")` directly. Both depend on `\\n` still marking
+construction: `_PAGE_NUMBER` is anchored `MULTILINE`, so `^`/`$` match at every `\n`, and
+the separator filter runs `text.split("\n")` directly. Both depend on `\n` still marking
 the same line boundaries extraction produced — the identical dependency
 `weft_clean.hyphenation.HyphenationRepair` already declares, for the identical property.
 **`destroys = (Verbatim,)`** — deleting a whole line, or substituting a matched page number
@@ -114,6 +114,16 @@ class ArtifactRemover:
         self._config = config if config is not None else ArtifactRemoverConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Strip page-number and separator lines from each node's content.
+
+        Args:
+            payload: The nodes to clean.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one derived node per input node, or `NothingToProduce` for an
+            empty `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no nodes to remove artifacts from")

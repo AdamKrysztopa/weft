@@ -1,4 +1,6 @@
-"""`GraphWalkRetriever` against a real Postgres — see `test_store.py`'s own module docstring
+"""`GraphWalkRetriever` against a real Postgres.
+
+`GraphWalkRetriever` against a real Postgres — see `test_store.py`'s own module docstring
 for the reachability-probe convention this file follows.
 """
 

@@ -49,7 +49,9 @@ from weft_prompts.contract import Prompt
 
 @runtime_checkable
 class AgentTool(Protocol):
-    """One tool the loop may offer a model: a name to call it under, a description to pick it
+    """One tool the loop may offer a model: a description to pick it by, and the call itself.
+
+    One tool the loop may offer a model: a name to call it under, a description to pick it
     by, and the call itself.
 
     The name a tool is offered under is the key the caller's `tools` mapping supplies, never a
@@ -63,7 +65,17 @@ class AgentTool(Protocol):
     #: what a tool must *have*, never how the implementer must spell it.
     description: str
 
-    async def call(self, arguments: Mapping[str, object], ctx: Context) -> str: ...
+    async def call(self, arguments: Mapping[str, object], ctx: Context) -> str:
+        """Run the tool with the arguments the model chose.
+
+        Args:
+            arguments: The model's arguments for this call.
+            ctx: The run's context.
+
+        Returns:
+            The observation the model reads next.
+        """
+        ...
 
 
 class UndecidedActionError(WeftError):
@@ -97,7 +109,9 @@ class StopReason(StrEnum):
 
 
 class AgentOutcome(BaseModel):
-    """What a run produced: the full transcript, the final answer if there is one, and why the
+    """What a run produced, and why the loop stopped.
+
+    What a run produced: the full transcript, the final answer if there is one, and why the
     loop stopped.
     """
 
@@ -132,7 +146,9 @@ def _render_transcript(transcript: AgentTranscript) -> str:
 
 
 def _refuse_unknown_tool(requested: str, tools: Mapping[str, AgentTool]) -> str:
-    """Requirement 5, phrased for the model rather than for a log: what was asked for, and
+    """Tell the model which tool it asked for is missing and which ones exist.
+
+    Requirement 5, phrased for the model rather than for a log: what was asked for, and
     what is actually on offer.
     """
     available = ", ".join(sorted(tools)) if tools else "(none)"

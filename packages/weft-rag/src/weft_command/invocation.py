@@ -53,7 +53,15 @@ class Consent(Protocol):
     the command once this raises.
     """
 
-    async def decide(self, *, command_name: str, instance: object, args: BaseModel) -> None: ...
+    async def decide(self, *, command_name: str, instance: object, args: BaseModel) -> None:
+        """Permit or refuse one command run.
+
+        Args:
+            command_name: The registered name being invoked.
+            instance: The command instance about to run.
+            args: The validated arguments it would run with.
+        """
+        ...
 
 
 async def invoke(

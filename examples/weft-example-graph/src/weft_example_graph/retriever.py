@@ -1,4 +1,6 @@
-"""`GraphWalkRetriever` — ranks nodes by graph proximity to the entities a query names,
+"""`GraphWalkRetriever`: ranks nodes by graph proximity to the entities a query names.
+
+`GraphWalkRetriever` — ranks nodes by graph proximity to the entities a query names,
 never by vector or lexical similarity. Satisfies `weft_retrieve.contract.Retriever`
 structurally; this class never imports it.
 
@@ -27,7 +29,9 @@ NAME = "example-graph-walk"
 
 
 class GraphWalkConfig(BaseModel):
-    """`graph-walk`'s `with:` config — every field defaults, per this project's rule that
+    """`graph-walk`'s `with:` config, every field defaulted.
+
+    `graph-walk`'s `with:` config — every field defaults, per this project's rule that
     every pack's settings must be constructible with none supplied.
     """
 
@@ -40,7 +44,9 @@ class GraphWalkConfig(BaseModel):
 
 
 class GraphWalkRetriever:
-    """One graph walk per query: extract the entities a question names, widen by `hops`
+    """Rank nodes by hop distance from the entities each query names.
+
+    One graph walk per query: extract the entities a question names, widen by `hops`
     relation-steps, then rank every node mentioning any of them by hop distance (closer
     scores higher). A query naming no entity this pack's own crude extractor recognises
     gets an empty `RankedList`, not an error — the same "never asked" versus "asked and
@@ -56,6 +62,15 @@ class GraphWalkRetriever:
         self._config = config if config is not None else GraphWalkConfig()
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]:
+        """Walk the graph out from each query's entities and rank the nodes that mention them.
+
+        Args:
+            payload: The queries to retrieve for.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one ranked list per query, empty for a query naming no entity.
+        """
         del ctx
         lists: list[RankedList] = []
         for query in payload.queries:
@@ -88,7 +103,9 @@ class GraphWalkRetriever:
 
 
 def _names_of(node: Node, distances: dict[str, int]) -> tuple[str, ...]:
-    """Which of `distances`' own entity names this node's `GraphData` actually carries —
+    """Which of `distances`' entity names this node's `GraphData` actually carries.
+
+    Which of `distances`' own entity names this node's `GraphData` actually carries —
     scoring by the *closest* of them, since a node mentioning both a seed and a two-hop
     neighbour is exactly as relevant as its nearest match, never diluted by the farther one.
     """

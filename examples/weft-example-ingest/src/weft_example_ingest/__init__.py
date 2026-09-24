@@ -58,7 +58,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register this pack's seven plugins — one per contract it implements — its own
+    """Register this pack's seven plugins, its `WordCount` extension and a slot contribution.
+
+    Register this pack's seven plugins — one per contract it implements — its own
     `WordCount` `ExtModel` (task 5.2g), and a slot contribution (task 5.3a, `S8`): the real
     proof that a stranger's own contributed stage reaches a resolved pipeline with no core
     edit, since this distribution is installed rather than linked (fitness function 9(a)).

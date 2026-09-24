@@ -1,4 +1,6 @@
-"""Ledger task **43.19** — a pack written outside the tree ships a layer, and `weft index --layers`
+"""A pack written outside the tree ships a layer that `weft index --layers` runs (43.19).
+
+Ledger task **43.19** — a pack written outside the tree ships a layer, and `weft index --layers`
 runs it exactly as it runs `enrich-with-questions`.
 
 A layer is only a pipeline document whose stages take stored nodes and return nodes (`43.7`), so a

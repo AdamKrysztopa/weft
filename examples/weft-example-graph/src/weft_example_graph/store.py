@@ -1,4 +1,6 @@
-"""`GraphStore` — the whole store family this pack needs, over Postgres: `NodeStore`,
+"""`GraphStore`: the whole store family this pack needs, over Postgres.
+
+`GraphStore` — the whole store family this pack needs, over Postgres: `NodeStore`,
 `SourceDeletable` and `Reconcilable`, all three structurally, the identical path
 `examples/weft-example-ingest/src/weft_example_ingest/store.py` takes for its own six.
 
@@ -153,7 +155,9 @@ def _require_dsn(settings: GraphSettings) -> str:
 
 
 class GraphStore:
-    """`NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally —
+    """`NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally.
+
+    `NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally —
     this class never imports one of the Protocols, the same path any third-party store
     pack takes (`docs/02-extension-model.md` section 4's own "Graph store | `NodeStore`" row,
     plus the two G7 rows: "The graph store, again | `SourceDeletable`" / "`Reconcilable`").
@@ -184,7 +188,9 @@ class GraphStore:
         return conn
 
     async def aclose(self) -> None:
-        """Not part of any contract `NodeStore` publishes — `weft_cli.ingest`'s own
+        """Close this store's connection, if it opened one.
+
+        Not part of any contract `NodeStore` publishes — `weft_cli.ingest`'s own
         docstring reads this defensively, exactly as it already does for `PgVectorStore`.
         """
         if self._conn is not None:
@@ -194,11 +200,25 @@ class GraphStore:
     # -- NodeStore -----------------------------------------------------------------------
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Store `payload` and pass it on unchanged.
+
+        Args:
+            payload: The nodes to store.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying `payload`.
+        """
         del ctx
         await self.add(payload)
         return Produced(value=payload)
 
     async def add(self, nodes: Sequence[Node]) -> None:
+        """Upsert `nodes`, replacing each one's entity and relation rows.
+
+        Args:
+            nodes: The nodes to write.
+        """
         if not nodes:
             return
         conn = await self._connection()
@@ -225,6 +245,14 @@ class GraphStore:
         return
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        """Read back the stored nodes among `ids`.
+
+        Args:
+            ids: The node ids to look up.
+
+        Returns:
+            The nodes found; an id this store does not hold is absent.
+        """
         if not ids:
             return ()
         conn = await self._connection()
@@ -234,6 +262,14 @@ class GraphStore:
         return tuple(_row_to_node(row) for row in rows)
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        """Read one page of stored nodes in id order.
+
+        Args:
+            cursor: Where the previous page ended, or `None` for the first page.
+
+        Returns:
+            The page, with the cursor for the next one when more remain.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             if cursor is None:
@@ -251,6 +287,11 @@ class GraphStore:
         return Page(items=tuple(_row_to_node(row) for row in page_rows), next_cursor=next_cursor)
 
     async def count(self) -> int:
+        """Count the stored nodes.
+
+        Returns:
+            How many nodes this store holds.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS n FROM exgraph_nodes")
@@ -258,6 +299,11 @@ class GraphStore:
         return cast(int, row["n"]) if row is not None else 0
 
     async def put_source(self, record: SourceRecord) -> None:
+        """Upsert one source record.
+
+        Args:
+            record: The record to write.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
@@ -290,6 +336,14 @@ class GraphStore:
             )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        """Read one source record.
+
+        Args:
+            source_id: The source to look up.
+
+        Returns:
+            The record, or `None` when this store holds none for `source_id`.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT * FROM exgraph_sources WHERE id = %s", (source_id,))
@@ -297,6 +351,11 @@ class GraphStore:
         return _row_to_source_record(row) if row is not None else None
 
     async def list_sources(self) -> Sequence[SourceRecord]:
+        """List every source record in id order.
+
+        Returns:
+            Every stored source record.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT * FROM exgraph_sources ORDER BY id")
@@ -306,6 +365,14 @@ class GraphStore:
     # -- SourceDeletable -------------------------------------------------------------------
 
     async def delete_source(self, source_id: SourceId) -> Removed:
+        """Delete every node from `source_id`, and its source record.
+
+        Args:
+            source_id: The source to remove.
+
+        Returns:
+            The source removed and how many nodes went with it.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("DELETE FROM exgraph_nodes WHERE %s = ANY(sources)", (source_id,))
@@ -316,6 +383,15 @@ class GraphStore:
     # -- Reconcilable ----------------------------------------------------------------------
 
     async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        """State what `reconcile` would do in `mode` before it does it.
+
+        Args:
+            ctx: The run's context; `full` requires the corpus `NodeStore` on it.
+            mode: The reconcile mode to estimate.
+
+        Returns:
+            How many nodes the pass would touch, and a description; it calls no model.
+        """
         if mode is ReconcileMode.FULL:
             corpus = ctx.require(NodeStore)
             pending = 0
@@ -352,7 +428,9 @@ class GraphStore:
         )
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
-        """Repairs this pack's *own* bookkeeping against its *own* stored node content, and,
+        """Repair this pack's own bookkeeping from its own stored content; `full` also backfills.
+
+        Repairs this pack's *own* bookkeeping against its *own* stored node content, and,
         for `full`, also backfills from the corpus.
 
         **`repair` does two things, and task 6.21 built the second.** It recomputes every
@@ -424,7 +502,9 @@ class GraphStore:
         )
 
     async def _missing_from(self, nodes: Sequence[Node]) -> list[Node]:
-        """Which of `nodes` this store does not already hold — one batched `get` over their
+        """Which of `nodes` this store does not already hold.
+
+        Which of `nodes` this store does not already hold — one batched `get` over their
         own ids, never assumed.
         """
         if not nodes:
@@ -435,7 +515,9 @@ class GraphStore:
     # -- This pack's own additional surface, for its retriever and commands ----------------
 
     async def rebuild(self) -> tuple[int, int, int]:
-        """Recompute every stored node's `GraphData` from its own stored `content`, using
+        """Recompute every stored node's `GraphData` from its own stored `content`.
+
+        Recompute every stored node's `GraphData` from its own stored `content`, using
         the *current* `weft_example_graph.extraction.extract_graph_data` — `weft graph build`'s own
         implementation. Unlike `reconcile`, this re-derives from `content`, not merely from
         the previously-computed `ext`, so it is what actually picks up a change to the
@@ -513,7 +595,9 @@ class GraphStore:
         )
 
     async def entity_distances(self, seeds: tuple[str, ...], *, hops: int) -> dict[str, int]:
-        """`{entity name: hop distance}` for every seed and everything within `hops` of one,
+        """Every entity within `hops` of a seed, mapped to its hop distance.
+
+        `{entity name: hop distance}` for every seed and everything within `hops` of one,
         walking `exgraph_relations` breadth-first — `weft_example_graph.retriever`'s own graph walk.
         """
         distances: dict[str, int] = dict.fromkeys(seeds, 0)
@@ -543,6 +627,14 @@ class GraphStore:
         return distances
 
     async def node_ids_for_entities(self, names: tuple[str, ...]) -> tuple[NodeId, ...]:
+        """Find the nodes that mention any of `names`.
+
+        Args:
+            names: The entity names to look up.
+
+        Returns:
+            The distinct ids of the nodes mentioning at least one of them.
+        """
         if not names:
             return ()
         conn = await self._connection()
@@ -556,7 +648,9 @@ class GraphStore:
 
 
 def _count_of(row: Mapping[str, object] | None) -> int:
-    """A `count(...)` query's own `n` column — `0` for a row `fetchone()` never returns,
+    """A `count(...)` query's own `n` column, or `0` for a missing row.
+
+    A `count(...)` query's own `n` column — `0` for a row `fetchone()` never returns,
     which a bare aggregate query never actually does, but pyright has no way to know that.
     """
     return cast(int, row["n"]) if row is not None else 0

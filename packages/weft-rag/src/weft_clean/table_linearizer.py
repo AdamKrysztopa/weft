@@ -71,7 +71,7 @@ class TableLinearizerConfig(BaseModel):
 
 
 class TableLinearizer:
-    """Rewrites `Column1   Column2` as `Column1\\nColumn2`, one line at a time.
+    r"""Rewrites `Column1   Column2` as `Column1\nColumn2`, one line at a time.
 
     Satisfies `weft_clean.contract.Cleaner` structurally.
     """
@@ -94,6 +94,16 @@ class TableLinearizer:
         self._config = config if config is not None else TableLinearizerConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Put each gap-separated column of each node's content on its own line.
+
+        Args:
+            payload: The nodes to clean.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one derived node per input node, or `NothingToProduce` for an
+            empty `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no nodes to linearize")

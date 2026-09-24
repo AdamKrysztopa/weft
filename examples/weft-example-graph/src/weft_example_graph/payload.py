@@ -1,4 +1,6 @@
-"""`GraphData` — this pack's own namespaced fact: which entities a node mentions, and which
+"""`GraphData`: which entities a node mentions, and which of them co-occur.
+
+`GraphData` — this pack's own namespaced fact: which entities a node mentions, and which
 of them co-occur.
 
 Attaches to `Node.ext` (`weft_kernel.payload.ext.ExtModel`), never to a query-path payload's

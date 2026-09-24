@@ -32,7 +32,10 @@ class ExactMatchConfig(BaseModel):
 
 
 class ExactMatch:
-    """Satisfies `weft_eval.contract.GenerationMetric` structurally — this class never imports it."""
+    """Scores a prediction 1.0 when it matches its reference, and 0.0 otherwise.
+
+    Satisfies `weft_eval.contract.GenerationMetric` structurally — this class never imports it.
+    """
 
     config_model: type[ExactMatchConfig] = ExactMatchConfig
     runs_in_gate: ClassVar[bool] = True
@@ -41,6 +44,16 @@ class ExactMatch:
         self._config = config if config is not None else ExactMatchConfig()
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score 1.0 when the prediction matches the reference exactly, and 0.0 otherwise.
+
+        Args:
+            payload: The sample carrying the prediction and the reference.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the score, `NothingToProduce` for an empty reference, or `Failed`
+            when there is no prediction.
+        """
         del ctx  # no service or locale this metric needs
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")

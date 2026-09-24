@@ -55,13 +55,17 @@ class Settings(BaseModel):
 
 
 class OracleLabelsError(WeftError):
-    """A `40.5` labels file could not be read as written — a duplicate question id or a
+    """A `40.5` labels file could not be read as written.
+
+    A `40.5` labels file could not be read as written — a duplicate question id or a
     malformed line, always naming the file and, for a malformed line, its line number.
     """
 
 
 class OracleLabel(BaseModel):
-    """One person-written row from a `40.5` labels file: a question, the text it was asked
+    """One person-written row from a `40.5` labels file.
+
+    One person-written row from a `40.5` labels file: a question, the text it was asked
     against, and the anchors a person found in it.
     """
 
@@ -164,7 +168,9 @@ class OracleAnchorPromote:
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """The entry point `weft.packs` resolves to — `oracle-anchor-promote` and, for Phase 41's
+    """Register `oracle-anchor-promote` and `oracle-gold-first` for `Reranker`.
+
+    The entry point `weft.packs` resolves to — `oracle-anchor-promote` and, for Phase 41's
     instrument check, `oracle-gold-first`.
     """
     del settings

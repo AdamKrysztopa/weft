@@ -67,7 +67,9 @@ _MAX_ENTITIES_PER_NODE = 25
 
 
 def _cleaned(raw: str) -> str | None:
-    """`raw`, whitespace-normalised, with every *leading* stopword stripped — `None` if
+    """`raw`, whitespace-normalised and stripped of leading stopwords, or `None` if nothing is left.
+
+    `raw`, whitespace-normalised, with every *leading* stopword stripped — `None` if
     nothing is left. A multi-word match starting a sentence ("The Board met...") would
     otherwise carry its sentence-initial stopword into the entity name ("The Board"); this
     strips only from the front, since a stopword is a sentence-initial artefact and this
@@ -80,9 +82,9 @@ def _cleaned(raw: str) -> str | None:
 
 
 def extract_entity_names(text: str) -> tuple[str, ...]:
-    """Every distinct Title-Case run in `text`, in first-seen order, stopwords excluded.
+    r"""Every distinct Title-Case run in `text`, in first-seen order, stopwords excluded.
 
-    Whitespace inside a multi-word match is normalised (`"Acme  Corp"` and `"Acme\\nCorp"`
+    Whitespace inside a multi-word match is normalised (`"Acme  Corp"` and `"Acme\nCorp"`
     both become `"Acme Corp"`) so the same name always has the same spelling — the property
     `weft_example_graph.store` relies on to match a query's own extracted names against stored ones.
     """

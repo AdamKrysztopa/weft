@@ -48,7 +48,9 @@ def _source_segment(source_id: SourceId) -> str:
 
 
 def _checked_tenant_id(tenant_id: str) -> str:
-    """Refuse, never sanitise — a silently rewritten `tenant_id` could fold two tenants into
+    """Refuse a `tenant_id` that is empty or could leave its own directory.
+
+    Refuse, never sanitise — a silently rewritten `tenant_id` could fold two tenants into
     one directory, which is the one failure this module must never produce.
     """
     if not tenant_id or "/" in tenant_id or ".." in tenant_id:
@@ -73,7 +75,9 @@ def blob_key(*, tenant_id: str, source_id: SourceId, ordinal: int, extension: st
 
 
 def source_prefix(*, tenant_id: str, source_id: SourceId) -> str:
-    """The prefix every blob `blob_key` derives for this `(tenant_id, source_id)` pair lies
+    """The prefix every blob `blob_key` derives for this `(tenant_id, source_id)` pair lies under.
+
+    The prefix every blob `blob_key` derives for this `(tenant_id, source_id)` pair lies
     under — derived through the identical digest `blob_key` uses, so the two can never
     disagree about where a source's blobs live.
     """

@@ -1,4 +1,6 @@
-"""`cross-encoder-rerank` — ledger **41.2**: a TEI-served cross-encoder, refused by name every
+"""`cross-encoder-rerank`: a TEI-served cross-encoder that refuses by name to score dishonestly.
+
+`cross-encoder-rerank` — ledger **41.2**: a TEI-served cross-encoder, refused by name every
 way it cannot score honestly.
 
 Specified by `fix-plans/11` `20.6` as corrected at Phase 41's opening: the model is named and
@@ -43,21 +45,27 @@ class TruncationDirection(StrEnum):
 
 
 class CrossEncoderUnreachableError(WeftError):
-    """No TEI server answered at the configured address — a connection failure or a timeout,
+    """No TEI server answered at the configured address.
+
+    No TEI server answered at the configured address — a connection failure or a timeout,
     the whole `httpx.TransportError` family. Raised before any score is trusted, on either
     `/info` or `/rerank`.
     """
 
 
 class CrossEncoderServerError(WeftError):
-    """TEI answered with a fault: a non-2xx status other than 422, or a `/rerank` response that
+    """TEI answered with a fault, or with a `/rerank` response not one score per passage sent.
+
+    TEI answered with a fault: a non-2xx status other than 422, or a `/rerank` response that
     is not exactly one score per passage sent. Never guessed at — a passage list this stage
     cannot vouch for is not returned unranked.
     """
 
 
 class CrossEncoderModelUnsetError(WeftError):
-    """`cross-encoder-rerank` was constructed with no `with:` config at all — `model` is
+    """`cross-encoder-rerank` was constructed with no `with:` config at all.
+
+    `cross-encoder-rerank` was constructed with no `with:` config at all — `model` is
     required and nothing here may assume one.
     """
 
@@ -161,6 +169,38 @@ def _server_error(url: str, path: str, response: httpx.Response) -> CrossEncoder
     if detail:
         message = f"{message}: {detail}"
     return CrossEncoderServerError(message, plugin=NAME)
+
+
+def _batch_scores(url: str, raw_entries: Any, sent: int) -> dict[int, float]:
+    """Validate one `/rerank` answer and return its scores keyed by in-batch index.
+
+    Raises:
+        CrossEncoderServerError: The answer is not one score per passage sent.
+    """
+    if not isinstance(raw_entries, list):
+        raise CrossEncoderServerError(
+            f"'{NAME}': {urljoin(url, '/rerank')} did not answer one score per passage "
+            f"— sent {sent}, scored 0.",
+            plugin=NAME,
+        )
+    entries = cast("list[Any]", raw_entries)
+    if len(entries) != sent:
+        raise CrossEncoderServerError(
+            f"'{NAME}': {urljoin(url, '/rerank')} did not answer one score per passage "
+            f"— sent {sent}, scored {len(entries)}.",
+            plugin=NAME,
+        )
+    scores: dict[int, float] = {}
+    for entry in entries:
+        index = cast("dict[str, Any]", entry).get("index") if isinstance(entry, dict) else None
+        if not isinstance(index, int) or not (0 <= index < sent) or index in scores:
+            raise CrossEncoderServerError(
+                f"'{NAME}': {urljoin(url, '/rerank')} did not answer one score per "
+                "passage — a response index was out of range or repeated.",
+                plugin=NAME,
+            )
+        scores[index] = float(cast("dict[str, Any]", entry)["score"])
+    return scores
 
 
 class CrossEncoderRerank:
@@ -308,37 +348,8 @@ class CrossEncoderRerank:
                 )
             if not response.is_success:
                 raise _server_error(url, "/rerank", response)
-            raw_entries = response.json()
-            if not isinstance(raw_entries, list):
-                raise CrossEncoderServerError(
-                    f"'{NAME}': {urljoin(url, '/rerank')} did not answer one score per passage "
-                    f"— sent {len(slice_texts)}, scored 0.",
-                    plugin=NAME,
-                )
-            entries = cast("list[Any]", raw_entries)
-            if len(entries) != len(slice_texts):
-                raise CrossEncoderServerError(
-                    f"'{NAME}': {urljoin(url, '/rerank')} did not answer one score per passage "
-                    f"— sent {len(slice_texts)}, scored {len(entries)}.",
-                    plugin=NAME,
-                )
-            seen: set[int] = set()
-            for entry in entries:
-                index = (
-                    cast("dict[str, Any]", entry).get("index") if isinstance(entry, dict) else None
-                )
-                if (
-                    not isinstance(index, int)
-                    or not (0 <= index < len(slice_texts))
-                    or index in seen
-                ):
-                    raise CrossEncoderServerError(
-                        f"'{NAME}': {urljoin(url, '/rerank')} did not answer one score per "
-                        "passage — a response index was out of range or repeated.",
-                        plugin=NAME,
-                    )
-                seen.add(index)
-                collected[start + index] = float(cast("dict[str, Any]", entry)["score"])
+            batch = _batch_scores(url, response.json(), len(slice_texts))
+            collected.update({start + index: score for index, score in batch.items()})
         return [collected[position] for position in range(len(texts))], requests
 
     async def _request(

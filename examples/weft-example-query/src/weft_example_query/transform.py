@@ -23,6 +23,15 @@ class ExampleQueryTransform:
         del config
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[QuerySet]:
+        """Add an upper-cased copy of the original question to the query set.
+
+        Args:
+            payload: The query set to extend.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the extended query set.
+        """
         del ctx
         shouted = Query(
             text=payload.origin.text.upper(), origin=QueryOrigin.DERIVED, produced_by=NAME

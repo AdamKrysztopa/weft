@@ -1,4 +1,6 @@
-"""`GraphBuildCommand` and `GraphShowCommand` against a real Postgres — see `test_store.py`'s
+"""`GraphBuildCommand` and `GraphShowCommand` against a real Postgres.
+
+`GraphBuildCommand` and `GraphShowCommand` against a real Postgres — see `test_store.py`'s
 own module docstring for the reachability-probe convention this file follows.
 """
 

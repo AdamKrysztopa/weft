@@ -1,8 +1,8 @@
-"""`HyphenationRepair` — rejoins a word broken across a line by a trailing hyphen.
+r"""`HyphenationRepair` — rejoins a word broken across a line by a trailing hyphen.
 
 Task **1.7**'s worked example, and `02` §3 → *Ordering constraints*'s own
 rule: "hyphenation repair... MUST run before whitespace normalization while
-newlines still exist (e.g. kompu-\\nter -> komputer)". The reasoning is
+newlines still exist (e.g. kompu-\nter -> komputer)". The reasoning is
 `weft_clean.property`'s: a broken word's two halves are only rejoinable
 while the line break between them is still a real newline, not yet folded
 into an ordinary space by
@@ -14,7 +14,7 @@ longer a seam to find.
 anything that destroys `Newlines` fails at load, naming both stages, rather
 than silently shipping two words that used to be one.
 
-**Task 2.35 adds `destroys = (Verbatim,)`.** Joining `word-\\nword` into
+**Task 2.35 adds `destroys = (Verbatim,)`.** Joining `word-\nword` into
 `wordword` rewrites the character sequence extraction produced — dropping
 the hyphen and the newline is exactly what `weft_clean.property`'s
 `Verbatim` means "no longer true" for, the same honest reason every other
@@ -63,7 +63,7 @@ class HyphenationRepairConfig(BaseModel):
 
 
 class HyphenationRepair:
-    """Joins `word-\\nword` back into one word, for every node in the batch.
+    r"""Joins `word-\nword` back into one word, for every node in the batch.
 
     Satisfies `weft_clean.contract.Cleaner` structurally, the same path any
     third-party cleaning pack takes.
@@ -87,6 +87,16 @@ class HyphenationRepair:
         self._config = config if config is not None else HyphenationRepairConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Rejoin each node's words broken across a line by a trailing hyphen.
+
+        Args:
+            payload: The nodes to clean.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one derived node per input node, or `NothingToProduce` for an
+            empty `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to repair")
@@ -98,5 +108,5 @@ class HyphenationRepair:
 
 
 def _repair(text: str) -> str:
-    """Every `word-\\nword` pair in `text`, joined into one word."""
+    r"""Every `word-\nword` pair in `text`, joined into one word."""
     return _BROKEN_WORD.sub(r"\1\2", text)

@@ -74,7 +74,17 @@ class Chunker(Stage[Sequence[Node], Sequence[Node]], Protocol):
         version: ClassVar[str]
         publishes_property_vocabulary: ClassVar[bool]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Split each node in `payload` into child chunks.
+
+        Args:
+            payload: The nodes to split.
+            ctx: The run's context.
+
+        Returns:
+            `Produced` carrying the chunks, or `NothingToProduce` when there were none.
+        """
+        ...
 
 
 Chunker.version = CHUNKER_CONTRACT_VERSION

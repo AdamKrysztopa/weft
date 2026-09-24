@@ -214,7 +214,17 @@ class Command(Protocol):
     #: the identical reason `args_model` is.
     result_model: ClassVar[type[CommandResult]]
 
-    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]: ...
+    async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Execute the command.
+
+        Args:
+            args: An instance of this command's `args_model`.
+            ctx: The run's context.
+
+        Returns:
+            The command's `Outcome`, carrying a `result_model` instance when it produced one.
+        """
+        ...
 
 
 Command.version = COMMAND_CONTRACT_VERSION

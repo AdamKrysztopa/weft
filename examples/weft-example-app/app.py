@@ -32,6 +32,11 @@ from weft_engine.api import Weft
 
 
 async def main() -> None:
+    """Index one note, ask about it, and delete it again through the embedded `Weft` API.
+
+    Raises:
+        SystemExit: `WEFT_DATABASE_URL` is unset, with exit status 2.
+    """
     if not os.environ.get("WEFT_DATABASE_URL"):
         sys.stderr.write(
             "WEFT_DATABASE_URL is unset — the wheel imported, an answer needs a store\n"

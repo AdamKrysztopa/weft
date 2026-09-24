@@ -34,6 +34,15 @@ class ExampleFixedRetriever:
         del config
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]:
+        """Answer every query with the same fixed list of fixture passages.
+
+        Args:
+            payload: The queries to retrieve for.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one ranked list per query.
+        """
         del ctx
         lists = tuple(_ranked_list_for(query) for query in payload.queries)
         return Produced(value=Candidates(origin=payload.origin, lists=lists))

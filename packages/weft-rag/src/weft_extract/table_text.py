@@ -1,4 +1,4 @@
-"""The two table serialisations — ledger task `9.6`, and `11` §6 rank 10.
+r"""The two table serialisations — ledger task `9.6`, and `11` §6 rank 10.
 
 *"Triplets for the index, markdown or HTML for the prompt. A single linearisation cannot
 serve both, which is the concrete reason the grid must survive extraction."* So there are
@@ -10,10 +10,10 @@ it belongs to the contract's pack"*).
 **The property `9.6` states, in its own words: a cell containing a pipe cannot break one
 extractor and not another.** Both renderings are delimited — `index_text` by ` | ` between
 cells and by newlines between rows, `prompt_markdown` by `|` at every column boundary — and
-a financial table legitimately contains `|`, `\\` and newlines. One escape function, used by
+a financial table legitimately contains `|`, `\` and newlines. One escape function, used by
 both, makes the rendering injective: two different grids never collide on one string. It
 escapes backslash first (so the escape sequences it introduces for `|` and newline are not
-themselves re-escaped), then `|`, then `\\n` and `\\r` — a newline inside a cell must never
+themselves re-escaped), then `|`, then `\n` and `\r` — a newline inside a cell must never
 become a new line in the output, or one cell silently becomes a row.
 
 Both functions are pure, deterministic and synchronous: a node id is a digest of its
@@ -24,11 +24,11 @@ from weft_extract.payload import TableGrid
 
 
 def _escape(cell: str) -> str:
-    """The one escape both serialisers use, applied to every cell, header and caption.
+    r"""The one escape both serialisers use, applied to every cell, header and caption.
 
     Order matters: backslash first, so the escape sequences introduced below are not
-    themselves swept up by a second pass over `\\`. `|` next, since both renderings use
-    it as a delimiter. Then `\\n` and `\\r`, so an embedded newline cannot split one cell
+    themselves swept up by a second pass over `\`. `|` next, since both renderings use
+    it as a delimiter. Then `\n` and `\r`, so an embedded newline cannot split one cell
     into two rows in either format.
     """
     return cell.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "\\n").replace("\r", "\\r")

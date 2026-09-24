@@ -41,12 +41,12 @@ def rescue_json(text: str) -> object | None:
 
 
 def repair_backslash_escapes(text: str) -> str:
-    """`text` with every backslash JSON cannot read as an escape doubled. R38.11.
+    r"""`text` with every backslash JSON cannot read as an escape doubled. R38.11.
 
-    A backslash beginning one of JSON's own escapes (`\\"` `\\\\` `\\/` `\\b` `\\f` `\\n` `\\r`
-    `\\t` `\\uXXXX`) is left alone and keeps its meaning, so a LaTeX `\\nu` or `\\times` reads
+    A backslash beginning one of JSON's own escapes (`\"` `\\` `\/` `\b` `\f` `\n` `\r`
+    `\t` `\uXXXX`) is left alone and keeps its meaning, so a LaTeX `\nu` or `\times` reads
     back as a newline or tab followed by letters: a known approximation, accepted because it fixes
-    the common case (`\\(`, `\\cdot`, `\\alpha`) without a LaTeX parser.
+    the common case (`\(`, `\cdot`, `\alpha`) without a LaTeX parser.
     """
     out: list[str] = []
     i = 0

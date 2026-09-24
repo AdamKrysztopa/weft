@@ -1,4 +1,6 @@
-"""`ExampleChecksumEmbedder` — a stranger's `Embedder`. **Not a quality embedder.**
+"""`ExampleChecksumEmbedder`, a stranger's `Embedder`, and not a quality one.
+
+`ExampleChecksumEmbedder` — a stranger's `Embedder`. **Not a quality embedder.**
 
 The counterpart to `weft_embed.hash_embedder.HashEmbedder`, written fresh rather than
 reused: a third-party embedder pack is not expected to depend on `weft-embed` at all, so
@@ -49,6 +51,16 @@ class ExampleChecksumEmbedder:
         self._config = config if config is not None else ExampleEmbedderConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach a checksum vector of the configured dimension to each node.
+
+        Args:
+            payload: The nodes to embed.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying each node with its embedding, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no node to embed")
@@ -57,6 +69,11 @@ class ExampleChecksumEmbedder:
         return Produced(value=embedded)
 
     async def embedding_model(self) -> EmbeddingModel:
+        """Report `"example-checksum"` at the configured dimension.
+
+        Returns:
+            The model name and vector width this embedder produces.
+        """
         return EmbeddingModel(model="example-checksum", width=self._config.dimension)
 
 

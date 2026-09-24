@@ -118,7 +118,18 @@ class Extractor(Stage[Sequence[SourceDoc], Sequence[Node]], Protocol):
         #: after the class body, so it never joins `__protocol_attrs__`.
         version: ClassVar[str]
 
-    async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]: ...
+    async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Turn source documents into root nodes.
+
+        Args:
+            payload: The source documents to extract.
+            ctx: The run's context.
+
+        Returns:
+            `Produced` carrying the nodes, `NothingToProduce` when the sources held no text, or
+            `Failed`.
+        """
+        ...
 
 
 Extractor.version = EXTRACTOR_CONTRACT_VERSION
@@ -157,7 +168,18 @@ class Renderer(Stage[Sequence[Node], Rendition], Protocol):
         #: after the class body, so it never joins `__protocol_attrs__`.
         version: ClassVar[str]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Rendition]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Rendition]:
+        """Render nodes into one document of this renderer's media type.
+
+        Args:
+            payload: The nodes to render.
+            ctx: The run's context.
+
+        Returns:
+            `Produced` carrying the `Rendition`, or `NothingToProduce` when there was nothing to
+            render.
+        """
+        ...
 
 
 Renderer.version = RENDERER_CONTRACT_VERSION

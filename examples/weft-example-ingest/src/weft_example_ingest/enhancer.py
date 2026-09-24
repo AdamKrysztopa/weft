@@ -30,6 +30,16 @@ class ExampleWordCountEnhancer:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach each node's word count as a `WordCount` extension.
+
+        Args:
+            payload: The nodes to enhance.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying each node with its word count, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no node to enhance")

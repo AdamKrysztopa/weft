@@ -60,7 +60,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register both backends for `Extractor`, under the names a pipeline selects them by,
+    """Register both PDF backends for `Extractor`, and `PdfPages`/`DroppedPages` as `ExtModel`s.
+
+    Register both backends for `Extractor`, under the names a pipeline selects them by,
     and `PdfPages`/`DroppedPages` as this pack's own `ExtModel`s — task 5.2g, `R43.3` — see
     the module docstring.
     """

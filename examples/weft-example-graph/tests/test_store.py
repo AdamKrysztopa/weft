@@ -1,4 +1,6 @@
-"""`GraphStore` against a real Postgres — `docs/internal/build-ledger.md` task 5.4/5.5's own
+"""`GraphStore` against a real Postgres, skipped with a reason when the container is not up.
+
+`GraphStore` against a real Postgres — `docs/internal/build-ledger.md` task 5.4/5.5's own
 conformance-kit convention: this module is collected but every test in it is marked to be
 skipped, with a reason, when the container is not up, per `tests/integration/
 test_store_conformance.py`'s own precedent (there expressed the same way `pytest` itself
@@ -56,7 +58,9 @@ def _node(content: str, *, source: str, graph_data: GraphData | None = None) -> 
 
 
 class _CorpusStore:
-    """The primary `NodeStore` a reconcile pass now carries on its passport — in memory, since
+    """An in-memory primary `NodeStore` for a reconcile pass to reach.
+
+    The primary `NodeStore` a reconcile pass now carries on its passport — in memory, since
     what is under test is that the graph store can *reach* a corpus, not what the corpus is.
 
     Only the three methods `02` §1 names as answering *what should exist* are ever called:
@@ -111,7 +115,9 @@ class _CorpusStore:
 
 
 def _ctx_with_corpus(corpus: _CorpusStore) -> Context:
-    """One `Context` with the configured `NodeStore` on it — what `weft_cli.commands` does for
+    """One `Context` with the configured `NodeStore` on it.
+
+    One `Context` with the configured `NodeStore` on it — what `weft_cli.commands` does for
     a real reconcile pass, done by hand here so the pack's own test needs no CLI.
     """
     ctx = _ctx()
@@ -276,7 +282,9 @@ async def test_reconcile_full_backfills_from_the_corpus_on_the_passport(
 async def test_estimate_full_counts_what_the_corpus_holds_and_this_store_does_not(
     store: GraphStore,
 ) -> None:
-    """`docs/03-cli.md` → *Command surface*: "full states its cost before it spends it." The
+    """`full` states its cost, a real count read off the corpus, before it spends it.
+
+    `docs/03-cli.md` → *Command surface*: "full states its cost before it spends it." The
     cost is a real count read off the corpus, not a placeholder — and `model_calls` is `0`
     honestly, because this pack's extraction is deterministic and calls no model.
     """
@@ -314,7 +322,9 @@ async def test_full_without_a_corpus_on_the_passport_says_what_is_missing(
 async def test_repair_drops_a_node_whose_source_the_corpus_no_longer_holds(
     store: GraphStore,
 ) -> None:
-    """Task **6.21**, the last unbuilt row of `02` §4's own table: "`repair` drops orphans left
+    """`repair` drops orphans the deletion fan-out missed (task 6.21).
+
+    Task **6.21**, the last unbuilt row of `02` §4's own table: "`repair` drops orphans left
     by anything the [deletion] fan-out missed".
 
     An orphan is a graph node whose source the *primary corpus* no longer lists — which this
@@ -345,7 +355,9 @@ async def test_repair_drops_a_node_whose_source_the_corpus_no_longer_holds(
 async def test_repair_without_a_corpus_on_the_passport_says_what_is_missing(
     store: GraphStore,
 ) -> None:
-    """`repair` needs the corpus for the same reason `full` does, so it refuses for the same
+    """`repair` refuses without the corpus, for the same reason `full` does.
+
+    `repair` needs the corpus for the same reason `full` does, so it refuses for the same
     reason too. Doing the half it can and silently skipping orphan detection would be `01`
     rule 5's silent degradation — the operator would read "converged" and still hold orphans.
     """
@@ -398,7 +410,9 @@ def _truncate() -> None:
 
 @pytest.fixture
 async def clean_store(store: GraphStore) -> AsyncIterator[GraphStore]:
-    """The published source-record checks list every source, so they start from empty tables,
+    """The store, emptied before and after, for the published source-record checks.
+
+    The published source-record checks list every source, so they start from empty tables,
     and leave none of the kit's corpus behind: its nodes carry ext namespaces this pack's tests
     do not register.
     """
@@ -411,7 +425,9 @@ async def clean_store(store: GraphStore) -> AsyncIterator[GraphStore]:
 async def test_a_source_record_round_trips_through_the_published_check(
     clean_store: NodeStore,
 ) -> None:
-    """`R36.2`: a store outside the tree keeps a failure it is handed, which the published
+    """A store outside the tree keeps the failure it is handed (`R36.2`).
+
+    `R36.2`: a store outside the tree keeps a failure it is handed, which the published
     conformance kit checks. This store wrote neither `failure` nor `pipeline_identity`, so
     `weft sources list` printed `failed` with no stage and attempts never advanced.
     """
@@ -425,7 +441,9 @@ async def test_deleting_a_failed_source_passes_the_published_check(clean_store: 
 async def test_a_source_s_layers_round_trip_through_the_published_check(
     clean_store: NodeStore,
 ) -> None:
-    """Ledger **43.6**: a store outside the tree keeps the layers it is handed, as `R36.2` made it
+    """A store outside the tree keeps the layers it is handed (ledger 43.6).
+
+    Ledger **43.6**: a store outside the tree keeps the layers it is handed, as `R36.2` made it
     keep the failure.
     """
     await check_a_source_records_layers_round_trip_whole_and_are_listed(clean_store)

@@ -32,7 +32,9 @@ from weft_kernel.discovery import Disclosure, PackRegistrar
 
 
 class Settings(BaseModel):
-    """`weft-blob`'s pack settings: one required field, following `[packs.store] dsn`'s
+    """`weft-blob`'s pack settings, whose one field, `root`, has no default.
+
+    `weft-blob`'s pack settings: one required field, following `[packs.store] dsn`'s
     precedent — a pack cannot invent where an operator's bytes live, so `root` has no default.
     """
 
@@ -42,7 +44,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `FilesystemBlobStore` as `"filesystem"` for `BlobStore`, and `BlobRef` as this
+    """Register the filesystem blob store and this pack's `BlobRef` extension.
+
+    Register `FilesystemBlobStore` as `"filesystem"` for `BlobStore`, and `BlobRef` as this
     pack's own `ExtModel` — the module docstring.
 
     `[services].blob` is declared by this pack's module-level `SERVICE_ROLES` below, not here —

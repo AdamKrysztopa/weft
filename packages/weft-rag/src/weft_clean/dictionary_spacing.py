@@ -122,6 +122,16 @@ class PolishFusedWordFixer:
         self._config = config if config is not None else PolishFusedWordFixerConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Split each node's fused preposition-word tokens that are not real words.
+
+        Args:
+            payload: The nodes to clean.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one derived node per input node, or `NothingToProduce` for an
+            empty `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no nodes to fix")

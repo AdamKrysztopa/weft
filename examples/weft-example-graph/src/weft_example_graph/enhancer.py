@@ -31,6 +31,16 @@ class GraphEntityEnhancer:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach each node's extracted entities and relations as `GraphData`.
+
+        Args:
+            payload: The nodes to extract graph data from.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying each node with its `GraphData`, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no node to extract graph data from")

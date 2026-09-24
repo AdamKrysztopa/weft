@@ -1,4 +1,6 @@
-"""`KeyBertKeywordExtractor` — a deterministic, frequency-ranked keyword picker. **Not KeyBERT.**
+"""`KeyBertKeywordExtractor`, a deterministic, frequency-ranked keyword picker; not KeyBERT.
+
+`KeyBertKeywordExtractor` — a deterministic, frequency-ranked keyword picker. **Not KeyBERT.**
 
 Named for the technique it stands in for, on the exact precedent
 `docs/06-phase-0-build.md` step 8 sets for `weft_embed.hash_embedder.HashEmbedder`, and
@@ -118,6 +120,16 @@ class KeyBertKeywordExtractor:
         self._config = config if config is not None else KeyBertConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach each node's top keywords as a `Keywords` extension.
+
+        Args:
+            payload: The nodes to extract keywords from.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying each node with its keywords, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to extract keywords from")
@@ -129,7 +141,9 @@ class KeyBertKeywordExtractor:
 
 
 def _top_keywords(content: str, top_n: int) -> tuple[str, ...]:
-    """`top_n` words from `content`, ranked by frequency then first occurrence — see the module
+    """The `top_n` words of `content`, ranked by frequency then first occurrence.
+
+    `top_n` words from `content`, ranked by frequency then first occurrence — see the module
     docstring, *"Deterministic by construction"*.
     """
     counts: dict[str, int] = {}

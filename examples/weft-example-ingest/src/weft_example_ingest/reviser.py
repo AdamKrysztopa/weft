@@ -46,6 +46,16 @@ class ExampleStoredCountReviser:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Stamp each node with how many nodes the store held before this pass.
+
+        Args:
+            payload: The stored nodes to revise.
+            ctx: The run's context, from which `NodeStore` is required.
+
+        Returns:
+            `Produced` carrying each node with its `StoredCount`, or `NothingToProduce` for an empty
+            `payload`.
+        """
         if not payload:
             return NothingToProduce(reason="no node to revise")
         store = ctx.require(NodeStore)

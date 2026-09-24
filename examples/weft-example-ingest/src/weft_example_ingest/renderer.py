@@ -25,6 +25,16 @@ class ExamplePlainRenderer:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Rendition]:
+        """Join every node's content as plain text, recording what plain text cannot carry.
+
+        Args:
+            payload: The nodes to render.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying a `text/plain` `Rendition`, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no node to render")

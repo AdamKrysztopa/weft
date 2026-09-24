@@ -177,6 +177,17 @@ class PdfLayoutModelExtractor:
         self._config = config if config is not None else PdfLayoutModelConfig()
 
     async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Convert each PDF with docling into one root text node.
+
+        Args:
+            payload: The PDF documents to read.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one node per document with text, `NothingToProduce` when none had
+            any, or `Failed` naming the first document docling could not read or whose text holds an
+            unpaired surrogate.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no documents in this batch")

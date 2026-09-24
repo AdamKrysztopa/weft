@@ -56,7 +56,9 @@ EXCLUDED_BY_NAME: Final[frozenset[str]] = frozenset(
 
 
 class AgentToolSpec(BaseModel):
-    """One command, described the way a model calling it needs — never a `Command` itself and
+    """One command, described the way a model calling it needs.
+
+    One command, described the way a model calling it needs — never a `Command` itself and
     never wired into the loop (that is task 7.3).
     """
 
@@ -68,7 +70,9 @@ class AgentToolSpec(BaseModel):
 
 
 def tool_catalogue(registry: Registry) -> Mapping[str, AgentToolSpec]:
-    """Every registered `Command` G12's ceiling reaches, keyed by its registered name in full —
+    """Every registered `Command` G12's ceiling reaches, keyed by its full registered name.
+
+    Every registered `Command` G12's ceiling reaches, keyed by its registered name in full —
     `"pipeline list"`, with the space, exactly as `registry.names_for(Command)` reports it.
 
     Built from `weft_command.catalogue.command_entries`, the identical walk `weft_cli.
@@ -92,7 +96,9 @@ def tool_catalogue(registry: Registry) -> Mapping[str, AgentToolSpec]:
 
 
 def _args_schema_of(factory: object, name: str) -> Mapping[str, object]:
-    """`factory.args_model.model_json_schema()`, or a loud, specific failure naming which
+    """Return a command's argument JSON schema, or fail naming the command and the field.
+
+    `factory.args_model.model_json_schema()`, or a loud, specific failure naming which
     command and which field — the same discipline `weft_command.catalogue`'s own defensive
     readers hold for `help` and `permission_class`, and for the identical reason: a bare
     `getattr(..., "args_model")` would turn a future relaxation of `Command.

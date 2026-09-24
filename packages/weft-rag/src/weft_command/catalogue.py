@@ -1,4 +1,6 @@
-"""The one walk of the `Command` registry — every renderer built on top of `Registry.names_for`
+"""The one walk of the `Command` registry that every command renderer reads.
+
+The one walk of the `Command` registry — every renderer built on top of `Registry.names_for`
 reads it from here. Moved out of `weft_cli.command_table` at task **7.2a**.
 
 `weft_cli.cli.build_parser` renders the registry to a terminal grammar,
@@ -27,7 +29,9 @@ from weft_kernel.registry import Registry, unwrap_factory
 
 
 class CommandNotDescribableError(WeftError):
-    """A registered `Command` this generator cannot describe — see the module docstring's
+    """A registered `Command` this generator cannot describe.
+
+    A registered `Command` this generator cannot describe — see the module docstring's
     paragraph on why this exists even though `Command.required_declarations` already makes it
     unreachable in practice.
     """
@@ -84,7 +88,7 @@ def help_of(factory: object, name: str) -> str:
 
 
 def permission_class_of(factory: object, name: str) -> PermissionClass:
-    """`factory.permission_class`, or a loud, specific failure — see `CommandNotDescribableError`."""
+    """`factory.permission_class`, or a loud failure — see `CommandNotDescribableError`."""
     permission_class = getattr(factory, "permission_class", None)
     if not isinstance(permission_class, PermissionClass):
         raise CommandNotDescribableError(

@@ -24,6 +24,17 @@ class ExampleSufficiency:
     async def assess(
         self, question: Query, evidence: Passages, draft: str | None, ctx: Context
     ) -> Outcome[Assessment]:
+        """Judge the evidence sufficient when there is any, more confidently the more there is.
+
+        Args:
+            question: The question being answered.
+            evidence: The passages gathered so far.
+            draft: Unused.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the assessment.
+        """
         del ctx, draft
         sufficient = bool(evidence.passages)
         confidence = min(1.0, len(evidence.passages) / _ENOUGH_PASSAGES) if sufficient else 0.0

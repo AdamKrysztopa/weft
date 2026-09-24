@@ -51,7 +51,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register this pack's eleven plugins — one per contract it implements, a second
+    """Register this pack's eleven plugins, one per contract plus two further rerankers.
+
+    Register this pack's eleven plugins — one per contract it implements, a second
     `Reranker` that calls a model under a role field of its own naming, and a third that
     composes other rerankers into a panel.
     """

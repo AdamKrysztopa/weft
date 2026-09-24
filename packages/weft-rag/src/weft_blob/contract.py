@@ -46,7 +46,9 @@ BlobUri = NewType("BlobUri", str)
 
 @runtime_checkable
 class BlobStore(Protocol):
-    """Puts bytes under a caller-composed key, opens them back by the returned uri, and reaps a
+    """Store bytes under a caller-composed key, read them back by uri, and reap a prefix.
+
+    Puts bytes under a caller-composed key, opens them back by the returned uri, and reaps a
     prefix on delete. Three methods, and every one of them the whole surface a plugin owes.
 
     **`put` takes a plain `str` key, not a `weft_blob.keys.BlobUri` or a `SourceId`-shaped
@@ -64,9 +66,40 @@ class BlobStore(Protocol):
         #: docstring. Assigned for real below, after the class body closes.
         version: ClassVar[str]
 
-    async def put(self, key: str, data: bytes, media_type: str) -> BlobUri: ...
-    async def open(self, uri: BlobUri) -> bytes: ...
-    async def delete_prefix(self, prefix: str) -> int: ...
+    async def put(self, key: str, data: bytes, media_type: str) -> BlobUri:
+        """Store `data` under `key`.
+
+        Args:
+            key: The caller-composed key the bytes are stored under.
+            data: The bytes to store.
+            media_type: What the bytes are; recorded by the caller's `BlobRef`, not returned.
+
+        Returns:
+            The uri `open` reads the bytes back by.
+        """
+        ...
+
+    async def open(self, uri: BlobUri) -> bytes:
+        """Read back the bytes a `put` stored.
+
+        Args:
+            uri: A uri this store returned from `put`.
+
+        Returns:
+            The stored bytes.
+        """
+        ...
+
+    async def delete_prefix(self, prefix: str) -> int:
+        """Delete every blob whose key lies under `prefix`.
+
+        Args:
+            prefix: The key prefix to reap.
+
+        Returns:
+            How many blobs were deleted.
+        """
+        ...
 
 
 BlobStore.version = BLOB_CONTRACT_VERSION
@@ -74,15 +107,36 @@ BlobStore.version = BLOB_CONTRACT_VERSION
 
 @runtime_checkable
 class BlobTargetHolding(Protocol):
-    """A blob store that keeps each index target's bytes apart — ledger **34.12**, published by
+    """A blob store that keeps each index target's bytes apart.
+
+    A blob store that keeps each index target's bytes apart — ledger **34.12**, published by
     carried repair **R34.9** so a stranger's store joins `weft target drop`.
     """
 
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def bind_target(self, target: TargetName) -> Self: ...
-    async def drop_target(self, target: TargetName) -> int: ...
+    async def bind_target(self, target: TargetName) -> Self:
+        """Return a handle over the same store whose reads and writes land in `target`'s own space.
+
+        Args:
+            target: The index target to bind.
+
+        Returns:
+            A second handle, bound to `target`.
+        """
+        ...
+
+    async def drop_target(self, target: TargetName) -> int:
+        """Delete everything `target` holds.
+
+        Args:
+            target: The index target whose bytes are removed.
+
+        Returns:
+            How many blobs were deleted.
+        """
+        ...
 
 
 BlobTargetHolding.version = BLOB_CONTRACT_VERSION

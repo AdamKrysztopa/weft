@@ -27,7 +27,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `ExactMatch` as `"example-exact-match"` for `GenerationMetric` — the only plugin
+    """Register `ExactMatch` as `"example-exact-match"` for `GenerationMetric`.
+
+    Register `ExactMatch` as `"example-exact-match"` for `GenerationMetric` — the only plugin
     here.
     """
     del settings

@@ -1,4 +1,6 @@
-"""`oracle-gold-first` — the instrument check `eval/pool-promotion/protocol.toml` →
+"""`oracle-gold-first`: the instrument check Phase 41's pool-promotion protocol declares.
+
+`oracle-gold-first` — the instrument check `eval/pool-promotion/protocol.toml` →
 `[phase_41.instrument]` declares, ledger **41.3**.
 
 Every chunk of a relevant document moves to the top in the order it arrived; everything else follows
@@ -29,6 +31,14 @@ _LIFT = 10.0
 
 
 class GoldLabel(BaseModel):
+    """One question's relevant chunk ids, one line of the labels file.
+
+    Attributes:
+        question_id: The pool question the label belongs to.
+        text_sha256: The digest of the question's text.
+        chunk_ids: Every chunk of a relevant document.
+    """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     question_id: str
@@ -37,6 +47,12 @@ class GoldLabel(BaseModel):
 
 
 class OracleGoldFirstConfig(BaseModel):
+    """`oracle-gold-first`'s `with:` config.
+
+    Attributes:
+        labels: The labels file, one `GoldLabel` per line.
+    """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     labels: Path
@@ -67,6 +83,16 @@ class OracleGoldFirst:
         }
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
+        """Move every relevant chunk to the top, keeping arrival order within both groups.
+
+        Args:
+            payload: The ranking to reorder; it must carry a pool question entry.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the reordered, lifted hits, or `Failed` when the ranking carries no
+            pool question entry or its question has no gold label.
+        """
         del ctx
         entry = payload.ext.get(PoolQuestionEntry.__namespace__)
         if not isinstance(entry, PoolQuestionEntry):

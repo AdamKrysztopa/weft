@@ -1,4 +1,6 @@
-"""`InMemoryNodeStore` — a stranger's whole store family: `NodeStore`, `VectorSearch`,
+"""`InMemoryNodeStore`: a stranger's whole store family over one process-lifetime dict.
+
+`InMemoryNodeStore` — a stranger's whole store family: `NodeStore`, `VectorSearch`,
 `TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable`, `TargetHolding` (ledger
 task **34.3**), `GenerationHolding` (ledger task **43.14**), `SingleWriter` (ledger task
 **43.18**) and, since ledger task **43.22**, `GenerationCarrying`, all ten, over one
@@ -85,7 +87,9 @@ _BASE = ""
 
 
 class _Target:
-    """One target's own nodes, source records and generation catalogue — never shared
+    """One target's own nodes, source records and generation catalogue.
+
+    One target's own nodes, source records and generation catalogue — never shared
     across targets, on the same footing as a pgvector schema or a Qdrant collection prefix.
     """
 
@@ -216,11 +220,25 @@ class InMemoryNodeStore:
     # -- NodeStore -----------------------------------------------------------------------
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Store `payload` and pass it on unchanged.
+
+        Args:
+            payload: The nodes to store.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying `payload`.
+        """
         del ctx
         await self.add(payload)
         return Produced(value=payload)
 
     async def add(self, nodes: Sequence[Node]) -> None:
+        """Write `nodes` into this handle's target, as members of its bound generation.
+
+        Args:
+            nodes: The nodes to write; one already held under the same id is replaced.
+        """
         target = self._writable()
         marker = self._bound_generation if self._bound_generation is not None else _BASE
         for node in nodes:
@@ -230,14 +248,31 @@ class InMemoryNodeStore:
             }
 
     async def flush(self) -> None:
+        """Flush buffered writes; this store buffers none."""
         # Every write above is already durable within this process — nothing buffered.
         return
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        """Read back the held nodes among `ids`.
+
+        Args:
+            ids: The node ids to look up.
+
+        Returns:
+            The nodes found, in `ids` order; an id this target does not hold is absent.
+        """
         nodes = self._readable().nodes
         return tuple(nodes[node_id] for node_id in ids if node_id in nodes)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
+        """Delete every node from `source_id`, and its source record.
+
+        Args:
+            source_id: The source to remove.
+
+        Returns:
+            The source removed and how many nodes went with it.
+        """
         target = self._writable()
         record = target.sources.get(source_id)
         if record is not None:
@@ -330,19 +365,50 @@ class InMemoryNodeStore:
         )
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        """Return every held node as one page.
+
+        Args:
+            cursor: Ignored; there is only ever one page.
+
+        Returns:
+            A single page holding the whole target.
+        """
         del cursor  # a single in-memory page holds the whole corpus — no real pagination
         return Page(items=tuple(self._readable().nodes.values()))
 
     async def count(self) -> int:
+        """Count the nodes this handle's target holds.
+
+        Returns:
+            The number of nodes.
+        """
         return len(self._readable().nodes)
 
     async def put_source(self, record: SourceRecord) -> None:
+        """Write one source record, replacing any held under the same id.
+
+        Args:
+            record: The record to write.
+        """
         self._writable().sources[record.id] = record
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        """Read one source record.
+
+        Args:
+            source_id: The source to look up.
+
+        Returns:
+            The record, or `None` when this target holds none for `source_id`.
+        """
         return self._readable().sources.get(source_id)
 
     async def list_sources(self) -> Sequence[SourceRecord]:
+        """List every source record this handle's target holds.
+
+        Returns:
+            Every held source record.
+        """
         return tuple(self._readable().sources.values())
 
     # -- VectorSearch ----------------------------------------------------------------------
@@ -350,6 +416,16 @@ class InMemoryNodeStore:
     async def search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
     ) -> Sequence[Scored[Node]]:
+        """Rank the visible embedded nodes by cosine similarity to `vector`.
+
+        Args:
+            vector: The query vector.
+            top_k: How many results to return at most.
+            filter: A metadata filter every result must match, or `None`.
+
+        Returns:
+            The best `top_k` nodes, highest score first.
+        """
         target = self._readable()
         candidates = (
             node
@@ -371,6 +447,16 @@ class InMemoryNodeStore:
     async def search_text(
         self, text: str, top_k: int, filter: Filter | None = None
     ) -> Sequence[Scored[Node]]:
+        """Rank the visible nodes by the share of `text`'s words they contain.
+
+        Args:
+            text: The query text.
+            top_k: How many results to return at most.
+            filter: A metadata filter every result must match, or `None`.
+
+        Returns:
+            The best `top_k` nodes sharing at least one word, highest score first.
+        """
         query_words = _words(text)
         if not query_words:
             return ()
@@ -389,6 +475,15 @@ class InMemoryNodeStore:
     # -- MetadataFilter ----------------------------------------------------------------------
 
     async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
+        """Return every visible node that matches `filter`, as one page.
+
+        Args:
+            filter: The metadata filter to apply.
+            cursor: Ignored; there is only ever one page.
+
+        Returns:
+            A single page holding every match.
+        """
         del cursor  # see `scan` — no real pagination in this example store
         target = self._readable()
         return Page(
@@ -402,6 +497,11 @@ class InMemoryNodeStore:
     # -- TargetHolding -----------------------------------------------------------------------
 
     async def target_catalogue(self) -> TargetCatalogue:
+        """Describe every target, and which are live and previous.
+
+        Returns:
+            The catalogue, its targets sorted by name.
+        """
         records = tuple(
             sorted(
                 (
@@ -427,13 +527,23 @@ class InMemoryNodeStore:
         return type(self)(_catalogue=self._catalogue, _bound=target)
 
     async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        """Record `identity` as this target's embedding, unless one is already recorded.
+
+        Args:
+            identity: The embedding this writer means to use.
+
+        Returns:
+            The target's recorded embedding, which a caller compares against its own.
+        """
         target = self._writable()
         if target.embedding is None:
             target.embedding = identity
         return target.embedding
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
-        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+        """Make `promotion.target` the live target, keeping the old live one as `previous`.
+
+        Promoting the target that is already live is a no-op: `previous` is never rewritten to
         the already-live target, so a converging re-run after a crash leaves the rollback an
         operator needs intact.
         """
@@ -450,6 +560,14 @@ class InMemoryNodeStore:
         return await self.target_catalogue()
 
     async def rollback(self) -> TargetCatalogue:
+        """Swap the live and previous targets.
+
+        Returns:
+            The catalogue after the swap.
+
+        Raises:
+            NoPreviousTargetError: There is no previous target to roll back to.
+        """
         catalogue = self._catalogue
         if catalogue.previous is None:
             raise NoPreviousTargetError(catalogue.live)
@@ -457,6 +575,15 @@ class InMemoryNodeStore:
         return await self.target_catalogue()
 
     async def drop_target(self, target: TargetName) -> None:
+        """Forget `target` and everything it holds.
+
+        Args:
+            target: The target to drop.
+
+        Raises:
+            TargetInUseError: `target` is live or previous.
+            UnknownTargetError: No target has that name.
+        """
         catalogue = self._catalogue
         if target == catalogue.live or target == catalogue.previous:
             raise TargetInUseError(target)
@@ -467,6 +594,14 @@ class InMemoryNodeStore:
     # -- GenerationHolding -------------------------------------------------------------------
 
     async def open_generation(self, layer: str) -> GenerationRecord:
+        """Open a new, building generation for `layer` in this handle's target.
+
+        Args:
+            layer: The layer the generation belongs to.
+
+        Returns:
+            The new generation's record.
+        """
         target = self._writable()
         record = GenerationRecord(
             id=GenerationId(f"g-{uuid4().hex[:12]}"),
@@ -478,7 +613,9 @@ class InMemoryNodeStore:
         return record
 
     async def bind_generation(self, generation: GenerationId) -> Self:
-        """A new handle on the same catalogue and the same target settings as this one,
+        """A new handle on the same catalogue and target settings, bound to `generation`.
+
+        A new handle on the same catalogue and the same target settings as this one,
         bound to `generation` — `bind_target`'s own construction is the model.
         """
         target_name = self._active_target()
@@ -491,6 +628,17 @@ class InMemoryNodeStore:
         )
 
     async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Mark `generation` published.
+
+        Args:
+            generation: The generation to publish.
+
+        Returns:
+            The published record.
+
+        Raises:
+            UnknownGenerationError: This target holds no such generation.
+        """
         target = self._writable()
         record = target.generations.get(generation)
         if record is None:
@@ -504,6 +652,17 @@ class InMemoryNodeStore:
         return published
 
     async def retract_generation(self, generation: GenerationId) -> Removed:
+        """Delete the nodes only `generation` wrote, strip it from the rest, and forget it.
+
+        Args:
+            generation: The generation to retract.
+
+        Returns:
+            How many nodes were deleted.
+
+        Raises:
+            UnknownGenerationError: This target holds no such generation.
+        """
         target = self._writable()
         if generation not in target.generations:
             raise UnknownGenerationError(
@@ -512,13 +671,20 @@ class InMemoryNodeStore:
         return Removed(source_id=SourceId(generation), node_count=_retract(target, generation))
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
+        """List this target's generations, oldest first.
+
+        Returns:
+            Every generation record, ordered by when it was opened.
+        """
         records = self._readable().generations.values()
         return tuple(sorted(records, key=lambda record: (record.opened_at, record.id)))
 
     # -- GenerationCarrying ------------------------------------------------------------------
 
     async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
-        """`GenerationCarrying`, ledger task **43.22** — `into` joins each node's membership and
+        """Add `into` to each named node's generation membership, changing nothing else.
+
+        `GenerationCarrying`, ledger task **43.22** — `into` joins each node's membership and
         nothing else about the node changes. Every id is checked before any is carried.
         """
         target = self._writable()
@@ -545,7 +711,9 @@ class InMemoryNodeStore:
     # -- GenerationWithdrawing ---------------------------------------------------------------
 
     async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
-        """`GenerationWithdrawing`, repair **R43.29** — the record is marked and nothing else
+        """Mark a published generation withdrawn, changing nothing else.
+
+        `GenerationWithdrawing`, repair **R43.29** — the record is marked and nothing else
         changes, so a handle whose visible set already holds `generation` keeps reading it.
         """
         target = self._writable()
@@ -571,6 +739,14 @@ class InMemoryNodeStore:
         return withdrawn
 
     async def reclaim_withdrawn(self, layer: str) -> Removed:
+        """Retract every withdrawn generation of `layer`.
+
+        Args:
+            layer: The layer whose withdrawn generations are reclaimed.
+
+        Returns:
+            How many nodes were deleted across them.
+        """
         target = self._writable()
         doomed = [
             record.id
@@ -583,7 +759,9 @@ class InMemoryNodeStore:
     # -- SingleWriter ------------------------------------------------------------------------
 
     async def claim_writer(self, writer: WriterClaim) -> None:
-        """`SingleWriter`, ledger task **43.18** — the claim lives on the target, which every
+        """Claim this target for `writer`, refusing while another writer holds it.
+
+        `SingleWriter`, ledger task **43.18** — the claim lives on the target, which every
         handle `bind_target` hands back onto it shares, so a second handle on the same target
         sees the first's claim immediately.
         """
@@ -594,6 +772,7 @@ class InMemoryNodeStore:
         self._claimed_writer = writer
 
     async def release_writer(self) -> None:
+        """Release this handle's writer claim, leaving any other writer's claim in place."""
         target = self._writable()
         if target.writer is not None and target.writer == self._claimed_writer:
             target.writer = None
@@ -601,7 +780,9 @@ class InMemoryNodeStore:
 
 
 def _retract(target: _Target, generation: GenerationId) -> int:
-    """Delete the nodes only `generation` wrote, strip it from the rest, and forget it —
+    """Delete the nodes only `generation` wrote, strip it from the rest, and forget it.
+
+    Delete the nodes only `generation` wrote, strip it from the rest, and forget it —
     `retract_generation`'s work, and `reclaim_withdrawn`'s per generation. Returns how many
     nodes were deleted.
     """

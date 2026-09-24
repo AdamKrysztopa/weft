@@ -48,7 +48,9 @@ class PermissionClass(StrEnum):
 
 
 class CommandRefusalError(WeftError):
-    """A command refused to run before calling into the library — a policy or resolution
+    """A command refused to run before calling into the library.
+
+    A command refused to run before calling into the library — a policy or resolution
     decision made from `PackReport`s and the registry alone, never from anything the run
     itself would have failed on.
 

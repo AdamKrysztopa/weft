@@ -61,7 +61,9 @@ SERVICE_ROLES = (EMBED_ROLE,)
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `HashEmbedder` as `"hash"` for `Embedder`, and declare `[services].embed`
+    """Register `HashEmbedder` as `"hash"` for `Embedder`, and declare `[services].embed`.
+
+    Register `HashEmbedder` as `"hash"` for `Embedder`, and declare `[services].embed`
     selectable — ledger task **9.0**. The only plugin this pack ships.
     """
     del settings

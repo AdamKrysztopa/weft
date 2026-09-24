@@ -160,7 +160,9 @@ def test_store_satisfies_the_whole_capability_family_structurally() -> None:
 
 
 async def test_reconcile_finishes_a_deletion_that_was_interrupted() -> None:
-    """`Reconcilable` from a stranger's own pack — the backlog is the tombstone, so the pass
+    """`Reconcilable` from a stranger's own pack finishes the deletion it finds, then has nothing.
+
+    `Reconcilable` from a stranger's own pack — the backlog is the tombstone, so the pass
     that finds it finishes it and the next one has nothing to do.
     """
     # Arrange — a source whose deletion began, and two nodes it should have taken.
@@ -203,7 +205,9 @@ async def test_reconcile_finishes_a_deletion_that_was_interrupted() -> None:
 
 
 async def test_a_strangers_store_holds_targets_and_passes_the_published_target_checks() -> None:
-    """Ledger **34.3**: `TargetHolding` is published, so a store written outside the tree proves it
+    """A store outside the tree proves `TargetHolding` with the published kit alone (34.3).
+
+    Ledger **34.3**: `TargetHolding` is published, so a store written outside the tree proves it
     with the published kit alone — FF9 clause (c)'s stranger for the new capability.
     """
     # Arrange
@@ -239,7 +243,9 @@ async def test_a_source_s_layers_round_trip_through_the_published_check() -> Non
 
 
 async def test_a_strangers_store_holds_generations_and_passes_the_published_checks() -> None:
-    """Ledger **43.14**: `GenerationHolding` is published, so a store written outside the tree
+    """A store outside the tree proves `GenerationHolding` with the published kit alone (43.14).
+
+    Ledger **43.14**: `GenerationHolding` is published, so a store written outside the tree
     proves it with the published kit alone — fitness function 9(c)'s stranger for the new
     capability, on `34.3`'s footing.
     """
@@ -263,7 +269,9 @@ async def test_a_strangers_store_holds_generations_and_passes_the_published_chec
 
 
 async def test_a_strangers_store_carries_generations_and_passes_the_published_checks() -> None:
-    """Ledger **43.22**: `GenerationCarrying` is published, so the stranger proves it with the
+    """A store outside the tree proves `GenerationCarrying` with the published kit alone (43.22).
+
+    Ledger **43.22**: `GenerationCarrying` is published, so the stranger proves it with the
     kit alone — fitness function 9(c) for the new capability, on `43.14`'s footing.
     """
     # Arrange
@@ -286,7 +294,9 @@ async def test_a_strangers_store_carries_generations_and_passes_the_published_ch
 
 
 async def test_a_strangers_store_withdraws_generations_and_passes_the_published_checks() -> None:
-    """Repair **R43.29**: `GenerationWithdrawing` is published, so the stranger proves it with the
+    """A store outside the tree proves `GenerationWithdrawing` with the published kit (R43.29).
+
+    Repair **R43.29**: `GenerationWithdrawing` is published, so the stranger proves it with the
     kit alone — fitness function 9(c) for the new capability, on `43.22`'s footing.
     """
     # Arrange
@@ -309,7 +319,9 @@ async def test_a_strangers_store_withdraws_generations_and_passes_the_published_
 
 
 async def test_a_strangers_store_admits_one_writer_and_passes_the_published_checks() -> None:
-    """Ledger **43.18**: `SingleWriter` is published, so the stranger proves it with the kit —
+    """A store outside the tree proves `SingleWriter` with the published kit alone (43.18).
+
+    Ledger **43.18**: `SingleWriter` is published, so the stranger proves it with the kit —
     fitness function 9(c) for the new capability.
     """
     # Arrange

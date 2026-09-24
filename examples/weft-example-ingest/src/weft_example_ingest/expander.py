@@ -33,6 +33,16 @@ class ExampleFirstSentenceExpander:
         del config
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Pass every node on, followed by a gist of each one that has more than one sentence.
+
+        Args:
+            payload: The nodes to expand.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the input nodes and their gists, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx
         if not payload:
             return NothingToProduce(reason="no node to expand")

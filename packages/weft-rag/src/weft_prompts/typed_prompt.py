@@ -65,6 +65,15 @@ class TypedPrompt:
     texts: ClassVar[Mapping[str, PromptText]] = {}
 
     def __init_subclass__(cls, **kwargs: object) -> None:
+        """Check a subclass's texts when it is defined, so a broken prompt fails at import.
+
+        Args:
+            **kwargs: Passed through to the parent's `__init_subclass__`.
+
+        Raises:
+            MissingFallbackLocaleError: `texts` is non-empty but lacks the fallback locale.
+            TemplateVariableError: A text disagrees with `input_model`, or is not a valid template.
+        """
         super().__init_subclass__(**kwargs)
         if not cls.texts:
             # An abstract intermediate base is legitimate; a prompt with no text is not, and

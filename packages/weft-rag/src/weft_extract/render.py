@@ -68,6 +68,16 @@ class PlainRenderer:
         self._config = config if config is not None else PlainRendererConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Rendition]:
+        """Join every node's content, recording each non-text node as dropped media.
+
+        Args:
+            payload: The nodes to render.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying a plain-text `Rendition`, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to render")
@@ -98,6 +108,16 @@ class MarkdownRenderer:
         self._config = config if config is not None else MarkdownRendererConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Rendition]:
+        """Join every node's content, fencing and labelling non-text nodes when configured to.
+
+        Args:
+            payload: The nodes to render.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying a Markdown `Rendition`, or `NothingToProduce` for an empty
+            `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to render")

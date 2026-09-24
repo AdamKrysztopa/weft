@@ -160,6 +160,15 @@ class PdfTextExtractor:
         self._config = config if config is not None else PdfTextExtractorConfig()
 
     async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Extract each document's text, page by page, through `pypdf`.
+
+        Args:
+            payload: The PDF documents to read.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one node per page with text, or `NothingToProduce`/`Failed`.
+        """
         del ctx  # no service or locale this stage needs
         # `to_thread` rather than a direct call — see the module docstring, both for the
         # rule (`01` → *Colour*) and for what it weakens about cancellation.

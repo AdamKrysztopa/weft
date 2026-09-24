@@ -33,7 +33,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `FixedSizeChunker` as `"fixed-size"` and `TableRowChunker` as `"table-rows"`
+    """Register this pack's two chunkers, `"fixed-size"` and `"table-rows"`.
+
+    Register `FixedSizeChunker` as `"fixed-size"` and `TableRowChunker` as `"table-rows"`
     for `Chunker` — see `weft_chunk.table_rows` for `"table-rows"`, ledger task `9.14`.
     """
     del settings

@@ -27,6 +27,16 @@ class ExampleExtractor:
         del config
 
     async def run(self, payload: Sequence[SourceDoc], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Decode each document as UTF-8 into one root node, skipping blank ones.
+
+        Args:
+            payload: The source documents to extract.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one node per non-blank document, or `NothingToProduce` when none
+            had text.
+        """
         del ctx  # no service or locale this stage needs
         nodes = [
             Node.synthetic(

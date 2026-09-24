@@ -79,6 +79,16 @@ class UnicodeNormalizer:
         self._config = config if config is not None else UnicodeNormalizerConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Repair each node's encoding errors and normalise its Unicode to NFC.
+
+        Args:
+            payload: The nodes to clean.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying one derived node per input node, or `NothingToProduce` for an
+            empty `payload`.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to normalize")

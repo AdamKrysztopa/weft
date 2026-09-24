@@ -66,6 +66,16 @@ class RefusingConsent:
     """
 
     async def decide(self, *, command_name: str, instance: object, args: BaseModel) -> None:
+        """Refuse a command whose permission class needs a consent no agent can give.
+
+        Args:
+            command_name: The registered name the agent asked to run.
+            instance: The command instance about to run.
+            args: The validated arguments; unused.
+
+        Raises:
+            ConsentRefusedError: The command is `OVERWRITE`- or `DESTROY`-class.
+        """
         del args
         permission_class = getattr(instance, "permission_class", None)
         if permission_class in _REFUSED_CLASSES:

@@ -1,4 +1,6 @@
-"""The renderer for `weft_agent.command.AgentCommandResult` — registered through the identical
+"""The renderer for `weft_agent.command.AgentCommandResult`.
+
+The renderer for `weft_agent.command.AgentCommandResult` — registered through the identical
 `weft_kernel.discovery.PackRegistrar.add_renderer` seam a stranger's pack uses (task **6.20**,
 G13's third repair). Ledger task **7.4**.
 
@@ -27,7 +29,9 @@ from weft_command import ExitCode, Rendered
 
 
 def render_agent(result: object) -> Rendered:
-    """`weft_kernel.discovery.PackRegistrar.add_renderer`'s own callable shape: `object` in,
+    """Render an `AgentCommandResult`: the answer to stdout, the run's account to stderr.
+
+    `weft_kernel.discovery.PackRegistrar.add_renderer`'s own callable shape: `object` in,
     a `Rendered` out. Narrowed to `AgentCommandResult` immediately, exactly as every renderer
     `weft_cli.render` registers narrows its own result type first — `cast`, not `assert`: the
     latter is stripped under `-O`, and `weft_agent.command_tools._observation_of`'s own

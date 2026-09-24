@@ -82,7 +82,9 @@ _TARGETS_DIR_NAME = ".targets"
 
 
 class BlobKeyRefusedError(WeftError):
-    """A key or prefix is absolute, or contains a `..` segment — plain `WeftError`, not a member
+    """A key or prefix is absolute, or contains a `..` segment.
+
+    A key or prefix is absolute, or contains a `..` segment — plain `WeftError`, not a member
     of the `UnresolvedNameError` family: nothing here is a name failing to resolve against an
     enumerable set of alternatives, the identical distinction
     `weft_engine.service_roles.DuplicateServiceRoleError`'s own docstring draws for its case. There
@@ -99,7 +101,9 @@ class BlobNotFoundError(WeftError):
 
 
 class BlobLayoutVersionError(WeftError):
-    """The root's recorded layout version does not match `BLOB_LAYOUT_VERSION` — `S11`'s
+    """The root's recorded layout version does not match `BLOB_LAYOUT_VERSION`.
+
+    The root's recorded layout version does not match `BLOB_LAYOUT_VERSION` — `S11`'s
     seventh-surface rule, enforced at the one place it can be: before this store reads or writes
     anything else in the root. Plain `WeftError`, for the identical reason `BlobKeyRefusedError`
     states: a version mismatch is two facts disagreeing, not a name failing to resolve.
@@ -107,7 +111,9 @@ class BlobLayoutVersionError(WeftError):
 
 
 class FilesystemBlobSettings(BaseModel):
-    """`[packs.blob] root` — required, with no default, following `[packs.store] dsn`'s own
+    """`[packs.blob] root`: required, with no default.
+
+    `[packs.blob] root` — required, with no default, following `[packs.store] dsn`'s own
     precedent (`weft_store.pgvector_store.PgVectorSettings.dsn`): a pack cannot invent where an
     operator's bytes live, so there is nothing sane to default to.
     """
@@ -143,7 +149,9 @@ class FilesystemBlobStore:
 
     @property
     def _effective_root(self) -> Path:
-        """Where this handle's own reads and writes land — the configured root itself for
+        """Where this handle's own reads and writes land.
+
+        Where this handle's own reads and writes land — the configured root itself for
         `default`, `<root>/.targets/<name>` for anything `bind_target` was asked for. The
         configured root (`self._root`) is untouched by this: the layout marker and `open`'s
         containment check both stay keyed to it, never to the effective root, so every target
@@ -154,7 +162,9 @@ class FilesystemBlobStore:
         return self._root / _TARGETS_DIR_NAME / self._target
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle over the same configured root, bound to `target`'s own subtree — see
+        """A second handle over the same configured root, bound to `target`'s own subtree.
+
+        A second handle over the same configured root, bound to `target`'s own subtree — see
         the module docstring. `target` is re-validated here even though `TargetName` is meant to
         already be one: it becomes a directory segment, so this store does not trust that
         whoever built the value checked it.
@@ -163,7 +173,9 @@ class FilesystemBlobStore:
         return type(self)(FilesystemBlobSettings(root=self._root), _target=validated)
 
     async def drop_target(self, target: TargetName) -> int:
-        """Remove `<root>/.targets/<target>` and everything under it, returning how many files
+        """Remove `<root>/.targets/<target>` and everything under it.
+
+        Remove `<root>/.targets/<target>` and everything under it, returning how many files
         it held. `default` is refused: its blobs are the configured root's own, not a target
         subtree this method owns the removal of.
         """
@@ -177,20 +189,61 @@ class FilesystemBlobStore:
         return await asyncio.to_thread(self._delete_prefix_sync, path)
 
     async def put(self, key: str, data: bytes, media_type: str) -> BlobUri:
+        """Write `data` to the file `key` names under this handle's effective root.
+
+        Args:
+            key: A relative path; absolute paths and `..` segments are refused.
+            data: The bytes to write.
+            media_type: Unused; the caller's `BlobRef` carries it.
+
+        Returns:
+            The `file://` uri of the written file.
+
+        Raises:
+            BlobKeyRefusedError: `key` would resolve outside the effective root.
+            BlobLayoutVersionError: The root was written by a different blob layout.
+        """
         del media_type  # carried in `BlobRef`, not by this contract's own methods
         path = self._checked_relative_path(key)
         return await asyncio.to_thread(self._put_sync, path, data)
 
     async def open(self, uri: BlobUri) -> bytes:
+        """Read the bytes behind a uri this store produced.
+
+        Args:
+            uri: A uri returned by `put` on any handle over the same configured root.
+
+        Returns:
+            The stored bytes.
+
+        Raises:
+            BlobNotFoundError: The uri is not this store's, or nothing was written there.
+            BlobKeyRefusedError: The uri resolves outside the configured root.
+            BlobLayoutVersionError: The root was written by a different blob layout.
+        """
         path = self._path_from_uri(uri)
         return await asyncio.to_thread(self._open_sync, path, uri)
 
     async def delete_prefix(self, prefix: str) -> int:
+        """Delete every file under `prefix` in this handle's effective root.
+
+        Args:
+            prefix: A relative path; absolute paths and `..` segments are refused.
+
+        Returns:
+            How many files were deleted.
+
+        Raises:
+            BlobKeyRefusedError: `prefix` would resolve outside the effective root.
+            BlobLayoutVersionError: The root was written by a different blob layout.
+        """
         path = self._checked_relative_path(prefix)
         return await asyncio.to_thread(self._delete_prefix_sync, path)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
-        """Sum `delete_prefix` over every tenant directory under this handle's effective root —
+        """Delete `source_id`'s blobs from every tenant directory under the effective root.
+
+        Sum `delete_prefix` over every tenant directory under this handle's effective root —
         see the module docstring. `node_count=0` is honest: this participant never touched a
         node.
         """
@@ -203,7 +256,9 @@ class FilesystemBlobStore:
         return Removed(source_id=source_id, node_count=0, removed={"blob": removed})
 
     def _checked_relative_path(self, value: str) -> Path:
-        """Refuse a `str` that would resolve outside this handle's effective root, or name the
+        """Refuse a `str` that would resolve outside the effective root, or name the root itself.
+
+        Refuse a `str` that would resolve outside this handle's effective root, or name the
         root itself — see the module docstring's note that `keys.py` cannot be the only guard
         for a boundary
         strangers reach directly.

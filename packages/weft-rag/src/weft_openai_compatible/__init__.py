@@ -118,7 +118,9 @@ class Settings(VendorSettings):
 
 
 class StreamOnlyOpenAILLMProvider:
-    """`OpenAILLMProvider`, with the methods that satisfy `UsageReporting` and `TokenCounting`
+    """`OpenAILLMProvider`, without the methods that satisfy `UsageReporting` and `TokenCounting`.
+
+    `OpenAILLMProvider`, with the methods that satisfy `UsageReporting` and `TokenCounting`
     withheld.
 
     Registered for `openai-compatible` instead of `OpenAILLMProvider` itself whenever
@@ -156,13 +158,34 @@ class StreamOnlyOpenAILLMProvider:
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Ask the wrapped provider for one completion.
+
+        Args:
+            conv: The conversation to complete.
+            model: The model name the server is asked for.
+            ctx: The run's context.
+
+        Returns:
+            The wrapped provider's `Outcome`, unchanged.
+        """
         return await self._inner.complete(conv, model=model, ctx=ctx)
 
     async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:
+        """Stream the wrapped provider's completion text.
+
+        Args:
+            conv: The conversation to complete.
+            model: The model name the server is asked for.
+            ctx: The run's context.
+
+        Yields:
+            Each text piece as the wrapped provider streams it.
+        """
         async for piece in self._inner.stream(conv, model=model, ctx=ctx):
             yield piece
 
     async def close(self) -> None:
+        """Close the wrapped provider."""
         await self._inner.close()
 
 
@@ -183,6 +206,16 @@ class UsageReportingOnlyOpenAILLMProvider(StreamOnlyOpenAILLMProvider):
     async def stream_reporting_usage(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> AsyncIterator[str | TokenUsage]:
+        """Stream the wrapped provider's completion text and its token usage.
+
+        Args:
+            conv: The conversation to complete.
+            model: The model name the server is asked for.
+            ctx: The run's context.
+
+        Yields:
+            Each text piece, and the `TokenUsage` the server reports.
+        """
         async for item in cast("UsageReporting", self._inner).stream_reporting_usage(
             conv, model=model, ctx=ctx
         ):
@@ -203,6 +236,17 @@ class StructuredStreamOnlyOpenAILLMProvider(StreamOnlyOpenAILLMProvider):
     async def complete_structured(
         self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Ask the wrapped provider for a completion constrained to `schema`.
+
+        Args:
+            conv: The conversation to complete.
+            schema: The JSON schema the answer must satisfy.
+            model: The model name the server is asked for.
+            ctx: The run's context.
+
+        Returns:
+            The wrapped provider's `Outcome`, unchanged.
+        """
         return await cast("NativeStructured", self._inner).complete_structured(
             conv, schema, model=model, ctx=ctx
         )
@@ -223,6 +267,17 @@ class StructuredUsageReportingOnlyOpenAILLMProvider(UsageReportingOnlyOpenAILLMP
     async def complete_structured(
         self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Ask the wrapped provider for a completion constrained to `schema`.
+
+        Args:
+            conv: The conversation to complete.
+            schema: The JSON schema the answer must satisfy.
+            model: The model name the server is asked for.
+            ctx: The run's context.
+
+        Returns:
+            The wrapped provider's `Outcome`, unchanged.
+        """
         return await cast("NativeStructured", self._inner).complete_structured(
             conv, schema, model=model, ctx=ctx
         )

@@ -37,7 +37,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `FigureDescriber` as `"describe-figure"` for `Enhancer`, and `FigureDescription`
+    """Register `FigureDescriber` as `"describe-figure"`, and `FigureDescription` as an `ExtModel`.
+
+    Register `FigureDescriber` as `"describe-figure"` for `Enhancer`, and `FigureDescription`
     as this pack's own `ExtModel` — the same two-call shape `weft_enhance.__init__` uses for
     `KeyBertKeywordExtractor` and `Keywords`.
     """

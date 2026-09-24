@@ -21,7 +21,9 @@ _SENTENCE_BREAK: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+")
 
 
 class ExampleGenerator:
-    """Answers with each offered passage's first sentence, cited by the label a `ContextPacker`
+    """Answer with each offered passage's first sentence, cited by its packer label.
+
+    Answers with each offered passage's first sentence, cited by the label a `ContextPacker`
     assigned it. Satisfies `weft_generate.contract.Generator` structurally.
     """
 
@@ -29,6 +31,15 @@ class ExampleGenerator:
         del config
 
     async def run(self, payload: Passages, ctx: Context) -> Outcome[Answer]:
+        """Quote each passage's first sentence, cited, or say "I don't know." when none was offered.
+
+        Args:
+            payload: The labelled passages to answer from.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the answer and its citations.
+        """
         del ctx
         if not payload.passages:
             return Produced(

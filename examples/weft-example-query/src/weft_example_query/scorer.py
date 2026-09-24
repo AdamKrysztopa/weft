@@ -25,6 +25,15 @@ class ExampleQueryScorer:
         del config
 
     async def run(self, payload: Query, ctx: Context) -> Outcome[Scorecard]:
+        """Score a query's complexity by its length, and its specificity as the complement.
+
+        Args:
+            payload: The query to score.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the scorecard.
+        """
         del ctx
         complexity = min(1.0, len(payload.text.split()) / _LONG_QUERY_WORDS)
         scores = {"complexity": complexity, "specificity": 1.0 - complexity}

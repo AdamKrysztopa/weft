@@ -54,6 +54,16 @@ class ExampleEchoProvider:
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Answer with the last user turn reversed, behind the configured marker.
+
+        Args:
+            conv: The conversation to answer.
+            model: Echoed on the completion.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the scripted completion.
+        """
         del ctx
         return Produced(
             value=Completion(
@@ -62,6 +72,16 @@ class ExampleEchoProvider:
         )
 
     async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:
+        """Stream the same reply `complete` gives, one word at a time.
+
+        Args:
+            conv: The conversation to answer.
+            model: Unused.
+            ctx: Unused.
+
+        Yields:
+            Each word of the reply, followed by a space except for the last.
+        """
         del ctx, model
         words = _reply(conv, self._config.marker).split(" ")
         last = len(words) - 1
@@ -71,6 +91,17 @@ class ExampleEchoProvider:
     async def complete_structured(
         self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Answer with a JSON placeholder shaped by `schema`.
+
+        Args:
+            conv: Unused.
+            schema: The JSON schema the placeholder follows.
+            model: Echoed on the completion.
+            ctx: Unused.
+
+        Returns:
+            `Produced` carrying the placeholder as JSON text.
+        """
         del ctx
         text = json.dumps(_placeholder(schema, marker=self._config.marker))
         return Produced(value=Completion(text=text, model=model, finish_reason="stop"))
