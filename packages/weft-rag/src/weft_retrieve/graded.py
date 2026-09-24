@@ -52,13 +52,13 @@ here because a `rank` with gaps in it is a fact about this stage's internals lea
 type nothing downstream should have to parse holes out of.
 """
 
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, Outcome, Produced
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
@@ -88,7 +88,7 @@ class GradedRetrievalConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     prompt: str = Field(default=RELEVANCE_GRADE_NAME, min_length=1)
-    role: str = Field(default="grade", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="grade", min_length=1)
     keep_at_or_above: Grade = Grade.RELEVANT
     #: Uncapped runs to ~30 calls per query (`10` §1.1's row). This is the hard
     #: ceiling on how many of `payload.hits` are ever graded at all — see the module

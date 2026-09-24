@@ -73,7 +73,7 @@ import asyncio
 from collections.abc import Sequence
 from itertools import count
 from pathlib import Path
-from typing import ClassVar, NamedTuple, cast
+from typing import Annotated, ClassVar, NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -97,7 +97,7 @@ from weft_kg.prompts import (
 )
 from weft_kg.schema import GraphSchema, load_schema
 from weft_kg.store import GraphSettings
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
 
@@ -146,7 +146,7 @@ class LlmFactsConfig(BaseModel):
     #: requirement 6's rule that the one number a filter turns on is an operator's, not a
     #: constant.
     max_entity_words: int = Field(default=MAX_ENTITY_WORDS, ge=1)
-    role: str = Field(default="index", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="index", min_length=1)
 
 
 class LlmFactExtractor:

@@ -51,7 +51,7 @@ import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from hashlib import sha256
-from typing import Any, ClassVar, Final, NewType, Self, cast
+from typing import Annotated, Any, ClassVar, Final, NewType, Self, cast
 
 import psycopg
 from pgvector import Vector as PgVector
@@ -75,7 +75,7 @@ from weft_kg.prompts import (
     SameEntity,
 )
 from weft_kg.schema import GraphSchema, ObservedTriple
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute as cascade_execute
 from weft_prompts.contract import Prompt
 from weft_store.contract import (
@@ -350,7 +350,7 @@ class GraphSettings(BaseModel):
     #: The `[llm.roles]` key the expensive pass resolves a provider through. Defaults to
     #: `"index"`, exactly as `weft_kg.extraction.LlmFactsConfig.role` does, because a reconcile
     #: pass over this store's own aliases is index-side work, not query-time work.
-    adjudication_role: str = Field(default="index", min_length=1)
+    adjudication_role: Annotated[str, LLMRole()] = Field(default="index", min_length=1)
     #: The fan-out bound for the expensive pass's model calls — the identical argument
     #: `weft_kg.extraction.LlmFactsConfig.max_concurrent_nodes` makes one call-site over: what a
     #: configured provider tolerates is an operator's fact, not this pack's, and this pass

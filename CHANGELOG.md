@@ -85,6 +85,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A plugin declares which config fields name a model role: `Annotated[str, LLMRole()]`.** A
+  routed `weft ask` offers only rungs whose roles are mapped, and it found those roles by a fixed
+  list of first-party field names. So a third party's `judge_role` went unseen, and its rung
+  refused after a paid call. The walk now reads the marker, whatever the field is called, and every
+  first-party role field carries it. `weft_llm.LLMRole` is new, and the LLM contract moves to
+  `1.1.0`. `examples/weft-example-query` gains `example-llm-judge`, a reranker whose `judge_role`
+  is seen this way.
 - **Adding documents joins them into a corpus-wide RAPTOR tree instead of rebuilding it.** After
   new sources are indexed, `weft index --layers enrich-with-raptor` hands only their leaves to
   `adrap`. `adrap` rebuilds the summaries they join and carries every other summary forward

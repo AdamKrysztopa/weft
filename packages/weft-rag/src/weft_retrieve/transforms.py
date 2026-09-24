@@ -83,13 +83,13 @@ special-case around.
 """
 
 from enum import StrEnum
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, Outcome, Produced
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
@@ -126,7 +126,7 @@ class ContextualQueryRewriteConfig(BaseModel):
     #: tenant and locale, not a conversation) — a fact about *this ask*, not about the run.
     history_turns: int = Field(default=4, ge=0)
     prompt: str = Field(default=STANDALONE_QUESTION_NAME, min_length=1)
-    role: str = Field(default="rewrite", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="rewrite", min_length=1)
     #: Keep the literal follow-up in `queries` alongside the rewrite, or replace it outright.
     #: `True` is belt-and-braces: a rewrite that quietly narrowed the question's meaning still
     #: leaves the original searched for. `False` is what an operator who trusts the rewrite
@@ -235,7 +235,7 @@ class HydeConfig(BaseModel):
     #: does not otherwise reproduce the paper's arithmetic.
     keep_question: bool = True
     prompt: str = Field(default=HYDE_DOCUMENT_NAME, min_length=1)
-    role: str = Field(default="hyde", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="hyde", min_length=1)
     #: Which arms the *hypothetical* documents are searched on — never the arms `keep_
     #: question`'s literal query is searched on, which keeps its own default `channels=()`
     #: ("every channel this retriever offers") untouched. **HyDE is a claim about dense
@@ -354,7 +354,7 @@ class StepBackConfig(BaseModel):
     #: string here, unlike the two-different-strings pattern `hyde`/`hyde-document` and
     #: `contextual-query-rewrite`/`standalone-question` already use for the identical reason.
     prompt: str = Field(default=STEP_BACK_QUESTION_NAME, min_length=1)
-    role: str = Field(default="stepback", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="stepback", min_length=1)
     #: Keep the literal question in `queries` alongside the abstraction. `False` would leave
     #: only the step-back question searched for, which is not the paper's own design — Zheng
     #: et al. retrieve for *both* the abstract and the original question and ground the
@@ -548,7 +548,7 @@ class MultiQueryConfig(BaseModel):
     #: (`.phase2-design.md`'s own worked example, `hyde-fanout-rrf.yaml`).
     expand_origins: tuple[str, ...] = ("",)
     prompt: str = Field(default=MULTI_QUERY_VARIANTS_NAME, min_length=1)
-    role: str = Field(default="fanout", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="fanout", min_length=1)
 
 
 class MultiQuery:

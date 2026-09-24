@@ -49,7 +49,7 @@ citations back out of, the one place `Answer.citations` is actually built.
 """
 
 from collections.abc import Iterable
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -65,7 +65,7 @@ from weft_generate.prompts import (
 )
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Node, Outcome, Produced, SourceId
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
@@ -120,8 +120,8 @@ class ContradictionCheckConfig(BaseModel):
     #: and not the critic's own internal call, the one that streams to the reader).
     #: `weft_llm.contract.LLM`'s own reason for the role mechanism at all: "generate and
     #: grade can run on different models without either technique's code knowing which."
-    critic_role: str = Field(default="grade", min_length=1)
-    answer_role: str = Field(default="generate", min_length=1)
+    critic_role: Annotated[str, LLMRole()] = Field(default="grade", min_length=1)
+    answer_role: Annotated[str, LLMRole()] = Field(default="generate", min_length=1)
     max_passages: int = Field(default=8, ge=1)
     #: What a critic cascade that could not be parsed does — see the module docstring.
     #: One member today (`FAIL`), the same arithmetic `weft_llm.payload.OnFailure`'s own

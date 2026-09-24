@@ -74,13 +74,13 @@ actually lives, named there rather than baked into the shape of the tree.
 """
 
 from enum import StrEnum
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Failed, Outcome, Produced
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
@@ -341,7 +341,7 @@ class BooleanRetrievalConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     prompt: str = Field(default=BOOLEAN_PARSE_NAME, min_length=1)
-    role: str = Field(default="parse", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="parse", min_length=1)
     #: How deep the parsed tree may nest before this stage refuses it — a bound on the
     #: *finished* AST's own leaf-to-root distance, checked once by `parse_tokens` rather than
     #: threaded through the grammar's own recursion. Protects `weft_retrieve.fusion.

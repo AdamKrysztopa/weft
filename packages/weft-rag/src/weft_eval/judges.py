@@ -28,7 +28,7 @@ never a computed zero.
 """
 
 import re
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -61,7 +61,7 @@ from weft_eval.prompts import (
 )
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute
 
 
@@ -74,7 +74,7 @@ class JudgeConfig(BaseModel):
     #: default `weft_retrieve.rerank.LlmRerankConfig.role` uses for the identical reason: judging
     #: is a different job from generating, and an operator may want a cheaper or stricter model
     #: for it without this plugin's code knowing or caring which.
-    role: str = Field(default="grade", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="grade", min_length=1)
 
 
 #: Task 4.7, Q6: every judge in this file constructs no `LLMJudge` of its own — it reaches

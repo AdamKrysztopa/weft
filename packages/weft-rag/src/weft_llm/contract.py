@@ -30,7 +30,11 @@ from weft_kernel.payload import Outcome
 from weft_llm.payload import Completion, Conversation, Rendered, TokenChunk, TokenUsage
 
 #: Fitness function 6's subject for this contract.
-LLM_CONTRACT_VERSION = "1.0.0"
+LLM_CONTRACT_VERSION = "1.1.0"
+
+
+class LLMRole:
+    """The `str` field it annotates names the `[llm.roles]` role its plugin calls a model under."""
 
 
 @runtime_checkable

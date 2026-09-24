@@ -24,13 +24,13 @@ import re
 from collections.abc import Sequence
 from enum import StrEnum
 from itertools import pairwise
-from typing import ClassVar, Final
+from typing import Annotated, ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, Outcome, Produced
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import StageLookup
@@ -190,7 +190,7 @@ class IntentAndAnchorsConfig(BaseModel):
     #: `weft_retrieve.prompts.QuestionAnchorsPrompt`.
     prompt: str = Field(default=QUESTION_ANCHORS_NAME, min_length=1)
     #: The role `method: model`'s call to `execute` is billed and rate-limited under.
-    role: str = Field(default="anchors", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="anchors", min_length=1)
 
     @field_validator("entities")
     @classmethod

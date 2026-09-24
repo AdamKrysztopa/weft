@@ -51,6 +51,7 @@ from weft_kernel.registry import Registry, RegistryEntry, unwrap_factory
 from weft_kernel.resolution import ResolvedPipeline
 from weft_kernel.runner import PipelineResolutionError, Stage
 from weft_kernel.seam import wrap
+from weft_llm.contract import LLMRole
 from weft_retrieve.payload import RouteCandidate
 
 #: The two `vars:` keys a routable pipeline writes — `weft_retrieve.contract.
@@ -67,8 +68,6 @@ _ROUTE_REQUIRES_VAR = "route.requires"
 _ROUTE_VARS: tuple[str, ...] = tuple(
     sorted((_ROUTE_SUMMARY_VAR, _ROUTE_COST_VAR, _ROUTE_REQUIRES_VAR))
 )
-#: Carried repair **R43.30** — the config fields `roles_needed` reads a model role from.
-_ROLE_FIELDS: tuple[str, ...] = ("role", "critic_role", "answer_role", "adjudication_role")
 _SUB_CONFIG_SUFFIX = "_config"
 _NOTHING_MAPPED: frozenset[str] = frozenset()
 
@@ -236,13 +235,12 @@ def roles_needed(pipeline: ResolvedPipeline, registry: Registry) -> frozenset[st
     """Every `[llm.roles]` name `pipeline`'s stages call a model under — carried repair
     **R43.30**.
 
-    **A naming convention, and the whole mechanism.** No contract declares which roles its
-    plugin calls under, so this reads each stage's validated config for the fields in
-    `_ROLE_FIELDS`, defaults included, and follows a sibling named through an `X`/`X_config`
-    field pair (`iterative-retrieval`'s `sufficiency`) into that sibling's own config,
-    recursively — the pair `RegistryStageLookup.build_capability` resolves at run time. A
-    plugin that spells its role field otherwise is not seen. When a contract declares its
-    roles, this function is the one place that changes.
+    **The marker decides, never the name** (repair **R43.35**). Each stage's validated config
+    is read for every `str` field declared `Annotated[str, LLMRole()]`, defaults included,
+    whatever the field is called; a field named `role` without the marker is not a role. A
+    sibling named through an `X`/`X_config` field pair (`iterative-retrieval`'s `sufficiency`)
+    is followed into its own config, recursively — the pair
+    `RegistryStageLookup.build_capability` resolves at run time.
     """
     roles: set[str] = set()
     for stage in pipeline.stages:
@@ -256,8 +254,9 @@ def _config_roles(config: object, registry: Registry) -> frozenset[str]:
     fields = type(config).model_fields
     roles = {
         value
-        for field in _ROLE_FIELDS
-        if field in fields and isinstance(value := getattr(config, field), str)
+        for field, info in fields.items()
+        if any(isinstance(item, LLMRole) for item in info.metadata)
+        and isinstance(value := getattr(config, field), str)
     }
     for field in fields:
         if f"{field}{_SUB_CONFIG_SUFFIX}" not in fields:

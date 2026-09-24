@@ -357,7 +357,7 @@ from weft_kernel.payload import (
     Produced,
     Vector,
 )
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.contract import Prompts
 
 #: The name this plugin is registered and selectable under — see `weft_index.register`.
@@ -429,7 +429,7 @@ class RaptorConfig(BaseModel):
     #: their square. Above this, any threshold is refused.
     max_leaves: int = Field(default=5_000, ge=2)
     prompt: str = Field(default=SUMMARIZE_CLUSTER_NAME, min_length=1)
-    role: str = Field(default="index", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="index", min_length=1)
     #: The level this rung's input is drawn from — `0` meaning the leaves, which is the
     #: default and keeps `index-with-raptor` exactly what it was. A second `raptor` stage in
     #: a document sets this to the level the first one built, so it clusters that level's

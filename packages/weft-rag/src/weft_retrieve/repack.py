@@ -78,13 +78,13 @@ the budget or lower chunk size, not be told the corpus has nothing.
 
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Failed, Outcome, Produced
-from weft_llm.contract import LLM, TokenCounter
+from weft_llm.contract import LLM, LLMRole, TokenCounter
 from weft_retrieve.payload import Passage, Passages, Ranking
 
 #: The name this packer is registered and selectable under — see `weft_retrieve.register`.
@@ -146,7 +146,7 @@ class RepackConfig(BaseModel):
     #: The `[llm.roles]` role whose model will read the packed context — `cited_answer`
     #: asks `generate` by default, so that is this field's default too. Only resolved when
     #: `budget_tokens` is set.
-    role: str = "generate"
+    role: Annotated[str, LLMRole()] = "generate"
 
 
 def _forward(hits: Sequence[Passage]) -> Sequence[Passage]:

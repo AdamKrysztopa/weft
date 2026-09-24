@@ -37,7 +37,7 @@ tree lets a configuration error abort it.
 import asyncio
 import re
 from collections.abc import Sequence
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -45,7 +45,7 @@ from weft_index.payload import ExpansionDegraded, Representation
 from weft_index.prompts import GENERATE_QUESTIONS_NAME, GenerateQuestionsRequest
 from weft_kernel.context import Context
 from weft_kernel.payload import MediaType, Node, NothingToProduce, Outcome, Produced
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.contract import Prompts
 
 #: The name this plugin is registered and selectable under — see `weft_index.register`.
@@ -80,7 +80,7 @@ class HypotheticalQuestionsConfig(BaseModel):
     #: out against the same configured provider should not disagree about it by accident.
     max_concurrent_nodes: int = Field(default=8, ge=1)
     prompt: str = Field(default=GENERATE_QUESTIONS_NAME, min_length=1)
-    role: str = Field(default="index", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="index", min_length=1)
 
 
 class HypotheticalQuestionGenerator:

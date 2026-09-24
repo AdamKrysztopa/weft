@@ -60,12 +60,13 @@ wording and shape.
 
 import asyncio
 from collections.abc import Sequence
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, MediaType, Node, Outcome, Produced, Vector
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.contract import Prompts
 from weft_retrieve.payload import Passage, Passages, Ranking
 from weft_retrieve.prompts import SUMMARIZE_FOR_QUERY_NAME, SummarizeForQueryRequest
@@ -126,7 +127,7 @@ class PostQfrapConfig(BaseModel):
     #: interleaves**, because a `TokenChunk` carries a role and nothing finer, so a sink cannot
     #: tell the generator's tokens from an intermediate stage's on the same role. Filed as a
     #: carried repair rather than widened into this task.
-    role: str = Field(default="index", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="index", min_length=1)
 
 
 class PostQfrapPacker:

@@ -559,7 +559,7 @@ async def embedding_model(self) -> weft_embed.contract.EmbeddingModel: ...
 
 **Module:** `weft_llm.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 One vendor's (or one deterministic offline) answer to "continue this conversation".
 
@@ -644,7 +644,7 @@ async def matching(
 
 **Module:** `weft_llm.contract`  
 **Registered by:** —  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 A provider that will answer *in a schema*, checked by the vendor rather than by us.
 

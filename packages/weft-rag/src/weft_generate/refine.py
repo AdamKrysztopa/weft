@@ -75,7 +75,7 @@ identical reason: each prompt's own numbering is the plugin's work, not a shared
 
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
-from typing import ClassVar, cast
+from typing import Annotated, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -85,7 +85,7 @@ from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitation
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Node, Outcome, Produced, SourceId
 from weft_kernel.runner import Stage
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import Retriever, StageLookup, Sufficiency
@@ -180,7 +180,7 @@ class RefineOnUncertaintyConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     prompt: str = Field(default=ANSWER_WITH_CITATIONS_NAME, min_length=1)
-    role: str = Field(default="generate", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="generate", min_length=1)
     max_passages: int = Field(default=8, ge=1)
     #: The `Sufficiency` this plugin's trigger is judged by, resolved by name through
     #: `StageLookup` — this task's own line: the mechanism is a name in this field, never a

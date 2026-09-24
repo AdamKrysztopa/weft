@@ -45,13 +45,13 @@ zero cost — an honest admission of a narrower job, not a guess in either direc
 """
 
 from collections.abc import Mapping
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome, Produced
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import StageLookup
@@ -74,7 +74,7 @@ class LlmSufficiencyConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     prompt: str = Field(default=SUFFICIENCY_CHECK_NAME, min_length=1)
-    role: str = Field(default="grade", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="grade", min_length=1)
     max_evidence: int = Field(default=8, ge=1)
 
 

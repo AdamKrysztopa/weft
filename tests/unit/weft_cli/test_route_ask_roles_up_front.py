@@ -12,9 +12,11 @@ from __future__ import annotations
 import re
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import Annotated, ClassVar
 
 import pytest
 import yaml
+from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli import commands
 from weft_cli.commands import AskCommandResult
@@ -32,9 +34,10 @@ from weft_kernel.discovery import PackReport, PackStatus, PipelineResource
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node, Outcome, Produced
 from weft_kernel.registry import Registry
+from weft_llm import LLMRole
 from weft_llm.client import NullSink
-from weft_llm.contract import LLMProvider
-from weft_llm.payload import Completion, Conversation
+from weft_llm.contract import LLM, LLMProvider
+from weft_llm.payload import Completion, Conversation, Message, MessageRole, Rendered
 from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
 from weft_llm.scripted import ScriptedConfig, ScriptedProvider
 from weft_prompts.contract import Prompt
@@ -57,7 +60,7 @@ from weft_retrieve.graded import NAME as GRADED_RETRIEVAL
 from weft_retrieve.graded import GradedRetrieval
 from weft_retrieve.iterative import NAME as ITERATIVE_RETRIEVAL
 from weft_retrieve.iterative import IterativeRetrieval
-from weft_retrieve.payload import Candidates, Passage, Query, QuerySet, RankedList
+from weft_retrieve.payload import Candidates, Passage, Query, QuerySet, RankedList, Ranking
 from weft_retrieve.prompts import (
     RELEVANCE_GRADE_NAME,
     SUFFICIENCY_CHECK_NAME,
@@ -429,3 +432,115 @@ async def test_explain_names_each_rung_left_out_and_the_role_it_needs(
     assert f"not offered: '{_GRADED_RUNG}' needs role 'grade'" in result.explanations
     assert f"not offered: '{_LOOPING_RUNG}' needs role 'grade'" in result.explanations
     assert not any(f"'{_MEMORY_RUNG}'" in line for line in result.explanations)
+
+
+_JUDGE_RUNG = "judge-rung"
+_STRANGER_JUDGE = "stranger-judge"
+
+
+class _StrangerJudgeConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    judge_role: Annotated[str, LLMRole()] = Field(default="judge", min_length=1)
+
+
+class _StrangerJudge:
+    """A third party's `Reranker` calling a model under a role field no first-party plugin names."""
+
+    config_model: ClassVar[type[_StrangerJudgeConfig]] = _StrangerJudgeConfig
+
+    def __init__(self, config: _StrangerJudgeConfig | None = None) -> None:
+        self._config = config if config is not None else _StrangerJudgeConfig()
+
+    async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
+        llm = ctx.require(LLM)
+        for hit in payload.hits:
+            ask = Message(role=MessageRole.USER, content=hit.node.content)
+            rendered = Rendered(conversation=Conversation(messages=(ask,)))
+            judged = await llm.complete(rendered, role=self._config.judge_role, ctx=ctx)
+            if not isinstance(judged, Produced):
+                return judged
+        return Produced(value=payload)
+
+
+def _registry_with_stranger(calls: Calls) -> Registry:
+    registry = _registry(calls)
+    registry.add(Reranker, _STRANGER_JUDGE, _StrangerJudge, distribution="weft-example-stranger")
+    return registry
+
+
+def _write_judge_rung(root: Path, config: dict[str, object] | None = None) -> None:
+    pipelines = root / "pipelines"
+    pipelines.mkdir()
+    rerank: dict[str, object] = {"id": "rerank", "use": _STRANGER_JUDGE}
+    if config is not None:
+        rerank["with"] = config
+    document = {
+        "name": _JUDGE_RUNG,
+        "vars": {"route.summary": _QUESTION},
+        "stages": [
+            {"id": "retrieve", "use": "one-hit"},
+            {"id": "fuse", "use": "single-list"},
+            rerank,
+            {"id": "pack", "use": "repack"},
+            {"id": "generate", "use": "cited-answer"},
+        ],
+    }
+    (pipelines / f"{_JUDGE_RUNG}.yaml").write_text(yaml.safe_dump(document, sort_keys=False))
+
+
+async def test_a_rung_whose_stranger_role_field_is_unmapped_is_not_offered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R43.35: a stranger's `judge_role`, declared with `LLMRole`, is filtered before any call."""
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _write_judge_rung(tmp_path)
+    calls: Calls = []
+
+    # Act
+    pipeline_name, answer = await run_routed_ask(
+        _QUESTION,
+        registry=_registry_with_stranger(calls),
+        reports=_reports(*_ROUTER_AND_MEMORY),
+        ctx=_ctx(),
+        llm=_llm(route="scores", generate="answers"),
+        services=ServiceSelection(embed="hash", store="memory"),
+        sink=NullSink(),
+    )
+
+    # Assert
+    assert pipeline_name == _MEMORY_RUNG
+    assert isinstance(answer, Answer)
+    assert [provider for provider, _ in calls] == ["scores", "answers"]
+    assert _JUDGE_RUNG not in calls[0][1]
+
+
+async def test_explain_names_a_stranger_rung_and_the_role_its_config_sets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R43.35: the role checked is the one the rung's `with:` sets, not the field's default."""
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _write_judge_rung(tmp_path, {"judge_role": "critic"})
+    monkeypatch.setattr(commands, "run_routed_ask", _Routed())
+    deps = Dependencies(
+        registry=_registry_with_stranger([]),
+        reports=_reports(*_ROUTER_AND_MEMORY),
+        services=ServiceSelection(embed="hash", store="memory"),
+        llm=_llm(route="scores", judge="grades", generate="answers"),
+    )
+    ctx = _ctx()
+    ctx.services.add(Dependencies, deps)
+
+    # Act
+    outcome = await commands.AskCommand().run(
+        commands.AskArgs(question=_QUESTION, explain=True), ctx
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, AskCommandResult)
+    assert f"not offered: '{_JUDGE_RUNG}' needs role 'critic'" in result.explanations
+    assert not any("needs role 'judge'" in line for line in result.explanations)

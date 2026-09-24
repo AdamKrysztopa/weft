@@ -49,14 +49,14 @@ import math
 import operator as operator_module
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from weft_embed.contract import Embedder
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, MediaType, Node, NothingToProduce, Outcome, Produced, Vector
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
@@ -160,7 +160,7 @@ class QueryScorerConfig(BaseModel):
 
     dimensions: tuple[Dimension, ...] = _SEVEN
     prompt: str = Field(default=ROUTE_QUERY_NAME, min_length=1)
-    role: str = Field(default="route", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="route", min_length=1)
     intent_markers: Mapping[str, tuple[str, ...]] = Field(default_factory=dict)
     on_score_failure: OnFailure = OnFailure.FAIL
 

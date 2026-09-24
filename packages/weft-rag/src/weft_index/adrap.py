@@ -100,7 +100,7 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
 )
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.contract import Prompts
 from weft_store import MetadataFilter, NodeStore, NodeSupersedable
 from weft_store.contract import Filter, FilterOp
@@ -180,7 +180,7 @@ class AdrapConfig(BaseModel):
     #: not this plugin's.
     max_concurrent_summaries: int = Field(default=8, ge=1)
     prompt: str = Field(default=SUMMARIZE_CLUSTER_NAME, min_length=1)
-    role: str = Field(default="index", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="index", min_length=1)
 
     @field_validator("similarity_threshold", "cluster_size", mode="before")
     @classmethod

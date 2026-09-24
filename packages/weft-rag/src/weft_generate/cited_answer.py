@@ -60,7 +60,7 @@ merge policy this plugin's own 1:1 substitution neither needs nor should guess a
 
 from collections.abc import Iterable
 from enum import StrEnum
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -70,7 +70,7 @@ from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitation
 from weft_generate.representation import citable_nodes
 from weft_kernel.context import Context
 from weft_kernel.payload import Node, Outcome, Produced, SourceId
-from weft_llm.contract import LLM
+from weft_llm.contract import LLM, LLMRole
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import StageLookup
 from weft_retrieve.payload import Passage, Passages
@@ -98,7 +98,7 @@ class CitedAnswerConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     prompt: str = Field(default=ANSWER_WITH_CITATIONS_NAME, min_length=1)
-    role: str = Field(default="generate", min_length=1)
+    role: Annotated[str, LLMRole()] = Field(default="generate", min_length=1)
     max_passages: int = Field(default=8, ge=1)
     #: Presents the offered evidence grouped under the retriever that found it, rather
     #: than as one flat numbered list — useful once a fan-out or hybrid pipeline feeds
