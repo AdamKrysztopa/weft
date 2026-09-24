@@ -47,14 +47,14 @@ another `multi-retriever`).
 """
 
 from collections.abc import Mapping
-from typing import ClassVar, cast
+from typing import Annotated, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_kernel.context import Context
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.runner import Stage
-from weft_retrieve.contract import Retriever, StageLookup
+from weft_retrieve.contract import Retriever, StageLookup, SubPlugin
 from weft_retrieve.payload import Candidates, QuerySet, RankedList
 
 #: The name this plugin is registered and selectable under — see `weft_retrieve.register`.
@@ -73,7 +73,7 @@ class RetrieverArm(BaseModel):
     #: way to weight apart, which is why `MultiRetrieverConfig` refuses duplicates below.
     name: str = Field(min_length=1)
     #: The registered `Retriever` name this arm resolves to, through `StageLookup`.
-    use: str = Field(min_length=1)
+    use: Annotated[str, SubPlugin(config="config")] = Field(min_length=1)
     #: `use`'s own `with:` block — passed straight through as `StageLookup.build`'s third
     #: argument, the same lever `IterativeRetrievalConfig.leaf_config` and
     #: `CorrectiveConfig.primary_config` already give their resolved siblings. `None` reaches

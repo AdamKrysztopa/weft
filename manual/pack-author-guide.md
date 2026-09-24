@@ -307,13 +307,24 @@ omitting one. You are only ever *quieter* in what Weft can tell an operator abou
 
 **A config field that names a model role is declared by its type.** If your plugin calls a model,
 annotate the field naming its `[llm.roles]` role `Annotated[str, LLMRole()]`, with `LLMRole` from
-`weft_llm`. A routed `weft ask` offers only rungs whose roles are mapped, and it finds a rung's
-roles by reading every field so marked, whatever the field is called
-(`packages/weft-rag/src/weft_retrieve/engine.py:258 "if any(isinstance(item, LLMRole)"`). An
-unmarked field is invisible to it, so on a project that has not mapped that role, your rung is
-offered anyway and refuses after the router has already paid for a call.
-`examples/weft-example-query` is the worked example
-(`examples/weft-example-query/src/weft_example_query/judge.py:28 "judge_role: Annotated"`).
+`weft_llm`. An optional one is `Annotated[str | None, LLMRole()]`: pydantic drops a marker spelt
+`Annotated[str, LLMRole()] | None`. A routed `weft ask` offers only rungs whose roles are mapped. It
+finds a rung's roles by reading every field so marked, whatever the field is called, in the stage's
+config and in every model nested in it
+(`packages/weft-rag/src/weft_retrieve/engine.py:265 "if any(isinstance(item, LLMRole)"`).
+
+**If your plugin composes another, declare that too.** Annotate the field naming the plugin your
+code hands to `StageLookup.build` or `build_capability` as
+`Annotated[str, SubPlugin(config="<field holding its with: block>")]`, with `SubPlugin` from
+`weft_retrieve`. The walk follows a declared reference into that plugin's own config
+(`packages/weft-rag/src/weft_retrieve/engine.py:268 "if isinstance(marker, SubPlugin)"`), and only a
+declared one. An unmarked role field, or an undeclared reference however it is spelt, is invisible
+to it. On a project that has not mapped that role, your rung is offered anyway and refuses after
+the router has already paid for a call. `examples/weft-example-query` carries both:
+`example-llm-judge`
+(`examples/weft-example-query/src/weft_example_query/judge.py:28 "judge_role: Annotated"`) and
+`example-judge-panel`
+(`examples/weft-example-query/src/weft_example_query/panel.py:30 "reranker: Annotated[str, SubPlugin"`).
 
 ## 5. Proving it runs
 
@@ -932,7 +943,7 @@ without raising. `weft-retrieve` ships three this way:
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/route.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/no-retrieval.yaml")
 registrar.add_pipeline_resource("weft_retrieve", "pipelines/retrieve-then-generate.yaml")
-# packages/weft-rag/src/weft_retrieve/__init__.py:405-406 "registrar.add(Sufficiency,"
+# packages/weft-rag/src/weft_retrieve/__init__.py:408-409 "registrar.add(Sufficiency,"
 ```
 
 `package` and `resource` are read together as an `importlib.resources` path inside your own installed

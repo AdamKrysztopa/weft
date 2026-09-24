@@ -18,9 +18,11 @@ import pytest
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from tests.discovery import installed_packs_except_the_canary
 from weft_cli import commands
 from weft_cli.commands import AskCommandResult
-from weft_cli.route_ask import run_named_ask, run_routed_ask
+from weft_cli.pipeline_catalogue import load_contributed
+from weft_cli.route_ask import routable_rung_roles, run_named_ask, run_routed_ask
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
 from weft_engine.llm_roles import LLMSection
@@ -30,7 +32,7 @@ from weft_generate import CitedAnswer, Generator
 from weft_generate.payload import Answer, AnswerStance
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsPrompt
 from weft_kernel.context import Context, ServiceRegistry
-from weft_kernel.discovery import PackReport, PackStatus, PipelineResource
+from weft_kernel.discovery import PackReport, PackStatus, PipelineResource, discover
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import MediaType, Node, Outcome, Produced
 from weft_kernel.registry import Registry
@@ -60,6 +62,8 @@ from weft_retrieve.graded import NAME as GRADED_RETRIEVAL
 from weft_retrieve.graded import GradedRetrieval
 from weft_retrieve.iterative import NAME as ITERATIVE_RETRIEVAL
 from weft_retrieve.iterative import IterativeRetrieval
+from weft_retrieve.multi_retriever import NAME as MULTI_RETRIEVER
+from weft_retrieve.multi_retriever import MultiRetriever
 from weft_retrieve.payload import Candidates, Passage, Query, QuerySet, RankedList, Ranking
 from weft_retrieve.prompts import (
     RELEVANCE_GRADE_NAME,
@@ -544,3 +548,122 @@ async def test_explain_names_a_stranger_rung_and_the_role_its_config_sets(
     assert isinstance(result, AskCommandResult)
     assert f"not offered: '{_JUDGE_RUNG}' needs role 'critic'" in result.explanations
     assert not any("needs role 'judge'" in line for line in result.explanations)
+
+
+_FANOUT_RUNG = "fanout-rung"
+
+
+def _registry_with_multi_retriever(calls: Calls) -> Registry:
+    registry = _registry(calls)
+    registry.add(Retriever, MULTI_RETRIEVER, MultiRetriever, distribution="weft-retrieve")
+    return registry
+
+
+def _write_fanout_rung(root: Path, sufficiency_config: dict[str, object] | None = None) -> None:
+    """The shipped `broad-and-refined-rrf` shape: a plain arm beside a looping one."""
+    refined: dict[str, object] = {"sufficiency": LLM_SUFFICIENCY_NAME, "leaf": "one-hit"}
+    if sufficiency_config is not None:
+        refined["sufficiency_config"] = sufficiency_config
+    pipelines = root / "pipelines"
+    pipelines.mkdir()
+    document = {
+        "name": _FANOUT_RUNG,
+        "vars": {"route.summary": _QUESTION},
+        "stages": [
+            {
+                "id": "retrieve",
+                "use": MULTI_RETRIEVER,
+                "with": {
+                    "arms": [
+                        {"name": "broad", "use": "one-hit"},
+                        {"name": "refined", "use": ITERATIVE_RETRIEVAL, "config": refined},
+                    ]
+                },
+            },
+            {"id": "fuse", "use": "single-list"},
+            {"id": "pack", "use": "repack"},
+            {"id": "generate", "use": "cited-answer"},
+        ],
+    }
+    (pipelines / f"{_FANOUT_RUNG}.yaml").write_text(yaml.safe_dump(document, sort_keys=False))
+
+
+async def test_a_rung_whose_multi_retriever_arm_role_is_unmapped_is_not_offered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R43.42: an arm's sub-plugin role is filtered before the router's call, not after it."""
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _write_fanout_rung(tmp_path)
+    calls: Calls = []
+
+    # Act
+    pipeline_name, answer = await run_routed_ask(
+        _QUESTION,
+        registry=_registry_with_multi_retriever(calls),
+        reports=_reports(*_ROUTER_AND_MEMORY),
+        ctx=_ctx(),
+        llm=_llm(route="scores", generate="answers"),
+        services=ServiceSelection(embed="hash", store="memory"),
+        sink=NullSink(),
+    )
+
+    # Assert
+    assert pipeline_name == _MEMORY_RUNG
+    assert isinstance(answer, Answer)
+    assert [provider for provider, _ in calls] == ["scores", "answers"]
+    assert _FANOUT_RUNG not in calls[0][1]
+
+
+async def test_explain_names_a_multi_retriever_rung_and_the_role_its_arm_sets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R43.42: the role checked is the one the arm's own nested config sets, two levels down."""
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    _write_fanout_rung(tmp_path, {"role": "critic"})
+    monkeypatch.setattr(commands, "run_routed_ask", _Routed())
+    deps = Dependencies(
+        registry=_registry_with_multi_retriever([]),
+        reports=_reports(*_ROUTER_AND_MEMORY),
+        services=ServiceSelection(embed="hash", store="memory"),
+        llm=_llm(route="scores", grade="grades", generate="answers"),
+    )
+    ctx = _ctx()
+    ctx.services.add(Dependencies, deps)
+
+    # Act
+    outcome = await commands.AskCommand().run(
+        commands.AskArgs(question=_QUESTION, explain=True), ctx
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = outcome.value
+    assert isinstance(result, AskCommandResult)
+    assert f"not offered: '{_FANOUT_RUNG}' needs role 'critic'" in result.explanations
+    assert not any("needs role 'grade'" in line for line in result.explanations)
+
+
+_SHIPPED_FANOUT_RUNG = "broad-and-refined-rrf"
+
+
+def test_the_shipped_fanout_rung_needs_the_role_its_looping_arm_calls() -> None:
+    """R43.42, measured on the shipped catalogue: `broad-and-refined-rrf`'s `refined` arm runs
+    `iterative-retrieval` with `llm-sufficiency`, which calls a model under `grade`."""
+    # Arrange
+    registry = Registry()
+    reports = discover(
+        registry,
+        allow=installed_packs_except_the_canary(),
+        pack_settings={
+            "store": {"dsn": "postgresql://tests-route-ask/placeholder"},
+            "blob": {"root": "/nonexistent-tests-route-ask-blob-root"},
+        },
+    )
+
+    # Act
+    rung_roles = routable_rung_roles(load_contributed(reports), registry=registry, reports=reports)
+
+    # Assert
+    assert rung_roles[_SHIPPED_FANOUT_RUNG] >= {"grade", "generate"}

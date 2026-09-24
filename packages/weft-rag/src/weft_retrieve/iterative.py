@@ -74,7 +74,7 @@ all.
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import ClassVar, cast
+from typing import Annotated, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -82,7 +82,7 @@ from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Outcome, Produced
 from weft_kernel.runner import Stage
 from weft_llm.payload import OnFailure
-from weft_retrieve.contract import Retriever, StageLookup, Sufficiency
+from weft_retrieve.contract import Retriever, StageLookup, SubPlugin, Sufficiency
 from weft_retrieve.payload import (
     Assessment,
     Candidates,
@@ -216,7 +216,9 @@ class IterativeRetrievalConfig(BaseModel):
     #: `StageLookup` — `weft_retrieve.contract.Sufficiency`'s own docstring: "a named contract
     #: with two implementations is what 'replaceable' means here." `llm-sufficiency` is
     #: task 2.24's, not built by this one — see the module docstring.
-    sufficiency: str = Field(default="llm-sufficiency", min_length=1)
+    sufficiency: Annotated[str, SubPlugin(config="sufficiency_config")] = Field(
+        default="llm-sufficiency", min_length=1
+    )
     #: `sufficiency`'s own `with:` block — the same lever as `leaf_config`, one field below,
     #: applied to the critic instead of the leaf. See `leaf_config`'s own docstring for the
     #: finding this pair repairs; nothing about the argument is specific to which of the two
@@ -225,7 +227,9 @@ class IterativeRetrievalConfig(BaseModel):
     #: The `Retriever` each round actually searches with, resolved by name through
     #: `StageLookup`. Defaulting to `vector-top-k` rather than to this plugin's own name is
     #: what stops a document from constructing a loop of loops by accident.
-    leaf: str = Field(default="vector-top-k", min_length=1)
+    leaf: Annotated[str, SubPlugin(config="leaf_config")] = Field(
+        default="vector-top-k", min_length=1
+    )
     #: `leaf`'s own `with:` block — passed straight through as `StageLookup.build`'s third
     #: argument, which exists (`weft_retrieve.contract.StageLookup`'s own docstring) so a
     #: *calling* plugin can hand a resolved sibling its configuration the same way a

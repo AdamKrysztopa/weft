@@ -43,14 +43,14 @@ what it says) is the same concession, applied to a branch rather than to a `for`
 """
 
 from collections.abc import Mapping
-from typing import ClassVar, cast
+from typing import Annotated, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from weft_kernel.context import Context
 from weft_kernel.payload import ExtModel, Outcome, Produced
 from weft_kernel.runner import Stage
-from weft_retrieve.contract import Reranker, Retriever, StageLookup
+from weft_retrieve.contract import Reranker, Retriever, StageLookup, SubPlugin
 from weft_retrieve.fusion import contributor_label
 from weft_retrieve.payload import Candidates, Passage, QuerySet, RankedList, Ranking
 
@@ -74,14 +74,20 @@ class CorrectiveConfig(BaseModel):
 
     #: The `Retriever` graded — defaults to the single-pass baseline, never to this plugin's
     #: own name (which would construct a corrective of correctives by accident).
-    primary: str = Field(default="vector-top-k", min_length=1)
+    primary: Annotated[str, SubPlugin(config="primary_config")] = Field(
+        default="vector-top-k", min_length=1
+    )
     primary_config: Mapping[str, object] | None = None
     #: The `Reranker` that grades and filters `primary`'s own hits.
-    grader: str = Field(default="graded-retrieval", min_length=1)
+    grader: Annotated[str, SubPlugin(config="grader_config")] = Field(
+        default="graded-retrieval", min_length=1
+    )
     grader_config: Mapping[str, object] | None = None
     #: The distinct second `Retriever`, resolved by name through `StageLookup`. No default —
     #: see the module docstring and `_the_action_is_not_the_primary` below.
-    knowledge_action: str = Field(min_length=1)
+    knowledge_action: Annotated[str, SubPlugin(config="knowledge_action_config")] = Field(
+        min_length=1
+    )
     knowledge_action_config: Mapping[str, object] | None = None
     #: Fewer kept hits than this triggers `knowledge_action`. `3`, this build's own smallest
     #: defensible default — `.phase2-design.md` names the field but not a number, and the

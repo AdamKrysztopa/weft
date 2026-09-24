@@ -20,6 +20,8 @@ from weft_example_query.generator import ExampleGenerator
 from weft_example_query.judge import NAME as JUDGE_NAME
 from weft_example_query.judge import ExampleLlmJudge
 from weft_example_query.packer import ExampleContextPacker
+from weft_example_query.panel import NAME as PANEL_NAME
+from weft_example_query.panel import ExampleJudgePanel
 from weft_example_query.reranker import ExampleReranker
 from weft_example_query.retriever import NAME as RETRIEVER_NAME
 from weft_example_query.retriever import ExampleFixedRetriever
@@ -49,14 +51,16 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register this pack's ten plugins — one per contract it implements, and a second
-    `Reranker` that calls a model under a role field of its own naming."""
+    """Register this pack's eleven plugins — one per contract it implements, a second
+    `Reranker` that calls a model under a role field of its own naming, and a third that
+    composes other rerankers into a panel."""
     del settings
     registrar.add(QueryTransform, TRANSFORM_NAME, ExampleQueryTransform)
     registrar.add(Retriever, RETRIEVER_NAME, ExampleFixedRetriever)
     registrar.add(Fuser, "example-concat-dedupe", ExampleFuser)
     registrar.add(Reranker, "example-overlap-rerank", ExampleReranker)
     registrar.add(Reranker, JUDGE_NAME, ExampleLlmJudge)
+    registrar.add(Reranker, PANEL_NAME, ExampleJudgePanel)
     registrar.add(ContextPacker, "example-top-n", ExampleContextPacker)
     registrar.add(Sufficiency, "example-any-evidence", ExampleSufficiency)
     registrar.add(QueryScorer, "example-length-heuristic", ExampleQueryScorer)

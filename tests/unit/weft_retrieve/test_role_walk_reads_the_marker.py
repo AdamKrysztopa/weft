@@ -18,6 +18,7 @@ from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import resolve
 from weft_llm import LLMRole
+from weft_retrieve import SubPlugin
 from weft_retrieve.contract import Reranker
 from weft_retrieve.engine import roles_needed
 from weft_retrieve.payload import Ranking
@@ -49,7 +50,7 @@ class _UnmarkedConfig(BaseModel):
 class _ParentConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    grader: str = Field(default=_JUDGE, min_length=1)
+    grader: Annotated[str, SubPlugin(config="grader_config")] = Field(default=_JUDGE, min_length=1)
     grader_config: Mapping[str, object] | None = None
 
 

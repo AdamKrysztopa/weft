@@ -162,7 +162,7 @@ async def run(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Chooses, orders and labels the evidence that will enter a prompt.
 
@@ -336,7 +336,7 @@ async def run(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Collapses k ranked lists into one. The arity-reducing position, by definition.
 
@@ -827,7 +827,7 @@ async def render(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Measures a query along named dimensions. Decides nothing (ledger 2.25).
 
@@ -848,7 +848,7 @@ async def run(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Rewrites, expands or narrows the set of queries that will be retrieved for.
 
@@ -963,7 +963,7 @@ async def run(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Rescores one list against the question, and returns one list.
 
@@ -1003,7 +1003,7 @@ async def evaluate(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Turns queries into ranked lists — one per query per channel, never fused.
 
@@ -1128,7 +1128,7 @@ async def run(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Turns a scorecard into a named pipeline. The second half of the router.
 
@@ -1232,7 +1232,7 @@ async def delete_source(
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.0.0`
+**Version:** `1.1.0`
 
 Judges whether the evidence in hand answers the question. **Not a pipeline position.**
 

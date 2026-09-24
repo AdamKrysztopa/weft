@@ -92,6 +92,14 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   first-party role field carries it. `weft_llm.LLMRole` is new, and the LLM contract moves to
   `1.1.0`. `examples/weft-example-query` gains `example-llm-judge`, a reranker whose `judge_role`
   is seen this way.
+- **A plugin that composes another declares it: `Annotated[str, SubPlugin(config="…")]`.** A
+  routed `weft ask` followed a sub-plugin only through a field pair named `X`/`X_config`. So the
+  shipped `broad-and-refined-rrf`, whose looping arm needs `grade`, was offered with `grade`
+  unmapped and refused after a paid call, and a third party's composer was missed the same way.
+  The walk now follows declared references through every nested config model, and every
+  first-party composer declares its references. An optional role field now keeps its marker in
+  either spelling. `weft_retrieve.SubPlugin` is new, and the retrieve contract moves to `1.1.0`.
+  `examples/weft-example-query` gains `example-judge-panel`.
 - **Adding documents joins them into a corpus-wide RAPTOR tree instead of rebuilding it.** After
   new sources are indexed, `weft index --layers enrich-with-raptor` hands only their leaves to
   `adrap`. `adrap` rebuilds the summaries they join and carries every other summary forward

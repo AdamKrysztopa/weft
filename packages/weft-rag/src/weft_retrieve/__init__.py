@@ -121,6 +121,7 @@ from weft_retrieve.contract import (
     RouteCatalogue,
     RoutingPolicy,
     StageLookup,
+    SubPlugin,
     Sufficiency,
 )
 from weft_retrieve.corrective import NAME as CORRECTIVE_NAME
@@ -729,6 +730,7 @@ __all__ = [
     "StepBackQuestion",
     "StepBackRequest",
     "StopReason",
+    "SubPlugin",
     "Sufficiency",
     "SufficiencyCheckPrompt",
     "SufficiencyCheckRequest",

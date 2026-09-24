@@ -38,10 +38,12 @@ is not offered — a narrowing worth stating rather than discovering by surprise
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping
-from typing import cast
+from collections.abc import Awaitable, Callable, Iterable, Mapping
+from types import UnionType
+from typing import Annotated, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
+from pydantic.fields import FieldInfo
 
 from weft_kernel.context import Context
 from weft_kernel.errors import UnresolvedNameError, WeftError
@@ -52,6 +54,7 @@ from weft_kernel.resolution import ResolvedPipeline
 from weft_kernel.runner import PipelineResolutionError, Stage
 from weft_kernel.seam import wrap
 from weft_llm.contract import LLMRole
+from weft_retrieve.contract import SubPlugin
 from weft_retrieve.payload import RouteCandidate
 
 #: The two `vars:` keys a routable pipeline writes — `weft_retrieve.contract.
@@ -68,7 +71,6 @@ _ROUTE_REQUIRES_VAR = "route.requires"
 _ROUTE_VARS: tuple[str, ...] = tuple(
     sorted((_ROUTE_SUMMARY_VAR, _ROUTE_COST_VAR, _ROUTE_REQUIRES_VAR))
 )
-_SUB_CONFIG_SUFFIX = "_config"
 _NOTHING_MAPPED: frozenset[str] = frozenset()
 
 
@@ -236,11 +238,13 @@ def roles_needed(pipeline: ResolvedPipeline, registry: Registry) -> frozenset[st
     **R43.30**.
 
     **The marker decides, never the name** (repair **R43.35**). Each stage's validated config
-    is read for every `str` field declared `Annotated[str, LLMRole()]`, defaults included,
-    whatever the field is called; a field named `role` without the marker is not a role. A
-    sibling named through an `X`/`X_config` field pair (`iterative-retrieval`'s `sufficiency`)
-    is followed into its own config, recursively — the pair
-    `RegistryStageLookup.build_capability` resolves at run time.
+    is read for every `str` field declared with `LLMRole`, defaults included, whatever the
+    field is called; a field named `role` without the marker is not a role. A field declared
+    with `weft_retrieve.contract.SubPlugin` names a sibling, which is followed into its own
+    config, recursively — the reference `StageLookup` resolves at run time (repair **R43.42**).
+    Both markers are read in either optional spelling, and every model nested in a config — a
+    `multi-retriever` arm, a stranger's panelist — is read the same way. An unmarked
+    `X`/`X_config` pair is not followed: the declaration decides here too.
     """
     roles: set[str] = set()
     for stage in pipeline.stages:
@@ -251,30 +255,60 @@ def roles_needed(pipeline: ResolvedPipeline, registry: Registry) -> frozenset[st
 def _config_roles(config: object, registry: Registry) -> frozenset[str]:
     if not isinstance(config, BaseModel):
         return frozenset()
-    fields = type(config).model_fields
-    roles = {
-        value
-        for field, info in fields.items()
-        if any(isinstance(item, LLMRole) for item in info.metadata)
-        and isinstance(value := getattr(config, field), str)
-    }
-    for field in fields:
-        if f"{field}{_SUB_CONFIG_SUFFIX}" not in fields:
+    roles: set[str] = set()
+    for field, info in type(config).model_fields.items():
+        value = getattr(config, field)
+        roles |= _nested_roles(value, registry)
+        if not isinstance(value, str):
             continue
-        name = getattr(config, field)
-        if not isinstance(name, str):
-            continue
-        block = getattr(config, f"{field}{_SUB_CONFIG_SUFFIX}")
-        for contract in registry.contracts():
-            if name in registry.names_for(contract):
-                entry = registry.entry(contract, name)
-                roles |= _config_roles(_sub_config(entry, name, block), registry)
+        markers = _markers(info)
+        if any(isinstance(item, LLMRole) for item in markers):
+            roles.add(value)
+        for marker in markers:
+            if isinstance(marker, SubPlugin):
+                block = None if marker.config is None else getattr(config, marker.config)
+                roles |= _sub_plugin_roles(value, block, registry)
+    return frozenset(roles)
+
+
+def _markers(info: FieldInfo) -> tuple[object, ...]:
+    """`info.metadata`, plus what `Annotated[str, M()] | None` holds inside its union member —
+    pydantic drops a marker spelt that way from `metadata`."""
+    found = list(info.metadata)
+    if get_origin(info.annotation) in (Union, UnionType):
+        for member in get_args(info.annotation):
+            if get_origin(member) is Annotated:
+                found.extend(get_args(member)[1:])
+    return tuple(found)
+
+
+def _nested_roles(value: object, registry: Registry) -> frozenset[str]:
+    if isinstance(value, BaseModel):
+        return _config_roles(value, registry)
+    if isinstance(value, Mapping):
+        items: Iterable[object] = cast("Mapping[object, object]", value).values()
+    elif isinstance(value, tuple | list):
+        items = cast("Iterable[object]", value)
+    else:
+        return frozenset()
+    roles: set[str] = set()
+    for item in items:
+        roles |= _nested_roles(item, registry)
+    return frozenset(roles)
+
+
+def _sub_plugin_roles(name: str, block: object, registry: Registry) -> frozenset[str]:
+    roles: set[str] = set()
+    for contract in registry.contracts():
+        if name in registry.names_for(contract):
+            entry = registry.entry(contract, name)
+            roles |= _config_roles(_sub_config(entry, name, block), registry)
     return frozenset(roles)
 
 
 def _sub_config(entry: RegistryEntry, name: str, block: object) -> object:
-    """The config a sibling is built with — its own defaults when the pair's `X_config` is
-    unset, validated exactly as `RegistryStageLookup` validates it otherwise."""
+    """The config a sibling is built with — its own defaults when its `SubPlugin.config` block
+    is unset, validated exactly as `RegistryStageLookup` validates it otherwise."""
     if block is None:
         if getattr(unwrap_factory(entry.factory), "config_model", None) is None:
             return None

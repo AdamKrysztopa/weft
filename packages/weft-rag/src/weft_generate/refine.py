@@ -88,7 +88,7 @@ from weft_kernel.runner import Stage
 from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
 from weft_prompts.contract import Prompt
-from weft_retrieve.contract import Retriever, StageLookup, Sufficiency
+from weft_retrieve.contract import Retriever, StageLookup, SubPlugin, Sufficiency
 from weft_retrieve.payload import (
     Assessment,
     Candidates,
@@ -185,13 +185,17 @@ class RefineOnUncertaintyConfig(BaseModel):
     #: The `Sufficiency` this plugin's trigger is judged by, resolved by name through
     #: `StageLookup` — this task's own line: the mechanism is a name in this field, never a
     #: phrase list in this file.
-    signal: str = Field(default="llm-sufficiency", min_length=1)
+    signal: Annotated[str, SubPlugin(config="signal_config")] = Field(
+        default="llm-sufficiency", min_length=1
+    )
     #: `signal`'s own `with:` block — passed straight through as `StageLookup.build_
     #: capability`'s third argument, the same lever `IterativeRetrievalConfig.
     #: sufficiency_config` already gives its own signal.
     signal_config: Mapping[str, object] | None = None
     #: The `Retriever` a low-confidence round searches with, resolved by name.
-    retriever: str = Field(default="vector-top-k", min_length=1)
+    retriever: Annotated[str, SubPlugin(config="retriever_config")] = Field(
+        default="vector-top-k", min_length=1
+    )
     retriever_config: Mapping[str, object] | None = None
     #: How confident `signal` must be, at or above `sufficient=True`, before this plugin
     #: stops and returns the draft in hand.

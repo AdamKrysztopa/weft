@@ -68,7 +68,8 @@ from weft_retrieve.payload import (
 #: not one per Protocol, on `weft_store.contract`'s own precedent: these eight are
 #: published together, versioned together, and a change to the query vocabulary they
 #: share is a change to all of them.
-RETRIEVE_CONTRACT_VERSION = "1.0.0"
+#: **`1.0.0` → `1.1.0` at repair R43.42** — the `SubPlugin` marker is published: a minor.
+RETRIEVE_CONTRACT_VERSION = "1.1.0"
 
 
 @runtime_checkable
@@ -276,6 +277,15 @@ class StageLookup(Protocol):
     async def build_capability[T](
         self, contract: type[T], name: str, config: object = None
     ) -> T: ...
+
+
+class SubPlugin:
+    """Declares a `str` field a plugin built through `StageLookup`, configured by field `config`."""
+
+    __slots__ = ("config",)
+
+    def __init__(self, *, config: str | None = None) -> None:
+        self.config = config
 
 
 class RouteCatalogue(Protocol):
