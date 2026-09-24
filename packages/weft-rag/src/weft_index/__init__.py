@@ -30,6 +30,7 @@ from weft_index.contract import (
     REVISABLE_CONTRACT_VERSION,
     Expander,
     LayerCheckpoints,
+    LayerRevision,
     Revisable,
 )
 from weft_index.hypothetical_questions import (
@@ -97,6 +98,7 @@ __all__ = [
     "HypotheticalQuestionsConfig",
     "LayerCheckpoints",
     "LayerMember",
+    "LayerRevision",
     "RaptorConfig",
     "RaptorFacts",
     "RaptorSummarizer",

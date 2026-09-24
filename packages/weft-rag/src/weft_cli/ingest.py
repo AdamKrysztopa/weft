@@ -120,6 +120,7 @@ from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import contracts_for, to_specs
 from weft_cli.layers import (
     LayerFailure,
+    LayerJoin,
     compose_layers,
     require_corpus_layers_generation_holding,
     require_layers_metadata_filter,
@@ -350,7 +351,7 @@ class BatchScopedStageError(WeftError):
     Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
     does not compose with this pipeline — so this does not join `PipelineResolutionError` and
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
-    (`weft_cli/commands.py:318 'class ConflictingIndexModeError(WeftError):'`).
+    (`weft_cli/commands.py:320 'class ConflictingIndexModeError(WeftError):'`).
     """
 
 
@@ -530,6 +531,9 @@ class IndexResult:
     #: how many of its sources failed and the first reason. A source skipped because an earlier
     #: run recorded it failed is not counted: this run did not try it.
     layers_failed: tuple[LayerFailure, ...] = ()
+    #: Ledger task **43.23** — every corpus-scoped layer this run joined added sources into
+    #: through its `layer.incremental` stage, rather than rebuilding it.
+    layers_joined: tuple[LayerJoin, ...] = ()
     #: Ledger task **43.15** — every corpus-scoped layer document `ACTIVE` on at least one of
     #: this run's `ACTIVE` sources but not on all of them, sorted by name. Computed regardless
     #: of what `layers` this run itself named: a source indexed without naming the layer still
@@ -1122,7 +1126,9 @@ async def run_index(
         )
         # R43.20: a layer stage whose contract reads the corpus is handed the base's store too.
         if store_for_readers is None:
-            layer_specs = tuple(spec for c in layer_compositions for spec in c.layer_specs)
+            layer_specs = tuple(
+                spec for c in layer_compositions for spec in (*c.layer_specs, *c.incremental_specs)
+            )
             layer_readers_store = _store_instance_for_corpus_readers(
                 (*specs, *layer_specs), runnable
             )
@@ -1158,8 +1164,9 @@ async def run_index(
 
         layers_changed: tuple[str, ...] = ()
         layers_failed: tuple[LayerFailure, ...] = ()
+        layers_joined: tuple[LayerJoin, ...] = ()
         if layer_compositions:
-            layers_changed, layers_failed = await run_layers(
+            layers_changed, layers_failed, layers_joined = await run_layers(
                 layer_compositions,
                 runner=runner,
                 runnable=runnable,
@@ -1206,6 +1213,7 @@ async def run_index(
             target_now_live=target_now_live,
             layers_changed=layers_changed,
             layers_failed=layers_failed,
+            layers_joined=layers_joined,
             layers_stale=layers_stale,
             layers_stale_progress=layers_stale_progress,
             layers_stale_deleted=layers_stale_deleted,

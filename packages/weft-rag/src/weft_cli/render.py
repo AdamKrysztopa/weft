@@ -658,7 +658,11 @@ def _render_index(result: IndexCommandResult) -> Rendered:
         f"nodes now stored: {stored}."
     )
     stdout = _index_target_lines(result, stdout)
-    stale_lines = [*_changed_layer_lines(result), *_stale_layer_lines(result)]
+    stale_lines = [
+        *_joined_layer_lines(result),
+        *_changed_layer_lines(result),
+        *_stale_layer_lines(result),
+    ]
     if stale_lines:
         stdout += "\n" + "\n".join(stale_lines)
     if result.payload_indexes:
@@ -731,6 +735,14 @@ def _citation_line(citation: Citation) -> str:
     """
     page = f" p.{citation.page}" if citation.page is not None else ""
     return f"  [{citation.marker}] {citation.uri}{page} — {citation.node_id}"
+
+
+def _joined_layer_lines(result: IndexCommandResult) -> list[str]:
+    """One line per `result.layers_joined` — task **43.23**."""
+    return [
+        f"layer '{join.layer}': joined {join.joined} leaves, {join.unassigned} unassigned"
+        for join in result.layers_joined
+    ]
 
 
 def _changed_layer_lines(result: IndexCommandResult) -> list[str]:

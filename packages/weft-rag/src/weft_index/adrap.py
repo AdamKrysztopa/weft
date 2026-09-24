@@ -79,17 +79,18 @@ summary, joins the run's own new leaves into it, and touches nothing else.
 import math
 import statistics
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Annotated, ClassVar, NamedTuple, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from weft_embed.contract import Embedder
-from weft_index.payload import RaptorFacts, Representation
+from weft_index.contract import LayerRevision
+from weft_index.payload import LayerMember, RaptorFacts, Representation
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterRequest
 from weft_index.raptor import NAME as RAPTOR_NAME
 from weft_index.raptor import Auto, format_cluster
-from weft_kernel.context import Context
+from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.payload import (
     Failed,
     MediaType,
@@ -123,11 +124,28 @@ _SUMMARY_FILTER = Filter(
 )
 
 
+def _layer_summary_filter(layer: str) -> Filter:
+    """`_SUMMARY_FILTER`'s inverse, for a join a `LayerRevision` offered (task 43.23): the
+    summaries `layer` stamped, and no other tree's."""
+    return Filter(
+        op=FilterOp.AND,
+        clauses=(
+            Filter(op=FilterOp.EXISTS, field="ext.weft-index-raptor.level"),
+            Filter(op=FilterOp.EQ, field=f"ext.{LayerMember.__namespace__}.layer", value=layer),
+        ),
+    )
+
+
+#: How a rebuilt summary stands in for the one it replaces: superseded in the store, or, under a
+#: `LayerRevision`, reported so the build leaves the old one out of the generation it publishes.
+_Replace = Callable[[NodeId, Node], Awaitable[None]]
+
+
 @runtime_checkable
 class _JoiningStore(NodeStore, NodeSupersedable, Protocol):
-    """The two store capabilities `_propagate_to_ancestors` calls once `run`'s own two
+    """The two store capabilities a join without a `LayerRevision` calls once `run`'s own two
     refusals have already passed: `NodeStore.get`, to re-fetch an ancestor's untouched
-    members, and `NodeSupersedable.supersede`, to replace it. `run` narrows `store` to this
+    members, and `NodeSupersedable.supersede`, to replace it. `_replacer` narrows `store` to this
     type with `cast` rather than a further `isinstance` check — the two checks it already
     ran are what actually gate this, and a Protocol combining both is structural, so a store
     satisfying each half separately satisfies this by construction; this type exists only so
@@ -207,12 +225,13 @@ class AdrapJoiner:
             return NothingToProduce(reason="no nodes to join into an existing tree")
 
         store = ctx.require(NodeStore)
+        revision = _revision_of(ctx)
 
         # **Refuse by name, changing nothing** — `weft_store.contract.NodeSupersedable`'s own
         # docstring: "`adrap` asks the store it was handed and refuses by name when the
         # answer is no." Checked before a single read, so a run that cannot finish never
-        # starts.
-        if not isinstance(store, NodeSupersedable):
+        # starts. A `LayerRevision` supersedes nothing, so it needs no such store.
+        if revision is None and not isinstance(store, NodeSupersedable):
             return Failed(
                 reason=(
                     f"'{NAME}' joins a new document by replacing a stale cluster summary in "
@@ -233,18 +252,19 @@ class AdrapJoiner:
                 )
             )
 
-        summaries = await _fetch_all_summaries(store)
-        if not summaries:
-            # Building the first tree is `raptor`'s job, not this stage's — see the module
-            # docstring's own "one tree" paragraph.
-            return Produced(value=tuple(payload))
-
+        summaries = await _fetch_all_summaries(
+            store, _SUMMARY_FILTER if revision is None else _layer_summary_filter(revision.layer)
+        )
         # New leaves: nodes this run was handed that carry no RaptorFacts at all. A node
         # that already carries RaptorFacts is a summary — nothing in `payload` short of a
         # second `adrap`/`raptor` stage in the same document would produce one, and joining
         # a summary into another summary's cluster is not this plugin's algorithm.
         new_leaves = [node for node in payload if node.ext_as(RaptorFacts) is None]
-        if not new_leaves:
+        if not summaries or not new_leaves:
+            # Building the first tree is `raptor`'s job, not this stage's — see the module
+            # docstring's own "one tree" paragraph. With no tree, every new leaf is unassigned.
+            if revision is not None:
+                await revision.unassigned(0 if summaries else len(new_leaves))
             return Produced(value=tuple(payload))
 
         unembedded = sum(1 for node in new_leaves if node.embedding is None)
@@ -277,6 +297,9 @@ class AdrapJoiner:
             cluster_size=cluster_size,
             similarity_threshold=similarity_threshold,
         )
+        if revision is not None:
+            assigned = sum(len(joined) for joined in assignments.values())
+            await revision.unassigned(len(new_leaves) - assigned)
         if not assignments:
             # No leaf was similar enough to any existing cluster's centroid — it rides
             # through unassigned rather than founding a second tree beside this one; see
@@ -292,11 +315,12 @@ class AdrapJoiner:
         # from" and "which old id no longer stands for a current summary."
         remap: dict[NodeId, Node] = {}
         rebuilt: list[Node] = []
+        replace = _replacer(store, revision)
 
         failure = await self._rebuild_joined(
             clusters,
             assignments,
-            store=cast(_JoiningStore, store),
+            replace=replace,
             prompts=prompts,
             llm=llm,
             ctx=ctx,
@@ -310,7 +334,8 @@ class AdrapJoiner:
 
         propagation = await self._propagate_to_ancestors(
             summaries,
-            store=cast(_JoiningStore, store),
+            store=store,
+            replace=replace,
             prompts=prompts,
             llm=llm,
             ctx=ctx,
@@ -329,7 +354,7 @@ class AdrapJoiner:
         clusters: Sequence[_JoinCluster],
         assignments: Mapping[NodeId, Sequence[Node]],
         *,
-        store: _JoiningStore,
+        replace: _Replace,
         prompts: Prompts,
         llm: LLM,
         ctx: Context,
@@ -338,7 +363,7 @@ class AdrapJoiner:
         resolved_similarity_threshold: float | None,
         resolved_cluster_size: int | None,
     ) -> Failed | None:
-        """Rebuild, embed and supersede every level-1 cluster a new leaf joined, filling `remap`
+        """Rebuild, embed and `replace` every level-1 cluster a new leaf joined, filling `remap`
         and `rebuilt` for the ancestor pass; `Failed` only when a summary could not be embedded.
         """
         for cluster in clusters:
@@ -362,7 +387,7 @@ class AdrapJoiner:
             embedded = await _embed_summary(new_summary, ctx=ctx)
             if isinstance(embedded, Failed):
                 return embedded
-            await store.supersede(cluster.summary.id, embedded)
+            await replace(cluster.summary.id, embedded)
             remap[cluster.summary.id] = embedded
             rebuilt.append(embedded)
 
@@ -453,7 +478,8 @@ class AdrapJoiner:
         self,
         summaries: Sequence[Node],
         *,
-        store: _JoiningStore,
+        store: NodeStore,
+        replace: _Replace,
         prompts: Prompts,
         llm: LLM,
         ctx: Context,
@@ -510,12 +536,38 @@ class AdrapJoiner:
                 embedded = await _embed_summary(new_ancestor, ctx=ctx)
                 if isinstance(embedded, Failed):
                     return embedded
-                await store.supersede(ancestor.id, embedded)
+                await replace(ancestor.id, embedded)
                 remap[ancestor.id] = embedded
                 rebuilt.append(embedded)
                 changed = True
             if not changed:
                 return None
+
+
+def _revision_of(ctx: Context) -> LayerRevision | None:
+    """The `LayerRevision` a corpus layer's join offered (task 43.23), or `None` elsewhere."""
+    try:
+        return ctx.require(LayerRevision)
+    except UnresolvedServiceError:
+        return None
+
+
+def _replacer(store: NodeStore, revision: LayerRevision | None) -> _Replace:
+    """`store.supersede`, or with a `revision`, `revision.replaced` — the old summary stays
+    where it is, in the published generation, and the build leaves it out of the next."""
+    if revision is None:
+        joining = cast(_JoiningStore, store)
+
+        async def supersede(old: NodeId, new: Node) -> None:
+            await joining.supersede(old, new)
+
+        return supersede
+
+    async def report(old: NodeId, new: Node) -> None:
+        del new
+        await revision.replaced(old)
+
+    return report
 
 
 async def _embed_summary(summary: Node, *, ctx: Context) -> Node | Failed:
@@ -536,15 +588,15 @@ async def _embed_summary(summary: Node, *, ctx: Context) -> Node | Failed:
     return embedded
 
 
-async def _fetch_all_summaries(store: MetadataFilter) -> tuple[Node, ...]:
-    """Every stored summary — any node carrying `RaptorFacts` — across as many pages as
-    `matching` hands back. `matching`'s own contract promises pages, never order, so nothing
-    here relies on the sequence beyond "everything eventually comes back."
+async def _fetch_all_summaries(store: MetadataFilter, filter: Filter) -> tuple[Node, ...]:
+    """Every stored summary `filter` selects, across as many pages as `matching` hands back.
+    `matching`'s own contract promises pages, never order, so nothing here relies on the
+    sequence beyond "everything eventually comes back."
     """
     collected: list[Node] = []
     cursor = None
     while True:
-        page = await store.matching(_SUMMARY_FILTER, cursor)
+        page = await store.matching(filter, cursor)
         collected.extend(page.items)
         if page.next_cursor is None:
             return tuple(collected)

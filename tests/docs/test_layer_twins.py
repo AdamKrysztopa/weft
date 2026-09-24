@@ -42,6 +42,13 @@ def _resolved(deps: Dependencies) -> dict[str, ResolvedPipeline]:
     }
 
 
+def _full_build(pipeline: ResolvedPipeline) -> tuple[str, ...]:
+    """A layer's stage uses less its `layer.incremental` stage (43.23): that stage runs only when
+    sources were added, so the layer's full build is what twins a base's enrichment."""
+    incremental = pipeline.vars.get("layer.incremental")
+    return tuple(stage.use for stage in pipeline.stages if stage.id != incremental)
+
+
 def _enrichment(pipeline: ResolvedPipeline) -> tuple[str, ...]:
     """The `Expander`s a document runs before its first `NodeStore`."""
     uses: list[str] = []
@@ -60,9 +67,7 @@ def test_every_enriching_document_has_a_layer_twin_or_a_reason(tmp_path: Path) -
     resolved = _resolved(deps)
     installed = set(installed_layers(registry=deps.registry, reports=deps.reports))
     layers = {
-        tuple(stage.use for stage in pipeline.stages): name
-        for name, pipeline in resolved.items()
-        if name in installed
+        _full_build(pipeline): name for name, pipeline in resolved.items() if name in installed
     }
 
     # Act
@@ -87,11 +92,7 @@ def test_every_waived_document_still_enriches_and_still_lacks_a_twin(tmp_path: P
     deps = _deps(tmp_path)
     resolved = _resolved(deps)
     installed = set(installed_layers(registry=deps.registry, reports=deps.reports))
-    layers = {
-        tuple(stage.use for stage in pipeline.stages)
-        for name, pipeline in resolved.items()
-        if name in installed
-    }
+    layers = {_full_build(pipeline) for name, pipeline in resolved.items() if name in installed}
 
     # Act
     stale = sorted(

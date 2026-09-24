@@ -95,6 +95,8 @@ SERVICE_PROTOCOLS_WITHOUT_AN_EXAMPLE_PACK: Final[frozenset[str]] = frozenset(
         # `LayerCheckpoints` is offered by the layer loop on a corpus build, never registered —
         # `Consent`'s footing, task 43.20 (2026-09-23).
         "weft_index.contract.LayerCheckpoints",
+        # `LayerRevision` likewise: offered to a layer's join stage, never registered — task 43.23.
+        "weft_index.contract.LayerRevision",
         "weft_kernel.discovery.EntryPointLike",
         "weft_kernel.runner.Stage",
         "weft_llm.contract.LLM",

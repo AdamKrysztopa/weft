@@ -1,8 +1,8 @@
 """Carried repair **R43.13** — a key under `layer.` a layer does not read is refused.
 
-A layer document reads `layer.scope` and `layer.store-consumes` (`43.17`). `layer.scop: corpus` was
-ignored, so a layer meant to build one tree over the whole corpus ran per source, and nothing said
-so.
+A layer document reads `layer.scope`, `layer.store-consumes` (`43.17`) and `layer.incremental`
+(`43.23`). `layer.scop: corpus` was ignored, so a layer meant to build one tree over the whole
+corpus ran per source, and nothing said so.
 """
 
 from collections.abc import Iterator
@@ -49,7 +49,11 @@ def test_an_unknown_layer_key_is_refused_naming_the_keys_a_layer_reads(
     message = str(refused.value)
     assert "'my-questions'" in message
     assert "'layer.scop'" in message
-    assert refused.value.valid_options == ("layer.scope", "layer.store-consumes")
+    assert refused.value.valid_options == (
+        "layer.scope",
+        "layer.store-consumes",
+        "layer.incremental",
+    )
 
 
 def test_the_one_layer_key_and_keys_outside_the_namespace_still_compose(

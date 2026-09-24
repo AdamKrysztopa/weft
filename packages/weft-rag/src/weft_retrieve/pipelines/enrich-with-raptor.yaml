@@ -14,6 +14,27 @@ name: enrich-with-raptor
 # `raptor` refuses a batch above `max_leaves`/`max_pairs` either way (ledger 43.13): a corpus-scoped
 # build hands it every eligible source's leaves at once, so that ceiling is reached at a smaller
 # corpus than the source-scoped default is.
+#
+# `layer.incremental: join` (ledger 43.23) names the stage a corpus-scoped build runs alone when
+# its tree is behind only because sources were added: `adrap` joins their leaves into the
+# published tree, where a full rebuild would re-summarise every cluster. A build never runs it,
+# and a source deleted since the tree was built still means a full rebuild. `adrap` reads its two
+# clustering numbers from the same vars `raptor` does, so a document that types them for one
+# types them for both, and `auto` never asks the tree for a value the build typed instead.
+
+vars:
+  layer.incremental: join
+  raptor.cluster_size: auto
+  raptor.similarity_threshold: auto
 
 stages:
-  - {id: raptor, use: raptor}
+  - id: raptor
+    use: raptor
+    with:
+      cluster_size: ${var:raptor.cluster_size}
+      similarity_threshold: ${var:raptor.similarity_threshold}
+  - id: join
+    use: adrap
+    with:
+      cluster_size: ${var:raptor.cluster_size}
+      similarity_threshold: ${var:raptor.similarity_threshold}

@@ -1075,7 +1075,11 @@ cited G13's `reconcile` precedent, `reconcile` is not a pipeline stage, and this
 
 `layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
 takes nodes already stored and returns every node it was handed, each under its own id,
-plus whatever it derived from them — it neither embeds nor stores. This is the contract's
+plus whatever it derived from them. It may embed what it derives — `adrap` embeds each
+summary it rebuilds, through `ctx.require(Embedder)` — and it may write to the store it was
+handed: `adrap` supersedes the summaries it rebuilds, unless it was handed a
+`LayerRevision` (task 43.23), when it reports each replaced summary there instead and
+writes nothing. This is the contract's
 own declaration, not a plugin marker: a plugin never sets it, it inherits the promise by
 registering under `Revisable`. `reads_corpus = True` (R43.20) is the same kind of
 declaration: a stage under this contract is handed the store its document writes to.

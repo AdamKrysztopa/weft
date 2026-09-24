@@ -2149,6 +2149,23 @@ was removed, but the mark could not be written.
 **What to do:** run the `weft index --layers <name>` the message names, once the store is healthy.
 It rebuilds the tree over the sources that remain.
 
+### `LayerIncrementalStageError`
+
+**What it looks like:**
+
+```text
+'my-raptor' sets layer.incremental to 'jion', which is not one of its stages. Its stages: raptor,
+join.
+```
+
+**Why:** a corpus-wide layer can name the stage that joins newly added sources into its existing
+tree, rather than rebuilding it: `layer.incremental: join` in the document's `vars`, beside a
+stage `- {id: join, use: adrap}`. The value is a stage **id** from the same document, and this one
+names none.
+
+**What to do:** set `layer.incremental` to one of the stage ids the message lists, or remove it,
+and the layer then rebuilds in full whenever sources are added.
+
 ### `LayerNeedsConsumingStoreError`
 
 **What it looks like** — a layer that needs a particular store, over a base that does not name it:

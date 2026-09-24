@@ -35,7 +35,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Node, Outcome
+from weft_kernel.payload import Node, NodeId, Outcome
 from weft_kernel.runner import Stage
 
 #: Fitness function 6's subject for this contract — see the module docstring.
@@ -143,7 +143,11 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
 
     `layer_stage = True` (R43.16): this contract's publisher promises that a stage under it
     takes nodes already stored and returns every node it was handed, each under its own id,
-    plus whatever it derived from them — it neither embeds nor stores. This is the contract's
+    plus whatever it derived from them. It may embed what it derives — `adrap` embeds each
+    summary it rebuilds, through `ctx.require(Embedder)` — and it may write to the store it was
+    handed: `adrap` supersedes the summaries it rebuilds, unless it was handed a
+    `LayerRevision` (task 43.23), when it reports each replaced summary there instead and
+    writes nothing. This is the contract's
     own declaration, not a plugin marker: a plugin never sets it, it inherits the promise by
     registering under `Revisable`. `reads_corpus = True` (R43.20) is the same kind of
     declaration: a stage under this contract is handed the store its document writes to.
@@ -178,6 +182,29 @@ class LayerCheckpoints(Protocol):
     async def recall(self, key: str) -> Node | None: ...
 
     async def keep(self, key: str, node: Node) -> None: ...
+
+
+class LayerRevision(Protocol):
+    """What a corpus-scoped layer offers the stage that joins sources added since its tree was
+    published — ledger task **43.23**. Reached by `ctx.require(LayerRevision)`, and only on that
+    join: a stage that must also run elsewhere catches `UnresolvedServiceError` and carries on
+    without it.
+
+    `layer` names the layer whose tree is revised; the stage reads only that layer's own
+    summaries. The stage replaces nothing in place: it returns each rebuilt summary as a node it
+    created, and reports the summary it stands in for through `replaced`, so the build leaves
+    that one out of the generation it publishes. `unassigned` reports how many of the leaves it
+    was handed it placed in no cluster.
+
+    A service, never registered — so, like `LayerCheckpoints`, it carries no `version` and is
+    not `@runtime_checkable`.
+    """
+
+    layer: str
+
+    async def replaced(self, old: NodeId) -> None: ...
+
+    async def unassigned(self, count: int) -> None: ...
 
 
 Expander.version = EXPANDER_CONTRACT_VERSION

@@ -1128,7 +1128,10 @@ def _refuse_beyond_bounds(
                 f"'{NAME}' was handed {leaves:,} leaves, above max_leaves = "
                 f"{config.max_leaves:,}: clustering grows with the square of the leaves, about "
                 f"27 s at 5,000 (ledger 43.12). Index fewer documents per run, or raise "
-                f"max_leaves in this stage's with: block and accept the cost."
+                f"max_leaves in this stage's with: block and accept the cost. A corpus layer "
+                f"behind only because sources were added need not be rebuilt: name an 'adrap' "
+                f"stage in its layer.incremental var, and the new leaves are joined into the "
+                f"published tree instead."
             )
         )
     pairs = leaves * (leaves - 1) // 2

@@ -85,6 +85,17 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **Adding documents joins them into a corpus-wide RAPTOR tree instead of rebuilding it.** After
+  new sources are indexed, `weft index --layers enrich-with-raptor` hands only their leaves to
+  `adrap`. `adrap` rebuilds the summaries they join and carries every other summary forward
+  untouched, then publishes the result as one new generation. It prints `layer
+  'enrich-with-raptor': joined <n> leaves, <m> unassigned`, and the count is also on
+  `IndexResult.layers_joined`. A layer that lost a source is still rebuilt in full, since a join
+  cannot remove a member. A layer document names its join stage with `layer.incremental`, and a
+  third-party join stage reaches the layer's tree through `weft_index.contract.LayerRevision`.
+  **Every existing `enrich-with-raptor` layer is reported changed once after upgrading**, because
+  the shipped document gained the join stage. Run `weft index --layers enrich-with-raptor
+  --reprocess` once to rebuild it.
 - **A store can carry a layer's untouched nodes into its next generation.** `weft_store` publishes
   `GenerationCarrying`: `carry_forward(into, node_ids)` adds a new generation to published nodes
   without rewriting them, so a layer rebuild pays only for what it replaces. pgvector, Qdrant and the
