@@ -63,7 +63,7 @@ class ReconcileOutcome(BaseModel):
     report: ReconcileReport | None = None
     error: str | None = None
     reclaimed: int = 0
-    """Nodes `reclaim_withdrawn` removed across every layer in `REPAIR` — repair **R43.38**."""
+    """Nodes `reclaim_withdrawn` removed across every layer, in every mode — **R43.46**."""
 
     @property
     def failed(self) -> bool:
@@ -167,9 +167,9 @@ async def _converge(
     return something other than the class it was registered as, and a participant that is not
     what it claimed is a failure with a name rather than an `AttributeError` from deeper down.
 
-    In `REPAIR` mode a `GenerationWithdrawing` participant then reclaims every layer's withdrawn
-    generations — repair **R43.29** — and the count it removed is returned rather than discarded
-    (**R43.38**).
+    In every mode a `GenerationWithdrawing` participant then reclaims every layer's withdrawn
+    generations — repairs **R43.29**, **R43.46** — and the count it removed is returned rather
+    than discarded (**R43.38**).
     """
     if not isinstance(instance, Reconcilable):
         raise TypeError(
@@ -177,11 +177,7 @@ async def _converge(
             f"but the instance it built does not — no 'reconcile' to call"
         )
     report = await instance.reconcile(ctx, mode)
-    if (
-        mode is ReconcileMode.REPAIR
-        and isinstance(instance, GenerationWithdrawing)
-        and isinstance(instance, GenerationHolding)
-    ):
+    if isinstance(instance, GenerationWithdrawing) and isinstance(instance, GenerationHolding):
         return report, await _reclaim_every_layer(instance, instance)
     return report, 0
 

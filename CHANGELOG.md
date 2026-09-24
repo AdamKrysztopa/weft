@@ -92,6 +92,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   first-party role field carries it. `weft_llm.LLMRole` is new, and the LLM contract moves to
   `1.1.0`. `examples/weft-example-query` gains `example-llm-judge`, a reranker whose `judge_role`
   is seen this way.
+- **A bare `weft reconcile` reclaims withdrawn layer trees.** It reclaimed them only under
+  `--mode repair`, though the default `full` mode does everything `repair` does and more. Every
+  mode now reclaims and prints `, reclaimed N`. `--dry-run` still reclaims nothing.
 - **Ctrl-C prints one line, on stderr.** An interrupted `weft index` or `weft ask` also printed
   `[stream error: command did not complete]` on stdout. An interrupt is not a stream error: the
   stream now closes quietly, and `weft <command>: interrupted` with exit 130 is what says so.

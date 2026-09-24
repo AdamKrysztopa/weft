@@ -205,8 +205,8 @@ Two of these carry weight beyond their size:
   > who already has the count and the name. The unchanged line is what makes this additive: a
   > blob store reaping forty blobs and a node store removing nothing were the same line before
   > this, and the whole point is that they are not now.
-- **`weft reconcile`** converges what deletion missed. `--mode repair`, the default, drops derived
-  state whose source is gone. `--mode full` also **backfills** — building derived state for nodes a
+- **`weft reconcile`** converges what deletion missed. `--mode repair` drops derived state whose
+  source is gone, and reclaims withdrawn layer trees (every mode does, R43.46). `--mode full` also **backfills** — building derived state for nodes a
   pipeline indexed without it — and that is the mode nothing ambient may ever choose. `weft
   reconcile` typed by a person defaults to `full`, because someone typing that word means it; the
   automatic pass at the end of `weft index` is always `repair`, and `weft index --reconcile full`
