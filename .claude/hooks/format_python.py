@@ -48,6 +48,11 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def main() -> int:
+    """Format and auto-fix the Python files the tool call just wrote.
+
+    Returns:
+        Always 0: formatting never blocks a tool call.
+    """
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError:

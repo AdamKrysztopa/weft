@@ -24,6 +24,14 @@ Add `< /dev/null` to the codex command."""
 
 
 def strip_heredocs(command):
+    """Drop heredoc bodies from a shell command, so prose about `codex exec` is not refused.
+
+    Args:
+        command: The shell command the `Bash` tool is about to run.
+
+    Returns:
+        The command's lines with every heredoc body and its closing delimiter removed.
+    """
     kept = []
     pending = []
     for line in command.split("\n"):
@@ -37,6 +45,11 @@ def strip_heredocs(command):
 
 
 def main():
+    """Refuse a `Bash` call that runs `codex exec` with stdin left open.
+
+    Returns:
+        2 when the command is refused, with the reason on stderr; 0 otherwise.
+    """
     payload = json.load(sys.stdin)
     if payload.get("tool_name") != "Bash":
         return 0

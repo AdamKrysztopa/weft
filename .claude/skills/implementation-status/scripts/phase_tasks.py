@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Print every task line of one phase of `docs/internal/build-ledger.md`, with its tick state and
-its sha.
+r"""Print every task line of one phase of `docs/internal/build-ledger.md`, with tick and sha.
 
 This exists so a status answer is *read* rather than remembered, and so it is read without the
 trap that catches every hand-rolled grep: **`build-ledger.md` → *How to read a task line* contains
 an unticked task line inside a fenced code block**, deliberately, so no worked example could drift
-from the list below it. `grep '^- \\[ \\]'` finds that shape first, every time, and a status table
+from the list below it. `grep '^- \[ \]'` finds that shape first, every time, and a status table
 built on it opens with a row for the placeholder task `N.M`.
 
 The fence-skipping parser already exists in `phase-step`'s `next_task.py` and is imported rather
@@ -72,6 +71,14 @@ SHA_IN_FIELD = re.compile(r"`(?P<sha>[0-9a-f]{7,40})`")
 
 
 def phase_number(title: str) -> str:
+    """The id a phase heading carries, lettered suffix included.
+
+    Args:
+        title: A phase heading from the ledger.
+
+    Returns:
+        The id, such as `21b`, or `""` when the heading names no phase.
+    """
     match = PHASE_NUMBER.match(title.strip())
     return match.group("number") if match else ""
 
@@ -90,6 +97,14 @@ def next_action_task(readme: Path) -> str:
 
 
 def commit_subjects(repo: Path) -> list[tuple[str, str]]:
+    """Every commit's short sha and subject, for spotting a task committed but left unticked.
+
+    Args:
+        repo: A directory inside the checkout.
+
+    Returns:
+        `(sha, subject)` pairs, newest first; empty, with a note on stderr, when `git log` fails.
+    """
     try:
         # A fixed `git` argv over this checkout, the shape `brief_facts.py` runs.
         out = subprocess.run(  # noqa: S603
@@ -114,6 +129,15 @@ def committed_under(identifier: str, subjects: list[tuple[str, str]]) -> str:
 
 
 def collect(ledger: Path, wanted: str) -> dict:
+    """Gather one phase's task rows, preamble ⛔ lines and open carried repairs.
+
+    Args:
+        ledger: The build ledger.
+        wanted: The phase id to report.
+
+    Returns:
+        The report as a JSON-ready mapping, or an empty one when no phase has that id.
+    """
     tasks, phases = parse(ledger.read_text(encoding="utf-8"))
     titles = [t for t in phases if phase_number(t) == wanted]
     if not titles:
@@ -164,6 +188,12 @@ def collect(ledger: Path, wanted: str) -> dict:
 
 
 def render(report: dict, readme: Path) -> None:
+    """Print a report from `collect` as the human-readable status listing.
+
+    Args:
+        report: What `collect` returned for the phase.
+        readme: `docs/internal/README.md`, whose Status block names the live phase.
+    """
     print(report["phase"])
     print(f"live phase per docs/internal/README.md Status: {live_phase(readme) or '(not stated)'}")
     print(f"Next action row points at task: {next_action_task(readme) or '(not stated)'}")
@@ -177,22 +207,31 @@ def render(report: dict, readme: Path) -> None:
     ticked = sum(1 for row in report["tasks"] if row["ticked"])
     print(f"\n{ticked} of {len(report['tasks'])} ticked\n")
     for row in report["tasks"]:
-        box = "x" if row["ticked"] else " "
-        flags = f" {PROVISIONAL}" if row["provisional"] else ""
-        if row["mentions_blocked"]:
-            flags += f" {BLOCKED}?(read the line)"
-        tail = "  NOT SCHEDULED" if row["not_scheduled"] else ""
-        if row["committed_unticked"]:
-            tail += f"  COMMITTED {row['committed_unticked']}, UNTICKED"
-        print(f"[{box}] {row['id']}{flags}  sha {row['sha']}  L{row['line']}{tail}")
-        print(f"      {row['makes_true']}")
+        _render_row(row)
     committed = [r for r in report["open_repairs"] if r["committed_unticked"]]
     print(f"\n{len(report['open_repairs'])} open carried repairs")
     for repair in committed:
         print(f"  {repair['id']}  COMMITTED {repair['committed_unticked']}, UNTICKED — tick it")
 
 
+def _render_row(row: dict) -> None:
+    box = "x" if row["ticked"] else " "
+    flags = f" {PROVISIONAL}" if row["provisional"] else ""
+    if row["mentions_blocked"]:
+        flags += f" {BLOCKED}?(read the line)"
+    tail = "  NOT SCHEDULED" if row["not_scheduled"] else ""
+    if row["committed_unticked"]:
+        tail += f"  COMMITTED {row['committed_unticked']}, UNTICKED"
+    print(f"[{box}] {row['id']}{flags}  sha {row['sha']}  L{row['line']}{tail}")
+    print(f"      {row['makes_true']}")
+
+
 def main() -> int:
+    """Print one phase's tasks, the live one by default, as a listing or as JSON.
+
+    Returns:
+        0 when the phase was printed; 2 when no phase matched.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "phase", nargs="?", help="phase number (default: the live one per docs/internal/README.md)"

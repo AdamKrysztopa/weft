@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Print the first unticked task in `docs/internal/build-ledger.md`, the task after it, and its gate
-state.
+r"""Print the first unticked task in `docs/internal/build-ledger.md`, the next, and its gate state.
 
 `phase-step` → *Orient* opens by asking for the first unticked box, the task after it, and whether
 the phase carries a block. Done by hand that is a scan of a 2,400-line file, and it has a trap in
 it: **`build-ledger.md` → *How to read a task line* contains an unticked task line inside a fenced
 block** — a shape rather than a real task, placed there deliberately so no worked example could
-drift from the list below it. `grep -n '^- \\[ \\]'` finds that line first, every time, and an agent
+drift from the list below it. `grep -n '^- \[ \]'` finds that line first, every time, and an agent
 that trusts the grep starts work on a task whose id is the placeholder `N.M`. Two things stop that
 here — fences are skipped, and a task id must be numeric — and the self-test plants a *numeric* id
 inside the fence so the fence tracking is the half being proved rather than the id regex.
@@ -39,6 +38,10 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 BLOCKED = "⛔"
 PROVISIONAL = "⚠"
@@ -78,12 +81,21 @@ class Task:
 
 @dataclass
 class Phase:
+    """One `## Phase` heading of the ledger, with the preamble lines before its first task.
+
+    Args:
+        title: The heading's text after `## `.
+        lineno: The heading's line number.
+        preamble: `(line number, text)` for each non-blank line before the first task.
+    """
+
     title: str
     lineno: int
     preamble: list[tuple[int, str]] = field(default_factory=list)
 
     @property
     def blocked_lines(self) -> list[tuple[int, str]]:
+        """The preamble lines carrying ⛔, which may record a live block or a lifted one."""
         return [(n, line) for n, line in self.preamble if BLOCKED in line]
 
 
@@ -94,18 +106,11 @@ def parse(ledger: str) -> tuple[list[Task], dict[str, Phase]]:
     """
     tasks: list[Task] = []
     phases: dict[str, Phase] = {}
-    in_fence = False
     phase: Phase | None = None
     seen_task_in_phase = False
     open_task: Task | None = None
 
-    for lineno, raw in enumerate(ledger.splitlines(), start=1):
-        if FENCE.match(raw):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-
+    for lineno, raw in _unfenced_lines(ledger):
         header = PHASE_HEADER.match(raw)
         if header:
             phase = Phase(title=header.group(1).strip(), lineno=lineno)
@@ -123,19 +128,7 @@ def parse(ledger: str) -> tuple[list[Task], dict[str, Phase]]:
             continue
 
         stripped = raw.strip()
-        # **A list marker is the character *plus a space*; `-` and `*` alone are not.** A
-        # continuation line opening with emphasis — `*Read* face · ... · sha \`7976e97\` · ...`,
-        # which is exactly how task 10.23's own line wraps — was read as a new block, so the
-        # task closed early and every field on that line, the sha among them, went missing.
-        # `tests/docs/test_ledger_records_a_sha.py` saw the sha because it parses the whole
-        # entry; this parser did not, and the two disagreeing about one field is the defect
-        # (`docs/internal/lessons.md` L10.38).
-        is_continuation = bool(stripped) and not (
-            stripped.startswith(("#", ">", "|"))
-            or stripped[:2] in ("- ", "* ")
-            or stripped in ("-", "*")
-        )
-        if open_task is not None and is_continuation:
+        if open_task is not None and _is_continuation(stripped):
             open_task.text = f"{open_task.text} {stripped}"
             open_task.fields = _split_fields(open_task.text)
             continue
@@ -147,6 +140,31 @@ def parse(ledger: str) -> tuple[list[Task], dict[str, Phase]]:
             phase.preamble.append((lineno, stripped))
 
     return tasks, phases
+
+
+def _unfenced_lines(ledger: str) -> Iterator[tuple[int, str]]:
+    in_fence = False
+    for lineno, raw in enumerate(ledger.splitlines(), start=1):
+        if FENCE.match(raw):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            yield lineno, raw
+
+
+def _is_continuation(stripped: str) -> bool:
+    # **A list marker is the character *plus a space*; `-` and `*` alone are not.** A
+    # continuation line opening with emphasis — `*Read* face · ... · sha \`7976e97\` · ...`,
+    # which is exactly how task 10.23's own line wraps — was read as a new block, so the
+    # task closed early and every field on that line, the sha among them, went missing.
+    # `tests/docs/test_ledger_records_a_sha.py` saw the sha because it parses the whole
+    # entry; this parser did not, and the two disagreeing about one field is the defect
+    # (`docs/internal/lessons.md` L10.38).
+    return bool(stripped) and not (
+        stripped.startswith(("#", ">", "|"))
+        or stripped[:2] in ("- ", "* ")
+        or stripped in ("-", "*")
+    )
 
 
 def _new_task(lineno: int, start: re.Match[str], phase: Phase | None) -> Task | None:
@@ -326,6 +344,15 @@ def last_unticked_in_phase(tasks: list[Task], index: int) -> bool:
 
 
 def find_ledger(explicit: str | None) -> Path:
+    """Locate the build ledger, preferring the path given on the command line.
+
+    Args:
+        explicit: A `--ledger` path, or None.
+
+    Returns:
+        `explicit` when given; else the first `docs/internal/build-ledger.md` above this file;
+        else that path relative to the working directory.
+    """
     if explicit:
         return Path(explicit)
     here = Path(__file__).resolve()
@@ -337,13 +364,12 @@ def find_ledger(explicit: str | None) -> Path:
 
 
 def named_repairs(next_action: str) -> list[str]:
-    """Every carried repair the Next action row names *as its subject* — `docs/internal/lessons.md`
-    L12.10.
+    """Every carried repair the Next action row names *as its subject*.
 
-    One id, or a group: "Carried repairs `R9.4` and `R9.6` together", "Carried repair `R9.4`,
-    taken together with `R9.6`". The run is consumed from the anchor forward, so an id mentioned
-    later in the cell's prose — this row routinely explains why some *other* repair closed — is
-    not collected and cannot fail a correct tree.
+    `docs/internal/lessons.md` L12.10. One id, or a group: "Carried repairs `R9.4` and `R9.6`
+    together", "Carried repair `R9.4`, taken together with `R9.6`". The run is consumed from the
+    anchor forward, so an id mentioned later in the cell's prose — this row routinely explains why
+    some *other* repair closed — is not collected and cannot fail a correct tree.
     """
     first = NEXT_ACTION_REPAIR.search(next_action)
     if first is None:
@@ -502,60 +528,70 @@ def _phase_agreement_failures(
     Found by running `--check-live` immediately after the repair that introduced this case, which
     is the repair's own argument working on itself.
     """
-    failures: list[str] = []
     stated = status.get("Phase", "")
-    if stated:
-        # `docs/internal/lessons.md` L8.1, and this is the third defect in this one comparison
-        # (L6.3, L6.4 are the other two). It read `... not in stated` — containment over
-        # the whole free-text cell — so it agreed whenever the *prose* happened to mention
-        # the other phase's name. That is not hypothetical: the live Status row says
-        # "Phase 8 ... It runs before Phase 7, which G12 still gates", the first unticked
-        # task is 7.1, and containment reported agreement on a tree where the two are
-        # deliberately different. Compare the phase the cell *declares* — the first
-        # `Phase <n>` it names — against the one the ledger gives, by equality.
-        # **Which task the Status phase is compared against is the whole question**, and
-        # getting it wrong is why the old check was written loosely enough to pass. Ledger
-        # order is only the default: `docs/internal/README.md`'s own Next action row is documented
-        # as outranking it, and it is doing that right now — Phase 8 runs *before* Phase 7,
-        # which G12 still gates. So the first unticked ledger task is the wrong subject; a
-        # comparison against it fails on a correct tree, which is how a check earns a
-        # loosening that then hides real drift. Compare against the task the Next action
-        # row actually names, and fall back to ledger order only when it names none.
-        next_action = status.get("Next action", "")
-        # **A repair is a legitimate destination and belongs to no phase**, so naming one
-        # settles this question rather than deferring it: there is nothing to compare a phase
-        # against. What is checked instead is that the repair exists and is still open — the
-        # same property the task branch checks, asked of the other kind of target.
-        repairs = named_repairs(next_action)
-        if repairs:
-            for identifier in repairs:
-                failures.extend(_repair_failures(identifier))
-            return failures
-        pointed = NEXT_ACTION_TASK.search(next_action)
-        subject = task
-        if pointed is not None:
-            named = next((t for t in tasks if t.identifier == pointed.group("identifier")), None)
-            if named is None:
-                failures.append(
-                    f"the Status block's Next action row points at task "
-                    f"{pointed.group('identifier')!r}, which is in no phase of the ledger"
-                )
-            else:
-                subject = named
-        declared = PHASE_IN_STATUS.search(stated)
-        wanted = PHASE_IN_STATUS.search(subject.phase) if subject is not None else None
-        if declared is None:
-            failures.append(
-                f"the Status block's Phase row names no phase at all: {stated[:80]!r}… — "
-                f"it must open with the phase it is claiming, e.g. '**Phase 8 — ...**'"
-            )
-        elif wanted is not None and declared.group("number") != wanted.group("number"):
-            failures.append(
-                f"Status declares Phase {declared.group('number')} and the task it "
-                f"points at ({subject.identifier}) is in {subject.phase!r} — one of the "
-                f"two is stale, and the ledger cannot tell you which"
-            )
+    if not stated:
+        return []
+    # `docs/internal/lessons.md` L8.1, and this is the third defect in this one comparison
+    # (L6.3, L6.4 are the other two). It read `... not in stated` — containment over
+    # the whole free-text cell — so it agreed whenever the *prose* happened to mention
+    # the other phase's name. That is not hypothetical: the live Status row says
+    # "Phase 8 ... It runs before Phase 7, which G12 still gates", the first unticked
+    # task is 7.1, and containment reported agreement on a tree where the two are
+    # deliberately different. Compare the phase the cell *declares* — the first
+    # `Phase <n>` it names — against the one the ledger gives, by equality.
+    # **Which task the Status phase is compared against is the whole question**, and
+    # getting it wrong is why the old check was written loosely enough to pass. Ledger
+    # order is only the default: `docs/internal/README.md`'s own Next action row is documented
+    # as outranking it, and it is doing that right now — Phase 8 runs *before* Phase 7,
+    # which G12 still gates. So the first unticked ledger task is the wrong subject; a
+    # comparison against it fails on a correct tree, which is how a check earns a
+    # loosening that then hides real drift. Compare against the task the Next action
+    # row actually names, and fall back to ledger order only when it names none.
+    next_action = status.get("Next action", "")
+    # **A repair is a legitimate destination and belongs to no phase**, so naming one
+    # settles this question rather than deferring it: there is nothing to compare a phase
+    # against. What is checked instead is that the repair exists and is still open — the
+    # same property the task branch checks, asked of the other kind of target.
+    repairs = named_repairs(next_action)
+    if repairs:
+        return [failure for identifier in repairs for failure in _repair_failures(identifier)]
+    subject, failures = _next_action_subject(tasks, task, next_action)
+    failures.extend(_declared_phase_failures(stated, subject))
     return failures
+
+
+def _next_action_subject(
+    tasks: list[Task], task: Task | None, next_action: str
+) -> tuple[Task | None, list[str]]:
+    """The task the Next action row names, else `task`, and a failure if it names a missing one."""
+    pointed = NEXT_ACTION_TASK.search(next_action)
+    if pointed is None:
+        return task, []
+    named = next((t for t in tasks if t.identifier == pointed.group("identifier")), None)
+    if named is None:
+        return task, [
+            f"the Status block's Next action row points at task "
+            f"{pointed.group('identifier')!r}, which is in no phase of the ledger"
+        ]
+    return named, []
+
+
+def _declared_phase_failures(stated: str, subject: Task | None) -> list[str]:
+    """Whether the Phase row declares a phase, and whether it is `subject`'s."""
+    declared = PHASE_IN_STATUS.search(stated)
+    wanted = PHASE_IN_STATUS.search(subject.phase) if subject is not None else None
+    if declared is None:
+        return [
+            f"the Status block's Phase row names no phase at all: {stated[:80]!r}… — "
+            f"it must open with the phase it is claiming, e.g. '**Phase 8 — ...**'"
+        ]
+    if wanted is not None and declared.group("number") != wanted.group("number"):
+        return [
+            f"Status declares Phase {declared.group('number')} and the task it "
+            f"points at ({subject.identifier}) is in {subject.phase!r} — one of the "
+            f"two is stale, and the ledger cannot tell you which"
+        ]
+    return []
 
 
 def _queue_depth_failures(path: Path, status: dict[str, str]) -> list[str]:
@@ -665,47 +701,70 @@ def live_checks(
         failures.append("no task lines parsed from the live ledger at all")
         return failures
 
-    # L6.3's own defect, made checkable: the Status block is an input this script must read.
-    if not status:
-        failures.append(
-            f"no Status block read from {path.parent / 'README.md'} — ledger order is only the "
-            f"default, and that table is where the project overrides it"
-        )
-    else:
-        for row in ("Phase", "Next action"):
-            if row not in status:
-                failures.append(f"the Status block has no {row!r} row — it may have been renamed")
-        failures.extend(_phase_agreement_failures(tasks, task, status))
-        failures.extend(_queue_depth_failures(path, status))
-        failures.extend(_repair_count_failures(path, status))
+    failures.extend(_status_block_failures(path, tasks, task, status))
     failures.extend(_documents_manifest_failures(path))
     failures.extend(_fix_plan_row_failures(path))
     failures.extend(_leftover_worktree_failures(path.parents[2] / ".git"))
+    failures.extend(_provisional_mark_failures(tasks, phases, task))
+    return failures
 
+
+def _status_block_failures(
+    path: Path, tasks: list[Task], task: Task | None, status: dict[str, str]
+) -> list[str]:
+    # L6.3's own defect, made checkable: the Status block is an input this script must read.
+    if not status:
+        return [
+            f"no Status block read from {path.parent / 'README.md'} — ledger order is only the "
+            f"default, and that table is where the project overrides it"
+        ]
+    failures = [
+        f"the Status block has no {row!r} row — it may have been renamed"
+        for row in ("Phase", "Next action")
+        if row not in status
+    ]
+    failures.extend(_phase_agreement_failures(tasks, task, status))
+    failures.extend(_queue_depth_failures(path, status))
+    failures.extend(_repair_count_failures(path, status))
+    return failures
+
+
+def _provisional_mark_failures(
+    tasks: list[Task], phases: dict[str, Phase], task: Task | None
+) -> list[str]:
     # L6.4's own defect, made checkable. A mark is only readable when the phase preamble says
     # what happened to the gate behind it; without that, a reader can only guess whether a
     # provisional task is blocked or is carrying a record of a gate that has since closed.
     # `task is None` at a phase close, when every box is ticked — `L17.6`. The mark check is
     # keyed on the live task's phase and has nothing to key on; every check above it is about
     # the ledger and the Status block and runs regardless.
-    provisional = (
-        []
-        if task is None
-        else [t.identifier for t in tasks if t.phase == task.phase and t.provisional]
-    )
-    if provisional and task is not None:
-        phase = phases.get(task.phase)
-        preamble = "\n".join(line for _n, line in (phase.preamble if phase else []))
-        if PROVISIONAL not in preamble:
-            failures.append(
-                f"{task.phase} carries {len(provisional)} provisional task(s) "
-                f"({', '.join(provisional)}) and its preamble never mentions {PROVISIONAL} — "
-                f"so nothing says whether those gates are open or are closed and recorded"
-            )
-    return failures
+    if task is None:
+        return []
+    provisional = [t.identifier for t in tasks if t.phase == task.phase and t.provisional]
+    if not provisional:
+        return []
+    phase = phases.get(task.phase)
+    preamble = "\n".join(line for _n, line in (phase.preamble if phase else []))
+    if PROVISIONAL in preamble:
+        return []
+    return [
+        f"{task.phase} carries {len(provisional)} provisional task(s) "
+        f"({', '.join(provisional)}) and its preamble never mentions {PROVISIONAL} — "
+        f"so nothing says whether those gates are open or are closed and recorded"
+    ]
 
 
-def report(path: Path, as_json: bool) -> int:
+def report(path: Path, *, as_json: bool) -> int:
+    """Print the first unticked task, what follows it and the live checks, as text or JSON.
+
+    Args:
+        path: The build ledger.
+        as_json: Print one JSON object instead of the text listing.
+
+    Returns:
+        0 for a task under a clean preamble; 1 when the preamble carries ⛔; 2 when every box
+        is ticked; 3 when the ledger cannot be read or parsed.
+    """
     try:
         ledger = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -750,7 +809,12 @@ def report(path: Path, as_json: bool) -> int:
     _print_task(path, task, following)
     _print_status(status, task)
     _print_live_checks(live_checks(path, tasks, phases, task, status))
+    return _print_closing(path, task, blocked, closes_phase=closes_phase)
 
+
+def _print_closing(
+    path: Path, task: Task, blocked: list[tuple[int, str]], *, closes_phase: bool
+) -> int:
     if closes_phase:
         print(f"\n\u2691 last unticked task in {task.phase}.")
         print("  When it closes, run phase-step \u2192 *Close the phase* before the next one.")
@@ -1151,6 +1215,11 @@ def check_live(path: Path) -> int:
 
 
 def main() -> int:
+    """Run the report, the self-test or the live check the command line asks for.
+
+    Returns:
+        The exit code of whichever of the three ran.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--ledger", help="path to build-ledger.md (default: found from this file)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
@@ -1168,7 +1237,7 @@ def main() -> int:
         return self_test()
     if args.check_live:
         return check_live(find_ledger(args.ledger))
-    return report(find_ledger(args.ledger), args.json)
+    return report(find_ledger(args.ledger), as_json=args.json)
 
 
 if __name__ == "__main__":

@@ -62,6 +62,11 @@ def pending(text: str) -> list[str]:
 
 
 def main() -> int:
+    """Refuse to end the turn while the lessons spool still holds an unpromoted finding.
+
+    Returns:
+        2 when the spool holds entries, listed on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):

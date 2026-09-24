@@ -129,6 +129,7 @@ def append(entry: str, *, agent_type: str, agent_id: str, transcript: str) -> No
 
 
 def main() -> None:
+    """Append a finished subagent's `## Noticed` section to the lessons spool, printing nothing."""
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):

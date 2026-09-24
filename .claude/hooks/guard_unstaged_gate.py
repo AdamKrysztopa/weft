@@ -1,4 +1,4 @@
-"""PreToolUse guard: the canonical gate runs only over the files the next commit will carry.
+r"""PreToolUse guard: the canonical gate runs only over the files the next commit will carry.
 
 `docs/internal/lessons.md` `L26.8` (`R32.6`), the third instance of `L11.34` and `L8.10`. The
 architecture suite walks `git ls-files`, so a new file left untracked is invisible to it: `32.10`'s
@@ -54,6 +54,14 @@ _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
 
 def strip_heredocs(command):
+    """Drop heredoc bodies from a shell command, so text being written is not read as a run.
+
+    Args:
+        command: The shell command the `Bash` tool is about to run.
+
+    Returns:
+        The command's lines with every heredoc body and its closing delimiter removed.
+    """
     kept = []
     pending = []
     for line in command.split("\n"):
@@ -79,6 +87,15 @@ def _git_lines(cwd, *args):
 
 
 def unstaged_under_tracked_roots(cwd):
+    """The untracked, non-ignored files the gate's `git ls-files` walk would miss.
+
+    Args:
+        cwd: The directory the command runs in.
+
+    Returns:
+        Every untracked path under a top-level directory the repository tracks; empty when git
+        cannot answer.
+    """
     tracked = _git_lines(cwd, "ls-files")
     untracked = _git_lines(cwd, "ls-files", "--others", "--exclude-standard")
     if tracked is None or untracked is None:
@@ -145,24 +162,38 @@ def container_reaching(command, cwd):
             reached.append(segment.strip())
             continue
         call = _PYTEST.search(segment)
-        if call is None:
-            continue
-        named = _path_arguments(call.group(1))
-        swept = [
-            os.path.relpath(found, root)
-            for argument in named or [str(root / "tests")]
-            for found in _files_under(Path(cwd), argument)
-            if _reaches_a_container(found, root, tokens)
-        ]
-        if swept and not named and "$" in call.group(1):
-            reached.append("(its test paths come from a shell expansion this guard cannot read)")
-        elif swept and not named:
-            reached.append("(the run named no test path, so all of tests/ was assumed)")
-        reached.extend(swept)
+        if call is not None:
+            reached.extend(_pytest_reaching(call.group(1), Path(cwd), root, tokens))
+    return reached
+
+
+def _pytest_reaching(arguments, cwd, root, tokens):
+    """The files one pytest run's `arguments` reach that open a container, relative to `root`."""
+    named = _path_arguments(arguments)
+    swept = [
+        os.path.relpath(found, root)
+        for argument in named or [str(root / "tests")]
+        for found in _files_under(cwd, argument)
+        if _reaches_a_container(found, root, tokens)
+    ]
+    reached = []
+    if swept and not named and "$" in arguments:
+        reached.append("(its test paths come from a shell expansion this guard cannot read)")
+    elif swept and not named:
+        reached.append("(the run named no test path, so all of tests/ was assumed)")
+    reached.extend(swept)
     return reached
 
 
 def locked_agent_worktrees(cwd):
+    """The locked worktrees of dispatched agents other than the one running this command.
+
+    Args:
+        cwd: The directory the command runs in.
+
+    Returns:
+        The paths of locked `agent-` worktrees that do not contain `cwd`.
+    """
     lines = _git_lines(cwd, "worktree", "list", "--porcelain")
     if lines is None:
         return []
@@ -183,6 +214,11 @@ def locked_agent_worktrees(cwd):
 
 
 def main():
+    """Refuse a run that shares a busy agent's containers, or a gate over untracked files.
+
+    Returns:
+        2 when the command is refused, with the paths on stderr; 0 otherwise.
+    """
     payload = json.load(sys.stdin)
     if payload.get("tool_name") != "Bash":
         return 0

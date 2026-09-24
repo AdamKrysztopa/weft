@@ -81,7 +81,27 @@ def _is_test_file(path):
     )
 
 
+def _mistakes(pyright_output, path):
+    """Pyright's errors that name a missing attribute or keyword, one report line each."""
+    mistakes = []
+    for raw in pyright_output.splitlines():
+        match = _ERROR_LINE.match(raw)
+        if match is None:
+            continue
+        message = match.group("message")
+        named_rule = any(rule in message for rule in _MISTAKE_RULES)
+        named_phrase = any(phrase in message for phrase in _MISTAKE_PHRASES)
+        if named_rule or named_phrase:
+            mistakes.append("  {}:{} — {}".format(path, match.group("line"), message))
+    return mistakes
+
+
 def main():
+    """Report, without blocking, a test file that calls what an existing module lacks.
+
+    Returns:
+        Always 0: the report is advisory and goes to stderr.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
@@ -104,17 +124,7 @@ def main():
         # A hook that cannot run its checker says nothing rather than blocking the edit.
         return 0
 
-    mistakes = []
-    for raw in completed.stdout.splitlines():
-        match = _ERROR_LINE.match(raw)
-        if match is None:
-            continue
-        message = match.group("message")
-        named_rule = any(rule in message for rule in _MISTAKE_RULES)
-        named_phrase = any(phrase in message for phrase in _MISTAKE_PHRASES)
-        if named_rule or named_phrase:
-            mistakes.append("  {}:{} — {}".format(path, match.group("line"), message))
-
+    mistakes = _mistakes(completed.stdout, path)
     if mistakes:
         print(
             "\n".join(

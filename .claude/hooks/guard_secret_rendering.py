@@ -103,6 +103,11 @@ def offends(command):
 
 
 def main():
+    """Refuse a `Bash` call whose command could print a credential's value.
+
+    Returns:
+        2 when the command is refused, with the reason on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):

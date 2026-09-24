@@ -49,6 +49,14 @@ _APPLY = re.compile(r"\bgit apply\b([^\n`]*)")
 
 
 def applies_unindexed(tool_input):
+    """Whether an implementer or worktree brief applies a patch without `--index` (`L28.17`).
+
+    Args:
+        tool_input: The `Agent` call's input.
+
+    Returns:
+        True when the prompt holds a `git apply` with neither `--index` nor `--check`.
+    """
     if (
         tool_input.get("subagent_type") != "weft-implementer"
         and tool_input.get("isolation") != "worktree"
@@ -65,6 +73,14 @@ def applies_unindexed(tool_input):
 
 
 def needs_facts(tool_input):
+    """Whether a `weft-implementer` brief lacks the block `brief_facts.py` prints.
+
+    Args:
+        tool_input: The `Agent` call's input.
+
+    Returns:
+        True when the prompt is missing `## Brief facts` or its `brief_facts_head:` line.
+    """
     if tool_input.get("subagent_type") != "weft-implementer":
         return False
     prompt = tool_input.get("prompt", "")
@@ -74,6 +90,11 @@ def needs_facts(tool_input):
 
 
 def main():
+    """Refuse an `Agent` dispatch whose brief lacks measured facts or indexes no patch.
+
+    Returns:
+        2 when the dispatch is refused, with the reason on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):

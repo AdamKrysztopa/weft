@@ -68,6 +68,15 @@ def _defined(symbol: str) -> bool:
 
 
 def red_groups(red: list[str]) -> tuple[dict[tuple[str, str], int], int]:
+    """Group the red files' pyright errors into cascades on missing symbols and everything else.
+
+    Args:
+        red: The test files written red for the task.
+
+    Returns:
+        A count per `(kind, subject)` group, `kind` being `cascade` or `OTHER`, and the total
+        error count.
+    """
     raw = _run(["uv", "run", "pyright", "--outputjson", *red])
     try:
         report = json.loads(raw)
@@ -121,6 +130,14 @@ def _cites(owner: Path, lines: list[str], window: int | None, text: str) -> bool
 
 
 def citations(owners: list[str]) -> dict[str, list[str]]:
+    """Every `path:line` citation in the tree that FF17 would resolve into each owner module.
+
+    Args:
+        owners: The modules the implementation will edit.
+
+    Returns:
+        The `git grep` lines holding such a citation, per owner.
+    """
     found: dict[str, list[str]] = {}
     window = _window()
     for owner in owners:
@@ -146,6 +163,14 @@ def citations(owners: list[str]) -> dict[str, list[str]]:
 
 
 def uncollectable(red: list[str]) -> list[str]:
+    """The collection errors pytest reports for the red files.
+
+    Args:
+        red: The test files written red for the task.
+
+    Returns:
+        pytest's `ERROR ` and `E   ` lines, colour codes stripped.
+    """
     out = _run(
         [
             "uv",
@@ -217,6 +242,11 @@ def generated_pages(owners):
 
 
 def main() -> int:
+    """Print the `## Brief facts` block for the red files and owner modules on the command line.
+
+    Returns:
+        Always 0: the facts are for the dispatcher to read, not a verdict.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--red", nargs="+", required=True, help="the test files written red for this task"
@@ -232,6 +262,15 @@ def main() -> int:
     print(f"brief_facts_head: {head}")
     print()
     print(f"Red files: {', '.join(options.red)} — {total} pyright error(s).")
+    _print_groups(groups)
+    _print_citations(options.owners)
+    _print_generated_pages(options.owners)
+    _print_uncollectable(options.red)
+    _print_protocol_doubles(options.owners)
+    return 0
+
+
+def _print_groups(groups: dict[tuple[str, str], int]) -> None:
     other = 0
     for (kind, subject), count in sorted(groups.items()):
         print(f"- {count:>3} × {kind}: {subject}")
@@ -243,20 +282,29 @@ def main() -> int:
             f"{other} error(s) name no missing symbol: "
             "fix the red test, or state each in the brief."
         )
-    for owner, lines in citations(options.owners).items():
+
+
+def _print_citations(owners: list[str]) -> None:
+    for owner, lines in citations(owners).items():
         print()
         print(f"Citations into {owner}: {len(lines)}")
         for line in lines:
             print("- " + line[:160])
-    if options.owners and any(citations(options.owners).values()):
+    if owners and any(citations(owners).values()):
         print()
         print("Say in the brief who re-points each citation the change moves (L23.15).")
-    for (page, command), feeding in sorted(generated_pages(options.owners).items()):
+
+
+def _print_generated_pages(owners: list[str]) -> None:
+    for (page, command), feeding in sorted(generated_pages(owners).items()):
         print()
         print(f"{', '.join(feeding)} feeds the generated {page}: an edit to its docstrings or")
         print(f"help drifts it. Regenerate with `{command}` — name who does, since an agent")
         print("told not to write manual/ cannot (L28.42).")
-    failed = uncollectable(options.red)
+
+
+def _print_uncollectable(red: list[str]) -> None:
+    failed = uncollectable(red)
     if failed:
         print()
         count = sum(line.startswith("ERROR ") for line in failed)
@@ -267,7 +315,10 @@ def main() -> int:
             "Every test behind an import error is unread: stub the missing names in the "
             "scratchpad and run each test once, so each fails for its own reason (L28.36)."
         )
-    for owner, (protocols, files) in protocol_doubles(options.owners).items():
+
+
+def _print_protocol_doubles(owners: list[str]) -> None:
+    for owner, (protocols, files) in protocol_doubles(owners).items():
         print()
         print(
             f"{owner} defines Protocol(s) {', '.join(protocols)}; "
@@ -281,7 +332,6 @@ def main() -> int:
             "examples/ pack that will satisfy it: FF9(c) fails an exported Protocol with no "
             "stranger (L28.23)."
         )
-    return 0
 
 
 if __name__ == "__main__":

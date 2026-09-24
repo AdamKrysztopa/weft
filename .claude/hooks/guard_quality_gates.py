@@ -83,6 +83,7 @@ an annotation. This is a constraint of where the file runs, not a stylistic depa
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -241,14 +242,17 @@ def _top_level_items(inner: str) -> list[str]:
             depth -= 1
             current += char
         elif char == "," and depth == 0:
-            if current.strip():
-                items.append(current.strip())
+            _append_stripped(items, current)
             current = ""
         else:
             current += char
-    if current.strip():
-        items.append(current.strip())
+    _append_stripped(items, current)
     return items
+
+
+def _append_stripped(items: list[str], item: str) -> None:
+    if item.strip():
+        items.append(item.strip())
 
 
 def _count_elements(literal: str) -> int:
@@ -430,24 +434,40 @@ def _report_rule_values(text: str) -> dict[str, str]:
 def _lint_or_types_loosened(path: Path, old_text: str, new_text: str) -> _Finding | None:
     if path.name not in _LINT_TYPE_CONFIG_NAMES:
         return None
-    problems: list[str] = []
+    problems = [
+        *_select_lost(old_text, new_text),
+        *_type_checking_weakened(old_text, new_text),
+        *_report_rules_loosened(old_text, new_text),
+    ]
+    if not problems:
+        return None
+    return "lint_types", "; ".join(problems)
 
+
+def _select_lost(old_text: str, new_text: str) -> list[str]:
     old_select = _named_literal(old_text, "select")
     new_select = _named_literal(new_text, "select")
-    if old_select is not None and new_select is not None:
-        old_items = _string_items(old_select)
-        missing = [item for item in old_items if item not in _string_items(new_select)]
-        if missing:
-            problems.append(f"ruff select lost {missing}")
+    if old_select is None or new_select is None:
+        return []
+    old_items = _string_items(old_select)
+    missing = [item for item in old_items if item not in _string_items(new_select)]
+    return [f"ruff select lost {missing}"] if missing else []
 
+
+def _type_checking_weakened(old_text: str, new_text: str) -> list[str]:
     mode_match_old = re.search(r'typeCheckingMode\s*=\s*"([^"]*)"', old_text)
     mode_match_new = re.search(r'typeCheckingMode\s*=\s*"([^"]*)"', new_text)
-    if mode_match_old and mode_match_new:
-        old_mode, new_mode = mode_match_old.group(1), mode_match_new.group(1)
-        old_rank, new_rank = _TYPE_CHECKING_RANK.get(old_mode), _TYPE_CHECKING_RANK.get(new_mode)
-        if old_rank is not None and new_rank is not None and new_rank < old_rank:
-            problems.append(f"typeCheckingMode weakened {old_mode!r} -> {new_mode!r}")
+    if not (mode_match_old and mode_match_new):
+        return []
+    old_mode, new_mode = mode_match_old.group(1), mode_match_new.group(1)
+    old_rank, new_rank = _TYPE_CHECKING_RANK.get(old_mode), _TYPE_CHECKING_RANK.get(new_mode)
+    if old_rank is not None and new_rank is not None and new_rank < old_rank:
+        return [f"typeCheckingMode weakened {old_mode!r} -> {new_mode!r}"]
+    return []
 
+
+def _report_rules_loosened(old_text: str, new_text: str) -> list[str]:
+    problems: list[str] = []
     old_rules, new_rules = _report_rule_values(old_text), _report_rule_values(new_text)
     for rule, old_value in old_rules.items():
         new_value = new_rules.get(rule)
@@ -455,10 +475,7 @@ def _lint_or_types_loosened(path: Path, old_text: str, new_text: str) -> _Findin
             continue
         if old_value.lower() not in {"none", "false"} and new_value.lower() in {"none", "false"}:
             problems.append(f"{rule} loosened {old_value!r} -> {new_value!r}")
-
-    if not problems:
-        return None
-    return "lint_types", "; ".join(problems)
+    return problems
 
 
 _SIGNATURES: Final[tuple[_Detector, ...]] = (
@@ -538,11 +555,14 @@ def _load_state() -> dict[str, object]:
 
 
 def _save_state(state: dict[str, object]) -> None:
-    try:
-        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
-    except OSError:
-        pass  # persistence failing degrades to "always first attempt" — never a crash
+    # persistence failing degrades to "always first attempt" — never a crash
+    with contextlib.suppress(OSError):
+        _write_state(state)
+
+
+def _write_state(state: dict[str, object]) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
 
 
 def _record_attempt(session_id: str, target: Path) -> tuple[int, int]:
@@ -593,6 +613,11 @@ def _fallback_reason(findings: list[_Finding], count: int, target: Path) -> str:
 
 
 def main() -> int:
+    """Deny, then escalate to the human, an edit that weakens a quality gate.
+
+    Returns:
+        Always 0: the decision travels as `hookSpecificOutput` JSON on stdout.
+    """
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError:

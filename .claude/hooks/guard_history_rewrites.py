@@ -115,13 +115,13 @@ _QUOTED = re.compile(r"\"[^\"]*\"|\'[^\']*\'")
 
 
 def without_prose(command):
-    """`command` with heredoc bodies and quoted arguments blanked out.
+    r"""`command` with heredoc bodies and quoted arguments blanked out.
 
     **Stripped before the split, not after, and that ordering is the whole fix.**
     `_AT_COMMAND_POSITION` treats `|` as a separator and searched the raw string, so a `|`
     *inside* a quoted argument or a heredoc body made whatever followed it look like a fresh
     command. Measured 2026-09-12: a quoted mention of one of the four names was allowed, and the
-    same mention inside a `\\|` alternation was refused — so a `grep` whose pattern is an
+    same mention inside a `\|` alternation was refused — so a `grep` whose pattern is an
     alternation of the four, which is the ordinary way anyone audits or documents this guard,
     could not be run at all. It refused three separate edits *documenting itself*, the third
     being the one that added this function (`docs/internal/lessons.md` `L17.15`).
@@ -144,6 +144,12 @@ def offending(command):
 
 
 def main():
+    """Refuse a `Bash` call that runs one of the commands that destroy unrecoverable work.
+
+    Returns:
+        2 when the command is refused, with the reason and the alternative on stderr; 0
+        otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):

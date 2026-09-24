@@ -72,8 +72,10 @@ Answer them, then prefix the command with WEFT_MEASUREMENT_CHECKED=1."""
 
 
 def strip_heredocs(command):
-    """`command` without heredoc bodies: `guard_unchecked_commit.py`'s own first false positive,
-    met again by this guard on the commit that wrote it — prose being written to a file.
+    """`command` without heredoc bodies, so prose written to a file is not refused.
+
+    `guard_unchecked_commit.py`'s own first false positive, met again by this guard on the commit
+    that wrote it — prose being written to a file.
     """
     kept = []
     pending = []
@@ -91,6 +93,15 @@ _QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 
 
 def offends(command):
+    """Whether `command` starts a paid experiment run without the checklist acknowledged.
+
+    Args:
+        command: The shell command the `Bash` tool is about to run.
+
+    Returns:
+        True when an unquoted experiment run appears, is not `--help`, and lacks the
+        acknowledgement variable.
+    """
     # Quoted text is a pattern or an argument, not a command: a `pgrep -f "… experiment"` status
     # check was refused (L24.2's shape). A run wrapped in `sh -c '…'` is not seen either.
     command = _QUOTED.sub("", strip_heredocs(command))
@@ -102,6 +113,11 @@ def offends(command):
 
 
 def main():
+    """Refuse a `Bash` call that starts a paid measurement before its checklist is answered.
+
+    Returns:
+        2 when the command is refused, with the checklist on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):

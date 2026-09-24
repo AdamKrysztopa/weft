@@ -47,6 +47,12 @@ def _graph_pack_names(root):
 
 
 def main():
+    """Warn the writer of a swept file that names the graph pack, before FF28(c) does.
+
+    Returns:
+        2 when the written file names the graph pack or its names cannot be read, with the
+        lines on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except ValueError:

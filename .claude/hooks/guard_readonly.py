@@ -38,6 +38,11 @@ BLOCKED: tuple[tuple[Path, str], ...] = (
 
 
 def main() -> int:
+    """Refuse a write whose target lies under reading material this repository does not own.
+
+    Returns:
+        2 when the write is refused, with the reason on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError:

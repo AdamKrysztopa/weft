@@ -1,5 +1,6 @@
-"""SessionStart and SubagentStart — put what this repository has already learned into
-whoever is about to work.
+"""SessionStart and SubagentStart — put what this repository has learned into whoever starts.
+
+Put what this repository has already learned into whoever is about to work.
 
 `docs/internal/lessons.md` records how the work goes wrong. A ledger nobody opens is
 worse than no ledger, because it looks like a control that is working. So

@@ -211,6 +211,11 @@ Redirect, read the status, then look at the output:
 
 
 def main():
+    """Refuse a `Bash` call that commits behind a check, or reads a truncating pipe's status.
+
+    Returns:
+        2 when the command is refused, with the reason on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):

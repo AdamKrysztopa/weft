@@ -28,6 +28,7 @@ STRAY_NAMES = ("weft.toml",)
 
 
 def main() -> None:
+    """Tell the session, through `additionalContext`, about a verification artefact at the root."""
     root = Path(sys.argv[0]).resolve().parents[2]
     stray = [name for name in STRAY_NAMES if (root / name).exists()]
     if not stray:

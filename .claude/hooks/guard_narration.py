@@ -97,16 +97,21 @@ def assistant_text_this_turn(transcript_path):
             break
         if message.get("role") != "assistant":
             continue
-        content = message.get("content")
-        if isinstance(content, str):
-            collected.append(content)
-        elif isinstance(content, list):
-            collected.extend(
-                block.get("text", "")
-                for block in content
-                if isinstance(block, dict) and block.get("type") == "text"
-            )
+        collected.extend(_text_blocks(message.get("content")))
     return "\n".join(reversed(collected))
+
+
+def _text_blocks(content):
+    """The visible text of one assistant message's `content`, a string or a list of blocks."""
+    if isinstance(content, str):
+        return [content]
+    if isinstance(content, list):
+        return [
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict) and block.get("type") == "text"
+        ]
+    return []
 
 
 def offences(text):
@@ -121,6 +126,11 @@ def offences(text):
 
 
 def main():
+    """Refuse to end a turn whose visible assistant text narrates its own planning.
+
+    Returns:
+        2 when the turn narrates, with the offending lines on stderr; 0 otherwise.
+    """
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
