@@ -1089,6 +1089,21 @@ registered, what didn't, and why. A declaration a **contract's publisher** makes
 implementation of that contract promises, and a plugin inherits it by the contract it registers
 under, never by writing it.
 
+**A plugin-written flag is a third class, and neither exemption covers it.** Two facts no
+signature carries are written by the pack that owns the class, beside the attributes *What a
+plugin receives* lists: `not_a_leaf = True` on an `ExtModel` says a node carrying that namespace is
+derived evidence, never a leaf a layer enriches
+(`packages/weft-rag/src/weft_kg/payload.py:134 "not_a_leaf: ClassVar[bool] = True"`), and
+`consumes` on a `NodeStore` class names the `ExtModel`s that store turns into rows of its own
+(`packages/weft-rag/src/weft_kg/store.py:956 "consumes: ClassVar"`). No protocol a class satisfies
+implies either, so neither can be derived, and no contract's publisher can promise either for
+every implementation. The engine reads them and checks nothing against the code:
+`not_a_leaf` counts only when it `is True`
+(`packages/weft-rag/src/weft_cli/layers.py:658 "False) is True"`), and a store whose `consumes`
+lists a namespace satisfies `layer.store-consumes` whether or not it writes rows for it
+(`packages/weft-rag/src/weft_cli/layers.py:485 "for model in getattr(candidate"`).
+`manual/pack-author-guide.md` §9.6 says where each is read and what it changes.
+
 **Retrievers declare what they need.** `needs_store = (VectorSearch, MetadataFilter)`, checked at
 resolution against the configured store; failure names the store, the missing capability and the
 backends that provide it. There is no adaptation and no degradation: a pipeline that wanted hybrid
@@ -2148,6 +2163,15 @@ vars: {target_lang: de}
 Scalars only; no var may reference another; referenced only inside `with:` values, never in `use:` or
 a stage id, so plugin selection stays a literal name the registry can check. An undefined var is a
 resolution error naming the var and the pipeline. The frozen form records every final value.
+
+**A layer document's `layer.` vars are read by the engine, not by a stage.** `layer.scope`,
+`layer.store-consumes` and `layer.incremental` are read off the resolved document's `vars` when a
+layer is composed against its base, so a derived document overrides one like any other var; a
+`layer.` var outside those three is refused naming them
+(`packages/weft-rag/src/weft_cli/layers.py:388 "which no layer reads"`). Two of their values offer
+a stage a service it cannot get elsewhere — `LayerCheckpoints` on a corpus-scoped build,
+`LayerRevision` to the stage `layer.incremental` names — and `manual/pack-author-guide.md` §9.6
+is where each value, service and refusal is specified for a pack author.
 
 **Vars never participate in applicability.** Applicability reads the node's facts, always. A var can
 say *translate into English*; it can never say *pretend this document is English*. That is what keeps
