@@ -258,7 +258,8 @@ class LayerNodeCollisionError(WeftError):
 
     A node id is a digest of its content and its parent, so two layers deriving the same
     text from the same leaf collide on one id: storing the second would silently overwrite
-    the first's own `weft_index.payload.Representation` marker. Refused rather than
+    the first's markers. The stored node's `LayerMember.layer` names its owner (R43.34); only
+    an unstamped node falls back to its `Representation.technique`. Refused rather than
     overwritten — the batch that collided is recorded `FAILED` first, so nothing here is
     silently accepted.
     """
@@ -1079,25 +1080,35 @@ def _layer_collision(
     *,
     layer: str,
 ) -> LayerNodeCollisionError | None:
-    """The first node in `created` whose id `existing` already holds under a different
-    `weft_index.payload.Representation.technique`, or `None` — ledger task **43.8**.
+    """The first node in `created` whose id `existing` already holds for another owner, or
+    `None` — ledger task **43.8**. The owner is the stored node's `LayerMember.layer`, compared
+    with `layer` because `created` is stamped only after this check (R43.34).
     """
     existing_by_id = {node.id: node for node in existing}
     for node in created:
         clash = existing_by_id.get(node.id)
         if clash is None:
             continue
-        clash_repr = clash.ext_as(Representation)
-        new_repr = node.ext_as(Representation)
-        clash_technique = clash_repr.technique if clash_repr is not None else "?"
-        new_technique = new_repr.technique if new_repr is not None else "?"
-        if clash_technique != new_technique:
+        owner = _foreign_owner(clash, node, layer=layer)
+        if owner is not None:
             return LayerNodeCollisionError(
-                f"layer '{layer}' derived node {node.id}, which the '{clash_technique}' layer "
+                f"layer '{layer}' derived node {node.id}, which the '{owner}' layer "
                 "already wrote: two layers producing one node would erase each other's "
                 "marker. Run one of them, or change what one derives."
             )
     return None
+
+
+def _foreign_owner(stored: Node, derived: Node, *, layer: str) -> str | None:
+    """Who else owns `stored`, or `None` when `layer` deriving `derived` again is its own."""
+    member = stored.ext_as(LayerMember)
+    if member is not None:
+        return member.layer if member.layer != layer else None
+    stored_repr = stored.ext_as(Representation)
+    derived_repr = derived.ext_as(Representation)
+    stored_technique = stored_repr.technique if stored_repr is not None else "?"
+    derived_technique = derived_repr.technique if derived_repr is not None else "?"
+    return stored_technique if stored_technique != derived_technique else None
 
 
 async def _run_one_layer_batch(

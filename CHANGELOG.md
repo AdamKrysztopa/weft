@@ -250,6 +250,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **Two layers deriving one node are refused whatever the node is.** The collision check compared
+  techniques through `Representation`, so a graph layer's fact and mention nodes, or a third
+  party's, read as the same technique and the second layer silently overwrote the first's. It now
+  compares the layer each stored node is stamped with, and names that layer. An unstamped node is
+  judged by its technique, as before.
 - **A pgvector read no longer fails with `cached plan must not change result type`.** A handle that
   had run one read five times held a prepared plan, and the first embedded `weft index` into a
   fresh store narrows the `embedding` column's type. Every later read of that shape on the older

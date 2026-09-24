@@ -2119,14 +2119,15 @@ filter.
 **What it looks like** — a second layer derived a node another layer already stored:
 
 ```text
-layer 'enrich-with-same' derived node 3f9a…, which the 'hypothetical-questions' layer already
+layer 'enrich-with-same' derived node 3f9a…, which the 'enrich-with-questions' layer already
 wrote: two layers producing one node would erase each other's marker. Run one of them, or change
 what one derives.
 ```
 
 **Why** — a derived node's id is a digest of its content and its parent. Two layers that derive the
 same text from the same chunk produce the same node, and storing the second would overwrite the
-first's record of where it came from. That layer's batch is recorded failed and the run stops.
+first's record of where it came from. That layer's batch is recorded failed and the run stops. The layer named is the one the stored
+node is stamped with; a node written before layers were stamped is named by its technique instead.
 
 **What to do:** run only one of the two layers over this corpus, or change the second so it
 derives something different.

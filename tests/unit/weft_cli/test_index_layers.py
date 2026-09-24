@@ -524,8 +524,8 @@ async def test_a_second_layer_writing_a_node_the_first_marked_is_refused(corpus:
 
     # Assert
     message = str(refused.value)
-    assert "'enrich-with-same'" in message
-    assert "echo-question" in message
+    assert "layer 'enrich-with-same' derived node" in message
+    assert "which the 'enrich-with-echo' layer already wrote" in message
     assert {node.id: node.ext for node in _derived(store)} == marked
 
 
