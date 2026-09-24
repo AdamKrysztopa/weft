@@ -76,7 +76,7 @@ def test_what_a_participant_reported_cannot_be_edited_afterwards() -> None:
     """`Removed` is frozen, and a plain `dict` field would leave one hole in that.
 
     `Node.ext` closed the identical hole with the identical mechanism
-    (`packages/weft-kernel/src/weft_kernel/payload/ext.py:168-172 'type ExtMap = Annotated['`).
+    (`packages/weft-kernel/src/weft_kernel/payload/ext.py:174-178 'type ExtMap = Annotated['`).
     """
     # Arrange
     removed = Removed(source_id=SourceId("src-1"), node_count=0, removed={"blob": 40})

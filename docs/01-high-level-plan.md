@@ -551,7 +551,7 @@ observed elsewhere: an LLM scores dimensions, a deterministic ladder decides.
 > *(`weft_kernel.seam._sanitize_control_bytes`), riding the same `Produced` → `Node` / `tuple` / `list`*
 > *walk `_strip_transient` already performs, immediately after it — never `weft-extract`, never a*
 > *store. Not `weft-extract`: eight sites across `packages/` build a `Node` from text that came from*
-> *outside the process (`weft_extract/text.py:80 "Node.syn"`, `weft_pdf/document.py:199 "rows: tu"`, `weft_chunk/*
+> *outside the process (`weft_extract/text.py:92 "Node.syn"`, `weft_pdf/document.py:199 "rows: tu"`, `weft_chunk/*
 > *fixed_size.py:117 "destroys"`, `weft_clean/dictionary_spacing.py:116-117 "intact: "`, `weft_clean/hyphenation.py:71-72 "intact: "`,*
 > *`weft_clean/whitespace.py:64-65 "intact: "`, `weft_clean/table_linearizer.py:79 "destroys"`, `weft_index/raptor.py:254 "owns ret"`) —*
 > *a smaller-scale reproduction of the same twelve-call-site fragility observed elsewhere. Not a*
@@ -850,7 +850,7 @@ expensive architecture is measured before it is built.
 
 **It runs first, and its first task is not multimodal.** Two of its tasks reach a run-wide service on
 the ingest path — a blob store and a describer — and today every path assembles its services from a
-hand-written list (`weft_engine/run_services.py:353 "for posi"`, `:407`; the command path in `weft_cli.cli`) against
+hand-written list (`weft_engine/run_services.py:383 "for posi"`, `:407`; the command path in `weft_cli.cli`) against
 three fixed keys (`weft_engine/services.py:161 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
 (`docs/internal/build-ledger.md:4364-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
@@ -922,7 +922,7 @@ figure in the same run:
   document's text, its table, or the figure's caption, and present only in what the describer
   wrote. **The clause's own wording — *"citing the `IMAGE` node"* — is satisfied in substance and
   is not observable**: `weft_generate.payload.Citation` carries `node_id`, and
-  `packages/weft-rag/src/weft_cli/render.py:747 "citation.node_id"` printed `[marker] uri` alone at
+  `packages/weft-rag/src/weft_cli/render.py:779 "citation.node_id"` printed `[marker] uri` alone at
   the time, so with three nodes from one source the rendered citation could not name which
   answered. Recorded as `lessons.md` `L9.88` rather than waved through; it was a renderer gap, not
   a provenance gap, and Phase 9 did not create it. *(Closed since: carried repair **R9.2** made
@@ -1092,7 +1092,7 @@ in the same section (`L11.6`'s shape, one document over).
 extension points is still one package"* — names the graph add-on as its own worked example
 (`01:97-98`), and until now the only instance in the tree was `examples/weft-example-graph`, a
 stranger that owns a private store its retriever constructs directly
-(`examples/weft-example-graph/src/weft_example_graph/retriever.py:51-55 "needs_st"`, `needs_store = ()`). An
+(`examples/weft-example-graph/src/weft_example_graph/retriever.py:7-11 "needs_st"`, `needs_store = ()`). An
 example may do that; a *shipped* retriever whose backend nobody can swap fails requirement 4 in
 the release set, and a rung whose `needs_store` the assembler cannot check turns a refusal by name
 at assembly (`02:981`, kept by `hybrid`, ledger 8.6) into a bare error mid-run. So this phase is

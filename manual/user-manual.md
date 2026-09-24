@@ -932,7 +932,7 @@ sources: 1026 indexed · 0 failed · 2974 indexing
 - **A generated answer that finds nothing says whether anything is still outstanding.** While
   sources are `indexing`, it reads *the corpus does not answer this — N sources are not yet
   indexed*, rather than a plain no
-  (`packages/weft-rag/src/weft_cli/render.py:909 "sources are not yet indexed."`).
+  (`packages/weft-rag/src/weft_cli/render.py:930 "sources are not yet indexed."`).
 - **An ask is never refused while an index runs. A second writer is.** A second `weft index`
   into the same store stops before it writes and names the one that is running
   ([`manual/troubleshooting.md`](troubleshooting.md) → `WriterBusyError`).
@@ -1045,7 +1045,7 @@ The tree is built out of sight and made searchable all at once, so a query never
   An *unassigned* leaf is one the join could not place in any existing cluster. The previous
   tree is withdrawn rather than deleted when the new one is published, and the run's closing
   repair pass leaves alone a tree that same run withdrew, so a query already reading it is not
-  cut off (`packages/weft-rag/src/weft_cli/reconcile.py:213 "record.id in spare"`). The layer's
+  cut off (`packages/weft-rag/src/weft_cli/reconcile.py:220 "record.id in spare"`). The layer's
   next build removes it before it starts. One more note, and the same command again:
 
   ```text
@@ -1057,7 +1057,7 @@ The tree is built out of sight and made searchable all at once, so a query never
   ```
 
   `reclaimed 2` is the two summaries the first join replaced
-  (`packages/weft-rag/src/weft_cli/layers.py:1572 "reclaim_withdrawn(layer)"`). `weft reconcile`,
+  (`packages/weft-rag/src/weft_cli/layers.py:1735 "reclaim_withdrawn(layer)"`). `weft reconcile`,
   in any mode, removes whatever is still withdrawn — here the tree the second join replaced:
 
   ```text

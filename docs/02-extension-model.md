@@ -482,7 +482,7 @@ whether or not the producing stage ever ran.
 > point. G5's row (`README.md:199 "python3 "`) states what transience *is* and never where it is applied, which is
 > why this is a narrowing under `09` §6.2 and not a Reopened row; the alternative — moving the strip
 > to the store boundary so a namespace could carry bytes between stages — would have been a kernel
-> change at `seam.py:493 "stage=stage_label,"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
+> change at `seam.py:487 "stage=stage_label,"`, would reinstate the N-strategies-N-copies cost `11` §1.4 measures, and would
 > still leave nothing readable at query time. `11` §3 D1 is settled by this block.
 
 **Stages declare what they read and write.** `requires` and `provides` name ext models, and the
@@ -1095,13 +1095,13 @@ plugin receives* lists: `not_a_leaf = True` on an `ExtModel` says a node carryin
 derived evidence, never a leaf a layer enriches
 (`packages/weft-rag/src/weft_kg/payload.py:134 "not_a_leaf: ClassVar[bool] = True"`), and
 `consumes` on a `NodeStore` class names the `ExtModel`s that store turns into rows of its own
-(`packages/weft-rag/src/weft_kg/store.py:956 "consumes: ClassVar"`). No protocol a class satisfies
+(`packages/weft-rag/src/weft_kg/store.py:999 "consumes: ClassVar"`). No protocol a class satisfies
 implies either, so neither can be derived, and no contract's publisher can promise either for
 every implementation. The engine reads them and checks nothing against the code:
 `not_a_leaf` counts only when it `is True`
-(`packages/weft-rag/src/weft_cli/layers.py:659 "False) is True"`), and a store whose `consumes`
+(`packages/weft-rag/src/weft_cli/layers.py:771 "False) is True"`), and a store whose `consumes`
 lists a namespace satisfies `layer.store-consumes` whether or not it writes rows for it
-(`packages/weft-rag/src/weft_cli/layers.py:486 "for model in getattr(candidate"`).
+(`packages/weft-rag/src/weft_cli/layers.py:533 "for model in getattr(candidate"`).
 `manual/pack-author-guide.md` §9.6 says where each is read and what it changes.
 
 **Retrievers declare what they need.** `needs_store = (VectorSearch, MetadataFilter)`, checked at
@@ -2168,7 +2168,7 @@ resolution error naming the var and the pipeline. The frozen form records every 
 `layer.store-consumes` and `layer.incremental` are read off the resolved document's `vars` when a
 layer is composed against its base, so a derived document overrides one like any other var; a
 `layer.` var outside those three is refused naming them
-(`packages/weft-rag/src/weft_cli/layers.py:389 "which no layer reads"`). Two of their values offer
+(`packages/weft-rag/src/weft_cli/layers.py:417 "which no layer reads"`). Two of their values offer
 a stage a service it cannot get elsewhere — `LayerCheckpoints` on a corpus-scoped build,
 `LayerRevision` to the stage `layer.incremental` names — and `manual/pack-author-guide.md` §9.6
 is where each value, service and refusal is specified for a pack author.

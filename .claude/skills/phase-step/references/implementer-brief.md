@@ -479,7 +479,7 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     pyright alone while `ruff` was red too, so the agent's first green was a surprise to both of
     us — read the red state from **every** step of `ci-no-tests` against the red files, not from
     the one step the test was designed to fail. `L22.32`: a brief dictated a docstring containing
-    `bench_diskann.py:582 "probe = _expression_probe(conn)"` with no quoted fragment, FF17 refused
+    `bench_diskann.py:619 "probe = _expression_probe(conn)"` with no quoted fragment, FF17 refused
     it, and the agent could not fix it
     without editing prose the brief had fixed. **The brief's prose becomes the tree's prose**, so
     any `path:line` an agent may copy is written `path:line "text from that line"`. And `L22.29`

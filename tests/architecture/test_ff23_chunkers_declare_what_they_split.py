@@ -22,7 +22,7 @@ nobody makes is indistinguishable from a declaration nobody needs.
 **Read off the registered plugin, never off source text.** `applies_to` is read here the way
 `weft_kernel.runner._applies_to_of` reads it — `getattr(instance, "applies_to", ())` on the object
 the registered factory builds
-(`packages/weft-kernel/src/weft_kernel/runner.py:1257-1266 'def _app'`) — so a
+(`packages/weft-kernel/src/weft_kernel/runner.py:1287-1296 'def _app'`) — so a
 chunker that inherits its declaration, or that a factory rather than a class supplies, answers this
 check exactly as it would answer the runner. A grep for the string would answer for neither.
 
@@ -36,7 +36,7 @@ directory to the prose and no subject to the check.
 **What this cannot check, stated rather than implied.** `Chunker` already forces one declaration at
 registration — `publishes_property_vocabulary = True` makes `destroys` mandatory, and
 `weft_kernel.registry` refuses a plugin without it naming what is missing
-(`packages/weft-rag/src/weft_chunk/contract.py:81 'Chunker.publish'`). `applies_to` is *not* on that
+(`packages/weft-rag/src/weft_chunk/contract.py:91 'Chunker.publish'`). `applies_to` is *not* on that
 footing, so a
 third party's chunker that declares none registers fine and is refused by nothing: this check's
 subject is the chunkers *this tree* ships. Putting `applies_to` beside `destroys` in

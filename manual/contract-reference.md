@@ -43,6 +43,8 @@ obligation, in exchange for the kernel reusing the instance across runs, cached 
 **Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
+Store bytes under a caller-composed key, read them back by uri, and reap a prefix.
+
 Puts bytes under a caller-composed key, opens them back by the returned uri, and reaps a
 prefix on delete. Three methods, and every one of them the whole surface a plugin owes.
 
@@ -61,13 +63,39 @@ does not ask a store to remember or return it a second time.
 async def delete_prefix(self, prefix: str) -> int: ...
 ```
 
+Delete every blob whose key lies under `prefix`.
+
+Args:
+    prefix: The key prefix to reap.
+
+Returns:
+    How many blobs were deleted.
+
 ```python
 async def open(self, uri: weft_blob.contract.BlobUri) -> bytes: ...
 ```
 
+Read back the bytes a `put` stored.
+
+Args:
+    uri: A uri this store returned from `put`.
+
+Returns:
+    The stored bytes.
+
 ```python
 async def put(self, key: str, data: bytes, media_type: str) -> weft_blob.contract.BlobUri: ...
 ```
+
+Store `data` under `key`.
+
+Args:
+    key: The caller-composed key the bytes are stored under.
+    data: The bytes to store.
+    media_type: What the bytes are; recorded by the caller's `BlobRef`, not returned.
+
+Returns:
+    The uri `open` reads the bytes back by.
 
 ## `Chunker`
 
@@ -96,6 +124,15 @@ async def run(
     collections.abc.Sequence[weft_kernel.payload.node.Node]
 ]: ...
 ```
+
+Split each node in `payload` into child chunks.
+
+Args:
+    payload: The nodes to split.
+    ctx: The run's context.
+
+Returns:
+    `Produced` carrying the chunks, or `NothingToProduce` when there were none.
 
 ## `Cleaner`
 
@@ -126,6 +163,15 @@ async def run(
     collections.abc.Sequence[weft_kernel.payload.node.Node]
 ]: ...
 ```
+
+Clean each node in `payload`, returning the cleaned nodes.
+
+Args:
+    payload: The nodes to clean.
+    ctx: The run's context.
+
+Returns:
+    `Produced` carrying the cleaned nodes, or `NothingToProduce` when there were none.
 
 ## `Command`
 
@@ -158,6 +204,15 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_command.contract.CommandResult]: ...
 ```
 
+Execute the command.
+
+Args:
+    args: An instance of this command's `args_model`.
+    ctx: The run's context.
+
+Returns:
+    The command's `Outcome`, carrying a `result_model` instance when it produced one.
+
 ## `ContextPacker`
 
 **Module:** `weft_retrieve.contract`  
@@ -178,6 +233,15 @@ async def run(
     self, payload: weft_retrieve.payload.Ranking, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Passages]: ...
 ```
+
+Choose and order the passages a generator is shown.
+
+Args:
+    payload: The final ranking.
+    ctx: The run's context.
+
+Returns:
+    The packed passages.
 
 ## `Describer`
 
@@ -205,6 +269,16 @@ async def describe(
 ) -> weft_kernel.payload.outcome.Outcome[str]: ...
 ```
 
+Say in words what `data` contains, as `instruction` asks.
+
+Args:
+    data: The bytes to describe.
+    media_type: The IANA type saying how to read `data`.
+    instruction: What the caller wants said.
+
+Returns:
+    `Produced` carrying the description, or `NothingToProduce`/`Failed`.
+
 ## `Embedder`
 
 **Module:** `weft_embed.contract`  
@@ -230,6 +304,15 @@ async def run(
     collections.abc.Sequence[weft_kernel.payload.node.Node]
 ]: ...
 ```
+
+Attach an embedding to each node in `payload`.
+
+Args:
+    payload: The nodes to embed.
+    ctx: The run's context.
+
+Returns:
+    `Produced` carrying the embedded nodes, or `NothingToProduce` when there were none.
 
 ## `Enhancer`
 
@@ -262,6 +345,16 @@ async def run(
     collections.abc.Sequence[weft_kernel.payload.node.Node]
 ]: ...
 ```
+
+Attach facts to each node in `payload`, keeping every node's identity.
+
+Args:
+    payload: The nodes to enhance.
+    ctx: The run's context.
+
+Returns:
+    `Produced` carrying every node it was handed plus anything derived from them, or
+    `NothingToProduce` when there was nothing to enhance.
 
 ## `Expander`
 
@@ -301,6 +394,15 @@ async def run(
 ]: ...
 ```
 
+Return every node handed in, plus whatever this stage derived from them.
+
+Args:
+    payload: The nodes to expand or revise.
+    ctx: The run's context, through which services such as an `Embedder` are reached.
+
+Returns:
+    The handed nodes and the derived ones, or `NothingToProduce`/`Failed`.
+
 ## `Extractor`
 
 **Module:** `weft_extract.contract`  
@@ -332,6 +434,16 @@ async def run(
 ]: ...
 ```
 
+Turn source documents into root nodes.
+
+Args:
+    payload: The source documents to extract.
+    ctx: The run's context.
+
+Returns:
+    `Produced` carrying the nodes, `NothingToProduce` when the sources held no text, or
+    `Failed`.
+
 ## `Fuser`
 
 **Module:** `weft_retrieve.contract`  
@@ -353,11 +465,22 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Ranking]: ...
 ```
 
+Merge the retrieved lists into one ranking.
+
+Args:
+    payload: The ranked lists to merge.
+    ctx: The run's context.
+
+Returns:
+    The one merged ranking.
+
 ## `GenerationCarrying`
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
+
+A store that carries a published generation's untouched members into a new one.
 
 A store that carries a published generation's untouched members into a new one — ledger
 task **43.22**.
@@ -381,11 +504,26 @@ async def carry_forward(
 ) -> int: ...
 ```
 
+Make published members of an earlier generation members of `into` too.
+
+Args:
+    into: The generation the nodes join.
+    node_ids: The nodes to carry; repeated ids count once.
+
+Returns:
+    The number of distinct nodes carried.
+
+Raises:
+    UnknownGenerationError: The store holds no generation `into`.
+    NotAPublishedMemberError: An id is held by no published generation.
+
 ## `GenerationHolding`
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
+
+A store that builds a corpus-scoped layer as a generation, published whole.
 
 A store that builds a corpus-scoped layer as a generation, published whole — ledger task
 **43.14**.
@@ -406,13 +544,37 @@ generation wrote is always visible, and a node two generations wrote is visible 
 async def bind_generation(self, generation: weft_store.contract.GenerationId) -> typing.Self: ...
 ```
 
+Open a second handle whose writes join `generation`.
+
+Args:
+    generation: The generation the new handle writes into.
+
+Returns:
+    The bound handle.
+
+Raises:
+    UnknownGenerationError: The store holds no such generation.
+
 ```python
 async def generations(self) -> tuple[weft_store.contract.GenerationRecord, Ellipsis]: ...
 ```
 
+Read every generation this store's catalogue holds.
+
+Returns:
+    Every generation record, oldest first.
+
 ```python
 async def open_generation(self, layer: str) -> weft_store.contract.GenerationRecord: ...
 ```
+
+Open a new, unpublished generation of `layer`.
+
+Args:
+    layer: The layer the generation builds.
+
+Returns:
+    The generation's record, `building`.
 
 ```python
 async def publish_generation(
@@ -420,11 +582,33 @@ async def publish_generation(
 ) -> weft_store.contract.GenerationRecord: ...
 ```
 
+Make `generation` visible to handles that open afterwards.
+
+Args:
+    generation: The generation to publish.
+
+Returns:
+    The generation's record, `published`.
+
+Raises:
+    UnknownGenerationError: The store holds no such generation.
+
 ```python
 async def retract_generation(
     self, generation: weft_store.contract.GenerationId
 ) -> weft_store.contract.Removed: ...
 ```
+
+Remove the nodes only `generation` made, and forget it.
+
+Args:
+    generation: The generation to retract.
+
+Returns:
+    How many nodes were deleted.
+
+Raises:
+    UnknownGenerationError: The store holds no such generation.
 
 ## `GenerationMetric`
 
@@ -446,11 +630,22 @@ async def evaluate(
 ) -> weft_kernel.payload.outcome.Outcome[weft_eval.contract.MetricScore]: ...
 ```
 
+Score one generation sample.
+
+Args:
+    payload: The question, the prediction and the reference to score.
+    ctx: The run's context, through which a metric reaches any service it needs.
+
+Returns:
+    The score, or the outcome naming why none could be produced.
+
 ## `GenerationWithdrawing`
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
+
+A store that withdraws a superseded generation now and reclaims its nodes later.
 
 A store that withdraws a superseded generation now and reclaims its nodes later — repair
 **R43.29**.
@@ -468,11 +663,31 @@ that opened before keeps reading the tree it opened on. An unknown id raises
 async def reclaim_withdrawn(self, layer: str) -> weft_store.contract.Removed: ...
 ```
 
+Retract every withdrawn generation of `layer`.
+
+Args:
+    layer: The layer whose withdrawn generations are reclaimed.
+
+Returns:
+    How many nodes were deleted.
+
 ```python
 async def withdraw_generation(
     self, generation: weft_store.contract.GenerationId
 ) -> weft_store.contract.GenerationRecord: ...
 ```
+
+Mark a published `generation` withdrawn, touching no node.
+
+Args:
+    generation: The generation to withdraw.
+
+Returns:
+    The generation's record, `withdrawn`.
+
+Raises:
+    UnknownGenerationError: The store holds no such generation.
+    NotAPublishedGenerationError: The generation is not published.
 
 ## `Generator`
 
@@ -498,6 +713,16 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_generate.payload.Answer]: ...
 ```
 
+Answer `payload.origin` from the labelled passages, citing them by label.
+
+Args:
+    payload: The packed, labelled evidence and the question it was retrieved for.
+    ctx: The run's context, which supplies the `LLM` and the other services.
+
+Returns:
+    The answer — `Answer(stance=NOT_IN_CORPUS)` where the evidence does not answer
+    the question, never `NothingToProduce`.
+
 ## `GraphTraversal`
 
 **Module:** `weft_kg.contract`  
@@ -522,6 +747,15 @@ async def entities_by_name(
 ) -> tuple[weft_kg.contract.Entity, Ellipsis]: ...
 ```
 
+Resolve surface forms to the distinct canonical entities they currently name.
+
+Args:
+    names: The surface forms to look up.
+
+Returns:
+    Each distinct entity any of `names` resolves to; a name that resolves to nothing
+    contributes nothing.
+
 ```python
 async def neighbourhood(
     self, entity_ids: collections.abc.Sequence[weft_kg.contract.EntityId], *, hops: int
@@ -529,6 +763,15 @@ async def neighbourhood(
     weft_kg.contract.EntityId, tuple[weft_kg.contract.Entity, Ellipsis]
 ]: ...
 ```
+
+Every entity reachable from each seed within `hops` relation edges.
+
+Args:
+    entity_ids: The seeds to walk from.
+    hops: The most relation edges a walk may cross.
+
+Returns:
+    Each seed mapped to the entities within reach of it, the seed itself excluded.
 
 ```python
 async def nodes_for_entities(
@@ -538,11 +781,22 @@ async def nodes_for_entities(
 ]: ...
 ```
 
+Map each held entity to the nodes that mention it.
+
+Args:
+    entity_ids: The entities to look up.
+
+Returns:
+    One key per requested id this backend holds — an id it does not hold is absent,
+    never a key mapping to `()`.
+
 ## `IdentifiedEmbedder`
 
 **Module:** `weft_embed.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `1.1.0`
+
+An embedder that can state what it embeds with.
 
 An embedder that can state what it embeds with — one member, `NodeSupersedable`'s
 shape (`weft_store.contract`), for the same reason: growing `Embedder` itself would be a
@@ -554,6 +808,11 @@ stranger with no declared model does not.
 ```python
 async def embedding_model(self) -> weft_embed.contract.EmbeddingModel: ...
 ```
+
+Report the model and width this embedder's requests actually use.
+
+Returns:
+    The model name and, when the embedder fixes it, the vector width.
 
 ## `LLMProvider`
 
@@ -578,17 +837,45 @@ nothing to flush already take for `flush`.
 async def close(self) -> None: ...
 ```
 
+Release whatever connection the provider opened; return at once if it opened none.
+
 ```python
 async def complete(
     self, conv: weft_llm.payload.Conversation, *, model: str, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_llm.payload.Completion]: ...
 ```
 
+Continue `conv` in one call, decided when it returns.
+
+Args:
+    conv: The conversation to continue.
+    model: The model to answer under; one provider instance serves many.
+    ctx: The run's context.
+
+Returns:
+    The answer, or `NothingToProduce` where the model produced none.
+
+Raises:
+    LLMError: The provider's failure, as one leaf of `weft_llm.errors`.
+
 ```python
 async def stream(
     self, conv: weft_llm.payload.Conversation, *, model: str, ctx: weft_kernel.context.Context
 ) -> collections.abc.AsyncIterator[str]: ...
 ```
+
+Continue `conv`, yielding the answer's text as it arrives.
+
+Args:
+    conv: The conversation to continue.
+    model: The model to answer under; one provider instance serves many.
+    ctx: The run's context.
+
+Yields:
+    Each fragment of the answer's text, in order.
+
+Raises:
+    LLMError: The provider's failure, as one leaf of `weft_llm.errors`.
 
 ## `MetadataFilter`
 
@@ -640,6 +927,15 @@ async def matching(
 ) -> weft_store.contract.Page[weft_kernel.payload.node.Node]: ...
 ```
 
+Walk every stored node `filter` selects, one page at a time.
+
+Args:
+    filter: The predicate that alone decides membership.
+    cursor: Where the previous page ended, or `None` for the first page.
+
+Returns:
+    One page of matching nodes and the cursor for the next, if any.
+
 ## `NativeStructured`
 
 **Module:** `weft_llm.contract`  
@@ -671,6 +967,20 @@ async def complete_structured(
 ) -> weft_kernel.payload.outcome.Outcome[weft_llm.payload.Completion]: ...
 ```
 
+Continue `conv` with an answer the vendor itself constrains to `schema`.
+
+Args:
+    conv: The conversation to continue.
+    schema: The JSON schema the answer must satisfy.
+    model: The model to answer under.
+    ctx: The run's context.
+
+Returns:
+    The answer, whose text is a document in `schema`.
+
+Raises:
+    LLMError: The provider's failure, as one leaf of `weft_llm.errors`.
+
 ## `NodeStore`
 
 **Module:** `weft_store.contract`  
@@ -699,9 +1009,19 @@ table — to gain a capability most of them will never offer.
 async def add(self, nodes: collections.abc.Sequence[weft_kernel.payload.node.Node]) -> None: ...
 ```
 
+Accept `nodes` for storage; a store may buffer them until `flush`.
+
+Args:
+    nodes: The nodes to write.
+
 ```python
 async def count(self) -> int: ...
 ```
+
+Count the nodes stored.
+
+Returns:
+    How many nodes this store holds.
 
 ```python
 async def delete_source(
@@ -709,9 +1029,19 @@ async def delete_source(
 ) -> weft_store.contract.Removed: ...
 ```
 
+Delete what `source_id` produced, idempotently and resumably.
+
+Args:
+    source_id: The source whose nodes and record are removed.
+
+Returns:
+    How many nodes were deleted and how many were narrowed.
+
 ```python
 async def flush(self) -> None: ...
 ```
+
+Write out anything `add` buffered; idempotent, and called by the runner.
 
 ```python
 async def get(
@@ -719,19 +1049,45 @@ async def get(
 ) -> collections.abc.Sequence[weft_kernel.payload.node.Node]: ...
 ```
 
+Read the nodes stored under `ids`.
+
+Args:
+    ids: The node ids to read.
+
+Returns:
+    The nodes that exist; an id the store does not hold is absent from the answer.
+
 ```python
 async def get_source(
     self, source_id: weft_kernel.payload.ids.SourceId
 ) -> weft_store.contract.SourceRecord | None: ...
 ```
 
+Read one source's record.
+
+Args:
+    source_id: The source to read.
+
+Returns:
+    The record, or `None` when none is stored.
+
 ```python
 async def list_sources(self) -> collections.abc.Sequence[weft_store.contract.SourceRecord]: ...
 ```
 
+Read every source record this store holds.
+
+Returns:
+    Every source record.
+
 ```python
 async def put_source(self, record: weft_store.contract.SourceRecord) -> None: ...
 ```
+
+Write or replace one source's record.
+
+Args:
+    record: The record to store under its own id.
 
 ```python
 async def run(
@@ -743,11 +1099,28 @@ async def run(
 ]: ...
 ```
 
+Store the nodes arriving at this pipeline position and pass them on.
+
+Args:
+    payload: The nodes to store.
+    ctx: The run's context.
+
+Returns:
+    The same nodes, unchanged, once stored.
+
 ```python
 async def scan(
     self, cursor: weft_store.contract.Cursor | None = None
 ) -> weft_store.contract.Page[weft_kernel.payload.node.Node]: ...
 ```
+
+Walk every stored node, one page at a time.
+
+Args:
+    cursor: Where the previous page ended, or `None` for the first page.
+
+Returns:
+    One page of nodes and the cursor for the next, if any.
 
 ## `NodeSupersedable`
 
@@ -793,6 +1166,15 @@ async def supersede(
 ) -> None: ...
 ```
 
+Replace node `old` with `new`, writing `new` first.
+
+Args:
+    old: The node being replaced; already absent is not an error.
+    new: The replacement, which must cover every source `old` carries.
+
+Raises:
+    SupersedeNarrowsSourcesError: `new` covers fewer sources than `old`.
+
 ## `Prompt`
 
 **Module:** `weft_prompts.contract`  
@@ -823,6 +1205,16 @@ async def render(
 ) -> weft_kernel.payload.outcome.Outcome[weft_llm.payload.Rendered]: ...
 ```
 
+Render this prompt's conversation for `values`.
+
+Args:
+    values: An instance of `input_model`.
+    ctx: The run's context, whose locale selects the text.
+
+Returns:
+    `Produced` carrying the rendered conversation, or `NothingToProduce` when there is
+    nothing to ask.
+
 ## `QueryScorer`
 
 **Module:** `weft_retrieve.contract`  
@@ -843,6 +1235,15 @@ async def run(
     self, payload: weft_retrieve.payload.Query, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Scorecard]: ...
 ```
+
+Score a query along the dimensions a router decides on.
+
+Args:
+    payload: The query to score.
+    ctx: The run's context.
+
+Returns:
+    The query's scorecard.
 
 ## `QueryTransform`
 
@@ -868,6 +1269,15 @@ async def run(
     self, payload: weft_retrieve.payload.QuerySet, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.QuerySet]: ...
 ```
+
+Rewrite, expand or decompose the queries to search with.
+
+Args:
+    payload: The queries so far.
+    ctx: The run's context.
+
+Returns:
+    The queries to search with.
 
 ## `Reconcilable`
 
@@ -912,11 +1322,29 @@ async def estimate(
 ) -> weft_store.contract.ReconcileEstimate: ...
 ```
 
+Say what converging would cost, before anything is spent.
+
+Args:
+    ctx: The run's context.
+    mode: The mode being asked about.
+
+Returns:
+    The outstanding work and the model calls converging would make.
+
 ```python
 async def reconcile(
     self, ctx: weft_kernel.context.Context, mode: weft_store.contract.ReconcileMode
 ) -> weft_store.contract.ReconcileReport: ...
 ```
+
+Converge stored state with what the corpus holds.
+
+Args:
+    ctx: The run's context.
+    mode: Whether the pass only repairs or also backfills.
+
+Returns:
+    What the pass did, and how much it left for the next pass.
 
 ## `Renderer`
 
@@ -959,6 +1387,16 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_extract.payload.Rendition]: ...
 ```
 
+Render nodes into one document of this renderer's media type.
+
+Args:
+    payload: The nodes to render.
+    ctx: The run's context.
+
+Returns:
+    `Produced` carrying the `Rendition`, or `NothingToProduce` when there was nothing to
+    render.
+
 ## `Reranker`
 
 **Module:** `weft_retrieve.contract`  
@@ -979,6 +1417,15 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Ranking]: ...
 ```
 
+Reorder, filter or rescore a ranking.
+
+Args:
+    payload: The ranking to rerank.
+    ctx: The run's context.
+
+Returns:
+    The reranked ranking.
+
 ## `RetrievalMetric`
 
 **Module:** `weft_eval.contract`  
@@ -998,6 +1445,15 @@ async def evaluate(
     self, payload: weft_eval.contract.RetrievalSample, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_eval.contract.MetricScore]: ...
 ```
+
+Score one retrieval sample.
+
+Args:
+    payload: The ranked result and the relevance judgement to score it against.
+    ctx: The run's context, through which a metric reaches any service it needs.
+
+Returns:
+    The score, or the outcome naming why none could be produced.
 
 ## `Retriever`
 
@@ -1037,14 +1493,25 @@ async def run(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Candidates]: ...
 ```
 
+Search with every query, one ranked list per arm.
+
+Args:
+    payload: The queries to search with.
+    ctx: The run's context.
+
+Returns:
+    The ranked lists retrieved.
+
 ## `Revisable`
 
 **Module:** `weft_index.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `1.0.0`
 
-A stage that revises what is **already stored**, not only the payload it was handed —
-grilling session **G15**'s *Read* face, ledger task **10.23**.
+A stage that revises what is **already stored**.
+
+Not only the payload it was handed — grilling session **G15**'s *Read* face, ledger task
+**10.23**.
 
 Every other stage in an ingest document is a pure function of its payload. An incremental
 tree is not: `adrap` must read the summaries a previous run wrote in order to join a new
@@ -1124,6 +1591,15 @@ async def run(
 ]: ...
 ```
 
+Return every node handed in, plus whatever this stage derived from them.
+
+Args:
+    payload: The nodes to expand or revise.
+    ctx: The run's context, through which services such as an `Embedder` are reached.
+
+Returns:
+    The handed nodes and the derived ones, or `NothingToProduce`/`Failed`.
+
 ## `RoutingPolicy`
 
 **Module:** `weft_retrieve.contract`  
@@ -1155,11 +1631,22 @@ async def reachable(
 ) -> frozenset[str]: ...
 ```
 
+The names among `candidates` this policy could ever choose.
+
 ```python
 async def run(
     self, payload: weft_retrieve.payload.Scorecard, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Route]: ...
 ```
+
+Choose the pipeline a scored query is answered by.
+
+Args:
+    payload: The query's scorecard.
+    ctx: The run's context.
+
+Returns:
+    The chosen route.
 
 ## `SingleWriter`
 
@@ -1179,9 +1666,19 @@ holding process dies. A claim made by a crashed writer never blocks the next one
 async def claim_writer(self, writer: weft_store.contract.WriterClaim) -> None: ...
 ```
 
+Claim this store for `writer`, or refuse naming the current holder.
+
+Args:
+    writer: Who is claiming the store.
+
+Raises:
+    WriterBusyError: Another handle holds the claim.
+
 ```python
 async def release_writer(self) -> None: ...
 ```
+
+End this handle's writer claim, if it holds one.
 
 ## `SourceDeletable`
 
@@ -1228,13 +1725,21 @@ async def delete_source(
 ) -> weft_store.contract.Removed: ...
 ```
 
+Delete what `source_id` produced, idempotently and resumably.
+
+Args:
+    source_id: The source whose derived data is removed.
+
+Returns:
+    How many nodes were deleted; zero for a source that is already gone.
+
 ## `Sufficiency`
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `1.1.0`
 
-Judges whether the evidence in hand answers the question. **Not a pipeline position.**
+Judges whether the evidence in hand answers the question. **Not a pipeline position**.
 
 Declares no `Stage[In, Out]` base, on purpose: it takes three arguments, not one
 payload, and it is reached *inside* a looping technique by name through `StageLookup`
@@ -1257,11 +1762,24 @@ async def assess(
 ) -> weft_kernel.payload.outcome.Outcome[weft_retrieve.payload.Assessment]: ...
 ```
 
+Judge whether `evidence` suffices to answer `question`.
+
+Args:
+    question: The question being answered.
+    evidence: The passages gathered so far.
+    draft: An answer drafted from `evidence`, when there is one.
+    ctx: The run's context.
+
+Returns:
+    The `Assessment`; `observed=False` when the judgement could not be made.
+
 ## `TargetHolding`
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
+
+A store that holds named, complete targets, one of them live.
 
 A store that holds named, complete targets, one of them live — ledger task **34.3**,
 Phase 34's blue-green index migration.
@@ -1278,15 +1796,40 @@ node.
 async def bind_target(self, target: weft_store.contract.TargetName) -> typing.Self: ...
 ```
 
+Open a second handle onto this store, bound to `target`.
+
+Args:
+    target: The target the new handle reads and writes.
+
+Returns:
+    The bound handle.
+
 ```python
 async def claim_embedding(
     self, identity: weft_store.contract.EmbeddingIdentity
 ) -> weft_store.contract.EmbeddingIdentity: ...
 ```
 
+Record `identity` against this handle's target, unless one is recorded.
+
+Args:
+    identity: What embedded the vectors about to be written.
+
+Returns:
+    The identity the target holds, which is the earlier one if already claimed.
+
 ```python
 async def drop_target(self, target: weft_store.contract.TargetName) -> None: ...
 ```
+
+Delete `target` and everything stored in it.
+
+Args:
+    target: The target to drop.
+
+Raises:
+    UnknownTargetError: The target is not in the catalogue.
+    TargetInUseError: The target is live, previous, or bound by another handle.
 
 ```python
 async def promote(
@@ -1294,13 +1837,37 @@ async def promote(
 ) -> weft_store.contract.TargetCatalogue: ...
 ```
 
+Make the promoted target live, recording the previous one for rollback.
+
+Args:
+    promotion: The target to make live and why.
+
+Returns:
+    The catalogue after the promotion.
+
+Raises:
+    UnknownTargetError: The target is not in the catalogue.
+
 ```python
 async def rollback(self) -> weft_store.contract.TargetCatalogue: ...
 ```
 
+Swap the live target with the previous one.
+
+Returns:
+    The catalogue after the rollback.
+
+Raises:
+    NoPreviousTargetError: No target was live before this one.
+
 ```python
 async def target_catalogue(self) -> weft_store.contract.TargetCatalogue: ...
 ```
+
+Read every target this store holds.
+
+Returns:
+    The targets, which one is live, which was live before, and the last promotion.
 
 ## `TextSearch`
 
@@ -1344,17 +1911,28 @@ async def search_text(
 ) -> collections.abc.Sequence[weft_store.contract.Scored[weft_kernel.payload.node.Node]]: ...
 ```
 
+Rank stored nodes by lexical match against `text`.
+
+Args:
+    text: The query text.
+    top_k: How many nodes to return at most.
+    filter: A predicate every returned node must satisfy, if any.
+
+Returns:
+    The best `top_k` nodes with their scores, best first; empty when nothing matches.
+
 ## `VectorSearch`
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
 **Version:** `2.14.0`
 
-A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
-embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not
-coupled to a model." Not a `Stage`: nothing in an ingest pipeline calls `search_vector`, and
-a future `Retriever` (Phase 2) resolves this capability directly against the configured
-store rather than through the runner's stage machinery.
+A store that can rank `Node`s by vector similarity.
+
+Never embeds — `02`: "stores never embed. `VectorSearch` takes a vector, `TextSearch` takes
+text; a store is therefore not coupled to a model." Not a `Stage`: nothing in an ingest pipeline
+calls `search_vector`, and a future `Retriever` (Phase 2) resolves this capability directly
+against the configured store rather than through the runner's stage machinery.
 
 ### Methods
 
@@ -1366,3 +1944,13 @@ async def search_vector(
     filter: weft_store.contract.Filter | None = None,
 ) -> collections.abc.Sequence[weft_store.contract.Scored[weft_kernel.payload.node.Node]]: ...
 ```
+
+Rank stored nodes by similarity to `vector`.
+
+Args:
+    vector: The query vector; the store never embeds.
+    top_k: How many nodes to return at most.
+    filter: A predicate every returned node must satisfy, if any.
+
+Returns:
+    The best `top_k` nodes with their scores, best first.

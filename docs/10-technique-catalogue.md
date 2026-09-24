@@ -181,7 +181,7 @@ with origins, not because this file owns the phase.
 > row now says what ships. The mode annotation is gone because `RaptorConfig` has no `mode` field
 > (`packages/weft-rag/src/weft_index/raptor.py:132-171 "answers "`, seven fields) and an index-side plugin
 > cannot own a query-time behaviour (`raptor.py:93-102 ". This p"`); the only readers of `lineage.parents` on
-> the query path walk child→parent (`weft_retrieve/collapse.py:142-146 "if len(node.lineage.paren"`,
+> the query path walk child→parent (`weft_retrieve/collapse.py:152-156 "if len(node.lineage.paren"`,
 > `weft_generate/representation.py:68-72 "if len(n"`). `build-ledger.md` → Phase 10 is where recursion becomes
 > true (10.7) and where a traversal retriever, if ever built, gets its own name and its own row.)*
 

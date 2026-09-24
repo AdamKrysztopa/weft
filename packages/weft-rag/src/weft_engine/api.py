@@ -182,7 +182,7 @@ class Weft:
 
         Mirrors `weft_kernel.runner.Runner._flush_all`, whose own docstring states the rule
         this discharges — carried repair `R18.1`: *"raising here would replace it"*
-        (`packages/weft-kernel/src/weft_kernel/runner.py:977 "async def _flush_all"`).
+        (`packages/weft-kernel/src/weft_kernel/runner.py:967 "async def _flush_all"`).
         Every held instance gets its chance to close regardless of an earlier one's failure;
         `self.dependencies.token_sink` closes last, because a sink a caller passed in may well
         hold a file even though `weft_llm.client.NullSink` (a run that built no sink of its own)

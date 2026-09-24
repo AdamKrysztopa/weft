@@ -341,7 +341,7 @@ than removed, and `02` §1 owns that rule.
 
 Each is a question, **one** recommendation, and what it costs. None is a menu.
 
-### D1 — Where does `__transient__` strip? *(Settled 2026-09-06 as a narrowing of `02` §1 → *The payload model* — the block under `docs/02-extension-model.md:428 "Built in"`; Phase 9 task 9.1. The citations below are as written on 2026-08-18: the strip is now the call at `seam.py:493 "stage=stage_label,"` and the walk at `:552-587`, and the prose it corrects is at `02:420-425`.)*
+### D1 — Where does `__transient__` strip? *(Settled 2026-09-06 as a narrowing of `02` §1 → *The payload model* — the block under `docs/02-extension-model.md:428 "Built in"`; Phase 9 task 9.1. The citations below are as written on 2026-08-18: the strip is now the call at `seam.py:487 "stage=stage_label,"` and the walk at `:552-587`, and the prose it corrects is at `02:420-425`.)*
 
 ---
 
@@ -739,7 +739,7 @@ assert.** G4 requires a retriever's missing capability to fail at resolution nam
 capability and the backends that provide it; a 3,072-dim vector discovering at `INSERT` time that the
 index refuses it is the same defect class. **Where the check lives matters and must be named:** in the
 store pack's `register()` probe and a pack-side resolution validator — **never** in
-`weft_kernel.runner.resolve` (`packages/weft-kernel/src/weft_kernel/runner.py:275 "def __in"`), which is the only
+`weft_kernel.runner.resolve` (`packages/weft-kernel/src/weft_kernel/runner.py:286 "def __in"`), which is the only
 "pipeline load" in the tree today and which must not learn the words *embedding dimension*. Ledger
 **2.32**. Numbers that will bite: Gemini Embedding 2 defaults to 3072, Qwen3-VL-Embedding-8B to 4096,
 jina-embeddings-v4 to 2048 (right at the edge), Cohere Embed 4 to 1536, voyage-multimodal-3.5 to 1024,

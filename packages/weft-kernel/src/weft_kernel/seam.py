@@ -48,7 +48,7 @@ The four concerns:
 
    - **Not in an extractor pack.** Eight sites across `packages/` build a
      `Node` from text that came from outside the process — `weft_extract/
-     text.py:80 'Node.syn'`, `weft_pdf/document.py:199 'rows: tu'`,
+     text.py:92 'Node.syn'`, `weft_pdf/document.py:199 'rows: tu'`,
      `weft_chunk/fixed_size.py:117 'destroys'
      'destroys'`,
      `weft_clean/dictionary_spacing.py:116-117 'intact: '`,
