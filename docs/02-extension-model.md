@@ -1099,9 +1099,9 @@ derived evidence, never a leaf a layer enriches
 implies either, so neither can be derived, and no contract's publisher can promise either for
 every implementation. The engine reads them and checks nothing against the code:
 `not_a_leaf` counts only when it `is True`
-(`packages/weft-rag/src/weft_cli/layers.py:658 "False) is True"`), and a store whose `consumes`
+(`packages/weft-rag/src/weft_cli/layers.py:659 "False) is True"`), and a store whose `consumes`
 lists a namespace satisfies `layer.store-consumes` whether or not it writes rows for it
-(`packages/weft-rag/src/weft_cli/layers.py:485 "for model in getattr(candidate"`).
+(`packages/weft-rag/src/weft_cli/layers.py:486 "for model in getattr(candidate"`).
 `manual/pack-author-guide.md` §9.6 says where each is read and what it changes.
 
 **Retrievers declare what they need.** `needs_store = (VectorSearch, MetadataFilter)`, checked at
@@ -2168,7 +2168,7 @@ resolution error naming the var and the pipeline. The frozen form records every 
 `layer.store-consumes` and `layer.incremental` are read off the resolved document's `vars` when a
 layer is composed against its base, so a derived document overrides one like any other var; a
 `layer.` var outside those three is refused naming them
-(`packages/weft-rag/src/weft_cli/layers.py:388 "which no layer reads"`). Two of their values offer
+(`packages/weft-rag/src/weft_cli/layers.py:389 "which no layer reads"`). Two of their values offer
 a stage a service it cannot get elsewhere — `LayerCheckpoints` on a corpus-scoped build,
 `LayerRevision` to the stage `layer.incremental` names — and `manual/pack-author-guide.md` §9.6
 is where each value, service and refusal is specified for a pack author.

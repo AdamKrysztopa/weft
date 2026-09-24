@@ -15,6 +15,7 @@ reads it that way.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
@@ -1583,19 +1584,22 @@ class _GenerationCheckpoints:
         self._layer = layer
         self._ctx = ctx
         self.kept: set[NodeId] = set()
+        self._store_calls = asyncio.Lock()  # R43.40: a `Lifetime.RUN` store owes no concurrency
 
     def _scoped(self, key: str) -> str:
         return f"{self._namespace}/{key}"
 
     async def recall(self, key: str) -> Node | None:
-        page = await self._matching(
-            Filter(op=FilterOp.EQ, field=_CHECKPOINT_FIELD, value=self._scoped(key)), None
-        )
+        async with self._store_calls:
+            page = await self._matching(
+                Filter(op=FilterOp.EQ, field=_CHECKPOINT_FIELD, value=self._scoped(key)), None
+            )
         return page.items[0] if page.items else None
 
     async def keep(self, key: str, node: Node) -> None:
         stamped = node.with_ext(LayerMember(layer=self._layer, checkpoint=self._scoped(key)))
-        outcome = await self._runner.run_once(self._store_tail, (stamped,), self._ctx)
+        async with self._store_calls:
+            outcome = await self._runner.run_once(self._store_tail, (stamped,), self._ctx)
         if not isinstance(outcome, Produced):
             raise WeftError(
                 f"'{self._layer}' could not keep a finished node in its building generation, "

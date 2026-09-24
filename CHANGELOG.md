@@ -257,6 +257,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **A corpus-wide RAPTOR build on pgvector no longer fails once it keeps two summaries.** Resumable
+  builds (`LayerCheckpoints`) saved each summary through the one store connection while `raptor`
+  wrote several at once, and pgvector refused the interleaved transactions
+  (`OutOfOrderTransactionNesting`). The checkpoint service now makes one store call at a time;
+  summarising stays concurrent.
 - **`weft reconcile` says how many nodes it reclaimed, and `weft index` says when a store made a
   layer build fall back.** Reconcile reclaimed withdrawn layer trees and printed nothing about it.
   Its line now ends `, reclaimed N` when N is not zero. A store that holds generations but cannot

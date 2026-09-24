@@ -1,8 +1,10 @@
 """Phase 29 task **29.1(b)** — the concurrent shape: one process, one store, eight searches at once.
 
-`fix-plans/05` → *What checking it found*: nothing that ships fans out on one store, and concurrency
-on one `PgVectorStore` is serialised by psycopg's per-connection lock, so this is a forward
-measurement for an application embedding Weft in its own event loop, not a property of the binary.
+`fix-plans/05` found that nothing shipped fanned out on one store. Since 43.20, `raptor` fans out
+checkpoint keeps, and `LayerCheckpoints` serialises them because a `Lifetime.RUN` store owes no
+concurrency (R43.40). psycopg's per-connection lock orders statements, not transactions. So this
+is a forward measurement of concurrent *reads* for an application embedding Weft in its own event
+loop, not a property of the binary.
 It cannot be a script — fitness function 7(a) keeps `asyncio.run` out of `scripts/` — so it is a
 test, and it measures only a database the harness loaded and named in `WEFT_BENCH_DATABASE_URL`.
 Run with `-s` to read the line it prints.

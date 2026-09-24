@@ -173,7 +173,8 @@ class LayerCheckpoints(Protocol):
     `key`; `recall` returns what an earlier, interrupted build kept under the same key, or
     `None`. The key is the stage's to choose, and must name everything the node was built from:
     the build scopes keys by layer and by the run's model roles, since a stage cannot see which
-    model answered, and nothing else.
+    model answered, and nothing else. A stage may call `recall` and `keep` concurrently; the
+    service never overlaps them on a store.
 
     A service, never registered — so, like `weft_llm.contract.LLM`, it carries no `version`
     and is not `@runtime_checkable`.
