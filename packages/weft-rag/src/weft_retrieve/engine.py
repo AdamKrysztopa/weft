@@ -1,5 +1,6 @@
-"""The real `StageLookup` and `RouteCatalogue` — `weft_retrieve.contract`'s own two
-service Protocols, built for the first time. Task **2.8**.
+"""The real `StageLookup` and `RouteCatalogue`.
+
+`weft_retrieve.contract`'s own two service Protocols, built for the first time. Task **2.8**.
 
 Every technique that reaches a sibling by name (`weft_retrieve.iterative`'s `leaf` and
 `sufficiency`, `weft_retrieve.corrective`'s `grader` and `knowledge_action`,
@@ -75,7 +76,9 @@ _NOTHING_MAPPED: frozenset[str] = frozenset()
 
 
 class UnknownRouteVarError(PipelineResolutionError, UnresolvedNameError):
-    """A document in the routing catalogue writes a `route.` var the router does not read —
+    """A routing-catalogue document writes a `route.` var the router does not read.
+
+    A document in the routing catalogue writes a `route.` var the router does not read —
     carried repair **R43.13**, found by the exit review: `route.require` (a typo for
     `route.requires`) was silently ignored, so the rung it named was offered over a layer that
     was not yet built everywhere; `route.sumary` (a typo for `route.summary`) dropped the
@@ -100,8 +103,9 @@ class UnknownRouteVarError(PipelineResolutionError, UnresolvedNameError):
 
 
 class UnknownSubPluginConfigFieldError(PipelineResolutionError, UnresolvedNameError):
-    """A config model declares `SubPlugin(config=...)` naming no field of that model — carried
-    repair **R43.45**. `valid_options` is the declaring model's own fields, sorted.
+    """A config model declares `SubPlugin(config=...)` naming no field of that model.
+
+    Carried repair **R43.45**. `valid_options` is the declaring model's own fields, sorted.
     """
 
     def __init__(
@@ -117,7 +121,9 @@ class UnknownSubPluginConfigFieldError(PipelineResolutionError, UnresolvedNameEr
 
 
 def _check_route_vars(name: str, pipeline: Pipeline) -> None:
-    """Refuse `pipeline` when its own `vars` carry a `route.` key outside `_ROUTE_VARS` —
+    """Refuse `pipeline` when its `vars` carry an unknown `route.` key.
+
+    Refuse `pipeline` when its own `vars` carry a `route.` key outside `_ROUTE_VARS` —
     carried repair **R43.13**. Keys outside the `route.` namespace are untouched.
     """
     for key in pipeline.vars:
@@ -146,16 +152,19 @@ class RegistryStageLookup:
         self._registry = registry
 
     def names(self, contract: type[object]) -> frozenset[str]:
-        """Every name registered for `contract` — read straight off the registry, so a
-        newly installed pack's plugin is visible the moment discovery ran, with nothing
-        cached here to go stale.
+        """Every name registered for `contract`.
+
+        Read straight off the registry, so a newly installed pack's plugin is visible the moment
+        discovery ran, with nothing cached here to go stale.
         """
         return self._registry.names_for(contract)
 
     async def build[In, Out](
         self, contract: type[Stage[In, Out]], name: str, config: object = None
     ) -> Callable[[In, Context], Awaitable[Outcome[Out]]]:
-        """Resolve `name` under `contract`, construct it, and hand back a callable
+        """Resolve and construct `name`, returning its seam-wrapped `run`.
+
+        Resolve `name` under `contract`, construct it, and hand back a callable
         already wrapped through `weft_kernel.seam.wrap` — see the module docstring for
         why nothing here caches the instance.
 
@@ -174,7 +183,9 @@ class RegistryStageLookup:
         )
 
     async def build_capability[T](self, contract: type[T], name: str, config: object = None) -> T:
-        """Resolve `name` under `contract` and construct it — the raw instance, never
+        """Resolve and construct `name`, returning the raw instance.
+
+        Resolve `name` under `contract` and construct it — the raw instance, never
         wrapped: a capability like `weft_prompts.contract.Prompt` has no `run` a `Stage`
         signature could wrap, and its own caller (`weft_prompts.cascade.execute`, for a
         `Prompt`) already runs inside the calling technique's own seam-wrapped span.
@@ -184,7 +195,9 @@ class RegistryStageLookup:
 
 
 class SubPluginConfigError(WeftError):
-    """A `*_config` block a plugin passed for a sibling it resolves by name does not fit
+    """A sibling's `*_config` block does not fit that sibling's `config_model`.
+
+    A `*_config` block a plugin passed for a sibling it resolves by name does not fit
     that sibling's own `config_model`.
 
     **Task 8.11, and it is a repair.** `corrective`, `iterative-retrieval` and
@@ -272,24 +285,32 @@ def roles_needed(pipeline: ResolvedPipeline, registry: Registry) -> frozenset[st
 def _config_roles(config: object, registry: Registry, rung: str) -> frozenset[str]:
     if not isinstance(config, BaseModel):
         return frozenset()
-    model = type(config)
     roles: set[str] = set()
-    for field, info in model.model_fields.items():
-        value = getattr(config, field)
-        roles |= _nested_roles(value, registry, rung)
-        markers = _markers(info)
-        for marker in markers:
-            if isinstance(marker, SubPlugin):
-                _check_sub_plugin_config(model, field, marker, rung)
-        if not isinstance(value, str):
-            continue
-        if any(isinstance(item, LLMRole) for item in markers):
-            roles.add(value)
-        for marker in markers:
-            if isinstance(marker, SubPlugin):
-                block = None if marker.config is None else getattr(config, marker.config)
-                roles |= _sub_plugin_roles(value, block, registry, rung)
+    for field, info in type(config).model_fields.items():
+        roles |= _field_roles(config, field, info, registry, rung)
     return frozenset(roles)
+
+
+def _field_roles(
+    config: BaseModel, field: str, info: FieldInfo, registry: Registry, rung: str
+) -> set[str]:
+    """The roles one field of `config` names, directly, nested, or through a sub-plugin."""
+    model = type(config)
+    value = getattr(config, field)
+    roles = set(_nested_roles(value, registry, rung))
+    markers = _markers(info)
+    for marker in markers:
+        if isinstance(marker, SubPlugin):
+            _check_sub_plugin_config(model, field, marker, rung)
+    if not isinstance(value, str):
+        return roles
+    if any(isinstance(item, LLMRole) for item in markers):
+        roles.add(value)
+    for marker in markers:
+        if isinstance(marker, SubPlugin):
+            block = None if marker.config is None else getattr(config, marker.config)
+            roles |= _sub_plugin_roles(value, block, registry, rung)
+    return roles
 
 
 def _check_sub_plugin_config(
@@ -312,8 +333,9 @@ def _check_sub_plugin_config(
 
 
 def _markers(info: FieldInfo) -> tuple[object, ...]:
-    """`info.metadata`, plus what `Annotated[str, M()] | None` holds inside its union member —
-    pydantic drops a marker spelt that way from `metadata`.
+    """`info.metadata`, plus any marker held inside an optional union member.
+
+    Pydantic drops a marker spelt `Annotated[str, M()] | None` from `metadata`.
     """
     found = list(info.metadata)
     if get_origin(info.annotation) in (Union, UnionType):
@@ -348,8 +370,10 @@ def _sub_plugin_roles(name: str, block: object, registry: Registry, rung: str) -
 
 
 def _sub_config(entry: RegistryEntry, name: str, block: object) -> object:
-    """The config a sibling is built with — its own defaults when its `SubPlugin.config` block
-    is unset, validated exactly as `RegistryStageLookup` validates it otherwise.
+    """The config a sibling is built with.
+
+    Its own defaults when its `SubPlugin.config` block is unset, validated exactly as
+    `RegistryStageLookup` validates it otherwise.
     """
     if block is None:
         if getattr(unwrap_factory(entry.factory), "config_model", None) is None:
@@ -411,9 +435,11 @@ class PipelineRouteCatalogue:
         self._candidates = tuple(candidates)
 
     def candidates(self) -> tuple[RouteCandidate, ...]:
+        """Every document that may be offered, as a routing candidate."""
         return self._candidates
 
     def names(self) -> frozenset[str]:
+        """The names of every pipeline in `candidates`."""
         return frozenset(candidate.name for candidate in self._candidates)
 
     def missing_roles(self) -> Mapping[str, tuple[str, ...]]:
@@ -424,7 +450,9 @@ class PipelineRouteCatalogue:
 def missing_roles(
     rung_roles: Mapping[str, frozenset[str]], mapped_roles: frozenset[str]
 ) -> dict[str, tuple[str, ...]]:
-    """Each rung in `rung_roles` needing a role `mapped_roles` lacks, to those roles sorted —
+    """Map each rung lacking a mapped role to the roles it lacks.
+
+    Each rung in `rung_roles` needing a role `mapped_roles` lacks, to those roles sorted —
     carried repair **R43.30**, the reason `PipelineRouteCatalogue` leaves a rung out.
     """
     return {
@@ -435,7 +463,9 @@ def missing_roles(
 
 
 def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> bool:
-    """Whether `pipeline` may be offered — `ready_layers=None` (told nothing) offers
+    """Whether `pipeline` may be offered, given the layers that are ready.
+
+    Whether `pipeline` may be offered — `ready_layers=None` (told nothing) offers
     everything, on every caller before ledger task **43.9**'s own footing.
     """
     if ready_layers is None:
@@ -445,7 +475,9 @@ def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> boo
 
 
 def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:
-    """Every document naming `route.requires`, its name mapped to the layer it needs — ledger
+    """Every document naming `route.requires`, mapped to the layer it needs.
+
+    Every document naming `route.requires`, its name mapped to the layer it needs — ledger
     task **43.9**. `weft_cli.commands.PendingLayerError`'s own raise site reads this to learn
     which layer a caller's own `--pipeline` choice would answer from.
     """

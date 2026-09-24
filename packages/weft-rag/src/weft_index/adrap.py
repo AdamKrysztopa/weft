@@ -125,7 +125,9 @@ _SUMMARY_FILTER = Filter(
 
 
 def _layer_summary_filter(layer: str) -> Filter:
-    """`_SUMMARY_FILTER`'s inverse, for a join a `LayerRevision` offered (task 43.23): the
+    """Select the summaries one tree's `layer` stamped, for a `LayerRevision` join.
+
+    `_SUMMARY_FILTER`'s inverse, for a join a `LayerRevision` offered (task 43.23): the
     summaries `layer` stamped, and no other tree's.
     """
     return Filter(
@@ -144,7 +146,9 @@ _Replace = Callable[[NodeId, Node], Awaitable[None]]
 
 @runtime_checkable
 class _JoiningStore(NodeStore, NodeSupersedable, Protocol):
-    """The two store capabilities a join without a `LayerRevision` calls once `run`'s own two
+    """The two store capabilities a join without a `LayerRevision` calls.
+
+    The two store capabilities a join without a `LayerRevision` calls once `run`'s own two
     refusals have already passed: `NodeStore.get`, to re-fetch an ancestor's untouched
     members, and `NodeSupersedable.supersede`, to replace it. `_replacer` narrows `store` to this
     type with `cast` rather than a further `isinstance` check — the two checks it already
@@ -155,10 +159,12 @@ class _JoiningStore(NodeStore, NodeSupersedable, Protocol):
 
 
 class AdrapConfig(BaseModel):
-    """`adrap`'s `with:` config — the same shape `raptor.RaptorConfig` takes for the fields
-    they share, because both plugins answer the same two questions (how similar is similar
-    enough, how big may a cluster grow) and neither number was ever evidenced for either
-    plugin — see this module's own docstring for what `auto` reads here instead of deriving.
+    """`adrap`'s `with:` config.
+
+    The same shape `raptor.RaptorConfig` takes for the fields they share, because both plugins
+    answer the same two questions (how similar is similar enough, how big may a cluster grow) and
+    neither number was ever evidenced for either plugin — see this module's own docstring for what
+    `auto` reads here instead of deriving.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -186,7 +192,9 @@ class AdrapConfig(BaseModel):
     @field_validator("similarity_threshold", "cluster_size", mode="before")
     @classmethod
     def _parse_auto_string(cls, value: object) -> object:
-        """`raptor.RaptorConfig._parse_auto_string`'s own twin, over the same two fields, for
+        """Turn a plain `auto` string into the sentinel, or refuse any other string.
+
+        `raptor.RaptorConfig._parse_auto_string`'s own twin, over the same two fields, for
         the same reason: a pipeline document writes `auto` as a plain string, and this is
         where that string becomes the real sentinel or is refused, before this model's own
         field validation ever sees it.
@@ -202,8 +210,10 @@ class AdrapConfig(BaseModel):
 
 
 class _JoinCluster(NamedTuple):
-    """One level-1 summary of the tree being joined: its stored members, and the centroid
-    recomputed from their embeddings — never persisted, see the module docstring.
+    """One level-1 summary of the tree being joined, with its members and centroid.
+
+    The centroid is recomputed from the members' embeddings — never persisted, see the module
+    docstring.
     """
 
     summary: Node
@@ -212,7 +222,9 @@ class _JoinCluster(NamedTuple):
 
 
 class AdrapJoiner:
-    """Satisfies `weft_index.contract.Revisable` structurally — see that contract's own
+    """Join a newly indexed document into a tree `raptor` already built.
+
+    Satisfies `weft_index.contract.Revisable` structurally — see that contract's own
     docstring for why no marker attribute makes it declared instead.
     """
 
@@ -222,39 +234,28 @@ class AdrapJoiner:
         self._config = config if config is not None else AdrapConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Join `payload`'s leaves into the stored tree, rebuilding every summary they touch.
+
+        Args:
+            payload: The newly indexed nodes.
+            ctx: The run's context, through which the store, embedder and LLM are reached.
+
+        Returns:
+            The handed nodes plus every rebuilt summary, or `NothingToProduce`/`Failed`.
+        """
         if not payload:
             return NothingToProduce(reason="no nodes to join into an existing tree")
 
         store = ctx.require(NodeStore)
         revision = _revision_of(ctx)
 
-        # **Refuse by name, changing nothing** — `weft_store.contract.NodeSupersedable`'s own
-        # docstring: "`adrap` asks the store it was handed and refuses by name when the
-        # answer is no." Checked before a single read, so a run that cannot finish never
-        # starts. A `LayerRevision` supersedes nothing, so it needs no such store.
-        if revision is None and not isinstance(store, NodeSupersedable):
-            return Failed(
-                reason=(
-                    f"'{NAME}' joins a new document by replacing a stale cluster summary in "
-                    f"place, which needs a store that can supersede a node (NodeSupersedable) "
-                    f"— the configured store does not implement it. Configure a store that "
-                    f"satisfies it (both shipped backends do), or drop '{NAME}' from this "
-                    f"pipeline and let 'raptor' found a fresh tree on the next full ingest "
-                    f"instead"
-                )
-            )
-        if not isinstance(store, MetadataFilter):
-            return Failed(
-                reason=(
-                    f"'{NAME}' finds the tree a new document should join by matching stored "
-                    f"summaries, which needs a store implementing MetadataFilter — the "
-                    f"configured store does not. Configure a store that satisfies it (both "
-                    f"shipped backends do)"
-                )
-            )
+        searchable = _joinable_store(store, revision)
+        if isinstance(searchable, Failed):
+            return searchable
 
         summaries = await _fetch_all_summaries(
-            store, _SUMMARY_FILTER if revision is None else _layer_summary_filter(revision.layer)
+            searchable,
+            _SUMMARY_FILTER if revision is None else _layer_summary_filter(revision.layer),
         )
         # New leaves: nodes this run was handed that carry no RaptorFacts at all. A node
         # that already carries RaptorFacts is a summary — nothing in `payload` short of a
@@ -264,21 +265,12 @@ class AdrapJoiner:
         if not summaries or not new_leaves:
             # Building the first tree is `raptor`'s job, not this stage's — see the module
             # docstring's own "one tree" paragraph. With no tree, every new leaf is unassigned.
-            if revision is not None:
-                await revision.unassigned(0 if summaries else len(new_leaves))
+            await _report_unassigned(revision, 0 if summaries else len(new_leaves))
             return Produced(value=tuple(payload))
 
-        unembedded = sum(1 for node in new_leaves if node.embedding is None)
-        if unembedded:
-            return Failed(
-                reason=(
-                    f"'{NAME}' received {unembedded} newly indexed node(s) with no "
-                    f"embedding out of {len(new_leaves)}. This plugin clusters by the "
-                    f"vectors it is handed and computes none itself, so it must run after "
-                    f"the 'embed' stage, not before it — move the '{NAME}' stage in the "
-                    f"pipeline document to follow 'embed' and re-run"
-                )
-            )
+        unembedded = _unembedded_failure(new_leaves)
+        if unembedded is not None:
+            return unembedded
         leaves_with_vectors = tuple(
             (leaf, leaf.embedding.values) for leaf in new_leaves if leaf.embedding is not None
         )
@@ -298,9 +290,8 @@ class AdrapJoiner:
             cluster_size=cluster_size,
             similarity_threshold=similarity_threshold,
         )
-        if revision is not None:
-            assigned = sum(len(joined) for joined in assignments.values())
-            await revision.unassigned(len(new_leaves) - assigned)
+        assigned = sum(len(joined) for joined in assignments.values())
+        await _report_unassigned(revision, len(new_leaves) - assigned)
         if not assignments:
             # No leaf was similar enough to any existing cluster's centroid — it rides
             # through unassigned rather than founding a second tree beside this one; see
@@ -364,7 +355,9 @@ class AdrapJoiner:
         resolved_similarity_threshold: float | None,
         resolved_cluster_size: int | None,
     ) -> Failed | None:
-        """Rebuild, embed and `replace` every level-1 cluster a new leaf joined, filling `remap`
+        """Rebuild every level-1 cluster a new leaf joined.
+
+        Rebuild, embed and `replace` every level-1 cluster a new leaf joined, filling `remap`
         and `rebuilt` for the ancestor pass; `Failed` only when a summary could not be embedded.
         """
         for cluster in clusters:
@@ -397,7 +390,9 @@ class AdrapJoiner:
     def _resolve_parameters(
         self, summaries: Sequence[Node]
     ) -> tuple[float, int, float | None, int | None] | Failed:
-        """`(similarity_threshold, cluster_size, resolved_similarity_threshold,
+        """Resolve the similarity threshold and cluster size this run uses.
+
+        `(similarity_threshold, cluster_size, resolved_similarity_threshold,
         resolved_cluster_size)` — each pair's first element is what this run actually uses,
         the second is what rides onto a rebuilt summary's own `RaptorFacts` (`None` for a
         field the operator typed, matching `raptor`'s own `resolved_*` convention).
@@ -489,7 +484,9 @@ class AdrapJoiner:
         resolved_similarity_threshold: float | None,
         resolved_cluster_size: int | None,
     ) -> Failed | None:
-        """Rebuild and supersede every stored summary whose `lineage.parents` names an id
+        """Rebuild every stored summary whose parents a rebuild just replaced.
+
+        Rebuild and supersede every stored summary whose `lineage.parents` names an id
         `remap` just replaced, then repeat for whatever that rebuild itself just replaced —
         see the module docstring's own "Ancestors" paragraph for why this is necessary and
         why it terminates. `summaries` is the fixed set fetched once at the top of `run`;
@@ -503,38 +500,18 @@ class AdrapJoiner:
                     # earlier pass of this same loop already rebuilt — either way, its
                     # current replacement is already in `remap` and there is nothing to redo.
                     continue
-                parent_ids = ancestor.lineage.parents
-                if not any(parent_id in remap for parent_id in parent_ids):
-                    continue
-                missing_ids = [parent_id for parent_id in parent_ids if parent_id not in remap]
-                fetched = await store.get(missing_ids) if missing_ids else ()
-                fetched_by_id = {node.id: node for node in fetched}
-                members: list[Node] = []
-                complete = True
-                for parent_id in parent_ids:
-                    if parent_id in remap:
-                        members.append(remap[parent_id])
-                    elif parent_id in fetched_by_id:
-                        members.append(fetched_by_id[parent_id])
-                    else:
-                        complete = False
-                        break
-                if not complete:
-                    # A member this ancestor needs could not be fetched — degrade, leave
-                    # this ancestor (and anything above it) untouched, same posture as a
-                    # cluster whose centroid could not be recomputed.
-                    continue
-                new_ancestor = await self._summarize(
-                    members,
+                embedded = await self._rebuild_ancestor(
+                    ancestor,
+                    store=store,
                     prompts=prompts,
                     llm=llm,
                     ctx=ctx,
+                    remap=remap,
                     resolved_similarity_threshold=resolved_similarity_threshold,
                     resolved_cluster_size=resolved_cluster_size,
                 )
-                if new_ancestor is None:
+                if embedded is None:
                     continue
-                embedded = await _embed_summary(new_ancestor, ctx=ctx)
                 if isinstance(embedded, Failed):
                     return embedded
                 await replace(ancestor.id, embedded)
@@ -543,6 +520,108 @@ class AdrapJoiner:
                 changed = True
             if not changed:
                 return None
+
+    async def _rebuild_ancestor(
+        self,
+        ancestor: Node,
+        *,
+        store: NodeStore,
+        prompts: Prompts,
+        llm: LLM,
+        ctx: Context,
+        remap: Mapping[NodeId, Node],
+        resolved_similarity_threshold: float | None,
+        resolved_cluster_size: int | None,
+    ) -> Node | Failed | None:
+        """Summarise and embed `ancestor`'s current members.
+
+        Returns:
+            The embedded rebuild; `None` when no parent was replaced or the rebuild degrades;
+            `Failed` when the rebuild could not be embedded.
+        """
+        parent_ids = ancestor.lineage.parents
+        if not any(parent_id in remap for parent_id in parent_ids):
+            return None
+        missing_ids = [parent_id for parent_id in parent_ids if parent_id not in remap]
+        fetched = await store.get(missing_ids) if missing_ids else ()
+        fetched_by_id = {node.id: node for node in fetched}
+        members: list[Node] = []
+        complete = True
+        for parent_id in parent_ids:
+            if parent_id in remap:
+                members.append(remap[parent_id])
+            elif parent_id in fetched_by_id:
+                members.append(fetched_by_id[parent_id])
+            else:
+                complete = False
+                break
+        if not complete:
+            # A member this ancestor needs could not be fetched — degrade, leave
+            # this ancestor (and anything above it) untouched, same posture as a
+            # cluster whose centroid could not be recomputed.
+            return None
+        new_ancestor = await self._summarize(
+            members,
+            prompts=prompts,
+            llm=llm,
+            ctx=ctx,
+            resolved_similarity_threshold=resolved_similarity_threshold,
+            resolved_cluster_size=resolved_cluster_size,
+        )
+        if new_ancestor is None:
+            return None
+        return await _embed_summary(new_ancestor, ctx=ctx)
+
+
+def _joinable_store(store: NodeStore, revision: LayerRevision | None) -> MetadataFilter | Failed:
+    """`store` as the `MetadataFilter` a join searches, or the refusal naming what it lacks."""
+    # **Refuse by name, changing nothing** — `weft_store.contract.NodeSupersedable`'s own
+    # docstring: "`adrap` asks the store it was handed and refuses by name when the
+    # answer is no." Checked before a single read, so a run that cannot finish never
+    # starts. A `LayerRevision` supersedes nothing, so it needs no such store.
+    if revision is None and not isinstance(store, NodeSupersedable):
+        return Failed(
+            reason=(
+                f"'{NAME}' joins a new document by replacing a stale cluster summary in "
+                f"place, which needs a store that can supersede a node (NodeSupersedable) "
+                f"— the configured store does not implement it. Configure a store that "
+                f"satisfies it (both shipped backends do), or drop '{NAME}' from this "
+                f"pipeline and let 'raptor' found a fresh tree on the next full ingest "
+                f"instead"
+            )
+        )
+    if not isinstance(store, MetadataFilter):
+        return Failed(
+            reason=(
+                f"'{NAME}' finds the tree a new document should join by matching stored "
+                f"summaries, which needs a store implementing MetadataFilter — the "
+                f"configured store does not. Configure a store that satisfies it (both "
+                f"shipped backends do)"
+            )
+        )
+    return store
+
+
+def _unembedded_failure(new_leaves: Sequence[Node]) -> Failed | None:
+    """The refusal for a join handed leaves with no embedding, or `None` when all have one."""
+    unembedded = sum(1 for node in new_leaves if node.embedding is None)
+    if unembedded:
+        return Failed(
+            reason=(
+                f"'{NAME}' received {unembedded} newly indexed node(s) with no "
+                f"embedding out of {len(new_leaves)}. This plugin clusters by the "
+                f"vectors it is handed and computes none itself, so it must run after "
+                f"the 'embed' stage, not before it — move the '{NAME}' stage in the "
+                f"pipeline document to follow 'embed' and re-run"
+            )
+        )
+    return None
+
+
+async def _report_unassigned(revision: LayerRevision | None, count: int) -> None:
+    """Tell `revision`, when there is one, how many handed leaves joined no cluster."""
+    if revision is not None:
+        await revision.unassigned(count)
 
 
 def _revision_of(ctx: Context) -> LayerRevision | None:
@@ -554,7 +633,9 @@ def _revision_of(ctx: Context) -> LayerRevision | None:
 
 
 def _replacer(store: NodeStore, revision: LayerRevision | None) -> _Replace:
-    """`store.supersede`, or with a `revision`, `revision.replaced` — the old summary stays
+    """Choose how an old summary is replaced by its rebuild.
+
+    `store.supersede`, or with a `revision`, `revision.replaced` — the old summary stays
     where it is, in the published generation, and the build leaves it out of the next.
     """
     if revision is None:
@@ -609,7 +690,9 @@ async def _fetch_all_summaries(store: MetadataFilter, filter: Filter) -> tuple[N
 async def _build_clusters(
     summaries: Sequence[Node], *, store: NodeStore
 ) -> tuple[_JoinCluster, ...]:
-    """One `_JoinCluster` per level-1 summary whose members could be fetched and carried at
+    """One `_JoinCluster` per level-1 summary whose centroid can be computed.
+
+    One `_JoinCluster` per level-1 summary whose members could be fetched and carried at
     least one embedding between them — see the module docstring's own centroid paragraph.
     A summary whose members cannot be fetched, or which carry no embeddings at all, is
     skipped rather than joined against a centroid this plugin cannot honestly compute.
@@ -637,7 +720,9 @@ def _assign_leaves(
     cluster_size: int,
     similarity_threshold: float,
 ) -> dict[NodeId, list[Node]]:
-    """Which new leaf joins which existing cluster, keyed by that cluster's current summary
+    """Assign each new leaf to the existing cluster it joins.
+
+    Which new leaf joins which existing cluster, keyed by that cluster's current summary
     id — the greedy "nearest centroid above threshold, cluster not yet full" rule the module
     docstring states, applied in ascending `Node.id` order over the leaves so the answer is
     a function of the node set rather than of the order this run happened to hand them over
@@ -685,7 +770,9 @@ def _read_resolved_similarity_threshold(summaries: Sequence[Node]) -> float | Fa
 
 
 def _read_resolved_cluster_size(summaries: Sequence[Node]) -> int | Failed:
-    """`cluster_size: auto`'s resolution — `_read_resolved_similarity_threshold`'s own twin,
+    """Resolve `cluster_size: auto` from the stored summaries.
+
+    `cluster_size: auto`'s resolution — `_read_resolved_similarity_threshold`'s own twin,
     over `RaptorFacts.resolved_cluster_size`.
     """
     values = [
@@ -700,9 +787,11 @@ def _read_resolved_cluster_size(summaries: Sequence[Node]) -> int | Failed:
 
 
 def _id_sorted(summaries: Sequence[Node]) -> list[Node]:
-    """`summaries`, ordered by `Node.id` — `matching`'s own contract promises pages, never
-    order, so the "most common value" `Counter.most_common` picks on a tie must not depend
-    on whatever order a store's pages happened to arrive in.
+    """`summaries`, ordered by `Node.id`.
+
+    `matching`'s own contract promises pages, never order, so the "most common value"
+    `Counter.most_common` picks on a tie must not depend on whatever order a store's pages happened
+    to arrive in.
     """
     return sorted(summaries, key=lambda summary: summary.id)
 
@@ -720,7 +809,9 @@ def _auto_unreadable_failure(*, field: str, attr: str) -> Failed:
 
 
 def _typed_similarity_threshold(value: float | Auto | str) -> float | Auto:
-    """Narrows `AdrapConfig.similarity_threshold`'s own declared type back down to what a
+    """Narrow `AdrapConfig.similarity_threshold` to what a validated config holds.
+
+    Narrows `AdrapConfig.similarity_threshold`'s own declared type back down to what a
     validated `AdrapConfig` instance can actually hold — `raptor._typed_similarity_
     threshold`'s own twin and its own reasoning: the bare `str` arm exists only so
     `similarity_threshold: "auto"` type-checks as a constructor argument, and `_parse_auto_

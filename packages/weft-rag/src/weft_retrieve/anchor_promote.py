@@ -90,8 +90,9 @@ def promote(hits: Sequence[Passage], anchors: Sequence[str]) -> tuple[tuple[Pass
 
 
 class AnchorBranch(StrEnum):
-    """Which of the three branches `AnchorPromote.run` took — `Enum` per the project's
-    string-constant rule.
+    """Which of the three branches `AnchorPromote.run` took.
+
+    `Enum` per the project's string-constant rule.
     """
 
     NO_ANCHOR = "no-anchor"
@@ -161,7 +162,9 @@ class AnchorPromote:
         self._config = config if config is not None else AnchorPromoteConfig()
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
-        """Promote `payload.hits` by the anchors `payload.origin.text` carries, recording
+        """Promote hits by the anchors the question carries.
+
+        Promote `payload.hits` by the anchors `payload.origin.text` carries, recording
         which of the three branches ran.
 
         No anchors at all, or no hit holding one, leaves `hits` unchanged; only the promoted

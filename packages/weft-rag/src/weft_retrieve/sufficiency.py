@@ -235,7 +235,9 @@ class HedgePhrases:
 
 
 def _offer(passages: tuple[Passage, ...]) -> str:
-    """The offered evidence as one string, numbered by each passage's own `label` — the same
+    """The offered evidence as one numbered string.
+
+    The offered evidence as one string, numbered by each passage's own `label` — the same
     shape every other model-backed plugin in this pack builds; see `weft_retrieve.rerank.
     _offer`'s own docstring for why a template cannot do this itself. `(none gathered yet)`
     rather than an empty string: `iterative-retrieval`'s first round and a `refine-on-

@@ -134,17 +134,20 @@ _AGGREGATORS: Mapping[CollapsePolicy, Callable[[Sequence[float]], float]] = {
 
 @runtime_checkable
 class _RepresentationMarker(Protocol):
-    """Structurally, `weft_index.payload.Representation` — see the module docstring for why
-    this is a fresh Protocol rather than an import of the pack that ships that class.
+    """Structurally, `weft_index.payload.Representation`.
+
+    See the module docstring for why this is a fresh Protocol rather than an import of the pack that
+    ships that class.
     """
 
     technique: str
 
 
 def _collapse_key(node: Node) -> NodeId:
-    """The id this node collapses under: its one parent, for a single-parent
-    representation; itself, for everything else — a plain chunk, a root, or a
-    `Node.combine` summary with no single "the" parent to stand in for.
+    """The id this node collapses under.
+
+    Its one parent, for a single-parent representation; itself, for everything else — a plain chunk,
+    a root, or a `Node.combine` summary with no single "the" parent to stand in for.
     """
     if len(node.lineage.parents) != 1:
         return node.id
@@ -202,8 +205,33 @@ def _without_absorbed_members(
     return kept
 
 
+def _collapse_group(
+    key: NodeId,
+    group: Sequence[Passage],
+    *,
+    fetched: Mapping[NodeId, Node],
+    aggregate: Callable[[Sequence[float]], float],
+) -> tuple[float, int, Passage]:
+    """One parent's group as a single passage, with its sort key: aggregate score, best rank."""
+    score = aggregate(tuple(passage.score for passage in group))
+    strongest = max(group, key=lambda passage: passage.score)
+    direct = next((passage.node for passage in group if passage.node.id == key), None)
+    node = direct if direct is not None else fetched.get(key, strongest.node)
+    return (
+        score,
+        strongest.rank,
+        Passage(
+            scored=Scored(value=node, score=score),
+            rank=strongest.rank,
+            retrieved_by=strongest.retrieved_by,
+        ),
+    )
+
+
 class CollapseToParent:
-    """Groups a ranking's hits by parent, keeps one per parent, scores each by the
+    """Collapse a ranking's hits to one per parent.
+
+    Groups a ranking's hits by parent, keeps one per parent, scores each by the
     configured policy. Satisfies `weft_retrieve.contract.Reranker` structurally.
 
     `cost_bound = (0, 0)`: `run` resolves `NodeStore` — never an `LLM`-shaped service — and
@@ -222,7 +250,9 @@ class CollapseToParent:
         self._config = config if config is not None else CollapseToParentConfig()
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
-        """Group by parent, aggregate by policy, fetch a missing parent once per group that
+        """Collapse hits by parent, rescore by policy, and renumber.
+
+        Group by parent, aggregate by policy, fetch a missing parent once per group that
         needs one, re-sort by the surviving score, and renumber.
 
         **The emptiness rule** — no hits at all collapses to an empty `Ranking`, the
@@ -256,23 +286,10 @@ class CollapseToParent:
             fetched = {node.id: node for node in await store.get(missing)}
 
         aggregate = _AGGREGATORS[self._config.policy]
-        collapsed: list[tuple[float, int, Passage]] = []
-        for key, group in groups.items():
-            score = aggregate(tuple(passage.score for passage in group))
-            strongest = max(group, key=lambda passage: passage.score)
-            direct = next((passage.node for passage in group if passage.node.id == key), None)
-            node = direct if direct is not None else fetched.get(key, strongest.node)
-            collapsed.append(
-                (
-                    score,
-                    strongest.rank,
-                    Passage(
-                        scored=Scored(value=node, score=score),
-                        rank=strongest.rank,
-                        retrieved_by=strongest.retrieved_by,
-                    ),
-                )
-            )
+        collapsed = [
+            _collapse_group(key, group, fetched=fetched, aggregate=aggregate)
+            for key, group in groups.items()
+        ]
 
         ordered = sorted(collapsed, key=lambda item: (-item[0], item[1]))
         hits = tuple(

@@ -29,7 +29,7 @@ from typing import Annotated, ClassVar, Final
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_kernel.context import Context
-from weft_kernel.payload import Failed, Outcome, Produced
+from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
@@ -131,11 +131,17 @@ def _is_identifier_shaped(token: str) -> bool:
         return True
     if _DOTTED_DIGITS_RE.match(token):
         return True
-    if "_" in token:
-        for left, right in pairwise(token.split("_")):
-            if left and right and left[-1].isalnum() and right[0].isalnum():
-                return True
+    if "_" in token and _joins_words_by_underscore(token):
+        return True
     return bool(_CAMEL_CASE_RE.match(token))
+
+
+def _joins_words_by_underscore(token: str) -> bool:
+    """Whether some `_` in `token` has an alphanumeric character on both sides."""
+    return any(
+        left and right and left[-1].isalnum() and right[0].isalnum()
+        for left, right in pairwise(token.split("_"))
+    )
 
 
 def _find_identifiers(text: str) -> list[tuple[int, Anchor]]:
@@ -216,8 +222,10 @@ class IntentAndAnchorsConfig(BaseModel):
 
 
 def _dedupe_first(texts: Sequence[str]) -> tuple[str, ...]:
-    """`texts`, each kept at its first occurrence — the model path's own copy of the rule
-    dedup `find_anchors` already applies to its own three sources.
+    """`texts`, each kept at its first occurrence.
+
+    The model path's own copy of the rule dedup `find_anchors` already applies to its own three
+    sources.
     """
     seen: set[str] = set()
     kept: list[str] = []
@@ -239,9 +247,10 @@ def _searchable(anchor: str) -> str:
 
 
 def _anchor_queries(anchor_texts: Sequence[str], *, origin: Query) -> tuple[Query, ...]:
-    """One `Query` per anchor text, aimed at `Channel.TEXT` alone — shared by both the rule
-    and the model path, so an anchor is turned into a query exactly one way regardless of
-    which mechanism named it.
+    """One `Query` per anchor text, aimed at `Channel.TEXT` alone.
+
+    Shared by both the rule and the model path, so an anchor is turned into a query exactly one way
+    regardless of which mechanism named it.
     """
     return tuple(
         Query(
@@ -285,38 +294,9 @@ class IntentAndAnchors:
         shape `weft_retrieve.transforms.StepBack.run` asks its own prompt.
         """
         if self._config.method is AnchorMethod.MODEL:
-            llm = ctx.require(LLM)
-            lookup = ctx.require(StageLookup)
-            prompt = await lookup.build_capability(Prompt, self._config.prompt)
-            generated = await execute(
-                llm=llm,
-                prompt=prompt,
-                values=QuestionAnchorsRequest(question=payload.origin.text),
-                output=QuestionAnchors,
-                role=self._config.role,
-                ctx=ctx,
-            )
-            if not isinstance(generated, Produced):
-                # Relayed exactly as `StepBack.run` relays its own cascade outcome — see that
-                # method's own comment on this line.
-                return generated
-            named = (_searchable(anchor) for anchor in generated.value.value.anchors)
-            anchor_texts = _dedupe_first(
-                tuple(anchor for anchor in named if anchor and not _AMOUNT_RE.match(anchor))
-            )
-            question = payload.origin.text
-            for anchor in anchor_texts:
-                invented = [
-                    word for word in anchor.split() if word.strip(_STRIP_CHARS) not in question
-                ]
-                if invented:
-                    return Failed(
-                        reason=(
-                            f"the model named anchor '{anchor}', and the question does not "
-                            f"contain {invented[0]!r}; an anchor may recombine the words the "
-                            "user typed but never introduce one"
-                        )
-                    )
+            anchor_texts = await self._model_anchors(payload, ctx)
+            if not isinstance(anchor_texts, tuple):
+                return anchor_texts
         else:
             anchor_texts = tuple(
                 anchor.text
@@ -338,3 +318,44 @@ class IntentAndAnchors:
                 ext=payload.ext,
             )
         )
+
+    async def _model_anchors(
+        self, payload: QuerySet, ctx: Context
+    ) -> tuple[str, ...] | NothingToProduce | Failed:
+        """The anchors the configured model names, each checked against the question's words.
+
+        Returns:
+            The deduplicated anchor texts; the cascade's own outcome when it produced nothing;
+            `Failed` when an anchor introduces a word the question does not contain.
+        """
+        llm = ctx.require(LLM)
+        lookup = ctx.require(StageLookup)
+        prompt = await lookup.build_capability(Prompt, self._config.prompt)
+        generated = await execute(
+            llm=llm,
+            prompt=prompt,
+            values=QuestionAnchorsRequest(question=payload.origin.text),
+            output=QuestionAnchors,
+            role=self._config.role,
+            ctx=ctx,
+        )
+        if not isinstance(generated, Produced):
+            # Relayed exactly as `StepBack.run` relays its own cascade outcome — see that
+            # method's own comment on this line.
+            return generated
+        named = (_searchable(anchor) for anchor in generated.value.value.anchors)
+        anchor_texts = _dedupe_first(
+            tuple(anchor for anchor in named if anchor and not _AMOUNT_RE.match(anchor))
+        )
+        question = payload.origin.text
+        for anchor in anchor_texts:
+            invented = [word for word in anchor.split() if word.strip(_STRIP_CHARS) not in question]
+            if invented:
+                return Failed(
+                    reason=(
+                        f"the model named anchor '{anchor}', and the question does not "
+                        f"contain {invented[0]!r}; an anchor may recombine the words the "
+                        "user typed but never introduce one"
+                    )
+                )
+        return anchor_texts

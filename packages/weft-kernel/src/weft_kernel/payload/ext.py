@@ -45,8 +45,9 @@ SCHEMA_VERSION_KEY: Final[str] = "__schema_version__"
 
 
 class SchemaVersionRefusedError(WeftError):
-    """A stored namespace's schema version disagrees with the class reading it, and
-    `upgrade` was not overridden to reconcile the difference.
+    """A stored namespace's schema version disagrees with the class reading it.
+
+    Raised when `upgrade` was not overridden to reconcile the difference.
 
     `docs/02-extension-model.md` §1: "A reader upgrades or refuses... Silence is
     refusal." `stored_version` is `None` when the data was written before this task —
@@ -87,6 +88,11 @@ class ExtModel(BaseModel):
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: object) -> None:
+        """Refuse a subclass that omits `__namespace__` or `__schema_version__`.
+
+        Raises:
+            TypeError: When either declaration is empty.
+        """
         super().__pydantic_init_subclass__(**kwargs)
         if not cls.__namespace__:
             raise TypeError(

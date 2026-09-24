@@ -130,8 +130,27 @@ class PostQfrapConfig(BaseModel):
     role: Annotated[str, LLMRole()] = Field(default="index", min_length=1)
 
 
+def _unembedded_refusal(hits: Sequence[Passage]) -> Failed | None:
+    """The refusal for hits that arrived with no embedding, or `None` when every one has one."""
+    unembedded = sum(1 for hit in hits if hit.node.embedding is None)
+    if unembedded:
+        return Failed(
+            reason=(
+                f"'{NAME}' received {unembedded} hit(s) with no embedding out of "
+                f"{len(hits)}. This stage clusters on the vectors it is handed "
+                f"and computes none itself, so a store or an upstream stage stripped "
+                f"them before it ran — check that this packer sits after the retriever "
+                f"that produced 'Ranking.hits', not after something that discarded "
+                f"their vectors"
+            )
+        )
+    return None
+
+
 class PostQfrapPacker:
-    """Clusters `Ranking.hits` into a query-focused recursive-abstractive tree and returns
+    """Synthesise one query-focused passage from a ranking, in place of a top-k list.
+
+    Clusters `Ranking.hits` into a query-focused recursive-abstractive tree and returns
     one synthesised `Passage` instead of a top-k list. Satisfies `weft_retrieve.contract.
     ContextPacker` structurally — never imported here, per this tree's own rule that a
     plugin never imports the contract it satisfies.
@@ -157,18 +176,9 @@ class PostQfrapPacker:
                 )
             )
 
-        unembedded = sum(1 for hit in payload.hits if hit.node.embedding is None)
-        if unembedded:
-            return Failed(
-                reason=(
-                    f"'{NAME}' received {unembedded} hit(s) with no embedding out of "
-                    f"{len(payload.hits)}. This stage clusters on the vectors it is handed "
-                    f"and computes none itself, so a store or an upstream stage stripped "
-                    f"them before it ran — check that this packer sits after the retriever "
-                    f"that produced 'Ranking.hits', not after something that discarded "
-                    f"their vectors"
-                )
-            )
+        unembedded = _unembedded_refusal(payload.hits)
+        if unembedded is not None:
+            return unembedded
 
         prompts = ctx.require(Prompts)
         llm = ctx.require(LLM)
@@ -273,10 +283,11 @@ class PostQfrapPacker:
     async def _summarize(
         self, members: Sequence[Node], *, query: str, prompts: Prompts, llm: LLM, ctx: Context
     ) -> Node | None:
-        """One cluster's query-focused summary node, or `None` when generation degrades —
-        never raised. A misconfigured `prompt:` name or an unmapped `role:` still raises:
-        that is an operator's own document being wrong, the same split
-        `weft_index.hypothetical_questions`'s own docstring draws.
+        """One cluster's query-focused summary node, or `None` when generation degrades.
+
+        Never raised. A misconfigured `prompt:` name or an unmapped `role:` still raises: that is an
+        operator's own document being wrong, the same split `weft_index.hypothetical_questions`'s
+        own docstring draws.
         """
         passages = _format_cluster(members, budget=self._config.max_cluster_chars)
         values = SummarizeForQueryRequest(query=query, passages=passages)
@@ -306,9 +317,10 @@ def _group_by_order(nodes: Sequence[Node], *, size: int) -> list[list[Node]]:
 
 
 class _Cluster:
-    """One open cluster while `_cluster_by_similarity` is assigning nodes — the identical
-    shape `weft_index.raptor._Cluster` keeps, rewritten here rather than imported because
-    that class is private to another pack.
+    """One open cluster while `_cluster_by_similarity` is assigning nodes.
+
+    The identical shape `weft_index.raptor._Cluster` keeps, rewritten here rather than imported
+    because that class is private to another pack.
     """
 
     __slots__ = ("members", "_sum")
@@ -328,7 +340,9 @@ class _Cluster:
 def _cluster_by_similarity(
     embedded: Sequence[tuple[Node, Vector]], *, cluster_size: int, similarity_threshold: float
 ) -> list[list[Node]]:
-    """Greedy single-pass grouping by cosine similarity to each open cluster's running
+    """Group nodes greedily by cosine similarity to each open cluster's centroid.
+
+    Greedy single-pass grouping by cosine similarity to each open cluster's running
     centroid — `weft_index.raptor._cluster_by_similarity`'s own algorithm, rewritten here
     because that function is private to another pack (see the module docstring). Every
     node in `embedded` is guaranteed a vector by its own type: `run` refuses an unembedded
@@ -359,10 +373,11 @@ def _cluster_by_similarity(
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
-    """Cosine similarity between two same-length embeddings —
-    `weft_index.raptor._cosine`'s own twin, one pack over; every pack in this tree writes
-    its own rather than sharing one through the kernel, which names no capability to hang a
-    shared helper off of.
+    """Cosine similarity between two same-length embeddings.
+
+    `weft_index.raptor._cosine`'s own twin, one pack over; every pack in this tree writes its own
+    rather than sharing one through the kernel, which names no capability to hang a shared helper
+    off of.
     """
     dot = sum(x * y for x, y in zip(a, b, strict=True))
     norm_a = sum(x * x for x in a) ** 0.5

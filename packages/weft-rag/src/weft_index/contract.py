@@ -78,13 +78,25 @@ class Expander(Stage[Sequence[Node], Sequence[Node]], Protocol):
         version: ClassVar[str]
         layer_stage: ClassVar[bool]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Return every node handed in, plus whatever this stage derived from them.
+
+        Args:
+            payload: The nodes to expand or revise.
+            ctx: The run's context, through which services such as an `Embedder` are reached.
+
+        Returns:
+            The handed nodes and the derived ones, or `NothingToProduce`/`Failed`.
+        """
+        ...
 
 
 @runtime_checkable
 class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
-    """A stage that revises what is **already stored**, not only the payload it was handed —
-    grilling session **G15**'s *Read* face, ledger task **10.23**.
+    """A stage that revises what is **already stored**.
+
+    Not only the payload it was handed — grilling session **G15**'s *Read* face, ledger task
+    **10.23**.
 
     Every other stage in an ingest document is a pure function of its payload. An incremental
     tree is not: `adrap` must read the summaries a previous run wrote in order to join a new
@@ -160,12 +172,23 @@ class Revisable(Stage[Sequence[Node], Sequence[Node]], Protocol):
         layer_stage: ClassVar[bool]
         reads_corpus: ClassVar[bool]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Return every node handed in, plus whatever this stage derived from them.
+
+        Args:
+            payload: The nodes to expand or revise.
+            ctx: The run's context, through which services such as an `Embedder` are reached.
+
+        Returns:
+            The handed nodes and the derived ones, or `NothingToProduce`/`Failed`.
+        """
+        ...
 
 
 class LayerCheckpoints(Protocol):
-    """What a corpus-scoped layer build offers its stages, so an interrupted build resumes —
-    ledger task **43.20**. Reached by `ctx.require(LayerCheckpoints)`, and only on a corpus
+    """What a corpus-scoped layer build offers its stages, so an interrupted build resumes.
+
+    Ledger task **43.20**. Reached by `ctx.require(LayerCheckpoints)`, and only on a corpus
     build: a stage that must also run elsewhere catches `UnresolvedServiceError` and carries on
     without it.
 
@@ -180,16 +203,21 @@ class LayerCheckpoints(Protocol):
     and is not `@runtime_checkable`.
     """
 
-    async def recall(self, key: str) -> Node | None: ...
+    async def recall(self, key: str) -> Node | None:
+        """The node an earlier, interrupted build kept under `key`, or `None`."""
+        ...
 
-    async def keep(self, key: str, node: Node) -> None: ...
+    async def keep(self, key: str, node: Node) -> None:
+        """Write `node` into the build's open generation under `key`."""
+        ...
 
 
 class LayerRevision(Protocol):
-    """What a corpus-scoped layer offers the stage that joins sources added since its tree was
-    published — ledger task **43.23**. Reached by `ctx.require(LayerRevision)`, and only on that
-    join: a stage that must also run elsewhere catches `UnresolvedServiceError` and carries on
-    without it.
+    """What a corpus-scoped layer offers the stage that joins new sources.
+
+    The stage joins sources added since its tree was published — ledger task **43.23**. Reached
+    by `ctx.require(LayerRevision)`, and only on that join: a stage that must also run
+    elsewhere catches `UnresolvedServiceError` and carries on without it.
 
     `layer` names the layer whose tree is revised; the stage reads only that layer's own
     summaries. The stage replaces nothing in place: it returns each rebuilt summary as a node it
@@ -203,9 +231,13 @@ class LayerRevision(Protocol):
 
     layer: str
 
-    async def replaced(self, old: NodeId) -> None: ...
+    async def replaced(self, old: NodeId) -> None:
+        """Report that a rebuilt summary stands in for `old`, so the build leaves `old` out."""
+        ...
 
-    async def unassigned(self, count: int) -> None: ...
+    async def unassigned(self, count: int) -> None:
+        """Report how many handed leaves were placed in no cluster."""
+        ...
 
 
 Expander.version = EXPANDER_CONTRACT_VERSION

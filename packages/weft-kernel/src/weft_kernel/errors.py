@@ -50,7 +50,9 @@ class WeftError(Exception):
 
 
 class UnresolvedNameError:
-    """Marks a `WeftError` subclass whose failure mode is a name that did not resolve
+    """Mark a `WeftError` subclass whose failure is an unresolved name.
+
+    Marks a `WeftError` subclass whose failure mode is a name that did not resolve
     against a known, enumerable set of alternatives — fitness function 12's family
     (`docs/01-high-level-plan.md` → *Fitness functions*, item 12; grilling session G11).
 

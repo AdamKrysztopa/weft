@@ -101,6 +101,15 @@ class HypotheticalQuestionGenerator:
         self._config = config if config is not None else HypotheticalQuestionsConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Derive question-nodes for every node in `payload`.
+
+        Args:
+            payload: The nodes to expand.
+            ctx: The run's context, through which the prompts and LLM are reached.
+
+        Returns:
+            The handed nodes followed by their derived questions, or `NothingToProduce`.
+        """
         if not payload:
             return NothingToProduce(reason="no nodes to generate hypothetical questions for")
 
@@ -124,7 +133,9 @@ class HypotheticalQuestionGenerator:
     async def _questions_for(
         self, node: Node, *, prompts: Prompts, llm: LLM, ctx: Context
     ) -> tuple[Node, tuple[Node, ...]]:
-        """This node — unchanged if it grew children, marked `ExpansionDegraded` if it did not
+        """Expand one node into its derived question-nodes.
+
+        This node — unchanged if it grew children, marked `ExpansionDegraded` if it did not
         — paired with its own derived question-nodes, `()` when generation degrades.
         """
         values = GenerateQuestionsRequest(

@@ -167,8 +167,10 @@ class BoolExpr(BaseModel):
 
 
 def leaves(expr: BoolExpr) -> tuple[BoolExpr, ...]:
-    """Every leaf in `expr`, left to right — `weft_store.fields.leaves`'s own shape, reused for
-    this tree rather than restated: combinators flattened away, leaves kept in encounter order.
+    """Every leaf in `expr`, left to right.
+
+    `weft_store.fields.leaves`'s own shape, reused for this tree rather than restated: combinators
+    flattened away, leaves kept in encounter order.
     """
     if expr.op is BoolOp.TERM:
         return (expr,)
@@ -195,17 +197,20 @@ def index_leaves(expr: BoolExpr) -> BoolExpr:
 
 
 class BooleanSyntaxError(Exception):
-    """Internal control flow for `parse_tokens` alone — never raised past this module's own
-    boundary. `parse_tokens` catches every instance and reports it as a `Failed`, the same
-    "catch specific exceptions, never let one leak past the seam" rule every cascade-backed
-    plugin in this pack already follows for a model's own refusal.
+    """Internal control flow for `parse_tokens` alone.
+
+    Never raised past this module's own boundary. `parse_tokens` catches every instance and reports
+    it as a `Failed`, the same "catch specific exceptions, never let one leak past the seam" rule
+    every cascade-backed plugin in this pack already follows for a model's own refusal.
     """
 
 
 def parse_tokens(
     tokens: tuple[BooleanToken, ...], *, operators: frozenset[BoolOp], max_depth: int
 ) -> BoolExpr | Failed:
-    """`tokens`, parsed into one `BoolExpr` with standard precedence — `not` tightest, then
+    """Parse `tokens` into one `BoolExpr` with standard precedence.
+
+    `tokens`, parsed into one `BoolExpr` with standard precedence — `not` tightest, then
     `and`, then `or` loosest — or a `Failed` naming exactly what went wrong.
 
     Three ways this refuses, each named rather than folded into one generic message: a
@@ -241,7 +246,9 @@ def parse_tokens(
 
 
 def _depth(expr: BoolExpr) -> int:
-    """0 for a leaf, otherwise one more than its deepest clause — a fact about the tree, not
+    """The depth of `expr`'s tree.
+
+    0 for a leaf, otherwise one more than its deepest clause — a fact about the tree, not
     about how many grammar rules a parser descended through to build it.
     """
     if not expr.clauses:
@@ -312,7 +319,9 @@ def _primary(
 
 
 class BooleanPlan(ExtModel):
-    """The parsed `BoolExpr`, attached to `QuerySet.ext` by `BooleanRetrieval` and carried
+    """The parsed `BoolExpr`, carried on `ext` to the stage that evaluates it.
+
+    The parsed `BoolExpr`, attached to `QuerySet.ext` by `BooleanRetrieval` and carried
     forward to `Candidates.ext` by whichever `Retriever` a document places after it —
     `weft_retrieve.fusion.BooleanCombine` (`requires = (BooleanPlan,)`) is what reads it back
     to evaluate the tree against what was actually retrieved. See the module docstring for why
@@ -372,7 +381,9 @@ class BooleanRetrievalConfig(BaseModel):
 
 
 class BooleanRetrieval:
-    """Parses a Boolean query into a typed, precedence-respecting expression tree, and emits
+    """Parse a Boolean query into an expression tree and emit one query per leaf.
+
+    Parses a Boolean query into a typed, precedence-respecting expression tree, and emits
     one operand `Query` per leaf. Satisfies `weft_retrieve.contract.QueryTransform`
     structurally.
 
@@ -402,7 +413,9 @@ class BooleanRetrieval:
         self._config = config if config is not None else BooleanRetrievalConfig()
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[QuerySet]:
-        """`payload.origin`'s text, tokenised, parsed and split into one leaf `Query` per
+        """Tokenise, parse and split the question into one leaf `Query` per operand.
+
+        `payload.origin`'s text, tokenised, parsed and split into one leaf `Query` per
         operand — plus `BooleanPlan` on the returned `QuerySet.ext`.
 
         `out.origin == in.origin` holds by construction: the `QuerySet` built below threads

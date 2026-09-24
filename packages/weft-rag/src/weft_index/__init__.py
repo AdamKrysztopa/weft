@@ -62,7 +62,9 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register both `Expander`s and both `Prompt`s this pack owns, and `Representation` as
+    """Register this pack's expanders, prompts and ext model.
+
+    Register both `Expander`s and both `Prompt`s this pack owns, and `Representation` as
     this pack's own `ExtModel` — task 5.2g, see `weft_chunk.__init__`'s own module
     docstring for the full argument for why this costs no `weft-store` dependency.
     """

@@ -271,7 +271,9 @@ class HydeDocuments(BaseModel):
 
 
 class HydeDocumentPrompt(TypedPrompt):
-    """Ask a model to write one or more passages that would answer the question directly, as
+    """Ask a model for hypothetical passages that would answer the question.
+
+    Ask a model to write one or more passages that would answer the question directly, as
     if drawn from the source material — the "hypothetical document" `hyde` retrieves against
     instead of the question itself. Luyu Gao, Xueguang Ma, Jimmy Lin, Jamie Callan, *Precise
     Zero-Shot Dense Retrieval without Relevance Labels*, arXiv:2212.10496 (2022), ACL 2023
@@ -440,7 +442,9 @@ class QuestionAnchorsRequest(BaseModel):
 
 
 class QuestionAnchors(BaseModel):
-    """The anchors `weft_retrieve.intent_and_anchors.IntentAndAnchors`'s `method: model` turns
+    """The anchors a question's model decomposition names.
+
+    The anchors `weft_retrieve.intent_and_anchors.IntentAndAnchors`'s `method: model` turns
     into one text-arm query each. A question may have none.
     """
 
@@ -450,7 +454,9 @@ class QuestionAnchors(BaseModel):
 
 
 class QuestionAnchorsPrompt(TypedPrompt):
-    """Ask a model for the spans of a question a keyword search should look up on their own —
+    """Ask a model for the spans of a question a keyword search should look up.
+
+    Ask a model for the spans of a question a keyword search should look up on their own —
     the model decomposition `intent-and-anchors`' `method: model` asks for, in place of the
     shape-only rule `find_anchors` applies under `method: rule`. Its examples deliberately
     share no token with the gate fixtures (`tests/unit/weft_retrieve/fixtures/
@@ -538,8 +544,9 @@ MULTI_QUERY_VARIANTS_NAME = "multi-query-variants"
 
 
 class MultiQueryVariantsRequest(BaseModel):
-    """What `multi-query-variants` renders: one or more seed questions, numbered, and how many
-    alternatives to write for each.
+    """What `multi-query-variants` renders.
+
+    One or more seed questions, numbered, and how many alternatives to write for each.
 
     `questions` arrives pre-rendered for the same reason `passage-relevance`'s `passages` and
     `standalone-question`'s `history` do: `string.Template` cannot iterate, so numbering and
@@ -574,7 +581,9 @@ class SeedVariants(BaseModel):
     @field_validator("variants", mode="after")
     @classmethod
     def _no_blank_variant(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        """A blank alternative is not a search query — the same refusal `HydeDocuments`
+        """Refuse a blank alternative query.
+
+        A blank alternative is not a search query — the same refusal `HydeDocuments`
         makes for a blank hypothetical passage, and for the identical reason: caught here,
         against the model answer that actually produced it, rather than one call later
         against a `Query.text` that refuses empty for a different-sounding reason.
@@ -665,8 +674,9 @@ RELEVANCE_GRADE_NAME = "relevance-grade"
 
 
 class Grade(StrEnum):
-    """How well one retrieved passage supports answering a question — `graded-retrieval`'s
-    own three-way judgement per hit.
+    """How well one retrieved passage supports answering a question.
+
+    `graded-retrieval`'s own three-way judgement per hit.
 
     Corrected from CRAG's own Correct/Incorrect/Ambiguous (Shi-Qi Yan, Jia-Chen Gu, Yun Zhu,
     Zhen-Hua Ling, *Corrective Retrieval Augmented Generation*, arXiv:2401.15884, 2024, §3.1's
@@ -721,8 +731,9 @@ class PassageGradeRequest(BaseModel):
 
 
 class PassageGrade(BaseModel):
-    """One passage's grade, by the index it was offered under — mirrors `PassageJudgement`,
-    the discrete axis's counterpart to the continuous one.
+    """One passage's grade, by the index it was offered under.
+
+    Mirrors `PassageJudgement`, the discrete axis's counterpart to the continuous one.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -749,14 +760,14 @@ BOOLEAN_PARSE_NAME = "boolean-parse"
 
 
 class BooleanTokenKind(StrEnum):
-    """What one token of a tokenised Boolean query names — a search term, a combinator
-    keyword, or a parenthesis. `weft_retrieve.boolean`'s own recursive-descent parser is
-    what turns a sequence of these into a precedence-respecting `BoolExpr`; this prompt's
-    only job is lexical — deciding where one token ends and the next begins — never deciding
-    what the tokens mean together. Splitting the two is the fix for a flat
-    `(operator, list[str])` representation: a *tokeniser* cannot silently collapse
-    `a AND b OR c` into
-    `MIXED`, because it never sees the operators as a single "type of query" to begin with.
+    """What one token of a tokenised Boolean query names.
+
+    A search term, a combinator keyword, or a parenthesis. `weft_retrieve.boolean`'s own
+    recursive-descent parser is what turns a sequence of these into a precedence-respecting
+    `BoolExpr`; this prompt's only job is lexical — deciding where one token ends and the next
+    begins — never deciding what the tokens mean together. Splitting the two is the fix for a flat
+    `(operator, list[str])` representation: a *tokeniser* cannot silently collapse `a AND b OR c`
+    into `MIXED`, because it never sees the operators as a single "type of query" to begin with.
     """
 
     TERM = "term"
@@ -768,8 +779,10 @@ class BooleanTokenKind(StrEnum):
 
 
 class BooleanQueryRequest(BaseModel):
-    """What `boolean-parse` renders: the query to tokenise, and which operator keywords this
-    document's own `operators` config allows.
+    """What `boolean-parse` renders.
+
+    The query to tokenise, and which operator keywords this document's own `operators` config
+    allows.
 
     `operators` is rendered text (`AND, OR, NOT`, upper-cased), never the bare `BoolOp`
     members — the same split every other request type in this module draws between "what a
@@ -822,7 +835,9 @@ class BooleanTokens(BaseModel):
 
 
 class BooleanParsePrompt(TypedPrompt):
-    """Ask a model to tokenise a Boolean query into terms, combinators and parentheses, in
+    """Ask a model to tokenise a Boolean query, never to decide how it combines.
+
+    Ask a model to tokenise a Boolean query into terms, combinators and parentheses, in
     the order they appear — never to decide how they combine.
 
     Christopher D. Manning, Prabhakar Raghavan, Hinrich Schütze, *Introduction to Information
@@ -941,8 +956,10 @@ SUFFICIENCY_CHECK_NAME = "sufficiency-check"
 
 
 class SufficiencyCheckRequest(BaseModel):
-    """What `sufficiency-check` renders: the question, the evidence gathered so far, and —
-    when there is one — a draft answer built from it.
+    """What `sufficiency-check` renders.
+
+    The question, the evidence gathered so far, and — when there is one — a draft answer built from
+    it.
 
     One request type serves both of `weft_retrieve.contract.Sufficiency`'s consumers — that
     contract's own docstring: "a named contract with two implementations is what 'replaceable'
@@ -983,8 +1000,10 @@ ROUTE_QUERY_NAME = "route-query"
 
 
 class RouteQueryRequest(BaseModel):
-    """What `route-query` renders: the question, the dimensions to score it on, and the
-    pipelines a router could currently choose between.
+    """What `route-query` renders.
+
+    The question, the dimensions to score it on, and the pipelines a router could currently choose
+    between.
 
     `dimensions` and `candidates` arrive pre-rendered for the same reason every other
     request type in this module does — `string.Template` cannot iterate, so numbering and
@@ -1033,7 +1052,9 @@ class RouteQueryScores(BaseModel):
 
 
 class RouteQueryPrompt(TypedPrompt):
-    """Ask a model to score a query along named dimensions, informed by the pipelines a
+    """Ask a model to score a query along named dimensions.
+
+    Ask a model to score a query along named dimensions, informed by the pipelines a
     router could actually choose between.
 
     Soyeong Jeong, Jinheon Baek, Sukmin Cho, Sung Ju Hwang, Jong C. Park, *Adaptive-RAG:
@@ -1095,7 +1116,9 @@ class RouteQueryPrompt(TypedPrompt):
 
 
 class SufficiencyCheckPrompt(TypedPrompt):
-    """Ask a model whether the evidence in hand — and, when given, a draft grounded in it —
+    """Ask a model whether the evidence in hand is enough to answer the question.
+
+    Ask a model whether the evidence in hand — and, when given, a draft grounded in it —
     is enough to confidently answer the question.
 
     Zhengbao Jiang, Frank F. Xu, Luyu Gao, Zhiqing Sun, Qian Liu, Jane Dwivedi-Yu, Yiming
@@ -1157,8 +1180,9 @@ SUMMARIZE_FOR_QUERY_NAME = "summarize-for-query"
 
 
 class SummarizeForQueryRequest(BaseModel):
-    """What `summarize-for-query` renders: the question, and one cluster of passages already
-    numbered and joined into one string.
+    """What `summarize-for-query` renders.
+
+    The question, and one cluster of passages already numbered and joined into one string.
 
     `passages: str`, not `tuple[str, ...]` — `weft_index.prompts.SummarizeClusterRequest`'s
     own precedent for a batch offered to a template: joining is the plugin's own job

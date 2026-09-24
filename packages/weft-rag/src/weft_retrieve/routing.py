@@ -167,7 +167,9 @@ class QueryScorerConfig(BaseModel):
     @field_validator("dimensions", mode="after")
     @classmethod
     def _distinct_names(cls, value: tuple[Dimension, ...]) -> tuple[Dimension, ...]:
-        """A repeated `Dimension.name` would silently overwrite its own score in
+        """Refuse a repeated `Dimension.name`.
+
+        A repeated `Dimension.name` would silently overwrite its own score in
         `Scorecard.scores`' mapping — caught here, at configuration time, rather than
         discovered downstream as one fewer score than a `RoutingPolicy` expected.
         """
@@ -254,15 +256,18 @@ class LlmQueryScorer:
 
 
 def _offer_dimensions(dimensions: tuple[Dimension, ...]) -> str:
-    """`dimensions`, one per line — the same split every other prompt in this pack draws
-    between "what a plugin computed" and "what a template can substitute" (`string.
-    Template` cannot iterate a tuple).
+    """`dimensions`, one per line.
+
+    The same split every other prompt in this pack draws between "what a plugin computed" and "what
+    a template can substitute" (`string.Template` cannot iterate a tuple).
     """
     return "\n".join(f"- {dimension.name}: {dimension.description}" for dimension in dimensions)
 
 
 def _offer_candidates(candidates: tuple[RouteCandidate, ...]) -> str:
-    """`candidates`, already sorted by the caller, one per line — or an honest statement
+    """`candidates`, one per line, or a statement that none are installed.
+
+    `candidates`, already sorted by the caller, one per line — or an honest statement
     that none are installed, never a blank line a model would have to guess the meaning of.
     """
     if not candidates:
@@ -278,7 +283,9 @@ def _offer_candidates(candidates: tuple[RouteCandidate, ...]) -> str:
 def _score_mapping(
     answer: RouteQueryScores, *, wanted: frozenset[str]
 ) -> dict[str, float] | Failed:
-    """Every wanted dimension, scored exactly once — or a `Failed` naming exactly how the
+    """Every wanted dimension, scored exactly once, or a `Failed`.
+
+    Every wanted dimension, scored exactly once — or a `Failed` naming exactly how the
     set was wrong. Mirrors `weft_retrieve.rerank._scores_by_index`'s own three-way refusal
     (unknown, repeated, missing), applied to a name instead of an offered index.
     """
@@ -306,7 +313,9 @@ def _score_mapping(
 
 
 def _keyword_intents(text: str, markers: Mapping[str, tuple[str, ...]]) -> frozenset[str]:
-    """A keyword classifier over `text` — no model call, `weft_retrieve.sufficiency.
+    """A keyword classifier over `text`, with no model call.
+
+    A keyword classifier over `text` — no model call, `weft_retrieve.sufficiency.
     HedgePhrases`'s own `str.__contains__` mechanism applied to intent labels instead of a
     hedge signal. `markers` is configuration an operator's `with:` block reaches; an empty
     table (the default) answers no intents at all, honestly.
@@ -446,7 +455,9 @@ class ThresholdLadderConfig(BaseModel):
     @field_validator("rules", mode="after")
     @classmethod
     def _distinct_rule_names(cls, value: tuple[Rule, ...]) -> tuple[Rule, ...]:
-        """A repeated `Rule.name` would leave `Route.rule` unable to say which of two rules
+        """Refuse a repeated `Rule.name`.
+
+        A repeated `Rule.name` would leave `Route.rule` unable to say which of two rules
         actually matched — caught here rather than discovered from an ambiguous audit trail.
         """
         names = [rule.name for rule in value]
@@ -511,10 +522,11 @@ class ThresholdLadder:
         )
 
     async def reachable(self, candidates: Sequence[RouteCandidate]) -> frozenset[str]:
-        """Every pipeline this ladder could ever select — `weft plugins doctor`'s own
-        unroutable-report input (task 2.8). Independent of `candidates`: a ladder's own
-        reachable set is exactly what its rules and its default name, whether or not any of
-        them is currently installed.
+        """Every pipeline this ladder could ever select.
+
+        `weft plugins doctor`'s own unroutable-report input (task 2.8). Independent of `candidates`:
+        a ladder's own reachable set is exactly what its rules and its default name, whether or not
+        any of them is currently installed.
         """
         del candidates
         return frozenset(rule.then for rule in self._config.rules) | {self._config.default}
@@ -545,7 +557,9 @@ class NearestDescriptionConfig(BaseModel):
 
 
 class NearestDescription:
-    """Embeds every candidate's own `route.summary` beside the query and selects the
+    """Select the candidate whose `route.summary` embeds nearest the query.
+
+    Embeds every candidate's own `route.summary` beside the query and selects the
     nearest by cosine similarity. Satisfies `weft_retrieve.contract.RoutingPolicy`
     structurally.
 
@@ -634,8 +648,9 @@ def _synthetic(text: str, reason: str) -> Node:
 
 
 def _cosine(a: Vector, b: Vector) -> float:
-    """Cosine similarity between two embeddings — no store, no index, just the two vectors
-    an `Embedder` handed back in the same batch.
+    """Cosine similarity between two embeddings.
+
+    No store, no index, just the two vectors an `Embedder` handed back in the same batch.
     """
     dot = sum(x * y for x, y in zip(a.values, b.values, strict=True))
     norm_a = math.sqrt(sum(x * x for x in a.values))
@@ -673,6 +688,7 @@ class Always:
         self._config = config if config is not None else AlwaysConfig()
 
     async def run(self, payload: Scorecard, ctx: Context) -> Outcome[Route]:
+        """Route to the configured pipeline, whatever `payload` scored."""
         del ctx
         return Produced(
             value=Route(
@@ -684,5 +700,6 @@ class Always:
         )
 
     async def reachable(self, candidates: Sequence[RouteCandidate]) -> frozenset[str]:
+        """The one configured pipeline, installed or not."""
         del candidates
         return frozenset({self._config.pipeline})

@@ -52,6 +52,11 @@ class Property:
     __namespace__: ClassVar[str] = ""
 
     def __init_subclass__(cls, **kwargs: object) -> None:
+        """Refuse a subclass that omits `__namespace__`.
+
+        Raises:
+            TypeError: When `__namespace__` is empty.
+        """
         super().__init_subclass__(**kwargs)
         if not cls.__namespace__:
             raise TypeError(

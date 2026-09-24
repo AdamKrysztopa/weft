@@ -300,7 +300,7 @@ class Ranking(BaseModel):
         return len(self.hits)
 
     def __bool__(self) -> bool:
-        # Defining `__len__` would make an empty ranking falsy; `if ranking:` means "given one".
+        """Always true: with `__len__` defined, `if ranking:` must still mean "given one"."""
         return True
 
 
@@ -360,7 +360,7 @@ class Passages(BaseModel):
         return len(self.passages)
 
     def __bool__(self) -> bool:
-        # As `Ranking.__bool__`: empty evidence is still a value that was given.
+        """Always true, as `Ranking.__bool__`: empty evidence is still a value that was given."""
         return True
 
     def best_ranked(self, limit: int) -> tuple[Passage, ...]:

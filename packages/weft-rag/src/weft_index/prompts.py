@@ -95,8 +95,9 @@ SUMMARIZE_CLUSTER_NAME = "summarize-cluster"
 
 
 class SummarizeClusterRequest(BaseModel):
-    """What `summarize-cluster` renders: one cluster of passages, already numbered and
-    joined into one string.
+    """What `summarize-cluster` renders: one cluster of passages.
+
+    The passages arrive already numbered and joined into one string.
 
     `passages: str`, not `tuple[str, ...]` — `weft_retrieve.prompts.PassageGradeRequest`'s
     own precedent for a batch offered to a template: joining is the plugin's own job
@@ -110,7 +111,9 @@ class SummarizeClusterRequest(BaseModel):
 
 
 class SummarizeClusterPrompt(TypedPrompt):
-    """Ask a model for the one summary that stands in for a cluster of passages, in the
+    """Ask a model for one summary standing in for a cluster of passages.
+
+    Ask a model for the one summary that stands in for a cluster of passages, in the
     cluster's own dominant language.
 
     Task **2.32**, `10` §1.2's `raptor` row, citing Parth Sarthi, Salman Abdullah, Aditi

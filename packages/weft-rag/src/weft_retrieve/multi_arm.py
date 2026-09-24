@@ -89,6 +89,11 @@ class MultiArmConfig(BaseModel):
     arms: tuple[Arm, ...] = Field(min_length=2)
 
     def model_post_init(self, context: object, /) -> None:
+        """Refuse two arms sharing a name.
+
+        Raises:
+            ValueError: Naming every arm, when any two share a name.
+        """
         del context
         names = [arm.name for arm in self.arms]
         if len(set(names)) != len(names):
@@ -109,6 +114,15 @@ class MultiArm:
         self._config = config
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]:
+        """Search every configured arm, one ranked list per arm.
+
+        Args:
+            payload: The queries to search with.
+            ctx: The run's context, through which the store and embedder are reached.
+
+        Returns:
+            One ranked list per arm, or `Failed` when the store cannot search by vector.
+        """
         store = ctx.require(NodeStore)
         if not isinstance(store, VectorSearch):
             return Failed(

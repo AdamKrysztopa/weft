@@ -152,7 +152,9 @@ class RepackConfig(BaseModel):
 
 
 def _forward(hits: Sequence[Passage]) -> Sequence[Passage]:
-    """Unchanged — the identity ordering, named so it can be selected rather than merely
+    """Unchanged — the identity ordering.
+
+    Unchanged — the identity ordering, named so it can be selected rather than merely
     achieved by omitting a `ContextPacker` a document still needs one of.
     """
     return hits
@@ -164,7 +166,9 @@ def _reverse(hits: Sequence[Passage]) -> Sequence[Passage]:
 
 
 def _sides(hits: Sequence[Passage]) -> Sequence[Passage]:
-    """Even retrieval-order positions kept at the front, odd positions reversed at the back —
+    """Keep even positions at the front and reversed odd positions at the back.
+
+    Even retrieval-order positions kept at the front, odd positions reversed at the back —
     see the module docstring for why this, and not a best/worst zip-interleave, is what
     Wang et al.'s name is attached to.
     """
@@ -257,7 +261,9 @@ class Repack:
     async def _within_budget(
         self, kept: Sequence[Passage], budget: int, ctx: Context
     ) -> tuple[tuple[Passage, ...], int] | Failed:
-        """The longest ranking-order prefix of `kept` whose rendered block fits `budget`, and
+        """The longest ranking-order prefix of `kept` that fits `budget`.
+
+        The longest ranking-order prefix of `kept` whose rendered block fits `budget`, and
         that block's token count.
 
         Renders each candidate prefix exactly as `weft_generate.cited_answer._offer` renders

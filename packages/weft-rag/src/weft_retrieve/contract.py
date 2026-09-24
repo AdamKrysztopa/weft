@@ -89,7 +89,17 @@ class QueryTransform(Stage[QuerySet, QuerySet], Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def run(self, payload: QuerySet, ctx: Context) -> Outcome[QuerySet]: ...
+    async def run(self, payload: QuerySet, ctx: Context) -> Outcome[QuerySet]:
+        """Rewrite, expand or decompose the queries to search with.
+
+        Args:
+            payload: The queries so far.
+            ctx: The run's context.
+
+        Returns:
+            The queries to search with.
+        """
+        ...
 
 
 @runtime_checkable
@@ -122,7 +132,17 @@ class Retriever(Stage[QuerySet, Candidates], Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]: ...
+    async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]:
+        """Search with every query, one ranked list per arm.
+
+        Args:
+            payload: The queries to search with.
+            ctx: The run's context.
+
+        Returns:
+            The ranked lists retrieved.
+        """
+        ...
 
 
 @runtime_checkable
@@ -138,7 +158,17 @@ class Fuser(Stage[Candidates, Ranking], Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def run(self, payload: Candidates, ctx: Context) -> Outcome[Ranking]: ...
+    async def run(self, payload: Candidates, ctx: Context) -> Outcome[Ranking]:
+        """Merge the retrieved lists into one ranking.
+
+        Args:
+            payload: The ranked lists to merge.
+            ctx: The run's context.
+
+        Returns:
+            The one merged ranking.
+        """
+        ...
 
 
 @runtime_checkable
@@ -153,7 +183,17 @@ class Reranker(Stage[Ranking, Ranking], Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]: ...
+    async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
+        """Reorder, filter or rescore a ranking.
+
+        Args:
+            payload: The ranking to rerank.
+            ctx: The run's context.
+
+        Returns:
+            The reranked ranking.
+        """
+        ...
 
 
 @runtime_checkable
@@ -169,7 +209,17 @@ class ContextPacker(Stage[Ranking, Passages], Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def run(self, payload: Ranking, ctx: Context) -> Outcome[Passages]: ...
+    async def run(self, payload: Ranking, ctx: Context) -> Outcome[Passages]:
+        """Choose and order the passages a generator is shown.
+
+        Args:
+            payload: The final ranking.
+            ctx: The run's context.
+
+        Returns:
+            The packed passages.
+        """
+        ...
 
 
 @runtime_checkable
@@ -185,7 +235,17 @@ class QueryScorer(Stage[Query, Scorecard], Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def run(self, payload: Query, ctx: Context) -> Outcome[Scorecard]: ...
+    async def run(self, payload: Query, ctx: Context) -> Outcome[Scorecard]:
+        """Score a query along the dimensions a router decides on.
+
+        Args:
+            payload: The query to score.
+            ctx: The run's context.
+
+        Returns:
+            The query's scorecard.
+        """
+        ...
 
 
 @runtime_checkable
@@ -211,14 +271,26 @@ class RoutingPolicy(Stage[Scorecard, Route], Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def run(self, payload: Scorecard, ctx: Context) -> Outcome[Route]: ...
+    async def run(self, payload: Scorecard, ctx: Context) -> Outcome[Route]:
+        """Choose the pipeline a scored query is answered by.
 
-    async def reachable(self, candidates: Sequence[RouteCandidate]) -> frozenset[str]: ...
+        Args:
+            payload: The query's scorecard.
+            ctx: The run's context.
+
+        Returns:
+            The chosen route.
+        """
+        ...
+
+    async def reachable(self, candidates: Sequence[RouteCandidate]) -> frozenset[str]:
+        """The names among `candidates` this policy could ever choose."""
+        ...
 
 
 @runtime_checkable
 class Sufficiency(Protocol):
-    """Judges whether the evidence in hand answers the question. **Not a pipeline position.**
+    """Judges whether the evidence in hand answers the question. **Not a pipeline position**.
 
     Declares no `Stage[In, Out]` base, on purpose: it takes three arguments, not one
     payload, and it is reached *inside* a looping technique by name through `StageLookup`
@@ -235,11 +307,23 @@ class Sufficiency(Protocol):
 
     async def assess(
         self, question: Query, evidence: Passages, draft: str | None, ctx: Context
-    ) -> Outcome[Assessment]: ...
+    ) -> Outcome[Assessment]:
+        """Judge whether `evidence` suffices to answer `question`.
+
+        Args:
+            question: The question being answered.
+            evidence: The passages gathered so far.
+            draft: An answer drafted from `evidence`, when there is one.
+            ctx: The run's context.
+
+        Returns:
+            The `Assessment`; `observed=False` when the judgement could not be made.
+        """
+        ...
 
 
 class StageLookup(Protocol):
-    """The one late-binding seam a looping technique gets. **A service, never registered.**
+    """The one late-binding seam a looping technique gets. **A service, never registered**.
 
     Resolved by type through `ctx.require(StageLookup)`, carries no `version`, and is
     never named in a pipeline — the mechanical rule that keeps a service out of the
@@ -268,15 +352,37 @@ class StageLookup(Protocol):
     option.
     """
 
-    def names(self, contract: type[object]) -> frozenset[str]: ...
+    def names(self, contract: type[object]) -> frozenset[str]:
+        """Every name registered for `contract`."""
+        ...
 
     async def build[In, Out](
         self, contract: type[Stage[In, Out]], name: str, config: object = None
-    ) -> Callable[[In, Context], Awaitable[Outcome[Out]]]: ...
+    ) -> Callable[[In, Context], Awaitable[Outcome[Out]]]:
+        """Build the stage registered as `name` under `contract`, already seam-wrapped.
 
-    async def build_capability[T](
-        self, contract: type[T], name: str, config: object = None
-    ) -> T: ...
+        Args:
+            contract: The stage contract `name` is registered under.
+            name: The registered plugin name.
+            config: Its `with:` block, validated against the plugin's `config_model`.
+
+        Returns:
+            The plugin's `run`, wrapped through `weft_kernel.seam.wrap`.
+        """
+        ...
+
+    async def build_capability[T](self, contract: type[T], name: str, config: object = None) -> T:
+        """Build the capability registered as `name` under `contract`, unwrapped.
+
+        Args:
+            contract: The capability contract `name` is registered under.
+            name: The registered plugin name.
+            config: Its `with:` block, validated against the plugin's `config_model`.
+
+        Returns:
+            The constructed instance.
+        """
+        ...
 
 
 class SubPlugin:
@@ -289,7 +395,7 @@ class SubPlugin:
 
 
 class RouteCatalogue(Protocol):
-    """What pipelines a router may choose between. **A service, never registered.**
+    """What pipelines a router may choose between. **A service, never registered**.
 
     Populated by the same eager discovery pass that builds the registry, from the
     pipelines packs contribute — so a third party's pipeline becomes routable on install
@@ -297,9 +403,13 @@ class RouteCatalogue(Protocol):
     demonstration is about.
     """
 
-    def candidates(self) -> tuple[RouteCandidate, ...]: ...
+    def candidates(self) -> tuple[RouteCandidate, ...]:
+        """Every pipeline a router may currently choose, as a routing candidate."""
+        ...
 
-    def names(self) -> frozenset[str]: ...
+    def names(self) -> frozenset[str]:
+        """The names of every pipeline in `candidates`."""
+        ...
 
 
 ContextPacker.version = RETRIEVE_CONTRACT_VERSION

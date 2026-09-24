@@ -236,8 +236,10 @@ class RendererOffer(BaseModel):
 
     @field_serializer("result_type")
     def _result_type_as_name(self, result_type: type[object]) -> str:
-        """The type's qualified name — ledger task **24.5**, and the same rule as
-        `PackReport.ext_models`: what leaves is an identity, never the live object.
+        """Serialise the result type as its qualified name.
+
+        Ledger task **24.5**, and the same rule as `PackReport.ext_models`: what leaves is an
+        identity, never the live object.
 
         This field holds a real class because `weft_cli.render`'s dispatch keys on it, and a
         string could not do that. `weft --json plugins list` asked it to serialise and pydantic
@@ -508,12 +510,23 @@ class EntryPointLike(Protocol):
     """
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        """The entry point's name, which is the pack's name."""
+        ...
+
     @property
-    def module(self) -> str: ...
+    def module(self) -> str:
+        """The module the entry point's object lives in."""
+        ...
+
     @property
-    def dist(self) -> _DistributionLike | None: ...
-    def load(self) -> Callable[..., None]: ...
+    def dist(self) -> _DistributionLike | None:
+        """The distribution that declared the entry point, when metadata knows it."""
+        ...
+
+    def load(self) -> Callable[..., None]:
+        """Import and return the pack's `register` callable."""
+        ...
 
 
 class PackRegistrar:
@@ -567,8 +580,9 @@ class PackRegistrar:
         )
 
     def deprecate(self, surface: str, *, reason: str) -> None:
-        """Mark `surface` — a plugin name, a `"Contract:name"` pair, or the pack itself —
-        deprecated, attributed to this pack.
+        """Mark `surface` deprecated, attributed to this pack.
+
+        `surface` is a plugin name, a `"Contract:name"` pair, or the pack itself.
 
         Task 5.2e. Buffered exactly like `add_pipeline_resource`, for the identical reason:
         a pack whose `register()` raises after calling this must not leave a warning
@@ -670,43 +684,51 @@ class PackRegistrar:
 
     @property
     def pipeline_resources(self) -> tuple[PipelineResource, ...]:
-        """Every `PipelineResource` this pack has buffered so far — `_activate`'s own read,
-        once `register()` has returned without raising. See `add_pipeline_resource`.
+        """Every `PipelineResource` this pack has buffered so far.
+
+        `_activate`'s own read, once `register()` has returned without raising. See
+        `add_pipeline_resource`.
         """
         return tuple(self._pending_resources)
 
     @property
     def deprecations(self) -> tuple[Deprecation, ...]:
-        """Every `Deprecation` this pack has buffered so far — `_activate`'s own read, once
-        `register()` has returned without raising. See `deprecate`.
+        """Every `Deprecation` this pack has buffered so far.
+
+        `_activate`'s own read, once `register()` has returned without raising. See `deprecate`.
         """
         return tuple(self._pending_deprecations)
 
     @property
     def unavailable_surfaces(self) -> tuple[Unavailable, ...]:
-        """Every `Unavailable` this pack has buffered so far — `_activate`'s own read, once
-        `register()` has returned without raising. See `unavailable`.
+        """Every `Unavailable` this pack has buffered so far.
+
+        `_activate`'s own read, once `register()` has returned without raising. See `unavailable`.
         """
         return tuple(self._pending_unavailable)
 
     @property
     def ext_models(self) -> tuple[type[ExtModel], ...]:
-        """Every `ExtModel` subclass this pack has buffered so far — `_activate`'s own read,
-        once `register()` has returned without raising. See `add_ext_model`.
+        """Every `ExtModel` subclass this pack has buffered so far.
+
+        `_activate`'s own read, once `register()` has returned without raising. See `add_ext_model`.
         """
         return tuple(self._pending_ext_models)
 
     @property
     def contributions(self) -> tuple[Contribution, ...]:
-        """Every `Contribution` this pack has buffered so far — `_activate`'s own read, once
-        `register()` has returned without raising. See `add_contribution`.
+        """Every `Contribution` this pack has buffered so far.
+
+        `_activate`'s own read, once `register()` has returned without raising. See
+        `add_contribution`.
         """
         return tuple(self._pending_contributions)
 
     @property
     def renderers(self) -> tuple[RendererOffer, ...]:
-        """Every `RendererOffer` this pack has buffered so far — `_activate`'s own read, once
-        `register()` has returned without raising. See `add_renderer`.
+        """Every `RendererOffer` this pack has buffered so far.
+
+        `_activate`'s own read, once `register()` has returned without raising. See `add_renderer`.
         """
         return tuple(self._pending_renderers)
 
@@ -753,7 +775,7 @@ def _interpolate(value: object, env: Mapping[str, str]) -> object:
 
 
 def allow_list_from_config(document: Mapping[str, object]) -> tuple[str, ...] | None:
-    """The exhaustive pin from a parsed `weft.toml`-shaped mapping's `[packs] allow`.
+    r"""The exhaustive pin from a parsed `weft.toml`-shaped mapping's `[packs] allow`.
 
     `None` means absent, which `docs/02-extension-model.md` states plainly:
     "`weft.toml` — optional. Absent means open." Present but empty
@@ -763,7 +785,7 @@ def allow_list_from_config(document: Mapping[str, object]) -> tuple[str, ...] | 
 
     **A `packs` key that is present but not a table is refused, not absorbed
     into absence.** `docs/02` §2's *The trust model*:
-    `packs = ["weft-store"]` is the plausible typo for `[packs]\\nallow =
+    `packs = ["weft-store"]` is the plausible typo for `[packs]\nallow =
     [...]` — TOML parses it to a `list`, and a bare `isinstance(packs,
     Mapping)` guard used to fail that check the same way a genuinely absent
     `packs` does, silently landing on open-by-default with the operator's
@@ -957,6 +979,28 @@ def discover(
                 PackReport(pack=None, distribution=missing, status=PackStatus.ALLOWED_NOT_INSTALLED)
             )
 
+    _refuse_unclaimed_settings(settings_source, seen_packs)
+
+    # Every pack that was going to collide with anyone already has, since every candidate
+    # above has been activated (or refused, or reported missing) by this point — so a pin
+    # `registry` was given that `Registry.unconsulted_pins()` still lists never arbitrated a
+    # real collision at all. `docs/02-extension-model.md` §3: "an inert pin is a lie about
+    # what is running." Raised here, not folded into any one pack's report — see
+    # `InertPluginPinError`'s own docstring for why. Skipped, not silenced, when
+    # `strict_pins` is `False`: the state is still sitting on `registry.unconsulted_pins()`
+    # for a caller that asked not to have it be fatal to read.
+    if strict_pins:
+        _refuse_inert_pins(registry)
+
+    return tuple(reports)
+
+
+def _refuse_unclaimed_settings(settings_source: Collection[str], seen_packs: set[str]) -> None:
+    """Refuse a `[packs.<pack>]` settings block naming no installed pack.
+
+    Raises:
+        UnknownPackSettingsError: Naming every unclaimed block and every installed pack.
+    """
     unclaimed = sorted(set(settings_source) - seen_packs)
     if unclaimed:
         named = ", ".join(f"'{name}'" for name in unclaimed)
@@ -969,26 +1013,22 @@ def discover(
             valid_options=options,
         )
 
-    # Every pack that was going to collide with anyone already has, since every candidate
-    # above has been activated (or refused, or reported missing) by this point — so a pin
-    # `registry` was given that `Registry.unconsulted_pins()` still lists never arbitrated a
-    # real collision at all. `docs/02-extension-model.md` §3: "an inert pin is a lie about
-    # what is running." Raised here, not folded into any one pack's report — see
-    # `InertPluginPinError`'s own docstring for why. Skipped, not silenced, when
-    # `strict_pins` is `False`: the state is still sitting on `registry.unconsulted_pins()`
-    # for a caller that asked not to have it be fatal to read.
-    if strict_pins:
-        unconsulted = sorted(registry.unconsulted_pins())
-        if unconsulted:
-            named = ", ".join(f"'{pin}'" for pin in unconsulted)
-            raise InertPluginPinError(
-                f"[plugins] pins {named}, but weft never saw two distributions contend for "
-                f"what {'it names' if len(unconsulted) == 1 else 'they name'} — nothing to "
-                f"arbitrate. Remove the pin, or check that both distributions it should choose "
-                f"between are installed and actually registering that name."
-            )
 
-    return tuple(reports)
+def _refuse_inert_pins(registry: Registry) -> None:
+    """Refuse a `[plugins]` pin that never arbitrated a real collision.
+
+    Raises:
+        InertPluginPinError: Naming every pin `registry` never consulted.
+    """
+    unconsulted = sorted(registry.unconsulted_pins())
+    if unconsulted:
+        named = ", ".join(f"'{pin}'" for pin in unconsulted)
+        raise InertPluginPinError(
+            f"[plugins] pins {named}, but weft never saw two distributions contend for "
+            f"what {'it names' if len(unconsulted) == 1 else 'they name'} — nothing to "
+            f"arbitrate. Remove the pin, or check that both distributions it should choose "
+            f"between are installed and actually registering that name."
+        )
 
 
 def _activate(
@@ -1083,8 +1123,7 @@ def _activate(
             failure_kind=PackFailureKind.SETTINGS,
         )
     try:
-        register_fn(registrar, settings)
-        registrar.commit()
+        _register_and_commit(register_fn, registrar, settings)
     except Exception as exc:  # noqa: BLE001 — one broken pack must not stop the rest loading
         return PackReport(
             pack=pack,
@@ -1121,6 +1160,14 @@ def _activate(
         renderers=registrar.renderers,
         service_roles=service_roles,
     )
+
+
+def _register_and_commit(
+    register_fn: Callable[..., None], registrar: PackRegistrar, settings: object
+) -> None:
+    """Call the pack's `register()`, then commit what it buffered — `_activate`'s guarded step."""
+    register_fn(registrar, settings)
+    registrar.commit()
 
 
 def _read_disclosure(entry_point: EntryPointLike, *, pack: str) -> Disclosure | None:

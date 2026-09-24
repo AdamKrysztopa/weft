@@ -174,6 +174,31 @@ class _Unset:
 _UNSET = _Unset()
 
 
+def _claimed_media_types(
+    media_type: MediaType | tuple[MediaType, ...] | _Unset, field_values: dict[str, object]
+) -> tuple[MediaType, ...]:
+    """The media types an `Applies` with no fact claims, refusing any other argument.
+
+    Raises:
+        TypeError: When no media type was passed, or a field keyword was passed beside one.
+    """
+    if isinstance(media_type, _Unset):
+        raise TypeError(
+            "Applies() states no constraint at all. Pass a fact to narrow "
+            "(Applies(Language, code='pl')) or a media type to claim "
+            "(Applies(media_type=MediaType.TEXT)); an Applies claiming nothing would "
+            "match no node and say nothing about why."
+        )
+    if field_values:
+        unexpected = ", ".join(sorted(field_values))
+        raise TypeError(
+            f"Applies(media_type=...) accepts no keyword but media_type; got "
+            f"{unexpected}. A media-type constraint narrows a field every node has, "
+            f"with nothing left to name."
+        )
+    return (media_type,) if isinstance(media_type, MediaType) else tuple(media_type)
+
+
 class Applies(BaseModel):
     """One constraint a stage's `applies_to` tuple carries: a fact, optionally narrowed.
 
@@ -206,7 +231,9 @@ class Applies(BaseModel):
         media_type: MediaType | tuple[MediaType, ...] | _Unset = _UNSET,
         **field_values: object,
     ) -> None:
-        """Authored as `Applies(Language, code="pl")` **or** `Applies(media_type=...)`,
+        """Accept either authored arguments or JSON.
+
+        Authored as `Applies(Language, code="pl")` **or** `Applies(media_type=...)`,
         and **rebuilt from JSON as well**.
 
         `fact` is positional-only so that a fact model declaring its own `fact` field is still
@@ -243,22 +270,7 @@ class Applies(BaseModel):
                     field_values["media_type"] = media_type
                 super().__init__(**field_values)
                 return
-            if isinstance(media_type, _Unset):
-                raise TypeError(
-                    "Applies() states no constraint at all. Pass a fact to narrow "
-                    "(Applies(Language, code='pl')) or a media type to claim "
-                    "(Applies(media_type=MediaType.TEXT)); an Applies claiming nothing would "
-                    "match no node and say nothing about why."
-                )
-            if field_values:
-                unexpected = ", ".join(sorted(field_values))
-                raise TypeError(
-                    f"Applies(media_type=...) accepts no keyword but media_type; got "
-                    f"{unexpected}. A media-type constraint narrows a field every node has, "
-                    f"with nothing left to name."
-                )
-            claimed = (media_type,) if isinstance(media_type, MediaType) else tuple(media_type)
-            super().__init__(fact=None, media_type=claimed)
+            super().__init__(fact=None, media_type=_claimed_media_types(media_type, field_values))
             return
         unknown = sorted(set(field_values) - set(fact.model_fields))
         if unknown:
@@ -289,6 +301,7 @@ class Applies(BaseModel):
         return all(getattr(value, name) == expected for name, expected in self.constraints)
 
     def __repr__(self) -> str:
+        """Render the constraint the way it would be authored."""
         if self.fact is None:
             types = ", ".join(claimed.value for claimed in self.media_type)
             return f"Applies(media_type=({types}))"

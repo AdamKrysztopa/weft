@@ -478,31 +478,18 @@ def wrap[**P, T](
                     else contextlib.nullcontext()
                 )
                 with guard_cm:
-                    try:
-                        outcome = await run(*args, **kwargs)
-                    except WeftError as exc:
-                        _attribute(
-                            exc,
-                            distribution=distribution,
-                            contract=contract,
-                            plugin=plugin,
-                            stage=stage_label,
-                        )
-                        raise
-                    except Exception as exc:
-                        raise WeftError(
-                            f"'{stage_label}' failed: {type(exc).__name__}: {exc}",
-                            pack=distribution,
-                            contract=contract,
-                            plugin=plugin,
-                            stage=stage_label,
-                        ) from exc
+                    outcome = await _attributed(
+                        lambda: run(*args, **kwargs),
+                        failure=f"'{stage_label}' failed",
+                        distribution=distribution,
+                        contract=contract,
+                        plugin=plugin,
+                        stage=stage_label,
+                    )
                 outcome, nul_count = _sanitize_control_bytes(_strip_transient(outcome))
                 span.set_attribute(_NUL_BYTES_ATTRIBUTE, nul_count)
-            outcome_kind = _outcome_kind(outcome)
-            items_out = _items_out(outcome)
-            return outcome
-
+                outcome_kind = _outcome_kind(outcome)
+                items_out = _items_out(outcome)
         finally:
             # `outcome_kind` stays `RAISED` and `items_out` stays `None` for any exception that
             # skipped the two assignments above — `CancelledError` included, never caught, only
@@ -526,6 +513,7 @@ def wrap[**P, T](
                 _recording_parent.reset(record_token)
             if token is not None:
                 _current_stage.reset(token)
+        return outcome
 
     return _wrapped
 
@@ -552,27 +540,56 @@ def wrap_flush(
             span.set_attribute("weft.contract", contract)
             span.set_attribute("weft.plugin", plugin)
             with blocking.guard(f"{stage}:flush"):
-                try:
-                    await flush()
-                except WeftError as exc:
-                    _attribute(
-                        exc,
-                        distribution=distribution,
-                        contract=contract,
-                        plugin=plugin,
-                        stage=stage,
-                    )
-                    raise
-                except Exception as exc:
-                    raise WeftError(
-                        f"'{stage}' flush failed: {type(exc).__name__}: {exc}",
-                        pack=distribution,
-                        contract=contract,
-                        plugin=plugin,
-                        stage=stage,
-                    ) from exc
+                await _attributed(
+                    flush,
+                    failure=f"'{stage}' flush failed",
+                    distribution=distribution,
+                    contract=contract,
+                    plugin=plugin,
+                    stage=stage,
+                )
 
     return _wrapped
+
+
+async def _attributed[R](
+    call: Callable[[], Awaitable[R]],
+    *,
+    failure: str,
+    distribution: str,
+    contract: str,
+    plugin: str,
+    stage: str,
+) -> R:
+    """Await `call`, attributing a `WeftError` it raises and converting any other exception.
+
+    Args:
+        call: The plugin call to make.
+        failure: The message prefix for a converted exception, e.g. `'retrieve' failed`.
+        distribution: The pack the call belongs to.
+        contract: The contract the plugin implements.
+        plugin: The plugin's registered name.
+        stage: The label the attribution carries.
+
+    Returns:
+        Whatever `call` returns.
+
+    Raises:
+        WeftError: Either the attributed original, or a new one chained from any other error.
+    """
+    try:
+        return await call()
+    except WeftError as exc:
+        _attribute(exc, distribution=distribution, contract=contract, plugin=plugin, stage=stage)
+        raise
+    except Exception as exc:
+        raise WeftError(
+            f"{failure}: {type(exc).__name__}: {exc}",
+            pack=distribution,
+            contract=contract,
+            plugin=plugin,
+            stage=stage,
+        ) from exc
 
 
 class OutcomeKind(StrEnum):
@@ -659,12 +676,14 @@ def recording() -> Generator[_RecordingScope]:
 
 
 def _outcome_kind[T](outcome: Outcome[T]) -> OutcomeKind:
-    """The `OutcomeKind` matching a completed call's own `Outcome`, by `isinstance` — never by
-    name, and never by `type(...) is ...`: a pack calling `Produced[int](value=...)` gets a
-    pydantic-generated subclass whose `type()` is not `Produced`, but `isinstance` still holds.
-    `Outcome[T]` is a closed union of exactly three members (`payload/outcome.py`), so ruling
-    out the first two leaves `Failed` the only member remaining — pyright proves it, and a third
-    `isinstance` restating what elimination already established is the one it refuses as dead.
+    """The `OutcomeKind` matching a completed call's own `Outcome`.
+
+    Matched by `isinstance` — never by name, and never by `type(...) is ...`: a pack calling
+    `Produced[int](value=...)` gets a pydantic-generated subclass whose `type()` is not `Produced`,
+    but `isinstance` still holds. `Outcome[T]` is a closed union of exactly three members
+    (`payload/outcome.py`), so ruling out the first two leaves `Failed` the only member remaining —
+    pyright proves it, and a third `isinstance` restating what elimination already established is
+    the one it refuses as dead.
     """
     if isinstance(outcome, Produced):
         return OutcomeKind.PRODUCED
@@ -746,7 +765,7 @@ def _strip_transient[T](outcome: Outcome[T]) -> Outcome[T]:
 
 
 def _sanitize_control_bytes[T](outcome: Outcome[T]) -> tuple[Outcome[T], int]:
-    """Replace every NUL byte a produced `Node`'s `content` or ext `str` fields carry.
+    r"""Replace every NUL byte a produced `Node`'s `content` or ext `str` fields carry.
 
     Returns the (possibly unchanged) outcome and how many bytes were found.
 
@@ -757,7 +776,7 @@ def _sanitize_control_bytes[T](outcome: Outcome[T]) -> tuple[Outcome[T], int]:
     replacement is a space rather than a deletion, and why `ext` is in scope
     beside `content`. A container or a `Node` that needed no change is
     returned as the same object the caller passed in — a corpus with no NUL
-    bytes, the overwhelming case, costs one `"\\x00" in s` scan per string and
+    bytes, the overwhelming case, costs one `"\x00" in s` scan per string and
     not one rebuild.
     """
     if not isinstance(outcome, Produced):
@@ -897,8 +916,9 @@ async def aclose(
     plugin: str,
     stage: str | None = None,
 ) -> None:
-    """Close `instance` if it has an `aclose`, with the same span, guard and attribution
-    `wrap_flush` gives `flush`.
+    """Close `instance` if it has an `aclose`.
+
+    Uses the same span, guard and attribution `wrap_flush` gives `flush`.
 
     `aclose` is a fact read off the instance, never a method any contract publishes — an
     in-memory store and every third-party pack that keeps no socket has nothing to close, and

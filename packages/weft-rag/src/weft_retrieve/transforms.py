@@ -82,6 +82,7 @@ classes plus this one rather than four, or three plus a base this one alone woul
 special-case around.
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, ClassVar
 
@@ -262,7 +263,9 @@ class HydeConfig(BaseModel):
 
 
 class Hyde:
-    """Generates hypothetical answer documents and retrieves against them instead of the
+    """Retrieve against hypothetical answer documents instead of the question.
+
+    Generates hypothetical answer documents and retrieves against them instead of the
     literal question. Satisfies `weft_retrieve.contract.QueryTransform` structurally.
 
     Luyu Gao, Xueguang Ma, Jimmy Lin, Jamie Callan, *Precise Zero-Shot Dense Retrieval
@@ -561,7 +564,9 @@ class MultiQueryConfig(BaseModel):
 
 
 class MultiQuery:
-    """Fans one or more seed questions out into several alternative search queries, retrieved
+    """Fan seed questions out into several alternative search queries.
+
+    Fans one or more seed questions out into several alternative search queries, retrieved
     independently and combined downstream by a `Fuser`. Satisfies `weft_retrieve.contract.
     QueryTransform` structurally.
 
@@ -607,7 +612,9 @@ class MultiQuery:
         self._config = config if config is not None else MultiQueryConfig()
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[QuerySet]:
-        """`payload`, with every seed matching `expand_origins` expanded into `variants`
+        """Expand every matching seed into `variants` alternative queries.
+
+        `payload`, with every seed matching `expand_origins` expanded into `variants`
         alternative queries.
 
         `out.origin == in.origin` holds by construction: the `QuerySet` built below threads
@@ -659,24 +666,9 @@ class MultiQuery:
             if self._config.require_distinct
             else set()
         )
-        derived: list[Query] = []
-        for index, seed in enumerate(seeds):
-            for text in groups[index]:
-                if self._config.require_distinct:
-                    key = _normalised(text)
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                derived.append(
-                    Query(
-                        text=text,
-                        origin=QueryOrigin.DERIVED,
-                        produced_by=MULTI_QUERY_NAME,
-                        locale=seed.locale,
-                        filter=seed.filter,
-                        channels=seed.channels,
-                    )
-                )
+        derived = _derived_queries(
+            seeds, groups, seen=seen, require_distinct=self._config.require_distinct
+        )
 
         kept = (
             payload.queries
@@ -695,6 +687,39 @@ class MultiQuery:
                 ext=payload.ext,
             )
         )
+
+
+def _derived_queries(
+    seeds: tuple[Query, ...],
+    groups: Mapping[int, tuple[str, ...]],
+    *,
+    seen: set[str],
+    require_distinct: bool,
+) -> list[Query]:
+    """One derived `Query` per variant, in seed order, each inheriting its seed's narrowing.
+
+    Under `require_distinct`, a variant whose normalised text is already in `seen` is dropped,
+    and every kept one is added to `seen`.
+    """
+    derived: list[Query] = []
+    for index, seed in enumerate(seeds):
+        for text in groups[index]:
+            if require_distinct:
+                key = _normalised(text)
+                if key in seen:
+                    continue
+                seen.add(key)
+            derived.append(
+                Query(
+                    text=text,
+                    origin=QueryOrigin.DERIVED,
+                    produced_by=MULTI_QUERY_NAME,
+                    locale=seed.locale,
+                    filter=seed.filter,
+                    channels=seed.channels,
+                )
+            )
+    return derived
 
 
 def _offer_seeds(seeds: tuple[Query, ...]) -> str:

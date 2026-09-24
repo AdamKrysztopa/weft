@@ -25,4 +25,5 @@ class Vector(BaseModel):
 
     @property
     def dimension(self) -> int:
+        """How many components the vector has."""
         return len(self.values)

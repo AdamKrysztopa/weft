@@ -444,7 +444,9 @@ class RaptorConfig(BaseModel):
     @field_validator("cluster_size", "similarity_threshold", mode="before")
     @classmethod
     def _parse_auto_string(cls, value: object) -> object:
-        """A pipeline document writes `auto` as a plain string — YAML has no enum syntax for
+        """Turn a plain `auto` string into the sentinel, or refuse any other string.
+
+        A pipeline document writes `auto` as a plain string — YAML has no enum syntax for
         it — so a bare `str` rides in each field's own declared type purely so that string
         type-checks as a constructor argument at all. This runs first and closes that gap
         for real: `Auto.AUTO`'s own value passes straight through unchanged (it is already
@@ -477,7 +479,9 @@ class RaptorConfig(BaseModel):
 
 
 class RaptorSummarizer:
-    """Clusters the nodes at `RaptorConfig.over_level` by embedding similarity, and derives
+    """Cluster nodes at one level by embedding similarity and summarise each cluster.
+
+    Clusters the nodes at `RaptorConfig.over_level` by embedding similarity, and derives
     one summary node per cluster that clears `min_cluster_size` — every other node it was
     handed, at any other level, continues into the output untouched (task 10.7).
 
@@ -504,6 +508,15 @@ class RaptorSummarizer:
         self._config = config if config is not None else RaptorConfig()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Cluster the nodes at `over_level` and derive one summary node per cluster.
+
+        Args:
+            payload: The nodes to cluster; nodes at any other level pass through untouched.
+            ctx: The run's context, through which the embedder, prompts and LLM are reached.
+
+        Returns:
+            The handed nodes plus the summaries, or `NothingToProduce`/`Failed`.
+        """
         if not payload:
             return NothingToProduce(reason="no nodes to cluster into summaries")
 
@@ -540,17 +553,9 @@ class RaptorSummarizer:
         if already_consumed_refusal is not None:
             return already_consumed_refusal
 
-        unembedded = sum(1 for node in selected if node.embedding is None)
-        if unembedded:
-            return Failed(
-                reason=(
-                    f"'{NAME}' received {unembedded} node(s) with no embedding out of "
-                    f"{len(selected)} at level {self._config.over_level}. This plugin clusters "
-                    f"by the vectors it is handed and no longer computes them itself, so it "
-                    f"must run after the 'embed' stage, not before it — move the '{NAME}' "
-                    f"stage in the pipeline document to follow 'embed' and re-run"
-                )
-            )
+        unembedded = _unembedded_failure(selected, over_level=self._config.over_level)
+        if unembedded is not None:
+            return unembedded
 
         if len(selected) < self._config.min_cluster_size:
             # **Weft's own stop criterion's width half**, and it must answer `Produced`, not
@@ -606,6 +611,22 @@ class RaptorSummarizer:
                 )
 
         summaries = await asyncio.gather(*(_bounded(cluster) for cluster in summarizable))
+        return await self._assemble(payload, summarizable, summaries, ctx=ctx)
+
+    async def _assemble(
+        self,
+        payload: Sequence[Node],
+        summarizable: Sequence[Sequence[Node]],
+        summaries: Sequence[Node | str],
+        *,
+        ctx: Context,
+    ) -> Outcome[Sequence[Node]]:
+        """`payload` plus every summary that did not degrade, counted and embedded.
+
+        Returns:
+            The marked payload and the embedded summaries, or `Failed` when every cluster
+            degraded or the summaries could not be embedded.
+        """
         derived = tuple(summary for summary in summaries if isinstance(summary, Node))
         if not derived:
             # Every cluster degraded. Answering `Produced(payload)` here would be
@@ -621,13 +642,7 @@ class RaptorSummarizer:
                 )
             )
         # R38.18: a degraded cluster's members are marked, so `weft index` can count them.
-        degraded_members = {
-            member.id: member.with_ext(ExpansionDegraded(expander=NAME, reason=summary))
-            for cluster, summary in zip(summarizable, summaries, strict=True)
-            if isinstance(summary, str)
-            for member in cluster
-        }
-        payload = tuple(degraded_members.get(node.id, node) for node in payload)
+        payload = _mark_degraded(payload, summarizable, summaries)
         # **The run-level tally, task 10.10.** Neither count is knowable inside `_summarize`,
         # which sees one cluster and never the run: `clusters_found` is the width of
         # `summarizable` and `clusters_summarised` is how many of `_bounded`'s results
@@ -676,7 +691,9 @@ class RaptorSummarizer:
         resolved_similarity_threshold: float | None,
         resolved_cluster_size: int | None,
     ) -> Node | str:
-        """`_summarize`'s answer for `cluster`, or — given `checkpoints` — the summary an
+        """Summarise `cluster`, reusing and keeping checkpoints when offered.
+
+        `_summarize`'s answer for `cluster`, or — given `checkpoints` — the summary an
         interrupted build already kept for it, and otherwise a new one, kept as soon as it is
         finished (task **43.20**).
         """
@@ -701,7 +718,9 @@ class RaptorSummarizer:
     async def _checkpoints(
         self, prompts: Prompts, ctx: Context
     ) -> tuple[LayerCheckpoints, str] | None:
-        """The build's `LayerCheckpoints` and a digest of this run's rendered prompt template,
+        """The build's `LayerCheckpoints` and this run's prompt digest, if offered.
+
+        The build's `LayerCheckpoints` and a digest of this run's rendered prompt template,
         or `None` on a run that offers none — task **43.20**. A template that does not render
         keeps nothing: every cluster degrades on the same render in `_summarize`.
         """
@@ -717,7 +736,9 @@ class RaptorSummarizer:
         return service, hashlib.sha256(template.value.model_dump_json().encode()).hexdigest()
 
     def _checkpoint_key(self, members: Sequence[Node], *, template_digest: str) -> str:
-        """One cluster's `LayerCheckpoints` key: this plugin, the level it summarises, the role,
+        """One cluster's `LayerCheckpoints` key.
+
+        The key names this plugin, the level it summarises, the role,
         the prompt template and the members — everything its summary was built from except the
         model, which the build scopes every key by itself.
         """
@@ -749,7 +770,9 @@ class RaptorSummarizer:
     def _resolve_auto_parameters(
         self, selected: Sequence[Node], embedded: Sequence[tuple[Node, Vector]]
     ) -> tuple[int, float, int | None, float | None] | Failed:
-        """`cluster_size`/`similarity_threshold`, each either the operator's own typed value or
+        """Resolve `cluster_size` and `similarity_threshold` for this run.
+
+        `cluster_size`/`similarity_threshold`, each either the operator's own typed value or
         this run's own `auto` resolution over `selected`/`embedded` — task **10.9** — alongside
         the resolved numbers themselves (`None` for a field the operator typed), or `Failed`
         when resolution finds a configuration that could never have produced a summary.
@@ -831,7 +854,9 @@ class RaptorSummarizer:
     async def _embed_summaries(
         self, summaries: Sequence[Node], *, ctx: Context
     ) -> Produced[tuple[Node, ...]] | Failed:
-        """`summaries`, each carrying the embedding RAPTOR §3 (p.4) requires of every node —
+        """Embed every summary node this stage built.
+
+        `summaries`, each carrying the embedding RAPTOR §3 (p.4) requires of every node —
         *"we embed all nodes using SBERT"* — computed here rather than by the caller, because
         this is the one node type nothing downstream of this stage will ever vectorise.
 
@@ -880,7 +905,9 @@ class RaptorSummarizer:
         resolved_similarity_threshold: float | None,
         resolved_cluster_size: int | None,
     ) -> Node | str:
-        """One cluster's summary node, or the reason it could not be built — never raised, and
+        """Build one cluster's summary node, or say why it could not be built.
+
+        One cluster's summary node, or the reason it could not be built — never raised, and
         never `None`: `run` marks every member of a degraded cluster with `ExpansionDegraded`
         (repair R38.18), and a reason string is what it marks them with. `_config.prompt` and
         `_config.role` naming nothing registered still raises: that is an operator's own
@@ -946,8 +973,39 @@ class RaptorSummarizer:
         return reason
 
 
+def _unembedded_failure(selected: Sequence[Node], *, over_level: int) -> Failed | None:
+    """The refusal for selected nodes with no embedding, or `None` when every one has one."""
+    unembedded = sum(1 for node in selected if node.embedding is None)
+    if unembedded:
+        return Failed(
+            reason=(
+                f"'{NAME}' received {unembedded} node(s) with no embedding out of "
+                f"{len(selected)} at level {over_level}. This plugin clusters "
+                f"by the vectors it is handed and no longer computes them itself, so it "
+                f"must run after the 'embed' stage, not before it — move the '{NAME}' "
+                f"stage in the pipeline document to follow 'embed' and re-run"
+            )
+        )
+    return None
+
+
+def _mark_degraded(
+    payload: Sequence[Node], clusters: Sequence[Sequence[Node]], summaries: Sequence[Node | str]
+) -> tuple[Node, ...]:
+    """`payload`, with every member of a cluster whose summary degraded marked as such."""
+    degraded_members = {
+        member.id: member.with_ext(ExpansionDegraded(expander=NAME, reason=summary))
+        for cluster, summary in zip(clusters, summaries, strict=True)
+        if isinstance(summary, str)
+        for member in cluster
+    }
+    return tuple(degraded_members.get(node.id, node) for node in payload)
+
+
 def _with_run_counts(node: Node, *, clusters_found: int, clusters_summarised: int) -> Node:
-    """`node`'s own `RaptorFacts`, with `clusters_found`/`clusters_summarised` overwritten to
+    """`node`'s own `RaptorFacts`, with this run's real cluster tally.
+
+    `node`'s own `RaptorFacts`, with `clusters_found`/`clusters_summarised` overwritten to
     this run's real tally — task **10.10**. Every node reaching here was just built by
     `_summarize`, which always attaches a `RaptorFacts` before returning one, so the `facts is
     None` branch below can never actually fire; it exists for the same reason
@@ -985,7 +1043,9 @@ def _node_level(node: Node) -> int:
 
 
 def _refuse_unreachable_over_level(payload: Sequence[Node], *, over_level: int) -> Failed | None:
-    """`None` when `over_level` is reachable by some chain of rungs over `payload`; `Failed`
+    """Refuse an `over_level` no chain of rungs over `payload` reaches.
+
+    `None` when `over_level` is reachable by some chain of rungs over `payload`; `Failed`
     naming the field, the value it was given and the deepest level actually present when it
     is not — task **10.19**.
 
@@ -1014,7 +1074,9 @@ def _refuse_unreachable_over_level(payload: Sequence[Node], *, over_level: int) 
 def _refuse_level_already_consumed(
     payload: Sequence[Node], *, selected: Sequence[Node], over_level: int
 ) -> Failed | None:
-    """`None` when nothing in `payload` was already built *from* a node in `selected`;
+    """Refuse a run over a level something in `payload` was already built from.
+
+    `None` when nothing in `payload` was already built *from* a node in `selected`;
     `Failed` naming `over_level` and the level it should have consumed instead when some
     node was — task **10.21**.
 
@@ -1055,7 +1117,9 @@ def _refuse_level_already_consumed(
 def _refuse_cluster_size_below_minimum(
     *, min_cluster_size: int, resolved_cluster_size: int
 ) -> Failed | None:
-    """`None` when `resolved_cluster_size` can satisfy `min_cluster_size`; `Failed` when it
+    """Refuse a resolved cluster size that cannot satisfy `min_cluster_size`.
+
+    `None` when `resolved_cluster_size` can satisfy `min_cluster_size`; `Failed` when it
     cannot — task **10.19**, the resolved twin of `RaptorConfig.
     _min_cluster_size_within_cluster_size`.
 
@@ -1079,7 +1143,9 @@ def _refuse_cluster_size_below_minimum(
 
 
 def _typed_cluster_size(value: int | Auto | str) -> int | Auto:
-    """Narrows `RaptorConfig.cluster_size`'s own declared type back down to what a
+    """Narrow `RaptorConfig.cluster_size` to what a validated config holds.
+
+    Narrows `RaptorConfig.cluster_size`'s own declared type back down to what a
     validated `RaptorConfig` instance can actually hold.
 
     That field carries a bare `str` in its type only so `cluster_size: "auto"` type-checks
@@ -1108,7 +1174,9 @@ def _typed_similarity_threshold(value: float | Auto | str) -> float | Auto:
 
 
 def _resolve_cluster_size(selected: Sequence[Node], *, max_cluster_chars: int) -> int:
-    """`cluster_size: auto`'s resolution, task **10.9** — see the module docstring's own
+    """Resolve `cluster_size: auto` from this run's own selected nodes.
+
+    `cluster_size: auto`'s resolution, task **10.9** — see the module docstring's own
     section for the argument. RAPTOR §3 (p.4)'s criterion for this quantity, restated
     against Weft's analogue of its token threshold: how many of *this run's own* selected
     nodes fit `max_cluster_chars` without truncation, floored at 2 because a cluster of one
@@ -1123,7 +1191,9 @@ def _resolve_cluster_size(selected: Sequence[Node], *, max_cluster_chars: int) -
 def _refuse_beyond_bounds(
     leaves: int, *, config: RaptorConfig, auto_threshold: bool
 ) -> Failed | None:
-    """Ledger **43.13** — refuse, before the quadratic passes run, a corpus `43.12` measured them
+    """Refuse a corpus the quadratic passes are infeasible for.
+
+    Ledger **43.13** — refuse, before the quadratic passes run, a corpus `43.12` measured them
     to be infeasible for: above `max_leaves` whatever the threshold, and above `max_pairs` under
     `similarity_threshold: auto`, whose pass compares every pair.
     """
@@ -1154,7 +1224,9 @@ def _refuse_beyond_bounds(
 
 
 def _pairwise_similarities(embedded: Sequence[tuple[Node, Vector]]) -> list[float]:
-    """Every pairwise cosine similarity `embedded` exhibits, computed over the *id-sorted*
+    """Every pairwise cosine similarity `embedded` exhibits, in id order.
+
+    Every pairwise cosine similarity `embedded` exhibits, computed over the *id-sorted*
     node list so the answer is a function of the node set, never of the order this run's own
     extraction happened to hand nodes over — the same determinism task 10.3 gave
     `_cluster_by_similarity`'s own greedy pass, applied here because a run-derived default
@@ -1168,7 +1240,9 @@ def _pairwise_similarities(embedded: Sequence[tuple[Node, Vector]]) -> list[floa
 
 
 def _resolve_similarity_threshold(embedded: Sequence[tuple[Node, Vector]]) -> tuple[float, float]:
-    """`similarity_threshold: auto`'s resolution, task **10.9** — **Weft's own, with no paper
+    """Resolve `similarity_threshold: auto` from this run's own similarities.
+
+    `similarity_threshold: auto`'s resolution, task **10.9** — **Weft's own, with no paper
     behind it**: the 75th percentile of the pairwise cosine similarities this run's own
     payload actually exhibits. Returns that value alongside the *median* of the same
     distribution, which is the degeneracy criterion `run` checks before trusting either —
@@ -1225,9 +1299,10 @@ def format_cluster(members: Sequence[Node], *, budget: int) -> tuple[str, int, i
 
 
 class _Cluster:
-    """One open cluster while `_cluster_by_similarity` is assigning nodes: its members so
-    far, and a running centroid kept as a component-wise sum so the mean never needs
-    recomputing from scratch as members join.
+    """One open cluster while `_cluster_by_similarity` is assigning nodes.
+
+    It holds its members so far, and a running centroid kept as a component-wise sum so the
+    mean never needs recomputing from scratch as members join.
     """
 
     __slots__ = ("members", "_sum")
@@ -1247,7 +1322,9 @@ class _Cluster:
 def _cluster_by_similarity(
     embedded: Sequence[tuple[Node, Vector]], *, cluster_size: int, similarity_threshold: float
 ) -> list[list[Node]]:
-    """Greedy single-pass grouping by cosine similarity to each open cluster's running
+    """Group nodes greedily by cosine similarity to each open cluster's centroid.
+
+    Greedy single-pass grouping by cosine similarity to each open cluster's running
     centroid — see the module docstring's *"Clustering is a fresh, small algorithm"*
     section for why this, and not UMAP+GMM soft clustering, is what ships here.
 
@@ -1277,11 +1354,12 @@ def _cluster_by_similarity(
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
-    """Cosine similarity between two same-length embeddings — no store, no index, just the
-    two vectors this module already has in hand. `weft_retrieve.routing`'s own `_cosine`
-    takes the identical shape one field over (`Vector` in, not a bare sequence); every pack
-    in this tree writes its own rather than sharing one through the kernel, which names no
-    capability to hang a shared helper off of.
+    """Cosine similarity between two same-length embeddings.
+
+    No store, no index, just the two vectors this module already has in hand.
+    `weft_retrieve.routing`'s own `_cosine` takes the identical shape one field over (`Vector`
+    in, not a bare sequence); every pack in this tree writes its own rather than sharing one
+    through the kernel, which names no capability to hang a shared helper off of.
     """
     dot = sum(x * y for x, y in zip(a, b, strict=True))
     norm_a = math.sqrt(sum(x * x for x in a))

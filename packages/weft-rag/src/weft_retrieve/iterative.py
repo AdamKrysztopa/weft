@@ -259,7 +259,9 @@ class IterativeRetrievalConfig(BaseModel):
 
     @model_validator(mode="after")
     def _floor_within_ceiling(self) -> "IterativeRetrievalConfig":
-        """`min_rounds` above `max_rounds` is not a loop that forces extra rounds — it is one
+        """Refuse a `min_rounds` above `max_rounds`.
+
+        `min_rounds` above `max_rounds` is not a loop that forces extra rounds — it is one
         that can never stop on its own ceiling, refused here rather than discovered as a
         `StopReason.MAX_ROUNDS` that fires below the floor `stop_reason` was told to honour.
         """
@@ -273,7 +275,9 @@ class IterativeRetrievalConfig(BaseModel):
 
 
 class IterativeRetrieval:
-    """Retrieves, asks a critic whether the evidence suffices, and retrieves again on what is
+    """Retrieve, ask a critic whether the evidence suffices, and retrieve again.
+
+    Retrieves, asks a critic whether the evidence suffices, and retrieves again on what is
     missing — the paper's own loop, owned end to end by this plugin. Satisfies `weft_retrieve.
     contract.Retriever` structurally.
 
@@ -405,8 +409,10 @@ def _as_passages(origin: Query, hits: tuple[Passage, ...]) -> Passages:
 
 
 def _next_round(payload: QuerySet, missing: tuple[str, ...]) -> QuerySet:
-    """The `QuerySet` the next round searches with — one derived `Query` built from what the
-    critic said was missing, or the original question again when it named nothing specific.
+    """The `QuerySet` the next round searches with.
+
+    One derived `Query` built from what the critic said was missing, or the original question again
+    when it named nothing specific.
 
     `Assessment.missing`'s own docstring: "what a follow-up query should go after." Building
     the next query from it directly is Qi et al.'s trained query generator, replaced by

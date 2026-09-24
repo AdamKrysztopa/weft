@@ -289,8 +289,9 @@ class Contribution(BaseModel):
 
 
 def _qualify(contribution: Contribution) -> str:
-    """The id a placed contribution wears in the resolved stage list — `02` §3 → *Slots*:
-    "Contributed stage ids are qualified by distribution (`weft-kg:entities`)."
+    """The id a placed contribution wears in the resolved stage list.
+
+    `02` §3 → *Slots*: "Contributed stage ids are qualified by distribution (`weft-kg:entities`)."
     """
     return f"{contribution.distribution}{_QUALIFIER}{contribution.stage.id}"
 
@@ -1118,25 +1119,32 @@ def _apply_removes(
             continue
         stage_index = next((i for i, stage in enumerate(stages) if stage.id == target), None)
         if stage_index is None:
-            stage_ids = tuple(stage.id for stage in stages)
-            slot_ids = tuple(slot.id for slot in slots)
-            existing_stages = ", ".join(repr(stage_id) for stage_id in stage_ids) or "(none)"
-            existing_slots = ", ".join(repr(slot_id) for slot_id in slot_ids) or "(none)"
-            raise StaleOperatorTargetError(
-                f"pipeline '{pipeline.name}' extends '{pipeline.extends}' and its 'remove' "
-                f"operator targets id '{target}', but no stage or slot with that id exists "
-                f"in the parent it resolved against at this point in the chain. Stage ids "
-                f"that do exist: {existing_stages}. Slot ids that do exist: {existing_slots}.",
-                valid_options=stage_ids + slot_ids,
-                pipeline=pipeline.name,
-                stages=(target,),
-                remedy=(
-                    f"fix the 'remove' target — stage ids that do exist: {existing_stages}; "
-                    f"slot ids that do exist: {existing_slots}."
-                ),
-            )
+            raise _stale_remove_target(target, stages, slots, pipeline)
         del stages[stage_index]
         del provenance[target]
+
+
+def _stale_remove_target(
+    target: str, stages: list[StageDeclaration], slots: list[SlotDeclaration], pipeline: Pipeline
+) -> StaleOperatorTargetError:
+    """The error for a `remove` target naming neither a stage nor a slot of the parent."""
+    stage_ids = tuple(stage.id for stage in stages)
+    slot_ids = tuple(slot.id for slot in slots)
+    existing_stages = ", ".join(repr(stage_id) for stage_id in stage_ids) or "(none)"
+    existing_slots = ", ".join(repr(slot_id) for slot_id in slot_ids) or "(none)"
+    return StaleOperatorTargetError(
+        f"pipeline '{pipeline.name}' extends '{pipeline.extends}' and its 'remove' "
+        f"operator targets id '{target}', but no stage or slot with that id exists "
+        f"in the parent it resolved against at this point in the chain. Stage ids "
+        f"that do exist: {existing_stages}. Slot ids that do exist: {existing_slots}.",
+        valid_options=stage_ids + slot_ids,
+        pipeline=pipeline.name,
+        stages=(target,),
+        remedy=(
+            f"fix the 'remove' target — stage ids that do exist: {existing_stages}; "
+            f"slot ids that do exist: {existing_slots}."
+        ),
+    )
 
 
 def _apply_sets(

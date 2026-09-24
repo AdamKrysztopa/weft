@@ -152,6 +152,15 @@ class Hybrid:
         self._config = config if config is not None else HybridConfig()
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]:
+        """Search by vector and by text, one ranked list per channel.
+
+        Args:
+            payload: The queries to search with.
+            ctx: The run's context, through which the store and embedder are reached.
+
+        Returns:
+            The ranked lists, or `Failed` naming a search the store cannot run.
+        """
         store = ctx.require(NodeStore)
         # Written out rather than looped over `needs_store`, for two reasons that point the
         # same way: `isinstance` against a loop variable narrows nothing, so the calls below
@@ -163,11 +172,7 @@ class Hybrid:
         if not isinstance(store, TextSearch):
             return Failed(reason=_missing(store, "TextSearch"))
         offered = frozenset(channel.value for channel in self._config.channels)
-        top_k = (
-            self._config.per_query_top_k
-            if self._config.per_query_top_k is not None
-            else self._config.top_k
-        )
+        top_k = _per_query_top_k(self._config)
 
         lists: list[RankedList] = []
         for query in payload.queries:
@@ -208,9 +213,15 @@ class Hybrid:
         )
 
 
+def _per_query_top_k(config: HybridConfig) -> int:
+    """How many hits each arm asks the store for, per query."""
+    return config.per_query_top_k if config.per_query_top_k is not None else config.top_k
+
+
 def _missing(store: object, capability: str) -> str:
-    """The refusal, naming what was wanted, why it is unavailable, and what to do — `01`
-    requirement 5's three clauses. The `vector-top-k` remedy is offered only because it is
+    """The refusal, naming what was wanted, why it is unavailable, and what to do.
+
+    `01` requirement 5's three clauses. The `vector-top-k` remedy is offered only because it is
     real: a store with vector search and no text search can still run that plugin.
     """
     return (

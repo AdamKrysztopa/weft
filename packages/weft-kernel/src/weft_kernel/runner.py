@@ -235,7 +235,17 @@ class Stage[In, Out](Protocol):
     `Stage` declares none of them."*
     """
 
-    async def run(self, payload: In, ctx: Context) -> Outcome[Out]: ...
+    async def run(self, payload: In, ctx: Context) -> Outcome[Out]:
+        """Transform one payload into this stage's outcome.
+
+        Args:
+            payload: What the previous stage produced, or the pipeline's input.
+            ctx: The run's context.
+
+        Returns:
+            `Produced`, `NothingToProduce` or `Failed`.
+        """
+        ...
 
 
 class PipelineResolutionError(WeftError):
@@ -290,8 +300,10 @@ class PipelineResolutionError(WeftError):
 
 
 class UnresolvedNameInPipelineResolutionError:
-    """The shared `__init__` for every `PipelineResolutionError` subclass that is *also*
-    `UnresolvedNameError` — task 2.36's own repair.
+    """The shared `__init__` for resolution errors that are also unresolved names.
+
+    Every `PipelineResolutionError` subclass that is *also* `UnresolvedNameError` uses it — task
+    2.36's own repair.
 
     Task 2.36 gave `UnknownParentPipelineError`, `UndefinedVarError` and
     `StaleOperatorTargetError` (`weft_kernel.resolution`) and `UnknownFallbackError`
@@ -413,10 +425,12 @@ class UnmetRequiresError(PipelineResolutionError):
 
 
 class StageCompositionError(PipelineResolutionError):
-    """Two consecutive stages do not compose: one's `Out` is not the next one's `In` — or a
-    contract in the list does not declare `Stage[In, Out]` as a base at all, so there is no
-    type pair to compare in the first place. See `UnmetRequiresError`'s own docstring for
-    why this is imported by `weft_kernel.resolution` rather than redefined there.
+    """Two consecutive stages do not compose.
+
+    One's `Out` is not the next one's `In` — or a contract in the list does not declare `Stage[In,
+    Out]` as a base at all, so there is no type pair to compare in the first place. See
+    `UnmetRequiresError`'s own docstring for why this is imported by `weft_kernel.resolution` rather
+    than redefined there.
     """
 
 
@@ -692,32 +706,7 @@ class Runner:
                 if _lifetime_of(instance) is Lifetime.PROCESS:
                     self._process_cache[key] = instance
 
-            for required in _requires_of(instance):
-                if required not in provided_models:
-                    raise UnmetRequiresError(
-                        f"stage '{spec.id}' ({spec.contract.__name__}:{spec.name}) requires "
-                        f"'{required.__name__}' — namespace '{required.__namespace__}', "
-                        f"published by the pack of that name — but no earlier stage in this "
-                        f"pipeline provides it.",
-                        stages=(spec.id,),
-                        distributions=(required.__namespace__,),
-                        remedy=(
-                            f"add an earlier stage that provides '{required.__name__}', or "
-                            f"reorder this StageSpec list so one already does."
-                        ),
-                    )
-            for needed_intact in _intact_of(instance):
-                destroyer = destroyed_by.get(needed_intact)
-                if destroyer is not None:
-                    raise IntactViolationError(
-                        f"stage '{spec.id}' ({spec.contract.__name__}:{spec.name}) needs "
-                        f"'{needed_intact.__name__}' intact — namespace "
-                        f"'{needed_intact.__namespace__}' — but stage '{destroyer}' earlier in "
-                        f"this pipeline already destroys it. The only legal positions for "
-                        f"'{spec.id}' are before '{destroyer}', never after.",
-                        stages=(spec.id, destroyer),
-                        remedy=f"move '{spec.id}' to before '{destroyer}', never after.",
-                    )
+            _check_declarations(spec, instance, provided_models, destroyed_by)
             provided_models.update(_provides_of(instance))
             for destroyed in _destroys_of(instance):
                 destroyed_by.setdefault(destroyed, spec.id)
@@ -1036,6 +1025,46 @@ class Runner:
             in_flight.add_note(f"FlushError: {message}")
             return
         raise FlushError(message) from failures[0]
+
+
+def _check_declarations(
+    spec: StageSpec,
+    instance: object,
+    provided_models: set[type[ExtModel]],
+    destroyed_by: dict[type[Property], str],
+) -> None:
+    """Refuse a stage whose `requires` no earlier stage provides, or whose `intact` one destroyed.
+
+    Raises:
+        UnmetRequiresError: When a required model has no earlier provider.
+        IntactViolationError: When a property it needs intact was destroyed earlier.
+    """
+    for required in _requires_of(instance):
+        if required not in provided_models:
+            raise UnmetRequiresError(
+                f"stage '{spec.id}' ({spec.contract.__name__}:{spec.name}) requires "
+                f"'{required.__name__}' — namespace '{required.__namespace__}', "
+                f"published by the pack of that name — but no earlier stage in this "
+                f"pipeline provides it.",
+                stages=(spec.id,),
+                distributions=(required.__namespace__,),
+                remedy=(
+                    f"add an earlier stage that provides '{required.__name__}', or "
+                    f"reorder this StageSpec list so one already does."
+                ),
+            )
+    for needed_intact in _intact_of(instance):
+        destroyer = destroyed_by.get(needed_intact)
+        if destroyer is not None:
+            raise IntactViolationError(
+                f"stage '{spec.id}' ({spec.contract.__name__}:{spec.name}) needs "
+                f"'{needed_intact.__name__}' intact — namespace "
+                f"'{needed_intact.__namespace__}' — but stage '{destroyer}' earlier in "
+                f"this pipeline already destroys it. The only legal positions for "
+                f"'{spec.id}' are before '{destroyer}', never after.",
+                stages=(spec.id, destroyer),
+                remedy=f"move '{spec.id}' to before '{destroyer}', never after.",
+            )
 
 
 def _wrapped_run(

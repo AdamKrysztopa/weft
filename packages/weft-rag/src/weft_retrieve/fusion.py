@@ -131,7 +131,7 @@ the same "unknown name fails loudly" rule applied to provenance instead of a plu
 """
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import ClassVar
 
@@ -146,8 +146,9 @@ from weft_store.contract import Scored
 
 
 class ArmHit(BaseModel):
-    """One node, as one arm reported it — its own score and its own rank, neither recomputed
-    nor normalised against any other arm's scale.
+    """One node, as one arm reported it.
+
+    Its own score and its own rank, neither recomputed nor normalised against any other arm's scale.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -172,12 +173,14 @@ class ArmEvidence(BaseModel):
     hits: tuple[ArmHit, ...] = ()
 
     def score_for(self, node_id: NodeId) -> float | None:
+        """This arm's own score for `node_id`, or `None` when the arm never returned it."""
         for hit in self.hits:
             if hit.node_id == node_id:
                 return hit.score
         return None
 
     def rank_for(self, node_id: NodeId) -> int | None:
+        """This arm's own rank for `node_id`, or `None` when the arm never returned it."""
         for hit in self.hits:
             if hit.node_id == node_id:
                 return hit.rank
@@ -185,10 +188,11 @@ class ArmEvidence(BaseModel):
 
 
 class FusionEvidence(ExtModel):
-    """Every arm a fuser consumed, attached to the `Ranking` it produced — under its own
-    sub-namespace, never `weft-retrieve`, per the module docstring's own paragraph on `ext`
-    crossing the arity reduction: `BooleanPlan`, `CorrectiveTrace` and `IterativeRetrievalTrace`
-    already own that name, and one namespace holds one model.
+    """Every arm a fuser consumed, attached to the `Ranking` it produced.
+
+    It lives under its own sub-namespace, never `weft-retrieve`, per the module docstring's own
+    paragraph on `ext` crossing the arity reduction: `BooleanPlan`, `CorrectiveTrace` and
+    `IterativeRetrievalTrace` already own that name, and one namespace holds one model.
     """
 
     __namespace__ = "weft-retrieve-fusion"
@@ -198,6 +202,7 @@ class FusionEvidence(ExtModel):
     arms: tuple[ArmEvidence, ...] = ()
 
     def arm(self, label: str) -> ArmEvidence | None:
+        """The arm labelled `label`, or `None` when the fuser consumed no such arm."""
         for candidate in self.arms:
             if candidate.label == label:
                 return candidate
@@ -381,7 +386,9 @@ class ReciprocalRankFusion:
         self._config = config if config is not None else ReciprocalRankFusionConfig()
 
     async def run(self, payload: Candidates, ctx: Context) -> Outcome[Ranking]:
-        """Every hit in every list, scored once per list it appears in and summed, ordered by
+        """Fuse every list by summed reciprocal rank, truncated to `top_k`.
+
+        Every hit in every list, scored once per list it appears in and summed, ordered by
         the total, truncated to `top_k`.
 
         **The emptiness rule** — no lists at all fuses to an empty `Ranking`, the identical
@@ -464,7 +471,9 @@ class NormalizedScoreFusionConfig(BaseModel):
 
 
 class NormalizedScoreFusion:
-    """Merges k ranked lists by min-max normalizing each arm's own raw scores to `[0, 1]`,
+    """Fuse ranked lists by weighted, min-max normalised scores.
+
+    Merges k ranked lists by min-max normalizing each arm's own raw scores to `[0, 1]`,
     weighting per contributor, and summing per node across the arms that returned it. Satisfies
     `weft_retrieve.contract.Fuser` structurally.
 
@@ -492,7 +501,9 @@ class NormalizedScoreFusion:
         self._config = config if config is not None else NormalizedScoreFusionConfig()
 
     async def run(self, payload: Candidates, ctx: Context) -> Outcome[Ranking]:
-        """Every hit in every list, min-max normalized within its own arm, weighted, summed
+        """Fuse every list by weighted normalised score, truncated to `top_k`.
+
+        Every hit in every list, min-max normalized within its own arm, weighted, summed
         once per arm it appears in, ordered by the total, truncated to `top_k`.
 
         **The emptiness rule** — no lists at all fuses to an empty `Ranking`, the identical
@@ -522,23 +533,13 @@ class NormalizedScoreFusion:
                 continue
             label = contributor_label(ranked)
             raw_scores = tuple(passage.score for passage in ranked.hits)
-            if not all(math.isfinite(value) for value in raw_scores):
-                return Failed(
-                    reason=(
-                        f"'{NORMALIZED_SCORE_FUSION_NAME}' normalizes each arm's scores by "
-                        f"their own min and max, and arm '{label}' reported a non-finite "
-                        f"score. Fix the retriever behind '{label}' to report a real number "
-                        f"for every hit before this stage, or route it through a fuser that "
-                        f"does not read scores, such as 'reciprocal-rank-fusion'."
-                    )
-                )
+            refusal = _non_finite_refusal(raw_scores, label=label)
+            if refusal is not None:
+                return refusal
             lo, hi = min(raw_scores), max(raw_scores)
             weight = self._config.weights.get(label, 1.0)
             for rank, passage in enumerate(ranked.hits):
-                # Zero range: every hit in this arm is simultaneously its best and its worst.
-                # 1.0 says the arm ranked them equally; 0.0 would silently erase the arm's
-                # whole contribution to the fused score.
-                normalized = 1.0 if hi == lo else (passage.score - lo) / (hi - lo)
+                normalized = _min_max(passage.score, lo=lo, hi=hi)
                 node_id = passage.node.id
                 scores[node_id] = scores.get(node_id, 0.0) + normalized * weight
                 if node_id not in best_rank or rank < best_rank[node_id]:
@@ -546,17 +547,7 @@ class NormalizedScoreFusion:
                     best_passage[node_id] = passage
                     best_label[node_id] = label
 
-        ordered = sorted(scores, key=lambda node_id: -scores[node_id])
-        if self._config.top_k is not None:
-            ordered = ordered[: self._config.top_k]
-        hits = tuple(
-            Passage(
-                scored=Scored(value=best_passage[node_id].node, score=scores[node_id]),
-                rank=rank,
-                retrieved_by=best_label[node_id],
-            )
-            for rank, node_id in enumerate(ordered)
-        )
+        hits = _ranked_by_score(scores, best_passage, best_label, top_k=self._config.top_k)
         # The *distinct* labels that fed the fusion, order-preserved on first appearance —
         # see the module docstring's own paragraph on why this is not one entry per list.
         contributors = tuple(dict.fromkeys(contributor_label(ranked) for ranked in payload.lists))
@@ -572,6 +563,50 @@ class NormalizedScoreFusion:
                 ext={**payload.ext, FusionEvidence.__namespace__: evidence},
             )
         )
+
+
+def _ranked_by_score(
+    scores: Mapping[NodeId, float],
+    best_passage: Mapping[NodeId, Passage],
+    best_label: Mapping[NodeId, str],
+    *,
+    top_k: int | None,
+) -> tuple[Passage, ...]:
+    """The fused hits, highest total first, truncated to `top_k` when one is set."""
+    ordered = sorted(scores, key=lambda node_id: -scores[node_id])
+    if top_k is not None:
+        ordered = ordered[:top_k]
+    return tuple(
+        Passage(
+            scored=Scored(value=best_passage[node_id].node, score=scores[node_id]),
+            rank=rank,
+            retrieved_by=best_label[node_id],
+        )
+        for rank, node_id in enumerate(ordered)
+    )
+
+
+def _non_finite_refusal(raw_scores: Sequence[float], *, label: str) -> Failed | None:
+    """The refusal for an arm that reported a non-finite score, or `None` when all are finite."""
+    if not all(math.isfinite(value) for value in raw_scores):
+        return Failed(
+            reason=(
+                f"'{NORMALIZED_SCORE_FUSION_NAME}' normalizes each arm's scores by "
+                f"their own min and max, and arm '{label}' reported a non-finite "
+                f"score. Fix the retriever behind '{label}' to report a real number "
+                f"for every hit before this stage, or route it through a fuser that "
+                f"does not read scores, such as 'reciprocal-rank-fusion'."
+            )
+        )
+    return None
+
+
+def _min_max(score: float, *, lo: float, hi: float) -> float:
+    """`score` normalized into `[0, 1]` against its own arm's `lo` and `hi`."""
+    # Zero range: every hit in this arm is simultaneously its best and its worst.
+    # 1.0 says the arm ranked them equally; 0.0 would silently erase the arm's
+    # whole contribution to the fused score.
+    return 1.0 if hi == lo else (score - lo) / (hi - lo)
 
 
 #: The name this fuser is registered and selectable under — see `weft_retrieve.register`.
@@ -624,7 +659,9 @@ class BooleanCombine:
         self._config = config if config is not None else BooleanCombineConfig()
 
     async def run(self, payload: Candidates, ctx: Context) -> Outcome[Ranking]:
-        """`payload.lists`, combined by `payload.ext`'s own `BooleanPlan` — or a `Failed`
+        """Combine `payload.lists` by the `BooleanPlan` on `payload.ext`.
+
+        `payload.lists`, combined by `payload.ext`'s own `BooleanPlan` — or a `Failed`
         naming why the tree could not be evaluated against what was retrieved.
 
         `weft_kernel.runner.Runner.resolve` refuses a document that reaches this stage
@@ -704,7 +741,9 @@ class BooleanCombine:
 def _group_by_leaf(
     lists: tuple[RankedList, ...], leaf_prefix: str
 ) -> tuple[dict[int, frozenset[NodeId]], dict[int, dict[NodeId, Passage]]]:
-    """Every retrieved hit, grouped by which `BoolExpr` leaf it answers — read off
+    """Every retrieved hit, grouped by the `BoolExpr` leaf it answers.
+
+    Every retrieved hit, grouped by which `BoolExpr` leaf it answers — read off
     `RankedList.query.produced_by`, matched against `leaf_prefix` (`f"{plan.producer}#"`, the
     caller's own `BooleanPlan.producer`), never against a name hardcoded in this module. A
     `RankedList` whose query does not carry that prefix (a stray list from some other transform
@@ -782,7 +821,9 @@ def _evaluate_and(
     leaf_ids: dict[int, frozenset[NodeId]],
     leaf_passages: dict[int, dict[NodeId, Passage]],
 ) -> _Evaluated:
-    """Intersects every non-`not` clause's ids, then subtracts every `not` clause's — "and not
+    """Evaluate a conjunction as a set intersection minus its negations.
+
+    Intersects every non-`not` clause's ids, then subtracts every `not` clause's — "and not
     x" is a set difference, well-defined without a corpus to complement against.
 
     Passages for the surviving ids are read from the *first* positive clause alone, the same
@@ -822,7 +863,9 @@ def _evaluate_or(
     leaf_ids: dict[int, frozenset[NodeId]],
     leaf_passages: dict[int, dict[NodeId, Passage]],
 ) -> _Evaluated:
-    """Unions every clause's ids; a `not` as a *direct* child is refused — the module
+    """Evaluate a disjunction as a set union, refusing a direct `not`.
+
+    Unions every clause's ids; a `not` as a *direct* child is refused — the module
     docstring's own paragraph on this plugin states why `and` can answer "and not x" and `or`
     cannot answer "or not x" the same way.
     """
@@ -852,8 +895,10 @@ def _evaluate_or(
 
 
 def _describe(expr: BoolExpr) -> str:
-    """`expr`, rendered for a reader — what an empty-conjunction `note` names as "the disjoint
-    operands" rather than leaving them to be reconstructed from `Candidates.lists` by hand.
+    """`expr`, rendered for a reader.
+
+    What an empty-conjunction `note` names as "the disjoint operands" rather than leaving them to be
+    reconstructed from `Candidates.lists` by hand.
     """
     if expr.op is BoolOp.TERM:
         return f"'{expr.term}'"

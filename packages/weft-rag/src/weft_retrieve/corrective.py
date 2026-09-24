@@ -1,4 +1,6 @@
-"""`corrective` — grades a primary retrieval, and reaches a *distinct* retriever when what
+"""`corrective` — grades a primary retrieval, and reaches further when it is thin.
+
+`corrective` — grades a primary retrieval, and reaches a *distinct* retriever when what
 survives grading is thin. `Retriever`, owning its own decision the way `weft_retrieve.
 iterative.IterativeRetrieval` owns its own loop.
 
@@ -99,7 +101,9 @@ class CorrectiveConfig(BaseModel):
 
     @model_validator(mode="after")
     def _the_action_is_not_the_primary(self) -> "CorrectiveConfig":
-        """Refuses the one configuration `10` §1.1's own condition names by name: the same
+        """Refuse the same plugin as both the primary and the knowledge action.
+
+        Refuses the one configuration `10` §1.1's own condition names by name: the same
         plugin resolved twice is the same index re-queried, whatever query text it is handed
         the second time — merely "rewrite the query broader and re-ask the same
         index", which the paper's own row states plainly corrects nothing. Checked here,
@@ -120,9 +124,10 @@ class CorrectiveConfig(BaseModel):
 
 
 class CorrectiveTrace(ExtModel):
-    """Whether `knowledge_action` ran, and how much survived grading — attached to the
-    returned `Candidates.ext` since, per `weft_retrieve.iterative`'s own stated rule, no span
-    is written inside a plugin.
+    """Whether `knowledge_action` ran, and how much survived grading.
+
+    Attached to the returned `Candidates.ext` since, per `weft_retrieve.iterative`'s own stated
+    rule, no span is written inside a plugin.
     """
 
     __namespace__ = "weft-retrieve"
@@ -172,7 +177,9 @@ class Corrective:
         self._config = config
 
     async def run(self, payload: QuerySet, ctx: Context) -> Outcome[Candidates]:
-        """`primary`, graded by `grader`; `knowledge_action` added only when grading leaves
+        """Grade `primary`, adding `knowledge_action` when too little survives.
+
+        `primary`, graded by `grader`; `knowledge_action` added only when grading leaves
         fewer than `trigger_kept_below` hits.
 
         `out.origin == in.origin` holds by construction: every `Candidates` returned below is

@@ -30,6 +30,7 @@ expands three passages per hit and packs eight of them back down to eight would 
 discard most of what this stage just added.
 """
 
+from collections.abc import Sequence
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -74,8 +75,9 @@ class AdjacentChunks:
         self._config = config if config is not None else AdjacentChunksConfig()
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
-        """Every hit, widened by its own siblings — see the module docstring for the scoring
-        and passage-identity rules.
+        """Widen every hit by its own siblings.
+
+        See the module docstring for the scoring and passage-identity rules.
 
         An empty ranking passes through untouched, with no store read at all: there is
         nothing to widen, and asking a service for zero hits' siblings would be a call this
@@ -94,57 +96,23 @@ class AdjacentChunks:
                 )
             )
 
-        positions: dict[NodeId, ChunkPosition] = {}
-        for hit in payload.hits:
-            position = hit.node.ext_as(ChunkPosition)
-            if position is None:
-                return Failed(
-                    reason=(
-                        f"'{NAME}' needs a recorded chunk position for node {hit.node.id}, "
-                        f"and it carries none. The corpus was indexed before chunk positions "
-                        f"were recorded — run `weft index --reprocess` over it."
-                    )
-                )
-            positions[hit.node.id] = position
+        positions = _positions(payload.hits)
+        if isinstance(positions, Failed):
+            return positions
 
         emitted: set[NodeId] = set()
         result: list[Passage] = []
         for hit in payload.hits:
-            parents = hit.node.lineage.parents
-            if len(parents) != 1:
-                named = ", ".join(str(parent) for parent in parents) if parents else "none"
-                return Failed(
-                    reason=(
-                        f"'{NAME}' finds a hit's siblings through its single parent, and node "
-                        f"{hit.node.id} has {len(parents)} parents ({named}) rather than "
-                        f"exactly one."
-                    )
-                )
-            parent = parents[0]
+            parent = _single_parent(hit)
+            if isinstance(parent, Failed):
+                return parent
             position = positions[hit.node.id]
-            wanted = tuple(
-                ordinal
-                for ordinal in range(
-                    position.ordinal - self._config.window,
-                    position.ordinal + self._config.window + 1,
-                )
-                if ordinal != position.ordinal and ordinal >= 0
-            )
+            wanted = _wanted_ordinals(position.ordinal, window=self._config.window)
             neighbours = await _siblings(store, parent=parent, ordinals=wanted) if wanted else {}
 
             group: list[tuple[int, Node, Passage | None]] = [(position.ordinal, hit.node, hit)]
             group.extend((ordinal, node, None) for ordinal, node in neighbours.items())
-            for _, node, original in sorted(group, key=lambda item: item[0]):
-                if node.id in emitted:
-                    continue
-                emitted.add(node.id)
-                result.append(
-                    original
-                    if original is not None
-                    else Passage(
-                        scored=Scored(value=node, score=hit.score), rank=0, retrieved_by=NAME
-                    )
-                )
+            _emit_group(group, hit=hit, emitted=emitted, result=result)
 
         renumbered = tuple(
             passage.model_copy(update={"rank": rank}) for rank, passage in enumerate(result)
@@ -157,6 +125,66 @@ class AdjacentChunks:
                 note=payload.note,
                 ext=payload.ext,
             )
+        )
+
+
+def _positions(hits: Sequence[Passage]) -> dict[NodeId, ChunkPosition] | Failed:
+    """Every hit's recorded `ChunkPosition`, by node id, or the refusal for one that has none."""
+    positions: dict[NodeId, ChunkPosition] = {}
+    for hit in hits:
+        position = hit.node.ext_as(ChunkPosition)
+        if position is None:
+            return Failed(
+                reason=(
+                    f"'{NAME}' needs a recorded chunk position for node {hit.node.id}, "
+                    f"and it carries none. The corpus was indexed before chunk positions "
+                    f"were recorded — run `weft index --reprocess` over it."
+                )
+            )
+        positions[hit.node.id] = position
+    return positions
+
+
+def _single_parent(hit: Passage) -> NodeId | Failed:
+    """The one parent a hit's siblings are found through, or the refusal when it has not one."""
+    parents = hit.node.lineage.parents
+    if len(parents) != 1:
+        named = ", ".join(str(parent) for parent in parents) if parents else "none"
+        return Failed(
+            reason=(
+                f"'{NAME}' finds a hit's siblings through its single parent, and node "
+                f"{hit.node.id} has {len(parents)} parents ({named}) rather than "
+                f"exactly one."
+            )
+        )
+    return parents[0]
+
+
+def _wanted_ordinals(ordinal: int, *, window: int) -> tuple[int, ...]:
+    """The non-negative ordinals within `window` of `ordinal`, excluding `ordinal` itself."""
+    return tuple(
+        candidate
+        for candidate in range(ordinal - window, ordinal + window + 1)
+        if candidate != ordinal and candidate >= 0
+    )
+
+
+def _emit_group(
+    group: list[tuple[int, Node, Passage | None]],
+    *,
+    hit: Passage,
+    emitted: set[NodeId],
+    result: list[Passage],
+) -> None:
+    """Append `group` to `result` in ordinal order, skipping any node already emitted."""
+    for _, node, original in sorted(group, key=lambda item: item[0]):
+        if node.id in emitted:
+            continue
+        emitted.add(node.id)
+        result.append(
+            original
+            if original is not None
+            else Passage(scored=Scored(value=node, score=hit.score), rank=0, retrieved_by=NAME)
         )
 
 

@@ -650,12 +650,14 @@ class Pipeline(BaseModel):
 
 
 def is_pipeline_operator_field(field: FieldInfo) -> bool:
-    """Whether `field` carries `PIPELINE_OPERATOR_MARK` — the one thing task 1.15's ratchet
-    (`_OPERATOR_KEYS` just below, and `tests/architecture/test_ff11_pipeline_integrity.py`,
-    which imports this function rather than re-deriving the same narrowing itself) needs to
-    know about a `Pipeline` field. Public for exactly that reason: the ratchet's "actual"
-    side has to read this off the model somehow, and a second, private copy of the
-    `json_schema_extra` narrowing below would be the same two-lists risk one function away.
+    """Whether `field` carries `PIPELINE_OPERATOR_MARK`.
+
+    The one thing task 1.15's ratchet (`_OPERATOR_KEYS` just below, and
+    `tests/architecture/test_ff11_pipeline_integrity.py`, which imports this function rather than
+    re-deriving the same narrowing itself) needs to know about a `Pipeline` field. Public for
+    exactly that reason: the ratchet's "actual" side has to read this off the model somehow, and a
+    second, private copy of the `json_schema_extra` narrowing below would be the same two-lists risk
+    one function away.
 
     Pydantic types `FieldInfo.json_schema_extra` as `dict[str, JsonValue] | JsonSchemaExtraCallable
     | None` — a union `pyright` cannot narrow `.get(...)` through cleanly even after `isinstance

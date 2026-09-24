@@ -26,7 +26,7 @@ maximally dissimilar (`Sim2 = 0`) or maximally irrelevant, either of which would
 nobody measured standing in for one that does not exist.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -58,18 +58,50 @@ class MmrConfig(BaseModel):
 
 
 def _cosine(left: Sequence[float], right: Sequence[float]) -> float:
-    """Cosine similarity, brute force — `weft_store.memory.MemoryStore`'s own helper,
-    written fresh here rather than imported: this pack does not reach into a store's
-    private module for arithmetic every store already knows how to do internally, and this
-    plugin needs it *between two hits*, a comparison no `NodeStore` method offers.
+    """Cosine similarity, brute force.
+
+    `weft_store.memory.MemoryStore`'s own helper, written fresh here rather than imported: this pack
+    does not reach into a store's private module for arithmetic every store already knows how to do
+    internally, and this plugin needs it *between two hits*, a comparison no `NodeStore` method
+    offers.
     """
     dot = sum(a * b for a, b in zip(left, right, strict=True))
     magnitude = (sum(a * a for a in left) ** 0.5) * (sum(b * b for b in right) ** 0.5)
     return 0.0 if magnitude == 0.0 else dot / magnitude
 
 
+def _select(
+    hits: Sequence[Passage],
+    vectors: Mapping[NodeId, tuple[float, ...]],
+    relevance: Mapping[NodeId, float],
+    *,
+    lam: float,
+    limit: int,
+) -> list[tuple[Passage, float]]:
+    """Greedily pick up to `limit` hits, each maximising relevance minus weighted novelty."""
+    remaining = list(hits)
+    selected: list[tuple[Passage, float]] = []
+    selected_vectors: list[tuple[float, ...]] = []
+    while remaining and len(selected) < limit:
+        candidates: list[tuple[float, Passage]] = []
+        for hit in remaining:
+            novelty = max(
+                (_cosine(vectors[hit.node.id], other) for other in selected_vectors),
+                default=0.0,
+            )
+            value = lam * relevance[hit.node.id] - (1 - lam) * novelty
+            candidates.append((value, hit))
+        best_value, best_hit = max(candidates, key=lambda item: (item[0], -item[1].rank))
+        remaining.remove(best_hit)
+        selected_vectors.append(vectors[best_hit.node.id])
+        selected.append((best_hit, best_value))
+    return selected
+
+
 class Mmr:
-    """Greedily reorders a ranking by relevance to the question and novelty against what is
+    """Reorder a ranking by relevance to the question and novelty against the chosen.
+
+    Greedily reorders a ranking by relevance to the question and novelty against what is
     already chosen. Satisfies `weft_retrieve.contract.Reranker` structurally.
 
     `score_semantics` states plainly that what this stage emits is not a similarity: it is
@@ -140,24 +172,8 @@ class Mmr:
         relevance = {
             node_id: _cosine(query_vector.values, vector) for node_id, vector in vectors.items()
         }
-        remaining = list(payload.hits)
-        selected: list[tuple[Passage, float]] = []
-        selected_vectors: list[tuple[float, ...]] = []
-        limit = self._config.top_n if self._config.top_n is not None else len(remaining)
-
-        while remaining and len(selected) < limit:
-            candidates: list[tuple[float, Passage]] = []
-            for hit in remaining:
-                novelty = max(
-                    (_cosine(vectors[hit.node.id], other) for other in selected_vectors),
-                    default=0.0,
-                )
-                value = lam * relevance[hit.node.id] - (1 - lam) * novelty
-                candidates.append((value, hit))
-            best_value, best_hit = max(candidates, key=lambda item: (item[0], -item[1].rank))
-            remaining.remove(best_hit)
-            selected_vectors.append(vectors[best_hit.node.id])
-            selected.append((best_hit, best_value))
+        limit = self._config.top_n if self._config.top_n is not None else len(payload.hits)
+        selected = _select(payload.hits, vectors, relevance, lam=lam, limit=limit)
 
         hits = tuple(
             Passage(

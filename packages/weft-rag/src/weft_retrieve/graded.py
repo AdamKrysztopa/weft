@@ -1,4 +1,6 @@
-"""`graded-retrieval` — grades each retrieved passage against the question, batched and
+"""`graded-retrieval` — keeps only passages whose grade clears a floor.
+
+`graded-retrieval` — grades each retrieved passage against the question, batched and
 capped, and keeps only the ones that clear a configured floor. `Reranker`.
 
 Task **2.21a**, `docs/internal/build-ledger.md`'s 2.21 line: "per-document relevance grading is a

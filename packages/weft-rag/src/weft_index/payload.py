@@ -59,8 +59,9 @@ class LayerMember(ExtModel):
 
 
 class ExpansionDegraded(ExtModel):
-    """Marks a node an `Expander` could not expand — repair **R38.13**, every shipped
-    `Expander` since repair **R38.18**.
+    """Marks a node an `Expander` could not expand.
+
+    Repair **R38.13**, every shipped `Expander` since repair **R38.18**.
 
     Attached outside the node's own id, so the chunk keeps its identity and content
     unchanged; stored with it, so a store's `MetadataFilter.matching` can count how many
@@ -83,7 +84,9 @@ class ExpansionDegraded(ExtModel):
 
 
 class RaptorFacts(ExtModel):
-    """What `raptor`'s cluster a summary was built from actually held, and how much of it the
+    """What a RAPTOR summary's cluster held, and how much of it the model saw.
+
+    What `raptor`'s cluster a summary was built from actually held, and how much of it the
     model that wrote the summary was actually shown. Ledger task **10.2**.
 
     `raptor._format_cluster` slices every member to an even share of `max_cluster_chars` so

@@ -105,8 +105,10 @@ class DuplicateServiceError(WeftError):
 
 
 class ServiceRole(BaseModel):
-    """A pack's declaration, beside the contract it publishes, that `[services].<key>`
-    selects an implementation of that contract for one run.
+    """Declare that `[services].<key>` selects an implementation of a pack's contract.
+
+    A pack's declaration, beside the contract it publishes, that `[services].<key>` selects an
+    implementation of that contract for one run.
 
     Ledger task **9.0**, closing the hole `docs/02-extension-model.md` §1 named in its own Phase 0
     narrowing: a service is populated into a `ServiceRegistry` by whatever assembles a run, but
@@ -151,7 +153,7 @@ class ServiceRole(BaseModel):
 
 
 class ServiceRegistry:
-    """Per-run map of `contract -> the one resolved instance a stage gets back.`
+    """Per-run map of `contract -> the one resolved instance a stage gets back`.
 
     Distinct from `weft_kernel.registry.Registry`: that one holds *factories*,
     keyed by `(contract, name)`, for plugins a pipeline names in

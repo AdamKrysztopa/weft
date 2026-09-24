@@ -1,4 +1,6 @@
-"""`shingle-resemblance` — drops a passage whose w-shingle resemblance to a higher-ranked
+r"""`shingle-resemblance` — drops near-duplicates of higher-ranked kept passages.
+
+`shingle-resemblance` — drops a passage whose w-shingle resemblance to a higher-ranked
 **kept** passage meets a threshold. `Reranker`.
 
 Andrei Z. Broder, "On the resemblance and containment of documents", *Compression and
@@ -22,7 +24,7 @@ one.
 **Fidelity.** Faithful to the measure Broder 1997 defines; simplified against the sketch —
 no min-hashing, no fixed-size signature, exact sets throughout, which a reranking-sized
 list of passages can afford where a web-scale corpus could not. Shingles are word shingles
-over casefolded Unicode tokens (`re.findall(r"\\w+", text.casefold())`), not the paper's
+over casefolded Unicode tokens (`re.findall(r"\w+", text.casefold())`), not the paper's
 own tokenisation, because Weft's inputs are passages already segmented for retrieval rather
 than raw web documents.
 """
@@ -112,7 +114,9 @@ class ShingleResemblance:
         self._config = config if config is not None else ShingleResemblanceConfig()
 
     async def run(self, payload: Ranking, ctx: Context) -> Outcome[Ranking]:
-        """Walk `payload.hits` in incoming order, keeping a hit unless its resemblance to
+        """Drop every hit resembling an already-kept hit too closely.
+
+        Walk `payload.hits` in incoming order, keeping a hit unless its resemblance to
         any already-kept hit meets the threshold. Survivors keep their score and
         `retrieved_by`; `rank` is renumbered contiguously over what survives.
 

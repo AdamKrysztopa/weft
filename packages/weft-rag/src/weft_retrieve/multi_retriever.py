@@ -62,7 +62,9 @@ NAME = "multi-retriever"
 
 
 class RetrieverArm(BaseModel):
-    """One retrieval strategy: what to call it, which registered `Retriever` runs it, and
+    """One retrieval strategy: its name, its `Retriever`, and that one's config.
+
+    One retrieval strategy: what to call it, which registered `Retriever` runs it, and
     that retriever's own `with:` block.
     """
 
@@ -94,6 +96,11 @@ class MultiRetrieverConfig(BaseModel):
     arms: tuple[RetrieverArm, ...] = Field(min_length=2)
 
     def model_post_init(self, context: object, /) -> None:
+        """Refuse two arms sharing a name.
+
+        Raises:
+            ValueError: Naming every arm, when any two share a name.
+        """
         del context
         names = [arm.name for arm in self.arms]
         if len(set(names)) != len(names):
