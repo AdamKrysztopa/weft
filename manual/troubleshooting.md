@@ -2163,8 +2163,10 @@ tree, rather than rebuilding it: `layer.incremental: join` in the document's `va
 stage `- {id: join, use: adrap}`. The value is a stage **id** from the same document, and this one
 names none.
 
-**What to do:** set `layer.incremental` to one of the stage ids the message lists, or remove it,
-and the layer then rebuilds in full whenever sources are added.
+**What to do:** set `layer.incremental` to one of the stage ids the message lists, or to `none`,
+and the layer then rebuilds in full whenever sources are added. A document that extends a layer and
+removes its join stage sets `layer.incremental: none`, since an inherited var cannot be unset. The
+var may not name a layer's only stage: that would leave a full build with nothing to run.
 
 ### `LayerNeedsConsumingStoreError`
 

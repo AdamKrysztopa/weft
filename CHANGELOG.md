@@ -250,6 +250,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **A project can derive `enrich-with-raptor` without its join stage.** A document that extended
+  it and removed the `join` stage was refused, because the inherited `layer.incremental: join` named
+  a stage that was gone and a var cannot be unset. `layer.incremental: none` now says the layer has
+  no join. A var naming a layer's only stage is refused, rather than composing a full build with
+  nothing to run.
 - **A citation of a summary says what it summarises.** An answer citing a corpus-wide RAPTOR
   summary printed `[1]  — <id>` with an empty label, because a node built from several sources has
   no single location. It now prints `summary of <n> sources (<layer>)`. A cited node with no source

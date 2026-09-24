@@ -94,8 +94,12 @@ _SCOPE_VAR: Final[str] = "layer.scope"
 _STORE_CONSUMES_VAR: Final[str] = "layer.store-consumes"
 
 #: The id of the stage a corpus-scoped layer runs alone, over only the sources its published
-#: tree does not cover yet — task **43.23**. A full build never runs it.
+#: tree does not cover yet — task **43.23**. A full build never runs it. `none` says the layer has
+#: no such stage, so a derived document can remove it (R43.32).
 _INCREMENTAL_VAR: Final[str] = "layer.incremental"
+
+#: `layer.incremental`'s value for a layer with no join — carried repair **R43.32**.
+_NO_INCREMENTAL: Final[str] = "none"
 
 _KNOWN_LAYER_VARS: Final[tuple[str, ...]] = (_SCOPE_VAR, _STORE_CONSUMES_VAR, _INCREMENTAL_VAR)
 
@@ -239,8 +243,9 @@ class LayerNeedsConsumingStoreError(WeftError, UnresolvedNameError):
 
 
 class LayerIncrementalStageError(WeftError, UnresolvedNameError):
-    """A layer's `layer.incremental` names no stage of its own document — task **43.23**.
-    `valid_options` is every stage id the document does name.
+    """A layer's `layer.incremental` names no stage of its own document, or its only one — task
+    **43.23**, R43.32. `valid_options` is every stage id the var could name while leaving a full
+    build, then `"none"`.
     """
 
     def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
@@ -369,23 +374,31 @@ def _split_incremental(
     specs: tuple[StageSpec, ...], resolved: ResolvedPipeline, *, layer: str
 ) -> tuple[tuple[StageSpec, ...], tuple[StageSpec, ...]]:
     """`(layer_specs, incremental_specs)`: `specs` without the stage `layer.incremental` names,
-    and that stage. `LayerIncrementalStageError` when the var names none of `specs`' ids.
+    and that stage — or `specs` whole and no stage when the var is absent or `none` (R43.32).
+    `LayerIncrementalStageError` when the var names none of `specs`' ids, or names the one
+    stage the full build would otherwise run.
     """
     value = resolved.vars.get(_INCREMENTAL_VAR)
-    if value is None:
+    if value is None or str(value) == _NO_INCREMENTAL:
         return specs, ()
     stage_id = str(value)
-    if not any(spec.id == stage_id for spec in specs):
-        ids = tuple(spec.id for spec in specs)
+    ids = tuple(spec.id for spec in specs)
+    options = (*(ids if len(ids) > 1 else ()), _NO_INCREMENTAL)
+    if stage_id not in ids:
         raise LayerIncrementalStageError(
             f"'{layer}' sets {_INCREMENTAL_VAR} to '{stage_id}', which is not one of its "
-            f"stages. Its stages: {', '.join(ids) or '(none)'}.",
-            valid_options=ids,
+            f"stages. Its stages: {', '.join(ids) or '(none)'}. "
+            f"'{_NO_INCREMENTAL}' says the layer has no join.",
+            valid_options=options,
         )
-    return (
-        tuple(spec for spec in specs if spec.id != stage_id),
-        tuple(spec for spec in specs if spec.id == stage_id),
-    )
+    layer_specs = tuple(spec for spec in specs if spec.id != stage_id)
+    if not layer_specs:
+        raise LayerIncrementalStageError(
+            f"'{layer}' sets {_INCREMENTAL_VAR} to '{stage_id}', its only stage, so its full "
+            f"build would have no stages. '{_NO_INCREMENTAL}' says the layer has no join.",
+            valid_options=options,
+        )
+    return layer_specs, tuple(spec for spec in specs if spec.id == stage_id)
 
 
 def installed_layers(
