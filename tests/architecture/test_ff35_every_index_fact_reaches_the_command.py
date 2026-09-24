@@ -28,6 +28,7 @@ NOT_REPORTED: Final[dict[str, str]] = {
     "resolved_pipeline": "persisted in the index run record, not rendered",
     "content_hashes": "the run record's corpus identity, not rendered",
     "pipeline_identity": "stored on each source record by `run_index`; no command reads it",
+    "generations_withdrawn": "the closing pass's `spare` (R43.47); not rendered",
 }
 
 

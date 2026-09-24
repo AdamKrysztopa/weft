@@ -38,6 +38,7 @@ from weft_kernel.context import Context
 from weft_kernel.registry import Registry
 from weft_store import (
     GenerationHolding,
+    GenerationId,
     GenerationStatus,
     GenerationWithdrawing,
     Reconcilable,
@@ -114,20 +115,33 @@ async def reconcile_everywhere(
     targets: tuple[Participant, ...],
     ctx: Context,
     target: str | None = None,
+    spare: frozenset[GenerationId] = frozenset(),
 ) -> tuple[ReconcileOutcome, ...]:
     """Ask every participant to converge, in order, recording each answer.
 
     `target` — ledger task **34.6** — reaches every store participant through
     `weft_cli.fanout.built`'s own `store_target`; `None` (every caller before this task)
     converges the live target, unchanged.
+
+    `spare` — repair **R43.47** — is the generations the calling `weft index` run itself
+    withdrew: a layer holding one is not reclaimed, so a reader that opened on it keeps it until
+    the layer's next build or an explicit `weft reconcile`, which spares nothing.
     """
     return tuple(
-        [await _ask(participant, mode, ctx, target_name=target) for participant in targets]
+        [
+            await _ask(participant, mode, ctx, target_name=target, spare=spare)
+            for participant in targets
+        ]
     )
 
 
 async def _ask(
-    target: Participant, mode: ReconcileMode, ctx: Context, *, target_name: str | None = None
+    target: Participant,
+    mode: ReconcileMode,
+    ctx: Context,
+    *,
+    target_name: str | None = None,
+    spare: frozenset[GenerationId] = frozenset(),
 ) -> ReconcileOutcome:
     """One participant's whole turn — build, converge, and answer with what happened either way.
 
@@ -138,7 +152,7 @@ async def _ask(
     """
     try:
         async with built(target, store_target=target_name) as instance:
-            report, reclaimed = await _converge(instance, mode, ctx)
+            report, reclaimed = await _converge(instance, mode, ctx, spare=spare)
     except asyncio.CancelledError:
         raise
     except Exception as exc:
@@ -158,7 +172,7 @@ async def _ask(
 
 
 async def _converge(
-    instance: object, mode: ReconcileMode, ctx: Context
+    instance: object, mode: ReconcileMode, ctx: Context, *, spare: frozenset[GenerationId]
 ) -> tuple[ReconcileReport, int]:
     """One participant's `reconcile`, with the `isinstance` that makes it callable, and the
     number of nodes its reclaim removed.
@@ -168,8 +182,8 @@ async def _converge(
     what it claimed is a failure with a name rather than an `AttributeError` from deeper down.
 
     In every mode a `GenerationWithdrawing` participant then reclaims every layer's withdrawn
-    generations — repairs **R43.29**, **R43.46** — and the count it removed is returned rather
-    than discarded (**R43.38**).
+    generations — repairs **R43.29**, **R43.46** — except a layer holding one of `spare`
+    (**R43.47**), and the count it removed is returned rather than discarded (**R43.38**).
     """
     if not isinstance(instance, Reconcilable):
         raise TypeError(
@@ -178,22 +192,26 @@ async def _converge(
         )
     report = await instance.reconcile(ctx, mode)
     if isinstance(instance, GenerationWithdrawing) and isinstance(instance, GenerationHolding):
-        return report, await _reclaim_every_layer(instance, instance)
+        return report, await _reclaim_every_layer(instance, instance, spare=spare)
     return report, 0
 
 
 async def _reclaim_every_layer(
-    withdrawing: GenerationWithdrawing, holding: GenerationHolding
+    withdrawing: GenerationWithdrawing,
+    holding: GenerationHolding,
+    *,
+    spare: frozenset[GenerationId],
 ) -> int:
-    """`reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of, and
-    the nodes it removed across all of them."""
-    layers = sorted(
-        {
-            record.layer
-            for record in await holding.generations()
-            if record.status is GenerationStatus.WITHDRAWN
-        }
-    )
+    """`reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of and
+    none of `spare`, and the nodes it removed across all of them. A whole layer is skipped
+    because `reclaim_withdrawn` cannot take one generation of a layer and leave another."""
+    withdrawn = [
+        record
+        for record in await holding.generations()
+        if record.status is GenerationStatus.WITHDRAWN
+    ]
+    spared = {record.layer for record in withdrawn if record.id in spare}
+    layers = sorted({record.layer for record in withdrawn} - spared)
     return sum([(await withdrawing.reclaim_withdrawn(layer)).node_count for layer in layers])
 
 

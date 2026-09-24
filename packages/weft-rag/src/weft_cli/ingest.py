@@ -181,6 +181,7 @@ from weft_store.contract import (
     Cursor,
     Filter,
     FilterOp,
+    GenerationId,
     LayerRecord,
     LayerStatus,
     MetadataFilter,
@@ -360,7 +361,7 @@ class BatchScopedStageError(WeftError):
     Not a name-resolution failure — there is no alternative *name* to offer, only a flag that
     does not compose with this pipeline — so this does not join `PipelineResolutionError` and
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
-    (`weft_cli/commands.py:325 'class ConflictingIndexModeError(WeftError):'`).
+    (`weft_cli/commands.py:326 'class ConflictingIndexModeError(WeftError):'`).
     """
 
 
@@ -550,6 +551,10 @@ class IndexResult:
     #: Repair **R43.43** — each corpus-scoped layer whose builds reclaimed nodes from its
     #: withdrawn generations, and how many; a layer that reclaimed none is absent.
     layers_reclaimed: tuple[LayerReclaim, ...] = ()
+    #: Repair **R43.47** — every corpus-layer generation this run's publishes withdrew, which
+    #: `IndexCommand`'s closing reconcile pass spares so a reader that opened on one keeps it
+    #: until the layer's next build or an explicit `weft reconcile`. Not an operator fact.
+    generations_withdrawn: tuple[GenerationId, ...] = ()
     #: Carried repair **R43.28** — every layer a source `--reprocess` released carried that this
     #: run did not name, so released and not rebuilt, by name. `()` without `reprocess`.
     layers_released: tuple[LayerRelease, ...] = ()
@@ -1265,6 +1270,7 @@ async def run_index(
         stores_without_withdraw: tuple[LayerStoreFallback, ...] = ()
         stores_without_carry: tuple[LayerStoreFallback, ...] = ()
         layers_reclaimed: tuple[LayerReclaim, ...] = ()
+        generations_withdrawn: tuple[GenerationId, ...] = ()
         if layer_compositions:
             (
                 layers_changed,
@@ -1273,6 +1279,7 @@ async def run_index(
                 stores_without_withdraw,
                 stores_without_carry,
                 layers_reclaimed,
+                generations_withdrawn,
             ) = await run_layers(
                 layer_compositions,
                 runner=runner,
@@ -1325,6 +1332,7 @@ async def run_index(
             stores_without_withdraw=stores_without_withdraw,
             stores_without_carry=stores_without_carry,
             layers_reclaimed=layers_reclaimed,
+            generations_withdrawn=generations_withdrawn,
             layers_released=layers_released,
             layers_stale=layers_stale,
             layers_stale_progress=layers_stale_progress,

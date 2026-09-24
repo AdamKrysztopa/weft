@@ -146,8 +146,9 @@ class _ReconcilingWithdrawingStore(_WithdrawingStore):
 
 
 def _write_layers(project: Path, *, incremental: bool) -> None:
-    """Two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`, under different prompts so their
-    summaries never share an id; with `incremental`, each declares an `adrap` join."""
+    """Two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`; with `incremental`, each declares
+    an `adrap` join. `TersePrompt` sends the same request, so both trees hold the same summary ids
+    (measured) — the reclaim tests seed their withdrawn trees for that reason."""
     (project / "pipelines").mkdir(exist_ok=True)
     for name, prompt in ((LAYER, SUMMARIZE_CLUSTER_NAME), (_SECOND, TERSE_PROMPT)):
         shared = (

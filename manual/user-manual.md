@@ -1024,9 +1024,9 @@ weft index docs --layers raptor-corpus
 ```
 
 ```text
-layer raptor-corpus · batch 1/1 · 121/121 sources · 0.7 s since start
+layer raptor-corpus · batch 1/1 · 121/121 sources · 0.6 s since start
 indexing into target 'default' (live).
-121 documents: 0 indexed, 121 unchanged. nodes now stored: 495.
+121 documents: 0 indexed, 121 unchanged. nodes now stored: 132.
 ```
 
 The tree is built out of sight and made searchable all at once, so a query never sees half of it.
@@ -1036,18 +1036,35 @@ The tree is built out of sight and made searchable all at once, so a query never
   leaves land in, and every other summary is carried into the new tree untouched:
 
   ```text
-  123 documents: 2 indexed, 121 unchanged. nodes now stored: 499.
+  123 documents: 2 indexed, 121 unchanged. nodes now stored: 136.
   layer 'raptor-corpus': joined 2 leaves, 0 unassigned
   mode 'repair' — 1 participant(s):
-    pgvector (weft-rag): examined 0, removed 0, backfilled 0, reclaimed 2
+    pgvector (weft-rag): examined 0, removed 0, backfilled 0
   ```
 
-  An *unassigned* leaf is one the join could not place in any existing cluster.
-  `reclaimed 2` is the replaced summaries being removed. The previous tree is withdrawn rather
-  than deleted when the new one is published, so a query already reading it is not cut off at
-  that moment. The run's closing repair pass then removes it. `weft reconcile --mode repair`
-  does the same for anything left withdrawn
-  (`packages/weft-rag/src/weft_cli/reconcile.py:181 "mode is ReconcileMode.REPAIR"`).
+  An *unassigned* leaf is one the join could not place in any existing cluster. The previous
+  tree is withdrawn rather than deleted when the new one is published, and the run's closing
+  repair pass leaves alone a tree that same run withdrew, so a query already reading it is not
+  cut off (`packages/weft-rag/src/weft_cli/reconcile.py:213 "record.id in spare"`). The layer's
+  next build removes it before it starts. One more note, and the same command again:
+
+  ```text
+  124 documents: 1 indexed, 123 unchanged. nodes now stored: 136.
+  layer 'raptor-corpus': joined 1 leaves, 0 unassigned
+  layer 'raptor-corpus': reclaimed 2 node(s) from withdrawn generations
+  mode 'repair' — 1 participant(s):
+    pgvector (weft-rag): examined 0, removed 0, backfilled 0
+  ```
+
+  `reclaimed 2` is the two summaries the first join replaced
+  (`packages/weft-rag/src/weft_cli/layers.py:1572 "reclaim_withdrawn(layer)"`). `weft reconcile`,
+  in any mode, removes whatever is still withdrawn — here the tree the second join replaced:
+
+  ```text
+  mode 'full' — 1 participant(s):
+    pgvector (weft-rag): no unfinished deletions; nothing to converge
+    pgvector (weft-rag): examined 0, removed 0, backfilled 0, reclaimed 1
+  ```
 - **An interrupted build resumes.** Summaries are kept as they finish, in the tree nobody reads
   yet. Interrupting a build over 1,500 notes printed this and exited `130`:
 

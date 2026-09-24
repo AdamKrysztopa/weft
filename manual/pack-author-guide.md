@@ -979,7 +979,7 @@ naming the three (`packages/weft-rag/src/weft_cli/layers.py:389 "which no layer 
   a generation — `LayerNeedsGenerationHoldingError`, naming the installed stores that can
   (`packages/weft-rag/src/weft_cli/layers.py:843 "cannot hold generations"`) — and its build is
   recorded failed as `LayerEnrichesInPlace` when a stage changed a stored node instead of creating
-  one (`packages/weft-rag/src/weft_cli/layers.py:1986 "publishes only the nodes it creates"`).
+  one (`packages/weft-rag/src/weft_cli/layers.py:1993 "publishes only the nodes it creates"`).
 - **`layer.store-consumes: <namespace>`** — the layer's output is only useful to a store that
   turns that `ExtModel` namespace into rows of its own, so the layer is refused unless one of its
   base's store stages declares it in `consumes` (below) — `LayerNeedsConsumingStoreError`, naming
@@ -991,10 +991,10 @@ naming the three (`packages/weft-rag/src/weft_cli/layers.py:389 "which no layer 
   that a full build never runs. When a corpus-scoped layer is behind only because sources were
   added — every existing record `ACTIVE` under the same pipeline identity, and every base store
   `GenerationCarrying` — that stage runs alone over the new sources' leaves instead of a rebuild
-  (`packages/weft-rag/src/weft_cli/layers.py:2231 "existing.status is not LayerStatus.ACTIVE"`); a
+  (`packages/weft-rag/src/weft_cli/layers.py:2241 "existing.status is not LayerStatus.ACTIVE"`); a
   deleted source still means a rebuild. Only that join resolves the stage, so on a source-scoped
   layer it never runs
-  (`packages/weft-rag/src/weft_cli/layers.py:2328 "join_runnable = runner.resolve"`). `none`, like
+  (`packages/weft-rag/src/weft_cli/layers.py:2342 "join_runnable = runner.resolve"`). `none`, like
   absence, keeps every stage in the full build; it exists because a var cannot be unset, so a
   document extending one that names a stage sets `none` to `remove:` that stage
   (`tests/unit/weft_cli/test_layer_incremental_can_be_switched_off.py:38 "remove: [join]"`). A
@@ -1026,25 +1026,25 @@ that also runs elsewhere catches `UnresolvedServiceError` and carries on
 (`packages/weft-rag/src/weft_index/contract.py:169 "build: a stage that must also run elsewhere"`).
 
 - **`LayerCheckpoints`**, on a corpus-scoped build only
-  (`packages/weft-rag/src/weft_cli/layers.py:2149 "_with_checkpoints(indexing_ctx"`), so an
+  (`packages/weft-rag/src/weft_cli/layers.py:2156 "_with_checkpoints(indexing_ctx"`), so an
   interrupted build resumes. `keep(key, node)` writes a finished node through the base's store
   stages into the generation the build holds open, raising `WeftError` when it cannot
-  (`packages/weft-rag/src/weft_cli/layers.py:1638 "could not keep a finished node"`); `recall(key)`
+  (`packages/weft-rag/src/weft_cli/layers.py:1640 "could not keep a finished node"`); `recall(key)`
   returns what an earlier, interrupted build kept under that key, or `None`. The key is yours and
   must name everything the node was built from except the model: the build scopes every key by the
   layer and a digest of `[llm.roles]`
-  (`packages/weft-rag/src/weft_cli/layers.py:1592 "roles = json.dumps"`). `raptor`'s key is its
+  (`packages/weft-rag/src/weft_cli/layers.py:1594 "roles = json.dumps"`). `raptor`'s key is its
   own worked example (`packages/weft-rag/src/weft_index/raptor.py:715 "def _checkpoint_key"`).
 - **`LayerRevision`**, only to the stage `layer.incremental` names, during a join
-  (`packages/weft-rag/src/weft_cli/layers.py:2333 "_with_revision(indexing_ctx"`). `layer` names
+  (`packages/weft-rag/src/weft_cli/layers.py:2347 "_with_revision(indexing_ctx"`). `layer` names
   the layer whose tree is revised. Replace nothing in place: return each rebuilt node as one you
   created (`packages/weft-rag/src/weft_index/contract.py:195 "replaces nothing in place"`), report
   the published node it stands in for through `replaced(old)`, which the build then leaves out of
   the generation it publishes
-  (`packages/weft-rag/src/weft_cli/layers.py:2367 "not in revision.replaced_ids"`), and report
+  (`packages/weft-rag/src/weft_cli/layers.py:2381 "not in revision.replaced_ids"`), and report
   through `unassigned(count)` how many leaves you placed in no cluster. On that path
   `ctx.require(NodeStore)` answers with a read-only view of the store bound to the join's
-  generation (`packages/weft-rag/src/weft_cli/layers.py:1700 "services.add(NodeStore, cast"`): it
+  generation (`packages/weft-rag/src/weft_cli/layers.py:1702 "services.add(NodeStore, cast"`): it
   offers the same optional capabilities as that store, answers every read, and refuses every write
   with `LayerJoinWritesStoreError`, so the published tree is never changed by the join itself.
 

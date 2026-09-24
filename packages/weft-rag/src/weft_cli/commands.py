@@ -208,6 +208,7 @@ from weft_retrieve.engine import missing_roles, route_requirements
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
 from weft_store.contract import (
     EmbeddingIdentity,
+    GenerationId,
     LayerStatus,
     TargetCatalogue,
     TargetHolding,
@@ -1265,7 +1266,11 @@ class IndexCommand:
             )
             write_run_record(record, DEFAULT_INDEX_RUNS_DIR / f"{uuid.uuid4()}.json")
         reconcile_result = await self._auto_reconcile(
-            index_args.reconcile, deps=deps, ctx=ctx, target=index_args.target
+            index_args.reconcile,
+            deps=deps,
+            ctx=ctx,
+            target=index_args.target,
+            spare=frozenset(result.generations_withdrawn),
         )
         defaulted_embedder = _defaulted_embedder(deps, result.resolved_pipeline)
         return Produced(
@@ -1298,7 +1303,13 @@ class IndexCommand:
         )
 
     async def _auto_reconcile(
-        self, mode: ReconcileMode, *, deps: Dependencies, ctx: Context, target: str | None
+        self,
+        mode: ReconcileMode,
+        *,
+        deps: Dependencies,
+        ctx: Context,
+        target: str | None,
+        spare: frozenset[GenerationId],
     ) -> ReconcileCommandResult:
         """The automatic post-index pass, task **5.1c** — `docs/02-extension-model.md` §3 →
         *Slots*, "Tested by G7": run unconditionally after a successful index, in whichever
@@ -1319,6 +1330,9 @@ class IndexCommand:
         nothing registered simply contributes no `NodeStore` participant (`weft_cli.fanout`'s
         own filtering, not a refusal), so a `--pipeline` project with no store configured at
         all still indexes cleanly; other `Reconcilable` packs are still asked.
+
+        `spare` is the generations this run withdrew, which the pass leaves for the layer's next
+        build or an explicit `weft reconcile` (repair **R43.47**).
         """
         targets = reconcile_participants(registry=deps.registry, store_names=_stores_in_use(deps))
         _register_corpus(ctx, deps)
@@ -1328,7 +1342,9 @@ class IndexCommand:
                 if mode is ReconcileMode.FULL
                 else ()
             )
-            outcomes = await reconcile_everywhere(mode, targets=targets, ctx=ctx, target=target)
+            outcomes = await reconcile_everywhere(
+                mode, targets=targets, ctx=ctx, target=target, spare=spare
+            )
         return ReconcileCommandResult(
             mode=mode, dry_run=False, participants=outcomes, estimates=estimates
         )

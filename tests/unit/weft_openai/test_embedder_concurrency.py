@@ -165,7 +165,7 @@ async def test_every_request_records_its_usage_once() -> None:
 async def test_a_failed_request_cancels_its_in_flight_siblings_and_raises_the_leaf_error() -> None:
     """The leaf `EmbeddingRequestFailedError`, never an `ExceptionGroup`: `run_index` catches
     `WeftError` per batch
-    (`weft_cli/ingest.py:797 "except WeftError as exc:"`), and a group would escape that handler."""
+    (`weft_cli/ingest.py:802 "except WeftError as exc:"`), and a group would escape that handler."""
     # Arrange
     client = _Client(embeddings=_Embeddings(failing=2))
 

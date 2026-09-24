@@ -1456,12 +1456,14 @@ class LayerReclaim(BaseModel):
 @dataclass
 class _StoreFallbacks:
     """Every `LayerStoreFallback` of one `run_layers` call, once per store stage, keyed by id —
-    and, riding the same thread, the nodes each layer's binds reclaimed (R43.43).
+    and, riding the same thread, the nodes each layer's binds reclaimed (R43.43) and every
+    generation its publishes withdrew (R43.47).
     """
 
     withdraw: dict[str, LayerStoreFallback] = field(default_factory=dict[str, LayerStoreFallback])
     carry: dict[str, LayerStoreFallback] = field(default_factory=dict[str, LayerStoreFallback])
     reclaimed: dict[str, int] = field(default_factory=dict[str, int])
+    withdrawn: set[GenerationId] = field(default_factory=set[GenerationId])
 
     @staticmethod
     def note(into: dict[str, LayerStoreFallback], specs: Sequence[StageSpec]) -> None:
@@ -1924,6 +1926,7 @@ async def _publish_and_supersede_generations(
     opened: Mapping[str, GenerationRecord],
     *,
     layer: str,
+    withdrawn: set[GenerationId],
 ) -> frozenset[str]:
     """Every generation `opened` published, then every **older** generation of `layer` each
     store still holds superseded — carried repair **R43.11**, lifted out of `_run_corpus_
@@ -1931,7 +1934,8 @@ async def _publish_and_supersede_generations(
     the store is `GenerationWithdrawing`, so a reader that opened on it keeps it until the
     layer's next build reclaims it (repair **R43.29**); otherwise, and for an abandoned
     `BUILDING` one, it is retracted. Returns the stage ids that retracted a `PUBLISHED` one
-    (repair **R43.38**).
+    (repair **R43.38**), and adds every generation it withdrew to `withdrawn` (repair
+    **R43.47**).
 
     The exclusion set is every id *this build* opened, across **every** store, not only the
     one a given store's own loop iteration is superseding: pgvector's generations catalogue
@@ -1949,19 +1953,22 @@ async def _publish_and_supersede_generations(
                 other.layer == layer
                 and other.id not in opened_ids
                 and other.status in (GenerationStatus.PUBLISHED, GenerationStatus.BUILDING)
-                and await _supersede(holder, other)
+                and await _supersede(holder, other, withdrawn=withdrawn)
             ):
                 retracted_published.add(stage_id)
     return frozenset(retracted_published)
 
 
-async def _supersede(holder: GenerationHolding, generation: GenerationRecord) -> bool:
+async def _supersede(
+    holder: GenerationHolding, generation: GenerationRecord, *, withdrawn: set[GenerationId]
+) -> bool:
     """Withdraw or retract `generation`; whether a `PUBLISHED` one was retracted."""
     if generation.status is not GenerationStatus.PUBLISHED:
         await holder.retract_generation(generation.id)
         return False
     if isinstance(holder, GenerationWithdrawing):
         await holder.withdraw_generation(generation.id)
+        withdrawn.add(generation.id)
         return False
     await holder.retract_generation(generation.id)
     return True
@@ -2186,7 +2193,10 @@ async def _run_corpus_layer(
 
     try:
         retracted = await _publish_and_supersede_generations(
-            generations.holders, generations.opened, layer=composition.layer
+            generations.holders,
+            generations.opened,
+            layer=composition.layer,
+            withdrawn=fallbacks.withdrawn,
         )
     except WeftError as exc:
         await _fail(type(exc).__name__, exc.stage, str(exc))
@@ -2260,7 +2270,11 @@ async def _layer_member_ids(
 
 
 async def _carry_and_publish(
-    generations: _CorpusGenerations, carried: Sequence[NodeId], *, layer: str
+    generations: _CorpusGenerations,
+    carried: Sequence[NodeId],
+    *,
+    layer: str,
+    withdrawn: set[GenerationId],
 ) -> frozenset[str]:
     """`carried` into every store's new generation, then each published over the old one."""
     for stage_id, holder in generations.holders.items():
@@ -2268,7 +2282,7 @@ async def _carry_and_publish(
             generations.opened[stage_id].id, carried
         )
     return await _publish_and_supersede_generations(
-        generations.holders, generations.opened, layer=layer
+        generations.holders, generations.opened, layer=layer, withdrawn=withdrawn
     )
 
 
@@ -2366,7 +2380,9 @@ async def _run_corpus_join(
 
     carried = [node_id for node_id in published if node_id not in revision.replaced_ids]
     try:
-        retracted = await _carry_and_publish(generations, carried, layer=composition.layer)
+        retracted = await _carry_and_publish(
+            generations, carried, layer=composition.layer, withdrawn=fallbacks.withdrawn
+        )
     except WeftError as exc:
         await _fail(type(exc).__name__, exc.stage, str(exc))
         raise
@@ -2555,13 +2571,16 @@ async def run_layers(
     tuple[LayerStoreFallback, ...],
     tuple[LayerStoreFallback, ...],
     tuple[LayerReclaim, ...],
+    tuple[GenerationId, ...],
 ]:
     """Every named layer, in order, after the base run has finished or been skipped under
     `layers_only` — ledger task **43.8**, `weft_cli.ingest.run_index`'s own loop. Returns
     `(layers_changed, layers_failed, layers_joined, stores_without_withdraw,
-    stores_without_carry, layers_reclaimed)`; the second is carried repair **R43.9**, the third
-    task **43.23**, the fourth and fifth repair **R43.38** — each store stage once, sorted by
-    stage id — and the last repair **R43.43**, each layer that reclaimed nodes, sorted by name.
+    stores_without_carry, layers_reclaimed, generations_withdrawn)`; the second is carried
+    repair **R43.9**, the third task **43.23**, the fourth and fifth repair **R43.38** — each
+    store stage once, sorted by stage id — the sixth repair **R43.43**, each layer that
+    reclaimed nodes, sorted by name, and the last repair **R43.47**, every generation a publish
+    withdrew, sorted, which the run's own closing reconcile pass spares.
 
     A layer with a stage whose output depends on batch membership — `raptor`, one tree per
     document — runs one source per call (carried repair **R43.10**); every other layer runs in
@@ -2588,13 +2607,13 @@ async def run_layers(
     indexed again before this runs (`sources_with_moved_layers`).
     """
     if store_stage_id is None:
-        return (), (), (), (), (), ()
+        return (), (), (), (), (), (), ()
     primary = _stage_instance(runnable, store_stage_id)
     get_source = _get_source_of(primary) if primary is not None else None
     get_nodes = _get_of(primary) if primary is not None else None
     matching = _matching_of(primary) if primary is not None else None
     if get_source is None or matching is None:
-        return (), (), (), (), (), ()
+        return (), (), (), (), (), (), ()
 
     layers_changed: list[str] = []
     layers_failed: list[LayerFailure] = []
@@ -2701,6 +2720,7 @@ async def run_layers(
         _StoreFallbacks.ordered(fallbacks.withdraw),
         _StoreFallbacks.ordered(fallbacks.carry),
         fallbacks.reclaims(),
+        tuple(sorted(fallbacks.withdrawn)),
     )
 
 
