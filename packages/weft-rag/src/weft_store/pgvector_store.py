@@ -128,6 +128,7 @@ from weft_store.contract import (
     GenerationRecord,
     GenerationStatus,
     NodeStore,
+    NotAPublishedGenerationError,
     NotAPublishedMemberError,
     Page,
     Promotion,
@@ -2210,21 +2211,7 @@ class PgVectorStore:
                 raise UnknownGenerationError(
                     generation, valid_options=await self._known_generation_ids(cur)
                 )
-            await cur.execute("SELECT id FROM weft_nodes WHERE generations = %s", ([generation],))
-            doomed = [cast(str, row["id"]) for row in await cur.fetchall()]
-            node_count = 0
-            if doomed:
-                await cur.execute("DELETE FROM weft_nodes WHERE id = ANY(%s)", (doomed,))
-                node_count = cur.rowcount
-                await cur.execute(
-                    "DELETE FROM weft_node_productions WHERE node_id = ANY(%s)", (doomed,)
-                )
-            await cur.execute(
-                "UPDATE weft_nodes SET generations = array_remove(generations, %s) "
-                "WHERE %s = ANY(generations)",
-                (generation, generation),
-            )
-            await cur.execute("DELETE FROM weft_generations WHERE id = %s", (generation,))
+            node_count = await _retract_generation_rows(cur, generation)
         return Removed(source_id=SourceId(generation), node_count=node_count)
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
@@ -2264,6 +2251,51 @@ class PgVectorStore:
                 (into, requested, into),
             )
         return len(requested)
+
+    # -- GenerationWithdrawing — repair **R43.29** -------------------------------------------
+
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Mark a published `generation` withdrawn and touch no node: a handle that read its
+        manifest before this keeps it, and every handle that reads one after leaves it out."""
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE weft_generations SET status = %s WHERE id = %s AND status = %s RETURNING *",
+                (GenerationStatus.WITHDRAWN.value, generation, GenerationStatus.PUBLISHED.value),
+            )
+            row = await cur.fetchone()
+            if row is not None:
+                return _row_to_generation_record(row)
+            await cur.execute("SELECT status FROM weft_generations WHERE id = %s", (generation,))
+            found = await cur.fetchone()
+            if found is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+            await cur.execute(
+                "SELECT id FROM weft_generations WHERE status = %s ORDER BY id",
+                (GenerationStatus.PUBLISHED.value,),
+            )
+            published = tuple(cast(str, held["id"]) for held in await cur.fetchall())
+        raise NotAPublishedGenerationError(
+            generation,
+            status=GenerationStatus(cast(str, found["status"])),
+            valid_options=published,
+        )
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        """`retract_generation`'s work for every withdrawn generation of `layer`."""
+        conn = await self._connection()
+        node_count = 0
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id FROM weft_generations WHERE layer = %s AND status = %s ORDER BY id",
+                (layer, GenerationStatus.WITHDRAWN.value),
+            )
+            doomed = [GenerationId(cast(str, row["id"])) for row in await cur.fetchall()]
+            for generation in doomed:
+                node_count += await _retract_generation_rows(cur, generation)
+        return Removed(source_id=SourceId(layer), node_count=node_count)
 
     async def _known_generation_ids(
         self, cur: psycopg.AsyncCursor[dict[str, Any]]
@@ -2704,3 +2736,25 @@ _TARGET_LAYOUT = PgTargetLayout(
     target_tables=("weft_sources", "weft_nodes", "weft_node_productions", "weft_generations"),
     missing_table_error=lambda message: TargetTableMissingError(message, pack="weft-store"),
 )
+
+
+async def _retract_generation_rows(
+    cur: psycopg.AsyncCursor[dict[str, Any]], generation: GenerationId
+) -> int:
+    """Delete the nodes only `generation` wrote, strip it from the rest and forget it —
+    `retract_generation`'s work, and `reclaim_withdrawn`'s per generation (repair **R43.29**).
+    Returns how many nodes were deleted."""
+    await cur.execute("SELECT id FROM weft_nodes WHERE generations = %s", ([generation],))
+    doomed = [cast(str, row["id"]) for row in await cur.fetchall()]
+    node_count = 0
+    if doomed:
+        await cur.execute("DELETE FROM weft_nodes WHERE id = ANY(%s)", (doomed,))
+        node_count = cur.rowcount
+        await cur.execute("DELETE FROM weft_node_productions WHERE node_id = ANY(%s)", (doomed,))
+    await cur.execute(
+        "UPDATE weft_nodes SET generations = array_remove(generations, %s) "
+        "WHERE %s = ANY(generations)",
+        (generation, generation),
+    )
+    await cur.execute("DELETE FROM weft_generations WHERE id = %s", (generation,))
+    return node_count

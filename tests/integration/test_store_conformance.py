@@ -87,6 +87,7 @@ from weft_store.conformance import (
     FilterableTextStore,
     GenerationCarryingStore,
     GenerationHoldingStore,
+    GenerationWithdrawingStore,
     ReconcilableStore,
     SearchableStore,
     SingleWriterStore,
@@ -103,6 +104,8 @@ from weft_store.conformance import (
     check_a_generation_bound_again_sees_and_extends_what_was_written,
     check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name,
     check_a_handle_keeps_the_generations_it_read_when_it_opened,
+    check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it,
+    check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on,
     check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads,
     check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes,
     check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext,
@@ -138,6 +141,7 @@ from weft_store.conformance import (
     check_promote_makes_a_target_live_and_rollback_restores_the_previous_one,
     check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do,
     check_promoting_the_live_target_again_changes_nothing,
+    check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held,
     check_reconcile_finishes_a_deletion_that_was_interrupted,
     check_reconcile_leaves_a_healthy_store_alone_on_either_backend,
     check_reconcile_neither_deletes_nor_clears_a_failed_source,
@@ -153,6 +157,7 @@ from weft_store.conformance import (
     check_supersede_replaces_a_node_and_leaves_its_neighbours_alone,
     check_the_first_embedding_identity_claimed_is_the_one_a_target_keeps,
     check_the_multimodal_facts_round_trip_through_every_store,
+    check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name,
     check_writing_a_node_again_under_its_id_replaces_its_ext,
     conformance_corpus,
     register_conformance_ext_models,
@@ -932,6 +937,38 @@ async def test_carrying_a_node_no_published_generation_holds_is_refused_by_name(
     target_store: GenerationCarryingStore,
 ) -> None:
     await check_carrying_a_node_no_published_generation_holds_is_refused_by_name(target_store)
+
+
+# Repair **R43.29** — a superseded generation is withdrawn, and its nodes reclaimed later, so a
+# reader that opened on it keeps reading it.
+
+
+async def test_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on(
+    target_store: GenerationWithdrawingStore,
+) -> None:
+    await check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on(target_store)
+
+
+async def test_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it(
+    target_store: GenerationWithdrawingStore,
+) -> None:
+    await check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it(
+        target_store
+    )
+
+
+async def test_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held(
+    target_store: GenerationWithdrawingStore,
+) -> None:
+    await check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held(
+        target_store
+    )
+
+
+async def test_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name(
+    target_store: GenerationWithdrawingStore,
+) -> None:
+    await check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name(target_store)
 
 
 # Repair **R43.26** — `target_store` hands back a handle on storage nothing has written, so the

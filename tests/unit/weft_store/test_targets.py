@@ -38,7 +38,7 @@ def _promotion(target: str) -> Promotion:
 
 def test_the_contract_moved_a_minor_for_the_new_capability() -> None:
     # Assert — `NodeSupersedable`'s precedent: an optional Protocol is a minor for both audiences.
-    assert STORE_CONTRACT_VERSION == "2.13.0"
+    assert STORE_CONTRACT_VERSION == "2.14.0"
     assert TargetHolding.version == STORE_CONTRACT_VERSION
 
 

@@ -123,6 +123,7 @@ from weft_store.contract import (
     GenerationRecord,
     GenerationStatus,
     NoPreviousTargetError,
+    NotAPublishedGenerationError,
     NotAPublishedMemberError,
     Page,
     Promotion,
@@ -912,17 +913,7 @@ class QdrantStore:
         published = record.model_copy(
             update={"status": GenerationStatus.PUBLISHED, "published_at": datetime.now(UTC)}
         )
-        await client.upsert(
-            self._generations_catalogue,
-            points=[
-                models.PointStruct(
-                    id=_generation_point_id(generation),
-                    vector={},
-                    payload=published.model_dump(mode="json"),
-                )
-            ],
-            wait=True,
-        )
+        await self._put_generation_record(client, published)
         return published
 
     async def retract_generation(self, generation: GenerationId) -> Removed:
@@ -932,6 +923,28 @@ class QdrantStore:
             raise UnknownGenerationError(
                 generation, valid_options=await self._generation_ids(client)
             )
+        node_count = await self._forget_generation(client, generation)
+        return Removed(source_id=SourceId(generation), node_count=node_count)
+
+    async def _put_generation_record(
+        self, client: AsyncQdrantClient, record: GenerationRecord
+    ) -> None:
+        await client.upsert(
+            self._generations_catalogue,
+            points=[
+                models.PointStruct(
+                    id=_generation_point_id(record.id),
+                    vector={},
+                    payload=record.model_dump(mode="json"),
+                )
+            ],
+            wait=True,
+        )
+
+    async def _forget_generation(self, client: AsyncQdrantClient, generation: str) -> int:
+        """`retract_generation`'s work once `generation` is known to be catalogued, and
+        `reclaim_withdrawn`'s per generation (repair **R43.29**). Returns how many nodes were
+        deleted."""
         node_count = (
             0
             if await self._pair_unprovisioned(client)
@@ -942,7 +955,44 @@ class QdrantStore:
             points_selector=models.PointIdsList(points=[_generation_point_id(generation)]),
             wait=True,
         )
-        return Removed(source_id=SourceId(generation), node_count=node_count)
+        return node_count
+
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Mark a published `generation` withdrawn and touch no point: a handle that resolved
+        its visible generations before this keeps them — `GenerationWithdrawing`, repair
+        **R43.29**."""
+        client = await self._connection()
+        catalogue = await self._all_generations(client)
+        record = next((held for held in catalogue if held.id == generation), None)
+        if record is None:
+            raise UnknownGenerationError(
+                generation, valid_options=tuple(sorted(held.id for held in catalogue))
+            )
+        if record.status is not GenerationStatus.PUBLISHED:
+            raise NotAPublishedGenerationError(
+                generation,
+                status=record.status,
+                valid_options=tuple(
+                    sorted(
+                        held.id for held in catalogue if held.status is GenerationStatus.PUBLISHED
+                    )
+                ),
+            )
+        withdrawn = record.model_copy(update={"status": GenerationStatus.WITHDRAWN})
+        await self._put_generation_record(client, withdrawn)
+        return withdrawn
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        client = await self._connection()
+        doomed = sorted(
+            record.id
+            for record in await self._all_generations(client)
+            if record.layer == layer and record.status is GenerationStatus.WITHDRAWN
+        )
+        node_count = 0
+        for generation in doomed:
+            node_count += await self._forget_generation(client, generation)
+        return Removed(source_id=SourceId(layer), node_count=node_count)
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
         client = await self._connection()

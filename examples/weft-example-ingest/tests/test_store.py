@@ -282,6 +282,28 @@ async def test_a_strangers_store_carries_generations_and_passes_the_published_ch
     assert len(carrying_checks) == 2
 
 
+async def test_a_strangers_store_withdraws_generations_and_passes_the_published_checks() -> None:
+    """Repair **R43.29**: `GenerationWithdrawing` is published, so the stranger proves it with the
+    kit alone — fitness function 9(c) for the new capability, on `43.22`'s footing."""
+    # Arrange
+    from weft_store.conformance import checks_for
+    from weft_store.contract import GenerationWithdrawing
+
+    withdrawing_checks = [
+        check
+        for check in checks_for(InMemoryNodeStore())
+        if check.__annotations__.get("store") == "GenerationWithdrawingStore"
+    ]
+
+    # Act — a fresh store per check: the kit owns no lifecycle.
+    for check in withdrawing_checks:
+        await check(InMemoryNodeStore())
+
+    # Assert
+    assert isinstance(InMemoryNodeStore(), GenerationWithdrawing)
+    assert len(withdrawing_checks) == 4
+
+
 async def test_a_strangers_store_admits_one_writer_and_passes_the_published_checks() -> None:
     """Ledger **43.18**: `SingleWriter` is published, so the stranger proves it with the kit —
     fitness function 9(c) for the new capability."""

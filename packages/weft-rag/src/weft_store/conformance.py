@@ -78,6 +78,7 @@ from weft_store.contract import (
     GenerationHolding,
     GenerationId,
     GenerationStatus,
+    GenerationWithdrawing,
     InvalidTargetNameError,
     LayerRecord,
     LayerStatus,
@@ -85,6 +86,7 @@ from weft_store.contract import (
     NodeStore,
     NodeSupersedable,
     NoPreviousTargetError,
+    NotAPublishedGenerationError,
     NotAPublishedMemberError,
     Page,
     Promotion,
@@ -176,6 +178,7 @@ _CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
     "TargetHoldingStore": ("TargetHolding", "target_catalogue"),
     "GenerationHoldingStore": ("GenerationHolding", "open_generation"),
     "GenerationCarryingStore": ("GenerationCarrying", "carry_forward"),
+    "GenerationWithdrawingStore": ("GenerationWithdrawing", "withdraw_generation"),
     "SingleWriterStore": ("SingleWriter", "claim_writer"),
 }
 
@@ -363,6 +366,12 @@ class GenerationHoldingStore(
 @runtime_checkable
 class GenerationCarryingStore(GenerationHoldingStore, GenerationCarrying, Protocol):
     """A store that carries a published generation's members into a new one — ledger **43.22**."""
+
+
+@runtime_checkable
+class GenerationWithdrawingStore(GenerationHoldingStore, GenerationWithdrawing, Protocol):
+    """A store that withdraws a published generation now and reclaims its nodes later — repair
+    **R43.29**."""
 
 
 @runtime_checkable
@@ -2397,6 +2406,225 @@ async def check_carrying_a_node_no_published_generation_holds_is_refused_by_name
     _require(
         unknown is not None and new.id in unknown.valid_options,
         "the refusal must name the generations that exist",
+    )
+
+
+async def _scanned(store: GenerationHoldingStore) -> frozenset[str]:
+    """Every node `scan` walks, across every page."""
+    page = await store.scan()
+    seen = set(await _all(page))
+    while page.next_cursor is not None:
+        page = await store.scan(page.next_cursor)
+        seen |= await _all(page)
+    return frozenset(seen)
+
+
+async def _a_published_tree_and_its_rebuild(
+    store: GenerationWithdrawingStore,
+) -> tuple[GenerationId, GenerationId, list[Node]]:
+    """`old` published with `_OLD_TREE`; `new` sharing its first three members, replacing the
+    other two with `_NEW_TREE`, still building. Returns `old`, `new` and `old`'s members."""
+    old_members = [_member(word, values) for word, values in _OLD_TREE]
+    old = await store.open_generation("summaries")
+    await (await store.bind_generation(old.id)).add(old_members)
+    await store.publish_generation(old.id)
+    new = await store.open_generation("summaries")
+    await (await store.bind_generation(new.id)).add(
+        [*old_members[:3], *(_member(word, values) for word, values in _NEW_TREE)]
+    )
+    return old.id, new.id, old_members
+
+
+async def check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on(
+    store: GenerationWithdrawingStore,
+) -> None:
+    """Repair **R43.29**: a reader that opened while the old generation was published keeps
+    reading all of it after the new one is published and the old one withdrawn — the members the
+    new generation shares and the ones it replaced, through `count`, `scan` and every search —
+    and none of the new generation. Retracting in place of withdrawing strips the old id from the
+    shared members and deletes the replaced ones, which left that reader with neither tree."""
+    # Arrange
+    old, new, _ = await _a_published_tree_and_its_rebuild(store)
+    reader = await _next_operation(store)
+    counted_before = await reader.count()
+    scanned_before = await _scanned(reader)
+
+    # Act
+    await store.publish_generation(new)
+    withdrawn = await store.withdraw_generation(old)
+    counted_after = await reader.count()
+    scanned_after = await _scanned(reader)
+    searched = await _seen(reader, _OLD_TREE + _NEW_TREE)
+
+    # Assert
+    everywhere, nowhere = (True, True, True), (False, False, False)
+    _require(
+        (withdrawn.id, withdrawn.status) == (old, GenerationStatus.WITHDRAWN),
+        f"withdraw must record the generation withdrawn: {withdrawn}",
+    )
+    _require(
+        counted_after == counted_before,
+        f"a withdraw removed nodes under an open reader: {counted_before} -> {counted_after}",
+    )
+    _require(
+        {word for word, _ in _OLD_TREE} <= scanned_after and scanned_after == scanned_before,
+        f"a withdraw changed what an open reader scans: {scanned_before} -> {scanned_after}",
+    )
+    _require(
+        all(searched[word] == everywhere for word, _ in _OLD_TREE),
+        f"an open reader lost the tree it opened on, shared or replaced members: {searched}",
+    )
+    _require(
+        all(searched[word] == nowhere for word, _ in _NEW_TREE),
+        f"an open reader saw a generation published after it opened: {searched}",
+    )
+
+
+async def check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it(
+    store: GenerationWithdrawingStore,
+) -> None:
+    """Repair **R43.29**: once withdrawn, a generation is in no new handle's manifest. A reader
+    opened after the withdraw finds the shared and the new members and none of the replaced ones;
+    a layer whose only published generation is withdrawn shows that reader nothing of it. The
+    catalogue still lists the withdrawn generation until it is reclaimed."""
+    # Arrange
+    old, new, _ = await _a_published_tree_and_its_rebuild(store)
+    await store.publish_generation(new)
+    sole = await store.open_generation("facts")
+    await (await store.bind_generation(sole.id)).add([_member("heath", (0.2, 0.2, 0.6))])
+    await store.publish_generation(sole.id)
+
+    # Act
+    await store.withdraw_generation(old)
+    await store.withdraw_generation(sole.id)
+    reader = await _next_operation(store)
+    searched = await _seen(reader, _OLD_TREE + _NEW_TREE)
+    sole_seen = await _visible(reader, "heath", (0.2, 0.2, 0.6))
+    listed = {record.id: record.status for record in await store.generations()}
+
+    # Assert
+    everywhere, nowhere = (True, True, True), (False, False, False)
+    _require(
+        all(searched[word] == everywhere for word, _ in _OLD_TREE[:3] + _NEW_TREE),
+        f"a reader opened after the withdraw must find the new tree whole: {searched}",
+    )
+    _require(
+        all(searched[word] == nowhere for word, _ in _OLD_TREE[3:]),
+        f"a reader opened after the withdraw found a replaced member: {searched}",
+    )
+    _require(
+        sole_seen == nowhere,
+        f"a withdrawn layer's only generation was in a new reader's manifest: {sole_seen}",
+    )
+    _require(
+        (listed.get(old), listed.get(sole.id), listed.get(new))
+        == (GenerationStatus.WITHDRAWN, GenerationStatus.WITHDRAWN, GenerationStatus.PUBLISHED),
+        f"the catalogue must list a withdrawn generation until it is reclaimed: {listed}",
+    )
+
+
+async def check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held(
+    store: GenerationWithdrawingStore,
+) -> None:
+    """Repair **R43.29**: `reclaim_withdrawn(layer)` does, per withdrawn generation of `layer`,
+    what `retract_generation` does — deletes the nodes only it held, keeps the ones a published
+    generation shares, and forgets it. Another layer's withdrawn generation is left alone. Counted
+    raw, so the manifest cannot hide a node still stored."""
+    # Arrange
+    old, new, old_members = await _a_published_tree_and_its_rebuild(store)
+    await store.publish_generation(new)
+    await store.withdraw_generation(old)
+    other = await store.open_generation("facts")
+    await (await store.bind_generation(other.id)).add([_member("heath", (0.2, 0.2, 0.6))])
+    await store.publish_generation(other.id)
+    await store.withdraw_generation(other.id)
+    stored_before = await (await _next_operation(store)).count()
+
+    # Act
+    removed = await store.reclaim_withdrawn("summaries")
+    fresh = await _next_operation(store)
+    stored_after = await fresh.count()
+    kept = await fresh.get([node.id for node in old_members])
+    listed = {record.id: record.status for record in await store.generations()}
+    searched = await _seen(fresh, _OLD_TREE[:3] + _NEW_TREE)
+
+    # Assert
+    _require(
+        removed.node_count == 2,
+        f"reclaim must remove exactly the 2 members only the withdrawn generation held: "
+        f"{removed.node_count}",
+    )
+    _require(
+        stored_before - stored_after == 2,
+        f"a fresh raw count must drop by 2: {stored_before} -> {stored_after}",
+    )
+    _require(
+        sorted(node.id for node in kept) == sorted(node.id for node in old_members[:3]),
+        f"reclaim must keep every member a published generation shares: {kept}",
+    )
+    _require(old not in listed, f"a reclaimed generation must be forgotten: {listed}")
+    _require(
+        (listed.get(new), listed.get(other.id))
+        == (GenerationStatus.PUBLISHED, GenerationStatus.WITHDRAWN),
+        f"reclaim touched a generation outside its layer's withdrawn ones: {listed}",
+    )
+    _require(
+        all(seen == (True, True, True) for seen in searched.values()),
+        f"reclaim hid a member of the published generation: {searched}",
+    )
+
+
+async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name(
+    store: GenerationWithdrawingStore,
+) -> None:
+    """Repair **R43.29**: a generation nobody opened is refused with `UnknownGenerationError`
+    naming the ones that exist; a `building` one — an abandoned build is retracted, never
+    withdrawn — and one already withdrawn are refused with `NotAPublishedGenerationError` naming
+    it, its status and the published ones. A refusal changes no generation's status."""
+    # Arrange
+    published = await store.open_generation("summaries")
+    await store.publish_generation(published.id)
+    building = await store.open_generation("summaries")
+    gone = await store.open_generation("facts")
+    await store.publish_generation(gone.id)
+    await store.withdraw_generation(gone.id)
+
+    # Act
+    refusals: list[BaseException | None] = []
+    for asked in (GenerationId("no-such-generation"), building.id, gone.id):
+        try:
+            await store.withdraw_generation(asked)
+        except (UnknownGenerationError, NotAPublishedGenerationError) as refused:
+            refusals.append(refused)
+        else:
+            refusals.append(None)
+    unknown, unbuilt, again = refusals
+    listed = {record.id: record.status for record in await store.generations()}
+
+    # Assert
+    _require(
+        isinstance(unknown, UnknownGenerationError) and published.id in unknown.valid_options,
+        f"an unknown generation must be refused naming the ones that exist: {unknown!r}",
+    )
+    for asked, status, refusal in (
+        (building.id, GenerationStatus.BUILDING, unbuilt),
+        (gone.id, GenerationStatus.WITHDRAWN, again),
+    ):
+        _require(
+            isinstance(refusal, NotAPublishedGenerationError)
+            and (refusal.generation, refusal.status) == (asked, status)
+            and refusal.valid_options == (published.id,),
+            f"a {status.value} generation must be refused naming it, its status and the "
+            f"published ones: {refusal!r}",
+        )
+    _require(
+        listed
+        == {
+            published.id: GenerationStatus.PUBLISHED,
+            building.id: GenerationStatus.BUILDING,
+            gone.id: GenerationStatus.WITHDRAWN,
+        },
+        f"a refused withdraw changed a generation's status: {listed}",
     )
 
 

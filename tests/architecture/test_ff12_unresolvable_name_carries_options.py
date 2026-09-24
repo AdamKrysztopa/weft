@@ -121,6 +121,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_engine.run_services.StoreCapabilityMissingError",
         "weft_store.contract.UnknownTargetError",
         "weft_store.contract.UnknownGenerationError",
+        "weft_store.contract.NotAPublishedGenerationError",
         "weft_engine.services.EmbedConfigRefusedError",
         "weft_llm.models.UnknownModelError",
         "weft_llm.models.AmbiguousModelError",

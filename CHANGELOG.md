@@ -271,6 +271,14 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   connection created the collection, the first one retracted a generation's record but left its
   nodes stored, and its reads came back empty. It now asks Qdrant again until the collection
   exists.
+- **A query running while a corpus-wide layer is rebuilt keeps the tree it started with.** A query
+  that opened before a rebuild was published, and read after the old tree was retracted, could see
+  neither tree: in 2 of 4 exit runs on Qdrant it came back with no summaries at all. A replaced
+  tree is now withdrawn rather than deleted. New queries see only the new tree, a query already
+  running reads the old one to its end, and the old nodes are removed before that layer's next build
+  or by `weft reconcile`. `weft_store` publishes `GenerationWithdrawing` (`withdraw_generation`,
+  `reclaim_withdrawn`) for third-party stores, with kit checks, and the store contract moves to
+  `2.14.0`.
 - **A reader sees one tree per layer while a rebuild is published.** A query that opened between a
   corpus layer's publish and the retract after it saw the old and the rebuilt summaries together.
   A store now serves, for each layer, only its newest published generation, on pgvector, Qdrant and

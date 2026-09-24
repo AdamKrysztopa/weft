@@ -5030,6 +5030,23 @@ was retracted.
 **What to do:** use one of the ids the message lists. `weft index --layers <name>` opens a new
 generation for the layer.
 
+### `NotAPublishedGenerationError`
+
+**What it looks like:**
+
+```text
+'g-7f3a' is building, not published, so it cannot be withdrawn — published generations: g-9e04
+```
+
+**Why:** when a corpus-wide layer is rebuilt, the tree it replaces is *withdrawn*. New queries stop
+seeing it, while a query already running keeps reading it to the end. Its nodes are removed later,
+before that layer's next build or by `weft reconcile`. Only a published tree can be withdrawn. This
+one is still being built, or was withdrawn already.
+
+**What to do:** if you wrote the calling code, withdraw one of the published generations the message
+lists. A build that never published is discarded with `retract_generation`. From `weft index`, run
+the command again: the rebuild reads the store's generations afresh.
+
 ### `NotAPublishedMemberError`
 
 **What it looks like:**

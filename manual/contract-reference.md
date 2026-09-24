@@ -357,7 +357,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that carries a published generation's untouched members into a new one — ledger
 task **43.22**.
@@ -385,7 +385,7 @@ async def carry_forward(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that builds a corpus-scoped layer as a generation, published whole — ledger task
 **43.14**.
@@ -444,6 +444,34 @@ Scores one `GenerationSample` — a prediction against a reference (and, sometim
 async def evaluate(
     self, payload: weft_eval.contract.GenerationSample, ctx: weft_kernel.context.Context
 ) -> weft_kernel.payload.outcome.Outcome[weft_eval.contract.MetricScore]: ...
+```
+
+## `GenerationWithdrawing`
+
+**Module:** `weft_store.contract`  
+**Registered by:** `weft-rag`  
+**Version:** `2.14.0`
+
+A store that withdraws a superseded generation now and reclaims its nodes later — repair
+**R43.29**.
+
+`withdraw_generation` marks a published generation `WITHDRAWN` and touches no node and no
+membership, so it leaves the manifest of every handle that opens afterwards while a handle
+that opened before keeps reading the tree it opened on. An unknown id raises
+`UnknownGenerationError`; a `building` or `withdrawn` one raises `NotAPublishedGenerationError`.
+`reclaim_withdrawn(layer)` does what `retract_generation` does for every withdrawn generation of
+`layer`, and nothing to any other layer. A separate Protocol, `GenerationCarrying`'s precedent.
+
+### Methods
+
+```python
+async def reclaim_withdrawn(self, layer: str) -> weft_store.contract.Removed: ...
+```
+
+```python
+async def withdraw_generation(
+    self, generation: weft_store.contract.GenerationId
+) -> weft_store.contract.GenerationRecord: ...
 ```
 
 ## `Generator`
@@ -566,7 +594,7 @@ async def stream(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
 
@@ -647,7 +675,7 @@ async def complete_structured(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 The base every store implements all of — see the module docstring for `run`.
 
@@ -725,7 +753,7 @@ async def scan(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
 
@@ -845,7 +873,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
 
@@ -1137,7 +1165,7 @@ async def run(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that admits one writer at a time — ledger task **43.18**.
 
@@ -1159,7 +1187,7 @@ async def release_writer(self) -> None: ...
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
 
@@ -1233,7 +1261,7 @@ async def assess(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that holds named, complete targets, one of them live — ledger task **34.3**,
 Phase 34's blue-green index migration.
@@ -1278,7 +1306,7 @@ async def target_catalogue(self) -> weft_store.contract.TargetCatalogue: ...
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that can rank `Node`s by lexical match on their own text.
 
@@ -1320,7 +1348,7 @@ async def search_text(
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.13.0`
+**Version:** `2.14.0`
 
 A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
 embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not

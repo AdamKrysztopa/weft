@@ -164,7 +164,8 @@ from weft_kernel.runner import Stage
 #: and `SingleWriter` (task 43.18) joins the same unreleased minor.
 #: **`2.11.0` → `2.12.0` at task 43.21** — `LayerStatus` gains `STALE`, minor for both audiences.
 #: **`2.12.0` → `2.13.0` at task 43.22** — `GenerationCarrying` joins the family, `43.14`'s shape.
-STORE_CONTRACT_VERSION = "2.13.0"
+#: **`2.13.0` → `2.14.0` at repair R43.29** — `GenerationWithdrawing` joins, `43.22`'s shape.
+STORE_CONTRACT_VERSION = "2.14.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -1398,6 +1399,10 @@ class GenerationStatus(StrEnum):
     BUILDING = "building"
     #: Visible to every handle that opens after the publish.
     PUBLISHED = "published"
+    #: Superseded: in no handle's manifest that opens after the withdraw, its nodes kept for the
+    #: handles that opened before it until `GenerationWithdrawing.reclaim_withdrawn` — repair
+    #: **R43.29**.
+    WITHDRAWN = "withdrawn"
 
 
 class GenerationRecord(BaseModel):
@@ -1498,6 +1503,52 @@ class GenerationCarrying(Protocol):
 
 
 GenerationCarrying.version = STORE_CONTRACT_VERSION
+
+
+class NotAPublishedGenerationError(WeftError, UnresolvedNameError):
+    """`GenerationWithdrawing.withdraw_generation` was asked to withdraw a generation that is not
+    published — repair **R43.29**. `status` is where it stands; `valid_options` carries the ids of
+    the published generations, fitness function 12's family.
+    """
+
+    def __init__(
+        self,
+        generation: GenerationId,
+        *,
+        status: GenerationStatus,
+        valid_options: tuple[str, ...],
+    ) -> None:
+        super().__init__(
+            f"{generation!r} is {status.value}, not published, so it cannot be withdrawn — "
+            f"published generations: {', '.join(sorted(valid_options)) or '(none)'}"
+        )
+        self.generation = generation
+        self.status = status
+        self.valid_options = valid_options
+
+
+@runtime_checkable
+class GenerationWithdrawing(Protocol):
+    """A store that withdraws a superseded generation now and reclaims its nodes later — repair
+    **R43.29**.
+
+    `withdraw_generation` marks a published generation `WITHDRAWN` and touches no node and no
+    membership, so it leaves the manifest of every handle that opens afterwards while a handle
+    that opened before keeps reading the tree it opened on. An unknown id raises
+    `UnknownGenerationError`; a `building` or `withdrawn` one raises `NotAPublishedGenerationError`.
+    `reclaim_withdrawn(layer)` does what `retract_generation` does for every withdrawn generation of
+    `layer`, and nothing to any other layer. A separate Protocol, `GenerationCarrying`'s precedent.
+    """
+
+    if TYPE_CHECKING:
+        version: ClassVar[str]
+
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord: ...
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed: ...
+
+
+GenerationWithdrawing.version = STORE_CONTRACT_VERSION
 
 
 class WriterClaim(BaseModel):

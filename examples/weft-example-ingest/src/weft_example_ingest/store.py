@@ -55,6 +55,7 @@ from weft_store.contract import (
     GenerationRecord,
     GenerationStatus,
     NoPreviousTargetError,
+    NotAPublishedGenerationError,
     NotAPublishedMemberError,
     Page,
     Promotion,
@@ -506,20 +507,7 @@ class InMemoryNodeStore:
             raise UnknownGenerationError(
                 generation, valid_options=tuple(sorted(target.generations))
             )
-        doomed = frozenset({generation})
-        removed_ids = tuple(
-            node_id
-            for node_id, membership in target.node_generations.items()
-            if membership == doomed
-        )
-        for node_id in removed_ids:
-            target.nodes.pop(node_id, None)
-            target.node_generations.pop(node_id, None)
-        for node_id, membership in list(target.node_generations.items()):
-            if generation in membership:
-                target.node_generations[node_id] = membership - doomed
-        del target.generations[generation]
-        return Removed(source_id=SourceId(generation), node_count=len(removed_ids))
+        return Removed(source_id=SourceId(generation), node_count=_retract(target, generation))
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
         records = self._readable().generations.values()
@@ -551,6 +539,43 @@ class InMemoryNodeStore:
             target.node_generations[node_id] = target.node_generations[node_id] | {into}
         return len(requested)
 
+    # -- GenerationWithdrawing ---------------------------------------------------------------
+
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
+        """`GenerationWithdrawing`, repair **R43.29** — the record is marked and nothing else
+        changes, so a handle whose visible set already holds `generation` keeps reading it."""
+        target = self._writable()
+        record = target.generations.get(generation)
+        if record is None:
+            raise UnknownGenerationError(
+                generation, valid_options=tuple(sorted(target.generations))
+            )
+        if record.status is not GenerationStatus.PUBLISHED:
+            raise NotAPublishedGenerationError(
+                generation,
+                status=record.status,
+                valid_options=tuple(
+                    sorted(
+                        held.id
+                        for held in target.generations.values()
+                        if held.status is GenerationStatus.PUBLISHED
+                    )
+                ),
+            )
+        withdrawn = record.model_copy(update={"status": GenerationStatus.WITHDRAWN})
+        target.generations[generation] = withdrawn
+        return withdrawn
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        target = self._writable()
+        doomed = [
+            record.id
+            for record in target.generations.values()
+            if record.layer == layer and record.status is GenerationStatus.WITHDRAWN
+        ]
+        removed = sum(_retract(target, generation) for generation in doomed)
+        return Removed(source_id=SourceId(layer), node_count=removed)
+
     # -- SingleWriter ------------------------------------------------------------------------
 
     async def claim_writer(self, writer: WriterClaim) -> None:
@@ -568,6 +593,24 @@ class InMemoryNodeStore:
         if target.writer is not None and target.writer == self._claimed_writer:
             target.writer = None
         self._claimed_writer = None
+
+
+def _retract(target: _Target, generation: GenerationId) -> int:
+    """Delete the nodes only `generation` wrote, strip it from the rest, and forget it —
+    `retract_generation`'s work, and `reclaim_withdrawn`'s per generation. Returns how many
+    nodes were deleted."""
+    doomed = frozenset({generation})
+    removed_ids = tuple(
+        node_id for node_id, membership in target.node_generations.items() if membership == doomed
+    )
+    for node_id in removed_ids:
+        target.nodes.pop(node_id, None)
+        target.node_generations.pop(node_id, None)
+    for node_id, membership in list(target.node_generations.items()):
+        if generation in membership:
+            target.node_generations[node_id] = membership - doomed
+    del target.generations[generation]
+    return len(removed_ids)
 
 
 def _newest_published_per_layer(

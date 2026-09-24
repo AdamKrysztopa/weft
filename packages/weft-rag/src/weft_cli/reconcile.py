@@ -36,7 +36,15 @@ from pydantic import BaseModel, ConfigDict
 from weft_cli.fanout import Participant, built, participants_for
 from weft_kernel.context import Context
 from weft_kernel.registry import Registry
-from weft_store import Reconcilable, ReconcileEstimate, ReconcileMode, ReconcileReport
+from weft_store import (
+    GenerationHolding,
+    GenerationStatus,
+    GenerationWithdrawing,
+    Reconcilable,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
+)
 
 
 class ReconcileOutcome(BaseModel):
@@ -152,13 +160,38 @@ async def _converge(instance: object, mode: ReconcileMode, ctx: Context) -> Reco
     The class-level `issubclass` in `participants_for` cannot be the last word: a factory may
     return something other than the class it was registered as, and a participant that is not
     what it claimed is a failure with a name rather than an `AttributeError` from deeper down.
+
+    In `REPAIR` mode a `GenerationWithdrawing` participant then reclaims every layer's withdrawn
+    generations — repair **R43.29**.
     """
     if not isinstance(instance, Reconcilable):
         raise TypeError(
             f"{type(instance).__qualname__} was registered as a class satisfying Reconcilable "
             f"but the instance it built does not — no 'reconcile' to call"
         )
-    return await instance.reconcile(ctx, mode)
+    report = await instance.reconcile(ctx, mode)
+    if (
+        mode is ReconcileMode.REPAIR
+        and isinstance(instance, GenerationWithdrawing)
+        and isinstance(instance, GenerationHolding)
+    ):
+        await _reclaim_every_layer(instance, instance)
+    return report
+
+
+async def _reclaim_every_layer(
+    withdrawing: GenerationWithdrawing, holding: GenerationHolding
+) -> None:
+    """`reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of."""
+    layers = sorted(
+        {
+            record.layer
+            for record in await holding.generations()
+            if record.status is GenerationStatus.WITHDRAWN
+        }
+    )
+    for layer in layers:
+        await withdrawing.reclaim_withdrawn(layer)
 
 
 async def estimate_everywhere(

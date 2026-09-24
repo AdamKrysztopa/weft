@@ -63,6 +63,7 @@ from weft_store.contract import (
     GenerationId,
     GenerationRecord,
     GenerationStatus,
+    GenerationWithdrawing,
     LayerRecord,
     LayerStatus,
     Page,
@@ -1434,7 +1435,8 @@ async def _bind_corpus_generations(
     each store's newest `BUILDING` generation of `layer` is adopted, so what that build kept is
     recalled rather than paid for again (task **43.20**). Adoption is all or nothing: a store
     with none to adopt means every store opens afresh. Either way every other `BUILDING`
-    generation of `layer` is retracted before the stage runs.
+    generation of `layer` is retracted before the stage runs, and each `GenerationWithdrawing`
+    store reclaims the generations of `layer` an earlier publish withdrew (repair **R43.29**).
     """
     holders = {
         spec.id: cast(GenerationHolding, _stage_instance(runnable, spec.id))
@@ -1457,6 +1459,8 @@ async def _bind_corpus_generations(
                 and other.id != kept
             ):
                 await holder.retract_generation(other.id)
+        if isinstance(holder, GenerationWithdrawing):
+            await holder.reclaim_withdrawn(layer)
     opened = dict(adopted)
     for stage_id, holder in holders.items():
         if stage_id not in opened:
@@ -1618,8 +1622,11 @@ async def _publish_and_supersede_generations(
     layer: str,
 ) -> None:
     """Every generation `opened` published, then every **older** generation of `layer` each
-    store still holds retracted — carried repair **R43.11**, lifted out of `_run_corpus_
-    layer` for its own complexity budget.
+    store still holds superseded — carried repair **R43.11**, lifted out of `_run_corpus_
+    layer` for its own complexity budget. A superseded `PUBLISHED` generation is withdrawn when
+    the store is `GenerationWithdrawing`, so a reader that opened on it keeps it until the
+    layer's next build reclaims it (repair **R43.29**); otherwise, and for an abandoned
+    `BUILDING` one, it is retracted.
 
     The exclusion set is every id *this build* opened, across **every** store, not only the
     one a given store's own loop iteration is superseding: pgvector's generations catalogue
@@ -1637,7 +1644,16 @@ async def _publish_and_supersede_generations(
                 and other.id not in opened_ids
                 and other.status in (GenerationStatus.PUBLISHED, GenerationStatus.BUILDING)
             ):
-                await holder.retract_generation(other.id)
+                await _supersede(holder, other)
+
+
+async def _supersede(holder: GenerationHolding, generation: GenerationRecord) -> None:
+    if generation.status is GenerationStatus.PUBLISHED and isinstance(
+        holder, GenerationWithdrawing
+    ):
+        await holder.withdraw_generation(generation.id)
+    else:
+        await holder.retract_generation(generation.id)
 
 
 def _corpus_outcome_refusal(
