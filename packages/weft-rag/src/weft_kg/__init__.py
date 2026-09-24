@@ -1,5 +1,7 @@
-"""`weft_kg` — publishes the graph traversal contract and registers a Postgres-backed
-implementation of it. Ledger tasks **11.4** (the contract) and **11.5** (this file).
+"""`weft_kg` — publishes the graph traversal contract and registers a Postgres implementation.
+
+A Postgres-backed implementation of it. Ledger tasks **11.4** (the contract) and **11.5** (this
+file).
 
 **Registers now, and that is this task's whole point.** `11.4` published `GraphTraversal` and
 deliberately registered nothing — "a `register()` here, with nothing yet to register, would be a

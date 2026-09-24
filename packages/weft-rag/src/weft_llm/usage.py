@@ -48,6 +48,7 @@ class UsageTally:
 
     @property
     def entries(self) -> tuple[UsageEntry, ...]:
+        """Every entry recorded so far, in the order the calls completed."""
         return tuple(self._entries)
 
     def record(self, entry: UsageEntry) -> None:

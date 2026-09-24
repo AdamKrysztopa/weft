@@ -112,9 +112,9 @@ class LLMRoles(BaseModel):
 
 
 def _remedy(role: str, *, providers: Sequence[str], has_table: bool) -> str:
-    """The line to paste — never `scripted`, which cannot give a role a structured answer (R41.7).
+    r"""The line to paste — never `scripted`, which cannot give a role a structured answer (R41.7).
 
-    A literal newline, not `\\n`: the line is pasted into weft.toml, and the escape printed itself
+    A literal newline, not `\n`: the line is pasted into weft.toml, and the escape printed itself
     once (Phase 8's close review).
     """
     answering = sorted(name for name in providers if name != _SCRIPTED)

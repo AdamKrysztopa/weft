@@ -328,8 +328,9 @@ def contributions_from(reports: tuple[PackReport, ...]) -> tuple[Contribution, .
 
 
 def _default_reconcile_policy() -> ReconcilePolicy:
-    """`Dependencies.reconcile_policy`'s own `default_factory` — a lazy import, not
-    `weft_engine.reconcile_policy.ReconcilePolicy` used directly.
+    """`Dependencies.reconcile_policy`'s own `default_factory`.
+
+    A lazy import, not `weft_engine.reconcile_policy.ReconcilePolicy` used directly.
 
     `weft_engine.reconcile_policy` imports `weft_store.ReconcileMode` at its own module scope,
     and this module's own top-level imports run for *every* command, `weft --version`
@@ -347,10 +348,11 @@ def _default_reconcile_policy() -> ReconcilePolicy:
 
 
 def _default_index_policy() -> IndexPolicy:
-    """`Dependencies.index_policy`'s own `default_factory` — `_default_reconcile_policy`'s
-    own shape, one field over. `weft_engine.index_policy` imports no pack today, so this lazy
-    import costs nothing it would not already cost eagerly; it is here so the two fields stay
-    on one rule rather than agreeing by coincidence.
+    """`Dependencies.index_policy`'s own `default_factory`.
+
+    `_default_reconcile_policy`'s own shape, one field over. `weft_engine.index_policy` imports no
+    pack today, so this lazy import costs nothing it would not already cost eagerly; it is here so
+    the two fields stay on one rule rather than agreeing by coincidence.
     """
     from weft_engine.index_policy import IndexPolicy
 
@@ -519,8 +521,10 @@ def require_plugin(
     name: str,
     setting: str,
 ) -> PluginRefusal | None:
-    """`None` if `name` resolves for `contract`; otherwise `PluginRefusal` — the exit code, why
-    it does not, and (for a genuine name-resolution failure only) the names that do resolve.
+    """`None` if `name` resolves for `contract`; otherwise a `PluginRefusal`.
+
+    The refusal carries the exit code, why it does not, and (for a genuine name-resolution failure
+    only) the names that do resolve.
 
     **The gate `require_active` structurally cannot be.** That one takes a
     fixed tuple of distribution names, which was sound while every plugin name
@@ -612,8 +616,10 @@ def _unresolved(
 
 
 def _registered_names_sentence(contract: type[object], valid_options: tuple[str, ...]) -> str:
-    """This module's own statement of `UnknownPluginError.valid_options` — the one fact in the
-    kernel's message genuinely worth carrying forward, composed rather than quoted.
+    """This module's own statement of `UnknownPluginError.valid_options`.
+
+    The one fact in the kernel's message genuinely worth carrying forward, composed rather than
+    quoted.
     """
     available = ", ".join(f"'{option}'" for option in valid_options) if valid_options else "none"
     return f"Registered {contract.__name__} names: {available}."

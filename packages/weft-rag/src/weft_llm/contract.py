@@ -58,9 +58,36 @@ class LLMProvider(Protocol):
 
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
-    ) -> Outcome[Completion]: ...
+    ) -> Outcome[Completion]:
+        """Continue `conv` in one call, decided when it returns.
+
+        Args:
+            conv: The conversation to continue.
+            model: The model to answer under; one provider instance serves many.
+            ctx: The run's context.
+
+        Returns:
+            The answer, or `NothingToProduce` where the model produced none.
+
+        Raises:
+            LLMError: The provider's failure, as one leaf of `weft_llm.errors`.
+        """
+        ...
 
     async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:
+        """Continue `conv`, yielding the answer's text as it arrives.
+
+        Args:
+            conv: The conversation to continue.
+            model: The model to answer under; one provider instance serves many.
+            ctx: The run's context.
+
+        Yields:
+            Each fragment of the answer's text, in order.
+
+        Raises:
+            LLMError: The provider's failure, as one leaf of `weft_llm.errors`.
+        """
         # Repair for a reviewer finding against task 2.30. An `async def` stub with an
         # `Ellipsis` body types, to a checker, as a coroutine that *returns* an
         # `AsyncIterator[str]` — not as an async generator — so a variable declared
@@ -73,7 +100,9 @@ class LLMProvider(Protocol):
             yield ""
         return
 
-    async def close(self) -> None: ...
+    async def close(self) -> None:
+        """Release whatever connection the provider opened; return at once if it opened none."""
+        ...
 
 
 LLMProvider.version = LLM_CONTRACT_VERSION
@@ -99,7 +128,22 @@ class NativeStructured(Protocol):
 
     async def complete_structured(
         self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
-    ) -> Outcome[Completion]: ...
+    ) -> Outcome[Completion]:
+        """Continue `conv` with an answer the vendor itself constrains to `schema`.
+
+        Args:
+            conv: The conversation to continue.
+            schema: The JSON schema the answer must satisfy.
+            model: The model to answer under.
+            ctx: The run's context.
+
+        Returns:
+            The answer, whose text is a document in `schema`.
+
+        Raises:
+            LLMError: The provider's failure, as one leaf of `weft_llm.errors`.
+        """
+        ...
 
 
 NativeStructured.version = LLM_CONTRACT_VERSION
@@ -128,6 +172,20 @@ class UsageReporting(Protocol):
     async def stream_reporting_usage(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> AsyncIterator[str | TokenUsage]:
+        """`stream`, with the call's token usage yielded alongside the text.
+
+        Args:
+            conv: The conversation to continue.
+            model: The model to answer under.
+            ctx: The run's context.
+
+        Yields:
+            Each fragment of the answer's text, in order, and the call's `TokenUsage` where
+            the vendor reports it.
+
+        Raises:
+            LLMError: The provider's failure, as one leaf of `weft_llm.errors`.
+        """
         # Same unreachable-`yield` trick `LLMProvider.stream` uses, and for the identical
         # reason: it is what tells a checker this is an async generator rather than a
         # coroutine returning one, so a variable typed `UsageReporting` can be `async for`-ed
@@ -166,7 +224,17 @@ class TokenCounting(Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def count_tokens(self, text: str, *, model: str) -> int | None: ...
+    async def count_tokens(self, text: str, *, model: str) -> int | None:
+        """Count `text`'s tokens under `model`'s own encoding, without a model call.
+
+        Args:
+            text: The text to count.
+            model: The model whose encoding counts it.
+
+        Returns:
+            The token count, or `None` where this provider cannot count that model.
+        """
+        ...
 
 
 TokenCounting.version = LLM_CONTRACT_VERSION
@@ -186,7 +254,20 @@ class TokenCounter(Protocol):
     against a client instance, never registered under a name.
     """
 
-    async def count_tokens(self, role: str, text: str) -> int: ...
+    async def count_tokens(self, role: str, text: str) -> int:
+        """Count `text`'s tokens under the model `role` resolves to.
+
+        Args:
+            role: The role whose provider and model do the counting.
+            text: The text to count.
+
+        Returns:
+            The token count.
+
+        Raises:
+            TokenCountUnavailableError: The role's provider cannot count its model.
+        """
+        ...
 
 
 class LLM(Protocol):
@@ -214,17 +295,56 @@ class LLM(Protocol):
     and all it needs: whether tier 1 is available for a role, and how to run it.
     """
 
-    async def complete(
-        self, rendered: Rendered, *, role: str, ctx: Context
-    ) -> Outcome[Completion]: ...
+    async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
+        """Continue `rendered`'s conversation under `role`, streaming every chunk to the sink.
+
+        Args:
+            rendered: The prompt, rendered to a conversation.
+            role: The `[llm.roles]` key naming the provider and model to answer under.
+            ctx: The run's context, which supplies the `TokenSink`.
+
+        Returns:
+            The answer, or `NothingToProduce` where the model produced no text.
+
+        Raises:
+            LLMError: The provider's failure.
+            UnmappedLLMRoleError: `role` is not in `[llm.roles]`.
+        """
+        ...
 
     async def complete_structured(
         self, rendered: Rendered, schema: Mapping[str, object], *, role: str, ctx: Context
-    ) -> Outcome[Completion]: ...
+    ) -> Outcome[Completion]:
+        """Tier 1 of the cascade: have `role`'s provider answer natively in `schema`.
 
-    async def native_structured_available(self, role: str) -> bool: ...
+        Args:
+            rendered: The prompt, rendered to a conversation.
+            schema: The JSON schema the answer must satisfy.
+            role: The `[llm.roles]` key naming the provider and model to answer under.
+            ctx: The run's context.
 
-    async def close(self) -> None: ...
+        Returns:
+            The answer, whose text is a document in `schema`.
+
+        Raises:
+            LLMError: The provider's failure, or a provider without native structured output.
+        """
+        ...
+
+    async def native_structured_available(self, role: str) -> bool:
+        """Say whether `role`'s provider offers native structured output — tier 1's gate.
+
+        Args:
+            role: The `[llm.roles]` key to resolve.
+
+        Returns:
+            Whether `complete_structured` can run for `role`.
+        """
+        ...
+
+    async def close(self) -> None:
+        """Close every provider this service built."""
+        ...
 
 
 class TokenSink(Protocol):
@@ -241,6 +361,14 @@ class TokenSink(Protocol):
     look identical to whatever is displaying tokens.
     """
 
-    async def emit(self, chunk: TokenChunk) -> None: ...
+    async def emit(self, chunk: TokenChunk) -> None:
+        """Take one chunk of an answer as it arrives, tagged with its role and stage."""
+        ...
 
-    async def close(self, *, reason: str | None = None) -> None: ...
+    async def close(self, *, reason: str | None = None) -> None:
+        """End the display of tokens.
+
+        Args:
+            reason: Why the run ended badly, or `None` for a run that simply ended.
+        """
+        ...

@@ -87,6 +87,17 @@ class LibraryConsent:
     policy: PermissionPolicy
 
     async def decide(self, *, command_name: str, instance: object, args: BaseModel) -> None:
+        """Let an `overwrite`/`destroy`-class command run only when policy or `yes` permits it.
+
+        Args:
+            command_name: The command being invoked, for the refusal message.
+            instance: The command instance, whose `permission_class` is read.
+            args: The command's validated arguments, quoted in the refusal message.
+
+        Raises:
+            CommandRefusalError: The command needs confirmation and there is no terminal to
+                confirm in.
+        """
         # Same defensive read, same safest-possible default, as `weft_cli.confirm.gate`'s own
         # — `permission_class` is a `required_declarations` name, not an `isinstance` member.
         permission_class = cast(
@@ -117,8 +128,10 @@ class LibraryConsent:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _Held:
-    """One instance `Weft` has been asked to close when its block exits, and the four
-    identifying strings `weft_kernel.seam.aclose` needs to attribute a close failure.
+    """One instance `Weft` has been asked to close when its block exits.
+
+    Carried with the four identifying strings `weft_kernel.seam.aclose` needs to attribute a
+    close failure.
     """
 
     instance: object
@@ -147,7 +160,8 @@ class Weft:
         strict_pins: bool = True,
         token_sink: TokenSink | None = None,
     ) -> Weft:
-        """Discover every installed pack against `config_path`, honouring `[packs] allow` —
+        """Discover every installed pack against `config_path`, honouring `[packs] allow`.
+
         `build_dependencies` and nothing else. A second assembly here is the phase's own named
         hazard; this calls the identical assembler `weft_cli.cli.main` calls.
 
@@ -158,11 +172,13 @@ class Weft:
         return cls(deps)
 
     async def __aenter__(self) -> Weft:
+        """Enter the session; `Weft.open` has already assembled everything it holds."""
         return self
 
     async def __aexit__(self, exc_type: object, exc: BaseException | None, tb: object) -> None:
-        """Close everything this session holds, reverse of the order it was held in, and never
-        suppress the caller's own exception.
+        """Close everything this session holds, in reverse of the order it was held in.
+
+        Never suppresses the caller's own exception.
 
         Mirrors `weft_kernel.runner.Runner._flush_all`, whose own docstring states the rule
         this discharges — carried repair `R18.1`: *"raising here would replace it"*
@@ -223,8 +239,7 @@ class Weft:
         plugin: str,
         stage: str | None = None,
     ) -> None:
-        """Register `instance` to be closed through `weft_kernel.seam.aclose` when this
-        session's block exits.
+        """Register `instance` to be closed through `weft_kernel.seam.aclose` when the block exits.
 
         Public: a caller that built a store or an embedder itself, outside `Weft.open`, and
         wants the session to reap it has the identical need the session already has for what it
@@ -388,9 +403,9 @@ class Weft:
         yes: bool = False,
         token_sink: TokenSink | None = None,
     ) -> CommandResult:
-        """Resolve `command_name` from the registry, project `fields` through its own
-        `args_model`, and run it through `weft_command.invocation.invoke` — the one seam both
-        driving adapters share.
+        """Resolve `command_name`, project `fields` through its `args_model`, and run it.
+
+        Run through `weft_command.invocation.invoke` — the one seam both driving adapters share.
 
         `entry()` is what raises `weft_kernel.registry.UnknownPluginError`, naming every command
         the registry does hold, when `command_name` is not one of them — requirement 5, and no
@@ -420,7 +435,7 @@ class Weft:
         )
 
         try:
-            outcome = await invoke(
+            result = await _invoke_to_result(
                 command_name=command_name,
                 instance=instance,
                 args=args,
@@ -428,8 +443,6 @@ class Weft:
                 consent=LibraryConsent(yes=yes, policy=self.dependencies.permissions),
                 distribution=entry.distribution,
             )
-            if not isinstance(outcome, Produced):
-                raise WeftError(f"'{command_name}' did not produce a result: {outcome.reason}")
         except WeftError as failure:
             if token_sink is not None:
                 await _close_after_failure(token_sink, reason=str(failure), failure=failure)
@@ -442,13 +455,37 @@ class Weft:
             raise
         if token_sink is not None:
             await token_sink.close(reason=None)
-        return outcome.value
+        return result
+
+
+async def _invoke_to_result(
+    *,
+    command_name: str,
+    instance: Command,
+    args: BaseModel,
+    ctx: Context,
+    consent: LibraryConsent,
+    distribution: str,
+) -> CommandResult:
+    """`invoke`'s produced value, or a `WeftError` naming why the command produced none."""
+    outcome = await invoke(
+        command_name=command_name,
+        instance=instance,
+        args=args,
+        ctx=ctx,
+        consent=consent,
+        distribution=distribution,
+    )
+    if not isinstance(outcome, Produced):
+        raise WeftError(f"'{command_name}' did not produce a result: {outcome.reason}")
+    return outcome.value
 
 
 async def _close_after_failure(sink: TokenSink, *, reason: str, failure: BaseException) -> None:
-    """Close a call's own sink while `failure` propagates, attaching a failed close to it as a
-    note rather than letting it replace `failure` — carried repair `R18.1`'s rule, which
-    `Weft.__aexit__` also follows.
+    """Close a call's own sink while `failure` propagates.
+
+    A failed close is attached to `failure` as a note rather than letting it replace `failure` —
+    carried repair `R18.1`'s rule, which `Weft.__aexit__` also follows.
     """
     try:
         await sink.close(reason=reason)

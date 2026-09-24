@@ -274,7 +274,23 @@ def service_selection_from_config(
     known = tuple(sorted(accepted_service_keys(table)))
     if document is None or "services" not in document:
         return ServiceSelection()
-    services = document["services"]
+    written, embed_config = _split_services(document["services"])
+    _refuse_bad_service_keys(written, known=known)
+    role_selections = {
+        key: value for key, value in written.items() if key not in ("embed", "store", "route")
+    }
+    base = {key: value for key, value in written.items() if key in ("embed", "store", "route")}
+    return ServiceSelection.model_validate(
+        {
+            **base,
+            "roles": role_selections,
+            "embed_config": embed_config or {},
+        }
+    )
+
+
+def _split_services(services: object) -> tuple[dict[str, object], dict[str, object] | None]:
+    """`[services]`'s plain keys, and its `embed_config` table (`None` if absent), shape-checked."""
     if not isinstance(services, dict):
         raise WeftError(
             f"weft.toml's [services] must be a table, not {type(services).__name__} — found "
@@ -288,6 +304,11 @@ def service_selection_from_config(
             f"{type(embed_config).__name__} — found `{_EMBED_CONFIG_KEY} = {embed_config!r}`. "
             f"Did you mean `[services.{_EMBED_CONFIG_KEY}]` with `dimension = 128` under it?"
         )
+    return written, cast("dict[str, object] | None", embed_config)
+
+
+def _refuse_bad_service_keys(written: dict[str, object], *, known: tuple[str, ...]) -> None:
+    """Refuse a `[services]` key nothing reads, or a value that is not a plugin name."""
     unknown = sorted(key for key in written if key not in known)
     if unknown:
         raise UnknownServiceKeyError(
@@ -303,17 +324,6 @@ def service_selection_from_config(
                 f"weft.toml's [services] {key} must be the name of a registered plugin, not "
                 f"{value!r}. `weft plugins doctor` lists what every installed pack registered."
             )
-    role_selections = {
-        key: value for key, value in written.items() if key not in ("embed", "store", "route")
-    }
-    base = {key: value for key, value in written.items() if key in ("embed", "store", "route")}
-    return ServiceSelection.model_validate(
-        {
-            **base,
-            "roles": role_selections,
-            "embed_config": cast("dict[str, object]", embed_config or {}),
-        }
-    )
 
 
 _EMBED_CONFIG_KEY: Final[str] = "embed_config"
@@ -331,10 +341,12 @@ class EmbedConfigRefusedError(WeftError, UnresolvedNameError):
 
 
 def embed_config_for(registry: Registry, selection: ServiceSelection) -> object:
-    """The query embedder's configuration: `None` for an empty `[services.embed_config]`,
-    otherwise the selected embedder's own `config_model` validated from it, refused by name when
-    a key does not fit. An ignored key would embed questions differently from the index being
-    asked, which the per-target identity check then refuses with less to go on.
+    """The query embedder's configuration, validated by the selected embedder's own model.
+
+    `None` for an empty `[services.embed_config]`, otherwise the selected embedder's own
+    `config_model` validated from it, refused by name when a key does not fit. An ignored key would
+    embed questions differently from the index being asked, which the per-target identity check then
+    refuses with less to go on.
     """
     if not selection.embed_config:
         return None

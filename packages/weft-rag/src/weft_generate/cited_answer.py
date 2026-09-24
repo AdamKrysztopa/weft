@@ -124,8 +124,10 @@ class CitedAnswer:
         self._config = config if config is not None else CitedAnswerConfig()
 
     async def run(self, payload: Passages, ctx: Context) -> Outcome[Answer]:
-        """Ask under `origin` alone, never a derived query — `QuerySet.origin`'s own rule,
-        applied at the last stage on the query path rather than only the first.
+        """Ask under `origin` alone, never a derived query.
+
+        `QuerySet.origin`'s own rule, applied at the last stage on the query path rather than
+        only the first.
         """
         if not payload.passages:
             if self._config.when_no_evidence is WhenNoEvidence.REFUSE:
@@ -202,8 +204,9 @@ def _offer(passages: tuple[Passage, ...], *, group_by_retriever: bool) -> str:
 async def _resolved_to_citable(
     offered: tuple[Passage, ...], *, ctx: Context
 ) -> tuple[Passage, ...]:
-    """`offered`, with every representation's own node substituted for the one it stands in
-    for — see the module docstring for why this runs once, here, rather than inside
+    """`offered`, with every representation's own node substituted for the one it stands in for.
+
+    See the module docstring for why this runs once, here, rather than inside
     `_citations_for` alone. `rank`, `retrieved_by` and `label` are untouched; only which
     node the passage carries changes, via a fresh `Scored` around the resolved node and the
     passage's own original `score`.

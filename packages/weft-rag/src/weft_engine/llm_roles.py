@@ -90,8 +90,9 @@ class UnknownLLMKeyError(WeftError, UnresolvedNameError):
 
 
 class LLMSection(BaseModel):
-    """`weft.toml`'s whole `[llm]` block: who answers each role, the retry policy, and the
-    degenerate-loop guard's thresholds.
+    """`weft.toml`'s whole `[llm]` block.
+
+    Who answers each role, the retry policy, and the degenerate-loop guard's thresholds.
 
     Every field defaults, so a `weft.toml` with no `[llm]` table at all still produces a usable
     section — a retrieval-only pipeline that never asks a model runs, and the assembler never

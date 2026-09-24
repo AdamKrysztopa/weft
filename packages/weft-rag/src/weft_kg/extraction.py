@@ -170,6 +170,16 @@ class LlmFactExtractor:
         self._settings = settings if settings is not None else GraphSettings()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Extract facts from every node with the model, under the active schema if one is set.
+
+        Args:
+            payload: The nodes to extract facts from.
+            ctx: The run's context, which supplies the `LLM`.
+
+        Returns:
+            Each input node's survivor, followed by the fact nodes derived from them, each derived
+            node carrying the batch's `ExtractionTally`; `NothingToProduce` for an empty batch.
+        """
         if not payload:
             return NothingToProduce(reason="no nodes to extract facts from")
 
@@ -337,8 +347,9 @@ def _verdict(
     already_kept: int,
     schema: GraphSchema | None,
 ) -> DropReason | None:
-    """The first rule this candidate fails, tried in the order `11.7`'s brief fixes, extended by
-    `11.11`'s schema check.
+    """The first rule this candidate fails, tried in the order `11.7`'s brief fixes.
+
+    That order is extended by `11.11`'s schema check.
 
     **Placed after the shape rules and before the batch-level ones, deliberately.** A schema
     arrangement is only worth checking once both endpoints are known to be well-shaped rows

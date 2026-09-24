@@ -52,7 +52,18 @@ class Generator(Stage[Passages, Answer], Protocol):
         #: never joins `__protocol_attrs__`.
         version: ClassVar[str]
 
-    async def run(self, payload: Passages, ctx: Context) -> Outcome[Answer]: ...
+    async def run(self, payload: Passages, ctx: Context) -> Outcome[Answer]:
+        """Answer `payload.origin` from the labelled passages, citing them by label.
+
+        Args:
+            payload: The packed, labelled evidence and the question it was retrieved for.
+            ctx: The run's context, which supplies the `LLM` and the other services.
+
+        Returns:
+            The answer — `Answer(stance=NOT_IN_CORPUS)` where the evidence does not answer
+            the question, never `NothingToProduce`.
+        """
+        ...
 
 
 Generator.version = GENERATE_CONTRACT_VERSION

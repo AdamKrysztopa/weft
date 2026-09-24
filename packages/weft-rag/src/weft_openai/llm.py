@@ -132,8 +132,9 @@ _DEFAULT_STRUCTURED_NAME = "answer"
 
 
 class OpenAILLMConfig(BaseModel):
-    """`OpenAILLMProvider`'s configuration — the generation knobs the chat completions API
-    exposes, reachable from code today the same way `OpenAIEmbedderConfig` is: nothing in
+    """`OpenAILLMProvider`'s configuration — the generation knobs the chat completions API exposes.
+
+    Reachable from code today the same way `OpenAIEmbedderConfig` is: nothing in
     `[llm.roles]` can route a value here yet (`weft_llm.contract.LLMProvider`'s own module
     docstring: the `LLM` service that resolves a role to a provider instance is one task
     later), but a library caller constructing `OpenAILLMProvider` directly — or a future
@@ -193,10 +194,14 @@ class ChatCompletionResponse(Protocol):
     """One non-streaming answer — the three fields this pack reads."""
 
     @property
-    def choices(self) -> Sequence[ChatCompletionChoice]: ...
+    def choices(self) -> Sequence[ChatCompletionChoice]:
+        """The answer's alternatives; this pack reads only the first."""
+        ...
 
     @property
-    def usage(self) -> ChatCompletionUsage | None: ...
+    def usage(self) -> ChatCompletionUsage | None:
+        """What the answer cost, where the endpoint reported it."""
+        ...
 
 
 class ChatCompletionChunkDelta(Protocol):
@@ -210,15 +215,21 @@ class ChatCompletionChunkChoice(Protocol):
 
 
 class ChatCompletionChunk(Protocol):
-    """One streamed fragment — a delta, or (with `stream_options.include_usage` sent) the
-    final usage-only chunk, whose `choices` is always empty. See `stream_reporting_usage`.
+    """One streamed fragment — a delta, or the final usage-only chunk.
+
+    The usage-only chunk arrives only with `stream_options.include_usage` sent, and its
+    `choices` is always empty. See `stream_reporting_usage`.
     """
 
     @property
-    def choices(self) -> Sequence[ChatCompletionChunkChoice]: ...
+    def choices(self) -> Sequence[ChatCompletionChunkChoice]:
+        """The fragment's deltas — empty on the final usage-only chunk."""
+        ...
 
     @property
-    def usage(self) -> ChatCompletionUsage | None: ...
+    def usage(self) -> ChatCompletionUsage | None:
+        """The whole request's token counts, set only on the final usage-only chunk."""
+        ...
 
 
 class ChatCompletionsResource(Protocol):
@@ -246,12 +257,29 @@ class ChatCompletionsResource(Protocol):
         temperature: float | Omit = omit,
         max_tokens: int | Omit = omit,
         top_p: float | Omit = omit,
-    ) -> ChatCompletionResponse | AsyncIterator[ChatCompletionChunk]: ...
+    ) -> ChatCompletionResponse | AsyncIterator[ChatCompletionChunk]:
+        """Ask the endpoint for one answer, whole or streamed.
+
+        Args:
+            model: The model to answer under.
+            messages: The conversation, as role/content mappings.
+            stream: Whether to answer as an iterator of chunks.
+            stream_options: Streaming options, sent only when usage is asked for.
+            temperature: Sampling temperature, or `omit` for the API's own default.
+            max_tokens: The answer's token cap, or `omit` for the model's own.
+            top_p: Nucleus-sampling mass, or `omit` for the API's own default.
+
+        Returns:
+            A whole answer when `stream` is false, otherwise an iterator of chunks.
+        """
+        ...
 
 
 class _StructuredChatCompletionsResource(Protocol):
-    """`ChatCompletionsResource` plus `response_format`, which only `complete_structured` sends —
-    so doubles of the shared Protocol need not grow a parameter their call shape never uses.
+    """`ChatCompletionsResource` plus `response_format`, which only `complete_structured` sends.
+
+    Kept apart so doubles of the shared Protocol need not grow a parameter their call shape
+    never uses.
     """
 
     async def create(
@@ -268,17 +296,25 @@ class _StructuredChatCompletionsResource(Protocol):
 
 
 class ChatResource(Protocol):
+    """The client's `chat` namespace — the one resource this pack reaches through it."""
+
     @property
-    def completions(self) -> ChatCompletionsResource: ...
+    def completions(self) -> ChatCompletionsResource:
+        """The chat completions endpoint."""
+        ...
 
 
 class ChatClient(Protocol):
     """The client this pack holds: one resource, and a way to give its sockets back."""
 
     @property
-    def chat(self) -> ChatResource: ...
+    def chat(self) -> ChatResource:
+        """The chat namespace the completions endpoint hangs off."""
+        ...
 
-    async def close(self) -> None: ...
+    async def close(self) -> None:
+        """Give the client's sockets back."""
+        ...
 
 
 class OpenAILLMProvider:
@@ -312,6 +348,20 @@ class OpenAILLMProvider:
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Answer `conv` in one non-streaming call.
+
+        Args:
+            conv: The conversation to answer.
+            model: The model to answer under.
+            ctx: Unused; no service or locale this provider needs.
+
+        Returns:
+            The answer, with its finish reason and token usage where reported.
+
+        Raises:
+            LLMError: The vendor's failure, mapped by `map_openai_error`; or
+                `LLMAuthenticationError` when no credential is configured.
+        """
         del ctx  # no service or locale this provider needs
         client = await self._connected(model=model)
         temperature, max_tokens, top_p = _generation_kwargs(self._config)
@@ -344,27 +394,34 @@ class OpenAILLMProvider:
         )
 
     async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:
+        """Answer `conv` as a stream of text fragments.
+
+        Args:
+            conv: The conversation to answer.
+            model: The model to answer under.
+            ctx: Unused; no service or locale this provider needs.
+
+        Yields:
+            Each non-empty text fragment, in order.
+
+        Raises:
+            LLMError: The vendor's failure, from opening or draining the stream, mapped by
+                `map_openai_error`; or `LLMAuthenticationError` when no credential is
+                configured.
+        """
         del ctx
         client = await self._connected(model=model)
-        temperature, max_tokens, top_p = _generation_kwargs(self._config)
         try:
-            chunks = await client.chat.completions.create(
-                model=model,
-                messages=_messages_of(conv),
-                stream=True,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-            )
             # Repair for a reviewer finding against task 2.30: `map_openai_error` is "the
             # whole answer" for a vendor exception only if every path a vendor exception can
             # take reaches it, and the request that opens an SSE stream succeeding tells you
             # nothing about the connection that stays open while it drains — a socket drop, a
             # timeout or a mid-stream 5xx surfaces from `__anext__`, inside this loop, not
-            # from `create()` above. Both calls are in one `try` so both raise through the
-            # same `except APIError` below, rather than leaving a raw vendor exception to
-            # escape past a caller that only knows how to catch `weft_llm.errors.LLMError`.
-            async for chunk in cast("AsyncIterator[ChatCompletionChunk]", chunks):
+            # from `create()` in `_open_stream`. Both calls are in one `try` so both raise
+            # through the same `except APIError` below, rather than leaving a raw vendor
+            # exception to escape past a caller that only knows how to catch
+            # `weft_llm.errors.LLMError`.
+            async for chunk in await self._open_stream(client, conv, model=model):
                 piece = chunk.choices[0].delta.content
                 if piece:
                     yield piece
@@ -386,18 +443,8 @@ class OpenAILLMProvider:
         """
         del ctx
         client = await self._connected(model=model)
-        temperature, max_tokens, top_p = _generation_kwargs(self._config)
         try:
-            chunks = await client.chat.completions.create(
-                model=model,
-                messages=_messages_of(conv),
-                stream=True,
-                stream_options={"include_usage": True},
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-            )
-            async for chunk in cast("AsyncIterator[ChatCompletionChunk]", chunks):
+            async for chunk in await self._open_usage_stream(client, conv, model=model):
                 usage = chunk.usage
                 if usage is not None:
                     yield TokenUsage(
@@ -414,8 +461,40 @@ class OpenAILLMProvider:
             raise map_openai_error(exc, model=model) from exc
 
     async def close(self) -> None:
+        """Give the client's sockets back, if a client was ever built."""
         if self._client is not None:
             await self._client.close()
+
+    async def _open_stream(
+        self, client: ChatClient, conv: Conversation, *, model: str
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        """The chunk iterator for `conv`, opened with this provider's generation knobs."""
+        temperature, max_tokens, top_p = _generation_kwargs(self._config)
+        chunks = await client.chat.completions.create(
+            model=model,
+            messages=_messages_of(conv),
+            stream=True,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+        )
+        return cast("AsyncIterator[ChatCompletionChunk]", chunks)
+
+    async def _open_usage_stream(
+        self, client: ChatClient, conv: Conversation, *, model: str
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        """`_open_stream`, with the vendor asked for the final usage-only chunk."""
+        temperature, max_tokens, top_p = _generation_kwargs(self._config)
+        chunks = await client.chat.completions.create(
+            model=model,
+            messages=_messages_of(conv),
+            stream=True,
+            stream_options={"include_usage": True},
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+        )
+        return cast("AsyncIterator[ChatCompletionChunk]", chunks)
 
     async def _connected(self, *, model: str) -> ChatClient:
         """The client, built on first use — off the loop, refusing without a credential.
@@ -484,6 +563,21 @@ class NativeStructuredOpenAILLMProvider(OpenAILLMProvider):
     async def complete_structured(
         self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Answer `conv` in one call, constrained by the vendor to `schema`.
+
+        Args:
+            conv: The conversation to answer.
+            schema: The JSON schema the answer must satisfy.
+            model: The model to answer under.
+            ctx: Unused; no service or locale this provider needs.
+
+        Returns:
+            The answer, with its finish reason and token usage where reported.
+
+        Raises:
+            LLMError: The vendor's failure, mapped by `map_openai_error`; or
+                `LLMAuthenticationError` when no credential is configured.
+        """
         del ctx  # no service or locale this provider needs — same as `complete`
         client = await self._connected(model=model)
         temperature, max_tokens, top_p = _generation_kwargs(self._config)
@@ -527,9 +621,10 @@ def _response_format_of(schema: Mapping[str, object]) -> Mapping[str, object]:
 
 
 def _schema_name(schema: Mapping[str, object]) -> str:
-    """`json_schema.name` for `schema` — its own `title` with every disallowed character
-    replaced by `_` and cut to 64, or `_DEFAULT_STRUCTURED_NAME` where `title` is missing or
-    not a string.
+    """`json_schema.name` for `schema`, derived from its own `title`.
+
+    The title with every disallowed character replaced by `_` and cut to 64, or
+    `_DEFAULT_STRUCTURED_NAME` where `title` is missing or not a string.
     """
     title = schema.get("title")
     if not isinstance(title, str):
@@ -551,8 +646,10 @@ def _messages_of(conv: Conversation) -> list[dict[str, str]]:
 
 
 def _generation_kwargs(config: OpenAILLMConfig) -> tuple[float | Omit, int | Omit, float | Omit]:
-    """`config`'s knobs, each `omit` where unset — the same "unset means omitted from the
-    request, not sent as null" rule `OpenAIEmbedder._embed`'s `dimensions` already takes,
+    """`config`'s knobs, each `omit` where unset.
+
+    The same "unset means omitted from the request, not sent as null" rule
+    `OpenAIEmbedder._embed`'s `dimensions` already takes,
     applied to the three `OpenAILLMConfig` carries. Shared by `complete` and `stream` so the
     two call shapes cannot drift apart on which knobs they honour.
     """

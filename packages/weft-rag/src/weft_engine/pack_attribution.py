@@ -1,5 +1,6 @@
-"""Where a plugin name that did not resolve is attributed to the pack that would have
-supplied it — the one place both resolution seams compose that answer, so they cannot drift.
+"""Attribute a plugin name that did not resolve to the pack that would have supplied it.
+
+The one place both resolution seams compose that answer, so they cannot drift.
 
 **Carried repair R11.3.** Two callers need the same thing once a plugin name fails to
 resolve: `weft_engine.registry_bootstrap.require_plugin` (the `[services]` path) and
@@ -79,10 +80,12 @@ def attribute_to_packs(
     registered: str,
     valid_options: tuple[str, ...],
 ) -> PluginRefusal:
-    """`subject`, `not_found` and `registered` composed with whatever `reports` can say
-    about why `name` did not resolve — `weft_engine.registry_bootstrap._unresolved`'s own
-    body (repair, 2026-08-20, open item O4), generalised so a pipeline document's own
-    `use:` field can call it too, rather than reimplementing the same branches a second time.
+    """Compose a refusal with whatever `reports` can say about why `name` did not resolve.
+
+    `subject`, `not_found` and `registered`, composed that way —
+    `weft_engine.registry_bootstrap._unresolved`'s own body (repair, 2026-08-20, open item O4),
+    generalised so a pipeline document's own `use:` field can call it too, rather than
+    reimplementing the same branches a second time.
 
     `subject` is the caller's own "what was asked for" fragment (`[services] store names
     'pgvector'`, `stage 'store' names plugin 'pgvector'`) — never a claim about *why* it
@@ -130,28 +133,10 @@ def attribute_to_packs(
         report for report in silent if report.failure_kind is PackFailureKind.SETTINGS
     )
     if refused:
-        listed = ", ".join(sorted(report.distribution for report in refused))
-        return PluginRefusal(
-            exit_code=ExitCode.POLICY_REFUSED,
-            message=_compose(
-                f"{subject}{not_found}",
-                f"These distributions are refused by [packs] allow in weft.toml "
-                f"and were never imported, so what they would have registered is unknown: "
-                f"{listed}. Add the one that provides '{name}' to [packs] allow.",
-                # `registered` names whatever is *currently* active despite the refusal — true
-                # and worth stating — but not `PluginRefusal.valid_options` itself: a refused
-                # pack is never imported, so this branch cannot honestly claim to know what it
-                # would have contributed — see that field's own docstring.
-                registered,
-            ),
+        return _refused_refusal(
+            refused, name=name, subject=subject, not_found=not_found, registered=registered
         )
-    installable = tuple(
-        (report, hint)
-        for report in sorted(silent, key=_label_of)
-        if (hint := install_hint(report)) is not None
-    )
-    named = tuple((report, hint) for report, hint in installable if report.pack == name)
-    installable = named or installable
+    installable = _installable(silent, name)
     if installable:
         listed = "; ".join(f"{_label_of(report)}: {hint}" for report, hint in installable)
         return PluginRefusal(
@@ -178,19 +163,11 @@ def attribute_to_packs(
             valid_options=valid_options,
         )
     if silent:
-        listed = "; ".join(
-            f"{_label_of(report)} ({report.status.value})"
-            for report in sorted(silent, key=_label_of)
-        )
-        return PluginRefusal(
-            exit_code=ExitCode.RESOLUTION_FAILED,
-            message=_compose(
-                f"{subject}{not_found}",
-                f"These packs contributed nothing, or only part of what they publish, "
-                f"and one of them may be the one that provides it: {listed}.",
-                registered,
-                _diagnostic_detail(silent),
-            ),
+        return _silent_refusal(
+            silent,
+            subject=subject,
+            not_found=not_found,
+            registered=registered,
             valid_options=valid_options,
         )
     return PluginRefusal(
@@ -200,9 +177,67 @@ def attribute_to_packs(
     )
 
 
+def _refused_refusal(
+    refused: Sequence[PackReport], *, name: str, subject: str, not_found: str, registered: str
+) -> PluginRefusal:
+    """`attribute_to_packs`'s first branch: `name` may belong to a pack `[packs] allow` refused."""
+    listed = ", ".join(sorted(report.distribution for report in refused))
+    return PluginRefusal(
+        exit_code=ExitCode.POLICY_REFUSED,
+        message=_compose(
+            f"{subject}{not_found}",
+            f"These distributions are refused by [packs] allow in weft.toml "
+            f"and were never imported, so what they would have registered is unknown: "
+            f"{listed}. Add the one that provides '{name}' to [packs] allow.",
+            # `registered` names whatever is *currently* active despite the refusal — true
+            # and worth stating — but not `PluginRefusal.valid_options` itself: a refused
+            # pack is never imported, so this branch cannot honestly claim to know what it
+            # would have contributed — see that field's own docstring.
+            registered,
+        ),
+    )
+
+
+def _installable(silent: Sequence[PackReport], name: str) -> tuple[tuple[PackReport, str], ...]:
+    """Each `silent` pack with an install hint — narrowed to the pack named `name`, if one is."""
+    installable = tuple(
+        (report, hint)
+        for report in sorted(silent, key=_label_of)
+        if (hint := install_hint(report)) is not None
+    )
+    named = tuple((report, hint) for report, hint in installable if report.pack == name)
+    return named or installable
+
+
+def _silent_refusal(
+    silent: Sequence[PackReport],
+    *,
+    subject: str,
+    not_found: str,
+    registered: str,
+    valid_options: tuple[str, ...],
+) -> PluginRefusal:
+    """`attribute_to_packs`'s fourth branch: a pack that contributed incompletely may own it."""
+    listed = "; ".join(
+        f"{_label_of(report)} ({report.status.value})" for report in sorted(silent, key=_label_of)
+    )
+    return PluginRefusal(
+        exit_code=ExitCode.RESOLUTION_FAILED,
+        message=_compose(
+            f"{subject}{not_found}",
+            f"These packs contributed nothing, or only part of what they publish, "
+            f"and one of them may be the one that provides it: {listed}.",
+            registered,
+            _diagnostic_detail(silent),
+        ),
+        valid_options=valid_options,
+    )
+
+
 def unavailable_surface(reports: Sequence[PackReport], name: str) -> Unavailable | None:
-    """The first `Unavailable` any report in `reports` declared for surface `name`, else
-    `None` — carried repair **R9.5** (`docs/internal/lessons.md` `L9.86`).
+    """The first `Unavailable` any report in `reports` declared for surface `name`, else `None`.
+
+    Carried repair **R9.5** (`docs/internal/lessons.md` `L9.86`).
 
     An `unavailable` surface is a pack-level fact stated at discovery, exactly like a
     `failed`/`partial` pack — but where those are keyed on the whole pack, this is keyed
@@ -222,8 +257,9 @@ def unavailable_surface(reports: Sequence[PackReport], name: str) -> Unavailable
 
 
 def unavailable_message(unavailable: Unavailable, *, name: str, stage: str) -> str:
-    """The refusal sentence for a `use:` naming a surface discovery already reported
-    unavailable — composed here, beside `attribute_to_packs`, so a document-path refusal
+    """The refusal sentence for a `use:` naming a surface discovery reported unavailable.
+
+    Composed here, beside `attribute_to_packs`, so a document-path refusal
     and `weft plugins doctor`'s own printing of the identical `Unavailable` cannot drift
     into two different sentences for one fact.
 
@@ -239,8 +275,9 @@ def unavailable_message(unavailable: Unavailable, *, name: str, stage: str) -> s
 
 
 def install_hint(report: PackReport) -> str | None:
-    """`pip install <report.distribution>[<report.pack>]`, when the distribution's own
-    metadata says that extra genuinely exists — `None` otherwise.
+    """`pip install <report.distribution>[<report.pack>]`, or `None` without such an extra.
+
+    Answered only when the distribution's own metadata says that extra genuinely exists.
 
     Read from `importlib.metadata`, never from a table in this tree — `docs/internal/lessons.md`
     `L7.6`: a claim about a distribution is asked of the distribution, not assumed from a
@@ -283,8 +320,9 @@ def install_hint(report: PackReport) -> str | None:
 
 
 def _label_of(report: PackReport) -> str:
-    """How one incompletely-contributing pack is named to an operator — **carried repair
-    R11.3, second half, found by running the binary.**
+    """How one incompletely-contributing pack is named to an operator.
+
+    **Carried repair R11.3, second half, found by running the binary.**
 
     Keyed on `pack` rather than `distribution`, with the distribution beside it. Both
     sentences below were written while every pack shipped in a distribution of its own, so
@@ -316,11 +354,12 @@ def _label_of(report: PackReport) -> str:
 
 
 def _diagnostic_detail(silent: Sequence[PackReport]) -> str:
-    """The raw reason each `silent` pack gave — a Pydantic validation dump, for `weft-store`'s
-    own `FAILED` case — as its own block, indented under the pack it belongs to
-    (`_label_of`), rather than spliced into the middle of the summary sentence above it.
-    Empty for a `silent`
-    sequence where nothing carries a `reason` (`ALLOWED_NOT_INSTALLED` never does).
+    """The raw reason each `silent` pack gave, as its own block under the pack.
+
+    A Pydantic validation dump, for `weft-store`'s own `FAILED` case — as its own block, indented
+    under the pack it belongs to (`_label_of`), rather than spliced into the middle of the summary
+    sentence above it. Empty for a `silent` sequence where nothing carries a `reason`
+    (`ALLOWED_NOT_INSTALLED` never does).
 
     **Grows an install line, carried repair R11.3.** Beneath a report's own reason, when
     `install_hint` has one to offer for that same report, its one line is indented beside
@@ -340,8 +379,9 @@ def _diagnostic_detail(silent: Sequence[PackReport]) -> str:
 
 
 def _compose(*sentences: str) -> str:
-    """Join `attribute_to_packs`'s pieces into one message, in the order given — the join
-    `weft_engine.registry_bootstrap`'s own 2026-08-20 repair was about.
+    """Join `attribute_to_packs`'s pieces into one message, in the order given.
+
+    The join `weft_engine.registry_bootstrap`'s own 2026-08-20 repair was about.
 
     Every argument is written in its own voice, capitalised and ending in a full stop
     already, so a plain space between two single-line pieces reads as one paragraph. A

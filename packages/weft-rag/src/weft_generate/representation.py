@@ -40,8 +40,10 @@ class _RepresentationMarker(Protocol):
 
 
 async def citable_nodes(nodes: Iterable[Node], *, store: NodeStore) -> dict[NodeId, Node]:
-    """Every node in `nodes`, mapped to itself — or, for a single-parent representation, to
-    the one parent it stands in for, fetched from `store` once per distinct parent.
+    """Every node in `nodes`, mapped to itself or to the one parent it stands in for.
+
+    A single-parent representation maps to the one parent it stands in for, fetched from
+    `store` once per distinct parent; every other node maps to itself.
 
     Mirrors `weft_generate.cited_answer._uris_for`'s own batching: one `store.get` call
     for every distinct id this citation actually needs, never one call per passage. A

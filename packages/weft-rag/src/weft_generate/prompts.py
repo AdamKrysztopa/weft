@@ -212,9 +212,11 @@ CONTRADICTION_ANSWER_NAME = "contradiction-answer"
 
 
 class ContradictionAnswerRequest(BaseModel):
-    """What `contradiction-answer` renders: the question, the numbered evidence, and the
-    critic's own findings, pre-rendered as text for the same reason `AnswerWithCitations
-    Request.passages` is — `${name}` over `string.Template` cannot iterate.
+    """What `contradiction-answer` renders: the question, the evidence, and the critic's findings.
+
+    The evidence is numbered, and the critic's own findings are pre-rendered as text for the
+    same reason `AnswerWithCitationsRequest.passages` is — `${name}` over `string.Template`
+    cannot iterate.
 
     `findings` is `weft_generate.contradiction._findings_text`'s own rendering of a
     `ContradictionCritique` — including the case where the critic could not look, so this

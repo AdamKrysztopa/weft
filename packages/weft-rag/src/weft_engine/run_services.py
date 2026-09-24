@@ -192,35 +192,63 @@ def check_store_capabilities(
             )
             if not missing:
                 continue
-            wanted = ", ".join(capability.__name__ for capability in missing)
-            providers = _providers_of(missing, registry=registry, store_contract=store_contract)
-            offered = ", ".join(advertised) or "nothing beyond the base store contract"
-            named = ", ".join(f"'{name}' ({distribution})" for name, distribution in providers)
-            instead = (
-                f" Otherwise choose a plugin for stage '{spec.id}' that does not need it."
-                if position == 0
-                else f" Otherwise drop '{candidate}' from stage '{spec.id}'s fallback list."
-            )
-            raise StoreCapabilityMissingError(
-                f"{where}, which needs {wanted} from the store, "
-                f"and the configured store '{store_name}' does not provide it. '{store_name}' "
-                f"advertises: {offered}. Registered stores that do provide {wanted}: "
-                f"{named or '(none installed)'}. Nothing here adapts or degrades — a run that "
-                f"asked for a capability does not quietly proceed without it.",
-                valid_options=tuple(name for name, _ in providers),
+            raise _store_capability_missing(
+                missing,
+                registry=registry,
+                store_contract=store_contract,
+                advertised=advertised,
+                store_name=store_name,
+                spec=spec,
+                candidate=candidate,
+                where=where,
+                primary=position == 0,
                 pipeline=pipeline,
-                stages=(spec.id,),
-                distributions=tuple(sorted({distribution for _, distribution in providers})),
-                remedy=(
-                    # `[services] store` is the key, and it only became one at 2.6's repair —
-                    # before that this sentence could not name a remedy an operator could
-                    # carry out, because nothing selected a store. Naming the key here is the
-                    # difference between "run against a different store" and a step.
-                    f"name a store that provides {wanted} in [services] store"
-                    + (f" — installed and registered: {named}." if named else ", or install one.")
-                    + instead
-                ),
             )
+
+
+def _store_capability_missing(
+    missing: tuple[type[object], ...],
+    *,
+    registry: Registry,
+    store_contract: type[object],
+    advertised: Sequence[str],
+    store_name: str,
+    spec: StageSpec,
+    candidate: str,
+    where: str,
+    primary: bool,
+    pipeline: str | None,
+) -> StoreCapabilityMissingError:
+    """The refusal for `candidate` needing `missing` from a store that does not provide it."""
+    wanted = ", ".join(capability.__name__ for capability in missing)
+    providers = _providers_of(missing, registry=registry, store_contract=store_contract)
+    offered = ", ".join(advertised) or "nothing beyond the base store contract"
+    named = ", ".join(f"'{name}' ({distribution})" for name, distribution in providers)
+    instead = (
+        f" Otherwise choose a plugin for stage '{spec.id}' that does not need it."
+        if primary
+        else f" Otherwise drop '{candidate}' from stage '{spec.id}'s fallback list."
+    )
+    return StoreCapabilityMissingError(
+        f"{where}, which needs {wanted} from the store, "
+        f"and the configured store '{store_name}' does not provide it. '{store_name}' "
+        f"advertises: {offered}. Registered stores that do provide {wanted}: "
+        f"{named or '(none installed)'}. Nothing here adapts or degrades — a run that "
+        f"asked for a capability does not quietly proceed without it.",
+        valid_options=tuple(name for name, _ in providers),
+        pipeline=pipeline,
+        stages=(spec.id,),
+        distributions=tuple(sorted({distribution for _, distribution in providers})),
+        remedy=(
+            # `[services] store` is the key, and it only became one at 2.6's repair —
+            # before that this sentence could not name a remedy an operator could
+            # carry out, because nothing selected a store. Naming the key here is the
+            # difference between "run against a different store" and a step.
+            f"name a store that provides {wanted} in [services] store"
+            + (f" — installed and registered: {named}." if named else ", or install one.")
+            + instead
+        ),
+    )
 
 
 def _chain_of(spec: StageSpec) -> tuple[tuple[str, str], ...]:
@@ -297,7 +325,8 @@ class MalformedNeedsServicesError(WeftError):
 
 
 def _needs_services_of(factory: Callable[..., object], *, plugin: str) -> tuple[type[object], ...]:
-    """The capabilities `plugin` declared it needs from a run-wide `[services]` role —
+    """The capabilities `plugin` declared it needs from a run-wide `[services]` role.
+
     `()` if it declared none.
 
     `_needs_store_of`'s own read, one attribute over: `getattr(unwrap_factory(factory), ...)`
@@ -324,8 +353,9 @@ def _needs_services_of(factory: Callable[..., object], *, plugin: str) -> tuple[
 def demanded_capabilities(
     specs: Sequence[StageSpec], *, registry: Registry
 ) -> dict[type[object], str]:
-    """Every capability some stage's plugin declared under `needs_services`, mapped to the
-    `spec.id` that demanded it.
+    """Every capability a stage's plugin declared under `needs_services`, by demanding stage.
+
+    Each is mapped to the `spec.id` that demanded it.
 
     Ledger task **11.10**. `check_selected_capabilities` (below) takes exactly this shape and
     had no caller until this task built it — nothing else in the tree walked a resolved
@@ -504,9 +534,10 @@ async def build_services(
     ready_layers: frozenset[str] | None = None,
     rung_roles: Mapping[str, frozenset[str]] | None = None,
 ) -> ServiceRegistry:
-    """Assemble one run's `ServiceRegistry` — every service a query-path stage may reach
-    through `ctx.require(...)`. See the module docstring's *"`build_services` — task 2.8's
-    own addition."*
+    """Assemble one run's `ServiceRegistry`.
+
+    Every service a query-path stage may reach through `ctx.require(...)`. See the module
+    docstring's *"`build_services` — task 2.8's own addition."*
 
     **`sink` — task 3.6's own repair.** Every other service this function registers is built
     by the pack that publishes its contract; `TokenSink` used to be the one exception,
@@ -869,8 +900,9 @@ def register_selected_roles(
     table: RoleTable,
     demanded: Sequence[type[object]] = (),
 ) -> None:
-    """Register each selected role's instance under its contract, and alias it under every
-    capability the resolved pipeline actually demands of it.
+    """Register each selected role's instance under its contract, aliased for each capability.
+
+    Aliased under every capability the resolved pipeline actually demands of it.
 
     Ledger task **9.0**, property (ii). `ServiceRegistry` keys by **exact type**
     (`weft_kernel/context.py:255 'def require'`), so an instance registered under its role's
@@ -959,50 +991,65 @@ def check_selected_capabilities(
             if key in table.roles
         ):
             continue
-
-        candidates = _roles_publishing(capability, table=table)
-        if not candidates:
-            raise SelectedCapabilityMissingError(
-                f"stage '{stage}' needs {capability.__name__} from a run-wide service, and no "
-                f"installed pack declares a [services] role whose contract publishes it. "
-                f"Nothing here adapts or degrades — a run that asked for a capability does not "
-                f"quietly proceed without it.",
-                valid_options=(),
-                stages=(stage,),
-                remedy=(
-                    f"install a pack that publishes {capability.__name__} and declares a "
-                    f"[services] role for it; `weft plugins doctor` lists what is installed."
-                ),
-            )
-
-        unfilled = tuple(key for key in candidates if key not in selected)
-        filled = tuple(
-            f"[services] {key} = {names.get(key, selected[key].__class__.__name__)!r}"
-            for key in candidates
-            if key in selected
+        raise _selected_capability_missing(
+            capability, stage=stage, selected=selected, table=table, names=names
         )
-        keys = ", ".join(f"[services] {key}" for key in candidates)
-        detail = (
-            f"nothing is selected for {keys}"
-            if unfilled == candidates
-            else f"what is selected does not provide it: {', '.join(filled)}"
-        )
-        raise SelectedCapabilityMissingError(
-            f"stage '{stage}' needs {capability.__name__} from a run-wide service, and "
-            f"{detail}. Nothing here adapts or degrades — a run that asked for a capability "
-            f"does not quietly proceed without it.",
-            valid_options=candidates,
+
+
+def _selected_capability_missing(
+    capability: type[object],
+    *,
+    stage: str,
+    selected: Mapping[str, object],
+    table: RoleTable,
+    names: Mapping[str, str],
+) -> SelectedCapabilityMissingError:
+    """The refusal for `stage` needing `capability` that no selected role provides."""
+    candidates = _roles_publishing(capability, table=table)
+    if not candidates:
+        return SelectedCapabilityMissingError(
+            f"stage '{stage}' needs {capability.__name__} from a run-wide service, and no "
+            f"installed pack declares a [services] role whose contract publishes it. "
+            f"Nothing here adapts or degrades — a run that asked for a capability does not "
+            f"quietly proceed without it.",
+            valid_options=(),
             stages=(stage,),
             remedy=(
-                f"name a plugin that provides {capability.__name__} in {keys}. "
-                f"`weft plugins doctor` lists what every installed pack registered."
+                f"install a pack that publishes {capability.__name__} and declares a "
+                f"[services] role for it; `weft plugins doctor` lists what is installed."
             ),
         )
 
+    unfilled = tuple(key for key in candidates if key not in selected)
+    filled = tuple(
+        f"[services] {key} = {names.get(key, selected[key].__class__.__name__)!r}"
+        for key in candidates
+        if key in selected
+    )
+    keys = ", ".join(f"[services] {key}" for key in candidates)
+    detail = (
+        f"nothing is selected for {keys}"
+        if unfilled == candidates
+        else f"what is selected does not provide it: {', '.join(filled)}"
+    )
+    return SelectedCapabilityMissingError(
+        f"stage '{stage}' needs {capability.__name__} from a run-wide service, and "
+        f"{detail}. Nothing here adapts or degrades — a run that asked for a capability "
+        f"does not quietly proceed without it.",
+        valid_options=candidates,
+        stages=(stage,),
+        remedy=(
+            f"name a plugin that provides {capability.__name__} in {keys}. "
+            f"`weft plugins doctor` lists what every installed pack registered."
+        ),
+    )
+
 
 def command_path_services(deps: Dependencies, *, sink: TokenSink) -> ServiceRegistry:
-    """Assemble the third assembler's `ServiceRegistry` — the one `weft_cli.cli.run_command`
-    builds inline for **every** command, `--pipeline`-driven or not. Ledger task **9.0**.
+    """Assemble the third assembler's `ServiceRegistry`.
+
+    The one `weft_cli.cli.run_command` builds inline for **every** command, `--pipeline`-driven or
+    not. Ledger task **9.0**.
 
     Moved here from `run_command`'s own body, which used to build this same set — `Dependencies`,
     `LLM`, `Prompts`, `TokenSink`, `Registry` — by calling `ctx.services.add` five times in a

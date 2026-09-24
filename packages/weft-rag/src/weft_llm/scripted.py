@@ -57,6 +57,16 @@ class ScriptedProvider:
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Answer `conv` with this provider's scripted reply, deterministically.
+
+        Args:
+            conv: The conversation to answer.
+            model: Echoed back on the completion; nothing is called.
+            ctx: Unused; no service or locale this provider needs.
+
+        Returns:
+            The scripted reply, with finish reason `stop`.
+        """
         del ctx  # no service or locale this provider needs
         text = _reply(conv, self._config)
         return Produced(value=Completion(text=text, model=model, finish_reason="stop"))

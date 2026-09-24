@@ -75,9 +75,10 @@ async def bind_store(store: object, target: str | None, *, store_name: str) -> N
 
 
 class EmbedderStatesNoIdentityError(WeftError):
-    """`plugin` cannot say what it embeds with, and `target` needed to know — either a write
-    that named a target explicitly (`claim_embedding_for_write(..., required=True)`), or a
-    query against a target whose identity is already recorded.
+    """`plugin` cannot say what it embeds with, and `target` needed to know.
+
+    Either a write that named a target explicitly (`claim_embedding_for_write(..., required=True)`),
+    or a query against a target whose identity is already recorded.
 
     Not `UnresolvedNameError`'s family: nothing about `plugin` or `target` is a name among
     enumerable alternatives — the capability itself is missing, `weft_embed.contract.
@@ -96,9 +97,10 @@ class EmbedderStatesNoIdentityError(WeftError):
 
 
 class EmbeddingIdentityMismatchError(WeftError):
-    """`other` disagrees with `held`, the identity `target` was actually built with — a write
-    that would mix two embedders' vectors into one target, or a query that would compare
-    across them. `held` and `other` are the two identities `EmbedderStatesNoIdentityError`
+    """`other` disagrees with `held`, the identity `target` was actually built with.
+
+    Either a write that would mix two embedders' vectors into one target, or a query that would
+    compare across them. `held` and `other` are the two identities `EmbedderStatesNoIdentityError`
     above only stands in for when one side cannot state one at all.
     """
 
@@ -114,6 +116,16 @@ class EmbeddingIdentityMismatchError(WeftError):
     def for_query(
         cls, *, held: EmbeddingIdentity, other: EmbeddingIdentity, target: str
     ) -> EmbeddingIdentityMismatchError:
+        """The refusal for a query that would compare vectors across two embedders.
+
+        Args:
+            held: The identity the target was built with.
+            other: The identity the query embeds with.
+            target: The target being queried.
+
+        Returns:
+            The error, its message naming both identities and the way out.
+        """
         return cls(
             f"this query embeds with {render_embedding_identity(other)}, and target "
             f"{target!r} was built with {render_embedding_identity(held)} — vectors from two "
@@ -128,6 +140,16 @@ class EmbeddingIdentityMismatchError(WeftError):
     def for_write(
         cls, *, held: EmbeddingIdentity, other: EmbeddingIdentity, target: str
     ) -> EmbeddingIdentityMismatchError:
+        """The refusal for a write that would mix two embedders' vectors into one target.
+
+        Args:
+            held: The identity the target was built with.
+            other: The identity the write embeds with.
+            target: The target being written into.
+
+        Returns:
+            The error, its message naming both identities and the way out.
+        """
         return cls(
             f"this index embeds with {render_embedding_identity(other)} into target "
             f"{target!r}, which was built with {render_embedding_identity(held)} — a target "
@@ -154,8 +176,10 @@ def render_embedding_identity(identity: EmbeddingIdentity) -> str:
 async def embedding_identity_of(
     embedder: object, *, plugin: str, distribution: str
 ) -> EmbeddingIdentity | None:
-    """What `embedder` embeds with, or `None` when it cannot say — `IdentifiedEmbedder` is
-    structural, so a stranger written before `34.4` simply does not satisfy it.
+    """What `embedder` embeds with, or `None` when it cannot say.
+
+    `IdentifiedEmbedder` is structural, so a stranger written before `34.4` simply does not satisfy
+    it.
     """
     if not isinstance(embedder, IdentifiedEmbedder):
         return None
@@ -173,8 +197,10 @@ async def claim_embedding_for_write(
     required: bool,
     target: str | None = None,
 ) -> None:
-    """Record `identity` against the target a write is going into — a no-op against a store
-    that does not satisfy `TargetHolding`, since there is nowhere to record into.
+    """Record `identity` against the target a write is going into.
+
+    A no-op against a store that does not satisfy `TargetHolding`, since there is nowhere to record
+    into.
 
     `identity` `None` (the embedder could not state one): refuse with
     `EmbedderStatesNoIdentityError` when `required` (a target was explicitly asked for, Q-B),
@@ -217,8 +243,9 @@ async def require_existing_target(store: object, target: str | None, *, store_na
 async def scored_target(
     store: object, target: str | None
 ) -> tuple[str | None, EmbeddingIdentity | None]:
-    """The target a run scored, and the embedding identity its store's own catalogue records
-    for it — ledger task **34.7**, what `weft_eval.run_record.RunRecord.target`/
+    """The target a run scored, and the embedding identity its store's catalogue records.
+
+    Ledger task **34.7**: what `weft_eval.run_record.RunRecord.target`/
     `target_embedding` persist.
 
     Name: `target` if given, else the catalogue's own `live` — the identical default every
@@ -238,8 +265,9 @@ async def scored_target(
 async def check_embedding_for_query(
     store: object, identity: EmbeddingIdentity | None, *, plugin: str, target: str | None = None
 ) -> None:
-    """Refuse a query whose embedder states a different identity than the target was built
-    with — read-only, called before any vector is compared.
+    """Refuse a query whose embedder states a different identity than its target's.
+
+    Read-only, called before any vector is compared.
 
     A no-op against a store that does not satisfy `TargetHolding`. A target with no identity
     recorded (nothing has claimed it yet) is left alone: there is nothing to compare against.
@@ -282,9 +310,10 @@ class PromotionEvidenceMissingError(WeftError):
 
 
 class PromotionEvidenceMismatchError(WeftError):
-    """The two runs given as `--evidence` do not show what a promotion needs — `reasons` names
-    every disagreeing fact: one run scoring the wrong target, or the two runs failing
-    `weft_cli.eval_commands._incomparable_reasons`' own comparability check.
+    """The two runs given as `--evidence` do not show what a promotion needs.
+
+    `reasons` names every disagreeing fact: one run scoring the wrong target, or the two runs
+    failing `weft_cli.eval_commands._incomparable_reasons`' own comparability check.
     """
 
     def __init__(self, target: str, reasons: tuple[str, ...]) -> None:
@@ -297,7 +326,8 @@ class PromotionEvidenceMismatchError(WeftError):
 
 
 class CandidateNotReadyError(WeftError):
-    """`target` still holds a source recorded as `SourceStatus.INDEXING` or `.DELETING` —
+    """`target` still holds a source recorded as `SourceStatus.INDEXING` or `.DELETING`.
+
     `sources` names each one, by id.
     """
 
@@ -311,16 +341,17 @@ class CandidateNotReadyError(WeftError):
 
 
 class TargetPointersDisagreeError(WeftError):
-    """Every `TargetHolding` participant a project reaches (`weft_cli.participation.
-    target_participants` — the node store, and, once an active pack's own pipelines resolved a
-    second `NodeStore` for this project, that store too) must agree on which target is live —
-    ledger task **34.11**, its fan-out half. `promote`/`rollback` are each atomic on their own
-    store, never across two (owner decision Q1: no cross-store transaction), so a crash between
-    two participants' own writes leaves them naming different targets, and a read naming none of
-    its own would silently mix one participant's corpus with another's derived state. Every read
-    and write command that resolves no explicit `--target` refuses with this rather than mixing
-    them; `weft target list`, `promote` and `rollback` still run while they disagree, because
-    they are the only way to converge one.
+    """Every `TargetHolding` participant a project reaches must agree on which target is live.
+
+    The participants are those `weft_cli.participation.target_participants` reaches — the node
+    store, and, once an active pack's own pipelines resolved a second `NodeStore` for this project,
+    that store too. Ledger task **34.11**, its fan-out half. `promote`/`rollback` are each atomic on
+    their own store, never across two (owner decision Q1: no cross-store transaction), so a crash
+    between two participants' own writes leaves them naming different targets, and a read naming
+    none of its own would silently mix one participant's corpus with another's derived state. Every
+    read and write command that resolves no explicit `--target` refuses with this rather than mixing
+    them; `weft target list`, `promote` and `rollback` still run while they disagree, because they
+    are the only way to converge one.
 
     `live` is every disagreeing participant's own store name mapped to the target it currently
     holds live; `primary` is `[services] store`'s own name, so the remedy can name the target a
@@ -346,8 +377,10 @@ class TargetPointersDisagreeError(WeftError):
 
 
 class CandidateIdentityUnrecordedError(WeftError):
-    """`target` has never had an embedding identity claimed against it — no write ever went
-    through an embedder that states one, so a query against it once live could not be checked.
+    """`target` has never had an embedding identity claimed against it.
+
+    No write ever went through an embedder that states one, so a query against it once live could
+    not be checked.
     """
 
     def __init__(self, target: str) -> None:

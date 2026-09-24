@@ -91,9 +91,10 @@ class BridgeCandidate(BaseModel):
 
 
 class VectorCeiling(BaseModel):
-    """The best any single-passage retriever could reach on this bridge's own question — a fact
-    about the corpus, never about an embedder. `chunks_holding_both` is always `0` here: it is
-    what a `Bridge` exists to guarantee, restated as a number rather than trusted as a name.
+    """The best any single-passage retriever could reach on this bridge's own question.
+
+    A fact about the corpus, never about an embedder. `chunks_holding_both` is always `0` here: it
+    is what a `Bridge` exists to guarantee, restated as a number rather than trusted as a name.
 
     **Every count here is over chunks, never over `kg_nodes` rows** — `weft_kg.store.GraphStore.
     chunks_by_entity` resolves a derived node to the chunk it came from before counting. The
@@ -111,9 +112,10 @@ class VectorCeiling(BaseModel):
 
 
 class Bridge(BaseModel):
-    """A `BridgeCandidate` whose ceiling has been measured and agreed, plus the diagnostic
-    question it stands for. `question_id` is deterministic — the same corpus produces the same
-    id across two runs — so a promoted question keeps its identity even as the corpus is
+    """A `BridgeCandidate` whose ceiling has been measured and agreed, plus its question.
+
+    The diagnostic question it stands for. `question_id` is deterministic — the same corpus produces
+    the same id across two runs — so a promoted question keeps its identity even as the corpus is
     re-walked.
     """
 
@@ -133,16 +135,18 @@ class Bridge(BaseModel):
 
 
 class NoRelationsToBridgeError(WeftError):
-    """This corpus holds no `kg_relations` row at all — `weft_kg.schema.propose_schema`'s own
-    split between "nothing was extracted" and "nothing survived a threshold", the first half of
-    it: a bridge is built from relations, and a corpus that never produced one needs indexing,
-    never a note that it is too small.
+    """This corpus holds no `kg_relations` row at all.
+
+    `weft_kg.schema.propose_schema`'s own split between "nothing was extracted" and "nothing
+    survived a threshold", the first half of it: a bridge is built from relations, and a corpus that
+    never produced one needs indexing, never a note that it is too small.
     """
 
 
 class CeilingDisagreesError(WeftError):
-    """`bridges_from`'s own two independent measurements of one bridge's ceiling disagreed: the
-    walk says two endpoints share no chunk, and `chunks_by_entity` says they share at least one.
+    """`bridges_from`'s own two independent measurements of one bridge's ceiling disagreed.
+
+    The walk says two endpoints share no chunk, and `chunks_by_entity` says they share at least one.
     Neither number is printed — see the module docstring's paragraph on why the ceiling is
     measured twice.
     """
@@ -171,9 +175,10 @@ def _ceiling_disagreement_message(source_name: str, target_name: str) -> str:
 
 
 def no_relations_to_bridge_error() -> NoRelationsToBridgeError:
-    """`NoRelationsToBridgeError` with the shared message — a factory rather than a bare
-    constant, so `GraphBridgesCommand.run` raises a fresh exception instance each call, the same
-    discipline every other error in this pack's own idiom follows.
+    """`NoRelationsToBridgeError` with the shared message.
+
+    A factory rather than a bare constant, so `GraphBridgesCommand.run` raises a fresh exception
+    instance each call, the same discipline every other error in this pack's own idiom follows.
     """
     return NoRelationsToBridgeError(_NO_RELATIONS_TEMPLATE, pack="weft-rag")
 
@@ -183,7 +188,8 @@ def bridges_from(
     *,
     chunks_by_entity: Mapping[str, frozenset[str]],
 ) -> tuple[Bridge, ...]:
-    """Measure and attach the vector ceiling to every candidate, in `candidates`' own order —
+    """Measure and attach the vector ceiling to every candidate, in `candidates`' own order.
+
     `GraphStore.two_hop_bridges` already orders deterministically, so this function reorders
     nothing.
 
@@ -240,11 +246,12 @@ def bridges_from(
 
 
 def quote_toml_value(value: str) -> str:
-    """The identical escaping `weft_engine.config_surface._quote` uses, restated rather than
-    imported: that name is private to its own module. Shared with `weft_kg.commands`'s own
-    `bridges_as_question_toml` — moved here at task **38.11**, public rather than
-    underscore-prefixed because it now crosses that module boundary, so both this module's
-    `questions_as_toml` and that one write TOML through one escaper rather than two copies.
+    """The identical escaping `weft_engine.config_surface._quote` uses.
+
+    Restated rather than imported: that name is private to its own module. Shared with
+    `weft_kg.commands`'s own `bridges_as_question_toml` — moved here at task **38.11**, public
+    rather than underscore-prefixed because it now crosses that module boundary, so both this
+    module's `questions_as_toml` and that one write TOML through one escaper rather than two copies.
     """
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
@@ -264,8 +271,9 @@ _ABSENT_REASON: Final[str] = (
 
 
 def questions_as_toml(bridges: Sequence[Bridge]) -> str:
-    """`bridges`, as the TOML `weft eval run --questions` reads since task **38.11** — one
-    `[[question]]` per bridge, under a `[question_set]` table stating every field this module
+    """`bridges`, as the TOML `weft eval run --questions` reads since task **38.11**.
+
+    One `[[question]]` per bridge, under a `[question_set]` table stating every field this module
     cannot supply and why, with `axes = ["kind"]` declared so `QUESTION_KIND` reaches
     `RetrievalSample.kind` through `axes["kind"]` rather than the field itself.
     """

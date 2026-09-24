@@ -187,8 +187,9 @@ class GraphSchema(BaseModel):
 
 
 class ObservedTriple(BaseModel):
-    """One `(source_type, predicate, target_type)` a corpus's own facts already produced, and how
-    many times. `propose_schema`'s only input — see that function and the module docstring's
+    """One `(source_type, predicate, target_type)` a corpus's facts produced, and how many times.
+
+    `propose_schema`'s only input — see that function and the module docstring's
     paragraph on why proposing is a measurement.
     """
 

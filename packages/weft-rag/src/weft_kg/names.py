@@ -45,11 +45,12 @@ _STOPWORDS: Final[frozenset[str]] = frozenset(
 
 
 def _cleaned(raw: str) -> str | None:
-    """`raw`, whitespace-normalised, with every *leading* stopword stripped — `None` if nothing
-    is left. A multi-word match starting a sentence ("The Board met...") would otherwise carry
-    its sentence-initial stopword into the name ("The Board"); stripped only from the front,
-    since a stopword is a sentence-initial artefact and the pattern below only ever matches a
-    run starting where a capital letter begins.
+    """`raw`, whitespace-normalised, with every *leading* stopword stripped.
+
+    `None` if nothing is left. A multi-word match starting a sentence ("The Board met...") would
+    otherwise carry its sentence-initial stopword into the name ("The Board"); stripped only from
+    the front, since a stopword is a sentence-initial artefact and the pattern below only ever
+    matches a run starting where a capital letter begins.
     """
     words = raw.split()
     while words and words[0] in _STOPWORDS:
@@ -58,8 +59,9 @@ def _cleaned(raw: str) -> str | None:
 
 
 def candidate_names(text: str, *, max_words: int = DEFAULT_MAX_NAME_WORDS) -> tuple[str, ...]:
-    """Every Title-Case run in `text`, cleaned of its leading stopword, in order of first
-    appearance — `weft_kg.cooccurrence`'s own rule, moved rather than rewritten.
+    """Every Title-Case run in `text`, cleaned of its leading stopword, in order of appearance.
+
+    In order of first appearance — `weft_kg.cooccurrence`'s own rule, moved rather than rewritten.
 
     A run longer than `max_words` is cut into consecutive candidates of at most `max_words`
     words each, the same way a regex matched greedily up to a cap always has: `"New York City
@@ -88,8 +90,9 @@ def candidate_names(text: str, *, max_words: int = DEFAULT_MAX_NAME_WORDS) -> tu
 
 
 def with_subspans(candidates: Sequence[str]) -> tuple[str, ...]:
-    """Every candidate plus every **contiguous** sub-span of its words, deduplicated, longest
-    first and then in the order each first appeared.
+    """Every candidate plus every **contiguous** sub-span of its words, deduplicated.
+
+    Longest first and then in the order each first appeared.
 
     Contiguous only: `"Saint Petersburg Institute"` yields `"Saint Petersburg"` and
     `"Petersburg Institute"` and never `"Saint Institute"` — a name is a phrase, and

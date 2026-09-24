@@ -42,8 +42,9 @@ from weft_kg.store import GraphSettings, require_dsn, resolve_target_connection
 
 
 class GraphWalk:
-    """The bounded, undirected walk `weft_kg.contract.GraphTraversal` declares — see the module
-    docstring for why this is not `GraphStore` reused under a second contract.
+    """The bounded, undirected walk `weft_kg.contract.GraphTraversal` declares.
+
+    See the module docstring for why this is not `GraphStore` reused under a second contract.
 
     **Reads whichever graph target is live when it opens, ledger task `34.11`, and holds it for
     this instance's lifetime (owner decision Q-C) — no `--target` threading into a walk.** A
@@ -58,11 +59,13 @@ class GraphWalk:
         self._conn: psycopg.AsyncConnection[dict[str, Any]] | None = None
 
     async def _connection(self) -> "psycopg.AsyncConnection[dict[str, Any]]":
-        """Lazily opened and schema-provisioned, exactly like `GraphStore`'s own — either class
-        may be the first to dial in a given process, so both resolve a target and provision
-        identically (`weft_kg.store.resolve_target_connection`). Always unbound (`bound=None`):
-        this class reads whichever target `kg_live_target` currently names, once, and keeps this
-        connection on it for the instance's lifetime — it never binds to a target by name.
+        """Lazily opened and schema-provisioned, exactly like `GraphStore`'s own.
+
+        Either class may be the first to dial in a given process, so both resolve a target and
+        provision identically (`weft_kg.store.resolve_target_connection`). Always unbound
+        (`bound=None`): this class reads whichever target `kg_live_target` currently names, once,
+        and keeps this connection on it for the instance's lifetime — it never binds to a target by
+        name.
         """
         if self._conn is not None:
             return self._conn
@@ -72,7 +75,9 @@ class GraphWalk:
         return conn
 
     async def aclose(self) -> None:
-        """Not part of `GraphTraversal` — read defensively, the same shape `GraphStore.aclose`
+        """Close this traversal's connection, if one was opened.
+
+        Not part of `GraphTraversal` — read defensively, the same shape `GraphStore.aclose`
         and `PgVectorStore.aclose` both carry.
         """
         if self._conn is not None:
@@ -103,7 +108,9 @@ class GraphWalk:
     async def nodes_for_entities(
         self, entity_ids: Sequence[EntityId]
     ) -> Mapping[EntityId, tuple[NodeId, ...]]:
-        """Keys are exactly the requested ids this store holds an entity row for — an id it does
+        """Each requested entity this store holds, mapped to the nodes its aliases point at.
+
+        Keys are exactly the requested ids this store holds an entity row for — an id it does
         not hold is absent, never a key mapping to `()`. Read against `kg_entities`, `LEFT JOIN`ed
         through every alias currently pointing at it onto that alias's own nodes: what decides
         presence is whether the *entity* row exists, not whether it currently has a node attached.
@@ -133,9 +140,10 @@ class GraphWalk:
     async def neighbourhood(
         self, entity_ids: Sequence[EntityId], *, hops: int
     ) -> Mapping[EntityId, tuple[Entity, ...]]:
-        """Every entity reachable from each requested seed within `hops` relation edges, walked
-        **undirected** — a stored relation has a direction, but reach does not, and a walk that
-        only followed `source -> target` would lose the half of the graph pointing at its own
+        """Every entity reachable from each requested seed within `hops` relation edges.
+
+        Walked **undirected** — a stored relation has a direction, but reach does not, and a walk
+        that only followed `source -> target` would lose the half of the graph pointing at its own
         seed. The seed is excluded from its own neighbourhood.
 
         `kg_relations` is alias-to-alias, and **each hop's query does the alias→entity mapping
@@ -161,52 +169,82 @@ class GraphWalk:
                 combined = sorted({node for nodes in frontier.values() for node in nodes})
                 if not combined:
                     break
-                await cur.execute(
-                    "SELECT sa.entity_id AS source_entity, ta.entity_id AS target_entity "
-                    "FROM (SELECT DISTINCT source_alias, target_alias FROM kg_relations) r "
-                    "JOIN kg_aliases sa ON sa.id = r.source_alias "
-                    "JOIN kg_aliases ta ON ta.id = r.target_alias "
-                    "WHERE sa.entity_id = ANY(%s) OR ta.entity_id = ANY(%s)",
-                    (combined, combined),
-                )
-                rows = await cur.fetchall()
-                edges: dict[EntityId, set[EntityId]] = {}
-                for row in rows:
-                    source_entity = EntityId(cast(str, row["source_entity"]))
-                    target_entity = EntityId(cast(str, row["target_entity"]))
-                    edges.setdefault(source_entity, set()).add(target_entity)
-                    edges.setdefault(target_entity, set()).add(source_entity)
-                next_frontier: dict[EntityId, set[EntityId]] = {}
-                for seed in seeds:
-                    candidates: set[EntityId] = set()
-                    for node in frontier[seed]:
-                        candidates |= edges.get(node, set())
-                    new_nodes = candidates - visited[seed]
-                    if new_nodes:
-                        visited[seed] |= new_nodes
-                        reached[seed] |= new_nodes
-                        next_frontier[seed] = new_nodes
-                frontier = next_frontier
+                edges = await _hop_edges(cur, combined)
+                frontier = _advance(seeds, frontier, edges, visited=visited, reached=reached)
 
             all_reached = sorted({entity for entities in reached.values() for entity in entities})
-            names: dict[EntityId, str] = {}
-            if all_reached:
-                await cur.execute(
-                    "SELECT id, name FROM kg_entities WHERE id = ANY(%s)", (all_reached,)
-                )
-                name_rows = await cur.fetchall()
-                names = {
-                    EntityId(cast(str, row["id"])): cast(str, row["name"]) for row in name_rows
-                }
+            names = await _entity_names(cur, all_reached)
 
-        return {
-            seed: tuple(
-                Entity(id=entity_id, name=names[entity_id])
-                for entity_id in sorted(reached[seed])
-                if entity_id in names
-            )
-            for seed in seeds
-        }
+        return _named_neighbourhoods(seeds, reached, names)
+
+
+async def _hop_edges(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", combined: list[EntityId]
+) -> dict[EntityId, set[EntityId]]:
+    """Every relation touching `combined`, as undirected entity-to-entity adjacency."""
+    await cur.execute(
+        "SELECT sa.entity_id AS source_entity, ta.entity_id AS target_entity "
+        "FROM (SELECT DISTINCT source_alias, target_alias FROM kg_relations) r "
+        "JOIN kg_aliases sa ON sa.id = r.source_alias "
+        "JOIN kg_aliases ta ON ta.id = r.target_alias "
+        "WHERE sa.entity_id = ANY(%s) OR ta.entity_id = ANY(%s)",
+        (combined, combined),
+    )
+    rows = await cur.fetchall()
+    edges: dict[EntityId, set[EntityId]] = {}
+    for row in rows:
+        source_entity = EntityId(cast(str, row["source_entity"]))
+        target_entity = EntityId(cast(str, row["target_entity"]))
+        edges.setdefault(source_entity, set()).add(target_entity)
+        edges.setdefault(target_entity, set()).add(source_entity)
+    return edges
+
+
+def _advance(
+    seeds: list[EntityId],
+    frontier: dict[EntityId, set[EntityId]],
+    edges: dict[EntityId, set[EntityId]],
+    *,
+    visited: dict[EntityId, set[EntityId]],
+    reached: dict[EntityId, set[EntityId]],
+) -> dict[EntityId, set[EntityId]]:
+    """Each seed's next frontier over `edges`, recording what it newly reaches in place."""
+    next_frontier: dict[EntityId, set[EntityId]] = {}
+    for seed in seeds:
+        candidates: set[EntityId] = set()
+        for node in frontier[seed]:
+            candidates |= edges.get(node, set())
+        new_nodes = candidates - visited[seed]
+        if new_nodes:
+            visited[seed] |= new_nodes
+            reached[seed] |= new_nodes
+            next_frontier[seed] = new_nodes
+    return next_frontier
+
+
+async def _entity_names(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", entity_ids: list[EntityId]
+) -> dict[EntityId, str]:
+    """The name of each of `entity_ids` that `kg_entities` still holds."""
+    if not entity_ids:
+        return {}
+    await cur.execute("SELECT id, name FROM kg_entities WHERE id = ANY(%s)", (entity_ids,))
+    name_rows = await cur.fetchall()
+    return {EntityId(cast(str, row["id"])): cast(str, row["name"]) for row in name_rows}
+
+
+def _named_neighbourhoods(
+    seeds: list[EntityId], reached: dict[EntityId, set[EntityId]], names: dict[EntityId, str]
+) -> dict[EntityId, tuple[Entity, ...]]:
+    """Each seed's reached entities, in id order, dropping any whose name is no longer held."""
+    return {
+        seed: tuple(
+            Entity(id=entity_id, name=names[entity_id])
+            for entity_id in sorted(reached[seed])
+            if entity_id in names
+        )
+        for seed in seeds
+    }
 
 
 def _entity_of(row: Mapping[str, object]) -> Entity:

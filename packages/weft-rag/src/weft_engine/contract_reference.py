@@ -346,8 +346,10 @@ def _ruff_format_markdown(markdown: str) -> str:
 
 
 def capability_siblings(contract: type[object]) -> tuple[type[object], ...]:
-    """Every other `@runtime_checkable` `Protocol` with a `.version`, exported from
-    `contract`'s own pack's public module — see the module docstring.
+    """Every other versioned `@runtime_checkable` `Protocol` `contract`'s pack exports.
+
+    Each carries a `.version` and is exported from `contract`'s own pack's public module — see
+    the module docstring.
 
     Public since task 2.5, when a second caller arrived: `weft_engine.run_services` asks the
     same question of a configured store ("which capabilities does this contract's family
@@ -581,11 +583,7 @@ def _format_annotation(annotation: object) -> str:
 
     origin = typing.get_origin(annotation)
     if origin is typing.Union or isinstance(annotation, types.UnionType):
-        members = typing.get_args(annotation)
-        formatted = [_format_annotation(member) for member in members if member is not type(None)]
-        if type(None) in members:
-            formatted.append("None")
-        return " | ".join(formatted)
+        return _format_union(typing.get_args(annotation))
 
     # A pydantic-parametrised generic (`Page[Node]`, `Scored[Node]`) is a real `type`
     # whose own `__qualname__` already bakes its argument in as literal text
@@ -593,15 +591,30 @@ def _format_annotation(annotation: object) -> str:
     # the argument as separate objects, so they can be qualified independently.
     generic_metadata = getattr(annotation, "__pydantic_generic_metadata__", None)
     if generic_metadata and generic_metadata.get("origin") is not None:
-        base = _format_annotation(generic_metadata["origin"])
-        args = generic_metadata["args"]
-        return f"{base}[{', '.join(_format_annotation(arg) for arg in args)}]" if args else base
+        return _format_parametrised(generic_metadata["origin"], generic_metadata["args"])
 
     if origin is not None:
-        base = _format_annotation(origin)
-        args = typing.get_args(annotation)
-        return f"{base}[{', '.join(_format_annotation(arg) for arg in args)}]" if args else base
+        return _format_parametrised(origin, typing.get_args(annotation))
 
+    return _format_named(annotation)
+
+
+def _format_union(members: tuple[object, ...]) -> str:
+    """A union's members as `X | Y`, with `None` moved last."""
+    formatted = [_format_annotation(member) for member in members if member is not type(None)]
+    if type(None) in members:
+        formatted.append("None")
+    return " | ".join(formatted)
+
+
+def _format_parametrised(origin: object, args: tuple[object, ...]) -> str:
+    """`origin[args]`, each part rendered by `_format_annotation`; bare `origin` without args."""
+    base = _format_annotation(origin)
+    return f"{base}[{', '.join(_format_annotation(arg) for arg in args)}]" if args else base
+
+
+def _format_named(annotation: object) -> str:
+    """A type alias, `NewType` or class, qualified by its own module."""
     if isinstance(annotation, typing.TypeAliasType):
         return _qualify(annotation.__module__, annotation.__name__)
 

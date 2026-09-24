@@ -139,26 +139,9 @@ class GraphWalkRetriever:
             return RankedList(query=query, retriever=NAME, channel=self._config.arm, hits=())
 
         seed_ids = tuple(dict.fromkeys(entity.id for entity in seed_entities))
-        distances: dict[EntityId, int] = {seed_id: 0 for seed_id in seed_ids}
-
-        # One `neighbourhood` call per ring, never one flattened call for the whole bound — see
-        # the module docstring for why a single call cannot support the score below.
-        for hop in range(1, self._config.hops + 1):
-            ring: Mapping[EntityId, tuple[Entity, ...]] = await traversal.neighbourhood(
-                seed_ids, hops=hop
-            )
-            for reached in ring.values():
-                for entity in reached:
-                    if entity.id not in distances:
-                        distances[entity.id] = hop
-
+        distances = await _entity_distances(traversal, seed_ids, hops=self._config.hops)
         node_ids_for_entity = await traversal.nodes_for_entities(tuple(distances))
-        node_distance: dict[NodeId, int] = {}
-        for entity_id, node_ids in node_ids_for_entity.items():
-            hop = distances[entity_id]
-            for node_id in node_ids:
-                if node_id not in node_distance or hop < node_distance[node_id]:
-                    node_distance[node_id] = hop
+        node_distance = _node_distances(node_ids_for_entity, distances)
 
         nodes = await store.get(tuple(node_distance))
         ordered = sorted(nodes, key=lambda node: (-1.0 / (1 + node_distance[node.id]), node.id))
@@ -172,6 +155,38 @@ class GraphWalkRetriever:
             for rank, node in enumerate(top)
         )
         return RankedList(query=query, retriever=NAME, channel=self._config.arm, hits=hits)
+
+
+async def _entity_distances(
+    traversal: GraphTraversal, seed_ids: tuple[EntityId, ...], *, hops: int
+) -> dict[EntityId, int]:
+    """Each entity within `hops` of a seed, mapped to the ring it was first reached in."""
+    distances: dict[EntityId, int] = {seed_id: 0 for seed_id in seed_ids}
+
+    # One `neighbourhood` call per ring, never one flattened call for the whole bound — see
+    # the module docstring for why a single call cannot support the score below.
+    for hop in range(1, hops + 1):
+        ring: Mapping[EntityId, tuple[Entity, ...]] = await traversal.neighbourhood(
+            seed_ids, hops=hop
+        )
+        for reached in ring.values():
+            for entity in reached:
+                if entity.id not in distances:
+                    distances[entity.id] = hop
+    return distances
+
+
+def _node_distances(
+    node_ids_for_entity: Mapping[EntityId, tuple[NodeId, ...]], distances: Mapping[EntityId, int]
+) -> dict[NodeId, int]:
+    """Each node mentioning a reached entity, at the nearest distance any of them was reached."""
+    node_distance: dict[NodeId, int] = {}
+    for entity_id, node_ids in node_ids_for_entity.items():
+        hop = distances[entity_id]
+        for node_id in node_ids:
+            if node_id not in node_distance or hop < node_distance[node_id]:
+                node_distance[node_id] = hop
+    return node_distance
 
 
 __all__ = ["NAME", "GraphWalkConfig", "GraphWalkRetriever"]

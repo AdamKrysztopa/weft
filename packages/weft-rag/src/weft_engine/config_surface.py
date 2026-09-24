@@ -62,7 +62,7 @@ from pydantic import BaseModel, ConfigDict
 from weft_engine.permission_policy import PermissionAction
 from weft_engine.permission_policy import permission_policy_from_config as _permission_policy
 from weft_engine.service_roles import RoleTable
-from weft_engine.services import accepted_service_keys
+from weft_engine.services import ServiceSelection, accepted_service_keys
 from weft_engine.services import service_selection_from_config as _service_selection
 from weft_kernel.errors import UnresolvedNameError, WeftError
 
@@ -102,8 +102,9 @@ _STATIC_KEYS: Final[tuple[str, ...]] = (
 
 
 def config_keys_for(table: RoleTable) -> tuple[str, ...]:
-    """Every dotted `[services]` key `weft config get|set` reads for *this* run, plus the
-    two blocks that name no role — sorted.
+    """Every dotted key `weft config get|set` reads for *this* run, sorted.
+
+    Every `[services]` key, plus the two blocks that name no role.
 
     Ledger task **9.0**, `docs/internal/README.md`'s own opening rule applied to `config get|set`'s
     vocabulary: `_KEY_FIELDS` above is a second, hand-written key space over the identical
@@ -200,19 +201,23 @@ def _refuse_unknown_key(key: str, *, table: RoleTable) -> None:
 
 
 def section_and_field(key: str, *, table: RoleTable) -> tuple[str, str]:
-    """`("services", "embed")` for `"services.embed"` — `weft_cli.config_commands.
-    ConfigSetCommand`'s own way to know which `[section]`/field `set_config_text` should
-    edit, without reaching into this module's private `_KEY_FIELDS` directly.
+    """`("services", "embed")` for `"services.embed"` — a dotted key split into its table.
+
+    `weft_cli.config_commands.ConfigSetCommand`'s own way to know which `[section]`/field
+    `set_config_text` should edit, without reaching into this module's private `_KEY_FIELDS`
+    directly.
     """
     _refuse_unknown_key(key, table=table)
     return _section_and_field(key)
 
 
 def _written_section(document: dict[str, object] | None, section: str) -> dict[str, object]:
-    """Every key `[section]` literally sets in `document` — `{}` if the table, or the whole
-    document, is absent. Never validated: this exists only to answer "is this key *present*",
-    never "is its value legal" — `weft_engine.services`/`weft_engine.permission_policy` already
-    validate the values themselves, and `effective_config` below calls both.
+    """Every key `[section]` literally sets in `document`.
+
+    `{}` if the table, or the whole document, is absent. Never validated: this exists only to answer
+    "is this key *present*", never "is its value legal" —
+    `weft_engine.services`/`weft_engine.permission_policy` already validate the values themselves,
+    and `effective_config` below calls both.
     """
     if document is None:
         return {}
@@ -220,6 +225,30 @@ def _written_section(document: dict[str, object] | None, section: str) -> dict[s
     if not isinstance(written, dict):
         return {}
     return cast("dict[str, object]", written)
+
+
+def _services_value(selection: ServiceSelection, field: str) -> str | None:
+    """`services.<field>`'s effective value, or `None` for a declared role nothing selects."""
+    if field == "route":
+        return selection.route
+    selected = selection.selection_for(field)
+    if selected is None:
+        # Carried repair **R9.4**, found by running the binary. A declared role
+        # nothing selects has no effective value, and `ServiceSelection.roles`' own
+        # comment already says what to do about it: "a key with nothing selected for
+        # it is simply absent, never guessed". So it is omitted here rather than
+        # printed as a guess or raised over — an effective configuration lists what
+        # is *in effect*. The key itself stays in `config_keys_for`, because
+        # `weft config set services.<role>` is exactly how an operator selects one,
+        # and asking for it by name still gets `plugin_for`'s own message saying
+        # what is selected instead of a false "unknown key".
+        #
+        # Before this, `weft config get` with no arguments exited 1 on any project
+        # that had not selected every declared role — which is every project, since
+        # a real installation declares `blob`, `graph` and `describe` and
+        # `ServiceSelection` has a field for none of them.
+        return None
+    return selected
 
 
 def effective_config(
@@ -250,27 +279,10 @@ def effective_config(
     for key in config_keys_for(table):
         section, field = key.split(".", 1)
         if section == "services":
-            if field == "route":
-                value = selection.route
-            else:
-                selected = selection.selection_for(field)
-                if selected is None:
-                    # Carried repair **R9.4**, found by running the binary. A declared role
-                    # nothing selects has no effective value, and `ServiceSelection.roles`' own
-                    # comment already says what to do about it: "a key with nothing selected for
-                    # it is simply absent, never guessed". So it is omitted here rather than
-                    # printed as a guess or raised over — an effective configuration lists what
-                    # is *in effect*. The key itself stays in `config_keys_for`, because
-                    # `weft config set services.<role>` is exactly how an operator selects one,
-                    # and asking for it by name still gets `plugin_for`'s own message saying
-                    # what is selected instead of a false "unknown key".
-                    #
-                    # Before this, `weft config get` with no arguments exited 1 on any project
-                    # that had not selected every declared role — which is every project, since
-                    # a real installation declares `blob`, `graph` and `describe` and
-                    # `ServiceSelection` has a field for none of them.
-                    continue
-                value = selected
+            selected = _services_value(selection, field)
+            if selected is None:
+                continue
+            value = selected
             written = services_written
         elif section == "permissions":
             action = policy.overwrite if field == "overwrite" else policy.destroy
@@ -320,8 +332,10 @@ def config_entry(document: dict[str, object] | None, key: str, *, table: RoleTab
 
 
 def validate_set_value(key: str, value: str, *, table: RoleTable) -> None:
-    """`value` is legal for `key` — `UnknownConfigKeyError` for an unread key, a plain
-    `WeftError` for a value `weft.toml`'s own loader would refuse at read time anyway.
+    """Refuse `value` unless it is legal for `key`.
+
+    `UnknownConfigKeyError` for an unread key, a plain `WeftError` for a value `weft.toml`'s own
+    loader would refuse at read time anyway.
 
     Deliberately does **not** check that `value` resolves to an installed plugin for
     `services.*` — `weft_engine.services.service_selection_from_config` does not either, on
@@ -376,9 +390,27 @@ def _quote(value: str) -> str:
     return f'"{escaped}"'
 
 
+def _section_bounds(lines: list[str], section: str) -> tuple[int | None, int]:
+    """`[section]`'s header index (`None` if absent) and the index where the section ends."""
+    section_start: int | None = None
+    section_end = len(lines)
+    for index, line in enumerate(lines):
+        match = _SECTION_HEADER.match(line.strip())
+        if match is None:
+            continue
+        if section_start is None:
+            if match.group("name") == section:
+                section_start = index
+            continue
+        section_end = index
+        break
+    return section_start, section_end
+
+
 def set_config_text(text: str, *, section: str, key: str, value: str) -> str:
-    """`text` (a `weft.toml`'s raw contents, or `""` for a file that does not exist yet),
-    with `key = "value"` set inside `[section]` — every other byte untouched.
+    """`text`, with `key = "value"` set inside `[section]` — every other byte untouched.
+
+    `text` is a `weft.toml`'s raw contents, or `""` for a file that does not exist yet.
 
     See the module docstring's own paragraph for why this edits text rather than
     re-serialising a parsed document. Three cases, in the order a real `weft.toml` is most
@@ -392,19 +424,7 @@ def set_config_text(text: str, *, section: str, key: str, value: str) -> str:
     new_line = f"{key} = {_quote(value)}\n"
     lines = text.splitlines(keepends=True)
 
-    section_start: int | None = None
-    section_end = len(lines)
-    for index, line in enumerate(lines):
-        match = _SECTION_HEADER.match(line.strip())
-        if match is None:
-            continue
-        if section_start is None:
-            if match.group("name") == section:
-                section_start = index
-            continue
-        section_end = index
-        break
-
+    section_start, section_end = _section_bounds(lines, section)
     if section_start is None:
         prefix = "" if not text or text.endswith("\n") else "\n"
         separator = "\n" if text.strip() else ""

@@ -1,5 +1,7 @@
-"""`[permissions]` — an operator's override of the two classes `docs/03-cli.md` -> *Permissions*
-defaults to `ask`, read from the same `weft.toml` `weft_engine.registry_bootstrap` already parses.
+"""`[permissions]` — an operator's override of the two permission classes that default to `ask`.
+
+The two classes `docs/03-cli.md` -> *Permissions* defaults to `ask`, read from the same `weft.toml`
+`weft_engine.registry_bootstrap` already parses.
 
 Task **3.3**, design question 4: "Where per-class defaults in `weft.toml` are read, consistent
 with `weft_engine.services`' existing config handling, and what happens to a key the CLI does not
@@ -68,8 +70,10 @@ class PermissionAction(StrEnum):
 
 
 class PermissionPolicy(BaseModel):
-    """`[permissions]`, resolved — see the module docstring's *"Scope"* paragraph for why these
-    are the only two fields, not one per class in `weft_command.permission.PermissionClass`.
+    """`[permissions]`, resolved.
+
+    See the module docstring's *"Scope"* paragraph for why these are the only two fields, not one
+    per class in `weft_command.permission.PermissionClass`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

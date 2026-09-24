@@ -214,12 +214,13 @@ _ALLOWED_CLAUSE: Final[Mapping[str, str]] = {
 
 
 def render_allowed(schema: GraphSchema | None, *, locale: str) -> str:
-    """`ExtractFactsRequest.allowed`'s value: `""` with no schema active, otherwise the schema's
-    admitted `(source_type, predicate, target_type)` arrangements as one locale-appropriate
-    clause, in `locale`'s own text — exact match, then its primary subtag, then `en`, the
-    identical three-step fallback `TypedPrompt._text_for` already uses for the surrounding
-    template, so the clause and the sentence it is appended to never disagree about which
-    language they are answering in.
+    """`ExtractFactsRequest.allowed`'s value, in `locale`'s own text.
+
+    `""` with no schema active, otherwise the schema's admitted `(source_type, predicate,
+    target_type)` arrangements as one locale-appropriate clause, in `locale`'s own text — exact
+    match, then its primary subtag, then `en`, the identical three-step fallback
+    `TypedPrompt._text_for` already uses for the surrounding template, so the clause and the
+    sentence it is appended to never disagree about which language they are answering in.
     """
     if schema is None:
         return ""
@@ -236,10 +237,12 @@ def render_allowed(schema: GraphSchema | None, *, locale: str) -> str:
 
 
 class SameEntity(StrEnum):
-    """A model's verdict on one pair of surface forms — `Enum` over `Literal`, this project's rule
-    for a string constant, and the third member is the one the whole prompt exists to make safe to
-    give: a wrong `YES` merges two entities irreversibly, and a wrong `NO` is a graph that quietly
-    stays split, so `UNSURE` is a real answer rather than a state the schema merely tolerates.
+    """A model's verdict on one pair of surface forms.
+
+    `Enum` over `Literal`, this project's rule for a string constant, and the third member is the
+    one the whole prompt exists to make safe to give: a wrong `YES` merges two entities
+    irreversibly, and a wrong `NO` is a graph that quietly stays split, so `UNSURE` is a real answer
+    rather than a state the schema merely tolerates.
     """
 
     YES = "yes"

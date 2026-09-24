@@ -128,6 +128,29 @@ class _Bound:
         self.distribution = distribution
 
 
+def _open_source(
+    bound: _Bound, rendered: Rendered, ctx: Context, captured: list[TokenUsage]
+) -> AsyncIterator[str]:
+    """`bound`'s text stream, through `stream_reporting_usage` where the provider offers it."""
+    if isinstance(bound.provider, UsageReporting):
+        return _text_only(
+            bound.provider.stream_reporting_usage(
+                rendered.conversation, model=bound.ref.model, ctx=ctx
+            ),
+            captured,
+        )
+    return bound.provider.stream(rendered.conversation, model=bound.ref.model, ctx=ctx)
+
+
+async def _emit(sink: TokenSink, role: str, chunk: str, sink_failures: list[Exception]) -> None:
+    """Emit `chunk` to `sink`, recording a sink failure so `complete` can re-raise it bare."""
+    try:
+        await sink.emit(TokenChunk(role=role, stage=current_stage(), text=chunk))
+    except Exception as exc:
+        sink_failures.append(exc)
+        raise
+
+
 class LLMClient:
     """Resolves a role to a provider and a model at call time, and answers through it.
 
@@ -170,78 +193,16 @@ class LLMClient:
         """
         bound = self._bind(role)
         sink = ctx.require(TokenSink)
-        reporting = isinstance(bound.provider, UsageReporting)
-        sink_exception: Exception | None = None
+        sink_failures: list[Exception] = []
 
         async def run() -> Outcome[Completion]:
-            nonlocal sink_exception
-            parts: list[str] = []
-            captured: list[TokenUsage] = []
-            source = (
-                _text_only(
-                    cast("UsageReporting", bound.provider).stream_reporting_usage(
-                        rendered.conversation, model=bound.ref.model, ctx=ctx
-                    ),
-                    captured,
-                )
-                if reporting
-                else bound.provider.stream(rendered.conversation, model=bound.ref.model, ctx=ctx)
-            )
-            _exhausted = object()
-            while True:
-                try:
-                    chunk_or_exhausted = await anext(source, _exhausted)
-                except LLMError:
-                    raise
-                except Exception as fault:
-                    raise self._fault(bound, role, fault) from fault
-                if chunk_or_exhausted is _exhausted:
-                    break
-                chunk = cast(str, chunk_or_exhausted)
-                parts.append(chunk)
-                try:
-                    await sink.emit(TokenChunk(role=role, stage=current_stage(), text=chunk))
-                except Exception as exc:
-                    sink_exception = exc
-                    raise
-                # Task 3.10: `parts` already holds the whole answer accumulated so far —
-                # exactly the cumulative-text contract `weft_llm.loop_guard` requires — so
-                # this is where the guard attaches rather than inside a `TokenSink`, which
-                # only ever sees one chunk at a time. The chunk that revealed the loop has
-                # already been emitted above, so a reader still sees it before the stream
-                # stops; nothing after it is generated or shown.
-                accumulated = "".join(parts)
-                if detect_generation_loop(accumulated, config=self._loop_guard):
-                    raise self._loop_detected(bound, role, accumulated)
-            usage = captured[0] if captured else None
-            record_usage(
-                UsageEntry(
-                    role=role,
-                    position=current_stage(),
-                    provider=bound.ref.provider,
-                    model=bound.ref.model,
-                    usage=usage,
-                )
-            )
-            text = "".join(parts)
-            if not text:
-                # Never an empty `Produced` — a model that answered with nothing did not
-                # answer, the trap every contract in this tree documents against.
-                return NothingToProduce(
-                    reason=(
-                        f"provider '{bound.ref.provider}' returned no text for role '{role}' "
-                        f"on model '{bound.ref.model or '(provider default)'}'"
-                    )
-                )
-            return Produced(
-                value=Completion(text=text, model=bound.ref.model, finish_reason="", usage=usage)
-            )
+            return await self._stream_completion(bound, role, rendered, ctx, sink, sink_failures)
 
         try:
             return await self._sealed(bound, role, run)()
         except Exception as exc:
-            if sink_exception is not None and exc.__cause__ is sink_exception:
-                raise sink_exception from None
+            if sink_failures and exc.__cause__ is sink_failures[-1]:
+                raise sink_failures[-1] from None
             raise
 
     async def complete_structured(
@@ -310,6 +271,84 @@ class LLMClient:
         """Close every provider this client built, once each, in the order they were built."""
         for bound in self._bound.values():
             await bound.provider.close()
+
+    # --- streaming ----------------------------------------------------------------------
+
+    async def _stream_completion(
+        self,
+        bound: _Bound,
+        role: str,
+        rendered: Rendered,
+        ctx: Context,
+        sink: TokenSink,
+        sink_failures: list[Exception],
+    ) -> Outcome[Completion]:
+        """`complete`'s body inside the seam: stream, accumulate, record usage, decide."""
+        captured: list[TokenUsage] = []
+        source = _open_source(bound, rendered, ctx, captured)
+        text = await self._accumulate(bound, role, source, sink, sink_failures)
+        usage = captured[0] if captured else None
+        record_usage(
+            UsageEntry(
+                role=role,
+                position=current_stage(),
+                provider=bound.ref.provider,
+                model=bound.ref.model,
+                usage=usage,
+            )
+        )
+        if not text:
+            # Never an empty `Produced` — a model that answered with nothing did not
+            # answer, the trap every contract in this tree documents against.
+            return NothingToProduce(
+                reason=(
+                    f"provider '{bound.ref.provider}' returned no text for role '{role}' "
+                    f"on model '{bound.ref.model or '(provider default)'}'"
+                )
+            )
+        return Produced(
+            value=Completion(text=text, model=bound.ref.model, finish_reason="", usage=usage)
+        )
+
+    async def _accumulate(
+        self,
+        bound: _Bound,
+        role: str,
+        source: AsyncIterator[str],
+        sink: TokenSink,
+        sink_failures: list[Exception],
+    ) -> str:
+        """Drain `source` into the sink chunk by chunk, stopping a looping answer; the text."""
+        parts: list[str] = []
+        exhausted = object()
+        while True:
+            chunk_or_exhausted = await self._next_chunk(bound, role, source, exhausted)
+            if chunk_or_exhausted is exhausted:
+                break
+            chunk = cast(str, chunk_or_exhausted)
+            parts.append(chunk)
+            await _emit(sink, role, chunk, sink_failures)
+            # Task 3.10: `parts` already holds the whole answer accumulated so far —
+            # exactly the cumulative-text contract `weft_llm.loop_guard` requires — so
+            # this is where the guard attaches rather than inside a `TokenSink`, which
+            # only ever sees one chunk at a time. The chunk that revealed the loop has
+            # already been emitted above, so a reader still sees it before the stream
+            # stops; nothing after it is generated or shown.
+            accumulated = "".join(parts)
+            if detect_generation_loop(accumulated, config=self._loop_guard):
+                raise self._loop_detected(bound, role, accumulated)
+        return "".join(parts)
+
+    async def _next_chunk(
+        self, bound: _Bound, role: str, source: AsyncIterator[str], exhausted: object
+    ) -> object:
+        """`source`'s next chunk, or `exhausted`; a non-`LLMError` becomes a provider fault."""
+        try:
+            return await anext(source, exhausted)
+        except LLMError:
+            raise
+        except Exception as fault:
+            raise self._fault(bound, role, fault) from fault
 
     # --- resolution ---------------------------------------------------------------------
 

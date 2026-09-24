@@ -33,16 +33,18 @@ from weft_kernel.payload import Node
 
 @runtime_checkable
 class _PageCarrier(Protocol):
-    """Structurally, `weft_extract.payload.PageSpan` or `weft_extract.payload.TableGrid`: a
-    fact about a node that names the page it sits on directly.
+    """A fact about a node that names the page it sits on directly.
+
+    Structurally, `weft_extract.payload.PageSpan` or `weft_extract.payload.TableGrid`.
     """
 
     page: int
 
 
 def page_for(node: Node) -> int | None:
-    """`node`'s page, if something in its `ext` carries one — `None` otherwise, which is a
-    legitimate answer, not a failure.
+    """`node`'s page, if something in its `ext` carries one.
+
+    `None` otherwise, which is a legitimate answer, not a failure.
 
     The first matching namespace wins; a node carries at most one page-shaped fact in
     practice, so there is nothing to disambiguate between two candidates.

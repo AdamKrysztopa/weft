@@ -376,12 +376,14 @@ class GraphDsnNotConfiguredError(WeftError):
 
 
 class UnhandledSameEntityVerdictError(WeftError):
-    """A `SameEntity` member the expensive pass's `match`/`case` has not been taught to map to
-    a `Verdict` — `weft_store.contract.UnhandledFilterOpError`'s own closed-vocabulary rule, one
-    contract over. `SameEntity` is a closed, three-member enum today, but a fourth member added
-    to it later must be a refusal here rather than a silent "different": this pass's whole
-    argument for a three-valued vote is that guessing is worse than abstaining, and falling
-    through an `if`/`elif` to a default `False` would be exactly the guess it exists to forbid.
+    """A `SameEntity` member the expensive pass's `match`/`case` cannot map to a `Verdict`.
+
+    One it has not been taught to map — `weft_store.contract.UnhandledFilterOpError`'s own
+    closed-vocabulary rule, one contract over. `SameEntity` is a closed, three-member enum today,
+    but a fourth member added to it later must be a refusal here rather than a silent "different":
+    this pass's whole argument for a three-valued vote is that guessing is worse than abstaining,
+    and falling through an `if`/`elif` to a default `False` would be exactly the guess it exists to
+    forbid.
     """
 
     def __init__(self, message: str, *, valid_options: tuple[str, ...], pack: str) -> None:
@@ -404,11 +406,12 @@ def require_dsn(settings: GraphSettings) -> str:
 
 
 async def _refuse_pre_118_layout(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> None:
-    """Refuse a `kg_nodes` table with no `kg_schema` row — the layout these tables had before
-    ledger `11.8`, where `kg_entities` and `kg_relations` keyed on entity ids directly rather
-    than on an alias. Checked **before creating anything**, because the tables these rows would
-    live beside are about to be created `IF NOT EXISTS`, which would otherwise silently adopt an
-    operator's pre-11.8 rows into the new layout's columns.
+    """Refuse a `kg_nodes` table with no `kg_schema` row.
+
+    That is the layout these tables had before ledger `11.8`, where `kg_entities` and `kg_relations`
+    keyed on entity ids directly rather than on an alias. Checked **before creating anything**,
+    because the tables these rows would live beside are about to be created `IF NOT EXISTS`, which
+    would otherwise silently adopt an operator's pre-11.8 rows into the new layout's columns.
     """
     async with conn.cursor() as cur:
         await cur.execute(
@@ -431,10 +434,11 @@ async def _refuse_pre_118_layout(conn: "psycopg.AsyncConnection[dict[str, Any]]"
 
 
 async def _check_schema_version(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> None:
-    """Read `kg_schema` for `KG_SCHEMA_SURFACE`: absent inserts `KG_SCHEMA_VERSION`, present and
-    equal does nothing, present and different refuses — naming both versions and what an
-    operator can do about it, because a refusal that names only one is a crash with better
-    manners than a plain exception and nothing more.
+    """Read `kg_schema` for `KG_SCHEMA_SURFACE`, inserting, accepting or refusing the version.
+
+    Absent inserts `KG_SCHEMA_VERSION`, present and equal does nothing, present and different
+    refuses — naming both versions and what an operator can do about it, because a refusal that
+    names only one is a crash with better manners than a plain exception and nothing more.
     """
     async with conn.cursor() as cur:
         await cur.execute("SELECT version FROM kg_schema WHERE surface = %s", (KG_SCHEMA_SURFACE,))
@@ -498,10 +502,12 @@ async def provision_schema(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> N
 
 
 async def _drop_orphaned_entities(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> None:
-    """Remove every alias with no remaining `kg_entity_nodes` row, then every entity with no
-    remaining alias — the module docstring's G15 note, in the two steps that order now takes.
-    Postgres cascades a child's row from its parent's deletion, never the reverse, so this is
-    the explicit other half: called after any statement that may have removed a node.
+    """Remove every alias with no remaining node, then every entity with no remaining alias.
+
+    An alias is orphaned when no `kg_entity_nodes` row remains — the module docstring's G15 note, in
+    the two steps that order now takes. Postgres cascades a child's row from its parent's deletion,
+    never the reverse, so this is the explicit other half: called after any statement that may have
+    removed a node.
     """
     await cur.execute(
         "DELETE FROM kg_aliases a WHERE NOT EXISTS "
@@ -579,6 +585,29 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
     if not names:
         return 0
 
+    similar_pairs = await _similar_pairs(cur, alias_rows)
+    definitions = await _corpus_acronym_definitions(cur)
+    cosines = await _initialism_cosines(cur, names)
+
+    clusters = resolution.resolve_clusters(
+        names,
+        similar_pairs=similar_pairs,
+        acronym_definitions=definitions,
+        cosines=cosines,
+    )
+    backfilled = await _apply_clusters(cur, clusters)
+
+    await cur.execute(
+        "DELETE FROM kg_entities e WHERE NOT EXISTS "
+        "(SELECT 1 FROM kg_aliases a WHERE a.entity_id = e.id)"
+    )
+    return backfilled
+
+
+async def _similar_pairs(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", alias_rows: Sequence[dict[str, Any]]
+) -> list[tuple[str, str]]:
+    """Signal 1's alias pairs, plus a star of edges within every entity group already merged."""
     await cur.execute(
         """
         SELECT a.name AS left_name, b.name AS right_name
@@ -605,14 +634,21 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
     # what `put_entity`'s own docstring refuses for the identical reason ("a resolution pass may
     # have moved it, and re-pointing it back ... would undo that pass on every index run"). A
     # star of edges within each current entity group is enough to union the whole group — the
-    # transitive closure below does the rest — and a fresh alias, still pointing at itself, sits
-    # in a group of one and contributes no edge at all.
+    # transitive closure `resolve_clusters` runs does the rest — and a fresh alias, still pointing
+    # at itself, sits in a group of one and contributes no edge at all.
     current_groups: dict[str, list[str]] = {}
     for row in alias_rows:
         current_groups.setdefault(cast(str, row["entity_id"]), []).append(cast(str, row["name"]))
     for members in current_groups.values():
         similar_pairs.extend((members[0], other) for other in members[1:])
 
+    return similar_pairs
+
+
+async def _corpus_acronym_definitions(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]",
+) -> list[tuple[str, str]]:
+    """Signal 2: every acronym definition the corpus's prose states, read a page at a time."""
     definitions: list[tuple[str, str]] = []
     after = ""
     while True:
@@ -639,6 +675,13 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
         if len(node_rows) < _RESOLUTION_CONTENT_PAGE_SIZE:
             break
 
+    return definitions
+
+
+async def _initialism_cosines(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", names: list[str]
+) -> dict[tuple[str, str], float]:
+    """Signal 3's gate: the cosine of each initialism pair the shape test could act on."""
     # Signal 3's own gate, fetched only for the pairs the shape test could possibly act on —
     # see `weft_kg.resolution.initialism_candidates`'s own docstring for why this is a function
     # of the names alone and safe to compute before touching the database at all.
@@ -665,13 +708,13 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
             for row in cosine_rows
         }
 
-    clusters = resolution.resolve_clusters(
-        names,
-        similar_pairs=similar_pairs,
-        acronym_definitions=definitions,
-        cosines=cosines,
-    )
+    return cosines
 
+
+async def _apply_clusters(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", clusters: Mapping[str, str]
+) -> int:
+    """Point every alias at its cluster's canonical entity; how many aliases actually moved."""
     members_by_representative: dict[str, list[str]] = {}
     for name, representative in clusters.items():
         members_by_representative.setdefault(representative, []).append(name)
@@ -698,10 +741,6 @@ async def _run_resolution_pass(cur: "psycopg.AsyncCursor[dict[str, Any]]") -> in
         )
         backfilled += cur.rowcount
 
-    await cur.execute(
-        "DELETE FROM kg_entities e WHERE NOT EXISTS "
-        "(SELECT 1 FROM kg_aliases a WHERE a.entity_id = e.id)"
-    )
     return backfilled
 
 
@@ -927,8 +966,9 @@ class ActiveSchema(BaseModel):
 
 
 class SchemaPresence(BaseModel):
-    """One schema identity a corpus's own `ExtractedFact` nodes carry, and how many facts carry
-    it — ledger `11.11`, `weft graph show`'s evidence that a corpus indexed under two schemas
+    """One schema identity a corpus's own `ExtractedFact` nodes carry, and how many carry it.
+
+    Ledger `11.11`, `weft graph show`'s evidence that a corpus indexed under two schemas
     holds facts from both. `identity` empty is the untagged group: facts extracted with no schema
     active, reported on the identical footing as any named schema rather than folded into
     whichever one happens to be active now.
@@ -941,8 +981,9 @@ class SchemaPresence(BaseModel):
 
 
 class GraphStore:
-    """`NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally — this
-    class never imports one of the Protocols, the same path any third-party store pack takes.
+    """`NodeStore`, `SourceDeletable` and `Reconcilable`, all three satisfied structurally.
+
+    This class never imports one of the Protocols, the same path any third-party store pack takes.
 
     Plus `put_entity`/`put_relation`, this task's own addition and not on any contract:
     `weft_kg.traversal.GraphWalk` needs something to read, and ledger tasks **11.6**/**11.7** are
@@ -989,7 +1030,9 @@ class GraphStore:
         return conn
 
     async def aclose(self) -> None:
-        """Not part of any contract `NodeStore` publishes — read defensively, exactly as
+        """Close this store's connection, if one was opened.
+
+        Not part of any contract `NodeStore` publishes — read defensively, exactly as
         `weft_cli`'s own fan-out already does for `PgVectorStore`.
         """
         if self._conn is not None:
@@ -999,11 +1042,25 @@ class GraphStore:
     # -- NodeStore -----------------------------------------------------------------------
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Store `payload` as a pipeline stage, passing it on unchanged.
+
+        Args:
+            payload: The nodes to store.
+            ctx: Unused.
+
+        Returns:
+            `payload` itself.
+        """
         del ctx
         await self.add(payload)
         return Produced(value=payload)
 
     async def add(self, nodes: Sequence[Node]) -> None:
+        """Upsert `nodes` and their productions, then derive the graph rows their ext carries.
+
+        Args:
+            nodes: The nodes to store; an empty sequence is a no-op.
+        """
         if not nodes:
             return
         conn = await self._connection()
@@ -1051,11 +1108,13 @@ class GraphStore:
             await self._derive_graph_rows(node)
 
     async def _derive_graph_rows(self, node: Node) -> None:
-        """Ledger `11.6`'s other half, extended at `11.7` to the model-extracted rung: every
-        stage in this pack that produces graph data attaches ext and writes no row itself, so
-        this is where the entity and relation rows this pack's traversal reads all come from.
-        A node carrying none of the three ext models below derives no rows and is stored
-        normally — a store that refused it would make every one of these stages mandatory.
+        """Derive and write the graph rows `node`'s ext carries.
+
+        Ledger `11.6`'s other half, extended at `11.7` to the model-extracted rung: every stage in
+        this pack that produces graph data attaches ext and writes no row itself, so this is where
+        the entity and relation rows this pack's traversal reads all come from. A node carrying none
+        of the three ext models below derives no rows and is stored normally — a store that refused
+        it would make every one of these stages mandatory.
 
         All three are considered on every node, never `elif`-chained, because nothing forbids
         a future node from carrying more than one: `MentionedEntity` anchors an entity to the
@@ -1107,6 +1166,14 @@ class GraphStore:
         return
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        """Fetch the stored nodes among `ids`.
+
+        Args:
+            ids: The node ids to fetch.
+
+        Returns:
+            Every stored node whose id is in `ids`; an id nothing stores is absent.
+        """
         if not ids:
             return ()
         conn = await self._connection()
@@ -1116,6 +1183,14 @@ class GraphStore:
         return tuple(_row_to_node(row) for row in rows)
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        """One page of every stored node, in id order.
+
+        Args:
+            cursor: Where the previous page ended, or `None` for the first page.
+
+        Returns:
+            The page, with the cursor for the next one.
+        """
         conn = await self._connection()
         after = cursor if cursor is not None else ""
         async with conn.cursor() as cur:
@@ -1127,6 +1202,7 @@ class GraphStore:
         return _page_of(rows)
 
     async def count(self) -> int:
+        """How many nodes this store holds."""
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS n FROM kg_nodes")
@@ -1134,6 +1210,11 @@ class GraphStore:
         return cast(int, row["n"]) if row is not None else 0
 
     async def put_source(self, record: SourceRecord) -> None:
+        """Upsert `record` into this store's source ledger.
+
+        Args:
+            record: The source's record, replacing any held under its id.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await self._register_target_if_needed(cur)
@@ -1169,6 +1250,14 @@ class GraphStore:
             )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        """The ledger record held for `source_id`, or `None` if there is none.
+
+        Args:
+            source_id: The source to look up.
+
+        Returns:
+            Its record, or `None`.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT * FROM kg_sources WHERE id = %s", (source_id,))
@@ -1176,6 +1265,7 @@ class GraphStore:
         return _row_to_source_record(row) if row is not None else None
 
     async def list_sources(self) -> Sequence[SourceRecord]:
+        """Every source ledger record this store holds, in id order."""
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT * FROM kg_sources ORDER BY id")
@@ -1271,12 +1361,13 @@ class GraphStore:
     async def _doomed_and_narrowed(
         self, cur: "psycopg.AsyncCursor[dict[str, Any]]", source_id: SourceId
     ) -> tuple[list[str], list[str]]:
-        """Which of `source_id`'s nodes lose every production (doomed) and which merely lose one
-        (narrowed) — ledger **27.1**, read from `kg_node_productions` rather than from
-        `kg_nodes.sources` alone. The classification query is the identical shape
-        `weft_store.pgvector_store.PgVectorStore._delete_and_narrow` runs over its own table;
-        what differs here is everything this store does *with* the answer — `fact`/`mention`
-        counts and orphaned-entity cleanup that module has no reason to know about.
+        """Which of `source_id`'s nodes lose every production, and which merely lose one.
+
+        The first are doomed, the second narrowed — ledger **27.1**, read from `kg_node_productions`
+        rather than from `kg_nodes.sources` alone. The classification query is the identical shape
+        `weft_store.pgvector_store.PgVectorStore._delete_and_narrow` runs over its own table; what
+        differs here is everything this store does *with* the answer — `fact`/`mention` counts and
+        orphaned-entity cleanup that module has no reason to know about.
         """
         await cur.execute(
             """
@@ -1302,11 +1393,12 @@ class GraphStore:
     # -- Reconcilable ----------------------------------------------------------------------
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
-        """Finish every deletion that was interrupted — the identical tombstone convergence
-        `PgVectorStore.reconcile` carries out, over this store's own `kg_sources`/`kg_nodes`, with
-        orphaned aliases and entities dropped alongside each node deletion — then run the
-        resolution pass over `kg_aliases`, in **every** mode — then, only under `full`, the
-        expensive pass ledger `11.9` adds.
+        """Finish interrupted deletions, resolve aliases, and under `full` run the expensive pass.
+
+        The identical tombstone convergence `PgVectorStore.reconcile` carries out, over this store's
+        own `kg_sources`/`kg_nodes`, with orphaned aliases and entities dropped alongside each node
+        deletion — then run the resolution pass over `kg_aliases`, in **every** mode — then, only
+        under `full`, the expensive pass ledger `11.9` adds.
 
         **Why the resolution pass runs under `repair` as well as `full`, against
         `ReconcileMode`'s own "backfills state that was never built" line for `full` alone.**
@@ -1453,8 +1545,9 @@ class GraphStore:
     # -- Ledger `11.11` — the corpus's own record of which curated schema it is under ------
 
     async def active_schema(self) -> ActiveSchema | None:
-        """The one row `kg_active_schema` holds, or `None` when `activate_schema` has never run
-        against this database — see `ActiveSchema`'s own docstring.
+        """The one row `kg_active_schema` holds, or `None` if `activate_schema` never ran here.
+
+        `None` when it has never run against this database — see `ActiveSchema`'s own docstring.
         """
         conn = await self._connection()
         async with conn.cursor() as cur:
@@ -1473,11 +1566,13 @@ class GraphStore:
         )
 
     async def activate_schema(self, schema: GraphSchema, *, source_path: str) -> None:
-        """Upsert the one `kg_active_schema` row — `S13`'s corpus half; see the module docstring
-        on `_CREATE_ACTIVE_SCHEMA_TABLE` for why a single row, keyed on nothing, delivers that
-        property in full today. `source_path` is recorded as given (a curated schema file's own
-        path), never resolved or validated here — that already happened at `weft_kg.schema.
-        load_schema`, which `weft_kg.commands.GraphActivateCommand` calls before this.
+        """Upsert the one `kg_active_schema` row — `S13`'s corpus half.
+
+        See the module docstring on `_CREATE_ACTIVE_SCHEMA_TABLE` for why a single row, keyed on
+        nothing, delivers that property in full today. `source_path` is recorded as given (a curated
+        schema file's own path), never resolved or validated here — that already happened at
+        `weft_kg.schema.load_schema`, which `weft_kg.commands.GraphActivateCommand` calls before
+        this.
         """
         conn = await self._connection()
         async with conn.cursor() as cur:
@@ -1495,8 +1590,9 @@ class GraphStore:
             )
 
     async def observed_triples(self) -> tuple[ObservedTriple, ...]:
-        """Every distinct `(source_type, predicate, target_type)` this corpus's own
-        `ExtractedFact` nodes already produced, with counts — `weft_kg.schema.propose_schema`'s
+        """Every distinct `(source_type, predicate, target_type)` this corpus produced, counted.
+
+        Produced by this corpus's own `ExtractedFact` nodes — `weft_kg.schema.propose_schema`'s
         only input. Grouped and ordered in SQL, count descending, over the same `ext ? %s` /
         `->>` jsonb access `_run_resolution_pass` already established for this pack.
         """
@@ -1527,8 +1623,9 @@ class GraphStore:
         )
 
     async def schemas_in_corpus(self) -> tuple[SchemaPresence, ...]:
-        """Every distinct `schema_id` this corpus's own `ExtractedFact` nodes carry, with counts
-        — `weft graph show`'s evidence that a corpus indexed under two schemas holds facts from
+        """Every distinct `schema_id` this corpus's own `ExtractedFact` nodes carry, with counts.
+
+        `weft graph show`'s evidence that a corpus indexed under two schemas holds facts from
         both. The empty identity is included on the same footing as any other: `COALESCE` turns
         a pre-`11.11` fact with no `schema_id` key at all into the identical empty group a fresh
         no-schema extraction produces, rather than a third, unlabelled bucket.
@@ -1554,9 +1651,11 @@ class GraphStore:
     # -- Ledger `11.13` — `weft graph bridges`'s own two reads --------------------------------
 
     async def relation_count(self) -> int:
-        """How many `kg_relations` rows this corpus holds — `GraphBridgesCommand`'s own way of
-        telling "no relations at all" (index the corpus) from "relations, but no bridge among
-        them" (the corpus's own finding) apart, before it ever calls `two_hop_bridges`.
+        """How many `kg_relations` rows this corpus holds.
+
+        `GraphBridgesCommand`'s own way of telling "no relations at all" (index the corpus) from
+        "relations, but no bridge among them" (the corpus's own finding) apart, before it ever calls
+        `two_hop_bridges`.
         """
         conn = await self._connection()
         async with conn.cursor() as cur:
@@ -1568,8 +1667,10 @@ class GraphStore:
         return cast(int, row["n"]) if row is not None else 0
 
     async def two_hop_bridges(self, *, limit: int) -> tuple[BridgeCandidate, ...]:
-        """Every two-hop path `A --p1--> B --p2--> C` this corpus's own `kg_relations` rows
-        support, where no single `kg_nodes` row names both `A` and `C` — see `weft_kg.bridges`'s
+        """Every two-hop path `A --p1--> B --p2--> C` whose endpoints no single node names.
+
+        Every such path this corpus's own `kg_relations` rows support, where no single `kg_nodes`
+        row names both `A` and `C` — see `weft_kg.bridges`'s
         module docstring for why that is the property a bridge exists to guarantee.
 
         **Routed through `kg_aliases`, never through `kg_entities` directly** — `kg_relations`
@@ -1729,7 +1830,8 @@ class GraphStore:
         return tuple(_bridge_candidate_of(row) for row in rows)
 
     async def chunks_by_entity(self, entity_ids: Sequence[str]) -> Mapping[str, frozenset[str]]:
-        """The frozenset of **chunks** reachable through each id in `entity_ids`'s own aliases —
+        """The frozenset of **chunks** reachable through each id in `entity_ids`'s own aliases.
+
         `GraphBridgesCommand`'s independent second measurement of the vector ceiling, see
         `weft_kg.bridges`'s module docstring for why it must never reuse `two_hop_bridges`'s own
         `NOT EXISTS` clause.
@@ -1770,16 +1872,26 @@ class GraphStore:
     # -- TargetHolding — ledger task **34.11**, mirroring `PgVectorStore`'s own `34.1` ------
 
     async def target_catalogue(self) -> TargetCatalogue:
+        """Every target the catalogue holds, `default` included, and which one is live."""
         conn = await self._connection()
         return await _pg_target_catalogue(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle onto the same database, bound to `target` — its own connection,
-        opened lazily on first use exactly as an unbound handle's is.
+        """A second handle onto the same database, bound to `target`.
+
+        Its own connection, opened lazily on first use exactly as an unbound handle's is.
         """
         return type(self)(self._settings, _bound=target)
 
     async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        """Record `identity` against the active target, unless one is already recorded.
+
+        Args:
+            identity: What embedded the vectors about to be written.
+
+        Returns:
+            The identity the target holds, which is the earlier one if already claimed.
+        """
         conn = await self._connection()
         return await _pg_claim_embedding(
             _TARGET_LAYOUT,
@@ -1790,41 +1902,59 @@ class GraphStore:
         )
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
-        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
-        the already-live target, so a converging re-run after a crash leaves the rollback an
-        operator needs intact.
+        """Promoting the target that is already live is a no-op.
+
+        `previous` is never rewritten to the already-live target, so a converging re-run after a
+        crash leaves the rollback an operator needs intact.
         """
         conn = await self._connection()
         return await _pg_promote(_TARGET_LAYOUT, conn, self._require_home_schema(), promotion)
 
     async def rollback(self) -> TargetCatalogue:
+        """Swap the live target with the previous one.
+
+        Returns:
+            The catalogue after the rollback.
+
+        Raises:
+            NoPreviousTargetError: No target was live before this one.
+        """
         conn = await self._connection()
         return await _pg_rollback(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def drop_target(self, target: TargetName) -> None:
+        """Drop `target`'s tables, or its whole schema, and its catalogue row.
+
+        Args:
+            target: The target to drop.
+        """
         conn = await self._connection()
         await _pg_drop_target(_TARGET_LAYOUT, conn, self._require_home_schema(), target)
 
     async def _register_target_if_needed(self, cur: "psycopg.AsyncCursor[dict[str, Any]]") -> None:
-        """The catalogue row a non-default target earns on its first write — never on a bind,
-        never on a read. `default` needs none: the catalogue lists it regardless.
+        """The catalogue row a non-default target earns on its first write.
+
+        Never on a bind, never on a read. `default` needs none: the catalogue lists it regardless.
         """
         await _pg_register_target_if_needed(
             _TARGET_LAYOUT, cur, target=self._active_target, home_schema=self._home_schema
         )
 
     def _require_home_schema(self) -> str:
-        """`self._home_schema`, narrowed — every `TargetHolding` method calls `_connection()`
-        first, which is what actually guarantees this is set; `raise` rather than `assert`
-        because `assert` is stripped under `-O` and this is a real invariant, not a debug aid.
+        """`self._home_schema`, narrowed.
+
+        Every `TargetHolding` method calls `_connection()` first, which is what actually guarantees
+        this is set; `raise` rather than `assert` because `assert` is stripped under `-O` and this
+        is a real invariant, not a debug aid.
         """
         if self._home_schema is None:
             raise AssertionError("_connection() must run before _home_schema is read")
         return self._home_schema
 
     def _require_active_target(self) -> TargetName:
-        """`self._active_target`, narrowed — same guarantee and the same reason as
-        `_require_home_schema` above.
+        """`self._active_target`, narrowed.
+
+        Same guarantee and the same reason as `_require_home_schema` above.
         """
         if self._active_target is None:
             raise AssertionError("_connection() must run before _active_target is read")
@@ -1918,10 +2048,11 @@ class GraphStore:
 
 
 def _production_key(sources: frozenset[SourceId]) -> str:
-    """The digest that groups a production's rows in `kg_node_productions` — ledger **27.1**,
-    the identical rule `weft_store.pgvector_store._production_key` states for the vector store's
-    own table, restated here rather than imported because it is private to the module that owns
-    the table it groups.
+    """The digest that groups a production's rows in `kg_node_productions`.
+
+    Ledger **27.1**, the identical rule `weft_store.pgvector_store._production_key` states for the
+    vector store's own table, restated here rather than imported because it is private to the module
+    that owns the table it groups.
     """
     return sha256("|".join(sorted(sources)).encode("utf-8")).hexdigest()
 
@@ -2096,8 +2227,10 @@ _TARGET_LAYOUT = PgTargetLayout(
 async def resolve_target_connection(
     dsn: str, *, bound: TargetName | None
 ) -> tuple["psycopg.AsyncConnection[dict[str, Any]]", str, TargetName]:
-    """Open a connection to `dsn`, resolve its home schema and active target, enter that target's
-    schema when it is not `default`, and provision every table `provision_schema` creates.
+    """Open a connection to `dsn`, enter its active target, and provision every table.
+
+    Resolve its home schema and active target, enter that target's schema when it is not
+    `default`, and provision every table `provision_schema` creates.
 
     `bound` is the target to open onto directly (`GraphStore.bind_target`'s own handle); `None`
     means read whichever target `kg_live_target` currently names, which is what

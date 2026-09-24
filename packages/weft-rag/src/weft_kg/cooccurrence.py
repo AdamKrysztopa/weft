@@ -50,8 +50,9 @@ class CooccurrenceSettings(BaseModel):
 
 
 class CooccurrenceGraphBuilder:
-    """Attaches a `CooccurrenceGraph` to every node in a non-empty batch — never rewrites
-    `content`, so node identity (`node.id`) is untouched.
+    """Attaches a `CooccurrenceGraph` to every node in a non-empty batch.
+
+    Never rewrites `content`, so node identity (`node.id`) is untouched.
 
     Satisfies `weft_enhance.contract.Enhancer` structurally: this class never imports it, the
     same path a third-party `Enhancer` plugin takes.
@@ -61,6 +62,15 @@ class CooccurrenceGraphBuilder:
         self._config = config if config is not None else CooccurrenceSettings()
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach each node's co-occurrence graph, built from its own content.
+
+        Args:
+            payload: The nodes to enhance.
+            ctx: Unused; no service or locale this stage needs.
+
+        Returns:
+            The nodes with their graphs attached, or `NothingToProduce` for an empty batch.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no node to build a co-occurrence graph from")

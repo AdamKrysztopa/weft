@@ -1,5 +1,6 @@
-"""`CooccurrenceGraph` — this pack's own namespaced fact: which names a node mentions, and
-which of them co-occur. Ledger **11.6**.
+"""`CooccurrenceGraph` — which names a node mentions, and which of them co-occur.
+
+This pack's own namespaced fact. Ledger **11.6**.
 
 Attaches to `Node.ext` (`weft_kernel.payload.ext.ExtModel`), never to a query-path payload's
 `ext` — `docs/02-extension-model.md` §1's own "Call it only for an `ExtModel` that attaches to
@@ -56,8 +57,9 @@ class CooccurrenceEdge(BaseModel):
 
 
 class CooccurrenceGraph(ExtModel):
-    """This node's own entity mentions and co-occurrence edges — crude, deterministic, no model
-    call.
+    """This node's own entity mentions and co-occurrence edges.
+
+    Crude, deterministic, no model call.
 
     `__namespace__` is this distribution's own pack name, collision-free by construction
     (`docs/02-extension-model.md` §1). `__schema_version__` is G9's own second axis — a schema

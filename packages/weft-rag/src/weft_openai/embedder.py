@@ -173,27 +173,37 @@ class EmbeddingItem(Protocol):
     """One element of the API's `data` array — the two fields this pack reads."""
 
     @property
-    def index(self) -> int: ...
+    def index(self) -> int:
+        """The position of the input this vector belongs to."""
+        ...
 
     @property
-    def embedding(self) -> Sequence[float]: ...
+    def embedding(self) -> Sequence[float]:
+        """The vector the model produced for that input."""
+        ...
 
 
 class EmbeddingUsage(Protocol):
     """What one embeddings call cost — the one field this pack bills against."""
 
     @property
-    def prompt_tokens(self) -> int: ...
+    def prompt_tokens(self) -> int:
+        """Tokens the call's inputs were billed as."""
+        ...
 
 
 class EmbeddingBatch(Protocol):
     """What one embeddings call answers."""
 
     @property
-    def data(self) -> Sequence[EmbeddingItem]: ...
+    def data(self) -> Sequence[EmbeddingItem]:
+        """One vector per input, each carrying the input's position."""
+        ...
 
     @property
-    def usage(self) -> EmbeddingUsage | None: ...
+    def usage(self) -> EmbeddingUsage | None:
+        """What the call cost, where the endpoint reported it."""
+        ...
 
 
 class EmbeddingsResource(Protocol):
@@ -210,16 +220,31 @@ class EmbeddingsResource(Protocol):
 
     async def create(
         self, *, input: list[str], model: str, dimensions: int | Omit = omit
-    ) -> EmbeddingBatch: ...
+    ) -> EmbeddingBatch:
+        """Embed every text in `input` in one request.
+
+        Args:
+            input: The texts to embed.
+            model: The embedding model to use.
+            dimensions: The vector width to ask for, or `omit` for the model's native one.
+
+        Returns:
+            The vectors, and the call's usage where reported.
+        """
+        ...
 
 
 class EmbeddingsClient(Protocol):
     """The client this pack holds: one resource, and a way to give its sockets back."""
 
     @property
-    def embeddings(self) -> EmbeddingsResource: ...
+    def embeddings(self) -> EmbeddingsResource:
+        """The embeddings endpoint."""
+        ...
 
-    async def close(self) -> None: ...
+    async def close(self) -> None:
+        """Give the client's sockets back."""
+        ...
 
 
 class OpenAIEmbedder:
@@ -254,6 +279,18 @@ class OpenAIEmbedder:
         self._account = account
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Attach an embedding to every node in `payload`, in order.
+
+        Args:
+            payload: The nodes to embed.
+            ctx: Unused; no service or locale this stage needs.
+
+        Returns:
+            The nodes with their embeddings, or `NothingToProduce` for an empty payload.
+
+        Raises:
+            WeftError: A missing credential, an unembeddable node, or a failed request.
+        """
         del ctx  # no service or locale this stage needs
         if not payload:
             return NothingToProduce(reason="no nodes to embed")
@@ -353,8 +390,10 @@ class OpenAIEmbedder:
         return self._client
 
     async def _embed_all(self, client: EmbeddingsClient, texts: Sequence[str]) -> list[Vector]:
-        """Every `_batched` slice as its own request, at most `max_concurrent_requests` of
-        them in flight, vectors reassembled in slice order rather than completion order.
+        """Every `_batched` slice as its own request, vectors reassembled in slice order.
+
+        At most `max_concurrent_requests` of them in flight, and the order is slice order
+        rather than completion order.
 
         A failed request cancels every in-flight sibling; slices not yet started never start.
         `asyncio.TaskGroup` wraps whatever a task raised in a `BaseExceptionGroup`, so the

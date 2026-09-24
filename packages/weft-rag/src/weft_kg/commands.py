@@ -68,8 +68,10 @@ from weft_kg.store import ActiveSchema, GraphSettings, GraphStore, SchemaPresenc
 
 
 class GraphProposeArgs(BaseModel):
-    """`weft graph propose [--min-count N] [--name NAME]` — no path: this measures the corpus
-    that is already there and prints, it never reads or writes a file of its own.
+    """`weft graph propose [--min-count N] [--name NAME]` — no path.
+
+    This measures the corpus that is already there and prints, it never reads or writes a file of
+    its own.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -100,9 +102,10 @@ class GraphActivateArgs(BaseModel):
 
 
 class GraphActivateResult(CommandResult):
-    """What `activate` did: which schema, by name and by identity, from which file, recorded
-    into which project file — `config_path` alongside `path` because the two are not the same
-    string once `weft.toml` lives somewhere other than the current directory.
+    """What `activate` did: which schema, from which file, recorded into which project file.
+
+    The schema by name and by identity — `config_path` alongside `path` because the two are not the
+    same string once `weft.toml` lives somewhere other than the current directory.
     """
 
     name: str
@@ -118,9 +121,11 @@ class GraphShowArgs(BaseModel):
 
 
 class GraphShowResult(CommandResult):
-    """The corpus's own answer to *which schema is this under*, and *which schemas does it hold
-    evidence of* — `weft_kg.store.ActiveSchema`/`SchemaPresence`'s own docstrings for what each
-    carries and why `schemas_in_corpus` is never truncated to the active one alone.
+    """The corpus's own answer to which schema it is under, and which it holds evidence of.
+
+    *Which schema is this under*, and *which schemas does it hold evidence of* —
+    `weft_kg.store.ActiveSchema`/`SchemaPresence`'s own docstrings for what each carries and why
+    `schemas_in_corpus` is never truncated to the active one alone.
     """
 
     active: ActiveSchema | None
@@ -128,8 +133,10 @@ class GraphShowResult(CommandResult):
 
 
 class GraphBridgesArgs(BaseModel):
-    """`weft graph bridges [--limit N] [--write PATH]` — no other argument: this measures the
-    corpus that is already there, exactly like `propose`, plus one optional side effect.
+    """`weft graph bridges [--limit N] [--write PATH]` — no other argument.
+
+    This measures the corpus that is already there, exactly like `propose`, plus one optional side
+    effect.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -175,6 +182,15 @@ class GraphProposeCommand:
         self._store = GraphStore(settings)
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Propose a schema from the relation arrangements this corpus already holds.
+
+        Args:
+            args: A `GraphProposeArgs`.
+            ctx: Unused.
+
+        Returns:
+            The proposed schema, and how many distinct arrangements it was proposed from.
+        """
         del ctx
         propose_args = cast(GraphProposeArgs, args)
         observed = await self._store.observed_triples()
@@ -183,8 +199,10 @@ class GraphProposeCommand:
 
 
 class GraphActivateCommand:
-    """Activates a curated schema file: writes `[packs.graph] schema_file` into `weft.toml` and
-    records the schema's own identity on the corpus. `WRITE`, not `OVERWRITE` — see the module
+    """Activates a curated schema file, in `weft.toml` and on the corpus.
+
+    Writes `[packs.graph] schema_file` into `weft.toml` and records the schema's own identity on
+    the corpus. `WRITE`, not `OVERWRITE` — see the module
     docstring: this edits `weft.toml`, exactly what `weft config set` does, and the 2026-08-20
     repair moved that kind of edit out of `overwrite`.
     """
@@ -201,6 +219,18 @@ class GraphActivateCommand:
         self._store = GraphStore(settings)
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Validate the schema file, name it in `weft.toml`, then record it on the corpus.
+
+        Args:
+            args: A `GraphActivateArgs`.
+            ctx: Unused.
+
+        Returns:
+            Which schema was activated, from which file, into which project file.
+
+        Raises:
+            MalformedSchemaFileError: The file is not a valid schema; nothing is written.
+        """
         del ctx
         activate_args = cast(GraphActivateArgs, args)
         # Validate first — a `MalformedSchemaFileError` here leaves nothing written, which is
@@ -242,6 +272,15 @@ class GraphShowCommand:
         self._store = GraphStore(settings)
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Read the corpus's active schema and every schema its facts carry.
+
+        Args:
+            args: A `GraphShowArgs`; it carries nothing.
+            ctx: Unused.
+
+        Returns:
+            The active schema, if any, and every schema identity found in the corpus.
+        """
         del ctx, args
         active = await self._store.active_schema()
         schemas_in_corpus = await self._store.schemas_in_corpus()
@@ -249,8 +288,9 @@ class GraphShowCommand:
 
 
 class GraphBridgesCommand:
-    """Lists two-hop paths whose endpoints share no chunk, with the vector ceiling on each —
-    see the module docstring's `bridges` paragraph and `weft_kg.bridges`'s own for the full
+    """Lists two-hop paths whose endpoints share no chunk, with the vector ceiling on each.
+
+    See the module docstring's `bridges` paragraph and `weft_kg.bridges`'s own for the full
     argument.
     """
 
@@ -266,6 +306,18 @@ class GraphBridgesCommand:
         self._store = GraphStore(settings)
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Find two-hop bridges, measure each one's vector ceiling, and optionally write them.
+
+        Args:
+            args: A `GraphBridgesArgs`.
+            ctx: Unused.
+
+        Returns:
+            The bridges, how many relations were examined, and the file written, if any.
+
+        Raises:
+            NoRelationsToBridgeError: The corpus holds no relation at all.
+        """
         del ctx
         bridges_args = cast(GraphBridgesArgs, args)
         relations = await self._store.relation_count()
@@ -293,9 +345,10 @@ class GraphBridgesCommand:
 
 
 def _schema_as_toml(schema: GraphSchema) -> str:
-    """`schema`, rendered as the TOML `weft_kg.schema.load_schema` reads back — the exact shape
-    an operator pastes into a file and activates unchanged. `schema_version` is left out: a fresh
-    proposal is always this installed pack's own current version, which is the default
+    """`schema`, rendered as the TOML `weft_kg.schema.load_schema` reads back.
+
+    The exact shape an operator pastes into a file and activates unchanged. `schema_version` is left
+    out: a fresh proposal is always this installed pack's own current version, which is the default
     `GraphSchema.schema_version` already supplies with nothing written.
     """
     lines = [f"name = {quote_toml_value(schema.name)}", ""]
@@ -313,8 +366,10 @@ def _schema_as_toml(schema: GraphSchema) -> str:
 
 
 def render_graph_propose(result: object) -> Rendered:
-    """`weft graph propose`, for a person — task **6.20**, G13's third repair, the same seam
-    `weft_cli.commands.register` uses for its own eighteen built-ins.
+    """`weft graph propose`, for a person.
+
+    Task **6.20**, G13's third repair, the same seam `weft_cli.commands.register` uses for its own
+    eighteen built-ins.
 
     Prints the schema as pasteable TOML, not a structured summary: the whole workflow this
     command exists for is propose, edit by hand, activate, and a summary would have to be
@@ -331,8 +386,10 @@ def render_graph_propose(result: object) -> Rendered:
 
 
 def render_graph_activate(result: object) -> Rendered:
-    """`weft graph activate`, for a person — states both halves `S13` writes, so an operator sees
-    that the file and the corpus were both updated rather than inferring it.
+    """`weft graph activate`, for a person.
+
+    States both halves `S13` writes, so an operator sees that the file and the corpus were both
+    updated rather than inferring it.
     """
     typed = cast(GraphActivateResult, result)
     lines = [
@@ -344,9 +401,11 @@ def render_graph_activate(result: object) -> Rendered:
 
 
 def render_graph_show(result: object) -> Rendered:
-    """`weft graph show`, for a person — **the sentence this task exists for**: *a corpus holding
-    two schemas is a fact this prints, never a silence.* Every entry in `schemas_in_corpus` is
-    printed, the untagged one included, never only the active identity.
+    """`weft graph show`, for a person.
+
+    **The sentence this task exists for**: *a corpus holding two schemas is a fact this prints,
+    never a silence.* Every entry in `schemas_in_corpus` is printed, the untagged one included,
+    never only the active identity.
     """
     typed = cast(GraphShowResult, result)
     lines: list[str] = []
@@ -404,10 +463,11 @@ def bridges_as_question_toml(bridges: Sequence[Bridge]) -> str:
 
 
 def render_graph_bridges(result: object) -> Rendered:
-    """`weft graph bridges`, for a person — the vector ceiling before the path, for every bridge,
-    because a reader who meets the path first has already been told the graph found something;
-    the ceiling is what says the vector baseline could not have. See the module docstring's
-    `bridges` paragraph.
+    """`weft graph bridges`, for a person.
+
+    The vector ceiling before the path, for every bridge, because a reader who meets the path first
+    has already been told the graph found something; the ceiling is what says the vector baseline
+    could not have. See the module docstring's `bridges` paragraph.
     """
     typed = cast(GraphBridgesResult, result)
     lines = [f"{len(typed.bridges)} bridge(s) found among {typed.relations_examined} relation(s)"]

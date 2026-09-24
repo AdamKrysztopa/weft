@@ -123,15 +123,45 @@ class GraphTraversal(Protocol):
         #: the class body, so it never joins `__protocol_attrs__`.
         version: ClassVar[str]
 
-    async def entities_by_name(self, names: Sequence[str]) -> tuple[Entity, ...]: ...
+    async def entities_by_name(self, names: Sequence[str]) -> tuple[Entity, ...]:
+        """Resolve surface forms to the distinct canonical entities they currently name.
+
+        Args:
+            names: The surface forms to look up.
+
+        Returns:
+            Each distinct entity any of `names` resolves to; a name that resolves to nothing
+            contributes nothing.
+        """
+        ...
 
     async def nodes_for_entities(
         self, entity_ids: Sequence[EntityId]
-    ) -> Mapping[EntityId, tuple[NodeId, ...]]: ...
+    ) -> Mapping[EntityId, tuple[NodeId, ...]]:
+        """Map each held entity to the nodes that mention it.
+
+        Args:
+            entity_ids: The entities to look up.
+
+        Returns:
+            One key per requested id this backend holds — an id it does not hold is absent,
+            never a key mapping to `()`.
+        """
+        ...
 
     async def neighbourhood(
         self, entity_ids: Sequence[EntityId], *, hops: int
-    ) -> Mapping[EntityId, tuple[Entity, ...]]: ...
+    ) -> Mapping[EntityId, tuple[Entity, ...]]:
+        """Every entity reachable from each seed within `hops` relation edges.
+
+        Args:
+            entity_ids: The seeds to walk from.
+            hops: The most relation edges a walk may cross.
+
+        Returns:
+            Each seed mapped to the entities within reach of it, the seed itself excluded.
+        """
+        ...
 
 
 GraphTraversal.version = GRAPH_TRAVERSAL_CONTRACT_VERSION

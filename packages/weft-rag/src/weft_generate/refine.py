@@ -83,10 +83,10 @@ from weft_generate.page import page_for
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsRequest
 from weft_kernel.context import Context
-from weft_kernel.payload import ExtModel, Node, Outcome, Produced, SourceId
+from weft_kernel.payload import ExtModel, Node, NodeId, Outcome, Produced, SourceId
 from weft_kernel.runner import Stage
 from weft_llm.contract import LLM, LLMRole
-from weft_llm.payload import OnFailure
+from weft_llm.payload import Completion, OnFailure
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import Retriever, StageLookup, SubPlugin, Sufficiency
 from weft_retrieve.payload import (
@@ -156,10 +156,12 @@ def refinement_stop(
 
 
 class RefinementTrace(ExtModel):
-    """Why and after how many rounds `refine-on-uncertainty` returned its draft — attached to
-    the returned `Answer.ext`, the same no-span-in-a-plugin convention `weft_retrieve.
-    iterative.IterativeRetrievalTrace` and `weft_retrieve.corrective.CorrectiveTrace` already
-    carry: spans are the registration seam's concern, not a plugin's.
+    """Why and after how many rounds `refine-on-uncertainty` returned its draft.
+
+    Attached to the returned `Answer.ext`, the same no-span-in-a-plugin convention
+    `weft_retrieve.iterative.IterativeRetrievalTrace` and
+    `weft_retrieve.corrective.CorrectiveTrace` already carry: spans are the registration seam's
+    concern, not a plugin's.
     """
 
     __namespace__ = "weft-generate"
@@ -215,9 +217,10 @@ class RefineOnUncertaintyConfig(BaseModel):
 
 
 class RefineOnUncertainty:
-    """Drafts, asks a named signal whether the draft is confident, and — if not — retrieves
-    once more and redrafts, up to `max_rounds` extra times. Satisfies `weft_generate.
-    contract.Generator` structurally.
+    """Drafts, asks a named signal whether the draft is confident, and if not, tries again.
+
+    Retrieves once more and redrafts, up to `max_rounds` extra times. Satisfies
+    `weft_generate.contract.Generator` structurally.
 
     `cost_bound = (2, 4)` — see the module docstring's own arithmetic.
     """
@@ -229,10 +232,12 @@ class RefineOnUncertainty:
         self._config = config if config is not None else RefineOnUncertaintyConfig()
 
     async def run(self, payload: Passages, ctx: Context) -> Outcome[Answer]:
-        """Draft under `origin` alone at every round, never a derived query — the obligation
-        every plugin closing the query path carries (`weft_retrieve.payload.QuerySet.
-        origin`'s own docstring). The `QuerySet` built for a low-confidence round is what
-        searches; the `Answer` returned is always built with `payload.origin`.
+        """Draft under `origin` alone at every round, never a derived query.
+
+        The obligation every plugin closing the query path carries
+        (`weft_retrieve.payload.QuerySet.origin`'s own docstring). The `QuerySet` built for a
+        low-confidence round is what searches; the `Answer` returned is always built with
+        `payload.origin`.
         """
         llm = ctx.require(LLM)
         lookup = ctx.require(StageLookup)
@@ -254,15 +259,7 @@ class RefineOnUncertainty:
 
         for round_number in range(1, self._config.max_rounds + 2):
             offered = current.best_ranked(self._config.max_passages)
-            rendered = await draft_prompt.render(
-                AnswerWithCitationsRequest(question=payload.origin.text, passages=_offer(offered)),
-                ctx,
-            )
-            if not isinstance(rendered, Produced):
-                # A prompt with nothing to ask is relayed exactly as it answered — the same
-                # rule every generator in this pack takes.
-                return rendered
-            completion = await llm.complete(rendered.value, role=self._config.role, ctx=ctx)
+            completion = await self._draft(draft_prompt, llm, payload, offered, ctx)
             if not isinstance(completion, Produced):
                 return completion
             text = completion.value.text
@@ -291,8 +288,7 @@ class RefineOnUncertainty:
                 # never synthesised into an empty round and continued past, the same rule
                 # `weft_retrieve.iterative.IterativeRetrieval.run` states for its own leaf.
                 return retrieved
-            fresh = tuple(hit for ranked in retrieved.value.lists for hit in ranked.hits)
-            new = tuple(hit for hit in fresh if hit.node.id not in seen_ids)
+            new = _unseen(retrieved.value, seen_ids)
             if not new:
                 reason = RefinementStop.NO_NEW_EVIDENCE
                 break
@@ -317,12 +313,38 @@ class RefineOnUncertainty:
             )
         )
 
+    async def _draft(
+        self,
+        draft_prompt: Prompt,
+        llm: LLM,
+        payload: Passages,
+        offered: tuple[Passage, ...],
+        ctx: Context,
+    ) -> Outcome[Completion]:
+        """One round's draft over `offered`, or the outcome that stopped it."""
+        rendered = await draft_prompt.render(
+            AnswerWithCitationsRequest(question=payload.origin.text, passages=_offer(offered)),
+            ctx,
+        )
+        if not isinstance(rendered, Produced):
+            # A prompt with nothing to ask is relayed exactly as it answered — the same
+            # rule every generator in this pack takes.
+            return rendered
+        return await llm.complete(rendered.value, role=self._config.role, ctx=ctx)
+
+
+def _unseen(candidates: Candidates, seen_ids: set[NodeId]) -> tuple[Passage, ...]:
+    """Every hit in `candidates` whose node no earlier round offered, in list order."""
+    fresh = tuple(hit for ranked in candidates.lists for hit in ranked.hits)
+    return tuple(hit for hit in fresh if hit.node.id not in seen_ids)
+
 
 def _next_round(payload: Passages, missing: tuple[str, ...]) -> QuerySet:
-    """The `QuerySet` a low-confidence round searches with — one derived `Query` built from
-    what the signal said was missing, the same replacement `weft_retrieve.iterative.
-    _next_round`'s own docstring states for a trained query generator: reading a fact the
-    signal already computed rather than a second model call.
+    """The `QuerySet` a low-confidence round searches with.
+
+    One derived `Query` built from what the signal said was missing, the same replacement
+    `weft_retrieve.iterative._next_round`'s own docstring states for a trained query generator:
+    reading a fact the signal already computed rather than a second model call.
     """
     text = "; ".join(missing) if missing else payload.origin.text
     derived = Query(
@@ -336,11 +358,13 @@ def _next_round(payload: Passages, missing: tuple[str, ...]) -> QuerySet:
 
 
 def _merge_passages(current: Passages, new: tuple[Passage, ...]) -> Passages:
-    """`current`'s own passages, plus `new`, relabelled from `1` so every passage the next
-    round's draft can cite has a label unique across the merged set — the same `str(position
-    + 1)` labelling `weft_retrieve.repack.Repack`'s own packer assigns, applied here because a
-    retrieval round changes *how many* passages there are, not just their order. Ranks are
-    kept, and `new` ranks after all of them, so `Passages.best_ranked` still reads the best.
+    """`current`'s own passages, plus `new`, relabelled from `1`.
+
+    Relabelled so every passage the next round's draft can cite has a label unique across the merged
+    set — the same `str(position + 1)` labelling `weft_retrieve.repack.Repack`'s own packer assigns,
+    applied here because a retrieval round changes *how many* passages there are, not just their
+    order. Ranks are kept, and `new` ranks after all of them, so `Passages.best_ranked` still reads
+    the best.
     """
     after = max((passage.rank for passage in current.passages), default=-1) + 1
     combined = current.passages + tuple(
@@ -364,9 +388,11 @@ def _merge_passages(current: Passages, new: tuple[Passage, ...]) -> Passages:
 
 
 def _offer(passages: tuple[Passage, ...]) -> str:
-    """The offered evidence as one string, numbered by each passage's own `label` — the same
-    shape `weft_generate.cited_answer._offer` and `weft_generate.contradiction._offer` build,
-    restated here rather than imported for the reason both those modules' own docstrings give.
+    """The offered evidence as one string, numbered by each passage's own `label`.
+
+    The same shape `weft_generate.cited_answer._offer` and `weft_generate.contradiction._offer`
+    build, restated here rather than imported for the reason both those modules' own docstrings
+    give.
     """
     if not passages:
         return ""
@@ -376,8 +402,9 @@ def _offer(passages: tuple[Passage, ...]) -> str:
 async def _citations_for(
     offered: tuple[Passage, ...], *, text: str, ctx: Context
 ) -> tuple[Citation, ...]:
-    """One `Citation` per offered passage whose own bracketed label appears in `text` — a
-    literal substring search, the same one `weft_generate.cited_answer._citations_for`
+    """One `Citation` per offered passage whose own bracketed label appears in `text`.
+
+    A literal substring search, the same one `weft_generate.cited_answer._citations_for`
     performs, restated here for the same small-plugin-local-duplication reason.
     """
     cited = [
@@ -410,8 +437,9 @@ async def _uris_for(
 
 
 def _source_id(node: Node) -> SourceId | None:
-    """`node`'s one source, or `None` when it has none or more than one to choose from — see
-    `weft_generate.cited_answer._source_id`'s own docstring for the two cases this refuses to
+    """`node`'s one source, or `None` when it has none or more than one to choose from.
+
+    See `weft_generate.cited_answer._source_id`'s own docstring for the two cases this refuses to
     guess between.
     """
     sources = node.lineage.sources

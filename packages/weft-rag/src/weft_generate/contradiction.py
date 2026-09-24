@@ -78,8 +78,9 @@ NAME = "contradiction-check"
 
 
 class Agreement(ExtModel):
-    """Whether the offered sources agree, attached to `Answer.ext` under this pack's own
-    namespace rather than growing two fields on a type eleven other techniques share —
+    """Whether the offered sources agree, attached to `Answer.ext` under this pack's namespace.
+
+    Attached there rather than growing two fields on a type eleven other techniques share —
     `.phase2-design.md` §2's own recorded reason for `ext` existing at all.
 
     `status`, `agreed` and `conflicts` are exactly `ContradictionCritique`'s own three
@@ -132,8 +133,10 @@ class ContradictionCheckConfig(BaseModel):
 
 
 class ContradictionCheck:
-    """Asks whether the offered passages agree, then answers with agreement and conflict
-    separated and cited. Satisfies `weft_generate.contract.Generator` structurally.
+    """Asks whether the offered passages agree, then answers with agreement and conflict apart.
+
+    Agreement and conflict are separated and cited. Satisfies `weft_generate.contract.Generator`
+    structurally.
 
     `cost_bound = (2, 2)` — see the module docstring's "no skip path".
     """
@@ -145,8 +148,10 @@ class ContradictionCheck:
         self._config = config if config is not None else ContradictionCheckConfig()
 
     async def run(self, payload: Passages, ctx: Context) -> Outcome[Answer]:
-        """Critique, then answer under `origin` alone — never a derived query, the same
-        obligation every plugin that closes the query path carries.
+        """Critique, then answer under `origin` alone.
+
+        Never a derived query, the same obligation every plugin that closes the query path
+        carries.
         """
         offered = payload.best_ranked(self._config.max_passages)
         llm = ctx.require(LLM)
@@ -219,8 +224,9 @@ class ContradictionCheck:
 
 
 def _findings_text(critique: ContradictionCritique) -> str:
-    """`critique` as the block `contradiction-answer`'s own prompt reads — see
-    `weft_generate.prompts.ContradictionAnswerRequest.findings`.
+    """`critique` as the block `contradiction-answer`'s own prompt reads.
+
+    See `weft_generate.prompts.ContradictionAnswerRequest.findings`.
 
     Rendered even for the failure fallback, so the final answer's own instruction ("tell
     the reader plainly") has something honest to work from rather than an empty string
@@ -243,9 +249,10 @@ def _findings_text(critique: ContradictionCritique) -> str:
 
 
 def _offer(passages: tuple[Passage, ...]) -> str:
-    """The offered evidence as one string, numbered by each passage's own `label` — the
-    same shape `weft_generate.cited_answer._offer` builds, for the same prompts-cannot-
-    iterate reason `weft_generate.prompts`'s own module docstring states.
+    """The offered evidence as one string, numbered by each passage's own `label`.
+
+    The same shape `weft_generate.cited_answer._offer` builds, for the same
+    prompts-cannot-iterate reason `weft_generate.prompts`'s own module docstring states.
     """
     if not passages:
         return ""
@@ -255,8 +262,9 @@ def _offer(passages: tuple[Passage, ...]) -> str:
 async def _citations_for(
     offered: tuple[Passage, ...], *, text: str, ctx: Context
 ) -> tuple[Citation, ...]:
-    """One `Citation` per offered passage whose own bracketed label appears in `text` — a
-    literal substring search, the same one `weft_generate.cited_answer._citations_for`
+    """One `Citation` per offered passage whose own bracketed label appears in `text`.
+
+    A literal substring search, the same one `weft_generate.cited_answer._citations_for`
     performs, restated here rather than imported for the reason the module docstring gives.
     """
     cited = [
@@ -289,8 +297,9 @@ async def _uris_for(
 
 
 def _source_id(node: Node) -> SourceId | None:
-    """`node`'s one source, or `None` when it has none or more than one to choose from —
-    the same rule `weft_generate.cited_answer._source_id` states, for the same reason.
+    """`node`'s one source, or `None` when it has none or more than one to choose from.
+
+    The same rule `weft_generate.cited_answer._source_id` states, for the same reason.
     """
     sources = node.lineage.sources
     return next(iter(sources)) if len(sources) == 1 else None

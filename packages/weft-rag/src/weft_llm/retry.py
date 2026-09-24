@@ -90,6 +90,20 @@ class RetryingProvider:
     async def complete(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Complete `conv` through the wrapped provider, re-attempting transient failures.
+
+        Args:
+            conv: The conversation to complete.
+            model: The model name passed through to the wrapped provider.
+            ctx: The run context passed through to the wrapped provider.
+
+        Returns:
+            The wrapped provider's first successful outcome.
+
+        Raises:
+            LLMError: The first permanent failure, or the last transient one once the policy's
+                attempts are spent.
+        """
         last: LLMError | None = None
         for attempt in range(1, self._policy.attempts + 1):
             delay = self._policy.delay_seconds(attempt)
@@ -107,6 +121,20 @@ class RetryingProvider:
         raise last
 
     async def stream(self, conv: Conversation, *, model: str, ctx: Context) -> AsyncIterator[str]:
+        """Stream `conv` through the wrapped provider, re-attempting only before the first chunk.
+
+        Args:
+            conv: The conversation to complete.
+            model: The model name passed through to the wrapped provider.
+            ctx: The run context passed through to the wrapped provider.
+
+        Yields:
+            The wrapped provider's chunks, from the first attempt that succeeds.
+
+        Raises:
+            LLMError: A failure after a chunk was yielded, a permanent failure, or the last
+                transient one once the policy's attempts are spent.
+        """
         last: LLMError | None = None
         for attempt in range(1, self._policy.attempts + 1):
             delay = self._policy.delay_seconds(attempt)
@@ -117,11 +145,12 @@ class RetryingProvider:
                 async for chunk in self._inner.stream(conv, model=model, ctx=ctx):
                     yielded = True
                     yield chunk
-                return
             except LLMError as error:
                 if yielded or not error.transient:
                     raise
                 last = error
+            else:
+                return
         assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
         raise last
 
@@ -149,6 +178,21 @@ class RetryingNativeStructuredProvider(RetryingProvider):
     async def complete_structured(
         self, conv: Conversation, schema: Mapping[str, object], *, model: str, ctx: Context
     ) -> Outcome[Completion]:
+        """Complete `conv` against `schema` natively, re-attempting transient failures.
+
+        Args:
+            conv: The conversation to complete.
+            schema: The JSON schema the completion must satisfy.
+            model: The model name passed through to the wrapped provider.
+            ctx: The run context passed through to the wrapped provider.
+
+        Returns:
+            The wrapped provider's first successful outcome.
+
+        Raises:
+            LLMError: The first permanent failure, or the last transient one once the policy's
+                attempts are spent.
+        """
         last: LLMError | None = None
         for attempt in range(1, self._policy.attempts + 1):
             delay = self._policy.delay_seconds(attempt)
@@ -181,6 +225,20 @@ class RetryingUsageReportingProvider(RetryingProvider):
     async def stream_reporting_usage(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> AsyncIterator[str | TokenUsage]:
+        """Stream `conv` with its token usage, re-attempting only before the first item.
+
+        Args:
+            conv: The conversation to complete.
+            model: The model name passed through to the wrapped provider.
+            ctx: The run context passed through to the wrapped provider.
+
+        Yields:
+            The wrapped provider's chunks and usage, from the first attempt that succeeds.
+
+        Raises:
+            LLMError: A failure after an item was yielded, a permanent failure, or the last
+                transient one once the policy's attempts are spent.
+        """
         last: LLMError | None = None
         for attempt in range(1, self._policy.attempts + 1):
             delay = self._policy.delay_seconds(attempt)
@@ -193,18 +251,20 @@ class RetryingUsageReportingProvider(RetryingProvider):
                 ):
                     yielded = True
                     yield item
-                return
             except LLMError as error:
                 if yielded or not error.transient:
                     raise
                 last = error
+            else:
+                return
         assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
         raise last
 
 
 class RetryingNativeStructuredUsageReportingProvider(RetryingNativeStructuredProvider):
-    """`RetryingNativeStructuredProvider` for a provider that also satisfies `UsageReporting`
-    — the fourth combination `with_retry` selects among, for a provider offering both.
+    """`RetryingNativeStructuredProvider` for a provider that also satisfies `UsageReporting`.
+
+    The fourth combination `with_retry` selects among, for a provider offering both.
     """
 
     def __init__(self, inner: NativeStructured, policy: RetryPolicy) -> None:
@@ -214,6 +274,20 @@ class RetryingNativeStructuredUsageReportingProvider(RetryingNativeStructuredPro
     async def stream_reporting_usage(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> AsyncIterator[str | TokenUsage]:
+        """Stream `conv` with its token usage, re-attempting only before the first item.
+
+        Args:
+            conv: The conversation to complete.
+            model: The model name passed through to the wrapped provider.
+            ctx: The run context passed through to the wrapped provider.
+
+        Yields:
+            The wrapped provider's chunks and usage, from the first attempt that succeeds.
+
+        Raises:
+            LLMError: A failure after an item was yielded, a permanent failure, or the last
+                transient one once the policy's attempts are spent.
+        """
         last: LLMError | None = None
         for attempt in range(1, self._policy.attempts + 1):
             delay = self._policy.delay_seconds(attempt)
@@ -226,11 +300,12 @@ class RetryingNativeStructuredUsageReportingProvider(RetryingNativeStructuredPro
                 ):
                     yielded = True
                     yield item
-                return
             except LLMError as error:
                 if yielded or not error.transient:
                     raise
                 last = error
+            else:
+                return
         assert last is not None  # noqa: S101 - narrowing only; `attempts >= 1` makes it true
         raise last
 

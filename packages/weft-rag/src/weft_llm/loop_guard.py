@@ -62,8 +62,9 @@ from pydantic import BaseModel, ConfigDict, Field
 #: Weft's own evaluation harness is Phase 4's job, not this task's — see each field's own
 #: comment for why its particular value was chosen, not only what it is.
 class LoopGuardConfig(BaseModel):
-    """How aggressively `detect_generation_loop` looks for a repeating tail, and how it tells
-    a repeating markdown table apart from one.
+    """How aggressively `detect_generation_loop` looks for a repeating tail.
+
+    Also how it tells a repeating markdown table apart from one.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -206,11 +207,12 @@ def _alphanumeric_ratio(line: str) -> float:
 
 
 def _has_repeating_tail(text: str, *, config: LoopGuardConfig) -> bool:
-    """Whether some period from `config.min_period` up to `config.max_period` shows the tail
-    of `text` repeating itself: high positional similarity between two consecutive windows of
-    that length, and low character-n-gram diversity across the two of them combined — both,
-    per the module docstring's worked pair, or ordinary prose that reuses a phrase once would
-    trip this too.
+    """Whether the tail of `text` repeats itself at some period in `config`'s range.
+
+    Some period from `config.min_period` up to `config.max_period` shows it when there is high
+    positional similarity between two consecutive windows of that length, and low character-n-gram
+    diversity across the two of them combined — both, per the module docstring's worked pair, or
+    ordinary prose that reuses a phrase once would trip this too.
     """
     for period in _candidate_periods(config):
         window_length = period * 2
@@ -226,12 +228,13 @@ def _has_repeating_tail(text: str, *, config: LoopGuardConfig) -> bool:
 
 
 def _candidate_periods(config: LoopGuardConfig) -> Iterator[int]:
-    """Every period `_has_repeating_tail` checks: walked one at a time from `min_period` up to
-    the fuzzy floor, then sampled every `config.fuzzy_step` characters above it — see
-    `LoopGuardConfig.fuzzy_step`'s own comment for why the sampled half is what keeps the
-    cumulative-text contract affordable. Below the floor a full walk is still cheap, because
-    the floor itself is small; skipping straight to a stepped search for the whole range would
-    let a short repeating period slip between two sampled points.
+    """Every period `_has_repeating_tail` checks.
+
+    Walked one at a time from `min_period` up to the fuzzy floor, then sampled every
+    `config.fuzzy_step` characters above it — see `LoopGuardConfig.fuzzy_step`'s own comment for why
+    the sampled half is what keeps the cumulative-text contract affordable. Below the floor a full
+    walk is still cheap, because the floor itself is small; skipping straight to a stepped search
+    for the whole range would let a short repeating period slip between two sampled points.
     """
     fuzzy_floor = max(config.min_period, config.min_text_length)
     yield from range(config.min_period, min(fuzzy_floor, config.max_period + 1))
@@ -239,9 +242,10 @@ def _candidate_periods(config: LoopGuardConfig) -> Iterator[int]:
 
 
 def _positional_similarity(earlier: str, recent: str) -> float:
-    """A cheap stand-in for edit distance: the fraction of positions where two equal-length
-    windows agree — exact character alignment rather than an alignment-tolerant distance,
-    because this runs once per token.
+    """A cheap stand-in for edit distance between two equal-length windows.
+
+    The fraction of positions where the two windows agree — exact character alignment rather than an
+    alignment-tolerant distance, because this runs once per token.
     """
     if not earlier or not recent:
         return 0.0
