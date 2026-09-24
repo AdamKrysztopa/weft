@@ -31,6 +31,7 @@ for `Edit`, current-disk-content vs new `content` for `Write`), never a bare "th
   6. `pyproject.toml` (or a `ruff.toml`/`pyrightconfig.json`) loses a `ruff.lint.select` entry,
      moves `typeCheckingMode` toward a weaker setting, or moves a `report*` rule to `"none"`/
      `false`.
+  7. `.pre-commit-config.yaml` loses a hook `id:` it had.
 
 Each detector is a textual heuristic, not a TOML or Python parser — deliberately, because this
 hook coaches an agent's behaviour, it does not replace `ci-checks` as the actual enforcement.
@@ -63,10 +64,19 @@ blocked if `guard_readonly.py` also denies it. `_ASK_IS_SUPPORTED` below is the 
 back to `False` — falling back to `deny` with the same human-directed reason — should a future
 harness revision drop `ask` for this event.
 
-**Known blind spot, stated rather than hidden:** this is a `PreToolUse` hook on
-`Edit|Write|NotebookEdit`. It cannot see `rm` deleting a whole `tests/architecture/` file — no
-tool call passes through this matcher for that. A `Write` that overwrites an existing file with
-materially fewer assertions or `def test_` blocks is still caught by signature 4.
+**A gate file written through `Bash` is read after the fact** (`docs/internal/lessons.md`
+`L28.49`). A per-file-ignore reached `pyproject.toml` through a Python script run by `Bash`, where
+the editing-tool matcher never saw it. So this file is also hooked on `Bash`, from both sides:
+`PreToolUse` snapshots every file `_bash_guarded_files` names, and `PostToolUse` runs the same
+signatures over each one the command changed — a deleted architecture test included, which
+signature 4 reads as every assertion gone. A command cannot be judged before it writes, so a
+finding there always blocks with a reason telling the agent to put the file back; it never
+escalates to `ask` and never restores the file itself. A gate change that is genuinely wanted goes
+through `Edit`, which is where the owner is asked. **A command that exits non-zero reaches
+`PostToolUseFailure`, not `PostToolUse`** (measured 2026-09-24: its snapshot was never consumed).
+`main` handles that event too, but it reaches this file only if `.claude/settings.json` registers
+it for `Bash`. Where it does not, a gate written by a failing command goes unread, and its
+snapshot is pruned after `_SNAPSHOT_MAX_AGE_SECONDS`.
 
 A corrupt or unreadable `.gate-attempts.json`, or a malformed stdin payload, must never crash this
 hook — a hook that raises blocks every edit in the session, which is a far worse failure than one
@@ -84,10 +94,13 @@ an annotation. This is a constraint of where the file runs, not a stylistic depa
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import re
 import sys
+import tempfile
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -121,6 +134,13 @@ _TYPE_CHECKING_RANK: Final[dict[str, int]] = {"off": 0, "basic": 1, "standard": 
 _LINT_TYPE_CONFIG_NAMES: Final[frozenset[str]] = frozenset(
     {"pyproject.toml", "ruff.toml", ".ruff.toml", "pyrightconfig.json"}
 )
+
+_PRE_COMMIT_CONFIG: Final[str] = ".pre-commit-config.yaml"
+_BASH_GUARDED_ROOT_FILES: Final[frozenset[str]] = _LINT_TYPE_CONFIG_NAMES | {_PRE_COMMIT_CONFIG}
+_SNAPSHOT_DIR: Final[Path] = Path(tempfile.gettempdir()) / "weft-gate-snapshots"
+_SNAPSHOT_MAX_AGE_SECONDS: Final[int] = 3600
+_AFTER_EVENTS: Final[frozenset[str]] = frozenset({"PostToolUse", "PostToolUseFailure"})
+_HOOK_ID_RE: Final[re.Pattern[str]] = re.compile(r"(?m)^[ \t-]*id:\s*([^\s#]+)")
 
 _WAIVER_KEYWORDS: Final[tuple[str, ...]] = (
     "waiver",
@@ -478,6 +498,19 @@ def _report_rules_loosened(old_text: str, new_text: str) -> list[str]:
     return problems
 
 
+# --- signature 7: .pre-commit-config.yaml loses a hook -----------------------------------------
+
+
+def _pre_commit_lost_a_hook(path: Path, old_text: str, new_text: str) -> _Finding | None:
+    if path.name != _PRE_COMMIT_CONFIG:
+        return None
+    remaining = set(_HOOK_ID_RE.findall(new_text))
+    lost = sorted({hook for hook in _HOOK_ID_RE.findall(old_text) if hook not in remaining})
+    if not lost:
+        return None
+    return "pre_commit", f"pre-commit lost hook(s) {lost}"
+
+
 _SIGNATURES: Final[tuple[_Detector, ...]] = (
     _waiver_gained_entries,
     _budget_grew,
@@ -485,7 +518,16 @@ _SIGNATURES: Final[tuple[_Detector, ...]] = (
     _assertions_or_tests_disappeared,
     _composite_lost_a_step,
     _lint_or_types_loosened,
+    _pre_commit_lost_a_hook,
 )
+
+
+def _findings(target: Path, old_text: str, new_text: str) -> list[_Finding]:
+    return [
+        finding
+        for detector in _SIGNATURES
+        if (finding := detector(target, old_text, new_text)) is not None
+    ]
 
 
 # --- payload extraction --------------------------------------------------------------------
@@ -612,41 +654,21 @@ def _fallback_reason(findings: list[_Finding], count: int, target: Path) -> str:
     )
 
 
-def main() -> int:
-    """Deny, then escalate to the human, an edit that weakens a quality gate.
+def _session_id(payload: dict[str, object]) -> str:
+    session_id = payload.get("session_id")
+    return session_id if isinstance(session_id, str) and session_id else "unknown-session"
 
-    Returns:
-        Always 0: the decision travels as `hookSpecificOutput` JSON on stdout.
-    """
-    try:
-        payload = json.load(sys.stdin)
-    except json.JSONDecodeError:
-        return 0
-    if not isinstance(payload, dict):
-        return 0
 
-    tool_name = payload.get("tool_name")
-    tool_input = payload.get("tool_input")
-    if tool_name not in {"Edit", "Write", "NotebookEdit"} or not isinstance(tool_input, dict):
-        return 0
-
+def _guard_edit(payload: dict[str, object], tool_name: str, tool_input: dict[str, object]) -> None:
     extracted = _extract_edit(tool_name, tool_input)
     if extracted is None:
-        return 0
+        return
     target, old_text, new_text = extracted
-
-    findings = [
-        finding
-        for detector in _SIGNATURES
-        if (finding := detector(target, old_text, new_text)) is not None
-    ]
+    findings = _findings(target, old_text, new_text)
     if not findings:
-        return 0
+        return
 
-    session_id = payload.get("session_id")
-    session_id = session_id if isinstance(session_id, str) and session_id else "unknown-session"
-    count, limit = _record_attempt(session_id, target)
-
+    count, limit = _record_attempt(_session_id(payload), target)
     if count < limit:
         decision, reason = "deny", _coach_reason(findings, count, limit)
     elif _ASK_IS_SUPPORTED:
@@ -665,6 +687,134 @@ def main() -> int:
             }
         )
     )
+
+
+# --- Bash: snapshot before, compare after -----------------------------------------------------
+
+
+def _bash_guarded_files() -> dict[str, str]:
+    paths = [REPO / name for name in sorted(_BASH_GUARDED_ROOT_FILES)]
+    paths.extend(sorted((REPO / _ARCHITECTURE_TESTS).rglob("*.py")))
+    return {_relative(path): _read_existing(path) for path in paths if path.is_file()}
+
+
+def _snapshot_path(payload: dict[str, object]) -> Path:
+    key = payload.get("tool_use_id")
+    if not (isinstance(key, str) and key):
+        tool_input = payload.get("tool_input")
+        command = tool_input.get("command") if isinstance(tool_input, dict) else None
+        digest = hashlib.sha256(str(command).encode("utf-8")).hexdigest()[:16]
+        key = f"{_session_id(payload)}-{digest}"
+    return _SNAPSHOT_DIR / f"{re.sub(r'[^A-Za-z0-9_-]', '_', key)}.json"
+
+
+def _take_snapshot(payload: dict[str, object]) -> None:
+    # a snapshot that cannot be written costs one missed comparison — never a blocked command
+    with contextlib.suppress(OSError):
+        _write_snapshot(_snapshot_path(payload), _bash_guarded_files())
+
+
+def _write_snapshot(target: Path, files: dict[str, str]) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # a command another PreToolUse hook refuses never reaches PostToolUse, stranding ~800 KB
+    stale_before = time.time() - _SNAPSHOT_MAX_AGE_SECONDS
+    for stale in target.parent.glob("*.json"):
+        with contextlib.suppress(OSError):
+            _unlink_if_older(stale, stale_before)
+    target.write_text(json.dumps(files), encoding="utf-8")
+
+
+def _unlink_if_older(path: Path, cutoff: float) -> None:
+    if path.stat().st_mtime < cutoff:
+        path.unlink()
+
+
+def _pop_snapshot(payload: dict[str, object]) -> dict[str, str] | None:
+    target = _snapshot_path(payload)
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    with contextlib.suppress(OSError):
+        target.unlink()
+    if not isinstance(data, dict):
+        return None
+    return {str(rel): text for rel, text in data.items() if isinstance(text, str)}
+
+
+def _bash_findings(before: dict[str, str]) -> dict[str, list[_Finding]]:
+    after = _bash_guarded_files()
+    found: dict[str, list[_Finding]] = {}
+    for rel in sorted(set(before) | set(after)):
+        old_text, new_text = before.get(rel, ""), after.get(rel, "")
+        if old_text == new_text:
+            continue
+        findings = _findings(REPO / rel, old_text, new_text)
+        if findings:
+            found[rel] = findings
+    return found
+
+
+def _bash_reason(found: dict[str, list[_Finding]], session_id: str) -> str:
+    parts: list[str] = []
+    for rel, findings in found.items():
+        count, _ = _record_attempt(session_id, REPO / rel)
+        detail = " | ".join(text for _, text in findings)
+        parts.append(f"{rel} (attempt {count} this session): {detail}")
+    return (
+        "Quality-gate guard, after a Bash command: it weakened a quality gate — "
+        + "; ".join(parts)
+        + ". The change is already on disk. Put each file back to what it was before this "
+        "command (`git diff` shows it) and fix the code the gate is failing on instead. If the "
+        "gate is genuinely wrong, make the change with the Edit tool, where it reaches the "
+        "owner — never through a shell command (docs/internal/lessons.md L28.49)."
+    )
+
+
+def _guard_bash_after(payload: dict[str, object]) -> None:
+    before = _pop_snapshot(payload)
+    if before is None:
+        return
+    found = _bash_findings(before)
+    if not found:
+        return
+    reason = _bash_reason(found, _session_id(payload))
+    event = payload.get("hook_event_name")
+    # a command that exits non-zero reaches PostToolUseFailure, which takes context, not a block
+    if event == "PostToolUseFailure":
+        output = {"hookSpecificOutput": {"hookEventName": event, "additionalContext": reason}}
+    else:
+        output = {"decision": "block", "reason": reason}
+    print(json.dumps(output))
+
+
+def main() -> int:
+    """Deny, then escalate to the human, an edit that weakens a quality gate.
+
+    `Edit`, `Write` and `NotebookEdit` are judged before they land. `Bash` is snapshotted on
+    `PreToolUse` and judged on `PostToolUse`, because what a command writes is known only once
+    it has run.
+
+    Returns:
+        Always 0: the decision travels as JSON on stdout.
+    """
+    try:
+        payload = json.load(sys.stdin)
+    except json.JSONDecodeError:
+        return 0
+    if not isinstance(payload, dict):
+        return 0
+
+    tool_name = payload.get("tool_name")
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return 0
+    if tool_name == "Bash" and payload.get("hook_event_name") in _AFTER_EVENTS:
+        _guard_bash_after(payload)
+    elif tool_name == "Bash":
+        _take_snapshot(payload)
+    elif tool_name in {"Edit", "Write", "NotebookEdit"}:
+        _guard_edit(payload, tool_name, tool_input)
     return 0
 
 
