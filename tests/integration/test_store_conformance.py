@@ -103,6 +103,8 @@ from weft_store.conformance import (
     check_a_generation_bound_again_sees_and_extends_what_was_written,
     check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name,
     check_a_handle_keeps_the_generations_it_read_when_it_opened,
+    check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads,
+    check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes,
     check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext,
     check_a_node_shared_with_a_published_generation_stays_visible,
     check_a_node_two_documents_each_produced_whole_is_narrowed_not_deleted,
@@ -930,6 +932,26 @@ async def test_carrying_a_node_no_published_generation_holds_is_refused_by_name(
     target_store: GenerationCarryingStore,
 ) -> None:
     await check_carrying_a_node_no_published_generation_holds_is_refused_by_name(target_store)
+
+
+# Repair **R43.26** — `target_store` hands back a handle on storage nothing has written, so the
+# check's first read opens it before any node collection exists.
+
+
+async def test_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes(
+        target_store
+    )
+
+
+async def test_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads(
+        target_store
+    )
 
 
 # Ledger task **43.18** — one writer at a time, on `target_store`'s own storage.

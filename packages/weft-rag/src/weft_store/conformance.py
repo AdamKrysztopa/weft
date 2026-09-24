@@ -2400,6 +2400,82 @@ async def check_carrying_a_node_no_published_generation_holds_is_refused_by_name
     )
 
 
+async def check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes(
+    store: GenerationHoldingStore,
+) -> None:
+    """Repair **R43.26**: a handle that read storage before anything was stored, while a handle
+    bound to a generation then stores that generation's members, retracts the generation's nodes
+    along with its record — counted raw, so the manifest cannot hide nodes still held."""
+    # Arrange
+    await store.count()
+    generation = await store.open_generation("summaries")
+    writer = await store.bind_generation(generation.id)
+    await writer.add([_member("delta", (0.0, 0.0, 1.0)), _member("epsilon", (0.0, 0.5, 0.5))])
+    await writer.flush()
+    await store.publish_generation(generation.id)
+
+    # Act
+    removed = await store.retract_generation(generation.id)
+    stored = await (await _next_operation(store)).count()
+
+    # Assert
+    _require(stored == 0, f"a retracted generation's nodes must be gone: {stored} still stored")
+    _require(
+        removed.node_count == 2,
+        f"retract must report the 2 nodes it removed: {removed.node_count}",
+    )
+
+
+async def check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads(
+    store: GenerationHoldingStore,
+) -> None:
+    """Repair **R43.26**: a handle that read storage before anything was stored reads what a
+    bound handle then stored exactly as a fresh handle does, through every read the manifest
+    does not gate — `count`, `scan`, `get`, `get_source` and `list_sources`."""
+    # Arrange
+    await store.count()
+    generation = await store.open_generation("summaries")
+    writer = await store.bind_generation(generation.id)
+    member = _member("delta", (0.0, 0.0, 1.0))
+    record = SourceRecord(
+        id=_SOURCE_A,
+        uri="file:///corpus/a.txt",
+        content_hash="hash-a",
+        indexed_at=datetime.now(UTC),
+        pipeline="conformance",
+    )
+    await writer.add([member])
+    await writer.put_source(record)
+    await writer.flush()
+    fresh = await _next_operation(store)
+
+    # Act
+    first_reads = (
+        await store.count(),
+        await _all(await store.scan()),
+        [node.id for node in await store.get([member.id])],
+        await store.get_source(_SOURCE_A),
+        tuple(await store.list_sources()),
+    )
+    fresh_reads = (
+        await fresh.count(),
+        await _all(await fresh.scan()),
+        [node.id for node in await fresh.get([member.id])],
+        await fresh.get_source(_SOURCE_A),
+        tuple(await fresh.list_sources()),
+    )
+
+    # Assert
+    _require(
+        fresh_reads == (1, frozenset({"delta"}), [member.id], record, (record,)),
+        f"a fresh handle must read the stored node and record: {fresh_reads}",
+    )
+    _require(
+        first_reads == fresh_reads,
+        f"a handle opened before the first store read {first_reads}, a fresh one {fresh_reads}",
+    )
+
+
 def _claim(command: str, pid: int) -> WriterClaim:
     return WriterClaim(
         host="conformance-host", pid=pid, started_at=datetime.now(UTC), command=command

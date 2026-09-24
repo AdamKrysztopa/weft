@@ -244,6 +244,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `weft delete` now marks such a layer `stale` on every remaining source and prints so. `weft
   sources list` and `weft index` show it, the router stops offering its rung, and `weft index
   --layers <name>` rebuilds it. The store contract moves to `2.12.0` for the new `LayerStatus.STALE`.
+- **On Qdrant, a retracted layer generation's nodes are deleted, not just hidden.** A store
+  connection opened before its collection existed remembered that answer. After another
+  connection created the collection, the first one retracted a generation's record but left its
+  nodes stored, and its reads came back empty. It now asks Qdrant again until the collection
+  exists.
 - **A reader sees one tree per layer while a rebuild is published.** A query that opened between a
   corpus layer's publish and the retract after it saw the old and the rebuilt summaries together.
   A store now serves, for each layer, only its newest published generation, on pgvector, Qdrant and

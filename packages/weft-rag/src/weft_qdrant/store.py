@@ -691,14 +691,30 @@ class QdrantStore:
             and not self._provisioned
         )
 
-    def _pair_unprovisioned(self) -> bool:
+    async def _pair_unprovisioned(self, client: AsyncQdrantClient) -> bool:
         """Whether this handle's node/source pair does not exist yet — the general form of
         `_candidate_unprovisioned`, widened at **R43.2** to include `default` before its first
         write: every read reaching this must answer empty rather than touch Qdrant, and every
         write reaching it must provision first. See `_candidate_unprovisioned` for why
         `claim_embedding` keeps asking the narrower question instead.
+
+        `self._provisioned` is only what `_connection` saw, so a `False` is asked of Qdrant again
+        (**R43.26**): another handle — one bound to a generation, say — may have created the pair
+        since, and a stale answer here made this handle read nothing and retract nothing. A pair
+        never goes away while a handle holds it, so a `True` is kept for the handle's lifetime,
+        with the committed width `_connection` would have read had the pair been there.
         """
-        return self._active_target is not None and not self._provisioned
+        if self._active_target is None or self._provisioned:
+            return False
+        if not await client.collection_exists(self._nodes):
+            return True
+        self._vector_width = (
+            self._settings.vector_size
+            if self._active_target == DEFAULT_TARGET
+            else await self._read_committed_width(client)
+        )
+        self._provisioned = True
+        return False
 
     def _require_active_target(self) -> TargetName:
         """`self._active_target`, narrowed — same guarantee and the same reason as
@@ -917,7 +933,9 @@ class QdrantStore:
                 generation, valid_options=await self._generation_ids(client)
             )
         node_count = (
-            0 if self._pair_unprovisioned() else await self._retract_from_nodes(client, generation)
+            0
+            if await self._pair_unprovisioned(client)
+            else await self._retract_from_nodes(client, generation)
         )
         await client.delete(
             self._generations_catalogue,
@@ -947,9 +965,7 @@ class QdrantStore:
             record.id for record in catalogue if record.status is GenerationStatus.PUBLISHED
         }
         held: dict[str, list[str]] = {}
-        # Asked of Qdrant rather than `_pair_unprovisioned`: that flag is read once per handle,
-        # and the members being carried were written through other, bound handles.
-        if requested and await client.collection_exists(self._nodes):
+        if requested and not await self._pair_unprovisioned(client):
             records = await client.retrieve(
                 self._nodes,
                 ids=[str(_point_id(node_id)) for node_id in requested],
@@ -1283,7 +1299,7 @@ class QdrantStore:
         if not nodes:
             return
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             # A `default` or a bound, uncatalogued target's first write (`34.5`, point 3;
             # `default`'s case added at **R43.2**). A candidate is sized to the first embedded
             # node this call carries, or `vector_size` when none of them are embedded; `default`
@@ -1404,7 +1420,7 @@ class QdrantStore:
         if not ids:
             return ()
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             # `default` or a bound, uncatalogued target — `34.5`, point 3, widened to `default`
             # at **R43.2**: a read here must not create the pair, and the honest answer is that
             # it holds nothing yet.
@@ -1625,7 +1641,7 @@ class QdrantStore:
         only a corpus larger than a page could reveal.
         """
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             return Page(items=(), next_cursor=None)
         records, offset = await client.scroll(
             self._nodes,
@@ -1642,14 +1658,14 @@ class QdrantStore:
 
     async def count(self) -> int:
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             return 0
         counted = await client.count(self._nodes, exact=True)
         return counted.count
 
     async def put_source(self, record: SourceRecord) -> None:
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             # `default`'s first write, or a bound, uncatalogued target's (`34.5`, point 3;
             # `default`'s case at **R43.2**): `put_source` alone, with no embedded node to
             # measure, always falls back to `vector_size` — which is `default`'s own width too.
@@ -1667,7 +1683,7 @@ class QdrantStore:
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             return None
         records = await client.retrieve(
             self._sources, ids=[str(_point_id(source_id))], with_payload=True
@@ -1683,7 +1699,7 @@ class QdrantStore:
         it is talking to.
         """
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             return ()
         found: list[SourceRecord] = []
         offset: models.ExtendedPointId | None = None
@@ -1707,7 +1723,7 @@ class QdrantStore:
         same thing.
         """
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             return []
         answered = await client.query_points(
             self._nodes,
@@ -1751,7 +1767,7 @@ class QdrantStore:
         if not weights:
             return []
         client = await self._connection()
-        if self._pair_unprovisioned():
+        if await self._pair_unprovisioned(client):
             return []
         query = models.SparseVector(indices=list(weights.keys()), values=list(weights.values()))
         answered = await client.query_points(
