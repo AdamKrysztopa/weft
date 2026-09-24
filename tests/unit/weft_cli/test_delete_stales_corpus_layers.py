@@ -104,7 +104,8 @@ class _State:
 class _Store:
     """`test_corpus_layers`' `_GenerationStore`, registered as a class so `weft delete`'s fan-out
     (which asks `issubclass` of what was registered) counts it as a participant. Every instance
-    reads the one class-held `state`, as every connection to one database would."""
+    reads the one class-held `state`, as every connection to one database would.
+    """
 
     state: ClassVar[_State] = _State()
 
@@ -224,7 +225,8 @@ class _Store:
 
 class _Summary:
     """A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
-    by this stage itself, as `raptor` embeds its own summaries."""
+    by this stage itself, as `raptor` embeds its own summaries.
+    """
 
     calls: ClassVar[list[int]] = []
 
@@ -617,7 +619,8 @@ async def test_a_demotion_that_fails_stops_the_delete_before_anything_is_removed
     corpus: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """R43.33 — a tree is marked before it is holed: a mark that cannot be written leaves the
-    source, its nodes and every tree whole, and the refusal says so and names the retry."""
+    source, its nodes and every tree whole, and the refusal says so and names the retry.
+    """
     # Arrange
     await _index_both(corpus)
     monkeypatch.setattr(_Store, "put_source", _refuse)
@@ -645,7 +648,8 @@ async def test_the_remedy_a_failed_demotion_prints_ends_with_the_layer_rebuilt(
     corpus: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """R43.33 — the retry the refusal prints, then the rebuild the retry prints, run the stage
-    again over what remains and publish a new tree in place of the one that lost a source."""
+    again over what remains and publish a new tree in place of the one that lost a source.
+    """
     # Arrange
     await _index_both(corpus)
     (built,) = await _Store().generations()
@@ -681,7 +685,8 @@ async def test_a_corpus_layer_only_the_deleted_source_held_is_not_reported_stale
     corpus: Path,
 ) -> None:
     """R43.33 — marking before the fan-out must not count the source being deleted: a tree no
-    remaining source carries has no remaining source to be stale on."""
+    remaining source carries has no remaining source to be stale on.
+    """
     # Arrange — the tree is built while `a.txt` is the only document.
     texts = {name: (corpus / name).read_text() for name in ("b.txt", "c.txt")}
     for name in texts:

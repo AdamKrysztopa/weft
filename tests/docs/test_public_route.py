@@ -120,8 +120,11 @@ def route() -> tuple[Step, ...]:
 
 
 def test_the_route_is_written_in_08_with_at_least_four_steps() -> None:
-    """The floor. Every clause below reads this table; a table that parses to nothing passes them
-    all by having nothing to check."""
+    """The floor.
+
+    Every clause below reads this table; a table that parses to nothing passes them all by having
+    nothing to check.
+    """
     # Act
     steps = route()
 
@@ -182,7 +185,8 @@ def test_each_step_hands_to_the_next_one() -> None:
 
 def test_the_two_pages_outside_manual_have_a_row_in_section_one() -> None:
     """`28.0`, the half `08` §1 owed: the route's first page and the contributor's page were owned
-    by nothing, which is how `CONTRIBUTING.md` reached 2026-09 saying the code was unwritten."""
+    by nothing, which is how `CONTRIBUTING.md` reached 2026-09 saying the code was unwritten.
+    """
     # Act
     audiences = {
         match.group("path")
@@ -239,9 +243,11 @@ def _link_targets(page: str) -> set[str]:
 
 
 def test_no_public_page_routes_a_reader_into_the_untracked_record() -> None:
-    """`28.1`. The finding the third outside review opened this phase with, and the only reader
-    that could have made it — every check in this tree that reads these pages executes a block or
-    compares an id, and none follows a link.
+    """`28.1`.
+
+    The finding the third outside review opened this phase with, and the only reader that could have
+    made it — every check in this tree that reads these pages executes a block or compares an id,
+    and none follows a link.
 
     `docs/internal/` is untracked by design (`tests/conftest.py`'s `UNTRACKED_BY_DESIGN`), so a
     link into it is a dead link on the front page of the project for every clone and every wheel.
@@ -291,9 +297,11 @@ def test_each_route_page_links_to_the_page_it_hands_to() -> None:
 
 
 def test_the_readme_says_what_an_id_citation_into_the_untracked_record_is() -> None:
-    """`28.1`'s last clause. Stripping the citations was option (c) and was not taken — 34 tracked
-    non-Python files and 250 Python files carry the form — so the page owes a reader one sentence
-    saying what those ids are and that a clone will not have the files they name.
+    """`28.1`'s last clause.
+
+    Stripping the citations was option (c) and was not taken — 34 tracked non-Python files and 250
+    Python files carry the form — so the page owes a reader one sentence saying what those ids are
+    and that a clone will not have the files they name.
 
     Presence, never wording: the section names the directory and says a clone does not have it.
     """

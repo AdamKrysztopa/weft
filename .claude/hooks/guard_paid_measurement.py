@@ -73,7 +73,8 @@ Answer them, then prefix the command with WEFT_MEASUREMENT_CHECKED=1."""
 
 def strip_heredocs(command):
     """`command` without heredoc bodies: `guard_unchecked_commit.py`'s own first false positive,
-    met again by this guard on the commit that wrote it — prose being written to a file."""
+    met again by this guard on the commit that wrote it — prose being written to a file.
+    """
     kept = []
     pending = []
     for line in command.split("\n"):

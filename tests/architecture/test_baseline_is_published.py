@@ -48,8 +48,10 @@ def _workflow_text() -> str:
 
 
 def test_the_artefacts_a_reproduction_needs_exist() -> None:
-    """The floor. A workflow that attached three paths which are not there would still pass a
-    check that only read the workflow.
+    """The floor.
+
+    A workflow that attached three paths which are not there would still pass a check that only read
+    the workflow.
     """
     # Act
     missing = [path for path, _ in REPRODUCTION_ARTEFACTS if not (REPO_ROOT / path).exists()]

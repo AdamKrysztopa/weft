@@ -264,10 +264,12 @@ async def _dispatch_config(
 async def _dispatch_slash(
     line: str, *, parser: argparse.ArgumentParser, deps: Dependencies, state: SessionState
 ) -> tuple[Rendered, bool, SessionState]:
-    """One line beginning with `/`, handled or refused. Returns what to print, whether the
-    session keeps running, and `state` — unchanged, or replaced wholesale by whichever of
-    `weft_cli.session`'s pure functions this turn's command calls — see the module docstring
-    for which of `docs/03-cli.md`'s eight this handles and which it names as deferred.
+    """One line beginning with `/`, handled or refused.
+
+    Returns what to print, whether the session keeps running, and `state` — unchanged, or replaced
+    wholesale by whichever of `weft_cli.session`'s pure functions this turn's command calls — see
+    the module docstring for which of `docs/03-cli.md`'s eight this handles and which it names as
+    deferred.
     """
     body = line[1:].strip()
     name, _, rest = body.partition(" ")

@@ -126,7 +126,8 @@ _SUMMARY_FILTER = Filter(
 
 def _layer_summary_filter(layer: str) -> Filter:
     """`_SUMMARY_FILTER`'s inverse, for a join a `LayerRevision` offered (task 43.23): the
-    summaries `layer` stamped, and no other tree's."""
+    summaries `layer` stamped, and no other tree's.
+    """
     return Filter(
         op=FilterOp.AND,
         clauses=(
@@ -554,7 +555,8 @@ def _revision_of(ctx: Context) -> LayerRevision | None:
 
 def _replacer(store: NodeStore, revision: LayerRevision | None) -> _Replace:
     """`store.supersede`, or with a `revision`, `revision.replaced` — the old summary stays
-    where it is, in the published generation, and the build leaves it out of the next."""
+    where it is, in the published generation, and the build leaves it out of the next.
+    """
     if revision is None:
         joining = cast(_JoiningStore, store)
 
@@ -590,8 +592,9 @@ async def _embed_summary(summary: Node, *, ctx: Context) -> Node | Failed:
 
 async def _fetch_all_summaries(store: MetadataFilter, filter: Filter) -> tuple[Node, ...]:
     """Every stored summary `filter` selects, across as many pages as `matching` hands back.
-    `matching`'s own contract promises pages, never order, so nothing here relies on the
-    sequence beyond "everything eventually comes back."
+
+    `matching`'s own contract promises pages, never order, so nothing here relies on the sequence
+    beyond "everything eventually comes back."
     """
     collected: list[Node] = []
     cursor = None
@@ -663,9 +666,10 @@ def _assign_leaves(
 
 
 def _read_resolved_similarity_threshold(summaries: Sequence[Node]) -> float | Failed:
-    """`similarity_threshold: auto`'s resolution — see the module docstring's own `auto`
-    paragraph. The most common `RaptorFacts.resolved_similarity_threshold` among the
-    summaries actually found, or `Failed` when every one of them states `None`.
+    """`similarity_threshold: auto`'s resolution — see the module docstring's own `auto` paragraph.
+
+    The most common `RaptorFacts.resolved_similarity_threshold` among the summaries actually found,
+    or `Failed` when every one of them states `None`.
     """
     values = [
         facts.resolved_similarity_threshold

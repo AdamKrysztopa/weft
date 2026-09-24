@@ -71,7 +71,8 @@ def _ensure_registered(*models: type[ExtModel]) -> None:
 
 class _Derive:
     """A per-source `Expander`: every leaf back, plus one node derived from each, marked by
-    `_mark` — which is the dimension these tests vary."""
+    `_mark` — which is the dimension these tests vary.
+    """
 
     def __init__(self, config: object = None) -> None:
         del config
@@ -160,7 +161,8 @@ def _write_layer(project: Path, name: str, *, use: str, corpus_scope: bool = Fal
 
 def _write_base(project: Path, *, use: str) -> None:
     """A base pipeline deriving before `embed`, as `index-with-questions` does: its derived
-    nodes are stored carrying no `LayerMember`."""
+    nodes are stored carrying no `LayerMember`.
+    """
     (project / "pipelines").mkdir(exist_ok=True)
     (project / "pipelines" / f"{_BASE}.yaml").write_text(
         f"name: {_BASE}\n"
@@ -215,7 +217,8 @@ def _created_by(store: GenerationStore, layer: str) -> dict[NodeId, Node]:
 
 def _left_indexing(store: GenerationStore, layer: str) -> None:
     """Each source's `layer` entry put back to `INDEXING` with its nodes stored — the state an
-    interrupt between the layer's tail and its `ACTIVE` flip leaves."""
+    interrupt between the layer's tail and its `ACTIVE` flip leaves.
+    """
     for source_id, record in store.state.records.items():
         store.state.records[source_id] = record.model_copy(
             update={
@@ -239,7 +242,8 @@ async def test_a_second_per_source_layer_deriving_the_firsts_nodes_is_refused_na
     corpus: Path, tmp_path: Path, use: str
 ) -> None:
     """A stranger's note, a graph mention, and one technique shared by two layers: none tells
-    the two layers apart through `Representation`."""
+    the two layers apart through `Representation`.
+    """
     # Arrange
     _write_layer(tmp_path, _FIRST, use=use)
     _write_layer(tmp_path, _SECOND, use=use)
@@ -286,7 +290,8 @@ async def test_a_layer_deriving_again_the_nodes_it_already_stored_is_not_a_colli
     corpus: Path, tmp_path: Path, use: str
 ) -> None:
     """An interrupted run's layer is run again over the same leaves: its own nodes are not
-    another layer's."""
+    another layer's.
+    """
     # Arrange
     _write_layer(tmp_path, _FIRST, use=use)
     store = GenerationStore()
@@ -314,7 +319,8 @@ async def test_an_unstamped_stored_node_under_another_technique_is_still_refused
     corpus: Path, tmp_path: Path
 ) -> None:
     """The owner's ruling on R43.34: a stored node with no `LayerMember` keeps the
-    `Representation` comparison, and the message names its technique as before."""
+    `Representation` comparison, and the message names its technique as before.
+    """
     # Arrange
     _write_base(tmp_path, use="derive-question")
     _write_layer(tmp_path, _SECOND, use="derive-other-question")
@@ -340,7 +346,8 @@ async def test_an_unstamped_stored_node_under_the_same_technique_or_none_is_not_
     corpus: Path, tmp_path: Path, use: str
 ) -> None:
     """The owner's ruling on R43.34, its other half: an unstamped node whose technique matches,
-    or which carries no `Representation`, passes as it did before."""
+    or which carries no `Representation`, passes as it did before.
+    """
     # Arrange
     _write_base(tmp_path, use=use)
     _write_layer(tmp_path, _SECOND, use=use)

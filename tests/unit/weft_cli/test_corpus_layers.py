@@ -214,8 +214,10 @@ class _GenerationStore(_Store):
 
 
 class _RefusingGenerationStore(_GenerationStore):
-    """A `_GenerationStore` whose write can be made to fail, as a second store's would. The flag
-    is the class's, because `bind_generation` builds the writer as a new instance."""
+    """A `_GenerationStore` whose write can be made to fail, as a second store's would.
+
+    The flag is the class's, because `bind_generation` builds the writer as a new instance.
+    """
 
     refuse: ClassVar[bool] = False
 
@@ -227,7 +229,8 @@ class _RefusingGenerationStore(_GenerationStore):
 
 class _Summary:
     """A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
-    by this stage itself, as `raptor` embeds its own summaries."""
+    by this stage itself, as `raptor` embeds its own summaries.
+    """
 
     calls: ClassVar[list[int]] = []
     fail: ClassVar[bool] = False

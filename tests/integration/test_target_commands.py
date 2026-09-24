@@ -144,7 +144,8 @@ async def test_the_pass_after_indexing_a_candidate_reconciles_that_candidate(
 ) -> None:
     """Found running the binary at `34.6`: the automatic post-index `reconcile` converged the
     live target while the run had written into the candidate. The wire is checked along its
-    length by capturing the call (`L9.79`)."""
+    length by capturing the call (`L9.79`).
+    """
     # Arrange
     from weft_cli.reconcile import reconcile_everywhere as real
 

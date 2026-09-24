@@ -307,11 +307,12 @@ def test_tokens_per_query_are_absent_rather_than_zero_when_no_question_is_known(
 def test_a_verdict_against_a_zero_width_spread_says_so_and_the_effect_size_decides_nothing(
     tmp_path: Path,
 ) -> None:
-    """Repair R38.10. Retrieval with no model call repeats itself exactly, so `38.5`'s dense arm
-    recorded a zero-width spread and hybrid's recall@5 Δ of -0.003, a tenth of the document's
-    minimum detectable effect, printed a bare `outside-baseline-spread`. `09` §4.3 keeps the
-    strict reading; `weft eval compare --baseline` already prints the caveat beside it, and the
-    table did not.
+    """Repair R38.10.
+
+    Retrieval with no model call repeats itself exactly, so `38.5`'s dense arm recorded a zero-width
+    spread and hybrid's recall@5 Δ of -0.003, a tenth of the document's minimum detectable effect,
+    printed a bare `outside-baseline-spread`. `09` §4.3 keeps the strict reading; `weft eval compare
+    --baseline` already prints the caveat beside it, and the table did not.
     """
     # Arrange — the base arm's two repetitions agree exactly.
     experiment = fixture_experiment(tmp_path)
@@ -337,9 +338,12 @@ def test_a_verdict_against_a_zero_width_spread_says_so_and_the_effect_size_decid
 def test_each_arms_mean_states_the_questions_it_is_over_and_how_many_were_excluded(
     tmp_path: Path,
 ) -> None:
-    """Repair R38.12. A rung that fails on a question now excludes it rather than aborting the
-    run, so two arms' means can be over different questions; the paired Δ stays comparable
-    because it pairs only questions both arms scored, and the table's only `n` was that one."""
+    """Repair R38.12.
+
+    A rung that fails on a question now excludes it rather than aborting the run, so two arms' means
+    can be over different questions; the paired Δ stays comparable because it pairs only questions
+    both arms scored, and the table's only `n` was that one.
+    """
     # Arrange — the better arm's first repetition could not answer one question.
     experiment = fixture_experiment(tmp_path)
     records = complete_records(experiment)
@@ -372,7 +376,8 @@ def test_a_baseline_run_once_is_complete_paired_and_its_spread_verdict_unjudgeab
     tmp_path: Path,
 ) -> None:
     """The paired interval over questions is the evidence for a deterministic baseline; a spread
-    needs at least two repetitions, and `falsify`'s own rule for one repetition is `UNJUDGEABLE`."""
+    needs at least two repetitions, and `falsify`'s own rule for one repetition is `UNJUDGEABLE`.
+    """
     # Arrange
     path = tmp_path / "experiment.toml"
     path.write_text(
@@ -408,7 +413,8 @@ def _is_base_second(record: RunRecord) -> bool:
 
 def test_a_paired_difference_counts_the_questions_that_actually_differ(tmp_path: Path) -> None:
     """An interval resting on one question of four says so: most per-question differences are
-    exactly zero, and the mean and its interval are carried by the few that are not."""
+    exactly zero, and the mean and its interval are carried by the few that are not.
+    """
     # Arrange
     experiment = fixture_experiment(tmp_path)
     records = [
@@ -433,7 +439,8 @@ def test_a_paired_difference_counts_the_questions_that_actually_differ(tmp_path:
 
 def test_the_table_names_the_corpus_its_records_were_measured_on(tmp_path: Path) -> None:
     """A table copied out of its directory still says which corpus it measured — the name and
-    digest every record already carries, never the experiment document's header comment."""
+    digest every record already carries, never the experiment document's header comment.
+    """
     # Arrange
     experiment = fixture_experiment(tmp_path)
 

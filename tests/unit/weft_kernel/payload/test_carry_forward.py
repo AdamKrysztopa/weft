@@ -24,8 +24,10 @@ from weft_kernel.payload import (
 
 
 class _Locator(ExtModel):
-    """Stands in for a pack's own fact about a node — `weft_extract.payload.PageSpan` in
-    production. Declared here rather than imported so the kernel's test names no pack."""
+    """Stands in for a pack's own fact about a node — `weft_extract.payload.PageSpan` in production.
+
+    Declared here rather than imported so the kernel's test names no pack.
+    """
 
     __namespace__ = "test-locator"
     __schema_version__ = "1.0.0"

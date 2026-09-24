@@ -333,7 +333,8 @@ async def test_a_cascade_that_could_not_produce_a_rewrite_is_relayed_not_papered
 async def test_driving_the_rewrite_through_the_seam_composes_a_new_query_set() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     original = Query(text="what about that other one?")
     payload = QuerySet(
@@ -479,7 +480,8 @@ async def test_hyde_a_cascade_that_could_not_produce_documents_is_relayed_not_pa
 async def test_driving_hyde_through_the_seam_composes_a_new_query_set() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     asked = Query(text="what causes overfitting?")
     payload = QuerySet(origin=asked, queries=(asked,))
@@ -583,7 +585,8 @@ async def test_step_back_a_cascade_that_could_not_abstract_is_relayed_not_papere
 async def test_driving_step_back_through_the_seam_composes_a_new_query_set() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     asked = Query(text="why did this specific run fail?")
     payload = QuerySet(origin=asked, queries=(asked,))
@@ -874,7 +877,8 @@ async def test_multi_query_a_group_answering_for_an_unoffered_index_is_refused_b
 async def test_driving_multi_query_through_the_seam_composes_a_new_query_set() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     asked = Query(text="what drives model drift?")
     payload = QuerySet(origin=asked, queries=(asked,))

@@ -34,7 +34,8 @@ from weft_kernel.payload import Node
 @runtime_checkable
 class _PageCarrier(Protocol):
     """Structurally, `weft_extract.payload.PageSpan` or `weft_extract.payload.TableGrid`: a
-    fact about a node that names the page it sits on directly."""
+    fact about a node that names the page it sits on directly.
+    """
 
     page: int
 

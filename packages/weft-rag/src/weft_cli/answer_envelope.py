@@ -68,8 +68,10 @@ ANSWER_ENVELOPE_VERSION: Final[str] = "1.0.0"
 
 
 class AnswerEnvelope(BaseModel):
-    """One routed `Answer`, whole, for a script. Built only by `build_answer_envelope` below,
-    so every emitting site stays identical by construction — `ErrorEnvelope`'s own rule.
+    """One routed `Answer`, whole, for a script.
+
+    Built only by `build_answer_envelope` below, so every emitting site stays identical by
+    construction — `ErrorEnvelope`'s own rule.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

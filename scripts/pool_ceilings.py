@@ -211,7 +211,8 @@ def _rr5_by_question(
     record: RunRecord, questions: Sequence[Question]
 ) -> tuple[dict[str, float], list[str]]:
     """`record`'s own RR@5 per question, and the ids of every question left out because its
-    outcome was not `Produced`."""
+    outcome was not `Produced`.
+    """
     per_question: PerQuestionScores | None = None
     if record.question_scores is not None:
         per_question = record.question_scores.get("mrr@5")

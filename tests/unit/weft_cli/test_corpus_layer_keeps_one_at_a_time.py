@@ -53,7 +53,8 @@ class _InterleavedCallError(Exception):
 
 class _OneCallAtATimeStore(GenerationStore):
     """A `Lifetime.RUN` store with no thread-safety of its own: a call entered while another is
-    in flight on the same handle is recorded and refused."""
+    in flight on the same handle is recorded and refused.
+    """
 
     interleaved: ClassVar[list[str]] = []
 

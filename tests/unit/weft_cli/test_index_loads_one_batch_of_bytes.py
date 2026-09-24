@@ -118,7 +118,8 @@ class _Loads:
 
 def _no_discovery(*_args: object, **_kwargs: object) -> tuple[SourceDoc, ...]:
     """`raising=False`: the point is that this module reaches no whole-corpus walk, whether or
-    not it still binds the name, and requiring the binding would pin the arrangement (`L9.39`)."""
+    not it still binds the name, and requiring the binding would pin the arrangement (`L9.39`).
+    """
     raise AssertionError("run_index must not read the whole corpus before its first batch")
 
 

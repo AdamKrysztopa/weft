@@ -772,7 +772,8 @@ class _NaiveSplitter:
 
 class _NaiveSplitterNoFilter:
     """`_NaiveSplitter`'s identical splitting logic, with no `applies_to` declared at all —
-    the default this task pins down: it "applies to everything, silently"."""
+    the default this task pins down: it "applies to everything, silently".
+    """
 
     lifetime = runner.Lifetime.RUN
     requires: tuple[type[ExtModel], ...] = ()
@@ -792,7 +793,8 @@ class _NaiveSplitterNoFilter:
 class _CapturesWhatItReceives:
     """An identity stage that records the payload it was handed, so a test downstream of
     the stage under test can inspect the recombined batch — `Runner.run` itself returns
-    only counts, never a batch's payload."""
+    only counts, never a batch's payload.
+    """
 
     lifetime = runner.Lifetime.RUN
     requires: tuple[type[ExtModel], ...] = ()
@@ -811,7 +813,8 @@ def _capture_factory(
 ) -> Callable[[object], _CapturesWhatItReceives]:
     """A typed factory binding `captured` ahead of the `config` argument `Runner.resolve`
     calls every factory with — `functools.partial` cannot do this directly, since
-    `_CapturesWhatItReceives.__init__` has no `config` parameter for it to also carry."""
+    `_CapturesWhatItReceives.__init__` has no `config` parameter for it to also carry.
+    """
 
     def factory(config: object) -> _CapturesWhatItReceives:
         return _CapturesWhatItReceives(captured)

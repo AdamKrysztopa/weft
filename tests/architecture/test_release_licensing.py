@@ -71,8 +71,10 @@ def _project(manifest: Path) -> dict[str, object]:
 
 
 def test_every_published_distribution_carries_the_licence_files() -> None:
-    """The copies exist. A `license-files` entry naming a file that is not there builds a wheel
-    with no licence in it and says nothing about it.
+    """The copies exist.
+
+    A `license-files` entry naming a file that is not there builds a wheel with no licence in it and
+    says nothing about it.
     """
     # Arrange
     members = publishing_members()
@@ -137,8 +139,9 @@ def test_every_carried_licence_is_byte_identical_to_the_root_original() -> None:
 
 
 def test_every_published_distribution_declares_its_licence() -> None:
-    """The declaration is what puts the files in the artefact. A copy sitting in the directory
-    with nothing naming it is a file the build ignores.
+    """The declaration is what puts the files in the artefact.
+
+    A copy sitting in the directory with nothing naming it is a file the build ignores.
     """
     # Arrange
     members = publishing_members()

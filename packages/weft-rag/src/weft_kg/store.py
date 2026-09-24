@@ -1,5 +1,6 @@
-"""`GraphStore` — `NodeStore`, `SourceDeletable` and `Reconcilable`, over Postgres. Ledger **11.5**,
-schema and resolution pass at **11.8**, the curated-schema record at **11.11**.
+"""`GraphStore` — `NodeStore`, `SourceDeletable` and `Reconcilable`, over Postgres.
+
+Ledger **11.5**, schema and resolution pass at **11.8**, the curated-schema record at **11.11**.
 
 **Carries forward the design of the out-of-tree graph pack's own store module, one task earlier
 in this same project's own history.** That module is Weft's own code, written for the identical
@@ -909,11 +910,12 @@ async def _bridge_merge(
 
 
 class ActiveSchema(BaseModel):
-    """The one row `kg_active_schema` holds — ledger `11.11`. `GraphStore`'s own return shape
-    rather than a `weft_kg.schema` data model, on `weft_store.contract.Removed`/`Page`'s own
-    footing: this is what the store's `active_schema` call answers with, never a value
-    `GraphSchema` itself constructs or a curated file parses into — see `weft_kg.commands`'s
-    module docstring for the file/row split this shape is one half of.
+    """The one row `kg_active_schema` holds — ledger `11.11`.
+
+    `GraphStore`'s own return shape rather than a `weft_kg.schema` data model, on
+    `weft_store.contract.Removed`/`Page`'s own footing: this is what the store's `active_schema`
+    call answers with, never a value `GraphSchema` itself constructs or a curated file parses into —
+    see `weft_kg.commands`'s module docstring for the file/row split this shape is one half of.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -1900,9 +1902,10 @@ class GraphStore:
     async def put_relation(
         self, *, source: AliasId, target: AliasId, predicate: str, node: NodeId
     ) -> None:
-        """Write the edge, attributed to `node` — the row that stated it, ledger R43.24. `node`
-        is required rather than defaulted: a relation with no stating node is not evidence, it is
-        a claim nothing anchors, and `kg_relations.node_id` is `NOT NULL` on exactly that
+        """Write the edge, attributed to `node` — the row that stated it, ledger R43.24.
+
+        `node` is required rather than defaulted: a relation with no stating node is not evidence,
+        it is a claim nothing anchors, and `kg_relations.node_id` is `NOT NULL` on exactly that
         argument.
         """
         conn = await self._connection()

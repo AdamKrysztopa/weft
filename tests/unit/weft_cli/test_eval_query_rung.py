@@ -232,9 +232,10 @@ def _query_document(*, name: str = "rung-a", top_n: int | None = None) -> Pipeli
 
 
 class _FakeStore:
-    """A `NodeStore` stand-in. `no-retrieval`, `single-list`, `repack` and `cited-answer` call
-    no store method at all — copied from `test_route_ask.py`'s double of the same seam rather
-    than written from `NodeStore`'s prose.
+    """A `NodeStore` stand-in.
+
+    `no-retrieval`, `single-list`, `repack` and `cited-answer` call no store method at all — copied
+    from `test_route_ask.py`'s double of the same seam rather than written from `NodeStore`'s prose.
     """
 
 
@@ -244,10 +245,11 @@ def _fake_store_factory(config: object) -> _FakeStore:
 
 
 def _query_registry() -> Registry:
-    """`test_route_ask.py:108 "def _registry"`'s registry, minus the routing plugins these
-    reach. The `Embedder` and `NodeStore` are here because `run_named_ask` assembles services
-    before it resolves anything, so a registry without them fails inside `build_services`
-    rather than at the resolution these tests are about.
+    """`test_route_ask.py:108 "def _registry"`'s registry, minus the routing plugins these reach.
+
+    The `Embedder` and `NodeStore` are here because `run_named_ask` assembles services before it
+    resolves anything, so a registry without them fails inside `build_services` rather than at the
+    resolution these tests are about.
     """
     registry = Registry()
     registry.add(Embedder, "fake-embed", HashEmbedder, distribution="weft-embed")
@@ -425,7 +427,8 @@ class _ClosableStore:
 
 def _retrieval_document(name: str = "rung-r") -> Pipeline:
     """`_query_document` without its `Generator`: a rung ending in a `ContextPacker`, the shape
-    `weft eval experiment`'s arms run through `run_named_retrieve`."""
+    `weft eval experiment`'s arms run through `run_named_retrieve`.
+    """
     return Pipeline(
         name=name,
         stages=(
@@ -450,7 +453,8 @@ async def test_a_named_retrieval_closes_every_store_it_built(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """`weft ask --retrieve-only --pipeline` and every REPL turn go through this function, so a
-    store it builds and never closes is a connection held until the garbage collector happens by."""
+    store it builds and never closes is a connection held until the garbage collector happens by.
+    """
     # Arrange
     counts = _CountedStores()
     monkeypatch.setattr(
@@ -484,7 +488,8 @@ async def test_scoring_a_retrieval_rung_builds_its_store_once_and_closes_it(
 ) -> None:
     """One store for the whole run, not one per question: a store's first search provisions its
     schema, so a per-question store puts that DDL and a connection handshake inside every
-    question's recorded seconds, and 1,548 of them is what reached the connection limit."""
+    question's recorded seconds, and 1,548 of them is what reached the connection limit.
+    """
     # Arrange
     counts = _CountedStores()
     monkeypatch.setattr(

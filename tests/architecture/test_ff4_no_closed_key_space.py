@@ -117,8 +117,9 @@ def _first_party_distributions() -> frozenset[str]:
 
 
 def _installed_registry() -> Registry:
-    """The registry `ci-checks` actually has — every first-party pack, discovered for
-    real. See `test_ff11_pipeline_integrity.py::_installed_registry`, the identical call.
+    """The registry `ci-checks` actually has — every first-party pack, discovered for real.
+
+    See `test_ff11_pipeline_integrity.py::_installed_registry`, the identical call.
     """
     registry = Registry()
     discover(

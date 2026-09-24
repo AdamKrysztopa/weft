@@ -12,8 +12,9 @@ from weft_retrieve.payload import Candidates, Passage, Ranking
 
 
 class ExampleFuser:
-    """Concatenates every ranked list, dropping a node it has already kept, then re-sorts by
-    score. Satisfies `weft_retrieve.contract.Fuser` structurally — this class never imports it.
+    """Concatenates every ranked list, dropping a node it has already kept, then re-sorts by score.
+
+    Satisfies `weft_retrieve.contract.Fuser` structurally — this class never imports it.
     """
 
     def __init__(self, config: object = None) -> None:

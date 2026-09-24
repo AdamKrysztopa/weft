@@ -16,7 +16,8 @@ PACKAGES: Final[Path] = Path(__file__).resolve().parents[3] / "packages"
 
 def discarded_reclaims(tree: ast.AST, *, module: str) -> list[str]:
     """`module:line` for every expression statement whose value is a `reclaim_withdrawn` call,
-    awaited or not."""
+    awaited or not.
+    """
     found: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Expr):

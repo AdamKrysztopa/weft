@@ -341,9 +341,11 @@ def _add_command_level(
 
 
 def _context() -> Context:
-    """One `Context` per invocation. Now `weft_engine.api.new_context()` itself — task **24.1**
-    made that the one context builder both driving adapters share, rather than two copies that
-    could disagree; this name stays so every call site here is unchanged.
+    """One `Context` per invocation.
+
+    Now `weft_engine.api.new_context()` itself — task **24.1** made that the one context builder
+    both driving adapters share, rather than two copies that could disagree; this name stays so
+    every call site here is unchanged.
     """
     return new_context()
 
@@ -377,7 +379,8 @@ class _EmissionTrackingSink:
 
     async def batch_progress(self, event: BatchProgress) -> None:
         """Forward task **43.2**'s per-batch line to the sink underneath, or drop it when that
-        sink cannot show one (`--quiet`'s `NullSink`) — `L12.13` again, one method over."""
+        sink cannot show one (`--quiet`'s `NullSink`) — `L12.13` again, one method over.
+        """
         if isinstance(self._sink, ProgressReporter):
             await self._sink.batch_progress(event)
 
@@ -881,7 +884,8 @@ def _print_rendered_output(rendered: Rendered) -> None:
 
 def _silence_stdout() -> None:
     """The `signal` module's SIGPIPE recipe: the interpreter's shutdown flush then has no broken
-    descriptor to fail on."""
+    descriptor to fail on.
+    """
     devnull = os.open(os.devnull, os.O_WRONLY)
     os.dup2(devnull, sys.stdout.fileno())
 

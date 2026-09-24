@@ -126,7 +126,8 @@ def test_an_interrupt_mid_stream_prints_no_stream_error_on_stdout(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Carried repair **R43.48** — Ctrl-C during `weft index` also printed
-    `[stream error: command did not complete]` on stdout, beside R43.8's one line on stderr."""
+    `[stream error: command did not complete]` on stdout, beside R43.8's one line on stderr.
+    """
     # Arrange
     _main_running(monkeypatch, tmp_path, name, command)
 

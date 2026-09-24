@@ -18,8 +18,9 @@ _BLANK_RUN = re.compile(r"\n{3,}")
 
 
 class ExampleBlankLineCollapser:
-    """Collapses three-or-more consecutive newlines to exactly two. Satisfies
-    `weft_clean.contract.Cleaner` structurally — this class never imports it.
+    """Collapses three-or-more consecutive newlines to exactly two.
+
+    Satisfies `weft_clean.contract.Cleaner` structurally — this class never imports it.
     """
 
     destroys: tuple[type[Property], ...] = ()

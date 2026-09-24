@@ -176,8 +176,9 @@ def project(
 
 
 def store_index_kind(store: object) -> VectorIndexKind | None:
-    """`store`'s declared index kind, or `None` — declared, never required. See the module
-    docstring's own paragraph on why this is `getattr`, not a capability Protocol.
+    """`store`'s declared index kind, or `None` — declared, never required.
+
+    See the module docstring's own paragraph on why this is `getattr`, not a capability Protocol.
     """
     declared = getattr(store, "vector_index_kind", None)
     return declared if isinstance(declared, VectorIndexKind) else None

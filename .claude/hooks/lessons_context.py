@@ -58,9 +58,11 @@ _FENCE = re.compile(r"^```", re.MULTILINE)
 
 
 def _unfenced(text: str) -> str:
-    """Drop fenced blocks. The archive documents its own entry format with a worked
-    example, and an example that is indistinguishable from data is how a check ends up
-    reporting its own documentation as a finding."""
+    """Drop fenced blocks.
+
+    The archive documents its own entry format with a worked example, and an example that is
+    indistinguishable from data is how a check ends up reporting its own documentation as a finding.
+    """
     parts = _FENCE.split(text)
     return "".join(parts[::2])
 
@@ -79,8 +81,10 @@ NOTICED_HEADING = "## Noticed"
 
 
 def _applied_rules(archive_text: str) -> list[str]:
-    """Every drained lesson that became a rule. A `declined` line is a decision, not a
-    rule, so it is not injected."""
+    """Every drained lesson that became a rule.
+
+    A `declined` line is a decision, not a rule, so it is not injected.
+    """
     return [
         line.strip()
         for line in _ARCHIVED.findall(_unfenced(archive_text))

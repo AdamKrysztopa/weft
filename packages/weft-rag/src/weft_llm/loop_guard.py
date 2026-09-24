@@ -250,11 +250,13 @@ def _positional_similarity(earlier: str, recent: str) -> float:
 
 
 def _ngram_diversity(text: str, *, n: int = 3) -> float:
-    """The fraction of `text`'s length-`n` character windows that are unique. `1.0` means every
-    window differs from every other; near `0.0` means the text is one span repeating. The
-    default of `3` is a general-purpose length for a helper with no context about what it is
-    measuring; `_has_repeating_tail` always passes `config.ngram_size` (`5`) explicitly instead
-    of relying on it, because a loop guard needs a coarser window than a generic caller would.
+    """The fraction of `text`'s length-`n` character windows that are unique.
+
+    `1.0` means every window differs from every other; near `0.0` means the text is one span
+    repeating. The default of `3` is a general-purpose length for a helper with no context about
+    what it is measuring; `_has_repeating_tail` always passes `config.ngram_size` (`5`) explicitly
+    instead of relying on it, because a loop guard needs a coarser window than a generic caller
+    would.
     """
     if len(text) <= n:
         return 1.0  # too short to have a repeated internal window — never itself a reason to flag.

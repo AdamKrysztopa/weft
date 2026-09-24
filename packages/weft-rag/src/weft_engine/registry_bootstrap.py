@@ -632,8 +632,10 @@ def allow_list_from_file(config_path: Path) -> tuple[str, ...] | None:
 
 
 def document_at(config_path: Path) -> dict[str, object] | None:
-    """`config_path` parsed, or `None` if it is absent. One read, so the allow-list and the
-    pack settings blocks cannot come from two different parses of the same file.
+    """`config_path` parsed, or `None` if it is absent.
+
+    One read, so the allow-list and the pack settings blocks cannot come from two different parses
+    of the same file.
 
     **Public since task 3.7**, not `_`-prefixed: `weft_engine.config_surface.effective_config`
     is a second, legitimate reader of the same file — it needs the *raw* parsed document to

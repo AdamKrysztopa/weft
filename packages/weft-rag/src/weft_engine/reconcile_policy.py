@@ -39,9 +39,10 @@ from weft_store import ReconcileMode
 
 
 class ReconcilePolicy(BaseModel):
-    """`[reconcile]`, resolved. `mode` defaults to `full` — unchanged from `weft reconcile`'s
-    own pre-5.1c hardcoded default, so a project with no `[reconcile]` block behaves exactly
-    as it always has.
+    """`[reconcile]`, resolved.
+
+    `mode` defaults to `full` — unchanged from `weft reconcile`'s own pre-5.1c hardcoded default, so
+    a project with no `[reconcile]` block behaves exactly as it always has.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

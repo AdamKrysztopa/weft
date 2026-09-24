@@ -380,7 +380,8 @@ async def test_a_representation_with_more_than_one_parent_is_cited_as_itself() -
 async def test_driving_cited_answer_through_the_seam_produces_an_answer() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a
-    registered instance never receives."""
+    registered instance never receives.
+    """
     # Arrange
     payload = _passages(_passage("1", "only candidate"))
     llm = _StubLLM(["the only candidate answers it [1]."])
@@ -446,7 +447,8 @@ async def test_an_answer_carries_the_contributors_of_the_passages_it_was_given()
 
 async def test_a_refusal_for_empty_evidence_still_says_which_arms_were_asked() -> None:
     """No passage survived, and which arms were asked is exactly what a reader of the refusal
-    needs to tell "nothing matched" from "nothing was asked"."""
+    needs to tell "nothing matched" from "nothing was asked".
+    """
     # Arrange
     payload = _passages().model_copy(update={"contributors": _ARMS})
 

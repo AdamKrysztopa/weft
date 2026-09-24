@@ -813,10 +813,11 @@ async def test_run_command_closes_the_token_sink_with_none_on_a_gate_refusal(
 
 async def test_run_command_closes_the_token_sink_and_still_propagates_cancellation() -> None:
     """Repair, 2026-08-20 — this test used to assert `reason == "command did not complete"`.
-    `_CancellingCommand` never calls `token_sink.emit` either, exactly `_BoomCommand`'s own
-    shape above, so the corrected rule gives it `None` too — G6 itself (`CancelledError`
-    propagates and is never swallowed) is unaffected: `finally` still runs, still closes the
-    sink exactly once, and the exception still escapes uncaught.
+
+    `_CancellingCommand` never calls `token_sink.emit` either, exactly `_BoomCommand`'s own shape
+    above, so the corrected rule gives it `None` too — G6 itself (`CancelledError` propagates and is
+    never swallowed) is unaffected: `finally` still runs, still closes the sink exactly once, and
+    the exception still escapes uncaught.
     """
     # Arrange
     registry = Registry()

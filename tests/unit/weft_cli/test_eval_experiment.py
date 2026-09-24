@@ -304,7 +304,8 @@ async def test_scoring_refuses_a_passage_from_outside_the_arms_corpus(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An arm sharing a store with anything else would score passages from documents the
-    question set never judged, as misses, silently. The runner asks the scorer to refuse them."""
+    question set never judged, as misses, silently. The runner asks the scorer to refuse them.
+    """
     # Arrange
     path = _experiment(tmp_path, _arm("a", "index") + _arm("b", "index-other"))
     calls: list[dict[str, object]] = []
@@ -391,9 +392,11 @@ async def test_two_arms_naming_one_model_slot_at_two_versions_are_refused_naming
 async def test_arms_that_use_different_models_in_different_slots_are_not_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A hybrid arm uses an embedder a lexical arm does not have. Model versions are refused only
-    where two arms state the same slot at two versions — not where one arm has a slot the other
-    lacks, which is most of what an experiment varies."""
+    """A hybrid arm uses an embedder a lexical arm does not have.
+
+    Model versions are refused only where two arms state the same slot at two versions — not where
+    one arm has a slot the other lacks, which is most of what an experiment varies.
+    """
     # Arrange
     path = _experiment(tmp_path, _arm("hash", "index") + _arm("modelled", "index-small-model"))
     calls: list[dict[str, object]] = []
@@ -511,7 +514,8 @@ async def test_arms_sharing_an_ingest_pipeline_and_corpus_index_it_once_in_bound
 ) -> None:
     """Three arms naming one ingest pipeline over one corpus measure the same index; re-embedding
     it per arm paid for the corpus three times and ignored an index an operator had already
-    built. The one index honours unchanged documents and the document's batch size."""
+    built. The one index honours unchanged documents and the document's batch size.
+    """
     # Arrange
     path = _experiment(
         tmp_path,
@@ -555,7 +559,8 @@ async def test_a_metric_no_run_would_record_is_refused_before_anything_is_indexe
 ) -> None:
     """`recal@5` and `recall@10` beside `top_k = 5` passed every refusal and let the paid run go
     ahead, to render `unjudgeable` naming nothing. The names a run records are asked of the
-    registered metrics at the experiment's own depth, before any index."""
+    registered metrics at the experiment's own depth, before any index.
+    """
     # Arrange
     path = _experiment(tmp_path, _arm("a", "index") + _arm("b", "index"), metrics='["recal@5"]')
     indexed: list[dict[str, Any]] = []
@@ -579,7 +584,8 @@ async def test_a_record_names_its_corpus_as_the_document_wrote_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A resolved absolute path names a checkout, and two checkouts of one document would write
-    corpus identities `weft eval compare` refuses to pair."""
+    corpus identities `weft eval compare` refuses to pair.
+    """
     # Arrange
     path = _experiment(tmp_path, _arm("a", "index") + _arm("b", "index"))
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
@@ -647,7 +653,8 @@ async def test_rerunning_an_interrupted_experiment_scores_only_what_it_had_not_w
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`38.6` ran six times and three of the lost runs had already written valid records for
-    whole arms, each re-paid from zero. A written record is never re-paid."""
+    whole arms, each re-paid from zero. A written record is never re-paid.
+    """
     # Arrange — the first run is killed after writing two of its four records.
     path = _experiment(
         tmp_path,
@@ -718,7 +725,8 @@ async def test_the_plan_states_each_arms_size_and_runs_nothing(
 ) -> None:
     """`38.6`'s spend was approved twice and its size — 33,856 generation calls, four hours, two
     gigabytes a batch — was never stated. What the document and the corpus can answer exactly is
-    answered here, before `--yes` and before any store is touched."""
+    answered here, before `--yes` and before any store is touched.
+    """
     # Arrange
     path = _experiment(
         tmp_path,
@@ -754,7 +762,8 @@ async def test_an_answer_metric_a_generating_arm_records_passes_the_pre_flight(
 ) -> None:
     """Ledger `32.14` scored a generating rung's answer; the pre-flight still asked only the
     retrieval metrics, so every document naming `token_recall` was refused before indexing —
-    found by `32.10`'s free smoke run."""
+    found by `32.10`'s free smoke run.
+    """
     # Arrange
     path = _experiment(
         tmp_path, _arm("a", "index") + _arm("b", "index"), metrics='["recall@5", "token_recall"]'
@@ -952,7 +961,8 @@ async def test_a_captured_pool_is_not_read_back_as_a_run_record(
 ) -> None:
     """Found by running the built wheel: a second `weft eval experiment` in a directory holding a
     manifest beside the records died reading it as a `RunRecord`, since every reader of `runs/`
-    takes each `*.json` there for one."""
+    takes each `*.json` there for one.
+    """
     # Arrange
     path = _experiment(
         tmp_path,
@@ -1057,7 +1067,8 @@ async def test_two_arms_replaying_different_pools_are_refused_before_anything_ru
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Repair R41.3: `40.2` settled that two arms compare only on the same manifest, and a
-    refusal after every arm had run would spend the experiment before saying so."""
+    refusal after every arm had run would spend the experiment before saying so.
+    """
     # Arrange — a second manifest identical but for its store row count, so only its sha differs.
     _, manifest = await _captured(tmp_path, monkeypatch)
     other = manifest.with_name("other.json")

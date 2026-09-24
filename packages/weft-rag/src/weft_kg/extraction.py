@@ -128,8 +128,10 @@ class _NodeExtraction(NamedTuple):
 
 
 class LlmFactsConfig(BaseModel):
-    """`llm-facts`'s `with:` config. Every field has a default, per this pack's own rule that a
-    stage's settings must be constructible with none supplied.
+    """`llm-facts`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a stage's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -150,8 +152,9 @@ class LlmFactsConfig(BaseModel):
 
 
 class LlmFactExtractor:
-    """Derives fact and mention nodes from every node it is handed. Satisfies `Expander`
-    structurally.
+    """Derives fact and mention nodes from every node it is handed.
+
+    Satisfies `Expander` structurally.
     """
 
     config_model: ClassVar[type[LlmFactsConfig]] = LlmFactsConfig

@@ -107,7 +107,8 @@ async def test_a_root_written_before_targets_is_read_with_no_layout_change(
 
 async def test_a_malformed_target_is_refused_before_anything_is_written(tmp_path: Path) -> None:
     """A target becomes a directory, so the store re-checks a name it is handed rather than
-    trusting that whoever built the `TargetName` validated it."""
+    trusting that whoever built the `TargetName` validated it.
+    """
     # Act / Assert
     with pytest.raises(InvalidTargetNameError):
         await _store(tmp_path).bind_target(TargetName("../escape"))

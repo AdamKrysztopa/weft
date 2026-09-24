@@ -361,7 +361,8 @@ def test_the_tree_actually_marks_the_name_this_exemption_is_for() -> None:
     """Non-vacuity for the exemption's own subject: it is derived from the packs, so a pack that
     stopped marking `keybert` would silently make the clause cover nothing — and FF16 would then
     fail on `keybert` rather than passing wrongly, which is the right direction, but this says so
-    out loud rather than leaving it to be discovered."""
+    out loud rather than leaving it to be discovered.
+    """
     # Arrange / Act
     deprecated = _deprecated_names(_reports())
 

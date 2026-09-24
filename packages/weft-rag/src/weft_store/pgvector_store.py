@@ -2225,8 +2225,9 @@ class PgVectorStore:
     # -- GenerationCarrying — ledger task **43.22** ------------------------------------------
 
     async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
-        """`into` joins each node's `generations` and nothing else about the row changes. One
-        transaction: every id is checked against the published generations before any is
+        """`into` joins each node's `generations` and nothing else about the row changes.
+
+        One transaction: every id is checked against the published generations before any is
         carried, so a refused call writes nothing.
         """
         requested = list(dict.fromkeys(node_ids))
@@ -2257,7 +2258,8 @@ class PgVectorStore:
 
     async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
         """Mark a published `generation` withdrawn and touch no node: a handle that read its
-        manifest before this keeps it, and every handle that reads one after leaves it out."""
+        manifest before this keeps it, and every handle that reads one after leaves it out.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
@@ -2744,7 +2746,8 @@ async def _retract_generation_rows(
 ) -> int:
     """Delete the nodes only `generation` wrote, strip it from the rest and forget it —
     `retract_generation`'s work, and `reclaim_withdrawn`'s per generation (repair **R43.29**).
-    Returns how many nodes were deleted."""
+    Returns how many nodes were deleted.
+    """
     await cur.execute("SELECT id FROM weft_nodes WHERE generations = %s", ([generation],))
     doomed = [cast(str, row["id"]) for row in await cur.fetchall()]
     node_count = 0

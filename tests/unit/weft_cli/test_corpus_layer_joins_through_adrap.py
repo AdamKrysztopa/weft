@@ -247,7 +247,8 @@ async def _index(store: _JoinStore, corpus: Path) -> IndexResult:
 
 async def _built(corpus: Path) -> tuple[_JoinStore, frozenset[NodeId]]:
     """A published tree over `_FIRST`, the model's call log and the stage log cleared after it;
-    the next run's summaries are labelled apart, so a rebuilt summary never keeps an old id."""
+    the next run's summaries are labelled apart, so a rebuilt summary never keeps an old id.
+    """
     store = _JoinStore(State())
     await _index(store, corpus)
     old = _fresh(store).summaries_seen()
@@ -280,7 +281,8 @@ def _summary_over(store: _JoinStore, ids: frozenset[NodeId], *names: str) -> Nod
 
 async def _delete(store: _JoinStore, corpus: Path, name: str) -> None:
     """What `weft delete` leaves (task 43.21): the file and its nodes gone, and the corpus layer
-    `STALE` on every remaining source."""
+    `STALE` on every remaining source.
+    """
     source = _source(store, name)
     (corpus / f"{name}.txt").unlink()
     await store.delete_source(source)

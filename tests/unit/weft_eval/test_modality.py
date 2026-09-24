@@ -51,7 +51,8 @@ def test_a_query_is_text_unless_something_says_otherwise() -> None:
 
 def test_a_sample_can_declare_it_came_from_an_image_query() -> None:
     """`describe-query-image` is reserved and unbuilt, but `9.10` measures an image-question
-    slice, and the slice has to be nameable before it can be measured."""
+    slice, and the slice has to be nameable before it can be measured.
+    """
     # Act
     sample = RetrievalSample(
         query="q", retrieved=(), relevant_ids=frozenset(), modality=QueryModality.IMAGE
@@ -135,7 +136,8 @@ def test_a_run_that_scored_one_modality_slices_into_one() -> None:
 
 def test_slices_are_absent_rather_than_empty_when_nothing_asked_for_them() -> None:
     """`{}` is the honest answer for a caller that did not partition, and every caller before
-    this task is one. Never a single slice fabricated from the whole."""
+    this task is one. Never a single slice fabricated from the whole.
+    """
     # Act
     result = aggregate([_scored(0.5)], kind=MetricKind.RETRIEVAL)
 
@@ -146,7 +148,8 @@ def test_slices_are_absent_rather_than_empty_when_nothing_asked_for_them() -> No
 
 def test_a_slice_carrying_no_observations_is_refused() -> None:
     """`MetricAggregate.n` is `ge=1` for the reason `aggregate()`'s docstring gives — there is
-    nothing to average over zero observations. A slice is the same quantity one level down."""
+    nothing to average over zero observations. A slice is the same quantity one level down.
+    """
     # Act / Assert
     with pytest.raises(ValidationError):
         PartitionSlice(mean=0.0, n=0, stdev=None)
@@ -154,7 +157,8 @@ def test_a_slice_carrying_no_observations_is_refused() -> None:
 
 def test_a_failed_observation_still_excludes_rather_than_scoring_zero() -> None:
     """V4's rule, unchanged by this task — asserted here because `aggregate()`'s signature moved
-    and a defaulted parameter is exactly where an existing property gets lost (`L8.24`)."""
+    and a defaulted parameter is exactly where an existing property gets lost (`L8.24`).
+    """
     # Act
     result = aggregate([_scored(1.0), Failed(reason="boom")], kind=MetricKind.RETRIEVAL)
 

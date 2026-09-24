@@ -197,10 +197,12 @@ class IterativeRetrievalTrace(ExtModel):
 
 
 class IterativeRetrievalConfig(BaseModel):
-    """`IterativeRetrieval`'s `with:` config. Every field has a default, per this pack's own
-    rule that a Phase 2 pack's settings must be constructible with none supplied — and per
-    ledger 2.20's own line, which names every bound this loop has as configuration: how many
-    rounds, how few, which critic, which leaf, and what a hard critic failure does.
+    """`IterativeRetrieval`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied — and per ledger 2.20's own line, which names every bound this
+    loop has as configuration: how many rounds, how few, which critic, which leaf, and what a hard
+    critic failure does.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

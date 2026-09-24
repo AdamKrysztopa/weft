@@ -80,7 +80,8 @@ async def test_writing_the_same_key_twice_replaces_rather_than_duplicating(tmp_p
 
 async def test_opening_a_uri_nothing_wrote_fails_loudly_and_by_name(tmp_path: Path) -> None:
     """An empty answer is not a fact about the world: `b""` here would be indistinguishable from
-    a real empty blob, and a caller would embed nothing and never know."""
+    a real empty blob, and a caller would embed nothing and never know.
+    """
     # Act / Assert
     with pytest.raises(BlobNotFoundError):
         await _store(tmp_path).open(BlobUri(await _uri_for_a_key_never_written(tmp_path)))

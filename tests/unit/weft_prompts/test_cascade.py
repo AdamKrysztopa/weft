@@ -229,9 +229,12 @@ async def test_a_provider_that_answered_with_nothing_is_relayed_not_reinterprete
 
 
 async def test_a_schema_reply_with_an_unescaped_latex_backslash_is_accepted_at_tier_two() -> None:
-    """Repair R38.11. Tier 2's answer was the right document with `\\(` left unescaped; it was
-    thrown away, tier 3 re-asked without the schema and got a numbered list, and one question
-    aborted an experiment. The repaired document is the answer tier 2 was asked for."""
+    """Repair R38.11.
+
+    Tier 2's answer was the right document with `\\(` left unescaped; it was thrown away, tier 3
+    re-asked without the schema and got a numbered list, and one question aborted an experiment. The
+    repaired document is the answer tier 2 was asked for.
+    """
     # Arrange
     llm = _StubLLM(native=False, plain=[r'{"verdict": "\(yes\)"}', "1. yes\n2. no"])
 

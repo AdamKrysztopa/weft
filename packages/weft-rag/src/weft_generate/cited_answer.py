@@ -108,8 +108,9 @@ class CitedAnswerConfig(BaseModel):
 
 
 class CitedAnswer:
-    """Turns packed, labelled evidence into a cited answer. Satisfies `contract.Generator`
-    structurally.
+    """Turns packed, labelled evidence into a cited answer.
+
+    Satisfies `contract.Generator` structurally.
 
     `cost_bound = (0, 1)` — zero when evidence is empty and `when_no_evidence=REFUSE`,
     because `run` returns before resolving anything; one otherwise, the same arithmetic

@@ -253,7 +253,8 @@ def test_a_needs_store_that_is_not_a_tuple_of_capabilities_is_refused_by_name() 
 
 class _FakeStore:
     """A `NodeStore` stand-in — `build_services` never calls a method on it, only resolves
-    the registered factory and hands the instance to the `ServiceRegistry`."""
+    the registered factory and hands the instance to the `ServiceRegistry`.
+    """
 
 
 class _FakeEmbedder:

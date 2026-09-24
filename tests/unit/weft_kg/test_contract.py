@@ -70,7 +70,8 @@ from weft_kg.contract import (
 class _Stranger:
     """A traversal implementation that imports none of the Protocol, the way a third party's
     would — the shape `weft_example_graph.store` takes for `NodeStore` and the shape fitness
-    function 9(c) asks of a stranger."""
+    function 9(c) asks of a stranger.
+    """
 
     def __init__(self) -> None:
         self.asked: list[str] = []
@@ -101,7 +102,8 @@ class _Stranger:
 
 def test_a_class_that_never_imported_the_protocol_satisfies_it() -> None:
     """Structural satisfaction, which is the whole of what `@runtime_checkable` buys here and
-    what fitness function 9(c)'s stranger will be asked."""
+    what fitness function 9(c)'s stranger will be asked.
+    """
     # Act / Assert
     assert isinstance(_Stranger(), GraphTraversal)
 
@@ -175,6 +177,7 @@ def test_the_version_is_readable_off_the_class_and_carries_no_isinstance_weight(
 
 def test_the_contract_version_is_its_own_and_moves_nothing_in_the_store_family() -> None:
     """`11.4`'s line: `STORE_CONTRACT_VERSION` does **not** move when this Protocol is published.
+
     It moves if the Protocol is ever *promoted* into the family, which is the deferral row's own
     trigger and not this task.
 
@@ -251,7 +254,8 @@ def test_the_contract_no_longer_declares_the_member_that_moved() -> None:
 def test_the_pack_declares_the_protocol_selectable_without_a_kernel_line() -> None:
     """Task `9.0`'s form: one `ServiceRole` constant beside the Protocol, its `contract` field a
     bare `type` the kernel never names — so `[services] graph` selects a traversal implementation
-    with nothing added to `weft-kernel`."""
+    with nothing added to `weft-kernel`.
+    """
     # Act / Assert
     assert isinstance(GRAPH_ROLE, ServiceRole)
     assert GRAPH_ROLE.key == "graph"
@@ -260,7 +264,8 @@ def test_the_pack_declares_the_protocol_selectable_without_a_kernel_line() -> No
 
 def test_the_role_is_a_module_constant_and_not_an_attribute_of_the_protocol() -> None:
     """The reason `9.0` fixed that form: an attribute on the body joins `__protocol_attrs__` and
-    breaks `issubclass` for every implementer that does not restate it."""
+    breaks `issubclass` for every implementer that does not restate it.
+    """
     # Act / Assert
     protocol_attrs = getattr(GraphTraversal, "__protocol_attrs__", frozenset[str]())
     assert not hasattr(GraphTraversal, "role")
@@ -270,7 +275,8 @@ def test_the_role_is_a_module_constant_and_not_an_attribute_of_the_protocol() ->
 def test_an_entity_is_frozen_and_refuses_a_blank_name() -> None:
     """A domain object, so frozen — a merge produces a new entity rather than editing one, which
     is `S12`'s own reason these are rows and not `Node`s. And a nameless entity is one no question
-    can ask for by name, which is the member this contract leads with."""
+    can ask for by name, which is the member this contract leads with.
+    """
     # Act / Assert
     assert Entity.model_config.get("frozen") is True
     assert Entity.model_config.get("extra") == "forbid"
@@ -281,7 +287,8 @@ def test_an_entity_is_frozen_and_refuses_a_blank_name() -> None:
 async def test_the_four_members_answer_in_batch() -> None:
     """Batch granularity is the ledger's word and it is the property that keeps a bounded walk
     from becoming N round trips — `weft_example_graph.store.neighbors_of` takes a single name,
-    which is exactly what this contract must not do."""
+    which is exactly what this contract must not do.
+    """
     # Arrange — deliberately *not* annotated `GraphTraversal`. The `if TYPE_CHECKING: version`
     # declaration makes `version` a member a type checker requires for assignability while
     # `__protocol_attrs__` correctly excludes it at runtime, so annotating a stranger with the

@@ -241,7 +241,8 @@ async def test_a_failed_or_changed_layer_reaches_the_operator_and_a_failure_exit
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Carried repair **R43.9**: `IndexResult` carried a moved layer since 43.8 and the command
-    copied it nowhere, so neither a changed nor a failed layer was ever printed."""
+    copied it nowhere, so neither a changed nor a failed layer was ever printed.
+    """
 
     # Arrange
     async def ran(*_args: object, **_kwargs: object) -> IndexResult:

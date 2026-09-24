@@ -66,7 +66,8 @@ from weft_retrieve.routing import (
 
 class _StubLLM:
     """An `LLM` answering tier 2 of the cascade from a script — the same shape every other
-    cascade-backed plugin's own test module in this pack already takes."""
+    cascade-backed plugin's own test module in this pack already takes.
+    """
 
     def __init__(self, replies: list[str | Failed]) -> None:
         self._replies = replies
@@ -144,7 +145,8 @@ class _StubCatalogue:
 
 class _StubEmbedder:
     """An `Embedder` answering from a fixed content-to-vector table — enough to make one
-    candidate deterministically nearest the query without a real model."""
+    candidate deterministically nearest the query without a real model.
+    """
 
     def __init__(self, vectors: Mapping[str, Vector]) -> None:
         self._vectors = vectors
@@ -157,7 +159,8 @@ class _StubEmbedder:
 
 class _RefusingEmbedder:
     """An `Embedder` that always raises — proves `nearest-description` never reaches it
-    when the catalogue has nothing to select between."""
+    when the catalogue has nothing to select between.
+    """
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         raise AssertionError("no embedder call should be made with zero candidates")
@@ -275,7 +278,8 @@ async def test_llm_query_scorer_refuses_a_mismatched_dimension_set() -> None:
 async def test_driving_query_scorer_through_the_seam_produces_a_scorecard() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     question = Query(text="does this pass through the seam?")
     llm = _StubLLM([_SCORES_JSON])

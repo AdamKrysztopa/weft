@@ -68,7 +68,8 @@ def test_mmr_selects_before_expansion_so_the_widened_list_is_bounded(tmp_path: P
 def test_the_generator_reads_every_passage_packing_kept(tmp_path: Path, name: str) -> None:
     """`32.10`'s first run: `cited-answer` reads at most `max_passages` (8) from the front of
     what `repack` hands it, and `method: reverse` puts the best passage last — so the widened
-    24 were cut to the eight worst, and both arms scored far below the baseline for it."""
+    24 were cut to the eight worst, and both arms scored far below the baseline for it.
+    """
     # Arrange
     config = tmp_path / "weft.toml"
     config.write_text("", encoding="utf-8")

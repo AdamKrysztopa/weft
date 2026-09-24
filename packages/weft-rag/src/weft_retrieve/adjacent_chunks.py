@@ -53,8 +53,9 @@ class AdjacentChunksConfig(BaseModel):
 
 
 class AdjacentChunks:
-    """Every hit, plus up to `window` same-parent neighbours on each side. Satisfies
-    `weft_retrieve.contract.Reranker` structurally.
+    """Every hit, plus up to `window` same-parent neighbours on each side.
+
+    Satisfies `weft_retrieve.contract.Reranker` structurally.
 
     `cost_bound = (0, 0)`: `run` resolves `NodeStore` alone, reads it through `MetadataFilter`,
     and calls no model — the same honest shape `weft_retrieve.collapse.CollapseToParent`

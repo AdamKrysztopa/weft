@@ -119,8 +119,10 @@ async def test_the_generated_pack_imports_and_registers_a_plugin(tmp_path: Path)
 
 
 async def test_a_name_that_is_not_a_distribution_name_is_refused(tmp_path: Path) -> None:
-    """The error case. A name with a space or a slash produces a directory and a package that
-    cannot be imported, and finding that out at `pip install` time is finding it out too late.
+    """The error case.
+
+    A name with a space or a slash produces a directory and a package that cannot be imported, and
+    finding that out at `pip install` time is finding it out too late.
     """
     # Arrange
     from weft_cli.pack_new import PackNewArgs

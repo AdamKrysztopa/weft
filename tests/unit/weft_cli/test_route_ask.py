@@ -92,7 +92,8 @@ _SCORES_JSON = (
 
 class _FakeStore:
     """A `NodeStore` stand-in — `no-retrieval`, `single-list`, `repack` and `cited-answer`
-    call no store method at all, so nothing here needs to answer one."""
+    call no store method at all, so nothing here needs to answer one.
+    """
 
 
 def _scripted_factory(config: object) -> ScriptedProvider:
@@ -132,7 +133,8 @@ def _registry() -> Registry:
 def _reports() -> Sequence[PackReport]:
     """`weft-retrieve`'s own real, shipped resources — the exact two files its own
     `register()` contributes in production, read here through the same `importlib.
-    resources` path a real install would use."""
+    resources` path a real install would use.
+    """
     return (
         PackReport(
             pack="retrieve",

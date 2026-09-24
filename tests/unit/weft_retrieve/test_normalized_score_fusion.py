@@ -100,7 +100,8 @@ def _two_arms_rrf_cannot_separate() -> Candidates:
 
 async def test_the_fixture_is_one_rrf_genuinely_cannot_separate() -> None:
     """The control, run through the shipped `ReciprocalRankFusion` rather than asserted from a
-    literal. If this ever stops holding, the test below is no longer measuring what it claims."""
+    literal. If this ever stops holding, the test below is no longer measuring what it claims.
+    """
     # Arrange / Act
     outcome = await ReciprocalRankFusion().run(_two_arms_rrf_cannot_separate(), _ctx())
 
@@ -133,9 +134,12 @@ async def test_the_arm_that_is_sure_wins_because_its_score_gap_is_read() -> None
 
 
 async def test_an_arm_that_never_returned_a_node_contributes_nothing_for_it() -> None:
-    """Not a zero — nothing. `X` appears in one arm only, so its fused score is that arm's
-    normalised value and no more; a fabricated `0.0` from the other arm would be identical here
-    but would make `tm2c2`'s claim, which this plugin does not implement."""
+    """Not a zero — nothing.
+
+    `X` appears in one arm only, so its fused score is that arm's normalised value and no more; a
+    fabricated `0.0` from the other arm would be identical here but would make `tm2c2`'s claim,
+    which this plugin does not implement.
+    """
     # Arrange
     payload = Candidates(
         origin=_ASKED,
@@ -158,10 +162,12 @@ async def test_an_arm_that_never_returned_a_node_contributes_nothing_for_it() ->
 
 
 async def test_an_arm_whose_scores_are_all_equal_contributes_its_whole_weight() -> None:
-    """The zero-range convention, asserted because the alternative is silent. With `max == min`
-    every hit is simultaneously the arm's best and worst; mapping them all to `1.0` says the arm
-    ranked them equally, and mapping them to `0.0` would delete the arm from the fusion without
-    saying so."""
+    """The zero-range convention, asserted because the alternative is silent.
+
+    With `max == min` every hit is simultaneously the arm's best and worst; mapping them all to
+    `1.0` says the arm ranked them equally, and mapping them to `0.0` would delete the arm from the
+    fusion without saying so.
+    """
     # Arrange
     payload = Candidates(
         origin=_ASKED,
@@ -183,7 +189,8 @@ async def test_an_arm_whose_scores_are_all_equal_contributes_its_whole_weight() 
 
 async def test_weights_are_applied_by_contributor_label() -> None:
     """The same spelling `Ranking.contributors` and `reciprocal-rank-fusion`'s own `weights`
-    use, so a document's block cannot name a key no fuser produces without being noticed."""
+    use, so a document's block cannot name a key no fuser produces without being noticed.
+    """
     # Arrange
     config = NormalizedScoreFusionConfig(weights={"hybrid:text": 0.5})
 
@@ -201,7 +208,8 @@ async def test_weights_are_applied_by_contributor_label() -> None:
 async def test_a_non_finite_score_is_refused_by_name_rather_than_propagated() -> None:
     """An `inf` or a `nan` poisons a min-max range and then every comparison downstream, and
     `nan` does it silently: it compares false against everything, so a sort puts it wherever the
-    algorithm happened to look. The refusal names the plugin and the arm."""
+    algorithm happened to look. The refusal names the plugin and the arm.
+    """
     # Arrange
     payload = Candidates(
         origin=_ASKED,
@@ -221,7 +229,8 @@ async def test_no_lists_at_all_fuses_to_an_empty_ranking_rather_than_stopping_th
     None
 ):
     """`no-retrieval`'s own legitimate output, and the emptiness rule every contract in this pack
-    states: `Produced` carrying an empty `Ranking`, never `NothingToProduce`."""
+    states: `Produced` carrying an empty `Ranking`, never `NothingToProduce`.
+    """
     # Arrange / Act
     outcome = await NormalizedScoreFusion(NormalizedScoreFusionConfig()).run(
         Candidates(origin=_ASKED), _ctx()
@@ -235,7 +244,8 @@ async def test_no_lists_at_all_fuses_to_an_empty_ranking_rather_than_stopping_th
 
 async def test_an_empty_but_legitimate_list_is_a_contributor_that_contributed_nothing() -> None:
     """`RankedList(hits=())` says an arm looked and found nothing — a different fact from the arm
-    not existing, per `Candidates`' own docstring. It stays named in `contributors`."""
+    not existing, per `Candidates`' own docstring. It stays named in `contributors`.
+    """
     # Arrange
     payload = Candidates(
         origin=_ASKED,
@@ -285,9 +295,12 @@ async def test_top_k_bounds_what_survives_the_fusion() -> None:
 
 
 def test_the_name_is_descriptive_and_does_not_claim_tm2c2() -> None:
-    """`10` §2.1 rule 4. Faithful TM2C2 normalizes over the candidate union with a valid
-    theoretical lower bound and needs score completion for documents an arm did not return;
-    this plugin normalizes two truncated lists and lets absence mean absence."""
+    """`10` §2.1 rule 4.
+
+    Faithful TM2C2 normalizes over the candidate union with a valid theoretical lower bound and
+    needs score completion for documents an arm did not return; this plugin normalizes two truncated
+    lists and lets absence mean absence.
+    """
     # Arrange
     doc = NormalizedScoreFusion.__doc__
 
@@ -299,6 +312,7 @@ def test_the_name_is_descriptive_and_does_not_claim_tm2c2() -> None:
 
 def test_fusion_evidence_is_attached_under_its_own_namespace() -> None:
     """Guards task 21.4's decision from this task: a second fuser filing under `weft-retrieve`
-    would evict a `CorrectiveTrace` exactly as the first one would have."""
+    would evict a `CorrectiveTrace` exactly as the first one would have.
+    """
     # Arrange / Act / Assert
     assert FusionEvidence.__namespace__ == "weft-retrieve-fusion"

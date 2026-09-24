@@ -212,7 +212,7 @@ class PdfLayoutModelExtractor:
                 # A `CancelledError` guard is not this guard, which is the mistake FF25's
                 # own first draft made.
                 raise
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 — third-party types; see below
                 # `CancelledError` inherits from `BaseException` in 3.12, so this `except
                 # Exception` already misses it and the `raise` above is redundant in
                 # principle — kept explicit because the conversion is a third-party call

@@ -31,7 +31,8 @@ async def test_bytes_written_come_back_byte_identical() -> None:
 
 async def test_opening_something_never_written_fails_rather_than_answering_empty() -> None:
     """An empty answer is not a fact about the world — weft's own rule, and it applies to a
-    stranger's implementation exactly as much as to the shipped one."""
+    stranger's implementation exactly as much as to the shipped one.
+    """
     # Act / Assert
     with pytest.raises(UnknownBlobError):
         await InMemoryBlobStore().open("memory:nothing-here")
@@ -60,7 +61,8 @@ async def test_deleting_a_prefix_nothing_wrote_is_zero_and_not_an_error() -> Non
 
 async def test_it_reports_what_it_removed_by_kind_when_a_source_is_deleted() -> None:
     """The stranger joins `weft delete`'s fan-out by satisfying `SourceDeletable`, declaring
-    nothing — and answers in the per-kind vocabulary weft's task 9.3 opened up."""
+    nothing — and answers in the per-kind vocabulary weft's task 9.3 opened up.
+    """
     # Arrange
     store = InMemoryBlobStore()
     source = SourceId("/corpus/report.pdf")
@@ -76,8 +78,9 @@ async def test_it_reports_what_it_removed_by_kind_when_a_source_is_deleted() -> 
 
 
 async def test_it_holds_targets_through_the_published_protocol() -> None:
-    """weft's carried repair R34.9 published `BlobTargetHolding`, so a stranger's blob store
-    takes part in `weft target drop` the way the shipped filesystem store does."""
+    """Weft's carried repair R34.9 published `BlobTargetHolding`, so a stranger's blob store
+    takes part in `weft target drop` the way the shipped filesystem store does.
+    """
     # Arrange
     live = InMemoryBlobStore()
     kept = await live.put("t/doc/0.png", b"live", "image/png")

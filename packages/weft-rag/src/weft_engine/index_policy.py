@@ -18,8 +18,10 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 
 
 class IndexPolicy(BaseModel):
-    """`[index]`, resolved. `layers` defaults to `()` — a project with no `[index]` block
-    runs no layer unless a person's own `--layers` names one for that run.
+    """`[index]`, resolved.
+
+    `layers` defaults to `()` — a project with no `[index]` block runs no layer unless a person's
+    own `--layers` names one for that run.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

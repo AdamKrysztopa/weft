@@ -997,7 +997,8 @@ def _offerable_rung_roles(
 ) -> dict[str, frozenset[str]]:
     """`routable_rung_roles`, once the router's own roles are mapped and at least one rung
     survives the role filter — `run_routed_ask`'s two up-front refusals, carried repair
-    **R43.30**."""
+    **R43.30**.
+    """
     resolved_router = resolve_in_catalogue(
         router, registry=registry, catalogue=catalogue, reports=reports, contributions=contributions
     )

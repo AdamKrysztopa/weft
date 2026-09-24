@@ -1,5 +1,4 @@
-"""Fitness function 6 — a contract version's movement agrees with the distribution
-publishing it.
+"""Fitness function 6 — a contract version's movement agrees with the distribution publishing it.
 
 `docs/01-high-level-plan.md` states FF6 in one sentence: "Contracts are versioned. Every
 published contract carries a version, and a check fails on a changed contract whose
@@ -74,7 +73,8 @@ _SEMVER_RE: Final[re.Pattern[str]] = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 @dataclass(frozen=True, slots=True)
 class ContractVersion:
     """One `*_CONTRACT_VERSION` / `*_AST_VERSION` constant, and the distribution
-    (a `packages/<name>` directory) whose `contract.py` declares it."""
+    (a `packages/<name>` directory) whose `contract.py` declares it.
+    """
 
     distribution: str
     constant: str
@@ -92,9 +92,11 @@ class Disagreement:
 
 
 def semver(value: str) -> tuple[int, int, int]:
-    """Parse a plain `X.Y.Z` string. Raises on anything else — a pre-release suffix or a
-    two-part version is not a fact this check can compare, and refusing loudly beats
-    guessing at an ordering."""
+    """Parse a plain `X.Y.Z` string.
+
+    Raises on anything else — a pre-release suffix or a two-part version is not a fact this check
+    can compare, and refusing loudly beats guessing at an ordering.
+    """
     match = _SEMVER_RE.match(value)
     if match is None:
         raise ValueError(f"not a plain X.Y.Z semver string: {value!r}")
@@ -133,7 +135,8 @@ def contract_versions_in(root: Path) -> list[ContractVersion]:
 
 def distribution_version(root: Path, distribution: str) -> str:
     """The `[project].version` a distribution's own `pyproject.toml` declares — the
-    independent second source the module docstring's argument requires."""
+    independent second source the module docstring's argument requires.
+    """
     pyproject = root / distribution / "pyproject.toml"
 
     with pyproject.open("rb") as handle:
@@ -184,7 +187,8 @@ def protocol_names_in(contract_file: Path) -> list[str]:
     """Every `@runtime_checkable` class declared in one `contract.py` — used to assert
     that a module publishing a Protocol also publishes a version for it, without
     enumerating contract names anywhere (CLAUDE.md: no closed enumeration of a thing a
-    pack could add to)."""
+    pack could add to).
+    """
     tree = ast.parse(contract_file.read_text(encoding="utf-8"), filename=str(contract_file))
     names: list[str] = []
 

@@ -1,4 +1,5 @@
 """`GraphWalk` — the `GraphTraversal` implementation over `weft_kg.store`'s own Postgres schema.
+
 Ledger **11.5**, rejoined through aliases at **11.8**.
 
 **A second class over the same schema `GraphStore` provisions, and that is a finding rather than a

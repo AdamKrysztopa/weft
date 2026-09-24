@@ -174,8 +174,10 @@ def find_anchors(text: str, *, entities: Sequence[str] = ()) -> tuple[Anchor, ..
 
 
 class IntentAndAnchorsConfig(BaseModel):
-    """`IntentAndAnchors`'s `with:` config. Every field has a default, per this pack's own rule
-    that a Phase 2 pack's settings must be constructible with none supplied.
+    """`IntentAndAnchors`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -215,7 +217,8 @@ class IntentAndAnchorsConfig(BaseModel):
 
 def _dedupe_first(texts: Sequence[str]) -> tuple[str, ...]:
     """`texts`, each kept at its first occurrence — the model path's own copy of the rule
-    dedup `find_anchors` already applies to its own three sources."""
+    dedup `find_anchors` already applies to its own three sources.
+    """
     seen: set[str] = set()
     kept: list[str] = []
     for text in texts:
@@ -238,7 +241,8 @@ def _searchable(anchor: str) -> str:
 def _anchor_queries(anchor_texts: Sequence[str], *, origin: Query) -> tuple[Query, ...]:
     """One `Query` per anchor text, aimed at `Channel.TEXT` alone — shared by both the rule
     and the model path, so an anchor is turned into a query exactly one way regardless of
-    which mechanism named it."""
+    which mechanism named it.
+    """
     return tuple(
         Query(
             text=text,
@@ -253,8 +257,9 @@ def _anchor_queries(anchor_texts: Sequence[str], *, origin: Query) -> tuple[Quer
 
 
 class IntentAndAnchors:
-    """Splits a question into its intent and its anchors. Satisfies `weft_retrieve.contract.
-    QueryTransform` structurally.
+    """Splits a question into its intent and its anchors.
+
+    Satisfies `weft_retrieve.contract. QueryTransform` structurally.
 
     Never returns `NothingToProduce` — a question always has an intent, even when it has no
     anchor. `method: model` can return `Failed`: a model-named anchor carrying a word the

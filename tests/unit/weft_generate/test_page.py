@@ -22,7 +22,8 @@ from weft_kernel.payload import ExtModel, MediaType, Node
 
 class _Span(ExtModel):
     """Structurally identical to `weft_extract.payload.PageSpan`, declared fresh so this test
-    proves the duck-typed match rather than a same-class coincidence."""
+    proves the duck-typed match rather than a same-class coincidence.
+    """
 
     __namespace__ = "test-span"
     __schema_version__ = "1.0.0"
@@ -36,7 +37,8 @@ class _Offset(ExtModel):
 
     It was structurally `weft-chunk`'s `ChunkOffset` until `R17.1` withdrew that; declared
     here rather than imported, so this test goes on stating the property whether or not any
-    shipped pack happens to record an offset today."""
+    shipped pack happens to record an offset today.
+    """
 
     __namespace__ = "test-offset"
     __schema_version__ = "1.0.0"
@@ -80,7 +82,8 @@ def test_a_node_carrying_no_facts_at_all_resolves_to_no_page() -> None:
 def test_the_real_extraction_ext_models_satisfy_the_same_duck_typed_match() -> None:
     """The production case, not a structural coincidence: the two real ext models this pack
     never imports — `PageSpan` on a prose or figure node, `TableGrid` on a table node —
-    resolve through exactly the same code as the stand-in above."""
+    resolve through exactly the same code as the stand-in above.
+    """
     # Arrange
     from weft_extract.payload import BoundingBox, PageSpan, TableGrid
 

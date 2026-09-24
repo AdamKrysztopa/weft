@@ -117,7 +117,8 @@ def test_an_arm_may_name_its_own_corpus_and_questions_and_otherwise_inherits_the
 
 def test_the_digest_is_over_the_documents_bytes(tmp_path: Path) -> None:
     """Not over the resolved model: a resolved path names this machine, and the same committed
-    file must digest the same wherever it is checked out."""
+    file must digest the same wherever it is checked out.
+    """
     # Arrange
     body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION)
     here = _write(tmp_path, body)
@@ -279,7 +280,8 @@ def test_an_arm_may_declare_its_own_repetitions_and_otherwise_inherits_the_docum
 ) -> None:
     """`38.5`'s repetitions 2–3 were 65% of its query time and identical to repetition 1: retrieval
     with no model call cannot vary, so its author runs it once. An arm reaching a model keeps the
-    document's `repeats`."""
+    document's `repeats`.
+    """
     # Arrange
     body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
         'name = "dense"\npipeline = "index-text"\n',

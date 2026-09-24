@@ -56,7 +56,8 @@ def test_every_model_a_pack_declares_reads_back_after_the_helper() -> None:
 
 def test_the_helper_can_run_twice_in_one_process() -> None:
     """Every fixture calls it; a suite runs many fixtures, and a real `discover()` may already
-    have registered the same classes — `register_ext_model` refuses that, `L6.28`."""
+    have registered the same classes — `register_ext_model` refuses that, `L6.28`.
+    """
     # Act / Assert — no `DuplicateRegistrationError`
     register_ext_models_of(weft_chunk)
     register_ext_models_of(weft_chunk)

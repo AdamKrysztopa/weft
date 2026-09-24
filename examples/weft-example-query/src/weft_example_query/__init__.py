@@ -53,7 +53,8 @@ class Settings(BaseModel):
 def register(registrar: PackRegistrar, settings: Settings) -> None:
     """Register this pack's eleven plugins — one per contract it implements, a second
     `Reranker` that calls a model under a role field of its own naming, and a third that
-    composes other rerankers into a panel."""
+    composes other rerankers into a panel.
+    """
     del settings
     registrar.add(QueryTransform, TRANSFORM_NAME, ExampleQueryTransform)
     registrar.add(Retriever, RETRIEVER_NAME, ExampleFixedRetriever)

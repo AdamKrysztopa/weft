@@ -1385,10 +1385,12 @@ async def test_two_runs_differing_only_by_query_rung_compare_rather_than_refuse(
 async def test_a_baseline_does_not_count_a_different_rung_among_its_repetitions(
     tmp_path: Path,
 ) -> None:
-    """The defect, stated as a test. `--baseline` selected every persisted run whose *ingest*
-    pipeline matched, so a run of a different query rung over the same index was folded into the
-    spread the verdict is measured against — noise from a configuration change, read as
-    run-to-run variability. `01:1173-1174` says so in prose and nothing enforced it.
+    """The defect, stated as a test.
+
+    `--baseline` selected every persisted run whose *ingest* pipeline matched, so a run of a
+    different query rung over the same index was folded into the spread the verdict is measured
+    against — noise from a configuration change, read as run-to-run variability. `01:1173-1174` says
+    so in prose and nothing enforced it.
     """
     # Arrange — three repetitions of the rung under test, and one of a different rung whose
     # score is far outside their spread. It must not be selected.
@@ -1818,9 +1820,11 @@ async def test_eval_compare_does_not_refuse_a_run_that_recorded_no_question_set(
 async def test_eval_compare_reports_a_paired_difference_beside_the_spread_verdict(
     tmp_path: Path,
 ) -> None:
-    """*Beside*, never instead. The two intervals answer two questions — does this difference
-    exceed what the system produces by repeating itself, and does it generalise across the
-    questions — and a reader given one of them cannot infer the other.
+    """*Beside*, never instead.
+
+    The two intervals answer two questions — does this difference exceed what the system produces by
+    repeating itself, and does it generalise across the questions — and a reader given one of them
+    cannot infer the other.
     """
     # Arrange — a baseline that varies by 0.02, and two arms whose per-question scores differ.
     for run_id, mean in (("base-1", 0.40), ("base-2", 0.42)):
@@ -2013,7 +2017,8 @@ async def test_eval_run_resolves_manifest_ids_through_the_manifest_it_is_given(
     """`eval/questions/*.toml` names `ax-1304.7717v2`, and the staged corpus holds
     `arxiv/1304.7717v2.pdf`. `--manifest` is the one file that says which is which; each id maps
     to its document's path relative to the manifest's own directory, so the label resolves
-    wherever the corpus is staged."""
+    wherever the corpus is staged.
+    """
     # Arrange
     corpus = tmp_path / "corpus"
     (corpus / "arxiv").mkdir(parents=True)
@@ -2102,7 +2107,8 @@ async def test_eval_compare_refuses_two_question_set_digests_taken_by_different_
     """A record written before task 38.11 digested `weft_cli.eval_scoring.Question`'s canonical
     form, and one written since digests `weft_eval.question_set.Question`'s. The same 136
     questions give two digests, so the refusal has to say it is the *function* that differs, or
-    a reader goes looking for a changed question that does not exist."""
+    a reader goes looking for a changed question that does not exist.
+    """
     # Arrange
     _write_record(
         tmp_path, "run-a", pipeline_name="base", corpus_name="corpus", question_set_digest="a" * 64
@@ -2210,7 +2216,8 @@ async def test_eval_refuses_to_score_a_corpus_missing_a_source_that_failed_earli
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Phase 36's close review, F1: an index skips a source an earlier run recorded `FAILED`, so
-    an evaluation over it would score a smaller corpus under the full corpus's identity."""
+    an evaluation over it would score a smaller corpus under the full corpus's identity.
+    """
     # Arrange
     (tmp_path / "one.txt").write_text("hello weft")
     monkeypatch.setattr(

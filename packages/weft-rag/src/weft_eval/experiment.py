@@ -151,8 +151,10 @@ class ExperimentArm(BaseModel):
 
 
 class Experiment(BaseModel):
-    """An experiment, read from a document — see the module docstring. `digest` is a sha256 over
-    the document's own bytes, computed by `load_experiment`, never over this resolved model.
+    """An experiment, read from a document — see the module docstring.
+
+    `digest` is a sha256 over the document's own bytes, computed by `load_experiment`, never over
+    this resolved model.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -173,11 +175,12 @@ class Experiment(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _cutoffs_from_top_k(cls, data: Any) -> Any:
-        """A document writes only `top_k` — an int names one cutoff, a list names several. This
-        expands either spelling into the declared `top_k` (the largest, and so the retrieval
-        depth every question's ranking is collapsed to) plus `cutoffs` (every declared depth,
-        sorted ascending and de-duplicated) before field validation runs. A document may not
-        write `cutoffs` itself; `extra="forbid"` still refuses it.
+        """A document writes only `top_k` — an int names one cutoff, a list names several.
+
+        This expands either spelling into the declared `top_k` (the largest, and so the retrieval
+        depth every question's ranking is collapsed to) plus `cutoffs` (every declared depth, sorted
+        ascending and de-duplicated) before field validation runs. A document may not write
+        `cutoffs` itself; `extra="forbid"` still refuses it.
         """
         if not isinstance(data, dict):
             return data
@@ -232,7 +235,8 @@ class Experiment(BaseModel):
 
     def repeats_for(self, arm: ExperimentArm) -> int:
         """`arm`'s own repetition count, or the experiment's, when the arm names none — the one
-        place every loop and completeness check reads (task **38.13**)."""
+        place every loop and completeness check reads (task **38.13**).
+        """
         return arm.repeats if arm.repeats is not None else self.repeats
 
 

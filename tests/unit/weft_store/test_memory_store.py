@@ -39,7 +39,8 @@ from weft_store.contract import STORE_CONTRACT_VERSION, SourceRecord
 def _node(content: str, vector: tuple[float, ...], source: str = "s-a") -> Node:
     """Built the way the published kit builds its own — `Node.synthetic` then `with_embedding`,
     because `synthetic` takes no `embedding` and a double written from the signature I expected
-    rather than the one that exists is `L11.17`."""
+    rather than the one that exists is `L11.17`.
+    """
     return Node.synthetic(
         content=content,
         media_type=MediaType.TEXT,
@@ -132,8 +133,10 @@ async def test_it_answers_the_conformance_checks_its_capabilities_cover() -> Non
 
 
 async def test_it_is_told_which_checks_it_cannot_answer_rather_than_failing_them() -> None:
-    """The control for the test above. A store offered *every* check would satisfy that assertion
-    only by accident, and this is what says the selection actually happened.
+    """The control for the test above.
+
+    A store offered *every* check would satisfy that assertion only by accident, and this is what
+    says the selection actually happened.
     """
     # Arrange
     from weft_store.conformance import unsupported_checks
@@ -201,16 +204,17 @@ async def test_a_source_record_round_trips_and_deleting_it_takes_its_nodes() -> 
 
 
 def test_it_declares_the_contract_version_it_was_written_against() -> None:
-    """A store that does not say which contract it satisfies cannot be checked against a
-    later one."""
+    """A store that does not say which contract it satisfies cannot be checked against a later one."""
     from weft_store.memory import MemoryStore
 
     assert MemoryStore.version == STORE_CONTRACT_VERSION
 
 
 async def test_it_refuses_a_query_vector_of_the_wrong_width() -> None:
-    """The error case. Cosine over mismatched widths is either a crash or a silent lie depending on
-    how it is written, and a store that answers anyway is the plausible-wrong-answer failure.
+    """The error case.
+
+    Cosine over mismatched widths is either a crash or a silent lie depending on how it is written,
+    and a store that answers anyway is the plausible-wrong-answer failure.
     """
     # Arrange
     from weft_store.memory import MemoryStore

@@ -50,7 +50,8 @@ from weft_store.contract import Scored
 
 class _StubLLM:
     """An `LLM` answering tier 2 of the cascade from a script — the same shape
-    `test_rerank.py`'s and `test_graded.py`'s own stubs take."""
+    `test_rerank.py`'s and `test_graded.py`'s own stubs take.
+    """
 
     def __init__(self, replies: list[str | Failed]) -> None:
         self._replies = replies
@@ -168,7 +169,8 @@ async def test_llm_sufficiency_relays_a_cascade_failure_exactly_as_it_answered()
 async def test_driving_llm_sufficiency_through_the_seam_produces_an_assessment() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     llm = _StubLLM(['{"sufficient": false, "confidence": 0.2, "missing": ["a citation"]}'])
     question = _asked()

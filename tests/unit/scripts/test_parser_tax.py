@@ -224,7 +224,8 @@ def _record_of(runs: Path, arm: str, repetition: int) -> Path:
 
 def test_a_repetition_only_one_corpus_ran_is_refused_by_name(tmp_path: Path) -> None:
     """Repair **R38.19**: `pairs` kept only what both corpora ran, so a missing repetition made
-    no row and no message."""
+    no row and no message.
+    """
     # Arrange
     markdown, pdf = _copied_runs(tmp_path)
     _record_of(pdf, "lexical", 2).unlink()

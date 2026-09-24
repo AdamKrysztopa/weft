@@ -44,8 +44,10 @@ class ExampleGraphWalk:
         self._store = GraphStore(settings)
 
     async def aclose(self) -> None:
-        """Closes the connection this class opened. Not a contract method — read defensively by
-        `weft_cli.fanout.built` and by `weft_cli.ingest`, exactly as `GraphStore.aclose` is.
+        """Closes the connection this class opened.
+
+        Not a contract method — read defensively by `weft_cli.fanout.built` and by
+        `weft_cli.ingest`, exactly as `GraphStore.aclose` is.
         """
         await self._store.aclose()
 

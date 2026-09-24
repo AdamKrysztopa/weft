@@ -1423,7 +1423,8 @@ def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
 
 def _slice_text(stdev: float | None) -> str:
     """The `±stdev` fragment `_metric_result_text` prints, shared with its own per-modality
-    lines below — one dispersion format for the whole aggregate and each of its slices."""
+    lines below — one dispersion format for the whole aggregate and each of its slices.
+    """
     return f"±{stdev:.3f}" if stdev is not None else "±n/a"
 
 
@@ -1489,9 +1490,10 @@ def _paired_difference_line(name: str, difference: PairedDifference) -> str:
 def _paired_difference_lines(
     paired: Mapping[str, PairedDifference], *, slice_: str | None = None
 ) -> list[str]:
-    """`weft eval compare`'s paired-difference block — task 16.9. Printed only when `paired` is
-    non-empty, see `_render_eval_compare`; *beside* the falsification block, never instead of
-    it, since the two answer different questions.
+    """`weft eval compare`'s paired-difference block — task 16.9.
+
+    Printed only when `paired` is non-empty, see `_render_eval_compare`; *beside* the falsification
+    block, never instead of it, since the two answer different questions.
 
     `slice_` — repair R38.1 — is `EvalCompareCommandResult.paired_differences_slice`: the
     `"axis=value"` a `--slice`/`--kind` restricted the pairing to, printed in the header so a
@@ -1506,10 +1508,11 @@ def _paired_difference_lines(
 
 
 def _falsification_line(name: str, judgement: DifferenceJudgement) -> str:
-    """One metric's own line under the falsification block — task 8.8. An `UNJUDGEABLE`
-    verdict prints its reason instead of numbers it does not have; a decided verdict prints
-    the signed difference and the baseline spread's own bounds, to three decimal places, the
-    same style `_metric_result_text` already prints a `stdev` in.
+    """One metric's own line under the falsification block — task 8.8.
+
+    An `UNJUDGEABLE` verdict prints its reason instead of numbers it does not have; a decided
+    verdict prints the signed difference and the baseline spread's own bounds, to three decimal
+    places, the same style `_metric_result_text` already prints a `stdev` in.
     """
     spread: BaselineSpread | None = judgement.spread
     difference = judgement.difference
@@ -1539,8 +1542,9 @@ def _falsification_lines(
     baseline_runs: tuple[str, ...],
     falsification: Mapping[str, DifferenceJudgement],
 ) -> list[str]:
-    """`weft eval compare --baseline <pipeline>`'s own block — task 8.8. Printed only when a
-    baseline was actually asked for, see `_render_eval_compare`.
+    """`weft eval compare --baseline <pipeline>`'s own block — task 8.8.
+
+    Printed only when a baseline was actually asked for, see `_render_eval_compare`.
     """
     lines = [
         f"falsification — baseline '{baseline_pipeline}', repetitions: "
@@ -1551,10 +1555,11 @@ def _falsification_lines(
 
 
 def _query_rung_side_text(rung: QueryRung | NoQueryRung | None) -> str:
-    """One side of a `QueryRungDifference`, rendered for the `vs` line — task 16.1. Narrower
-    than `_query_rung_text`: an identity or a `NoQueryRung.reason` would make the comparison
-    line unreadable, and the two sides being *named* differently is the whole fact this line
-    exists to report.
+    """One side of a `QueryRungDifference`, rendered for the `vs` line — task 16.1.
+
+    Narrower than `_query_rung_text`: an identity or a `NoQueryRung.reason` would make the
+    comparison line unreadable, and the two sides being *named* differently is the whole fact this
+    line exists to report.
     """
     if rung is None:
         return "(not recorded)"
@@ -1564,9 +1569,10 @@ def _query_rung_side_text(rung: QueryRung | NoQueryRung | None) -> str:
 
 
 def _query_rung_difference_lines(query_rungs: QueryRungDifference | None) -> list[str]:
-    """One line naming both sides' query rung, only when they differ — task 16.1. A comparison
-    does not report a fact that did not move, the same posture the pipeline diff and the
-    metrics comparison already take for anything unchanged.
+    """One line naming both sides' query rung, only when they differ — task 16.1.
+
+    A comparison does not report a fact that did not move, the same posture the pipeline diff and
+    the metrics comparison already take for anything unchanged.
     """
     if query_rungs is None or query_rungs.a == query_rungs.b:
         return []
@@ -1583,11 +1589,12 @@ def _baseline_selection_line(selection: BaselineSelection) -> str:
 
 
 def _run_latency_line(run_id: str, summary: LatencySummary | None) -> str:
-    """One run's own query latency line — task 33.8. `None` is a record with no per-question
-    timing (written before task 33.7, or run without `--questions`), and says so rather than
-    refusing the comparison: latency depends on the machine it ran on and is not identity, so it
-    is reported beside a comparison the way packaging is (repair `R22.11`), never a reason to
-    refuse one.
+    """One run's own query latency line — task 33.8.
+
+    `None` is a record with no per-question timing (written before task 33.7, or run without
+    `--questions`), and says so rather than refusing the comparison: latency depends on the machine
+    it ran on and is not identity, so it is reported beside a comparison the way packaging is
+    (repair `R22.11`), never a reason to refuse one.
     """
     if summary is None:
         return (
@@ -1678,10 +1685,11 @@ def _render_eval_compare(result: EvalCompareCommandResult) -> Rendered:
 
 
 def _render_reproduction(result: EvalCompareCommandResult, reproduction: Reproduction) -> Rendered:
-    """`weft eval compare` over two baseline report files — repair `R22.4d`. Reached only once
-    `weft_cli.eval_commands.EvalCompareCommand` has already judged every published metric inside
-    the interval its own repetitions spanned (`BaselineNotReproducedError` otherwise, so a
-    `Reproduction` reaches this function only when every verdict is `inside`).
+    """`weft eval compare` over two baseline report files — repair `R22.4d`.
+
+    Reached only once `weft_cli.eval_commands.EvalCompareCommand` has already judged every published
+    metric inside the interval its own repetitions spanned (`BaselineNotReproducedError` otherwise,
+    so a `Reproduction` reaches this function only when every verdict is `inside`).
     """
     inside = sum(1 for verdict in reproduction.verdicts if verdict.inside)
     total = len(reproduction.verdicts)
@@ -1733,9 +1741,11 @@ def _grouped_metric_lines(metrics: Mapping[str, MetricRunResult]) -> list[str]:
 
 
 def _query_rung_text(rung: QueryRung | NoQueryRung | None) -> str:
-    """`record.query_rung`, rendered — task 16.1. Three states, three readings: a reader must
-    not confuse *not recorded* (every record written before this task) with *this run named
-    none* (`NoQueryRung`, a measurement in its own right — see that class's own docstring).
+    """`record.query_rung`, rendered — task 16.1.
+
+    Three states, three readings: a reader must not confuse *not recorded* (every record written
+    before this task) with *this run named none* (`NoQueryRung`, a measurement in its own right —
+    see that class's own docstring).
     """
     if rung is None:
         return "(not recorded)"
@@ -1749,9 +1759,10 @@ def _query_rung_text(rung: QueryRung | NoQueryRung | None) -> str:
 
 
 def _distribution_versions_text(versions: Mapping[str, str] | None) -> str:
-    """`record.distribution_versions`, rendered — task 16.3. Three states as `_query_rung_text`
-    has three: `None` is *not recorded*, `{}` is *measured, and nothing had recorded metadata*,
-    and neither reads as the other.
+    """`record.distribution_versions`, rendered — task 16.3.
+
+    Three states as `_query_rung_text` has three: `None` is *not recorded*, `{}` is *measured, and
+    nothing had recorded metadata*, and neither reads as the other.
     """
     if versions is None:
         return "(not recorded)"
@@ -1774,8 +1785,10 @@ def _question_score_line(key: str, outcome: Produced[float] | NotScored) -> str:
 
 
 def _question_scores_lines(question_scores: Mapping[str, PerQuestionScores] | None) -> list[str]:
-    """`record.question_scores`, rendered — task 16.4. `None` is *not recorded*: every record
-    written before this task carries means and never the observations under them.
+    """`record.question_scores`, rendered — task 16.4.
+
+    `None` is *not recorded*: every record written before this task carries means and never the
+    observations under them.
     """
     if question_scores is None:
         return ["question scores: (not recorded)"]
@@ -1844,9 +1857,11 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
 
 
 def _render_eval_plan(result: EvalPlanCommandResult) -> Rendered:
-    """`weft eval plan` — task **38.12**. The size of the run the document asks for: one line per
-    arm, then one per `(ingest pipeline, corpus)`, and a total of the query executions. What it
-    does not print — model calls, hours, memory — is what no document can answer.
+    """`weft eval plan` — task **38.12**.
+
+    The size of the run the document asks for: one line per arm, then one per `(ingest pipeline,
+    corpus)`, and a total of the query executions. What it does not print — model calls, hours,
+    memory — is what no document can answer.
     """
     lines = [f"plan for '{result.name}' ({result.digest[:12]}…)"]
     lines.extend(
@@ -1864,9 +1879,11 @@ def _render_eval_plan(result: EvalPlanCommandResult) -> Rendered:
 
 
 def _render_eval_experiment(result: EvalExperimentCommandResult) -> Rendered:
-    """`weft eval experiment` — task **38.0**. The experiment's own identity and invocation
-    first, since `weft trace <run-id>` is what a reader opens next for any one cell of it, then
-    one line per record it wrote, in the same arm-then-repetition order the command built them.
+    """`weft eval experiment` — task **38.0**.
+
+    The experiment's own identity and invocation first, since `weft trace <run-id>` is what a reader
+    opens next for any one cell of it, then one line per record it wrote, in the same
+    arm-then-repetition order the command built them.
     """
     lines = [
         f"experiment '{result.name}' ({result.digest[:12]}…) — invocation "
@@ -1877,9 +1894,11 @@ def _render_eval_experiment(result: EvalExperimentCommandResult) -> Rendered:
 
 
 def _render_eval_table(result: EvalTableCommandResult) -> Rendered:
-    """`weft eval table` — task **38.1**. `weft_eval.evidence.render_evidence_table` already
-    wrote the whole answer; this only trims the one trailing newline `Rendered.stdout` does not
-    carry, the identical convention every other prose renderer here already follows.
+    """`weft eval table` — task **38.1**.
+
+    `weft_eval.evidence.render_evidence_table` already wrote the whole answer; this only trims the
+    one trailing newline `Rendered.stdout` does not carry, the identical convention every other
+    prose renderer here already follows.
     """
     return Rendered(stdout=result.markdown.rstrip("\n"), stderr=None, exit_code=ExitCode.SUCCESS)
 

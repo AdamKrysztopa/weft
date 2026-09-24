@@ -348,7 +348,8 @@ def test_discover_folds_a_settings_validator_that_raises_its_own_weft_error_kind
     class _OwnRefusalError(RuntimeError):
         """Stands in for a `WeftError` subclass a pack's own validator raises — a plain
         `RuntimeError` is enough to prove pydantic does not wrap it, without this file
-        importing anything `weft_kernel` does not already depend on."""
+        importing anything `weft_kernel` does not already depend on.
+        """
 
     class _Picky(BaseModel):
         index: str = "exact"
@@ -812,10 +813,12 @@ def test_a_committed_pack_reports_the_deprecation_it_buffered_and_warns_once() -
 
 
 def test_a_deprecation_from_a_real_distribution_carries_its_own_removal_release() -> None:
-    """Task 6.5. The clock is a fact about the *publishing* distribution, so the derivation is
-    exercised against one that really is installed rather than against a fake name — otherwise
-    the only state ever seen would be `VERSION_UNREADABLE`, and the check would pass while
-    proving nothing about the rule it exists for.
+    """Task 6.5.
+
+    The clock is a fact about the *publishing* distribution, so the derivation is exercised against
+    one that really is installed rather than against a fake name — otherwise the only state ever
+    seen would be `VERSION_UNREADABLE`, and the check would pass while proving nothing about the
+    rule it exists for.
     """
     # Arrange
     registry = Registry()

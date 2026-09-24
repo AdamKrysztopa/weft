@@ -201,7 +201,8 @@ def _defaulted_embedder_block(embedder: str) -> str:
 
 def _sorted(reports: tuple[PackReport, ...]) -> list[PackReport]:
     """Ordered by the identity that is printed: the pack, with `ALLOWED_NOT_INSTALLED`'s
-    distribution standing in for the one row that has no pack at all."""
+    distribution standing in for the one row that has no pack at all.
+    """
     return sorted(reports, key=lambda report: report.pack or report.distribution)
 
 

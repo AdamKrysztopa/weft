@@ -129,7 +129,8 @@ class _StrangerRoster:
 class _StrangerRejoin:
     """A third party's join: reads the published roster through the store it is handed, and
     returns one over its members and every placed new leaf. `write`, when set, names the store
-    write it attempts instead of reporting through `LayerRevision`."""
+    write it attempts instead of reporting through `LayerRevision`.
+    """
 
     write: ClassVar[str | None] = None
     capabilities: ClassVar[list[tuple[bool, bool]]] = []

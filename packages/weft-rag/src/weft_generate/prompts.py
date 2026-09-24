@@ -1,5 +1,6 @@
-"""The prompts `weft-generate`'s own plugins ask. Registered here, under the plugin that
-asks each one.
+"""The prompts `weft-generate`'s own plugins ask.
+
+Registered here, under the plugin that asks each one.
 
 Task **2.10**'s ledger line settles where a prompt lives: "every first-party prompt
 belongs to the plugin that asks it a question." `weft_retrieve.prompts` is the precedent

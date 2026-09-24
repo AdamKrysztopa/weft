@@ -290,7 +290,8 @@ async def test_every_store_a_document_names_records_the_sources_it_was_given(
 
 async def test_the_graph_store_keeps_a_source_s_failure_whole(graph_store: GraphStore) -> None:
     """Ledger **36.0**: the graph pack records sources too, and a `2.7.x` graph store is read
-    without `GraphSchemaVersionRefusedError` firing, because the failure is added beside it."""
+    without `GraphSchemaVersionRefusedError` firing, because the failure is added beside it.
+    """
     # Arrange
     record = SourceRecord(
         id=SourceId("file:///corpus/bad.txt"),
@@ -321,7 +322,8 @@ async def test_a_status_a_newer_release_wrote_is_refused_by_name(
     clean_database: None, store: PgVectorStore
 ) -> None:
     """Ledger **36.0**: release *n* meeting a status only *n*+1 knows says so, rather than
-    `ValueError: 'x' is not a valid SourceStatus` from deep inside a read."""
+    `ValueError: 'x' is not a valid SourceStatus` from deep inside a read.
+    """
     # Arrange — a row as a newer `weft-rag` would leave it.
     conn = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
     async with conn.cursor() as cur:

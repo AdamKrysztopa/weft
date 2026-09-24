@@ -554,9 +554,10 @@ def _merge_generation_scores(
 
 
 def _resolved_cutoffs(cutoffs: tuple[int, ...] | None, *, top_k: int) -> tuple[int, ...]:
-    """`cutoffs`, defaulted to `(top_k,)` — ledger task 40.1. `top_k` is always the depth the
-    ranking is collapsed to, so a caller naming a largest cutoff that disagrees with it is
-    asking for a depth no ranking was ever collapsed to.
+    """`cutoffs`, defaulted to `(top_k,)` — ledger task 40.1.
+
+    `top_k` is always the depth the ranking is collapsed to, so a caller naming a largest cutoff
+    that disagrees with it is asking for a depth no ranking was ever collapsed to.
     """
     resolved = cutoffs if cutoffs is not None else (top_k,)
     if max(resolved) != top_k:
@@ -568,8 +569,10 @@ def _resolved_cutoffs(cutoffs: tuple[int, ...] | None, *, top_k: int) -> tuple[i
 
 
 def _require_capturable_rung(capture_pool: bool, *, is_retrieval_rung: bool) -> None:
-    """`capture_pool=True`'s own pre-flight — ledger task 40.2. A pool is what a retrieval rung
-    packed; neither a generating rung nor the no-query-rung path has one to keep.
+    """`capture_pool=True`'s own pre-flight — ledger task 40.2.
+
+    A pool is what a retrieval rung packed; neither a generating rung nor the no-query-rung path has
+    one to keep.
     """
     if capture_pool and not is_retrieval_rung:
         raise ValueError(
@@ -1026,7 +1029,8 @@ async def _score_retrieval(
     failed_questions: Mapping[str, str],
 ) -> SubsetScores:
     """One cutoff is today's single `score_retrieval_gate_subset` call; several go through
-    `weft_eval.harness.score_retrieval_at_cutoffs`, which gives the same result for one."""
+    `weft_eval.harness.score_retrieval_at_cutoffs`, which gives the same result for one.
+    """
     if len(cutoffs) == 1:
         return await score_retrieval_gate_subset(
             registry, samples, top_k=cutoffs[0], ctx=ctx, failed_questions=failed_questions

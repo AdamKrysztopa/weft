@@ -85,7 +85,8 @@ class _CancelledChunker(_Passthrough):
     """A run interrupted rather than failed — ledger **36.1**: since Phase 36 a stage that raises
     or returns `Failed` records the source `FAILED`, so the interruption `17.1` is about is now
     modelled by what a killed task actually receives, `CancelledError`, which records nothing
-    beyond the `INDEXING` already written."""
+    beyond the `INDEXING` already written.
+    """
 
     cancel: ClassVar[bool] = False
 
@@ -306,7 +307,8 @@ async def test_a_document_whose_batch_failed_is_indexed_again_by_the_next_run(
     """The conjunction that makes the record above matter (`L8.29`): the next run, with nothing on
     disk changed, never calls the document unchanged. Since ledger **36.2** it skips it as
     *failed* and says so, and only `--retry-failed` treats it as work (owner, 2026-09-21: paid
-    stages sit on the ingest path, so a failure is not retried unasked)."""
+    stages sit on the ingest path, so a failure is not retried unasked).
+    """
     # Arrange — a run whose only batch is refused.
     (tmp_path / "bad.txt").write_text("unreadable")
     store = _RecordingStore(None)
@@ -332,7 +334,8 @@ async def test_a_document_whose_batch_failed_is_indexed_again_by_the_next_run(
 
 async def test_a_failed_run_leaves_an_unchanged_documents_record_active(tmp_path: Path) -> None:
     """The control: withholding `ACTIVE` from the run's work must not reach a document the run
-    never touched, whose record from the earlier run is still true."""
+    never touched, whose record from the earlier run is still true.
+    """
     # Arrange — one document indexed cleanly, then a second added that the next run refuses.
     (tmp_path / "good.txt").write_text("hello weft")
     store = _RecordingStore(None)
@@ -417,7 +420,8 @@ def test_one_incomplete_document_still_says_which_one() -> None:
 
 class _ExplodingOnChunker(_Passthrough):
     """Raises once a named document's batch reaches it: a run killed part-way, after earlier
-    batches finished."""
+    batches finished.
+    """
 
     explode_on: ClassVar[str | None] = None
 
@@ -433,7 +437,8 @@ async def test_a_batch_that_succeeded_is_active_even_when_a_later_batch_failed(
 ) -> None:
     """`38.6`'s question index re-paid every model call after one failure, because `R36.0`
     withholds `ACTIVE` from all of a run's work when any batch fails. One document per batch
-    names exactly which documents failed."""
+    names exactly which documents failed.
+    """
     # Arrange
     (tmp_path / "a_good.txt").write_text("hello weft")
     (tmp_path / "b_bad.txt").write_text("unreadable")
@@ -500,7 +505,8 @@ async def test_an_interrupted_documents_nodes_are_released_before_it_is_indexed_
     """`38.6`'s fourth run retrieved 22,463 question nodes a killed run had written: the killed
     run left its sources `INDEXING`, the next run read them `INCOMPLETE`, and only
     `CONTENT_CHANGED` and `PIPELINE_CHANGED` were released before re-indexing. Nodes a model wrote
-    differ run to run, so they get new ids and pile up even under the same pipeline."""
+    differ run to run, so they get new ids and pile up even under the same pipeline.
+    """
     # Arrange — a run that dies partway.
     (tmp_path / "one.txt").write_text("hello weft")
     store = _DeletingStore(None)
@@ -597,7 +603,8 @@ async def test_a_failed_batch_fails_only_its_bad_document_and_counts_only_its_at
 ) -> None:
     """Carried repair R43.1 supersedes this test's 36.1 form, in which every member of a failed
     batch was `FAILED`. Now the batch's documents are run again one at a time, so the good one is
-    `ACTIVE`. One bad file still does not advance anything but its own attempts."""
+    `ACTIVE`. One bad file still does not advance anything but its own attempts.
+    """
     # Arrange: the default batch is the whole corpus.
     (tmp_path / "a_good.txt").write_text("hello weft")
     (tmp_path / "b_bad.txt").write_text("unreadable")
@@ -730,7 +737,8 @@ def test_a_retried_document_is_not_called_unfinished() -> None:
 
 def test_a_document_that_failed_this_run_is_not_counted_unchanged() -> None:
     """Found running the exit from the wheel: after `36.1` stopped counting a failed document as
-    indexed, the summary's `discovered - indexed` called it unchanged."""
+    indexed, the summary's `discovered - indexed` called it unchanged.
+    """
     # Arrange
     outcome: Outcome[CommandResult] = Produced(
         value=IndexCommandResult(

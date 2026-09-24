@@ -36,7 +36,8 @@ def _node(content: str, *, degraded: bool) -> Node:
 
 class _PagingStore:
     """Answers `matching` for the one `EXISTS` filter the count asks, one node per page, so a
-    count that reads only the first page is caught."""
+    count that reads only the first page is caught.
+    """
 
     version: ClassVar[str] = STORE_CONTRACT_VERSION
 

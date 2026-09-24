@@ -248,8 +248,11 @@ class RendererOffer(BaseModel):
 
     @field_serializer("render")
     def _render_as_name(self, render: Callable[[object], object]) -> str:
-        """Likewise, for the callable. A function has no wire form; what a reader of the JSON
-        can act on is which one it is, which is what a qualified name says."""
+        """Likewise, for the callable.
+
+        A function has no wire form; what a reader of the JSON can act on is which one it is, which
+        is what a qualified name says.
+        """
         module = getattr(render, "__module__", "?")
         name = getattr(render, "__qualname__", repr(render))
         return f"{module}.{name}"
@@ -1040,7 +1043,7 @@ def _activate(
 
     try:
         register_fn = entry_point.load()
-    except Exception as exc:  # a pack's import can raise anything; that is FAILED, not a crash
+    except Exception as exc:  # noqa: BLE001 — a pack's import can raise anything; that is FAILED
         return PackReport(
             pack=pack,
             distribution=distribution,
@@ -1066,7 +1069,7 @@ def _activate(
     registrar = PackRegistrar(registry, distribution=distribution)
     try:
         settings = _resolve_settings(register_fn, pack=pack, raw=raw_settings)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — see below
         # Broad: a validator may raise an exception pydantic does not wrap, and that is
         # still a settings failure.
         return PackReport(
@@ -1082,7 +1085,7 @@ def _activate(
     try:
         register_fn(registrar, settings)
         registrar.commit()
-    except Exception as exc:  # one broken pack must not stop the rest from loading
+    except Exception as exc:  # noqa: BLE001 — one broken pack must not stop the rest loading
         return PackReport(
             pack=pack,
             distribution=distribution,

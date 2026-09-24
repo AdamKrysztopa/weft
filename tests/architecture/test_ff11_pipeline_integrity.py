@@ -737,7 +737,8 @@ def test_stage_use_pairs_excludes_fallback_names() -> None:
 def test_manual_pipeline_with_an_unregistered_fallback_still_resolves() -> None:
     """The concrete case the finding named: `manual/user-manual.md`'s own shipped `fallback:
     [ocr]` block, against the real installed registry, where no pack registers `ocr` — this
-    must pass, on purpose, because `fallback:` is excluded from what this clause checks."""
+    must pass, on purpose, because `fallback:` is excluded from what this clause checks.
+    """
     # Arrange
     registry = _installed_registry()
     with_fallback = [
@@ -763,7 +764,8 @@ def test_manual_pipeline_with_an_unregistered_fallback_still_resolves() -> None:
 
 def test_a_pipeline_naming_an_unknown_plugin_would_be_caught() -> None:
     """Prove the check above can actually fail — `01` item 11(b)'s own example: rename a
-    plugin and leave a document naming the old one."""
+    plugin and leave a document naming the old one.
+    """
     # Arrange
     registry = _installed_registry()
     rotted = [("planted.yaml", "name: rotted\nstages: [{id: chunk, use: no-longer-registered}]\n")]

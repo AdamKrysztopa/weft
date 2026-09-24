@@ -134,7 +134,8 @@ async def test_a_node_one_arm_never_returned_is_absent_rather_than_scored_zero()
     """Absence is not a measured zero — the review's *missing scores are the central fidelity
     issue*. A `0.0` here would read as "this arm scored it lowest" when the truth is "this arm
     did not return it within its cutoff", and a normalized fuser that believed the first would
-    invent a contribution nobody measured."""
+    invent a contribution nobody measured.
+    """
     # Arrange
     fuser = ReciprocalRankFusion(ReciprocalRankFusionConfig())
 
@@ -155,7 +156,8 @@ async def test_a_node_one_arm_never_returned_is_absent_rather_than_scored_zero()
 async def test_evidence_does_not_evict_a_carrier_ext_in_the_neighbouring_namespace() -> None:
     """`ReciprocalRankFusion.run` ends `Ranking(..., ext=payload.ext)`, and `CorrectiveTrace`
     already owns `weft-retrieve` on a `Candidates`. One model per namespace, so evidence filed
-    under that name would destroy it — with nothing to see afterwards."""
+    under that name would destroy it — with nothing to see afterwards.
+    """
     # Arrange
     trace = CorrectiveTrace(triggered=True, kept=2)
     payload = _two_arms().model_copy(update={"ext": {CorrectiveTrace.__namespace__: trace}})
@@ -174,9 +176,11 @@ async def test_evidence_does_not_evict_a_carrier_ext_in_the_neighbouring_namespa
 
 
 async def test_a_fuser_with_no_lists_records_that_it_looked() -> None:
-    """`Candidates(lists=())` is `no-retrieval`'s own legitimate output. Evidence with `arms=()`
-    says the fuser ran and had nothing to fuse; **no** evidence says nothing recorded it. Those
-    are different facts and a reader of the `Ranking` can tell them apart."""
+    """`Candidates(lists=())` is `no-retrieval`'s own legitimate output.
+
+    Evidence with `arms=()` says the fuser ran and had nothing to fuse; **no** evidence says nothing
+    recorded it. Those are different facts and a reader of the `Ranking` can tell them apart.
+    """
     # Arrange
     fuser = ReciprocalRankFusion(ReciprocalRankFusionConfig())
 
@@ -212,10 +216,12 @@ async def test_single_list_records_its_one_arm_too() -> None:
 
 
 def test_a_ranking_nothing_recorded_evidence_on_reads_as_an_absence() -> None:
-    """`None`, not an empty `FusionEvidence`. A `Ranking` from a fuser that records nothing —
-    `boolean-combine`, which owns `BooleanPlan` for its own evidence — has not said its arms
-    were empty; it has said nothing, and inventing an empty answer for it is the silent
-    fallback this project refuses."""
+    """`None`, not an empty `FusionEvidence`.
+
+    A `Ranking` from a fuser that records nothing — `boolean-combine`, which owns `BooleanPlan` for
+    its own evidence — has not said its arms were empty; it has said nothing, and inventing an empty
+    answer for it is the silent fallback this project refuses.
+    """
     # Arrange
     ranking = Ranking(origin=_ASKED)
 
@@ -229,7 +235,8 @@ def test_a_ranking_nothing_recorded_evidence_on_reads_as_an_absence() -> None:
 def test_an_arm_with_a_blank_label_is_refused() -> None:
     """`contributor_label` never produces one, so a blank arrives only from a caller that built
     an `ArmEvidence` by hand — and an arm no reader can name is one no fuser can weight, which is
-    `Passage.retrieved_by`'s own argument one type down."""
+    `Passage.retrieved_by`'s own argument one type down.
+    """
     # Arrange / Act / Assert
     with pytest.raises(ValueError, match="label"):
         ArmEvidence(label="", hits=())

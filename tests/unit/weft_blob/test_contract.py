@@ -160,7 +160,8 @@ class _StrangerTargetHoldingBlobStore(_StrangerBlobStore):
 def test_blob_target_holding_is_published_beside_the_contract() -> None:
     """Carried repair **R34.9**: a third party's blob store takes part in `weft target drop` by
     satisfying a published Protocol, as `TargetHolding` does for a node store — not a private one
-    in `weft_cli.target_commands` a stranger could only find by reading it."""
+    in `weft_cli.target_commands` a stranger could only find by reading it.
+    """
     # Act / Assert
     assert isinstance(_StrangerTargetHoldingBlobStore(), BlobTargetHolding)
     assert not isinstance(_StrangerBlobStore(), BlobTargetHolding)

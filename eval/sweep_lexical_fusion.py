@@ -96,9 +96,12 @@ _BM25_SERVER_ENV = "WEFT_BM25_DATABASE_URL"
 
 
 def _config_for(arm: Arm, dsn: str, workspace: Path) -> Path:
-    """One arm's `weft.toml`. Two arms of a fuser pair differ in **no** field of this file — the
-    fuser is chosen by `query_pipeline`, not by configuration, which is what keeps the two
-    lexical arms' indexes shared between them."""
+    """One arm's `weft.toml`.
+
+    Two arms of a fuser pair differ in **no** field of this file — the fuser is chosen by
+    `query_pipeline`, not by configuration, which is what keeps the two lexical arms' indexes shared
+    between them.
+    """
     path = workspace / f"weft-{arm.text_mode}-{arm.fuser}.toml"
     path.write_text(
         f'[packs.store]\ndsn = "{dsn}"\ntext_mode = "{arm.text_mode}"\n'

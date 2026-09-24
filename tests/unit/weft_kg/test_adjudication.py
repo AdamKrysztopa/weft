@@ -73,8 +73,10 @@ async def test_a_score_below_the_floor_is_two_different_things() -> None:
 
 
 async def test_a_score_inside_the_band_abstains_rather_than_guessing() -> None:
-    """The property this module exists for. Neither `True` nor `False`: a rule with no evidence
-    either way says so, and something with more evidence gets asked next.
+    """The property this module exists for.
+
+    Neither `True` nor `False`: a rule with no evidence either way says so, and something with more
+    evidence gets asked next.
     """
     # Arrange
     adjudicate = threshold_adjudicator()
@@ -150,8 +152,9 @@ async def test_a_chain_stops_at_the_first_adjudicator_with_an_opinion() -> None:
 
 
 async def test_a_chain_whose_every_member_abstains_abstains() -> None:
-    """Nobody decided, so the pass leaves the two entities alone and counts an abstention. The
-    alternative — defaulting to *different* — would report a decision nobody made.
+    """Nobody decided, so the pass leaves the two entities alone and counts an abstention.
+
+    The alternative — defaulting to *different* — would report a decision nobody made.
     """
     # Act
     verdict = await first_verdict("a", "b", 0.7, adjudicators=(_always(None), _always(None)))

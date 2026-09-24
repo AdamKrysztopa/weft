@@ -122,7 +122,8 @@ async def test_a_provider_error_is_failed_and_names_what_happened() -> None:
 
 async def test_cancellation_propagates_rather_than_becoming_a_failed_outcome() -> None:
     """G6, and the reason a bare `except Exception` is wrong here: `CancelledError` is not a fact
-    about this image."""
+    about this image.
+    """
     # Arrange
     import asyncio
 
@@ -200,7 +201,9 @@ def test_a_jpeg_becomes_a_png() -> None:
 
 
 async def test_the_resize_runs_off_the_event_loop() -> None:
-    """G6. A service passes through no seam wrap, so nothing catches a blocking call for it —
+    """G6.
+
+    A service passes through no seam wrap, so nothing catches a blocking call for it —
     `weft_kernel.blocking.guard` is the same detector the seam installs, armed here directly.
     """
     # Arrange
@@ -214,7 +217,8 @@ async def test_the_resize_runs_off_the_event_loop() -> None:
 
 async def test_the_instruction_reaches_the_provider() -> None:
     """`instruction` is the contract's third argument and the caller's only control over what is
-    said; a plugin that ignored it would satisfy every other test here."""
+    said; a plugin that ignored it would satisfy every other test here.
+    """
     # Arrange
     client = _RecordingClient()
 

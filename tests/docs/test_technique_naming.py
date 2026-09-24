@@ -209,7 +209,8 @@ def names_renamed_for_cause() -> frozenset[str]:
 def _all_names(registry: Registry) -> frozenset[str]:
     """Every name `registry` holds under any contract — `names_for` walked over
     `contracts()`, both contract-agnostic and read-only (`weft_kernel/registry.py`), so no
-    contract has to be imported and listed here for its names to be found."""
+    contract has to be imported and listed here for its names to be found.
+    """
     return frozenset(
         name for contract in registry.contracts() for name in registry.names_for(contract)
     )
@@ -349,7 +350,8 @@ def test_at_least_one_registered_name_is_found() -> None:
 
 def test_the_catalogue_itself_names_at_least_one_reserved_technique_and_one_rename() -> None:
     """A second floor, over the catalogue's own two sections — a parse that matched nothing
-    there would pass the two checks below just as vacuously."""
+    there would pass the two checks below just as vacuously.
+    """
     # Arrange / Act
     exact, prefixes = reserved_names()
 
@@ -359,9 +361,11 @@ def test_the_catalogue_itself_names_at_least_one_reserved_technique_and_one_rena
 
 
 def test_no_registered_name_claims_a_reserved_technique() -> None:
-    """`10` §2.1 rule 4: no name may promise more than the code does. A reserved name is the
-    sharpest case of that — the literature already named the technique, and Weft does not
-    implement it."""
+    """`10` §2.1 rule 4: no name may promise more than the code does.
+
+    A reserved name is the sharpest case of that — the literature already named the technique, and
+    Weft does not implement it.
+    """
     # Arrange
     exact, prefixes = reserved_names()
 
@@ -377,8 +381,11 @@ def test_no_registered_name_claims_a_reserved_technique() -> None:
 
 
 def test_no_registered_name_reuses_a_name_the_catalogue_renamed() -> None:
-    """`10` §1.4: these renames are not preferences. Reusing one would put the original
-    defect back in the registry under the exact name it was corrected out of."""
+    """`10` §1.4: these renames are not preferences.
+
+    Reusing one would put the original defect back in the registry under the exact name it was
+    corrected out of.
+    """
     # Arrange
     banned = names_renamed_for_cause()
 
@@ -395,7 +402,8 @@ def test_no_registered_name_reuses_a_name_the_catalogue_renamed() -> None:
 def test_a_reserved_collision_would_be_caught() -> None:
     """The reserved-name check's own teeth: a name that really does collide must be flagged,
     proven against a name `10` §4 actually reserves — not a made-up string this test invents,
-    which could pass for reasons that have nothing to do with the check under test."""
+    which could pass for reasons that have nothing to do with the check under test.
+    """
     # Arrange
     exact, prefixes = reserved_names()
     assert "self-rag" in exact, (
@@ -427,7 +435,8 @@ def test_a_renamed_name_collision_would_be_caught() -> None:
 def _weft_names_in_1_1() -> frozenset[str]:
     """§1.1's own "Weft name" column, and nothing else — the source side of property 4's
     forward check: every one of these must resolve to a registered plugin or a shipped
-    pipeline."""
+    pipeline.
+    """
     section = _section(
         _catalogue_text(), start="### 1.1 Query-path techniques", end="### 1.2 Index-path"
     )
@@ -509,10 +518,13 @@ NAMES_WAIVED_FROM_THE_CATALOGUE: Final[frozenset[str]] = frozenset({"routing-pol
 
 
 def test_every_weft_name_in_1_1_resolves_to_a_plugin_or_a_pipeline() -> None:
-    """Property 4. A name §1.1 states that nothing registers and no pipeline ships is a
-    citation with nothing behind it — the forward half of the drift `.phase2-design.md`
-    names this audit to close (`retrieve-then-generate` is the pipeline `10` §2.1 rule 5
-    and §12 decision 12 both name; the row is the technique it composes)."""
+    """Property 4.
+
+    A name §1.1 states that nothing registers and no pipeline ships is a citation with nothing
+    behind it — the forward half of the drift `.phase2-design.md` names this audit to close
+    (`retrieve-then-generate` is the pipeline `10` §2.1 rule 5 and §12 decision 12 both name; the
+    row is the technique it composes).
+    """
     # Arrange
     claimed = _weft_names_in_1_1() - NAMES_WAIVED_FROM_THE_CATALOGUE
     resolvable = registered_names() | shipped_pipeline_names()
@@ -533,7 +545,8 @@ def test_every_name_the_audited_distributions_register_is_documented_in_10() -> 
     registers and `10` never mentions — in §1.1, §2.2 or §1.5 — is exactly the gap that let
     a future plugin claim a reserved technique's near neighbour unnoticed, which is what
     the base commit shipped fourteen documented names and left roughly two dozen others
-    silent about."""
+    silent about.
+    """
     # Arrange
     audited = (
         names_registered_by(_AUDITED_DISTRIBUTIONS)
@@ -556,7 +569,8 @@ def test_every_name_the_audited_distributions_register_is_documented_in_10() -> 
 def test_an_unresolvable_catalogue_name_would_be_caught() -> None:
     """Property 4's own teeth: a name §1.1 could state that resolves to neither a plugin
     nor a pipeline must be flagged, proven against a fabricated name no real plugin and no
-    real pipeline could ever coincidentally hold."""
+    real pipeline could ever coincidentally hold.
+    """
     # Arrange
     claimed = frozenset({"not-a-real-technique-2026"})
     resolvable = registered_names() | shipped_pipeline_names()
@@ -587,7 +601,8 @@ def test_the_waiver_is_doing_real_work() -> None:
     weight nobody would notice going stale. Proven against `routing-policy`, the one member
     today: neither a registered plugin nor a shipped pipeline names it, so the forward
     check in `test_every_weft_name_in_1_1_resolves_to_a_plugin_or_a_pipeline` really would
-    fail on it without this waiver."""
+    fail on it without this waiver.
+    """
     # Arrange
     resolvable = registered_names() | shipped_pipeline_names()
 
@@ -605,7 +620,8 @@ def test_the_waiver_is_doing_real_work() -> None:
 class _CitedTechnique:
     """One `10` §1.1/§1.2 row whose Origin column names a paper, and the anchor that paper's
     own citation is found by — an arXiv id or a DOI, never prose, so a citation can be reworded
-    to match its module's own voice without this check caring."""
+    to match its module's own voice without this check caring.
+    """
 
     name: str
     pack: str
@@ -664,7 +680,8 @@ def _pack_source(pack: str) -> str:
 
 def test_every_cited_technique_names_a_plugin_actually_registered() -> None:
     """The table above is a claim about the registry, not just about `10` — a name it lists
-    that nothing registers would make every check below pass vacuously for that row."""
+    that nothing registers would make every check below pass vacuously for that row.
+    """
     # Arrange
     registered = registered_names()
 
@@ -681,7 +698,8 @@ def test_every_cited_technique_names_a_plugin_actually_registered() -> None:
 def test_every_cited_technique_still_carries_its_paper_citation() -> None:
     """A name earned against a paper keeps that paper's own id somewhere in the pack that
     registers it — the mechanical half of `10` §2.1 rule 4, which a docstring rewrite cannot
-    silently break the way prose alone could."""
+    silently break the way prose alone could.
+    """
     # Arrange
     sources = {t.pack: _pack_source(t.pack) for t in _CITED_TECHNIQUES}
 
@@ -705,7 +723,8 @@ def test_every_cited_technique_still_carries_its_paper_citation() -> None:
 
 def test_a_missing_citation_would_be_caught() -> None:
     """This check's own teeth: a technique whose anchor is not actually in its pack's source
-    must be flagged, proven against a fabricated arXiv id no real paper carries."""
+    must be flagged, proven against a fabricated arXiv id no real paper carries.
+    """
     # Arrange
     fabricated = _CitedTechnique("hyde", "weft_retrieve", ("9999.99999",))
     source = _pack_source(fabricated.pack)

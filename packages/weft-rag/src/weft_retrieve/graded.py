@@ -77,12 +77,13 @@ NAME = "graded-retrieval"
 
 
 class GradedRetrievalConfig(BaseModel):
-    """`GradedRetrieval`'s `with:` config. Every field has a default, per this pack's own
-    rule. Every knob a hard-coded or absent version of this technique would fix in place is
-    one of these: which
-    wording grades (`prompt`), which model answers (`role`), where the line is drawn
-    (`keep_at_or_above`), how many hits are ever offered (`max_graded`), how many per call
-    (`batch`), and what a batch that could not be graded does (`on_grader_failure`).
+    """`GradedRetrieval`'s `with:` config.
+
+    Every field has a default, per this pack's own rule. Every knob a hard-coded or absent version
+    of this technique would fix in place is one of these: which wording grades (`prompt`), which
+    model answers (`role`), where the line is drawn (`keep_at_or_above`), how many hits are ever
+    offered (`max_graded`), how many per call (`batch`), and what a batch that could not be graded
+    does (`on_grader_failure`).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -100,6 +101,7 @@ class GradedRetrievalConfig(BaseModel):
 
 class GradedRetrieval:
     """Grades every offered hit, batched, and keeps only the ones at or above a floor.
+
     Satisfies `weft_retrieve.contract.Reranker` structurally.
 
     `cost_bound = (1, 4)` at the defaults: `ceil(20 / 5) = 4` batches at the ceiling, one
@@ -187,10 +189,11 @@ def _offer(chunk: tuple[Passage, ...]) -> str:
 
 
 def _grades_by_index(judged: GradedPassages, *, offered: int) -> dict[int, Grade] | Failed:
-    """One grade per offered index in this batch, or a `Failed` naming exactly how it was
-    wrong. Mirrors `weft_retrieve.rerank._scores_by_index` — an index nobody offered, a
-    missing index, and a repeated index are three different mistakes, each named rather than
-    folded into one "the model answered badly".
+    """One grade per offered index in this batch, or a `Failed` naming exactly how it was wrong.
+
+    Mirrors `weft_retrieve.rerank._scores_by_index` — an index nobody offered, a missing index, and
+    a repeated index are three different mistakes, each named rather than folded into one "the model
+    answered badly".
     """
     grades: dict[int, Grade] = {}
     unknown: list[int] = []

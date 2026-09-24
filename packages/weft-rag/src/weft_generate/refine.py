@@ -105,9 +105,11 @@ NAME = "refine-on-uncertainty"
 
 
 class RefinementStop(StrEnum):
-    """Why this round's draft is the one returned. Reported, never left implicit — the same
-    "named, testable stopping rule" shape `weft_retrieve.iterative.StopReason` already gives
-    a looping technique in this tree, applied here to a refining one.
+    """Why this round's draft is the one returned.
+
+    Reported, never left implicit — the same "named, testable stopping rule" shape
+    `weft_retrieve.iterative.StopReason` already gives a looping technique in this tree, applied
+    here to a refining one.
     """
 
     #: The signal judged the draft sufficient, at or above `threshold`.
@@ -168,12 +170,13 @@ class RefinementTrace(ExtModel):
 
 
 class RefineOnUncertaintyConfig(BaseModel):
-    """`RefineOnUncertainty`'s `with:` config. Every field has a default, per this pack's own
-    rule. `signal`, `retriever`, `threshold`, `max_rounds` and `on_signal_failure` are
-    `.phase2-design.md` §10's own task-table fields for this row. `prompt`, `role`,
-    `max_passages`, `signal_config` and `retriever_config` are recorded additions, on
-    `iterative-retrieval`'s own precedent (`leaf_config`/`sufficiency_config`) for the finding
-    that names them: a knob that exists in the library and not in the config model is a knob
+    """`RefineOnUncertainty`'s `with:` config.
+
+    Every field has a default, per this pack's own rule. `signal`, `retriever`, `threshold`,
+    `max_rounds` and `on_signal_failure` are `.phase2-design.md` §10's own task-table fields for
+    this row. `prompt`, `role`, `max_passages`, `signal_config` and `retriever_config` are recorded
+    additions, on `iterative-retrieval`'s own precedent (`leaf_config`/`sufficiency_config`) for the
+    finding that names them: a knob that exists in the library and not in the config model is a knob
     a third party cannot reach (`.phase2-findings.md` finding 9).
     """
 

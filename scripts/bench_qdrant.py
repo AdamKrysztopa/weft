@@ -65,7 +65,8 @@ _COLLECTION_SLUG: Final[dict[PayloadIndexing, str]] = {
 def bucket_filter(selectivity: bench_filtered.Selectivity) -> Filter:
     """The `Filter` a caller would write to ask for this harness's bucket — the same shape
     `weft_qdrant.store.to_qdrant_filter` is measured against, so the condition this script
-    times is exactly the one a real query would carry."""
+    times is exactly the one a real query would carry.
+    """
     return Filter(
         op=FilterOp.EQ,
         field=f"ext.{bench_filtered.BENCH_NAMESPACE}.{selectivity.key}",
@@ -75,7 +76,8 @@ def bucket_filter(selectivity: bench_filtered.Selectivity) -> Filter:
 
 def point_payload(node_id: str, *, content: str) -> dict[str, object]:
     """A point's payload, with every bucket nested exactly where `bucket_filter`'s dotted
-    field looks — `bench_filtered.bench_ext` is the one place that patch is built."""
+    field looks — `bench_filtered.bench_ext` is the one place that patch is built.
+    """
     return {
         "node_id": node_id,
         "content": content,

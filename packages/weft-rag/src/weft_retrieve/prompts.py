@@ -159,10 +159,11 @@ class StandaloneQuestionRequest(BaseModel):
 
 
 class StandaloneQuestion(BaseModel):
-    """The follow-up, rewritten to need no earlier turn. What `contextual-query-rewrite` derives
-    its new `Query` from — `text` refuses empty the same way `Query.text` itself does, so a
-    cascade tier that answered with nothing steps down rather than handing this plugin a blank
-    rewrite to build a `Query` from.
+    """The follow-up, rewritten to need no earlier turn.
+
+    What `contextual-query-rewrite` derives its new `Query` from — `text` refuses empty the same way
+    `Query.text` itself does, so a cascade tier that answered with nothing steps down rather than
+    handing this plugin a blank rewrite to build a `Query` from.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -576,7 +577,8 @@ class SeedVariants(BaseModel):
         """A blank alternative is not a search query — the same refusal `HydeDocuments`
         makes for a blank hypothetical passage, and for the identical reason: caught here,
         against the model answer that actually produced it, rather than one call later
-        against a `Query.text` that refuses empty for a different-sounding reason."""
+        against a `Query.text` that refuses empty for a different-sounding reason.
+        """
         if any(not variant.strip() for variant in value):
             raise ValueError(
                 "every alternative multi-query-variants answers with must be a non-blank "
@@ -586,8 +588,10 @@ class SeedVariants(BaseModel):
 
 
 class MultiQueryVariants(BaseModel):
-    """Every offered seed's alternatives, answered once each. `multi-query` refuses a set that
-    is not exactly that — see `weft_retrieve.transforms._groups_by_index`.
+    """Every offered seed's alternatives, answered once each.
+
+    `multi-query` refuses a set that is not exactly that — see
+    `weft_retrieve.transforms._groups_by_index`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -728,9 +732,10 @@ class PassageGrade(BaseModel):
 
 
 class GradedPassages(BaseModel):
-    """Every offered passage, graded once. `graded-retrieval` refuses a batch that is not
-    exactly that — the same refusal `PassageRelevance`'s own docstring states for a
-    continuous score, applied to a discrete grade.
+    """Every offered passage, graded once.
+
+    `graded-retrieval` refuses a batch that is not exactly that — the same refusal
+    `PassageRelevance`'s own docstring states for a continuous score, applied to a discrete grade.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -804,9 +809,11 @@ class BooleanToken(BaseModel):
 
 
 class BooleanTokens(BaseModel):
-    """The whole query, tokenised in order. `weft_retrieve.boolean.parse_tokens` is what
-    turns this into a `BoolExpr` — precedence, parentheses and the shape of the AST are all
-    that function's work, never this prompt's or this model's.
+    """The whole query, tokenised in order.
+
+    `weft_retrieve.boolean.parse_tokens` is what turns this into a `BoolExpr` — precedence,
+    parentheses and the shape of the AST are all that function's work, never this prompt's or this
+    model's.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -956,10 +963,11 @@ class SufficiencyCheckRequest(BaseModel):
 
 
 class SufficiencyJudgement(BaseModel):
-    """Whether the evidence — and the draft, when one was offered — is enough. Read straight
-    into `weft_retrieve.payload.Assessment` by the plugin that asks this prompt; the two
-    types stay separate because `Assessment.observed` is a fact about whether the *call
-    itself* landed, which this prompt has no way to report about its own failure.
+    """Whether the evidence — and the draft, when one was offered — is enough.
+
+    Read straight into `weft_retrieve.payload.Assessment` by the plugin that asks this prompt; the
+    two types stay separate because `Assessment.observed` is a fact about whether the *call itself*
+    landed, which this prompt has no way to report about its own failure.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -1012,10 +1020,11 @@ class DimensionScore(BaseModel):
 
 
 class RouteQueryScores(BaseModel):
-    """Every asked dimension, scored once. `weft_retrieve.routing.QueryScorer` refuses a
-    set that is not exactly the dimensions it asked for — see that module's own
-    `_score_mapping`, the identical refusal `PassageRelevance`'s own docstring states for a
-    reranker's judgement set, applied to a name instead of an index.
+    """Every asked dimension, scored once.
+
+    `weft_retrieve.routing.QueryScorer` refuses a set that is not exactly the dimensions it asked
+    for — see that module's own `_score_mapping`, the identical refusal `PassageRelevance`'s own
+    docstring states for a reranker's judgement set, applied to a name instead of an index.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

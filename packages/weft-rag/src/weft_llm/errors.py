@@ -102,8 +102,10 @@ class LLMServiceUnavailableError(LLMTransientError):
 
 
 class LLMPermanentError(LLMError):
-    """Will refuse identically on retry. `transient` is fixed to `False` for the same reason
-    `LLMTransientError` fixes it to `True` — a leaf class states nothing about the keyword.
+    """Will refuse identically on retry.
+
+    `transient` is fixed to `False` for the same reason `LLMTransientError` fixes it to `True` — a
+    leaf class states nothing about the keyword.
     """
 
     def __init__(

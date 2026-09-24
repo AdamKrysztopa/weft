@@ -96,8 +96,9 @@ class Agreement(ExtModel):
 
 
 class ContradictionCheckConfig(BaseModel):
-    """`ContradictionCheck`'s `with:` config. Every field has a default, per this pack's
-    own rule.
+    """`ContradictionCheck`'s `with:` config.
+
+    Every field has a default, per this pack's own rule.
 
     `max_passages` is not a field the design table's own row for this task names, but the
     number of passages a critic and an answer prompt are both shown is exactly the kind

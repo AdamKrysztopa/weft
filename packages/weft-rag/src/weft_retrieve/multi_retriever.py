@@ -63,7 +63,8 @@ NAME = "multi-retriever"
 
 class RetrieverArm(BaseModel):
     """One retrieval strategy: what to call it, which registered `Retriever` runs it, and
-    that retriever's own `with:` block."""
+    that retriever's own `with:` block.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -104,8 +105,9 @@ class MultiRetrieverConfig(BaseModel):
 
 
 class MultiRetriever:
-    """Fans out over other `Retriever`s, resolved by name. Satisfies `contract.Retriever`
-    structurally — see the module docstring.
+    """Fans out over other `Retriever`s, resolved by name.
+
+    Satisfies `contract.Retriever` structurally — see the module docstring.
 
     `cost_bound = (0, -1)`: a floor of zero, because every arm could itself be
     `no-retrieval`, and an unbounded ceiling, because an arm could be `iterative-retrieval`

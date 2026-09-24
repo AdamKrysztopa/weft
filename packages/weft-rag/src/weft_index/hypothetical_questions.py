@@ -57,8 +57,10 @@ _LEADING_MARKER = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 
 
 class HypotheticalQuestionsConfig(BaseModel):
-    """`hypothetical-questions`'s `with:` config. Every field has a default, per this pack's
-    own rule that a Phase 2 pack's settings must be constructible with none supplied.
+    """`hypothetical-questions`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

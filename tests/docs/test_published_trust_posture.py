@@ -151,8 +151,10 @@ def test_the_published_pages_are_found() -> None:
 
 
 def test_the_release_sets_published_page_states_the_posture() -> None:
-    """Clause (a). `09` §3: "that paragraph must appear in the published README of the release,
-    not only in the plan."
+    """Clause (a).
+
+    `09` §3: "that paragraph must appear in the published README of the release, not only in the
+    plan."
     """
     # Arrange
     page = RELEASE_SET_PAGE.read_text(encoding="utf-8").lower()

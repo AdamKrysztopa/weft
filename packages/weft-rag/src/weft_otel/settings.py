@@ -41,10 +41,11 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class OtelExporter(StrEnum):
-    """Where `register()` sends spans. Exhaustive — see fitness function 5(b)'s own rule
-    that every dispatch over a published `Enum` is total, applied here even though this
-    pack owns no dispatch a fitness function walks: three members, three branches in
-    `weft_otel.provider.build_tracer_provider`, nothing left implicit.
+    """Where `register()` sends spans.
+
+    Exhaustive — see fitness function 5(b)'s own rule that every dispatch over a published `Enum` is
+    total, applied here even though this pack owns no dispatch a fitness function walks: three
+    members, three branches in `weft_otel.provider.build_tracer_provider`, nothing left implicit.
     """
 
     #: The default. `register()` does not call `opentelemetry.trace.set_tracer_provider` at
@@ -62,8 +63,9 @@ class OtelExporter(StrEnum):
 
 
 class OtelSettings(BaseModel):
-    """One process's tracing configuration. `docs/02-extension-model.md` §2's shape:
-    `register(registrar, settings: OtelSettings)`.
+    """One process's tracing configuration.
+
+    `docs/02-extension-model.md` §2's shape: `register(registrar, settings: OtelSettings)`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

@@ -250,10 +250,12 @@ def test_a_participant_that_narrowed_a_shared_node_says_so() -> None:
 
 
 def test_a_participant_that_narrowed_nothing_renders_exactly_as_it_always_did() -> None:
-    """The pin. `narrowed_count` defaults `0`, and a zero is **not** rendered: every
-    participant written before G20 reports one, and a trailing `, 0 narrowed` on every line
-    in the tree would be `L5.9`'s column of zeroes — indistinguishable between *"looked and
-    found none"* and *"does not count that kind"*.
+    """The pin.
+
+    `narrowed_count` defaults `0`, and a zero is **not** rendered: every participant written before
+    G20 reports one, and a trailing `, 0 narrowed` on every line in the tree would be `L5.9`'s
+    column of zeroes — indistinguishable between *"looked and found none"* and *"does not count that
+    kind"*.
     """
     # Arrange
     outcome = ParticipantOutcome(

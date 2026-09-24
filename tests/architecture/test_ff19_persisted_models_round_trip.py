@@ -209,8 +209,9 @@ def test_the_check_can_actually_fail() -> None:
 
 
 def test_applies_round_trips_for_every_constraint_kind_its_own_fields_can_hold() -> None:
-    """Carried repair **R9.9**. One instance is not a round-trip check over a type with three
-    independent fields.
+    """Carried repair **R9.9**.
+
+    One instance is not a round-trip check over a type with three independent fields.
 
     `test_applies_round_trips` above builds `Applies(_Language, code="pl")` — a `fact` plus a
     `constraints` pair — and nothing else, so `media_type` was never dumped and never read back.

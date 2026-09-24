@@ -125,7 +125,8 @@ class _ClosingPassStore(GenerationStore):
 
 class _OtherTreePrompt(SummarizeClusterPrompt):
     """A request that differs from `summarize-cluster`'s, so the two layers share no summary —
-    `corpus_build_doubles.TersePrompt` sends the same request, and the scripted model digests it."""
+    `corpus_build_doubles.TersePrompt` sends the same request, and the scripted model digests it.
+    """
 
     name: ClassVar[str] = _OTHER_PROMPT
     texts: ClassVar[Mapping[str, PromptText]] = {
@@ -136,7 +137,8 @@ class _OtherTreePrompt(SummarizeClusterPrompt):
 
 def _write_layers(project: Path, *, incremental: bool) -> None:
     """Two corpus-scoped `raptor` layers under requests that differ; with `incremental`, each
-    declares an `adrap` join."""
+    declares an `adrap` join.
+    """
     (project / "pipelines").mkdir(exist_ok=True)
     for name, prompt in ((LAYER, SUMMARIZE_CLUSTER_NAME), (_SECOND, _OTHER_PROMPT)):
         shared = (
@@ -158,7 +160,8 @@ def _write_layers(project: Path, *, incremental: bool) -> None:
 
 def _registry(store: GenerationStore) -> Registry:
     """`corpus_build_doubles.registry_for` with `adrap`, the store registered by its class so the
-    closing pass finds it `Reconcilable` — `registry_for`'s factory function hides the class."""
+    closing pass finds it `Reconcilable` — `registry_for`'s factory function hides the class.
+    """
     registry = Registry()
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
@@ -208,7 +211,8 @@ async def _grown(
     store: _ClosingPassStore, corpus: Path, *, label: str, layers: str = _BOTH
 ) -> render.Rendered:
     """One more document, then `weft index --layers`: each named layer is stale by addition, so
-    the run rebuilds or joins it and withdraws the tree it replaces."""
+    the run rebuilds or joins it and withdraws the tree it replaces.
+    """
     (corpus / f"{label}.txt").write_text(f"a document that arrived for the {label} run.")
     ScriptedModel.label = label
     return await _index(store, corpus, layers=layers)

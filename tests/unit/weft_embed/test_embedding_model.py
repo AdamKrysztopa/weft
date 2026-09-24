@@ -40,7 +40,8 @@ async def test_the_hash_embedder_states_its_width() -> None:
 
 async def test_the_openai_embedder_states_the_model_it_will_call() -> None:
     """The account-level `embedding_model` wins over the stage default, exactly as the call
-    does (`R22.1`) — the identity is what the request sends, not what the config printed."""
+    does (`R22.1`) — the identity is what the request sends, not what the config printed.
+    """
     # Arrange
     settings = Settings(api_key=SecretStr("sk-test"), embedding_model="text-embedding-3-large")
     from_settings = OpenAIEmbedder(settings)

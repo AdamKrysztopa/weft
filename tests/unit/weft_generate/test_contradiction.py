@@ -251,7 +251,8 @@ async def test_a_critic_whose_cascade_cannot_be_parsed_reports_undetermined_not_
 async def test_driving_contradiction_check_through_the_seam_produces_an_answer() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a
-    registered instance never receives."""
+    registered instance never receives.
+    """
     # Arrange
     payload = _passages(_passage("1", "the only candidate"))
     llm = _StubLLM(

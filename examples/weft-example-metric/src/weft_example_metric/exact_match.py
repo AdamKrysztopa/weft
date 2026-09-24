@@ -32,8 +32,7 @@ class ExactMatchConfig(BaseModel):
 
 
 class ExactMatch:
-    """Satisfies `weft_eval.contract.GenerationMetric` structurally — this class never imports
-    it."""
+    """Satisfies `weft_eval.contract.GenerationMetric` structurally — this class never imports it."""
 
     config_model: type[ExactMatchConfig] = ExactMatchConfig
     runs_in_gate: ClassVar[bool] = True

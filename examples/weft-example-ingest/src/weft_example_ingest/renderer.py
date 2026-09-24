@@ -16,8 +16,9 @@ _MEDIA_TYPE = "text/plain"
 
 
 class ExamplePlainRenderer:
-    """Joins every node's `content` with a blank line. Satisfies `weft_extract.contract.Renderer`
-    structurally — this class never imports it.
+    """Joins every node's `content` with a blank line.
+
+    Satisfies `weft_extract.contract.Renderer` structurally — this class never imports it.
     """
 
     def __init__(self, config: object = None) -> None:

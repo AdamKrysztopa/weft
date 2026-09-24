@@ -1,6 +1,7 @@
-"""`GraphEntityEnhancer` — attaches `GraphData` to every node it is handed. Never rewrites
-`content`, so node identity is unaffected — `weft_enhance.contract.Enhancer`'s own contrast
-with `Cleaner`.
+"""`GraphEntityEnhancer` — attaches `GraphData` to every node it is handed.
+
+Never rewrites `content`, so node identity is unaffected — `weft_enhance.contract.Enhancer`'s own
+contrast with `Cleaner`.
 
 Satisfies `weft_enhance.contract.Enhancer` structurally — this class never imports it, the
 same path `docs/02-extension-model.md` describes for a third-party plugin.

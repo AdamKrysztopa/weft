@@ -174,11 +174,13 @@ def test_a_second_pack_colliding_on_every_name_leaves_the_first_untouched() -> N
 
 
 def test_a_renderer_is_offered_for_this_packs_own_result_type() -> None:
-    """Task **6.20**, G13's third repair. `docs/03-cli.md` → *Plugin-contributed commands*:
-    "a result type nobody outside the CLI can format is only half a contract." Before this,
-    `weft example-graph show` printed `{"nodes_with_graph_data":11,...}` at a person while
-    eighteen built-in commands printed for one — this pack's own result had no way to reach a
-    renderer, and that was the gap, not a missing feature in this pack.
+    """Task **6.20**, G13's third repair.
+
+    `docs/03-cli.md` → *Plugin-contributed commands*: "a result type nobody outside the CLI can
+    format is only half a contract." Before this, `weft example-graph show` printed
+    `{"nodes_with_graph_data":11,...}` at a person while eighteen built-in commands printed for one
+    — this pack's own result had no way to reach a renderer, and that was the gap, not a missing
+    feature in this pack.
 
     `add_renderer` is the same call the CLI's own `register()` makes for its own eighteen —
     which is the point: a built-in keeps no private path, so the seam a stranger uses is the

@@ -42,8 +42,10 @@ class ExampleProviderConfig(BaseModel):
 
 
 class ExampleEchoProvider:
-    """Answers with the last user turn, reversed and marked. Satisfies `weft_llm.contract.
-    LLMProvider` and `NativeStructured` structurally — this class never imports either.
+    """Answers with the last user turn, reversed and marked.
+
+    Satisfies `weft_llm.contract. LLMProvider` and `NativeStructured` structurally — this class
+    never imports either.
     """
 
     def __init__(self, config: ExampleProviderConfig | None = None) -> None:

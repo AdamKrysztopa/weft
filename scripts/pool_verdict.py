@@ -38,7 +38,8 @@ def verdict(low: float, high: float, mean: float, *, underpowered: bool) -> str:
 
 def joint_reading(rule: str, oracle: str) -> str:
     """`protocol.toml`'s `[joint_reading]`: a rule null beside an oracle gain condemns the
-    extractor; only the oracle can rule promotion out."""
+    extractor; only the oracle can rule promotion out.
+    """
     if oracle in ("harm", "benefit ruled out"):
         return "promotion ruled out on this slice"
     if rule == "worthwhile":

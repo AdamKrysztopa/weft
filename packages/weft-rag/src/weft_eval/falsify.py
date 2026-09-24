@@ -330,8 +330,9 @@ class PairedDifference(BaseModel):
 
 
 def _pairing_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
-    """Why `a` and `b` cannot pair. A digest either side lacks, or two digests over different
-    bases, is not a disagreement.
+    """Why `a` and `b` cannot pair.
+
+    A digest either side lacks, or two digests over different bases, is not a disagreement.
     """
     reasons: list[str] = []
 

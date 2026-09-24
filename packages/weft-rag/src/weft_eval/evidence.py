@@ -333,8 +333,11 @@ def _tokens_per_query(
 
 
 def _question_count(record: RunRecord) -> int:
-    """How many questions `record` asked: every id any metric scored or the run timed. `0` means
-    the record says nothing about its questions, and tokens per query is then left unstated."""
+    """How many questions `record` asked: every id any metric scored or the run timed.
+
+    `0` means the record says nothing about its questions, and tokens per query is then left
+    unstated.
+    """
     ids: set[str] = set()
     for per_metric in (record.question_scores or {}).values():
         ids.update(per_metric.scores)
@@ -407,7 +410,8 @@ def evidence_table(
 
 def _repetitions_cell(table: EvidenceTable) -> str:
     """`table.repeats` alone when every arm ran it — byte-identical to before task **38.13** —
-    and each arm's own count, briefly, the moment one arm's `repeats_for` diverges from it."""
+    and each arm's own count, briefly, the moment one arm's `repeats_for` diverges from it.
+    """
     if all(count == table.repeats for _, count in table.repeats_by_arm):
         return str(table.repeats)
     return ", ".join(f"{name} {count}" for name, count in table.repeats_by_arm)
@@ -461,9 +465,12 @@ def render_evidence_table(table: EvidenceTable) -> str:
 
 
 def _mean_cell(mean: float | None, n: int | None, excluded: int) -> str:
-    """`mean`, with the population it was measured over — repair R38.12. `—` when `mean` is
-    `None` (nothing was measured); `{mean:.3f} (n {n})` when nothing was excluded; `{mean:.3f}
-    (n {n}, {excluded} excluded)` otherwise — see `ArmComparison`'s own docstring."""
+    """`mean`, with the population it was measured over — repair R38.12.
+
+    `—` when `mean` is `None` (nothing was measured); `{mean:.3f} (n {n})` when nothing was
+    excluded; `{mean:.3f} (n {n}, {excluded} excluded)` otherwise — see `ArmComparison`'s own
+    docstring.
+    """
     if mean is None or n is None:
         return "—"
     if excluded == 0:

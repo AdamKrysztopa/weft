@@ -51,7 +51,8 @@ from weft_store.contract import Scored
 class _Note(ExtModel):
     """A carrier extension, to prove `ext` survives the arity reduction — G5's mechanism is
     the settled answer to "a strategy needs to pass something along", and a fuser that drops
-    it would kill every such pass-along at the one seam every query path crosses."""
+    it would kill every such pass-along at the one seam every query path crosses.
+    """
 
     __namespace__ = "test-fusion"
     __schema_version__ = "1.0.0"
@@ -161,7 +162,8 @@ def test_a_contributor_label_names_the_retriever_and_the_arm_when_there_is_one(
 async def test_driving_single_list_through_the_seam_produces_a_ranking() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     asked = Query(text="does this pass through the seam?")
     payload = Candidates(
@@ -363,7 +365,8 @@ async def test_reciprocal_rank_fusion_carries_ext_across_the_arity_reduction() -
 async def test_driving_reciprocal_rank_fusion_through_the_seam_produces_a_ranking() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     asked = Query(text="does this pass through the seam?")
     payload = Candidates(
@@ -658,7 +661,8 @@ async def test_boolean_combine_fails_loudly_when_no_list_can_be_attributed_to_an
 async def test_driving_boolean_combine_through_the_seam_produces_a_ranking() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     asked = Query(text="cats AND dogs")
     shared = _passage("shared", 0.9, 0)

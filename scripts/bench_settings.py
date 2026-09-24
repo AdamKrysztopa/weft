@@ -159,10 +159,11 @@ class Arm(BaseModel):
 
 
 def arms() -> tuple[Arm, ...]:
-    """The seventeen arms the ninth decision settled — see this task's ledger entry for the
-    table. Every backend carries its own exact-scan control at every selectivity its approximate
-    arms use; both `iterative_scan` modes are measured at every rung of the ladder, which is the
-    pair whose recall has to differ or the GUC never reached the server.
+    """The seventeen arms the ninth decision settled — see this task's ledger entry for the table.
+
+    Every backend carries its own exact-scan control at every selectivity its approximate arms use;
+    both `iterative_scan` modes are measured at every rung of the ladder, which is the pair whose
+    recall has to differ or the GUC never reached the server.
     """
     pgvector_exact = tuple(
         Arm(

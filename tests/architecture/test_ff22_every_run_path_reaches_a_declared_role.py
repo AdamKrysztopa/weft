@@ -158,8 +158,10 @@ def test_the_pinned_assemblers_all_exist() -> None:
 
 
 def test_the_waiver_is_empty() -> None:
-    """`01` item 0's ratchet. Changed only by a dated entry in `docs/internal/README.md`'s decision
-    log."""
+    """`01` item 0's ratchet.
+
+    Changed only by a dated entry in `docs/internal/README.md`'s decision log.
+    """
     assert frozenset() == ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES, (
         "an assembler waived from carrying declared roles is a decision with an argument behind "
         "it, recorded in docs/internal/README.md's decision log, never an edit here to clear a red "
@@ -244,8 +246,10 @@ def test_the_construction_walk_can_actually_find_something() -> None:
 
 
 def test_a_planted_stray_assembler_would_be_caught() -> None:
-    """The plant. A check whose disagreeing case has never been watched fail is a check nobody
-    has evidence about — `01` item 0's own words, and `docs/internal/lessons.md` L6.29's cost.
+    """The plant.
+
+    A check whose disagreeing case has never been watched fail is a check nobody has evidence about
+    — `01` item 0's own words, and `docs/internal/lessons.md` L6.29's cost.
     """
     # Arrange — the shape a fourth assembler would have, judged by the same predicate
     permitted = ROLE_CARRYING_ASSEMBLERS | ASSEMBLERS_WAIVED_FROM_CARRYING_ROLES
@@ -263,8 +267,10 @@ def test_a_planted_stray_assembler_would_be_caught() -> None:
 
 @pytest.mark.parametrize("name", sorted(ROLE_CARRYING_ASSEMBLERS))
 def test_each_named_assembler_lives_in_one_module(name: str) -> None:
-    """One seam, one home. Three assemblers spread across three modules is how the list got
-    written thrice in the first place; keeping them together is what makes a fourth obvious.
+    """One seam, one home.
+
+    Three assemblers spread across three modules is how the list got written thrice in the first
+    place; keeping them together is what makes a fourth obvious.
     """
     # Arrange
     homes = {path for path, fn in _construction_sites() if fn == name}

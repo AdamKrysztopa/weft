@@ -119,8 +119,11 @@ def test_the_reachable_classes_are_exactly_the_ceiling_g12_settled() -> None:
 
 
 def test_every_named_exclusion_still_names_a_live_command() -> None:
-    """The two-way ratchet. An exclusion that no longer matches anything is one nobody can see has
-    stopped applying — the same defect a stale waiver has, and the reason both are checked."""
+    """The two-way ratchet.
+
+    An exclusion that no longer matches anything is one nobody can see has stopped applying — the
+    same defect a stale waiver has, and the reason both are checked.
+    """
     from weft_agent.tools import EXCLUDED_BY_NAME
     from weft_engine.contract_reference import discover_for_reference
 

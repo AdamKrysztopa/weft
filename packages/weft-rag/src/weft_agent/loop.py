@@ -1,6 +1,8 @@
-"""The agent's ReAct loop — task **7.2**. See this package's own `__init__.py` and
-`docs/01-high-level-plan.md` -> Phase 7 for why the loop takes the shape it does; the reasoning
-lives there and in `tests/unit/weft_agent/test_loop.py`'s own module docstring, not here twice.
+"""The agent's ReAct loop — task **7.2**.
+
+See this package's own `__init__.py` and `docs/01-high-level-plan.md` -> Phase 7 for why the loop
+takes the shape it does; the reasoning lives there and in `tests/unit/weft_agent/test_loop.py`'s own
+module docstring, not here twice.
 
 **One step is: render the request, ask `weft_prompts.cascade.execute`, act on what came back.**
 `NextActionRequest.tools` and `.transcript` arrive pre-rendered per that payload's own
@@ -96,7 +98,8 @@ class StopReason(StrEnum):
 
 class AgentOutcome(BaseModel):
     """What a run produced: the full transcript, the final answer if there is one, and why the
-    loop stopped."""
+    loop stopped.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -130,7 +133,8 @@ def _render_transcript(transcript: AgentTranscript) -> str:
 
 def _refuse_unknown_tool(requested: str, tools: Mapping[str, AgentTool]) -> str:
     """Requirement 5, phrased for the model rather than for a log: what was asked for, and
-    what is actually on offer."""
+    what is actually on offer.
+    """
     available = ", ".join(sorted(tools)) if tools else "(none)"
     return (
         f"tool '{requested}' is not available. Available tools: {available}. "

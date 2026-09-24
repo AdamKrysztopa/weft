@@ -47,7 +47,8 @@ from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 
 def _depth(payload: RetrievalSample) -> int:
     """How many candidates the ranking was drawn from: `candidate_count` when a caller collapsed
-    passages into documents (repair R38.5), otherwise the length of what was retrieved."""
+    passages into documents (repair R38.5), otherwise the length of what was retrieved.
+    """
     if payload.candidate_count is not None:
         return payload.candidate_count
     return len(payload.retrieved)

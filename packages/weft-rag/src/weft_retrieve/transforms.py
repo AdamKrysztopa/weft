@@ -115,8 +115,10 @@ NAME = "contextual-query-rewrite"
 
 
 class ContextualQueryRewriteConfig(BaseModel):
-    """`ContextualQueryRewrite`'s `with:` config. Every field has a default, per this pack's
-    own rule that a Phase 2 pack's settings must be constructible with none supplied.
+    """`ContextualQueryRewrite`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -141,8 +143,9 @@ class ContextualQueryRewriteConfig(BaseModel):
 
 
 class ContextualQueryRewrite:
-    """Rewrites a conversational follow-up into a standalone question. Satisfies `contract.
-    QueryTransform` structurally.
+    """Rewrites a conversational follow-up into a standalone question.
+
+    Satisfies `contract. QueryTransform` structurally.
 
     `cost_bound = (0, 1)` — zero on the skip path (`run` returns before resolving `LLM` or
     `StageLookup` at all, see `test_no_history_and_skip_without_history_returns_the_payload_
@@ -215,10 +218,12 @@ HYDE_NAME = "hyde"
 
 
 class HydeConfig(BaseModel):
-    """`Hyde`'s `with:` config. Every field has a default, per this pack's own rule that a
-    Phase 2 pack's settings must be constructible with none supplied — and per ledger 2.16's
-    own line, which names three of these fields explicitly: sample count, query inclusion
-    and failure behaviour are all configuration, never a number written into `run`.
+    """`Hyde`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied — and per ledger 2.16's own line, which names three of these
+    fields explicitly: sample count, query inclusion and failure behaviour are all configuration,
+    never a number written into `run`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -343,8 +348,10 @@ STEP_BACK_NAME = "step-back"
 
 
 class StepBackConfig(BaseModel):
-    """`StepBack`'s `with:` config. Every field has a default, per this pack's own rule that a
-    Phase 2 pack's settings must be constructible with none supplied.
+    """`StepBack`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -371,8 +378,9 @@ class StepBackConfig(BaseModel):
 
 
 class StepBack:
-    """Abstracts a question into a more general one and retrieves for both. Satisfies
-    `weft_retrieve.contract.QueryTransform` structurally.
+    """Abstracts a question into a more general one and retrieves for both.
+
+    Satisfies `weft_retrieve.contract.QueryTransform` structurally.
 
     Huaixiu Steven Zheng, Swaroop Mishra, Xinyun Chen, Heng-Tze Cheng, Ed H. Chi, Quoc V. Le,
     Denny Zhou, *Take a Step Back: Evoking Reasoning via Abstraction in Large Language
@@ -455,8 +463,7 @@ class StepBack:
 
 
 def _render_history(history: tuple[Turn, ...], *, turns: int) -> str:
-    """The last `turns` exchanges, oldest first, one line each — what a rewrite is judged
-    against.
+    """The last `turns` exchanges, oldest first, one line each — what a rewrite is judged against.
 
     Turning a `Turn` tuple into one string is this plugin's work rather than the prompt's:
     `weft_prompts.template` renders `${name}` over `string.Template`, which substitutes a
@@ -520,10 +527,12 @@ _EXPANSION_INSTRUCTIONS: dict[ExpansionKind, str] = {
 
 
 class MultiQueryConfig(BaseModel):
-    """`MultiQuery`'s `with:` config. Every field has a default, per this pack's own rule that
-    a Phase 2 pack's settings must be constructible with none supplied — and per ledger 2.18a's
-    own row, which names every one of these as configuration: how many variants, which
-    expansion strategy, whether near-duplicates survive, and which existing queries are seeds.
+    """`MultiQuery`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied — and per ledger 2.18a's own row, which names every one of
+    these as configuration: how many variants, which expansion strategy, whether near-duplicates
+    survive, and which existing queries are seeds.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -701,8 +710,7 @@ def _offer_seeds(seeds: tuple[Query, ...]) -> str:
 def _groups_by_index(
     variants: MultiQueryVariants, *, offered: int
 ) -> dict[int, tuple[str, ...]] | Failed:
-    """One variant group per offered seed index, or a `Failed` naming exactly how the set was
-    wrong.
+    """One variant group per offered seed index, or a `Failed` naming exactly how the set was wrong.
 
     Mirrors `weft_retrieve.rerank._scores_by_index`'s own three-way refusal, applied to groups
     instead of scores: an index nobody offered means the model invented a seed, a missing index

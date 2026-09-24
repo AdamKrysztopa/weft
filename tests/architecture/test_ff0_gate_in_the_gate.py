@@ -29,7 +29,7 @@ CHECKS_WAIVED_FROM_GATE: Final[frozenset[str]] = frozenset()
 
 #: Tasks that constitute the architecture checks. Every one must be reachable
 #: from the canonical gate.
-ARCHITECTURE_TASKS: Final[frozenset[str]] = frozenset({"arch"})
+ARCHITECTURE_TASKS: Final[frozenset[str]] = frozenset({"arch", "cognitive"})
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 

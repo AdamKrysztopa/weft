@@ -238,10 +238,13 @@ async def test_mrr_at_k_has_nothing_to_produce_without_ground_truth() -> None:
 async def test_a_ranking_collapsed_to_fewer_documents_than_k_is_scored_when_k_candidates_came_back(
     metric: PrecisionAtK | RecallAtK | NDCGAtK | MRRAtK,
 ) -> None:
-    """Sixty chunks from three papers is a complete ranking of three documents. The `@k` refusal
-    exists for a rung that could never return `k` candidates — `repack: {top_n: 8}` scored `@10` —
-    and refusing a question whose sixty candidates happen to sit in three documents dropped 21% of
-    Open RAGBench's dev questions from `38.5`'s first record: the ones retrieval concentrates on."""
+    """Sixty chunks from three papers is a complete ranking of three documents.
+
+    The `@k` refusal exists for a rung that could never return `k` candidates — `repack: {top_n: 8}`
+    scored `@10` — and refusing a question whose sixty candidates happen to sit in three documents
+    dropped 21% of Open RAGBench's dev questions from `38.5`'s first record: the ones retrieval
+    concentrates on.
+    """
     # Arrange
     sample = _n_retrieved(3).model_copy(update={"candidate_count": 60})
 

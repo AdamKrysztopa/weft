@@ -85,9 +85,10 @@ class GraphWalkConfig(BaseModel):
 
 
 class GraphWalkRetriever:
-    """A bounded walk from a question's own named entities. Satisfies
-    `weft_retrieve.contract.Retriever` structurally — see the module docstring for why this
-    class never imports that Protocol.
+    """A bounded walk from a question's own named entities.
+
+    Satisfies `weft_retrieve.contract.Retriever` structurally — see the module docstring for why
+    this class never imports that Protocol.
 
     Two declarations, not one — see the module docstring's *Two declarations* section.
     `cost_bound = (0, 0)` is true because seeding is a regular expression and the walk is SQL:

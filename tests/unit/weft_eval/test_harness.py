@@ -139,10 +139,11 @@ async def test_the_subset_returns_one_outcome_per_question_per_metric() -> None:
 
 
 async def test_a_question_a_metric_could_not_score_is_a_failure_and_never_a_zero() -> None:
-    """V4 (`docs/09-release.md`:620) at per-question granularity. A question with no relevant
-    ids is `NothingToProduce` — `PrecisionAtK` says so itself — and a `0.0` in its place would
-    be indistinguishable from a question the rung genuinely got wrong, which is the single most
-    misleading number an evaluation can persist.
+    """V4 (`docs/09-release.md`:620) at per-question granularity.
+
+    A question with no relevant ids is `NothingToProduce` — `PrecisionAtK` says so itself — and a
+    `0.0` in its place would be indistinguishable from a question the rung genuinely got wrong,
+    which is the single most misleading number an evaluation can persist.
     """
     # Arrange — one scoreable question and one with no ground truth at all.
     samples = [

@@ -88,7 +88,8 @@ def test_a_document_renders_its_title_then_every_section_verbatim_with_its_table
 
 def test_a_rendering_states_the_images_it_dropped() -> None:
     """A figure is a data URI in the dataset and nothing in a markdown corpus; the count is the
-    document's own account of what rendering cost it, the way `math_blocks_dropped` is."""
+    document's own account of what rendering cost it, the way `math_blocks_dropped` is.
+    """
     # Act
     rendered = open_ragbench.render_document(json.dumps(_document("x")).encode("utf-8"))
 
@@ -143,7 +144,8 @@ def test_the_manifest_pins_every_document_twice_and_every_question_file_once(
 
 def test_the_manifest_reads_through_the_wheels_own_manifest_reader(tmp_path: Path) -> None:
     """`weft eval run --manifest` and the experiment runner read manifests through
-    `weft_eval.corpus_manifest`, not through this script."""
+    `weft_eval.corpus_manifest`, not through this script.
+    """
     # Arrange
     dataset = _dataset(tmp_path)
     manifest = tmp_path / "corpus" / "open-ragbench.toml"
@@ -161,9 +163,11 @@ def test_the_manifest_reads_through_the_wheels_own_manifest_reader(tmp_path: Pat
 def test_fetch_renders_from_a_local_copy_of_the_pinned_source_and_verifies_both_halves(
     tmp_path: Path,
 ) -> None:
-    """The dataset is already on disk from Phase 29. A local copy is only as good as its digest,
-    so it is checked against `source_sha256` exactly as downloaded bytes are — and reading it is
-    not a request, so no polite delay is paid for it."""
+    """The dataset is already on disk from Phase 29.
+
+    A local copy is only as good as its digest, so it is checked against `source_sha256` exactly as
+    downloaded bytes are — and reading it is not a request, so no polite delay is paid for it.
+    """
     # Arrange
     dataset = _dataset(tmp_path)
     manifest = tmp_path / "corpus" / "open-ragbench.toml"
@@ -253,7 +257,8 @@ def test_an_unknown_rendering_is_refused_listing_every_rendering_that_exists(
 
 def _pdfs(root: Path, identifiers: tuple[str, ...]) -> Path:
     """The downloaded PDFs, under the corpus directory as in this repository's own layout — a
-    manifest refuses a document that resolves outside its directory, and a link resolves."""
+    manifest refuses a document that resolves outside its directory, and a link resolves.
+    """
     directory = root / "corpus" / "open_ragbench" / "pdfs"
     directory.mkdir(parents=True)
     for identifier in identifiers:

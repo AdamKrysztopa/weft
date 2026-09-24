@@ -194,7 +194,6 @@ def _with_schema(rendered: Rendered, output: type[BaseModel]) -> Rendered:
     cascade's, not the prompt author's, and a prompt whose text changed depending on which tier
     was running would be two prompts wearing one name.
     """
-
     instruction = _SCHEMA_INSTRUCTION + json.dumps(output.model_json_schema(), indent=2)
     return Rendered(
         conversation=Conversation(

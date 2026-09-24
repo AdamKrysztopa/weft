@@ -164,7 +164,8 @@ def test_the_fields_named_are_the_declaring_models_own_when_it_is_nested() -> No
 
 def test_a_misdeclared_reference_is_refused_even_where_this_document_leaves_it_unset() -> None:
     """The declaration is the pack's defect whatever a document sets; refusing only when a
-    document happens to set the field would leave the defect to surface on someone else's rung."""
+    document happens to set the field would leave the defect to surface on someone else's rung.
+    """
     # Act
     with pytest.raises(UnknownSubPluginConfigFieldError) as refused:
         _roles(_MISDECLARED_UNSET, {})

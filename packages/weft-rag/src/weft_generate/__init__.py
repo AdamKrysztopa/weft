@@ -52,8 +52,7 @@ class Settings(BaseModel):
 
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register every `Generator` this pack ships, and the prompts each one asks under
-    `Prompt`.
+    """Register every `Generator` this pack ships, and the prompts each one asks under `Prompt`.
 
     Every `Prompt` goes through the same `registrar` as its owning `Generator` —
     `weft_retrieve.__init__`'s own docstring states why a first-party prompt belongs to

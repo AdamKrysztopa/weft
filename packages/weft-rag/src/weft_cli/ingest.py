@@ -934,9 +934,11 @@ def _base_scope(
     layers_only: bool,
     reprocess: bool,
 ) -> tuple[Sequence[SourceRef], bool]:
-    """`(refs, layers_only)` for `_run_base`. Under `--layers-only --reprocess`, the sources
-    whose per-source layer moved run the base as if `--layers-only` were absent, and only those:
-    a layer's earlier output can only be released with its source (R43.27).
+    """`(refs, layers_only)` for `_run_base`.
+
+    Under `--layers-only --reprocess`, the sources whose per-source layer moved run the base as if
+    `--layers-only` were absent, and only those: a layer's earlier output can only be released with
+    its source (R43.27).
     """
     if not (layers_only and reprocess):
         return refs, layers_only
@@ -1649,10 +1651,11 @@ async def _target_written(
 
 
 async def _bind_store_stages(runnable: RunnablePipeline, *, target: str | None) -> RunnablePipeline:
-    """`runnable`, with every `NodeStore` stage's instance bound to `target` — ledger task
-    **34.6**. `None` returns `runnable` unchanged, never touching a stage's instance: the
-    common, untargeted case must build and bind nothing beyond what already ran. Lifted out of
-    `run_index` so the branch this adds stays out of that function's own complexity budget.
+    """`runnable`, with every `NodeStore` stage's instance bound to `target` — ledger task **34.6**.
+
+    `None` returns `runnable` unchanged, never touching a stage's instance: the common, untargeted
+    case must build and bind nothing beyond what already ran. Lifted out of `run_index` so the
+    branch this adds stays out of that function's own complexity budget.
     """
     if target is None:
         return runnable
@@ -2164,8 +2167,10 @@ async def _release_sources(
 async def _demote_released(
     instance: object, released: frozenset[SourceId], corpus_layers: frozenset[str]
 ) -> tuple[str, ...]:
-    """One store's half of `_release_sources`'s demotion. A store with no callable
-    `list_sources`/`put_source` is skipped, as `_record_sources` skips one without `put_source`.
+    """One store's half of `_release_sources`'s demotion.
+
+    A store with no callable `list_sources`/`put_source` is skipped, as `_record_sources` skips one
+    without `put_source`.
     """
     list_sources = _list_sources_of(instance)
     put_source = _put_source_of(instance)

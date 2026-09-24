@@ -211,7 +211,8 @@ class Hybrid:
 def _missing(store: object, capability: str) -> str:
     """The refusal, naming what was wanted, why it is unavailable, and what to do — `01`
     requirement 5's three clauses. The `vector-top-k` remedy is offered only because it is
-    real: a store with vector search and no text search can still run that plugin."""
+    real: a store with vector search and no text search can still run that plugin.
+    """
     return (
         f"'{NAME}' needs {capability} from the configured store, and "
         f"{type(store).__name__} does not provide it. Configure a store that satisfies both "

@@ -75,7 +75,8 @@ class UnreadableRunRecordError(WeftError):
 
 def produced_value[T](outcome: Outcome[T], *, stage: str) -> T:
     """The value of a wrapped call that only produces or raises; anything else is refused loudly
-    rather than skipped (carried repair **R34.7**)."""
+    rather than skipped (carried repair **R34.7**).
+    """
     if isinstance(outcome, Produced):
         return outcome.value
     raise WeftError(

@@ -77,8 +77,11 @@ def test_the_canonical_name_describes_what_the_code_actually_does() -> None:
 
 
 def test_the_published_name_keeps_working_so_an_existing_config_does_not_break() -> None:
-    """`keybert` is in `weft-rag 2.4.0` on PyPI. A rename that removed it would turn somebody
-    else's working `weft.toml` into an `UnknownPluginError` on upgrade."""
+    """`keybert` is in `weft-rag 2.4.0` on PyPI.
+
+    A rename that removed it would turn somebody else's working `weft.toml` into an
+    `UnknownPluginError` on upgrade.
+    """
     # Arrange
     registry = Registry()
     registrar = PackRegistrar(registry, distribution="weft-enhance")
@@ -96,7 +99,8 @@ def test_the_old_name_is_marked_deprecated_rather_than_quietly_kept() -> None:
     inside 0.x, but never silently. An old name left registered and unmarked is exactly the silent
     case — it works forever, nothing says it is going away, and the misleading name outlives the
     decision to retire it. `PackRegistrar.deprecate` is the mechanism task 5.2e built for this, and
-    the warning is emitted at the seam rather than written by hand."""
+    the warning is emitted at the seam rather than written by hand.
+    """
     # Arrange
     registry = Registry()
     registrar = PackRegistrar(registry, distribution="weft-enhance")

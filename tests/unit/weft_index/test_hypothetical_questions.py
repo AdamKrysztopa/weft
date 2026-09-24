@@ -150,7 +150,8 @@ async def test_each_node_gets_its_own_derived_question_nodes() -> None:
 
 async def test_a_node_whose_generation_degrades_survives_under_its_id_and_says_so() -> None:
     """Degrade, never fail — and, since repair R38.13, never silently: the chunk keeps its id and
-    content and carries `ExpansionDegraded`, so a store can count what a questions arm lost."""
+    content and carries `ExpansionDegraded`, so a store can count what a questions arm lost.
+    """
     # Arrange — the first node's completion fails outright; the second's succeeds.
     first, second = _node("passage one"), _node("passage two")
     llm = _ScriptedLLM([Failed(reason="the model declined"), _reply("What is passage two about?")])
@@ -275,9 +276,11 @@ class _ConcurrencyWatchingLLM:
 
 
 async def test_no_more_than_max_concurrent_nodes_are_in_flight_at_once() -> None:
-    """Task **8.7**. A 700-node corpus was 700 concurrent completions at whatever provider
-    was configured — `raptor` grew `max_concurrent_summaries` for exactly this reason and
-    this plugin, its sibling under the same contract, never did.
+    """Task **8.7**.
+
+    A 700-node corpus was 700 concurrent completions at whatever provider was configured — `raptor`
+    grew `max_concurrent_summaries` for exactly this reason and this plugin, its sibling under the
+    same contract, never did.
     """
     # Arrange — twenty nodes, a cap of three.
     llm = _ConcurrencyWatchingLLM()
@@ -328,7 +331,8 @@ async def test_a_degraded_chunk_is_still_cited_as_itself() -> None:
     """Repair **R38.20**: `citable_nodes` cites a single-parent node carrying an ext model with a
     `technique: str` attribute as its parent — the rule for `Representation`. A real chunk has one
     parent, its document, so a chunk marked `ExpansionDegraded` was cited as the whole document.
-    `_node` above has no parent at all, which is why the tests above could not see this."""
+    `_node` above has no parent at all, which is why the tests above could not see this.
+    """
     # Arrange — a chunk derived from its document, as a real chunker hands it over.
     document = _node("the whole document")
     chunk = document.derive(content="passage one", ordinal=0)

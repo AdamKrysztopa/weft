@@ -196,15 +196,19 @@ class MemoryStore:
         return len(self._readable().nodes)
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
-        """The nodes that exist, in the order asked for. An id this store does not hold is absent
-        from the answer rather than `None` in it, so a caller's `len()` means what it looks like.
+        """The nodes that exist, in the order asked for.
+
+        An id this store does not hold is absent from the answer rather than `None` in it, so a
+        caller's `len()` means what it looks like.
         """
         nodes = self._readable().nodes
         return tuple(nodes[node_id] for node_id in ids if node_id in nodes)
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
-        """Every node in one page. Paging exists for stores that cannot hold a corpus in memory,
-        and this one is defined by being unable to hold one that large in the first place.
+        """Every node in one page.
+
+        Paging exists for stores that cannot hold a corpus in memory, and this one is defined by
+        being unable to hold one that large in the first place.
         """
         del cursor
         return Page[Node](items=tuple(self._readable().nodes.values()), next_cursor=None)

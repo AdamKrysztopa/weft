@@ -60,7 +60,8 @@ def _ctx(services: ServiceRegistry | None = None) -> Context:
 class _StubEmbedder:
     """A vector deterministic on the query's own text length — enough to prove this plugin
     reaches for an embedding rather than inventing one: two different questions produce
-    two different vectors, and the same question always produces the same one."""
+    two different vectors, and the same question always produces the same one.
+    """
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         del ctx
@@ -73,7 +74,8 @@ class _StubEmbedder:
 class _StubVectorStore:
     """`search_vector`, answered from a canned table keyed by the vector's own first
     component — enough to route a fixture's canned hits back to the query that asked for
-    them without this test needing a real index."""
+    them without this test needing a real index.
+    """
 
     def __init__(self, by_key: dict[float, Sequence[Scored[Node]]]) -> None:
         self._by_key = by_key
@@ -222,7 +224,8 @@ async def test_driving_vector_top_k_through_the_seam_produces_a_ranked_list() ->
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives. `VectorTopK` opens no connection and calls no model, so
     nothing here is expected to fail; the value of this test is structural, the same shape
-    task 2.13's own seam-driving test for `NoRetrieval` uses."""
+    task 2.13's own seam-driving test for `NoRetrieval` uses.
+    """
     # Arrange
     asked = Query(text="does this pass through the seam?")
     store = _StubVectorStore({float(len(asked.text)): (_hit("hit", 0.8),)})
@@ -296,9 +299,10 @@ async def test_an_arm_filter_reaches_the_store() -> None:
 
 
 async def test_an_arm_filter_and_a_query_filter_are_combined_never_replaced() -> None:
-    """A query's own filter is the caller's narrowing and an arm's is the document's. Dropping
-    either would silently widen a search someone deliberately narrowed — the class of failure
-    that returns a plausible answer over the wrong data rather than crashing.
+    """A query's own filter is the caller's narrowing and an arm's is the document's.
+
+    Dropping either would silently widen a search someone deliberately narrowed — the class of
+    failure that returns a plausible answer over the wrong data rather than crashing.
     """
     # Arrange
     per_query = Filter(op=FilterOp.EQ, field="ext.weft-kernel.tenant", value="acme")

@@ -605,14 +605,15 @@ class Pipeline(BaseModel):
     @field_validator("remove", mode="after")
     @classmethod
     def _remove_targets_are_not_a_packs_to_name(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        """`02` §3 → *Slots*: a contributed stage "may be `set` but never `replaced` or
-        `removed`". `remove`'s targets are a bare `tuple[str, ...]` — unlike `replace`'s
-        (`StageDeclaration.id`, already refused by `_id_is_not_a_pack_s_to_give`) — so
-        without this, `remove: [weft-kg:entities]` would validate as a document today
-        and only fail later, as an ordinary `StaleOperatorTargetError`, indistinguishable
-        from a typo. Refusing it here says what it actually is: a pack's contribution can
-        never be named away, only the slot that admits it — `remove: <slot-id>` is the
-        document's way to refuse every contribution to a slot without naming any pack.
+        """`02` §3 → *Slots*: a contributed stage "may be `set` but never `replaced` or `removed`".
+
+        `remove`'s targets are a bare `tuple[str, ...]` — unlike `replace`'s (`StageDeclaration.id`,
+        already refused by `_id_is_not_a_pack_s_to_give`) — so without this, `remove:
+        [weft-kg:entities]` would validate as a document today and only fail later, as an ordinary
+        `StaleOperatorTargetError`, indistinguishable from a typo. Refusing it here says what it
+        actually is: a pack's contribution can never be named away, only the slot that admits it —
+        `remove: <slot-id>` is the document's way to refuse every contribution to a slot without
+        naming any pack.
         """
         for target in value:
             _refuse_qualified_id(target, subject="remove target")

@@ -316,7 +316,8 @@ async def test_the_json_sink_writes_a_batch_progress_line() -> None:
 async def test_the_sink_the_cli_really_hands_a_command_still_reports_progress() -> None:
     """Found by running the binary: `run_command` hands every command `_EmissionTrackingSink`
     around the real sink, which forwarded `emit`, `close` and `show_only_stage` only, so no
-    progress line was ever written. `L12.13` on the same wrapper, one method over."""
+    progress line was ever written. `L12.13` on the same wrapper, one method over.
+    """
     # Arrange
     err = io.StringIO()
     wrapped = _EmissionTrackingSink(PrintingSink(stream=io.StringIO(), progress_stream=err))

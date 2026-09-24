@@ -152,8 +152,7 @@ class ContextRelevanceJudgement(BaseModel):
 
 
 class ContextRelevanceJudgePrompt(TypedPrompt):
-    """Which numbered sentence, of the retrieved context's own sentences, helps answer the
-    question."""
+    """Which numbered sentence, of the retrieved context's own sentences, helps answer the question."""
 
     name: ClassVar[str] = CONTEXT_RELEVANCE_PROMPT_NAME
     version: ClassVar[str] = PROMPT_CONTRACT_VERSION
@@ -249,8 +248,7 @@ class FactualClassification(BaseModel):
 
 
 class AnswerCorrectnessJudgePrompt(TypedPrompt):
-    """Classify the prediction's factual statements against the reference's, as a confusion
-    matrix."""
+    """Classify the prediction's factual statements against the reference's, as a confusion matrix."""
 
     name: ClassVar[str] = ANSWER_CORRECTNESS_PROMPT_NAME
     version: ClassVar[str] = PROMPT_CONTRACT_VERSION

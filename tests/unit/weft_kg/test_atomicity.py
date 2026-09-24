@@ -34,8 +34,10 @@ from weft_kg.payload import DropReason
 
 
 def test_an_ordinary_name_is_atomic() -> None:
-    """The floor. Without it every assertion below is satisfied by a filter that drops
-    everything, which would score perfectly on five out of six tests here.
+    """The floor.
+
+    Without it every assertion below is satisfied by a filter that drops everything, which would
+    score perfectly on five out of six tests here.
     """
     # Act / Assert
     assert non_atomic_reason("adRAP") is None
@@ -44,8 +46,10 @@ def test_an_ordinary_name_is_atomic() -> None:
 
 
 def test_a_name_longer_than_the_word_cap_is_a_clause_rather_than_an_entity() -> None:
-    """Rule 1. A model asked for a triple will happily answer with half a sentence as the
-    object, and a graph whose nodes are clauses matches nothing a later question can name.
+    """Rule 1.
+
+    A model asked for a triple will happily answer with half a sentence as the object, and a graph
+    whose nodes are clauses matches nothing a later question can name.
     """
     # Arrange — one word past the shipped cap, so the assertion is about the boundary.
     name = " ".join(f"word{index}" for index in range(MAX_ENTITY_WORDS + 1))
@@ -56,8 +60,10 @@ def test_a_name_longer_than_the_word_cap_is_a_clause_rather_than_an_entity() -> 
 
 
 def test_a_name_ending_in_a_function_word_is_a_truncated_clause() -> None:
-    """Rule 2. *"the effect of"* is a fragment the model stopped writing mid-phrase; keeping it
-    puts a node in the graph that no question will ever name and that matches many chunks.
+    """Rule 2.
+
+    *"the effect of"* is a fragment the model stopped writing mid-phrase; keeping it puts a node in
+    the graph that no question will ever name and that matches many chunks.
     """
     # Act / Assert
     assert non_atomic_reason("the effect of") is DropReason.TRAILING_STOPWORD
@@ -65,8 +71,10 @@ def test_a_name_ending_in_a_function_word_is_a_truncated_clause() -> None:
 
 
 def test_a_name_carrying_mathematical_notation_is_dropped() -> None:
-    """Rule 3. Subscripts, operators and LaTeX commands survive extraction from a paper and
-    make entity names no two chunks spell the same way.
+    """Rule 3.
+
+    Subscripts, operators and LaTeX commands survive extraction from a paper and make entity names
+    no two chunks spell the same way.
     """
     # Act / Assert
     assert non_atomic_reason("K_per") is DropReason.MATHEMATICAL_NOTATION
@@ -74,8 +82,10 @@ def test_a_name_carrying_mathematical_notation_is_dropped() -> None:
 
 
 def test_a_name_that_is_really_a_citation_is_dropped() -> None:
-    """Rule 4. A citation names a *work*, not a thing the work is about, and the two are
-    indistinguishable once both are entity rows.
+    """Rule 4.
+
+    A citation names a *work*, not a thing the work is about, and the two are indistinguishable once
+    both are entity rows.
     """
     # Act / Assert
     assert non_atomic_reason("Smith et al.") is DropReason.CITATION

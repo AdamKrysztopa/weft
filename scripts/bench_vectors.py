@@ -214,8 +214,10 @@ def parse_s3_listing(body: bytes) -> S3Page:
 
 
 class PmcArticle(BaseModel):
-    """One article's metadata, as `<key>.json` carries it. `extra="ignore"` because the real
-    JSON carries more fields than admission needs."""
+    """One article's metadata, as `<key>.json` carries it.
+
+    `extra="ignore"` because the real JSON carries more fields than admission needs.
+    """
 
     model_config = ConfigDict(frozen=True, extra="ignore")
 
@@ -245,7 +247,8 @@ def admitted(article: PmcArticle) -> bool:
 
 def document_for(article_key: str) -> BenchDocument:
     """Pins an article to the PDF under its own versioned prefix — the key already carries the
-    revision, so the same key can never later resolve to different bytes."""
+    revision, so the same key can never later resolve to different bytes.
+    """
     return BenchDocument(
         id=article_key,
         source=f"{PMC_BUCKET_URL}/{article_key}/{article_key}.pdf",
@@ -272,7 +275,8 @@ def golden_papers(qrels_body: bytes) -> frozenset[str]:
 
 class UnpinnablePaperError(ValueError):
     """A `pdf_urls.json` id and URL that could later resolve to different bytes: the id carries
-    no arXiv version suffix, or the URL is not exactly `https://arxiv.org/pdf/<id>`."""
+    no arXiv version suffix, or the URL is not exactly `https://arxiv.org/pdf/<id>`.
+    """
 
 
 _ARXIV_VERSIONED_ID_RE: Final[re.Pattern[str]] = re.compile(r"\d{4}\.\d{4,5}v\d+")
@@ -311,7 +315,8 @@ class Exclusion(BaseModel):
 
 class UnknownExclusionError(ValueError):
     """An exclusion names a paper the manifest's documents do not hold — a typo, or an id already
-    excluded."""
+    excluded.
+    """
 
 
 def exclude_documents(
@@ -444,7 +449,8 @@ class VectorSetCorruptError(ValueError):
 
 def _digest_file(path: Path) -> str:
     """sha256 of a file, read in 1 MB chunks — `fetch_corpus.digest`'s own shape, so a 1.2 GB
-    `vectors.f32` is never read whole into memory just to be hashed."""
+    `vectors.f32` is never read whole into memory just to be hashed.
+    """
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(1 << 20):
@@ -536,7 +542,8 @@ def read_vector_set(directory: Path) -> VectorSet:
 def open_vectors(directory: Path, meta: VectorSetMeta) -> npt.NDArray[np.float32]:
     """A memory map onto `vectors.f32` — 1.2 GB of address space, not of resident memory, and
     never re-verified here: `read_vector_set` is the one place that checks the digest, so a
-    caller who wants both calls it first and hands this function the `meta` it returned."""
+    caller who wants both calls it first and hands this function the `meta` it returned.
+    """
     return np.memmap(
         directory / "vectors.f32", dtype="<f4", mode="r", shape=(meta.rows, meta.width)
     )
@@ -701,7 +708,8 @@ def _urlopen(url: str, *, timeout: int, accept: str) -> bytes:
 
 def _weft_command() -> list[str]:
     """The shipped `weft` binary — measured: `python -m weft_cli` fails, `weft_cli` ships no
-    `__main__.py`, so this is `shutil.which`, never the module route."""
+    `__main__.py`, so this is `shutil.which`, never the module route.
+    """
     weft = shutil.which("weft")
     if weft is None:
         message = (
@@ -820,10 +828,13 @@ def _dump_table(conn: psycopg.Connection[tuple[Any, ...]], table_name: str) -> T
 def _dump_nodes_with_vectors(
     conn: psycopg.Connection[tuple[Any, ...]], table_name: str, *, expected_rows: int
 ) -> tuple[TableDump, npt.NDArray[np.float32]]:
-    """The 100,000 x 3072 dump. A named (server-side) cursor streams rows in `itersize`
-    batches rather than pulling all of them across the wire at once, `register_vector`
-    makes each `embedding` arrive as a `pgvector.Vector` rather than text to parse, and the
-    vectors land straight into a preallocated array — never a Python list of them."""
+    """The 100,000 x 3072 dump.
+
+    A named (server-side) cursor streams rows in `itersize` batches rather than pulling all of them
+    across the wire at once, `register_vector` makes each `embedding` arrive as a `pgvector.Vector`
+    rather than text to parse, and the vectors land straight into a preallocated array — never a
+    Python list of them.
+    """
     register_vector(conn)
     with conn.cursor() as meta_cur:
         columns = _dumpable_columns(meta_cur, table_name, exclude=frozenset({"embedding"}))
@@ -881,7 +892,8 @@ def _copy_nodes(
     vectors: npt.NDArray[np.float32],
 ) -> None:
     """Streams `rows` beside `vectors` — a memory-mapped slice, not a materialised list — one
-    `COPY` row at a time."""
+    `COPY` row at a time.
+    """
     columns = sql.SQL(", ").join(sql.Identifier(column) for column in (*table.columns, "embedding"))
     query = sql.SQL("COPY {} ({}) FROM STDIN").format(sql.Identifier(table.name), columns)
     with conn.cursor() as cur, cur.copy(query) as copy:
@@ -1244,8 +1256,11 @@ def active_papers(rows: Iterable[tuple[str | None, str | None]]) -> frozenset[st
 
 
 def _read_done_papers(dsn: str) -> frozenset[str]:
-    """The active papers `weft_sources` already holds. Autocommit, and closed before the caller
-    runs `weft`: an open connection blocks weft's lazy schema DDL (`L22.30`)."""
+    """The active papers `weft_sources` already holds.
+
+    Autocommit, and closed before the caller runs `weft`: an open connection blocks weft's lazy
+    schema DDL (`L22.30`).
+    """
     with psycopg.connect(dsn, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("SELECT to_regclass('weft_sources')")
         row = cur.fetchone()

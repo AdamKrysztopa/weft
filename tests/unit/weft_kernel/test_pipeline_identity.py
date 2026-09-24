@@ -155,7 +155,8 @@ def test_a_stages_contract_facts_are_part_of_the_identity(field: str) -> None:
 def test_a_contract_minor_or_patch_does_not_move_the_identity(later: str) -> None:
     """A minor is additive under G9 and cannot change what an existing plugin does, so it says
     nothing about how a corpus was built. Hashing it re-parsed every corpus on every store-contract
-    bump — found running a 2.8.0-written store under 2.9.0 (ledger `34.2`)."""
+    bump — found running a 2.8.0-written store under 2.9.0 (ledger `34.2`).
+    """
     # Arrange
     base = _stage("extract", "text")
     later_stage = base.model_copy(update={"contract_version": later})
@@ -205,9 +206,12 @@ def _chunk_stage(config: object) -> ResolvedStage:
 
 
 def test_a_config_model_hashes_as_its_fields_with_their_keys_sorted() -> None:
-    """`pipeline_identity`'s docstring: *"`config` with its keys sorted"*. `_ChunkConfig` declares
-    `size` before `overlap`, so a digest following declaration order and one following sorted
-    keys disagree — the mapping written in sorted order is what the docstring promises."""
+    """`pipeline_identity`'s docstring: *"`config` with its keys sorted"*.
+
+    `_ChunkConfig` declares `size` before `overlap`, so a digest following declaration order and one
+    following sorted keys disagree — the mapping written in sorted order is what the docstring
+    promises.
+    """
     # Arrange
     as_model = _pipeline("p", _chunk_stage(_ChunkConfig()))
     as_fields = _pipeline("p", _chunk_stage({"overlap": 50, "size": 512}))

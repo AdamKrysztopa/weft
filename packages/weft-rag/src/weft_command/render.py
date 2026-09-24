@@ -53,8 +53,9 @@ class ExitCode(IntEnum):
 
 @dataclass(frozen=True, slots=True)
 class Rendered:
-    """What a renderer answers with — stdout, stderr, and the exit code the process should
-    report. `None` on either stream means nothing prints on it.
+    """What a renderer answers with — stdout, stderr, and the exit code the process should report.
+
+    `None` on either stream means nothing prints on it.
 
     Every renderer registered through `weft_kernel.discovery.PackRegistrar.add_renderer`
     returns one of these, whether it is one of `weft_cli`'s own eighteen built-in renderers

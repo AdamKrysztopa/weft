@@ -132,9 +132,10 @@ def test_a_schema_with_no_rules_is_refused_at_construction() -> None:
 
 
 def test_a_schema_file_from_the_future_is_refused_rather_than_read() -> None:
-    """Upgrade-or-refuse, the rule every persisted surface in this tree follows. A file written
-    by a later `weft-rag` may mean something different by the same field names, and reading it
-    anyway produces a plausible graph over the wrong constraint.
+    """Upgrade-or-refuse, the rule every persisted surface in this tree follows.
+
+    A file written by a later `weft-rag` may mean something different by the same field names, and
+    reading it anyway produces a plausible graph over the wrong constraint.
     """
     # Act / Assert
     with pytest.raises(ValidationError, match="schema_version"):
@@ -176,9 +177,10 @@ def test_the_identity_changes_when_the_name_does() -> None:
 
 
 def test_a_proposal_is_the_shape_the_corpus_actually_produced() -> None:
-    """`propose` is a measurement. Every triple the corpus wrote becomes a rule, ordered by how
-    often the corpus wrote it, so the first thing an operator reads is the most load-bearing
-    thing to keep or cut.
+    """`propose` is a measurement.
+
+    Every triple the corpus wrote becomes a rule, ordered by how often the corpus wrote it, so the
+    first thing an operator reads is the most load-bearing thing to keep or cut.
     """
     # Arrange
     observed = (

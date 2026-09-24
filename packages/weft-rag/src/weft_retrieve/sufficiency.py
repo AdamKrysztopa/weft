@@ -80,6 +80,7 @@ class LlmSufficiencyConfig(BaseModel):
 
 class LlmSufficiency:
     """Asks a model whether the evidence — and, when given, a draft grounded in it — suffices.
+
     Satisfies `weft_retrieve.contract.Sufficiency` structurally.
 
     `cost_bound = (1, 1)` — one call, always. Unlike a reranker or a grader, this contract's
@@ -184,8 +185,9 @@ class HedgePhrasesConfig(BaseModel):
 
 
 class HedgePhrases:
-    """Tests a draft's own wording against a locale-keyed phrase table. Satisfies
-    `weft_retrieve.contract.Sufficiency` structurally.
+    """Tests a draft's own wording against a locale-keyed phrase table.
+
+    Satisfies `weft_retrieve.contract.Sufficiency` structurally.
 
     `cost_bound = (0, 0)` — no model is ever asked; that is the point of shipping this beside
     `llm-sufficiency` rather than only documenting it as a cautionary tale. **Zero model calls

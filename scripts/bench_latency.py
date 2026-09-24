@@ -308,7 +308,8 @@ def _versions(conn: psycopg.Connection) -> tuple[str, str]:
 
 def _debare_column_type(conn: psycopg.Connection) -> None:
     """29.3's store now commits `embedding` to `vector(64)` at first write; strip the width back
-    to bare so this harness's own timed ALTER still measures a bare->typed rewrite, not a no-op."""
+    to bare so this harness's own timed ALTER still measures a bare->typed rewrite, not a no-op.
+    """
     with conn.cursor() as cur:
         cur.execute(sql.SQL("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector"))
     conn.commit()

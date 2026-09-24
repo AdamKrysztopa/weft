@@ -185,10 +185,13 @@ def test_the_question_set_is_non_empty_and_names_each_question_once(
 def test_the_curated_set_states_no_absence_and_declares_no_axis(
     questions: tuple[Question, ...],
 ) -> None:
-    """Task 38.11. A question file may state which fields it cannot supply, which is how an
-    imported set and `weft graph bridges --write` read through the one model. The hand-written set
-    is V2's ground truth and supplies every field, so a stated absence landing here — a pasted
-    `--write` file, say — is a generated question passing as a written one."""
+    """Task 38.11.
+
+    A question file may state which fields it cannot supply, which is how an imported set and `weft
+    graph bridges --write` read through the one model. The hand-written set is V2's ground truth and
+    supplies every field, so a stated absence landing here — a pasted `--write` file, say — is a
+    generated question passing as a written one.
+    """
     # Act
     stating = sorted(question.id for question in questions if question.absent or question.axes)
 

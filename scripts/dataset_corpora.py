@@ -51,7 +51,8 @@ def techqa_document(text: str) -> str:
 
 def esci_document(row: Mapping[str, object]) -> str:
     """One ESCI product row, rendered as `corpus/esci.toml` pins it: its non-empty fields, one per
-    line, markup stripped, in `_ESCI_FIELDS` order."""
+    line, markup stripped, in `_ESCI_FIELDS` order.
+    """
     lines: list[str] = []
     for field in _ESCI_FIELDS:
         value = row.get(field)
@@ -68,9 +69,12 @@ def _manifest_document_ids(manifest: Path) -> set[str]:
 
 
 def _read_parquet_records(path: Path) -> list[dict[str, Any]]:
-    """`pandas.read_parquet` as a list of row dicts. Imported dynamically — via `importlib`
-    rather than a static `import pandas` — because pandas ships no type stubs and this tree's
-    `pyright` runs in strict mode; a dynamically resolved module carries no stub obligation."""
+    """`pandas.read_parquet` as a list of row dicts.
+
+    Imported dynamically — via `importlib` rather than a static `import pandas` — because pandas
+    ships no type stubs and this tree's `pyright` runs in strict mode; a dynamically resolved module
+    carries no stub obligation.
+    """
     pandas: Any = importlib.import_module("pandas")
     frame: Any = pandas.read_parquet(path)
     records: list[dict[str, Any]] = frame.to_dict(orient="records")

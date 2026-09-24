@@ -371,13 +371,16 @@ class GenerationCarryingStore(GenerationHoldingStore, GenerationCarrying, Protoc
 @runtime_checkable
 class GenerationWithdrawingStore(GenerationHoldingStore, GenerationWithdrawing, Protocol):
     """A store that withdraws a published generation now and reclaims its nodes later — repair
-    **R43.29**."""
+    **R43.29**.
+    """
 
 
 @runtime_checkable
 class SingleWriterStore(NodeStore, SingleWriter, TargetHolding, Protocol):
-    """A store that admits one writer at a time — ledger task **43.18**. `TargetHolding` is how a
-    check reaches a second handle onto the same storage."""
+    """A store that admits one writer at a time — ledger task **43.18**.
+
+    `TargetHolding` is how a check reaches a second handle onto the same storage.
+    """
 
 
 _SOURCE_A = SourceId("source-a")
@@ -403,8 +406,9 @@ def _node(
 
 
 def _conformance_context() -> Context:
-    """A `Context` for `reconcile`, which takes one and — for a node store — reads nothing
-    from it. A pack that converges by running model calls will; this one has no reason to.
+    """A `Context` for `reconcile`, which takes one and — for a node store — reads nothing from it.
+
+    A pack that converges by running model calls will; this one has no reason to.
     """
     return Context(tenant_id="conformance", run_id="run-1", trace_id="trace-1", locale="en")
 
@@ -1198,7 +1202,8 @@ async def check_a_source_records_layers_round_trip_whole_and_are_listed(store: N
     store that names its columns keeps only the fields its author had heard of. `STALE` joins
     `ACTIVE`/`FAILED` here so a third-party store is held to round-tripping it too, the same
     way `test_a_stale_layer_record_round_trips_whole_and_is_listed` holds the two first-party
-    ones."""
+    ones.
+    """
     # Arrange
     when = datetime.now(UTC)
     layered = SourceRecord(
@@ -1281,7 +1286,8 @@ def _failed_record(source_id: SourceId, name: str) -> SourceRecord:
 
 async def check_deleting_a_failed_source_removes_it_like_any_other(store: NodeStore) -> None:
     """Ledger **36.5**: an operator abandoning a document that failed has one command that works —
-    its record goes, and so does every node it left behind."""
+    its record goes, and so does every node it left behind.
+    """
     # Arrange
     await store.add(conformance_corpus())
     await store.put_source(_failed_record(_SOURCE_B, "b.txt"))
@@ -1304,7 +1310,8 @@ async def check_reconcile_neither_deletes_nor_clears_a_failed_source(
     store: ReconcilableStore,
 ) -> None:
     """Ledger **36.5**: reconcile finishes interrupted deletions; a failed source is not one, and
-    its record is the only place an operator can find what went wrong."""
+    its record is the only place an operator can find what went wrong.
+    """
     # Arrange
     await store.add(conformance_corpus())
     record = _failed_record(_SOURCE_A, "a.txt")
@@ -1979,7 +1986,8 @@ async def check_claiming_an_identity_creates_the_target_as_a_first_write_does(
     store: TargetHoldingStore,
 ) -> None:
     """Ingest records a target's identity before its first write, so a claim on a target that
-    does not exist yet creates it — catalogued and holding its storage, empty and readable."""
+    does not exist yet creates it — catalogued and holding its storage, empty and readable.
+    """
     # Arrange
     identity = EmbeddingIdentity(plugin="hash", distribution="weft-rag", model="hash", width=3)
     candidate = await store.bind_target(target_name(_CANDIDATE))
@@ -2003,7 +2011,8 @@ async def check_a_target_whose_first_write_is_a_source_record_is_catalogued(
     """Ingest writes a document's source record (`INDEXING`) before its nodes, so a run
     interrupted between the two leaves a target holding sources and no nodes. That target exists:
     it is in the catalogue, and every command naming it answers about it rather than calling it
-    unknown. Found at `34.8`: pgvector catalogued a target on its first node write only."""
+    unknown. Found at `34.8`: pgvector catalogued a target on its first node write only.
+    """
     # Arrange
     candidate = await store.bind_target(target_name(_CANDIDATE))
 
@@ -2029,7 +2038,8 @@ async def check_a_target_whose_first_write_is_a_source_record_is_catalogued(
 async def check_promoting_the_live_target_again_changes_nothing(store: TargetHoldingStore) -> None:
     """A promote that converges participants after a crash is re-run on the ones that already
     moved, so promoting the live target keeps both pointers as they are. Were it to set `previous`
-    to the live target itself, the rollback the operator needs next would go nowhere."""
+    to the live target itself, the rollback the operator needs next would go nowhere.
+    """
     # Arrange
     candidate = await store.bind_target(target_name(_CANDIDATE))
     await candidate.add(conformance_corpus()[:1])
@@ -2065,7 +2075,8 @@ async def _visible(
 
 async def _next_operation(store: GenerationHoldingStore) -> GenerationHoldingStore:
     """A handle reading as the next operation would: bound to a fresh, empty generation, so its
-    manifest is whatever is published when it first touches storage, plus nothing of its own."""
+    manifest is whatever is published when it first touches storage, plus nothing of its own.
+    """
     probe = await store.open_generation("conformance-probe")
     return await store.bind_generation(probe.id)
 
@@ -2075,7 +2086,8 @@ async def check_an_unpublished_generation_is_invisible_until_it_is_published(
 ) -> None:
     """Ledger **43.14**: a half-built corpus-scoped layer is never searchable — its members are
     absent from vector search, text search and metadata filters, before top-k — and all of it
-    becomes searchable at once when it is published."""
+    becomes searchable at once when it is published.
+    """
     # Arrange
     await store.add(conformance_corpus())
     generation = await store.open_generation("summaries")
@@ -2096,7 +2108,8 @@ async def check_a_handle_keeps_the_generations_it_read_when_it_opened(
     store: GenerationHoldingStore,
 ) -> None:
     """One operation sees one set of generations: a handle that touched storage before a publish
-    keeps what it read, so a multi-arm ask never mixes two trees."""
+    keeps what it read, so a multi-arm ask never mixes two trees.
+    """
     # Arrange
     await store.add(conformance_corpus())
     generation = await store.open_generation("summaries")
@@ -2137,7 +2150,8 @@ async def check_a_node_shared_with_a_published_generation_stays_visible(
     store: GenerationHoldingStore,
 ) -> None:
     """A node two generations both wrote belongs to both: the unpublished one cannot hide what
-    the published one made visible."""
+    the published one made visible.
+    """
     # Arrange
     shared = _member("delta", (0.0, 0.0, 1.0))
     published = await store.open_generation("summaries")
@@ -2157,7 +2171,8 @@ async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_o
     store: GenerationHoldingStore,
 ) -> None:
     """`retract_generation` removes the nodes only that generation made, keeps a node another
-    generation also holds and every base node, and forgets the generation."""
+    generation also holds and every base node, and forgets the generation.
+    """
     # Arrange
     await store.add(conformance_corpus())
     kept = await store.open_generation("summaries")
@@ -2188,7 +2203,8 @@ async def check_a_generation_bound_again_sees_and_extends_what_was_written(
 ) -> None:
     """Ledger **43.20**: a resumed corpus build binds a new handle to the generation an
     interrupted one left `building`. That handle sees what the first wrote, what it writes joins
-    the same generation, and publishing makes both visible."""
+    the same generation, and publishing makes both visible.
+    """
     # Arrange
     generation = await store.open_generation("summaries")
     first = await store.bind_generation(generation.id)
@@ -2225,7 +2241,8 @@ async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by
 ) -> None:
     """`open_generation` records `building`, `publish_generation` records `published` with its
     time, `generations()` returns both whole, and a generation nobody opened is refused naming
-    the ones that exist."""
+    the ones that exist.
+    """
     # Arrange
     opened = await store.open_generation("summaries")
 
@@ -2257,7 +2274,8 @@ async def check_a_reader_sees_only_the_newest_published_generation_of_each_layer
 ) -> None:
     """Repair **R43.25**: the layer loop publishes a layer's new generation before it retracts
     the old one, so a reader opened between the two must see one tree per layer — the newest
-    published generation of each — never both."""
+    published generation of each — never both.
+    """
     # Arrange
     older = await store.open_generation("summaries")
     await (await store.bind_generation(older.id)).add([_member("amber", (1.0, 0.0, 0.0))])
@@ -2313,7 +2331,8 @@ async def check_a_carried_generation_keeps_what_it_carries_and_drops_what_it_rep
     members and replaces the other two. Once it is published and the old one retracted, the three
     carried and the two new are found by every read path and the two replaced by none; a handle
     opened before the publish still sees the old five and nothing new; a carried node is the node
-    it was, never rewritten."""
+    it was, never rewritten.
+    """
     # Arrange
     old_members = [_member(word, values) for word, values in _OLD_TREE]
     carried, replaced = _OLD_TREE[:3], _OLD_TREE[3:]
@@ -2361,9 +2380,11 @@ async def check_a_carried_generation_keeps_what_it_carries_and_drops_what_it_rep
 async def check_carrying_a_node_no_published_generation_holds_is_refused_by_name(
     store: GenerationCarryingStore,
 ) -> None:
-    """Ledger **43.22**: only a member of a published generation can be carried. A base node and
-    a member of an unpublished generation are refused together, named, and nothing in the call is
-    carried; a generation nobody opened is refused naming the ones that exist."""
+    """Ledger **43.22**: only a member of a published generation can be carried.
+
+    A base node and a member of an unpublished generation are refused together, named, and nothing
+    in the call is carried; a generation nobody opened is refused naming the ones that exist.
+    """
     # Arrange
     published = _member("amber", (1.0, 0.0, 0.0))
     unpublished = _member("birch", (0.0, 1.0, 0.0))
@@ -2423,7 +2444,8 @@ async def _a_published_tree_and_its_rebuild(
     store: GenerationWithdrawingStore,
 ) -> tuple[GenerationId, GenerationId, list[Node]]:
     """`old` published with `_OLD_TREE`; `new` sharing its first three members, replacing the
-    other two with `_NEW_TREE`, still building. Returns `old`, `new` and `old`'s members."""
+    other two with `_NEW_TREE`, still building. Returns `old`, `new` and `old`'s members.
+    """
     old_members = [_member(word, values) for word, values in _OLD_TREE]
     old = await store.open_generation("summaries")
     await (await store.bind_generation(old.id)).add(old_members)
@@ -2442,7 +2464,8 @@ async def check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_open
     reading all of it after the new one is published and the old one withdrawn — the members the
     new generation shares and the ones it replaced, through `count`, `scan` and every search —
     and none of the new generation. Retracting in place of withdrawing strips the old id from the
-    shared members and deletes the replaced ones, which left that reader with neither tree."""
+    shared members and deletes the replaced ones, which left that reader with neither tree.
+    """
     # Arrange
     old, new, _ = await _a_published_tree_and_its_rebuild(store)
     reader = await _next_operation(store)
@@ -2483,10 +2506,12 @@ async def check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_open
 async def check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it(
     store: GenerationWithdrawingStore,
 ) -> None:
-    """Repair **R43.29**: once withdrawn, a generation is in no new handle's manifest. A reader
-    opened after the withdraw finds the shared and the new members and none of the replaced ones;
-    a layer whose only published generation is withdrawn shows that reader nothing of it. The
-    catalogue still lists the withdrawn generation until it is reclaimed."""
+    """Repair **R43.29**: once withdrawn, a generation is in no new handle's manifest.
+
+    A reader opened after the withdraw finds the shared and the new members and none of the replaced
+    ones; a layer whose only published generation is withdrawn shows that reader nothing of it. The
+    catalogue still lists the withdrawn generation until it is reclaimed.
+    """
     # Arrange
     old, new, _ = await _a_published_tree_and_its_rebuild(store)
     await store.publish_generation(new)
@@ -2529,7 +2554,8 @@ async def check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generati
     """Repair **R43.29**: `reclaim_withdrawn(layer)` does, per withdrawn generation of `layer`,
     what `retract_generation` does — deletes the nodes only it held, keeps the ones a published
     generation shares, and forgets it. Another layer's withdrawn generation is left alone. Counted
-    raw, so the manifest cannot hide a node still stored."""
+    raw, so the manifest cannot hide a node still stored.
+    """
     # Arrange
     old, new, old_members = await _a_published_tree_and_its_rebuild(store)
     await store.publish_generation(new)
@@ -2580,7 +2606,8 @@ async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_n
     """Repair **R43.29**: a generation nobody opened is refused with `UnknownGenerationError`
     naming the ones that exist; a `building` one — an abandoned build is retracted, never
     withdrawn — and one already withdrawn are refused with `NotAPublishedGenerationError` naming
-    it, its status and the published ones. A refusal changes no generation's status."""
+    it, its status and the published ones. A refusal changes no generation's status.
+    """
     # Arrange
     published = await store.open_generation("summaries")
     await store.publish_generation(published.id)
@@ -2633,7 +2660,8 @@ async def check_a_handle_opened_before_any_node_was_stored_retracts_a_generation
 ) -> None:
     """Repair **R43.26**: a handle that read storage before anything was stored, while a handle
     bound to a generation then stores that generation's members, retracts the generation's nodes
-    along with its record — counted raw, so the manifest cannot hide nodes still held."""
+    along with its record — counted raw, so the manifest cannot hide nodes still held.
+    """
     # Arrange
     await store.count()
     generation = await store.open_generation("summaries")
@@ -2659,7 +2687,8 @@ async def check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_ha
 ) -> None:
     """Repair **R43.26**: a handle that read storage before anything was stored reads what a
     bound handle then stored exactly as a fresh handle does, through every read the manifest
-    does not gate — `count`, `scan`, `get`, `get_source` and `list_sources`."""
+    does not gate — `count`, `scan`, `get`, `get_source` and `list_sources`.
+    """
     # Arrange
     await store.count()
     generation = await store.open_generation("summaries")
@@ -2712,7 +2741,8 @@ def _claim(command: str, pid: int) -> WriterClaim:
 
 async def check_a_second_writer_is_refused_naming_the_first(store: SingleWriterStore) -> None:
     """Ledger **43.18**: two `weft index` runs interleaving their batch records into one store is
-    refused before the second writes, and the refusal names the writer that holds it."""
+    refused before the second writes, and the refusal names the writer that holds it.
+    """
     # Arrange
     other = await store.bind_target(DEFAULT_TARGET)
     first = _claim("weft index corpus", 101)

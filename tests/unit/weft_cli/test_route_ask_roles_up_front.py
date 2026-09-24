@@ -654,7 +654,8 @@ _SHIPPED_FANOUT_RUNG = "broad-and-refined-rrf"
 
 def test_the_shipped_fanout_rung_needs_the_role_its_looping_arm_calls() -> None:
     """R43.42, measured on the shipped catalogue: `broad-and-refined-rrf`'s `refined` arm runs
-    `iterative-retrieval` with `llm-sufficiency`, which calls a model under `grade`."""
+    `iterative-retrieval` with `llm-sufficiency`, which calls a model under `grade`.
+    """
     # Arrange
     registry = Registry()
     reports = discover(

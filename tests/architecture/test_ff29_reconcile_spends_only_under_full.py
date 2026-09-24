@@ -303,8 +303,10 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
 
 
 def test_the_waiver_is_pinned_empty() -> None:
-    """The ratchet — `01` → *Fitness functions*. Waiving is a visible act in a diff, never an
-    edit to the walk that quietly stops looking at something.
+    """The ratchet — `01` → *Fitness functions*.
+
+    Waiving is a visible act in a diff, never an edit to the walk that quietly stops looking at
+    something.
     """
     # Assert
     assert frozenset() == WAIVED_RECONCILABLES

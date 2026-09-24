@@ -511,9 +511,11 @@ async def test_the_unmapped_role_refusal_suggests_a_provider_the_registry_holds(
 
 
 async def test_a_sink_failing_is_not_reported_as_a_provider_fault() -> None:
-    """Repair **R38.17**: the taxonomy wraps what a *provider* raises. A sink is the reader's
-    side of the call, and its own failure — a reader that went away — reached the operator as
-    "a defect in the provider adapter"."""
+    """Repair **R38.17**: the taxonomy wraps what a *provider* raises.
+
+    A sink is the reader's side of the call, and its own failure — a reader that went away — reached
+    the operator as "a defect in the provider adapter".
+    """
 
     # Arrange
     class _SinkGoneError(Exception):

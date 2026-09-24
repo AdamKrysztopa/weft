@@ -92,3 +92,6 @@ build/
 # 2026-09-11 at the owner's decision. The numbered reference documents stay tracked: 650 citations
 # from `packages/` point at them and those pointers ship inside the wheel.
 /docs/internal/
+
+# complexipy's per-run cache.
+.complexipy_cache/

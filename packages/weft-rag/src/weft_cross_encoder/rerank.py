@@ -45,18 +45,21 @@ class TruncationDirection(StrEnum):
 class CrossEncoderUnreachableError(WeftError):
     """No TEI server answered at the configured address — a connection failure or a timeout,
     the whole `httpx.TransportError` family. Raised before any score is trusted, on either
-    `/info` or `/rerank`."""
+    `/info` or `/rerank`.
+    """
 
 
 class CrossEncoderServerError(WeftError):
     """TEI answered with a fault: a non-2xx status other than 422, or a `/rerank` response that
     is not exactly one score per passage sent. Never guessed at — a passage list this stage
-    cannot vouch for is not returned unranked."""
+    cannot vouch for is not returned unranked.
+    """
 
 
 class CrossEncoderModelUnsetError(WeftError):
     """`cross-encoder-rerank` was constructed with no `with:` config at all — `model` is
-    required and nothing here may assume one."""
+    required and nothing here may assume one.
+    """
 
 
 class CrossEncoderModelMismatchError(WeftError, UnresolvedNameError):
@@ -73,9 +76,10 @@ class CrossEncoderModelMismatchError(WeftError, UnresolvedNameError):
 
 
 class CrossEncoderRerankConfig(BaseModel):
-    """`CrossEncoderRerank`'s `with:` config. `model` is the one field this pack cannot default
-    — see `CrossEncoderModelUnsetError` — because assuming one would score every passage
-    against a server that may be running anything at all.
+    """`CrossEncoderRerank`'s `with:` config.
+
+    `model` is the one field this pack cannot default — see `CrossEncoderModelUnsetError` — because
+    assuming one would score every passage against a server that may be running anything at all.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -160,8 +164,9 @@ def _server_error(url: str, path: str, response: httpx.Response) -> CrossEncoder
 
 
 class CrossEncoderRerank:
-    """Rescores a `Ranking`'s hits against the question through a TEI server. Satisfies
-    `weft_retrieve.contract.Reranker` structurally.
+    """Rescores a `Ranking`'s hits against the question through a TEI server.
+
+    Satisfies `weft_retrieve.contract.Reranker` structurally.
 
     `cost_bound = (0, 0)`: this stage calls no LLM — it makes one HTTP round trip per batch to
     a scoring server, which is neither a model call nor its absence in the sense `cost_bound`

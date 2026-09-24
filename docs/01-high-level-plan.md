@@ -2080,6 +2080,14 @@ All checks run in CI, before tests.
     19 fields at filing, three waived by name in `NOT_REPORTED` with who reads them instead. At
     `61ac61a` it failed on `layers_changed`.
     `tests/architecture/test_ff35_every_index_fact_reaches_the_command.py`.
+36. **A `try` body holds one statement.** Added 2026-09-24. A handler names the call it was written
+    for only when that call is the whole guarded region; with several statements under `try`, an
+    `except` written for one also catches the same class from the others. An AST walk over every
+    tracked `.py` outside a test tree fails on a `Try` or `TryStar` whose `body` holds more than one
+    statement, naming `path:line`; `except`, `else` and `finally` bodies are unrestricted. Several
+    steps move into a function and the `try` guards that call. No waiver: at filing it failed on 45
+    sites, and all 45 were refactored.
+    `tests/architecture/test_ff36_a_try_guards_one_statement.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and

@@ -35,7 +35,8 @@ from weft_store.contract import NodeStore, Scored
 class _Representation(ExtModel):
     """A structural stand-in for `weft_index.payload.Representation`, deliberately not that
     class — the same duck-typed shape `weft_generate.representation`'s own test suite
-    exercises, proving `collapse.py` reads no import of the pack that ships the real one."""
+    exercises, proving `collapse.py` reads no import of the pack that ships the real one.
+    """
 
     __namespace__ = "test-collapse"
     __schema_version__ = "1.0.0"
@@ -45,7 +46,8 @@ class _Representation(ExtModel):
 
 class _StubStore:
     """A `NodeStore` answering `get` from a fixed table, and nothing else — this plugin
-    calls no other method."""
+    calls no other method.
+    """
 
     def __init__(self, nodes: dict[NodeId, Node]) -> None:
         self._nodes = nodes
@@ -183,7 +185,8 @@ async def test_an_empty_rankings_note_survives_collapse_unchanged() -> None:
     empty `Ranking` carrying a diagnostic `note` explaining *why* nothing matched. The
     emptiness rule this stage documents says `note` passes through unchanged same as
     `origin` and `contributors` — this regression guards that the empty-hits branch does
-    not silently drop it before `repack`/`generate` ever see it."""
+    not silently drop it before `repack`/`generate` ever see it.
+    """
     # Arrange
     asked = Query(text="A AND B")
     explanation = "the conjunction A AND B matched no document in common"
@@ -200,7 +203,8 @@ async def test_an_empty_rankings_note_survives_collapse_unchanged() -> None:
 async def test_driving_collapse_to_parent_through_the_seam_produces_a_ranking() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
-    instance never receives."""
+    instance never receives.
+    """
     # Arrange
     node = Node.synthetic(content="only candidate", media_type=MediaType.TEXT, reason="t")
     ranking = _ranking(_passage(node, 0.9, 0))
@@ -317,7 +321,8 @@ async def test_a_leaf_outscoring_its_own_summary_is_the_one_that_survives() -> N
 
 async def test_a_summary_whose_members_were_not_retrieved_is_untouched() -> None:
     """The rule fires on an overlap, never on a summary alone — otherwise a broad question, which
-    is the one a summary exists to answer, would lose the only node that can answer it."""
+    is the one a summary exists to answer, would lose the only node that can answer it.
+    """
     # Arrange
     root = Node.synthetic(
         content="doc", media_type=MediaType.TEXT, reason="fixture", sources=frozenset()

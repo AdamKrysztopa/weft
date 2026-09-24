@@ -20,3 +20,12 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+
+  # The locked version and `[tool.complexipy]`'s threshold, so a commit and the gate agree.
+  - repo: local
+    hooks:
+      - id: complexipy
+        name: cognitive complexity
+        entry: uv run complexipy
+        language: system
+        types: [python]

@@ -82,7 +82,8 @@ class _DirectionEmbedder(HashEmbedder):
 
 class _Chunker(FixedSizeChunker):
     """`fixed-size`, which cannot read a document saying `UNREADABLE` — by returning `Failed`,
-    by raising, or by being cancelled mid-call, as `mode` says."""
+    by raising, or by being cancelled mid-call, as `mode` says.
+    """
 
     mode: ClassVar[str] = "failed"
 
@@ -123,7 +124,8 @@ class _Store(GenerationStore):
     layer's newest published generation, a `supersede` that deletes what it replaces — registered
     as a class over one class-held `State`, as `test_delete_stales_corpus_layers._Store` is, so
     `weft delete`'s fan-out counts it. `released` records, at each `delete_source`, the corpus
-    layer's status on every other source's record."""
+    layer's status on every other source's record.
+    """
 
     shared: ClassVar[State] = State()
     published: ClassVar[int] = 0
@@ -373,7 +375,8 @@ async def test_a_released_source_ends_in_a_rebuilt_tree_not_a_join_into_the_hole
     corpus: Path, route: str, covers: set[str]
 ) -> None:
     """R43.41 — releasing a covered source removes its summaries, so the next layer run owes the
-    whole tree, as a deletion already does (task 43.23's `stale-by-deletion-rebuilds`)."""
+    whole tree, as a deletion already does (task 43.23's `stale-by-deletion-rebuilds`).
+    """
     # Arrange
     built = await _built(corpus)
 
@@ -417,7 +420,8 @@ async def test_a_successful_reparse_marks_every_other_source_stale_and_says_so(
     corpus: Path,
 ) -> None:
     """R43.41 — the run that re-parses a covered source reports the tree it holed, and the
-    re-parsed source itself carries no layer record, as R43.33 excludes the deleted one."""
+    re-parsed source itself carries no layer record, as R43.33 excludes the deleted one.
+    """
     # Arrange
     await _built(corpus)
 
@@ -437,7 +441,8 @@ async def test_the_layer_is_marked_stale_before_the_reparsed_source_is_released(
     corpus: Path,
 ) -> None:
     """R43.41, on R43.33's ordering — a tree is marked before it is holed, so an interruption
-    between the two never leaves it read as whole."""
+    between the two never leaves it read as whole.
+    """
     # Arrange
     await _built(corpus)
 
@@ -471,7 +476,8 @@ async def test_a_reparse_that_does_not_finish_leaves_the_layer_stale_and_not_rea
     corpus: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     """R43.41 — the source's earlier parse was released, so the tree it was in is missing a
-    cluster, and the router must not be offered it as ready."""
+    cluster, and the router must not be offered it as ready.
+    """
     # Arrange
     await _built(corpus)
     ready_before = await _ready_for_routing(monkeypatch)
@@ -512,7 +518,8 @@ async def test_the_printed_remedy_after_an_unfinished_reparse_rebuilds_the_tree(
     corpus: Path, mode: str
 ) -> None:
     """R43.41 — `weft index --layers <name>`, the remedy the stale line prints, rebuilds the tree
-    over the sources that remain rather than finding every eligible record `ACTIVE`."""
+    over the sources that remain rather than finding every eligible record `ACTIVE`.
+    """
     # Arrange
     built = await _built(corpus)
     await _reparse_unreadably(corpus, mode)

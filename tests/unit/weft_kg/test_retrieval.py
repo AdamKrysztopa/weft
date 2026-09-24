@@ -174,8 +174,10 @@ def _fixture() -> tuple[_Walk, _Store, dict[str, Node]]:
 
 
 async def test_a_question_naming_an_entity_is_answered_from_that_entity_s_nodes() -> None:
-    """The headline property. The question names `Chucri`; the answer is the node that mention
-    anchors, fetched from the corpus by the id the walk returned.
+    """The headline property.
+
+    The question names `Chucri`; the answer is the node that mention anchors, fetched from the
+    corpus by the id the walk returned.
     """
     # Arrange
     walk, store, nodes = _fixture()
@@ -196,9 +198,10 @@ async def test_a_question_naming_an_entity_is_answered_from_that_entity_s_nodes(
 
 async def test_the_hop_count_is_a_parameter_and_the_control_disagrees() -> None:
     """Requirement 6, and `L9.58`: a parameterised control has to be shown to change something.
+
     One hop reaches `adRAP`; two reach `RAPTOR` as well. This is the whole difference between
-    `graph-then-generate` and `graph-2hop-then-generate`, so a `hops` that did not travel would
-    make one of those two rungs a copy of the other with a different name.
+    `graph-then-generate` and `graph-2hop-then-generate`, so a `hops` that did not travel would make
+    one of those two rungs a copy of the other with a different name.
     """
     # Arrange
     walk, store, nodes = _fixture()

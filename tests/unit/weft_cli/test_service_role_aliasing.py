@@ -57,9 +57,10 @@ class _Sidecar:
 
 
 class _OtherBlobs(_Sidecar, _Readable):
-    """Fills a different role and satisfies the same demandable capability. Two roles cannot
-    share one contract — `ServiceRegistry.add` refuses that outright — so the ambiguity this
-    tests is two *different* roles both providing one demanded capability.
+    """Fills a different role and satisfies the same demandable capability.
+
+    Two roles cannot share one contract — `ServiceRegistry.add` refuses that outright — so the
+    ambiguity this tests is two *different* roles both providing one demanded capability.
     """
 
 
@@ -72,8 +73,10 @@ OTHER = ServiceRole(key="other", contract=_Sidecar)
 
 
 def test_a_selected_instance_answers_under_its_own_roles_contract() -> None:
-    """The floor. Selecting a role makes its instance reachable under the contract the
-    declaring pack published — the plain case aliasing is built on top of.
+    """The floor.
+
+    Selecting a role makes its instance reachable under the contract the declaring pack published —
+    the plain case aliasing is built on top of.
     """
     # Arrange
     from weft_engine.run_services import register_selected_roles

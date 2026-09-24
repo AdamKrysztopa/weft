@@ -117,13 +117,14 @@ class _Catalogue:
 
 
 class InMemoryNodeStore:
-    """The whole store family over a plain `dict`. Satisfies `weft_store.contract.NodeStore`,
-    `VectorSearch`, `TextSearch`, `MetadataFilter`, `SourceDeletable`, `Reconcilable` and
-    `TargetHolding` structurally — this class never imports any of them. `SourceDeletable`
-    needed no code at all: `delete_source` was already here, which is what "capability is
-    derived, never declared" buys a pack author. `Reconcilable` grew `estimate` at task 5.1c,
-    a major bump for every implementer per G9 — this stranger's own update is one small,
-    honest method, not a rewrite.
+    """The whole store family over a plain `dict`.
+
+    Satisfies `weft_store.contract.NodeStore`, `VectorSearch`, `TextSearch`, `MetadataFilter`,
+    `SourceDeletable`, `Reconcilable` and `TargetHolding` structurally — this class never imports
+    any of them. `SourceDeletable` needed no code at all: `delete_source` was already here, which is
+    what "capability is derived, never declared" buys a pack author. `Reconcilable` grew `estimate`
+    at task 5.1c, a major bump for every implementer per G9 — this stranger's own update is one
+    small, honest method, not a rewrite.
 
     **`TargetHolding`, task 34.3, costs one more dict, keyed by target name.** Every other
     method above already worked against one process's own state; here that state is split
@@ -478,7 +479,8 @@ class InMemoryNodeStore:
 
     async def bind_generation(self, generation: GenerationId) -> Self:
         """A new handle on the same catalogue and the same target settings as this one,
-        bound to `generation` — `bind_target`'s own construction is the model."""
+        bound to `generation` — `bind_target`'s own construction is the model.
+        """
         target_name = self._active_target()
         state = self._catalogue.targets.get(target_name)
         if state is None or generation not in state.generations:
@@ -517,7 +519,8 @@ class InMemoryNodeStore:
 
     async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
         """`GenerationCarrying`, ledger task **43.22** — `into` joins each node's membership and
-        nothing else about the node changes. Every id is checked before any is carried."""
+        nothing else about the node changes. Every id is checked before any is carried.
+        """
         target = self._writable()
         if into not in target.generations:
             raise UnknownGenerationError(into, valid_options=tuple(sorted(target.generations)))
@@ -543,7 +546,8 @@ class InMemoryNodeStore:
 
     async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
         """`GenerationWithdrawing`, repair **R43.29** — the record is marked and nothing else
-        changes, so a handle whose visible set already holds `generation` keeps reading it."""
+        changes, so a handle whose visible set already holds `generation` keeps reading it.
+        """
         target = self._writable()
         record = target.generations.get(generation)
         if record is None:
@@ -581,7 +585,8 @@ class InMemoryNodeStore:
     async def claim_writer(self, writer: WriterClaim) -> None:
         """`SingleWriter`, ledger task **43.18** — the claim lives on the target, which every
         handle `bind_target` hands back onto it shares, so a second handle on the same target
-        sees the first's claim immediately."""
+        sees the first's claim immediately.
+        """
         target = self._writable()
         if target.writer is not None:
             raise WriterBusyError(target.writer)
@@ -598,7 +603,8 @@ class InMemoryNodeStore:
 def _retract(target: _Target, generation: GenerationId) -> int:
     """Delete the nodes only `generation` wrote, strip it from the rest, and forget it —
     `retract_generation`'s work, and `reclaim_withdrawn`'s per generation. Returns how many
-    nodes were deleted."""
+    nodes were deleted.
+    """
     doomed = frozenset({generation})
     removed_ids = tuple(
         node_id for node_id, membership in target.node_generations.items() if membership == doomed
@@ -616,8 +622,10 @@ def _retract(target: _Target, generation: GenerationId) -> int:
 def _newest_published_per_layer(
     generations: dict[GenerationId, GenerationRecord],
 ) -> frozenset[GenerationId]:
-    """Each layer's newest published generation — repair **R43.25**. A tie on `published_at`
-    goes to the one opened later, which is the catalogue's insertion order."""
+    """Each layer's newest published generation — repair **R43.25**.
+
+    A tie on `published_at` goes to the one opened later, which is the catalogue's insertion order.
+    """
     newest: dict[str, GenerationRecord] = {}
     for record in generations.values():
         if record.status is not GenerationStatus.PUBLISHED or record.published_at is None:

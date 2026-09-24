@@ -44,6 +44,9 @@ dev = [
     "opentelemetry-sdk>=1.28",
     "tiktoken>=0.8",
     "numpy>=2",
+    # Cognitive complexity, which `C90`'s McCabe count does not measure: nesting costs more than
+    # a flat branch. Threshold and paths are in `[tool.complexipy]`.
+    "complexipy>=8.0",
 ]
 
 # The dev environment's alignment with `compose.yaml`, and nothing a downstream install
@@ -84,6 +87,7 @@ lint = "ruff check ."
 # baseline and keeps its cache, which is what makes the two tasks mean different things.
 cold-lint-cache = "ruff clean"
 types = "pyright"
+cognitive = "complexipy"
 arch = "pytest tests/architecture -q"
 # **`tests/architecture` is excluded here because `arch` above already ran it.** `pytest tests`
 # collected 2,525 tests and 270 of them were the architecture suite, so every `ci-checks` ran that
@@ -100,8 +104,8 @@ arch = "pytest tests/architecture -q"
 cmd = "pytest tests --ignore=tests/architecture -q --numprocesses=auto --dist=loadgroup"
 
 [tool.poe.tasks.ci-no-tests]
-sequence = ["fmt", "lint", "types", "arch"]
-help = "Fast baseline: format, lint, types, architecture. No unit tests."
+sequence = ["fmt", "lint", "types", "cognitive", "arch"]
+help = "Fast baseline: format, lint, types, cognitive complexity, architecture. No unit tests."
 
 # Ledger task 6.23. The seven out-of-tree example packs ship 116 tests between them and
 # `testpaths = ["tests"]` meant the gate had never run one — `docs/internal/lessons.md` L6.12: a directory
@@ -181,11 +185,11 @@ if printf '%s\\n' "$changed" | grep -q '^examples/'; then poe examples-tests; fi
 """
 
 [tool.poe.tasks.ci-task]
-sequence = ["fmt", "lint", "types", "test-task"]
-help = "Per task: format, lint, types over the whole tree, then only the impacted tests. Not the gate — ci-checks runs at a phase's close."
+sequence = ["fmt", "lint", "types", "cognitive", "test-task"]
+help = "Per task: format, lint, types, cognitive complexity over the whole tree, then only the impacted tests. Not the gate — ci-checks runs at a phase's close."
 
 [tool.poe.tasks.ci-checks]
-sequence = ["cold-lint-cache", "fmt", "lint", "types", "arch", "test", "integration-alone", "examples-tests"]
+sequence = ["cold-lint-cache", "fmt", "lint", "types", "cognitive", "arch", "test", "integration-alone", "examples-tests"]
 help = "The canonical full gate. Every architecture check must be reachable from here, and it starts from a cold lint cache — see cold-lint-cache."
 
 [tool.poe.tasks.integration-alone]
@@ -219,14 +223,20 @@ target-version = "py312"
 src = ["packages/*/src", "testing/*/src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID"]
+select = [
+    "E", "F", "I", "N", "UP", "B", "C90", "S", "PTH", "RET", "SIM", "TID",
+    "BLE", "G", "FBT", "D",
+]
 # **`S101` is not ignored tree-wide any more** — `docs/internal/lessons.md` `L8.37`. The reason written
 # beside it was always "assert is the point in tests", and the setting applied everywhere, so an
 # `assert` in shipped code passed lint under a justification about test files. It is scoped to the
 # directories the reason names, below. An `assert` is stripped under `-O`, so in shipped code it is
 # not a check — this project has already been bitten by one claiming more than it could know
 # (`weft_cli.route_ask`'s, cited in `CLAUDE.md` and in `phase-step`).
-ignore = []
+#
+# `D107`: Google style documents a constructor's arguments in the class docstring, so a separate
+# `__init__` docstring would repeat it (owner's decision, 2026-09-24).
+ignore = ["D107"]
 
 # **`docs/internal/lessons.md` `L11.40` — every test helper in this repository was exempt from redefinition
 # detection, and nothing said so.** `F811` is selected above and applies to `tests/`, which read as
@@ -244,9 +254,12 @@ dummy-variable-rgx = "^_$"
 # `-O`. That sentence used to sit beside a tree-wide `ignore = ["S101"]`, so it justified a
 # narrower thing than it permitted and an `assert` in shipped code passed lint under a reason about
 # test files (`docs/internal/lessons.md` `L8.37`). Scoped here to the directories the reason names.
-"tests/**/*.py" = ["S101"]
+"tests/**/*.py" = ["S101", "D1"]
 "testing/**/*.py" = ["S101"]
 "examples/**/*.py" = ["S101"]
+# A test's name is its documentation; a docstring restating it is the comment `CLAUDE.md` forbids.
+# Only the missing-docstring rules: a docstring a test does carry is held to the convention.
+"examples/*/tests/**/*.py" = ["D1"]
 
 # `.claude/hooks/` is not project Python. These files are launched by the Claude Code harness
 # as bare `python3`, which is 3.9 on the development machine — not the 3.12 the packages are
@@ -261,6 +274,15 @@ dummy-variable-rgx = "^_$"
 
 [tool.ruff.lint.mccabe]
 max-complexity = 12
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# Every tracked `.py`: `.` honours `.gitignore` but skips hidden directories, so the hooks are named.
+[tool.complexipy]
+paths = [".", ".claude"]
+max-complexity-allowed = 15
+failed = true
 
 [tool.pyright]
 pythonVersion = "3.12"

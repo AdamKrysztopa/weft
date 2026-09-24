@@ -267,8 +267,9 @@ def test_a_planted_bytes_field_would_be_caught() -> None:
 
 @pytest.mark.parametrize("annotation", [bytearray, memoryview])
 def test_the_other_two_spellings_cannot_be_declared_at_all(annotation: type) -> None:
-    """`01`'s statement of this property names `bytes`, `bytearray` and `memoryview`. Only the
-    first is reachable, and this is where that is written down rather than assumed.
+    """`01`'s statement of this property names `bytes`, `bytearray` and `memoryview`.
+
+    Only the first is reachable, and this is where that is written down rather than assumed.
 
     pydantic refuses to build a core schema for the other two — `PydanticSchemaGenerationError`,
     *"Unable to generate pydantic-core schema"* — so a field annotated with either fails at class

@@ -57,8 +57,10 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 
 
 class PermissionAction(StrEnum):
-    """What `[permissions].<class>` may say. `ASK` is every field's own built-in default —
-    `docs/03-cli.md` -> *Permissions*' table for `overwrite` and `destroy`.
+    """What `[permissions].<class>` may say.
+
+    `ASK` is every field's own built-in default — `docs/03-cli.md` -> *Permissions*' table for
+    `overwrite` and `destroy`.
     """
 
     ASK = "ask"

@@ -51,8 +51,11 @@ class UsageTally:
         return tuple(self._entries)
 
     def record(self, entry: UsageEntry) -> None:
-        """Append `entry`. Public so `record_usage`, in this module but outside the class,
-        can call it without a private cross-object access — `entries` stays the read side."""
+        """Append `entry`.
+
+        Public so `record_usage`, in this module but outside the class, can call it without a
+        private cross-object access — `entries` stays the read side.
+        """
         self._entries.append(entry)
 
 

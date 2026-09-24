@@ -83,11 +83,13 @@ class PoolChunk(BaseModel):
 
 
 class PoolQuestion(BaseModel):
-    """One question's captured pool. `text_sha256`/`relevant_sha256` are hashes of the *facts*,
-    never their spelling, so a replay can tell a question file that still asks the same thing from
-    one that has drifted, whatever whitespace or field order it is written with. `rule_fires` is
-    whether `weft_retrieve.intent_and_anchors.find_anchors` matched this question's text at
-    capture time, carried so a replay can tell a rule change from a retrieval change.
+    """One question's captured pool.
+
+    `text_sha256`/`relevant_sha256` are hashes of the *facts*, never their spelling, so a replay can
+    tell a question file that still asks the same thing from one that has drifted, whatever
+    whitespace or field order it is written with. `rule_fires` is whether
+    `weft_retrieve.intent_and_anchors.find_anchors` matched this question's text at capture time,
+    carried so a replay can tell a rule change from a retrieval change.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -100,8 +102,10 @@ class PoolQuestion(BaseModel):
 
 
 class PoolManifest(BaseModel):
-    """A pool, captured once — see the module docstring. `store_rows` is the store's row count at
-    capture; a replay refuses a store that no longer holds it (`L8.30`).
+    """A pool, captured once — see the module docstring.
+
+    `store_rows` is the store's row count at capture; a replay refuses a store that no longer holds
+    it (`L8.30`).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

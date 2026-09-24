@@ -194,7 +194,8 @@ async def test_a_two_hop_path_whose_endpoints_share_no_chunk_is_found(store: Gra
 
 async def test_each_hop_carries_the_node_that_evidenced_it(store: GraphStore) -> None:
     """*"each hop with its own citation"* — the node whose fact stated that hop, and the
-    document that node came from, never the path as one undifferentiated claim."""
+    document that node came from, never the path as one undifferentiated claim.
+    """
     # Arrange
     first, second = await _two_document_bridge(store)
 
@@ -244,9 +245,11 @@ async def test_a_hop_is_printed_in_the_direction_the_corpus_stated_it(store: Gra
 
 
 async def test_two_entities_that_share_a_chunk_are_not_a_bridge(store: GraphStore) -> None:
-    """The edge case that decides what the command is measuring. Once one node names both
-    endpoints, a single passage can answer the question and the pair stops being evidence — the
-    walk still exists, and it is no longer a *bridge*."""
+    """The edge case that decides what the command is measuring.
+
+    Once one node names both endpoints, a single passage can answer the question and the pair stops
+    being evidence — the walk still exists, and it is no longer a *bridge*.
+    """
     # Arrange
     await _two_document_bridge(store)
     await store.add([_fact_node("Azouz", "used", "NCI", document="doc-c")])
@@ -263,7 +266,8 @@ async def test_a_corpus_with_relations_but_no_bridge_reports_it_rather_than_refu
 ) -> None:
     """`11.10`'s own measured finding, made printable: a corpus every one of whose relations is
     answerable from a single chunk has **no** question on which the graph must win, and saying so
-    is the diagnostic answer rather than a failure."""
+    is the diagnostic answer rather than a failure.
+    """
     # Arrange
     await store.add([_fact_node("Azouz", "authored", "mRMR", document="doc-a")])
 
@@ -279,9 +283,11 @@ async def test_a_corpus_with_relations_but_no_bridge_reports_it_rather_than_refu
 async def test_a_corpus_with_no_relations_at_all_refuses_naming_the_rung_to_run(
     store: GraphStore,
 ) -> None:
-    """The other cause, and the other remedy — `weft_kg.schema.propose_schema`'s own split. A
-    corpus that produced no relation needs indexing; telling that operator their corpus is too
-    small is advice for a problem they do not have."""
+    """The other cause, and the other remedy — `weft_kg.schema.propose_schema`'s own split.
+
+    A corpus that produced no relation needs indexing; telling that operator their corpus is too
+    small is advice for a problem they do not have.
+    """
     # Arrange / Act / Assert
     with pytest.raises(NoRelationsToBridgeError, match="index-with-facts"):
         await GraphBridgesCommand(_SETTINGS).run(GraphBridgesArgs(), _ctx())
@@ -351,9 +357,10 @@ async def test_two_entities_one_sentence_names_are_not_a_bridge_however_they_wer
 async def test_the_ceiling_counts_chunks_a_retriever_could_return_not_nodes_a_stage_derived(
     store: GraphStore,
 ) -> None:
-    """The same distinction read off the number rather than off the filter. One chunk holds every
-    entity here, so `chunks_holding_either` is **1** — not the three `kg_nodes` rows the extraction
-    happened to write, and not the two an entity is anchored to.
+    """The same distinction read off the number rather than off the filter.
+
+    One chunk holds every entity here, so `chunks_holding_either` is **1** — not the three
+    `kg_nodes` rows the extraction happened to write, and not the two an entity is anchored to.
     """
     # Arrange
     await _one_chunk_two_derived_facts(store)
@@ -376,7 +383,8 @@ async def test_the_ceiling_counts_chunks_a_retriever_could_return_not_nodes_a_st
 
 async def test_the_vector_ceiling_is_measured_for_every_bridge(store: GraphStore) -> None:
     """*"prints the vector ceiling on the same question"* — the best any single-passage retriever
-    could reach, which is a fact about the corpus rather than about an embedder."""
+    could reach, which is a fact about the corpus rather than about an embedder.
+    """
     # Arrange
     await _two_document_bridge(store)
 
@@ -391,9 +399,11 @@ async def test_the_vector_ceiling_is_measured_for_every_bridge(store: GraphStore
 
 
 def test_a_ceiling_that_disagreed_with_the_walk_is_refused() -> None:
-    """The check's own teeth, and the reason the ceiling is a second query. The walk says these
-    endpoints share no chunk; this `chunks_by_entity` says they share one. One of the two is
-    wrong, and printing either number would be printing a measurement nothing checked."""
+    """The check's own teeth, and the reason the ceiling is a second query.
+
+    The walk says these endpoints share no chunk; this `chunks_by_entity` says they share one. One
+    of the two is wrong, and printing either number would be printing a measurement nothing checked.
+    """
     # Arrange
     candidates = (_candidate(),)
     chunks_by_entity = {"e-azouz": frozenset({"n-1"}), "e-nci": frozenset({"n-1", "n-2"})}
@@ -405,7 +415,8 @@ def test_a_ceiling_that_disagreed_with_the_walk_is_refused() -> None:
 
 def test_the_ceiling_agrees_when_the_two_queries_agree() -> None:
     """The same comparison's other verdict, so the test above is known to be about disagreement
-    rather than about `bridges_from` refusing everything."""
+    rather than about `bridges_from` refusing everything.
+    """
     # Arrange
     candidates = (_candidate(),)
     chunks_by_entity = {"e-azouz": frozenset({"n-1"}), "e-nci": frozenset({"n-2"})}
@@ -431,7 +442,8 @@ async def test_write_emits_the_question_file_weft_eval_run_reads(
     """The clause that turns `01` → Phase 11's Exit into a measurement, asserted **through the
     real reader**: `weft_eval.question_set.read_question_set` is what `weft eval run --questions`
     calls since task 38.11, and the file states what a generated question cannot carry rather than
-    leaving it silently empty."""
+    leaving it silently empty.
+    """
     # Arrange
     await _two_document_bridge(store)
     path = tmp_path / "bridges.toml"
@@ -460,7 +472,8 @@ async def test_nothing_is_written_when_the_corpus_yields_no_bridge(
     store: GraphStore, tmp_path: Path
 ) -> None:
     """An empty question file is worse than none: `weft eval run --questions` would accept it and
-    score nothing, and a comparison over nothing reports `n=0` rather than saying why."""
+    score nothing, and a comparison over nothing reports `n=0` rather than saying why.
+    """
     # Arrange
     await store.add([_fact_node("Azouz", "authored", "mRMR", document="doc-a")])
     path = tmp_path / "bridges.toml"
@@ -477,7 +490,8 @@ def test_the_written_questions_read_back_as_one_question_per_bridge_keyed_by_its
     tmp_path: Path,
 ) -> None:
     """The pure half, with no container: what `questions_as_toml` produces reads through the one
-    question model, one question per bridge, under the bridge's own stable id."""
+    question model, one question per bridge, under the bridge's own stable id.
+    """
     # Arrange
     bridges = bridges_from(
         (_candidate(),),
@@ -502,7 +516,8 @@ def test_the_pasteable_toml_is_refused_by_the_v2_reader() -> None:
     """*"Generated questions are diagnostic, never V2 ground truth."* Asserted through
     `eval/check_questions.py` itself — the reader the gate runs — so the guard is the real one and
     not a restatement of it here. It is refused on **both** counts: no reference answer, and a
-    kind V2 does not have."""
+    kind V2 does not have.
+    """
     # Arrange
     bridges = bridges_from(
         (_candidate(),),
@@ -519,10 +534,12 @@ def test_the_pasteable_toml_is_refused_by_the_v2_reader() -> None:
 
 
 def test_filling_the_reference_answer_alone_does_not_make_it_ground_truth() -> None:
-    """The half a reader would otherwise get wrong. The ledger line says the empty
-    `reference_answer` is what V2 refuses; it is refused on the *kind* as well, and that second
-    refusal is the one that cannot be filled in — promoting one of these is a person deciding it
-    is a V2 question of a V2 kind, not a person completing a form."""
+    """The half a reader would otherwise get wrong.
+
+    The ledger line says the empty `reference_answer` is what V2 refuses; it is refused on the
+    *kind* as well, and that second refusal is the one that cannot be filled in — promoting one of
+    these is a person deciding it is a V2 question of a V2 kind, not a person completing a form.
+    """
     # Arrange
     bridges = bridges_from(
         (_candidate(),),
@@ -541,7 +558,8 @@ def test_the_toml_carries_no_quote_because_a_fact_is_not_the_chunk_s_own_words()
     """**11.14's sentence, arriving where it is first load-bearing.** A citation on a fact is a
     citation on a claim *derived from* a chunk. V2 verifies a quote by finding it verbatim in the
     extracted document; a span taken off a fact node is the model's rendering of a triple and is
-    in no document, so writing one would be ground truth that is false about the corpus."""
+    in no document, so writing one would be ground truth that is false about the corpus.
+    """
     # Arrange
     bridges = bridges_from(
         (_candidate(),),
@@ -562,9 +580,11 @@ def test_the_toml_carries_no_quote_because_a_fact_is_not_the_chunk_s_own_words()
 async def test_the_ceiling_is_printed_before_the_path_it_is_the_ceiling_for(
     store: GraphStore,
 ) -> None:
-    """*"and prints the vector ceiling on the same question **first**"* — the order is the
-    argument. A reader who meets the path first has already been told the graph found something;
-    the ceiling is what says the vector baseline could not have."""
+    """*"and prints the vector ceiling on the same question **first**"* — the order is the argument.
+
+    A reader who meets the path first has already been told the graph found something; the ceiling
+    is what says the vector baseline could not have.
+    """
     # Arrange
     await _two_document_bridge(store)
     outcome = await GraphBridgesCommand(_SETTINGS).run(GraphBridgesArgs(), _ctx())
@@ -577,16 +597,19 @@ async def test_the_ceiling_is_printed_before_the_path_it_is_the_ceiling_for(
 
 
 def test_the_command_declares_its_permission_class() -> None:
-    """`WRITE`, not `READ` — `weft eval run`'s own footing. `--write` creates a questions file,
-    and a permission class is a fact about what a command *can* do, never about which flags this
-    invocation happened to carry."""
+    """`WRITE`, not `READ` — `weft eval run`'s own footing.
+
+    `--write` creates a questions file, and a permission class is a fact about what a command *can*
+    do, never about which flags this invocation happened to carry.
+    """
     # Arrange / Act / Assert
     assert GraphBridgesCommand(_SETTINGS).permission_class is PermissionClass.WRITE
 
 
 def test_the_pack_discloses_the_file_this_command_writes() -> None:
     """`02` §2 → *The trust model*: a pack that writes files while declaring none answers the
-    question wrongly rather than not at all — `11.11`'s own finding, one command later."""
+    question wrongly rather than not at all — `11.11`'s own finding, one command later.
+    """
     # Arrange
     from weft_kg import DISCLOSURE
 

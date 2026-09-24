@@ -544,9 +544,12 @@ def test_a_question_set_digest_survives_the_round_trip(tmp_path: Path) -> None:
 
 
 def test_a_record_names_which_function_digested_its_question_set(tmp_path: Path) -> None:
-    """Task 38.11. `question_set_digest` was taken over `weft_cli.eval_scoring.Question` until
-    that model retired; a record written before carries no basis, and one written since says
-    `question-set`, so two digests of the same questions are told apart from two question sets."""
+    """Task 38.11.
+
+    `question_set_digest` was taken over `weft_cli.eval_scoring.Question` until that model retired;
+    a record written before carries no basis, and one written since says `question-set`, so two
+    digests of the same questions are told apart from two question sets.
+    """
     # Arrange
     labelled = build_run_record(
         recorded_at="2026-09-16T00:00:00+00:00",
@@ -570,9 +573,11 @@ def test_a_record_names_which_function_digested_its_question_set(tmp_path: Path)
 
 
 def test_a_record_names_the_experiment_arm_and_repetition_it_was_run_as(tmp_path: Path) -> None:
-    """Task 38.0. A table is recomputed from records, so a record says which experiment, which
-    invocation of it, which arm and which repetition it is — and one written outside an
-    experiment says it was none."""
+    """Task 38.0.
+
+    A table is recomputed from records, so a record says which experiment, which invocation of it,
+    which arm and which repetition it is — and one written outside an experiment says it was none.
+    """
     # Arrange
     run = ExperimentRun(
         name="dense-against-rung", digest="e" * 64, invocation="inv-1", arm="dense", repetition=2
@@ -603,9 +608,11 @@ def test_a_repetition_counts_from_one() -> None:
 
 
 def test_a_record_carries_each_questions_axes_keyed_as_its_scores_are(tmp_path: Path) -> None:
-    """Repair R38.1. A slice restricts a comparison's means, and a paired difference is over
-    questions, so a record says which slice each question was in — or, written before this repair,
-    that it does not know."""
+    """Repair R38.1.
+
+    A slice restricts a comparison's means, and a paired difference is over questions, so a record
+    says which slice each question was in — or, written before this repair, that it does not know.
+    """
     # Arrange
     record = build_run_record(
         recorded_at="2026-09-16T00:00:00+00:00",
@@ -628,9 +635,12 @@ def test_a_record_carries_each_questions_axes_keyed_as_its_scores_are(tmp_path: 
 
 
 def test_a_record_says_which_arms_answered_each_question(tmp_path: Path) -> None:
-    """Ledger task 39.2. G24: a question with no anchor contributes no lexical ranking, and the
-    run records which branch it took — so a record carries, per question, the labels of the lists
-    its ranking was fused from, and a record written before this task says it does not know."""
+    """Ledger task 39.2.
+
+    G24: a question with no anchor contributes no lexical ranking, and the run records which branch
+    it took — so a record carries, per question, the labels of the lists its ranking was fused from,
+    and a record written before this task says it does not know.
+    """
     # Arrange
     record = build_run_record(
         recorded_at="2026-09-18T00:00:00+00:00",

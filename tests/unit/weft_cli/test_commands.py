@@ -73,8 +73,9 @@ class _DeletableStore:
 
 @runtime_checkable
 class _DerivedReconcilable(Protocol):
-    """A contract the CLI has never heard of — the graph pack's own, in miniature. A pack
-    registered under it joins the `Reconcilable` fan-out by capability alone, which is what
+    """A contract the CLI has never heard of — the graph pack's own, in miniature.
+
+    A pack registered under it joins the `Reconcilable` fan-out by capability alone, which is what
     makes it a *derived* participant rather than a second primary store.
     """
 

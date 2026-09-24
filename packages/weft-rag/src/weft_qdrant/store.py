@@ -215,8 +215,9 @@ def _lease_point_id(collection: str, target: str, holder: str) -> str:
 
 def _writer_point_id(collection: str, target: str) -> str:
     """The one write-claim point id for `(collection, target)` — **43.18**'s `SingleWriter`.
-    One per target, not one per holder like `_lease_point_id`: only one writer may hold a
-    target at a time, so a second claim upserts the same point rather than racing beside it.
+
+    One per target, not one per holder like `_lease_point_id`: only one writer may hold a target at
+    a time, so a second claim upserts the same point rather than racing beside it.
     """
     return str(uuid5(_TARGET_ID_NAMESPACE, f"writer:{collection}:{target}"))
 
@@ -473,9 +474,7 @@ class QdrantStore:
 
     @property
     def vector_precision(self) -> VectorPrecision:
-        """The configured vector precision — `vector_index_kind`'s own reasoning, one
-        setting over.
-        """
+        """The configured vector precision — `vector_index_kind`'s own reasoning, one setting over."""
         return self._settings.precision
 
     @property
@@ -868,6 +867,7 @@ class QdrantStore:
 
     async def open_generation(self, layer: str) -> GenerationRecord:
         """A fresh generation on `layer`, `building` — `GenerationHolding`, ledger **43.14**.
+
         Never creates `self._nodes`/`self._sources`: opening a generation is not a write to the
         corpus, only to the catalogue that will later gate one.
         """
@@ -944,7 +944,8 @@ class QdrantStore:
     async def _forget_generation(self, client: AsyncQdrantClient, generation: str) -> int:
         """`retract_generation`'s work once `generation` is known to be catalogued, and
         `reclaim_withdrawn`'s per generation (repair **R43.29**). Returns how many nodes were
-        deleted."""
+        deleted.
+        """
         node_count = (
             0
             if await self._pair_unprovisioned(client)
@@ -960,7 +961,8 @@ class QdrantStore:
     async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
         """Mark a published `generation` withdrawn and touch no point: a handle that resolved
         its visible generations before this keeps them — `GenerationWithdrawing`, repair
-        **R43.29**."""
+        **R43.29**.
+        """
         client = await self._connection()
         catalogue = await self._all_generations(client)
         record = next((held for held in catalogue if held.id == generation), None)
@@ -1098,8 +1100,10 @@ class QdrantStore:
         )
 
     async def _touch_lease(self, client: AsyncQdrantClient) -> None:
-        """Write or renew this handle's lease on its non-`default` target — **R34.10**. Renewed
-        per write batch, so one long `add` cannot outlive its own lease."""
+        """Write or renew this handle's lease on its non-`default` target — **R34.10**.
+
+        Renewed per write batch, so one long `add` cannot outlive its own lease.
+        """
         target = self._active_target
         if target is None or target == DEFAULT_TARGET:
             return
@@ -1892,9 +1896,10 @@ class QdrantStore:
             await asyncio.wait({renewal})
 
     async def release_writer(self) -> None:
-        """End this handle's own writer claim, if it holds one. A no-op on a handle that never
-        claimed, and on one whose claim the catalogue no longer attributes to it — expired and
-        replaced by another holder in the meantime.
+        """End this handle's own writer claim, if it holds one.
+
+        A no-op on a handle that never claimed, and on one whose claim the catalogue no longer
+        attributes to it — expired and replaced by another holder in the meantime.
         """
         await self._stop_writer_renewal()
         if self._writer_claim is None:
@@ -1918,8 +1923,10 @@ class QdrantStore:
         self._writer_claim = None
 
     async def aclose(self) -> None:
-        """Release this handle's lease, if it wrote one, and close the client. Not part of any
-        contract."""
+        """Release this handle's lease, if it wrote one, and close the client.
+
+        Not part of any contract.
+        """
         await self._stop_writer_renewal()
         if self._client is not None:
             if self._lease_written and self._active_target is not None:

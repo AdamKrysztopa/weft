@@ -92,7 +92,8 @@ def _arm(text: str) -> tuple[str, tuple[Path, ...]]:
 def main(argv: Sequence[str] | None = None) -> int:
     """Write one corpus's table: `--dense` and `--anchor-promote` (40.8's records),
     `--arm name=rep1.json,rep2.json` per cross-encoder, `--ceilings`, `--power` (41.0's
-    `{corpus}-ce-power.json`), `--questions`, `--labels`, `--identifier-exact`, `--out`."""
+    `{corpus}-ce-power.json`), `--questions`, `--labels`, `--identifier-exact`, `--out`.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     for flag in ("--dense", "--anchor-promote", "--ceilings", "--power", "--questions"):
         parser.add_argument(flag, type=Path, required=True)

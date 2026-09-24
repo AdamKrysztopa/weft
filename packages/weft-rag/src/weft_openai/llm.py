@@ -211,7 +211,8 @@ class ChatCompletionChunkChoice(Protocol):
 
 class ChatCompletionChunk(Protocol):
     """One streamed fragment — a delta, or (with `stream_options.include_usage` sent) the
-    final usage-only chunk, whose `choices` is always empty. See `stream_reporting_usage`."""
+    final usage-only chunk, whose `choices` is always empty. See `stream_reporting_usage`.
+    """
 
     @property
     def choices(self) -> Sequence[ChatCompletionChunkChoice]: ...
@@ -250,7 +251,8 @@ class ChatCompletionsResource(Protocol):
 
 class _StructuredChatCompletionsResource(Protocol):
     """`ChatCompletionsResource` plus `response_format`, which only `complete_structured` sends —
-    so doubles of the shared Protocol need not grow a parameter their call shape never uses."""
+    so doubles of the shared Protocol need not grow a parameter their call shape never uses.
+    """
 
     async def create(
         self,
@@ -372,8 +374,9 @@ class OpenAILLMProvider:
     async def stream_reporting_usage(
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> AsyncIterator[str | TokenUsage]:
-        """`stream`, with the vendor asked for the one extra chunk that carries the token
-        count. Satisfies `weft_llm.contract.UsageReporting` structurally.
+        """`stream`, with the vendor asked for the one extra chunk that carries the token count.
+
+        Satisfies `weft_llm.contract.UsageReporting` structurally.
 
         `openai/types/chat/chat_completion_stream_options_param.py` (read 2026-09-15) on
         `include_usage`: "If set, an additional chunk will be streamed before the

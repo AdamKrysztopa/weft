@@ -238,7 +238,8 @@ class GenerationStore:
 
 def plant_older_orphan(store: GenerationStore) -> GenerationId:
     """A `BUILDING` generation of `LAYER` opened before every other, as a build interrupted
-    before task 43.20 would have left one."""
+    before task 43.20 would have left one.
+    """
     orphan = GenerationId("g-000")
     store.state.generations[orphan] = GenerationRecord(
         id=orphan,
@@ -294,7 +295,8 @@ def memberships(summaries: Sequence[Node]) -> set[frozenset[NodeId]]:
 
 class ScriptedModel:
     """An `LLMProvider` answering each request with a digest of it, tagged with the model that
-    was asked and the run's `label`, so a stored summary says which run wrote it."""
+    was asked and the run's `label`, so a stored summary says which run wrote it.
+    """
 
     calls: ClassVar[list[str]] = []
     label: ClassVar[str] = "first"
@@ -459,7 +461,8 @@ async def interrupt_after(
     second: GenerationStore | None = None,
 ) -> BaseException | None:
     """Run the build and cancel it while the model writes summary `summaries + 1`; what the
-    cancelled task raised, which is `asyncio.CancelledError` when cancellation propagated."""
+    cancelled task raised, which is `asyncio.CancelledError` when cancellation propagated.
+    """
     ScriptedModel.trip = summaries + 1
     task = asyncio.create_task(index(store, corpus, model=model, second=second))
     ScriptedModel.victim = task

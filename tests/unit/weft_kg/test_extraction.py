@@ -711,9 +711,11 @@ async def test_a_fact_outside_the_active_schema_is_dropped_and_counted(
 async def test_every_kept_fact_carries_the_schema_it_was_extracted_under(
     tmp_path: Path,
 ) -> None:
-    """The task line's own clause. Read off the fact rather than off a run record, because
-    `weft graph show` answers *which schemas does this corpus hold* from the corpus, and a
-    history kept anywhere else is a history the next operator's checkout does not have.
+    """The task line's own clause.
+
+    Read off the fact rather than off a run record, because `weft graph show` answers *which schemas
+    does this corpus hold* from the corpus, and a history kept anywhere else is a history the next
+    operator's checkout does not have.
     """
     # Arrange
     settings = _settings_with_schema(tmp_path)
@@ -734,9 +736,10 @@ async def test_every_kept_fact_carries_the_schema_it_was_extracted_under(
 async def test_a_fact_extracted_with_no_active_schema_says_so_rather_than_guessing(
     tmp_path: Path,
 ) -> None:
-    """The default, and the state most corpora are in. An empty identity means *extracted under
-    no schema*, which `weft graph show` reports as its own group — not as belonging to whichever
-    schema happens to be active when somebody later asks.
+    """The default, and the state most corpora are in.
+
+    An empty identity means *extracted under no schema*, which `weft graph show` reports as its own
+    group — not as belonging to whichever schema happens to be active when somebody later asks.
     """
     # Arrange
     del tmp_path

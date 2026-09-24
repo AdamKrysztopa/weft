@@ -410,7 +410,8 @@ async def test_the_manifests_rule_fires_becomes_an_axis_of_every_replayed_questi
 
 def _moved(case: str) -> tuple[LoadedPool, tuple[Question, ...], str]:
     """One way the pool, the question file or the store moved since capture, and the fragment of
-    the refusal's claim that names it."""
+    the refusal's claim that names it.
+    """
     question = _question("q-1", "what is alpha", ("doc-a.txt",))
     chunks = (_chunk("a1", 0.9), _chunk("b1", 0.5))
     pool = _pool((question, chunks, False))

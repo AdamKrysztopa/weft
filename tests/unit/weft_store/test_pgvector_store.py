@@ -676,7 +676,8 @@ def test_a_normalisation_postgres_does_not_define_is_refused_by_name() -> None:
 def test_the_shipped_default_text_mode_is_postgres_full_text_search() -> None:
     """**The default does not move in this phase.** `21.9` is the measurement that would justify
     moving it, and until then an operator who configures nothing gets exactly what they got
-    before this task existed."""
+    before this task existed.
+    """
     # Arrange / Act
     settings = PgVectorSettings(dsn=SecretStr(_DSN))
 
@@ -686,7 +687,8 @@ def test_the_shipped_default_text_mode_is_postgres_full_text_search() -> None:
 
 def test_text_mode_is_an_enum_so_a_misspelling_is_refused_where_it_is_typed() -> None:
     """`Enum` over `Literal`, per this project's own rule, and the refusal lands in `weft.toml`
-    rather than at the first query."""
+    rather than at the first query.
+    """
     # Arrange / Act / Assert
     with pytest.raises(ValidationError) as excinfo:
         PgVectorSettings(dsn=SecretStr(_DSN), text_mode="bm-25")  # type: ignore[arg-type]
@@ -892,7 +894,8 @@ async def test_bm25_narrows_by_a_filter_rather_than_filtering_a_global_top_k(
 ) -> None:
     """The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
     afterwards."* A post-filter returns fewer than `top_k` results for a reason the caller cannot
-    see, and at a large corpus returns nothing at all while matching rows exist."""
+    see, and at a large corpus returns nothing at all while matching rows exist.
+    """
     # Arrange — the *stronger* lexical match is the one the filter excludes, so a post-filter
     # over a global top-k and a predicate inside the ranking give different answers here.
     wanted = _node("plugin capability", sources=frozenset({SourceId("keep")}))
@@ -923,7 +926,8 @@ async def test_nothing_matching_is_an_empty_ranking_rather_than_a_failure(
 ) -> None:
     """`TextSearch`'s own emptiness rule: *"a store whose index holds nothing matching returns an
     empty sequence; that is the honest answer, and it is a different fact from a store that could
-    not look, which raises."* `21.6`'s refusal is the second case; this is the first."""
+    not look, which raises."* `21.6`'s refusal is the second case; this is the first.
+    """
     # Arrange
     store = await _bm25_store(bm25_database, [_node("pipelines are data")])
 
@@ -1260,7 +1264,7 @@ def test_a_precision_pgvector_cannot_index_is_refused_naming_what_it_serves() ->
 def test_a_width_past_the_compressed_index_ceiling_is_refused_by_name(
     precision: VectorPrecision, ceiling: int
 ) -> None:
-    """pgvector's own documented limits — `halfvec` 4,000 dimensions, `bit` 64,000.
+    """Pgvector's own documented limits — `halfvec` 4,000 dimensions, `bit` 64,000.
 
     **This is a function rather than a settings validator because of G22.** Every other refusal
     this store makes is a `model_validator`; this one cannot be, because pgvector's width is

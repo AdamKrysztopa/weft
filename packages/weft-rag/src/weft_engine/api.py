@@ -58,8 +58,9 @@ if TYPE_CHECKING:
 
 
 def new_context() -> Context:
-    """One `Context` per invocation, at tenant `"default"`, and it takes no tenant. G23: an
-    in-process caller is the operator and the deployment is the boundary
+    """One `Context` per invocation, at tenant `"default"`, and it takes no tenant.
+
+    G23: an in-process caller is the operator and the deployment is the boundary
     (`docs/02-extension-model.md` §2), so a tenant a caller could choose here would be a label
     enforcing nothing. Fitness function 32 holds this as the only place a shipped module mints a
     `Context`, and fails naming Phase 22b when a commit makes the tenant choosable.
@@ -451,5 +452,5 @@ async def _close_after_failure(sink: TokenSink, *, reason: str, failure: BaseExc
     """
     try:
         await sink.close(reason=reason)
-    except Exception as close_failure:
+    except Exception as close_failure:  # noqa: BLE001 — attached to `failure`, never raised over it
         failure.add_note(f"closing the call's token sink failed: {close_failure}")

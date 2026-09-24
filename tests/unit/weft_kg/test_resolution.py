@@ -42,8 +42,10 @@ from weft_kg.resolution import (
 
 
 def test_a_name_alone_is_its_own_representative() -> None:
-    """The floor: with nothing to merge, resolution is the identity. Without this, every
-    assertion below is satisfied by a pass that collapses the corpus into one entity.
+    """The floor: with nothing to merge, resolution is the identity.
+
+    Without this, every assertion below is satisfied by a pass that collapses the corpus into one
+    entity.
     """
     # Act
     resolved = resolve_clusters(["adRAP", "Chucri"], similar_pairs=())
@@ -53,9 +55,10 @@ def test_a_name_alone_is_its_own_representative() -> None:
 
 
 def test_a_merged_pair_takes_the_lexicographically_smaller_name() -> None:
-    """The representative is a function of the set. `ADRAP` sorts before `adRAP` because
-    upper-case letters sort first, and that is a property of the *members*, not of which one
-    the database happened to return first.
+    """The representative is a function of the set.
+
+    `ADRAP` sorts before `adRAP` because upper-case letters sort first, and that is a property of
+    the *members*, not of which one the database happened to return first.
     """
     # Act
     resolved = resolve_clusters(["adRAP", "ADRAP"], similar_pairs=[("adRAP", "ADRAP")])
@@ -139,9 +142,11 @@ def test_a_pair_the_database_did_not_return_is_not_merged() -> None:
 
 
 def test_an_initialism_skips_the_words_a_name_does_not_turn_on() -> None:
-    """Carried rule. *Department of Health and Human Services* is `DHHS`, not `DOHAHS` — a
-    reader writing the short form drops the function words, so a rule that kept them would match
-    nothing anybody actually writes.
+    """Carried rule.
+
+    *Department of Health and Human Services* is `DHHS`, not `DOHAHS` — a reader writing the short
+    form drops the function words, so a rule that kept them would match nothing anybody actually
+    writes.
     """
     # Act / Assert
     assert initialism("Federal Aviation Administration") == "FAA"
@@ -179,9 +184,11 @@ def test_a_definition_the_text_states_is_the_high_precision_signal() -> None:
 
 
 def test_a_parenthesis_that_is_not_a_definition_is_not_read_as_one() -> None:
-    """The precision half of signal 2. Prose is full of capitalised words before parentheses,
-    and a signal that fired on all of them would merge unrelated entities with high confidence —
-    which is worse than a signal that fires rarely, because it is trusted.
+    """The precision half of signal 2.
+
+    Prose is full of capitalised words before parentheses, and a signal that fired on all of them
+    would merge unrelated entities with high confidence — which is worse than a signal that fires
+    rarely, because it is trusted.
     """
     # Act
     found = acronym_definitions("The Warsaw Institute (founded 1951) funded the work.")
@@ -191,9 +198,10 @@ def test_a_parenthesis_that_is_not_a_definition_is_not_read_as_one() -> None:
 
 
 def test_a_definition_is_reported_once_however_often_the_text_repeats_it() -> None:
-    """A paper defines its acronym once and uses it throughout; some define it again per
-    section. The signal is *that the pair was defined*, so a count would be a fact about the
-    prose rather than about the entity.
+    """A paper defines its acronym once and uses it throughout; some define it again per section.
+
+    The signal is *that the pair was defined*, so a count would be a fact about the prose rather
+    than about the entity.
     """
     # Act
     found = acronym_definitions(
@@ -220,9 +228,11 @@ def test_a_definition_the_text_states_merges_the_two_names() -> None:
 
 
 def test_an_initialism_merges_only_when_the_vectors_agree_it_is_plausible() -> None:
-    """Signal 3, and its gate. `RRF` *is* the initialism of `Reciprocal Rank Fusion`, and it is
-    equally the initialism of `Rapid Response Force` — the letters alone cannot say which, so a
-    cosine floor is what stops the rule from merging on spelling.
+    """Signal 3, and its gate.
+
+    `RRF` *is* the initialism of `Reciprocal Rank Fusion`, and it is equally the initialism of
+    `Rapid Response Force` — the letters alone cannot say which, so a cosine floor is what stops the
+    rule from merging on spelling.
     """
     # Act
     merged = resolve_clusters(

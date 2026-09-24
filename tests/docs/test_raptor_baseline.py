@@ -449,9 +449,11 @@ def test_every_exit_arm_was_repeated_enough_to_estimate_its_own_spread(
 def test_the_exit_verdicts_are_the_ones_its_own_records_produce(
     exit_statement: dict[str, Any],
 ) -> None:
-    """The statement against the runs. Every arm mean, every spread, the minimum detectable
-    effect and every verdict recomputed — because this is the artefact `01`'s Exit criterion is
-    discharged by, and a number in it that its own records do not produce would discharge nothing.
+    """The statement against the runs.
+
+    Every arm mean, every spread, the minimum detectable effect and every verdict recomputed —
+    because this is the artefact `01`'s Exit criterion is discharged by, and a number in it that its
+    own records do not produce would discharge nothing.
     """
     # Arrange
     arms = exit_statement["arms"]
@@ -615,9 +617,11 @@ def test_every_statement_names_the_facts_its_own_records_do_not_carry() -> None:
 
 
 def test_a_statement_that_claimed_a_fact_its_records_lack_would_fail() -> None:
-    """The non-vacuity half, with a name on it. `facts_not_recorded` is empty on a record set
-    that carries everything — so a check that merely asserted the key exists would pass against
-    a statement claiming the records hold facts they do not.
+    """The non-vacuity half, with a name on it.
+
+    `facts_not_recorded` is empty on a record set that carries everything — so a check that merely
+    asserted the key exists would pass against a statement claiming the records hold facts they do
+    not.
     """
     # Arrange — a record carrying every fact, and one carrying none.
     complete = RunRecord(

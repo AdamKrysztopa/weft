@@ -191,7 +191,8 @@ def test_the_canary_opts_out_and_is_never_passed_to_an_index() -> None:
 
 def test_an_unreadable_publish_side_is_refused_rather_than_read_as_empty(tmp_path: Path) -> None:
     """`docs/internal/lessons.md` L5.9: an empty answer is "I did not find it", never "it is not
-    there"."""
+    there".
+    """
     # Arrange
     workflow = tmp_path / "release.yml"
     workflow.write_text("jobs:\n  gate:\n    runs-on: ubuntu-latest\n", encoding="utf-8")
@@ -396,8 +397,9 @@ def _workspace_versions(repo_root: Path = REPO_ROOT) -> dict[str, str]:
 
 
 def test_a_siblings_declared_floor_is_that_siblings_current_in_tree_version() -> None:
-    """Carried repair **R9.7**. Clause (b) asserts a lower bound *exists*; this asserts it is
-    the right one.
+    """Carried repair **R9.7**.
+
+    Clause (b) asserts a lower bound *exists*; this asserts it is the right one.
 
     `docs/internal/lessons.md` `L9.2`: three siblings drifted once and were repaired by hand, which
     is the shape a fitness function exists to stop being hand work. A bound of `>=0.1.0` against a

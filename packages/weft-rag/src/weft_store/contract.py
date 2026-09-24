@@ -208,8 +208,10 @@ class Page[T](BaseModel):
 
 
 class Scored[T](BaseModel):
-    """A value paired with a retrieval score. `docs/02-extension-model.md`: "the score lives on
-    `Scored[Node]`, not on `Node`" — it is a property of one search, not of the node.
+    """A value paired with a retrieval score.
+
+    `docs/02-extension-model.md`: "the score lives on `Scored[Node]`, not on `Node`" — it is a
+    property of one search, not of the node.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -297,8 +299,9 @@ class SourceFailure(BaseModel):
 
 
 class LayerStatus(StrEnum):
-    """Where one layer built over a source stands — task **43.6**. No `PENDING`: a layer never
-    run over a source has no record at all.
+    """Where one layer built over a source stands — task **43.6**.
+
+    No `PENDING`: a layer never run over a source has no record at all.
     """
 
     INDEXING = "indexing"
@@ -490,9 +493,10 @@ class Removed(BaseModel):
 
 
 class VectorIndexKind(StrEnum):
-    """The closed vocabulary of index kinds a store may serve — task **31.0**. `Enum` per the
-    project's string-constant rule: an index kind is configuration, not a class, so a value
-    outside this set has to be refusable by name rather than handed to a backend that
+    """The closed vocabulary of index kinds a store may serve — task **31.0**.
+
+    `Enum` per the project's string-constant rule: an index kind is configuration, not a class, so a
+    value outside this set has to be refusable by name rather than handed to a backend that
     interprets or silently ignores it.
     """
 
@@ -506,11 +510,12 @@ class VectorIndexKind(StrEnum):
 
 
 class VectorPrecision(StrEnum):
-    """The closed vocabulary of vector precisions a store may serve — task **31.0**. This is a
-    **union** across backends, not a claim that both serve all four: pgvector's HNSW indexes
-    `vector`, `halfvec` and `bit` and has no `int8`; Qdrant has `float16` as a datatype plus
-    `int8` scalar, binary and product quantization. The two overlap on `float32` and `binary`
-    only — which backend serves which subset is not decided here.
+    """The closed vocabulary of vector precisions a store may serve — task **31.0**.
+
+    This is a **union** across backends, not a claim that both serve all four: pgvector's HNSW
+    indexes `vector`, `halfvec` and `bit` and has no `int8`; Qdrant has `float16` as a datatype plus
+    `int8` scalar, binary and product quantization. The two overlap on `float32` and `binary` only —
+    which backend serves which subset is not decided here.
     """
 
     FLOAT32 = "float32"
@@ -862,11 +867,12 @@ STORE_ROLE = ServiceRole(key="store", contract=NodeStore)
 
 @runtime_checkable
 class VectorSearch(Protocol):
-    """A store that can rank `Node`s by vector similarity. Never embeds — `02`: "stores never
-    embed. `VectorSearch` takes a vector, `TextSearch` takes text; a store is therefore not
-    coupled to a model." Not a `Stage`: nothing in an ingest pipeline calls `search_vector`, and
-    a future `Retriever` (Phase 2) resolves this capability directly against the configured
-    store rather than through the runner's stage machinery.
+    """A store that can rank `Node`s by vector similarity.
+
+    Never embeds — `02`: "stores never embed. `VectorSearch` takes a vector, `TextSearch` takes
+    text; a store is therefore not coupled to a model." Not a `Stage`: nothing in an ingest pipeline
+    calls `search_vector`, and a future `Retriever` (Phase 2) resolves this capability directly
+    against the configured store rather than through the runner's stage machinery.
     """
 
     if TYPE_CHECKING:
@@ -1553,7 +1559,8 @@ GenerationWithdrawing.version = STORE_CONTRACT_VERSION
 
 class WriterClaim(BaseModel):
     """Who is writing into a store — `SingleWriter.claim_writer`'s argument, and what a refusal
-    names. Ledger task **43.18**."""
+    names. Ledger task **43.18**.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 

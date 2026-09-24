@@ -398,10 +398,11 @@ def _write_arm_pool(
     store: str,
 ) -> None:
     """Write `arm`'s captured pool beside `result`'s own run record — ledger task **40.2**.
+
     Called only for an arm whose `capture_pool` is set, after `index_and_score` returns; the
     pre-flight loop in `EvalExperimentCommand.run` has already refused any such arm naming no
-    `query_pipeline` or one not ending in a `ContextPacker`, so `arm.query_pipeline` is a `str`
-    here and `result.question_pools`/`result.store_rows` are never `None`.
+    `query_pipeline` or one not ending in a `ContextPacker`, so `arm.query_pipeline` is a `str` here
+    and `result.question_pools`/`result.store_rows` are never `None`.
     """
     if result.store_rows is None:
         raise ValueError(

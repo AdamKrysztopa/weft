@@ -169,7 +169,8 @@ def is_an_example_pack(example_dir: Path) -> bool:
 
 def example_pack_dirs() -> tuple[Path, ...]:
     """Every `examples/*` **pack** directory, read from the listing itself and filtered by
-    `is_an_example_pack` — see its docstring for what stopped being true at task 24.3."""
+    `is_an_example_pack` — see its docstring for what stopped being true at task 24.3.
+    """
     examples_root = Path(__file__).resolve().parents[1] / "examples"
     return tuple(
         sorted(

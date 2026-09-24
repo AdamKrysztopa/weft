@@ -90,8 +90,10 @@ class _NodeStoreOnly:
 
 
 class _SupersedableOnly(_NodeStoreOnly):
-    """One capability more. Two doubles, because a selector that returned everything for every
-    store and one that selects correctly agree whenever only one store is examined (`L12.6`).
+    """One capability more.
+
+    Two doubles, because a selector that returned everything for every store and one that selects
+    correctly agree whenever only one store is examined (`L12.6`).
     """
 
     async def supersede(self, node_id: NodeId, replacement: Node) -> None:
@@ -211,7 +213,8 @@ def test_something_that_is_not_a_store_is_refused_rather_than_offered_nothing() 
 
 class _TextSearchableOnly(_NodeStoreOnly):
     """A store with the base contract and `search_text` — the shape `pgvector` and `qdrant` share
-    and `MemoryStore` does not."""
+    and `MemoryStore` does not.
+    """
 
     async def search_text(self, text: str, top_k: int, filter: object = None) -> Sequence[object]:
         del text, top_k, filter
@@ -235,7 +238,8 @@ def test_a_store_with_a_text_arm_is_offered_the_text_checks() -> None:
 
 def test_a_store_without_a_text_arm_is_told_what_it_was_not_asked() -> None:
     """The half that makes the filter honest: nothing is skipped silently, so an author whose
-    store has no text arm learns which checks they did not answer and why."""
+    store has no text arm learns which checks they did not answer and why.
+    """
     # Arrange
     from weft_store.conformance import unsupported_checks
 
@@ -253,7 +257,8 @@ def test_a_store_without_a_text_arm_is_told_what_it_was_not_asked() -> None:
 def test_gaining_a_text_arm_moves_those_checks_from_unsupported_to_offered() -> None:
     """The property the whole selector exists for, asserted on the tier this repair adds — and
     asserted as a *move* rather than as two independent counts, so a check that appeared in
-    neither list would fail here."""
+    neither list would fail here.
+    """
     # Arrange
     from weft_store.conformance import checks_for, unsupported_checks
 

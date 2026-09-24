@@ -1,5 +1,6 @@
 """After a candidate built by a configured embedder is live, `weft ask` answers from it once
-`[services.embed_config]` states that configuration — carried repair **R34.4**, end to end."""
+`[services.embed_config]` states that configuration — carried repair **R34.4**, end to end.
+"""
 
 from __future__ import annotations
 

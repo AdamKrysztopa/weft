@@ -118,9 +118,11 @@ class FilesystemBlobSettings(BaseModel):
 
 
 class FilesystemBlobStore:
-    """The shipped `BlobStore`. Satisfies the Protocol structurally — this class never imports
-    it — exactly the path any third-party store pack takes, and additionally implements
-    `delete_source` so it joins `weft delete`'s fan-out with nothing declared beyond that method.
+    """The shipped `BlobStore`.
+
+    Satisfies the Protocol structurally — this class never imports it — exactly the path any
+    third-party store pack takes, and additionally implements `delete_source` so it joins `weft
+    delete`'s fan-out with nothing declared beyond that method.
 
     `put` on an existing key overwrites rather than versions. Keys are derived
     (`weft_blob.keys`), so a re-extraction of an unchanged source writes the same key again; the
@@ -254,10 +256,11 @@ class FilesystemBlobStore:
         return self._root / _LAYOUT_FILE_NAME
 
     def _check_layout_sync(self, *, adopt: bool) -> None:
-        """Read the root's recorded layout version and refuse a mismatch. A root with no
-        recorded version yet is a fresh root: adopted (the version is written) when `adopt` is
-        set — from `put`'s own write path — and left alone otherwise, since there is nothing to
-        check a read-only operation against.
+        """Read the root's recorded layout version and refuse a mismatch.
+
+        A root with no recorded version yet is a fresh root: adopted (the version is written) when
+        `adopt` is set — from `put`'s own write path — and left alone otherwise, since there is
+        nothing to check a read-only operation against.
         """
         layout_path = self._layout_path()
         if layout_path.is_file():

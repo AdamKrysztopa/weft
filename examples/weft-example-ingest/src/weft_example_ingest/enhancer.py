@@ -21,8 +21,9 @@ class WordCount(ExtModel):
 
 
 class ExampleWordCountEnhancer:
-    """Attaches a `WordCount` to every node it is handed. Satisfies `weft_enhance.contract.
-    Enhancer` structurally — this class never imports it.
+    """Attaches a `WordCount` to every node it is handed.
+
+    Satisfies `weft_enhance.contract. Enhancer` structurally — this class never imports it.
     """
 
     def __init__(self, config: object = None) -> None:

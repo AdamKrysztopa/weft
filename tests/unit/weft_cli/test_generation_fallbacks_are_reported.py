@@ -148,7 +148,8 @@ class _ReconcilingWithdrawingStore(_WithdrawingStore):
 def _write_layers(project: Path, *, incremental: bool) -> None:
     """Two corpus-scoped `raptor` layers, `LAYER` and `_SECOND`; with `incremental`, each declares
     an `adrap` join. `TersePrompt` sends the same request, so both trees hold the same summary ids
-    (measured) — the reclaim tests seed their withdrawn trees for that reason."""
+    (measured) — the reclaim tests seed their withdrawn trees for that reason.
+    """
     (project / "pipelines").mkdir(exist_ok=True)
     for name, prompt in ((LAYER, SUMMARIZE_CLUSTER_NAME), (_SECOND, TERSE_PROMPT)):
         shared = (
@@ -220,7 +221,8 @@ async def _built_then_grown(
     **flags: object,
 ) -> render.Rendered:
     """Both layers built, one document added, then `weft index` again: each layer is stale by
-    addition, so the second run rebuilds or joins both and supersedes both published trees."""
+    addition, so the second run rebuilds or joins both and supersedes both published trees.
+    """
     first = await _index_command(store, corpus, second=second, layers=_BOTH, **flags)
     assert first.exit_code is ExitCode.SUCCESS, first.stderr
     (corpus / "late.txt").write_text("a document that arrived after both layers were built.")
@@ -464,7 +466,8 @@ def _published(store: GenerationStore, layer: str) -> GenerationId:
 
 async def _withdrawn_trees(store: _RecordingStore) -> tuple[GenerationId, GenerationId]:
     """A withdrawn tree per layer: `LAYER`'s holds one node of its own and one its published tree
-    also holds, `_SECOND`'s two of its own — reclaiming removes 1 and 2, from two trees of two."""
+    also holds, `_SECOND`'s two of its own — reclaiming removes 1 and 2, from two trees of two.
+    """
     shared = next(
         store.state.nodes[i]
         for i, members in store.state.members.items()

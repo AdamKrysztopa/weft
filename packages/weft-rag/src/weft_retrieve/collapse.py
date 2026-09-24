@@ -1,4 +1,5 @@
 """`collapse-to-parent` — one `Ranking` slot per parent, never one per representation.
+
 `Reranker`.
 
 Task **2.33**, `docs/internal/build-ledger.md`: "one passage cannot occupy several slots of a
@@ -93,10 +94,12 @@ NAME = "collapse-to-parent"
 
 
 class CollapsePolicy(StrEnum):
-    """Which of a collapsed group's own scores becomes the surviving score. `Enum`, the
-    project's rule for a closed vocabulary — an operator's typo in a `with:` block is a
-    `ValidationError` naming the valid set, never a silent fall-through to whichever
-    branch a chain reached first."""
+    """Which of a collapsed group's own scores becomes the surviving score.
+
+    `Enum`, the project's rule for a closed vocabulary — an operator's typo in a `with:` block is a
+    `ValidationError` naming the valid set, never a silent fall-through to whichever branch a chain
+    reached first.
+    """
 
     #: The best individual score in the group. This module's default — see the module
     #: docstring for why the artefact-removing reading, not the evidence-rewarding one,
@@ -109,8 +112,10 @@ class CollapsePolicy(StrEnum):
 
 
 class CollapseToParentConfig(BaseModel):
-    """`CollapseToParent`'s `with:` config. Every field has a default, per this pack's own
-    rule."""
+    """`CollapseToParent`'s `with:` config.
+
+    Every field has a default, per this pack's own rule.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -130,7 +135,8 @@ _AGGREGATORS: Mapping[CollapsePolicy, Callable[[Sequence[float]], float]] = {
 @runtime_checkable
 class _RepresentationMarker(Protocol):
     """Structurally, `weft_index.payload.Representation` — see the module docstring for why
-    this is a fresh Protocol rather than an import of the pack that ships that class."""
+    this is a fresh Protocol rather than an import of the pack that ships that class.
+    """
 
     technique: str
 
@@ -138,7 +144,8 @@ class _RepresentationMarker(Protocol):
 def _collapse_key(node: Node) -> NodeId:
     """The id this node collapses under: its one parent, for a single-parent
     representation; itself, for everything else — a plain chunk, a root, or a
-    `Node.combine` summary with no single "the" parent to stand in for."""
+    `Node.combine` summary with no single "the" parent to stand in for.
+    """
     if len(node.lineage.parents) != 1:
         return node.id
     if not any(isinstance(value, _RepresentationMarker) for value in node.ext.values()):

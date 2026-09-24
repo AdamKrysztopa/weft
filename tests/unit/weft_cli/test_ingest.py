@@ -363,7 +363,8 @@ async def test_a_corpus_path_that_is_a_file_refuses_and_says_so(tmp_path: Path) 
 async def test_the_three_answers_are_distinguishable_from_each_other(tmp_path: Path) -> None:
     """`R27.1` as one assertion: the property is not that each case says *something*, it is
     that no two of them say the *same* thing. Three separate tests each asserting a substring
-    would all pass against three identical messages."""
+    would all pass against three identical messages.
+    """
     # Arrange
     registry, _ = _registry_with_fakes()
     empty = tmp_path / "empty"
@@ -389,7 +390,8 @@ async def test_the_evaluators_own_corpus_walk_refuses_the_same_three_ways(tmp_pa
     """`corpus_documents` is the second caller of this walk — `weft eval run --reuse-index`
     reaches it without going through `run_index` at all — so a guard only at `run_index`'s top
     would repair one command and leave its neighbour silent. `L8.24` is that shape twice over
-    in one phase, and this is the assertion that stops a third."""
+    in one phase, and this is the assertion that stops a third.
+    """
     # Arrange
     registry, _ = _registry_with_fakes()
     a_file = tmp_path / "paper.txt"

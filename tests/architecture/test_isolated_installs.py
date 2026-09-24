@@ -121,7 +121,8 @@ def test_every_module_named_is_a_directory_that_exists() -> None:
 
 def test_a_workspace_that_reads_as_empty_is_refused(tmp_path: Path) -> None:
     """`docs/internal/lessons.md` L5.9 — an empty sweep means "I did not find it", never "there is
-    none"."""
+    none".
+    """
     # Arrange
     (tmp_path / "pyproject.toml").write_text(
         '[tool.uv.workspace]\nmembers = ["packages/*"]\n', encoding="utf-8"
@@ -195,8 +196,10 @@ def test_the_check_can_actually_fail(tmp_path: Path) -> None:
 
 
 def test_the_degradation_categories_name_packs_this_tree_actually_ships() -> None:
-    """Carried repair **R10.6**. The script's expectations are hand-written lists, and a
-    hand-written list about the tree is `L6.4`'s failure waiting to happen.
+    """Carried repair **R10.6**.
+
+    The script's expectations are hand-written lists, and a hand-written list about the tree is
+    `L6.4`'s failure waiting to happen.
 
     `scripts/check_isolated_installs.py` asserts that the five **extra-backed** packs report
     `FAILED` without their extra. What it never asserted is the converse — that everything else

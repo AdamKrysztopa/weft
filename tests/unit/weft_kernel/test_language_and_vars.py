@@ -151,14 +151,15 @@ class _TranslateConfig(BaseModel):
 
 
 class _Translate:
-    """A trivial, deliberately-fake stand-in for `02` §3's translation stage — not a
-    translator. "A stage that requires the language, rewrites the text and provides the new
-    one" is the whole shape; this class's rewrite (`f"[{target}] ..."`) exists only so a test
-    can see which `target_lang` a run actually used, never to translate anything for real.
-    `applies_to = (Applies(_Language),)` — presence only, no `code=` — is what "everything
-    after it sees a single language" costs this stage: it still needs *a* source language
-    fact to have been decided before it runs, so a node with none (language undetected) flows
-    past it exactly as it flows past `_PolishFix`, for the identical safe-side reason.
+    """A trivial, deliberately-fake stand-in for `02` §3's translation stage — not a translator.
+
+    "A stage that requires the language, rewrites the text and provides the new one" is the whole
+    shape; this class's rewrite (`f"[{target}] ..."`) exists only so a test can see which
+    `target_lang` a run actually used, never to translate anything for real. `applies_to =
+    (Applies(_Language),)` — presence only, no `code=` — is what "everything after it sees a single
+    language" costs this stage: it still needs *a* source language fact to have been decided before
+    it runs, so a node with none (language undetected) flows past it exactly as it flows past
+    `_PolishFix`, for the identical safe-side reason.
     """
 
     requires = (_Language,)

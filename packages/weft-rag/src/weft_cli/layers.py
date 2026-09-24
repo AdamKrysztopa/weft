@@ -130,10 +130,11 @@ _CHECKPOINT_FIELD: Final[str] = f"ext.{LayerMember.__namespace__}.checkpoint"
 
 
 class LayerScope(StrEnum):
-    """Where one layer's build runs — ledger task **43.15**. `SOURCE` is the default a layer
-    document with no `layer.scope` var gets, and the only scope before this task existed;
-    `CORPUS` runs the layer once over every `ACTIVE` source's leaves, as one generation
-    (`weft_store.contract.GenerationHolding`) published whole.
+    """Where one layer's build runs — ledger task **43.15**.
+
+    `SOURCE` is the default a layer document with no `layer.scope` var gets, and the only scope
+    before this task existed; `CORPUS` runs the layer once over every `ACTIVE` source's leaves, as
+    one generation (`weft_store.contract.GenerationHolding`) published whole.
     """
 
     SOURCE = "source"
@@ -285,8 +286,9 @@ class LayerNodeCollisionError(WeftError):
 
 
 class LayerJoinWritesStoreError(WeftError):
-    """A corpus layer's join stage called a write on the store it was handed — repair
-    **R43.36**. A join returns the nodes it creates; the build alone writes the generation.
+    """A corpus layer's join stage called a write on the store it was handed — repair **R43.36**.
+
+    A join returns the nodes it creates; the build alone writes the generation.
     """
 
 
@@ -641,8 +643,9 @@ def layer_enriched(handed: Sequence[Node], returned: Sequence[Node]) -> tuple[No
 
 
 def _stamped(created: Sequence[Node], *, layer: str) -> tuple[Node, ...]:
-    """`created`, each carrying `LayerMember(layer=layer)` (R43.23). A leaf passed through or
-    enriched in place is the base's own node and is never passed here.
+    """`created`, each carrying `LayerMember(layer=layer)` (R43.23).
+
+    A leaf passed through or enriched in place is the base's own node and is never passed here.
     """
     return tuple(node.with_ext(LayerMember(layer=layer)) for node in created)
 
@@ -1404,11 +1407,11 @@ async def _run_corpus_tail(
     embed_stage_ids: frozenset[str],
     store_stage_ids: frozenset[str],
 ) -> Outcome[object]:
-    """A corpus-scoped tail's own two-step run — ledger task **43.15**, carried repair
-    **R43.11**. Every `NodeStore` stage in `tail_runnable` is already bound to its *own*
-    generation's writer by the caller, one bound instance per store — so a node this build
-    creates reaches every store the base names, each inside its own generation, never only
-    the primary's.
+    """A corpus-scoped tail's own two-step run — ledger task **43.15**, carried repair **R43.11**.
+
+    Every `NodeStore` stage in `tail_runnable` is already bound to its *own* generation's writer by
+    the caller, one bound instance per store — so a node this build creates reaches every store the
+    base names, each inside its own generation, never only the primary's.
 
     `embed_stage_ids`/`store_stage_ids` are the tail's own `Embedder`/`NodeStore` stage ids,
     read by the caller off `LayerComposition.tail_specs`' own contracts — never derived by
@@ -1644,8 +1647,9 @@ class _GenerationCheckpoints:
 
 
 class _OfferedServices(ServiceRegistry):
-    """`base`'s services plus those one layer stage run is offered — task **43.20**. The run's
-    own registry is never added to, so a corpus build's checkpoints reach no other stage.
+    """`base`'s services plus those one layer stage run is offered — task **43.20**.
+
+    The run's own registry is never added to, so a corpus build's checkpoints reach no other stage.
     """
 
     def __init__(self, base: ServiceRegistry) -> None:
@@ -1704,10 +1708,12 @@ def _with_revision(ctx: Context, revision: _GenerationRevision, *, store: object
 
 
 class _JoinStoreView:
-    """The `NodeStore` a join stage is handed — repair **R43.36**. Every read forwards to the
-    generation-bound store; every write raises `LayerJoinWritesStoreError` before reaching it.
-    `_join_view` adds one mixin per optional store capability the bound store has, and no other,
-    so a stage's `isinstance` probe answers of the view what it would of the store.
+    """The `NodeStore` a join stage is handed — repair **R43.36**.
+
+    Every read forwards to the generation-bound store; every write raises
+    `LayerJoinWritesStoreError` before reaching it. `_join_view` adds one mixin per optional store
+    capability the bound store has, and no other, so a stage's `isinstance` probe answers of the
+    view what it would of the store.
     """
 
     def __init__(self, store: object, *, layer: str) -> None:

@@ -103,7 +103,8 @@ _SUITES_ABOUT_THE_CODE: tuple[str, ...] = ("tests/unit", "tests/integration")
 
 def _extra_requirements(repo_root: Path, *extras: str) -> list[str]:
     """Every library the named `weft-rag` extras list — since G19 the capability packs ship inside
-    `weft-rag`, and this suite imports their libraries directly."""
+    `weft-rag`, and this suite imports their libraries directly.
+    """
     pyproject = tomllib.loads((repo_root / "packages/weft-rag/pyproject.toml").read_text())
     declared = pyproject["project"]["optional-dependencies"]
     return [requirement for extra in extras for requirement in declared[extra]]

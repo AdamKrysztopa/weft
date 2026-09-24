@@ -113,7 +113,7 @@ async def _ask(
             removed = await _delete_from(instance, source_id)
     except asyncio.CancelledError:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — every participant is tried; see the docstring
         return ParticipantOutcome(
             contract=target.contract,
             plugin=target.name,

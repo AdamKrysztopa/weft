@@ -365,21 +365,24 @@ NAME = "raptor"
 
 
 class Auto(StrEnum):
-    """The sentinel a `RaptorConfig` field takes instead of an operator-typed number, task
-    **10.9**. An `Enum`, never a `Literal[...]` — this project's standing rule — with one
-    member whose value is the literal string `"auto"`, so a pipeline document that omits
-    `cluster_size:`/`similarity_threshold:` or writes `auto` explicitly parses to the same
-    thing. See `weft_index.raptor`'s own module docstring, *"`cluster_size` and
-    `similarity_threshold` are typed by an operator or resolved by `auto`"*, for what each
-    field resolves to and why neither number was ever evidenced enough to keep hard-coding.
+    """The sentinel a `RaptorConfig` field takes instead of an operator-typed number, task **10.9**.
+
+    An `Enum`, never a `Literal[...]` — this project's standing rule — with one member whose value
+    is the literal string `"auto"`, so a pipeline document that omits
+    `cluster_size:`/`similarity_threshold:` or writes `auto` explicitly parses to the same thing.
+    See `weft_index.raptor`'s own module docstring, *"`cluster_size` and `similarity_threshold` are
+    typed by an operator or resolved by `auto`"*, for what each field resolves to and why neither
+    number was ever evidenced enough to keep hard-coding.
     """
 
     AUTO = "auto"
 
 
 class RaptorConfig(BaseModel):
-    """`raptor`'s `with:` config. Every field has a default, per this pack's own rule that a
-    Phase 2 pack's settings must be constructible with none supplied.
+    """`raptor`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -648,9 +651,10 @@ class RaptorSummarizer:
     async def _embed_unembedded(
         self, summaries: Sequence[Node], *, ctx: Context
     ) -> Produced[tuple[Node, ...]] | Failed:
-        """`summaries`, every one still without a vector embedded in one batch call. A kept or
-        recalled summary already carries its own (task **43.20**); with no `LayerCheckpoints`
-        none does, and this is the one batch call it always was.
+        """`summaries`, every one still without a vector embedded in one batch call.
+
+        A kept or recalled summary already carries its own (task **43.20**); with no
+        `LayerCheckpoints` none does, and this is the one batch call it always was.
         """
         pending = tuple(summary for summary in summaries if summary.embedding is None)
         if not pending:
@@ -731,8 +735,9 @@ class RaptorSummarizer:
         self, summary: Node, *, service: LayerCheckpoints, key: str, ctx: Context
     ) -> Node:
         """`summary`, embedded and kept under `key` the moment it is finished — task **43.20**.
-        One the embedder could not vector is returned unkept, for `run`'s batch embed to fail
-        the stage over exactly as it did before checkpoints existed.
+
+        One the embedder could not vector is returned unkept, for `run`'s batch embed to fail the
+        stage over exactly as it did before checkpoints existed.
         """
         embedded = await self._embed_summaries((summary,), ctx=ctx)
         if isinstance(embedded, Failed) or len(embedded.value) != 1:
@@ -966,8 +971,7 @@ def _with_run_counts(node: Node, *, clusters_found: int, clusters_summarised: in
 
 
 def _node_level(node: Node) -> int:
-    """`node`'s level *for selection* — task 10.7 — never the level a node *states* about
-    itself.
+    """`node`'s level *for selection* — task 10.7 — never the level a node *states* about itself.
 
     A summary states its level in `RaptorFacts.level`; a leaf carries no `RaptorFacts` at
     all and states none (`test_a_leaf_states_no_level_at_all`). This function answers `0`
@@ -1121,7 +1125,8 @@ def _refuse_beyond_bounds(
 ) -> Failed | None:
     """Ledger **43.13** — refuse, before the quadratic passes run, a corpus `43.12` measured them
     to be infeasible for: above `max_leaves` whatever the threshold, and above `max_pairs` under
-    `similarity_threshold: auto`, whose pass compares every pair."""
+    `similarity_threshold: auto`, whose pass compares every pair.
+    """
     if leaves > config.max_leaves:
         return Failed(
             reason=(

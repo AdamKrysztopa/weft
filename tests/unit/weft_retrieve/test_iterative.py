@@ -218,7 +218,8 @@ class _FakeLeaf:
 
 class _FakeSufficiency:
     """A `Sufficiency`, scripted one `Outcome[Assessment]` per call — same repeat-last shape
-    as `_FakeLeaf`."""
+    as `_FakeLeaf`.
+    """
 
     def __init__(self, outcomes: list[Outcome[Assessment]]) -> None:
         self._outcomes = outcomes
@@ -504,7 +505,8 @@ async def test_driving_iterative_retrieval_through_the_seam_produces_candidates(
     """Fitness function 7(b) against the one path a registered plugin is actually called
     through in production — `weft_kernel.seam.wrap`, not a direct method call a registered
     instance never receives. Same structural shape as `test_vector_top_k.py`'s own seam
-    test."""
+    test.
+    """
     # Arrange
     origin = _asked()
     q1 = QuerySet(origin=origin, queries=(origin,))

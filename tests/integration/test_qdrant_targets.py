@@ -200,7 +200,8 @@ async def test_reading_a_store_creates_no_catalogue_collection(settings: QdrantS
     """Found when Qdrant was OOM-killed twice at `34.7`: every store that opened created
     `<collection>__targets`, and every older test fixture drops only the pair it knew of, so each
     gate run leaked hundreds of catalogues — 1,025 of 1,039 collections, 8.3 GiB at start. The
-    catalogue is created by the first thing that writes to it, never by opening or reading."""
+    catalogue is created by the first thing that writes to it, never by opening or reading.
+    """
     # Arrange
     store = QdrantStore(settings)
 
@@ -222,7 +223,8 @@ async def test_a_target_another_open_store_has_written_to_cannot_be_dropped(
 ) -> None:
     """Carried repair **R34.10**: Qdrant has no session lock, so a handle that has written to a
     target holds an expiring lease on it, and a drop is refused while that lease is live —
-    the refusal pgvector and the graph store make through an advisory lock."""
+    the refusal pgvector and the graph store make through an advisory lock.
+    """
     # Arrange
     store = QdrantStore(settings)
     await store.add([_node("live", (1.0, 0.0, 0.0))])
@@ -243,7 +245,8 @@ async def test_a_lease_left_by_a_writer_that_never_closed_expires(
     settings: QdrantSettings,
 ) -> None:
     """A writer that crashed never releases its lease, so the lease carries its own expiry
-    (`[packs.qdrant] target_lease_seconds`) rather than blocking a drop forever."""
+    (`[packs.qdrant] target_lease_seconds`) rather than blocking a drop forever.
+    """
     # Arrange
     short = settings.model_copy(update={"target_lease_seconds": 1})
     store = QdrantStore(short)
@@ -263,11 +266,14 @@ async def test_a_lease_left_by_a_writer_that_never_closed_expires(
 async def test_reading_a_store_nothing_wrote_to_creates_no_collection(
     settings: QdrantSettings,
 ) -> None:
-    """Carried repair R43.2, found at `43.0`. A project whose `pipelines/` held a Qdrant document
-    and whose index wrote to pgvector left `<collection>` and `<collection>__sources` behind.
-    `weft index` reaches every store a project names, through the participants check and the
-    automatic reconcile, and opening the default target created the pair. `R34.3` made the
-    catalogue lazy and left the pair eager. A read of a store nothing wrote to answers empty."""
+    """Carried repair R43.2, found at `43.0`.
+
+    A project whose `pipelines/` held a Qdrant document and whose index wrote to pgvector left
+    `<collection>` and `<collection>__sources` behind. `weft index` reaches every store a project
+    names, through the participants check and the automatic reconcile, and opening the default
+    target created the pair. `R34.3` made the catalogue lazy and left the pair eager. A read of a
+    store nothing wrote to answers empty.
+    """
     # Arrange
     store = QdrantStore(settings)
     ctx = Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
@@ -298,7 +304,8 @@ async def test_reading_a_store_nothing_wrote_to_creates_no_collection(
 
 async def test_the_first_write_still_creates_the_pair(settings: QdrantSettings) -> None:
     """R43.2's control: the collections a read no longer creates are created by the first write,
-    and a read after it sees what was written."""
+    and a read after it sees what was written.
+    """
     # Arrange
     store = QdrantStore(settings)
 
@@ -324,7 +331,8 @@ async def test_a_writer_claim_holds_past_its_lease_while_its_holder_never_writes
 ) -> None:
     """Carried repair R43.18, measured before the red: the claim was renewed only by `add`, so a
     `weft delete` or `weft reconcile` holding it through a handle that never writes lost it at
-    `target_lease_seconds`, and a second writer was admitted beside it."""
+    `target_lease_seconds`, and a second writer was admitted beside it.
+    """
     # Arrange
     short = settings.model_copy(update={"target_lease_seconds": 1})
     holder, other = QdrantStore(short), QdrantStore(short)
@@ -347,7 +355,8 @@ async def test_a_writer_claim_whose_holder_stopped_without_releasing_still_expir
     settings: QdrantSettings,
 ) -> None:
     """The lease is what frees a store a crashed writer held, so renewing it must stop when
-    the holder does."""
+    the holder does.
+    """
     # Arrange
     short = settings.model_copy(update={"target_lease_seconds": 1})
     holder, other = QdrantStore(short), QdrantStore(short)

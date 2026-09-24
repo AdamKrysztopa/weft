@@ -76,7 +76,8 @@ def _document(number: int) -> str:
 def _question_text(document: int) -> str:
     """A question naming the document's own token *and* the word every document carries, so the
     lexical arm retrieves more than `top_k` candidates — a rung that returns fewer is refused by
-    the `@k` guard (`R38.5`), which is correct and would make this smoke test measure nothing."""
+    the `@k` guard (`R38.5`), which is correct and would make this smoke test measure nothing.
+    """
     return f"what does weft say in d{document}marker?"
 
 
@@ -146,7 +147,8 @@ async def _open_connections() -> int:
 @pytest.fixture
 async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Path]:
     """A project holding the corpus, the questions and the experiment document — see the module
-    docstring for why the skip below is the one every test in this directory takes."""
+    docstring for why the skip below is the one every test in this directory takes.
+    """
     reason = await _database_reachable()
     if reason is not None:
         pytest.skip(reason)

@@ -216,7 +216,8 @@ async def test_a_target_another_open_store_is_bound_to_cannot_be_dropped(
     store: PgVectorStore,
 ) -> None:
     """Dropping a schema under an open handle would send its next statement to `default`'s
-    tables, so the drop is refused while any connection holds the target."""
+    tables, so the drop is refused while any connection holds the target.
+    """
     # Arrange
     await store.add([_node("live", (1.0, 0.0, 0.0))])
     writer = await _store().bind_target(target_name("w256"))
@@ -240,7 +241,8 @@ async def test_four_handles_opening_one_fresh_database_at_once_all_succeed(
     EXISTS` is not atomic against a concurrent creator, and neither is the rest of this store's
     open-time DDL. Reproduced minimally: four handles opening one fresh database together, three
     of them raised. That is precisely this phase's own scenario — asking while the corpus
-    indexes — so the store has to survive it."""
+    indexes — so the store has to survive it.
+    """
     # Arrange: `store` owns a database nothing has opened yet, and is not itself opened first.
     others = [_store() for _ in range(3)]
 
@@ -266,7 +268,8 @@ async def test_opening_a_handle_while_another_writes_never_deadlocks_the_writer(
     runs the productions backfill, which inserts a production for every committed node that has
     none, and `add()` committed its nodes before their productions, so the backfill and the writer
     inserted the same keys in two transactions in opposite orders. A node and its productions are
-    one write: no reader ever sees a node without them."""
+    one write: no reader ever sees a node without them.
+    """
     # Arrange
     sources = frozenset(SourceId(f"doc-{i}") for i in range(4))
     batches = [
@@ -324,7 +327,8 @@ async def test_a_source_a_2_9_0_store_wrote_reads_back_with_no_layers(
     store: PgVectorStore,
 ) -> None:
     """Ledger **43.6**: `layers` is a column added beside the others, so a database a `2.9.0`
-    store wrote reads its records back with no layers rather than failing to parse them."""
+    store wrote reads its records back with no layers rather than failing to parse them.
+    """
     # Arrange — a 2.9.0-shaped database: no `layers` column, and no `R43.6` stamp.
     record = SourceRecord(
         id=SourceId("doc"),
@@ -443,7 +447,8 @@ async def test_a_reader_keeps_searching_text_after_another_handle_writes_the_fir
     """Carried repair **R43.39**, found by Phase 43c's closing gate: `retrieve` failed with
     `FeatureNotSupported: cached plan must not change result type`. psycopg prepares a statement
     on its fifth run, and a prepared `SELECT weft_nodes.*` refuses to run once another handle's
-    first embedded `add()` has typed `embedding` from `vector` to `vector(n)` under it."""
+    first embedded `add()` has typed `embedding` from `vector` to `vector(n)` under it.
+    """
     # Arrange — a lexical corpus, searched by `store` until its statement is prepared.
     lexical = [_unembedded("the kestrel hovers over weft"), _unembedded("the heron wades weft")]
     writer = _store()
@@ -473,7 +478,8 @@ async def test_a_reader_keeps_getting_nodes_after_another_handle_writes_the_firs
     store: PgVectorStore,
 ) -> None:
     """Carried repair **R43.39** on a second read shape: `get`'s `SELECT *` is prepared exactly as
-    `search_text`'s is, so the repair is a property of every read, not of one statement."""
+    `search_text`'s is, so the repair is a property of every read, not of one statement.
+    """
     # Arrange
     lexical = [_unembedded("the kestrel hovers over weft"), _unembedded("the heron wades weft")]
     ids = [node.id for node in lexical]

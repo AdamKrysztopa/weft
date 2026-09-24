@@ -99,7 +99,8 @@ class VersionFact(BaseModel):
     """A finding that was not taken between two row counts — `facts_from_diskann`'s expression
     probe runs after the diskann harness's last result, with no row count around it
     (`bench_diskann.py:582 "probe = _expression_probe(conn)"`). A row count is never invented for
-    it."""
+    it.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 

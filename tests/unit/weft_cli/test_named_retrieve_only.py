@@ -125,7 +125,8 @@ def _registry() -> Registry:
 
 def _reports() -> tuple[PackReport, ...]:
     """The shipped document itself, read through the same `importlib.resources` path a real
-    install uses — never a copy of its stages written into this file."""
+    install uses — never a copy of its stages written into this file.
+    """
     return (
         PackReport(
             pack="retrieve",
@@ -182,7 +183,8 @@ async def test_a_named_retrieval_pipeline_runs_under_retrieve_only_with_no_model
 
 async def test_retrieve_only_refuses_a_pipeline_that_ends_in_a_generator() -> None:
     """The narrowed refusal: the two flags still contradict each other when the pipeline
-    generates, and the message says which pipeline and what to run instead."""
+    generates, and the message says which pipeline and what to run instead.
+    """
     # Arrange — the real catalogue, so the alternatives the message offers are real names.
     deps = build_dependencies(config_path=Path("weft.toml.does-not-exist"))
     args = commands.AskArgs(

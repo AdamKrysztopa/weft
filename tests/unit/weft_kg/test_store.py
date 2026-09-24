@@ -509,8 +509,10 @@ async def test_a_surface_form_is_an_alias_and_an_entity_is_what_aliases_point_at
 async def test_two_spellings_of_one_name_become_one_entity_both_are_found_by(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """The headline property. Both surface forms survive as aliases — the corpus said both — and
-    both resolve to one canonical entity, so a question naming either reaches the same nodes.
+    """The headline property.
+
+    Both surface forms survive as aliases — the corpus said both — and both resolve to one canonical
+    entity, so a question naming either reaches the same nodes.
     """
     # Arrange — two aliases a trigram score and a shared vector will merge.
     vector = Vector(values=(1.0, 0.0, 0.0, 0.0))
@@ -599,8 +601,9 @@ async def test_merging_two_aliases_merges_the_nodes_they_anchor(
 async def test_an_edge_written_against_a_merged_alias_still_walks(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """Relations key on aliases too, so a merge re-points both endpoints for free. Without this
-    the graph silently loses an edge the moment its endpoint is canonicalised.
+    """Relations key on aliases too, so a merge re-points both endpoints for free.
+
+    Without this the graph silently loses an edge the moment its endpoint is canonicalised.
     """
     # Arrange
     vector = Vector(values=(1.0, 1.0, 0.0, 0.0))
@@ -626,8 +629,10 @@ async def test_an_edge_written_against_a_merged_alias_still_walks(
 async def test_a_definition_the_corpus_stated_merges_without_any_vector(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """Signal 2 reaching the database. The chunk text is read from the nodes this store holds —
-    the corpus is the evidence, so a pack that asked anywhere else would be guessing.
+    """Signal 2 reaching the database.
+
+    The chunk text is read from the nodes this store holds — the corpus is the evidence, so a pack
+    that asked anywhere else would be guessing.
 
     No embedding on either alias, deliberately: this signal is exact and carries no threshold, so
     it must fire where the blended one cannot.
@@ -1024,9 +1029,10 @@ async def test_a_model_saying_no_leaves_two_entities(store: GraphStore, walk: Gr
 async def test_a_model_that_is_unsure_abstains_and_the_pass_says_so(
     store: GraphStore, walk: GraphWalk
 ) -> None:
-    """The third value reaching the report. Two entities that may be one is a state a reader can
-    act on; the same state reported as a clean `backfilled 0` is the plausible-looking wrong
-    answer requirement 5 exists to forbid.
+    """The third value reaching the report.
+
+    Two entities that may be one is a state a reader can act on; the same state reported as a clean
+    `backfilled 0` is the plausible-looking wrong answer requirement 5 exists to forbid.
     """
     # Arrange
     await _banded_pair(store)

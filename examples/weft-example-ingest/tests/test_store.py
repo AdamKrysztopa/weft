@@ -204,7 +204,8 @@ async def test_reconcile_finishes_a_deletion_that_was_interrupted() -> None:
 
 async def test_a_strangers_store_holds_targets_and_passes_the_published_target_checks() -> None:
     """Ledger **34.3**: `TargetHolding` is published, so a store written outside the tree proves it
-    with the published kit alone — FF9 clause (c)'s stranger for the new capability."""
+    with the published kit alone — FF9 clause (c)'s stranger for the new capability.
+    """
     # Arrange
     from weft_store.conformance import checks_for
     from weft_store.contract import TargetHolding
@@ -240,7 +241,8 @@ async def test_a_source_s_layers_round_trip_through_the_published_check() -> Non
 async def test_a_strangers_store_holds_generations_and_passes_the_published_checks() -> None:
     """Ledger **43.14**: `GenerationHolding` is published, so a store written outside the tree
     proves it with the published kit alone — fitness function 9(c)'s stranger for the new
-    capability, on `34.3`'s footing."""
+    capability, on `34.3`'s footing.
+    """
     # Arrange
     from weft_store.conformance import checks_for
     from weft_store.contract import GenerationHolding
@@ -262,7 +264,8 @@ async def test_a_strangers_store_holds_generations_and_passes_the_published_chec
 
 async def test_a_strangers_store_carries_generations_and_passes_the_published_checks() -> None:
     """Ledger **43.22**: `GenerationCarrying` is published, so the stranger proves it with the
-    kit alone — fitness function 9(c) for the new capability, on `43.14`'s footing."""
+    kit alone — fitness function 9(c) for the new capability, on `43.14`'s footing.
+    """
     # Arrange
     from weft_store.conformance import checks_for
     from weft_store.contract import GenerationCarrying
@@ -284,7 +287,8 @@ async def test_a_strangers_store_carries_generations_and_passes_the_published_ch
 
 async def test_a_strangers_store_withdraws_generations_and_passes_the_published_checks() -> None:
     """Repair **R43.29**: `GenerationWithdrawing` is published, so the stranger proves it with the
-    kit alone — fitness function 9(c) for the new capability, on `43.22`'s footing."""
+    kit alone — fitness function 9(c) for the new capability, on `43.22`'s footing.
+    """
     # Arrange
     from weft_store.conformance import checks_for
     from weft_store.contract import GenerationWithdrawing
@@ -306,7 +310,8 @@ async def test_a_strangers_store_withdraws_generations_and_passes_the_published_
 
 async def test_a_strangers_store_admits_one_writer_and_passes_the_published_checks() -> None:
     """Ledger **43.18**: `SingleWriter` is published, so the stranger proves it with the kit —
-    fitness function 9(c) for the new capability."""
+    fitness function 9(c) for the new capability.
+    """
     # Arrange
     from weft_store.conformance import checks_for
     from weft_store.contract import SingleWriter

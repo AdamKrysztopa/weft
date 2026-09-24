@@ -198,7 +198,8 @@ def test_no_tracked_file_says_a_settled_gate_is_open() -> None:
 
 def test_the_check_can_actually_fail() -> None:
     """A planted claim, in each of the two shapes, because the assertion above passes on a clean
-    tree and would pass equally if either pattern had stopped matching anything."""
+    tree and would pass equally if either pattern had stopped matching anything.
+    """
     # Arrange / Act
     copula = claims_about_open_gates("what its own version means while **G9 is Open**.")
     awaiting = claims_about_open_gates("the quickstart's second section when G21 settles.")
@@ -213,10 +214,12 @@ def test_the_check_can_actually_fail() -> None:
 
 
 def test_a_past_tense_record_of_a_gate_is_not_a_claim_that_it_is_open() -> None:
-    """The half that decides whether this check is usable. This tree keeps *why* beside the code,
-    so it is dense with sentences about gates that have since closed — and every one of them must
-    stay readable. A check that cannot tell a record from an assertion would waive its way to
-    uselessness within a phase."""
+    """The half that decides whether this check is usable.
+
+    This tree keeps *why* beside the code, so it is dense with sentences about gates that have since
+    closed — and every one of them must stay readable. A check that cannot tell a record from an
+    assertion would waive its way to uselessness within a phase.
+    """
     # Arrange
     records = (
         "**This test asserted the six add-ons until G19 (2026-09-09)**, on the reading that",
@@ -236,7 +239,8 @@ def test_a_past_tense_record_of_a_gate_is_not_a_claim_that_it_is_open() -> None:
 @_requires_log
 def test_the_walk_reaches_the_files_it_is_supposed_to() -> None:
     """Non-vacuity for the file walk: an empty population makes the real assertion pass over
-    nothing, which is `L11.5`'s shape and the reason every sweep in this tree carries a floor."""
+    nothing, which is `L11.5`'s shape and the reason every sweep in this tree carries a floor.
+    """
     # Arrange / Act
     files = _files()
     suffixes = {path.suffix for path in files}

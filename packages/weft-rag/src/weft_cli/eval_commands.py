@@ -578,11 +578,12 @@ class TraceArgs(BaseModel):
 
 
 class EvalMetricsArgs(BaseModel):
-    """`weft eval metrics [--name <name>]` — every registered metric's gate-safety, or one by
-    name. `name` has a default (`None`), so `weft_cli.argparse_gen`'s own mechanical floor —
-    a field with no default is a required positional, one with a default is an optional flag —
-    makes this `--name`, not a positional; see `TraceArgs`'s own paragraph, one class up, for
-    the identical rule applied the other way (`run_id` has no default, so it stays positional).
+    """`weft eval metrics [--name <name>]` — every registered metric's gate-safety, or one by name.
+
+    `name` has a default (`None`), so `weft_cli.argparse_gen`'s own mechanical floor — a field with
+    no default is a required positional, one with a default is an optional flag — makes this
+    `--name`, not a positional; see `TraceArgs`'s own paragraph, one class up, for the identical
+    rule applied the other way (`run_id` has no default, so it stays positional).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -864,9 +865,10 @@ class BaselineSelection(StrEnum):
 
 
 class QueryRungDifference(BaseModel):
-    """The query rung each of two compared runs scored with. A *difference*, never a reason to
-    refuse: the rung is the thing being compared, so it does not join `incomparable_reasons`
-    the way the corpus does.
+    """The query rung each of two compared runs scored with.
+
+    A *difference*, never a reason to refuse: the rung is the thing being compared, so it does not
+    join `incomparable_reasons` the way the corpus does.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

@@ -329,10 +329,11 @@ RRF_NAME = "reciprocal-rank-fusion"
 
 
 class ReciprocalRankFusionConfig(BaseModel):
-    """`ReciprocalRankFusion`'s `with:` config. Every field has a default, per this pack's own
-    rule — and per ledger 2.18's own line, which names every knob this technique has as
-    configuration: the constant, the per-arm weight and the truncation, none of them written
-    into `run`.
+    """`ReciprocalRankFusion`'s `with:` config.
+
+    Every field has a default, per this pack's own rule — and per ledger 2.18's own line, which
+    names every knob this technique has as configuration: the constant, the per-arm weight and the
+    truncation, none of them written into `run`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -354,6 +355,7 @@ class ReciprocalRankFusionConfig(BaseModel):
 
 class ReciprocalRankFusion:
     """Merges k ranked lists into one by Cormack, Clarke & Büttcher's reciprocal rank fusion.
+
     Satisfies `weft_retrieve.contract.Fuser` structurally.
 
     Gordon V. Cormack, Charles L. A. Clarke, Stefan Büttcher, *Reciprocal rank fusion
@@ -443,9 +445,11 @@ NORMALIZED_SCORE_FUSION_NAME = "normalized-score-fusion"
 
 
 class NormalizedScoreFusionConfig(BaseModel):
-    """`NormalizedScoreFusion`'s `with:` config. Every field has a default, per this pack's own
-    rule. No `k`: that constant belongs to reciprocal rank's damping, which this technique does
-    not use — a knob that means nothing here is worse than one omitted.
+    """`NormalizedScoreFusion`'s `with:` config.
+
+    Every field has a default, per this pack's own rule. No `k`: that constant belongs to reciprocal
+    rank's damping, which this technique does not use — a knob that means nothing here is worse than
+    one omitted.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -588,8 +592,10 @@ class EmptyConjunction(StrEnum):
 
 
 class BooleanCombineConfig(BaseModel):
-    """`BooleanCombine`'s `with:` config. Every field has a default, per this pack's own
-    rule that a Phase 2 pack's settings must be constructible with none supplied.
+    """`BooleanCombine`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -598,8 +604,9 @@ class BooleanCombineConfig(BaseModel):
 
 
 class BooleanCombine:
-    """Evaluates a parsed `BoolExpr` against retrieved candidates by set algebra over
-    `Node.id`. Satisfies `weft_retrieve.contract.Fuser` structurally.
+    """Evaluates a parsed `BoolExpr` against retrieved candidates by set algebra over `Node.id`.
+
+    Satisfies `weft_retrieve.contract.Fuser` structurally.
 
     `requires = (BooleanPlan,)` — see the module docstring's own paragraph on this plugin for
     what that buys at resolution.

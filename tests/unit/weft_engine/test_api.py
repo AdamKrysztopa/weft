@@ -150,9 +150,10 @@ class _RecordingCommand:
 
 
 class _RefusingCommand(_RecordingCommand):
-    """Answers `Failed`. A verb that returned `None` here would hand an application a value
-    indistinguishable from a legitimate empty answer — the silent-fallback shape `CLAUDE.md`
-    refuses by name.
+    """Answers `Failed`.
+
+    A verb that returned `None` here would hand an application a value indistinguishable from a
+    legitimate empty answer — the silent-fallback shape `CLAUDE.md` refuses by name.
     """
 
     calls: ClassVar[list[BaseModel]] = []
@@ -439,7 +440,8 @@ async def test_any_registered_command_is_reachable_by_name_not_only_the_three_wi
 
 async def test_run_asks_consent_for_a_destructive_command_reached_by_name() -> None:
     """The generic path is gated exactly as the three named ones are — a command reached by
-    string must not be a way around the permission the same command refuses by method."""
+    string must not be a way around the permission the same command refuses by method.
+    """
     # Arrange
     weft = Weft(_deps(_DestructiveCommand, name="graph wipe"))
 
@@ -595,7 +597,8 @@ async def test_a_command_reached_by_name_takes_a_sink_for_the_call_too() -> None
 
 class _IndexCommand(_RecordingCommand):
     """Declares the shipped `IndexArgs`, so a field `Weft.index` passes that the real model does
-    not declare is dropped here exactly as it is in production (`L12.11`)."""
+    not declare is dropped here exactly as it is in production (`L12.11`).
+    """
 
     calls: ClassVar[list[BaseModel]] = []
     args_model: ClassVar[type[BaseModel]] = IndexArgs

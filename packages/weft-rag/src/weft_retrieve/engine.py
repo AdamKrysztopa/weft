@@ -101,7 +101,8 @@ class UnknownRouteVarError(PipelineResolutionError, UnresolvedNameError):
 
 class UnknownSubPluginConfigFieldError(PipelineResolutionError, UnresolvedNameError):
     """A config model declares `SubPlugin(config=...)` naming no field of that model — carried
-    repair **R43.45**. `valid_options` is the declaring model's own fields, sorted."""
+    repair **R43.45**. `valid_options` is the declaring model's own fields, sorted.
+    """
 
     def __init__(
         self,
@@ -147,7 +148,8 @@ class RegistryStageLookup:
     def names(self, contract: type[object]) -> frozenset[str]:
         """Every name registered for `contract` — read straight off the registry, so a
         newly installed pack's plugin is visible the moment discovery ran, with nothing
-        cached here to go stale."""
+        cached here to go stale.
+        """
         return self._registry.names_for(contract)
 
     async def build[In, Out](
@@ -250,8 +252,7 @@ def _validated_sub_config(entry: RegistryEntry, name: str, config: object) -> ob
 
 
 def roles_needed(pipeline: ResolvedPipeline, registry: Registry) -> frozenset[str]:
-    """Every `[llm.roles]` name `pipeline`'s stages call a model under — carried repair
-    **R43.30**.
+    """Every `[llm.roles]` name `pipeline`'s stages call a model under — carried repair **R43.30**.
 
     **The marker decides, never the name** (repair **R43.35**). Each stage's validated config
     is read for every `str` field declared with `LLMRole`, defaults included, whatever the
@@ -295,7 +296,9 @@ def _check_sub_plugin_config(
     model: type[BaseModel], field: str, marker: SubPlugin, rung: str
 ) -> None:
     """Refuse `marker` when its `config` names no field of `model` — carried repair **R43.45**.
-    Run whatever the field's value, because the declaration is the pack's defect either way."""
+
+    Run whatever the field's value, because the declaration is the pack's defect either way.
+    """
     if marker.config is None or marker.config in model.model_fields:
         return
     fields = tuple(sorted(model.model_fields))
@@ -310,7 +313,8 @@ def _check_sub_plugin_config(
 
 def _markers(info: FieldInfo) -> tuple[object, ...]:
     """`info.metadata`, plus what `Annotated[str, M()] | None` holds inside its union member —
-    pydantic drops a marker spelt that way from `metadata`."""
+    pydantic drops a marker spelt that way from `metadata`.
+    """
     found = list(info.metadata)
     if get_origin(info.annotation) in (Union, UnionType):
         for member in get_args(info.annotation):
@@ -345,7 +349,8 @@ def _sub_plugin_roles(name: str, block: object, registry: Registry, rung: str) -
 
 def _sub_config(entry: RegistryEntry, name: str, block: object) -> object:
     """The config a sibling is built with — its own defaults when its `SubPlugin.config` block
-    is unset, validated exactly as `RegistryStageLookup` validates it otherwise."""
+    is unset, validated exactly as `RegistryStageLookup` validates it otherwise.
+    """
     if block is None:
         if getattr(unwrap_factory(entry.factory), "config_model", None) is None:
             return None
@@ -354,9 +359,11 @@ def _sub_config(entry: RegistryEntry, name: str, block: object) -> object:
 
 
 def stage_lookup(registry: Registry) -> RegistryStageLookup:
-    """Build the run's `StageLookup`. This pack's own constructor — see the module
-    docstring, and `.phase2-design.md` §7: "so a library caller is not forced through
-    the CLI." `weft_engine.run_services.build_services` is the one caller that is.
+    """Build the run's `StageLookup`.
+
+    This pack's own constructor — see the module docstring, and `.phase2-design.md` §7: "so a
+    library caller is not forced through the CLI." `weft_engine.run_services.build_services` is the
+    one caller that is.
     """
     return RegistryStageLookup(registry)
 
@@ -418,7 +425,8 @@ def missing_roles(
     rung_roles: Mapping[str, frozenset[str]], mapped_roles: frozenset[str]
 ) -> dict[str, tuple[str, ...]]:
     """Each rung in `rung_roles` needing a role `mapped_roles` lacks, to those roles sorted —
-    carried repair **R43.30**, the reason `PipelineRouteCatalogue` leaves a rung out."""
+    carried repair **R43.30**, the reason `PipelineRouteCatalogue` leaves a rung out.
+    """
     return {
         name: tuple(sorted(needed - mapped_roles))
         for name, needed in sorted(rung_roles.items())
@@ -457,12 +465,13 @@ def route_catalogue(
     rung_roles: Mapping[str, frozenset[str]] | None = None,
     mapped_roles: frozenset[str] = _NOTHING_MAPPED,
 ) -> PipelineRouteCatalogue:
-    """Build the run's `RouteCatalogue`. This pack's own constructor — see the module
-    docstring on `stage_lookup`, the identical shape. `ready_layers` — ledger task **43.9**
-    — is which layers `weft_cli.coverage.ready_layers` found built on every indexed source;
-    `None` (every caller before this task) offers every candidate, unfiltered.
-    `rung_roles`/`mapped_roles` — carried repair **R43.30** — leave out a rung needing a role
-    the run's `[llm.roles]` does not map; `PipelineRouteCatalogue`'s own docstring.
+    """Build the run's `RouteCatalogue`.
+
+    This pack's own constructor — see the module docstring on `stage_lookup`, the identical shape.
+    `ready_layers` — ledger task **43.9** — is which layers `weft_cli.coverage.ready_layers` found
+    built on every indexed source; `None` (every caller before this task) offers every candidate,
+    unfiltered. `rung_roles`/`mapped_roles` — carried repair **R43.30** — leave out a rung needing a
+    role the run's `[llm.roles]` does not map; `PipelineRouteCatalogue`'s own docstring.
     """
     return PipelineRouteCatalogue(
         catalogue, ready_layers, rung_roles=rung_roles, mapped_roles=mapped_roles

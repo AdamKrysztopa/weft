@@ -135,10 +135,12 @@ def test_the_fan_out_finds_a_pack_registered_under_a_contract_it_never_heard_of(
 
 
 def test_a_second_node_store_this_project_uses_is_asked_as_well() -> None:
-    """G13's repair, task **6.18**. `store_names` is a set rather than a name because a
-    project runs data through more than one `NodeStore` — `02` §1 → *Extended by G13*, whose
-    worked case is the graph store the `kg` pipeline writes to. Both are asked; the one
-    nothing names is still absent, which is the half of task 5.1a's narrowing that was right.
+    """G13's repair, task **6.18**.
+
+    `store_names` is a set rather than a name because a project runs data through more than one
+    `NodeStore` — `02` §1 → *Extended by G13*, whose worked case is the graph store the `kg`
+    pipeline writes to. Both are asked; the one nothing names is still absent, which is the half of
+    task 5.1a's narrowing that was right.
     """
     # Arrange
     registry = _registry_with_everything()

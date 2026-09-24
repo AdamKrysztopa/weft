@@ -46,7 +46,8 @@ class _DocumentFact(ExtModel):
     """A stand-in for a document-structure fact a real extractor pack attaches to a root
     node — `weft_pdf.PdfPages`, in production. Declared locally rather than imported from
     `weft-pdf` so this test proves the *generic* carry-forward mechanism, not a special
-    case for one pack `weft-chunk` does not and must not depend on."""
+    case for one pack `weft-chunk` does not and must not depend on.
+    """
 
     __namespace__ = "test-document-fact"
     __schema_version__ = "1.0.0"

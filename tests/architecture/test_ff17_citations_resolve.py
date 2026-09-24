@@ -516,7 +516,8 @@ def test_a_dangling_citation_would_be_caught(tmp_path: Path) -> None:
 
 def test_a_self_citation_would_be_caught() -> None:
     """Prove clause (b) can fail — and that clause (a) alone would *not* have caught it,
-    which is the whole reason there are two clauses."""
+    which is the whole reason there are two clauses.
+    """
     # Arrange — a citation naming a file that really does exist here: this one. Built from
     # `Path(__file__).name` rather than written out, for the reason `test_a_dangling_citation_
     # would_be_caught` above explains at length.

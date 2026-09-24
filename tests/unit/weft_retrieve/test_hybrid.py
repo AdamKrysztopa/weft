@@ -26,7 +26,8 @@ from weft_store.contract import Filter, FilterOp, NodeStore, Scored
 class _StubEmbedder:
     """A vector deterministic on the query's own text length — `test_vector_top_k.py`'s own
     double, restated rather than imported across test modules on this suite's "one
-    self-contained scenario" convention."""
+    self-contained scenario" convention.
+    """
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
         del ctx
@@ -137,7 +138,8 @@ async def test_the_arm_labels_are_configurable_so_two_narrowings_can_be_told_apa
 
 async def test_one_filter_narrows_both_arms_and_is_combined_with_the_querys_own() -> None:
     """`combined_filter`'s contract, reused rather than reimplemented — a document's filter
-    narrows, it never replaces what the query already asked for."""
+    narrows, it never replaces what the query already asked for.
+    """
     # Arrange
     store = _BothArmsStore()
     per_arm = Filter(op=FilterOp.EQ, field="ext.weft-index.technique", value="raptor")
@@ -171,8 +173,11 @@ async def test_narrowing_channels_to_one_arm_searches_only_that_arm() -> None:
 
 
 async def test_a_store_that_cannot_do_lexical_search_fails_loudly_naming_the_capability() -> None:
-    """Requirement 5. Nothing adapts and nothing degrades: a run that wanted a text channel
-    does not quietly become vector-only — `weft_store.contract.TextSearch`'s own promise."""
+    """Requirement 5.
+
+    Nothing adapts and nothing degrades: a run that wanted a text channel does not quietly become
+    vector-only — `weft_store.contract.TextSearch`'s own promise.
+    """
     # Arrange / Act
     outcome = await Hybrid().run(_query_set(), _ctx(_VectorOnlyStore()))
 
@@ -186,7 +191,8 @@ def test_needs_store_declares_both_capabilities_whatever_channels_says() -> None
     """The declaration is read before any stage runs, by `check_store_capabilities`, so it has
     to describe what this plugin may call under *its own* config surface — not under the one
     configuration it happens to hold. Deriving it from `channels` would let `[vector]` resolve
-    against a store with no `TextSearch` and move the refusal to a later `with:` edit."""
+    against a store with no `TextSearch` and move the refusal to a later `with:` edit.
+    """
     # Arrange / Act
     declared = {capability.__name__ for capability in Hybrid.needs_store}
 
@@ -196,7 +202,8 @@ def test_needs_store_declares_both_capabilities_whatever_channels_says() -> None
 
 def test_no_channels_at_all_is_refused_rather_than_retrieving_nothing() -> None:
     """An empty tuple is a valid tuple and a meaningless retrieval — every query produces no
-    list and the answer is "no evidence" from a run that never looked."""
+    list and the answer is "no evidence" from a run that never looked.
+    """
     # Arrange / Act / Assert
     with pytest.raises(ValidationError) as raised:
         HybridConfig(channels=())

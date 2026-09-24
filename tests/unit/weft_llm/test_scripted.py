@@ -92,16 +92,17 @@ async def _drive_as_the_contract_type(provider: LLMProvider) -> list[str]:
 
 
 async def test_a_provider_typed_as_the_llmprovider_contract_can_stream_with_no_await() -> None:
-    """Repair for a reviewer finding against task 2.30's contract. An `async def` Protocol
-    stub with an `Ellipsis` body types `.stream(...)` as a coroutine, not an async generator,
-    so a value typed `LLMProvider` could not be driven with a bare `async for` — it would need
-    an `await` first, which `ScriptedProvider` (a real async generator) does not want and does
-    not need. `cast` stands in only for the unrelated gap every Weft contract shares — none of
-    their `version: ClassVar[str]` is ever declared on a concrete plugin, so pyright refuses
-    the assignment on that ground alone, in every pack, not on the ground this test exists to
-    check; `tests/unit/weft_openai/test_llm.py` carries the matching check for
-    `OpenAILLMProvider`, since the defect under test was in the shared Protocol, not in either
-    plugin, so both implementations earn the same proof.
+    """Repair for a reviewer finding against task 2.30's contract.
+
+    An `async def` Protocol stub with an `Ellipsis` body types `.stream(...)` as a coroutine, not an
+    async generator, so a value typed `LLMProvider` could not be driven with a bare `async for` — it
+    would need an `await` first, which `ScriptedProvider` (a real async generator) does not want and
+    does not need. `cast` stands in only for the unrelated gap every Weft contract shares — none of
+    their `version: ClassVar[str]` is ever declared on a concrete plugin, so pyright refuses the
+    assignment on that ground alone, in every pack, not on the ground this test exists to check;
+    `tests/unit/weft_openai/test_llm.py` carries the matching check for `OpenAILLMProvider`, since
+    the defect under test was in the shared Protocol, not in either plugin, so both implementations
+    earn the same proof.
     """
     # Arrange
     provider = cast("LLMProvider", ScriptedProvider(ScriptedConfig(reply="a b c")))

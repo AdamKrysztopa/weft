@@ -250,7 +250,8 @@ async def test_the_response_format_name_is_one_the_endpoint_accepts(
 
 async def test_a_server_that_rejects_the_response_format_is_a_bad_request(tmp_path: Path) -> None:
     """The error the cascade's `skip_adapted` keys on — so an operator who opts in against a
-    server that refuses the field sees tier 3 in `Structured.tier`, not a crash."""
+    server that refuses the field sees tier 3 in `Structured.tier`, not a crash.
+    """
     # Arrange
     client = _Client(chat=_Chat(completions=_Completions(error=_bad_request())))
     config = _config(tmp_path, compatible_block="structured_output = true\n")

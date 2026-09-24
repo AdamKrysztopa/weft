@@ -186,8 +186,9 @@ type ScoredQueryRung = QueryRung | NoQueryRung
 
 
 def active_distribution_set(reports: Iterable[PackReport]) -> tuple[str, ...]:
-    """Every distribution `reports` marks `PackStatus.ACTIVE`, sorted and deduplicated. See
-    the module docstring for why this is fitness function 8(c)'s left-hand side and how its
+    """Every distribution `reports` marks `PackStatus.ACTIVE`, sorted and deduplicated.
+
+    See the module docstring for why this is fitness function 8(c)'s left-hand side and how its
     equality with what `plugins doctor` reports is checked.
 
     A *set*, as the name says, and now literally: one distribution may ship several packs,
@@ -359,8 +360,10 @@ class RunDurations(BaseModel):
 
 
 class RunRecord(BaseModel):
-    """One persisted run — `01` -> Phase 4 *Exit*, `09` §4 **V6**. See the module docstring for
-    what each field is and why it is here rather than derived or omitted.
+    """One persisted run — `01` -> Phase 4 *Exit*, `09` §4 **V6**.
+
+    See the module docstring for what each field is and why it is here rather than derived or
+    omitted.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -475,9 +478,11 @@ def build_run_record(
     target: str | None = None,
     target_embedding: EmbeddingIdentity | None = None,
 ) -> RunRecord:
-    """Assemble one `RunRecord`. `active_distributions` is always derived from `reports`
-    through `active_distribution_set` — never accepted directly — so there is no second,
-    caller-supplied list of "what was active" that could drift from the one 8(c) checks.
+    """Assemble one `RunRecord`.
+
+    `active_distributions` is always derived from `reports` through `active_distribution_set` —
+    never accepted directly — so there is no second, caller-supplied list of "what was active" that
+    could drift from the one 8(c) checks.
 
     `metrics` takes the same `Outcome[MetricAggregate]` shape `weft_eval.aggregate.aggregate`
     itself returns — a caller (`weft_cli.eval_scoring`, task 4.9) hands back exactly what it

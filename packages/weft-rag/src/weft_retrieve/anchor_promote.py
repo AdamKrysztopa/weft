@@ -91,7 +91,8 @@ def promote(hits: Sequence[Passage], anchors: Sequence[str]) -> tuple[tuple[Pass
 
 class AnchorBranch(StrEnum):
     """Which of the three branches `AnchorPromote.run` took — `Enum` per the project's
-    string-constant rule."""
+    string-constant rule.
+    """
 
     NO_ANCHOR = "no-anchor"
     NONE_CONTAINED = "none-contained"
@@ -138,8 +139,9 @@ class AnchorPromoteConfig(BaseModel):
 
 
 class AnchorPromote:
-    """Reorders a ranking by the question's own anchors. Satisfies
-    `weft_retrieve.contract.Reranker` structurally.
+    """Reorders a ranking by the question's own anchors.
+
+    Satisfies `weft_retrieve.contract.Reranker` structurally.
 
     `cost_bound = (0, 0)`: `find_anchors` is a shape-only rule over the question's own text and
     `promote` a comparison over each hit's already-stored content — no service is resolved and

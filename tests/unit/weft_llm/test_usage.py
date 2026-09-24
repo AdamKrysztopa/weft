@@ -143,7 +143,8 @@ async def test_a_provider_that_cannot_report_is_named_as_not_reporting_never_zer
 
 async def test_an_entry_names_the_pipeline_position_that_asked() -> None:
     """Two roles can share a position and one role can serve two positions, so the position is
-    read off the seam (`current_stage`, repair `R10.1`), never inferred from the role."""
+    read off the seam (`current_stage`, repair `R10.1`), never inferred from the role.
+    """
     # Arrange
     registry = Registry()
     registry.add(LLMProvider, "reporting", _Reporting, distribution="weft-test")

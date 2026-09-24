@@ -770,9 +770,11 @@ async def build_index_services(
 
 
 async def _bound_to_target(instance: object, target: str, *, plugin: str, contract: type) -> object:
-    """A role service bound to the run's `--target` — ledger `34.12`. A service with
-    `bind_target` is bound; a `BlobStore` without one is refused, because it would write a
-    candidate's figures over the live index's at the same key. Other roles hold no index data.
+    """A role service bound to the run's `--target` — ledger `34.12`.
+
+    A service with `bind_target` is bound; a `BlobStore` without one is refused, because it would
+    write a candidate's figures over the live index's at the same key. Other roles hold no index
+    data.
     """
     bind = getattr(instance, "bind_target", None)
     if bind is not None:

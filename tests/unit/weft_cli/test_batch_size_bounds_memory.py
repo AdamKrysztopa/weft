@@ -164,8 +164,10 @@ async def test_a_corpus_larger_than_the_batch_arrives_in_several_batches(tmp_pat
 
 
 async def test_without_the_flag_the_whole_corpus_is_one_batch(tmp_path: Path) -> None:
-    """The control, and today's behaviour. Chunking is opt-in: a default that split every run
-    would change what every existing pipeline computes without anyone asking for it.
+    """The control, and today's behaviour.
+
+    Chunking is opt-in: a default that split every run would change what every existing pipeline
+    computes without anyone asking for it.
     """
     # Arrange
     _corpus(tmp_path, 7)
@@ -232,8 +234,10 @@ async def test_the_refusal_happens_before_anything_is_written_or_deleted(tmp_pat
 
 
 async def test_the_same_pipeline_without_the_flag_is_not_refused(tmp_path: Path) -> None:
-    """The other control. A refusal keyed on the stage alone would satisfy the test above and
-    break every existing `index-with-raptor` run, which is the opposite of the repair.
+    """The other control.
+
+    A refusal keyed on the stage alone would satisfy the test above and break every existing
+    `index-with-raptor` run, which is the opposite of the repair.
     """
     # Arrange
     _corpus(tmp_path, 7)

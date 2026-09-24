@@ -91,7 +91,8 @@ PROVENANCE_WAIVED: Final[dict[str, str]] = {
 
 def waiver_key(hit: str) -> str:
     """`hit` cut to its path and the start of its match, stopping at a quote or a backslash so a
-    key never has to spell an escape."""
+    key never has to spell an escape.
+    """
     path, _, match = hit.partition(": ")
     readable = re.split(r"[\\\"']", match, maxsplit=1)[0]
     return f"{path}: {readable[:40].rstrip()}"

@@ -44,7 +44,8 @@ def _resolved(deps: Dependencies) -> dict[str, ResolvedPipeline]:
 
 def _full_build(pipeline: ResolvedPipeline) -> tuple[str, ...]:
     """A layer's stage uses less its `layer.incremental` stage (43.23): that stage runs only when
-    sources were added, so the layer's full build is what twins a base's enrichment."""
+    sources were added, so the layer's full build is what twins a base's enrichment.
+    """
     incremental = pipeline.vars.get("layer.incremental")
     return tuple(stage.use for stage in pipeline.stages if stage.id != incremental)
 

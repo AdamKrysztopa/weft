@@ -112,8 +112,10 @@ def create_targets_table_sql(layout: PgTargetLayout, home_schema: str) -> sql.Co
 
 
 def create_live_target_table_sql(layout: PgTargetLayout, home_schema: str) -> sql.Composed:
-    """The one-row live-pointer table. `singleton` is checked rather than merely a primary key of
-    one value, so a second row is refused by the schema itself rather than by convention.
+    """The one-row live-pointer table.
+
+    `singleton` is checked rather than merely a primary key of one value, so a second row is refused
+    by the schema itself rather than by convention.
     """
     return sql.SQL(
         "CREATE TABLE IF NOT EXISTS {} ("

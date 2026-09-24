@@ -58,7 +58,8 @@ def test_a_record_is_a_frozen_model() -> None:
 
 async def test_a_call_that_raises_is_still_recorded_as_raised() -> None:
     """The slow call is often the one that fails, so a trace that dropped it would be missing
-    exactly the stage an operator is looking for."""
+    exactly the stage an operator is looking for.
+    """
 
     # Arrange
     async def _explode(payload: Sequence[int]) -> Outcome[int]:
@@ -104,7 +105,8 @@ async def test_outcome_kinds_that_are_not_produced_are_named_and_carry_no_output
 
 async def test_a_call_inside_another_names_it_as_its_parent() -> None:
     """Two records, so the parent link is a fact the fixture can get wrong (`L12.6`): a stage
-    that asks an LLM is one record containing another, not two siblings."""
+    that asks an LLM is one record containing another, not two siblings.
+    """
     # Arrange
     inner = seam.wrap(_halve, distribution="weft-test", contract="Halver", plugin="inner")
 
@@ -140,7 +142,8 @@ async def test_outside_a_scope_nothing_is_recorded_and_the_outcome_is_unchanged(
 
 async def test_concurrent_calls_in_one_scope_are_each_recorded() -> None:
     """A stage fanning out with `gather` records into the scope that encloses it — the children
-    copy the context, and the scope is what they share."""
+    copy the context, and the scope is what they share.
+    """
     # Arrange
     run = seam.wrap(_halve, distribution="weft-test", contract="Halver", plugin="halve")
 
@@ -158,7 +161,8 @@ async def test_concurrent_calls_in_one_scope_are_each_recorded() -> None:
 
 class _Batch:
     """A payload the kernel knows nothing about except that it has a length — the shape a pack's
-    own model takes when it answers `len()`."""
+    own model takes when it answers `len()`.
+    """
 
     def __init__(self, items: Sequence[int]) -> None:
         self._items = tuple(items)

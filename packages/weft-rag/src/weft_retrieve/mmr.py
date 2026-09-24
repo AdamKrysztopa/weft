@@ -61,7 +61,8 @@ def _cosine(left: Sequence[float], right: Sequence[float]) -> float:
     """Cosine similarity, brute force — `weft_store.memory.MemoryStore`'s own helper,
     written fresh here rather than imported: this pack does not reach into a store's
     private module for arithmetic every store already knows how to do internally, and this
-    plugin needs it *between two hits*, a comparison no `NodeStore` method offers."""
+    plugin needs it *between two hits*, a comparison no `NodeStore` method offers.
+    """
     dot = sum(a * b for a, b in zip(left, right, strict=True))
     magnitude = (sum(a * a for a in left) ** 0.5) * (sum(b * b for b in right) ** 0.5)
     return 0.0 if magnitude == 0.0 else dot / magnitude

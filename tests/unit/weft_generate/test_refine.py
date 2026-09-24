@@ -65,7 +65,8 @@ from weft_store.contract import NodeStore, Scored, SourceRecord
 
 class _StubLLM:
     """An `LLM` answering from a script, one reply per `complete` call — the same shape
-    `test_cited_answer.py`'s and `test_contradiction.py`'s own stubs take."""
+    `test_cited_answer.py`'s and `test_contradiction.py`'s own stubs take.
+    """
 
     def __init__(self, replies: list[str]) -> None:
         self._replies = replies
@@ -87,7 +88,8 @@ class _StubLLM:
 
 class _FakeSignal:
     """A `Sufficiency`, scripted one `Outcome[Assessment]` per call — the same repeat-last
-    shape `test_iterative.py`'s own `_FakeSufficiency` takes."""
+    shape `test_iterative.py`'s own `_FakeSufficiency` takes.
+    """
 
     def __init__(self, outcomes: list[Outcome[Assessment]]) -> None:
         self._outcomes = outcomes
@@ -359,7 +361,8 @@ async def test_a_hard_signal_failure_fails_the_whole_generation() -> None:
 
 async def test_driving_refine_on_uncertainty_through_the_seam_produces_an_answer() -> None:
     """Fitness function 7(b) against the one path a registered plugin is actually called
-    through in production — `weft_kernel.seam.wrap`, not a direct method call."""
+    through in production — `weft_kernel.seam.wrap`, not a direct method call.
+    """
     # Arrange
     origin = _asked()
     passages = Passages(origin=origin, passages=(_passage("1", "seed"),))

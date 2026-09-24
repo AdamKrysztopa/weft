@@ -239,10 +239,11 @@ class Stage[In, Out](Protocol):
 
 
 class PipelineResolutionError(WeftError):
-    """The family base for every way a pipeline can fail to resolve. `02` §3 → *When
-    resolution fails*: "each failure is its own `WeftError` subclass under a
-    `PipelineResolutionError` family base, all carrying the same required fields — the
-    pipeline, the stage ids, the distributions in conflict, and the remedy."
+    """The family base for every way a pipeline can fail to resolve.
+
+    `02` §3 → *When resolution fails*: "each failure is its own `WeftError` subclass under a
+    `PipelineResolutionError` family base, all carrying the same required fields — the pipeline, the
+    stage ids, the distributions in conflict, and the remedy."
 
     **Never raised directly, task 1.13.** It used to be — this class alone covered three
     unrelated checks (an unmet `requires`, two stages that do not compose, an `intact`

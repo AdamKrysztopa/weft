@@ -117,10 +117,12 @@ class RepackBudget(ExtModel):
 
 
 class RepackMethod(StrEnum):
-    """The three orderings Wang et al. name (`10` §1.1's `repack` row). `Enum`, project rule
-    for a closed vocabulary — an operator's typo in a `with:` block is a `ValidationError`
-    naming the valid set, never a silent fall-through to whichever branch a chain reached
-    first."""
+    """The three orderings Wang et al. name (`10` §1.1's `repack` row).
+
+    `Enum`, project rule for a closed vocabulary — an operator's typo in a `with:` block is a
+    `ValidationError` naming the valid set, never a silent fall-through to whichever branch a chain
+    reached first.
+    """
 
     #: Retrieval order, unchanged — the best hit stays first.
     FORWARD = "forward"
@@ -151,7 +153,8 @@ class RepackConfig(BaseModel):
 
 def _forward(hits: Sequence[Passage]) -> Sequence[Passage]:
     """Unchanged — the identity ordering, named so it can be selected rather than merely
-    achieved by omitting a `ContextPacker` a document still needs one of."""
+    achieved by omitting a `ContextPacker` a document still needs one of.
+    """
     return hits
 
 
@@ -163,7 +166,8 @@ def _reverse(hits: Sequence[Passage]) -> Sequence[Passage]:
 def _sides(hits: Sequence[Passage]) -> Sequence[Passage]:
     """Even retrieval-order positions kept at the front, odd positions reversed at the back —
     see the module docstring for why this, and not a best/worst zip-interleave, is what
-    Wang et al.'s name is attached to."""
+    Wang et al.'s name is attached to.
+    """
     front = hits[0::2]
     back = tuple(reversed(hits[1::2]))
     return (*front, *back)
@@ -179,8 +183,9 @@ _METHODS: Mapping[RepackMethod, Callable[[Sequence[Passage]], Sequence[Passage]]
 
 
 class Repack:
-    """Orders, truncates and labels one ranking's hits. Satisfies `contract.ContextPacker`
-    structurally.
+    """Orders, truncates and labels one ranking's hits.
+
+    Satisfies `contract.ContextPacker` structurally.
 
     `cost_bound = (0, 0)`: counting a rendered block against a budget is local arithmetic
     over a number a `TokenCounter` already resolved, not a model call. It resolves no

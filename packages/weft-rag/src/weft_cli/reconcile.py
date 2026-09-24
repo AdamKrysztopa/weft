@@ -155,7 +155,7 @@ async def _ask(
             report, reclaimed = await _converge(instance, mode, ctx, spare=spare)
     except asyncio.CancelledError:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — every participant is tried; see the docstring
         return ReconcileOutcome(
             contract=target.contract,
             plugin=target.name,
@@ -204,7 +204,8 @@ async def _reclaim_every_layer(
 ) -> int:
     """`reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of and
     none of `spare`, and the nodes it removed across all of them. A whole layer is skipped
-    because `reclaim_withdrawn` cannot take one generation of a layer and leave another."""
+    because `reclaim_withdrawn` cannot take one generation of a layer and leave another.
+    """
     withdrawn = [
         record
         for record in await holding.generations()
@@ -251,7 +252,7 @@ async def _ask_estimate(
             estimate = await _estimate_of(instance, mode, ctx)
     except asyncio.CancelledError:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — every participant is tried; see the docstring
         return ReconcileEstimateOutcome(
             contract=target.contract,
             plugin=target.name,

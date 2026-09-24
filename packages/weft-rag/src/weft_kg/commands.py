@@ -1,5 +1,6 @@
-"""`weft graph propose`, `activate`, `show` and `bridges` — this pack's `Command`s. **11.11**,
-`bridges` at **11.13**.
+"""`weft graph propose`, `activate`, `show` and `bridges` — this pack's `Command`s.
+
+**11.11**, `bridges` at **11.13**.
 
 **The first three answer three different questions and only one of them writes.** `propose`
 measures what the corpus's own facts already produced and prints it — nothing persists.
@@ -78,10 +79,12 @@ class GraphProposeArgs(BaseModel):
 
 
 class GraphProposeResult(CommandResult):
-    """What one `propose` run measured. `observed` is the number of *distinct* arrangements the
-    corpus produced, at any count — never the number that survived `min_count`, which is already
-    visible as `len(proposed.relations)`; the two together are what tells an operator how much of
-    what their corpus said, `min_count` actually kept.
+    """What one `propose` run measured.
+
+    `observed` is the number of *distinct* arrangements the corpus produced, at any count — never
+    the number that survived `min_count`, which is already visible as `len(proposed.relations)`; the
+    two together are what tells an operator how much of what their corpus said, `min_count` actually
+    kept.
     """
 
     proposed: GraphSchema
@@ -142,11 +145,13 @@ class GraphBridgesArgs(BaseModel):
 
 
 class GraphBridgesResult(CommandResult):
-    """What one `bridges` run found. `relations_examined` is what tells the two refusal-adjacent
-    outcomes apart when `bridges` is empty: a corpus with relations but no bridge among them
-    (`11.10`'s own measured finding, printable) against one with none at all
-    (`NoRelationsToBridgeError`, raised before this result is ever built). `written_to` is `""`
-    whenever nothing was written — see `GraphBridgesArgs.write`'s own docstring for when that is.
+    """What one `bridges` run found.
+
+    `relations_examined` is what tells the two refusal-adjacent outcomes apart when `bridges` is
+    empty: a corpus with relations but no bridge among them (`11.10`'s own measured finding,
+    printable) against one with none at all (`NoRelationsToBridgeError`, raised before this result
+    is ever built). `written_to` is `""` whenever nothing was written — see
+    `GraphBridgesArgs.write`'s own docstring for when that is.
     """
 
     bridges: tuple[Bridge, ...]
@@ -155,8 +160,9 @@ class GraphBridgesResult(CommandResult):
 
 
 class GraphProposeCommand:
-    """Measures the corpus and proposes a schema from it. Persists nothing — see the module
-    docstring's opening paragraph.
+    """Measures the corpus and proposes a schema from it.
+
+    Persists nothing — see the module docstring's opening paragraph.
     """
 
     args_model: ClassVar[type[BaseModel]] = GraphProposeArgs

@@ -325,7 +325,8 @@ async def test_driving_the_store_through_the_registration_seam_makes_no_blocking
 async def test_the_store_advertises_text_search_at_all(store: QdrantStore) -> None:
     """**The headline, and it is one `isinstance`.** Capability is derived, never declared: a
     retriever asking for a text channel gets this store or is refused by name, and until this task
-    every such refusal named Qdrant."""
+    every such refusal named Qdrant.
+    """
     # Assert
     assert isinstance(store, TextSearch)
 
@@ -334,7 +335,8 @@ async def test_search_text_ranks_by_lexical_match_with_higher_meaning_better(
     store: QdrantStore,
 ) -> None:
     """`Scored.score` means the same thing in both stores or it means nothing — the conformance
-    kit compares two backends' rankings."""
+    kit compares two backends' rankings.
+    """
     # Arrange
     await store.add(
         [
@@ -386,7 +388,8 @@ async def test_qdrant_weighs_a_rare_term_above_one_every_document_carries(
 async def test_search_text_narrows_by_a_filter_the_server_evaluates(store: QdrantStore) -> None:
     """The review's own words: *"do not fetch a global lexical top-k and apply tenant filters
     afterwards."* The stronger match is the excluded one, so a post-filter and a server-side
-    filter give different answers here."""
+    filter give different answers here.
+    """
     # Arrange
     wanted = _node("plugin capability", sources=frozenset({SourceId("keep")}))
     louder = _node(
@@ -490,7 +493,8 @@ async def test_the_average_document_length_is_a_disclosed_approximation_that_rea
 
 async def test_the_store_says_what_its_text_score_means(store: QdrantStore) -> None:
     """Task `21.1`'s rule reaching the second backend: a number is shown only with its meaning,
-    and the meaning comes from whatever produced it."""
+    and the meaning comes from whatever produced it.
+    """
     # Assert
     assert "bm25" in store.text_score_semantics.lower()
     assert store.text_score_semantics != store.vector_score_semantics

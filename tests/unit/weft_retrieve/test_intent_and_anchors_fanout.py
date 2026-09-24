@@ -38,7 +38,8 @@ class _StubEmbedder:
 
 class _BothArmsStore:
     """`test_hybrid.py`'s own double, answering each text search with a hit named after what
-    it was asked, so a ranking can be traced back to the anchor that produced it."""
+    it was asked, so a ranking can be traced back to the anchor that produced it.
+    """
 
     def __init__(self) -> None:
         self.vector_calls = 0

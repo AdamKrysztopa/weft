@@ -57,9 +57,10 @@ class TargetDropRefusedError(WeftError):
 
 
 class InMemoryBlobStore:
-    """Every blob this process was handed, by key, namespaced by target. Nothing is persisted
-    and nothing is shared between instances that were not produced by one another's
-    `bind_target` — which is the point: a conformance subject with no environment.
+    """Every blob this process was handed, by key, namespaced by target.
+
+    Nothing is persisted and nothing is shared between instances that were not produced by one
+    another's `bind_target` — which is the point: a conformance subject with no environment.
     """
 
     def __init__(

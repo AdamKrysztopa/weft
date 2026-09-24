@@ -178,9 +178,10 @@ async def test_propose_reads_the_corpus_and_prints_the_shape_it_produced(
 async def test_propose_persists_nothing(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """`propose` prints and never persists — the task line's own words. A command that quietly
-    activated what it proposed would make the operator's approval a formality, which is the whole
-    point of the file existing.
+    """`propose` prints and never persists — the task line's own words.
+
+    A command that quietly activated what it proposed would make the operator's approval a
+    formality, which is the whole point of the file existing.
     """
     # Arrange
     monkeypatch.chdir(tmp_path)

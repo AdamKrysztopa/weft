@@ -39,7 +39,8 @@ class _EchoConfig(BaseModel):
 
 class _Echo:
     """A trivial `Stage[str, str]` — enough to prove `build()` resolves, constructs, and
-    wraps, with no dependency on any real query-path contract."""
+    wraps, with no dependency on any real query-path contract.
+    """
 
     config_model: ClassVar[type[_EchoConfig]] = _EchoConfig
 
@@ -54,7 +55,8 @@ class _Echo:
 class _Boom:
     """A `Stage[str, str]` that always raises — proves `build()`'s callable runs through
     the seam rather than around it: the seam is what turns a bare exception into a
-    `WeftError` carrying attribution."""
+    `WeftError` carrying attribution.
+    """
 
     config_model: ClassVar[type[_EchoConfig]] = _EchoConfig
 
@@ -68,7 +70,8 @@ class _Boom:
 
 class _Capability:
     """A named capability with no `run` at all — `build_capability`'s own subject, the
-    same shape `weft_retrieve.contract.Prompt` takes."""
+    same shape `weft_retrieve.contract.Prompt` takes.
+    """
 
     def __init__(self, config: object = None) -> None:
         self.config = config
@@ -214,7 +217,8 @@ class _SubConfig(BaseModel):
     """Declared the way every real Weft plugin config is — frozen, `extra="forbid"` — so an
     unknown field is rejected here for the same reason it would be in production. A plain
     `BaseModel` silently ignores extras, and a test using one would have proved that
-    validation ran without proving it refuses anything."""
+    validation ran without proving it refuses anything.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -267,7 +271,8 @@ async def test_build_validates_a_mapping_into_the_plugins_own_config_model() -> 
 
 async def test_build_leaves_an_already_built_config_object_alone() -> None:
     """The other caller shape, which must keep working: a plugin that has already
-    constructed its sibling's config and hands it over typed."""
+    constructed its sibling's config and hands it over typed.
+    """
     # Arrange
     built: list[object] = []
 
@@ -300,7 +305,8 @@ async def test_build_refuses_a_mapping_the_config_model_rejects_naming_the_field
 
 async def test_build_refuses_a_mapping_for_a_plugin_that_publishes_no_config_model() -> None:
     """A block with nowhere checked to land must never be silently accepted and dropped —
-    `weft_kernel.resolution.StageNotConfigurableError`'s own rule, applied one seam over."""
+    `weft_kernel.resolution.StageNotConfigurableError`'s own rule, applied one seam over.
+    """
     # Arrange
     lookup = RegistryStageLookup(_sub_registry(_UnconfigurableSub, "sub", _UnconfigurableSub))
 
@@ -316,7 +322,8 @@ async def test_build_refuses_a_mapping_for_a_plugin_that_publishes_no_config_mod
 
 async def test_build_capability_validates_the_same_way() -> None:
     """`Sufficiency` is reached through `build_capability`, and `iterative-retrieval`'s
-    `sufficiency_config` is one of the seven fields — so the same repair has to cover it."""
+    `sufficiency_config` is one of the seven fields — so the same repair has to cover it.
+    """
     # Arrange
     built: list[object] = []
 

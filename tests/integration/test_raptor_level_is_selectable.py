@@ -149,11 +149,13 @@ async def test_the_level_selects_the_summary_and_nothing_else(store: PgVectorSto
 
 
 async def test_the_level_comes_back_as_the_pack_s_own_model(store: PgVectorStore) -> None:
-    """Read back, not merely written. `weft_store.rehydrate` reconstructs a pack's `ExtModel`
-    only for a namespace some pack registered through `add_ext_model`; without that registration
-    the value returns as a plain mapping and every reader downstream has to know it. Asserting
-    the *type* is what checks the registration, which is the half a write-only test misses
-    (`docs/internal/lessons.md` L6.14's shape).
+    """Read back, not merely written.
+
+    `weft_store.rehydrate` reconstructs a pack's `ExtModel` only for a namespace some pack
+    registered through `add_ext_model`; without that registration the value returns as a plain
+    mapping and every reader downstream has to know it. Asserting the *type* is what checks the
+    registration, which is the half a write-only test misses (`docs/internal/lessons.md` L6.14's
+    shape).
     """
     # Arrange
     produced = await _indexed(store)

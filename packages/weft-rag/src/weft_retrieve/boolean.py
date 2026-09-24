@@ -103,8 +103,9 @@ LEAF_PREFIX = f"{NAME}#"
 
 
 class BoolOp(StrEnum):
-    """The vocabulary `BoolExpr.op` names — one leaf kind and the combinators `operators`
-    admits. See the module docstring for why there is no `xor` member.
+    """The vocabulary `BoolExpr.op` names — one leaf kind and the combinators `operators` admits.
+
+    See the module docstring for why there is no `xor` member.
     """
 
     #: A leaf: one search term, carried in `BoolExpr.term`.
@@ -241,7 +242,8 @@ def parse_tokens(
 
 def _depth(expr: BoolExpr) -> int:
     """0 for a leaf, otherwise one more than its deepest clause — a fact about the tree, not
-    about how many grammar rules a parser descended through to build it."""
+    about how many grammar rules a parser descended through to build it.
+    """
     if not expr.clauses:
         return 0
     return 1 + max(_depth(clause) for clause in expr.clauses)
@@ -334,8 +336,10 @@ class BooleanPlan(ExtModel):
 
 
 class BooleanRetrievalConfig(BaseModel):
-    """`BooleanRetrieval`'s `with:` config. Every field has a default, per this pack's own
-    rule that a Phase 2 pack's settings must be constructible with none supplied.
+    """`BooleanRetrieval`'s `with:` config.
+
+    Every field has a default, per this pack's own rule that a Phase 2 pack's settings must be
+    constructible with none supplied.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

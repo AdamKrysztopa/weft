@@ -76,8 +76,10 @@ NAME = "vector-top-k"
 
 
 class VectorTopKConfig(BaseModel):
-    """`VectorTopK`'s `with:` config. Every field has a default, per the project's rule that
-    every Phase 2 pack's settings must be constructible with none supplied.
+    """`VectorTopK`'s `with:` config.
+
+    Every field has a default, per the project's rule that every Phase 2 pack's settings must be
+    constructible with none supplied.
 
     `per_query_top_k`, when set, is what is actually asked of the store for every query in
     the set — `top_k` alone otherwise. The two names exist so a document can say "twenty

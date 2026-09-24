@@ -485,10 +485,11 @@ class TargetDropCommandResult(CommandResult):
 
 
 class TargetDropCommand:
-    """`weft target drop <name>` — ledger task **34.9**, widened by **34.11**/**34.12**. Never
-    `delete_source`: this removes a whole target's own storage (`TargetHolding.drop_target`),
-    not one document's derived state from a target that keeps existing. `[services] store`'s
-    own `drop_target` refuses a target that does not exist, or one that is live or previous-live
+    """`weft target drop <name>` — ledger task **34.9**, widened by **34.11**/**34.12**.
+
+    Never `delete_source`: this removes a whole target's own storage (`TargetHolding.drop_target`),
+    not one document's derived state from a target that keeps existing. `[services] store`'s own
+    `drop_target` refuses a target that does not exist, or one that is live or previous-live
     (`UnknownTargetError`/`TargetInUseError`), unchanged here; every other `TargetHolding`
     participant is then dropped too, and, once the primary has agreed to drop it,
     `FilesystemBlobStore`'s own blob subtree for `name`, if `[packs.blob]` is configured — no

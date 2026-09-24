@@ -84,8 +84,7 @@ def help_of(factory: object, name: str) -> str:
 
 
 def permission_class_of(factory: object, name: str) -> PermissionClass:
-    """`factory.permission_class`, or a loud, specific failure — see
-    `CommandNotDescribableError`."""
+    """`factory.permission_class`, or a loud, specific failure — see `CommandNotDescribableError`."""
     permission_class = getattr(factory, "permission_class", None)
     if not isinstance(permission_class, PermissionClass):
         raise CommandNotDescribableError(

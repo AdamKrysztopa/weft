@@ -43,8 +43,11 @@ class OracleGoldFirstConfig(BaseModel):
 
 
 class OracleGoldFirst:
-    """Puts the relevant chunks first. Satisfies `weft_retrieve.contract.Reranker` structurally;
-    `cost_bound = (0, 0)`, a set lookup per hit."""
+    """Puts the relevant chunks first.
+
+    Satisfies `weft_retrieve.contract.Reranker` structurally; `cost_bound = (0, 0)`, a set lookup
+    per hit.
+    """
 
     score_semantics: ClassVar[str] = (
         "the incoming score, plus 10 for a chunk of a relevant document — orders relevant "

@@ -64,7 +64,8 @@ def _same_identifier(expected: str, found: str) -> bool:
 
 class _PromptLookup:
     """A `StageLookup` narrowed to `build_capability` over a real `Registry` —
-    `test_hypothetical_questions_pipeline.py`'s own."""
+    `test_hypothetical_questions_pipeline.py`'s own.
+    """
 
     def __init__(self, registry: Registry) -> None:
         self._registry = registry

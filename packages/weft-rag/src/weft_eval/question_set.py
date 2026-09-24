@@ -448,8 +448,10 @@ def load_questions(directory: Path) -> tuple[Question, ...]:
 
 
 class QuestionSetFormat(StrEnum):
-    """Which shape `read_question_set` found on disk. Carried rather than inferred a second time
-    from the path, so a caller can report it without re-deriving it from the suffix.
+    """Which shape `read_question_set` found on disk.
+
+    Carried rather than inferred a second time from the path, so a caller can report it without
+    re-deriving it from the suffix.
     """
 
     TOML = "toml"

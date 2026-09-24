@@ -909,9 +909,12 @@ def test_render_eval_run_names_the_run_id_and_the_index_summary() -> None:
 
 
 def test_render_eval_run_over_a_json_questions_file_says_the_format_is_deprecated() -> None:
-    """Task 38.11. A JSON `--questions` file still scores, converted into the one question model,
-    and the operator is told once, on stderr, that the format goes at `weft-rag` 3.0 — `09`
-    §2.3's clock for a deprecated surface."""
+    """Task 38.11.
+
+    A JSON `--questions` file still scores, converted into the one question model, and the operator
+    is told once, on stderr, that the format goes at `weft-rag` 3.0 — `09` §2.3's clock for a
+    deprecated surface.
+    """
     from weft_cli.eval_commands import EvalRunCommandResult
     from weft_eval.question_set import QuestionSetFormat
 
@@ -1124,7 +1127,8 @@ def test_render_trace_prints_every_field_the_run_record_carries() -> None:
 
 def test_render_trace_names_the_experiment_a_record_was_run_as() -> None:
     """Task 38.0 — the phase Exit runs `weft trace` on an experiment's record and reads its
-    experiment digest; a record run outside an experiment says so."""
+    experiment digest; a record run outside an experiment says so.
+    """
     from weft_cli.eval_commands import TraceCommandResult
     from weft_eval.run_record import ExperimentRun
 
@@ -1156,9 +1160,11 @@ def test_render_trace_names_the_experiment_a_record_was_run_as() -> None:
 
 
 def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() -> None:
-    """Task **16.1**. Three states reach this renderer and each must read differently — a
-    reader who cannot tell *"nobody recorded it"* from *"this run used plain vector top-k"*
-    cannot tell an old baseline from a deliberate one.
+    """Task **16.1**.
+
+    Three states reach this renderer and each must read differently — a reader who cannot tell
+    *"nobody recorded it"* from *"this run used plain vector top-k"* cannot tell an old baseline
+    from a deliberate one.
     """
     from weft_cli.eval_commands import TraceCommandResult
     from weft_eval.run_record import NoQueryRung, QueryRung
@@ -1203,8 +1209,10 @@ def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() ->
 
 
 def test_render_trace_prints_the_versions_a_record_measured() -> None:
-    """Task **16.3**. A record that measured versions prints them; one that measured and found
-    none prints that it found none, which is not the same line as never having looked.
+    """Task **16.3**.
+
+    A record that measured versions prints them; one that measured and found none prints that it
+    found none, which is not the same line as never having looked.
     """
     from weft_cli.eval_commands import TraceCommandResult
 
@@ -1233,9 +1241,10 @@ def test_render_trace_prints_the_versions_a_record_measured() -> None:
 
 
 def test_render_trace_prints_one_line_per_question_per_metric() -> None:
-    """Task **16.4**, and the phase Exit's third clause reads it literally. Grouped by metric,
-    one line per question, and a question the metric could not score says so rather than
-    printing a number it never produced.
+    """Task **16.4**, and the phase Exit's third clause reads it literally.
+
+    Grouped by metric, one line per question, and a question the metric could not score says so
+    rather than printing a number it never produced.
     """
     from weft_cli.eval_commands import TraceCommandResult
     from weft_eval.run_record import NotScored, PerQuestionScores, QuestionKey
@@ -1264,8 +1273,9 @@ def test_render_trace_prints_one_line_per_question_per_metric() -> None:
 
 
 def test_render_eval_compare_names_two_rungs_as_a_difference() -> None:
-    """Task **16.1**'s second clause: the rung is printed as a configuration difference. A
-    comparison that refused instead would make the one thing being compared uncomparable.
+    """Task **16.1**'s second clause: the rung is printed as a configuration difference.
+
+    A comparison that refused instead would make the one thing being compared uncomparable.
     """
     from weft_cli.eval_commands import (
         BaselineSelection,
@@ -1590,9 +1600,11 @@ def _offer(result_type: type[CommandResult], renderer: object, *, distribution: 
 
 
 def test_a_packs_result_renders_for_a_person_once_its_renderer_is_registered() -> None:
-    """The property task **6.20** makes true. Before it, `weft example-graph show` printed
-    `{"nodes_with_graph_data":11,...}` at a person while eighteen built-in commands printed
-    for one, because the dispatch was a table matched on the CLI's own result types.
+    """The property task **6.20** makes true.
+
+    Before it, `weft example-graph show` printed `{"nodes_with_graph_data":11,...}` at a person
+    while eighteen built-in commands printed for one, because the dispatch was a table matched on
+    the CLI's own result types.
     """
     # Arrange
     render.register_renderers_from_reports(

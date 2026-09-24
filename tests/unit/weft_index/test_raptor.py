@@ -486,8 +486,9 @@ async def test_a_retry_that_also_fails_degrades_that_cluster_without_a_third_att
 
 
 async def test_concurrent_summaries_are_bounded_by_configuration() -> None:
-    """A 200-cluster corpus fired 200 concurrent completions at a configured provider. The
-    bound is a field rather than a constant because what a provider tolerates is an operator's
+    """A 200-cluster corpus fired 200 concurrent completions at a configured provider.
+
+    The bound is a field rather than a constant because what a provider tolerates is an operator's
     fact, not this plugin's.
     """
     # Arrange — six tight pairs, so six clusters, against a bound of two.
@@ -603,14 +604,15 @@ def _fan_key(node: Node) -> int:
 
 
 async def test_the_same_nodes_in_a_different_order_build_the_same_tree() -> None:
-    """Ledger 10.3. `_cluster_by_similarity` walked its input once in payload order, mutating
-    clusters in place, so which cluster a node joined depended on what preceded it — and an
-    index rebuilt from the same corpus after a different extraction order was a different tree.
-    No paper motivates the greedy pass being order-dependent: all four use order-independent
-    clusterers (GMM/EM, k-means, an entropy-minimising partition) and assume it. The repair is
-    a stable input order, not the paper's GMM — `raptor.py`'s divergence from UMAP+GMM stands,
-    and the least-evidenced component in every paper is not adopted to fix something a stable
-    ordering also fixes.
+    """Ledger 10.3.
+
+    `_cluster_by_similarity` walked its input once in payload order, mutating clusters in place, so
+    which cluster a node joined depended on what preceded it — and an index rebuilt from the same
+    corpus after a different extraction order was a different tree. No paper motivates the greedy
+    pass being order-dependent: all four use order-independent clusterers (GMM/EM, k-means, an
+    entropy-minimising partition) and assume it. The repair is a stable input order, not the paper's
+    GMM — `raptor.py`'s divergence from UMAP+GMM stands, and the least-evidenced component in every
+    paper is not adopted to fix something a stable ordering also fixes.
     """
     # Arrange
     forwards = tuple(_node(f"fan-{step}") for step in range(7))
@@ -687,9 +689,11 @@ async def test_a_summary_records_its_cluster_even_when_nothing_was_dropped() -> 
 
 
 async def test_a_summary_that_saw_only_part_of_its_cluster_records_how_much() -> None:
-    """The property 10.2 names. `_format_cluster` slices every member to an even share of
-    `max_cluster_chars`, so a summary built from 40% of its cluster is byte-identical to one
-    built from all of it — the record is what makes the two distinguishable.
+    """The property 10.2 names.
+
+    `_format_cluster` slices every member to an even share of `max_cluster_chars`, so a summary
+    built from 40% of its cluster is byte-identical to one built from all of it — the record is what
+    makes the two distinguishable.
     """
     # Arrange — two 400-character members against a 100-character budget.
     a, b = _node("a" * 400), _node("b" * 400)
@@ -954,11 +958,12 @@ async def test_a_second_run_founds_a_second_tree_rather_than_joining_the_first()
 
 
 async def test_a_summary_over_leaves_states_level_one() -> None:
-    """The base case. T-Retriever indexes every tree node tagged with its level (p.5,
-    `I = {(α, zα, lα)}`); RAPTOR carries no tag because it never filters on one. Weft needs it
-    for both reasons a tag exists: 10.7 builds each level from the previous level's nodes alone
-    and has to be able to *say* which those are, and a query rung that wants only abstractions
-    has nothing else to select on.
+    """The base case.
+
+    T-Retriever indexes every tree node tagged with its level (p.5, `I = {(α, zα, lα)}`); RAPTOR
+    carries no tag because it never filters on one. Weft needs it for both reasons a tag exists:
+    10.7 builds each level from the previous level's nodes alone and has to be able to *say* which
+    those are, and a query rung that wants only abstractions has nothing else to select on.
     """
     # Arrange
     table = {"passage a": _A, "passage b": _B}
@@ -1065,8 +1070,7 @@ def _summary_at(level: int, content: str, vector: Vector) -> Node:
 
 
 async def test_a_rung_over_level_one_clusters_the_summaries_and_not_the_leaves() -> None:
-    """The whole of 10.7's first clause: each level is built from the previous level's nodes
-    alone.
+    """The whole of 10.7's first clause: each level is built from the previous level's nodes alone.
 
     The linear runner threads every stage's whole output into the next
     (`weft_kernel.runner._run_one_batch`), so a second `raptor` stage receives the leaves *and*
@@ -1277,7 +1281,8 @@ async def test_auto_resolves_from_this_run_and_the_summary_records_what_it_resol
 
 async def test_a_typed_threshold_is_recorded_as_the_operator_s_and_not_as_derived() -> None:
     """A reader has to be able to tell the two apart, or the record answers a different question
-    from the one it looks like it answers."""
+    from the one it looks like it answers.
+    """
     # Arrange
     vectors = _fan_vectors(4, 10.0)
     table = {f"chunk {index}": vector for index, vector in enumerate(vectors)}

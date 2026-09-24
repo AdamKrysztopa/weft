@@ -138,7 +138,8 @@ def _question(
     kind_axis: str | None = None,
 ) -> Question:
     """A `weft_eval.question_set.Question` stating every field a scoring fixture does not need
-    absent — the one model `score_pipeline` reads since task 38.11."""
+    absent — the one model `score_pipeline` reads since task 38.11.
+    """
     return Question.model_validate(
         {
             "id": identifier,
@@ -258,9 +259,10 @@ def test_a_corpus_relative_label_finds_its_document_wherever_it_is_staged() -> N
 
 
 def test_a_label_matches_only_at_a_path_component_boundary() -> None:
-    """`7717v2.pdf` is not a corpus-relative path, it is the tail of a filename. Matching it
-    would make `.pdf` match every PDF in the corpus, which is the failure mode a suffix rule
-    has and a component-wise one does not.
+    """`7717v2.pdf` is not a corpus-relative path, it is the tail of a filename.
+
+    Matching it would make `.pdf` match every PDF in the corpus, which is the failure mode a suffix
+    rule has and a component-wise one does not.
     """
     # Act / Assert
     with pytest.raises(UnresolvableLabelError):
@@ -268,8 +270,9 @@ def test_a_label_matches_only_at_a_path_component_boundary() -> None:
 
 
 def test_a_bare_filename_still_resolves_when_it_names_one_document() -> None:
-    """A filename *is* a corpus-relative path when the corpus is flat, and most are. The rule
-    is about component boundaries, not about requiring a directory.
+    """A filename *is* a corpus-relative path when the corpus is flat, and most are.
+
+    The rule is about component boundaries, not about requiring a directory.
     """
     # Act
     resolved = resolve_labels(("1411.2331v1.pdf",), corpus_document_ids=_corpus())
@@ -438,9 +441,11 @@ async def test_a_rank_metric_sees_retrieval_order_not_the_packers(
 
 
 async def test_a_manifest_id_is_scored_against_the_document_its_manifest_names() -> None:
-    """`eval/questions/*.toml` names documents by manifest id, and a corpus is staged by path. The
-    manifest is the one place that says which path an id is, so `document_labels` carries that
-    mapping to the label resolution every other question already goes through."""
+    """`eval/questions/*.toml` names documents by manifest id, and a corpus is staged by path.
+
+    The manifest is the one place that says which path an id is, so `document_labels` carries that
+    mapping to the label resolution every other question already goes through.
+    """
     # Arrange
     questions = (_question(relevant_documents=("ax-a",)),)
 
@@ -486,10 +491,12 @@ async def test_an_id_the_manifest_does_not_hold_is_refused_naming_it_and_the_ids
 async def test_a_sample_carries_the_questions_kind_or_the_axis_standing_in_for_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`weft eval compare --kind requires-graph-hop` slices on `RetrievalSample.kind`. A bridge
-    question states `kind` absent and carries the label as `axes["kind"]`; a curated question
-    carries a `Kind`. Both have to reach the sample, or one of the two sets stops being
-    sliceable."""
+    """`weft eval compare --kind requires-graph-hop` slices on `RetrievalSample.kind`.
+
+    A bridge question states `kind` absent and carries the label as `axes["kind"]`; a curated
+    question carries a `Kind`. Both have to reach the sample, or one of the two sets stops being
+    sliceable.
+    """
     # Arrange
     captured: list[RetrievalSample] = []
 
@@ -555,9 +562,11 @@ async def test_the_scored_run_names_its_question_set_by_the_one_models_digest() 
 async def test_a_passage_from_outside_the_corpus_is_refused_when_asked_naming_the_document() -> (
     None
 ):
-    """The fake store answers from `doc-a`. Scored against a corpus of `doc-b` alone, that
-    passage is a document no question judged, and counting it as a miss would make a store shared
-    with another corpus read as a worse pipeline."""
+    """The fake store answers from `doc-a`.
+
+    Scored against a corpus of `doc-b` alone, that passage is a document no question judged, and
+    counting it as a miss would make a store shared with another corpus read as a worse pipeline.
+    """
     # Arrange
     questions = (_question(relevant_documents=("doc-b",)),)
 
@@ -636,7 +645,8 @@ async def test_a_rung_ending_in_a_packer_is_scored_over_its_passages_and_calls_n
     """`lexical-retrieve` ends in `repack` and produces `Passages`. `run_named_ask` requires an
     `Answer` and refused it, which is what left `38.0`'s experiment with orphaned records; a
     retrieval rung is scored through `run_named_retrieve` instead, the path `weft ask
-    --retrieve-only --pipeline` already takes, and no answer is generated for it."""
+    --retrieve-only --pipeline` already takes, and no answer is generated for it.
+    """
     # Arrange
     captured: list[RetrievalSample] = []
     asked: list[object] = []
@@ -727,7 +737,8 @@ async def test_the_scored_run_carries_each_questions_axes_with_its_kind(
 ) -> None:
     """A paired difference restricted to a slice has to know which questions were in it, after the
     question file is gone; `kind`, when a question states one, is recorded as the axis `--kind`
-    reads, so `--kind X` and `--slice kind=X` restrict the same questions."""
+    reads, so `--kind X` and `--slice kind=X` restrict the same questions.
+    """
 
     # Arrange
     async def _no_metrics(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
@@ -775,7 +786,8 @@ async def test_a_rung_failing_on_one_question_excludes_it_with_its_reason_and_sc
     """`38.6`'s HyDE arm failed on one of 300 questions — a model's answer could not be parsed —
     and the exception left the question loop, so the arm wrote no record at all. `09` V4: a failed
     metric is an error, never a zero, and aggregates report how many were excluded. A question the
-    rung could not answer is the same error one level up."""
+    rung could not answer is the same error one level up.
+    """
 
     # Arrange
     async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
@@ -828,7 +840,8 @@ async def test_a_model_looping_on_one_question_excludes_it_and_scores_the_rest(
     """`39.5`'s `rfc-rerank` run: `llm-rerank` looped on one question's prompt, the loop-breaker
     stopped it, and its `LLMGenerationLoopError` left the question loop, so the arm wrote no
     record. The loop is a fact about that question's prompt — retrying it "is likely to loop
-    again" — so it is `R38.12`'s per-question failure, not a fault of the run."""
+    again" — so it is `R38.12`'s per-question failure, not a fault of the run.
+    """
 
     # Arrange
     async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
@@ -877,7 +890,8 @@ async def test_a_model_refusing_the_credential_still_aborts_the_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The control: a wrong key fails every question identically, so excluding them one by one
-    would write a record of nothing but exclusions. Only the per-question failure is caught."""
+    would write a record of nothing but exclusions. Only the per-question failure is caught.
+    """
 
     # Arrange
     async def _passages(question: str, *_args: object, **_kwargs: object) -> Passages:
@@ -911,7 +925,8 @@ async def test_a_retrieval_rung_records_which_arms_each_questions_passages_came_
 ) -> None:
     """G24: a question with no anchor contributes no lexical ranking, and the run records which
     branch it took. The passages a retrieval rung returns carry the labels of the lists they were
-    fused from; the scored run keeps them per question, keyed as its scores are."""
+    fused from; the scored run keeps them per question, keyed as its scores are.
+    """
     # Arrange
     answered_by = {
         "What is WRH123?": ("hybrid:vector", "hybrid:text"),
@@ -959,7 +974,8 @@ async def test_a_run_with_no_query_rung_records_no_contributors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The hardwired vector search returns hits, not passages, so nothing states an arm; the
-    record says it does not know rather than inventing an answer."""
+    record says it does not know rather than inventing an answer.
+    """
 
     # Arrange
     async def _no_metrics(_registry: object, samples: Sequence[RetrievalSample], **_kw: object):
@@ -1024,7 +1040,8 @@ async def test_a_generating_rungs_answer_is_scored_against_the_reference_answer(
 ) -> None:
     """`32.0` named `token-recall` and `rouge-l` as the metrics that can see `adjacent-chunks`;
     before this task the scored run kept only `Answer.used` and threw the text away, so no
-    answer metric was ever computed in a real run."""
+    answer metric was ever computed in a real run.
+    """
     # Arrange — `token_recall` splits on whitespace after lower-casing (`weft_eval/lexical.py`),
     # so both reference tokens appear in this answer and recall is 1.0.
     _generating(monkeypatch, {"what is it?": "It is forty two"})
@@ -1151,7 +1168,8 @@ async def test_hits_tied_on_score_are_ranked_in_the_order_the_ranking_gave_them(
     monkeypatch: pytest.MonkeyPatch, ends_in: str
 ) -> None:
     """`repack: reverse` packs the best hit last; two hits tied on score arrived at the stable
-    sort in that inverted order, so `[relevant, irrelevant]` at 3.5 each scored RR ½."""
+    sort in that inverted order, so `[relevant, irrelevant]` at 3.5 each scored RR ½.
+    """
     # Arrange
     captured: list[RetrievalSample] = []
     packed = (_labelled_passage("doc-other", 3.5, 1), _labelled_passage("doc-best", 3.5, 0))
@@ -1284,7 +1302,8 @@ async def test_a_generating_rung_records_which_arms_each_questions_answer_was_fe
 ) -> None:
     """G24's "the run records which branch it took", for the rung Phase 39 ships ending in
     `cited-answer`: the answer carries its passages' contributors, and the scored run keeps them
-    per question exactly as a retrieval rung's does."""
+    per question exactly as a retrieval rung's does.
+    """
     # Arrange
     answered_by = {
         "What is WRH123?": ("hybrid:vector", "hybrid:text"),

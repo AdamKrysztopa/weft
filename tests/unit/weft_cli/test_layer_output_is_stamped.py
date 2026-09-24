@@ -85,7 +85,8 @@ class _State:
 
 class _Store:
     """A paging `MetadataFilter` store whose handles share one `_State`; a handle bound to a
-    generation marks what it writes, and reads what is published plus its own."""
+    generation marks what it writes, and reads what is published plus its own.
+    """
 
     def __init__(self, state: _State | None = None, generation: GenerationId | None = None) -> None:
         self._state = state if state is not None else _State()
@@ -226,7 +227,8 @@ class _EchoQuestion:
 
 class _Summary:
     """A corpus-scope `Expander`: every leaf back, plus one summary over all of them, embedded
-    by this stage itself, as `raptor` embeds its own summaries."""
+    by this stage itself, as `raptor` embeds its own summaries.
+    """
 
     def __init__(self, config: object = None) -> None:
         del config

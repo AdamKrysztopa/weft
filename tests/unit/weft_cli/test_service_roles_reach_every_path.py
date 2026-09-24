@@ -60,8 +60,10 @@ BLOBS = ServiceRole(key="blobs", contract=_BlobStore)
 
 
 class _Store:
-    """A stand-in `NodeStore`. `build_services` resolves `[services] store` unconditionally, so
-    a registry without one is a machine with no store rather than a test of roles.
+    """A stand-in `NodeStore`.
+
+    `build_services` resolves `[services] store` unconditionally, so a registry without one is a
+    machine with no store rather than a test of roles.
     """
 
     def __init__(self, config: object = None) -> None:

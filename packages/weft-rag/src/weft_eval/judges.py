@@ -107,7 +107,6 @@ def _split_sentences(text: str) -> tuple[str, ...]:
     exact; the point is a stable, code-computed denominator for `ContextRelevance` to divide by,
     not a general-purpose sentence tokenizer.
     """
-
     fragments = re.split(r"(?<=[.!?])\s+", text.strip())
     return tuple(fragment for fragment in fragments if fragment)
 

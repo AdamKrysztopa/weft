@@ -59,14 +59,15 @@ NAME = "corrective"
 
 
 class CorrectiveConfig(BaseModel):
-    """`Corrective`'s `with:` config. Every field but one has a default — `knowledge_action`
-    does not, deliberately (module docstring: "what makes a same-index `corrective`
-    unconstructable"). `primary_config`, `grader_config` and `knowledge_action_config` are
-    each sub-plugin's own `with:` block, the same lever `weft_retrieve.iterative.
-    IterativeRetrievalConfig.leaf_config` gives its own resolved sibling — without them, the
-    only thing this document could retune about `primary`, `grader` or `knowledge_action`
-    would be *which plugin* fills the role, never how the chosen one runs, which is
-    `.phase2-findings.md` finding 9's own "a knob that exists in the library and not in the
+    """`Corrective`'s `with:` config.
+
+    Every field but one has a default — `knowledge_action` does not, deliberately (module docstring:
+    "what makes a same-index `corrective` unconstructable"). `primary_config`, `grader_config` and
+    `knowledge_action_config` are each sub-plugin's own `with:` block, the same lever
+    `weft_retrieve.iterative. IterativeRetrievalConfig.leaf_config` gives its own resolved sibling —
+    without them, the only thing this document could retune about `primary`, `grader` or
+    `knowledge_action` would be *which plugin* fills the role, never how the chosen one runs, which
+    is `.phase2-findings.md` finding 9's own "a knob that exists in the library and not in the
     config model is a knob a third party cannot reach" repeated a task apart.
     """
 
@@ -133,6 +134,7 @@ class CorrectiveTrace(ExtModel):
 
 class Corrective:
     """Grades `primary`'s own hits and, when too few survive, adds `knowledge_action`'s.
+
     Satisfies `weft_retrieve.contract.Retriever` structurally.
 
     `cost_bound = (1, -1)`: a floor of one (`grader`'s own floor, resolved by name and

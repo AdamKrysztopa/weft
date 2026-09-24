@@ -116,9 +116,10 @@ class LineKind(StrEnum):
 
 
 class StreamEvent(BaseModel):
-    """One line of `--json`'s event stream. One envelope, whichever fields `type` needs —
-    a taxonomy read at `.phase3-design.md` §2.3 and rebuilt here for what this sink
-    actually emits.
+    """One line of `--json`'s event stream.
+
+    One envelope, whichever fields `type` needs — a taxonomy read at `.phase3-design.md` §2.3 and
+    rebuilt here for what this sink actually emits.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

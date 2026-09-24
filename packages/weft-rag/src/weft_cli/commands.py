@@ -338,9 +338,10 @@ class ConflictingIndexModeError(WeftError):
 
 
 class NoLayersToRunError(WeftError):
-    """`weft index --layers-only` was given, but no layer is named anywhere — ledger task
-    **43.8**. `--layers-only` says "run the layers and nothing else", and with none named
-    that is a run that does nothing at all, refused before `run_index_for` opens anything.
+    """`weft index --layers-only` was given, but no layer is named anywhere — ledger task **43.8**.
+
+    `--layers-only` says "run the layers and nothing else", and with none named that is a run that
+    does nothing at all, refused before `run_index_for` opens anything.
 
     Not a name-resolution failure — there is no name to offer, only a flag with nothing to
     act on — so this does not join `NAME_RESOLUTION_FAMILY`, `ConflictingIndexModeError`'s
@@ -615,11 +616,12 @@ def _excluded_rung_explanations(
     deps: Dependencies,
 ) -> tuple[str, ...]:
     """`--explain`'s own line per catalogue document the router left out — ledger task **43.9**.
-    Routed path only: a rung named directly is refused or accepted before this point, never
-    silently excluded. A document with no `route.summary` is never a candidate whatever its
-    layer, so it is not listed as left out (R43.21). Carried repair **R43.30** adds a line per
-    role `[llm.roles]` does not map, read through `weft_retrieve.engine.missing_roles` — the
-    reason the router's own catalogue left the rung out.
+
+    Routed path only: a rung named directly is refused or accepted before this point, never silently
+    excluded. A document with no `route.summary` is never a candidate whatever its layer, so it is
+    not listed as left out (R43.21). Carried repair **R43.30** adds a line per role `[llm.roles]`
+    does not map, read through `weft_retrieve.engine.missing_roles` — the reason the router's own
+    catalogue left the rung out.
     """
     lines: list[str] = []
     for name, layer in sorted(route_requirements(catalogue).items()):
@@ -1847,11 +1849,12 @@ class SourcesListCommand:
 
 
 class ListedTarget(BaseModel):
-    """One target in one store's own catalogue — `weft target list`'s own row, ledger task
-    **34.6**. `live`/`previous` mark this target against `weft_store.contract.TargetCatalogue.
+    """One target in one store's own catalogue — `weft target list`'s own row, ledger task **34.6**.
+
+    `live`/`previous` mark this target against `weft_store.contract.TargetCatalogue.
     live`/`.previous`; `embedding` is `None` when nothing has claimed this target yet
-    (`weft_engine.targets.claim_embedding_for_write` never ran against it), which
-    `weft_cli.render` reports as *"embedding not recorded"* rather than as an empty identity.
+    (`weft_engine.targets.claim_embedding_for_write` never ran against it), which `weft_cli.render`
+    reports as *"embedding not recorded"* rather than as an empty identity.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -1877,13 +1880,14 @@ class TargetListCommandResult(CommandResult):
 
 
 class TargetListCommand:
-    """`weft target list` — ledger task **34.6**. Reads `[services] store`'s own catalogue,
-    and every other `NodeStore` `_stores_in_use` names that also satisfies `TargetHolding` — the
-    graph pack's store since task 34.11; a store in use that does not is left out rather than
-    refused, since it holds no targets to list. `[services] store` itself is refused
-    by name — `StoreHoldsNoTargetsError` — when it does not satisfy `TargetHolding`: there is
-    nothing this command could list, and silence would read as "no targets" rather than "this
-    store has no notion of one".
+    """`weft target list` — ledger task **34.6**.
+
+    Reads `[services] store`'s own catalogue, and every other `NodeStore` `_stores_in_use` names
+    that also satisfies `TargetHolding` — the graph pack's store since task 34.11; a store in use
+    that does not is left out rather than refused, since it holds no targets to list. `[services]
+    store` itself is refused by name — `StoreHoldsNoTargetsError` — when it does not satisfy
+    `TargetHolding`: there is nothing this command could list, and silence would read as "no
+    targets" rather than "this store has no notion of one".
 
     Each target's source count is read by binding a fresh handle to it and calling
     `list_sources()` — the identical walk `weft_cli.fanout.built` would perform, done directly
@@ -2482,8 +2486,9 @@ class ReconcileCommand:
         return typed.mode if typed.mode is not None else deps.reconcile_policy.mode
 
     def _targets(self, deps: Dependencies) -> tuple[Participant, ...]:
-        """Who the pass will ask — refusing first if `[services] store` names nothing. One
-        helper for both `describe_impact` and `run`, so the prompt and the run cannot disagree.
+        """Who the pass will ask — refusing first if `[services] store` names nothing.
+
+        One helper for both `describe_impact` and `run`, so the prompt and the run cannot disagree.
         """
         _raise_for_plugin_refusal(
             require_plugin(

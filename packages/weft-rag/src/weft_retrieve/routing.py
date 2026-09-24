@@ -185,8 +185,9 @@ class QueryScorerConfig(BaseModel):
 
 
 class LlmQueryScorer:
-    """Measures a query along named dimensions, informed by what a router could pick
-    between. Satisfies `weft_retrieve.contract.QueryScorer` structurally.
+    """Measures a query along named dimensions, informed by what a router could pick between.
+
+    Satisfies `weft_retrieve.contract.QueryScorer` structurally.
 
     **Not named `QueryScorer`** — that name belongs to the contract this class satisfies
     (`weft_retrieve.contract.QueryScorer`), and `weft_retrieve.__init__` re-exports both;
@@ -431,9 +432,10 @@ _TEN_SEED_RULES: tuple[Rule, ...] = (
 
 
 class ThresholdLadderConfig(BaseModel):
-    """`ThresholdLadder`'s `with:` config. Every field has a default, per this pack's own
-    rule — `rules` defaults to the ten illustrative seeds above, `default` to the same
-    baseline pipeline the seeds already fall back to.
+    """`ThresholdLadder`'s `with:` config.
+
+    Every field has a default, per this pack's own rule — `rules` defaults to the ten illustrative
+    seeds above, `default` to the same baseline pipeline the seeds already fall back to.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -457,8 +459,9 @@ class ThresholdLadderConfig(BaseModel):
 
 
 class ThresholdLadder:
-    """An ordered, inspectable rule table — first match wins. Satisfies `weft_retrieve.
-    contract.RoutingPolicy` structurally.
+    """An ordered, inspectable rule table — first match wins.
+
+    Satisfies `weft_retrieve. contract.RoutingPolicy` structurally.
 
     `cost_bound = (0, 0)` — a pure function over a `Scorecard` a `QueryScorer` already
     produced; this plugin resolves no service at all, `ctx` included, and calls no model.
@@ -530,8 +533,10 @@ def _holds(condition: Condition, scores: Mapping[str, float]) -> bool:
 
 
 class NearestDescriptionConfig(BaseModel):
-    """`NearestDescription`'s `with:` config. Every field has a default, per this pack's own
-    rule — there is one knob, what happens when nothing can be embedded or compared.
+    """`NearestDescription`'s `with:` config.
+
+    Every field has a default, per this pack's own rule — there is one knob, what happens when
+    nothing can be embedded or compared.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -630,7 +635,8 @@ def _synthetic(text: str, reason: str) -> Node:
 
 def _cosine(a: Vector, b: Vector) -> float:
     """Cosine similarity between two embeddings — no store, no index, just the two vectors
-    an `Embedder` handed back in the same batch."""
+    an `Embedder` handed back in the same batch.
+    """
     dot = sum(x * y for x, y in zip(a.values, b.values, strict=True))
     norm_a = math.sqrt(sum(x * x for x in a.values))
     norm_b = math.sqrt(sum(y * y for y in b.values))
@@ -649,6 +655,7 @@ class AlwaysConfig(BaseModel):
 
 class Always:
     """Routes every query to one configured pipeline, no matter what the `Scorecard` says.
+
     Satisfies `weft_retrieve.contract.RoutingPolicy` structurally.
 
     Exists to prove the other two are genuinely interchangeable — the module docstring's own

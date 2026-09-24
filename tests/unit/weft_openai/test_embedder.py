@@ -453,10 +453,13 @@ async def test_with_neither_surface_naming_one_the_vendor_default_is_still_sent(
 
 
 async def test_every_embeddings_call_records_the_tokens_it_was_billed_for() -> None:
-    """Repair R38.9. A query rung's tokens per query are read from `recording_usage`, and only an
-    LLM call ever wrote to it: Open RAGBench's dense arm made 1,548 query-embedding calls and its
-    record said nothing was spent. An embedder is not bound to an `[llm.roles]` role, so its
-    entries carry the `[services]` key that selects it, `embed`."""
+    """Repair R38.9.
+
+    A query rung's tokens per query are read from `recording_usage`, and only an LLM call ever wrote
+    to it: Open RAGBench's dense arm made 1,548 query-embedding calls and its record said nothing
+    was spent. An embedder is not bound to an `[llm.roles]` role, so its entries carry the
+    `[services]` key that selects it, `embed`.
+    """
     # Arrange
     client = _Client()
     embedder = OpenAIEmbedder(_settings(), OpenAIEmbedderConfig(batch_size=2), client=client)
@@ -477,7 +480,8 @@ async def test_every_embeddings_call_records_the_tokens_it_was_billed_for() -> N
 
 async def test_a_server_that_reports_no_usage_is_recorded_as_unreported_not_as_free() -> None:
     """R38.9's other half: a compatible server may leave `usage` out, and `UsageEntry.usage` is
-    `None` for exactly that case — a `0` would read as a call measured and found free."""
+    `None` for exactly that case — a `0` would read as a call measured and found free.
+    """
     # Arrange
     client = _Client(embeddings=_Embeddings(reports_usage=False))
     embedder = OpenAIEmbedder(_settings(), client=client)

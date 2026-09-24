@@ -32,8 +32,7 @@ class ToolCall(BaseModel):
 
 
 class NextAction(BaseModel):
-    """What a model decided, given a goal and what has happened so far: call one tool, or
-    answer.
+    """What a model decided, given a goal and what has happened so far: call one tool, or answer.
 
     Exactly one of `call`/`final_answer` is set — never both, never neither. A model that
     hedged by offering both, or answered with neither, has not actually decided anything, and

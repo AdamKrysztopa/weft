@@ -439,7 +439,8 @@ async def test_every_rebuilt_summary_is_stored_with_an_embedding() -> None:
     `index-with-adrap` joined a document, both surviving RAPTOR summaries had no vector, so the
     rebuilt tree dropped out of dense retrieval. `raptor` embeds the summaries it writes through
     `ctx.require(Embedder)`; a summary `adrap` rebuilds is embedded the same way before it is
-    superseded in, at every level it rebuilds."""
+    superseded in, at every level it rebuilds.
+    """
     # Arrange — a two-level tree, so an ancestor is rebuilt as well as the joined cluster.
     a, b, level_one = _tree_of_one_cluster()
     level_two = _summary((level_one,), content="A summary of the summary.", level=2)

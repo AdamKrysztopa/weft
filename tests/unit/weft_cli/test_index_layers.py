@@ -398,7 +398,8 @@ async def test_a_layer_that_fails_records_failed_and_is_retried_only_when_asked(
 
 async def test_a_failed_layer_is_reported_by_the_run_that_failed_it(corpus: Path) -> None:
     """Carried repair **R43.9**: Exit C's corpus RAPTOR refused on all thirty sources and
-    `weft index` exited 0 printing nothing, because the loop reported only moved identities."""
+    `weft index` exited 0 printing nothing, because the loop reported only moved identities.
+    """
     # Arrange
     store = _PagingStore()
     _EchoQuestion.fail = True
@@ -431,7 +432,8 @@ async def test_a_failed_layer_whose_document_changed_runs_again_unasked(
     corpus: Path, tmp_path: Path
 ) -> None:
     """R43.9: raptor's refusal says to raise a bound in the stage's `with:`, which moves the
-    identity; a failed record then read as `changed` and the remedy did nothing."""
+    identity; a failed record then read as `changed` and the remedy did nothing.
+    """
     # Arrange
     store = _PagingStore()
     _EchoQuestion.fail = True
@@ -453,7 +455,8 @@ async def test_a_layer_whose_output_depends_on_batch_membership_runs_once_per_so
     corpus: Path,
 ) -> None:
     """Carried repair **R43.10**: `enrich-with-raptor` is one tree per document, and Exit C
-    handed it twenty-five documents' leaves in one call, which is one tree per batch."""
+    handed it twenty-five documents' leaves in one call, which is one tree per batch.
+    """
     # Arrange
     store = _PagingStore()
 
@@ -550,7 +553,8 @@ async def test_reprocess_rebuilds_a_layer_whose_identity_moved(
     corpus: Path, tmp_path: Path
 ) -> None:
     """`R43.7`, the owner's Q6: a moved layer is never rebuilt unasked, and `--reprocess` is how
-    it is asked. The source's old derived nodes go with its leaves, so nothing stale survives."""
+    it is asked. The source's old derived nodes go with its leaves, so nothing stale survives.
+    """
     # Arrange
     store = _PagingStore()
     await _index(store, corpus, layers=("enrich-with-echo",))

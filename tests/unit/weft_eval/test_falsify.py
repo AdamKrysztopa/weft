@@ -245,10 +245,12 @@ def _with_questions(**metrics: PerQuestionScores) -> RunRecord:
 
 
 def test_the_paired_difference_is_the_mean_of_the_per_question_differences() -> None:
-    """The second interval, answering the second question. `baseline_spreads` asks *does this
-    difference exceed what the system produces by repeating itself*; this asks *does it
-    generalise across the questions*. A rung that wins hugely on two questions and loses on
-    eight has a positive mean and an interval straddling zero, and only this says so.
+    """The second interval, answering the second question.
+
+    `baseline_spreads` asks *does this difference exceed what the system produces by repeating
+    itself*; this asks *does it generalise across the questions*. A rung that wins hugely on two
+    questions and loses on eight has a positive mean and an interval straddling zero, and only this
+    says so.
     """
     # Arrange — b beats a by 0.1 on every question, so the paired mean is exactly 0.1.
     a = _with_questions(**{"precision@5": _per_question(q1=0.4, q2=0.5, q3=0.6)})
@@ -382,10 +384,13 @@ def test_a_paired_difference_can_be_restricted_to_named_questions() -> None:
 
 
 def test_the_interval_is_drawn_from_every_question_not_the_first_256() -> None:
-    """Repair R38.8. Each resampled index came from one sha256 byte, so over more than 256
-    questions the bootstrap only ever drew the first 256 in key order: Open RAGBench's 1,548
-    printed lexical recall@5 at -0.742 with an interval of -0.740 to -0.695, the mean outside its
-    own interval. Here the first 256 keys differ by 0 and the other 744 by 1."""
+    """Repair R38.8.
+
+    Each resampled index came from one sha256 byte, so over more than 256 questions the bootstrap
+    only ever drew the first 256 in key order: Open RAGBench's 1,548 printed lexical recall@5 at
+    -0.742 with an interval of -0.740 to -0.695, the mean outside its own interval. Here the first
+    256 keys differ by 0 and the other 744 by 1.
+    """
     # Arrange
     keys = [f"q{index:04d}" for index in range(1000)]
     a = _with_questions(**{"recall@5": _per_question(**dict.fromkeys(keys, 0.0))})

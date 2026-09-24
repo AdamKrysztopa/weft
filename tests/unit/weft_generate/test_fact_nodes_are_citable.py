@@ -197,7 +197,8 @@ async def _evidence() -> Node:
 
 def _fact(evidence: Node) -> Node:
     """A fact node as `weft-kg`'s extractor will build one: derived from the chunk it was
-    read out of, carrying every fact that chunk's `ext` held."""
+    read out of, carrying every fact that chunk's `ext` held.
+    """
     return carry_forward(evidence.derive(content=_STATEMENT), parent=evidence)
 
 
@@ -215,7 +216,8 @@ def _passage(node: Node, *, label: str, rank: int = 0) -> Passage:
 
 async def test_a_fact_carrying_its_parents_facts_resolves_to_the_page_of_its_evidence() -> None:
     """The property `11.1` states: a fact node's page is its evidence's page, read off the
-    fact node alone, because that is all `page_for` is ever given."""
+    fact node alone, because that is all `page_for` is ever given.
+    """
     # Arrange
     evidence = await _evidence()
 
@@ -254,7 +256,8 @@ async def test_a_fact_that_does_not_carry_its_parents_facts_has_no_page_at_all()
 
 async def test_a_fact_node_is_offered_as_a_passage_labelled_and_cited_to_itself() -> None:
     """The whole query path over a fact node: offered, labelled, cited, and the citation
-    names the **fact**, carries its page and resolves to the document it came from."""
+    names the **fact**, carries its page and resolves to the document it came from.
+    """
     # Arrange
     evidence = await _evidence()
     fact = _fact(evidence)

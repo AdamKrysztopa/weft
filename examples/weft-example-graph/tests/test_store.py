@@ -246,11 +246,12 @@ async def test_reconcile_repair_recomputes_from_stored_ext(store: GraphStore) ->
 async def test_reconcile_full_backfills_from_the_corpus_on_the_passport(
     store: GraphStore,
 ) -> None:
-    """Task **6.19**, G13's second repair. `02` §1 → *Extended by G13*: a participant that is
-    not the primary store asks through the passport — `ctx.require(NodeStore)`, G1's one
-    resolution seam — rather than through a wider `reconcile` signature. `02` §4's own table
-    row is what this makes true: "`full` backfills entities for nodes indexed by a pipeline
-    that had no graph stage".
+    """Task **6.19**, G13's second repair.
+
+    `02` §1 → *Extended by G13*: a participant that is not the primary store asks through the
+    passport — `ctx.require(NodeStore)`, G1's one resolution seam — rather than through a wider
+    `reconcile` signature. `02` §4's own table row is what this makes true: "`full` backfills
+    entities for nodes indexed by a pipeline that had no graph stage".
 
     Until this task the same call raised `GraphBackfillUnavailableError`, and that error class
     is gone: the access it named as missing exists, so an error saying it does not would now be
@@ -297,9 +298,10 @@ async def test_estimate_full_counts_what_the_corpus_holds_and_this_store_does_no
 async def test_full_without_a_corpus_on_the_passport_says_what_is_missing(
     store: GraphStore,
 ) -> None:
-    """The loud failure the seam earns. A backfill with no corpus registered is not a backfill
-    of zero — `01` rule 5 — so it refuses, naming the contract it wanted and what *is* on this
-    run's passport.
+    """The loud failure the seam earns.
+
+    A backfill with no corpus registered is not a backfill of zero — `01` rule 5 — so it refuses,
+    naming the contract it wanted and what *is* on this run's passport.
     """
     # Act / Assert
     with pytest.raises(UnresolvedServiceError) as raised:
@@ -398,7 +400,8 @@ def _truncate() -> None:
 async def clean_store(store: GraphStore) -> AsyncIterator[GraphStore]:
     """The published source-record checks list every source, so they start from empty tables,
     and leave none of the kit's corpus behind: its nodes carry ext namespaces this pack's tests
-    do not register."""
+    do not register.
+    """
     await store.count()  # provisions the schema through the public API
     _truncate()
     yield store
@@ -410,7 +413,8 @@ async def test_a_source_record_round_trips_through_the_published_check(
 ) -> None:
     """`R36.2`: a store outside the tree keeps a failure it is handed, which the published
     conformance kit checks. This store wrote neither `failure` nor `pipeline_identity`, so
-    `weft sources list` printed `failed` with no stage and attempts never advanced."""
+    `weft sources list` printed `failed` with no stage and attempts never advanced.
+    """
     await check_a_source_record_round_trips_and_is_listed(clean_store)
 
 
@@ -422,5 +426,6 @@ async def test_a_source_s_layers_round_trip_through_the_published_check(
     clean_store: NodeStore,
 ) -> None:
     """Ledger **43.6**: a store outside the tree keeps the layers it is handed, as `R36.2` made it
-    keep the failure."""
+    keep the failure.
+    """
     await check_a_source_records_layers_round_trip_whole_and_are_listed(clean_store)

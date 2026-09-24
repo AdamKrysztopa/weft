@@ -14,8 +14,9 @@ NAME = "example-emphasize"
 
 
 class ExampleQueryTransform:
-    """Adds one derived query — the original text, upper-cased — beside every query it is
-    handed. Satisfies `weft_retrieve.contract.QueryTransform` structurally.
+    """Adds one derived query — the original text, upper-cased — beside every query it is handed.
+
+    Satisfies `weft_retrieve.contract.QueryTransform` structurally.
     """
 
     def __init__(self, config: object = None) -> None:

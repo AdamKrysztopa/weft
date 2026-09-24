@@ -104,7 +104,8 @@ def _value_at(node: Node, path: FieldPath) -> object:
 
 class _RecordingStore:
     """A `NodeStore` + `MetadataFilter` + `NodeSupersedable` holding nodes in a dict, with
-    `supersede` implemented write-new-then-delete-old, as the contract orders it."""
+    `supersede` implemented write-new-then-delete-old, as the contract orders it.
+    """
 
     def __init__(self, nodes: Sequence[Node]) -> None:
         self.nodes: dict[NodeId, Node] = {node.id: node for node in nodes}

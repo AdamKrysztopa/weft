@@ -171,7 +171,8 @@ def test_a_fully_built_phase_reads_done_in_the_roadmap() -> None:
 @_requires_both
 def test_the_check_can_actually_fail() -> None:
     """A planted disagreement, because the assertion above passes when the tree is right and would
-    pass equally if either regex had stopped matching."""
+    pass equally if either regex had stopped matching.
+    """
     # Arrange — one row and one phase, disagreeing the way the four real ones did.
     ticks = {"99a": (4, 0)}
     rows = [("99a", "MUST")]
@@ -190,7 +191,8 @@ def test_the_check_can_actually_fail() -> None:
 @_requires_both
 def test_a_phase_still_building_is_not_reported() -> None:
     """The one-directional half: an open task means the verdict is still a plan, and a plan is
-    exactly what this table is for."""
+    exactly what this table is for.
+    """
     # Arrange
     ticks = {"99a": (4, 1)}
     rows = [("99a", "MUST")]
@@ -256,8 +258,11 @@ def _rows_owing_a_section(roadmap: str) -> list[str]:
 
 
 def _verdicts(roadmap: str) -> list[tuple[str, str]]:
-    """`(phase, verdict)` per §1 row. Line by line, because `_ROW` is deliberately unanchored to
-    `MULTILINE` and `.*` must not be allowed to reach across a row boundary."""
+    """`(phase, verdict)` per §1 row.
+
+    Line by line, because `_ROW` is deliberately unanchored to `MULTILINE` and `.*` must not be
+    allowed to reach across a row boundary.
+    """
     return [
         (match.group(1), match.group(2))
         for line in roadmap.splitlines()

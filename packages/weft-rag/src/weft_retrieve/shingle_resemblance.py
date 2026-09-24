@@ -75,8 +75,10 @@ def _resemblance(a: frozenset[tuple[str, ...]], b: frozenset[tuple[str, ...]]) -
 
 
 class ShingleResemblanceConfig(BaseModel):
-    """`ShingleResemblance`'s `with:` config. Every field has a default, per this pack's own
-    rule — both quoted at the source that fixes them in the module docstring above.
+    """`ShingleResemblance`'s `with:` config.
+
+    Every field has a default, per this pack's own rule — both quoted at the source that fixes them
+    in the module docstring above.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -86,8 +88,9 @@ class ShingleResemblanceConfig(BaseModel):
 
 
 class ShingleResemblance:
-    """Drops any passage whose resemblance to a higher-ranked **kept** passage meets the
-    threshold. Satisfies `weft_retrieve.contract.Reranker` structurally.
+    """Drops any passage whose resemblance to a higher-ranked **kept** passage meets the threshold.
+
+    Satisfies `weft_retrieve.contract.Reranker` structurally.
 
     `cost_bound = (0, 0)`: resemblance is computed over token sets already carried on each
     passage's own content, with no service resolved and no model called — the identical

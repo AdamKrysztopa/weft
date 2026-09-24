@@ -316,8 +316,9 @@ def test_a_registered_store_nothing_names_stays_out() -> None:
 
 def test_a_named_plugin_that_is_not_a_store_is_not_a_store() -> None:
     """`kg` names `text` as well, and `text` is registered under another contract entirely.
-    Membership is decided against what is registered under `NodeStore`, never against the set
-    of names a document happens to mention.
+
+    Membership is decided against what is registered under `NodeStore`, never against the set of
+    names a document happens to mention.
     """
     # Arrange
     registry = _registry()
@@ -418,7 +419,8 @@ def test_a_run_record_that_will_not_parse_is_refused_by_name(tmp_path: Path) -> 
 def test_a_wrapped_value_is_handed_back_as_itself() -> None:
     """Carried repair **R34.7**: a closure wrapped by `weft_kernel.seam.wrap` that only produces
     or raises is read through `produced_value`, never an `isinstance` guard whose `else` would
-    skip a participant silently."""
+    skip a participant silently.
+    """
     # Act
     value = produced_value(Produced(value="w128"), stage="target:catalogue")
 
