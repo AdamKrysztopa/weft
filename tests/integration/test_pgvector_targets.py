@@ -22,6 +22,7 @@ import asyncio
 import os
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from typing import cast
 from uuid import uuid4
 
 import psycopg
@@ -416,3 +417,85 @@ async def test_opening_a_current_database_never_waits_behind_a_writer(
 
     # Assert
     assert counted == 1
+
+
+#: psycopg's default `prepare_threshold` is 5: the fifth execution of one statement prepares it.
+_READS_PAST_PREPARATION = 6
+
+
+def _unembedded(content: str) -> Node:
+    return Node.synthetic(
+        content=content,
+        media_type=MediaType.TEXT,
+        reason="pgvector targets",
+        sources=frozenset({SourceId("doc")}),
+    )
+
+
+async def _node_rows() -> int:
+    rows = await _execute(sql.SQL("SELECT count(*) FROM weft_nodes"))
+    return int(cast(int, rows[0][0]))
+
+
+async def test_a_reader_keeps_searching_text_after_another_handle_writes_the_first_embedding(
+    store: PgVectorStore,
+) -> None:
+    """Carried repair **R43.39**, found by Phase 43c's closing gate: `retrieve` failed with
+    `FeatureNotSupported: cached plan must not change result type`. psycopg prepares a statement
+    on its fifth run, and a prepared `SELECT weft_nodes.*` refuses to run once another handle's
+    first embedded `add()` has typed `embedding` from `vector` to `vector(n)` under it."""
+    # Arrange — a lexical corpus, searched by `store` until its statement is prepared.
+    lexical = [_unembedded("the kestrel hovers over weft"), _unembedded("the heron wades weft")]
+    writer = _store()
+    try:
+        await store.add(lexical)
+        for _ in range(_READS_PAST_PREPARATION):
+            await store.search_text("weft", 10)
+        before = await _node_rows()
+        embedded = _node("the petrel skims weft", (1.0, 0.0, 0.0))
+        await writer.add([embedded])
+        after = await _node_rows()
+
+        # Act
+        first = await store.search_text("weft", 10)
+        second = await store.search_text("weft", 10)
+    finally:
+        await writer.aclose()
+
+    # Assert
+    assert (before, after) == (2, 3)
+    expected = {node.id for node in (*lexical, embedded)}
+    assert {scored.value.id for scored in first} == expected
+    assert {scored.value.id for scored in second} == expected
+
+
+async def test_a_reader_keeps_getting_nodes_after_another_handle_writes_the_first_embedding(
+    store: PgVectorStore,
+) -> None:
+    """Carried repair **R43.39** on a second read shape: `get`'s `SELECT *` is prepared exactly as
+    `search_text`'s is, so the repair is a property of every read, not of one statement."""
+    # Arrange
+    lexical = [_unembedded("the kestrel hovers over weft"), _unembedded("the heron wades weft")]
+    ids = [node.id for node in lexical]
+    writer = _store()
+    try:
+        await store.add(lexical)
+        for _ in range(_READS_PAST_PREPARATION):
+            await store.get(ids)
+        before = await _node_rows()
+        embedded = _node("the petrel skims weft", (1.0, 0.0, 0.0))
+        await writer.add([embedded])
+        after = await _node_rows()
+
+        # Act
+        found = await store.get([*ids, embedded.id])
+    finally:
+        await writer.aclose()
+
+    # Assert
+    assert (before, after) == (2, 3)
+    by_id = {node.id: node for node in found}
+    assert set(by_id) == {*ids, embedded.id}
+    stored = by_id[embedded.id].embedding
+    assert stored is not None
+    assert stored.values == (1.0, 0.0, 0.0)

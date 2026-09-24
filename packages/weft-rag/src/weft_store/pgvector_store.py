@@ -1233,8 +1233,9 @@ class PgVectorStore:
         # `row_factory=dict_row`, is what makes `Self` bind to `AsyncConnection[dict[str, Any]]`
         # under strict checking — inference alone resolves `Row` to the class's `TupleRow`
         # default before it ever looks at `dict_row`'s own return type.
+        # Unprepared: another handle's first embedded write changes a typmod (R43.39).
         conn = await psycopg.AsyncConnection[dict[str, Any]].connect(
-            self._dsn, autocommit=True, row_factory=dict_row
+            self._dsn, autocommit=True, row_factory=dict_row, prepare_threshold=None
         )
         async with conn.cursor() as cur:
             await cur.execute("SELECT current_schema() AS schema")

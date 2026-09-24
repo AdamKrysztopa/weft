@@ -250,6 +250,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **A pgvector read no longer fails with `cached plan must not change result type`.** A handle that
+  had run one read five times held a prepared plan, and the first embedded `weft index` into a
+  fresh store narrows the `embedding` column's type. Every later read of that shape on the older
+  handle failed, and kept failing. A command that reads many times on one store, as
+  `weft eval experiment` does, met it when another process wrote the store's first embeddings. The
+  store no longer prepares statements server-side, which costs about 0.3 ms per text search.
 - **A project can derive `enrich-with-raptor` without its join stage.** A document that extended
   it and removed the `join` stage was refused, because the inherited `layer.incremental: join` named
   a stage that was gone and a var cannot be unset. `layer.incremental: none` now says the layer has
