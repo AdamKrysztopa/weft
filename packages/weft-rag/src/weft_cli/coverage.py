@@ -1,4 +1,6 @@
-"""How much of the corpus `weft ask` could see, from one `list_sources()` read — task **43.4**,
+"""Measure how much of the corpus `weft ask` could see, from one `list_sources()` read.
+
+How much of the corpus `weft ask` could see, from one `list_sources()` read — task **43.4**,
 widened at **43.9** to answer per-layer coverage from the identical read.
 
 The denominator is what the store has recorded, never the directory: a file no run has reached is
@@ -31,11 +33,14 @@ class SourceCoverage(BaseModel):
 
     @property
     def complete(self) -> bool:
+        """Whether every recorded source is indexed, with none failed or in flight."""
         return self.failed == 0 and self.indexing == 0
 
 
 def coverage_of(records: Iterable[SourceRecord]) -> SourceCoverage:
-    """One `SourceCoverage` from every recorded `SourceRecord` — `ACTIVE` counts as indexed,
+    """Summarise every recorded `SourceRecord` as one `SourceCoverage`.
+
+    One `SourceCoverage` from every recorded `SourceRecord` — `ACTIVE` counts as indexed,
     `FAILED` as failed, `INDEXING` as indexing, `DELETING` counts nowhere (see the module
     docstring for why).
     """
@@ -88,7 +93,9 @@ def layer_coverage_of(records: Iterable[SourceRecord]) -> tuple[LayerCoverage, .
 
 
 def ready_layers(layers: Iterable[LayerCoverage]) -> frozenset[str]:
-    """Every layer name built on every indexed source — `weft_retrieve.engine.route_catalogue`'s
+    """Collect every layer name built on every indexed source.
+
+    Every layer name built on every indexed source — `weft_retrieve.engine.route_catalogue`'s
     own `ready_layers` argument, and `weft_cli.commands.PendingLayerError`'s own gate.
     """
     return frozenset(layer.name for layer in layers if layer.of > 0 and layer.built == layer.of)

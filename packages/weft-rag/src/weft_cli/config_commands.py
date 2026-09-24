@@ -114,6 +114,15 @@ class ConfigGetCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Read one config key, or every effective key when none is named.
+
+        Args:
+            args: The parsed `ConfigGetArgs`.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The entries read, as a `ConfigGetCommandResult`.
+        """
         get_args = cast(ConfigGetArgs, args)
         # Ledger task 9.0 — `effective_config`'s "print everything" path is dynamic, over
         # whatever this run's own discovery declared, so it needs `Dependencies.roles`.
@@ -139,6 +148,15 @@ class ConfigSetCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Validate one `section.key` value and write it to the project's config file.
+
+        Args:
+            args: The parsed `ConfigSetArgs`.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The key, value and path written, as a `ConfigSetCommandResult`.
+        """
         set_args = cast(ConfigSetArgs, args)
         # Ledger task **9.0**: `[services]`'s key set is the declared role set, so this command
         # needs the run's `RoleTable` and can no longer answer from a module constant.
@@ -157,8 +175,9 @@ class ConfigSetCommand:
 
 
 def register_config_commands(registrar: PackRegistrar) -> None:
-    """Register both `config` commands — called from `weft_cli.commands.register`, never
-    from a second entry point.
+    """Register both `config` commands.
+
+    Called from `weft_cli.commands.register`, never from a second entry point.
     """
     registrar.add(Command, "config get", ConfigGetCommand)
     registrar.add(Command, "config set", ConfigSetCommand)

@@ -67,9 +67,11 @@ ENVELOPE_VERSION: Final[str] = "1.0.0"
 
 
 class ErrorEnvelope(BaseModel):
-    """One `WeftError`, whole, for a script — see the module docstring for what each field is
-    and why. Constructed only by `build_error_envelope` below; nothing else in this tree
-    hand-assembles one, so every emitting site stays identical by construction.
+    """One `WeftError`, whole, for a script.
+
+    See the module docstring for what each field is and why. Constructed only by
+    `build_error_envelope` below; nothing else in this tree hand-assembles one, so every
+    emitting site stays identical by construction.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

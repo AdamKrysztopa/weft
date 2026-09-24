@@ -149,7 +149,9 @@ class UnknownStagePluginError(PipelineResolutionError, UnresolvedNameError):
 
 
 class RefusedStagePluginError(WeftError):
-    """A document's `use:` names a plugin whose only candidate pack is `REFUSED` by
+    """Raised when a `use:` names a plugin whose only candidate pack is refused.
+
+    A document's `use:` names a plugin whose only candidate pack is `REFUSED` by
     `[packs] allow` — carried repair **R11.3**.
 
     **Not** a `PipelineResolutionError` subclass. `weft_cli.exit_codes.exit_code_for` maps
@@ -354,7 +356,9 @@ def _contract_for(
 
 
 def _installed_names(registry: Registry) -> tuple[str, ...]:
-    """Every plugin name registered under any contract — the `valid_options` a `use:` that
+    """List every plugin name registered under any contract.
+
+    Every plugin name registered under any contract — the `valid_options` a `use:` that
     failed to resolve is offered, computed once so the unavailable-surface branch and the
     no-matches branch of `_contract_for` cannot answer the same question differently.
     """
@@ -366,7 +370,9 @@ def _installed_names(registry: Registry) -> tuple[str, ...]:
 
 
 def _install_remedy(reports: Sequence[PackReport], *, use: str) -> str | None:
-    """`install_hint` for whichever report's own `pack` matches `use` — `None` if no report
+    """Find the `install_hint` of the report whose `pack` matches `use`.
+
+    `install_hint` for whichever report's own `pack` matches `use` — `None` if no report
     names that pack, or if that report's own distribution declares no extra for it.
 
     Matched on `PackReport.pack`, this repository's built-in convention of a pack registering
@@ -424,13 +430,17 @@ def _surviving_stage_uses(ancestry: list[Pipeline]) -> dict[str, str]:
     uses: dict[str, str] = {stage.id: stage.use for stage in root.stages}
     for document in descendants:
         for key in document.operator_order:
-            if key == "insert":
-                for op in document.insert:
-                    uses[op.stage.id] = op.stage.use
-            elif key == "replace":
-                for stage in document.replace:
-                    uses[stage.id] = stage.use
-            elif key == "remove":
-                for target in document.remove:
-                    uses.pop(target, None)
+            _apply_operator(uses, document, key)
     return uses
+
+
+def _apply_operator(uses: dict[str, str], document: Pipeline, key: str) -> None:
+    if key == "insert":
+        for op in document.insert:
+            uses[op.stage.id] = op.stage.use
+    elif key == "replace":
+        for stage in document.replace:
+            uses[stage.id] = stage.use
+    elif key == "remove":
+        for target in document.remove:
+            uses.pop(target, None)

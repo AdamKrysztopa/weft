@@ -188,7 +188,9 @@ def render_doctor(
 
 
 def _defaulted_embedder_block(embedder: str) -> str:
-    """Task **28.8** — the sentence `weft index` already prints, on the command an operator runs
+    """Warn that nothing chose the embedder, in the sentence `weft index` already prints.
+
+    Task **28.8** — the sentence `weft index` already prints, on the command an operator runs
     when a result looks wrong rather than when it was produced.
 
     `None` — the default — prints nothing and leaves every existing caller's output unchanged, on
@@ -200,7 +202,9 @@ def _defaulted_embedder_block(embedder: str) -> str:
 
 
 def _sorted(reports: tuple[PackReport, ...]) -> list[PackReport]:
-    """Ordered by the identity that is printed: the pack, with `ALLOWED_NOT_INSTALLED`'s
+    """Order `reports` by the identity that is printed.
+
+    Ordered by the identity that is printed: the pack, with `ALLOWED_NOT_INSTALLED`'s
     distribution standing in for the one row that has no pack at all.
     """
     return sorted(reports, key=lambda report: report.pack or report.distribution)

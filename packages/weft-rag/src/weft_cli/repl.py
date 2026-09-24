@@ -152,7 +152,9 @@ _DEFERRED_SLASH_COMMANDS: Final[dict[str, str]] = {
 
 
 def read_line(prompt: str) -> str:
-    """`input(prompt)`, in its own name — the identical monkeypatch-ability convention
+    """Read one line of REPL input.
+
+    `input(prompt)`, in its own name — the identical monkeypatch-ability convention
     `weft_cli.confirm.read_confirmation` already uses for the same reason: a test drives this
     with a scripted sequence, never a real terminal, which CI never is.
     """
@@ -160,7 +162,9 @@ def read_line(prompt: str) -> str:
 
 
 def repl_completions(registry: Registry, prefix: str) -> list[str]:
-    """Every registered `Command` name starting with `prefix` — see the module docstring's
+    """List every registered `Command` name starting with `prefix`, sorted.
+
+    Every registered `Command` name starting with `prefix` — see the module docstring's
     *"Completion"* paragraph. Sorted, so a fixed prefix always yields a fixed order.
     """
     return sorted(name for name in registry.names_for(Command) if name.startswith(prefix))
@@ -231,7 +235,9 @@ def _session_text(state: SessionState) -> str:
 async def _dispatch_config(
     rest: str, *, parser: argparse.ArgumentParser, deps: Dependencies, state: SessionState
 ) -> tuple[Rendered, bool, SessionState]:
-    """`/config [key]` — task 3.7: an alias for `config get`, `/plugins`'s own pattern
+    """Handle `/config [key]`, an alias for `config get`.
+
+    `/config [key]` — task 3.7: an alias for `config get`, `/plugins`'s own pattern
     proven a second time. Split out of `_dispatch_slash` on its own, not because the logic
     is complex, but because it is the eighth branch that function's own `ruff` complexity
     budget refused to grow past — the same reason `_help_text`/`_trace_text`/`_session_text`
@@ -367,7 +373,9 @@ async def _dispatch_slash(
 
 
 async def run_repl(deps: Dependencies, parser: argparse.ArgumentParser) -> ExitCode:
-    """Read a line, resolve it against `parser` — the same registry-driven grammar `--help` is
+    """Run the interactive session until `/exit`, end-of-input or an uncaught exception.
+
+    Read a line, resolve it against `parser` — the same registry-driven grammar `--help` is
     generated from — run it through `weft_cli.cli.run_command`, and render what comes back.
     Loops until `/exit`, end-of-input, or an uncaught exception (`CancelledError` included; see
     the module docstring's own paragraph). Returns the session's own exit code, always `SUCCESS`
@@ -393,35 +401,46 @@ async def run_repl(deps: Dependencies, parser: argparse.ArgumentParser) -> ExitC
             continue
 
         if line.startswith("/"):
-            rendered, keep_running, state = await _dispatch_slash(
-                line, parser=parser, deps=deps, state=state
-            )
+            turn = await _dispatch_slash(line, parser=parser, deps=deps, state=state)
         else:
-            try:
-                tokens = shlex.split(line)
-            except ValueError as exc:
-                print(f"could not parse: {exc}", file=sys.stderr)
-                continue
-            try:
-                args = parser.parse_args(tokens)
-            except SystemExit:
-                # `argparse` already printed its own usage/error to stderr — a bad line in a
-                # session re-prompts, unlike a bad line in a one-shot invocation, which is
-                # exactly the property that makes this a session rather than a batch of one.
-                continue
-            command_name = cast(str, getattr(args, COMMAND_NAME_ATTR))
-            rendered = await run_command(command_name, args, deps)
-            state = with_turn_recorded(
-                state, command_name=command_name, line=line, exit_code=rendered.exit_code
-            )
-            keep_running = True
-
-        if rendered.stdout is not None:
-            print(rendered.stdout)
-        if rendered.stderr is not None:
-            print(rendered.stderr, file=sys.stderr)
+            turn = await _dispatch_command(line, parser=parser, deps=deps, state=state)
+        if turn is None:
+            continue
+        rendered, keep_running, state = turn
+        _print_rendered(rendered)
         if not keep_running:
             return ExitCode.SUCCESS
+
+
+def _print_rendered(rendered: Rendered) -> None:
+    if rendered.stdout is not None:
+        print(rendered.stdout)
+    if rendered.stderr is not None:
+        print(rendered.stderr, file=sys.stderr)
+
+
+async def _dispatch_command(
+    line: str, *, parser: argparse.ArgumentParser, deps: Dependencies, state: SessionState
+) -> tuple[Rendered, bool, SessionState] | None:
+    """Run one command line, or `None` when it did not parse and the session re-prompts."""
+    try:
+        tokens = shlex.split(line)
+    except ValueError as exc:
+        print(f"could not parse: {exc}", file=sys.stderr)
+        return None
+    try:
+        args = parser.parse_args(tokens)
+    except SystemExit:
+        # `argparse` already printed its own usage/error to stderr — a bad line in a
+        # session re-prompts, unlike a bad line in a one-shot invocation, which is
+        # exactly the property that makes this a session rather than a batch of one.
+        return None
+    command_name = cast(str, getattr(args, COMMAND_NAME_ATTR))
+    rendered = await run_command(command_name, args, deps)
+    state = with_turn_recorded(
+        state, command_name=command_name, line=line, exit_code=rendered.exit_code
+    )
+    return rendered, True, state
 
 
 __all__ = ["PROMPT", "read_line", "repl_completions", "run_repl"]

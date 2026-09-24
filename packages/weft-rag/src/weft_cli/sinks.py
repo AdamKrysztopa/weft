@@ -73,7 +73,9 @@ DEFAULT_DISPLAY_ROLES: frozenset[str] = frozenset({"generate"})
 
 
 class StreamEventType(StrEnum):
-    """One line's shape in `--json`'s newline-delimited event stream — see the module
+    """One line's shape in `--json`'s newline-delimited event stream.
+
+    One line's shape in `--json`'s newline-delimited event stream — see the module
     docstring's own paragraph on why this is three members, not seven.
     """
 
@@ -169,7 +171,9 @@ class ReaderGoneError(BrokenPipeError):
 
 
 class PrintingSink:
-    """Writes a chunk's text to `stream` the instant it arrives — the default sink, the one
+    """Write each chunk's text to `stream` the instant it arrives.
+
+    Writes a chunk's text to `stream` the instant it arrives — the default sink, the one
     a human reads. Satisfies `weft_llm.contract.TokenSink` structurally, the same path
     every plugin in this tree takes with its own contract.
 
@@ -234,24 +238,38 @@ class PrintingSink:
         self._display_stage = stage
 
     async def emit(self, chunk: TokenChunk) -> None:
+        """Write `chunk`'s text and flush it, when this sink shows its role and stage.
+
+        Args:
+            chunk: The streamed token chunk.
+
+        Raises:
+            ReaderGoneError: The reader closed the stream.
+        """
         if not _visible(chunk, self._display_roles, self._display_stage):
             return
         try:
-            self._stream.write(chunk.text)
-            self._stream.flush()
+            self._write_now(chunk.text)
         except BrokenPipeError as exc:
             raise ReaderGoneError(*exc.args) from exc
         self.wrote_anything = True
 
     async def close(self, *, reason: str | None = None) -> None:
-        try:
+        """End the streamed line, and mark a stream that broke with its own line.
+
+        Args:
+            reason: Why the stream did not complete, or `None` when it did.
+        """
+        with contextlib.suppress(BrokenPipeError):
             if self.wrote_anything:
                 self._stream.write("\n")
             if reason is not None:
                 self._stream.write(f"[stream error: {reason}]\n")
             self._stream.flush()
-        except BrokenPipeError:
-            pass
+
+    def _write_now(self, text: str) -> None:
+        self._stream.write(text)
+        self._stream.flush()
 
     async def batch_progress(self, event: BatchProgress) -> None:
         """One line to `progress_stream` per `weft index` batch — ledger task **43.2**.
@@ -341,6 +359,14 @@ class JsonSink:
         self._display_stage = stage
 
     async def emit(self, chunk: TokenChunk) -> None:
+        """Write `chunk` as one `chunk` event line, when this sink shows its role and stage.
+
+        Args:
+            chunk: The streamed token chunk.
+
+        Raises:
+            ReaderGoneError: The reader closed the stream.
+        """
         if not _visible(chunk, self._display_roles, self._display_stage):
             return
         self.wrote_anything = True
@@ -350,6 +376,11 @@ class JsonSink:
             raise ReaderGoneError(*exc.args) from exc
 
     async def close(self, *, reason: str | None = None) -> None:
+        """End the stream with one `done` event, or an `error` event carrying `reason`.
+
+        Args:
+            reason: Why the stream did not complete, or `None` when it did.
+        """
         event = (
             StreamEvent(type=StreamEventType.DONE)
             if reason is None

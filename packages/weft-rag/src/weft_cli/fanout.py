@@ -92,22 +92,33 @@ def participants_for(
         if contract is NodeStore:
             names = [name for name in names if name in store_names]
         for name in names:
-            entry = registry.entry(contract, name)
-            target = unwrap_factory(entry.factory)
-            if not isinstance(target, type) or not class_provides(target, capability):
-                continue
-            if id(target) in seen:
-                continue
-            seen.add(id(target))
-            found.append(
-                Participant(
-                    contract=contract.__qualname__,
-                    name=name,
-                    distribution=entry.distribution,
-                    build=entry.factory,
-                )
-            )
+            participant = _participant(contract, name, capability, registry=registry, seen=seen)
+            if participant is not None:
+                found.append(participant)
     return tuple(found)
+
+
+def _participant(
+    contract: type[object],
+    name: str,
+    capability: type[object],
+    *,
+    registry: Registry,
+    seen: set[int],
+) -> Participant | None:
+    entry = registry.entry(contract, name)
+    target = unwrap_factory(entry.factory)
+    if not isinstance(target, type) or not class_provides(target, capability):
+        return None
+    if id(target) in seen:
+        return None
+    seen.add(id(target))
+    return Participant(
+        contract=contract.__qualname__,
+        name=name,
+        distribution=entry.distribution,
+        build=entry.factory,
+    )
 
 
 @asynccontextmanager

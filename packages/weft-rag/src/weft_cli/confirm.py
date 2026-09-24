@@ -87,7 +87,7 @@ _ASK_CLASSES = (PermissionClass.OVERWRITE, PermissionClass.DESTROY)
 
 
 def _article(word: str) -> str:
-    """ "a" or "an", by `word`'s own first letter.
+    """Choose "a" or "an" for `word` by its own first letter.
 
     **Repair, 2026-08-20, from a review of task 3.7's `f201e70`.** Both messages below used to
     hardcode "is a {permission_class.value}-class command" unconditionally, which reads "is a
@@ -112,7 +112,9 @@ def is_interactive() -> bool:
 
 
 def read_confirmation(prompt: str) -> str:
-    """`input(prompt)`, in its own name for the identical monkeypatch-ability reason, with one
+    """Read one line of confirmation, treating end-of-input as a decline.
+
+    `input(prompt)`, in its own name for the identical monkeypatch-ability reason, with one
     correction: `EOFError` — stdin running dry mid-prompt, a real if rare shape for a TTY that
     is attached but not actually being typed into — becomes an empty string, which `gate`'s own
     decline check already treats as "not confirmed", rather than an unhandled traceback. This is

@@ -91,7 +91,9 @@ _TARGET_DROP_HELP = (
 
 
 class _NoArgs(BaseModel):
-    """The args model for `target rollback`, which takes none — `weft_cli.commands.NoArgs`'s own
+    """The args model for `target rollback`, which takes no arguments.
+
+    The args model for `target rollback`, which takes none — `weft_cli.commands.NoArgs`'s own
     shape, defined again here rather than imported: a module-scope import of it back would be
     the identical cycle `weft_cli.commands`' own docstring already names for
     `weft_cli.render` (that module imports `weft_cli.commands`, so `weft_cli.commands`
@@ -119,7 +121,9 @@ class TargetPromoteArgs(BaseModel):
 
 
 class TargetPromoteCommandResult(CommandResult):
-    """`weft target promote`'s whole answer — the catalogue after the switch on the primary
+    """What `weft target promote` answers with.
+
+    `weft target promote`'s whole answer — the catalogue after the switch on the primary
     `[services] store`, and every `TargetHolding` participant it switched on.
     """
 
@@ -156,6 +160,18 @@ class TargetPromoteCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Promote `args.name` on the primary store and every other participant.
+
+        Args:
+            args: The validated `TargetPromoteArgs`.
+            ctx: The run's context, carrying `Dependencies`.
+
+        Returns:
+            The catalogue after the switch, and every store promoted.
+
+        Raises:
+            StoreHoldsNoTargetsError: `[services] store` holds no targets.
+        """
         typed = cast(TargetPromoteArgs, args)
         deps = ctx.require(Dependencies)
         store_name = deps.services.store
@@ -166,46 +182,9 @@ class TargetPromoteCommand:
 
         name = target_name(typed.name)
         try:
-            catalogue = await self._catalogue_of(instance, entry=entry, store_name=store_name)
-            sources = await self._sources_of(instance, name, entry=entry, store_name=store_name)
-            candidate = next((record for record in catalogue.targets if record.name == name), None)
-            if candidate is None:
-                valid = tuple(sorted(record.name for record in catalogue.targets))
-                raise UnknownTargetError(name, valid_options=valid)
-            if candidate.embedding is None:
-                raise CandidateIdentityUnrecordedError(target=name)
-
-            not_ready = tuple(
-                sorted(
-                    str(source.id)
-                    for source in sources
-                    if source.status in (SourceStatus.INDEXING, SourceStatus.DELETING)
-                )
+            updated, others = await self._promote_everywhere(
+                instance, name, typed, deps=deps, entry=entry, store_name=store_name
             )
-            if not_ready:
-                raise CandidateNotReadyError(target=name, sources=not_ready)
-
-            evidence = self._evidence_for(typed, catalogue, name)
-            promotion = Promotion(
-                target=name,
-                at=datetime.now(UTC),
-                by=getpass.getuser(),
-                evidence=evidence,
-                without_evidence=typed.without_evidence,
-            )
-            # Ledger **34.11** — every other `TargetHolding` participant must hold `name` too,
-            # checked before any of them is written, so a promote never writes some and refuses
-            # the rest partway through.
-            others = tuple(
-                participant
-                for participant in await target_participants(deps)
-                if participant != store_name
-            )
-            for participant in others:
-                await self._require_target_in(participant, name, deps=deps)
-            updated = await self._promoted(instance, promotion, entry=entry, store_name=store_name)
-            for participant in others:
-                await self._promote_participant(participant, promotion, deps=deps)
         finally:
             await aclose(
                 instance,
@@ -219,10 +198,65 @@ class TargetPromoteCommand:
             )
         )
 
+    async def _promote_everywhere(
+        self,
+        instance: TargetHolding,
+        name: TargetName,
+        typed: TargetPromoteArgs,
+        *,
+        deps: Dependencies,
+        entry: RegistryEntry,
+        store_name: str,
+    ) -> tuple[TargetCatalogue, tuple[str, ...]]:
+        """Check the candidate, then promote it on the primary and every other participant."""
+        catalogue = await self._catalogue_of(instance, entry=entry, store_name=store_name)
+        sources = await self._sources_of(instance, name, entry=entry, store_name=store_name)
+        candidate = next((record for record in catalogue.targets if record.name == name), None)
+        if candidate is None:
+            valid = tuple(sorted(record.name for record in catalogue.targets))
+            raise UnknownTargetError(name, valid_options=valid)
+        if candidate.embedding is None:
+            raise CandidateIdentityUnrecordedError(target=name)
+
+        not_ready = tuple(
+            sorted(
+                str(source.id)
+                for source in sources
+                if source.status in (SourceStatus.INDEXING, SourceStatus.DELETING)
+            )
+        )
+        if not_ready:
+            raise CandidateNotReadyError(target=name, sources=not_ready)
+
+        evidence = self._evidence_for(typed, catalogue, name)
+        promotion = Promotion(
+            target=name,
+            at=datetime.now(UTC),
+            by=getpass.getuser(),
+            evidence=evidence,
+            without_evidence=typed.without_evidence,
+        )
+        # Ledger **34.11** — every other `TargetHolding` participant must hold `name` too,
+        # checked before any of them is written, so a promote never writes some and refuses
+        # the rest partway through.
+        others = tuple(
+            participant
+            for participant in await target_participants(deps)
+            if participant != store_name
+        )
+        for participant in others:
+            await self._require_target_in(participant, name, deps=deps)
+        updated = await self._promoted(instance, promotion, entry=entry, store_name=store_name)
+        for participant in others:
+            await self._promote_participant(participant, promotion, deps=deps)
+        return updated, others
+
     async def _require_target_in(
         self, store_name: str, name: TargetName, *, deps: Dependencies
     ) -> None:
-        """`name` must exist in `store_name`'s own catalogue too — every other `TargetHolding`
+        """Refuse unless `name` exists in `store_name`'s own catalogue.
+
+        `name` must exist in `store_name`'s own catalogue too — every other `TargetHolding`
         participant, checked before any of them is written.
         """
         entry = deps.registry.entry(NodeStore, store_name)
@@ -243,7 +277,9 @@ class TargetPromoteCommand:
     async def _promote_participant(
         self, store_name: str, promotion: Promotion, *, deps: Dependencies
     ) -> None:
-        """`store_name`'s own `promote`, through `_promoted` — a store already at
+        """Promote one participant, idempotently when it already moved.
+
+        `store_name`'s own `promote`, through `_promoted` — a store already at
         `promotion.target` treats this as its own idempotent no-op (`weft_store.conformance.
         check_promoting_the_live_target_again_changes_nothing`), which is what lets a re-run
         after a crash converge the participants that already moved.
@@ -263,7 +299,9 @@ class TargetPromoteCommand:
     async def _catalogue_of(
         self, instance: TargetHolding, *, entry: RegistryEntry, store_name: str
     ) -> TargetCatalogue:
-        """`instance.target_catalogue()`, through `wrap` — `weft_cli.commands.
+        """Read `instance`'s target catalogue through `wrap`.
+
+        `instance.target_catalogue()`, through `wrap` — `weft_cli.commands.
         TargetListCommand`'s own footing: a local adapter handed to `wrap` *by name*, never
         called directly (fitness function 33(b)).
         """
@@ -285,7 +323,9 @@ class TargetPromoteCommand:
     async def _sources_of(
         self, instance: TargetHolding, name: TargetName, *, entry: RegistryEntry, store_name: str
     ) -> Sequence[SourceRecord]:
-        """Every source `name` holds — used both to decide whether a name with no catalogue
+        """List every source `name` holds, in one wrapped call.
+
+        Every source `name` holds — used both to decide whether a name with no catalogue
         row holds anything at all, and, by `run()`, to find one recorded `SourceStatus.
         INDEXING`/`.DELETING` (`CandidateNotReadyError`'s own evidence). One wrapped call.
         """
@@ -311,7 +351,9 @@ class TargetPromoteCommand:
     def _evidence_for(
         self, typed: TargetPromoteArgs, catalogue: TargetCatalogue, name: str
     ) -> tuple[str, ...]:
-        """`typed.evidence`, validated against `catalogue` and `weft_cli.eval_commands.
+        """Return the promotion evidence run ids, validated against `catalogue`.
+
+        `typed.evidence`, validated against `catalogue` and `weft_cli.eval_commands.
         incomparable_reasons` — `()` for `--without-evidence`, never a partial answer: every
         return either is two run ids that passed every check, or the check that failed raised.
         """
@@ -364,7 +406,9 @@ class TargetPromoteCommand:
 
 
 class TargetRollbackCommandResult(CommandResult):
-    """`weft target rollback`'s whole answer — the catalogue after restoring the previous
+    """What `weft target rollback` answers with.
+
+    `weft target rollback`'s whole answer — the catalogue after restoring the previous
     live target on the primary `[services] store`, and every `TargetHolding` participant it
     restored it on.
     """
@@ -379,7 +423,9 @@ class TargetRollbackCommandResult(CommandResult):
 
 
 class TargetRollbackCommand:
-    """`weft target rollback` — ledger task **34.9**, widened by **34.11** to every
+    """Restore the previous live target on every target-holding store.
+
+    `weft target rollback` — ledger task **34.9**, widened by **34.11** to every
     `TargetHolding` participant. `[services] store`'s own `rollback()` is the primary's atomic
     write, and its own `NoPreviousTargetError` propagates exactly as before; every other
     participant is rolled back too, and one with nothing to roll back to is skipped rather than
@@ -395,6 +441,18 @@ class TargetRollbackCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Restore the previous live target on the primary and every participant.
+
+        Args:
+            args: Unused; `target rollback` takes no arguments.
+            ctx: The run's context, carrying `Dependencies`.
+
+        Returns:
+            The catalogue after the rollback, and every store rolled back.
+
+        Raises:
+            StoreHoldsNoTargetsError: `[services] store` holds no targets.
+        """
         del args
         deps = ctx.require(Dependencies)
         store_name = deps.services.store
@@ -443,7 +501,9 @@ class TargetRollbackCommand:
         ).value
 
     async def _rollback_participant(self, store_name: str, *, deps: Dependencies) -> bool:
-        """`store_name`'s own `rollback()` — `True` if it moved, `False` if it had nothing to
+        """Roll one participant back, reporting whether it moved.
+
+        `store_name`'s own `rollback()` — `True` if it moved, `False` if it had nothing to
         roll back to (`NoPreviousTargetError`, swallowed here: a participant that never diverged
         needs no rollback of its own to converge).
         """
@@ -472,7 +532,9 @@ class TargetDropArgs(BaseModel):
 
 
 class TargetDropCommandResult(CommandResult):
-    """`weft target drop`'s whole answer — which store, which target, and how many sources it
+    """What `weft target drop` answers with.
+
+    `weft target drop`'s whole answer — which store, which target, and how many sources it
     held when it was dropped.
     """
 
@@ -511,11 +573,32 @@ class TargetDropCommand:
         del config
 
     def describe_impact(self, args: BaseModel, ctx: Context) -> str:
+        """Name the target and store this drop will touch, for the consent prompt.
+
+        Args:
+            args: The validated `TargetDropArgs`.
+            ctx: The run's context, carrying `Dependencies`.
+
+        Returns:
+            One sentence naming the target and the primary store.
+        """
         typed = cast(TargetDropArgs, args)
         deps = ctx.require(Dependencies)
         return f"target {typed.name!r} will be dropped from {deps.services.store!r}."
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Drop `args.name` from every participant and its blob subtree.
+
+        Args:
+            args: The validated `TargetDropArgs`.
+            ctx: The run's context, carrying `Dependencies`.
+
+        Returns:
+            The store, the target, its source count, and every store touched.
+
+        Raises:
+            StoreHoldsNoTargetsError: `[services] store` holds no targets.
+        """
         typed = cast(TargetDropArgs, args)
         deps = ctx.require(Dependencies)
         store_name = deps.services.store
@@ -525,24 +608,7 @@ class TargetDropCommand:
             raise StoreHoldsNoTargetsError(store_name=store_name, target=typed.name)
         name = target_name(typed.name)
         try:
-
-            async def _count(instance: TargetHolding = instance) -> Outcome[int]:
-                # `TargetPromoteCommand.run`'s identical cast, `TargetListCommand`'s footing.
-                handle = cast(NodeStore, await instance.bind_target(name))
-                return Produced(value=len(await handle.list_sources()))
-
-            sources = cast(
-                Produced[int],
-                await wrap(
-                    _count,
-                    distribution=entry.distribution,
-                    contract=NodeStore.__qualname__,
-                    plugin=store_name,
-                    stage="target:sources",
-                )(),
-            ).value
-
-            await self._dropped(instance, name, entry=entry, store_name=store_name)
+            sources = await self._drop_counted(instance, name, entry=entry, store_name=store_name)
         finally:
             await aclose(
                 instance,
@@ -563,10 +629,36 @@ class TargetDropCommand:
             )
         )
 
+    async def _drop_counted(
+        self, instance: TargetHolding, name: TargetName, *, entry: RegistryEntry, store_name: str
+    ) -> int:
+        """Count the sources `name` holds on `instance`, then drop `name` there."""
+
+        async def _count(instance: TargetHolding = instance) -> Outcome[int]:
+            # `TargetPromoteCommand.run`'s identical cast, `TargetListCommand`'s footing.
+            handle = cast(NodeStore, await instance.bind_target(name))
+            return Produced(value=len(await handle.list_sources()))
+
+        sources = cast(
+            Produced[int],
+            await wrap(
+                _count,
+                distribution=entry.distribution,
+                contract=NodeStore.__qualname__,
+                plugin=store_name,
+                stage="target:sources",
+            )(),
+        ).value
+
+        await self._dropped(instance, name, entry=entry, store_name=store_name)
+        return sources
+
     async def _dropped(
         self, instance: TargetHolding, name: TargetName, *, entry: RegistryEntry, store_name: str
     ) -> None:
-        """`instance.drop_target(name)`, through `wrap` — `TargetPromoteCommand._promoted`'s
+        """Drop `name` from `instance` through `wrap`.
+
+        `instance.drop_target(name)`, through `wrap` — `TargetPromoteCommand._promoted`'s
         footing.
         """
 
@@ -585,7 +677,9 @@ class TargetDropCommand:
     async def _drop_participant(
         self, store_name: str, name: TargetName, *, deps: Dependencies
     ) -> None:
-        """`store_name`'s own `drop_target` — every other `TargetHolding` participant
+        """Drop target `name` from one other target-holding participant.
+
+        `store_name`'s own `drop_target` — every other `TargetHolding` participant
         `target_participants` names.
         """
         entry = deps.registry.entry(NodeStore, store_name)
@@ -618,12 +712,12 @@ class TargetDropCommand:
         instance = entry.factory(None)
         if not isinstance(instance, BlobTargetHolding):
             return
+
+        async def _drop(instance: BlobTargetHolding = instance) -> Outcome[None]:
+            await instance.drop_target(name)
+            return Produced(value=None)
+
         try:
-
-            async def _drop(instance: BlobTargetHolding = instance) -> Outcome[None]:
-                await instance.drop_target(name)
-                return Produced(value=None)
-
             await wrap(
                 _drop,
                 distribution=entry.distribution,
@@ -641,7 +735,9 @@ class TargetDropCommand:
 
 
 def register_target_commands(registrar: PackRegistrar) -> None:
-    """Register `target promote`/`target rollback`/`target drop` — called from `weft_cli.
+    """Register the `target promote`, `rollback` and `drop` commands.
+
+    Register `target promote`/`target rollback`/`target drop` — called from `weft_cli.
     commands.register`, right after `"target list"` is added, never from a second entry point.
     """
     registrar.add(Command, "target promote", TargetPromoteCommand)

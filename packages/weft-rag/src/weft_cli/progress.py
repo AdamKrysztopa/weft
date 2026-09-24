@@ -16,8 +16,10 @@ from weft_cli.sinks import LineKind
 
 
 class BatchProgress(BaseModel):
-    """One batch's worth of `weft index` progress — what `ProgressReporter.batch_progress`
-    receives, and what a `--json` reader sees as one `batch-progress` line.
+    """One batch's worth of `weft index` progress.
+
+    What `ProgressReporter.batch_progress` receives, and what a `--json` reader sees as one
+    `batch-progress` line.
 
     `queryable` is how many documents this run has recorded `ACTIVE` so far, cumulative
     across every batch this run has already finished; `documents` is the whole corpus this
@@ -64,7 +66,12 @@ class ProgressReporter(Protocol):
     Protocol.
     """
 
-    async def batch_progress(self, event: BatchProgress) -> None: ...
+    async def batch_progress(self, event: BatchProgress) -> None:
+        """Receive the progress of one batch `weft index` just finished.
+
+        Args:
+            event: The batch's progress.
+        """
 
 
 __all__ = ["BatchProgress", "ProgressReporter"]

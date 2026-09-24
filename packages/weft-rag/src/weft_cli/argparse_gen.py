@@ -1,4 +1,6 @@
-"""Turning a `Command.args_model` into argparse arguments — the mechanism that keeps
+"""Turn a `Command.args_model` into argparse arguments.
+
+Turning a `Command.args_model` into argparse arguments — the mechanism that keeps
 `weft --help` and every subcommand's own grammar from drifting out of sync with what a
 `Command` actually declares.
 
@@ -62,13 +64,17 @@ from weft_kernel.errors import WeftError
 
 
 class UnsupportedArgumentTypeError(WeftError):
-    """A `Command.args_model` field's annotation has no generic argparse mapping — see the
+    """Raised when an `args_model` field's annotation has no argparse mapping.
+
+    A `Command.args_model` field's annotation has no generic argparse mapping — see the
     module docstring's *"What this deliberately does not support."*
     """
 
 
 class CommandArgumentsError(WeftError):
-    """A parsed `Namespace` broke its `Command.args_model`'s own constraint — a `Field` bound
+    """Raised when a parsed `Namespace` breaks its `Command.args_model`'s constraints.
+
+    A parsed `Namespace` broke its `Command.args_model`'s own constraint — a `Field` bound
     or a `field_validator`/`model_validator` — reported as a usage error rather than the raw
     `pydantic.ValidationError`. See `build_command_arguments_error` for how the message is built.
     """
@@ -81,7 +87,9 @@ def add_model_arguments(parser: argparse.ArgumentParser, model: type[BaseModel])
 
 
 def field_spelling(field_name: str, field_info: FieldInfo) -> str:
-    """How `field_name` is spelled on the generated command line — the bare name for a
+    """Spell `field_name` the way the generated command line does.
+
+    How `field_name` is spelled on the generated command line — the bare name for a
     required positional, `--` plus the name with `_` -> `-` for a defaulted flag. The one
     function `_add_field`, `_add_bool_field` and `build_command_arguments_error` all call, so
     the grammar and a refused argument's own name cannot drift apart.
@@ -134,7 +142,9 @@ def _add_field(parser: argparse.ArgumentParser, field_name: str, field_info: Fie
 
 
 def _is_str_list(annotation: object) -> bool:
-    """`annotation` is exactly `list[str]` — never `list[int]` or any other element type, which
+    """Tell whether `annotation` is exactly `list[str]`.
+
+    `annotation` is exactly `list[str]` — never `list[int]` or any other element type, which
     this generator has no spelling for and refuses on `_scalar_type`'s own footing once this
     returns `False` and `_add_field` falls through to it.
     """
@@ -148,7 +158,9 @@ def _add_str_list_field(
     *,
     help_kwargs: dict[str, Any],
 ) -> None:
-    """`field_name` as an `nargs=2` flag — see the module docstring's own paragraph on why two
+    """Add `field_name` to `parser` as an `nargs=2` flag.
+
+    `field_name` as an `nargs=2` flag — see the module docstring's own paragraph on why two
     is the one count this generator commits to, and why a `list[str]` field is never a required
     positional.
     """
@@ -175,7 +187,9 @@ def _add_bool_field(
     *,
     help_kwargs: dict[str, Any],
 ) -> None:
-    """`field_name` as an `action="store_true"` flag — see the module docstring's own
+    """Add `field_name` to `parser` as an `action="store_true"` flag.
+
+    `field_name` as an `action="store_true"` flag — see the module docstring's own
     paragraph on why this is the one shape a generated boolean flag has today.
     """
     if field_info.is_required():
@@ -218,7 +232,9 @@ def _scalar_type(annotation: object, *, field_name: str) -> type:
 def build_command_arguments_error(
     model: type[BaseModel], exc: ValidationError
 ) -> CommandArgumentsError:
-    """`exc`, raised by `model(**payload)`, translated into a `CommandArgumentsError` — one
+    """Translate a `model(**payload)` validation error into a `CommandArgumentsError`.
+
+    `exc`, raised by `model(**payload)`, translated into a `CommandArgumentsError` — one
     line per pydantic error, `argument <spelling>: <msg>`, `<spelling>` from `field_spelling`
     so it cannot say anything `add_model_arguments` did not also generate. An error whose
     `loc` names no field — a `model_validator` — is reported as `arguments: <msg>` instead.

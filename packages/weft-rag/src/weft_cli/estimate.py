@@ -185,7 +185,9 @@ def store_index_kind(store: object) -> VectorIndexKind | None:
 
 
 def store_precision(store: object) -> VectorPrecision | None:
-    """`store`'s declared vector precision, or `None` — `store_index_kind`'s own reasoning,
+    """Read `store`'s declared vector precision, or `None`.
+
+    `store`'s declared vector precision, or `None` — `store_index_kind`'s own reasoning,
     one attribute over.
     """
     declared = getattr(store, "vector_precision", None)

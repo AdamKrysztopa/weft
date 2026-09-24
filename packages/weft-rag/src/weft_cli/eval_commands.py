@@ -1,4 +1,6 @@
-"""`weft eval run|compare` and `weft trace` — task **4.6**: let an operator ask what a run
+"""Commands that report what an evaluation run actually did.
+
+`weft eval run|compare` and `weft trace` — task **4.6**: let an operator ask what a run
 actually did, after `docs/03-cli.md` → *Command surface* named both and 4.4 built the record
 they read.
 
@@ -204,8 +206,8 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from functools import partial
@@ -358,20 +360,26 @@ class IncomparableRunsError(WeftError):
 
 
 class NotABaselineReportError(WeftError):
-    """`weft eval compare` was given a file that does not parse as a `weft_eval.baseline.
+    """Refuse a compared file that does not parse as a baseline report.
+
+    `weft eval compare` was given a file that does not parse as a `weft_eval.baseline.
     BaselineReport` — repair `R22.4d`. See the module docstring's own R22.4d paragraph.
     """
 
 
 class BaselineNotReproducedError(WeftError):
-    """`weft eval compare` judged one baseline report against another and at least one
+    """Report a metric outside the interval its baseline's repetitions spanned.
+
+    `weft eval compare` judged one baseline report against another and at least one
     published metric fell outside the interval its own repetitions spanned — repair `R22.4d`.
     See the module docstring's own R22.4d paragraph.
     """
 
 
 class UnknownRunIdError(WeftError, UnresolvedNameError):
-    """`weft eval compare`/`weft trace` named a run id `runs/` (or wherever `DEFAULT_RUNS_DIR`
+    """Refuse a run id the runs directory does not hold.
+
+    `weft eval compare`/`weft trace` named a run id `runs/` (or wherever `DEFAULT_RUNS_DIR`
     points) does not hold.
 
     Fitness function 12's family: `valid_options` is every run id actually found on disk —
@@ -386,7 +394,9 @@ class UnknownRunIdError(WeftError, UnresolvedNameError):
 
 
 class NoBaselineRunsError(WeftError, UnresolvedNameError):
-    """`weft eval compare --baseline <pipeline>` named a pipeline no persisted run under
+    """Refuse a `--baseline` pipeline no persisted run ran.
+
+    `weft eval compare --baseline <pipeline>` named a pipeline no persisted run under
     `DEFAULT_RUNS_DIR` ran.
 
     Fitness function 12's family, on `UnknownRunIdError`'s own footing one class up:
@@ -433,7 +443,9 @@ class UnknownSliceError(WeftError, UnresolvedNameError):
 
 
 class EvalRunArgs(BaseModel):
-    """`weft eval run <path> <pipeline> [--corpus-name NAME]` — see the module docstring for
+    """Parameters of `weft eval run`.
+
+    `weft eval run <path> <pipeline> [--corpus-name NAME]` — see the module docstring for
     why `pipeline` is a second required positional rather than `weft index`'s optional flag.
     """
 
@@ -510,7 +522,9 @@ class EvalRunArgs(BaseModel):
 
 
 class EvalCompareArgs(BaseModel):
-    """`weft eval compare <a> <b> [--baseline <pipeline>]` — two run ids, `weft pipeline diff`'s
+    """Parameters of `weft eval compare`.
+
+    `weft eval compare <a> <b> [--baseline <pipeline>]` — two run ids, `weft pipeline diff`'s
     own `<a> <b>` shape, plus task 8.8's own falsification flag.
     """
 
@@ -599,7 +613,9 @@ class EvalMetricsArgs(BaseModel):
 
 
 class EvalRunCommandResult(CommandResult):
-    """`weft eval run`'s whole answer — the run id it minted, what `run_index` produced, and
+    """The result of `weft eval run`.
+
+    `weft eval run`'s whole answer — the run id it minted, what `run_index` produced, and
     the record it persisted.
 
     `wall_clock_seconds` is task 4.7's own addition — measured around the real work this
@@ -621,7 +637,9 @@ class EvalRunCommandResult(CommandResult):
 
 
 class MetricComparison(BaseModel):
-    """One metric's result across two compared runs — task 4.9, closing `.phase4-design.md`
+    """One metric's result across two compared runs.
+
+    Task 4.9, closing `.phase4-design.md`
     §7's gap: a comparison of what two runs *produced*, not only of their resolved pipelines.
 
     `a`/`b` are `weft_eval.run_record.MetricRunResult` — `Produced[MetricAggregate]` for a run
@@ -635,7 +653,9 @@ class MetricComparison(BaseModel):
 
 
 def _metrics_comparison(a: RunRecord, b: RunRecord) -> Mapping[str, MetricComparison]:
-    """Every metric name either `a.metrics` or `b.metrics` carries, paired under one key —
+    """Pair every metric either run carries under one key.
+
+    Every metric name either `a.metrics` or `b.metrics` carries, paired under one key —
     see `MetricComparison`'s own docstring and the module docstring's paragraph on
     `weft eval compare`'s own `metrics_comparison`.
     """
@@ -659,7 +679,9 @@ def _recorded_kinds(a: RunRecord, b: RunRecord) -> frozenset[str]:
 
 
 def _restricted_to_kind(result: MetricRunResult | None, *, kind: str) -> MetricRunResult:
-    """`result`, restricted to `kind`'s own slice — see the module docstring's own `--kind`
+    """Restrict a metric result to one question kind's slice.
+
+    `result`, restricted to `kind`'s own slice — see the module docstring's own `--kind`
     paragraph. `_NOT_MEASURED` for a result this run never produced, or whose `by_question_kind`
     carries no entry for `kind` — the identical value a metric a run never scored at all gets.
     """
@@ -684,7 +706,9 @@ def _restricted_to_kind(result: MetricRunResult | None, *, kind: str) -> MetricR
 def metrics_comparison_for_kind(
     a: RunRecord, b: RunRecord, *, kind: str | None
 ) -> Mapping[str, MetricComparison]:
-    """`_metrics_comparison(a, b)`, restricted to one question `kind`'s own slice — see the
+    """Compare two runs' metrics over one question kind's slice.
+
+    `_metrics_comparison(a, b)`, restricted to one question `kind`'s own slice — see the
     module docstring's own `--kind` paragraph.
 
     `kind=None` returns exactly `_metrics_comparison(a, b)`. A named `kind` replaces each side's
@@ -716,7 +740,9 @@ def metrics_comparison_for_kind(
 
 
 def _recorded_slices(a: RunRecord, b: RunRecord) -> frozenset[str]:
-    """Every `axis=value` and `kind=value` pair either run's own metrics actually recorded a
+    """List every slice either run's metrics actually recorded.
+
+    Every `axis=value` and `kind=value` pair either run's own metrics actually recorded a
     slice for — `metrics_comparison_for_slice`'s own "list what does exist", `_recorded_kinds`
     widened from `kind` alone to any declared axis (task 38.2).
     """
@@ -724,16 +750,25 @@ def _recorded_slices(a: RunRecord, b: RunRecord) -> frozenset[str]:
     for record in (a, b):
         for result in record.metrics.values():
             if isinstance(result, Produced):
-                for axis, values in result.value.by_axis.items():
-                    slices.update(f"{axis}={value}" for value in values)
-                slices.update(f"kind={kind}" for kind in result.value.by_question_kind)
+                slices.update(_slices_of(result.value))
     return frozenset(slices)
+
+
+def _slices_of(aggregate: MetricAggregate) -> set[str]:
+    """Name every `axis=value` and `kind=value` slice one metric aggregate recorded."""
+    slices: set[str] = set()
+    for axis, values in aggregate.by_axis.items():
+        slices.update(f"{axis}={value}" for value in values)
+    slices.update(f"kind={kind}" for kind in aggregate.by_question_kind)
+    return slices
 
 
 def _restricted_to_axis(
     result: MetricRunResult | None, *, axis: str, value: str
 ) -> MetricRunResult:
-    """`result`, restricted to `axis=value`'s own slice — `_restricted_to_kind`'s twin, shaped
+    """Restrict a metric result to one `axis=value` slice.
+
+    `result`, restricted to `axis=value`'s own slice — `_restricted_to_kind`'s twin, shaped
     identically (task 38.2). `_NOT_MEASURED` for a result this run never produced, or whose
     `by_axis` carries no entry for `axis`, or whose `by_axis[axis]` carries no entry for `value`
     — the identical value a metric a run never scored at all gets.
@@ -759,7 +794,9 @@ def _restricted_to_axis(
 def metrics_comparison_for_slice(
     a: RunRecord, b: RunRecord, *, slice_: str | None
 ) -> Mapping[str, MetricComparison]:
-    """`_metrics_comparison(a, b)`, restricted to one declared axis' own slice — task 38.2,
+    """Compare two runs' metrics over one declared axis' slice.
+
+    `_metrics_comparison(a, b)`, restricted to one declared axis' own slice — task 38.2,
     `metrics_comparison_for_kind`'s widening from `kind` alone to any axis `weft_eval.harness`
     now slices.
 
@@ -805,7 +842,9 @@ def metrics_comparison_for_slice(
 
 
 def _slice_axis_value(*, kind: str | None, slice_: str | None) -> str | None:
-    """`--kind X` is `--slice kind=X` — the one string either flag reduces to, or `None` when
+    """Reduce `--kind` and `--slice` to the one slice string they name.
+
+    `--kind X` is `--slice kind=X` — the one string either flag reduces to, or `None` when
     neither was given — repair R38.1's own footing for restricting a paired difference the
     identical way `metrics_comparison_for_kind`/`metrics_comparison_for_slice` already restrict
     the metrics comparison.
@@ -825,7 +864,9 @@ def _keys_matching(
 def paired_differences_for_slice(
     a: RunRecord, b: RunRecord, *, kind: str | None, slice_: str | None
 ) -> tuple[Mapping[str, PairedDifference], str | None, str | None]:
-    """`weft_eval.falsify.paired_differences(a, b)`, restricted to one slice's own questions —
+    """Compute paired differences over one slice's questions only.
+
+    `weft_eval.falsify.paired_differences(a, b)`, restricted to one slice's own questions —
     repair R38.1, `metrics_comparison_for_slice`'s own restriction applied to the paired
     difference rather than the mean.
 
@@ -856,7 +897,9 @@ def paired_differences_for_slice(
 
 
 class BaselineSelection(StrEnum):
-    """Which rule chose a baseline's repetitions — printed, because a reader of a verdict
+    """Which rule chose a baseline's repetitions.
+
+    Printed, because a reader of a verdict
     cannot otherwise tell a rung-matched spread from a pipeline-matched one.
     """
 
@@ -878,7 +921,9 @@ class QueryRungDifference(BaseModel):
 
 
 class EvalCompareCommandResult(CommandResult):
-    """`weft eval compare`'s whole answer, once both runs pass the apples-to-apples check —
+    """The result of `weft eval compare` for two comparable runs.
+
+    `weft eval compare`'s whole answer, once both runs pass the apples-to-apples check —
     a refusal is raised before this is ever constructed, see `IncomparableRunsError`.
 
     `metrics_comparison` is task 4.9's own addition — see `_metrics_comparison`. `baseline_pipeline`
@@ -1053,7 +1098,9 @@ def document_labels_from_manifest(manifest: str | None) -> Mapping[str, str] | N
 
 
 def _model_field(config: object) -> str | None:
-    """The `model` field a resolved stage's own `config` carries, or `None` — see the module
+    """Read the `model` field a resolved stage's config carries.
+
+    The `model` field a resolved stage's own `config` carries, or `None` — see the module
     docstring's paragraph on task 4.7's `model_versions` fill. `config` is either a plugin's own
     `config_model` instance (a `BaseModel`) or an empty read-only mapping — `weft_kernel.
     resolution.StageConfig`'s own two shapes — so both are read, generically, never by importing
@@ -1085,7 +1132,9 @@ def model_versions_of(
     roles: LLMRoles = _NO_ROLES,
     stated: Mapping[str, str] = _NO_STATED,
 ) -> Mapping[str, str]:
-    """Every model this run actually used — **three sources, carried repairs `R10.3`, `R34.0`.**
+    """Collect every model this run actually used.
+
+    Every model this run actually used — **three sources, carried repairs `R10.3`, `R34.0`.**
 
     *Stage config*, the original reading: every stage of `resolved_pipeline` whose own config
     names a `model`, as `use:model`. Never reads `[services]` (Q3, task 4.0) and never a table
@@ -1132,7 +1181,9 @@ def model_versions_of(
 
 
 async def _asked_identity(embedder: IdentifiedEmbedder) -> Outcome[EmbeddingModel]:
-    """`embedder.embedding_model()`, `Outcome`-shaped so `weft_kernel.seam.wrap` can carry it —
+    """Ask an embedder for its model, shaped so `wrap` can carry the call.
+
+    `embedder.embedding_model()`, `Outcome`-shaped so `weft_kernel.seam.wrap` can carry it —
     a standalone function rather than a call inline in `stated_embedding_models`, so the plugin
     instance built there is never the one an awaited method is called on in the same function
     (fitness function 33(b): every such call is handed to `wrap`).
@@ -1182,7 +1233,9 @@ async def stated_embedding_models(
 
 
 def _is_promotion_comparison(a: RunRecord, b: RunRecord) -> bool:
-    """Both `a` and `b` name a target, and it differs — owner decision Q-E: the widening
+    """Report whether two runs name different targets.
+
+    Both `a` and `b` name a target, and it differs — owner decision Q-E: the widening
     `incomparable_reasons` applies below is only for a candidate index being judged against
     the live one, never for two runs of one target, and never for a record naming no target at
     all (every record written before ledger task 34.7).
@@ -1191,7 +1244,9 @@ def _is_promotion_comparison(a: RunRecord, b: RunRecord) -> bool:
 
 
 def incomparable_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
-    """Which of the identity facts a comparison depends on actually differ — see
+    """List the identity facts on which two runs differ.
+
+    Which of the identity facts a comparison depends on actually differ — see
     `IncomparableRunsError`'s own docstring. Empty means the two runs are comparable.
 
     **Public since ledger task 34.8**, renamed from `_incomparable_reasons` in the same commit
@@ -1261,7 +1316,9 @@ _incomparable_reasons = incomparable_reasons
 
 
 def _packaging_differences(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
-    """Which distributions were active, and at which versions, differ between `a` and `b` —
+    """List the distribution versions that differ between two runs.
+
+    Which distributions were active, and at which versions, differ between `a` and `b` —
     repair `R22.11`. Reported beside a comparison, never a reason to refuse it: see the module
     docstring's own R22.11 paragraph. Empty means packaging did not move.
     """
@@ -1283,7 +1340,9 @@ def _packaging_differences(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
 
 
 def _promotion_subject(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
-    """`EvalCompareCommandResult.subject` for a promotion comparison — what changed between the
+    """Describe what changed between two targets in a promotion comparison.
+
+    `EvalCompareCommandResult.subject` for a promotion comparison — what changed between the
     two targets, in the order a reader would ask about it: the embedder first, since that is
     what a promotion is allowed to have changed (see `incomparable_reasons`'s own paragraph),
     then every `model_versions` key that differs. Called only once `_is_promotion_comparison`
@@ -1308,7 +1367,9 @@ def _promotion_subject(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
 
 
 def _basis_of(record: RunRecord) -> str:
-    """`corpus_digest_basis` as a reader of a run record should see it — *not recorded* rather
+    """Render `corpus_digest_basis` for a reader of a run record.
+
+    `corpus_digest_basis` as a reader of a run record should see it — *not recorded* rather
     than `None`, because absence is the honest answer for every record written before 16.0.
     """
     basis = record.corpus_digest_basis
@@ -1316,7 +1377,9 @@ def _basis_of(record: RunRecord) -> str:
 
 
 def _question_set_basis_of(record: RunRecord) -> str:
-    """`question_set_digest_basis` as a reader of a run record should see it — *not recorded*
+    """Render `question_set_digest_basis` for a reader of a run record.
+
+    `question_set_digest_basis` as a reader of a run record should see it — *not recorded*
     rather than `None`, because absence is the honest answer for every record written before
     task 38.11 (`RunRecord.question_set_digest_basis`'s own docstring).
     """
@@ -1326,7 +1389,9 @@ def _question_set_basis_of(record: RunRecord) -> str:
 
 @dataclass(frozen=True)
 class IndexAndScoreResult:
-    """What `index_and_score` produced — every fact `EvalRunCommand`/`EvalExperimentCommand`
+    """What `index_and_score` produced.
+
+    Every fact `EvalRunCommand`/`EvalExperimentCommand`
     (task **38.0**) need to build their own result, from the one path both now index a corpus
     and score a question set through. `wall_clock_seconds` is the identical measurement that
     went onto `record.durations.ingest_seconds`, carried here too rather than read back off the
@@ -1350,6 +1415,157 @@ class IndexAndScoreResult:
     document_ids: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class _IndexedCorpus:
+    """The corpus facts `index_and_score` records, whichever of its three branches ran."""
+
+    resolved: ResolvedPipeline
+    document_ids: tuple[str, ...]
+    content_hashes: tuple[str, ...] = ()
+    summary: RunSummary = field(default_factory=RunSummary)
+    stored_count: int | None = None
+    ingest_seconds: float = 0.0
+
+
+async def _indexed_corpus(
+    deps: Dependencies,
+    *,
+    ctx: Context,
+    path: Path,
+    pipeline: str,
+    reuse_index: bool,
+    reprocess: bool,
+    batch_size: int | None,
+    pool: LoadedPool | None,
+    target: str | None,
+) -> _IndexedCorpus:
+    """Resolve the corpus from a pool replay, what is already stored, or a fresh index."""
+    if pool is not None:
+        return _IndexedCorpus(
+            resolved=resolve_named_pipeline(
+                pipeline,
+                registry=deps.registry,
+                reports=deps.reports,
+                contributions=deps.contributions,
+            ),
+            document_ids=pool.manifest.document_ids,
+        )
+    if reuse_index:
+        return await _stored_corpus(deps, path=path, pipeline=pipeline, target=target)
+    return await _freshly_indexed_corpus(
+        deps,
+        ctx=ctx,
+        path=path,
+        pipeline=pipeline,
+        reprocess=reprocess,
+        batch_size=batch_size,
+        target=target,
+    )
+
+
+async def _stored_corpus(
+    deps: Dependencies, *, path: Path, pipeline: str, target: str | None
+) -> _IndexedCorpus:
+    """Discover the corpus under `path` without ingesting it, for `--reuse-index`.
+
+    Raises:
+        EmptyCorpusError: `pipeline` reads nothing under `path`.
+    """
+    if target is not None:
+        await require_existing_target(
+            deps.registry.entry(NodeStore, deps.services.store).factory(None),
+            target,
+            store_name=deps.services.store,
+        )
+    resolved, _specs, documents = corpus_documents(
+        path,
+        pipeline=pipeline,
+        registry=deps.registry,
+        reports=deps.reports,
+        contributions=deps.contributions,
+    )
+    del _specs
+    document_ids = tuple(str(doc.source_id) for doc in documents)
+    if not document_ids:
+        raise EmptyCorpusError(
+            f"'{path}' holds nothing pipeline '{pipeline}' can read, so there is no corpus "
+            f"identity for a run record to carry and nothing for a query rung to retrieve. "
+            f"--reuse-index scores against a corpus that is already stored; point --path at "
+            f"the directory that was indexed.",
+            path=str(path),
+            pipeline=pipeline,
+        )
+    return _IndexedCorpus(
+        resolved=resolved,
+        document_ids=document_ids,
+        content_hashes=content_hashes_of(documents),
+    )
+
+
+async def _freshly_indexed_corpus(
+    deps: Dependencies,
+    *,
+    ctx: Context,
+    path: Path,
+    pipeline: str,
+    reprocess: bool,
+    batch_size: int | None,
+    target: str | None,
+) -> _IndexedCorpus:
+    """Index the corpus under `path`, timing the ingest on the wall clock.
+
+    Raises:
+        EmptyCorpusError: Indexing `path` produced nothing.
+        CorpusHasFailedSourcesError: An earlier index recorded sources under `path` failed.
+    """
+    # Task 4.7, V5's wall-clock half: measured around the real work, never estimated.
+    started = time.monotonic()
+    result = await run_index_for(
+        deps,
+        path,
+        ctx=ctx,
+        pipeline=pipeline,
+        # `--reuse-index` is how a caller says *do not ingest*, and it says so in the
+        # record; a wall-clock-timed run must not silently skip an unchanged document and
+        # be compared against one that did the whole job (ledger task 17.0). An experiment
+        # indexing one pipeline and corpus for the first time passes `reprocess=False`
+        # instead, so an index an operator already built is honoured rather than redone.
+        reprocess=reprocess,
+        batch_size=batch_size,
+        retry_failed=False,
+        target=target,
+    )
+    ingest_seconds = time.monotonic() - started
+    if not result.document_ids:
+        raise EmptyCorpusError(
+            f"'{path}' produced nothing to index under pipeline '{pipeline}' — there is "
+            f"nothing for a run record to carry a corpus identity over. Point --path at a "
+            f"directory pipeline '{pipeline}' can actually read.",
+            path=str(path),
+            pipeline=pipeline,
+        )
+    skipped = sorted(
+        source for source, change in result.source_changes.items() if change is SourceChange.FAILED
+    )
+    if skipped:
+        raise CorpusHasFailedSourcesError(
+            f"{len(skipped)} source(s) under '{path}' were recorded failed by an earlier "
+            f"index and were skipped, so this run would score a smaller corpus than its record "
+            f"names (first: {skipped[0]}). Run `weft index --retry-failed` over it first, or "
+            "remove them with `weft delete`."
+        )
+    # `run_index` always sets `resolved_pipeline` on the `pipeline=` path — see
+    # `weft_cli.ingest.IndexResult`'s own docstring — and `pipeline` is required above.
+    return _IndexedCorpus(
+        resolved=cast(ResolvedPipeline, result.resolved_pipeline),
+        document_ids=result.document_ids,
+        content_hashes=result.content_hashes,
+        summary=result.summary,
+        stored_count=result.stored_count,
+        ingest_seconds=ingest_seconds,
+    )
+
+
 async def index_and_score(
     deps: Dependencies,
     *,
@@ -1371,7 +1587,9 @@ async def index_and_score(
     pool: LoadedPool | None = None,
     target: str | None = None,
 ) -> IndexAndScoreResult:
-    """Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
+    """Index a corpus, or reuse what is stored, and score the given questions.
+
+    Index `path` under `pipeline` — or, with `reuse_index`, score what is already stored — and,
     with `questions` given, score them through `score_pipeline`. This is task **38.0**'s own
     extraction: `EvalRunCommand.run` used to do this inline, twice (once per `reuse_index`
     branch); `EvalExperimentCommand` (`weft_cli.eval_experiment`) needed the identical path so an
@@ -1445,100 +1663,23 @@ async def index_and_score(
     not satisfy `weft_store.contract.TargetHolding` records `None` for both; owner decision Q-E
     is what a promotion comparison (`weft eval compare`) reads this pair for.
     """
-    resolved: ResolvedPipeline
-    document_ids: tuple[str, ...]
-    content_hashes: tuple[str, ...]
-    summary: RunSummary
-    stored_count: int | None
-    ingest_seconds: float
-
-    if pool is not None:
-        resolved = resolve_named_pipeline(
-            pipeline,
-            registry=deps.registry,
-            reports=deps.reports,
-            contributions=deps.contributions,
-        )
-        document_ids = pool.manifest.document_ids
-        content_hashes = ()
-        summary = RunSummary()
-        stored_count = None
-        ingest_seconds = 0.0
-    elif reuse_index:
-        if target is not None:
-            await require_existing_target(
-                deps.registry.entry(NodeStore, deps.services.store).factory(None),
-                target,
-                store_name=deps.services.store,
-            )
-        resolved, _specs, documents = corpus_documents(
-            path,
-            pipeline=pipeline,
-            registry=deps.registry,
-            reports=deps.reports,
-            contributions=deps.contributions,
-        )
-        del _specs
-        document_ids = tuple(str(doc.source_id) for doc in documents)
-        if not document_ids:
-            raise EmptyCorpusError(
-                f"'{path}' holds nothing pipeline '{pipeline}' can read, so there is no corpus "
-                f"identity for a run record to carry and nothing for a query rung to retrieve. "
-                f"--reuse-index scores against a corpus that is already stored; point --path at "
-                f"the directory that was indexed.",
-                path=str(path),
-                pipeline=pipeline,
-            )
-        content_hashes = content_hashes_of(documents)
-        summary = RunSummary()
-        stored_count = None
-        ingest_seconds = 0.0
-    else:
-        # Task 4.7, V5's wall-clock half: measured around the real work, never estimated.
-        started = time.monotonic()
-        result = await run_index_for(
-            deps,
-            path,
-            ctx=ctx,
-            pipeline=pipeline,
-            # `--reuse-index` is how a caller says *do not ingest*, and it says so in the
-            # record; a wall-clock-timed run must not silently skip an unchanged document and
-            # be compared against one that did the whole job (ledger task 17.0). An experiment
-            # indexing one pipeline and corpus for the first time passes `reprocess=False`
-            # instead, so an index an operator already built is honoured rather than redone.
-            reprocess=reprocess,
-            batch_size=batch_size,
-            retry_failed=False,
-            target=target,
-        )
-        ingest_seconds = time.monotonic() - started
-        if not result.document_ids:
-            raise EmptyCorpusError(
-                f"'{path}' produced nothing to index under pipeline '{pipeline}' — there is "
-                f"nothing for a run record to carry a corpus identity over. Point --path at a "
-                f"directory pipeline '{pipeline}' can actually read.",
-                path=str(path),
-                pipeline=pipeline,
-            )
-        skipped = sorted(
-            source
-            for source, change in result.source_changes.items()
-            if change is SourceChange.FAILED
-        )
-        if skipped:
-            raise CorpusHasFailedSourcesError(
-                f"{len(skipped)} source(s) under '{path}' were recorded failed by an earlier "
-                f"index and were skipped, so this run would score a smaller corpus than its record "
-                f"names (first: {skipped[0]}). Run `weft index --retry-failed` over it first, or "
-                "remove them with `weft delete`."
-            )
-        # `run_index` always sets `resolved_pipeline` on the `pipeline=` path — see
-        # `weft_cli.ingest.IndexResult`'s own docstring — and `pipeline` is required above.
-        resolved = cast(ResolvedPipeline, result.resolved_pipeline)
-        document_ids = result.document_ids
-        content_hashes = result.content_hashes
-        summary = result.summary
-        stored_count = result.stored_count
+    indexed = await _indexed_corpus(
+        deps,
+        ctx=ctx,
+        path=path,
+        pipeline=pipeline,
+        reuse_index=reuse_index,
+        reprocess=reprocess,
+        batch_size=batch_size,
+        pool=pool,
+        target=target,
+    )
+    resolved = indexed.resolved
+    document_ids = indexed.document_ids
+    content_hashes = indexed.content_hashes
+    summary = indexed.summary
+    stored_count = indexed.stored_count
+    ingest_seconds = indexed.ingest_seconds
 
     # Task 4.9's own gap to fill — see the module docstring's paragraph on `--questions`.
     # `{}` with no questions, the same honesty `model_versions` had before task 4.7.
@@ -1658,6 +1799,15 @@ class EvalRunCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Index a corpus under one pipeline, score any given questions and persist the record.
+
+        Args:
+            args: The parsed `EvalRunArgs`.
+            ctx: The invocation context holding the CLI's `Dependencies`.
+
+        Returns:
+            The produced `EvalRunCommandResult`.
+        """
         run_args = cast(EvalRunArgs, args)
         deps = ctx.require(Dependencies)
 
@@ -1702,7 +1852,9 @@ def _falsify_against_baseline(
     *,
     exclude: set[str],
 ) -> tuple[tuple[str, ...], Mapping[str, DifferenceJudgement], BaselineSelection]:
-    """`weft eval compare --baseline <pipeline>`'s own work — see the module docstring's own
+    """Judge a comparison against a pipeline's baseline repetitions.
+
+    `weft eval compare --baseline <pipeline>`'s own work — see the module docstring's own
     task-8.8 paragraph. `exclude` is `{--a, --b}`: a rung is not one of its own baseline's
     repetitions.
 
@@ -1747,6 +1899,25 @@ def _falsify_against_baseline(
             (run_id, record) for run_id, record in named if record.query_rung == record_a.query_rung
         )
 
+    _refuse_incomparable_repetitions(baseline, run_a_id, record_a, repetitions)
+
+    spreads = baseline_spreads([record for _, record in repetitions])
+    falsification = judge_differences(record_a, record_b, spreads)
+    baseline_runs = tuple(sorted(run_id for run_id, _ in repetitions))
+    return baseline_runs, falsification, selection
+
+
+def _refuse_incomparable_repetitions(
+    baseline: str,
+    run_a_id: str,
+    record_a: RunRecord,
+    repetitions: Sequence[tuple[str, RunRecord]],
+) -> None:
+    """Refuse the first baseline repetition that is not comparable to `record_a`.
+
+    Raises:
+        IncomparableRunsError: A repetition differs from `record_a` by more than its pipeline.
+    """
     for run_id, repetition in repetitions:
         # Deliberately not checking the pipeline here — a baseline is a different pipeline
         # from the rung being judged by construction, which is the entire point. Corpus and
@@ -1762,14 +1933,11 @@ def _falsify_against_baseline(
                 reasons=baseline_reasons,
             )
 
-    spreads = baseline_spreads([record for _, record in repetitions])
-    falsification = judge_differences(record_a, record_b, spreads)
-    baseline_runs = tuple(sorted(run_id for run_id, _ in repetitions))
-    return baseline_runs, falsification, selection
-
 
 def _load_baseline_report_or_refuse(path: Path) -> BaselineReport:
-    """`load_baseline_report(path)`, or `NotABaselineReportError` naming `path` for a file that
+    """Load a baseline report, refusing a file that does not parse as one.
+
+    `load_baseline_report(path)`, or `NotABaselineReportError` naming `path` for a file that
     does not parse as a `weft_eval.baseline.BaselineReport` — repair `R22.4d`.
     """
     try:
@@ -1782,7 +1950,9 @@ def _load_baseline_report_or_refuse(path: Path) -> BaselineReport:
 def _compare_baseline_reports(
     compare_args: EvalCompareArgs, *, a_is_file: bool, b_is_file: bool
 ) -> Outcome[CommandResult]:
-    """`weft eval compare <a> <b>` where at least one names a baseline report file rather than
+    """Compare two runs when at least one is a baseline report file.
+
+    `weft eval compare <a> <b>` where at least one names a baseline report file rather than
     a persisted run id — repair `R22.4d`. See the module docstring's own R22.4d paragraph.
     """
     a, b = compare_args.a, compare_args.b
@@ -1859,6 +2029,18 @@ class EvalCompareCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Compare two persisted runs, or two baseline reports, once they are comparable.
+
+        Args:
+            args: The parsed `EvalCompareArgs`.
+            ctx: Unused; a comparison reads only persisted records.
+
+        Returns:
+            The produced comparison result.
+
+        Raises:
+            IncomparableRunsError: The two runs differ by more than their pipeline.
+        """
         del ctx
         compare_args = cast(EvalCompareArgs, args)
         a_is_file = Path(compare_args.a).is_file()
@@ -1958,6 +2140,15 @@ class TraceCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Load one persisted run record by id.
+
+        Args:
+            args: The parsed `TraceArgs`.
+            ctx: Unused; a trace reads only the persisted record.
+
+        Returns:
+            The produced `TraceCommandResult`.
+        """
         del ctx
         trace_args = cast(TraceArgs, args)
         record = load_or_refuse_run(trace_args.run_id)
@@ -1976,6 +2167,15 @@ class EvalMetricsCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """List the gate-safe and gate-unsafe metrics, or check that one named metric can run.
+
+        Args:
+            args: The parsed `EvalMetricsArgs`.
+            ctx: The invocation context holding the CLI's `Dependencies`.
+
+        Returns:
+            The produced `EvalMetricsCommandResult`.
+        """
         metrics_args = cast(EvalMetricsArgs, args)
         deps = ctx.require(Dependencies)
 
@@ -1996,7 +2196,9 @@ class EvalMetricsCommand:
 
 
 def register_eval_commands(registrar: PackRegistrar) -> None:
-    """Register `eval run`, `eval compare`, `eval metrics` and the top-level `trace` — called
+    """Register the `eval` commands and the top-level `trace`.
+
+    Register `eval run`, `eval compare`, `eval metrics` and the top-level `trace` — called
     from `weft_cli.commands.register`, never from a second entry point.
     """
     registrar.add(Command, "eval run", EvalRunCommand)

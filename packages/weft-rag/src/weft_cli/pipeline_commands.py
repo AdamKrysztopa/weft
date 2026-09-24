@@ -1,4 +1,6 @@
-"""`weft pipeline list|show|derive|validate|diff|estimate` — task **3.7**'s five pipeline
+"""The `weft pipeline list|show|derive|validate|diff|estimate` commands.
+
+`weft pipeline list|show|derive|validate|diff|estimate` — task **3.7**'s five pipeline
 commands, plus `estimate`, task **31.8**'s own sixth.
 
 `docs/03-cli.md` → *Command surface*. Registered exactly like every other `Command` —
@@ -244,8 +246,10 @@ class PipelineDeriveCommandResult(CommandResult):
 
 
 class PipelineValidateCommandResult(CommandResult):
-    """`weft pipeline validate`'s whole answer on success — resolution failure never reaches
-    this far; see the module docstring on why a failure is left to propagate.
+    """`weft pipeline validate`'s whole answer on success.
+
+    Resolution failure never reaches this far; see the module docstring on why a failure is left
+    to propagate.
     """
 
     name: str
@@ -333,6 +337,15 @@ class PipelineListCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """List every pipeline the project knows, sorted by name.
+
+        Args:
+            args: Unused.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The names, as a `PipelineListCommandResult`.
+        """
         del args
         deps = ctx.require(Dependencies)
         catalogue = full_catalogue(reports=deps.reports)
@@ -351,6 +364,18 @@ class PipelineShowCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Resolve one named pipeline for display.
+
+        Args:
+            args: The parsed `PipelineNameArgs`.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The resolved pipeline, as a `PipelineShowCommandResult`.
+
+        Raises:
+            UnknownPipelineNameError: A named pipeline is not one the project knows.
+        """
         show_args = cast(PipelineNameArgs, args)
         deps = ctx.require(Dependencies)
         catalogue = full_catalogue(reports=deps.reports)
@@ -382,6 +407,18 @@ class PipelineValidateCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Resolve one named pipeline and report how many stages it has.
+
+        Args:
+            args: The parsed `PipelineNameArgs`.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The name and stage count, as a `PipelineValidateCommandResult`.
+
+        Raises:
+            UnknownPipelineNameError: A named pipeline is not one the project knows.
+        """
         validate_args = cast(PipelineNameArgs, args)
         deps = ctx.require(Dependencies)
         catalogue = full_catalogue(reports=deps.reports)
@@ -405,6 +442,18 @@ class PipelineDiffCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Resolve two named pipelines and compare them stage by stage.
+
+        Args:
+            args: The parsed `PipelineDiffArgs`.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The difference, as a `PipelineDiffCommandResult`.
+
+        Raises:
+            UnknownPipelineNameError: A named pipeline is not one the project knows.
+        """
         diff_args = cast(PipelineDiffArgs, args)
         deps = ctx.require(Dependencies)
         catalogue = full_catalogue(reports=deps.reports)
@@ -503,6 +552,18 @@ class PipelineEstimateCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Run a pipeline's ingest stages over a sample and project the cost of the whole corpus.
+
+        Args:
+            args: The parsed `PipelineEstimateArgs`.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The projection, as a `PipelineEstimateCommandResult`.
+
+        Raises:
+            UnknownPipelineNameError: A named pipeline is not one the project knows.
+        """
         estimate_args = cast(PipelineEstimateArgs, args)
         deps = ctx.require(Dependencies)
         catalogue = full_catalogue(reports=deps.reports)
@@ -596,6 +657,19 @@ class PipelineDeriveCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Write a new pipeline document that extends a known one.
+
+        Args:
+            args: The parsed `PipelineDeriveArgs`.
+            ctx: The run's context, holding its `Dependencies`.
+
+        Returns:
+            The parent, name and path written, as a `PipelineDeriveCommandResult`.
+
+        Raises:
+            UnknownPipelineNameError: The parent is not a pipeline the project knows.
+            PipelineAlreadyExistsError: A document of that name already exists.
+        """
         derive_args = cast(PipelineDeriveArgs, args)
         deps = ctx.require(Dependencies)
         catalogue = full_catalogue(reports=deps.reports)
@@ -631,8 +705,10 @@ class PipelineDeriveCommand:
 
 
 def register_pipeline_commands(registrar: PackRegistrar) -> None:
-    """Register all six `pipeline` commands — called from `weft_cli.commands.register`,
-    never from a second entry point (see the module docstring).
+    """Register all six `pipeline` commands.
+
+    Called from `weft_cli.commands.register`, never from a second entry point (see the module
+    docstring).
     """
     registrar.add(Command, "pipeline list", PipelineListCommand)
     registrar.add(Command, "pipeline show", PipelineShowCommand)

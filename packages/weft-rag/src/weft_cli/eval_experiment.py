@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, cast
@@ -111,7 +112,9 @@ _EVAL_EXPERIMENT_HELP = (
 
 
 class IncomparableArmsError(WeftError):
-    """An experiment document named two arms that are not comparable — a different corpus, a
+    """Refuse an experiment whose arms are not comparable.
+
+    An experiment document named two arms that are not comparable — a different corpus, a
     different question set, or one model slot at two versions. See the module docstring's own
     paragraph for exactly what is compared and why absence on one side is not a difference.
 
@@ -126,7 +129,9 @@ class IncomparableArmsError(WeftError):
 
 
 class UnscorableArmError(WeftError):
-    """An arm named a `query_pipeline` whose resolved last stage is neither a `Generator` nor a
+    """Refuse an arm whose query rung cannot be scored.
+
+    An arm named a `query_pipeline` whose resolved last stage is neither a `Generator` nor a
     `ContextPacker` — task **R38.0**'s pre-flight, so a resolvable-but-unscorable rung is refused
     before any arm writes a record rather than mid-run, after earlier arms already indexed and
     scored: `weft_cli.eval_scoring.score_pipeline` only knows how to ask a rung ending in a
@@ -143,7 +148,9 @@ class UnscorableArmError(WeftError):
 
 
 def _refuse_unscorable_arm(arm: ExperimentArm, *, deps: Dependencies) -> None:
-    """One arm's own pre-flight — `UnscorableArmError`'s own paragraph, plus ledger task 40.2's
+    """Check one arm is scorable before any arm runs.
+
+    One arm's own pre-flight — `UnscorableArmError`'s own paragraph, plus ledger task 40.2's
     second half: an arm naming `pool` must also name a `query_pipeline`, and that rung must end
     in a `ContextPacker` specifically, since a replay reranks through the rung a pool was
     captured from and a `Generator` has already answered past that point.
@@ -224,7 +231,9 @@ class ExperimentRunRef(BaseModel):
 
 
 class EvalExperimentCommandResult(CommandResult):
-    """`weft eval experiment`'s whole answer — the experiment's own identity, this invocation's
+    """The result of `weft eval experiment`.
+
+    `weft eval experiment`'s whole answer — the experiment's own identity, this invocation's
     id, and a reference to every record it wrote, in arm-then-repetition order.
     """
 
@@ -236,7 +245,9 @@ class EvalExperimentCommandResult(CommandResult):
 
 @dataclass(frozen=True)
 class _ArmIdentity:
-    """What one arm's identity check needs — computed once per arm, before the comparison loop
+    """What one arm's identity check needs.
+
+    Computed once per arm, before the comparison loop
     and before any indexing, so a refusal never runs an arm it is about to reject.
     """
 
@@ -255,7 +266,9 @@ async def _arm_identity(
     deps: Dependencies,
     pool: LoadedPool | None,
 ) -> _ArmIdentity:
-    """A replay arm (`pool` given) resolves its ingest pipeline by name alone — the identical
+    """Resolve a replay arm's identity without reading a corpus directory.
+
+    A replay arm (`pool` given) resolves its ingest pipeline by name alone — the identical
     resolution `corpus_documents` performs, minus the directory read a corpus this arm never
     touches would need — and takes its corpus digest from the manifest, so a replay arm compares
     equal, on corpus, to the capture arm it came from.
@@ -306,7 +319,9 @@ async def _arm_identity(
 def _arm_incomparable_reasons(
     baseline_name: str, baseline: _ArmIdentity, arm_name: str, candidate: _ArmIdentity
 ) -> tuple[str, ...]:
-    """Every way `candidate` (arm `arm_name`) is not comparable to `baseline` (arm
+    """List every way `candidate` is not comparable to `baseline`.
+
+    Every way `candidate` (arm `arm_name`) is not comparable to `baseline` (arm
     `baseline_name`) — see the module docstring's own paragraph. Empty means comparable.
     """
     reasons: list[str] = []
@@ -344,7 +359,9 @@ def _arm_incomparable_reasons(
 async def _refuse_unrecordable_metrics(
     experiment: Experiment, *, deps: Dependencies, ctx: Context
 ) -> None:
-    """Refuse before any arm is indexed if `experiment.metrics` names something no run at any of
+    """Refuse metrics no run at the experiment's cutoffs would record.
+
+    Refuse before any arm is indexed if `experiment.metrics` names something no run at any of
     `experiment.cutoffs` would actually record. See the module docstring's own paragraph.
     """
     passages = tuple(
@@ -381,7 +398,9 @@ async def _refuse_unrecordable_metrics(
 
 
 def _corpus_name_for(document_root: Path, corpus_path: Path) -> str:
-    """`corpus_path`, named as the document wrote it — relative to `document_root` (the
+    """Name `corpus_path` relative to the experiment document, POSIX-style.
+
+    `corpus_path`, named as the document wrote it — relative to `document_root` (the
     experiment document's own resolved directory), POSIX-style. See the module docstring's own
     paragraph on why the resolved absolute path is never what a record persists.
     """
@@ -505,6 +524,15 @@ class EvalPlanCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Size each arm and each corpus an experiment document would run, without running it.
+
+        Args:
+            args: The parsed `EvalPlanArgs`.
+            ctx: The invocation context holding the CLI's `Dependencies`.
+
+        Returns:
+            The produced `EvalPlanCommandResult`.
+        """
         plan_args = cast(EvalPlanArgs, args)
         deps = ctx.require(Dependencies)
         experiment = load_experiment(Path(plan_args.path))
@@ -563,6 +591,19 @@ class EvalExperimentCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Run every arm of an experiment document, resuming its newest incomplete invocation.
+
+        Args:
+            args: The parsed `EvalExperimentArgs`.
+            ctx: The invocation context holding the CLI's `Dependencies`.
+
+        Returns:
+            The produced `EvalExperimentCommandResult`.
+
+        Raises:
+            IncomparableArmsError: Two arms are not comparable.
+            UnscorableArmError: An arm's query rung cannot be scored.
+        """
         experiment_args = cast(EvalExperimentArgs, args)
         deps = ctx.require(Dependencies)
         experiment = load_experiment(Path(experiment_args.path))
@@ -599,74 +640,21 @@ class EvalExperimentCommand:
             for arm in experiment.arms
         }
 
-        baseline_arm = experiment.arms[0]
-        baseline = identities[baseline_arm.name]
-        for arm in experiment.arms[1:]:
-            reasons = _arm_incomparable_reasons(
-                baseline_arm.name, baseline, arm.name, identities[arm.name]
-            )
-            if reasons:
-                raise IncomparableArmsError(
-                    f"arm '{arm.name}' is not comparable to '{baseline_arm.name}': "
-                    f"{'; '.join(reasons)}.",
-                    arm=arm.name,
-                    reasons=reasons,
-                )
+        _refuse_incomparable_arms(experiment, identities)
 
         document_root = Path(experiment_args.path).resolve().parent
-        indexed_keys: set[tuple[str, Path]] = set()
-        runs: list[ExperimentRunRef] = []
-        for arm in experiment.arms:
-            pool = pools.get(arm.name)
-            corpus_path = experiment.corpus_for(arm)
-            questions = question_sets[arm.name].questions
-            index_key = (arm.pipeline, corpus_path)
-            for repetition in range(1, experiment.repeats_for(arm) + 1):
-                found = written.get((arm.name, repetition))
-                if found is not None:
-                    runs.append(ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=found))
-                    continue
-                already_indexed = index_key in indexed_keys
-                result = await index_and_score(
-                    deps,
-                    ctx=ctx,
-                    path=corpus_path,
-                    pipeline=arm.pipeline,
-                    corpus_name=_corpus_name_for(document_root, corpus_path),
-                    questions=questions,
-                    document_labels=document_labels,
-                    top_k=experiment.top_k,
-                    cutoffs=experiment.cutoffs,
-                    query_pipeline=arm.query_pipeline,
-                    reuse_index=already_indexed,
-                    refuse_foreign_documents=True,
-                    reprocess=False,
-                    batch_size=experiment.index_batch_size,
-                    capture_pool=arm.capture_pool,
-                    pool=pool,
-                    experiment=ExperimentRun(
-                        name=experiment.name,
-                        digest=experiment.digest,
-                        invocation=invocation,
-                        arm=arm.name,
-                        repetition=repetition,
-                        pool_manifest=pool.sha256 if pool is not None else None,
-                    ),
-                )
-                if pool is None:
-                    indexed_keys.add(index_key)
-                runs.append(
-                    ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=result.run_id)
-                )
-                if arm.capture_pool:
-                    _write_arm_pool(
-                        experiment,
-                        arm,
-                        questions,
-                        identities[arm.name],
-                        result,
-                        store=deps.services.store,
-                    )
+        runs = await _run_arms(
+            experiment,
+            deps=deps,
+            ctx=ctx,
+            invocation=invocation,
+            written=written,
+            pools=pools,
+            question_sets=question_sets,
+            identities=identities,
+            document_labels=document_labels,
+            document_root=document_root,
+        )
 
         return Produced(
             value=EvalExperimentCommandResult(
@@ -676,6 +664,98 @@ class EvalExperimentCommand:
                 runs=tuple(runs),
             )
         )
+
+
+def _refuse_incomparable_arms(
+    experiment: Experiment, identities: Mapping[str, _ArmIdentity]
+) -> None:
+    """Refuse the first arm that is not comparable to the experiment's first arm.
+
+    Raises:
+        IncomparableArmsError: An arm differs from the baseline arm in corpus, question set or
+            a model version.
+    """
+    baseline_arm = experiment.arms[0]
+    baseline = identities[baseline_arm.name]
+    for arm in experiment.arms[1:]:
+        reasons = _arm_incomparable_reasons(
+            baseline_arm.name, baseline, arm.name, identities[arm.name]
+        )
+        if reasons:
+            raise IncomparableArmsError(
+                f"arm '{arm.name}' is not comparable to '{baseline_arm.name}': "
+                f"{'; '.join(reasons)}.",
+                arm=arm.name,
+                reasons=reasons,
+            )
+
+
+async def _run_arms(
+    experiment: Experiment,
+    *,
+    deps: Dependencies,
+    ctx: Context,
+    invocation: str,
+    written: Mapping[tuple[str, int], str],
+    pools: Mapping[str, LoadedPool],
+    question_sets: Mapping[str, QuestionSet],
+    identities: Mapping[str, _ArmIdentity],
+    document_labels: Mapping[str, str] | None,
+    document_root: Path,
+) -> list[ExperimentRunRef]:
+    """Run every arm × repetition not already written, in arm-then-repetition order."""
+    indexed_keys: set[tuple[str, Path]] = set()
+    runs: list[ExperimentRunRef] = []
+    for arm in experiment.arms:
+        pool = pools.get(arm.name)
+        corpus_path = experiment.corpus_for(arm)
+        questions = question_sets[arm.name].questions
+        index_key = (arm.pipeline, corpus_path)
+        for repetition in range(1, experiment.repeats_for(arm) + 1):
+            found = written.get((arm.name, repetition))
+            if found is not None:
+                runs.append(ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=found))
+                continue
+            already_indexed = index_key in indexed_keys
+            result = await index_and_score(
+                deps,
+                ctx=ctx,
+                path=corpus_path,
+                pipeline=arm.pipeline,
+                corpus_name=_corpus_name_for(document_root, corpus_path),
+                questions=questions,
+                document_labels=document_labels,
+                top_k=experiment.top_k,
+                cutoffs=experiment.cutoffs,
+                query_pipeline=arm.query_pipeline,
+                reuse_index=already_indexed,
+                refuse_foreign_documents=True,
+                reprocess=False,
+                batch_size=experiment.index_batch_size,
+                capture_pool=arm.capture_pool,
+                pool=pool,
+                experiment=ExperimentRun(
+                    name=experiment.name,
+                    digest=experiment.digest,
+                    invocation=invocation,
+                    arm=arm.name,
+                    repetition=repetition,
+                    pool_manifest=pool.sha256 if pool is not None else None,
+                ),
+            )
+            if pool is None:
+                indexed_keys.add(index_key)
+            runs.append(ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=result.run_id))
+            if arm.capture_pool:
+                _write_arm_pool(
+                    experiment,
+                    arm,
+                    questions,
+                    identities[arm.name],
+                    result,
+                    store=deps.services.store,
+                )
+    return runs
 
 
 def _incomplete_invocation(
@@ -714,7 +794,9 @@ def _incomplete_invocation(
 
 
 def register_eval_experiment_command(registrar: PackRegistrar) -> None:
-    """Register `eval experiment` — called from `weft_cli.commands.register`, right after
+    """Register the `eval experiment` command.
+
+    Register `eval experiment` — called from `weft_cli.commands.register`, right after
     `register_eval_baseline_command`, never from a second entry point.
     """
     registrar.add(Command, "eval experiment", EvalExperimentCommand)

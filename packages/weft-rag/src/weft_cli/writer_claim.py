@@ -64,7 +64,9 @@ async def claim_writer_for(instance: object, *, command: str) -> AsyncGenerator[
 async def claim_all_writers(
     targets: tuple[Participant, ...], *, store_target: str | None, command: str
 ) -> AsyncGenerator[None]:
-    """Build every participant once, claim each one that is a `SingleWriter`, and hold all of
+    """Claim every participant that is a `SingleWriter` and hold them open for the block.
+
+    Build every participant once, claim each one that is a `SingleWriter`, and hold all of
     them open for the block's length — see the module docstring for why holding them open
     costs no extra connection to the one a fan-out's own `_ask` will build again.
 

@@ -235,6 +235,18 @@ class PackNewCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Scaffold a new pack's directory from the built-in template.
+
+        Args:
+            args: The parsed `PackNewArgs`.
+            ctx: Unused.
+
+        Returns:
+            The pack's root and every file written, as a `PackNewCommandResult`.
+
+        Raises:
+            PackTargetExistsError: The target directory already exists.
+        """
         del ctx
         pack_args = cast("PackNewArgs", args)
         root = Path(pack_args.into) / pack_args.name

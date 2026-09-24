@@ -68,6 +68,7 @@ class ReconcileOutcome(BaseModel):
 
     @property
     def failed(self) -> bool:
+        """Whether this participant's `reconcile` raised."""
         return self.error is not None
 
     @property
@@ -95,6 +96,7 @@ class ReconcileEstimateOutcome(BaseModel):
 
     @property
     def failed(self) -> bool:
+        """Whether this participant's `estimate` raised."""
         return self.error is not None
 
 
@@ -174,7 +176,9 @@ async def _ask(
 async def _converge(
     instance: object, mode: ReconcileMode, ctx: Context, *, spare: frozenset[GenerationId]
 ) -> tuple[ReconcileReport, int]:
-    """One participant's `reconcile`, with the `isinstance` that makes it callable, and the
+    """Run one participant's `reconcile` and count the nodes its reclaim removed.
+
+    One participant's `reconcile`, with the `isinstance` that makes it callable, and the
     number of nodes its reclaim removed.
 
     The class-level `issubclass` in `participants_for` cannot be the last word: a factory may
@@ -202,7 +206,9 @@ async def _reclaim_every_layer(
     *,
     spare: frozenset[GenerationId],
 ) -> int:
-    """`reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of and
+    """Reclaim every layer held only in withdrawn generations and count the nodes removed.
+
+    `reclaim_withdrawn` for every layer the catalogue holds a withdrawn generation of and
     none of `spare`, and the nodes it removed across all of them. A whole layer is skipped
     because `reclaim_withdrawn` cannot take one generation of a layer and leave another.
     """

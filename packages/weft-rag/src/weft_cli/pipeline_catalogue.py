@@ -47,7 +47,7 @@ from typing import Final
 import yaml
 from pydantic import ValidationError
 
-from weft_kernel.discovery import PackReport
+from weft_kernel.discovery import PackReport, PipelineResource
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.runner import PipelineResolutionError, UnresolvedNameInPipelineResolutionError
@@ -129,7 +129,9 @@ class ContributedPipelineNameCollisionError(WeftError):
 
 
 class ProjectPipelineNameCollisionError(WeftError):
-    """A project-local pipeline document and an installed pack's own contribution declare
+    """A project pipeline and a pack's contributed pipeline share one name.
+
+    A project-local pipeline document and an installed pack's own contribution declare
     the same `name:` — task **3.7**, the wider guarantee `ContributedPipelineNameCollisionError`'s
     own docstring named as missing since task 2.8.
 
@@ -145,7 +147,9 @@ class ProjectPipelineNameCollisionError(WeftError):
 
 
 def _parse_pipeline_text(text: str, *, source: str) -> Pipeline:
-    """`text` parsed as YAML and validated as a `Pipeline` — the one place both
+    """Parse `text` as YAML and validate it as a `Pipeline`.
+
+    `text` parsed as YAML and validated as a `Pipeline` — the one place both
     `load_pipeline_document` (a file on disk) and `load_contributed` (a resource inside an
     installed package) turn text into a document, so the two error classes below mean the
     same thing regardless of which kind of source produced them.
@@ -183,8 +187,18 @@ def load_pipeline_document(path: Path) -> Pipeline:
     return _parse_pipeline_text(text, source=str(path))
 
 
+def _resource_text(resource: PipelineResource) -> str:
+    """Read one contributed pipeline document's text out of its installed package."""
+    traversable = importlib.resources.files(resource.package)
+    for part in resource.resource.split("/"):
+        traversable = traversable.joinpath(part)
+    return traversable.read_text(encoding="utf-8")
+
+
 def load_contributed(reports: Sequence[PackReport]) -> dict[str, Pipeline]:
-    """Every `PipelineResource` an `ACTIVE` pack contributed, parsed and keyed by its own
+    """Parse every pipeline an active pack contributed, keyed by its name.
+
+    Every `PipelineResource` an `ACTIVE` pack contributed, parsed and keyed by its own
     `name:` field — `weft_retrieve.contract.RouteCatalogue`'s own promise made real:
     "populated by the same eager discovery pass that builds the registry."
 
@@ -211,10 +225,7 @@ def load_contributed(reports: Sequence[PackReport]) -> dict[str, Pipeline]:
                 f"'{resource.package}' (distribution '{resource.distribution}')"
             )
             try:
-                traversable = importlib.resources.files(resource.package)
-                for part in resource.resource.split("/"):
-                    traversable = traversable.joinpath(part)
-                text = traversable.read_text(encoding="utf-8")
+                text = _resource_text(resource)
             except (ModuleNotFoundError, FileNotFoundError, NotADirectoryError, OSError) as exc:
                 raise PipelineDocumentError(f"{source} could not be read: {exc}") from exc
 

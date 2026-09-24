@@ -1,4 +1,4 @@
-"""Answers `weft plugins doctor`'s real question about tracing: *are my spans going anywhere?*
+"""Answers `weft plugins doctor`'s real question about tracing: *are my spans going anywhere*?
 
 Task **5.1d**. `weft_kernel.seam.wrap` has emitted an OpenTelemetry span for every plugin call
 since Phase 0; whether any of them reach an exporter depends on whether something in the

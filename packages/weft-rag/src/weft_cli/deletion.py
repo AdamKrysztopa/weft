@@ -62,11 +62,14 @@ class ParticipantOutcome(BaseModel):
 
     @property
     def failed(self) -> bool:
+        """Whether this participant's deletion raised."""
         return self.error is not None
 
 
 def participants(*, registry: Registry, store_names: frozenset[str]) -> tuple[Participant, ...]:
-    """Every registered plugin that can delete a source — `weft_cli.fanout`, narrowed to one
+    """Select every registered plugin that can delete a source.
+
+    Every registered plugin that can delete a source — `weft_cli.fanout`, narrowed to one
     capability so that a caller says what it means rather than repeating the Protocol.
 
     `store_names` is a set rather than a single name as of task **6.18** — G13's first repair,

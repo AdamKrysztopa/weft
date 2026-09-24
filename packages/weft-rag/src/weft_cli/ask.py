@@ -265,7 +265,9 @@ class AskResult(BaseModel):
 
 
 def hits_for(results: Sequence[Scored[Node]]) -> tuple[AskHit, ...]:
-    """`results`, ranked and reshaped into the caller-facing `AskHit` a script or a `Command`
+    """Rank and reshape `results` into the caller-facing `AskHit` tuple.
+
+    `results`, ranked and reshaped into the caller-facing `AskHit` a script or a `Command`
     result reads — one place to build this shape, reused by `render_results_json` below and by
     `weft_cli.commands.AskCommand`, task 3.2's own caller: both need the identical ranked,
     structured view, and a second hand-built copy is exactly the drift two readers of one

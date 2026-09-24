@@ -74,7 +74,9 @@ class UnreadableRunRecordError(WeftError):
 
 
 def produced_value[T](outcome: Outcome[T], *, stage: str) -> T:
-    """The value of a wrapped call that only produces or raises; anything else is refused loudly
+    """Return a produced outcome's value, refusing any other outcome loudly.
+
+    The value of a wrapped call that only produces or raises; anything else is refused loudly
     rather than skipped (carried repair **R34.7**).
     """
     if isinstance(outcome, Produced):
@@ -110,7 +112,9 @@ def load_run_records(directory: Path) -> tuple[RunRecord, ...]:
 
 
 def _stage_names_from_pipeline(pipeline: Pipeline) -> frozenset[str]:
-    """Every plugin name a document `pipeline` can carry — `02` §1 → *Extended by G13*'s "named
+    """Collect every plugin name a document `pipeline` can name.
+
+    Every plugin name a document `pipeline` can carry — `02` §1 → *Extended by G13*'s "named
     by a pipeline in the project's catalogue". `stages`, `replace` and each `insert.stage` are
     the three `StageDeclaration`-carrying places a document can name a plugin at all; `remove`
     holds stage ids to drop, never a plugin name, and `set` has no `use:` field to read.
@@ -168,7 +172,9 @@ def stores_in_use(
     catalogue: Mapping[str, Pipeline],
     records: Sequence[RunRecord],
 ) -> frozenset[str]:
-    """The `NodeStore` names this project has actually run data through — `02` §1 → *Extended
+    """Name the `NodeStore`s this project has actually run data through.
+
+    The `NodeStore` names this project has actually run data through — `02` §1 → *Extended
     by G13*'s rule, narrowed by carried repair **R11.2**.
 
     `configured` — `[services] store` — is included unconditionally, whether or not it is
@@ -197,7 +203,9 @@ def stores_in_use(
 
 
 def _stores_in_use_for(deps: Dependencies) -> frozenset[str]:
-    """`stores_in_use`, assembled from `deps` alone — `weft_cli.commands._stores_in_use`'s own
+    """Compute `stores_in_use` from a command's dependencies alone.
+
+    `stores_in_use`, assembled from `deps` alone — `weft_cli.commands._stores_in_use`'s own
     wrapper, duplicated here rather than imported: `weft_cli.commands` imports this module, and
     importing back would be circular. Both wrappers read the same three sources — a project's
     own pipeline documents, the full installed catalogue, and every persisted run record — so a
@@ -214,7 +222,9 @@ def _stores_in_use_for(deps: Dependencies) -> frozenset[str]:
 
 
 async def target_participants(deps: Dependencies) -> tuple[str, ...]:
-    """Every `NodeStore` name this project reaches (`stores_in_use`) that satisfies
+    """List the target-holding stores this project reaches that hold data.
+
+    Every `NodeStore` name this project reaches (`stores_in_use`) that satisfies
     `weft_store.contract.TargetHolding` **and holds something** — ledger task **34.11**, narrowed
     by carried repair **R34.5**. Sorted, so a promote, rollback, drop or a render of one always
     lists participants the same way.
@@ -271,8 +281,26 @@ async def _holds_anything(instance: TargetHolding, *, entry: RegistryEntry, name
     return bool(produced_value(outcome, stage="target:participant"))
 
 
+async def _live_target_of(instance: TargetHolding, *, distribution: str, name: str) -> str:
+    """Read participant `name`'s live target through the seam."""
+
+    async def _catalogue(instance: TargetHolding = instance) -> Outcome[TargetCatalogue]:
+        return Produced(value=await instance.target_catalogue())
+
+    outcome = await wrap(
+        _catalogue,
+        distribution=distribution,
+        contract=NodeStore.__qualname__,
+        plugin=name,
+        stage="target:catalogue",
+    )()
+    return produced_value(outcome, stage="target:catalogue").live
+
+
 async def check_participants_agree(deps: Dependencies) -> None:
-    """Refuse with `weft_engine.targets.TargetPointersDisagreeError` when this project's own
+    """Refuse when this project's target-holding stores disagree on the live target.
+
+    Refuse with `weft_engine.targets.TargetPointersDisagreeError` when this project's own
     `TargetHolding` participants (`target_participants`) do not all report the same live
     target — ledger task **34.11**. Every read and write command that resolves no explicit
     `--target` calls this before doing anything else, so a crash between two participants' own
@@ -285,18 +313,7 @@ async def check_participants_agree(deps: Dependencies) -> None:
         entry = deps.registry.entry(NodeStore, name)
         instance = cast(TargetHolding, entry.factory(None))
         try:
-
-            async def _catalogue(instance: TargetHolding = instance) -> Outcome[TargetCatalogue]:
-                return Produced(value=await instance.target_catalogue())
-
-            outcome = await wrap(
-                _catalogue,
-                distribution=entry.distribution,
-                contract=NodeStore.__qualname__,
-                plugin=name,
-                stage="target:catalogue",
-            )()
-            live[name] = produced_value(outcome, stage="target:catalogue").live
+            live[name] = await _live_target_of(instance, distribution=entry.distribution, name=name)
         finally:
             await aclose(
                 instance,

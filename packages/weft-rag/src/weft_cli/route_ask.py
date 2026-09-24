@@ -140,7 +140,9 @@ class NoRouterPipelineError(WeftError, UnresolvedNameError):
 
 
 class UnroutedPipelineNameError(PipelineResolutionError, UnresolvedNameError):
-    """The router selected a pipeline `Route.pipeline` names, but the catalogue holds no
+    """The router selected a pipeline name the catalogue does not hold.
+
+    The router selected a pipeline `Route.pipeline` names, but the catalogue holds no
     document by that name.
 
     Cannot happen against `weft_retrieve.contract.RoutingPolicy`'s own published
@@ -166,14 +168,18 @@ class UnroutedPipelineNameError(PipelineResolutionError, UnresolvedNameError):
 
 
 class NoRungOfferedError(WeftError):
-    """Every rung the router could offer needs a model role `[llm.roles]` does not map —
+    """No rung the router could offer has every model role it needs mapped.
+
+    Every rung the router could offer needs a model role `[llm.roles]` does not map —
     carried repair **R43.30**. Raised before any model call, so the router is never paid to
     choose between nothing; the message names each missing role and the rungs it would restore.
     """
 
 
 class PipelineDidNotProduceError(PipelineResolutionError):
-    """Either resolution ran to completion but answered `NothingToProduce` or `Failed`
+    """A resolved pipeline ran to completion without producing an answer.
+
+    Either resolution ran to completion but answered `NothingToProduce` or `Failed`
     rather than `Produced` — a real outcome from a real run, never a bare exception, so
     it is translated into its own named `WeftError` rather than left for a caller to
     pattern-match on `Outcome`.
@@ -194,7 +200,9 @@ async def run_routed_ask(
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
 ) -> tuple[str, Answer]:
-    """Route `question` through the real router, run whichever pipeline it selects, and
+    """Route `question` to a pipeline, run it, and return its name and answer.
+
+    Route `question` through the real router, run whichever pipeline it selects, and
     return `(the pipeline name selected, the Answer it produced)`.
 
     Raises `NoRouterPipelineError` if no installed pack contributed `route.yaml`;
@@ -280,70 +288,99 @@ async def run_routed_ask(
     )
     in_flight: BaseException | None = None
     try:
-        query = Query(text=question)
-        route = await _run_pipeline(
+        routed = await _route_and_answer(
+            question,
             router,
-            query,
+            router_name=router_name,
+            built=built,
             sink=sink,
             registry=registry,
-            runner=built.runner,
-            ctx=built.ctx,
-            store=built.store,
-            store_name=services.store,
-            table=built.table,
-            selected=built.selected,
-            names=services.roles,
+            services=services,
             catalogue=catalogue,
             reports=reports,
             contributions=contributions,
-            entry_type=Query,
-        )
-        route = _require(route, Route, pipeline=router_name, produced_by="routing")
-
-        selected_pipeline = catalogue.get(route.pipeline)
-        if selected_pipeline is None:
-            options = tuple(sorted(catalogue))
-            raise UnroutedPipelineNameError(
-                f"the router selected '{route.pipeline}', which the pipeline catalogue does "
-                f"not hold. Catalogue: {options}.",
-                valid_options=options,
-                pipeline=route.pipeline,
-                remedy=(
-                    "the RoutingPolicy that produced this Route selected a name outside its "
-                    "own RouteCatalogue — that is a defect in the policy plugin, not in this "
-                    "question."
-                ),
-            )
-        query_set = QuerySet(origin=query, queries=(query,))
-        answer = await _run_pipeline(
-            selected_pipeline,
-            query_set,
-            sink=sink,
-            entry_type=QuerySet,
-            registry=registry,
-            runner=built.runner,
-            ctx=built.ctx,
-            store=built.store,
-            store_name=services.store,
-            table=built.table,
-            selected=built.selected,
-            names=services.roles,
-            catalogue=catalogue,
-            reports=reports,
-            contributions=contributions,
-        )
-        answer = _require(
-            answer,
-            Answer,
-            pipeline=route.pipeline,
-            produced_by="`weft ask`",
-            alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
         )
     except BaseException as failure:
         in_flight = failure
         raise
     finally:
         await close_each(built.close_targets, in_flight=in_flight)
+    return routed
+
+
+async def _route_and_answer(
+    question: str,
+    router: Pipeline,
+    *,
+    router_name: str,
+    built: PreparedRunner,
+    sink: TokenSink,
+    registry: Registry,
+    services: ServiceSelection,
+    catalogue: Mapping[str, Pipeline],
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+) -> tuple[str, Answer]:
+    """Run the router over `question`, then the pipeline it selects, and require an answer."""
+    query = Query(text=question)
+    route = await _run_pipeline(
+        router,
+        query,
+        sink=sink,
+        registry=registry,
+        runner=built.runner,
+        ctx=built.ctx,
+        store=built.store,
+        store_name=services.store,
+        table=built.table,
+        selected=built.selected,
+        names=services.roles,
+        catalogue=catalogue,
+        reports=reports,
+        contributions=contributions,
+        entry_type=Query,
+    )
+    route = _require(route, Route, pipeline=router_name, produced_by="routing")
+
+    selected_pipeline = catalogue.get(route.pipeline)
+    if selected_pipeline is None:
+        options = tuple(sorted(catalogue))
+        raise UnroutedPipelineNameError(
+            f"the router selected '{route.pipeline}', which the pipeline catalogue does "
+            f"not hold. Catalogue: {options}.",
+            valid_options=options,
+            pipeline=route.pipeline,
+            remedy=(
+                "the RoutingPolicy that produced this Route selected a name outside its "
+                "own RouteCatalogue — that is a defect in the policy plugin, not in this "
+                "question."
+            ),
+        )
+    query_set = QuerySet(origin=query, queries=(query,))
+    answer = await _run_pipeline(
+        selected_pipeline,
+        query_set,
+        sink=sink,
+        entry_type=QuerySet,
+        registry=registry,
+        runner=built.runner,
+        ctx=built.ctx,
+        store=built.store,
+        store_name=services.store,
+        table=built.table,
+        selected=built.selected,
+        names=services.roles,
+        catalogue=catalogue,
+        reports=reports,
+        contributions=contributions,
+    )
+    answer = _require(
+        answer,
+        Answer,
+        pipeline=route.pipeline,
+        produced_by="`weft ask`",
+        alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
+    )
     return route.pipeline, answer
 
 
@@ -450,7 +487,9 @@ def _require[T](
 
 
 def named_pipeline(pipeline_name: str, *, catalogue: Mapping[str, Pipeline]) -> Pipeline:
-    """`pipeline_name` looked up in `catalogue`, or `UnknownPipelineNameError` naming every
+    """Look up `pipeline_name` in `catalogue`, refusing an unknown name.
+
+    `pipeline_name` looked up in `catalogue`, or `UnknownPipelineNameError` naming every
     pipeline the catalogue does hold.
 
     Lifted out of `run_named_ask` at task **16.1** so `resolve_named_pipeline` refuses the
@@ -479,7 +518,9 @@ def resolve_named_pipeline(
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
 ) -> ResolvedPipeline:
-    """What `run_named_ask` will resolve `pipeline_name` to — `full_catalogue`, the same
+    """Resolve `pipeline_name` exactly as `run_named_ask` would, without running it.
+
+    What `run_named_ask` will resolve `pipeline_name` to — `full_catalogue`, the same
     lookup, the same `resolve_in_catalogue`. Pure: `resolution.py:783 "Pure and det"` is data
     manipulation over already-parsed structures, so this does no I/O and runs nothing.
     """
@@ -568,21 +609,13 @@ async def run_named_ask(
     )
     in_flight: BaseException | None = None
     try:
-        query = Query(text=question)
-        query_set = QuerySet(origin=query, queries=(query,))
-        answer = await _run_pipeline(
+        answer = await _run_question(
+            question,
             pipeline_doc,
-            query_set,
+            built=built,
             sink=sink,
-            entry_type=QuerySet,
             registry=registry,
-            runner=built.runner,
-            ctx=built.ctx,
-            store=built.store,
-            store_name=services.store,
-            table=built.table,
-            selected=built.selected,
-            names=services.roles,
+            services=services,
             catalogue=catalogue,
             reports=reports,
             contributions=contributions,
@@ -599,6 +632,40 @@ async def run_named_ask(
         pipeline=pipeline_name,
         produced_by="`weft ask`",
         alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
+    )
+
+
+async def _run_question(
+    question: str,
+    pipeline_doc: Pipeline,
+    *,
+    built: PreparedRunner,
+    sink: TokenSink,
+    registry: Registry,
+    services: ServiceSelection,
+    catalogue: Mapping[str, Pipeline],
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+) -> object:
+    """Run `pipeline_doc` over `question` as a one-query `QuerySet`, returning what it produced."""
+    query = Query(text=question)
+    query_set = QuerySet(origin=query, queries=(query,))
+    return await _run_pipeline(
+        pipeline_doc,
+        query_set,
+        sink=sink,
+        entry_type=QuerySet,
+        registry=registry,
+        runner=built.runner,
+        ctx=built.ctx,
+        store=built.store,
+        store_name=services.store,
+        table=built.table,
+        selected=built.selected,
+        names=services.roles,
+        catalogue=catalogue,
+        reports=reports,
+        contributions=contributions,
     )
 
 
@@ -663,21 +730,13 @@ async def run_named_retrieve(
     )
     in_flight: BaseException | None = None
     try:
-        query = Query(text=question)
-        query_set = QuerySet(origin=query, queries=(query,))
-        result = await _run_pipeline(
+        result = await _run_question(
+            question,
             pipeline_doc,
-            query_set,
+            built=built,
             sink=sink,
-            entry_type=QuerySet,
             registry=registry,
-            runner=built.runner,
-            ctx=built.ctx,
-            store=built.store,
-            store_name=services.store,
-            table=built.table,
-            selected=built.selected,
-            names=services.roles,
+            services=services,
             catalogue=catalogue,
             reports=reports,
             contributions=contributions,
@@ -698,7 +757,9 @@ async def run_named_retrieve(
 
 @dataclass(frozen=True, slots=True)
 class PreparedRunner:
-    """One run's assembled services — repair **R38.6**: what `_prepared_runner` built, and
+    """One run's assembled services and the instances that close them.
+
+    One run's assembled services — repair **R38.6**: what `_prepared_runner` built, and
     what closes it. `runner`, `ctx`, `store`, `table` and `selected` are exactly the five
     values `_prepared_runner` returned before this repair; `close_targets` is new, and is
     the only reason this is a dataclass rather than the bare tuple it replaces.
@@ -721,7 +782,9 @@ def _close_targets(
     store: object,
     embedder: object,
 ) -> tuple[CloseTarget, ...]:
-    """Every instance `_prepared_runner` itself built from `registry`, in the reverse of the
+    """List what `_prepared_runner` built, in reverse build order, for closing.
+
+    Every instance `_prepared_runner` itself built from `registry`, in the reverse of the
     order it built them — repair **R38.6**.
 
     `weft_kernel.seam.aclose` already no-ops on an instance carrying no `aclose`, so nothing
@@ -777,7 +840,9 @@ async def _prepared_runner(
     ready_layers: frozenset[str] | None = None,
     rung_roles: Mapping[str, frozenset[str]] | None = None,
 ) -> PreparedRunner:
-    """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
+    """Assemble the services, context, runner and store both ask paths share.
+
+    The setup `run_routed_ask` and `run_named_ask` share: the assembled service
     registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
     functions' own two `_run_pipeline` calls need. Factored out once a second caller
     existed (task 3.11) rather than duplicated — the identical "one code path, not two"
@@ -858,7 +923,9 @@ async def prepared_services(
     roles: RoleTable = _NO_ROLES,
     target: str | None = None,
 ) -> AsyncGenerator[PreparedRunner]:
-    """One run's assembled services, built once and closed once — repair **R38.6**'s public
+    """Build one run's services once, yield them, and close them once.
+
+    One run's assembled services, built once and closed once — repair **R38.6**'s public
     seam for a caller that runs many questions through the same rung.
 
     `weft_cli.eval_scoring.score_pipeline` is that caller: scoring a query rung over a whole
@@ -932,7 +999,9 @@ def resolve_in_catalogue(
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
 ) -> ResolvedPipeline:
-    """`pipeline` resolved against `catalogue` — the one composition every run of a named
+    """Resolve `pipeline` against `catalogue`, the one composition a named run uses.
+
+    `pipeline` resolved against `catalogue` — the one composition every run of a named
     pipeline goes through, and therefore the one an identity may be computed from.
 
     Lifted out of `_run_pipeline` at task **16.1** rather than copied: a record that named a
@@ -959,7 +1028,9 @@ def routable_rung_roles(
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...] = (),
 ) -> dict[str, frozenset[str]]:
-    """Every document carrying `route.summary`, to the roles its resolved form calls a model
+    """Map every routable document to the model roles its resolved form calls.
+
+    Every document carrying `route.summary`, to the roles its resolved form calls a model
     under (`weft_retrieve.engine.roles_needed`) — carried repair **R43.30**. Resolved through
     `resolve_in_catalogue`, so a derived rung's `replace`/`set` count.
 
@@ -995,7 +1066,9 @@ def _offerable_rung_roles(
     llm: LLMSection,
     ready_layers: frozenset[str] | None,
 ) -> dict[str, frozenset[str]]:
-    """`routable_rung_roles`, once the router's own roles are mapped and at least one rung
+    """Return the rungs a router may offer, refusing when none can run.
+
+    `routable_rung_roles`, once the router's own roles are mapped and at least one rung
     survives the role filter — `run_routed_ask`'s two up-front refusals, carried repair
     **R43.30**.
     """
@@ -1045,7 +1118,9 @@ async def _run_pipeline(
     contributions: tuple[Contribution, ...] = (),
     entry_type: type[object] | None = None,
 ) -> object:
-    """Resolve `pipeline` and run it — `catalogue`, added as a **repair**, is `resolve()`'s
+    """Resolve `pipeline` against the full catalogue and run it.
+
+    Resolve `pipeline` and run it — `catalogue`, added as a **repair**, is `resolve()`'s
     own `parents` lookup, not a one-entry `{pipeline.name: pipeline}` mapping: a derived
     pipeline's `extends:` names an ancestor, and a mapping holding only the named pipeline
     itself has no ancestor for `resolve()` to find, so every derived pipeline reached through
@@ -1143,7 +1218,9 @@ async def run_named_rerank(
     roles: RoleTable = _NO_ROLES,
     prepared: PreparedRunner | None = None,
 ) -> Passages:
-    """`run_named_retrieve`'s twin for a caller that already holds a `Ranking` — ledger task
+    """Run a named pipeline from a `Ranking` the caller already holds.
+
+    `run_named_retrieve`'s twin for a caller that already holds a `Ranking` — ledger task
     **40.2**'s second half: `weft_cli.eval_scoring.score_pipeline`'s pool-replay path hydrates a
     captured pool's own chunks into a `Ranking` itself, rather than a `Query`, so there is no
     `Query`/`QuerySet` construction here for a rung to resolve retrieval from — the entry payload

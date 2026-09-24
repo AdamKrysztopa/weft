@@ -1,4 +1,6 @@
-"""Generates the command table `manual/user-manual.md` embeds — `docs/08-manuals.md` §1, §3
+"""Generate the command table `manual/user-manual.md` embeds.
+
+Generates the command table `manual/user-manual.md` embeds — `docs/08-manuals.md` §1, §3
 clause (b), task **3.9**.
 
 `03` → *Plugin-contributed commands* already commits the CLI itself to this: "Core has no list

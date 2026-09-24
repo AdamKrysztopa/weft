@@ -102,6 +102,8 @@ if TYPE_CHECKING:
     # paragraph. `TYPE_CHECKING`-only here so the return-type annotations below still resolve
     # for a type checker without costing `--version` a single import at runtime.
     from weft_cli.render import Rendered
+    from weft_command.contract import CommandResult
+    from weft_kernel.payload import Outcome
 
 #: This module, spelled the way an entry point spells it. `own_distribution` finds the
 #: distribution that ships `weft` by looking for the `console_scripts` entry point pointing
@@ -130,7 +132,9 @@ _YES_HELP = (
 
 
 class _EmptyArgs(BaseModel):
-    """The `getattr(..., "args_model", ...)` default in `_add_command_level` below — never
+    """Give a static type checker a concrete fallback args model.
+
+    The `getattr(..., "args_model", ...)` default in `_add_command_level` below — never
     actually reached in practice, since `Command.required_declarations` and the protocol's own
     required members mean a real registered command always carries both attributes; it exists
     only so a static type checker has a concrete fallback type to reason about, on the same
@@ -153,7 +157,9 @@ def wants_version(argv: list[str]) -> bool:
 
 
 def wants_help(argv: list[str]) -> bool:
-    """Whether `-h`/`--help` is anywhere in `argv` — `wants_version`'s own pre-scan, repeated
+    """Report whether `-h`/`--help` appears anywhere in `argv`.
+
+    Whether `-h`/`--help` is anywhere in `argv` — `wants_version`'s own pre-scan, repeated
     for the second flag `main` must decide about before it can pick a routing branch.
 
     **Repaired, 2026-08-20, from a review of `4aeba88`.** `prescan_command_name` answers "which
@@ -182,7 +188,9 @@ def wants_help(argv: list[str]) -> bool:
 
 
 def global_output_flags(argv: list[str]) -> tuple[bool, bool]:
-    """`(--json present, --quiet present)` — task 3.6's own pre-scan, on `wants_version`'s
+    """Pre-scan `argv` for the global `--json` and `--quiet` flags.
+
+    `(--json present, --quiet present)` — task 3.6's own pre-scan, on `wants_version`'s
     exact pattern: a throwaway, `parse_known_args` mini-parser that never touches
     `weft_kernel.discovery`.
 
@@ -238,7 +246,9 @@ def token_sink_for(*, json: bool, quiet: bool) -> TokenSink:
 
 
 def prescan_command_name(argv: list[str]) -> str | None:
-    """The first one or two non-flag tokens in `argv`, joined — see the module docstring's
+    """Name the command `argv` invokes, before any plugin is discovered.
+
+    The first one or two non-flag tokens in `argv`, joined — see the module docstring's
     second paragraph. `None` when `argv` names no command at all (bare `weft`, or only flags).
     """
     tokens = [token for token in argv if not token.startswith("-")]
@@ -351,7 +361,9 @@ def _context() -> Context:
 
 
 class _EmissionTrackingSink:
-    """Wraps a real `TokenSink` for the duration of one `run_command` call, and remembers
+    """Remember whether a `TokenSink` was ever emitted to during one command.
+
+    Wraps a real `TokenSink` for the duration of one `run_command` call, and remembers
     whether `emit` was ever called — `run_command`'s own repaired `finally` block reads
     `.emitted` to decide whether a caught failure is a genuine stream error, without
     `weft_llm.contract.TokenSink` growing a method every implementation would need, and
@@ -378,7 +390,9 @@ class _EmissionTrackingSink:
         await self._sink.close(reason=reason)
 
     async def batch_progress(self, event: BatchProgress) -> None:
-        """Forward task **43.2**'s per-batch line to the sink underneath, or drop it when that
+        """Forward a per-batch progress line when the wrapped sink can show one.
+
+        Forward task **43.2**'s per-batch line to the sink underneath, or drop it when that
         sink cannot show one (`--quiet`'s `NullSink`) — `L12.13` again, one method over.
         """
         if isinstance(self._sink, ProgressReporter):
@@ -421,6 +435,16 @@ class TtyConsent:
     policy: PermissionPolicy
 
     async def decide(self, *, command_name: str, instance: object, args: BaseModel) -> None:
+        """Let the command run, or refuse it under this terminal's permission policy.
+
+        Args:
+            command_name: The invoked command's registered name.
+            instance: The command about to run.
+            args: The command's validated arguments.
+
+        Raises:
+            CommandRefusalError: The policy refuses the command without consent.
+        """
         # Imported here, not at module scope: `weft_cli.confirm` pulls `weft_chunk`,
         # `weft_embed`, `weft_extract` and `weft_store` transitively, and **fitness function
         # 8(b) requires `weft --version` to execute no pack code at all**. The function this
@@ -430,6 +454,41 @@ class TtyConsent:
         from weft_cli.confirm import gate  # noqa: PLC0415
 
         gate(instance, command_name, args, yes=self.yes, policy=self.policy)
+
+
+async def _validated_invoke(
+    command_name: str,
+    instance: Command,
+    args_model: type[BaseModel],
+    payload: dict[str, object],
+    *,
+    ctx: Context,
+    yes: bool,
+    policy: PermissionPolicy,
+    distribution: str,
+) -> Outcome[CommandResult]:
+    """Validate `payload` against `args_model`, then run `instance` through the gated seam."""
+    # Inside the `try`, so a broken bound is a usage refusal for a one-shot run and a REPL
+    # turn alike (carried repair `R22.8`), not `_report_unexpected`'s exit 1.
+    try:
+        args_instance = args_model(**payload)
+    except ValidationError as exc:
+        raise build_command_arguments_error(args_model, exc) from exc
+    # **Task 7.0.** The gate and the seam wrap used to be assembled here, and that was the
+    # defect G12 found: this function was the *only* caller, so `weft_cli.confirm.gate` was
+    # documented as "the invocation seam" while `Command.run` itself was reachable — ungated —
+    # by anything holding a registry. Phase 7's pack is the first second caller. Both now live
+    # in `weft_command.invocation.invoke`, which takes the consent decision as a **required**
+    # argument, so a caller that has not decided cannot construct the call. This function's own
+    # answer is the TTY prompt it has always used (`docs/internal/lessons.md` `L8.31`).
+    return await invoke(
+        command_name=command_name,
+        instance=instance,
+        args=args_instance,
+        ctx=ctx,
+        consent=TtyConsent(yes=yes, policy=policy),
+        distribution=distribution,
+    )
 
 
 async def run_command(command_name: str, args: argparse.Namespace, deps: Dependencies) -> Rendered:
@@ -592,28 +651,16 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
     interrupted = False
     failure_reason: str | None = None
     try:
-        # Inside the `try`, so a broken bound is a usage refusal for a one-shot run and a REPL
-        # turn alike (carried repair `R22.8`), not `_report_unexpected`'s exit 1.
-        try:
-            args_instance = args_model(**payload)
-        except ValidationError as exc:
-            raise build_command_arguments_error(args_model, exc) from exc
-        # **Task 7.0.** The gate and the seam wrap used to be assembled here, and that was the
-        # defect G12 found: this function was the *only* caller, so `weft_cli.confirm.gate` was
-        # documented as "the invocation seam" while `Command.run` itself was reachable — ungated —
-        # by anything holding a registry. Phase 7's pack is the first second caller. Both now live
-        # in `weft_command.invocation.invoke`, which takes the consent decision as a **required**
-        # argument, so a caller that has not decided cannot construct the call. This function's own
-        # answer is the TTY prompt it has always used (`docs/internal/lessons.md` `L8.31`).
-        outcome = await invoke(
-            command_name=command_name,
-            instance=instance,
-            args=args_instance,
+        outcome = await _validated_invoke(
+            command_name,
+            instance,
+            args_model,
+            payload,
             ctx=ctx,
-            consent=TtyConsent(yes=yes, policy=deps.permissions),
+            yes=yes,
+            policy=deps.permissions,
             distribution=entry.distribution,
         )
-        succeeded = True
     except WeftError as exc:
         # R38.17: the seam wraps whatever a stage raises, so a reader leaving mid-stream arrives
         # as the cause of a stage failure rather than as itself.
@@ -626,6 +673,8 @@ async def run_command(command_name: str, args: argparse.Namespace, deps: Depende
         # R43.48: an interrupt is not a stream error; exit 130 says it.
         interrupted = True
         raise
+    else:
+        succeeded = True
     finally:
         if succeeded or interrupted or not tracked_sink.emitted:
             reason = None
@@ -713,6 +762,24 @@ def own_version() -> str:
     return metadata.version(own_distribution())
 
 
+def _built_surface(
+    *, strict_pins: bool, sink: TokenSink
+) -> tuple[Dependencies, argparse.ArgumentParser]:
+    """Discover the registry, make pack renderers reachable, and build the parser from it."""
+    deps = build_dependencies(strict_pins=strict_pins, token_sink=sink)
+    # Task 6.20 (G13)'s renderer half, moved here from `build_dependencies` at task 24.1:
+    # whatever renderer a pack buffered through `PackRegistrar.add_renderer`, made
+    # reachable for `weft_cli.render._render_result`'s own dispatch. It is this module's
+    # to make because a renderer is terminal output — `weft_engine` assembles Weft and
+    # decides nothing about what a person sees. Local import for the reason
+    # `_register_ext_models` states: `weft_cli.render` imports every built-in command
+    # module at its own scope, and `weft --version` returns in `main` without reaching here.
+    from weft_cli.render import register_renderers_from_reports
+
+    register_renderers_from_reports(deps.reports)
+    return deps, build_parser(deps.registry)
+
+
 def main() -> None:
     """The one entry point. The one `asyncio.run`. Fitness function 7(a)'s subject.
 
@@ -777,18 +844,7 @@ def main() -> None:
     json_flag, quiet_flag = global_output_flags(argv)
     sink = token_sink_for(json=json_flag, quiet=quiet_flag)
     try:
-        deps = build_dependencies(strict_pins=strict_pins, token_sink=sink)
-        # Task 6.20 (G13)'s renderer half, moved here from `build_dependencies` at task 24.1:
-        # whatever renderer a pack buffered through `PackRegistrar.add_renderer`, made
-        # reachable for `weft_cli.render._render_result`'s own dispatch. It is this module's
-        # to make because a renderer is terminal output — `weft_engine` assembles Weft and
-        # decides nothing about what a person sees. Local import for the reason
-        # `_register_ext_models` states: `weft_cli.render` imports every built-in command
-        # module at its own scope, and `weft --version` returns above without reaching here.
-        from weft_cli.render import register_renderers_from_reports
-
-        register_renderers_from_reports(deps.reports)
-        parser = build_parser(deps.registry)
+        deps, parser = _built_surface(strict_pins=strict_pins, sink=sink)
     except WeftError as exc:
         # Discovery itself failed to build a registry at all, before a single Command is even
         # known to exist — `weft.toml` is not valid TOML, `[packs] allow`/`[plugins]` is
@@ -873,17 +929,24 @@ def _run_command_to_rendered(
 def _print_rendered_output(rendered: Rendered) -> None:
     """A reader that leaves now changes nothing about `rendered.exit_code` (R38.15)."""
     try:
-        if rendered.stdout is not None:
-            print(rendered.stdout)
-        if rendered.stderr is not None:
-            print(rendered.stderr, file=sys.stderr)
-        sys.stdout.flush()
+        _write_rendered(rendered)
     except BrokenPipeError:
         _silence_stdout()
 
 
+def _write_rendered(rendered: Rendered) -> None:
+    """Print `rendered`'s stdout and stderr, then flush stdout."""
+    if rendered.stdout is not None:
+        print(rendered.stdout)
+    if rendered.stderr is not None:
+        print(rendered.stderr, file=sys.stderr)
+    sys.stdout.flush()
+
+
 def _silence_stdout() -> None:
-    """The `signal` module's SIGPIPE recipe: the interpreter's shutdown flush then has no broken
+    """Point stdout at `os.devnull` so shutdown after a broken pipe stays quiet.
+
+    The `signal` module's SIGPIPE recipe: the interpreter's shutdown flush then has no broken
     descriptor to fail on.
     """
     devnull = os.open(os.devnull, os.O_WRONLY)

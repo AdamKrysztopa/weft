@@ -1,4 +1,6 @@
-"""`weft eval baseline` — ledger repair **R22.4c**: the procedure that produced the published
+r"""Reproduce the published retrieval baseline in process.
+
+`weft eval baseline` — ledger repair **R22.4c**: the procedure that produced the published
 baseline, taken in process rather than by shelling out to `weft index`/`weft ask`.
 
 `docs/09-release.md` §5.2 fails a release if reproducing its published number requires a
@@ -97,7 +99,9 @@ _EVAL_BASELINE_HELP = (
 
 
 class BaselineRunError(WeftError):
-    """`weft eval baseline` cannot take the run it was asked for, and taking a different one
+    """Refuse a baseline run that cannot be taken as asked.
+
+    `weft eval baseline` cannot take the run it was asked for, and taking a different one
     silently would be worse — see the module docstring for the whole family of refusals this
     covers: an unknown tier, a document that fails its own manifest digest, a corpus with
     nothing to score.
@@ -124,7 +128,9 @@ class BaselineOutputExistsError(BaselineRunError):
 
 
 class EvalBaselineArgs(BaseModel):
-    """`weft eval baseline <manifest> <questions>` — every field is `--help` text as well as a
+    """Parameters of `weft eval baseline <manifest> <questions>`.
+
+    `weft eval baseline <manifest> <questions>` — every field is `--help` text as well as a
     parameter; see the module docstring for what each one controls.
     """
 
@@ -178,7 +184,9 @@ class EvalBaselineCommandResult(CommandResult):
 
 
 def _parse_tiers(raw: str) -> tuple[Tier, ...]:
-    """`--tiers fetch,operator` as members, in the order given, refusing an unknown name by
+    """Parse `--tiers` into tier members, refusing an unknown name.
+
+    `--tiers fetch,operator` as members, in the order given, refusing an unknown name by
     listing every real one.
     """
     pieces = tuple(dict.fromkeys(piece.strip() for piece in raw.split(",")))
@@ -196,7 +204,9 @@ def _parse_tiers(raw: str) -> tuple[Tier, ...]:
 
 
 def _parse_depths(raw: str, *, top_k: int) -> tuple[int, ...]:
-    """`--depths 5,10` as sorted, de-duplicated integers, refused when one is deeper than
+    """Parse `--depths` into sorted, distinct cutoffs no deeper than `--top-k`.
+
+    `--depths 5,10` as sorted, de-duplicated integers, refused when one is deeper than
     `--top-k`, or when a piece is not an integer at all.
     """
     parsed: list[int] = []
@@ -263,7 +273,9 @@ def _verify_selected(selected: Sequence[ManifestDocument]) -> None:
 def _stage_corpus(
     selected: Sequence[ManifestDocument], workdir: Path
 ) -> tuple[Path, dict[str, str]]:
-    """Copy each selected document under `workdir`, named by its manifest id, and hand back the
+    """Stage the selected documents under `workdir`, named by manifest id.
+
+    Copy each selected document under `workdir`, named by its manifest id, and hand back the
     corpus directory and a map from each staged path (resolved, as a string) to that id.
     """
     corpus_dir = workdir / "corpus"
@@ -297,7 +309,9 @@ def _kept_questions(
     tiers: Sequence[Tier],
     readable: Sequence[str],
 ) -> tuple[Question, ...]:
-    """Every question this run can honestly score: its tiers reproducible, and every document
+    """Select the questions this run can honestly score.
+
+    Every question this run can honestly score: its tiers reproducible, and every document
     its ground truth names among what this run actually indexed.
     """
     tier_of = {document.id: document.tier.value for document in manifest.documents}
@@ -335,7 +349,9 @@ def _extractor_use(resolved: ResolvedPipeline) -> str:
 
 
 def _factory_config(config: object) -> object:
-    """`config` narrowed to what a plugin's own factory actually expects — the identical
+    """Narrow `config` to what a plugin's own factory expects.
+
+    `config` narrowed to what a plugin's own factory actually expects — the identical
     narrowing `weft_cli.eval_scoring._factory_config`/`weft_cli.compile.to_specs` already carry,
     reimplemented here rather than imported: both are private to their own module.
     """
@@ -345,7 +361,9 @@ def _factory_config(config: object) -> object:
 def _built_hits(
     hits: Sequence[Scored[Node]], *, known: Mapping[str, str], store_use: str
 ) -> tuple[Hit, ...]:
-    """`hits`, ranked and reattributed to manifest ids — refusing at once, naming the source and
+    """Rank `hits` and reattribute each to its manifest id.
+
+    `hits`, ranked and reattributed to manifest ids — refusing at once, naming the source and
     the store, for a passage this run never staged. See the module docstring's own paragraph.
     """
     built: list[Hit] = []
@@ -388,7 +406,9 @@ async def _score_repetitions(
     known: Mapping[str, str],
     repeats: int,
 ) -> tuple[list[dict[str, float]], list[int], list[Excluded]]:
-    """Retrieve and score every question, `repeats` times — the per-repetition means, how many
+    """Retrieve and score every question, `repeats` times.
+
+    The per-repetition means, how many
     questions each repetition scored, and every exclusion with its reason.
     """
     per_repetition: list[dict[str, float]] = []
@@ -450,6 +470,21 @@ class EvalBaselineCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Index the selected tiers, score every kept question and write the baseline report.
+
+        Args:
+            args: The parsed `EvalBaselineArgs`.
+            ctx: The invocation context holding the CLI's `Dependencies`.
+
+        Returns:
+            The produced `EvalBaselineCommandResult`.
+
+        Raises:
+            BaselineRunError: The run cannot be taken as asked: an unknown tier, a digest
+                mismatch, an existing output file, nothing readable or scoreable.
+            DepthTooShallowError: A `--depths` cutoff is deeper than `--top-k`.
+            PipelineNotRetrievableError: The pipeline has no stage to retrieve against.
+        """
         baseline_args = cast(EvalBaselineArgs, args)
         deps = ctx.require(Dependencies)
         started = time.monotonic()
@@ -577,7 +612,9 @@ class EvalBaselineCommand:
 
 
 def register_eval_baseline_command(registrar: PackRegistrar) -> None:
-    """Register `eval baseline` — called from `weft_cli.commands.register`, right after
+    """Register the `eval baseline` command.
+
+    Register `eval baseline` — called from `weft_cli.commands.register`, right after
     `register_eval_commands`, never from a second entry point.
     """
     registrar.add(Command, "eval baseline", EvalBaselineCommand)

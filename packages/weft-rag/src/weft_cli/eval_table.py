@@ -44,7 +44,9 @@ _EVAL_TABLE_HELP = (
 
 
 class EvalTableArgs(BaseModel):
-    """`weft eval table <experiment>` — the document, the runs directory to read records from,
+    """Parameters of `weft eval table <experiment>`.
+
+    `weft eval table <experiment>` — the document, the runs directory to read records from,
     and an invocation to name when more than one of this document is complete.
     """
 
@@ -59,7 +61,9 @@ class EvalTableArgs(BaseModel):
 
 
 class EvalTableCommandResult(CommandResult):
-    """`weft eval table`'s whole answer — the rendered markdown, exactly as `weft_eval.evidence.
+    """The rendered evidence table `weft eval table` prints.
+
+    `weft eval table`'s whole answer — the rendered markdown, exactly as `weft_eval.evidence.
     render_evidence_table` wrote it.
     """
 
@@ -78,6 +82,15 @@ class EvalTableCommand:
         del config
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
+        """Render the evidence table for one experiment from the run records on disk.
+
+        Args:
+            args: The parsed `EvalTableArgs`.
+            ctx: Unused; the table reads only files.
+
+        Returns:
+            The produced `EvalTableCommandResult`.
+        """
         del ctx
         table_args = cast(EvalTableArgs, args)
         experiment = load_experiment(Path(table_args.experiment))
@@ -92,7 +105,9 @@ class EvalTableCommand:
 
 
 def register_eval_table_command(registrar: PackRegistrar) -> None:
-    """Register `eval table` — called from `weft_cli.commands.register`, right after
+    """Register the `eval table` command.
+
+    Register `eval table` — called from `weft_cli.commands.register`, right after
     `register_eval_experiment_command`.
     """
     registrar.add(Command, "eval table", EvalTableCommand)

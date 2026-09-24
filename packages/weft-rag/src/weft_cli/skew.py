@@ -1,4 +1,6 @@
-"""Version skew — `weft plugins doctor`'s report that an installed distribution does not
+"""Report installed distributions that break another's declared dependency specifier.
+
+Version skew — `weft plugins doctor`'s report that an installed distribution does not
 satisfy another installed distribution's own declared dependency specifier.
 
 Task 5.2e, `docs/09-release.md` §2.3 answer 1 (G9): "A contract version requirement *is*
@@ -58,7 +60,9 @@ _WEFT_PREFIX = "weft-"
 
 
 class SkewReport(BaseModel):
-    """`requiring_distribution` declares `specifier` on `required_distribution`, but the
+    """An installed version that does not satisfy another distribution's specifier.
+
+    `requiring_distribution` declares `specifier` on `required_distribution`, but the
     version actually installed does not satisfy it.
 
     Frozen, like every model this project returns (`CLAUDE.md`). `specifier` and
@@ -80,7 +84,9 @@ def detect_skew(
     requires: _RequiresFn | None = None,
     version: _VersionFn | None = None,
 ) -> tuple[SkewReport, ...]:
-    """Every declared requirement on a `weft-...` distribution whose installed version
+    """Find every `weft-...` requirement whose installed version does not satisfy it.
+
+    Every declared requirement on a `weft-...` distribution whose installed version
     does not satisfy it.
 
     `distributions` is every *requiring* distribution to read `importlib.metadata.requires`
@@ -125,7 +131,9 @@ def _installed_names() -> tuple[str, ...]:
 
 
 def _check(requiring: str, raw: str, version_fn: _VersionFn) -> SkewReport | None:
-    """`raw` — one of `requiring`'s own declared requirement strings — as a `SkewReport`,
+    """Parse one declared requirement string of `requiring` as a `SkewReport`, if skewed.
+
+    `raw` — one of `requiring`'s own declared requirement strings — as a `SkewReport`,
     or `None` if it names no skew this function can report.
     """
     try:
