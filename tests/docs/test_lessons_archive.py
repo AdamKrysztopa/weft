@@ -26,6 +26,7 @@ this file cannot drift from the parser an operator actually runs.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Final
 
@@ -102,8 +103,10 @@ def test_the_parser_sees_every_entry_that_is_written_down() -> None:
 
 @_requires_archive
 def test_the_parser_sees_every_edge_that_is_written_down() -> None:
-    """The edges are the archive's whole reason to exist, and they are routinely written on an
-    entry's *continuation* line — this file's own Format example puts them there.
+    """The edges are the archive's whole reason to exist.
+
+    They are routinely written on an entry's *continuation* line — this file's own Format
+    example puts them there.
     """
     # Arrange
     written = {(kind, target) for kind, target in _EDGE.findall(_outside_the_format_example())}
@@ -121,8 +124,10 @@ def test_the_parser_sees_every_edge_that_is_written_down() -> None:
 
 @_requires_archive
 def test_every_edge_names_an_entry_the_archive_holds() -> None:
-    """A dangling edge is a reference to a lesson nobody can read — the archive's own third
-    reported condition, asserted here rather than only printed by the script.
+    """A dangling edge is a reference to a lesson nobody can read.
+
+    It is the archive's own third reported condition, asserted here rather than only printed
+    by the script.
     """
     # Act
     entries, edges = parse(_text())
@@ -135,10 +140,11 @@ def test_every_edge_names_an_entry_the_archive_holds() -> None:
 
 
 def test_the_check_can_tell_a_seen_entry_from_an_unseen_one() -> None:
-    """The floor `docs/internal/lessons.md` L5.19 requires: a comparison whose two sides are equal
-    today
-    proves nothing unless it is shown to be non-vacuous. Planting an entry inside a fence must
-    make the parser miss it — if it did not, the two tests above would pass on any archive.
+    """The non-vacuity floor `docs/internal/lessons.md` L5.19 requires.
+
+    A comparison whose two sides are equal today proves nothing unless it is shown to be
+    non-vacuous. Planting an entry inside a fence must make the parser miss it — if it did not,
+    the two tests above would pass on any archive.
     """
     # Arrange
     planted = "## 2099-01-01 — planted\n\n- **L99.9** *a planted entry* · `deadbee`\n"
@@ -160,8 +166,9 @@ def _archived_ids() -> list[str]:
 
 @_requires_archive
 def test_no_archived_id_is_used_twice() -> None:
-    """`docs/internal/lessons.md` `L8.21` — uniqueness is a property of the record, so it is checked
-    as one.
+    """Uniqueness is a property of the record, so it is checked as one.
+
+    `docs/internal/lessons.md` `L8.21`.
 
     A duplicated id is not *wrong* anywhere: every citation of it resolves to something, which is
     precisely why nothing failed. It is ambiguous everywhere instead, and a reader following
@@ -187,8 +194,9 @@ def test_no_archived_id_is_used_twice() -> None:
 
 @_requires_archive
 def test_no_queued_id_reuses_an_archived_one() -> None:
-    """`docs/internal/lessons.md` `L8.21` — the check covers every file that mints an id, not only
-    the store.
+    """The check covers every file that mints an id, not only the store.
+
+    `docs/internal/lessons.md` `L8.21`.
 
     This is the half that actually fired. `L8.18` was written into the queue while the archive
     already held an `L8.18`, and the citation reached three shipped documents before anyone looked;
@@ -244,9 +252,8 @@ _CITATION: Final[re.Pattern[str]] = re.compile(r"\bL(\d{1,2}\.\d{1,2})\b")
 _PLANTED_IDS: Final[frozenset[str]] = frozenset({"L1.1", "L1.2", "L9.99", "L99.9"})
 
 
-def _cited_ids() -> dict[str, list[str]]:
-    """Every `Lx.y` cited anywhere in the tree, mapped to the files citing it."""
-    cited: dict[str, list[str]] = {}
+def _citing_files() -> Iterator[tuple[Path, str]]:
+    """Every readable file under `_CITING_ROOTS` that may cite a lesson, with its text."""
     for root in _CITING_ROOTS:
         for path in sorted((_REPO_ROOT / root).rglob("*")):
             if not path.is_file() or path.suffix not in {".py", ".md", ".yml", ".yaml", ".toml"}:
@@ -257,8 +264,15 @@ def _cited_ids() -> dict[str, list[str]]:
                 text = path.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):
                 continue
-            for identifier in set(_CITATION.findall(text)):
-                cited.setdefault(f"L{identifier}", []).append(str(path.relative_to(_REPO_ROOT)))
+            yield path, text
+
+
+def _cited_ids() -> dict[str, list[str]]:
+    """Every `Lx.y` cited anywhere in the tree, mapped to the files citing it."""
+    cited: dict[str, list[str]] = {}
+    for path, text in _citing_files():
+        for identifier in set(_CITATION.findall(text)):
+            cited.setdefault(f"L{identifier}", []).append(str(path.relative_to(_REPO_ROOT)))
     return cited
 
 

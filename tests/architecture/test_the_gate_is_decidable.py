@@ -81,8 +81,9 @@ def test_every_module_that_reaches_the_network_requires_the_explicit_opt_in() ->
 
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
-    """Planted through the real matcher — the real tree agrees once this task lands, so this is
-    the only place the comparison is seen disagreeing (`docs/internal/lessons.md` L5.19).
+    """Planted through the real matcher, this is the only place the comparison disagrees.
+
+    The real tree agrees once this task lands (`docs/internal/lessons.md` L5.19).
 
     The pair that matters is a module that *imports* a client versus one that merely *mentions*
     the service in prose: the first must be caught and the second must not, or the check becomes

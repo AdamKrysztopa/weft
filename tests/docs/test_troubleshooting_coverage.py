@@ -1,4 +1,4 @@
-"""`docs/08-manuals.md` §3 clause (d) — a new failure mode cannot land with no entry about it.
+r"""`docs/08-manuals.md` §3 clause (d) — a new failure mode cannot land with no entry about it.
 
 Task **0.14**: "a new failure mode cannot land in code with no entry describing what to do about
 it." The failure set this check compares against is **derived from the code, never hand-listed**:
@@ -6,7 +6,7 @@ every `weft_kernel.errors.WeftError` subclass defined anywhere under the first-p
 own source trees, found by walking those packages with `pkgutil.walk_packages` and importing every
 submodule — so a class added in a file this test's author never thought to import still gets picked
 up — plus every `weft_kernel.discovery.PackStatus` member, read off the enum itself rather than
-retyped. `manual/troubleshooting.md`'s own entries are `### \\`name\\`` headings, matched by exact
+retyped. `manual/troubleshooting.md`'s own entries are `### \`name\`` headings, matched by exact
 set equality against that derived set: the two-lists bug, aimed at a support document instead of a
 file format or a contract.
 

@@ -127,10 +127,12 @@ async def _database_reachable() -> str | None:
 
 @pytest.fixture
 async def clean_database() -> AsyncIterator[None]:
-    """Truncate `weft_nodes`/`weft_sources` first, so the quickstart's own claims about what it
-    stores are checked against a database only this run touched — same fixture shape as
-    `tests/integration/test_cli_end_to_end.py`'s `clean_database`, repeated rather than shared
-    for the reason that module states: this should read as one self-contained scenario.
+    """Truncate `weft_nodes`/`weft_sources` first.
+
+    The quickstart's own claims about what it stores are then checked against a database only
+    this run touched — same fixture shape as `tests/integration/test_cli_end_to_end.py`'s
+    `clean_database`, repeated rather than shared for the reason that module states: this should
+    read as one self-contained scenario.
     """
     reason = await _database_reachable()
     if reason is not None:

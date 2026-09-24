@@ -714,7 +714,9 @@ async def test_the_two_backends_advertise_different_capabilities_and_nobody_decl
 
 
 async def test_a_hybrid_run_without_text_search_is_refused_before_any_stage_runs() -> None:
-    """**This named `qdrant` until ledger `21.8` gave it a text arm.**
+    """A hybrid run over a store without text search is refused before any stage runs.
+
+    **This named `qdrant` until ledger `21.8` gave it a text arm.**
 
     The subject moved to `MemoryStore`, which satisfies `NodeStore` and `VectorSearch` and nothing
     else. `01` → *Runtime shape* is explicit that the in-memory store *"exists, and is not a

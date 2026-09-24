@@ -100,16 +100,22 @@ def _shipped_python_files() -> Iterator[Path]:
             yield from sorted(src.rglob("*.py"))
 
 
+def _outermost_enclosing_functions(tree: ast.Module) -> dict[ast.AST, str]:
+    """Each node of `tree` mapped to the name of the first function `ast.walk` finds around it."""
+    enclosing: dict[ast.AST, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            for child in ast.walk(node):
+                enclosing.setdefault(child, node.name)
+    return enclosing
+
+
 def _construction_sites() -> list[tuple[str, str]]:
     """Every `ServiceRegistry()` call in the shipped tree, as `(path, enclosing function)`."""
     found: list[tuple[str, str]] = []
     for path in _shipped_python_files():
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        enclosing: dict[ast.AST, str] = {}
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                for child in ast.walk(node):
-                    enclosing.setdefault(child, node.name)
+        enclosing = _outermost_enclosing_functions(tree)
         for node in ast.walk(tree):
             if (
                 isinstance(node, ast.Call)
@@ -140,8 +146,9 @@ def test_no_shipped_code_assembles_a_run_outside_a_named_assembler() -> None:
 
 
 def test_the_pinned_assemblers_all_exist() -> None:
-    """The list is a claim about the tree, and a stale name would make clause (a) weaker in
-    silence — the same two-way ratchet `test_ff12`'s own family list carries.
+    """The list is a claim about the tree, and a stale name would weaken clause (a) in silence.
+
+    The same two-way ratchet `test_ff12`'s own family list carries.
     """
     # Arrange
     names = {fn for _, fn in _construction_sites()}
@@ -231,8 +238,10 @@ async def test_every_named_assembler_reaches_a_role_no_first_party_pack_declares
 
 
 def test_the_construction_walk_can_actually_find_something() -> None:
-    """The self-test `01` item 0 requires: a walk that matched nothing would pass both clauses
-    vacuously, and this file would report a seam it never looked at.
+    """The self-test `01` item 0 requires: the construction walk is not empty.
+
+    A walk that matched nothing would pass both clauses vacuously, and this file would report a
+    seam it never looked at.
     """
     # Arrange / Act
     sites = _construction_sites()

@@ -1,4 +1,6 @@
-"""`weft index` records the embedding identity it wrote with, and `weft ask` embedding any other
+"""`weft ask` embedding differently from `weft index` is refused before any comparison.
+
+`weft index` records the embedding identity it wrote with, and `weft ask` embedding any other
 way is refused before a vector is compared — ledger task **34.4**, through the real paths.
 
 The case is a width change, because `hash` is the one embedder that runs offline. G22 would also

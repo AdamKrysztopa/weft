@@ -77,9 +77,9 @@ def test_the_check_can_actually_fail() -> None:
         "    pass\n"
     )
 
-    assert oversized_try_bodies(planted, "planted.py") == [
-        "planted.py:1 holds 2 statements",
-        "planted.py:10 holds 2 statements",
+    assert oversized_try_bodies(planted, "planted") == [
+        "planted:1 holds 2 statements",
+        "planted:10 holds 2 statements",
     ]
 
 
@@ -98,7 +98,7 @@ def test_handler_else_and_finally_bodies_are_unrestricted() -> None:
         "    four()\n"
     )
 
-    assert oversized_try_bodies(allowed, "allowed.py") == []
+    assert oversized_try_bodies(allowed, "allowed") == []
 
 
 def test_test_trees_are_out_of_scope() -> None:

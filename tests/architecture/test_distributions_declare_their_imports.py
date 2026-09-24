@@ -182,16 +182,19 @@ def test_the_check_can_actually_fail() -> None:
 
 
 def _capability_extras_of(manifest: Path) -> set[str]:
-    """Every extra a manifest declares that claims to supply a *capability* — the waived
-    three removed, so what is left is exactly the set whose names an install line is
-    derived from. Empty for a distribution declaring no extras at all.
+    """Every extra a manifest declares that claims to supply a *capability*.
+
+    The waived three are removed, so what is left is exactly the set whose names an install
+    line is derived from. Empty for a distribution declaring no extras at all.
     """
     return set(_optional_table(manifest, "optional-dependencies")) - _EXTRAS_THAT_NAME_NO_PACK
 
 
 def _packs_declared_by(manifest: Path) -> set[str]:
-    """Every `weft.packs` entry-point name a manifest declares — the pack identity a
-    `PackReport.pack` carries and a `[packs.<pack>]` settings block keys on.
+    """Every `weft.packs` entry-point name a manifest declares.
+
+    That name is the pack identity a `PackReport.pack` carries and a `[packs.<pack>]` settings
+    block keys on.
     """
     return set(_optional_table(manifest, "entry-points", "weft.packs"))
 

@@ -1,4 +1,6 @@
-"""A promote moves every participant that holds targets, and participants that disagree are
+"""A promote moves every participant holding targets; disagreeing ones are refused.
+
+A promote moves every participant that holds targets, and participants that disagree are
 refused until a promote converges them — ledger task **34.11**, its fan-out half, with the blob
 root joining `weft target drop` (`34.12`).
 

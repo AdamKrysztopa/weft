@@ -115,8 +115,9 @@ def _ctx(services: ServiceRegistry) -> Context:
 
 
 class _PromptLookup:
-    """A `StageLookup` narrowed to `build_capability`, resolving a real `Registry` — the
-    same stand-in `test_hypothetical_questions_pipeline.py` takes, because nothing in this
+    """A `StageLookup` narrowed to `build_capability`, resolving a real `Registry`.
+
+    The same stand-in `test_hypothetical_questions_pipeline.py` takes, because nothing in this
     tree has built the production version yet (ledger task 2.8 is still open).
     """
 
@@ -174,7 +175,9 @@ def api_key() -> SecretStr:
 
 
 def _registry(*, openai_settings: OpenAISettings) -> Registry:
-    """Every plugin this test drives, registered by hand — the same posture
+    """Register every plugin this test drives, by hand.
+
+    Every plugin this test drives, registered by hand — the same posture
     `test_hypothetical_questions_pipeline.py`'s own `_registry` takes, composing a specific
     slice of stages rather than a whole pipeline document.
     """
@@ -217,7 +220,9 @@ def _run_services(registry: Registry, *, embedder: object) -> ServiceRegistry:
 
 
 async def _broad_question(chunks: Sequence[Node], *, ctx: Context) -> str:
-    """One real completion, built from `chunks`' own content rather than from `raptor`'s own
+    """One real completion built from `chunks`' own content, independent of `raptor`.
+
+    One real completion, built from `chunks`' own content rather than from `raptor`'s own
     generated summary — see the module docstring's *"Why a purpose-built broad question"*
     section for why that independence is what makes this test's own assertion meaningful.
     """

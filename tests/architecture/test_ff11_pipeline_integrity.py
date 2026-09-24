@@ -175,10 +175,10 @@ def test_pipeline_declares_no_operator_beyond_the_closed_set() -> None:
 
 
 def test_pipeline_declares_no_field_outside_the_closed_classification() -> None:
-    """Pin the whole field set, not just the marked half — see `NON_OPERATOR_FIELDS`'s
+    """Pin the whole field set, not just the marked half.
 
-    own docstring for the gap this closes. Every field `Pipeline` declares must be one
-    of: not an operator at all (`NON_OPERATOR_FIELDS`), one of the closed four
+    See `NON_OPERATOR_FIELDS`'s own docstring for the gap this closes. Every field `Pipeline`
+    declares must be one of: not an operator at all (`NON_OPERATOR_FIELDS`), one of the closed four
     (`CLOSED_OPERATOR_SET`), or an explicitly waived fifth
     (`OPERATORS_WAIVED_BEYOND_THE_CLOSED_SET`) — with no fourth bucket. A new `Pipeline`
     field lands in none of the three until someone classifies it, marked or not, which is
@@ -207,11 +207,11 @@ def test_pipeline_declares_no_field_outside_the_closed_classification() -> None:
 
 
 def test_an_unmarked_field_outside_every_classification_would_be_caught() -> None:
-    """Prove the whole-field-set check above can actually fail, on the exact shape the
+    """Prove the whole-field-set check above can actually fail, on an unmarked field.
 
-    reviewer finding raised: a field with no `PIPELINE_OPERATOR_MARK` at all, which
-    `test_a_fifth_marked_field_would_be_caught` below cannot exercise because
-    `_marked_operator_fields` would never see it in the first place.
+    That is the exact shape the reviewer finding raised: a field with no
+    `PIPELINE_OPERATOR_MARK` at all, which `test_a_fifth_marked_field_would_be_caught` below
+    cannot exercise because `_marked_operator_fields` would never see it in the first place.
     """
 
     # Arrange — a throwaway model wearing no mark, the shape a fifth operator takes if
@@ -285,7 +285,9 @@ def _entry_points_table(document: dict[str, object]) -> dict[str, object] | None
 
 
 def _first_party_distributions() -> frozenset[str]:
-    """Every `packages/*/pyproject.toml` whose `project.name` declares a `weft.packs` entry
+    """Every first-party distribution whose `pyproject.toml` declares a `weft.packs` entry point.
+
+    Every `packages/*/pyproject.toml` whose `project.name` declares a `weft.packs` entry
     point — the same computation `test_ff2_no_privileged_builtins.py` makes, restated here
     rather than imported across test files, on the same "one self-contained scenario"
     reasoning `tests/docs/` already gives for its own repeated small helpers.
@@ -373,7 +375,9 @@ def _manual_pipeline_blocks(manual_root: Path) -> list[tuple[str, str]]:
 
 
 def _shipped_pipeline_files(*roots: Path) -> list[tuple[str, str]]:
-    """Every `*.yaml` file directly under a `pipelines/` directory one level inside `roots`,
+    """Every `*.yaml` pipeline document a pack under `roots` ships, at either location.
+
+    Every `*.yaml` file directly under a `pipelines/` directory one level inside `roots`,
     **or** under a `pipelines/` directory one level inside a `src/*` package directory.
 
     `roots` is `packages/*` for a first-party pack and `examples/*` for an example pack —
@@ -394,15 +398,27 @@ def _shipped_pipeline_files(*roots: Path) -> list[tuple[str, str]]:
         if not root.is_dir():
             continue
         for pack_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-            for path in sorted((pack_dir / "pipelines").glob("*.yaml")):
-                found.append((str(path), path.read_text(encoding="utf-8")))
-            src_dir = pack_dir / "src"
-            if not src_dir.is_dir():
-                continue
-            for package_dir in sorted(p for p in src_dir.iterdir() if p.is_dir()):
-                for path in sorted((package_dir / "pipelines").glob("*.yaml")):
-                    found.append((str(path), path.read_text(encoding="utf-8")))
+            found.extend(_pack_pipeline_files(pack_dir))
     return found
+
+
+def _pack_pipeline_files(pack_dir: Path) -> list[tuple[str, str]]:
+    """One pack's pipeline documents: its top-level `pipelines/`, then each `src/*` package's."""
+    found = _pipeline_yaml_in(pack_dir)
+    src_dir = pack_dir / "src"
+    if not src_dir.is_dir():
+        return found
+    for package_dir in sorted(p for p in src_dir.iterdir() if p.is_dir()):
+        found.extend(_pipeline_yaml_in(package_dir))
+    return found
+
+
+def _pipeline_yaml_in(directory: Path) -> list[tuple[str, str]]:
+    """Every `(path, text)` for a `*.yaml` file directly under `directory / "pipelines"`."""
+    return [
+        (str(path), path.read_text(encoding="utf-8"))
+        for path in sorted((directory / "pipelines").glob("*.yaml"))
+    ]
 
 
 def _every_shipped_or_quoted_pipeline() -> list[tuple[str, str]]:
@@ -427,10 +443,12 @@ def _parse_pipeline(source: str, yaml_text: str) -> Pipeline:
 
 
 def _stage_use_pairs(pipeline: Pipeline) -> list[tuple[str, str]]:
-    """Every `(stage id, plugin name)` this document introduces on its own — `_infer_contract`'s
-    input. `replace`'s targets reuse `StageDeclaration` (its own `id` *is* the target, per
-    `weft_kernel.pipeline`'s own docstring), so it carries a `use:` exactly like `stages:` and
-    an `insert`'s own stage do; `remove` and `set` name no plugin, so neither contributes here.
+    """Every `(stage id, plugin name)` this document introduces on its own.
+
+    This is `_infer_contract`'s input. `replace`'s targets reuse `StageDeclaration` (its own
+    `id` *is* the target, per `weft_kernel.pipeline`'s own docstring), so it carries a `use:`
+    exactly like `stages:` and an `insert`'s own stage do; `remove` and `set` name no plugin, so
+    neither contributes here.
 
     **Deliberately excludes `fallback:`.** `weft_kernel.resolution.ResolvedStage`'s own docstring
     and `02` §3's fallback callout both say why: a fallback name may legitimately name a plugin
@@ -643,16 +661,23 @@ def _contributed_resource_names() -> frozenset[str]:
         if "__pycache__" in path.parts:
             continue
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
-            if called != "add_pipeline_resource" or len(node.args) < 2:
-                continue
-            resource = node.args[1]
-            if isinstance(resource, ast.Constant) and isinstance(resource.value, str):
-                names.add(resource.value)
+            if (resource := _pipeline_resource_literal(node)) is not None:
+                names.add(resource)
     return frozenset(names)
+
+
+def _pipeline_resource_literal(node: ast.AST) -> str | None:
+    """The literal `resource` argument when `node` is an `add_pipeline_resource` call."""
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+    if called != "add_pipeline_resource" or len(node.args) < 2:
+        return None
+    resource = node.args[1]
+    if isinstance(resource, ast.Constant) and isinstance(resource.value, str):
+        return resource.value
+    return None
 
 
 def test_every_shipped_pipeline_document_is_contributed_by_its_pack() -> None:
@@ -735,7 +760,9 @@ def test_stage_use_pairs_excludes_fallback_names() -> None:
 
 
 def test_manual_pipeline_with_an_unregistered_fallback_still_resolves() -> None:
-    """The concrete case the finding named: `manual/user-manual.md`'s own shipped `fallback:
+    """A pipeline whose `fallback:` names an unregistered plugin still resolves, on purpose.
+
+    The concrete case the finding named: `manual/user-manual.md`'s own shipped `fallback:
     [ocr]` block, against the real installed registry, where no pack registers `ocr` — this
     must pass, on purpose, because `fallback:` is excluded from what this clause checks.
     """
@@ -763,8 +790,9 @@ def test_manual_pipeline_with_an_unregistered_fallback_still_resolves() -> None:
 
 
 def test_a_pipeline_naming_an_unknown_plugin_would_be_caught() -> None:
-    """Prove the check above can actually fail — `01` item 11(b)'s own example: rename a
-    plugin and leave a document naming the old one.
+    """Prove the check above can actually fail, on `01` item 11(b)'s own example.
+
+    That example: rename a plugin and leave a document naming the old one.
     """
     # Arrange
     registry = _installed_registry()
@@ -780,7 +808,7 @@ def test_a_pipeline_naming_an_unknown_plugin_would_be_caught() -> None:
 
 
 def test_a_stale_operator_target_would_be_caught() -> None:
-    """The other half of `01` item 11(b)'s example: "an operator target that moved.\""""
+    """The other half of `01` item 11(b)'s example, "an operator target that moved"."""
     # Arrange
     registry = _installed_registry()
     moved = [
@@ -801,8 +829,9 @@ def test_a_stale_operator_target_would_be_caught() -> None:
 
 
 def test_two_unrelated_documents_sharing_a_stage_id_each_resolve_against_their_own_plugin() -> None:
-    """Repair for a reviewer finding: two standalone documents naming the identical stage
+    """Two documents sharing a stage id each resolve against their own plugin.
 
+    Repair for a reviewer finding: two standalone documents naming the identical stage
     id (`chunk`, `02` §3's own example) but two different plugins from two different
     contracts must each resolve against its own plugin — never against whichever
     document's `contracts` pair happened to be folded in last. Before the fix, one of
@@ -826,8 +855,9 @@ def test_two_unrelated_documents_sharing_a_stage_id_each_resolve_against_their_o
 
 
 def test_two_sources_shipping_the_same_pipeline_name_are_refused_loudly() -> None:
-    """The other half of the same reviewer finding: `parents` pooled by name across every
+    """Two sources shipping the same pipeline name are refused, naming both.
 
+    The other half of the same reviewer finding: `parents` pooled by name across every
     source let two packs each shipping a pipeline named `base` silently collapse into
     one, and which source's `base` survived depended on iteration order. Refused before
     either document is used for anything, naming both sources.

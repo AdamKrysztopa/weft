@@ -56,6 +56,7 @@ from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from pathlib import Path
+from types import ModuleType
 from typing import Final
 
 import pytest
@@ -195,7 +196,7 @@ def run_subprocess(command: list[str], *, cwd: Path) -> subprocess.CompletedProc
 #: (`test_phase3_exit_command_surface.py` imports `build_wheel` from here, for the reason its own
 #: docstring gives), and before this directory existed each of them paid for its own build.
 _SHARED_WHEEL_DIR: Final[Path] = Path(tempfile.mkdtemp(prefix="weft-first-party-wheels-"))
-atexit.register(shutil.rmtree, _SHARED_WHEEL_DIR, True)
+atexit.register(shutil.rmtree, _SHARED_WHEEL_DIR, ignore_errors=True)
 
 #: Every wheel already built in this process, keyed by the source directory that produced it.
 _WHEEL_CACHE: Final[dict[Path, Path]] = {}
@@ -340,16 +341,22 @@ def _exported_protocol_classes() -> dict[str, type[object]]:
         for package_dir in src.iterdir():
             if not (package_dir / "__init__.py").is_file():
                 continue
-            module = import_module(package_dir.name)
-            for name in getattr(module, "__all__", ()):
-                obj = getattr(module, name, None)
-                if (
-                    isinstance(obj, type)
-                    and issubclass(obj, typing.Protocol)
-                    and obj is not typing.Protocol
-                ):
-                    protocol_class = typing.cast("type[object]", obj)
-                    found[_qualname(protocol_class)] = protocol_class
+            found.update(_exported_protocols_of(import_module(package_dir.name)))
+    return found
+
+
+def _exported_protocols_of(module: ModuleType) -> dict[str, type[object]]:
+    """Every `Protocol` subclass `module` names in its own `__all__`, by qualified name."""
+    found: dict[str, type[object]] = {}
+    for name in getattr(module, "__all__", ()):
+        obj = getattr(module, name, None)
+        if (
+            isinstance(obj, type)
+            and issubclass(obj, typing.Protocol)
+            and obj is not typing.Protocol
+        ):
+            protocol_class = typing.cast("type[object]", obj)
+            found[_qualname(protocol_class)] = protocol_class
     return found
 
 

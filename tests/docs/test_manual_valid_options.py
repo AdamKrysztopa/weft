@@ -44,8 +44,9 @@ _SECTION: Final[re.Pattern[str]] = re.compile(r"^### `(?P<name>\w+)`", re.MULTIL
 
 
 def _service_keys() -> tuple[str, ...]:
-    """The `[services]` keys `UnknownServiceKeyError` actually offers, derived the way the
-    refusal derives them.
+    """The `[services]` keys `UnknownServiceKeyError` actually offers.
+
+    They are derived the way the refusal derives them.
 
     Ledger task **9.0** moved this off `ServiceSelection.model_fields`. That set was closed to
     `embed`, `store` and `route`, which is precisely the hole 9.0 closes: the live set is now

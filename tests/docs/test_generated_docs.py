@@ -1,5 +1,6 @@
-"""`docs/08-manuals.md` §3, clause (b) — the generated contract reference and command table
-match the registry.
+"""The generated contract reference and command table match the registry.
+
+`docs/08-manuals.md` §3, clause (b).
 
 "A small script walks the registry the same way `weft plugins doctor` does, reads each
 registered contract's Protocol, docstring and declared version, and renders the

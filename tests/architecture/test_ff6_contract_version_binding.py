@@ -72,8 +72,9 @@ _SEMVER_RE: Final[re.Pattern[str]] = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 @dataclass(frozen=True, slots=True)
 class ContractVersion:
-    """One `*_CONTRACT_VERSION` / `*_AST_VERSION` constant, and the distribution
-    (a `packages/<name>` directory) whose `contract.py` declares it.
+    """One `*_CONTRACT_VERSION` / `*_AST_VERSION` constant, and the distribution declaring it.
+
+    The distribution is a `packages/<name>` directory whose `contract.py` declares the constant.
     """
 
     distribution: str
@@ -115,27 +116,39 @@ def contract_versions_in(root: Path) -> list[ContractVersion]:
     for contract_file in sorted(root.glob("*/src/*/contract.py")):
         distribution = contract_file.relative_to(root).parts[0]
         tree = ast.parse(contract_file.read_text(encoding="utf-8"), filename=str(contract_file))
-
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Assign):
-                continue
-            if not (isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
-                continue
-
-            for target in node.targets:
-                if not isinstance(target, ast.Name):
-                    continue
-                if _SCHEMA_CONST_RE.match(target.id):
-                    continue
-                if _VERSION_CONST_RE.match(target.id):
-                    found.append(ContractVersion(distribution, target.id, node.value.value))
+        found.extend(
+            ContractVersion(distribution, name, value) for name, value in _version_constants(tree)
+        )
 
     return found
 
 
+def _version_constants(tree: ast.Module) -> list[tuple[str, str]]:
+    """Every `(name, value)` string assignment in `tree` named as a contract or AST version."""
+    constants: list[tuple[str, str]] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not (isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
+            continue
+
+        value = node.value.value
+        constants.extend(
+            (target.id, value)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+            and not _SCHEMA_CONST_RE.match(target.id)
+            and _VERSION_CONST_RE.match(target.id)
+        )
+
+    return constants
+
+
 def distribution_version(root: Path, distribution: str) -> str:
-    """The `[project].version` a distribution's own `pyproject.toml` declares — the
-    independent second source the module docstring's argument requires.
+    """The `[project].version` a distribution's own `pyproject.toml` declares.
+
+    It is the independent second source the module docstring's argument requires.
     """
     pyproject = root / distribution / "pyproject.toml"
 
@@ -184,10 +197,11 @@ def disagreements(root: Path) -> list[Disagreement]:
 
 
 def protocol_names_in(contract_file: Path) -> list[str]:
-    """Every `@runtime_checkable` class declared in one `contract.py` — used to assert
-    that a module publishing a Protocol also publishes a version for it, without
-    enumerating contract names anywhere (CLAUDE.md: no closed enumeration of a thing a
-    pack could add to).
+    """Every `@runtime_checkable` class declared in one `contract.py`.
+
+    Used to assert that a module publishing a Protocol also publishes a version for it, without
+    enumerating contract names anywhere (CLAUDE.md: no closed enumeration of a thing a pack could
+    add to).
     """
     tree = ast.parse(contract_file.read_text(encoding="utf-8"), filename=str(contract_file))
     names: list[str] = []

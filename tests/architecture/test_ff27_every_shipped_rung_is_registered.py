@@ -111,10 +111,11 @@ def _contributed_documents() -> frozenset[str]:
 def _unregistered(
     shipped: frozenset[str], contributed: frozenset[str], waived: frozenset[str]
 ) -> frozenset[str]:
-    """The comparison itself, factored out so the failure self-test drives the identical code —
-    fitness function 16's own convention, and `docs/internal/lessons.md` `L5.19`'s floor: a check
-    whose real subject is legitimately empty needs a self-test proving the comparison is not
-    vacuous.
+    """The comparison itself, factored out so the failure self-test drives the identical code.
+
+    This is fitness function 16's own convention, and `docs/internal/lessons.md` `L5.19`'s
+    floor: a check whose real subject is legitimately empty needs a self-test proving the
+    comparison is not vacuous.
     """
     return shipped - contributed - waived
 

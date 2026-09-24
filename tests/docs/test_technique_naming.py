@@ -1,4 +1,6 @@
-"""Task **2.26**'s own property, made checkable rather than a one-off reading: every strategy
+"""Every shipped strategy is named for the technique it implements, and claims no other paper.
+
+Task **2.26**'s own property, made checkable rather than a one-off reading: every strategy
 this phase ships is named for the technique it implements, and no name claims a paper the code
 does not implement.
 
@@ -162,8 +164,10 @@ def reserved_names() -> tuple[frozenset[str], frozenset[str]]:
 
 
 def parse_reserved_names(section: str) -> tuple[frozenset[str], frozenset[str]]:
-    """`reserved_names()`'s reading, over text handed in — a pure function, so the property it
-    holds can be exercised on an input that is *not* the live document.
+    """`reserved_names()`'s reading, over text handed in.
+
+    A pure function, so the property it holds can be exercised on an input that is *not* the
+    live document.
 
     Split out at carried repair **R11.7**, and that is the half of the repair the entry does not
     name. The old reading could only ever be tested by reading `10` §4 through it, which is a
@@ -207,9 +211,11 @@ def names_renamed_for_cause() -> frozenset[str]:
 
 
 def _all_names(registry: Registry) -> frozenset[str]:
-    """Every name `registry` holds under any contract — `names_for` walked over
-    `contracts()`, both contract-agnostic and read-only (`weft_kernel/registry.py`), so no
-    contract has to be imported and listed here for its names to be found.
+    """Every name `registry` holds under any contract.
+
+    `names_for` walked over `contracts()`, both contract-agnostic and read-only
+    (`weft_kernel/registry.py`), so no contract has to be imported and listed here for its names
+    to be found.
     """
     return frozenset(
         name for contract in registry.contracts() for name in registry.names_for(contract)
@@ -217,8 +223,9 @@ def _all_names(registry: Registry) -> frozenset[str]:
 
 
 def registered_names() -> frozenset[str]:
-    """Every name any installed pack actually registered, under any contract — plugin and
-    prompt alike.
+    """Every name any installed pack actually registered, under any contract.
+
+    Plugin and prompt alike.
 
     Built on `weft_engine.contract_reference.discover_for_reference`, the same open-by-default
     `Registry` `manual/contract-reference.md`'s own generator populates — reused rather than
@@ -349,8 +356,9 @@ def test_at_least_one_registered_name_is_found() -> None:
 
 
 def test_the_catalogue_itself_names_at_least_one_reserved_technique_and_one_rename() -> None:
-    """A second floor, over the catalogue's own two sections — a parse that matched nothing
-    there would pass the two checks below just as vacuously.
+    """A second floor, over the catalogue's own two sections.
+
+    A parse that matched nothing there would pass the two checks below just as vacuously.
     """
     # Arrange / Act
     exact, prefixes = reserved_names()
@@ -400,8 +408,9 @@ def test_no_registered_name_reuses_a_name_the_catalogue_renamed() -> None:
 
 
 def test_a_reserved_collision_would_be_caught() -> None:
-    """The reserved-name check's own teeth: a name that really does collide must be flagged,
-    proven against a name `10` §4 actually reserves — not a made-up string this test invents,
+    """The reserved-name check's own teeth: a name that really does collide must be flagged.
+
+    Proven against a name `10` §4 actually reserves — not a made-up string this test invents,
     which could pass for reasons that have nothing to do with the check under test.
     """
     # Arrange
@@ -433,9 +442,10 @@ def test_a_renamed_name_collision_would_be_caught() -> None:
 
 
 def _weft_names_in_1_1() -> frozenset[str]:
-    """§1.1's own "Weft name" column, and nothing else — the source side of property 4's
-    forward check: every one of these must resolve to a registered plugin or a shipped
-    pipeline.
+    """§1.1's own "Weft name" column, and nothing else.
+
+    The source side of property 4's forward check: every one of these must resolve to a
+    registered plugin or a shipped pipeline.
     """
     section = _section(
         _catalogue_text(), start="### 1.1 Query-path techniques", end="### 1.2 Index-path"
@@ -447,12 +457,14 @@ def _weft_names_in_1_1() -> frozenset[str]:
 
 
 def weft_names_in_catalogue() -> frozenset[str]:
-    """Every Weft name `10` states anywhere — the target side of property 5's reverse
-    check: §1.1's own names, §2.2's "Applied to all ten" table, and §1.5.
+    r"""Every Weft name `10` states anywhere.
+
+    The target side of property 5's reverse check: §1.1's own names, §2.2's "Applied to all
+    ten" table, and §1.5.
 
     §2.2 is read whole rather than column-by-column: its left-hand rename-source column and
     the "Kind of change" prose both carry backtick tokens too (some of those extra tokens sit
-    beside a literal escaped `\\|`, e.g. `` `corrective` \\| `graded-retrieval` ``, which a
+    beside a literal escaped `\|`, e.g. `` `corrective` \| `graded-retrieval` ``, which a
     column split by `str.split("|")` would misread as a column boundary). The extra tokens
     this pulls in are harmless here: `test_no_registered_name_reuses_a_name_the_catalogue_
     renamed` above already refuses every one of them as a live registration, so none can
@@ -475,8 +487,9 @@ def weft_names_in_catalogue() -> frozenset[str]:
 
 
 def shipped_pipeline_names() -> frozenset[str]:
-    """Every pipeline `name:` field a first-party pack ships, from **both** sources `01`
-    item 11(b) now recognises.
+    """Every pipeline `name:` field a first-party pack ships.
+
+    Read from **both** sources `01` item 11(b) now recognises.
 
     `weft_cli.pipeline_catalogue.load_pipeline_catalogue`, walked over every pack's own
     top-level `pipelines/` directory, is the pre-2.8 reader this function always used —
@@ -541,7 +554,9 @@ def test_every_weft_name_in_1_1_resolves_to_a_plugin_or_a_pipeline() -> None:
 
 
 def test_every_name_the_audited_distributions_register_is_documented_in_10() -> None:
-    """Property 5, the reverse direction: a name one of `_AUDITED_DISTRIBUTIONS` actually
+    """Property 5, the reverse direction: every registered name is one `10` mentions.
+
+    A name one of `_AUDITED_DISTRIBUTIONS` actually
     registers and `10` never mentions — in §1.1, §2.2 or §1.5 — is exactly the gap that let
     a future plugin claim a reserved technique's near neighbour unnoticed, which is what
     the base commit shipped fourteen documented names and left roughly two dozen others
@@ -567,9 +582,11 @@ def test_every_name_the_audited_distributions_register_is_documented_in_10() -> 
 
 
 def test_an_unresolvable_catalogue_name_would_be_caught() -> None:
-    """Property 4's own teeth: a name §1.1 could state that resolves to neither a plugin
-    nor a pipeline must be flagged, proven against a fabricated name no real plugin and no
-    real pipeline could ever coincidentally hold.
+    """Property 4's own teeth: a name resolving to neither plugin nor pipeline is flagged.
+
+    A name §1.1 could state that resolves to neither a plugin nor a pipeline must be flagged,
+    proven against a fabricated name no real plugin and no real pipeline could ever
+    coincidentally hold.
     """
     # Arrange
     claimed = frozenset({"not-a-real-technique-2026"})
@@ -596,7 +613,9 @@ def test_an_undocumented_registered_name_would_be_caught() -> None:
 
 
 def test_the_waiver_is_doing_real_work() -> None:
-    """`NAMES_WAIVED_FROM_THE_CATALOGUE` is not a silent escape hatch: every name in it must
+    """`NAMES_WAIVED_FROM_THE_CATALOGUE` is not a silent escape hatch.
+
+    Every name in it must
     actually need the exemption — provably unresolvable without it — or the entry is dead
     weight nobody would notice going stale. Proven against `routing-policy`, the one member
     today: neither a registered plugin nor a shipped pipeline names it, so the forward
@@ -618,7 +637,9 @@ def test_the_waiver_is_doing_real_work() -> None:
 
 @dataclass(frozen=True)
 class _CitedTechnique:
-    """One `10` §1.1/§1.2 row whose Origin column names a paper, and the anchor that paper's
+    """One `10` §1.1/§1.2 row whose Origin column names a paper, and that paper's anchor.
+
+    The anchor is what the paper's
     own citation is found by — an arXiv id or a DOI, never prose, so a citation can be reworded
     to match its module's own voice without this check caring.
     """
@@ -655,7 +676,9 @@ _CITED_TECHNIQUES: Final[tuple[_CitedTechnique, ...]] = (
 
 
 def _pack_source(pack: str) -> str:
-    """Every `.py` file one pack's own source tree holds, concatenated — the whole pack's text,
+    """Every `.py` file one pack's own source tree holds, concatenated.
+
+    The whole pack's text,
     not one hand-picked module, because a citation may legitimately live beside the prompt that
     asks the paper's own question (`weft_retrieve.prompts`) rather than beside the plugin's
     `run` method.
@@ -679,8 +702,10 @@ def _pack_source(pack: str) -> str:
 
 
 def test_every_cited_technique_names_a_plugin_actually_registered() -> None:
-    """The table above is a claim about the registry, not just about `10` — a name it lists
-    that nothing registers would make every check below pass vacuously for that row.
+    """The table above is a claim about the registry, not just about `10`.
+
+    A name it lists that nothing registers would make every check below pass vacuously for that
+    row.
     """
     # Arrange
     registered = registered_names()
@@ -696,9 +721,10 @@ def test_every_cited_technique_names_a_plugin_actually_registered() -> None:
 
 
 def test_every_cited_technique_still_carries_its_paper_citation() -> None:
-    """A name earned against a paper keeps that paper's own id somewhere in the pack that
-    registers it — the mechanical half of `10` §2.1 rule 4, which a docstring rewrite cannot
-    silently break the way prose alone could.
+    """A name earned against a paper keeps that paper's own id in the pack that registers it.
+
+    This is the mechanical half of `10` §2.1 rule 4, which a docstring rewrite cannot silently
+    break the way prose alone could.
     """
     # Arrange
     sources = {t.pack: _pack_source(t.pack) for t in _CITED_TECHNIQUES}
@@ -722,8 +748,10 @@ def test_every_cited_technique_still_carries_its_paper_citation() -> None:
 
 
 def test_a_missing_citation_would_be_caught() -> None:
-    """This check's own teeth: a technique whose anchor is not actually in its pack's source
-    must be flagged, proven against a fabricated arXiv id no real paper carries.
+    """This check's own teeth: an anchor missing from its pack's source must be flagged.
+
+    A technique whose anchor is not actually in its pack's source must be flagged, proven
+    against a fabricated arXiv id no real paper carries.
     """
     # Arrange
     fabricated = _CitedTechnique("hyde", "weft_retrieve", ("9999.99999",))
@@ -737,10 +765,11 @@ def test_a_missing_citation_would_be_caught() -> None:
 
 
 def test_every_audited_distribution_resolves() -> None:
-    """A scope constant whose members are looked up in an external namespace must assert they
-    resolved. `discover(allow=...)` ignores an unknown name silently, so a hand-kept allow-list
-    degrades to a check about almost nothing the moment the tree renames a distribution — which is
-    exactly what G10's re-settlement did to four of the seven names this tuple used to hold.
+    """A scope constant looked up in an external namespace must assert its members resolved.
+
+    `discover(allow=...)` ignores an unknown name silently, so a hand-kept allow-list degrades to
+    a check about almost nothing the moment the tree renames a distribution — which is exactly
+    what G10's re-settlement did to four of the seven names this tuple used to hold.
     """
     empty = sorted(
         distribution

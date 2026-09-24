@@ -215,7 +215,9 @@ async def test_a_store_opened_after_a_promote_reads_the_new_live_target(
 async def test_a_target_another_open_store_is_bound_to_cannot_be_dropped(
     store: PgVectorStore,
 ) -> None:
-    """Dropping a schema under an open handle would send its next statement to `default`'s
+    """Dropping a target is refused while any connection holds it.
+
+    Dropping a schema under an open handle would send its next statement to `default`'s
     tables, so the drop is refused while any connection holds the target.
     """
     # Arrange
@@ -235,7 +237,9 @@ async def test_a_target_another_open_store_is_bound_to_cannot_be_dropped(
 async def test_four_handles_opening_one_fresh_database_at_once_all_succeed(
     store: PgVectorStore,
 ) -> None:
-    """Carried repair **R43.4**, found running Exit A: `weft ask` in a second shell opened the
+    """Concurrent opens of one fresh database all survive the store's open-time DDL.
+
+    Carried repair **R43.4**, found running Exit A: `weft ask` in a second shell opened the
     store while the first `weft index` was still creating the schema, and the run died with
     `UniqueViolation: duplicate key ... pg_extension_name_index`. `CREATE EXTENSION IF NOT
     EXISTS` is not atomic against a concurrent creator, and neither is the rest of this store's
@@ -263,7 +267,9 @@ async def test_four_handles_opening_one_fresh_database_at_once_all_succeed(
 async def test_opening_a_handle_while_another_writes_never_deadlocks_the_writer(
     store: PgVectorStore,
 ) -> None:
-    """Carried repair **R43.5**, found by Exit A's first repeat after `R43.4`: the run died in
+    """A node and its productions are one write, so the backfill cannot deadlock a writer.
+
+    Carried repair **R43.5**, found by Exit A's first repeat after `R43.4`: the run died in
     `store` with `DeadlockDetected` on `weft_node_productions`. Each `weft ask` opening the store
     runs the productions backfill, which inserts a production for every committed node that has
     none, and `add()` committed its nodes before their productions, so the backfill and the writer
@@ -326,7 +332,9 @@ async def test_opening_a_handle_while_another_writes_never_deadlocks_the_writer(
 async def test_a_source_a_2_9_0_store_wrote_reads_back_with_no_layers(
     store: PgVectorStore,
 ) -> None:
-    """Ledger **43.6**: `layers` is a column added beside the others, so a database a `2.9.0`
+    """A database a `2.9.0` store wrote reads back with no layers rather than failing.
+
+    Ledger **43.6**: `layers` is a column added beside the others, so a database a `2.9.0`
     store wrote reads its records back with no layers rather than failing to parse them.
     """
     # Arrange — a 2.9.0-shaped database: no `layers` column, and no `R43.6` stamp.
@@ -398,7 +406,9 @@ async def test_a_layer_field_a_newer_release_wrote_is_refused_by_name(
 async def test_opening_a_current_database_never_waits_behind_a_writer(
     store: PgVectorStore,
 ) -> None:
-    """Carried repair **R43.6**, found by Exit A's first complete repeat: a `weft ask` during
+    """A database whose schema is already provisioned opens without taking a table lock.
+
+    Carried repair **R43.6**, found by Exit A's first complete repeat: a `weft ask` during
     ingest took 28.8 s and another 15.1 s against 3.4 s after, because every open ran
     `ALTER TABLE weft_nodes ADD COLUMN IF NOT EXISTS content_tsv ...` — an `ACCESS EXCLUSIVE` lock
     even when the column exists — and queued behind the indexer's open write transaction. A
@@ -444,7 +454,9 @@ async def _node_rows() -> int:
 async def test_a_reader_keeps_searching_text_after_another_handle_writes_the_first_embedding(
     store: PgVectorStore,
 ) -> None:
-    """Carried repair **R43.39**, found by Phase 43c's closing gate: `retrieve` failed with
+    """A prepared read survives another handle retyping `embedding` to `vector(n)`.
+
+    Carried repair **R43.39**, found by Phase 43c's closing gate: `retrieve` failed with
     `FeatureNotSupported: cached plan must not change result type`. psycopg prepares a statement
     on its fifth run, and a prepared `SELECT weft_nodes.*` refuses to run once another handle's
     first embedded `add()` has typed `embedding` from `vector` to `vector(n)` under it.
@@ -477,7 +489,9 @@ async def test_a_reader_keeps_searching_text_after_another_handle_writes_the_fir
 async def test_a_reader_keeps_getting_nodes_after_another_handle_writes_the_first_embedding(
     store: PgVectorStore,
 ) -> None:
-    """Carried repair **R43.39** on a second read shape: `get`'s `SELECT *` is prepared exactly as
+    """`get`'s prepared `SELECT *` survives the same retyping as `search_text`'s.
+
+    Carried repair **R43.39** on a second read shape: `get`'s `SELECT *` is prepared exactly as
     `search_text`'s is, so the repair is a property of every read, not of one statement.
     """
     # Arrange

@@ -113,18 +113,22 @@ def _import_every_first_party_package() -> None:
             continue
         for dist_dir in sorted(root.iterdir()):
             src = dist_dir / "src"
-            if not src.is_dir():
-                continue
-            added = str(src) not in sys.path
-            if added:
-                sys.path.insert(0, str(src))
-            try:
-                for package_dir in sorted(src.iterdir()):
-                    if (package_dir / "__init__.py").is_file():
-                        import_module(package_dir.name)
-            finally:
-                if added:
-                    sys.path.remove(str(src))
+            if src.is_dir():
+                _import_packages_under(src)
+
+
+def _import_packages_under(src: Path) -> None:
+    """Import every package directly under `src`, with `src` on `sys.path` only while doing so."""
+    added = str(src) not in sys.path
+    if added:
+        sys.path.insert(0, str(src))
+    try:
+        for package_dir in sorted(src.iterdir()):
+            if (package_dir / "__init__.py").is_file():
+                import_module(package_dir.name)
+    finally:
+        if added:
+            sys.path.remove(str(src))
 
 
 def _every_ext_model() -> tuple[type[ExtModel], ...]:

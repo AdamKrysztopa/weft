@@ -1,4 +1,6 @@
-"""Carried repair **R43.40** — a corpus-scoped build that keeps two or more summaries at once
+"""A corpus-scoped build keeping several summaries at once publishes its tree on pgvector.
+
+Carried repair **R43.40** — a corpus-scoped build that keeps two or more summaries at once
 publishes its tree on pgvector.
 
 `raptor` summarises its clusters concurrently and keeps each through `LayerCheckpoints` as it

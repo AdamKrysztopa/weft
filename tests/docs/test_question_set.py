@@ -623,8 +623,10 @@ def _report(coverage: QuoteCoverage, check: str) -> None:
 
 
 def _page_at(starts: Mapping[str, tuple[int, ...]]) -> Callable[[str, int], int]:
-    """The 1-based page an offset into `_extracted`'s joined text falls on, `0` for a document
-    with no pages at all — a Wikipedia article is one stream of text with no page to name.
+    """The 1-based page an offset into `_extracted`'s joined text falls on.
+
+    `0` for a document with no pages at all — a Wikipedia article is one stream of text with no
+    page to name.
 
     **This is not a second implementation of a rule a pack owns.** It was, until G17 retired
     `weft_pdf.PdfPages.page_at` along with the offset table it read: the page is now a scalar
@@ -795,8 +797,9 @@ def test_the_installed_extraction_library_is_the_one_the_quotes_were_taken_from(
 
 
 def test_the_extraction_pin_check_can_fail() -> None:
-    """Planted, because the real comparison agrees whenever the lockfile is respected — which is
-    every run inside `ci-checks`, and therefore every run that has ever been seen.
+    """Planted, because the real comparison agrees whenever the lockfile is respected.
+
+    That is every run inside `ci-checks`, and therefore every run that has ever been seen.
     """
     # Arrange
     pinned = {"pdf-text": {"library": "pypdf", "version": "0.0.0-never-released"}}

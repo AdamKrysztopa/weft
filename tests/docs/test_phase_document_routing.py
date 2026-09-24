@@ -44,7 +44,7 @@ def _text(relative: str) -> str:
 
 
 def _bullet(markdown: str, *, heading: str) -> str:
-    """The paragraph of a `- **\\`heading\\`** — ...` bullet, up to the next top-level bullet.
+    r"""The paragraph of a `- **\`heading\`** — ...` bullet, up to the next top-level bullet.
 
     `CLAUDE.md`'s skills list wraps each entry across more than one line, so a single-line
     `grep`-shaped search would miss the wrapped continuation — this walks lines instead,

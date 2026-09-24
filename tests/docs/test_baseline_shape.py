@@ -1,5 +1,6 @@
-"""Prerequisite **V3** and **V6** (`docs/09-release.md` §4.3) — the committed baseline, checked
-as a fact.
+"""The committed baseline, checked as a fact.
+
+Prerequisite **V3** and **V6** (`docs/09-release.md` §4.3).
 
 V3 wants *"the numbers produced before any technique"*, repeated, with *"each metric carrying
 the interval its own repetitions produced"*, and it fails when *"the baseline was run once, in
@@ -136,6 +137,21 @@ def test_every_metric_names_the_depth_it_was_computed_at(
             )
 
 
+def _declared_documents(
+    run: BaselineReport,
+    by_tier: dict[Tier, list[Document]],
+    claims: dict[str, tuple[str, ...]],
+) -> list[Document]:
+    """The manifest entries a run's tiers hold that its extractor claims by suffix."""
+    suffixes = {suffix for suffix, names in claims.items() if run.extractor in names}
+    return [
+        entry
+        for tier in run.tiers
+        for entry in by_tier[Tier(tier)]
+        if entry.path.suffix in suffixes
+    ]
+
+
 def test_the_corpus_a_baseline_names_is_the_corpus_the_manifest_declares(
     runs: tuple[tuple[Path, BaselineReport], ...], documents: tuple[Document, ...]
 ) -> None:
@@ -148,13 +164,7 @@ def test_the_corpus_a_baseline_names_is_the_corpus_the_manifest_declares(
 
     # Act / Assert
     for path, run in runs:
-        suffixes = {suffix for suffix, names in claims.items() if run.extractor in names}
-        declared = [
-            entry
-            for tier in run.tiers
-            for entry in by_tier[Tier(tier)]
-            if entry.path.suffix in suffixes
-        ]
+        declared = _declared_documents(run, by_tier, claims)
         assert run.documents == tuple(sorted(entry.id for entry in declared)), (
             f"{path.name}: names tiers {run.tiers} and extractor {run.extractor!r}, and lists "
             f"{len(run.documents)} documents; the manifest puts {len(declared)} there"

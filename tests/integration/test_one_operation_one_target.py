@@ -1,4 +1,6 @@
-"""A promote committed during another command never mixes two targets inside one operation —
+"""A promote committed during another command never mixes two targets in one operation.
+
+A promote committed during another command never mixes two targets inside one operation —
 ledger task **34.10**, owner decision Q-C.
 
 The live pointer is read once, when an operation's store opens, and held for that operation. An

@@ -267,8 +267,10 @@ _ACTIVE_SUMMARY_LINE: Final[re.Pattern[str]] = re.compile(
 
 
 def _active_names_from_doctor_report(text: str) -> tuple[str, ...]:
-    """Every distribution `render_doctor`'s own text reports as `active`, parsed from its
-    output rather than recomputed — see the module docstring's clause-(c) paragraph.
+    """Every distribution `render_doctor`'s own text reports as `active`.
+
+    Parsed from its output rather than recomputed — see the module docstring's clause-(c)
+    paragraph.
 
     Deduplicated, because `active_distribution_set` is a *set*: several `active` rows can now
     name the same distribution, one per pack it ships, and the two sides of this equality have

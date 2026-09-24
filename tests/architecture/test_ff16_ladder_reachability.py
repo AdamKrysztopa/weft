@@ -248,7 +248,9 @@ _DOCUMENTED_WAIVER: Final[frozenset[tuple[str, str]]] = frozenset()
 
 
 def test_the_waiver_names_only_what_it_documents() -> None:
-    """**Empty again as of 2026-09-09, and the one entry it ever held is gone the way a waiver is
+    """The ladder waiver holds exactly the pairs `_DOCUMENTED_WAIVER` documents.
+
+    **Empty again as of 2026-09-09, and the one entry it ever held is gone the way a waiver is
     supposed to go — by the repair that was filed against it landing.**
 
     `("NodeStore", "qdrant")` was waived on 2026-09-09 because a shipped pipeline naming a store
@@ -341,8 +343,9 @@ def test_the_check_can_actually_fail() -> None:
 
 
 def test_a_deprecated_name_is_exempt_and_a_live_one_beside_it_is_not() -> None:
-    """The exemption added at `21.10`, asserted **against a live name in the same call** so it
-    cannot be satisfied by the sweep having stopped looking.
+    """The exemption added at `21.10` holds, asserted **against a live name in the same call**.
+
+    That way it cannot be satisfied by the sweep having stopped looking.
 
     A clause that excluded everything would pass a test that only checked the exempt case. Here
     one name is marked and one is not, and the unmarked one must still be reported.
@@ -358,10 +361,12 @@ def test_a_deprecated_name_is_exempt_and_a_live_one_beside_it_is_not() -> None:
 
 
 def test_the_tree_actually_marks_the_name_this_exemption_is_for() -> None:
-    """Non-vacuity for the exemption's own subject: it is derived from the packs, so a pack that
-    stopped marking `keybert` would silently make the clause cover nothing — and FF16 would then
-    fail on `keybert` rather than passing wrongly, which is the right direction, but this says so
-    out loud rather than leaving it to be discovered.
+    """Non-vacuity for the exemption's own subject: the tree really marks `keybert` deprecated.
+
+    The subject is derived from the packs, so a pack that stopped marking `keybert` would
+    silently make the clause cover nothing — and FF16 would then fail on `keybert` rather than
+    passing wrongly, which is the right direction, but this says so out loud rather than
+    leaving it to be discovered.
     """
     # Arrange / Act
     deprecated = _deprecated_names(_reports())

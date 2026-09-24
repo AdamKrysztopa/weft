@@ -24,8 +24,10 @@ _NOT_RESULTS: Final[tuple[str, ...]] = ("eval/questions",)
 
 
 def _tracked(pattern: str) -> list[str]:
-    """The tracked paths matching `pattern` — `tests/architecture/conftest.py`'s own resolution of
-    `git`, so a `PATH` without it fails by name rather than as a partial-path lint.
+    """The tracked paths matching `pattern`.
+
+    Uses `tests/architecture/conftest.py`'s own resolution of `git`, so a `PATH` without it
+    fails by name rather than as a partial-path lint.
     """
     git = shutil.which("git")
     assert git is not None, "git is not on PATH, so nothing here can enumerate tracked files"

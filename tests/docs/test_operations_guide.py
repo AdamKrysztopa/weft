@@ -63,9 +63,10 @@ def _fenced_blocks(markdown: str) -> list[tuple[str, str | None, str]]:
 
 
 def _section(markdown: str, *, heading: str, next_heading: str) -> str:
-    """The text strictly between two `##` headings — the scope one table's regex scans over,
-    so a row shape reused for a different table under a different heading is never conflated
-    with this one.
+    """The text strictly between two `##` headings.
+
+    That is the scope one table's regex scans over, so a row shape reused for a different table
+    under a different heading is never conflated with this one.
     """
     start = markdown.index(heading) + len(heading)
     end = markdown.index(next_heading, start)

@@ -184,8 +184,10 @@ def test_each_step_hands_to_the_next_one() -> None:
 
 
 def test_the_two_pages_outside_manual_have_a_row_in_section_one() -> None:
-    """`28.0`, the half `08` §1 owed: the route's first page and the contributor's page were owned
-    by nothing, which is how `CONTRIBUTING.md` reached 2026-09 saying the code was unwritten.
+    """`28.0`, the half `08` §1 owed.
+
+    The route's first page and the contributor's page were owned by nothing, which is how
+    `CONTRIBUTING.md` reached 2026-09 saying the code was unwritten.
     """
     # Act
     audiences = {
@@ -458,6 +460,33 @@ def _prose_around(page: str, block_id: str) -> str:
     return text[previous_end : target.start()] + text[target.end() : next_start]
 
 
+def _unpublished_installs(page: str, block_id: str, prose: str) -> list[str]:
+    """Each distribution an install instruction in `prose` names that is not published."""
+    wrong: list[str] = []
+    for paragraph in _install_instructions(prose):
+        for name in sorted(set(_DISTRIBUTION_NAME.findall(paragraph))):
+            if name in _published_names():
+                continue
+            why = "retired" if name in RETIRED_DISTRIBUTION_NAMES else "never published"
+            wrong.append(f"{page} (beside id={block_id}): installs `{name}`, which is {why}")
+    return wrong
+
+
+def _unknown_extras(page: str, block_id: str, prose: str) -> list[str]:
+    """Each extra `prose` names that `weft-rag` does not declare."""
+    claimed = {
+        extra.strip()
+        for match in _ATTACHED_EXTRA.finditer(prose)
+        for extra in match.group("names").split(",")
+    }
+    if "extra" in prose:
+        claimed.update(match.group("name") for match in _BARE_EXTRA.finditer(prose))
+    return [
+        f"{page} (beside id={block_id}): `[{extra}]` is not an extra of weft-rag"
+        for extra in sorted(claimed - _published_extras())
+    ]
+
+
 def test_the_prose_beside_a_waived_block_names_only_what_exists() -> None:
     """`28.3`. A waiver is a ratchet on *execution*, and nothing read the claims beside the block.
 
@@ -495,21 +524,8 @@ def test_the_prose_beside_a_waived_block_names_only_what_exists() -> None:
     # Act
     wrong: list[str] = []
     for (page, block_id), prose in spans.items():
-        for paragraph in _install_instructions(prose):
-            for name in sorted(set(_DISTRIBUTION_NAME.findall(paragraph))):
-                if name in _published_names():
-                    continue
-                why = "retired" if name in RETIRED_DISTRIBUTION_NAMES else "never published"
-                wrong.append(f"{page} (beside id={block_id}): installs `{name}`, which is {why}")
-        claimed = {
-            extra.strip()
-            for match in _ATTACHED_EXTRA.finditer(prose)
-            for extra in match.group("names").split(",")
-        }
-        if "extra" in prose:
-            claimed.update(match.group("name") for match in _BARE_EXTRA.finditer(prose))
-        for extra in sorted(claimed - _published_extras()):
-            wrong.append(f"{page} (beside id={block_id}): `[{extra}]` is not an extra of weft-rag")
+        wrong.extend(_unpublished_installs(page, block_id, prose))
+        wrong.extend(_unknown_extras(page, block_id, prose))
 
     # Assert
     assert not wrong, (

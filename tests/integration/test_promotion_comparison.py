@@ -1,4 +1,6 @@
-"""A run records the target it scored, and `weft eval compare` compares a live target with a
+"""A run records its target, and a live target compares against another embedder's.
+
+A run records the target it scored, and `weft eval compare` compares a live target with a
 candidate built by another embedder — ledger task **34.7**, owner decision Q-E.
 
 `_incomparable_reasons` refuses two runs whose `model_versions` differ, which is `09` §4's V3:

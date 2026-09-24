@@ -197,7 +197,9 @@ async def test_a_store_opened_after_a_promote_reads_the_new_live_target(
 
 
 async def test_reading_a_store_creates_no_catalogue_collection(settings: QdrantSettings) -> None:
-    """Found when Qdrant was OOM-killed twice at `34.7`: every store that opened created
+    """The targets catalogue is created by its first write, never by opening or reading.
+
+    Found when Qdrant was OOM-killed twice at `34.7`: every store that opened created
     `<collection>__targets`, and every older test fixture drops only the pair it knew of, so each
     gate run leaked hundreds of catalogues — 1,025 of 1,039 collections, 8.3 GiB at start. The
     catalogue is created by the first thing that writes to it, never by opening or reading.
@@ -221,7 +223,9 @@ async def test_reading_a_store_creates_no_catalogue_collection(settings: QdrantS
 async def test_a_target_another_open_store_has_written_to_cannot_be_dropped(
     settings: QdrantSettings,
 ) -> None:
-    """Carried repair **R34.10**: Qdrant has no session lock, so a handle that has written to a
+    """A drop is refused while another handle's write lease on the target is live.
+
+    Carried repair **R34.10**: Qdrant has no session lock, so a handle that has written to a
     target holds an expiring lease on it, and a drop is refused while that lease is live —
     the refusal pgvector and the graph store make through an advisory lock.
     """
@@ -244,7 +248,9 @@ async def test_a_target_another_open_store_has_written_to_cannot_be_dropped(
 async def test_a_lease_left_by_a_writer_that_never_closed_expires(
     settings: QdrantSettings,
 ) -> None:
-    """A writer that crashed never releases its lease, so the lease carries its own expiry
+    """A crashed writer's lease expires rather than blocking a drop forever.
+
+    A writer that crashed never releases its lease, so the lease carries its own expiry
     (`[packs.qdrant] target_lease_seconds`) rather than blocking a drop forever.
     """
     # Arrange
@@ -303,7 +309,9 @@ async def test_reading_a_store_nothing_wrote_to_creates_no_collection(
 
 
 async def test_the_first_write_still_creates_the_pair(settings: QdrantSettings) -> None:
-    """R43.2's control: the collections a read no longer creates are created by the first write,
+    """The collections a read no longer creates are created by the first write.
+
+    R43.2's control: the collections a read no longer creates are created by the first write,
     and a read after it sees what was written.
     """
     # Arrange
@@ -329,7 +337,9 @@ def _writer(pid: int, command: str) -> WriterClaim:
 async def test_a_writer_claim_holds_past_its_lease_while_its_holder_never_writes(
     settings: QdrantSettings,
 ) -> None:
-    """Carried repair R43.18, measured before the red: the claim was renewed only by `add`, so a
+    """Holding a target renews its claim even through a handle that never writes.
+
+    Carried repair R43.18, measured before the red: the claim was renewed only by `add`, so a
     `weft delete` or `weft reconcile` holding it through a handle that never writes lost it at
     `target_lease_seconds`, and a second writer was admitted beside it.
     """
@@ -354,7 +364,9 @@ async def test_a_writer_claim_holds_past_its_lease_while_its_holder_never_writes
 async def test_a_writer_claim_whose_holder_stopped_without_releasing_still_expires(
     settings: QdrantSettings,
 ) -> None:
-    """The lease is what frees a store a crashed writer held, so renewing it must stop when
+    """Renewing the lease stops when its holder does.
+
+    The lease is what frees a store a crashed writer held, so renewing it must stop when
     the holder does.
     """
     # Arrange

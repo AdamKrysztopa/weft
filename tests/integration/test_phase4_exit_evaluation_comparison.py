@@ -1,4 +1,6 @@
-"""Phase 4's exit criterion, made a permanent, repeatable check — `docs/internal/build-ledger.md`
+"""Phase 4's exit criterion as a permanent, repeatable check — ledger task **4.9**.
+
+Phase 4's exit criterion, made a permanent, repeatable check — `docs/internal/build-ledger.md`
 **4.9**.
 
 `docs/01-high-level-plan.md` → Phase 4 **Exit**: "running one corpus through two derived
@@ -139,7 +141,9 @@ async def clean_database() -> AsyncIterator[None]:
 
 
 def _write_corpus(directory: Path) -> tuple[str, str]:
-    """Two documents; returns their resolved paths — `SourceDoc.source_id`'s own form, and
+    """Write two documents and return their resolved paths.
+
+    Two documents; returns their resolved paths — `SourceDoc.source_id`'s own form, and
     the identifier `Question.relevant_documents` names (see `weft_cli.eval_scoring`'s own
     module docstring for why ground truth is named by document, never by node id).
     """
@@ -151,7 +155,9 @@ def _write_corpus(directory: Path) -> tuple[str, str]:
 
 
 def _write_pipelines(directory: Path) -> None:
-    """`index.yaml` (the four built-ins, default chunk window) and `specific.yaml` — a real
+    """Write `index.yaml` and a derived `specific.yaml` narrowing `chunk`'s window.
+
+    `index.yaml` (the four built-ins, default chunk window) and `specific.yaml` — a real
     `extends:` plus one `set:` operator narrowing `chunk`'s window, task 4.9's own shape.
     """
     directory.mkdir(parents=True, exist_ok=True)
@@ -179,7 +185,9 @@ def _write_pipelines(directory: Path) -> None:
 
 
 def _write_questions(path: Path, *, nitrogen_path: str, saffron_path: str) -> None:
-    """One question per document, its query the exact opening sentence — see the module
+    """Write one question per document, its query the document's exact opening sentence.
+
+    One question per document, its query the exact opening sentence — see the module
     docstring's paragraph on why this is a guaranteed exact hit under `specific` and not
     under `index`.
     """

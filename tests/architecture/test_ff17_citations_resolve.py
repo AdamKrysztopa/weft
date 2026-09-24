@@ -318,44 +318,50 @@ def _fragment_violations() -> tuple[list[str], list[str]]:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        for match in _CITATION_WITH_FRAGMENT.finditer(text):
-            cited, line_no = match.group(1), int(match.group(2))
-            fragment = match.group(3) if match.group(3) is not None else match.group(4)
-            if Path(cited).name == path.name:
-                continue  # clause (b) already refuses this, and says so better
-            if fragment is None:
-                missing.append(
-                    f"{relative}: cites '{cited}:{line_no}' with no quoted fragment. Write it as "
-                    f'`{cited}:{line_no} "<text from that line>"` so the citation can be refused '
-                    f"when what it points at changes."
-                )
-                continue
-            targets = _targets_of(cited)
-            if not targets:
-                continue  # clause (a) already refuses this
-            wanted = _without_quotes(fragment)
-            elsewhere: list[int] = []
-            satisfied = False
-            for target in targets:
-                lines = target.read_text(encoding="utf-8").split("\n")
-                found = [
-                    n for n, body in enumerate(lines, start=1) if wanted in _without_quotes(body)
-                ]
-                if any(abs(n - line_no) <= _FRAGMENT_WINDOW for n in found):
-                    satisfied = True
-                    break
-                elsewhere.extend(found)
-            if satisfied:
-                continue
-            where = (
-                f"it is at line(s) {sorted(set(elsewhere))[:3]}"
-                if elsewhere
-                else "it is in no file of that name"
-            )
-            stale.append(
-                f"{relative}: cites '{cited}:{line_no}' quoting {fragment!r}, and {where}."
-            )
+        _collect_fragment_violations(path, relative, text, missing, stale)
     return missing, stale
+
+
+def _collect_fragment_violations(
+    path: Path, relative: str, text: str, missing: list[str], stale: list[str]
+) -> None:
+    """Append one file's clause (c) and (d) findings to `missing` and `stale`."""
+    for match in _CITATION_WITH_FRAGMENT.finditer(text):
+        cited, line_no = match.group(1), int(match.group(2))
+        fragment = match.group(3) if match.group(3) is not None else match.group(4)
+        if Path(cited).name == path.name:
+            continue  # clause (b) already refuses this, and says so better
+        if fragment is None:
+            missing.append(
+                f"{relative}: cites '{cited}:{line_no}' with no quoted fragment. Write it as "
+                f'`{cited}:{line_no} "<text from that line>"` so the citation can be refused '
+                f"when what it points at changes."
+            )
+            continue
+        targets = _targets_of(cited)
+        if not targets:
+            continue  # clause (a) already refuses this
+        elsewhere = _fragment_elsewhere(targets, _without_quotes(fragment), line_no)
+        if elsewhere is None:
+            continue
+        where = (
+            f"it is at line(s) {sorted(set(elsewhere))[:3]}"
+            if elsewhere
+            else "it is in no file of that name"
+        )
+        stale.append(f"{relative}: cites '{cited}:{line_no}' quoting {fragment!r}, and {where}.")
+
+
+def _fragment_elsewhere(targets: tuple[Path, ...], wanted: str, line_no: int) -> list[int] | None:
+    """`None` when a target holds `wanted` within the window of `line_no`, else where it is."""
+    elsewhere: list[int] = []
+    for target in targets:
+        lines = target.read_text(encoding="utf-8").split("\n")
+        found = [n for n, body in enumerate(lines, start=1) if wanted in _without_quotes(body)]
+        if any(abs(n - line_no) <= _FRAGMENT_WINDOW for n in found):
+            return None
+        elsewhere.extend(found)
+    return elsewhere
 
 
 def test_every_citation_carries_the_fragment_that_makes_it_checkable() -> None:
@@ -406,10 +412,12 @@ def test_a_second_checkout_under_this_root_does_not_answer_for_this_repository()
 def test_a_checkout_whose_own_root_is_a_worktree_still_owns_its_files(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`R22.16`: G14 runs every dispatched implementer in `.claude/worktrees/agent-…`, and the
-    exclusion above read the absolute path, so that checkout disowned its own files and reported
-    every citation in the tree dangling. What belongs to a second checkout is decided below the
-    root that is running, never by the directory that root happens to sit in.
+    """A checkout rooted inside `.claude/worktrees/` still owns its own files (`R22.16`).
+
+    G14 runs every dispatched implementer in `.claude/worktrees/agent-…`, and the exclusion
+    above read the absolute path, so that checkout disowned its own files and reported every
+    citation in the tree dangling. What belongs to a second checkout is decided below the root
+    that is running, never by the directory that root happens to sit in.
     """
     # Arrange
     module = sys.modules[__name__]
@@ -459,7 +467,9 @@ def test_every_citation_resolves_to_a_path_this_repository_has() -> None:
 
 
 def test_the_untracked_allowance_is_scoped_to_docs_internal_and_nothing_else() -> None:
-    """`_UNTRACKED_TARGETS` names exactly the basenames under `docs/internal/`, and a missing
+    """The untracked allowance covers the `docs/internal/` basenames and nothing else.
+
+    `_UNTRACKED_TARGETS` names exactly the basenames under `docs/internal/`, and a missing
     basename outside that set still dangles — otherwise an allowance meant for one owner's
     decision quietly covers every other broken citation too.
 
@@ -515,8 +525,9 @@ def test_a_dangling_citation_would_be_caught(tmp_path: Path) -> None:
 
 
 def test_a_self_citation_would_be_caught() -> None:
-    """Prove clause (b) can fail — and that clause (a) alone would *not* have caught it,
-    which is the whole reason there are two clauses.
+    """Prove clause (b) can fail, and that clause (a) alone would *not* have caught it.
+
+    That clause (a) is blind here is the whole reason there are two clauses.
     """
     # Arrange — a citation naming a file that really does exist here: this one. Built from
     # `Path(__file__).name` rather than written out, for the reason `test_a_dangling_citation_

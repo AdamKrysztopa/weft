@@ -111,13 +111,21 @@ def _swallowing_handlers() -> list[tuple[str, ast.ExceptHandler, list[ast.Except
         if "__pycache__" in path.parts:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        relative = str(path.relative_to(REPO_ROOT))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Try):
-                continue
-            for handler in node.handlers:
-                if _is_broad(handler) and _swallows(handler):
-                    found.append((f"{relative}:{handler.lineno}", handler, node.handlers))
+        found.extend(_swallowing_handlers_in(tree, str(path.relative_to(REPO_ROOT))))
+    return found
+
+
+def _swallowing_handlers_in(
+    tree: ast.Module, relative: str
+) -> list[tuple[str, ast.ExceptHandler, list[ast.ExceptHandler]]]:
+    """Every broad handler in one parsed file that returns an `Outcome`, with its siblings."""
+    found: list[tuple[str, ast.ExceptHandler, list[ast.ExceptHandler]]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        for handler in node.handlers:
+            if _is_broad(handler) and _swallows(handler):
+                found.append((f"{relative}:{handler.lineno}", handler, node.handlers))
     return found
 
 

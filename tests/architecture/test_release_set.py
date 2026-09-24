@@ -157,8 +157,10 @@ def test_every_declared_package_path_is_a_real_directory() -> None:
 
 
 def test_installing_the_default_install_brings_the_weft_command() -> None:
-    """`09` §1's own consequence: the Phase 6 exit criterion installs the whole product with one
-    `uvx` invocation, which is only true if the console script ships with it.
+    """`09` §1's own consequence: the console script ships with the product.
+
+    The Phase 6 exit criterion installs the whole product with one `uvx` invocation, which is
+    only true if the console script ships with it.
 
     It was `weft-cli`'s script and is now this distribution's, because `weft_cli` is inside it.
     """
@@ -171,9 +173,11 @@ def test_installing_the_default_install_brings_the_weft_command() -> None:
 
 
 def test_every_entry_point_names_a_module_this_distribution_ships() -> None:
-    """An entry point pointing at a module the wheel does not carry is a pack that fails to
-    import on an installed machine and loads fine in this workspace, where everything is on the
-    path regardless — the same blind spot `test_distributions_declare_their_imports.py` names.
+    """An entry point must point at a module the wheel carries.
+
+    One that does not is a pack that fails to import on an installed machine and loads fine in
+    this workspace, where everything is on the path regardless — the same blind spot
+    `test_distributions_declare_their_imports.py` names.
     """
     # Act
     shipped = frozenset(_shipped_packages())
@@ -254,8 +258,10 @@ def test_nothing_that_installs_beside_it_is_shipped_inside_it() -> None:
 
 
 def test_every_first_party_distribution_is_either_the_default_install_or_beside_it() -> None:
-    """A distribution under `packages/` that is neither is one nobody decided about — the drift
-    this file exists to refuse, unchanged in intent from when it was phrased about pins.
+    """A distribution under `packages/` that is neither is one nobody decided about.
+
+    That is the drift this file exists to refuse, unchanged in intent from when it was phrased
+    about pins.
     """
     # Act
     first_party = {path.parent.name for path in _PACKAGES.glob("*/pyproject.toml")}
@@ -271,8 +277,9 @@ def test_every_first_party_distribution_is_either_the_default_install_or_beside_
 
 @pytest.mark.parametrize("excluded", ["weft-canary"])
 def test_the_standing_exclusions_stay_excluded(excluded: str) -> None:
-    """`weft-canary` exists to be *refused* by discovery (fitness function 8) and must never be
-    shipped. Named individually as well as by the set above, so deleting a name from
+    """`weft-canary` exists to be *refused* by discovery (fitness function 8) and must never ship.
+
+    Named individually as well as by the set above, so deleting a name from
     `_INSTALLS_BESIDE` does not quietly delete the assertion with it.
 
     **`weft-qdrant` was the second name here until G19 (2026-09-09)**, as `09` §1's own example of

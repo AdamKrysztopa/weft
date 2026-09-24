@@ -1,4 +1,6 @@
-"""Ledger task **43.17** — the graph layer over a real `index-with-graph` base, and what deleting a
+"""The graph layer over a real `index-with-graph` base, and what deleting a source leaves.
+
+Ledger task **43.17** — the graph layer over a real `index-with-graph` base, and what deleting a
 source leaves of the relations it stated.
 
 `enrich-with-facts-and-graph` runs `cooccurrence-graph` then `llm-facts` over the leaves a base

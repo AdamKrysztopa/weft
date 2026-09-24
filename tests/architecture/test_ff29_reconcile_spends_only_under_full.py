@@ -103,29 +103,32 @@ def _participants() -> tuple[_Participant, ...]:
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
-            methods = {
-                member.name
-                for member in node.body
-                if isinstance(member, ast.AsyncFunctionDef | ast.FunctionDef)
-            }
-            if not methods >= _RECONCILABLE_MEMBERS:
-                continue
-            body = next(
-                member
-                for member in node.body
-                if isinstance(member, ast.AsyncFunctionDef | ast.FunctionDef)
-                and member.name == "reconcile"
-            )
-            module = path.relative_to(path.parents[len(path.parts) - path.parts.index("src") - 2])
-            found.append(
-                _Participant(
-                    qualified_name=f"{module.with_suffix('').as_posix().replace('/', '.')}."
-                    f"{node.name}",
-                    path=path,
-                    reconcile=body,
-                )
-            )
+            participant = _as_participant(node, path)
+            if participant is not None:
+                found.append(participant)
     return tuple(found)
+
+
+def _as_participant(node: ast.ClassDef, path: Path) -> _Participant | None:
+    """`node` as a participant if it defines every `Reconcilable` member, else `None`."""
+    methods = {
+        member.name
+        for member in node.body
+        if isinstance(member, ast.AsyncFunctionDef | ast.FunctionDef)
+    }
+    if not methods >= _RECONCILABLE_MEMBERS:
+        return None
+    body = next(
+        member
+        for member in node.body
+        if isinstance(member, ast.AsyncFunctionDef | ast.FunctionDef) and member.name == "reconcile"
+    )
+    module = path.relative_to(path.parents[len(path.parts) - path.parts.index("src") - 2])
+    return _Participant(
+        qualified_name=f"{module.with_suffix('').as_posix().replace('/', '.')}.{node.name}",
+        path=path,
+        reconcile=body,
+    )
 
 
 def _model_seams(body: ast.AST) -> Iterator[tuple[str, ast.Call]]:
@@ -183,8 +186,10 @@ def test_at_least_one_reconcilable_is_found() -> None:
 
 
 def test_at_least_one_guarded_model_seam_is_found() -> None:
-    """The second floor, and the sharper one: a tree where **nothing** reaches a model inside
-    `reconcile` would satisfy the rule below by having nothing to check.
+    """The second floor, and the sharper one: some `reconcile` reaches a model under `FULL`.
+
+    A tree where **nothing** reaches a model inside `reconcile` would satisfy the rule below by
+    having nothing to check.
 
     `weft_kg.store.GraphStore` is that seam today, added by ledger `11.9` — it is the first and
     so far only participant in this tree whose `full` costs a real number.

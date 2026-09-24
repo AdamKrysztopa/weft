@@ -1,4 +1,6 @@
-"""The gate of ledger task **39.1**, second form: does the model decomposition find every anchor of
+"""Ledger task **39.1**'s gate, second form: the model decomposition on unseen questions.
+
+The gate of ledger task **39.1**, second form: does the model decomposition find every anchor of
 eighty questions it never saw, without flooding the text arm? Opt-in, because it reaches a model.
 
 G24's Q-A was reopened by measurement on 2026-09-18: the deterministic rule gated at precision
@@ -13,6 +15,7 @@ occurs in either fixture set.
 import os
 import re
 import tomllib
+from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 from typing import Final
@@ -63,7 +66,8 @@ def _same_identifier(expected: str, found: str) -> bool:
 
 
 class _PromptLookup:
-    """A `StageLookup` narrowed to `build_capability` over a real `Registry` —
+    """A `StageLookup` narrowed to `build_capability` over a real `Registry`.
+
     `test_hypothetical_questions_pipeline.py`'s own.
     """
 
@@ -106,6 +110,33 @@ def _questions() -> list[tuple[str, str, tuple[str, ...]]]:
     return rows
 
 
+@dataclass
+class _Tally:
+    """The gate's running counts, and every anchor missed, span invented or run failed."""
+
+    missed: list[str] = field(default_factory=list[str])
+    invented: list[str] = field(default_factory=list[str])
+    failed: list[str] = field(default_factory=list[str])
+    expected_total: int = 0
+    returned_total: int = 0
+    found_expected: int = 0
+    matched_returned: int = 0
+
+    def score(self, identifier: str, expected: tuple[str, ...], found: tuple[str, ...]) -> None:
+        self.expected_total += len(expected)
+        self.returned_total += len(found)
+        for anchor in expected:
+            if any(_same_identifier(anchor, span) for span in found):
+                self.found_expected += 1
+            else:
+                self.missed.append(f"{identifier}: {anchor!r}")
+        for span in found:
+            if any(_same_identifier(anchor, span) for anchor in expected):
+                self.matched_returned += 1
+            else:
+                self.invented.append(f"{identifier}: {span!r}")
+
+
 #: Eighty sequential completions; the suite's 60 s default killed the first run.
 @pytest.mark.timeout(600)
 async def test_the_model_finds_every_anchor_and_nothing_else_on_both_sets(
@@ -135,10 +166,7 @@ async def test_the_model_finds_every_anchor_and_nothing_else_on_both_sets(
     questions = _questions()
 
     # Act
-    missed: list[str] = []
-    invented: list[str] = []
-    failed: list[str] = []
-    expected_total = returned_total = found_expected = matched_returned = 0
+    tally = _Tally()
     for identifier, text, expected in questions:
         query = Query(text=text, locale="en")
         outcome = await transform.run(QuerySet(origin=query, queries=(query,)), ctx)
@@ -146,28 +174,17 @@ async def test_the_model_finds_every_anchor_and_nothing_else_on_both_sets(
         if isinstance(outcome, Produced):
             found = tuple(q.text for q in outcome.value.queries if q.produced_by == NAME)
         else:
-            failed.append(f"{identifier}: {outcome}")
-        expected_total += len(expected)
-        returned_total += len(found)
-        for anchor in expected:
-            if any(_same_identifier(anchor, span) for span in found):
-                found_expected += 1
-            else:
-                missed.append(f"{identifier}: {anchor!r}")
-        for span in found:
-            if any(_same_identifier(anchor, span) for anchor in expected):
-                matched_returned += 1
-            else:
-                invented.append(f"{identifier}: {span!r}")
+            tally.failed.append(f"{identifier}: {outcome}")
+        tally.score(identifier, expected, found)
     await llm.close()
-    recall = found_expected / expected_total
-    precision = matched_returned / returned_total if returned_total else 1.0
+    recall = tally.found_expected / tally.expected_total
+    precision = tally.matched_returned / tally.returned_total if tally.returned_total else 1.0
     # One message carries every number: the gate is run once, so a first failing assertion
     # must not hide the rest of the measurement.
     verdict = (
-        f"recall={recall:.4f} ({found_expected}/{expected_total}) precision={precision:.4f} "
-        f"({matched_returned}/{returned_total}) failed={failed} invented={invented} "
-        f"missed={missed}"
+        f"recall={recall:.4f} ({tally.found_expected}/{tally.expected_total}) "
+        f"precision={precision:.4f} ({tally.matched_returned}/{tally.returned_total}) "
+        f"failed={tally.failed} invented={tally.invented} missed={tally.missed}"
     )
     print(verdict)
 

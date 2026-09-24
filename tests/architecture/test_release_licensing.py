@@ -164,8 +164,10 @@ def test_every_published_distribution_declares_its_licence() -> None:
 
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
-    """Planted, because the real tree agrees once this task lands and the comparison is then
-    never seen disagreeing (`docs/internal/lessons.md` L5.19). Both halves: a drifted copy and a
+    """Prove the licence check can fail, on a drifted copy and on an unwritten declared file.
+
+    Planted, because the real tree agrees once this task lands and the comparison is then never
+    seen disagreeing (`docs/internal/lessons.md` L5.19). Both halves: a drifted copy and a
     declaration that names a file nobody wrote.
     """
     # Arrange
@@ -361,41 +363,68 @@ def _prior_work_spans(root: Path, relative_paths: Iterable[str]) -> PriorWorkSwe
         files_read += 1
         if begin_mark not in text and end_mark not in text:
             continue
-        open_at: int | None = None
-        open_name = ""
-        for number, line in enumerate(text.splitlines(), start=1):
-            stripped = line.strip()
-            if begin_mark in stripped:
-                if open_at is not None:
-                    inner = stripped.split(begin_mark)[-1].strip()
-                    malformed.append(
-                        f"{relative}:{number} opens a span for {inner!r} while the one opened at "
-                        f"line {open_at} is still open — a nested span makes which lines are prior "
-                        f"work answerable two ways"
-                    )
-                    continue
-                open_at = number
-                open_name = stripped.split(begin_mark, 1)[1].strip()
-                if not open_name:
-                    malformed.append(
-                        f"{relative}:{number} opens a span and names no source work, which is the "
-                        f"one thing `NOTICE` case 2 requires of it"
-                    )
-            elif end_mark in stripped:
-                if open_at is None:
-                    malformed.append(
-                        f"{relative}:{number} closes a prior-work span that was never opened"
-                    )
-                    continue
-                if open_name:
-                    spans.append(PriorWorkSpan(relative, open_name, open_at, number))
-                open_at, open_name = None, ""
-        if open_at is not None:
-            malformed.append(
-                f"{relative}:{open_at} opens a prior-work span for {open_name!r} and the file ends "
-                f"without closing it, so its last line is undecided"
-            )
+        _scan_markers(relative, text, (begin_mark, end_mark), spans, malformed)
     return PriorWorkSweep(tuple(spans), tuple(malformed), files_read)
+
+
+def _scan_markers(
+    relative: str,
+    text: str,
+    marks: tuple[str, str],
+    spans: list[PriorWorkSpan],
+    malformed: list[str],
+) -> None:
+    """Append one file's well-formed spans to `spans` and its malformed markers to `malformed`."""
+    begin_mark, end_mark = marks
+    open_at: int | None = None
+    open_name = ""
+    for number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if begin_mark in stripped:
+            open_at, open_name = _opened(
+                relative, number, stripped, begin_mark, (open_at, open_name), malformed
+            )
+        elif end_mark in stripped:
+            if open_at is None:
+                malformed.append(
+                    f"{relative}:{number} closes a prior-work span that was never opened"
+                )
+                continue
+            if open_name:
+                spans.append(PriorWorkSpan(relative, open_name, open_at, number))
+            open_at, open_name = None, ""
+    if open_at is not None:
+        malformed.append(
+            f"{relative}:{open_at} opens a prior-work span for {open_name!r} and the file ends "
+            f"without closing it, so its last line is undecided"
+        )
+
+
+def _opened(
+    relative: str,
+    number: int,
+    stripped: str,
+    begin_mark: str,
+    state: tuple[int | None, str],
+    malformed: list[str],
+) -> tuple[int | None, str]:
+    """The `(open_at, open_name)` state after a begin marker at line `number`."""
+    open_at, _ = state
+    if open_at is not None:
+        inner = stripped.split(begin_mark)[-1].strip()
+        malformed.append(
+            f"{relative}:{number} opens a span for {inner!r} while the one opened at "
+            f"line {open_at} is still open — a nested span makes which lines are prior "
+            f"work answerable two ways"
+        )
+        return state
+    open_name = stripped.split(begin_mark, 1)[1].strip()
+    if not open_name:
+        malformed.append(
+            f"{relative}:{number} opens a span and names no source work, which is the "
+            f"one thing `NOTICE` case 2 requires of it"
+        )
+    return number, open_name
 
 
 def _case_two(notice: str) -> str:
@@ -557,8 +586,10 @@ def test_every_enumerated_source_work_is_actually_carried() -> None:
 
 
 def test_the_prior_work_marking_check_can_actually_fail(tmp_path: Path) -> None:
-    """Planted, because the real tree carries no marked span and the sweep above therefore
-    compares an empty set with an empty one (`docs/internal/lessons.md` L5.19, L11.5).
+    """Prove the prior-work marking check can fail, in every direction, on a planted tree.
+
+    Planted, because the real tree carries no marked span and the sweep above therefore compares
+    an empty set with an empty one (`docs/internal/lessons.md` L5.19, L11.5).
 
     Every direction, on a fixture tree: a well-formed span **found** — the liveness half, without
     which the four assertions above are satisfied by a sweep that reads nothing — an unclosed span,

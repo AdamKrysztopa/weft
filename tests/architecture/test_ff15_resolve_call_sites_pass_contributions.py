@@ -43,9 +43,11 @@ _CLI_SRC: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "src" / "weft_cli"
 
 
 def _imports_resolve_as_a_bare_name(tree: ast.Module) -> bool:
-    """Whether `tree`'s module body binds `resolve` via `from weft_kernel.resolution import
-    resolve` — the only way a bare `resolve(...)` call in this tree can mean `weft_kernel.
-    resolution.resolve` rather than some other object's own `.resolve` method.
+    """Whether `tree`'s module body binds `resolve` from `weft_kernel.resolution`.
+
+    That is, via `from weft_kernel.resolution import resolve` — the only way a bare
+    `resolve(...)` call in this tree can mean `weft_kernel.resolution.resolve` rather than some
+    other object's own `.resolve` method.
     """
     for node in ast.walk(tree):
         if (
@@ -58,8 +60,9 @@ def _imports_resolve_as_a_bare_name(tree: ast.Module) -> bool:
 
 
 def _bare_resolve_calls(tree: ast.Module) -> list[ast.Call]:
-    """Every `ast.Call` in `tree` whose function is the bare name `resolve` — never an
-    attribute access (`runner.resolve(...)`, `service_registry.resolve(...)`), which is a
+    """Every `ast.Call` in `tree` whose function is the bare name `resolve`.
+
+    Never an attribute access (`runner.resolve(...)`, `service_registry.resolve(...)`), which is a
     different `resolve` on a different object entirely. See the module docstring.
     """
     return [
@@ -76,8 +79,9 @@ def _passes_contributions(call: ast.Call) -> bool:
 
 
 def _resolve_call_sites() -> dict[Path, list[ast.Call]]:
-    """Every file under `weft-cli` that imports `resolve` as a bare name, and every call to
-    it that file's own body makes — the whole population fitness function 0's own composite
+    """Every `weft-cli` file importing `resolve` as a bare name, with each call its body makes.
+
+    This is the whole population fitness function 0's own composite
     rule ("every architecture check runs in the gate") requires this test to check, not a
     hand-picked subset of it.
     """

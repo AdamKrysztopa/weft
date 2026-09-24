@@ -172,8 +172,9 @@ def test_every_marked_claim_names_a_baseline_run_that_exists() -> None:
 
 
 def test_no_shipped_document_claims_an_improvement_outside_a_claim_block() -> None:
-    """Clause (b), and the one that catches the failure that actually happens: a number typed
-    into a manual by someone who never ran anything.
+    """Clause (b), the one that catches the failure that actually happens.
+
+    That failure is a number typed into a manual by someone who never ran anything.
     """
     # Act
     unmarked = unmarked_claims(_shipped_documents())
@@ -189,7 +190,8 @@ def test_no_shipped_document_claims_an_improvement_outside_a_claim_block() -> No
 
 
 def test_the_waiver_still_excuses_something() -> None:
-    """A ratchet whose entries have stopped matching is a ratchet that reads shorter than it is —
+    """A ratchet whose entries have stopped matching reads shorter than it is.
+
     `test_ff0_gate_in_the_gate.py` makes the identical check about its own waived suites.
 
     This one does double duty: the waived passages are the only claim-shaped text in the shipped
@@ -220,8 +222,10 @@ def test_the_waiver_still_excuses_something() -> None:
 
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
-    """Both clauses, planted through the real readers — the real set is empty, so this is the
-    only place either comparison is seen disagreeing (`docs/internal/lessons.md` L5.19).
+    """Both clauses, planted through the real readers.
+
+    The real set is empty, so this is the only place either comparison is seen disagreeing
+    (`docs/internal/lessons.md` L5.19).
     """
     # Arrange — one unbacked claim block, and one bare number in prose.
     document = tmp_path / "planted.md"

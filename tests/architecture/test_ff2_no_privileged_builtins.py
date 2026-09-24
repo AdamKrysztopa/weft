@@ -211,8 +211,9 @@ def test_at_least_one_kernel_file_is_walked() -> None:
 
 
 class _RecordingRegistry(Registry):
-    """A `Registry` that remembers every write, so the check can compare *registrations*
-    rather than the set of distribution names that made them.
+    """A `Registry` that remembers every write, so the check can compare *registrations*.
+
+    That is, registrations rather than the set of distribution names that made them.
 
     **Comparing name sets is not enough, and this is the whole point of the function.**
     `01` item 2 names the defect it exists to catch: a built-in path that re-wraps and

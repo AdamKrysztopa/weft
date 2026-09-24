@@ -188,8 +188,9 @@ def test_ingest_filters_on_the_derivation_and_never_on_a_packs_constant() -> Non
 
 
 def test_every_extension_a_live_extractor_declares_is_reachable() -> None:
-    """Clause (b), from two places that can disagree: the registered classes, and the shipped
-    derivation the CLI actually calls.
+    """Clause (b), checked from two places that can disagree.
+
+    Those are the registered classes, and the shipped derivation the CLI actually calls.
     """
     # Arrange
     registry = _extractor_registry()

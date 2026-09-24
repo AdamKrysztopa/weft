@@ -102,8 +102,9 @@ def _private(target: object, name: str) -> Any:
 
 
 def _field_for_stub_qdrant(op: FilterOp, field: str) -> None:
-    """Stands in for `weft_store.fields.field_for` inside `weft_qdrant.store`'s namespace,
-    so `_condition`'s own dispatch is exercised in isolation from `field_for`'s admission
+    """Stand in for `weft_store.fields.field_for` inside `weft_qdrant.store`'s namespace.
+
+    That way `_condition`'s own dispatch is exercised in isolation from `field_for`'s admission
     check, which would otherwise refuse the manufactured operator first and for an unrelated
     reason (a lookup-table miss, not "no case for this").
     """
@@ -111,17 +112,20 @@ def _field_for_stub_qdrant(op: FilterOp, field: str) -> None:
 
 
 def _field_for_stub_pgvector(op: FilterOp, field: str) -> FieldPath:
-    """The pgvector equivalent of `_field_for_stub_qdrant` — `_predicate` needs a `FieldPath`
-    back, not `None`, to route into `_text_predicate`'s own dispatch rather than fail before
-    it gets there.
+    """The pgvector equivalent of `_field_for_stub_qdrant`.
+
+    `_predicate` needs a `FieldPath` back, not `None`, to route into `_text_predicate`'s own
+    dispatch rather than fail before it gets there.
     """
     del op, field
     return FieldPath(kind=FieldKind.TEXT, core=NodeField.CONTENT)
 
 
 class TestContractShapeValidatorRaises:
-    """`weft_store.contract.Filter._shape_matches_op` — the site pre-fix would have
-    validated an unknown operator as if it were `not`, silently, given exactly one clause.
+    """The contract's own validator, `weft_store.contract.Filter._shape_matches_op`.
+
+    This is the site that pre-fix would have validated an unknown operator as if it were `not`,
+    silently, given exactly one clause.
     """
 
     def test_an_unseen_op_with_one_clause_is_refused_not_accepted_as_not(self) -> None:
@@ -143,7 +147,9 @@ class TestContractShapeValidatorRaises:
 
 
 class TestQdrantTranslatorRaises:
-    """`weft_qdrant.store` — the two sites `docs/09-release.md` §2.3 names by name, plus
+    """The `FilterOp` dispatch sites in `weft_qdrant.store`.
+
+    These are the two sites `docs/09-release.md` §2.3 names by name, plus
     `to_qdrant_filter`'s own top-level routing, which the release note does not call out but
     is the same shape one level up.
     """
@@ -173,7 +179,9 @@ class TestQdrantTranslatorRaises:
 
 
 class TestPgvectorTranslatorRaises:
-    """`weft_store.pgvector_store` — the sixth through ninth sites: the SQL half of task
+    """The `FilterOp` dispatch sites in `weft_store.pgvector_store`.
+
+    These are the sixth through ninth sites: the SQL half of task
     2.6's translation, which `docs/09-release.md` §2.3's five named sites never mention.
     Every one of its four `FilterOp`-dispatching functions had the identical shape.
     """
@@ -215,8 +223,10 @@ class TestPgvectorTranslatorRaises:
 
 
 class TestExtensionAdmittedSetDoesNotWiden:
-    """`weft_store.fields._ADMITTED[FieldKind.EXTENSION]` — the one site whose defect is not
-    a fall-through answer but a permitted set that grows with the enum instead of by hand.
+    """The permitted operator set, `weft_store.fields._ADMITTED[FieldKind.EXTENSION]`.
+
+    It is the one site whose defect is not a fall-through answer but a permitted set that
+    grows with the enum instead of by hand.
     """
 
     def test_an_unseen_op_is_admitted_by_no_field_kind(self) -> None:
@@ -231,8 +241,10 @@ class TestExtensionAdmittedSetDoesNotWiden:
 
 
 def test_the_check_can_actually_fail() -> None:
-    """Reproduces the pre-fix shape of `weft_qdrant.store._range` to prove the assertions
-    above are not vacuously true against a translator that no longer has anything to break.
+    """Reproduce the pre-fix shape of `weft_qdrant.store._range` against the checks above.
+
+    This proves the assertions above are not vacuously true against a translator that no
+    longer has anything to break.
 
     `docs/09-release.md` §2.3, verbatim: "`weft_qdrant.store` reinterprets an unknown
     `FilterOp` as ... `gte` in `_range`." The stand-in below is exactly that shape — three

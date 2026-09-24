@@ -47,17 +47,23 @@ _LIFECYCLE: Final[frozenset[str]] = frozenset({"close", "aclose", "flush"})
 def _factory_built(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     names: set[str] = set()
     for node in ast.walk(fn):
-        if isinstance(node, ast.Assign | ast.AnnAssign) and node.value is not None:
-            built = any(
-                isinstance(call, ast.Call)
-                and isinstance(call.func, ast.Attribute)
-                and call.func.attr == "factory"
-                for call in ast.walk(node.value)
-            )
-            if built:
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                names |= {target.id for target in targets if isinstance(target, ast.Name)}
+        if (
+            isinstance(node, ast.Assign | ast.AnnAssign)
+            and node.value is not None
+            and _calls_factory(node.value)
+        ):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            names |= {target.id for target in targets if isinstance(target, ast.Name)}
     return names
+
+
+def _calls_factory(value: ast.expr) -> bool:
+    return any(
+        isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Attribute)
+        and call.func.attr == "factory"
+        for call in ast.walk(value)
+    )
 
 
 def _wrap_arguments(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr]:
@@ -104,23 +110,36 @@ def unwrapped_calls(source: str, relative: str) -> set[str]:
         built = _factory_built(fn)
         if not built:
             continue
-        wrapped = _handed_to_wrap(fn)
-        covered = _inside_a_wrapped_local(fn)
-        for node in ast.walk(fn):
-            if not (isinstance(node, ast.Await) and isinstance(node.value, ast.Call)):
-                continue
-            if id(node) in covered:
-                continue
-            target = node.value.func
-            if (
-                isinstance(target, ast.Attribute)
-                and isinstance(target.value, ast.Name)
-                and target.value.id in built
-                and target.attr not in _LIFECYCLE
-                and f"{target.value.id}.{target.attr}" not in wrapped
-            ):
-                found.add(f"{relative} {fn.name} {target.value.id}.{target.attr}")
+        found |= {f"{relative} {fn.name} {call}" for call in _escaping_calls(fn, built)}
     return found
+
+
+def _escaping_calls(fn: ast.FunctionDef | ast.AsyncFunctionDef, built: set[str]) -> set[str]:
+    """Every `<name>.<method>` awaited in `fn` on a `built` instance that bypasses `wrap`."""
+    wrapped = _handed_to_wrap(fn)
+    covered = _inside_a_wrapped_local(fn)
+    escaping: set[str] = set()
+    for node in ast.walk(fn):
+        if not (isinstance(node, ast.Await) and isinstance(node.value, ast.Call)):
+            continue
+        if id(node) in covered:
+            continue
+        if (call := _escaping_call(node.value.func, built, wrapped)) is not None:
+            escaping.add(call)
+    return escaping
+
+
+def _escaping_call(target: ast.expr, built: set[str], wrapped: set[str]) -> str | None:
+    """`<name>.<method>` when `target` is a non-lifecycle method of a built instance not wrapped."""
+    if (
+        isinstance(target, ast.Attribute)
+        and isinstance(target.value, ast.Name)
+        and target.value.id in built
+        and target.attr not in _LIFECYCLE
+        and f"{target.value.id}.{target.attr}" not in wrapped
+    ):
+        return f"{target.value.id}.{target.attr}"
+    return None
 
 
 def _tree_unwrapped_calls() -> set[str]:

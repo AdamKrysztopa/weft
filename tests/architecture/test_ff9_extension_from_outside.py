@@ -499,24 +499,32 @@ def structurally_naming(names: Iterable[str], *, within: Iterable[Path]) -> list
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (UnicodeDecodeError, OSError, SyntaxError):
             continue
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name.split(".")[0] in modules:
-                        hits.append((path, alias.name.split(".")[0]))
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                root = node.module.split(".")[0]
-                if root in modules:
-                    hits.append((path, root))
-            elif isinstance(node, ast.Call) and _is_registration(node):
-                hits.extend(
-                    (path, argument.value)
-                    for argument in node.args
-                    if isinstance(argument, ast.Constant)
-                    and isinstance(argument.value, str)
-                    and argument.value in wanted
-                )
+        hits.extend(
+            (path, name)
+            for node in ast.walk(tree)
+            for name in _names_in_node(node, modules=modules, wanted=wanted)
+        )
     return hits
+
+
+def _names_in_node(node: ast.AST, *, modules: set[str], wanted: frozenset[str]) -> list[str]:
+    """The pack names one AST node references: an imported module root or a registered literal."""
+    if isinstance(node, ast.Import):
+        return [
+            alias.name.split(".")[0] for alias in node.names if alias.name.split(".")[0] in modules
+        ]
+    if isinstance(node, ast.ImportFrom) and node.module:
+        root = node.module.split(".")[0]
+        return [root] if root in modules else []
+    if isinstance(node, ast.Call) and _is_registration(node):
+        return [
+            argument.value
+            for argument in node.args
+            if isinstance(argument, ast.Constant)
+            and isinstance(argument.value, str)
+            and argument.value in wanted
+        ]
+    return []
 
 
 def _is_registration(call: ast.Call) -> bool:
@@ -661,8 +669,10 @@ def test_the_grep_can_actually_fail(tmp_path: Path) -> None:
 
 
 def test_the_double_carries_every_registrar_method() -> None:
-    """`_NameCapturingRegistrar` stands in for the real `PackRegistrar`, and a stand-in that
-    lags the class it stands in for fails on whichever pack first calls the missing method.
+    """`_NameCapturingRegistrar` carries every public method `PackRegistrar` declares.
+
+    `_NameCapturingRegistrar` stands in for the real `PackRegistrar`, and a stand-in that lags
+    the class it stands in for fails on whichever pack first calls the missing method.
 
     **This has now happened three times and been noticed once.** `add_pipeline_resource`
     (task 1.11), `add_ext_model` (task 5.2g) and `add_contribution` (task 5.3a) were each
@@ -695,8 +705,9 @@ def test_the_double_carries_every_registrar_method() -> None:
 
 
 def test_no_out_of_workspace_pack_is_installed_in_the_development_environment() -> None:
-    """Clause (a)'s other half — the environment this suite runs in, `docs/internal/lessons.md`
-    L5.31.
+    """Clause (a)'s other half: the environment this suite runs in.
+
+    Recorded as `docs/internal/lessons.md` L5.31.
 
     Clause (a) says an example pack is installed into a **throwaway** environment, never linked
     into this one, and `test_the_example_pack_is_outside_the_uv_workspace` above proves the

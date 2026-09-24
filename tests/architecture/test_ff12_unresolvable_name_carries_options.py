@@ -269,7 +269,9 @@ def members_without_the_typed_field(
 def _discovered_family_mismatch(
     *, pinned: frozenset[str], discovered: frozenset[str]
 ) -> tuple[frozenset[str], frozenset[str]]:
-    """`(unpinned, stale)` — discovered members `pinned` never names, and pinned names
+    """Return `(unpinned, stale)`: members `pinned` never names, and names nothing discovers.
+
+    `unpinned` is the discovered members `pinned` never names; `stale` is the pinned names
     nothing discovers any more. A pure function for the identical reason `members_
     without_the_typed_field` is one: something the self-test below can call that is
     not the exact assertion it protects.

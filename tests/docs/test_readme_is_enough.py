@@ -126,7 +126,7 @@ def test_the_readme_carries_the_whole_newcomer_path() -> None:
 
 
 def test_the_newcomer_path_needs_nothing_from_docs() -> None:
-    """ "Without opening `docs/`" is the half a passing harness says nothing about."""
+    """The "without opening `docs/`" half is what a passing harness says nothing about."""
     # Act
     reaching = [
         f"{name}: {line.strip()}"

@@ -102,8 +102,9 @@ def _entry_points_table(document: dict[str, object]) -> dict[str, object] | None
 
 
 def _first_party_pack_distributions() -> frozenset[str]:
-    """The `project.name` of every `packages/*/pyproject.toml` that declares a `weft.packs`
-    entry point — `weft-extract`, `weft-chunk`, `weft-store`, and so on.
+    """The `project.name` of every `packages/*/pyproject.toml` declaring a `weft.packs` entry.
+
+    That is `weft-extract`, `weft-chunk`, `weft-store`, and so on.
 
     Computed rather than hand-typed, so this set can never drift from what the packs
     actually declare — the identical reasoning `test_ff2_no_privileged_builtins.py`'s own
@@ -173,8 +174,10 @@ def test_every_declared_ext_model_reaches_rehydration(monkeypatch: pytest.Monkey
 
 
 def test_the_check_can_actually_fail(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Withholding one contributing pack's own report from `register_from_reports` must make
-    the comparison above disagree — the realistic shape of this task's own defect: a pack
+    """Withholding one contributing pack's report must make the comparison above disagree.
+
+    The report is withheld from `register_from_reports`. This is the realistic shape of this
+    task's own defect: a pack
     whose `register()` calls `add_ext_model`, but whose report never reaches the call that
     reads `PackReport.ext_models` back off it (a wiring call dropped, or run too early).
     """

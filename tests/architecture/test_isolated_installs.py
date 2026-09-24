@@ -120,8 +120,9 @@ def test_every_module_named_is_a_directory_that_exists() -> None:
 
 
 def test_a_workspace_that_reads_as_empty_is_refused(tmp_path: Path) -> None:
-    """`docs/internal/lessons.md` L5.9 — an empty sweep means "I did not find it", never "there is
-    none".
+    """An empty sweep means "I did not find it", never "there is none".
+
+    `docs/internal/lessons.md` L5.9.
     """
     # Arrange
     (tmp_path / "pyproject.toml").write_text(
@@ -254,9 +255,10 @@ def test_the_degradation_categories_name_packs_this_tree_actually_ships() -> Non
 
 
 def _pack_names_in_the_tree() -> frozenset[str]:
-    """Every `weft.packs` entry-point name declared under `packages/` — read from the manifests
-    rather than from a running discovery, so this test says nothing about which extras happen to
-    be installed in the environment it runs in.
+    """Every `weft.packs` entry-point name declared under `packages/`.
+
+    Read from the manifests rather than from a running discovery, so this test says nothing
+    about which extras happen to be installed in the environment it runs in.
     """
     names: set[str] = set()
     for manifest in sorted((REPO_ROOT / "packages").glob("*/pyproject.toml")):

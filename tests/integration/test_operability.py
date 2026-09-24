@@ -122,7 +122,9 @@ _INGEST_SPECS = (
 async def test_an_interrupted_run_keeps_everything_the_last_finished_batch_stored(
     store: PgVectorStore, tmp_path: Path
 ) -> None:
-    """`02` §1's `flush` guarantee, executed: what finished is durable, what was interrupted is
+    """`flush` keeps what finished durable and leaves what was interrupted absent.
+
+    `02` §1's `flush` guarantee, executed: what finished is durable, what was interrupted is
     simply absent. Nothing unwinds what the store already committed.
     """
     # Arrange — two batches from two directories, so "the last finished batch" is a real
@@ -169,7 +171,9 @@ async def test_an_interrupted_run_keeps_everything_the_last_finished_batch_store
 async def test_a_delete_interrupted_after_its_tombstone_is_finished_by_the_next_command(
     store: PgVectorStore,
 ) -> None:
-    """`02` §1: "a crash leaves `status=DELETING`, so the next call or `weft doctor` can finish
+    """A crash mid-delete leaves `status=DELETING`, so the next call can finish the job.
+
+    `02` §1: "a crash leaves `status=DELETING`, so the next call or `weft doctor` can finish
     the job rather than leaving it half-deleted and invisible."
 
     The crash is simulated at the one point where it matters — after `delete_source` wrote the
@@ -225,7 +229,9 @@ class _Reading(ExtModel):
 
 
 class _ReadingV2(ExtModel):
-    """The same payload as release *n+1* defines it — renamed field, and an `upgrade` that knows
+    """The payload as release *n+1* defines it, with an `upgrade` that reads what *n* wrote.
+
+    The same payload as release *n+1* defines it — renamed field, and an `upgrade` that knows
     how to read what *n* wrote. This is the whole of what "an upgrade path exists" means for data
     at rest: G9's second axis, `ExtModel.__schema_version__`, whose base `upgrade` **refuses**
     rather than guessing.
@@ -246,7 +252,9 @@ class _ReadingV2(ExtModel):
 async def test_a_store_written_at_one_schema_version_is_read_at_the_next(
     store: PgVectorStore,
 ) -> None:
-    """ "An upgrade path exists and was executed once" (`09` §5.2), for the only unit that can
+    """Bytes written under schema version `1` are upgraded by the class that calls itself `2`.
+
+    "An upgrade path exists and was executed once" (`09` §5.2), for the only unit that can
     carry one before anything is published.
 
     **What "release *n* → *n+1*" can honestly mean today.** Nothing is on an index yet — that is

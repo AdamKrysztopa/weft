@@ -149,8 +149,10 @@ def test_every_pack_that_reaches_the_network_declares_a_disclosure() -> None:
 
 
 def test_the_waiver_is_empty() -> None:
-    """`01` item 0's ratchet discipline: an exemption is a visible act in a diff, and there is no
-    honest reason for one here — a pack that reaches outward and says nothing is the whole defect.
+    """`01` item 0's ratchet discipline: an exemption is a visible act in a diff.
+
+    And there is no honest reason for one here — a pack that reaches outward and says nothing
+    is the whole defect.
     """
     assert not NETWORK_PACKS_WITHOUT_A_DISCLOSURE, (
         "a distribution has been waived out of disclosing. There is no waiver policy: the pack "
@@ -160,8 +162,9 @@ def test_the_waiver_is_empty() -> None:
 
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
-    """Planted through both real readers — the tree agrees once this task lands, so this is the
-    only place either is seen disagreeing (`docs/internal/lessons.md` L5.19).
+    """Planted through both real readers, this is the only place either is seen disagreeing.
+
+    The tree agrees once this task lands (`docs/internal/lessons.md` L5.19).
 
     The pair that matters is a module that *imports* a client versus one that merely names it in
     prose: the first owes a disclosure and the second does not, or the check becomes a grep for a

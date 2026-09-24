@@ -170,8 +170,10 @@ def test_a_fully_built_phase_reads_done_in_the_roadmap() -> None:
 
 @_requires_both
 def test_the_check_can_actually_fail() -> None:
-    """A planted disagreement, because the assertion above passes when the tree is right and would
-    pass equally if either regex had stopped matching.
+    """A planted disagreement, so the assertion above is shown able to fail.
+
+    The assertion above passes when the tree is right and would pass equally if either regex
+    had stopped matching.
     """
     # Arrange — one row and one phase, disagreeing the way the four real ones did.
     ticks = {"99a": (4, 0)}
@@ -190,8 +192,9 @@ def test_the_check_can_actually_fail() -> None:
 
 @_requires_both
 def test_a_phase_still_building_is_not_reported() -> None:
-    """The one-directional half: an open task means the verdict is still a plan, and a plan is
-    exactly what this table is for.
+    """The one-directional half: an open task means the verdict is still a plan.
+
+    A plan is exactly what this table is for.
     """
     # Arrange
     ticks = {"99a": (4, 1)}

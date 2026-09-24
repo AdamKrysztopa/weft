@@ -122,7 +122,9 @@ async def test_ingest_pipeline_produces_stored_nodes(store: PgVectorStore, tmp_p
 
 
 def _discover_and_wire_ext_models() -> None:
-    """The real mechanism, end to end: `discover()`, then the one generic call
+    """Run the real mechanism end to end: `discover()`, then `build_dependencies`.
+
+    The real mechanism, end to end: `discover()`, then the one generic call
     `weft_engine.registry_bootstrap.build_dependencies` makes right after it — see the module
     docstring's own paragraph on the test below.
 

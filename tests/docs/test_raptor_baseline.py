@@ -104,8 +104,9 @@ def _stage(record: RunRecord, use: str) -> Any:
 
 
 def _spread_widths(repetitions: tuple[RunRecord, ...]) -> dict[str, float]:
-    """Every metric's own interval width across `repetitions` — the quantity
-    `weft eval compare --baseline` judges a difference against.
+    """Every metric's own interval width across `repetitions`.
+
+    That is the quantity `weft eval compare --baseline` judges a difference against.
     """
     return {
         name: measured.width
@@ -292,7 +293,9 @@ def _remeasurements() -> list[tuple[Path, dict[str, Any]]]:
 def test_every_remeasurement_is_comparable_to_the_baseline_it_is_measured_against(
     records: dict[str, tuple[RunRecord, ...]],
 ) -> None:
-    """The phase's own instruction — *"each re-measured against 10.0"* — is only meaningful if
+    """Every re-measurement is comparable to the baseline it is measured against.
+
+    The phase's own instruction — *"each re-measured against 10.0"* — is only meaningful if
     the two are comparable, which is `weft_cli.eval_commands._incomparable_reasons`' three facts.
     A re-measurement taken on a different corpus, a different embedder or a different installed
     set is a number about something else, and `weft eval compare` would refuse it outright.
@@ -312,9 +315,10 @@ def test_every_remeasurement_is_comparable_to_the_baseline_it_is_measured_agains
 
 
 def test_every_remeasurement_states_the_numbers_its_own_records_produce() -> None:
-    """The same staleness floor the baseline itself carries, one directory over: a statement a
-    reader quotes must be the one its committed runs say, or a later phase argues from a number
-    nothing produced.
+    """The same staleness floor the baseline itself carries, one directory over.
+
+    A statement a reader quotes must be the one its committed runs say, or a later phase argues
+    from a number nothing produced.
     """
     for directory, statement in _remeasurements():
         # Arrange
@@ -342,8 +346,9 @@ def test_every_remeasurement_states_the_numbers_its_own_records_produce() -> Non
 
 
 def test_a_pooled_spread_is_the_one_both_its_directories_produce() -> None:
-    """A re-measurement may pool with another whose configuration is retrieval-identical, and
-    the pooled width is the number a later phase will plan against.
+    """A re-measurement may pool with another whose configuration is retrieval-identical.
+
+    The pooled width is the number a later phase will plan against.
 
     `10.4`'s statement does exactly that, and it is the one number in this artefact that
     contradicts `measurement.json`: six repetitions of one configuration span more than twice
@@ -387,7 +392,9 @@ def exit_statement() -> dict[str, Any]:
 def test_the_exit_measured_three_arms_on_the_documents_this_project_ships(
     exit_statement: dict[str, Any],
 ) -> None:
-    """`01` → Phase 10 → *Exit* asks for leaves-only, the shipped one-level tree and the
+    """Each measured arm extends a **shipped** pipeline document.
+
+    `01` → Phase 10 → *Exit* asks for leaves-only, the shipped one-level tree and the
     multi-level tree — and the arms have to be the **shipped** documents, or the measurement is
     about something nobody can run. Each extends one of them and replaces only the extractor and
     the embedder.
@@ -413,9 +420,10 @@ def _arm_records(arms: dict[str, Any], name: str) -> tuple[RunRecord, ...]:
 def test_the_multi_level_arm_actually_built_a_second_level(
     exit_statement: dict[str, Any],
 ) -> None:
-    """The Exit's first clause is a tree of **at least two levels**, so the arm that claims one
-    has to have built one in every run — a measurement of a deep rung that silently built one
-    level is a measurement of the one-level rung under another name.
+    """The Exit's first clause is a tree of **at least two levels**.
+
+    So the arm that claims one has to have built one in every run — a measurement of a deep rung
+    that silently built one level is a measurement of the one-level rung under another name.
     """
     # Arrange
     deep = exit_statement["arms"]["exit-deep"]
@@ -433,9 +441,11 @@ def test_the_multi_level_arm_actually_built_a_second_level(
 def test_every_exit_arm_was_repeated_enough_to_estimate_its_own_spread(
     exit_statement: dict[str, Any],
 ) -> None:
-    """`L10.17`: a width over three repetitions is an estimate with more spread than the thing it
+    """The arms where a model writes the content are repeated six times.
+
+    `L10.17`: a width over three repetitions is an estimate with more spread than the thing it
     estimates, and 10.13's own line requires more than three or a statement that it could not
-    separate its effect. The arms where a model writes the content are repeated six times.
+    separate its effect.
     """
     # Assert
     for name in ("exit-one", "exit-deep"):
@@ -523,8 +533,10 @@ def _absent_facts(records: Sequence[RunRecord]) -> tuple[str, ...]:
 
 
 def _statements() -> list[tuple[str, Path, dict[str, Any], tuple[RunRecord, ...]]]:
-    """Every committed statement, with the records it names — the baseline, the exit, and each
-    re-measurement. One list, so a statement added later is covered without an edit here.
+    """Every committed statement, with the records it names.
+
+    The baseline, the exit, and each re-measurement. One list, so a statement added later is
+    covered without an edit here.
     """
     found: list[tuple[str, Path, dict[str, Any], tuple[RunRecord, ...]]] = []
 

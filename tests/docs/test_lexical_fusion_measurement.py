@@ -121,7 +121,9 @@ def test_the_cross_is_actually_crossed() -> None:
 
 
 def test_every_record_the_statement_names_is_tracked_beside_it() -> None:
-    """Phase 10's exit was measured on a question set that lived nowhere and could not be
+    """Stops a lexical-fusion measurement resting on a question set that lives nowhere.
+
+    Phase 10's exit was measured on a question set that lived nowhere and could not be
     reconstructed. This is what stops that here.
     """
     # Arrange

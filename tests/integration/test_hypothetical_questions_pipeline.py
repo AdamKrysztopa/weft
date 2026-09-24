@@ -102,8 +102,9 @@ def _ctx(services: ServiceRegistry) -> Context:
 
 
 class _PromptLookup:
-    """A `StageLookup` narrowed to `build_capability`, resolving a real `Registry` — the
-    same shape every unit test's `_StubLookup` takes, because nothing in this tree has
+    """A `StageLookup` narrowed to `build_capability`, resolving a real `Registry`.
+
+    The same shape every unit test's `_StubLookup` takes, because nothing in this tree has
     built the production version yet (ledger task 2.8 is still open).
     """
 
@@ -161,7 +162,9 @@ def api_key() -> SecretStr:
 
 
 def _registry(*, openai_settings: OpenAISettings) -> Registry:
-    """Every plugin this test drives, registered the way `weft_kernel.discovery.discover`
+    """Register every plugin this test drives, attributed as discovery would.
+
+    Every plugin this test drives, registered the way `weft_kernel.discovery.discover`
     would attribute them — by hand, because this test composes a specific slice of stages
     rather than a whole pipeline document.
     """
@@ -205,7 +208,9 @@ def _run_services(registry: Registry) -> ServiceRegistry:
 
 
 async def _paraphrase(question: str, *, ctx: Context) -> str:
-    """One more real completion: `question`, reworded — never a call into
+    """One more real completion: `question`, reworded in independent wording.
+
+    One more real completion: `question`, reworded — never a call into
     `weft_index.hypothetical_questions`'s own prompt, so this is genuinely independent
     wording rather than the same model asked the same thing twice.
     """

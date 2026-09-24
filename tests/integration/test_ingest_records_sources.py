@@ -130,7 +130,9 @@ async def test_the_recorded_hash_is_of_the_bytes_that_were_indexed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`content_hash` serves change detection — "re-index skips an unchanged file instead of
+    """`content_hash` is the hash of the document's own bytes, so change detection works.
+
+    `content_hash` serves change detection — "re-index skips an unchanged file instead of
     re-paying for every enhancer's LLM calls" (`02` §1). A hash of anything other than the
     document's own bytes cannot do that, so the fact asserted is the hash's *meaning*, not its
     presence.
@@ -156,7 +158,9 @@ async def test_re_indexing_the_same_directory_updates_rather_than_duplicates(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A source has one record, whatever it has been indexed by — `SourceRecord.id` is the
+    """A source has one record, whatever pipeline it has been indexed by.
+
+    A source has one record, whatever it has been indexed by — `SourceRecord.id` is the
     identity. `02` §1's own purpose for `pipeline` depends on this: `weft index` can only say
     *"already indexed, by a different pipeline"* if the previous record is still findable and
     singular.
@@ -190,7 +194,9 @@ async def test_a_recorded_source_names_the_pipeline_that_indexed_it(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`02` §1: `pipeline` "is what lets `weft index` say *'already indexed, by a different
+    """The default path records its own stable pipeline name, never an empty one.
+
+    `02` §1: `pipeline` "is what lets `weft index` say *'already indexed, by a different
     pipeline'*". The default path resolves no `ResolvedPipeline` at all (`IndexResult`'s own
     docstring), so what it records is the built-in path's own stable name — a field that means
     "which pipeline" cannot be left empty on the one path most corpora are indexed by.
@@ -289,7 +295,9 @@ async def test_every_store_a_document_names_records_the_sources_it_was_given(
 
 
 async def test_the_graph_store_keeps_a_source_s_failure_whole(graph_store: GraphStore) -> None:
-    """Ledger **36.0**: the graph pack records sources too, and a `2.7.x` graph store is read
+    """The graph pack records sources, and reads a `2.7.x` graph store without refusing it.
+
+    Ledger **36.0**: the graph pack records sources too, and a `2.7.x` graph store is read
     without `GraphSchemaVersionRefusedError` firing, because the failure is added beside it.
     """
     # Arrange
@@ -321,7 +329,9 @@ async def test_the_graph_store_keeps_a_source_s_failure_whole(graph_store: Graph
 async def test_a_status_a_newer_release_wrote_is_refused_by_name(
     clean_database: None, store: PgVectorStore
 ) -> None:
-    """Ledger **36.0**: release *n* meeting a status only *n*+1 knows says so, rather than
+    """A status only a newer release knows is reported as such, not as a bare `ValueError`.
+
+    Ledger **36.0**: release *n* meeting a status only *n*+1 knows says so, rather than
     `ValueError: 'x' is not a valid SourceStatus` from deep inside a read.
     """
     # Arrange — a row as a newer `weft-rag` would leave it.

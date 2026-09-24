@@ -1,11 +1,13 @@
-"""Fitness function 26 — a catalogue row claims no configuration its plugin has not got, and
-no proof its cited file does not make. `01` -> *Fitness functions* item 26; ledger task **10.1**.
+r"""Fitness function 26 — a catalogue row claims nothing its plugin or cited file does not carry.
+
+A catalogue row claims no configuration its plugin has not got, and no proof its cited file does
+not make. `01` -> *Fitness functions* item 26; ledger task **10.1**.
 
 `docs/10-technique-catalogue.md` is where this project states, for every technique it ships,
 *what the code actually does* against *what the literature calls it*. Two kinds of claim in it
 are checkable and were both found untrue on the same plugin within one day of each other:
 
-**The configuration annotation.** The `raptor` row carried *(mode: `collapsed` \\| `traversal`)*
+**The configuration annotation.** The `raptor` row carried *(mode: `collapsed` \| `traversal`)*
 in its name column from task 2.32 until 2026-09-06 — a `mode:` field `RaptorConfig` has never
 had (`raptor.py`, seven fields, none of them it), advertising two values nothing could be
 configured with. A correction block four lines above the row had withdrawn the claim, and the
@@ -113,8 +115,9 @@ def _flattened() -> str:
 
 
 def _first_cells() -> list[str]:
-    """Every table row's first cell, header rows included — harmless, since a header names no
-    plugin in backticks and carries no annotation.
+    """Every table row's first cell, header rows included.
+
+    Harmless, since a header names no plugin in backticks and carries no annotation.
     """
     return [match.group("first").strip() for match in _ROW.finditer(CATALOGUE.read_text("utf-8"))]
 
@@ -152,6 +155,37 @@ def _rejects(model: type[BaseModel], field: str, value: str) -> bool:
     return False
 
 
+def _check_annotated_cell(
+    cell: str, registry: Registry, *, found: list[tuple[str, str]], wrong: list[str]
+) -> None:
+    """Record into `found` and `wrong` what one first cell's configuration annotation claims."""
+    annotation = _ANNOTATION.search(cell)
+    if annotation is None:
+        return
+    field = annotation.group("field")
+    values = _NAME.findall(annotation.group("values")) or [
+        token for token in re.findall(r"`([^`]+)`", annotation.group("values"))
+    ]
+    for name in _NAME.findall(cell[: annotation.start()]):
+        if f"{name}:{field}" in ANNOTATIONS_WITHOUT_A_FIELD:
+            continue
+        model = _config_model(registry, name)
+        if model is None:
+            continue
+        found.append((name, field))
+        if field not in model.model_fields:
+            wrong.append(
+                f"'{name}' is annotated `{field}:` and {model.__name__} has no such field "
+                f"— it carries {sorted(model.model_fields)}"
+            )
+            continue
+        wrong.extend(
+            f"'{name}' advertises `{field}: {value}` and {model.__name__} refuses that value"
+            for value in values
+            if _rejects(model, field, value)
+        )
+
+
 def test_every_configuration_annotation_names_a_field_its_plugin_carries() -> None:
     """Clause (a) — `L9.30`'s defect, made mechanical."""
     # Arrange
@@ -161,31 +195,7 @@ def test_every_configuration_annotation_names_a_field_its_plugin_carries() -> No
 
     # Act
     for cell in _first_cells():
-        annotation = _ANNOTATION.search(cell)
-        if annotation is None:
-            continue
-        field = annotation.group("field")
-        values = _NAME.findall(annotation.group("values")) or [
-            token for token in re.findall(r"`([^`]+)`", annotation.group("values"))
-        ]
-        for name in _NAME.findall(cell[: annotation.start()]):
-            if f"{name}:{field}" in ANNOTATIONS_WITHOUT_A_FIELD:
-                continue
-            model = _config_model(registry, name)
-            if model is None:
-                continue
-            found.append((name, field))
-            if field not in model.model_fields:
-                wrong.append(
-                    f"'{name}' is annotated `{field}:` and {model.__name__} has no such field "
-                    f"— it carries {sorted(model.model_fields)}"
-                )
-                continue
-            wrong.extend(
-                f"'{name}' advertises `{field}: {value}` and {model.__name__} refuses that value"
-                for value in values
-                if _rejects(model, field, value)
-            )
+        _check_annotated_cell(cell, registry, found=found, wrong=wrong)
 
     # Assert
     assert found, (
@@ -248,9 +258,11 @@ def test_every_proof_claim_names_a_file_that_carries_its_needle() -> None:
 
 
 def test_the_check_can_actually_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Both clauses, against a planted catalogue — `tests/architecture/test_ff0b_checks_are_real.py`
-    accepts this spelling, and the two populations above are small enough that "green" and "looked
-    at nothing" would otherwise be the same reading.
+    """Both clauses, against a planted catalogue.
+
+    `tests/architecture/test_ff0b_checks_are_real.py` accepts this spelling, and the two
+    populations above are small enough that "green" and "looked at nothing" would otherwise be the
+    same reading.
     """
     # Arrange
     planted = tmp_path / "10-technique-catalogue.md"

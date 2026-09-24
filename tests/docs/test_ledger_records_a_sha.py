@@ -1,10 +1,10 @@
-"""Every ticked ledger box carries a sha that resolves — `docs/internal/lessons.md` `L8.27`.
+r"""Every ticked ledger box carries a sha that resolves — `docs/internal/lessons.md` `L8.27`.
 
 `docs/internal/build-ledger.md` → *Why the sha column is not optional* argues at length that a
 ticked box with no sha is a claim rather than a record: the phases are squashed onto `main`, so the
 per-task commit is the only thing that can still answer *what exactly made this true*. **Nothing
 read that column.** At Phase 8's close review, seven of its own ticked boxes had no sha at all and
-an eighth carried a duplicated field group ending `· sha — · turns on — · sha \\`156daf8\\``, in the
+an eighth carried a duplicated field group ending `· sha — · turns on — · sha \`156daf8\``, in the
 phase whose closing section restates the rule. Every one of the eight was genuinely built; it is the
 record that decayed, silently, because a rule with no reader is prose.
 
@@ -147,7 +147,7 @@ def test_every_ticked_box_is_attributable_to_a_commit() -> None:
 
 @_requires_ledger
 def test_every_recorded_sha_names_a_commit() -> None:
-    """**Scoped to what the squash workflow can answer, and the scope is the finding.**
+    """**Scoped to what the squash workflow can answer, and the scope is the finding**.
 
     The first version of this test asserted every recorded sha resolves. It found **37** that do
     not — every per-task sha in Phases 3, 4 and 5 — and they are not a defect: this project
@@ -218,12 +218,13 @@ def test_the_check_can_actually_fail() -> None:
 
 @_requires_ledger
 def test_this_parser_and_next_task_agree_on_which_tasks_exist() -> None:
-    """Two independent readers of the ledger must see the same tasks — `docs/internal/lessons.md`
-    `L13.3`.
+    r"""Two independent readers of the ledger must see the same tasks.
+
+    `docs/internal/lessons.md` `L13.3`.
 
     **The defect this is written from was invisible for exactly the reason it needs a second
     reader.** `_TASK_LINE` matched `**11.6**` and `**11.7 ⚠**` and nothing else, while the ledger
-    also writes `**11.7 ⚠ D2**`, `**9.15 — not built; \\`9.10\\` said so**` and three more shapes.
+    also writes `**11.7 ⚠ D2**`, `**9.15 — not built; \`9.10\` said so**` and three more shapes.
     Eleven of 231 task lines were invisible, four of them ticked with no sha — so
     `test_every_ticked_box_is_attributable_to_a_commit` reported 220 blocks, zero failures, and
     passed, over a population that excluded every task that would have failed it. A skip is not a

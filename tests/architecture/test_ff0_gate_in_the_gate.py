@@ -92,6 +92,16 @@ def _suite_directories() -> frozenset[str]:
     return frozenset(found)
 
 
+def _task_command(task: object) -> str | None:
+    """The command a poe task runs, whether it is a plain string or a table carrying `cmd`."""
+    if isinstance(task, str):
+        return task
+    if isinstance(task, dict):
+        found = cast("dict[str, object]", task).get("cmd")
+        return found if isinstance(found, str) else None
+    return None
+
+
 def _covered_roots(workspace_config: dict[str, object]) -> tuple[str, ...]:
     """Every path any step of the canonical gate hands to `pytest`.
 
@@ -110,11 +120,7 @@ def _covered_roots(workspace_config: dict[str, object]) -> tuple[str, ...]:
     roots: list[str] = []
 
     for step in str_list_at(gate, "sequence"):
-        task = tasks.get(step)
-        command = task if isinstance(task, str) else None
-        if command is None and isinstance(task, dict):
-            found = cast("dict[str, object]", task).get("cmd")
-            command = found if isinstance(found, str) else None
+        command = _task_command(tasks.get(step))
         if command is None or "pytest" not in command:
             continue
         roots.extend(
@@ -188,8 +194,10 @@ def test_suite_waiver_list_is_declared_not_discovered() -> None:
 def test_every_test_suite_in_the_tree_runs_in_the_canonical_gate(
     workspace_config: dict[str, object],
 ) -> None:
-    """Fitness function 0, one level up: the gate must reach every *suite*, not only every
-    *check*. `docs/internal/lessons.md` L6.12 — a directory of tests no task runs is prose.
+    """Fitness function 0, one level up: the gate must reach every *suite*.
+
+    Not only every *check*. `docs/internal/lessons.md` L6.12 — a directory of tests no task runs
+    is prose.
     """
     # Act
     covered = _covered_roots(workspace_config)
@@ -226,7 +234,7 @@ def test_the_check_can_actually_fail() -> None:
             "poe": {
                 "tasks": {
                     "test": "pytest tests -q",
-                    CANONICAL_GATE: {"sequence": ["fmt", "lint", "types", "test"]},
+                    CANONICAL_GATE: {"sequence": ["fmt", "lint", "types", "cognitive", "test"]},
                 }
             }
         }

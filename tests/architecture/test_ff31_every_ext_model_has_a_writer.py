@@ -88,15 +88,22 @@ def _constructed_names() -> frozenset[str]:
                 tree = ast.parse(path.read_text(encoding="utf-8"))
             except (SyntaxError, UnicodeDecodeError):  # pragma: no cover - a broken tree fails
                 continue  # elsewhere, loudly, and this check is not where that is reported
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
-                    continue
-                callee = node.func
-                if isinstance(callee, ast.Name):
-                    found.add(callee.id)
-                elif isinstance(callee, ast.Attribute):
-                    found.add(callee.attr)
+            found |= _callee_names(tree)
     return frozenset(found)
+
+
+def _callee_names(tree: ast.Module) -> set[str]:
+    """The bare or final-attribute name of every call's callee in one parsed file."""
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        callee = node.func
+        if isinstance(callee, ast.Name):
+            found.add(callee.id)
+        elif isinstance(callee, ast.Attribute):
+            found.add(callee.attr)
+    return found
 
 
 def _registered_ext_models() -> dict[str, str]:

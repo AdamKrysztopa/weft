@@ -180,7 +180,9 @@ async def test_a_summary_expands_to_its_members_in_one_call_on_the_base_contract
 
 
 async def test_the_walk_to_the_leaves_is_one_hop_per_level(store: PgVectorStore) -> None:
-    """*"Which walk does a deeper summary's `lineage.parents` make — to the level below it, or to
+    """A deeper summary's `lineage.parents` walks to the level below, one `get` per hop.
+
+    *"Which walk does a deeper summary's `lineage.parents` make — to the level below it, or to
     the leaves?"* Answered: to the level below, so reaching the leaves from level *n* costs *n*
     hops and each hop is one `get`.
 
@@ -210,7 +212,9 @@ async def test_the_walk_to_the_leaves_is_one_hop_per_level(store: PgVectorStore)
 async def test_the_reverse_walk_needs_the_filter_and_finds_the_summary_over_a_node(
     store: PgVectorStore,
 ) -> None:
-    """The other direction — *given a node, which summary stands over it* — is the one that
+    """Finding the summary over a node is the direction that needs `MetadataFilter`.
+
+    The other direction — *given a node, which summary stands over it* — is the one that
     genuinely needs `MetadataFilter`.
 
     `lineage.parents` is `TEXT_SET` in `weft_store.fields`, which is what admits `contains`. This

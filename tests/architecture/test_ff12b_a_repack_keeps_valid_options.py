@@ -114,10 +114,12 @@ _FIRST_PARTY_TOP_LEVEL_PACKAGES: Final[tuple[str, ...]] = _first_party_top_level
 
 
 def _every_first_party_module() -> tuple[ModuleType, ...]:
-    """Every submodule of every first-party distribution, imported — the identical walk `test_
-    ff12_unresolvable_name_carries_options.py`'s own `_import_every_first_party_module` performs,
-    returning the modules themselves rather than only having imported them: this check needs each
-    module's own source and namespace, not only its classes.
+    """Every submodule of every first-party distribution, imported.
+
+    The identical walk `test_ff12_unresolvable_name_carries_options.py`'s own
+    `_import_every_first_party_module` performs, returning the modules themselves rather than only
+    having imported them: this check needs each module's own source and namespace, not only its
+    classes.
     """
     modules: list[ModuleType] = []
     for top_level in _FIRST_PARTY_TOP_LEVEL_PACKAGES:
@@ -132,8 +134,9 @@ def _every_first_party_module() -> tuple[ModuleType, ...]:
 
 
 def _raised_class_name(node: ast.Raise) -> str | None:
-    """The bare name a `raise` statement constructs, or `None` if it is not a call at all —
-    a bare `raise` or `raise exc` keeps the same object, `valid_options` and all, intact, so
+    """The bare name a `raise` statement constructs, or `None` if it is not a call at all.
+
+    A bare `raise` or `raise exc` keeps the same object, `valid_options` and all, intact, so
     neither is this shape's concern. Split out of `_catch_and_repack_findings` below purely to
     keep that function's own branching under `ruff`'s complexity budget, the identical reason
     `weft_cli.cli._render_result` became a dispatch table in the 2026-08-20 repair — a function
@@ -152,9 +155,11 @@ def _raised_class_name(node: ast.Raise) -> str | None:
 def _handler_catches_a_family_member(
     handler: ast.ExceptHandler, *, resolve: Callable[[str], object | None]
 ) -> str | None:
-    """The caught type's own bare name, if `handler` names exactly one exception type and it
-    resolves to an `UnresolvedNameError` subclass — `None` otherwise. A tuple of exception types
-    or a bare `except:` is out of scope, stated in `_catch_and_repack_findings`'s own docstring.
+    """The caught type's bare name, if `handler` catches one `UnresolvedNameError` subclass.
+
+    `handler` must name exactly one exception type and it must resolve to an
+    `UnresolvedNameError` subclass — `None` otherwise. A tuple of exception types or a bare
+    `except:` is out of scope, stated in `_catch_and_repack_findings`'s own docstring.
     """
     if not isinstance(handler.type, ast.Name):
         return None
@@ -167,9 +172,11 @@ def _handler_catches_a_family_member(
 def _repack_findings_in_handler(
     handler: ast.ExceptHandler, *, caught_name: str, resolve: Callable[[str], object | None]
 ) -> tuple[str, ...]:
-    """Every `raise` inside `handler` that repacks `caught_name`'s catch into a `WeftError`
-    with nowhere to put `valid_options` — see `_catch_and_repack_findings`'s own docstring for
-    the shape and its stated scope.
+    """Every `raise` in `handler` repacking the catch into a `WeftError` without `valid_options`.
+
+    That is, every `raise` inside `handler` that repacks `caught_name`'s catch into a `WeftError`
+    with nowhere to put `valid_options` — see `_catch_and_repack_findings`'s own docstring for the
+    shape and its stated scope.
     """
     findings: list[str] = []
     for stmt in ast.walk(handler):
@@ -193,8 +200,10 @@ def _repack_findings_in_handler(
 def _catch_and_repack_findings(
     tree: ast.Module, *, resolve: Callable[[str], object | None]
 ) -> tuple[str, ...]:
-    """The catch-and-repack shape (module docstring), found in `tree` — a pure function taking a
-    parsed module and a name resolver, so a synthetic snippet can drive it directly in a test
+    """The catch-and-repack shape (module docstring), found in `tree`.
+
+    A pure function taking a parsed module and a name resolver, so a synthetic snippet can drive it
+    directly in a test
     exactly as `members_without_the_typed_field` in the sibling file takes a plain `frozenset`
     rather than performing its own discovery — `weft_engine.contract_reference.missing_from_walked_
     set`'s own precedent, restated there: "the check has something to call that is not the same
@@ -214,26 +223,36 @@ def _catch_and_repack_findings(
     for func_node in ast.walk(tree):
         if not isinstance(func_node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
-        for try_node in ast.walk(func_node):
-            if not isinstance(try_node, ast.Try):
+        findings.extend(
+            f"{func_node.name}:{finding}"
+            for finding in _repack_findings_in_function(func_node, resolve=resolve)
+        )
+    return tuple(findings)
+
+
+def _repack_findings_in_function(
+    func_node: ast.FunctionDef | ast.AsyncFunctionDef, *, resolve: Callable[[str], object | None]
+) -> tuple[str, ...]:
+    """Every repack finding under any family-catching handler of any `try` in `func_node`."""
+    findings: list[str] = []
+    for try_node in ast.walk(func_node):
+        if not isinstance(try_node, ast.Try):
+            continue
+        for handler in try_node.handlers:
+            caught_name = _handler_catches_a_family_member(handler, resolve=resolve)
+            if caught_name is None:
                 continue
-            for handler in try_node.handlers:
-                caught_name = _handler_catches_a_family_member(handler, resolve=resolve)
-                if caught_name is None:
-                    continue
-                findings.extend(
-                    f"{func_node.name}:{finding}"
-                    for finding in _repack_findings_in_handler(
-                        handler, caught_name=caught_name, resolve=resolve
-                    )
-                )
+            findings.extend(
+                _repack_findings_in_handler(handler, caught_name=caught_name, resolve=resolve)
+            )
     return tuple(findings)
 
 
 def _real_tree_findings() -> tuple[str, ...]:
-    """`_catch_and_repack_findings`, run against every first-party module's own real source and
-    namespace — the check itself, separated from the assertion so the self-tests below can drive
-    the pure function on synthetic input without importing the whole tree twice.
+    """`_catch_and_repack_findings`, run against every first-party module's source and namespace.
+
+    The check itself, separated from the assertion so the self-tests below can drive the pure
+    function on synthetic input without importing the whole tree twice.
     """
     findings: list[str] = []
     for module in _every_first_party_module():

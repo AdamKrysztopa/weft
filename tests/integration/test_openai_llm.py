@@ -117,7 +117,9 @@ async def test_a_bad_credential_is_mapped_to_an_authentication_error() -> None:
 
 
 async def test_driving_a_freshly_built_client_through_the_seam_makes_no_blocking_call() -> None:
-    """Repair for a reviewer finding against task 2.30: the unit suite's blocking-guard test
+    """A provider with no injected client builds its real `AsyncOpenAI` off the event loop.
+
+    Repair for a reviewer finding against task 2.30: the unit suite's blocking-guard test
     never reaches `asyncio.to_thread(build_client, settings)`, because its injected `client`
     short-circuits `_connected()` before that line runs. This one gives `OpenAILLMProvider` no
     client at all, so `.complete()` — driven through the same `weft_kernel.seam.wrap` a

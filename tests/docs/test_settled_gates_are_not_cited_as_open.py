@@ -197,8 +197,10 @@ def test_no_tracked_file_says_a_settled_gate_is_open() -> None:
 
 
 def test_the_check_can_actually_fail() -> None:
-    """A planted claim, in each of the two shapes, because the assertion above passes on a clean
-    tree and would pass equally if either pattern had stopped matching anything.
+    """A planted claim, in each of the two shapes.
+
+    The assertion above passes on a clean tree and would pass equally if either pattern had
+    stopped matching anything.
     """
     # Arrange / Act
     copula = claims_about_open_gates("what its own version means while **G9 is Open**.")
@@ -238,8 +240,10 @@ def test_a_past_tense_record_of_a_gate_is_not_a_claim_that_it_is_open() -> None:
 
 @_requires_log
 def test_the_walk_reaches_the_files_it_is_supposed_to() -> None:
-    """Non-vacuity for the file walk: an empty population makes the real assertion pass over
-    nothing, which is `L11.5`'s shape and the reason every sweep in this tree carries a floor.
+    """Non-vacuity for the file walk.
+
+    An empty population makes the real assertion pass over nothing, which is `L11.5`'s shape and
+    the reason every sweep in this tree carries a floor.
     """
     # Arrange / Act
     files = _files()

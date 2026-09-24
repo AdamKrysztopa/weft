@@ -1,4 +1,6 @@
-"""`eval/pool-promotion/*-verdict.json` and `*-ce-verdict.json` regenerate byte-identical from the
+"""The pool-promotion verdicts regenerate byte-identical from the records beside them.
+
+`eval/pool-promotion/*-verdict.json` and `*-ce-verdict.json` regenerate byte-identical from the
 records beside them — ledgers **40.8** and **41.3**, the first clause of each phase's exit.
 
 The verdict is computed from committed replay records, the frozen power table and the committed

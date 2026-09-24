@@ -53,8 +53,9 @@ def _member(name: str) -> Member:
 
 
 def test_a_packs_data_files_are_required_to_ship() -> None:
-    """`09` §5.2's own first-named failure: a data file present in the checkout, absent from the
-    artefact. `weft_retrieve`'s pipeline documents are this repository's real instance — shipped
+    """`09` §5.2's first-named failure: a data file present in the checkout, absent from the sdist.
+
+    `weft_retrieve`'s pipeline documents are this repository's real instance — shipped
     by `weft-retrieve` until 2026-09-05 and by `weft-rag` since, which is why the member read
     below is the bundle and the paths inside it are unchanged.
     """
@@ -77,9 +78,11 @@ def test_a_packs_data_files_are_required_to_ship() -> None:
 
 
 def test_build_droppings_are_not_required_to_ship() -> None:
-    """The other side of the rule: a required set that swept in `__pycache__` would make the
-    comparison fail on any developer machine that had ever run the tests, which is how a real
-    check becomes a check somebody turns off.
+    """The other side of the rule: the required set must not sweep in `__pycache__`.
+
+    A required set that swept in `__pycache__` would make the comparison fail on any developer
+    machine that had ever run the tests, which is how a real check becomes a check somebody
+    turns off.
     """
     # Arrange
     members = publishing_members()
@@ -93,8 +96,9 @@ def test_build_droppings_are_not_required_to_ship() -> None:
 
 
 def test_every_published_distribution_owes_its_manifest_and_its_licence() -> None:
-    """Since ledger task **6.11**, every published distribution carries its licence, whether or
-    not it carries code.
+    """Since ledger task **6.11**, every published distribution carries its licence.
+
+    It does so whether or not it carries code.
 
     **This test was about `weft-rag` being code-free**, which was `09` §1's design until
     2026-09-05 and is not any more — it now ships fourteen packages, so `required` is no longer
@@ -121,8 +125,10 @@ def test_every_published_distribution_owes_its_manifest_and_its_licence() -> Non
 
 
 def test_sdist_contents_strips_the_archive_root(tmp_path: Path) -> None:
-    """A `.tar.gz` names everything under `<distribution>-<version>/`; the comparison is against
-    paths relative to the distribution directory, so the prefix has to come off exactly once.
+    """`sdist_contents` strips the `<distribution>-<version>/` prefix off every member.
+
+    A `.tar.gz` names everything under that prefix; the comparison is against paths relative
+    to the distribution directory, so the prefix has to come off exactly once.
     """
     # Arrange
     payload = tmp_path / "pyproject.toml"

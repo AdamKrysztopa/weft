@@ -1,5 +1,6 @@
-"""The V-prerequisite harness is an artefact, not a subsystem — a standing ratchet, not a
-one-time prophecy.
+"""The V-prerequisite harness is an artefact, not a subsystem.
+
+This is a standing ratchet, not a one-time prophecy.
 
 `docs/09-release.md` §4.3 asks for six artefacts, each *"a file or a persisted run"*. `eval/`
 holds three of them and the code that produces them. Before task **4.8** this file's own docstring

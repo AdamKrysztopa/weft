@@ -190,8 +190,9 @@ def test_the_canary_opts_out_and_is_never_passed_to_an_index() -> None:
 
 
 def test_an_unreadable_publish_side_is_refused_rather_than_read_as_empty(tmp_path: Path) -> None:
-    """`docs/internal/lessons.md` L5.9: an empty answer is "I did not find it", never "it is not
-    there".
+    """An empty answer is "I did not find it", never "it is not there".
+
+    `docs/internal/lessons.md` L5.9.
     """
     # Arrange
     workflow = tmp_path / "release.yml"
@@ -265,18 +266,7 @@ def intra_repository_requirements(
     is never installed by anyone depending on the distribution, so it is not something "a
     distribution depends on" in the sense `01` states.
     """
-    manifests: dict[str, dict[str, Any]] = {}
-    members = cast(
-        "list[str]",
-        _toml(repo_root / "pyproject.toml")["tool"]["uv"]["workspace"]["members"],
-    )
-
-    for pattern in members:
-        for member in sorted(repo_root.glob(pattern)):
-            manifest = member / "pyproject.toml"
-            if manifest.is_file():
-                project = cast("dict[str, Any]", _toml(manifest)["project"])
-                manifests[cast("str", project["name"])] = project
+    manifests = _member_projects(repo_root)
 
     if not manifests:
         raise ShipSetUnreadableError(
@@ -289,21 +279,40 @@ def intra_repository_requirements(
     found: list[tuple[str, str, Requirement]] = []
 
     for name, project in sorted(manifests.items()):
-        fields: list[tuple[str, list[str]]] = [
-            ("dependencies", cast("list[str]", project.get("dependencies", [])))
-        ]
-        extras = cast("dict[str, list[str]]", project.get("optional-dependencies", {}))
-        fields.extend(
-            (f"optional-dependencies.{extra}", values) for extra, values in extras.items()
-        )
-
-        for field, requirements in fields:
+        for field, requirements in _dependency_fields(project):
             for text in requirements:
                 requirement = Requirement(text)
                 if requirement.name in siblings:
                     found.append((name, field, requirement))
 
     return found
+
+
+def _member_projects(repo_root: Path) -> dict[str, dict[str, Any]]:
+    """Every workspace member's `[project]` table, keyed by its distribution name."""
+    manifests: dict[str, dict[str, Any]] = {}
+    members = cast(
+        "list[str]",
+        _toml(repo_root / "pyproject.toml")["tool"]["uv"]["workspace"]["members"],
+    )
+
+    for pattern in members:
+        for member in sorted(repo_root.glob(pattern)):
+            manifest = member / "pyproject.toml"
+            if manifest.is_file():
+                project = cast("dict[str, Any]", _toml(manifest)["project"])
+                manifests[cast("str", project["name"])] = project
+    return manifests
+
+
+def _dependency_fields(project: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    """The published dependency tables of one `[project]`, each named by its field path."""
+    fields: list[tuple[str, list[str]]] = [
+        ("dependencies", cast("list[str]", project.get("dependencies", [])))
+    ]
+    extras = cast("dict[str, list[str]]", project.get("optional-dependencies", {}))
+    fields.extend((f"optional-dependencies.{extra}", values) for extra, values in extras.items())
+    return fields
 
 
 def test_no_distribution_depends_on_a_sibling_without_a_version_bound() -> None:

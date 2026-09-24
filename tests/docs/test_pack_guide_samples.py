@@ -1,5 +1,6 @@
-"""`docs/08-manuals.md` §3, clause (c) — the pack author guide's code samples are the file they
-claim.
+"""The pack author guide's code samples are the file they claim.
+
+`docs/08-manuals.md` §3, clause (c).
 
 "Each fenced code block that claims to be part of `examples/weft-example-chunker/`... carries an
 explicit source-path tag, and a test diffs the tagged block's content against the file it names."

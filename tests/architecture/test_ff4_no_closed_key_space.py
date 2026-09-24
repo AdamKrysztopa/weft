@@ -84,8 +84,9 @@ def test_waiver_list_is_empty() -> None:
 
 
 def _entry_points_table(document: dict[str, object]) -> dict[str, object] | None:
-    """`[project.entry-points."weft.packs"]`, or `None` if `document` declares none — the
-    identical helper `test_ff11_pipeline_integrity.py` defines, restated here rather than
+    """`[project.entry-points."weft.packs"]`, or `None` if `document` declares none.
+
+    The identical helper `test_ff11_pipeline_integrity.py` defines, restated here rather than
     imported across test files (that file's own "one self-contained scenario" reasoning).
     """
     project = document.get("project")
@@ -131,10 +132,11 @@ def _installed_registry() -> Registry:
 
 
 def _import_every_first_party_module() -> None:
-    """Import every `.py` file under `packages/*/src/` — "reachable from `packages/`",
-    `01`'s own wording for clause (a), taken literally rather than left to whatever a
-    pack's own `__init__` happens to import. `_installed_registry` above only imports
-    each pack's *entry-point* module — enough to populate the registry, not enough to
+    """Import every `.py` file under `packages/*/src/`.
+
+    "Reachable from `packages/`", `01`'s own wording for clause (a), taken literally rather than
+    left to whatever a pack's own `__init__` happens to import. `_installed_registry` above only
+    imports each pack's *entry-point* module — enough to populate the registry, not enough to
     guarantee every `StrEnum` in the tree has ever been imported into `sys.modules`.
     """
     for src_root in sorted((REPO_ROOT / "packages").glob("*/src")):
@@ -163,11 +165,12 @@ def _all_subclasses(base: type) -> set[type]:
 def _shadowing_enum_classes(
     candidates: set[type[Enum]], *, registry: Registry
 ) -> list[tuple[type[Enum], type[object]]]:
-    """Every `(enum class, contract)` pair where the enum's own value set is a non-empty
-    subset of that contract's registered plugin names — `01`'s own clause (a), read
-    literally: "assert its member-value set is not a subset of that contract's registered
-    names." Shared by both real checks below and by the self-test, so the same logic that
-    is asserted against the real tree is what is proven able to fail.
+    """Every `(enum class, contract)` pair where the enum's values fall within the contract's names.
+
+    The enum's own value set is a non-empty subset of that contract's registered plugin names —
+    `01`'s own clause (a), read literally: "assert its member-value set is not a subset of that
+    contract's registered names." Shared by both real checks below and by the self-test, so the
+    same logic that is asserted against the real tree is what is proven able to fail.
     """
     offenders: list[tuple[type[Enum], type[object]]] = []
     for enum_cls in candidates:
@@ -185,11 +188,12 @@ def _shadowing_enum_classes(
 
 
 def _module_level_enum_keyed_dicts() -> list[tuple[str, type[Enum]]]:
-    """Every module-level `dict` under a first-party package whose keys are all members
-    of one `Enum` class — the sharper defect (`01`'s own correction): "the enum
-    was the registry's key **type**," which no amount of walking free-standing `StrEnum`
-    classes on their own would ever see, because the closed key space lives in the dict's
-    *shape*, not in a second name next to it.
+    """Every module-level `dict` under a first-party package keyed by members of one `Enum`.
+
+    Its keys are all members of one `Enum` class — the sharper defect (`01`'s own correction):
+    "the enum was the registry's key **type**," which no amount of walking free-standing
+    `StrEnum` classes on their own would ever see, because the closed key space lives in the
+    dict's *shape*, not in a second name next to it.
     """
     import sys
 
@@ -198,16 +202,23 @@ def _module_level_enum_keyed_dicts() -> list[tuple[str, type[Enum]]]:
         if not module_name.startswith("weft_"):
             continue
         for attr_name, value in list(vars(module).items()):
-            if type(value) is not dict or not value:
-                continue
-            keys = list(cast("dict[object, object]", value).keys())
-            if not all(isinstance(key, Enum) for key in keys):
-                continue
-            enum_classes = {type(key) for key in cast("list[Enum]", keys)}
-            if len(enum_classes) != 1:
-                continue
-            found.append((f"{module_name}.{attr_name}", next(iter(enum_classes))))
+            enum_cls = _sole_key_enum(value)
+            if enum_cls is not None:
+                found.append((f"{module_name}.{attr_name}", enum_cls))
     return found
+
+
+def _sole_key_enum(value: object) -> type[Enum] | None:
+    """The one `Enum` class every key of a non-empty plain `dict` belongs to, else `None`."""
+    if type(value) is not dict or not value:
+        return None
+    keys = list(cast("dict[object, object]", value).keys())
+    if not all(isinstance(key, Enum) for key in keys):
+        return None
+    enum_classes = {type(key) for key in cast("list[Enum]", keys)}
+    if len(enum_classes) != 1:
+        return None
+    return next(iter(enum_classes))
 
 
 # --- (a) no enum shadows a registry ------------------------------------------------------
@@ -236,8 +247,10 @@ def test_no_strenum_value_set_shadows_a_registered_contracts_names() -> None:
 
 
 def test_no_module_level_dict_is_keyed_by_a_shadowing_enum() -> None:
-    """The sharper failure, `01`'s own correction states directly: no enum shadowed
-    a registry by name — the enum *was* the registry's key type, a
+    """The sharper failure: an enum that *is* a registry's key type, not a shadow of its names.
+
+    `01`'s own correction states it directly: no enum shadowed a registry by name — the enum
+    *was* the registry's key type, a
     `dict[SomeClosedEnum, Builder]`-shaped module constant structurally preventing
     a fourth member from ever being a key, with nothing to grep for. Checked here as a
     dict *shape*, never a text pattern.
@@ -263,10 +276,11 @@ def test_no_module_level_dict_is_keyed_by_a_shadowing_enum() -> None:
 
 
 def test_the_shadow_detector_can_actually_fail() -> None:
-    """Prove `_shadowing_enum_classes` is not vacuously true — every ratchet in this
-    suite carries this. A throwaway `Registry` with one contract registering exactly
-    `{"alpha", "beta"}`, and a throwaway `StrEnum` naming precisely those two values,
-    must be flagged; a `Registry` and enum that share nothing must not.
+    """Prove `_shadowing_enum_classes` is not vacuously true.
+
+    Every ratchet in this suite carries this. A throwaway `Registry` with one contract
+    registering exactly `{"alpha", "beta"}`, and a throwaway `StrEnum` naming precisely those two
+    values, must be flagged; a `Registry` and enum that share nothing must not.
     """
 
     class _Contract:
@@ -298,8 +312,10 @@ def test_the_shadow_detector_can_actually_fail() -> None:
 
 
 async def test_the_router_selects_and_executes_a_freshly_generated_pipeline_name() -> None:
-    """`.phase2-design.md` §5's own words: "a hardcoded set, a stale literal, a mapping
-    table or an enum cannot survive a name generated at test time." Every piece below is
+    """The real router selects and runs a pipeline whose name was generated at test time.
+
+    `.phase2-design.md` §5's own words: "a hardcoded set, a stale literal, a mapping table or an
+    enum cannot survive a name generated at test time." Every piece below is
     real production code against the real installed registry — `nearest-description`
     (`weft_retrieve.routing.NearestDescription`), `RegistryStageLookup`/
     `PipelineRouteCatalogue` (`weft_retrieve.engine`), `weft_cli.compile`, and

@@ -94,7 +94,7 @@ def missing_changelog_entries(
 
 
 def test_the_installed_tree_marks_exactly_what_it_has_retired() -> None:
-    """**This asserted `== frozenset()` until 2026-09-13, and it was right to.**
+    """**This asserted `== frozenset()` until 2026-09-13, and it was right to**.
 
     It was written to pin a measured fact — nothing first-party had ever been marked — and to
     fail the day that stopped being true, because that is the day

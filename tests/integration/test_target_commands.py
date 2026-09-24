@@ -142,7 +142,9 @@ async def test_a_second_index_into_the_same_candidate_reports_it_unchanged(proje
 async def test_the_pass_after_indexing_a_candidate_reconciles_that_candidate(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Found running the binary at `34.6`: the automatic post-index `reconcile` converged the
+    """The post-index `reconcile` converges the candidate the run wrote into.
+
+    Found running the binary at `34.6`: the automatic post-index `reconcile` converged the
     live target while the run had written into the candidate. The wire is checked along its
     length by capturing the call (`L9.79`).
     """

@@ -225,6 +225,23 @@ def _correction_follows(lines: list[str], number: int) -> bool:
     )
 
 
+def _asserts_an_open_gap(sentence: str) -> bool:
+    """Whether `sentence` is an unwaived present-tense gap claim anchored to the ledger."""
+    if sentence in STALE_GAP_WAIVERS or not _GAP.search(sentence) or _PAST_TENSE.search(sentence):
+        return False
+    return not (_NUMBERED_DOCUMENT.search(sentence) and not _LEDGER_ANCHOR.search(sentence))
+
+
+def _ticked_ids(sentence: str, states: dict[str, bool]) -> list[str]:
+    """The ledger ids `sentence` anchors whose boxes are ticked."""
+    return [
+        identifier
+        for match in _ANCHORED_ID.finditer(sentence)
+        for identifier in (match.group(1) or match.group(2),)
+        if states.get(identifier) is True
+    ]
+
+
 def stale_gap_claims() -> dict[str, str]:
     """Sentences asserting an open gap whose named task has since ticked."""
     states = ledger_task_states()
@@ -233,20 +250,9 @@ def stale_gap_claims() -> dict[str, str]:
         text = document.read_text(encoding="utf-8")
         lines = text.splitlines()
         for first, last, sentence in _sentences_with_lines(text):
-            if (
-                sentence in STALE_GAP_WAIVERS
-                or not _GAP.search(sentence)
-                or _PAST_TENSE.search(sentence)
-            ):
+            if not _asserts_an_open_gap(sentence):
                 continue
-            if _NUMBERED_DOCUMENT.search(sentence) and not _LEDGER_ANCHOR.search(sentence):
-                continue
-            ticked = [
-                identifier
-                for match in _ANCHORED_ID.finditer(sentence)
-                for identifier in (match.group(1) or match.group(2),)
-                if states.get(identifier) is True
-            ]
+            ticked = _ticked_ids(sentence, states)
             if ticked and not _correction_follows(lines, last):
                 stale[f"{document.relative_to(REPO_ROOT)}:{first}"] = (
                     f"{sentence[:180]} → task(s) {sorted(set(ticked))} are ticked"

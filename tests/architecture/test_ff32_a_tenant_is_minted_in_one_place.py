@@ -125,8 +125,12 @@ def _passes_the_default_tenant(call: ast.Call) -> bool:
 def _violations(path: str, source: str) -> list[str]:
     """Every way `source`, read as the module at `path`, lets a tenant be chosen."""
     tree = ast.parse(source)
-    found: list[str] = []
+    return _mint_violations(path, tree) + _replacement_violations(path, tree)
 
+
+def _mint_violations(path: str, tree: ast.Module) -> list[str]:
+    """Every `Context(...)` in `tree` made anywhere but `new_context`, or made there wrongly."""
+    found: list[str] = []
     for mint in _mints(tree):
         site = (path, mint.function or "<module>")
         if site in WAIVED_MINT_SITES:
@@ -142,7 +146,12 @@ def _violations(path: str, source: str) -> list[str]:
                 f"{where} new_context passes a tenant_id other than the literal "
                 f"{DEFAULT_TENANT!r} by keyword"
             )
+    return found
 
+
+def _replacement_violations(path: str, tree: ast.Module) -> list[str]:
+    """Every call in `tree` that could replace or set `tenant_id` on a `Context` already built."""
+    found: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
