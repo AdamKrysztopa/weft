@@ -195,7 +195,9 @@ class Quote(BaseModel):
 
 
 class Question(BaseModel):
-    """One question, its reference answer, and the spans that support it — or a stated reason it
+    """One question, its reference answer and supporting spans, or why it has none.
+
+    One question, its reference answer, and the spans that support it — or a stated reason it
     carries none of these.
 
     Every per-question invariant V2 implies is refused here rather than asserted somewhere else,
@@ -306,44 +308,51 @@ class Question(BaseModel):
         never carried quotes has nothing to check them against — and the cross-document rule
         applies only once `kind` is stated, since it is a fact about `kind`'s own vocabulary.
         """
-        quote_stated_absent = QuestionField.QUOTE in self.absent
         stance = self.kind.value if self.kind is not None else "answerable"
         if self.answerable:
-            if not self.relevant_documents:
-                raise ValueError(f"{self.id}: {stance} but names no relevant document")
-            if not quote_stated_absent:
-                if not self.quote:
-                    raise ValueError(f"{self.id}: {stance} but carries no supporting quote")
-                quoted = {quote.document for quote in self.quote}
-                stray = sorted(quoted - set(self.relevant_documents))
-                if stray:
-                    raise ValueError(
-                        f"{self.id}: quotes a document it does not call relevant: {stray}"
-                    )
-                silent = sorted(set(self.relevant_documents) - quoted)
-                if silent:
-                    raise ValueError(
-                        f"{self.id}: calls a document relevant but quotes nothing from it: {silent}"
-                    )
+            self._answerable_ground_truth_is_present(stance)
         else:
-            if self.relevant_documents:
-                raise ValueError(
-                    f"{self.id}: unanswerable, yet names {list(self.relevant_documents)} as "
-                    f"relevant — an unanswerable question is one the corpus does not answer"
-                )
-            if self.quote:
-                raise ValueError(
-                    f"{self.id}: unanswerable, yet carries {len(self.quote)} supporting quote(s)"
-                )
+            self._unanswerable_carries_no_ground_truth()
         if self.kind is not None:
-            multi = len(set(self.relevant_documents)) > 1
-            if multi != (self.kind is Kind.CROSS_DOCUMENT):
-                raise ValueError(
-                    f"{self.id}: kind is {self.kind.value} over "
-                    f"{len(set(self.relevant_documents))} document(s); "
-                    f"'{Kind.CROSS_DOCUMENT.value}' means more than one and nothing else means it"
-                )
+            self._kind_matches_the_document_count(self.kind)
         return self
+
+    def _answerable_ground_truth_is_present(self, stance: str) -> None:
+        if not self.relevant_documents:
+            raise ValueError(f"{self.id}: {stance} but names no relevant document")
+        if QuestionField.QUOTE in self.absent:
+            return
+        if not self.quote:
+            raise ValueError(f"{self.id}: {stance} but carries no supporting quote")
+        quoted = {quote.document for quote in self.quote}
+        stray = sorted(quoted - set(self.relevant_documents))
+        if stray:
+            raise ValueError(f"{self.id}: quotes a document it does not call relevant: {stray}")
+        silent = sorted(set(self.relevant_documents) - quoted)
+        if silent:
+            raise ValueError(
+                f"{self.id}: calls a document relevant but quotes nothing from it: {silent}"
+            )
+
+    def _unanswerable_carries_no_ground_truth(self) -> None:
+        if self.relevant_documents:
+            raise ValueError(
+                f"{self.id}: unanswerable, yet names {list(self.relevant_documents)} as "
+                f"relevant — an unanswerable question is one the corpus does not answer"
+            )
+        if self.quote:
+            raise ValueError(
+                f"{self.id}: unanswerable, yet carries {len(self.quote)} supporting quote(s)"
+            )
+
+    def _kind_matches_the_document_count(self, kind: Kind) -> None:
+        multi = len(set(self.relevant_documents)) > 1
+        if multi != (kind is Kind.CROSS_DOCUMENT):
+            raise ValueError(
+                f"{self.id}: kind is {kind.value} over "
+                f"{len(set(self.relevant_documents))} document(s); "
+                f"'{Kind.CROSS_DOCUMENT.value}' means more than one and nothing else means it"
+            )
 
 
 def _question_set_table(

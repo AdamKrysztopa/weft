@@ -48,7 +48,9 @@ RATES_AS_OF: Final[str] = "2026-09-05"
 
 
 class TokenRate(BaseModel):
-    """USD per 1,000 tokens, priced separately for input and output — every vendor Weft ships
+    """USD per 1,000 tokens, priced separately for input and output.
+
+    USD per 1,000 tokens, priced separately for input and output — every vendor Weft ships
     a provider for prices the two differently.
     """
 
@@ -88,7 +90,9 @@ class PricedCall(BaseModel):
 
 
 class RunPrice(BaseModel):
-    """One run's money cost — never a bare `float`, `MetricAggregate`'s own "no reported number
+    """One run's money cost, with what it excluded and the rates it used.
+
+    One run's money cost — never a bare `float`, `MetricAggregate`'s own "no reported number
     travels alone" rule applied to money: a total with no exclusion count and no dated rate
     sheet beside it is a number nobody can audit.
     """
@@ -112,7 +116,9 @@ def price_calls(
     *,
     rates_as_of: str = RATES_AS_OF,
 ) -> RunPrice:
-    """Fold `calls` into one `RunPrice`, against `rates` — `DEFAULT_RATES`/`RATES_AS_OF` unless
+    """Price `calls` into one `RunPrice` against `rates`.
+
+    Fold `calls` into one `RunPrice`, against `rates` — `DEFAULT_RATES`/`RATES_AS_OF` unless
     a caller supplies its own, current pair. An empty `calls` prices to `$0.00`, `0` calls
     either way — a run that made no priceable call genuinely cost nothing, not "unknown".
     """

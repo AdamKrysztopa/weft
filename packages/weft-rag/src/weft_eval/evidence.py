@@ -1,4 +1,6 @@
-"""The evidence table — ledger task **38.1**: an experiment's whole claim, recomputed from its
+"""The evidence table: an experiment's whole claim, recomputed from its own records.
+
+The evidence table — ledger task **38.1**: an experiment's whole claim, recomputed from its
 own records rather than typed by hand.
 
 Task 38.0 runs an experiment document's arms and repetitions and persists one `RunRecord` per
@@ -71,7 +73,9 @@ type _MatchedRecord = tuple[RunRecord, ExperimentRun]
 
 
 class IncompleteExperimentError(WeftError):
-    """The chosen invocation does not hold exactly one record for every `(arm, repetition)` this
+    """The chosen invocation lacks exactly one record for some `(arm, repetition)`.
+
+    The chosen invocation does not hold exactly one record for every `(arm, repetition)` this
     document names — see the module docstring's *"One invocation, chosen honestly"* paragraph.
 
     The message names every missing `arm`/repetition pair when one invocation was named, or was
@@ -81,14 +85,18 @@ class IncompleteExperimentError(WeftError):
 
 
 class AmbiguousInvocationError(WeftError):
-    """More than one invocation of this document is complete, and none was named — see the
+    """More than one invocation is complete and none was named.
+
+    More than one invocation of this document is complete, and none was named — see the
     module docstring's *"One invocation, chosen honestly"* paragraph. The message lists every
     complete invocation's id, so an author can pass `--invocation` and re-run.
     """
 
 
 class ArmComparison(BaseModel):
-    """One arm, one metric — its repetition-1 means, the paired difference over questions and
+    """One arm and one metric, compared against the baseline's own spread.
+
+    One arm, one metric — its repetition-1 means, the paired difference over questions and
     its bootstrap interval, and the verdict against the baseline's own between-repetition
     spread. See the module docstring for what each of the two intervals actually asks.
     """
@@ -129,7 +137,9 @@ class ArmCost(BaseModel):
 
 
 class EvidenceTable(BaseModel):
-    """One experiment document's whole claim, over one complete invocation of it — see the
+    """One experiment document's whole claim, over one complete invocation of it.
+
+    One experiment document's whole claim, over one complete invocation of it — see the
     module docstring. `render_evidence_table` is this table's only reader that matters: the
     committed markdown is this model rendered, and nothing renders it by hand.
 
@@ -160,7 +170,9 @@ class EvidenceTable(BaseModel):
 
 
 def _missing_pairs(experiment: Experiment, matched: Sequence[_MatchedRecord]) -> list[str]:
-    """Every `(arm, repetition)` this document names that `matched` does not hold exactly once,
+    """Every `(arm, repetition)` that `matched` does not hold exactly once.
+
+    Every `(arm, repetition)` this document names that `matched` does not hold exactly once,
     in document order — an empty `matched` names every pair, which is exactly right for an
     invocation with no records at all.
     """
@@ -409,7 +421,9 @@ def evidence_table(
 
 
 def _repetitions_cell(table: EvidenceTable) -> str:
-    """`table.repeats` alone when every arm ran it — byte-identical to before task **38.13** —
+    """The repetition count to print: one shared count, or each arm's own.
+
+    `table.repeats` alone when every arm ran it — byte-identical to before task **38.13** —
     and each arm's own count, briefly, the moment one arm's `repeats_for` diverges from it.
     """
     if all(count == table.repeats for _, count in table.repeats_by_arm):
@@ -418,8 +432,10 @@ def _repetitions_cell(table: EvidenceTable) -> str:
 
 
 def render_evidence_table(table: EvidenceTable) -> str:
-    """`table`, rendered as deterministic markdown — see the module docstring for why nothing
-    here is ever typed by hand instead. Ends in exactly one `\\n`.
+    r"""Render `table` as deterministic markdown.
+
+    `table`, rendered as deterministic markdown — see the module docstring for why nothing
+    here is ever typed by hand instead. Ends in exactly one `\n`.
     """
     lines = [
         f"# Evidence — {table.name}",
@@ -522,7 +538,9 @@ def _cost_row(cost: ArmCost) -> str:
 
 
 def regenerate(experiment_path: Path, runs: Path) -> str:
-    """`render_evidence_table(evidence_table(...))` over `experiment_path`'s own document and
+    """Build and render the evidence table for one experiment document and its records.
+
+    `render_evidence_table(evidence_table(...))` over `experiment_path`'s own document and
     every `*.json` record under `runs`, sorted by filename — a missing `runs` directory is no
     records at all, not a refusal, since `evidence_table` already says clearly why it cannot
     build a table from none.

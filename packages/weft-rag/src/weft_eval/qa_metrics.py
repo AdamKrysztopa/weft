@@ -58,6 +58,15 @@ class ExactMatch:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score 1.0 when prediction and reference agree after normalization.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The match as a `MetricScore`, or `Failed` when the sample carries no prediction.
+        """
         del ctx
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
@@ -77,6 +86,16 @@ class F1Score:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the token-level F1 between prediction and reference.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The F1 as a `MetricScore`; `Failed` when the sample carries no prediction, and
+            `NothingToProduce` when the reference has no tokens.
+        """
         del ctx
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
@@ -119,6 +138,16 @@ class Accuracy:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score 1.0 when the reference appears inside the prediction.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The hit as a `MetricScore`; `Failed` when the sample carries no prediction, and
+            `NothingToProduce` when the reference is empty.
+        """
         del ctx
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")

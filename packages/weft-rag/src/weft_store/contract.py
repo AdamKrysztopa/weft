@@ -1,4 +1,4 @@
-"""The store contract family — published here, never by the kernel.
+r"""The store contract family — published here, never by the kernel.
 
 Specified in `docs/06-phase-0-build.md` step 7 and, in full, `docs/02-extension-model.md`
 section 1 → *The store contract family* (settled in **G4**). Two capabilities
@@ -71,7 +71,7 @@ own bases, with a `run` method `02`'s pseudocode block does not show.**
 That block enumerates the capability methods — `add`, `get`,
 `delete_source`, and so on — and is correct as far as it goes, but the
 pipeline example in `docs/02-extension-model.md` section 3 lists `store` as
-an ordinary stage (`- id: store\\n    use: pgvector`), selected by the same
+an ordinary stage (`- id: store\n    use: pgvector`), selected by the same
 `StageSpec` mechanism as `extract` or `chunk`. `weft_kernel.runner` resolves
 every pipeline stage's contract through `Stage[In, Out]`, read off the
 contract via `__orig_bases__` — so a contract usable in that stage position
@@ -280,7 +280,9 @@ class SourceRecord(BaseModel):
 
 
 class SourceFailure(BaseModel):
-    """Why an indexing attempt for one source did not leave `SourceRecord.status` at `ACTIVE`
+    """Why an indexing attempt for one source did not end `ACTIVE`.
+
+    Why an indexing attempt for one source did not leave `SourceRecord.status` at `ACTIVE`
     — task **36.0**. One frozen record rather than five loose optional fields on `SourceRecord`
     itself, so "no failure" stays one fact to check: `record.failure is None`.
 
@@ -314,7 +316,9 @@ class LayerStatus(StrEnum):
 
 
 class LayerRecord(BaseModel):
-    """One derived layer built over a source — task **43.6**, Phase 43's per-source layer: a
+    """One derived layer built over a source.
+
+    One derived layer built over a source — task **43.6**, Phase 43's per-source layer: a
     pipeline document whose first stage consumes stored nodes, publishing one `LayerRecord` per
     layer it builds. `failure` reuses `SourceFailure`: a layer fails the same way a source does,
     and there is no reason for a second shape to say the same thing.
@@ -334,7 +338,9 @@ SourceRecord.model_rebuild()
 
 
 class UnknownSourceStatusError(WeftError):
-    """A stored `SourceRecord.status` value is not one this release's `SourceStatus` knows —
+    """A stored source status is not one this release's `SourceStatus` knows.
+
+    A stored `SourceRecord.status` value is not one this release's `SourceStatus` knows —
     task **36.0**. Raised by `source_status`, so a store's read path fails loudly, naming the
     value it met, rather than `SourceStatus(value)`'s own bare `ValueError` surfacing deep inside
     a `get_source` or `list_sources` call with no word about why.
@@ -342,7 +348,9 @@ class UnknownSourceStatusError(WeftError):
 
 
 def source_status(value: str) -> SourceStatus:
-    """Read a stored status string as `SourceStatus`, refusing by name — `UnknownSourceStatusError`
+    """Read a stored status string as `SourceStatus`, refusing an unknown one by name.
+
+    Read a stored status string as `SourceStatus`, refusing by name — `UnknownSourceStatusError`
     — rather than letting `SourceStatus(value)`'s own `ValueError` escape unexplained. Every store
     reading a persisted status calls this rather than constructing `SourceStatus` directly, so an
     unknown value always reads as "written by a release this one does not know" and never as a
@@ -358,13 +366,17 @@ def source_status(value: str) -> SourceStatus:
 
 
 class UnknownSourceFailureError(WeftError):
-    """A stored `SourceRecord.failure` carries a field this release's `SourceFailure` does not
+    """A stored source failure carries a field `SourceFailure` does not declare.
+
+    A stored `SourceRecord.failure` carries a field this release's `SourceFailure` does not
     declare — repair **R36.3**. Raised by `source_failure`, `source_status`'s counterpart.
     """
 
 
 def source_failure(raw: Mapping[str, object]) -> SourceFailure:
-    """Read a stored failure as `SourceFailure`, refusing by name a field a newer release added,
+    """Read a stored failure as `SourceFailure`, refusing an unknown field by name.
+
+    Read a stored failure as `SourceFailure`, refusing by name a field a newer release added,
     rather than letting pydantic's own `extra_forbidden` error reach an operator (`L28.13`).
     """
     unknown = set(raw) - set(SourceFailure.model_fields)
@@ -378,14 +390,18 @@ def source_failure(raw: Mapping[str, object]) -> SourceFailure:
 
 
 class UnknownSourceLayerError(WeftError):
-    """A stored `SourceRecord.layers` entry carries a field this release's `LayerRecord` does not
+    """A stored layer entry carries an unknown field or status.
+
+    A stored `SourceRecord.layers` entry carries a field this release's `LayerRecord` does not
     declare, or a `status` this release's `LayerStatus` does not know — task **43.6**. Raised by
     `source_layers`, `source_failure`'s counterpart for one layer.
     """
 
 
 def source_layers(raw: Sequence[Mapping[str, object]]) -> tuple[LayerRecord, ...]:
-    """Read stored layers as `LayerRecord`s, refusing by name a field or a status value a newer
+    """Read stored layers as `LayerRecord`s, refusing unknown fields or statuses by name.
+
+    Read stored layers as `LayerRecord`s, refusing by name a field or a status value a newer
     release wrote, rather than letting pydantic's own `extra_forbidden` or `ValueError` escape
     unexplained — `source_failure`'s own shape, one layer at a time. A non-null `failure` is
     read through `source_failure`, so an unknown field inside it still raises
@@ -525,7 +541,9 @@ class VectorPrecision(StrEnum):
 
 
 class FilterOp(StrEnum):
-    """The closed operator vocabulary `docs/02-extension-model.md` names: "eq ne in lt lte gt
+    """The closed operator vocabulary a metadata filter is written in.
+
+    The closed operator vocabulary `docs/02-extension-model.md` names: "eq ne in lt lte gt
     gte exists contains and or not". `Enum` per the project's string-constant rule — this is
     exactly the closed-vocabulary case the rule exists for, not an open, pack-declared set.
     """
@@ -844,16 +862,97 @@ class NodeStore(Stage[Sequence[Node], Sequence[Node]], Protocol):
         #: `__protocol_attrs__`; the real value is assigned below, after the class body.
         version: ClassVar[str]
 
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]: ...
-    async def add(self, nodes: Sequence[Node]) -> None: ...
-    async def flush(self) -> None: ...
-    async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]: ...
-    async def delete_source(self, source_id: SourceId) -> Removed: ...
-    async def scan(self, cursor: Cursor | None = None) -> Page[Node]: ...
-    async def count(self) -> int: ...
-    async def put_source(self, record: SourceRecord) -> None: ...
-    async def get_source(self, source_id: SourceId) -> SourceRecord | None: ...
-    async def list_sources(self) -> Sequence[SourceRecord]: ...
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        """Store the nodes arriving at this pipeline position and pass them on.
+
+        Args:
+            payload: The nodes to store.
+            ctx: The run's context.
+
+        Returns:
+            The same nodes, unchanged, once stored.
+        """
+        ...
+
+    async def add(self, nodes: Sequence[Node]) -> None:
+        """Accept `nodes` for storage; a store may buffer them until `flush`.
+
+        Args:
+            nodes: The nodes to write.
+        """
+        ...
+
+    async def flush(self) -> None:
+        """Write out anything `add` buffered; idempotent, and called by the runner."""
+        ...
+
+    async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        """Read the nodes stored under `ids`.
+
+        Args:
+            ids: The node ids to read.
+
+        Returns:
+            The nodes that exist; an id the store does not hold is absent from the answer.
+        """
+        ...
+
+    async def delete_source(self, source_id: SourceId) -> Removed:
+        """Delete what `source_id` produced, idempotently and resumably.
+
+        Args:
+            source_id: The source whose nodes and record are removed.
+
+        Returns:
+            How many nodes were deleted and how many were narrowed.
+        """
+        ...
+
+    async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        """Walk every stored node, one page at a time.
+
+        Args:
+            cursor: Where the previous page ended, or `None` for the first page.
+
+        Returns:
+            One page of nodes and the cursor for the next, if any.
+        """
+        ...
+
+    async def count(self) -> int:
+        """Count the nodes stored.
+
+        Returns:
+            How many nodes this store holds.
+        """
+        ...
+
+    async def put_source(self, record: SourceRecord) -> None:
+        """Write or replace one source's record.
+
+        Args:
+            record: The record to store under its own id.
+        """
+        ...
+
+    async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        """Read one source's record.
+
+        Args:
+            source_id: The source to read.
+
+        Returns:
+            The record, or `None` when none is stored.
+        """
+        ...
+
+    async def list_sources(self) -> Sequence[SourceRecord]:
+        """Read every source record this store holds.
+
+        Returns:
+            Every source record.
+        """
+        ...
 
 
 NodeStore.version = STORE_CONTRACT_VERSION
@@ -882,7 +981,18 @@ class VectorSearch(Protocol):
 
     async def search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
-    ) -> Sequence[Scored[Node]]: ...
+    ) -> Sequence[Scored[Node]]:
+        """Rank stored nodes by similarity to `vector`.
+
+        Args:
+            vector: The query vector; the store never embeds.
+            top_k: How many nodes to return at most.
+            filter: A predicate every returned node must satisfy, if any.
+
+        Returns:
+            The best `top_k` nodes with their scores, best first.
+        """
+        ...
 
 
 VectorSearch.version = STORE_CONTRACT_VERSION
@@ -926,7 +1036,18 @@ class TextSearch(Protocol):
 
     async def search_text(
         self, text: str, top_k: int, filter: Filter | None = None
-    ) -> Sequence[Scored[Node]]: ...
+    ) -> Sequence[Scored[Node]]:
+        """Rank stored nodes by lexical match against `text`.
+
+        Args:
+            text: The query text.
+            top_k: How many nodes to return at most.
+            filter: A predicate every returned node must satisfy, if any.
+
+        Returns:
+            The best `top_k` nodes with their scores, best first; empty when nothing matches.
+        """
+        ...
 
 
 TextSearch.version = STORE_CONTRACT_VERSION
@@ -976,7 +1097,17 @@ class MetadataFilter(Protocol):
         #: assigned below.
         version: ClassVar[str]
 
-    async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]: ...
+    async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
+        """Walk every stored node `filter` selects, one page at a time.
+
+        Args:
+            filter: The predicate that alone decides membership.
+            cursor: Where the previous page ended, or `None` for the first page.
+
+        Returns:
+            One page of matching nodes and the cursor for the next, if any.
+        """
+        ...
 
 
 MetadataFilter.version = STORE_CONTRACT_VERSION
@@ -1021,7 +1152,17 @@ class NodeSupersedable(Protocol):
         #: `__protocol_attrs__`, where `isinstance` would demand it of every implementer.
         version: ClassVar[str]
 
-    async def supersede(self, old: NodeId, new: Node) -> None: ...
+    async def supersede(self, old: NodeId, new: Node) -> None:
+        """Replace node `old` with `new`, writing `new` first.
+
+        Args:
+            old: The node being replaced; already absent is not an error.
+            new: The replacement, which must cover every source `old` carries.
+
+        Raises:
+            SupersedeNarrowsSourcesError: `new` covers fewer sources than `old`.
+        """
+        ...
 
 
 #: The same assignment its six siblings carry — a published capability of this family,
@@ -1070,7 +1211,16 @@ class SourceDeletable(Protocol):
         #: assigned below.
         version: ClassVar[str]
 
-    async def delete_source(self, source_id: SourceId) -> Removed: ...
+    async def delete_source(self, source_id: SourceId) -> Removed:
+        """Delete what `source_id` produced, idempotently and resumably.
+
+        Args:
+            source_id: The source whose derived data is removed.
+
+        Returns:
+            How many nodes were deleted; zero for a source that is already gone.
+        """
+        ...
 
 
 SourceDeletable.version = STORE_CONTRACT_VERSION
@@ -1215,9 +1365,29 @@ class Reconcilable(Protocol):
         #: assigned below.
         version: ClassVar[str]
 
-    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport: ...
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+        """Converge stored state with what the corpus holds.
 
-    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate: ...
+        Args:
+            ctx: The run's context.
+            mode: Whether the pass only repairs or also backfills.
+
+        Returns:
+            What the pass did, and how much it left for the next pass.
+        """
+        ...
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        """Say what converging would cost, before anything is spent.
+
+        Args:
+            ctx: The run's context.
+            mode: The mode being asked about.
+
+        Returns:
+            The outstanding work and the model calls converging would make.
+        """
+        ...
 
 
 Reconcilable.version = STORE_CONTRACT_VERSION
@@ -1262,7 +1432,9 @@ def target_name(value: str) -> TargetName:
 
 
 class UnknownTargetError(WeftError, UnresolvedNameError):
-    """`target` was asked for by name against a store whose catalogue does not hold it —
+    """A target was asked for by name that the store's catalogue does not hold.
+
+    `target` was asked for by name against a store whose catalogue does not hold it —
     fitness function 12's family: `valid_options` carries what the store does hold.
     """
 
@@ -1276,7 +1448,9 @@ class UnknownTargetError(WeftError, UnresolvedNameError):
 
 
 class TargetInUseError(WeftError):
-    """`target` cannot be dropped: it is the live target or the previous one, and a rollback
+    """A target cannot be dropped: a rollback needs it, or another handle uses it.
+
+    `target` cannot be dropped: it is the live target or the previous one, and a rollback
     needs both to still be there — or, `reason` given, some other handle is still using it.
 
     `reason` is optional so the default message stays exactly what it was before task **34.1**
@@ -1306,7 +1480,9 @@ class NoPreviousTargetError(WeftError):
 
 
 class EmbeddingIdentity(BaseModel):
-    """What embedded a target's vectors — plugin, distribution, model, and the width they
+    """What embedded a target's vectors, and the width they produce.
+
+    What embedded a target's vectors — plugin, distribution, model, and the width they
     produce, when the plugin can say. Task **34.4**'s embedder-side Protocol claims one of
     these against a target through `TargetHolding.claim_embedding`; this is the shape it
     claims, published here because the store is what persists it.
@@ -1321,7 +1497,9 @@ class EmbeddingIdentity(BaseModel):
 
 
 class TargetRecord(BaseModel):
-    """One target in a store's catalogue: its name, and the embedding identity claimed
+    """One target in a store's catalogue, with its claimed embedding identity.
+
+    One target in a store's catalogue: its name, and the embedding identity claimed
     against it, if any.
     """
 
@@ -1349,7 +1527,9 @@ class Promotion(BaseModel):
 
 
 class TargetCatalogue(BaseModel):
-    """Every target a store holds, which one is live, which was live before that, and the
+    """Every target a store holds, which is live, and which was live before.
+
+    Every target a store holds, which one is live, which was live before that, and the
     promotion that made it so, if any.
     """
 
@@ -1363,7 +1543,9 @@ class TargetCatalogue(BaseModel):
 
 @runtime_checkable
 class TargetHolding(Protocol):
-    """A store that holds named, complete targets, one of them live — ledger task **34.3**,
+    """A store that holds named, complete targets, one of them live.
+
+    A store that holds named, complete targets, one of them live — ledger task **34.3**,
     Phase 34's blue-green index migration.
 
     An unbound handle serves the **live** target, read once when the handle first touches
@@ -1378,17 +1560,72 @@ class TargetHolding(Protocol):
         #: assigned below.
         version: ClassVar[str]
 
-    async def target_catalogue(self) -> TargetCatalogue: ...
+    async def target_catalogue(self) -> TargetCatalogue:
+        """Read every target this store holds.
 
-    async def bind_target(self, target: TargetName) -> Self: ...
+        Returns:
+            The targets, which one is live, which was live before, and the last promotion.
+        """
+        ...
 
-    async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity: ...
+    async def bind_target(self, target: TargetName) -> Self:
+        """Open a second handle onto this store, bound to `target`.
 
-    async def promote(self, promotion: Promotion) -> TargetCatalogue: ...
+        Args:
+            target: The target the new handle reads and writes.
 
-    async def rollback(self) -> TargetCatalogue: ...
+        Returns:
+            The bound handle.
+        """
+        ...
 
-    async def drop_target(self, target: TargetName) -> None: ...
+    async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        """Record `identity` against this handle's target, unless one is recorded.
+
+        Args:
+            identity: What embedded the vectors about to be written.
+
+        Returns:
+            The identity the target holds, which is the earlier one if already claimed.
+        """
+        ...
+
+    async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        """Make the promoted target live, recording the previous one for rollback.
+
+        Args:
+            promotion: The target to make live and why.
+
+        Returns:
+            The catalogue after the promotion.
+
+        Raises:
+            UnknownTargetError: The target is not in the catalogue.
+        """
+        ...
+
+    async def rollback(self) -> TargetCatalogue:
+        """Swap the live target with the previous one.
+
+        Returns:
+            The catalogue after the rollback.
+
+        Raises:
+            NoPreviousTargetError: No target was live before this one.
+        """
+        ...
+
+    async def drop_target(self, target: TargetName) -> None:
+        """Delete `target` and everything stored in it.
+
+        Args:
+            target: The target to drop.
+
+        Raises:
+            UnknownTargetError: The target is not in the catalogue.
+            TargetInUseError: The target is live, previous, or bound by another handle.
+        """
+        ...
 
 
 TargetHolding.version = STORE_CONTRACT_VERSION
@@ -1424,7 +1661,9 @@ class GenerationRecord(BaseModel):
 
 
 class UnknownGenerationError(WeftError, UnresolvedNameError):
-    """A generation was asked for by id that the store's catalogue does not hold — fitness
+    """A generation was asked for by an id the store's catalogue does not hold.
+
+    A generation was asked for by id that the store's catalogue does not hold — fitness
     function 12's family: `valid_options` carries the ids it does hold.
     """
 
@@ -1439,7 +1678,9 @@ class UnknownGenerationError(WeftError, UnresolvedNameError):
 
 @runtime_checkable
 class GenerationHolding(Protocol):
-    """A store that builds a corpus-scoped layer as a generation, published whole — ledger task
+    """A store that builds a corpus-scoped layer as a generation, published whole.
+
+    A store that builds a corpus-scoped layer as a generation, published whole — ledger task
     **43.14**.
 
     A node written through `bind_generation`'s handle is a member of that generation, and every
@@ -1456,22 +1697,75 @@ class GenerationHolding(Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def open_generation(self, layer: str) -> GenerationRecord: ...
+    async def open_generation(self, layer: str) -> GenerationRecord:
+        """Open a new, unpublished generation of `layer`.
 
-    async def bind_generation(self, generation: GenerationId) -> Self: ...
+        Args:
+            layer: The layer the generation builds.
 
-    async def publish_generation(self, generation: GenerationId) -> GenerationRecord: ...
+        Returns:
+            The generation's record, `building`.
+        """
+        ...
 
-    async def retract_generation(self, generation: GenerationId) -> Removed: ...
+    async def bind_generation(self, generation: GenerationId) -> Self:
+        """Open a second handle whose writes join `generation`.
 
-    async def generations(self) -> tuple[GenerationRecord, ...]: ...
+        Args:
+            generation: The generation the new handle writes into.
+
+        Returns:
+            The bound handle.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+        """
+        ...
+
+    async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Make `generation` visible to handles that open afterwards.
+
+        Args:
+            generation: The generation to publish.
+
+        Returns:
+            The generation's record, `published`.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+        """
+        ...
+
+    async def retract_generation(self, generation: GenerationId) -> Removed:
+        """Remove the nodes only `generation` made, and forget it.
+
+        Args:
+            generation: The generation to retract.
+
+        Returns:
+            How many nodes were deleted.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+        """
+        ...
+
+    async def generations(self) -> tuple[GenerationRecord, ...]:
+        """Read every generation this store's catalogue holds.
+
+        Returns:
+            Every generation record, oldest first.
+        """
+        ...
 
 
 GenerationHolding.version = STORE_CONTRACT_VERSION
 
 
 class NotAPublishedMemberError(WeftError):
-    """`GenerationCarrying.carry_forward` was asked to carry nodes no published generation holds
+    """Nodes asked to be carried forward are held by no published generation.
+
+    `GenerationCarrying.carry_forward` was asked to carry nodes no published generation holds
     — ledger task **43.22**. `node_ids` is every refused id, sorted and deduplicated; nothing in
     the refused call was carried.
     """
@@ -1489,7 +1783,9 @@ class NotAPublishedMemberError(WeftError):
 
 @runtime_checkable
 class GenerationCarrying(Protocol):
-    """A store that carries a published generation's untouched members into a new one — ledger
+    """A store that carries a published generation's untouched members into a new one.
+
+    A store that carries a published generation's untouched members into a new one — ledger
     task **43.22**.
 
     `carry_forward` adds `into` to each node's generation membership and changes nothing else
@@ -1505,14 +1801,30 @@ class GenerationCarrying(Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int: ...
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
+        """Make published members of an earlier generation members of `into` too.
+
+        Args:
+            into: The generation the nodes join.
+            node_ids: The nodes to carry; repeated ids count once.
+
+        Returns:
+            The number of distinct nodes carried.
+
+        Raises:
+            UnknownGenerationError: The store holds no generation `into`.
+            NotAPublishedMemberError: An id is held by no published generation.
+        """
+        ...
 
 
 GenerationCarrying.version = STORE_CONTRACT_VERSION
 
 
 class NotAPublishedGenerationError(WeftError, UnresolvedNameError):
-    """`GenerationWithdrawing.withdraw_generation` was asked to withdraw a generation that is not
+    """A generation asked to be withdrawn is not published.
+
+    `GenerationWithdrawing.withdraw_generation` was asked to withdraw a generation that is not
     published — repair **R43.29**. `status` is where it stands; `valid_options` carries the ids of
     the published generations, fitness function 12's family.
     """
@@ -1535,7 +1847,9 @@ class NotAPublishedGenerationError(WeftError, UnresolvedNameError):
 
 @runtime_checkable
 class GenerationWithdrawing(Protocol):
-    """A store that withdraws a superseded generation now and reclaims its nodes later — repair
+    """A store that withdraws a superseded generation now and reclaims its nodes later.
+
+    A store that withdraws a superseded generation now and reclaims its nodes later — repair
     **R43.29**.
 
     `withdraw_generation` marks a published generation `WITHDRAWN` and touches no node and no
@@ -1549,16 +1863,40 @@ class GenerationWithdrawing(Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord: ...
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Mark a published `generation` withdrawn, touching no node.
 
-    async def reclaim_withdrawn(self, layer: str) -> Removed: ...
+        Args:
+            generation: The generation to withdraw.
+
+        Returns:
+            The generation's record, `withdrawn`.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+            NotAPublishedGenerationError: The generation is not published.
+        """
+        ...
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        """Retract every withdrawn generation of `layer`.
+
+        Args:
+            layer: The layer whose withdrawn generations are reclaimed.
+
+        Returns:
+            How many nodes were deleted.
+        """
+        ...
 
 
 GenerationWithdrawing.version = STORE_CONTRACT_VERSION
 
 
 class WriterClaim(BaseModel):
-    """Who is writing into a store — `SingleWriter.claim_writer`'s argument, and what a refusal
+    """Who is writing into a store.
+
+    Who is writing into a store — `SingleWriter.claim_writer`'s argument, and what a refusal
     names. Ledger task **43.18**.
     """
 
@@ -1594,9 +1932,20 @@ class SingleWriter(Protocol):
     if TYPE_CHECKING:
         version: ClassVar[str]
 
-    async def claim_writer(self, writer: WriterClaim) -> None: ...
+    async def claim_writer(self, writer: WriterClaim) -> None:
+        """Claim this store for `writer`, or refuse naming the current holder.
 
-    async def release_writer(self) -> None: ...
+        Args:
+            writer: Who is claiming the store.
+
+        Raises:
+            WriterBusyError: Another handle holds the claim.
+        """
+        ...
+
+    async def release_writer(self) -> None:
+        """End this handle's writer claim, if it holds one."""
+        ...
 
 
 SingleWriter.version = STORE_CONTRACT_VERSION

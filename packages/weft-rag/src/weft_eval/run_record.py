@@ -140,7 +140,9 @@ class CorpusIdentity(BaseModel):
 
 
 def corpus_identity(name: str, document_ids: Iterable[str]) -> CorpusIdentity:
-    """A `CorpusIdentity` for `name` over `document_ids` — order-independent, and over whatever
+    """An order-independent `CorpusIdentity` for `name` over `document_ids`.
+
+    A `CorpusIdentity` for `name` over `document_ids` — order-independent, and over whatever
     its caller identifies a document by.
 
     `document_ids` is whatever a caller's own documents are identified by — a `SourceId`, a
@@ -228,7 +230,9 @@ type MetricRunResult = Produced[MetricAggregate] | NotAggregated
 
 
 def _as_run_result(outcome: Outcome[MetricAggregate]) -> MetricRunResult:
-    """`aggregate()`'s three-state `Outcome` collapsed to `MetricRunResult`'s two — see
+    """Collapse `aggregate()`'s three-state `Outcome` to `MetricRunResult`'s two.
+
+    `aggregate()`'s three-state `Outcome` collapsed to `MetricRunResult`'s two — see
     `NotAggregated`'s own docstring for why `Failed`/`NothingToProduce` fold into one shape here.
     """
     match outcome:
@@ -282,7 +286,9 @@ class PerQuestionScores(BaseModel):
 
 
 class PerQuestionSeconds(BaseModel):
-    """How long each question's own retrieval took — task **33.7**, keyed identically to
+    """How long each question's own retrieval took.
+
+    How long each question's own retrieval took — task **33.7**, keyed identically to
     `PerQuestionScores` above so a reader pairing a score with its latency never has to guess
     at a second vocabulary. `RunDurations.query_seconds` is the run's total; this is the tail
     hiding inside it.
@@ -303,7 +309,9 @@ class PerQuestionSeconds(BaseModel):
 
 
 class RoleTokens(BaseModel):
-    """What one `[llm.roles]` role spent across a run — task **33.7**, folded from
+    """What one `[llm.roles]` role spent across a run.
+
+    What one `[llm.roles]` role spent across a run — task **33.7**, folded from
     `weft_llm.usage.UsageEntry`. `calls_not_reporting` is how a reader tells a role that made
     calls a provider does not meter apart from a role that made none at all — the module
     docstring's own distinction, one level up.
@@ -570,7 +578,9 @@ def write_run_record(record: RunRecord, path: Path) -> Path:
 
 
 def load_run_record(path: Path) -> RunRecord:
-    """Read a `RunRecord` back from `path` — the other half of "two runs can be diffed after
+    """Read a `RunRecord` back from `path`.
+
+    Read a `RunRecord` back from `path` — the other half of "two runs can be diffed after
     the fact". Raises `pydantic.ValidationError`, naming the field, for a file that is not a
     well-formed `RunRecord`; raises `FileNotFoundError` for a path nothing wrote to.
     """

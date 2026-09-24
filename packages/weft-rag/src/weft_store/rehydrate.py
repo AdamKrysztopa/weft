@@ -136,7 +136,9 @@ def register_from_reports(reports: Iterable[PackReport]) -> None:
 
 
 def _register_if_new(model: type[ExtModel]) -> None:
-    """`register_ext_model(model)`, skipped only when `model` itself already claimed
+    """Register `model`'s namespace unless `model` itself already claimed it.
+
+    `register_ext_model(model)`, skipped only when `model` itself already claimed
     this namespace — see `register_from_reports`'s own docstring for why.
     """
     try:

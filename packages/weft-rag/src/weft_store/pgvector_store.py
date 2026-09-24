@@ -507,8 +507,10 @@ _BM25_TEXT_SCORE_SEMANTICS = (
 
 
 def _create_bm25_index_sql(config: str) -> sql.Composed:
-    """The BM25 index, on `content` alone — `pg_textsearch 1.4.0` refuses a multicolumn one
-    outright ("access method \"bm25\" does not support multicolumn indexes", measured 2026-09-13).
+    """The BM25 index, on `content` alone.
+
+    The BM25 index, on `content` alone — `pg_textsearch 1.4.0` refuses a multicolumn one
+    outright ("access method "bm25" does not support multicolumn indexes", measured 2026-09-13).
 
     `text_config` is the same `self._text_search_config` `_add_tsvector_column_sql` already
     stores against, so the two never disagree about what a word is — the module docstring's rule,
@@ -1025,7 +1027,9 @@ _ORDERED_SQL: dict[FilterOp, sql.SQL] = {
 def _predicate_or_true(
     filter: Filter | None, values: dict[str, object], hidden: Sequence[str]
 ) -> sql.Composable:
-    """A filter's predicate, or a constant true where there is no filter — AND-ed, either way,
+    """A filter's predicate AND-ed with the generation membership rule.
+
+    A filter's predicate, or a constant true where there is no filter — AND-ed, either way,
     with `GenerationHolding`'s membership rule (ledger task **43.14**).
 
     `TRUE` rather than two spellings of every statement: a search with no filter
@@ -1255,55 +1259,64 @@ class PgVectorStore:
         # against each other. `_SCHEMA_LOCK_KEY`, held for this block only and released in
         # `finally`, serialises every opener of this database.
         try:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT pg_advisory_lock(hashtext(%s))", (_SCHEMA_LOCK_KEY,))
-                await cur.execute(_CREATE_EXTENSION)
-            # `pgvector`'s type adapter looks the `vector` type up by name in the database's own
-            # catalog, so it must register *after* `CREATE EXTENSION` has run at least once, never
-            # before — a fresh database has no `vector` type until this statement creates it.
-            await register_vector_async(conn)
-            target = await _pg_resolve_active_target(_TARGET_LAYOUT, conn, home_schema, self._bound)
-            self._active_target = target
-            async with conn.cursor() as cur:
-                await self._require_text_search_config(cur)
-                if self._text_mode is TextMode.BM25:
-                    await self._require_bm25_extension(cur)
-                await self._provision_unless_stamped(cur)
-                await self._check_text_index(cur)
-                # R38.7: a generic plan cannot know how many rows a question's words match — it
-                # estimated 948 of ~150,000 over Open RAGBench, and a lexical search took 1,880 ms
-                # against its own custom plan's 373 ms from the sixth execution on.
-                await cur.execute("SET plan_cache_mode = force_custom_plan")
-                if self._index is VectorIndexKind.HNSW:
-                    await self._require_iterative_scan_support(cur)
-                    # Set once per connection, not per query: this store owns `conn` exclusively
-                    # for its lifetime (cached on `self._conn` above), so a session GUC set here
-                    # already applies to every `search_vector` call the connection ever serves.
-                    await cur.execute(
-                        sql.SQL("SET hnsw.iterative_scan = {value}").format(
-                            value=sql.Literal(self._iterative_scan.value)
-                        )
-                    )
-                # `GenerationHolding`'s manifest — ledger task **43.14**: read once, here, and held
-                # on `self._published_generations` for this handle's lifetime, so one operation
-                # never mixes what two publishes made visible. A bare `SELECT` takes no lock
-                # beyond `ACCESS SHARE` — R43.6's own rule, applied to a second table. One per
-                # layer, the newest published (repair **R43.25**), so a reader opened between a
-                # publish and the retract after it sees one tree of that layer, never two.
-                await cur.execute(
-                    "SELECT DISTINCT ON (layer) id FROM weft_generations WHERE status = %s "
-                    "ORDER BY layer, published_at DESC, opened_at DESC, id DESC",
-                    (GenerationStatus.PUBLISHED.value,),
-                )
-                generation_rows = await cur.fetchall()
-            self._published_generations = frozenset(
-                GenerationId(cast(str, row["id"])) for row in generation_rows
-            )
+            await self._provision_under_schema_lock(conn, home_schema)
         finally:
             async with conn.cursor() as cur:
                 await cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (_SCHEMA_LOCK_KEY,))
         self._conn = conn
         return conn
+
+    async def _provision_under_schema_lock(
+        self, conn: psycopg.AsyncConnection[dict[str, Any]], home_schema: str
+    ) -> None:
+        """Take `_SCHEMA_LOCK_KEY`, provision the schema and read this handle's manifest.
+
+        The lock is released by the caller's `finally`, never here.
+        """
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT pg_advisory_lock(hashtext(%s))", (_SCHEMA_LOCK_KEY,))
+            await cur.execute(_CREATE_EXTENSION)
+        # `pgvector`'s type adapter looks the `vector` type up by name in the database's own
+        # catalog, so it must register *after* `CREATE EXTENSION` has run at least once, never
+        # before — a fresh database has no `vector` type until this statement creates it.
+        await register_vector_async(conn)
+        target = await _pg_resolve_active_target(_TARGET_LAYOUT, conn, home_schema, self._bound)
+        self._active_target = target
+        async with conn.cursor() as cur:
+            await self._require_text_search_config(cur)
+            if self._text_mode is TextMode.BM25:
+                await self._require_bm25_extension(cur)
+            await self._provision_unless_stamped(cur)
+            await self._check_text_index(cur)
+            # R38.7: a generic plan cannot know how many rows a question's words match — it
+            # estimated 948 of ~150,000 over Open RAGBench, and a lexical search took 1,880 ms
+            # against its own custom plan's 373 ms from the sixth execution on.
+            await cur.execute("SET plan_cache_mode = force_custom_plan")
+            if self._index is VectorIndexKind.HNSW:
+                await self._require_iterative_scan_support(cur)
+                # Set once per connection, not per query: this store owns `conn` exclusively
+                # for its lifetime (cached on `self._conn` above), so a session GUC set here
+                # already applies to every `search_vector` call the connection ever serves.
+                await cur.execute(
+                    sql.SQL("SET hnsw.iterative_scan = {value}").format(
+                        value=sql.Literal(self._iterative_scan.value)
+                    )
+                )
+            # `GenerationHolding`'s manifest — ledger task **43.14**: read once, here, and held
+            # on `self._published_generations` for this handle's lifetime, so one operation
+            # never mixes what two publishes made visible. A bare `SELECT` takes no lock
+            # beyond `ACCESS SHARE` — R43.6's own rule, applied to a second table. One per
+            # layer, the newest published (repair **R43.25**), so a reader opened between a
+            # publish and the retract after it sees one tree of that layer, never two.
+            await cur.execute(
+                "SELECT DISTINCT ON (layer) id FROM weft_generations WHERE status = %s "
+                "ORDER BY layer, published_at DESC, opened_at DESC, id DESC",
+                (GenerationStatus.PUBLISHED.value,),
+            )
+            generation_rows = await cur.fetchall()
+        self._published_generations = frozenset(
+            GenerationId(cast(str, row["id"])) for row in generation_rows
+        )
 
     async def _require_iterative_scan_support(
         self, cur: psycopg.AsyncCursor[dict[str, Any]]
@@ -1494,7 +1507,9 @@ class PgVectorStore:
         await cur.execute(_CREATE_VECTORSCALE_EXTENSION)
 
     async def _register_target_if_needed(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> None:
-        """The catalogue row a non-default target earns on its first write — never on a bind,
+        """Record a non-default target's catalogue row on its first write.
+
+        The catalogue row a non-default target earns on its first write — never on a bind,
         never on a read. `default` needs none: the catalogue lists it regardless (`34.1`, point 2).
         """
         await _pg_register_target_if_needed(
@@ -1502,7 +1517,9 @@ class PgVectorStore:
         )
 
     def _require_home_schema(self) -> str:
-        """`self._home_schema`, narrowed — every `TargetHolding` method calls `_connection()`
+        """`self._home_schema`, narrowed.
+
+        `self._home_schema`, narrowed — every `TargetHolding` method calls `_connection()`
         first, which is what actually guarantees this is set; `raise` rather than `assert`
         because `assert` is stripped under `-O` (`pyproject.toml`'s `S101` note) and this is a
         real invariant, not a debug aid.
@@ -1512,7 +1529,9 @@ class PgVectorStore:
         return self._home_schema
 
     def _require_active_target(self) -> TargetName:
-        """`self._active_target`, narrowed — same guarantee and the same reason as
+        """`self._active_target`, narrowed.
+
+        `self._active_target`, narrowed — same guarantee and the same reason as
         `_require_home_schema` above.
         """
         if self._active_target is None:
@@ -1520,7 +1539,9 @@ class PgVectorStore:
         return self._active_target
 
     async def _hidden_generations(self) -> list[str]:
-        """The generations this handle cannot see — `GenerationHolding`, ledger **43.14**: every
+        """The generations this handle cannot see.
+
+        The generations this handle cannot see — `GenerationHolding`, ledger **43.14**: every
         one the catalogue holds now that was not published when this handle first touched
         storage, other than the one it is bound to. Read per search, since a generation opened
         after this handle's first touch is still hidden from it; the catalogue is one row per
@@ -1538,7 +1559,9 @@ class PgVectorStore:
         return sorted(cast(str, row["id"]) for row in rows if row["id"] not in visible)
 
     def _require_published_generations(self) -> frozenset[GenerationId]:
-        """`self._published_generations`, narrowed — same guarantee and the same reason as
+        """`self._published_generations`, narrowed.
+
+        `self._published_generations`, narrowed — same guarantee and the same reason as
         `_require_home_schema` above.
         """
         if self._published_generations is None:
@@ -1552,6 +1575,14 @@ class PgVectorStore:
         return Produced(value=payload)
 
     async def add(self, nodes: Sequence[Node]) -> None:
+        """Write `nodes` and their productions in one transaction.
+
+        A node already stored under the same id has its sources and generations merged with the new
+        write's.
+
+        Args:
+            nodes: The nodes to write.
+        """
         if not nodes:
             return
         conn = await self._connection()
@@ -1617,6 +1648,14 @@ class PgVectorStore:
         return
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        """Read the nodes stored under `ids`.
+
+        Args:
+            ids: The node ids to read.
+
+        Returns:
+            The nodes that exist; an id the store does not hold is absent from the answer.
+        """
         if not ids:
             return ()
         conn = await self._connection()
@@ -1626,6 +1665,14 @@ class PgVectorStore:
         return tuple(_row_to_node(row) for row in rows)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
+        """Delete what `source_id` produced, idempotently and resumably.
+
+        Args:
+            source_id: The source whose nodes and record are removed.
+
+        Returns:
+            How many nodes were deleted and how many were narrowed.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
@@ -1639,7 +1686,9 @@ class PgVectorStore:
     async def _delete_and_narrow(
         self, cur: psycopg.AsyncCursor[dict[str, Any]], source_id: SourceId
     ) -> tuple[int, int]:
-        """Delete every node `source_id` alone produced, narrow every node it shares — ledger
+        """Delete the nodes `source_id` alone produced and narrow the ones it shares.
+
+        Delete every node `source_id` alone produced, narrow every node it shares — ledger
         **27.1**, shared by `delete_source` and `reconcile` so an interrupted deletion finishes
         identically to one that ran straight through.
 
@@ -1824,6 +1873,14 @@ class PgVectorStore:
         return tuple(cast(str, row["id"]) for row in rows)
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        """Walk every stored node, one page at a time.
+
+        Args:
+            cursor: Where the previous page ended, or `None` for the first page.
+
+        Returns:
+            One page of nodes and the cursor for the next, if any.
+        """
         conn = await self._connection()
         after = cursor if cursor is not None else ""
         async with conn.cursor() as cur:
@@ -1835,6 +1892,11 @@ class PgVectorStore:
         return _page_of(rows)
 
     async def count(self) -> int:
+        """Count the nodes stored.
+
+        Returns:
+            How many nodes this store holds.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT COUNT(*) AS n FROM weft_nodes")
@@ -1842,6 +1904,11 @@ class PgVectorStore:
         return cast(int, row["n"]) if row is not None else 0
 
     async def put_source(self, record: SourceRecord) -> None:
+        """Write or replace one source's record.
+
+        Args:
+            record: The record to store under its own id.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await self._register_target_if_needed(cur)
@@ -1876,6 +1943,14 @@ class PgVectorStore:
             )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        """Read one source's record.
+
+        Args:
+            source_id: The source to read.
+
+        Returns:
+            The record, or `None` when none is stored.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT * FROM weft_sources WHERE id = %s", (source_id,))
@@ -1883,6 +1958,11 @@ class PgVectorStore:
         return _row_to_source_record(row) if row is not None else None
 
     async def list_sources(self) -> Sequence[SourceRecord]:
+        """Read every source record this store holds.
+
+        Returns:
+            Every source record.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT * FROM weft_sources ORDER BY id")
@@ -1911,6 +1991,16 @@ class PgVectorStore:
     async def search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
     ) -> Sequence[Scored[Node]]:
+        """Rank stored nodes by similarity to `vector`.
+
+        Args:
+            vector: The query vector; the store never embeds.
+            top_k: How many nodes to return at most.
+            filter: A predicate every returned node must satisfy, if any.
+
+        Returns:
+            The best `top_k` nodes with their scores, best first.
+        """
         conn = await self._connection()
         statement, values = await self._search_vector_statement(top_k, filter)
         async with conn.cursor() as cur:
@@ -2048,16 +2138,31 @@ class PgVectorStore:
     # -- TargetHolding — ledger task **34.1** ------------------------------------------------
 
     async def target_catalogue(self) -> TargetCatalogue:
+        """Read every target this store holds.
+
+        Returns:
+            The targets, which one is live, which was live before, and the last promotion.
+        """
         conn = await self._connection()
         return await _pg_target_catalogue(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle onto the same database, bound to `target` — its own connection,
+        """A second handle onto the same database, bound to `target`.
+
+        A second handle onto the same database, bound to `target` — its own connection,
         opened lazily on first use exactly as an unbound handle's is.
         """
         return type(self)(self._settings, _bound=target)
 
     async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        """Record `identity` against this handle's target, unless one is recorded.
+
+        Args:
+            identity: What embedded the vectors about to be written.
+
+        Returns:
+            The identity the target holds, which is the earlier one if already claimed.
+        """
         conn = await self._connection()
         return await _pg_claim_embedding(
             _TARGET_LAYOUT,
@@ -2068,7 +2173,9 @@ class PgVectorStore:
         )
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
-        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+        """Make the promoted target live, recording the previous one for rollback.
+
+        Promoting the target that is already live is a no-op: `previous` is never rewritten to
         the already-live target, so a converging re-run after a crash leaves the rollback an
         operator needs intact.
         """
@@ -2076,17 +2183,36 @@ class PgVectorStore:
         return await _pg_promote(_TARGET_LAYOUT, conn, self._require_home_schema(), promotion)
 
     async def rollback(self) -> TargetCatalogue:
+        """Swap the live target with the previous one.
+
+        Returns:
+            The catalogue after the rollback.
+
+        Raises:
+            NoPreviousTargetError: No target was live before this one.
+        """
         conn = await self._connection()
         return await _pg_rollback(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def drop_target(self, target: TargetName) -> None:
+        """Delete `target` and everything stored in it.
+
+        Args:
+            target: The target to drop.
+
+        Raises:
+            UnknownTargetError: The target is not in the catalogue.
+            TargetInUseError: The target is live, previous, or bound by another handle.
+        """
         conn = await self._connection()
         await _pg_drop_target(_TARGET_LAYOUT, conn, self._require_home_schema(), target)
 
     # -- SingleWriter — ledger task **43.18** -------------------------------------------------
 
     async def claim_writer(self, writer: WriterClaim) -> None:
-        """`pg_try_advisory_lock`, on this handle's own connection, decides; the row is only
+        """Claim this handle's target for `writer`, or refuse naming the holder.
+
+        `pg_try_advisory_lock`, on this handle's own connection, decides; the row is only
         what a refusal reads back to name the holder. A crashed holder's session lock dies with
         its connection, so a stale row from it is simply overwritten by the upsert below the next
         time the lock is free to take.
@@ -2140,7 +2266,9 @@ class PgVectorStore:
         self._writer_claimed = True
 
     async def release_writer(self) -> None:
-        """A no-op on a handle that never claimed — `self._writer_claimed` is what a second
+        """Release this handle's writer claim, if it holds one.
+
+        A no-op on a handle that never claimed — `self._writer_claimed` is what a second
         `release_writer` call, or one on a handle that lost `claim_writer` to a busy target,
         must not treat as releasing someone else's claim.
         """
@@ -2159,6 +2287,14 @@ class PgVectorStore:
     # -- GenerationHolding — ledger task **43.14** -------------------------------------------
 
     async def open_generation(self, layer: str) -> GenerationRecord:
+        """Open a new, unpublished generation of `layer`.
+
+        Args:
+            layer: The layer the generation builds.
+
+        Returns:
+            The generation's record, `building`.
+        """
         conn = await self._connection()
         generation_id = GenerationId(f"g-{uuid4().hex[:12]}")
         async with conn.cursor() as cur:
@@ -2173,7 +2309,9 @@ class PgVectorStore:
         return _row_to_generation_record(row)
 
     async def bind_generation(self, generation: GenerationId) -> Self:
-        """A second handle onto the same database and target, bound to `generation` — its own
+        """A second handle onto the same database and target, bound to `generation`.
+
+        A second handle onto the same database and target, bound to `generation` — its own
         connection, opened lazily on first use exactly as `bind_target`'s is.
         """
         conn = await self._connection()
@@ -2187,6 +2325,17 @@ class PgVectorStore:
         return type(self)(self._settings, _bound=self._bound, _generation=generation)
 
     async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Make `generation` visible to handles that open afterwards.
+
+        Args:
+            generation: The generation to publish.
+
+        Returns:
+            The generation's record, `published`.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute(
@@ -2202,7 +2351,9 @@ class PgVectorStore:
         return _row_to_generation_record(row)
 
     async def retract_generation(self, generation: GenerationId) -> Removed:
-        """Remove the nodes only `generation` made, keep every node another generation or the
+        """Remove the nodes only `generation` made, and forget it.
+
+        Remove the nodes only `generation` made, keep every node another generation or the
         base also holds, and forget `generation` — `GenerationHolding`, ledger **43.14**.
         """
         conn = await self._connection()
@@ -2216,6 +2367,11 @@ class PgVectorStore:
         return Removed(source_id=SourceId(generation), node_count=node_count)
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
+        """Read every generation this store's catalogue holds.
+
+        Returns:
+            Every generation record, oldest first.
+        """
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT * FROM weft_generations ORDER BY opened_at, id")
@@ -2257,7 +2413,9 @@ class PgVectorStore:
     # -- GenerationWithdrawing — repair **R43.29** -------------------------------------------
 
     async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
-        """Mark a published `generation` withdrawn and touch no node: a handle that read its
+        """Mark a published `generation` withdrawn without touching any node.
+
+        Mark a published `generation` withdrawn and touch no node: a handle that read its
         manifest before this keeps it, and every handle that reads one after leaves it out.
         """
         conn = await self._connection()
@@ -2303,7 +2461,9 @@ class PgVectorStore:
     async def _known_generation_ids(
         self, cur: psycopg.AsyncCursor[dict[str, Any]]
     ) -> tuple[str, ...]:
-        """Every generation id this store's catalogue holds — fitness function 12's
+        """Every generation id this store's catalogue holds.
+
+        Every generation id this store's catalogue holds — fitness function 12's
         `valid_options`, for `bind_generation`, `publish_generation` and `retract_generation`.
         """
         await cur.execute("SELECT id FROM weft_generations ORDER BY id")
@@ -2336,20 +2496,10 @@ class PgVectorStore:
         Runs before every `INSERT`, never after: a mismatch found here means nothing about this
         batch has reached the table yet, and the caller sees exactly the row count it started with.
         """
-        width: int | None = None
-        culprit: NodeId | None = None
-        for node in nodes:
-            if node.embedding is None:
-                continue
-            if width is None:
-                width, culprit = node.embedding.dimension, node.id
-            elif node.embedding.dimension != width:
-                raise VectorWidthMismatchError(
-                    _vector_width_mismatch_message(node.id, node.embedding.dimension, width),
-                    pack="weft-store",
-                )
-        if width is None or culprit is None:
+        batch = _batch_width(nodes)
+        if batch is None:
             return
+        width, culprit = batch
         async with conn.cursor() as cur:
             committed = await self._read_committed_width(cur)
             if committed is not None:
@@ -2359,44 +2509,56 @@ class PgVectorStore:
                         pack="weft-store",
                     )
                 return
-            await cur.execute(_EMBEDDING_WIDTHS_SQL)
-            rows = await cur.fetchall()
-            existing = sorted({cast(int, row["width"]) for row in rows})
-            if len(existing) > 1:
-                raise MixedVectorWidthError(
-                    f"weft_nodes.embedding already holds nodes of "
-                    f"{', '.join(str(w) for w in existing)} components each, and its column is "
-                    f"still untyped. Typing it to any one of these widths would silently strand "
-                    f"every row carrying the others, so this store refuses to guess — decide "
-                    f"which width this corpus actually is and re-index the rest under it.",
-                    pack="weft-store",
-                )
-            if existing and existing[0] != width:
-                raise VectorWidthMismatchError(
-                    _vector_width_mismatch_message(culprit, width, existing[0]),
-                    pack="weft-store",
-                )
-            committed_width = existing[0] if existing else width
+            committed_width = await self._width_to_commit(cur, width, culprit)
             await cur.execute(_alter_embedding_width_sql(committed_width))
-            if self._index is VectorIndexKind.HNSW:
-                # HNSW cannot be built on a bare `vector` column, and this branch runs exactly
-                # once — the width has just become fixed above, and `committed is not None`
-                # short-circuits every call after it. `IF NOT EXISTS` still guards it: a second
-                # `PgVectorStore` against the same database can race this same branch.
-                self._reject_width_over_index_ceiling(committed_width)
-                await cur.execute(
-                    self._create_hnsw_index_sql(
-                        self._precision,
-                        committed_width,
-                        self._hnsw_m,
-                        self._hnsw_ef_construction,
-                    )
+            await self._create_vector_index(cur, committed_width)
+
+    async def _width_to_commit(
+        self, cur: psycopg.AsyncCursor[dict[str, Any]], width: int, culprit: NodeId
+    ) -> int:
+        """The width an untyped column's existing rows allow, or `width` when it holds none."""
+        await cur.execute(_EMBEDDING_WIDTHS_SQL)
+        rows = await cur.fetchall()
+        existing = sorted({cast(int, row["width"]) for row in rows})
+        if len(existing) > 1:
+            raise MixedVectorWidthError(
+                f"weft_nodes.embedding already holds nodes of "
+                f"{', '.join(str(w) for w in existing)} components each, and its column is "
+                f"still untyped. Typing it to any one of these widths would silently strand "
+                f"every row carrying the others, so this store refuses to guess — decide "
+                f"which width this corpus actually is and re-index the rest under it.",
+                pack="weft-store",
+            )
+        if existing and existing[0] != width:
+            raise VectorWidthMismatchError(
+                _vector_width_mismatch_message(culprit, width, existing[0]),
+                pack="weft-store",
+            )
+        return existing[0] if existing else width
+
+    async def _create_vector_index(
+        self, cur: psycopg.AsyncCursor[dict[str, Any]], committed_width: int
+    ) -> None:
+        """Build the configured vector index, now that the column's width is fixed."""
+        if self._index is VectorIndexKind.HNSW:
+            # HNSW cannot be built on a bare `vector` column, and this branch runs exactly
+            # once — the width has just become fixed by the caller, and `committed is not None`
+            # short-circuits every call after it. `IF NOT EXISTS` still guards it: a second
+            # `PgVectorStore` against the same database can race this same branch.
+            self._reject_width_over_index_ceiling(committed_width)
+            await cur.execute(
+                self._create_hnsw_index_sql(
+                    self._precision,
+                    committed_width,
+                    self._hnsw_m,
+                    self._hnsw_ef_construction,
                 )
-            elif self._index is VectorIndexKind.DISKANN:
-                # Same "runs exactly once, after the width is fixed" reasoning as HNSW above, and
-                # the same reason it cannot be checked at settings-validation time — task 31.11.
-                await self._require_vectorscale_extension(cur)
-                await cur.execute(_CREATE_DISKANN_INDEX_SQL)
+            )
+        elif self._index is VectorIndexKind.DISKANN:
+            # Same "runs exactly once, after the width is fixed" reasoning as HNSW above, and
+            # the same reason it cannot be checked at settings-validation time — task 31.11.
+            await self._require_vectorscale_extension(cur)
+            await cur.execute(_CREATE_DISKANN_INDEX_SQL)
 
     def _reject_width_over_index_ceiling(self, width: int) -> None:
         """This store's own precision against `width` — see `reject_width_over_index_ceiling`."""
@@ -2406,7 +2568,9 @@ class PgVectorStore:
     def _create_hnsw_index_sql(
         precision: VectorPrecision, width: int, m: int, ef_construction: int
     ) -> sql.Composed:
-        """Build `weft_nodes_embedding_hnsw_idx`, naming `_CREATE_TSVECTOR_INDEX`'s
+        """The DDL that builds the HNSW index on the node embeddings.
+
+        Build `weft_nodes_embedding_hnsw_idx`, naming `_CREATE_TSVECTOR_INDEX`'s
         `weft_nodes_content_tsv_idx`. `vector_cosine_ops` matches `<=>`, the operator
         `search_vector` already orders by for `float32`.
 
@@ -2443,7 +2607,9 @@ class PgVectorStore:
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
-        """The configured index kind, read by `weft_cli.estimate.store_index_kind` — ledger
+        """The configured index kind.
+
+        The configured index kind, read by `weft_cli.estimate.store_index_kind` — ledger
         task **31.8**. Declared, never required: the same `getattr` idiom `weft_cli.explain`
         uses for `score_semantics`, so a store not carrying this reads as an absence rather
         than a guess. A `@property` over `self._index` rather than a second stored copy of it.
@@ -2452,7 +2618,9 @@ class PgVectorStore:
 
     @property
     def vector_precision(self) -> VectorPrecision:
-        """The configured vector precision — `vector_index_kind`'s own reasoning, one setting
+        """The configured vector precision.
+
+        The configured vector precision — `vector_index_kind`'s own reasoning, one setting
         over `self._precision`.
         """
         return self._precision
@@ -2527,7 +2695,9 @@ def reject_width_over_index_ceiling(precision: VectorPrecision, width: int) -> N
 def _compressed_order_terms(
     precision: VectorPrecision, width: int
 ) -> tuple[sql.Composable, sql.SQL, sql.Composable]:
-    """The `ORDER BY` expression, operator and query-side cast a compressed candidate scan
+    """The `ORDER BY` expression, operator and cast a compressed candidate scan uses.
+
+    The `ORDER BY` expression, operator and query-side cast a compressed candidate scan
     uses — matched token for token against `PgVectorStore._create_hnsw_index_sql`'s own
     expression, because Postgres matches an expression index textually and a shape that
     drifts by so much as a cast falls back to a sequential scan with no error.
@@ -2697,6 +2867,28 @@ class MixedVectorWidthError(WeftError):
     """
 
 
+def _batch_width(nodes: Sequence[Node]) -> tuple[int, NodeId] | None:
+    """The width every embedded node in `nodes` shares, and the first node carrying it.
+
+    `None` when no node is embedded; a node of another width is refused by name.
+    """
+    width: int | None = None
+    culprit: NodeId | None = None
+    for node in nodes:
+        if node.embedding is None:
+            continue
+        if width is None:
+            width, culprit = node.embedding.dimension, node.id
+        elif node.embedding.dimension != width:
+            raise VectorWidthMismatchError(
+                _vector_width_mismatch_message(node.id, node.embedding.dimension, width),
+                pack="weft-store",
+            )
+    if width is None or culprit is None:
+        return None
+    return width, culprit
+
+
 def _vector_width_mismatch_message(node_id: NodeId, width: int, committed: int) -> str:
     """The G22 refusal, in Qdrant's shape: the node, both widths, and what to do about it."""
     return (
@@ -2721,7 +2913,9 @@ def _vector_width_mismatch_message(node_id: NodeId, width: int, committed: int) 
 
 
 class TargetTableMissingError(WeftError):
-    """A catalogued target's schema is missing one of its three tables — `34.0`'s measured
+    """A catalogued target's schema is missing one of its three tables.
+
+    A catalogued target's schema is missing one of its three tables — `34.0`'s measured
     hazard, made refusable: with `search_path = weft_target_x, public`, an unqualified
     `weft_nodes` missing from `weft_target_x` resolves silently to `public.weft_nodes`, which is
     `default`'s. This store checks every catalogued target's tables when a handle first connects
@@ -2744,7 +2938,9 @@ _TARGET_LAYOUT = PgTargetLayout(
 async def _retract_generation_rows(
     cur: psycopg.AsyncCursor[dict[str, Any]], generation: GenerationId
 ) -> int:
-    """Delete the nodes only `generation` wrote, strip it from the rest and forget it —
+    """Retract `generation` and return how many nodes were deleted.
+
+    Delete the nodes only `generation` wrote, strip it from the rest and forget it —
     `retract_generation`'s work, and `reclaim_withdrawn`'s per generation (repair **R43.29**).
     Returns how many nodes were deleted.
     """

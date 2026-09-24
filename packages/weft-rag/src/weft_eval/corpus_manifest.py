@@ -95,8 +95,7 @@ def load_manifest(manifest: Path) -> CorpusManifest:
     with manifest.open("rb") as handle:
         raw = tomllib.load(handle)
     try:
-        name = str(raw["corpus"]["name"])
-        entries = raw["document"]
+        name, entries = str(raw["corpus"]["name"]), raw["document"]
     except KeyError as exc:
         message = (
             f"{manifest} is missing {exc}. A manifest needs a [corpus] table with a name, "

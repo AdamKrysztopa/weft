@@ -37,19 +37,25 @@ POOL_MANIFEST_SCHEMA_VERSION: Final[int] = 1
 
 
 class PoolManifestError(WeftError):
-    """A pool manifest could not be read as stated — missing, malformed JSON, or a shape this
+    """A pool manifest could not be read as stated.
+
+    A pool manifest could not be read as stated — missing, malformed JSON, or a shape this
     release does not recognise. The message names the path.
     """
 
 
 class PoolManifestSchemaError(PoolManifestError):
-    """The manifest names a schema this release does not read — the message names the path, the
+    """The manifest names a schema this release does not read.
+
+    The manifest names a schema this release does not read — the message names the path, the
     schema it declares and the schema this release reads.
     """
 
 
 class PoolIntegrityError(PoolManifestError):
-    """A replay's manifest, question file or store no longer agree — ledger task **40.2**'s
+    """A replay's manifest, question file or store no longer agree.
+
+    A replay's manifest, question file or store no longer agree — ledger task **40.2**'s
     second half. Raised before or during the question loop, never turned into a per-question
     exclusion: unlike a stage's own refusal (`PipelineDidNotProduceError`), this means the
     *replay itself* cannot be trusted, not that one question failed.
@@ -70,7 +76,9 @@ class PoolIntegrityError(PoolManifestError):
 
 
 class PoolChunk(BaseModel):
-    """One packed chunk, in the ranking's own order — `score` is the retrieval score it was
+    """One packed chunk, in the ranking's own order.
+
+    One packed chunk, in the ranking's own order — `score` is the retrieval score it was
     packed with, never re-derived from a later search.
     """
 
@@ -130,7 +138,9 @@ class PoolManifest(BaseModel):
 
 
 class LoadedPool(BaseModel):
-    """A `PoolManifest` as read back off disk, plus the sha256 of the file's own bytes — the
+    """A `PoolManifest` read back off disk, with the sha256 of its file.
+
+    A `PoolManifest` as read back off disk, plus the sha256 of the file's own bytes — the
     identity a replay pins its own trust to, since the manifest's fields could otherwise be
     reconstructed byte-differently and still validate.
     """
@@ -167,8 +177,10 @@ def text_sha256(text: str) -> str:
 
 
 def relevant_set_sha256(ids: Iterable[str]) -> str:
-    """The sha256 of a relevant-document set — order-independent and deduplicated, `weft_eval.
-    run_record.corpus_identity`'s own construction one layer down: sorted, joined with `\\n`,
+    r"""The order-independent sha256 of a relevant-document set.
+
+    The sha256 of a relevant-document set — order-independent and deduplicated, `weft_eval.
+    run_record.corpus_identity`'s own construction one layer down: sorted, joined with `\n`,
     hashed as utf-8.
     """
     joined = "\n".join(sorted(set(ids)))

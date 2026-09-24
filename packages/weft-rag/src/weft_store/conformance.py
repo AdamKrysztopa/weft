@@ -288,7 +288,7 @@ def register_conformance_ext_models() -> None:
             continue
 
 
-def _require(condition: bool, message: str) -> None:
+def _require(*, condition: bool, message: str) -> None:
     """Raise `AssertionError(message)` when `condition` is false — see this module's docstring."""
     if not condition:
         raise AssertionError(message)
@@ -370,7 +370,9 @@ class GenerationCarryingStore(GenerationHoldingStore, GenerationCarrying, Protoc
 
 @runtime_checkable
 class GenerationWithdrawingStore(GenerationHoldingStore, GenerationWithdrawing, Protocol):
-    """A store that withdraws a published generation now and reclaims its nodes later — repair
+    """A store that withdraws a published generation and reclaims its nodes later.
+
+    A store that withdraws a published generation now and reclaims its nodes later — repair
     **R43.29**.
     """
 
@@ -538,24 +540,26 @@ async def check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ex
 
     # Assert
     _require(
-        len(found) == 1,
-        "the store did not satisfy: len(found) == 1",
+        condition=len(found) == 1,
+        message="the store did not satisfy: len(found) == 1",
     )
     _require(
-        found[0].content == "beta",
-        'the store did not satisfy: found[0].content == "beta"',
+        condition=found[0].content == "beta",
+        message='the store did not satisfy: found[0].content == "beta"',
     )
     _require(
-        found[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B}),
-        "the store did not satisfy: found[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B})",
+        condition=found[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B}),
+        message="the store did not satisfy: found[0].lineage.sources == frozenset({_SOURCE_A, "
+        "_SOURCE_B})",
     )
     _require(
-        found[0].ext_as(ConformanceFact) == ConformanceFact(backend="pdfplumber"),
-        "the store did not satisfy: found[0].ext_as(ConformanceFact) == ConformanceFact(backen...",
+        condition=found[0].ext_as(ConformanceFact) == ConformanceFact(backend="pdfplumber"),
+        message="the store did not satisfy: found[0].ext_as(ConformanceFact) == "
+        "ConformanceFact(backen...",
     )
     _require(
-        found[0].embedding is not None,
-        "the store did not satisfy: found[0].embedding is not None",
+        condition=found[0].embedding is not None,
+        message="the store did not satisfy: found[0].embedding is not None",
     )
 
 
@@ -602,20 +606,20 @@ async def check_the_multimodal_facts_round_trip_through_every_store(
 
     # Assert
     _require(
-        len(found) == 1,
-        "the store did not satisfy: len(found) == 1",
+        condition=len(found) == 1,
+        message="the store did not satisfy: len(found) == 1",
     )
     _require(
-        found[0].ext_as(TableGrid) == grid,
-        "the store did not satisfy: found[0].ext_as(TableGrid) == grid",
+        condition=found[0].ext_as(TableGrid) == grid,
+        message="the store did not satisfy: found[0].ext_as(TableGrid) == grid",
     )
     _require(
-        found[0].ext_as(PageSpan) == span,
-        "the store did not satisfy: found[0].ext_as(PageSpan) == span",
+        condition=found[0].ext_as(PageSpan) == span,
+        message="the store did not satisfy: found[0].ext_as(PageSpan) == span",
     )
     _require(
-        found[0].ext_as(BlobRef) == ref,
-        "the store did not satisfy: found[0].ext_as(BlobRef) == ref",
+        condition=found[0].ext_as(BlobRef) == ref,
+        message="the store did not satisfy: found[0].ext_as(BlobRef) == ref",
     )
 
 
@@ -632,16 +636,18 @@ async def check_scan_and_count_see_every_stored_node_whatever_order_a_backend_wa
     # Assert — a set, not a sequence: the contract promises pages, never an order, and the
     # two backends genuinely differ (Postgres walks the content digest, Qdrant a UUID).
     _require(
-        frozenset(node.content for node in page.items) == frozenset({"alpha", "beta", "gamma"}),
-        "the store did not satisfy: frozenset(node.content for node in page.items) == frozense...",
+        condition=frozenset(node.content for node in page.items)
+        == frozenset({"alpha", "beta", "gamma"}),
+        message="the store did not satisfy: frozenset(node.content for node in page.items) == "
+        "frozense...",
     )
     _require(
-        page.next_cursor is None,
-        "the store did not satisfy: page.next_cursor is None",
+        condition=page.next_cursor is None,
+        message="the store did not satisfy: page.next_cursor is None",
     )
     _require(
-        total == 3,
-        "the store did not satisfy: total == 3",
+        condition=total == 3,
+        message="the store did not satisfy: total == 3",
     )
 
 
@@ -671,24 +677,26 @@ async def check_delete_source_removes_exactly_the_nodes_carrying_it(store: NodeS
 
     # Assert
     _require(
-        removed.source_id == _SOURCE_B,
-        "the store did not satisfy: removed.source_id == _SOURCE_B",
+        condition=removed.source_id == _SOURCE_B,
+        message="the store did not satisfy: removed.source_id == _SOURCE_B",
     )
     _require(
-        removed.node_count == 2,
-        "the store did not satisfy: removed.node_count == 2",
+        condition=removed.node_count == 2,
+        message="the store did not satisfy: removed.node_count == 2",
     )
     _require(
-        removed.narrowed_count == 0,
-        "the store did not satisfy: removed.narrowed_count == 0",
+        condition=removed.narrowed_count == 0,
+        message="the store did not satisfy: removed.narrowed_count == 0",
     )
     _require(
-        frozenset(node.content for node in (await store.scan()).items) == frozenset({"alpha"}),
-        "the store did not satisfy: frozenset(node.content for node in (await store.scan()).it...",
+        condition=frozenset(node.content for node in (await store.scan()).items)
+        == frozenset({"alpha"}),
+        message="the store did not satisfy: frozenset(node.content for node in (await "
+        "store.scan()).it...",
     )
     _require(
-        await store.get_source(_SOURCE_B) is None,
-        "the store did not satisfy: await store.get_source(_SOURCE_B) is None",
+        condition=await store.get_source(_SOURCE_B) is None,
+        message="the store did not satisfy: await store.get_source(_SOURCE_B) is None",
     )
 
 
@@ -700,8 +708,8 @@ async def check_add_merges_a_nodes_sources_rather_than_replacing_them(
     from_a = _node("shared", sources=frozenset({_SOURCE_A}))
     from_b = _node("shared", sources=frozenset({_SOURCE_B}))
     _require(
-        from_a.id == from_b.id,
-        "the fixture must exercise the collision, not avoid it",
+        condition=from_a.id == from_b.id,
+        message="the fixture must exercise the collision, not avoid it",
     )
 
     # Act
@@ -711,16 +719,17 @@ async def check_add_merges_a_nodes_sources_rather_than_replacing_them(
     # Assert
     stored = await store.get((from_a.id,))
     _require(
-        len(stored) == 1,
-        "the store did not satisfy: len(stored) == 1",
+        condition=len(stored) == 1,
+        message="the store did not satisfy: len(stored) == 1",
     )
     _require(
-        stored[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B}),
-        "the store did not satisfy: stored[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B})",
+        condition=stored[0].lineage.sources == frozenset({_SOURCE_A, _SOURCE_B}),
+        message="the store did not satisfy: stored[0].lineage.sources == frozenset({_SOURCE_A, "
+        "_SOURCE_B})",
     )
     _require(
-        await store.count() == 1,
-        "the store did not satisfy: await store.count() == 1",
+        condition=await store.count() == 1,
+        message="the store did not satisfy: await store.count() == 1",
     )
 
 
@@ -745,17 +754,17 @@ async def check_a_node_two_documents_each_produced_whole_is_narrowed_not_deleted
 
     # Assert
     _require(
-        (removed.node_count, removed.narrowed_count) == (0, 1),
-        "the store did not satisfy: (removed.node_count, removed.narrowed_count) == (0, 1)",
+        condition=(removed.node_count, removed.narrowed_count) == (0, 1),
+        message="the store did not satisfy: (removed.node_count, removed.narrowed_count) == (0, 1)",
     )
     surviving = await store.get((from_a.id,))
     _require(
-        len(surviving) == 1,
-        "the store did not satisfy: len(surviving) == 1",
+        condition=len(surviving) == 1,
+        message="the store did not satisfy: len(surviving) == 1",
     )
     _require(
-        surviving[0].lineage.sources == frozenset({_SOURCE_B}),
-        "the store did not satisfy: surviving[0].lineage.sources == frozenset({_SOURCE_B})",
+        condition=surviving[0].lineage.sources == frozenset({_SOURCE_B}),
+        message="the store did not satisfy: surviving[0].lineage.sources == frozenset({_SOURCE_B})",
     )
 
 
@@ -775,16 +784,16 @@ async def check_deleting_the_last_document_that_produced_a_node_deletes_it(
 
     # Assert
     _require(
-        (first.node_count, first.narrowed_count) == (0, 1),
-        "the store did not satisfy: (first.node_count, first.narrowed_count) == (0, 1)",
+        condition=(first.node_count, first.narrowed_count) == (0, 1),
+        message="the store did not satisfy: (first.node_count, first.narrowed_count) == (0, 1)",
     )
     _require(
-        (second.node_count, second.narrowed_count) == (1, 0),
-        "the store did not satisfy: (second.node_count, second.narrowed_count) == (1, 0)",
+        condition=(second.node_count, second.narrowed_count) == (1, 0),
+        message="the store did not satisfy: (second.node_count, second.narrowed_count) == (1, 0)",
     )
     _require(
-        await store.count() == 0,
-        "the store did not satisfy: await store.count() == 0",
+        condition=await store.count() == 0,
+        message="the store did not satisfy: await store.count() == 0",
     )
 
 
@@ -805,8 +814,10 @@ async def check_a_derived_node_and_a_collided_one_are_told_apart_in_the_same_sto
     await store.add((derived, collided))
     await store.add((also_collided,))
     _require(
-        derived.lineage.sources == also_collided.lineage.sources | collided.lineage.sources,
-        "the store did not satisfy: derived.lineage.sources == also_collided.lineage.sources |...",
+        condition=derived.lineage.sources
+        == also_collided.lineage.sources | collided.lineage.sources,
+        message="the store did not satisfy: derived.lineage.sources == "
+        "also_collided.lineage.sources |...",
     )
 
     # Act
@@ -814,17 +825,18 @@ async def check_a_derived_node_and_a_collided_one_are_told_apart_in_the_same_sto
 
     # Assert
     _require(
-        (removed.node_count, removed.narrowed_count) == (1, 1),
-        "the store did not satisfy: (removed.node_count, removed.narrowed_count) == (1, 1)",
+        condition=(removed.node_count, removed.narrowed_count) == (1, 1),
+        message="the store did not satisfy: (removed.node_count, removed.narrowed_count) == (1, 1)",
     )
     surviving = {node.content: node for node in (await store.scan()).items}
     _require(
-        frozenset(surviving) == frozenset({"collided"}),
-        'the store did not satisfy: frozenset(surviving) == frozenset({"collided"})',
+        condition=frozenset(surviving) == frozenset({"collided"}),
+        message='the store did not satisfy: frozenset(surviving) == frozenset({"collided"})',
     )
     _require(
-        surviving["collided"].lineage.sources == frozenset({_SOURCE_B}),
-        'the store did not satisfy: surviving["collided"].lineage.sources == frozenset({_SOURC...',
+        condition=surviving["collided"].lineage.sources == frozenset({_SOURCE_B}),
+        message='the store did not satisfy: surviving["collided"].lineage.sources == '
+        "frozenset({_SOURC...",
     )
 
 
@@ -848,12 +860,12 @@ async def check_a_node_written_twice_by_one_document_is_one_production_not_two(
 
     # Assert
     _require(
-        (removed.node_count, removed.narrowed_count) == (1, 0),
-        "the store did not satisfy: (removed.node_count, removed.narrowed_count) == (1, 0)",
+        condition=(removed.node_count, removed.narrowed_count) == (1, 0),
+        message="the store did not satisfy: (removed.node_count, removed.narrowed_count) == (1, 0)",
     )
     _require(
-        await store.count() == 0,
-        "the store did not satisfy: await store.count() == 0",
+        condition=await store.count() == 0,
+        message="the store did not satisfy: await store.count() == 0",
     )
 
 
@@ -880,12 +892,12 @@ async def check_a_deleted_nodes_productions_do_not_outlive_it(
     await store.add((node,))
     first = await store.delete_source(_SOURCE_A)
     _require(
-        (first.node_count, first.narrowed_count) == (1, 0),
-        "the store did not satisfy: (first.node_count, first.narrowed_count) == (1, 0)",
+        condition=(first.node_count, first.narrowed_count) == (1, 0),
+        message="the store did not satisfy: (first.node_count, first.narrowed_count) == (1, 0)",
     )
     _require(
-        await store.count() == 0,
-        "the store did not satisfy: await store.count() == 0",
+        condition=await store.count() == 0,
+        message="the store did not satisfy: await store.count() == 0",
     )
 
     # Act — the same content arrives again, from a different document this time.
@@ -895,12 +907,12 @@ async def check_a_deleted_nodes_productions_do_not_outlive_it(
     # Assert — B was its only producer, so the node goes. A narrowing here would mean A's
     # production outlived the node it described.
     _require(
-        (second.node_count, second.narrowed_count) == (1, 0),
-        "the store did not satisfy: (second.node_count, second.narrowed_count) == (1, 0)",
+        condition=(second.node_count, second.narrowed_count) == (1, 0),
+        message="the store did not satisfy: (second.node_count, second.narrowed_count) == (1, 0)",
     )
     _require(
-        await store.count() == 0,
-        "the store did not satisfy: await store.count() == 0",
+        condition=await store.count() == 0,
+        message="the store did not satisfy: await store.count() == 0",
     )
 
 
@@ -922,8 +934,8 @@ async def check_supersede_replaces_a_node_and_leaves_its_neighbours_alone(
 
     # Act
     _require(
-        callable(getattr(store, "supersede", None)),
-        "the capability is derived from the methods a store implements and never declared "
+        condition=callable(getattr(store, "supersede", None)),
+        message="the capability is derived from the methods a store implements and never declared "
         "(G4), so a real backend must satisfy this Protocol without saying anything",
     )
     await store.supersede(old.id, new)
@@ -931,17 +943,18 @@ async def check_supersede_replaces_a_node_and_leaves_its_neighbours_alone(
 
     # Assert
     _require(
-        [node.id for node in await store.get([old.id])] == [],
-        "the superseded node survived",
+        condition=[node.id for node in await store.get([old.id])] == [],
+        message="the superseded node survived",
     )
     _require(
-        [node.content for node in await store.get([new.id])] == ["beta, revised"],
-        'the store did not satisfy: [node.content for node in await store.get([new.id])] == ["...',
+        condition=[node.content for node in await store.get([new.id])] == ["beta, revised"],
+        message="the store did not satisfy: [node.content for node in await store.get([new.id])] "
+        '== ["...',
     )
     _require(
-        frozenset(node.content for node in (await store.scan()).items)
+        condition=frozenset(node.content for node in (await store.scan()).items)
         == frozenset({"alpha", "beta, revised", "gamma"}),
-        "supersede touched a node it was not given",
+        message="supersede touched a node it was not given",
     )
 
 
@@ -972,9 +985,10 @@ async def check_supersede_is_idempotent_so_an_interrupted_one_can_be_retried(
 
     # Assert
     _require(
-        frozenset(node.content for node in (await store.scan()).items)
+        condition=frozenset(node.content for node in (await store.scan()).items)
         == frozenset({"alpha", "beta, revised", "gamma"}),
-        "the retry changed the store, so an interrupted supersede cannot safely be repeated",
+        message="the retry changed the store, so an interrupted supersede cannot safely be "
+        "repeated",
     )
 
 
@@ -1007,20 +1021,22 @@ async def check_supersede_refuses_a_replacement_that_drops_a_source(
             "still produces would silently lose that document's claim"
         )
     _require(
-        _SOURCE_B in message,
-        f"the refusal must name the source that would be dropped: {message!r}",
+        condition=_SOURCE_B in message,
+        message=f"the refusal must name the source that would be dropped: {message!r}",
     )
     _require(
-        frozenset(node.content for node in (await store.scan()).items)
+        condition=frozenset(node.content for node in (await store.scan()).items)
         == frozenset({"alpha", "beta", "gamma"}),
-        "a refused supersede must change nothing at all",
+        message="a refused supersede must change nothing at all",
     )
 
 
 async def check_reconcile_finishes_a_deletion_that_was_interrupted(
     store: ReconcilableStore,
 ) -> None:
-    """Task **5.1b**'s property, on both real backends: a deletion that started and did not
+    """An interrupted deletion is finished by the next pass, not restarted.
+
+    Task **5.1b**'s property, on both real backends: a deletion that started and did not
     end is finished by the *next* pass, not restarted from nothing.
 
     The interruption is constructed rather than raced: a `DELETING` tombstone plus the nodes
@@ -1049,27 +1065,33 @@ async def check_reconcile_finishes_a_deletion_that_was_interrupted(
 
     # Assert — the first pass finished the job; the second found nothing and is a no-op.
     _require(
-        (report.examined, report.removed, report.converged) == (1, 2, True),
-        "the store did not satisfy: (report.examined, report.removed, report.converged) == (1,...",
+        condition=(report.examined, report.removed, report.converged) == (1, 2, True),
+        message="the store did not satisfy: (report.examined, report.removed, report.converged) == "
+        "(1,...",
     )
     _require(
-        (again.examined, again.removed, again.converged) == (0, 0, True),
-        "the store did not satisfy: (again.examined, again.removed, again.converged) == (0, 0,...",
+        condition=(again.examined, again.removed, again.converged) == (0, 0, True),
+        message="the store did not satisfy: (again.examined, again.removed, again.converged) == "
+        "(0, 0,...",
     )
     _require(
-        frozenset(node.content for node in (await store.scan()).items) == frozenset({"alpha"}),
-        "the store did not satisfy: frozenset(node.content for node in (await store.scan()).it...",
+        condition=frozenset(node.content for node in (await store.scan()).items)
+        == frozenset({"alpha"}),
+        message="the store did not satisfy: frozenset(node.content for node in (await "
+        "store.scan()).it...",
     )
     _require(
-        await store.get_source(_SOURCE_B) is None,
-        "the store did not satisfy: await store.get_source(_SOURCE_B) is None",
+        condition=await store.get_source(_SOURCE_B) is None,
+        message="the store did not satisfy: await store.get_source(_SOURCE_B) is None",
     )
 
 
 async def check_reconcile_leaves_a_healthy_store_alone_on_either_backend(
     store: ReconcilableStore,
 ) -> None:
-    """The other half, and the one that would have been a corpus-erasing bug: a node store
+    """Reconcile leaves a store alone whose nodes have no source records.
+
+    The other half, and the one that would have been a corpus-erasing bug: a node store
     holds the primary data, so a source record it has never been given is not evidence that
     its nodes are orphans. Nothing is removed here, and `full` removes no more than `repair`.
     """
@@ -1081,19 +1103,22 @@ async def check_reconcile_leaves_a_healthy_store_alone_on_either_backend(
 
     # Assert
     _require(
-        (report.removed, report.backfilled, report.converged) == (0, 0, True),
-        "the store did not satisfy: (report.removed, report.backfilled, report.converged) == (...",
+        condition=(report.removed, report.backfilled, report.converged) == (0, 0, True),
+        message="the store did not satisfy: (report.removed, report.backfilled, report.converged) "
+        "== (...",
     )
     _require(
-        await store.count() == 3,
-        "the store did not satisfy: await store.count() == 3",
+        condition=await store.count() == 3,
+        message="the store did not satisfy: await store.count() == 3",
     )
 
 
 async def check_estimate_reports_zero_model_calls_on_either_backend(
     store: ReconcilableStore,
 ) -> None:
-    """Task **5.1c**'s own floor, on both real backends: a node store holds the primary data,
+    """`estimate` reports zero model calls on either backend.
+
+    Task **5.1c**'s own floor, on both real backends: a node store holds the primary data,
     so `full` has nothing to backfill and `estimate` says so honestly rather than guessing at
     a number — see `PgVectorStore.estimate`'s own docstring, which owns the argument for both.
     """
@@ -1105,15 +1130,17 @@ async def check_estimate_reports_zero_model_calls_on_either_backend(
 
     # Assert
     _require(
-        (estimate.pending, estimate.model_calls) == (0, 0),
-        "the store did not satisfy: (estimate.pending, estimate.model_calls) == (0, 0)",
+        condition=(estimate.pending, estimate.model_calls) == (0, 0),
+        message="the store did not satisfy: (estimate.pending, estimate.model_calls) == (0, 0)",
     )
 
 
 async def check_estimate_counts_the_identical_tombstones_reconcile_itself_examines(
     store: ReconcilableStore,
 ) -> None:
-    """`estimate`'s own `pending` must never disagree with what `reconcile` actually examines —
+    """`estimate`'s `pending` agrees with what `reconcile` examines.
+
+    `estimate`'s own `pending` must never disagree with what `reconcile` actually examines —
     both read the same backlog, so a tombstone `estimate` counts is a tombstone `reconcile`
     finishes.
     """
@@ -1137,12 +1164,12 @@ async def check_estimate_counts_the_identical_tombstones_reconcile_itself_examin
 
     # Assert
     _require(
-        estimate.pending == 1,
-        "the store did not satisfy: estimate.pending == 1",
+        condition=estimate.pending == 1,
+        message="the store did not satisfy: estimate.pending == 1",
     )
     _require(
-        report.examined == 1,
-        "the store did not satisfy: report.examined == 1",
+        condition=report.examined == 1,
+        message="the store did not satisfy: report.examined == 1",
     )
 
 
@@ -1186,17 +1213,19 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
 
     # Assert
     _require(
-        found == record,
-        "the store did not satisfy: found == record",
+        condition=found == record,
+        message="the store did not satisfy: found == record",
     )
     _require(
-        tuple(item.id for item in listed) == (_SOURCE_A,),
-        "the store did not satisfy: tuple(item.id for item in listed) == (_SOURCE_A,)",
+        condition=tuple(item.id for item in listed) == (_SOURCE_A,),
+        message="the store did not satisfy: tuple(item.id for item in listed) == (_SOURCE_A,)",
     )
 
 
 async def check_a_source_records_layers_round_trip_whole_and_are_listed(store: NodeStore) -> None:
-    """Ledger **43.6**, widened at **43.21**: three layers in three statuses on one record,
+    """Layer records in three statuses round-trip whole and are listed.
+
+    Ledger **43.6**, widened at **43.21**: three layers in three statuses on one record,
     none on another — each read back whole, by `get_source` and by `list_sources`. `==` on the
     frozen record, for the reason `check_a_source_record_round_trips_and_is_listed` gives: a
     store that names its columns keeps only the fields its author had heard of. `STALE` joins
@@ -1259,10 +1288,10 @@ async def check_a_source_records_layers_round_trip_whole_and_are_listed(store: N
     listed = {record.id: record for record in await store.list_sources()}
 
     # Assert
-    _require(found == layered, "the store did not satisfy: found == layered")
+    _require(condition=found == layered, message="the store did not satisfy: found == layered")
     _require(
-        listed == {_SOURCE_A: layered, _SOURCE_B: bare},
-        "the store did not satisfy: listed == {_SOURCE_A: layered, _SOURCE_B: bare}",
+        condition=listed == {_SOURCE_A: layered, _SOURCE_B: bare},
+        message="the store did not satisfy: listed == {_SOURCE_A: layered, _SOURCE_B: bare}",
     )
 
 
@@ -1285,7 +1314,9 @@ def _failed_record(source_id: SourceId, name: str) -> SourceRecord:
 
 
 async def check_deleting_a_failed_source_removes_it_like_any_other(store: NodeStore) -> None:
-    """Ledger **36.5**: an operator abandoning a document that failed has one command that works —
+    """Deleting a failed source removes its record and every node it left.
+
+    Ledger **36.5**: an operator abandoning a document that failed has one command that works —
     its record goes, and so does every node it left behind.
     """
     # Arrange
@@ -1297,19 +1328,21 @@ async def check_deleting_a_failed_source_removes_it_like_any_other(store: NodeSt
 
     # Assert
     _require(
-        removed.node_count == 2,
-        "the store did not satisfy: removed.node_count == 2",
+        condition=removed.node_count == 2,
+        message="the store did not satisfy: removed.node_count == 2",
     )
     _require(
-        await store.get_source(_SOURCE_B) is None,
-        "the store did not satisfy: await store.get_source(_SOURCE_B) is None",
+        condition=await store.get_source(_SOURCE_B) is None,
+        message="the store did not satisfy: await store.get_source(_SOURCE_B) is None",
     )
 
 
 async def check_reconcile_neither_deletes_nor_clears_a_failed_source(
     store: ReconcilableStore,
 ) -> None:
-    """Ledger **36.5**: reconcile finishes interrupted deletions; a failed source is not one, and
+    """Reconcile leaves a failed source's record in place.
+
+    Ledger **36.5**: reconcile finishes interrupted deletions; a failed source is not one, and
     its record is the only place an operator can find what went wrong.
     """
     # Arrange
@@ -1323,10 +1356,13 @@ async def check_reconcile_neither_deletes_nor_clears_a_failed_source(
 
     # Assert
     _require(
-        await store.get_source(_SOURCE_A) == record,
-        "the store did not satisfy: await store.get_source(_SOURCE_A) == record",
+        condition=await store.get_source(_SOURCE_A) == record,
+        message="the store did not satisfy: await store.get_source(_SOURCE_A) == record",
     )
-    _require(await store.count() == 3, "the store did not satisfy: await store.count() == 3")
+    _require(
+        condition=await store.count() == 3,
+        message="the store did not satisfy: await store.count() == 3",
+    )
 
 
 async def check_search_vector_ranks_by_cosine_similarity_on_either_backend(
@@ -1335,8 +1371,8 @@ async def check_search_vector_ranks_by_cosine_similarity_on_either_backend(
     # Arrange
     await store.add(conformance_corpus())
     _require(
-        callable(getattr(store, "search_vector", None)),
-        'the store did not satisfy: callable(getattr(store, "search_vector", None))',
+        condition=callable(getattr(store, "search_vector", None)),
+        message='the store did not satisfy: callable(getattr(store, "search_vector", None))',
     )
 
     # Act
@@ -1344,10 +1380,14 @@ async def check_search_vector_ranks_by_cosine_similarity_on_either_backend(
 
     # Assert
     _require(
-        [scored.value.content for scored in ranked] == ["beta", "alpha"],
-        'the store did not satisfy: [scored.value.content for scored in ranked] == ["beta", "a...',
+        condition=[scored.value.content for scored in ranked] == ["beta", "alpha"],
+        message="the store did not satisfy: [scored.value.content for scored in ranked] == "
+        '["beta", "a...',
     )
-    _require(abs(ranked[0].score - 1.0) < 1e-3, f"an exact match must score 1.0: {ranked[0].score}")
+    _require(
+        condition=abs(ranked[0].score - 1.0) < 1e-3,
+        message=f"an exact match must score 1.0: {ranked[0].score}",
+    )
 
 
 async def check_search_text_finds_the_node_that_carries_the_words(
@@ -1366,8 +1406,8 @@ async def check_search_text_finds_the_node_that_carries_the_words(
     # Arrange
     await store.add(conformance_corpus())
     _require(
-        callable(getattr(store, "search_text", None)),
-        'the store did not satisfy: callable(getattr(store, "search_text", None))',
+        condition=callable(getattr(store, "search_text", None)),
+        message='the store did not satisfy: callable(getattr(store, "search_text", None))',
     )
 
     # Act
@@ -1375,8 +1415,8 @@ async def check_search_text_finds_the_node_that_carries_the_words(
 
     # Assert
     _require(
-        [scored.value.content for scored in ranked] == ["beta"],
-        f"a lexical search for a word one node carries must return that node: "
+        condition=[scored.value.content for scored in ranked] == ["beta"],
+        message=f"a lexical search for a word one node carries must return that node: "
         f"{[scored.value.content for scored in ranked]}",
     )
 
@@ -1384,7 +1424,9 @@ async def check_search_text_finds_the_node_that_carries_the_words(
 async def check_search_text_answers_nothing_matching_with_an_empty_ranking(
     store: TextSearchableStore,
 ) -> None:
-    """`TextSearch`'s own emptiness rule, in its own words: *"a store whose index holds nothing
+    """A text search that matches nothing returns an empty sequence.
+
+    `TextSearch`'s own emptiness rule, in its own words: *"a store whose index holds nothing
     matching returns an empty sequence; that is the honest answer to 'what matches these words',
     and it is a different fact from a store that could not look, which raises."*
 
@@ -1400,8 +1442,8 @@ async def check_search_text_answers_nothing_matching_with_an_empty_ranking(
 
     # Assert
     _require(
-        list(ranked) == [],
-        f"nothing matching is an empty ranking, not a ranking of everything: "
+        condition=list(ranked) == [],
+        message=f"nothing matching is an empty ranking, not a ranking of everything: "
         f"{[scored.value.content for scored in ranked]}",
     )
 
@@ -1435,13 +1477,13 @@ async def check_search_text_narrows_by_a_filter_rather_than_ignoring_it(
 
     # Assert
     _require(
-        [scored.value.content for scored in excluded] == ["beta"],
-        f"a filter the match satisfies must keep it: "
+        condition=[scored.value.content for scored in excluded] == ["beta"],
+        message=f"a filter the match satisfies must keep it: "
         f"{[scored.value.content for scored in excluded]}",
     )
     _require(
-        list(kept) == [],
-        f"a filter the match does not satisfy must drop it, not return it anyway: "
+        condition=list(kept) == [],
+        message=f"a filter the match does not satisfy must drop it, not return it anyway: "
         f"{[scored.value.content for scored in kept]}",
     )
 
@@ -1452,8 +1494,8 @@ async def check_every_operator_means_the_same_thing_to_both_backends(
     # Arrange
     await store.add(conformance_corpus())
     _require(
-        callable(getattr(store, "matching", None)),
-        'the store did not satisfy: callable(getattr(store, "matching", None))',
+        condition=callable(getattr(store, "matching", None)),
+        message='the store did not satisfy: callable(getattr(store, "matching", None))',
     )
 
     # Act
@@ -1461,8 +1503,8 @@ async def check_every_operator_means_the_same_thing_to_both_backends(
 
     # Assert
     _require(
-        await _all(page) == expected,
-        f"'{label}' disagrees between backends",
+        condition=await _all(page) == expected,
+        message=f"'{label}' disagrees between backends",
     )
 
 
@@ -1494,8 +1536,8 @@ async def check_a_parent_is_one_filter_away_from_its_child_on_either_backend(
     unrelated = _node("unrelated", sources=frozenset({_SOURCE_B}))
     await store.add((parent, *children, unrelated))
     _require(
-        callable(getattr(store, "matching", None)),
-        'the store did not satisfy: callable(getattr(store, "matching", None))',
+        condition=callable(getattr(store, "matching", None)),
+        message='the store did not satisfy: callable(getattr(store, "matching", None))',
     )
 
     # Act
@@ -1505,15 +1547,17 @@ async def check_a_parent_is_one_filter_away_from_its_child_on_either_backend(
 
     # Assert
     _require(
-        await _all(page) == frozenset({"row 0", "row 1"}),
-        'the store did not satisfy: await _all(page) == frozenset({"row 0", "row 1"})',
+        condition=await _all(page) == frozenset({"row 0", "row 1"}),
+        message='the store did not satisfy: await _all(page) == frozenset({"row 0", "row 1"})',
     )
 
 
 async def check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_everything(
     store: FilterableStore,
 ) -> None:
-    """The negative half, because a filter that silently matched nothing and one that silently
+    """A filter on a parent id nothing derives from selects nothing.
+
+    The negative half, because a filter that silently matched nothing and one that silently
     matched everything look identical from a single positive case — and `weft_store.fields`'
     own `UnaddressableFieldError` docstring is explicit that *"a filter matching nothing looks
     exactly like a corpus that holds nothing"*.
@@ -1521,8 +1565,8 @@ async def check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_eve
     # Arrange
     await store.add(conformance_corpus())
     _require(
-        callable(getattr(store, "matching", None)),
-        'the store did not satisfy: callable(getattr(store, "matching", None))',
+        condition=callable(getattr(store, "matching", None)),
+        message='the store did not satisfy: callable(getattr(store, "matching", None))',
     )
 
     # Act
@@ -1532,8 +1576,8 @@ async def check_a_parent_id_nothing_derives_from_selects_nothing_rather_than_eve
 
     # Assert
     _require(
-        await _all(page) == frozenset(),
-        "the store did not satisfy: await _all(page) == frozenset()",
+        condition=await _all(page) == frozenset(),
+        message="the store did not satisfy: await _all(page) == frozenset()",
     )
 
 
@@ -1560,8 +1604,8 @@ async def check_a_parents_children_within_an_ordinal_range_are_one_filter_away(
     )
     await store.add((wanted, other, *children))
     _require(
-        callable(getattr(store, "matching", None)),
-        'the store did not satisfy: callable(getattr(store, "matching", None))',
+        condition=callable(getattr(store, "matching", None)),
+        message='the store did not satisfy: callable(getattr(store, "matching", None))',
     )
 
     # Act
@@ -1577,8 +1621,8 @@ async def check_a_parents_children_within_an_ordinal_range_are_one_filter_away(
 
     # Assert
     _require(
-        await _all(page) == frozenset({"wanted 1", "wanted 2", "wanted 3"}),
-        'the store did not satisfy: await _all(page) == frozenset({"wanted 1", "wanted 2", '
+        condition=await _all(page) == frozenset({"wanted 1", "wanted 2", "wanted 3"}),
+        message='the store did not satisfy: await _all(page) == frozenset({"wanted 1", "wanted 2", '
         '"wanted 3"})',
     )
 
@@ -1586,7 +1630,9 @@ async def check_a_parents_children_within_an_ordinal_range_are_one_filter_away(
 async def check_writing_a_node_again_under_its_id_replaces_its_ext(
     store: FilterableStore,
 ) -> None:
-    """`weft index --reprocess` is how a corpus indexed before `32.1` gains positions — Phase
+    """Writing a node again under an unchanged id replaces its `ext`.
+
+    `weft index --reprocess` is how a corpus indexed before `32.1` gains positions — Phase
     32's owner question 5, settled on measurement — and it works only if writing a node again
     under an unchanged id replaces its `ext` rather than keeping the first write's. A chunk's id
     does not move when `ChunkPosition` is added (`32.1` pins that), so this is exactly the write
@@ -1604,8 +1650,9 @@ async def check_writing_a_node_again_under_its_id_replaces_its_ext(
 
     # Assert
     _require(
-        await _all(page) == frozenset({"indexed before positions existed"}),
-        'the store did not satisfy: await _all(page) == frozenset({"indexed before positions '
+        condition=await _all(page) == frozenset({"indexed before positions existed"}),
+        message='the store did not satisfy: await _all(page) == frozenset({"indexed before '
+        "positions "
         'existed"})',
     )
 
@@ -1616,8 +1663,8 @@ async def check_a_filter_reaches_vector_search_rather_than_being_ignored(
     # Arrange
     await store.add(conformance_corpus())
     _require(
-        callable(getattr(store, "search_vector", None)),
-        'the store did not satisfy: callable(getattr(store, "search_vector", None))',
+        condition=callable(getattr(store, "search_vector", None)),
+        message='the store did not satisfy: callable(getattr(store, "search_vector", None))',
     )
 
     # Act
@@ -1629,8 +1676,9 @@ async def check_a_filter_reaches_vector_search_rather_than_being_ignored(
 
     # Assert
     _require(
-        [scored.value.content for scored in ranked] == ["alpha"],
-        'the store did not satisfy: [scored.value.content for scored in ranked] == ["alpha"]',
+        condition=[scored.value.content for scored in ranked] == ["alpha"],
+        message="the store did not satisfy: [scored.value.content for scored in ranked] == "
+        '["alpha"]',
     )
 
 
@@ -1684,8 +1732,8 @@ async def check_a_filtered_search_returns_top_k_in_the_approximate_regime(
     await store.add(noise + targets)
     await store.flush()
     _require(
-        callable(getattr(store, "search_vector", None)),
-        'the store did not satisfy: callable(getattr(store, "search_vector", None))',
+        condition=callable(getattr(store, "search_vector", None)),
+        message='the store did not satisfy: callable(getattr(store, "search_vector", None))',
     )
 
     # Act
@@ -1698,16 +1746,17 @@ async def check_a_filtered_search_returns_top_k_in_the_approximate_regime(
     # Assert — the count first: a store returning fewer than the caller asked for is the failure
     # this check exists to catch, and a predicate alone cannot see it.
     _require(
-        len(ranked) == top_k,
-        f"{target_count} nodes matched the filter and top_k={top_k} was asked for, but the "
+        condition=len(ranked) == top_k,
+        message=f"{target_count} nodes matched the filter and top_k={top_k} was asked for, but the "
         f"approximate regime returned {len(ranked)}",
     )
     _require(
-        all(
+        condition=all(
             scored.value.ext_as(ConformanceFact) == ConformanceFact(backend="target")
             for scored in ranked
         ),
-        f"every result must satisfy the filter: {[scored.value.content for scored in ranked]}",
+        message="every result must satisfy the filter: "
+        f"{[scored.value.content for scored in ranked]}",
     )
 
 
@@ -1716,8 +1765,8 @@ async def check_a_field_no_node_can_have_is_refused_by_name_on_either_backend(
 ) -> None:
     # Arrange
     _require(
-        callable(getattr(store, "matching", None)),
-        'the store did not satisfy: callable(getattr(store, "matching", None))',
+        condition=callable(getattr(store, "matching", None)),
+        message='the store did not satisfy: callable(getattr(store, "matching", None))',
     )
     nonsense = Filter(op=FilterOp.EQ, field="metadata.author", value="nobody")
 
@@ -1725,7 +1774,10 @@ async def check_a_field_no_node_can_have_is_refused_by_name_on_either_backend(
     try:
         await store.matching(nonsense)
     except UnaddressableFieldError as exc:
-        _require("metadata.author" in str(exc), f"the refusal must name the field: {str(exc)!r}")
+        _require(
+            condition="metadata.author" in str(exc),
+            message=f"the refusal must name the field: {str(exc)!r}",
+        )
     else:
         raise AssertionError("a field no node can carry was accepted; it must be refused by name")
 
@@ -1735,8 +1787,8 @@ async def check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_ba
 ) -> None:
     # Arrange
     _require(
-        callable(getattr(store, "matching", None)),
-        'the store did not satisfy: callable(getattr(store, "matching", None))',
+        condition=callable(getattr(store, "matching", None)),
+        message='the store did not satisfy: callable(getattr(store, "matching", None))',
     )
     wrong = Filter(op=FilterOp.EQ, field="lineage.sources", value=_SOURCE_A)
 
@@ -1744,7 +1796,10 @@ async def check_an_operator_a_field_cannot_carry_is_refused_by_name_on_either_ba
     try:
         await store.matching(wrong)
     except FilterOpMismatchError as exc:
-        _require("contains" in str(exc), f"the refusal must name the operator: {str(exc)!r}")
+        _require(
+            condition="contains" in str(exc),
+            message=f"the refusal must name the operator: {str(exc)!r}",
+        )
     else:
         raise AssertionError("an operator the field cannot carry was accepted; refuse it by name")
 
@@ -1773,13 +1828,22 @@ async def check_a_fresh_store_has_one_live_target_named_default(
     catalogue = await store.target_catalogue()
 
     # Assert
-    _require(catalogue.live == DEFAULT_TARGET, f"live must be 'default': {catalogue.live!r}")
-    _require(catalogue.previous is None, f"previous must be None: {catalogue.previous!r}")
     _require(
-        DEFAULT_TARGET in {record.name for record in catalogue.targets},
-        "the catalogue must list 'default' even before anything named a target",
+        condition=catalogue.live == DEFAULT_TARGET,
+        message=f"live must be 'default': {catalogue.live!r}",
     )
-    _require(catalogue.promotion is None, "nothing was promoted, so no promotion is recorded")
+    _require(
+        condition=catalogue.previous is None,
+        message=f"previous must be None: {catalogue.previous!r}",
+    )
+    _require(
+        condition=DEFAULT_TARGET in {record.name for record in catalogue.targets},
+        message="the catalogue must list 'default' even before anything named a target",
+    )
+    _require(
+        condition=catalogue.promotion is None,
+        message="nothing was promoted, so no promotion is recorded",
+    )
 
 
 async def check_a_target_is_created_by_its_first_write_and_isolated_from_every_other(
@@ -1790,8 +1854,8 @@ async def check_a_target_is_created_by_its_first_write_and_isolated_from_every_o
     candidate = await store.bind_target(target_name(_CANDIDATE))
     before = await store.target_catalogue()
     _require(
-        _CANDIDATE not in {record.name for record in before.targets},
-        "binding a target must not create it; its first write does",
+        condition=_CANDIDATE not in {record.name for record in before.targets},
+        message="binding a target must not create it; its first write does",
     )
     live_node, candidate_node = conformance_corpus()[:2]
 
@@ -1802,19 +1866,23 @@ async def check_a_target_is_created_by_its_first_write_and_isolated_from_every_o
 
     # Assert
     _require(
-        _CANDIDATE in {record.name for record in after.targets},
-        "a target's first write must add it to the catalogue",
-    )
-    _require(after.live == DEFAULT_TARGET, "writing a candidate must not make it live")
-    _require(
-        tuple(node.id for node in await store.get((candidate_node.id,))) == (),
-        "the live target returned a node written only into the candidate",
+        condition=_CANDIDATE in {record.name for record in after.targets},
+        message="a target's first write must add it to the catalogue",
     )
     _require(
-        tuple(node.id for node in await candidate.get((live_node.id,))) == (),
-        "the candidate returned a node written only into the live target",
+        condition=after.live == DEFAULT_TARGET, message="writing a candidate must not make it live"
     )
-    _require(await candidate.count() == 1, "the candidate must count only its own node")
+    _require(
+        condition=tuple(node.id for node in await store.get((candidate_node.id,))) == (),
+        message="the live target returned a node written only into the candidate",
+    )
+    _require(
+        condition=tuple(node.id for node in await candidate.get((live_node.id,))) == (),
+        message="the candidate returned a node written only into the live target",
+    )
+    _require(
+        condition=await candidate.count() == 1, message="the candidate must count only its own node"
+    )
 
 
 async def check_a_source_record_belongs_to_the_target_it_was_written_into(
@@ -1835,8 +1903,14 @@ async def check_a_source_record_belongs_to_the_target_it_was_written_into(
     await candidate.put_source(record)
 
     # Assert
-    _require(await store.get_source(_SOURCE_A) is None, "the live target saw a candidate's source")
-    _require(await candidate.get_source(_SOURCE_A) == record, "the candidate lost its source")
+    _require(
+        condition=await store.get_source(_SOURCE_A) is None,
+        message="the live target saw a candidate's source",
+    )
+    _require(
+        condition=await candidate.get_source(_SOURCE_A) == record,
+        message="the candidate lost its source",
+    )
 
 
 async def check_promote_makes_a_target_live_and_rollback_restores_the_previous_one(
@@ -1853,14 +1927,27 @@ async def check_promote_makes_a_target_live_and_rollback_restores_the_previous_o
     rolled_back = await store.rollback()
 
     # Assert
-    _require(promoted.live == _CANDIDATE, f"promote must make the target live: {promoted.live!r}")
-    _require(promoted.previous == DEFAULT_TARGET, "promote must record what was live")
-    _require(promoted.promotion == promotion, "the promotion must be recorded whole")
-    _require(rolled_back.live == DEFAULT_TARGET, "rollback must restore the previous target")
-    _require(rolled_back.previous == _CANDIDATE, "rollback must remember what it replaced")
     _require(
-        await store.target_catalogue() == rolled_back,
-        "the catalogue read back must be the one rollback returned",
+        condition=promoted.live == _CANDIDATE,
+        message=f"promote must make the target live: {promoted.live!r}",
+    )
+    _require(
+        condition=promoted.previous == DEFAULT_TARGET, message="promote must record what was live"
+    )
+    _require(
+        condition=promoted.promotion == promotion, message="the promotion must be recorded whole"
+    )
+    _require(
+        condition=rolled_back.live == DEFAULT_TARGET,
+        message="rollback must restore the previous target",
+    )
+    _require(
+        condition=rolled_back.previous == _CANDIDATE,
+        message="rollback must remember what it replaced",
+    )
+    _require(
+        condition=await store.target_catalogue() == rolled_back,
+        message="the catalogue read back must be the one rollback returned",
     )
 
 
@@ -1872,15 +1959,18 @@ async def check_promote_refuses_a_target_that_does_not_exist_naming_those_that_d
         await store.promote(_promotion("conformance_absent"))
     except UnknownTargetError as exc:
         _require(
-            DEFAULT_TARGET in exc.valid_options,
-            f"the refusal must offer the targets that exist: {exc.valid_options!r}",
+            condition=DEFAULT_TARGET in exc.valid_options,
+            message=f"the refusal must offer the targets that exist: {exc.valid_options!r}",
         )
-        _require("conformance_absent" in str(exc), f"the refusal must name the target: {exc}")
+        _require(
+            condition="conformance_absent" in str(exc),
+            message=f"the refusal must name the target: {exc}",
+        )
     else:
         raise AssertionError("a promote to a target that does not exist was accepted")
     _require(
-        (await store.target_catalogue()).live == DEFAULT_TARGET,
-        "a refused promote must change nothing",
+        condition=(await store.target_catalogue()).live == DEFAULT_TARGET,
+        message="a refused promote must change nothing",
     )
 
 
@@ -1891,7 +1981,10 @@ async def check_rollback_with_nothing_to_roll_back_to_is_refused(
     try:
         await store.rollback()
     except NoPreviousTargetError as exc:
-        _require(DEFAULT_TARGET in str(exc), f"the refusal must name the live target: {exc}")
+        _require(
+            condition=DEFAULT_TARGET in str(exc),
+            message=f"the refusal must name the live target: {exc}",
+        )
     else:
         raise AssertionError("a rollback with no previous target was accepted")
 
@@ -1918,12 +2011,14 @@ async def check_drop_refuses_the_live_and_previous_targets_and_removes_another(
         try:
             await store.drop_target(target_name(protected))
         except TargetInUseError as exc:
-            _require(protected in str(exc), f"the refusal must name the target: {exc}")
+            _require(
+                condition=protected in str(exc), message=f"the refusal must name the target: {exc}"
+            )
         else:
             raise AssertionError(f"dropping {protected!r}, which a rollback needs, was accepted")
     await store.drop_target(target_name(_OTHER))
     names = {record.name for record in (await store.target_catalogue()).targets}
-    _require(_OTHER not in names, "a dropped target must leave the catalogue")
+    _require(condition=_OTHER not in names, message="a dropped target must leave the catalogue")
 
 
 async def check_drop_refuses_a_target_that_does_not_exist_naming_those_that_do(
@@ -1933,7 +2028,10 @@ async def check_drop_refuses_a_target_that_does_not_exist_naming_those_that_do(
     try:
         await store.drop_target(target_name("conformance_absent"))
     except UnknownTargetError as exc:
-        _require(DEFAULT_TARGET in exc.valid_options, f"offer what exists: {exc.valid_options!r}")
+        _require(
+            condition=DEFAULT_TARGET in exc.valid_options,
+            message=f"offer what exists: {exc.valid_options!r}",
+        )
     else:
         raise AssertionError("dropping a target that does not exist was accepted")
 
@@ -1958,13 +2056,19 @@ async def check_the_first_embedding_identity_claimed_is_the_one_a_target_keeps(
     catalogue = await store.target_catalogue()
 
     # Assert
-    _require(recorded == first, "the first claim must be recorded and returned")
-    _require(again == first, "a second, different claim must return the recorded identity")
-    by_name = {record.name: record for record in catalogue.targets}
-    _require(by_name[_CANDIDATE].embedding == first, "the catalogue must carry the identity")
+    _require(condition=recorded == first, message="the first claim must be recorded and returned")
     _require(
-        by_name[DEFAULT_TARGET].embedding is None,
-        "a claim on one target must not reach another",
+        condition=again == first,
+        message="a second, different claim must return the recorded identity",
+    )
+    by_name = {record.name: record for record in catalogue.targets}
+    _require(
+        condition=by_name[_CANDIDATE].embedding == first,
+        message="the catalogue must carry the identity",
+    )
+    _require(
+        condition=by_name[DEFAULT_TARGET].embedding is None,
+        message="a claim on one target must not reach another",
     )
 
 
@@ -1977,7 +2081,9 @@ async def check_a_target_name_outside_the_grammar_is_refused_by_name(
         try:
             target_name(bad)
         except InvalidTargetNameError as exc:
-            _require(repr(bad) in str(exc), f"the refusal must quote the name: {exc}")
+            _require(
+                condition=repr(bad) in str(exc), message=f"the refusal must quote the name: {exc}"
+            )
         else:
             raise AssertionError(f"the target name {bad!r} was accepted")
 
@@ -1985,7 +2091,9 @@ async def check_a_target_name_outside_the_grammar_is_refused_by_name(
 async def check_claiming_an_identity_creates_the_target_as_a_first_write_does(
     store: TargetHoldingStore,
 ) -> None:
-    """Ingest records a target's identity before its first write, so a claim on a target that
+    """A claim on a target that does not exist yet creates it.
+
+    Ingest records a target's identity before its first write, so a claim on a target that
     does not exist yet creates it — catalogued and holding its storage, empty and readable.
     """
     # Arrange
@@ -1997,18 +2105,24 @@ async def check_claiming_an_identity_creates_the_target_as_a_first_write_does(
     reopened = await store.bind_target(target_name(_CANDIDATE))
 
     # Assert
-    _require(held == identity, "the claim must be recorded and returned")
+    _require(condition=held == identity, message="the claim must be recorded and returned")
     _require(
-        _CANDIDATE in {record.name for record in (await store.target_catalogue()).targets},
-        "a claimed target must be in the catalogue",
+        condition=_CANDIDATE
+        in {record.name for record in (await store.target_catalogue()).targets},
+        message="a claimed target must be in the catalogue",
     )
-    _require(await reopened.count() == 0, "a claimed target must open, empty, on a new handle")
+    _require(
+        condition=await reopened.count() == 0,
+        message="a claimed target must open, empty, on a new handle",
+    )
 
 
 async def check_a_target_whose_first_write_is_a_source_record_is_catalogued(
     store: TargetHoldingStore,
 ) -> None:
-    """Ingest writes a document's source record (`INDEXING`) before its nodes, so a run
+    """A target holding sources and no nodes exists.
+
+    Ingest writes a document's source record (`INDEXING`) before its nodes, so a run
     interrupted between the two leaves a target holding sources and no nodes. That target exists:
     it is in the catalogue, and every command naming it answers about it rather than calling it
     unknown. Found at `34.8`: pgvector catalogued a target on its first node write only.
@@ -2030,13 +2144,16 @@ async def check_a_target_whose_first_write_is_a_source_record_is_catalogued(
 
     # Assert
     _require(
-        _CANDIDATE in {record.name for record in (await store.target_catalogue()).targets},
-        "a target whose first write was a source record must be in the catalogue",
+        condition=_CANDIDATE
+        in {record.name for record in (await store.target_catalogue()).targets},
+        message="a target whose first write was a source record must be in the catalogue",
     )
 
 
 async def check_promoting_the_live_target_again_changes_nothing(store: TargetHoldingStore) -> None:
-    """A promote that converges participants after a crash is re-run on the ones that already
+    """Promoting the live target keeps both pointers as they are.
+
+    A promote that converges participants after a crash is re-run on the ones that already
     moved, so promoting the live target keeps both pointers as they are. Were it to set `previous`
     to the live target itself, the rollback the operator needs next would go nowhere.
     """
@@ -2049,10 +2166,12 @@ async def check_promoting_the_live_target_again_changes_nothing(store: TargetHol
     again = await store.promote(_promotion(_CANDIDATE))
 
     # Assert
-    _require(again.live == _CANDIDATE, "promoting the live target must leave it live")
     _require(
-        again.previous == first.previous == DEFAULT_TARGET,
-        f"promoting the live target must keep previous: {again.previous!r}",
+        condition=again.live == _CANDIDATE, message="promoting the live target must leave it live"
+    )
+    _require(
+        condition=again.previous == first.previous == DEFAULT_TARGET,
+        message=f"promoting the live target must keep previous: {again.previous!r}",
     )
 
 
@@ -2074,7 +2193,9 @@ async def _visible(
 
 
 async def _next_operation(store: GenerationHoldingStore) -> GenerationHoldingStore:
-    """A handle reading as the next operation would: bound to a fresh, empty generation, so its
+    """A handle bound to a fresh, empty generation, as the next operation reads.
+
+    A handle reading as the next operation would: bound to a fresh, empty generation, so its
     manifest is whatever is published when it first touches storage, plus nothing of its own.
     """
     probe = await store.open_generation("conformance-probe")
@@ -2084,7 +2205,9 @@ async def _next_operation(store: GenerationHoldingStore) -> GenerationHoldingSto
 async def check_an_unpublished_generation_is_invisible_until_it_is_published(
     store: GenerationHoldingStore,
 ) -> None:
-    """Ledger **43.14**: a half-built corpus-scoped layer is never searchable — its members are
+    """A half-built layer is never searchable, and all of it is once published.
+
+    Ledger **43.14**: a half-built corpus-scoped layer is never searchable — its members are
     absent from vector search, text search and metadata filters, before top-k — and all of it
     becomes searchable at once when it is published.
     """
@@ -2100,14 +2223,21 @@ async def check_an_unpublished_generation_is_invisible_until_it_is_published(
     after = await _visible(await _next_operation(store), "delta", (0.0, 0.0, 1.0))
 
     # Assert
-    _require(before == (False, False, False), f"an unpublished member was found: {before}")
-    _require(after == (True, True, True), f"a published member was not found: {after}")
+    _require(
+        condition=before == (False, False, False),
+        message=f"an unpublished member was found: {before}",
+    )
+    _require(
+        condition=after == (True, True, True), message=f"a published member was not found: {after}"
+    )
 
 
 async def check_a_handle_keeps_the_generations_it_read_when_it_opened(
     store: GenerationHoldingStore,
 ) -> None:
-    """One operation sees one set of generations: a handle that touched storage before a publish
+    """One operation sees one set of generations.
+
+    One operation sees one set of generations: a handle that touched storage before a publish
     keeps what it read, so a multi-arm ask never mixes two trees.
     """
     # Arrange
@@ -2123,7 +2253,10 @@ async def check_a_handle_keeps_the_generations_it_read_when_it_opened(
     seen = await _visible(reader, "delta", (0.0, 0.0, 1.0))
 
     # Assert
-    _require(seen == (False, False, False), f"a handle saw a publish made after it opened: {seen}")
+    _require(
+        condition=seen == (False, False, False),
+        message=f"a handle saw a publish made after it opened: {seen}",
+    )
 
 
 async def check_base_nodes_are_visible_under_every_set_of_generations(
@@ -2141,15 +2274,21 @@ async def check_base_nodes_are_visible_under_every_set_of_generations(
 
     # Assert
     _require(
-        unbound == (True, True, True), f"a base node was hidden from an unbound handle: {unbound}"
+        condition=unbound == (True, True, True),
+        message=f"a base node was hidden from an unbound handle: {unbound}",
     )
-    _require(bound == (True, True, True), f"a base node was hidden from a bound handle: {bound}")
+    _require(
+        condition=bound == (True, True, True),
+        message=f"a base node was hidden from a bound handle: {bound}",
+    )
 
 
 async def check_a_node_shared_with_a_published_generation_stays_visible(
     store: GenerationHoldingStore,
 ) -> None:
-    """A node two generations both wrote belongs to both: the unpublished one cannot hide what
+    """A node two generations both wrote belongs to both.
+
+    A node two generations both wrote belongs to both: the unpublished one cannot hide what
     the published one made visible.
     """
     # Arrange
@@ -2164,13 +2303,18 @@ async def check_a_node_shared_with_a_published_generation_stays_visible(
     seen = await _visible(await _next_operation(store), "delta", (0.0, 0.0, 1.0))
 
     # Assert
-    _require(seen == (True, True, True), f"a node a published generation holds was hidden: {seen}")
+    _require(
+        condition=seen == (True, True, True),
+        message=f"a node a published generation holds was hidden: {seen}",
+    )
 
 
 async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones(
     store: GenerationHoldingStore,
 ) -> None:
-    """`retract_generation` removes the nodes only that generation made, keeps a node another
+    """`retract_generation` removes only the nodes that generation alone made.
+
+    `retract_generation` removes the nodes only that generation made, keeps a node another
     generation also holds and every base node, and forgets the generation.
     """
     # Arrange
@@ -2188,20 +2332,25 @@ async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_o
 
     # Assert
     _require(
-        removed.node_count == 1,
-        f"retract must remove exactly the sole member: {removed.node_count}",
+        condition=removed.node_count == 1,
+        message=f"retract must remove exactly the sole member: {removed.node_count}",
     )
-    _require(await store.count() == 4, f"base and shared nodes must survive: {await store.count()}")
     _require(
-        doomed.id not in {record.id for record in await store.generations()},
-        "a retracted generation must be forgotten",
+        condition=await store.count() == 4,
+        message=f"base and shared nodes must survive: {await store.count()}",
+    )
+    _require(
+        condition=doomed.id not in {record.id for record in await store.generations()},
+        message="a retracted generation must be forgotten",
     )
 
 
 async def check_a_generation_bound_again_sees_and_extends_what_was_written(
     store: GenerationHoldingStore,
 ) -> None:
-    """Ledger **43.20**: a resumed corpus build binds a new handle to the generation an
+    """A resumed build binds to the generation an interrupted one left building.
+
+    Ledger **43.20**: a resumed corpus build binds a new handle to the generation an
     interrupted one left `building`. That handle sees what the first wrote, what it writes joins
     the same generation, and publishing makes both visible.
     """
@@ -2227,19 +2376,25 @@ async def check_a_generation_bound_again_sees_and_extends_what_was_written(
 
     # Assert
     _require(
-        [node.content for node in seen.items] == ["delta"],
-        f"a handle bound again must see what the first handle wrote: {seen.items}",
+        condition=[node.content for node in seen.items] == ["delta"],
+        message=f"a handle bound again must see what the first handle wrote: {seen.items}",
     )
-    _require(delta == (True, True, True), f"the first handle's node was not published: {delta}")
     _require(
-        epsilon == (True, True, True), f"the second handle's node was not published: {epsilon}"
+        condition=delta == (True, True, True),
+        message=f"the first handle's node was not published: {delta}",
+    )
+    _require(
+        condition=epsilon == (True, True, True),
+        message=f"the second handle's node was not published: {epsilon}",
     )
 
 
 async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(
     store: GenerationHoldingStore,
 ) -> None:
-    """`open_generation` records `building`, `publish_generation` records `published` with its
+    """Generation records carry their status, and an unknown one is refused.
+
+    `open_generation` records `building`, `publish_generation` records `published` with its
     time, `generations()` returns both whole, and a generation nobody opened is refused naming
     the ones that exist.
     """
@@ -2257,22 +2412,35 @@ async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by
         refusal = None
 
     # Assert
-    _require(opened.status is GenerationStatus.BUILDING, f"opened as {opened.status}")
-    _require(opened.layer == "summaries", f"the layer must be recorded: {opened.layer!r}")
-    _require(published.status is GenerationStatus.PUBLISHED, f"published as {published.status}")
-    _require(published.published_at is not None, "a publish must record when")
-    _require(listed == (published,), f"the catalogue must hold the record whole: {listed}")
-    _require(refusal is not None, "an unknown generation must be refused")
     _require(
-        refusal is not None and opened.id in refusal.valid_options,
-        "the refusal must name the generations that exist",
+        condition=opened.status is GenerationStatus.BUILDING, message=f"opened as {opened.status}"
+    )
+    _require(
+        condition=opened.layer == "summaries",
+        message=f"the layer must be recorded: {opened.layer!r}",
+    )
+    _require(
+        condition=published.status is GenerationStatus.PUBLISHED,
+        message=f"published as {published.status}",
+    )
+    _require(condition=published.published_at is not None, message="a publish must record when")
+    _require(
+        condition=listed == (published,),
+        message=f"the catalogue must hold the record whole: {listed}",
+    )
+    _require(condition=refusal is not None, message="an unknown generation must be refused")
+    _require(
+        condition=refusal is not None and opened.id in refusal.valid_options,
+        message="the refusal must name the generations that exist",
     )
 
 
 async def check_a_reader_sees_only_the_newest_published_generation_of_each_layer(
     store: GenerationHoldingStore,
 ) -> None:
-    """Repair **R43.25**: the layer loop publishes a layer's new generation before it retracts
+    """A reader opened between a publish and a retract sees one tree per layer.
+
+    Repair **R43.25**: the layer loop publishes a layer's new generation before it retracts
     the old one, so a reader opened between the two must see one tree per layer — the newest
     published generation of each — never both.
     """
@@ -2295,13 +2463,16 @@ async def check_a_reader_sees_only_the_newest_published_generation_of_each_layer
 
     # Assert
     _require(
-        replaced == (False, False, False),
-        f"a reader saw an older published generation of the same layer: {replaced}",
+        condition=replaced == (False, False, False),
+        message=f"a reader saw an older published generation of the same layer: {replaced}",
     )
-    _require(newest == (True, True, True), f"the newest published generation was hidden: {newest}")
     _require(
-        other_layer == (True, True, True),
-        f"another layer's published generation was hidden: {other_layer}",
+        condition=newest == (True, True, True),
+        message=f"the newest published generation was hidden: {newest}",
+    )
+    _require(
+        condition=other_layer == (True, True, True),
+        message=f"another layer's published generation was hidden: {other_layer}",
     )
 
 
@@ -2327,7 +2498,9 @@ async def _seen(
 async def check_a_carried_generation_keeps_what_it_carries_and_drops_what_it_replaces(
     store: GenerationCarryingStore,
 ) -> None:
-    """Ledger **43.22**: a new generation carries three of the published generation's five
+    """Carried members stay visible and replaced ones vanish once published.
+
+    Ledger **43.22**: a new generation carries three of the published generation's five
     members and replaces the other two. Once it is published and the old one retracted, the three
     carried and the two new are found by every read path and the two replaced by none; a handle
     opened before the publish still sees the old five and nothing new; a carried node is the node
@@ -2357,23 +2530,29 @@ async def check_a_carried_generation_keeps_what_it_carries_and_drops_what_it_rep
 
     # Assert
     everywhere, nowhere = (True, True, True), (False, False, False)
-    _require(moved == 3, f"carry_forward must report the 3 nodes it carried: {moved}")
     _require(
-        all(seen_before[word] == everywhere for word, _ in _OLD_TREE)
+        condition=moved == 3, message=f"carry_forward must report the 3 nodes it carried: {moved}"
+    )
+    _require(
+        condition=all(seen_before[word] == everywhere for word, _ in _OLD_TREE)
         and all(seen_before[word] == nowhere for word, _ in _NEW_TREE),
-        f"a handle opened before the publish must see the old five and nothing new: {seen_before}",
+        message="a handle opened before the publish must see the old five and nothing new: "
+        f"{seen_before}",
     )
     _require(
-        all(seen_after[word] == everywhere for word, _ in carried + _NEW_TREE),
-        f"every carried and every new member must be found by every read path: {seen_after}",
+        condition=all(seen_after[word] == everywhere for word, _ in carried + _NEW_TREE),
+        message="every carried and every new member must be found by every read path: "
+        f"{seen_after}",
     )
     _require(
-        all(seen_after[word] == nowhere for word, _ in replaced),
-        f"a replaced member must be gone once the old generation is retracted: {seen_after}",
+        condition=all(seen_after[word] == nowhere for word, _ in replaced),
+        message="a replaced member must be gone once the old generation is retracted: "
+        f"{seen_after}",
     )
     _require(
-        sorted(kept, key=lambda node: node.id) == sorted(old_members[:3], key=lambda node: node.id),
-        f"a carried node must be the node it was: {kept}",
+        condition=sorted(kept, key=lambda node: node.id)
+        == sorted(old_members[:3], key=lambda node: node.id),
+        message=f"a carried node must be the node it was: {kept}",
     )
 
 
@@ -2415,18 +2594,27 @@ async def check_carrying_a_node_no_published_generation_holds_is_refused_by_name
     seen = await _visible(await _next_operation(store), "amber", (1.0, 0.0, 0.0))
 
     # Assert
-    _require(refusal is not None, "carrying a node no published generation holds must be refused")
     _require(
-        refusal is not None
+        condition=refusal is not None,
+        message="carrying a node no published generation holds must be refused",
+    )
+    _require(
+        condition=refusal is not None
         and refusal.generation == new.id
         and refusal.node_ids == tuple(sorted((unpublished.id, base.id))),
-        f"the refusal must name the generation and exactly the nodes it refused: {refusal!r}",
+        message="the refusal must name the generation and exactly the nodes it refused: "
+        f"{refusal!r}",
     )
-    _require(seen == (False, False, False), f"a refused carry must carry nothing: {seen}")
-    _require(unknown is not None, "carrying into an unknown generation must be refused")
     _require(
-        unknown is not None and new.id in unknown.valid_options,
-        "the refusal must name the generations that exist",
+        condition=seen == (False, False, False),
+        message=f"a refused carry must carry nothing: {seen}",
+    )
+    _require(
+        condition=unknown is not None, message="carrying into an unknown generation must be refused"
+    )
+    _require(
+        condition=unknown is not None and new.id in unknown.valid_options,
+        message="the refusal must name the generations that exist",
     )
 
 
@@ -2443,7 +2631,9 @@ async def _scanned(store: GenerationHoldingStore) -> frozenset[str]:
 async def _a_published_tree_and_its_rebuild(
     store: GenerationWithdrawingStore,
 ) -> tuple[GenerationId, GenerationId, list[Node]]:
-    """`old` published with `_OLD_TREE`; `new` sharing its first three members, replacing the
+    """Set up a published `old` generation and a building `new` one sharing members.
+
+    `old` published with `_OLD_TREE`; `new` sharing its first three members, replacing the
     other two with `_NEW_TREE`, still building. Returns `old`, `new` and `old`'s members.
     """
     old_members = [_member(word, values) for word, values in _OLD_TREE]
@@ -2460,7 +2650,9 @@ async def _a_published_tree_and_its_rebuild(
 async def check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on(
     store: GenerationWithdrawingStore,
 ) -> None:
-    """Repair **R43.29**: a reader that opened while the old generation was published keeps
+    """A reader of a withdrawn generation keeps reading all of it.
+
+    Repair **R43.29**: a reader that opened while the old generation was published keeps
     reading all of it after the new one is published and the old one withdrawn — the members the
     new generation shares and the ones it replaced, through `count`, `scan` and every search —
     and none of the new generation. Retracting in place of withdrawing strips the old id from the
@@ -2482,24 +2674,28 @@ async def check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_open
     # Assert
     everywhere, nowhere = (True, True, True), (False, False, False)
     _require(
-        (withdrawn.id, withdrawn.status) == (old, GenerationStatus.WITHDRAWN),
-        f"withdraw must record the generation withdrawn: {withdrawn}",
+        condition=(withdrawn.id, withdrawn.status) == (old, GenerationStatus.WITHDRAWN),
+        message=f"withdraw must record the generation withdrawn: {withdrawn}",
     )
     _require(
-        counted_after == counted_before,
-        f"a withdraw removed nodes under an open reader: {counted_before} -> {counted_after}",
+        condition=counted_after == counted_before,
+        message=f"a withdraw removed nodes under an open reader: {counted_before} -> "
+        f"{counted_after}",
     )
     _require(
-        {word for word, _ in _OLD_TREE} <= scanned_after and scanned_after == scanned_before,
-        f"a withdraw changed what an open reader scans: {scanned_before} -> {scanned_after}",
+        condition={word for word, _ in _OLD_TREE} <= scanned_after
+        and scanned_after == scanned_before,
+        message=f"a withdraw changed what an open reader scans: {scanned_before} -> "
+        f"{scanned_after}",
     )
     _require(
-        all(searched[word] == everywhere for word, _ in _OLD_TREE),
-        f"an open reader lost the tree it opened on, shared or replaced members: {searched}",
+        condition=all(searched[word] == everywhere for word, _ in _OLD_TREE),
+        message="an open reader lost the tree it opened on, shared or replaced members: "
+        f"{searched}",
     )
     _require(
-        all(searched[word] == nowhere for word, _ in _NEW_TREE),
-        f"an open reader saw a generation published after it opened: {searched}",
+        condition=all(searched[word] == nowhere for word, _ in _NEW_TREE),
+        message=f"an open reader saw a generation published after it opened: {searched}",
     )
 
 
@@ -2530,28 +2726,30 @@ async def check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_r
     # Assert
     everywhere, nowhere = (True, True, True), (False, False, False)
     _require(
-        all(searched[word] == everywhere for word, _ in _OLD_TREE[:3] + _NEW_TREE),
-        f"a reader opened after the withdraw must find the new tree whole: {searched}",
+        condition=all(searched[word] == everywhere for word, _ in _OLD_TREE[:3] + _NEW_TREE),
+        message=f"a reader opened after the withdraw must find the new tree whole: {searched}",
     )
     _require(
-        all(searched[word] == nowhere for word, _ in _OLD_TREE[3:]),
-        f"a reader opened after the withdraw found a replaced member: {searched}",
+        condition=all(searched[word] == nowhere for word, _ in _OLD_TREE[3:]),
+        message=f"a reader opened after the withdraw found a replaced member: {searched}",
     )
     _require(
-        sole_seen == nowhere,
-        f"a withdrawn layer's only generation was in a new reader's manifest: {sole_seen}",
+        condition=sole_seen == nowhere,
+        message=f"a withdrawn layer's only generation was in a new reader's manifest: {sole_seen}",
     )
     _require(
-        (listed.get(old), listed.get(sole.id), listed.get(new))
+        condition=(listed.get(old), listed.get(sole.id), listed.get(new))
         == (GenerationStatus.WITHDRAWN, GenerationStatus.WITHDRAWN, GenerationStatus.PUBLISHED),
-        f"the catalogue must list a withdrawn generation until it is reclaimed: {listed}",
+        message=f"the catalogue must list a withdrawn generation until it is reclaimed: {listed}",
     )
 
 
 async def check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held(
     store: GenerationWithdrawingStore,
 ) -> None:
-    """Repair **R43.29**: `reclaim_withdrawn(layer)` does, per withdrawn generation of `layer`,
+    """`reclaim_withdrawn` retracts each withdrawn generation of one layer.
+
+    Repair **R43.29**: `reclaim_withdrawn(layer)` does, per withdrawn generation of `layer`,
     what `retract_generation` does — deletes the nodes only it held, keeps the ones a published
     generation shares, and forgets it. Another layer's withdrawn generation is left alone. Counted
     raw, so the manifest cannot hide a node still stored.
@@ -2576,34 +2774,38 @@ async def check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generati
 
     # Assert
     _require(
-        removed.node_count == 2,
-        f"reclaim must remove exactly the 2 members only the withdrawn generation held: "
+        condition=removed.node_count == 2,
+        message=f"reclaim must remove exactly the 2 members only the withdrawn generation held: "
         f"{removed.node_count}",
     )
     _require(
-        stored_before - stored_after == 2,
-        f"a fresh raw count must drop by 2: {stored_before} -> {stored_after}",
+        condition=stored_before - stored_after == 2,
+        message=f"a fresh raw count must drop by 2: {stored_before} -> {stored_after}",
     )
     _require(
-        sorted(node.id for node in kept) == sorted(node.id for node in old_members[:3]),
-        f"reclaim must keep every member a published generation shares: {kept}",
+        condition=sorted(node.id for node in kept) == sorted(node.id for node in old_members[:3]),
+        message=f"reclaim must keep every member a published generation shares: {kept}",
     )
-    _require(old not in listed, f"a reclaimed generation must be forgotten: {listed}")
     _require(
-        (listed.get(new), listed.get(other.id))
+        condition=old not in listed, message=f"a reclaimed generation must be forgotten: {listed}"
+    )
+    _require(
+        condition=(listed.get(new), listed.get(other.id))
         == (GenerationStatus.PUBLISHED, GenerationStatus.WITHDRAWN),
-        f"reclaim touched a generation outside its layer's withdrawn ones: {listed}",
+        message=f"reclaim touched a generation outside its layer's withdrawn ones: {listed}",
     )
     _require(
-        all(seen == (True, True, True) for seen in searched.values()),
-        f"reclaim hid a member of the published generation: {searched}",
+        condition=all(seen == (True, True, True) for seen in searched.values()),
+        message=f"reclaim hid a member of the published generation: {searched}",
     )
 
 
 async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name(
     store: GenerationWithdrawingStore,
 ) -> None:
-    """Repair **R43.29**: a generation nobody opened is refused with `UnknownGenerationError`
+    """Withdrawing an unknown or unpublished generation is refused by name.
+
+    Repair **R43.29**: a generation nobody opened is refused with `UnknownGenerationError`
     naming the ones that exist; a `building` one — an abandoned build is retracted, never
     withdrawn — and one already withdrawn are refused with `NotAPublishedGenerationError` naming
     it, its status and the published ones. A refusal changes no generation's status.
@@ -2630,35 +2832,38 @@ async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_n
 
     # Assert
     _require(
-        isinstance(unknown, UnknownGenerationError) and published.id in unknown.valid_options,
-        f"an unknown generation must be refused naming the ones that exist: {unknown!r}",
+        condition=isinstance(unknown, UnknownGenerationError)
+        and published.id in unknown.valid_options,
+        message=f"an unknown generation must be refused naming the ones that exist: {unknown!r}",
     )
     for asked, status, refusal in (
         (building.id, GenerationStatus.BUILDING, unbuilt),
         (gone.id, GenerationStatus.WITHDRAWN, again),
     ):
         _require(
-            isinstance(refusal, NotAPublishedGenerationError)
+            condition=isinstance(refusal, NotAPublishedGenerationError)
             and (refusal.generation, refusal.status) == (asked, status)
             and refusal.valid_options == (published.id,),
-            f"a {status.value} generation must be refused naming it, its status and the "
+            message=f"a {status.value} generation must be refused naming it, its status and the "
             f"published ones: {refusal!r}",
         )
     _require(
-        listed
+        condition=listed
         == {
             published.id: GenerationStatus.PUBLISHED,
             building.id: GenerationStatus.BUILDING,
             gone.id: GenerationStatus.WITHDRAWN,
         },
-        f"a refused withdraw changed a generation's status: {listed}",
+        message=f"a refused withdraw changed a generation's status: {listed}",
     )
 
 
 async def check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes(
     store: GenerationHoldingStore,
 ) -> None:
-    """Repair **R43.26**: a handle that read storage before anything was stored, while a handle
+    """An early reader's handle still retracts a generation's nodes.
+
+    Repair **R43.26**: a handle that read storage before anything was stored, while a handle
     bound to a generation then stores that generation's members, retracts the generation's nodes
     along with its record — counted raw, so the manifest cannot hide nodes still held.
     """
@@ -2675,17 +2880,22 @@ async def check_a_handle_opened_before_any_node_was_stored_retracts_a_generation
     stored = await (await _next_operation(store)).count()
 
     # Assert
-    _require(stored == 0, f"a retracted generation's nodes must be gone: {stored} still stored")
     _require(
-        removed.node_count == 2,
-        f"retract must report the 2 nodes it removed: {removed.node_count}",
+        condition=stored == 0,
+        message=f"a retracted generation's nodes must be gone: {stored} still stored",
+    )
+    _require(
+        condition=removed.node_count == 2,
+        message=f"retract must report the 2 nodes it removed: {removed.node_count}",
     )
 
 
 async def check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads(
     store: GenerationHoldingStore,
 ) -> None:
-    """Repair **R43.26**: a handle that read storage before anything was stored reads what a
+    """An early reader sees what a bound handle later stored.
+
+    Repair **R43.26**: a handle that read storage before anything was stored reads what a
     bound handle then stored exactly as a fresh handle does, through every read the manifest
     does not gate — `count`, `scan`, `get`, `get_source` and `list_sources`.
     """
@@ -2724,12 +2934,13 @@ async def check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_ha
 
     # Assert
     _require(
-        fresh_reads == (1, frozenset({"delta"}), [member.id], record, (record,)),
-        f"a fresh handle must read the stored node and record: {fresh_reads}",
+        condition=fresh_reads == (1, frozenset({"delta"}), [member.id], record, (record,)),
+        message=f"a fresh handle must read the stored node and record: {fresh_reads}",
     )
     _require(
-        first_reads == fresh_reads,
-        f"a handle opened before the first store read {first_reads}, a fresh one {fresh_reads}",
+        condition=first_reads == fresh_reads,
+        message=f"a handle opened before the first store read {first_reads}, a fresh one "
+        f"{fresh_reads}",
     )
 
 
@@ -2740,7 +2951,9 @@ def _claim(command: str, pid: int) -> WriterClaim:
 
 
 async def check_a_second_writer_is_refused_naming_the_first(store: SingleWriterStore) -> None:
-    """Ledger **43.18**: two `weft index` runs interleaving their batch records into one store is
+    """A second writer on a claimed store is refused, naming the holder.
+
+    Ledger **43.18**: two `weft index` runs interleaving their batch records into one store is
     refused before the second writes, and the refusal names the writer that holds it.
     """
     # Arrange
@@ -2758,10 +2971,14 @@ async def check_a_second_writer_is_refused_naming_the_first(store: SingleWriterS
     await store.release_writer()
 
     # Assert
-    _require(refusal is not None, "a second writer was admitted while the first held the store")
     _require(
-        refusal is not None and refusal.holder == first,
-        f"the refusal must name the writer that holds the store: {refusal and refusal.holder}",
+        condition=refusal is not None,
+        message="a second writer was admitted while the first held the store",
+    )
+    _require(
+        condition=refusal is not None and refusal.holder == first,
+        message="the refusal must name the writer that holds the store: "
+        f"{refusal and refusal.holder}",
     )
 
 

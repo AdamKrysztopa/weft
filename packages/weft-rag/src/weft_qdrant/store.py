@@ -198,7 +198,9 @@ _POINTER_POINT_ID: Final[str] = str(uuid5(_TARGET_ID_NAMESPACE, "__pointer__"))
 
 
 def _target_point_id(name: str) -> str:
-    """A target's catalogue point id, deterministic like `_point_id` — `uuid5` under
+    """A target's deterministic catalogue point id.
+
+    A target's catalogue point id, deterministic like `_point_id` — `uuid5` under
     `_TARGET_ID_NAMESPACE` so re-claiming or re-promoting a target finds the same point rather
     than accumulating a second one.
     """
@@ -206,7 +208,9 @@ def _target_point_id(name: str) -> str:
 
 
 def _lease_point_id(collection: str, target: str, holder: str) -> str:
-    """A handle's own write-lease point id on `target` — **R34.10**, deterministic per
+    """A handle's deterministic write-lease point id on `target`.
+
+    A handle's own write-lease point id on `target` — **R34.10**, deterministic per
     `(collection, target, holder)` like `_target_point_id` is per `(catalogue, name)`, so a
     renewal upserts the same point rather than accumulating one per write.
     """
@@ -229,7 +233,9 @@ _GENERATION_ID_NAMESPACE = uuid5(NAMESPACE_URL, "https://weft.invalid/qdrant/gen
 
 
 def _generation_point_id(generation_id: str) -> str:
-    """A generation's own catalogue point id, deterministic like `_target_point_id` — `uuid5`
+    """A generation's deterministic catalogue point id.
+
+    A generation's own catalogue point id, deterministic like `_target_point_id` — `uuid5`
     under `_GENERATION_ID_NAMESPACE` so publishing or retracting a generation finds the same
     point rather than accumulating a second one.
     """
@@ -271,7 +277,9 @@ def _quantization_config_for(
 
 
 def _quantization_kind_for(precision: VectorPrecision) -> str | None:
-    """The `VectorPrecision` value a quantised collection reads back as, or `None` for neither
+    """The `VectorPrecision` a quantised collection reads back as.
+
+    The `VectorPrecision` value a quantised collection reads back as, or `None` for neither
     quantization this backend applies — see `_quantization_config_for`, which this mirrors.
     """
     config = _quantization_config_for(precision)
@@ -464,7 +472,9 @@ class QdrantStore:
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
-        """The configured index kind, read by `weft_cli.estimate.store_index_kind` —
+        """The configured index kind.
+
+        The configured index kind, read by `weft_cli.estimate.store_index_kind` —
         ledger task **31.8**. This class keeps `self._settings` whole rather than
         unpacking it into per-field attributes the way `PgVectorStore` does, so the
         public name reads straight through it instead of duplicating a stored copy that
@@ -474,7 +484,10 @@ class QdrantStore:
 
     @property
     def vector_precision(self) -> VectorPrecision:
-        """The configured vector precision — `vector_index_kind`'s own reasoning, one setting over."""
+        """The configured vector precision.
+
+        The configured vector precision — `vector_index_kind`'s own reasoning, one setting over.
+        """
         return self._settings.precision
 
     @property
@@ -563,7 +576,9 @@ class QdrantStore:
         return True
 
     async def _open_candidate(self, client: AsyncQdrantClient, target: TargetName) -> bool:
-        """Resolve a non-default target at open: refuse by name if it is catalogued and one of
+        """Resolve a non-default target when the handle opens.
+
+        Resolve a non-default target at open: refuse by name if it is catalogued and one of
         its collections is gone, verify and reconcile if both are there, or leave it alone —
         `self._nodes`/`self._sources` are already set — for an uncatalogued target's first
         write to provision.
@@ -593,7 +608,9 @@ class QdrantStore:
     async def _ensure_pair_provisioned(
         self, client: AsyncQdrantClient, width_hint: int | None
     ) -> None:
-        """The pair's first write: create `self._nodes`/`self._sources`, and, for a non-default
+        """Provision the node/source pair on its first write.
+
+        The pair's first write: create `self._nodes`/`self._sources`, and, for a non-default
         target, its catalogue point.
 
         A no-op once `self._provisioned` is true — every later `add`/`put_source` on this
@@ -657,7 +674,9 @@ class QdrantStore:
         self._provisioned = True
 
     async def _read_committed_width(self, client: AsyncQdrantClient) -> int:
-        """The width `self._nodes`' vector is actually configured for, read off the collection
+        """The width `self._nodes`' vector is configured for, read off the collection.
+
+        The width `self._nodes`' vector is actually configured for, read off the collection
         itself rather than assumed — a catalogued candidate's width is whatever its first write
         committed to, which `[packs.qdrant] vector_size` does not necessarily name.
         """
@@ -666,7 +685,9 @@ class QdrantStore:
         return vectors[_VECTOR].size
 
     def _committed_width(self) -> int:
-        """The width `self._nodes`' vector is committed to — `self._vector_width` once
+        """The width `self._nodes`' vector is committed to.
+
+        The width `self._nodes`' vector is committed to — `self._vector_width` once
         `_connection` (and, for a candidate, its first write) has set it, or `vector_size` when
         neither has: a store whose `_connection` a test double replaced entirely never sets
         `self._vector_width` at all, and that is `default`'s own configured width regardless.
@@ -674,7 +695,9 @@ class QdrantStore:
         return self._vector_width if self._vector_width is not None else self._settings.vector_size
 
     def _candidate_unprovisioned(self) -> bool:
-        """Whether this handle is bound to a non-default target whose pair does not exist yet —
+        """Whether this handle's non-default target has no pair yet.
+
+        Whether this handle is bound to a non-default target whose pair does not exist yet —
         the state `claim_embedding` alone still asks about by that narrower name, since a claim
         provisions a candidate sized to the claimed identity's own width and must never do the
         same to `default`, whose width is `[packs.qdrant] vector_size` and nothing else
@@ -692,7 +715,9 @@ class QdrantStore:
         )
 
     async def _pair_unprovisioned(self, client: AsyncQdrantClient) -> bool:
-        """Whether this handle's node/source pair does not exist yet — the general form of
+        """Whether this handle's node/source pair does not exist yet.
+
+        Whether this handle's node/source pair does not exist yet — the general form of
         `_candidate_unprovisioned`, widened at **R43.2** to include `default` before its first
         write: every read reaching this must answer empty rather than touch Qdrant, and every
         write reaching it must provision first. See `_candidate_unprovisioned` for why
@@ -717,7 +742,9 @@ class QdrantStore:
         return False
 
     def _require_active_target(self) -> TargetName:
-        """`self._active_target`, narrowed — same guarantee and the same reason as
+        """`self._active_target`, narrowed.
+
+        `self._active_target`, narrowed — same guarantee and the same reason as
         `_require_vector_width` above.
         """
         if self._active_target is None:
@@ -725,7 +752,9 @@ class QdrantStore:
         return self._active_target
 
     def _require_visible_generations(self) -> tuple[str, ...]:
-        """`self._visible_generations`, narrowed — same guarantee as `_require_active_target`,
+        """`self._visible_generations`, narrowed.
+
+        `self._visible_generations`, narrowed — same guarantee as `_require_active_target`,
         set by the same `_connection` call.
         """
         if self._visible_generations is None:
@@ -733,7 +762,9 @@ class QdrantStore:
         return self._visible_generations
 
     async def _resolve_visible_generations(self, client: AsyncQdrantClient) -> tuple[str, ...]:
-        """The generations this handle may see, from this moment on — ledger **43.14**: `""`
+        """The generations this handle may see, from this moment on.
+
+        The generations this handle may see, from this moment on — ledger **43.14**: `""`
         (the base marker), each layer's newest published generation right now (repair
         **R43.25**), and `self._bound_generation` whether or not it is published yet. Read once,
         by `_connection`, and held for this handle's lifetime — `34.3`'s manifest shape, applied
@@ -752,7 +783,9 @@ class QdrantStore:
         return tuple(sorted(visible))
 
     def _with_visibility(self, base: models.Filter | None) -> models.Filter:
-        """`base`, narrowed to this handle's visible generations — folded into `query_filter`/
+        """Narrow `base` to this handle's visible generations.
+
+        `base`, narrowed to this handle's visible generations — folded into `query_filter`/
         `scroll_filter` by `search_vector`, `search_text` and `matching` alike, so a member of a
         generation this handle cannot see is absent before top-k rather than after.
         """
@@ -772,7 +805,9 @@ class QdrantStore:
     async def _generation_record(
         self, client: AsyncQdrantClient, generation_id: str
     ) -> GenerationRecord | None:
-        """The one catalogue point recording `generation_id`, or `None` if it has never been
+        """The catalogue point recording `generation_id`, or `None`.
+
+        The one catalogue point recording `generation_id`, or `None` if it has never been
         written — what `bind_generation`, `publish_generation` and `retract_generation` all
         refuse against.
         """
@@ -788,7 +823,9 @@ class QdrantStore:
         return GenerationRecord.model_validate(records[0].payload)
 
     async def _all_generations(self, client: AsyncQdrantClient) -> list[GenerationRecord]:
-        """Every generation record this store has ever opened, published or not, in no
+        """Every generation record this store has ever opened.
+
+        Every generation record this store has ever opened, published or not, in no
         particular order — `generations()`'s own sort, and `_resolve_visible_generations`'s
         filter, both read from this.
         """
@@ -810,13 +847,17 @@ class QdrantStore:
             offset = cast("models.ExtendedPointId", next_offset)
 
     async def _generation_ids(self, client: AsyncQdrantClient) -> tuple[str, ...]:
-        """Every generation id this store's catalogue holds — what `UnknownGenerationError`
+        """Every generation id this store's catalogue holds.
+
+        Every generation id this store's catalogue holds — what `UnknownGenerationError`
         names as `valid_options`.
         """
         return tuple(sorted(record.id for record in await self._all_generations(client)))
 
     async def _ensure_generations_catalogue(self, client: AsyncQdrantClient) -> None:
-        """Create `<collection>__generations` before its first write, and never on open or on a
+        """Create the generations collection before its first write.
+
+        Create `<collection>__generations` before its first write, and never on open or on a
         read — `R43.2`'s rule, applied again: a store nothing has opened a generation on keeps
         the collections it always had.
         """
@@ -824,7 +865,9 @@ class QdrantStore:
             await client.create_collection(self._generations_catalogue, vectors_config={})
 
     async def _retract_from_nodes(self, client: AsyncQdrantClient, generation: str) -> int:
-        """Delete every point whose generations are exactly `{generation}`, and strip
+        """Remove `generation` from the nodes, deleting those only it held.
+
+        Delete every point whose generations are exactly `{generation}`, and strip
         `generation` from every other point that carries it — `retract_generation`'s node-side
         half, the read-modify-write `_delete_and_narrow` uses for the identical reason: Qdrant
         has no `array_remove` and no upsert-merge.
@@ -844,19 +887,7 @@ class QdrantStore:
                 with_payload=True,
                 offset=offset,
             )
-            for record in records:
-                payload = cast("Mapping[str, Any]", record.payload or {})
-                held = _generations_of(payload)
-                if set(held) == {generation}:
-                    to_delete.append(record.id)
-                else:
-                    remaining = sorted(g for g in held if g != generation)
-                    await client.set_payload(
-                        self._nodes,
-                        payload={_GENERATIONS: remaining},
-                        points=[record.id],
-                        wait=True,
-                    )
+            to_delete.extend(await self._strip_generation(client, records, generation))
             if offset is None:
                 break
         if to_delete:
@@ -864,6 +895,26 @@ class QdrantStore:
                 self._nodes, points_selector=models.PointIdsList(points=to_delete), wait=True
             )
         return len(to_delete)
+
+    async def _strip_generation(
+        self, client: AsyncQdrantClient, records: Sequence[models.Record], generation: str
+    ) -> list[models.ExtendedPointId]:
+        """Narrow each of `records` to its other generations; return the ids only it held."""
+        only_this: list[models.ExtendedPointId] = []
+        for record in records:
+            payload = cast("Mapping[str, Any]", record.payload or {})
+            held = _generations_of(payload)
+            if set(held) == {generation}:
+                only_this.append(record.id)
+            else:
+                remaining = sorted(g for g in held if g != generation)
+                await client.set_payload(
+                    self._nodes,
+                    payload={_GENERATIONS: remaining},
+                    points=[record.id],
+                    wait=True,
+                )
+        return only_this
 
     async def open_generation(self, layer: str) -> GenerationRecord:
         """A fresh generation on `layer`, `building` — `GenerationHolding`, ledger **43.14**.
@@ -893,7 +944,9 @@ class QdrantStore:
         return record
 
     async def bind_generation(self, generation: GenerationId) -> Self:
-        """A second handle onto the same deployment and target, bound to `generation` — the
+        """A second handle onto the same deployment and target, bound to `generation`.
+
+        A second handle onto the same deployment and target, bound to `generation` — the
         model is `bind_target`'s own construction, one field over.
         """
         client = await self._connection()
@@ -904,6 +957,17 @@ class QdrantStore:
         return type(self)(self._settings, _bound=self._bound, _bound_generation=generation)
 
     async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Make `generation` visible to handles that open afterwards.
+
+        Args:
+            generation: The generation to publish.
+
+        Returns:
+            The generation's record, `published`.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+        """
         client = await self._connection()
         record = await self._generation_record(client, generation)
         if record is None:
@@ -917,6 +981,17 @@ class QdrantStore:
         return published
 
     async def retract_generation(self, generation: GenerationId) -> Removed:
+        """Remove the nodes only `generation` made, and forget it.
+
+        Args:
+            generation: The generation to retract.
+
+        Returns:
+            How many nodes were deleted.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+        """
         client = await self._connection()
         record = await self._generation_record(client, generation)
         if record is None:
@@ -942,7 +1017,9 @@ class QdrantStore:
         )
 
     async def _forget_generation(self, client: AsyncQdrantClient, generation: str) -> int:
-        """`retract_generation`'s work once `generation` is known to be catalogued, and
+        """Retract a catalogued `generation` and return how many nodes were deleted.
+
+        `retract_generation`'s work once `generation` is known to be catalogued, and
         `reclaim_withdrawn`'s per generation (repair **R43.29**). Returns how many nodes were
         deleted.
         """
@@ -959,7 +1036,9 @@ class QdrantStore:
         return node_count
 
     async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
-        """Mark a published `generation` withdrawn and touch no point: a handle that resolved
+        """Mark a published `generation` withdrawn without touching any point.
+
+        Mark a published `generation` withdrawn and touch no point: a handle that resolved
         its visible generations before this keeps them — `GenerationWithdrawing`, repair
         **R43.29**.
         """
@@ -985,6 +1064,14 @@ class QdrantStore:
         return withdrawn
 
     async def reclaim_withdrawn(self, layer: str) -> Removed:
+        """Retract every withdrawn generation of `layer`.
+
+        Args:
+            layer: The layer whose withdrawn generations are reclaimed.
+
+        Returns:
+            How many nodes were deleted.
+        """
         client = await self._connection()
         doomed = sorted(
             record.id
@@ -997,12 +1084,19 @@ class QdrantStore:
         return Removed(source_id=SourceId(layer), node_count=node_count)
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
+        """Read every generation this store's catalogue holds.
+
+        Returns:
+            Every generation record, oldest first.
+        """
         client = await self._connection()
         records = await self._all_generations(client)
         return tuple(sorted(records, key=lambda record: (record.opened_at, record.id)))
 
     async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
-        """`into` joins each point's generations payload and nothing else about it changes — a
+        """Add `into` to the generations of existing points, without re-embedding.
+
+        `into` joins each point's generations payload and nothing else about it changes — a
         set-payload, never an upsert, so no re-embedding. `GenerationCarrying`, ledger **43.22**.
         Every id is checked before any is carried, so a refused call writes nothing.
         """
@@ -1046,7 +1140,9 @@ class QdrantStore:
         return len(requested)
 
     async def _read_live_target(self, client: AsyncQdrantClient) -> TargetName:
-        """The live target the pointer point names, or `DEFAULT_TARGET` when there is none yet
+        """The live target the pointer point names, or `DEFAULT_TARGET`.
+
+        The live target the pointer point names, or `DEFAULT_TARGET` when there is none yet
         — `34.2`'s upgrade clause, held for this handle's lifetime by its one caller.
         """
         if not await client.collection_exists(self._catalogue):
@@ -1057,7 +1153,9 @@ class QdrantStore:
         return TargetName(cast(str, records[0].payload["live"]))
 
     async def _catalogue_point(self, client: AsyncQdrantClient, name: str) -> models.Record | None:
-        """The one catalogue point recording `name`, or `None` if it has never been written —
+        """The catalogue point recording `name`, or `None`.
+
+        The one catalogue point recording `name`, or `None` if it has never been written —
         the fact `_open_candidate` reads to decide "catalogued" and `claim_embedding` reads to
         decide whether an identity is already held.
         """
@@ -1069,7 +1167,9 @@ class QdrantStore:
         return records[0] if records else None
 
     async def _ensure_catalogue(self, client: AsyncQdrantClient) -> None:
-        """Create `<collection>__targets` before the first write to it, and never on open or on a
+        """Create the targets collection before its first write.
+
+        Create `<collection>__targets` before the first write to it, and never on open or on a
         read: a store that only ever serves `default` keeps the two collections it always had.
         Vector-less, like `self._sources`.
         """
@@ -1077,7 +1177,9 @@ class QdrantStore:
             await client.create_collection(self._catalogue, vectors_config={})
 
     async def _register_target_if_needed(self, client: AsyncQdrantClient) -> None:
-        """The catalogue point a non-default target earns on its first write — never on a bind,
+        """Record a non-default target's catalogue point on its first write.
+
+        The catalogue point a non-default target earns on its first write — never on a bind,
         never on a read, and never overwriting an identity `claim_embedding` already recorded.
         `default` needs none: the catalogue lists it regardless (`target_catalogue` below).
         """
@@ -1127,7 +1229,9 @@ class QdrantStore:
         self._lease_written = True
 
     async def _writer_point(self, client: AsyncQdrantClient, target: str) -> models.Record | None:
-        """The one write-claim point recorded against `target`, or `None` if no writer has
+        """The write-claim point recorded against `target`, or `None`.
+
+        The one write-claim point recorded against `target`, or `None` if no writer has
         ever claimed it — what `claim_writer`, `release_writer` and `_touch_writer_lease` all
         read, `_catalogue_point`'s own shape applied to a writer's id instead of a target's.
         """
@@ -1141,7 +1245,9 @@ class QdrantStore:
         return records[0] if records else None
 
     async def _touch_writer_lease(self, client: AsyncQdrantClient) -> None:
-        """Renew this handle's own writer claim, if it holds one — ledger **43.18**,
+        """Renew this handle's own writer claim, if it holds one.
+
+        Renew this handle's own writer claim, if it holds one — ledger **43.18**,
         `_touch_lease`'s own reasoning applied to the writer point: a long `add` must not
         outlive the claim that admitted it.
         """
@@ -1165,7 +1271,9 @@ class QdrantStore:
         )
 
     async def _leases_for(self, client: AsyncQdrantClient, target: str) -> list[models.Record]:
-        """Every lease point recorded against `target`, any holder, expired or not — what
+        """Every lease point recorded against `target`.
+
+        Every lease point recorded against `target`, any holder, expired or not — what
         `drop_target` reads to decide whether another handle still holds it, and what it
         clears once a drop goes ahead.
         """
@@ -1192,7 +1300,9 @@ class QdrantStore:
             offset = cast("models.ExtendedPointId", next_offset)
 
     async def _catalogue_names(self, client: AsyncQdrantClient) -> tuple[str, ...]:
-        """Every target name the catalogue holds, `default` included — what a refusal naming
+        """Every target name the catalogue holds, `default` included.
+
+        Every target name the catalogue holds, `default` included — what a refusal naming
         "the targets that exist" offers.
         """
         names: set[str] = {DEFAULT_TARGET}
@@ -1471,6 +1581,14 @@ class QdrantStore:
         return
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        """Read the nodes stored under `ids`.
+
+        Args:
+            ids: The node ids to read.
+
+        Returns:
+            The nodes that exist; an id the store does not hold is absent from the answer.
+        """
         if not ids:
             return ()
         client = await self._connection()
@@ -1519,7 +1637,9 @@ class QdrantStore:
     async def _delete_and_narrow(
         self, client: AsyncQdrantClient, carries: models.Filter, source_id: SourceId
     ) -> tuple[int, int]:
-        """Read-modify-write against every point `carries` selects, and the two counts that
+        """Delete or narrow every point `carries` selects, and count both.
+
+        Read-modify-write against every point `carries` selects, and the two counts that
         come out of it — shared by `delete_source` and `reconcile`'s own finishing pass, so
         the two can never narrow differently for the identical deletion.
 
@@ -1673,6 +1793,14 @@ class QdrantStore:
         )
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        """Walk every stored node, one page at a time.
+
+        Args:
+            cursor: Where the previous page ended, or `None` for the first page.
+
+        Returns:
+            One page of nodes and the cursor for the next, if any.
+        """
         return await self._walk(None, cursor)
 
     async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
@@ -1711,6 +1839,11 @@ class QdrantStore:
         )
 
     async def count(self) -> int:
+        """Count the nodes stored.
+
+        Returns:
+            How many nodes this store holds.
+        """
         client = await self._connection()
         if await self._pair_unprovisioned(client):
             return 0
@@ -1718,6 +1851,11 @@ class QdrantStore:
         return counted.count
 
     async def put_source(self, record: SourceRecord) -> None:
+        """Write or replace one source's record, provisioning the pair on a first write.
+
+        Args:
+            record: The record to store under its own id.
+        """
         client = await self._connection()
         if await self._pair_unprovisioned(client):
             # `default`'s first write, or a bound, uncatalogued target's (`34.5`, point 3;
@@ -1736,6 +1874,14 @@ class QdrantStore:
         )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        """Read one source's record.
+
+        Args:
+            source_id: The source to read.
+
+        Returns:
+            The record, or `None` when none is stored.
+        """
         client = await self._connection()
         if await self._pair_unprovisioned(client):
             return None
@@ -1846,7 +1992,9 @@ class QdrantStore:
     # -- SingleWriter — ledger task **43.18**, R34.10's precedent applied to a writer ------
 
     async def claim_writer(self, writer: WriterClaim) -> None:
-        """Claim this handle's target for `writer` — one point in the catalogue per target,
+        """Claim this handle's target for `writer`.
+
+        Claim this handle's target for `writer` — one point in the catalogue per target,
         `_writer_point_id`'s own id, holding the claim plus `expires_at`.
 
         Reads that point first: if it exists, has not expired, and names a different
@@ -1947,6 +2095,11 @@ class QdrantStore:
     # -- TargetHolding — ledger task **34.5**, with `34.2`'s Qdrant half ---------------------
 
     async def target_catalogue(self) -> TargetCatalogue:
+        """Read every target this store holds.
+
+        Returns:
+            The targets, which one is live, which was live before, and the last promotion.
+        """
         client = await self._connection()
         if not await client.collection_exists(self._catalogue):
             return TargetCatalogue(
@@ -1961,6 +2114,18 @@ class QdrantStore:
         previous = cast("str | None", payload.get("previous")) if payload is not None else None
         promotion_json = payload.get("promotion") if payload is not None else None
         promotion = Promotion.model_validate(promotion_json) if promotion_json is not None else None
+        embeddings = await self._catalogued_embeddings(client)
+        records_out = tuple(
+            TargetRecord(name=name, embedding=embeddings[name]) for name in sorted(embeddings)
+        )
+        return TargetCatalogue(
+            live=live, previous=previous, targets=records_out, promotion=promotion
+        )
+
+    async def _catalogued_embeddings(
+        self, client: AsyncQdrantClient
+    ) -> dict[str, EmbeddingIdentity | None]:
+        """Each catalogued target's claimed embedding identity, `default` included."""
         embeddings: dict[str, EmbeddingIdentity | None] = {DEFAULT_TARGET: None}
         offset: models.ExtendedPointId | None = None
         while True:
@@ -1988,21 +2153,20 @@ class QdrantStore:
             if next_offset is None:
                 break
             offset = cast("models.ExtendedPointId", next_offset)
-        records_out = tuple(
-            TargetRecord(name=name, embedding=embeddings[name]) for name in sorted(embeddings)
-        )
-        return TargetCatalogue(
-            live=live, previous=previous, targets=records_out, promotion=promotion
-        )
+        return embeddings
 
     async def bind_target(self, target: TargetName) -> Self:
-        """A second handle onto the same deployment, bound to `target` — its own client,
+        """A second handle onto the same deployment, bound to `target`.
+
+        A second handle onto the same deployment, bound to `target` — its own client,
         opened lazily on first use exactly as an unbound handle's is.
         """
         return type(self)(self._settings, _bound=target)
 
     async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
-        """Record `identity` against this handle's target, provisioning it first if this is
+        """Record `identity` against this handle's target, provisioning it if needed.
+
+        Record `identity` against this handle's target, provisioning it first if this is
         its first write — ledger task **34.4**, point 6: a bound, uncatalogued target creates
         its pair exactly as `add`'s first write does (`width_hint` above), sized to
         `identity.width` rather than to a node's vector, so a target opened only to claim an
@@ -2035,7 +2199,9 @@ class QdrantStore:
         return identity
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
-        """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+        """Make the promoted target live, recording the previous one for rollback.
+
+        Promoting the target that is already live is a no-op: `previous` is never rewritten to
         the already-live target, so a converging re-run after a crash leaves the rollback an
         operator needs intact.
         """
@@ -2069,6 +2235,14 @@ class QdrantStore:
         return await self.target_catalogue()
 
     async def rollback(self) -> TargetCatalogue:
+        """Swap the live target with the previous one.
+
+        Returns:
+            The catalogue after the rollback.
+
+        Raises:
+            NoPreviousTargetError: No target was live before this one.
+        """
         client = await self._connection()
         if not await client.collection_exists(self._catalogue):
             raise NoPreviousTargetError(DEFAULT_TARGET)
@@ -2101,6 +2275,15 @@ class QdrantStore:
         return await self.target_catalogue()
 
     async def drop_target(self, target: TargetName) -> None:
+        """Delete `target` and everything stored in it.
+
+        Args:
+            target: The target to drop.
+
+        Raises:
+            UnknownTargetError: The target is not in the catalogue.
+            TargetInUseError: The target is live, previous, or bound by another handle.
+        """
         client = await self._connection()
         catalogue = await self.target_catalogue()
         known = {record.name for record in catalogue.targets}

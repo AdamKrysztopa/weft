@@ -1,4 +1,6 @@
-"""Schema-per-target mechanics, shared by every Postgres-backed `TargetHolding` — ledger task
+"""Schema-per-target mechanics, shared by every Postgres-backed `TargetHolding`.
+
+Schema-per-target mechanics, shared by every Postgres-backed `TargetHolding` — ledger task
 **R34.8**, factored out of `weft_store.pgvector_store.PgVectorStore` (task **34.1**) and a second
 store elsewhere in this wheel that grew an identical target machinery of its own a few tasks
 later, differing only in a schema/lock-key prefix, which two catalogue tables it keeps, which
@@ -52,7 +54,9 @@ from weft_store.contract import (
 
 @dataclass(frozen=True, slots=True)
 class PgTargetLayout:
-    """One store's own naming for the schema-per-target mechanics — the only thing that differs
+    """One store's own naming for the schema-per-target mechanics.
+
+    One store's own naming for the schema-per-target mechanics — the only thing that differs
     between `weft_store.pgvector_store.PgVectorStore` and the second store above that shares
     this module.
     """
@@ -78,7 +82,9 @@ class PgTargetLayout:
 
 
 def target_schema(layout: PgTargetLayout, target: TargetName) -> sql.Identifier:
-    """A target's own schema, composed with `sql.Identifier` rather than string formatting —
+    """A target's own schema, as a composed SQL identifier.
+
+    A target's own schema, composed with `sql.Identifier` rather than string formatting —
     never interpolated from anything but a `TargetName`, which `weft_store.contract.target_name`
     has already checked against a closed grammar before a caller ever reaches a store.
     """
@@ -86,7 +92,9 @@ def target_schema(layout: PgTargetLayout, target: TargetName) -> sql.Identifier:
 
 
 def home_table(home_schema: str, table: str) -> sql.Composed:
-    """`<home_schema>.<table>`, composed of two `sql.Identifier`s — every catalogue statement's
+    """`<home_schema>.<table>`, composed of two `sql.Identifier`s.
+
+    `<home_schema>.<table>`, composed of two `sql.Identifier`s — every catalogue statement's
     own qualification, so a candidate's own `search_path` never decides which catalogue a read
     means.
     """
@@ -94,7 +102,9 @@ def home_table(home_schema: str, table: str) -> sql.Composed:
 
 
 def lock_key(layout: PgTargetLayout, target: TargetName) -> str:
-    """What `hashtext()` turns into this target's advisory lock key — never `0`, the sentinel
+    """The text `hashtext()` turns into this target's advisory lock key.
+
+    What `hashtext()` turns into this target's advisory lock key — never `0`, the sentinel
     Postgres's own `pg_advisory_lock` family treats no differently, but a key worth reading in a
     `pg_locks` row beats an opaque integer.
     """
@@ -102,7 +112,9 @@ def lock_key(layout: PgTargetLayout, target: TargetName) -> str:
 
 
 def create_targets_table_sql(layout: PgTargetLayout, home_schema: str) -> sql.Composed:
-    """The catalogue table — `default` needs no row in it, since `target_catalogue` lists it
+    """The DDL that creates the catalogue table.
+
+    The catalogue table — `default` needs no row in it, since `target_catalogue` lists it
     regardless, so it only ever holds a target `bind_target` was asked for by name.
     """
     return sql.SQL(
@@ -127,7 +139,9 @@ def create_live_target_table_sql(layout: PgTargetLayout, home_schema: str) -> sq
 async def read_live_target(
     layout: PgTargetLayout, conn: "psycopg.AsyncConnection[dict[str, Any]]", home_schema: str
 ) -> TargetName:
-    """The live target the live-pointer table names, or `DEFAULT_TARGET` when it holds no row
+    """The live target the live-pointer table names, or `DEFAULT_TARGET`.
+
+    The live target the live-pointer table names, or `DEFAULT_TARGET` when it holds no row
     yet — the upgrade clause: a database written before targets existed reads as `default`, live,
     with no operator action.
     """
@@ -142,7 +156,9 @@ async def read_live_target(
 async def verify_target_tables(
     layout: PgTargetLayout, conn: "psycopg.AsyncConnection[dict[str, Any]]", target: TargetName
 ) -> None:
-    """Refuse `target` by name the moment one of its own tables is gone, rather than let
+    """Refuse `target` by name the moment one of its own tables is gone.
+
+    Refuse `target` by name the moment one of its own tables is gone, rather than let
     `search_path` quietly resolve the bare name to `default`'s own table.
     """
     schema_name = f"{layout.schema_prefix}{target}"
@@ -167,7 +183,9 @@ async def enter_target_schema(
     home_schema: str,
     target: TargetName,
 ) -> None:
-    """Reach `target`'s own tables through `search_path`, without rewriting a single one of a
+    """Reach `target`'s own tables through `search_path`.
+
+    Reach `target`'s own tables through `search_path`, without rewriting a single one of a
     store's own unqualified statements.
 
     A catalogued target's tables must already exist (`verify_target_tables` refuses by name,
@@ -204,7 +222,9 @@ async def resolve_active_target(
     home_schema: str,
     bound: TargetName | None,
 ) -> TargetName:
-    """Create the catalogue tables if needed, resolve `bound` or the live target, and enter its
+    """Create the catalogue, resolve the target to use, and enter its schema.
+
+    Create the catalogue tables if needed, resolve `bound` or the live target, and enter its
     schema when it is not `default`.
 
     The common tail of both stores' own `_connection`: called once each has opened its
@@ -230,7 +250,9 @@ async def register_target_if_needed(
     target: TargetName | None,
     home_schema: str | None,
 ) -> None:
-    """The catalogue row a non-default target earns on its first write — never on a bind, never
+    """Record a non-default target's catalogue row on its first write.
+
+    The catalogue row a non-default target earns on its first write — never on a bind, never
     on a read. `default` needs none: the catalogue lists it regardless.
     """
     if target is None or target == DEFAULT_TARGET or home_schema is None:
@@ -246,6 +268,16 @@ async def register_target_if_needed(
 async def target_catalogue(
     layout: PgTargetLayout, conn: "psycopg.AsyncConnection[dict[str, Any]]", home_schema: str
 ) -> TargetCatalogue:
+    """Read every target the catalogue holds, `default` included.
+
+    Args:
+        layout: The calling store's own naming.
+        conn: The handle's own connection.
+        home_schema: The schema holding the catalogue tables.
+
+    Returns:
+        The targets, which one is live, which was live before, and the last promotion.
+    """
     async with conn.cursor() as cur:
         await cur.execute(
             sql.SQL("SELECT live, previous, promotion FROM {}").format(
@@ -284,6 +316,18 @@ async def claim_embedding(
     target: TargetName,
     identity: EmbeddingIdentity,
 ) -> EmbeddingIdentity:
+    """Record `identity` against `target`, unless one is already recorded.
+
+    Args:
+        layout: The calling store's own naming.
+        conn: The handle's own connection.
+        home_schema: The schema holding the catalogue tables.
+        target: The target the identity is claimed against.
+        identity: What embedded the vectors about to be written.
+
+    Returns:
+        The identity the target holds, which is the earlier one if already claimed.
+    """
     async with conn.cursor() as cur:
         await cur.execute(
             sql.SQL(
@@ -306,6 +350,16 @@ async def claim_embedding(
 async def catalogue_names(
     layout: PgTargetLayout, cur: "psycopg.AsyncCursor[dict[str, Any]]", home_schema: str
 ) -> tuple[str, ...]:
+    """Read every target name the catalogue holds, `default` included.
+
+    Args:
+        layout: The calling store's own naming.
+        cur: A cursor on the handle's own connection.
+        home_schema: The schema holding the catalogue tables.
+
+    Returns:
+        The names, sorted.
+    """
     await cur.execute(
         sql.SQL("SELECT name FROM {}").format(home_table(home_schema, layout.targets_table))
     )
@@ -319,7 +373,9 @@ async def promote(
     home_schema: str,
     promotion: Promotion,
 ) -> TargetCatalogue:
-    """Promoting the target that is already live is a no-op: `previous` is never rewritten to
+    """Make the promoted target live, recording the previous one for rollback.
+
+    Promoting the target that is already live is a no-op: `previous` is never rewritten to
     the already-live target, so a converging re-run after a crash leaves the rollback an
     operator needs intact.
     """
@@ -363,6 +419,19 @@ async def promote(
 async def rollback(
     layout: PgTargetLayout, conn: "psycopg.AsyncConnection[dict[str, Any]]", home_schema: str
 ) -> TargetCatalogue:
+    """Swap the live target with the previous one.
+
+    Args:
+        layout: The calling store's own naming.
+        conn: The handle's own connection.
+        home_schema: The schema holding the catalogue tables.
+
+    Returns:
+        The catalogue after the rollback.
+
+    Raises:
+        NoPreviousTargetError: No target was live before this one.
+    """
     async with conn.transaction(), conn.cursor() as cur:
         await cur.execute(
             sql.SQL("SELECT live, previous FROM {}").format(
@@ -389,6 +458,18 @@ async def drop_target(
     home_schema: str,
     target: TargetName,
 ) -> None:
+    """Drop `target`'s tables, or its whole schema, and its catalogue row.
+
+    Args:
+        layout: The calling store's own naming.
+        conn: The handle's own connection.
+        home_schema: The schema holding the catalogue tables.
+        target: The target to drop.
+
+    Raises:
+        UnknownTargetError: The target is not in the catalogue.
+        TargetInUseError: The target is live, previous, or bound by another connection.
+    """
     catalogue = await target_catalogue(layout, conn, home_schema)
     known = {record.name for record in catalogue.targets}
     if target != DEFAULT_TARGET and target not in known:

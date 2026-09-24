@@ -115,7 +115,9 @@ class _StoreState:
 
 
 class MemoryStore:
-    """A `NodeStore`, `VectorSearch` and `TargetHolding` that keeps everything in one store's
+    """An in-memory `NodeStore`, `VectorSearch` and `TargetHolding`.
+
+    A `NodeStore`, `VectorSearch` and `TargetHolding` that keeps everything in one store's
     own dicts.
 
     Satisfies all three structurally, with nothing declared — `02` → *Capability is derived,
@@ -193,6 +195,11 @@ class MemoryStore:
         return
 
     async def count(self) -> int:
+        """Count the nodes stored.
+
+        Returns:
+            How many nodes this store holds.
+        """
         return len(self._readable().nodes)
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
@@ -220,12 +227,30 @@ class MemoryStore:
         return Produced(value=payload)
 
     async def put_source(self, record: SourceRecord) -> None:
+        """Write or replace one source's record.
+
+        Args:
+            record: The record to store under its own id.
+        """
         self._writable().sources[record.id] = record
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        """Read one source's record.
+
+        Args:
+            source_id: The source to read.
+
+        Returns:
+            The record, or `None` when none is stored.
+        """
         return self._readable().sources.get(source_id)
 
     async def list_sources(self) -> Sequence[SourceRecord]:
+        """Read every source record this store holds.
+
+        Returns:
+            Every source record.
+        """
         return tuple(self._readable().sources.values())
 
     async def delete_source(self, source_id: SourceId) -> Removed:
@@ -301,6 +326,11 @@ class MemoryStore:
     # -- TargetHolding -------------------------------------------------------------------------
 
     async def target_catalogue(self) -> TargetCatalogue:
+        """Read every target this store holds.
+
+        Returns:
+            The targets, which one is live, which was live before, and the last promotion.
+        """
         records = tuple(
             sorted(
                 (
@@ -326,13 +356,23 @@ class MemoryStore:
         return type(self)(_state=self._state, _bound=target)
 
     async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        """Record `identity` against this handle's target, unless one is recorded.
+
+        Args:
+            identity: What embedded the vectors about to be written.
+
+        Returns:
+            The identity the target holds, which is the earlier one if already claimed.
+        """
         target = self._writable()
         if target.embedding is None:
             target.embedding = identity
         return target.embedding
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
-        """Promoting the target that is already live is a no-op: `previous` stays what it was
+        """Make the promoted target live, recording the previous one for rollback.
+
+        Promoting the target that is already live is a no-op: `previous` stays what it was
         (never rewritten to the already-live target), so a converging re-run after a crash leaves
         the rollback an operator needs intact.
         """
@@ -347,6 +387,14 @@ class MemoryStore:
         return await self.target_catalogue()
 
     async def rollback(self) -> TargetCatalogue:
+        """Swap the live target with the previous one.
+
+        Returns:
+            The catalogue after the rollback.
+
+        Raises:
+            NoPreviousTargetError: No target was live before this one.
+        """
         state = self._state
         if state.previous is None:
             raise NoPreviousTargetError(state.live)
@@ -354,6 +402,15 @@ class MemoryStore:
         return await self.target_catalogue()
 
     async def drop_target(self, target: TargetName) -> None:
+        """Delete `target` and everything stored in it.
+
+        Args:
+            target: The target to drop.
+
+        Raises:
+            TargetInUseError: The target is live or previous.
+            UnknownTargetError: The target is not in the catalogue.
+        """
         state = self._state
         if target == state.live or target == state.previous:
             raise TargetInUseError(target)

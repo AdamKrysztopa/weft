@@ -94,7 +94,9 @@ from weft_kernel.registry import Registry, unwrap_factory
 
 @dataclass(frozen=True)
 class SubsetScores:
-    """What every gate-safe `RetrievalMetric` produced — the aggregate, and the observations
+    """What every gate-safe `RetrievalMetric` produced, with its per-question observations.
+
+    What every gate-safe `RetrievalMetric` produced — the aggregate, and the observations
     under it, keyed identically.
 
     `per_question` is keyed by the same `reported_name` `metrics` is keyed by (what the metric
@@ -126,7 +128,9 @@ def _metric_config(config_model: type[BaseModel] | None, *, top_k: int) -> BaseM
 
 
 class _KindAndModality(Protocol):
-    """The two fields `_modality_slices`/`_question_kind_slices` actually read — both
+    """The two sample fields the modality and question-kind slicers read.
+
+    The two fields `_modality_slices`/`_question_kind_slices` actually read — both
     `RetrievalSample` and `GenerationSample` carry them at the identical default (task 9.12/
     11.12), so one pair of slicing functions serves both contracts rather than one copy per
     contract that could drift apart from the other.
@@ -139,7 +143,9 @@ class _KindAndModality(Protocol):
 def _modality_slices(
     samples: Sequence[_KindAndModality], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[QueryModality, PartitionSlice]:
-    """Partition `outcomes` by the `modality` of the `RetrievalSample` that produced each, fold
+    """Aggregate `outcomes` per modality of the sample that produced each.
+
+    Partition `outcomes` by the `modality` of the `RetrievalSample` that produced each, fold
     each partition with `aggregate()`, and keep only the partitions that produced a mean.
 
     A partition whose observations all failed or had nothing to score contributes no slice — an
@@ -165,7 +171,9 @@ def _modality_slices(
 def _question_kind_slices(
     samples: Sequence[_KindAndModality], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, PartitionSlice]:
-    """Partition `outcomes` by the `kind` of the `RetrievalSample` that produced each, fold each
+    """Aggregate `outcomes` per question kind of the sample that produced each.
+
+    Partition `outcomes` by the `kind` of the `RetrievalSample` that produced each, fold each
     partition with `aggregate()`, and keep only the partitions that produced a mean.
 
     `_modality_slices`'s twin, sliced by `kind` instead — see the module docstring's own
@@ -194,7 +202,9 @@ def _question_kind_slices(
 def _axis_slices(
     samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, Mapping[str, PartitionSlice]]:
-    """Partition `outcomes` by every axis the `RetrievalSample` that produced each declares, fold
+    """Aggregate `outcomes` per axis the sample that produced each declares.
+
+    Partition `outcomes` by every axis the `RetrievalSample` that produced each declares, fold
     each partition with `aggregate()`, and keep only the partitions that produced a mean.
 
     `_question_kind_slices`'s twin, one level up — a mapping of axis to value to `PartitionSlice`
@@ -222,7 +232,9 @@ def _axis_slices(
 
 
 def _as_question_outcome(outcome: Outcome[MetricScore]) -> QuestionOutcome:
-    """One question's `Outcome[MetricScore]` narrowed to `QuestionOutcome` — task 16.4, the
+    """Narrow one question's outcome to a `QuestionOutcome`.
+
+    One question's `Outcome[MetricScore]` narrowed to `QuestionOutcome` — task 16.4, the
     per-sample twin of `weft_eval.run_record._as_run_result` one granularity up.
     """
     match outcome:
@@ -235,7 +247,9 @@ def _as_question_outcome(outcome: Outcome[MetricScore]) -> QuestionOutcome:
 def _per_question_scores_by_keys(
     keys: Sequence[str], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, QuestionOutcome]:
-    """`outcomes`, keyed positionally by `keys` — the shared half of `_per_question_scores`
+    """Key `outcomes` positionally by `keys`.
+
+    `outcomes`, keyed positionally by `keys` — the shared half of `_per_question_scores`
     (`RetrievalSample.question_key`, read off each sample) and `score_generation_gate_subset`
     (a caller-supplied key, since `GenerationSample` carries no `question_key` field of its
     own — see that function's own docstring for why).
@@ -246,7 +260,9 @@ def _per_question_scores_by_keys(
 def _per_question_scores(
     samples: Sequence[RetrievalSample], outcomes: Sequence[Outcome[MetricScore]]
 ) -> Mapping[str, QuestionOutcome]:
-    """`outcomes`, keyed by the `question_key` of the `RetrievalSample` that produced each — the
+    """Key `outcomes` by the `question_key` of the sample that produced each.
+
+    `outcomes`, keyed by the `question_key` of the `RetrievalSample` that produced each — the
     identical `zip(samples, outcomes, strict=True)` pairing `_modality_slices`/`_question_kind_
     slices` already use, above.
     """
@@ -284,7 +300,9 @@ def _record_metric(
     outcome: Outcome[MetricAggregate],
     scores: Mapping[str, QuestionOutcome],
 ) -> None:
-    """The collision guard `score_retrieval_gate_subset`/`score_generation_gate_subset` both
+    """Record one metric's outcome, refusing a name another metric already claimed.
+
+    The collision guard `score_retrieval_gate_subset`/`score_generation_gate_subset` both
     apply identically after computing one metric's `outcome` — see `CollidingMetricNameError`'s
     own docstring for why a name two metrics both claim is refused rather than one silently
     replacing the other in `report`.
@@ -401,7 +419,9 @@ async def score_retrieval_at_cutoffs(
 
 
 def _generation_metric_config(config_model: type[BaseModel] | None) -> BaseModel | None:
-    """`config_model`, built with no arguments — every gate-safe `GenerationMetric` this pack
+    """Build `config_model` with no arguments, or `None` when there is none.
+
+    `config_model`, built with no arguments — every gate-safe `GenerationMetric` this pack
     ships needs a config buildable this way (`weft_eval.lexical.NoConfig`, `_RougeConfig`'s own
     defaulted `use_stemmer`) with one exception: `weft_eval.at_threshold.AtThresholdConfig`'s
     `threshold` has no default by design (that module's own docstring: "a threshold silently
@@ -423,7 +443,9 @@ async def score_generation_gate_subset(
     ctx: Context,
     failed_questions: Mapping[str, str] = _NO_FAILED_QUESTIONS,
 ) -> SubsetScores:
-    """Every gate-safe `GenerationMetric` registered in `registry`, scored over `samples` —
+    """Score every gate-safe `GenerationMetric` in `registry` over `samples`.
+
+    Every gate-safe `GenerationMetric` registered in `registry`, scored over `samples` —
     `score_retrieval_gate_subset`'s twin, one contract over. Shares its collision guard
     (`_record_metric`), its per-question keying (`_per_question_scores_by_keys`), its modality/
     kind slicing (`_modality_slices`/`_question_kind_slices`, both now typed structurally rather

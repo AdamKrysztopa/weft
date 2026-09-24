@@ -88,7 +88,9 @@ class GateSubset(BaseModel):
 
 
 def gate_subset(registry: Registry) -> GateSubset:
-    """Every `GenerationMetric`/`RetrievalMetric` name `registry` holds, partitioned by
+    """Every registered metric name, partitioned by whether it runs in the gate.
+
+    Every `GenerationMetric`/`RetrievalMetric` name `registry` holds, partitioned by
     `runs_in_gate`. Never touches a metric never registered under either contract — `names_for`
     on a contract nothing registered answers `frozenset()`, not an error, and this function
     inherits that.

@@ -26,9 +26,19 @@ from collections.abc import Mapping
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
+from pydantic.config import JsonDict
 
 from weft_prompts.contract import PROMPT_CONTRACT_VERSION
 from weft_prompts.typed_prompt import PromptText, TypedPrompt
+
+
+def _without_docstring(schema: JsonDict) -> None:
+    schema.pop("description", None)
+
+
+#: For a judge's output model: its docstring is for code readers and never reaches the judge,
+#: whose prompt is the JSON schema `weft_prompts.cascade` builds from this model.
+_JUDGE_OUTPUT_CONFIG = ConfigDict(frozen=True, extra="forbid", json_schema_extra=_without_docstring)
 
 # ---------------------------------------------------------------------------------------------
 # faithfulness
@@ -38,6 +48,8 @@ FAITHFULNESS_PROMPT_NAME = "faithfulness-judge"
 
 
 class FaithfulnessRequest(BaseModel):
+    """The values the faithfulness judge prompt is rendered from."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     answer: str
@@ -45,14 +57,27 @@ class FaithfulnessRequest(BaseModel):
 
 
 class StatementSupport(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    """One statement taken from the answer, and whether the context supports it.
+
+    Attributes:
+        statement: A short, standalone factual statement the answer makes.
+        supported: Whether the retrieved context supports it.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
 
     statement: str
     supported: bool
 
 
 class FaithfulnessJudgement(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    """The faithfulness judge's answer: every statement in the answer, each judged.
+
+    Attributes:
+        statements: One entry per statement; `weft_eval.judges.Faithfulness` counts them.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
 
     statements: tuple[StatementSupport, ...] = ()
 
@@ -89,6 +114,8 @@ CONTEXT_RECALL_PROMPT_NAME = "context-recall-judge"
 
 
 class ContextRecallRequest(BaseModel):
+    """The values the context-recall judge prompt is rendered from."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     reference: str
@@ -96,14 +123,27 @@ class ContextRecallRequest(BaseModel):
 
 
 class ClaimSupport(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    """One claim taken from the reference answer, and whether the retrieved context supports it.
+
+    Attributes:
+        claim: A standalone claim the reference answer makes.
+        supported: Whether the retrieved context supports it.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
 
     claim: str
     supported: bool
 
 
 class ContextRecallJudgement(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    """The context-recall judge's answer: every claim in the reference, each judged.
+
+    Attributes:
+        claims: One entry per claim; `weft_eval.judges.ContextRecall` counts them.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
 
     claims: tuple[ClaimSupport, ...] = ()
 
@@ -139,6 +179,8 @@ CONTEXT_RELEVANCE_PROMPT_NAME = "context-relevance-judge"
 
 
 class ContextRelevanceRequest(BaseModel):
+    """The values the context-relevance judge prompt is rendered from."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     question: str
@@ -146,13 +188,22 @@ class ContextRelevanceRequest(BaseModel):
 
 
 class ContextRelevanceJudgement(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    """The context-relevance judge's answer: which numbered sentences are relevant.
+
+    Attributes:
+        relevant_indices: The indices of the relevant sentences, as numbered in the prompt.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
 
     relevant_indices: tuple[int, ...] = ()
 
 
 class ContextRelevanceJudgePrompt(TypedPrompt):
-    """Which numbered sentence, of the retrieved context's own sentences, helps answer the question."""
+    """Which numbered sentences of the retrieved context help answer the question.
+
+    Which numbered sentence, of the retrieved context's own sentences, helps answer the question.
+    """
 
     name: ClassVar[str] = CONTEXT_RELEVANCE_PROMPT_NAME
     version: ClassVar[str] = PROMPT_CONTRACT_VERSION
@@ -181,13 +232,21 @@ ANSWER_RELEVANCE_PROMPT_NAME = "answer-relevance-judge"
 
 
 class AnswerRelevanceRequest(BaseModel):
+    """The values the answer-relevance judge prompt is rendered from."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     answer: str
 
 
 class GeneratedQuestions(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    """The answer-relevance judge's answer: the questions the answer responds to.
+
+    Attributes:
+        questions: One to three questions, embedded and compared with the one asked.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
 
     questions: tuple[str, ...] = ()
 
@@ -224,6 +283,8 @@ ANSWER_CORRECTNESS_PROMPT_NAME = "answer-correctness-judge"
 
 
 class AnswerCorrectnessRequest(BaseModel):
+    """The values the answer-correctness judge prompt is rendered from."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     question: str
@@ -248,7 +309,10 @@ class FactualClassification(BaseModel):
 
 
 class AnswerCorrectnessJudgePrompt(TypedPrompt):
-    """Classify the prediction's factual statements against the reference's, as a confusion matrix."""
+    """Classify the prediction's factual statements against the reference's.
+
+    Classify the prediction's factual statements against the reference's, as a confusion matrix.
+    """
 
     name: ClassVar[str] = ANSWER_CORRECTNESS_PROMPT_NAME
     version: ClassVar[str] = PROMPT_CONTRACT_VERSION
@@ -280,6 +344,8 @@ ANSWER_COMPLETENESS_PROMPT_NAME = "answer-completeness-judge"
 
 
 class AnswerCompletenessRequest(BaseModel):
+    """The values the answer-completeness judge prompt is rendered from."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     prediction: str
@@ -287,7 +353,14 @@ class AnswerCompletenessRequest(BaseModel):
 
 
 class CompletenessJudgement(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    """The answer-completeness judge's answer: the reference's key points, split in two.
+
+    Attributes:
+        covered: Key points the prediction covers.
+        missing: Key points the prediction leaves out.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
 
     covered: tuple[str, ...] = ()
     missing: tuple[str, ...] = ()

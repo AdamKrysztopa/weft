@@ -122,6 +122,17 @@ class Faithfulness:
         self._config = config if config is not None else JudgeConfig()
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of the answer's statements the retrieved context supports.
+
+        Args:
+            payload: The sample whose prediction is checked against its retrieved contexts.
+            ctx: Supplies the judge `LLM` and carries the run's context.
+
+        Returns:
+            The fraction as a `MetricScore`; `Failed` when the sample carries no prediction,
+            `NothingToProduce` without contexts or checkable statements, or the judge call's own
+            failure.
+        """
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
         if not payload.contexts:
@@ -162,6 +173,16 @@ class ContextRecall:
         self._config = config if config is not None else JudgeConfig()
 
     async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of the reference's claims the retrieved context supports.
+
+        Args:
+            payload: The sample whose retrieved passages are checked against its reference.
+            ctx: Supplies the judge `LLM` and carries the run's context.
+
+        Returns:
+            The fraction as a `MetricScore`; `NothingToProduce` without a reference, retrieved
+            passages or claims, or the judge call's own failure.
+        """
         if not payload.reference:
             return NothingToProduce(reason="no reference answer to check context recall against")
         if not payload.retrieved:
@@ -208,6 +229,16 @@ class ContextRelevance:
         self._config = config if config is not None else JudgeConfig()
 
     async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of retrieved sentences relevant to the query.
+
+        Args:
+            payload: The sample whose retrieved passages are judged against its query.
+            ctx: Supplies the judge `LLM` and carries the run's context.
+
+        Returns:
+            The fraction as a `MetricScore`; `NothingToProduce` when nothing, or no sentence, was
+            retrieved, or the judge call's own failure.
+        """
         if not payload.retrieved:
             return NothingToProduce(reason="nothing retrieved to judge relevance of")
 
@@ -262,6 +293,17 @@ class AnswerRelevance:
         self._config = config if config is not None else JudgeConfig()
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score how closely the questions the answer addresses match the one asked.
+
+        Args:
+            payload: The sample whose prediction is compared with its query.
+            ctx: Supplies the judge `LLM` and the `Embedder`.
+
+        Returns:
+            The mean similarity as a `MetricScore`; `Failed` when the sample carries no prediction,
+            `NothingToProduce` for an empty prediction or no derived question, or a judge or
+            embedder failure.
+        """
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
         if not payload.prediction.strip():
@@ -324,6 +366,16 @@ class AnswerCorrectness:
         self._config = config if config is not None else AnswerCorrectnessConfig()
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the weighted average of factual F1 and semantic similarity.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Supplies the judge `LLM` and the `Embedder`.
+
+        Returns:
+            The weighted score as a `MetricScore`; `Failed` when the sample carries no prediction,
+            `NothingToProduce` for an empty reference, or a judge or embedder failure.
+        """
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
         if not payload.reference.strip():
@@ -388,6 +440,17 @@ class AnswerCompleteness:
         self._config = config if config is not None else JudgeConfig()
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of the reference's key points the prediction covers.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Supplies the judge `LLM` and carries the run's context.
+
+        Returns:
+            The fraction as a `MetricScore`; `Failed` when the sample carries no prediction,
+            `NothingToProduce` for an empty reference or no key points, or the judge call's own
+            failure.
+        """
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
         if not payload.reference.strip():

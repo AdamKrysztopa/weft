@@ -26,9 +26,9 @@ _B = 0.75
 
 
 def analyze(text: str) -> list[str]:
-    """Fold case and split on Unicode word boundaries — every token `text` carries.
+    r"""Fold case and split on Unicode word boundaries — every token `text` carries.
 
-    `\\w` on a `str` pattern is Unicode-aware, which is what keeps a word like `gęślą`
+    `\w` on a `str` pattern is Unicode-aware, which is what keeps a word like `gęślą`
     whole rather than cutting it at the diacritic; an ASCII-only tokenizer would fail
     silently on exactly the bilingual corpus this project is built against.
     """

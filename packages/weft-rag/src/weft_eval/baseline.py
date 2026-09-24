@@ -256,7 +256,9 @@ class MetricRecord(BaseModel):
 
 
 class BaselineReport(BaseModel):
-    """One baseline: what was measured, over what, how many times, and the persisted run it
+    """One baseline measurement and the persisted run it was taken against.
+
+    One baseline: what was measured, over what, how many times, and the persisted run it
     measured against.
 
     `record` is a real `weft_eval.run_record.RunRecord` — the same type `weft eval run`,

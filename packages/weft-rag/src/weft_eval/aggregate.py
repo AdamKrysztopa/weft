@@ -130,7 +130,9 @@ class ReportedNameMismatchError(WeftError):
 
 
 class PartitionSlice(BaseModel):
-    """One partition's own `mean`/`n`/`stdev` — used by both `MetricAggregate.by_modality` and
+    """One partition's own mean, count and spread.
+
+    One partition's own `mean`/`n`/`stdev` — used by both `MetricAggregate.by_modality` and
     `MetricAggregate.by_question_kind`.
 
     The same three quantities `MetricAggregate` carries for the whole run, one level down, and

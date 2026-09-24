@@ -1,4 +1,4 @@
-"""Token-overlap metrics — `token-overlap`, `token-recall`, `key-terms-precision` — and ROUGE.
+r"""Token-overlap metrics — `token-overlap`, `token-recall`, `key-terms-precision` — and ROUGE.
 
 Task **4.2**. Six of the eleven traditional generation metrics: three plain token-set
 computations with no external dependency, and the three ROUGE variants, which do carry one —
@@ -14,7 +14,7 @@ downloaded corpora, only its bundled, data-free Porter stemmer code path, so not
 trailing period stayed on the token. `rouge-score`'s own default tokenizer is worse for anything
 outside ASCII: it keeps only `[a-z0-9]`, so `"Zażółć gęślą jaźń."` became `['za', 'g', 'l', 'ja']`
 and `jaźń` matched `ja ń` as a perfect score. Every tokenizer in this file now applies the same
-rule `weft_retrieve.shingle_resemblance` already uses for the same reason — `re.findall(r"\\w+",
+rule `weft_retrieve.shingle_resemblance` already uses for the same reason — `re.findall(r"\w+",
 text.casefold())`, Unicode-aware so a word never splits at its own diacritics — restated here
 rather than imported, because a pack does not import another pack's internals for a two-line
 rule. Answer metrics are now comparable across English and Polish only in the sense that words
@@ -114,6 +114,16 @@ class TokenOverlap:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the Jaccard similarity of the prediction's and reference's token sets.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The similarity as a `MetricScore`; `Failed` when the sample carries no prediction, and
+            `NothingToProduce` when the reference has no tokens.
+        """
         del ctx
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
@@ -141,6 +151,16 @@ class TokenRecall:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of the reference's tokens that appear in the prediction.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The recall as a `MetricScore`; `Failed` when the sample carries no prediction, and
+            `NothingToProduce` when the reference has no tokens.
+        """
         del ctx
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
@@ -169,6 +189,16 @@ class KeyTermsPrecision:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of the prediction's tokens that are reference key terms.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The precision as a `MetricScore`; `Failed` when the sample carries no prediction, and
+            `NothingToProduce` when the reference has no key terms.
+        """
         del ctx
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")

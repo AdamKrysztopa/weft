@@ -93,21 +93,27 @@ _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
 
 
 class ExperimentDocumentError(WeftError):
-    """An experiment document could not be read as stated — missing, malformed TOML, an unknown
+    """An experiment document could not be read as stated.
+
+    An experiment document could not be read as stated — missing, malformed TOML, an unknown
     key, or a value that cannot be run (`repeats < 2`, an empty `metrics`, two arms sharing one
     name...). The message names the file and the field that is wrong; see the module docstring.
     """
 
 
 class ExperimentSchemaError(ExperimentDocumentError):
-    """The document names a schema this `weft-rag` cannot read — newer than `EXPERIMENT_SCHEMA_
+    """The document names a schema this `weft-rag` cannot read.
+
+    The document names a schema this `weft-rag` cannot read — newer than `EXPERIMENT_SCHEMA_
     VERSION`, or older than any release ever wrote (`< 1`). The message names the file, the
     schema it declares, the schema this release supports, and says to upgrade `weft-rag`.
     """
 
 
 class ExperimentArm(BaseModel):
-    """One arm of an experiment — a pipeline, and optionally its own corpus/questions/query
+    """One arm of an experiment: a pipeline, and optionally its own inputs.
+
+    One arm of an experiment — a pipeline, and optionally its own corpus/questions/query
     pipeline. `corpus`/`questions` are `None` when the arm inherits the experiment's own, resolved
     absolute paths when the arm names its own — see `Experiment.corpus_for`/`questions_for`.
     `repeats` is `None` when the arm inherits the document's own `repeats` — see
@@ -137,7 +143,9 @@ class ExperimentArm(BaseModel):
 
     @model_validator(mode="after")
     def _capture_and_replay_are_exclusive(self) -> ExperimentArm:
-        """An arm cannot both `capture_pool` and name a `pool` to replay — see the class
+        """Refuse an arm that both captures a pool and replays one.
+
+        An arm cannot both `capture_pool` and name a `pool` to replay — see the class
         docstring's own paragraph. Checked here, at load, rather than left for `weft_cli.
         eval_experiment` to notice mid-run: a replay reads a pool, it never writes one, so the
         two keys on one arm can never both be honoured.
@@ -234,7 +242,9 @@ class Experiment(BaseModel):
         return arm.questions if arm.questions is not None else self.questions
 
     def repeats_for(self, arm: ExperimentArm) -> int:
-        """`arm`'s own repetition count, or the experiment's, when the arm names none — the one
+        """The repetition count that applies to `arm`.
+
+        `arm`'s own repetition count, or the experiment's, when the arm names none — the one
         place every loop and completeness check reads (task **38.13**).
         """
         return arm.repeats if arm.repeats is not None else self.repeats
@@ -249,7 +259,9 @@ def _resolve_optional(raw: object, *, root: Path) -> Path | None:
 
 
 def _refused_from(exc: ValidationError, path: Path) -> ExperimentDocumentError:
-    """`exc`, narrowed to `ExperimentDocumentError`'s own field-naming shape — the first error
+    """Narrow `exc` to `ExperimentDocumentError`'s field-naming shape.
+
+    `exc`, narrowed to `ExperimentDocumentError`'s own field-naming shape — the first error
     pydantic reports, since one refusal at a time is what a document author can act on.
     """
     first = exc.errors()[0]
@@ -277,8 +289,36 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
     )
 
 
+def _build_experiment(
+    experiment_table: Any,
+    arm_entries: list[dict[str, Any]],
+    *,
+    digest: str,
+    root: Path,
+    path: Path,
+) -> Experiment:
+    """The `Experiment` the document's tables describe; pydantic's refusal propagates."""
+    arms = tuple(_build_arm(entry, root=root, path=path) for entry in arm_entries)
+    return Experiment(
+        name=str(experiment_table.get("name", "")),
+        digest=digest,
+        questions=_resolve(experiment_table.get("questions", ""), root=root),
+        corpus=_resolve(experiment_table.get("corpus", ""), root=root),
+        manifest=_resolve_optional(experiment_table.get("manifest"), root=root),
+        repeats=experiment_table.get("repeats"),
+        top_k=experiment_table.get("top_k"),
+        cutoffs=(),  # derived from `top_k` by `_cutoffs_from_top_k`
+        metrics=tuple(experiment_table.get("metrics", ())),
+        minimum_detectable_effect=experiment_table.get("minimum_detectable_effect"),
+        index_batch_size=experiment_table.get("index_batch_size"),
+        arms=arms,
+    )
+
+
 def load_experiment(path: Path) -> Experiment:
-    """Read `path` as an experiment document — see the module docstring for what each part
+    """Read `path` as an experiment document.
+
+    Read `path` as an experiment document — see the module docstring for what each part
     means and what is refused.
 
     Raises `ExperimentDocumentError` for a missing file, malformed TOML, an unknown key, or a
@@ -330,21 +370,7 @@ def load_experiment(path: Path) -> Experiment:
     arm_entries = raw.get("arm", [])
 
     try:
-        arms = tuple(_build_arm(entry, root=root, path=path) for entry in arm_entries)
-        return Experiment(
-            name=str(experiment_table.get("name", "")),
-            digest=digest,
-            questions=_resolve(experiment_table.get("questions", ""), root=root),
-            corpus=_resolve(experiment_table.get("corpus", ""), root=root),
-            manifest=_resolve_optional(experiment_table.get("manifest"), root=root),
-            repeats=experiment_table.get("repeats"),
-            top_k=experiment_table.get("top_k"),
-            cutoffs=(),  # derived from `top_k` by `_cutoffs_from_top_k`
-            metrics=tuple(experiment_table.get("metrics", ())),
-            minimum_detectable_effect=experiment_table.get("minimum_detectable_effect"),
-            index_batch_size=experiment_table.get("index_batch_size"),
-            arms=arms,
-        )
+        return _build_experiment(experiment_table, arm_entries, digest=digest, root=root, path=path)
     except ValidationError as exc:
         raise _refused_from(exc, path) from exc
 

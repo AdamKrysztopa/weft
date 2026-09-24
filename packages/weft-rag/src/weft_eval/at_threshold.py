@@ -60,6 +60,16 @@ class OverlapAtThreshold:
         self._config = config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score 1.0 when the prediction covers at least `threshold` of the reference's tokens.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The hit as a `MetricScore`; `Failed` when the sample carries no prediction, and
+            `NothingToProduce` when the reference has no tokens.
+        """
         del ctx  # no service or locale this metric needs
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")

@@ -1,4 +1,6 @@
-"""The falsification instrument — ledger task **8.8**, `docs/09-release.md` §4.3 applied to a
+"""The falsification instrument: judging a difference between two runs.
+
+The falsification instrument — ledger task **8.8**, `docs/09-release.md` §4.3 applied to a
 *difference between two runs* rather than to a single value.
 
 `09` §4.3 derives a reproduction tolerance without ever choosing a number: a baseline is
@@ -54,7 +56,7 @@ from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from weft_eval.run_record import RunRecord
+from weft_eval.run_record import QuestionOutcome, RunRecord
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Produced
 
@@ -65,7 +67,9 @@ _RESAMPLES = 2000
 
 
 class TooFewRepetitionsError(WeftError):
-    """A baseline was handed fewer than 2 repetitions — V3's own failure clause: "the baseline
+    """A baseline was handed fewer than 2 repetitions.
+
+    A baseline was handed fewer than 2 repetitions — V3's own failure clause: "the baseline
     was run once, in which case it records no interval and no later run can be judged against
     it." Refused where the spread would otherwise be built, so no caller downstream can ever
     reach a verdict computed from a single measurement.
@@ -147,7 +151,9 @@ class Verdict(StrEnum):
 
 
 class DifferenceJudgement(BaseModel):
-    """One metric's verdict — `reason` is always populated, for every verdict, never only for
+    """One metric's verdict, always with its reason.
+
+    One metric's verdict — `reason` is always populated, for every verdict, never only for
     the refused ones.
     """
 
@@ -164,7 +170,9 @@ class DifferenceJudgement(BaseModel):
 
 
 def baseline_spreads(records: Sequence[RunRecord]) -> Mapping[str, BaselineMeasurement]:
-    """Every metric name any of `records` carries, folded into the interval its own means
+    """Fold each metric the records carry into the interval its means spanned.
+
+    Every metric name any of `records` carries, folded into the interval its own means
     spanned — or `NoSpread`, naming why, for a metric that did not measure in every repetition.
 
     Raises `TooFewRepetitionsError` for fewer than 2 `records` — see that error's own docstring.
@@ -206,7 +214,7 @@ def baseline_spreads(records: Sequence[RunRecord]) -> Mapping[str, BaselineMeasu
     return MappingProxyType(result)
 
 
-def _unscored_sides(a_scored: bool, b_scored: bool) -> str:
+def _unscored_sides(*, a_scored: bool, b_scored: bool) -> str:
     """Which side(s) of a compared pair did not score a metric — for a reason string."""
     sides: list[str] = []
     if not a_scored:
@@ -219,7 +227,9 @@ def _unscored_sides(a_scored: bool, b_scored: bool) -> str:
 def judge_differences(
     a: RunRecord, b: RunRecord, spreads: Mapping[str, BaselineMeasurement]
 ) -> Mapping[str, DifferenceJudgement]:
-    """Judge, for every metric either `a` or `b` measured, whether their difference is
+    """Judge whether each metric's difference between two runs exceeds the baseline spread.
+
+    Judge, for every metric either `a` or `b` measured, whether their difference is
     distinguishable from the baseline's own spread — see the module docstring for the rule.
 
     A metric only the baseline measured (absent from both `a.metrics` and `b.metrics`) is not
@@ -234,13 +244,14 @@ def judge_differences(
         b_scored = isinstance(b_outcome, Produced)
 
         if not (a_scored and b_scored):
+            unscored = _unscored_sides(a_scored=a_scored, b_scored=b_scored)
             result[name] = DifferenceJudgement(
                 metric=name,
                 verdict=Verdict.UNJUDGEABLE,
                 difference=None,
                 spread=None,
                 reason=(
-                    f"'{name}' was not scored by {_unscored_sides(a_scored, b_scored)} — there "
+                    f"'{name}' was not scored by {unscored} — there "
                     "is no difference to judge, and the absent side is never treated as a zero."
                 ),
             )
@@ -362,7 +373,9 @@ def _pairing_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
 
 
 def _percentile(sorted_values: Sequence[float], pct: float) -> float:
-    """The `pct`-th percentile of `sorted_values`, already sorted, linearly interpolated
+    """The `pct`-th percentile of already sorted values, linearly interpolated.
+
+    The `pct`-th percentile of `sorted_values`, already sorted, linearly interpolated
     between the two nearest ranks — the same interpolation `numpy.percentile`'s default uses,
     so the bootstrap interval this feeds is one a reader can cross-check.
     """
@@ -378,7 +391,9 @@ def _percentile(sorted_values: Sequence[float], pct: float) -> float:
 def _bootstrap_interval(
     keyed_diffs: Sequence[tuple[str, float]],
 ) -> tuple[float | None, float | None]:
-    """The 2.5th/97.5th percentile of the bootstrap distribution of the mean of `keyed_diffs`'
+    """The 95% bootstrap interval of the mean of `keyed_diffs`' differences.
+
+    The 2.5th/97.5th percentile of the bootstrap distribution of the mean of `keyed_diffs`'
     own differences — `None`/`None` for a single observation, which has no spread to report.
 
     **The resampling indices are derived from the data by a hash, and there is no
@@ -428,6 +443,24 @@ def _index_stream(seed_material: str, *, count: int, modulus: int) -> list[int]:
     return indices[:count]
 
 
+def _keyed_diffs(
+    a_scores: Mapping[str, QuestionOutcome],
+    b_scores: Mapping[str, QuestionOutcome],
+    question_keys: frozenset[str] | None,
+) -> list[tuple[str, float]]:
+    """Each shared question's `b - a` difference, in key order, where both sides produced."""
+    keys = set(a_scores) & set(b_scores)
+    if question_keys is not None:
+        keys &= question_keys
+    keyed_diffs: list[tuple[str, float]] = []
+    for key in sorted(keys):
+        a_outcome = a_scores[key]
+        b_outcome = b_scores[key]
+        if isinstance(a_outcome, Produced) and isinstance(b_outcome, Produced):
+            keyed_diffs.append((key, b_outcome.value - a_outcome.value))
+    return keyed_diffs
+
+
 def paired_differences(
     a: RunRecord, b: RunRecord, *, question_keys: frozenset[str] | None = None
 ) -> Mapping[str, PairedDifference]:
@@ -462,17 +495,9 @@ def paired_differences(
     names = sorted(set(a.question_scores) & set(b.question_scores))
     result: dict[str, PairedDifference] = {}
     for name in names:
-        a_scores = a.question_scores[name].scores
-        b_scores = b.question_scores[name].scores
-        keys = set(a_scores) & set(b_scores)
-        if question_keys is not None:
-            keys &= question_keys
-        keyed_diffs: list[tuple[str, float]] = []
-        for key in sorted(keys):
-            a_outcome = a_scores[key]
-            b_outcome = b_scores[key]
-            if isinstance(a_outcome, Produced) and isinstance(b_outcome, Produced):
-                keyed_diffs.append((key, b_outcome.value - a_outcome.value))
+        keyed_diffs = _keyed_diffs(
+            a.question_scores[name].scores, b.question_scores[name].scores, question_keys
+        )
         if not keyed_diffs:
             continue
         mean = sum(diff for _, diff in keyed_diffs) / len(keyed_diffs)

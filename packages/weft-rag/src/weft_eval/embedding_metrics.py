@@ -64,6 +64,16 @@ class EmbeddingSimilarity:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the cosine similarity of the prediction's and reference's embeddings.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Supplies the `Embedder`.
+
+        Returns:
+            The similarity as a `MetricScore`; `Failed` when the sample carries no prediction,
+            `NothingToProduce` when either side is empty, or the embedder's own failure.
+        """
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")
         if not payload.reference.strip() or not payload.prediction.strip():
@@ -102,6 +112,16 @@ class BERTScore:
         del config
 
     async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the BERTScore F-measure of the prediction against the reference.
+
+        Args:
+            payload: The sample whose prediction is scored against its reference.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The F1 as a `MetricScore`; `Failed` when the sample carries no prediction or
+            `bert_score` is not installed, and `NothingToProduce` when the reference is empty.
+        """
         del ctx
         if payload.prediction is None:
             return Failed(reason="no prediction to evaluate — the sample carries none")

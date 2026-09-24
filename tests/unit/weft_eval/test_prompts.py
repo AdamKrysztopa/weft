@@ -9,13 +9,19 @@ of the wrong input model rather than silently rendering nonsense.
 """
 
 import pytest
+from pydantic import BaseModel
 
 from weft_eval.prompts import (
     AnswerCompletenessRequest,
+    ClaimSupport,
     CompletenessJudgement,
+    ContextRecallJudgement,
+    ContextRelevanceJudgement,
+    FactualClassification,
     FaithfulnessJudgement,
     FaithfulnessJudgePrompt,
     FaithfulnessRequest,
+    GeneratedQuestions,
     StatementSupport,
 )
 from weft_kernel.context import Context
@@ -71,3 +77,34 @@ def test_completeness_judgement_round_trips_through_json() -> None:
 
     # Assert
     assert restored == judgement
+
+
+_UNDESCRIBED_JUDGE_OUTPUTS: tuple[type[BaseModel], ...] = (
+    StatementSupport,
+    FaithfulnessJudgement,
+    ClaimSupport,
+    ContextRecallJudgement,
+    ContextRelevanceJudgement,
+    GeneratedQuestions,
+    CompletenessJudgement,
+)
+
+
+@pytest.mark.parametrize("model", _UNDESCRIBED_JUDGE_OUTPUTS, ids=lambda m: m.__name__)
+def test_a_judge_output_docstring_never_reaches_the_judge(model: type[BaseModel]) -> None:
+    # Act — the schema `weft_prompts.cascade` hands the judge.
+    schema = model.model_json_schema()
+
+    # Assert
+    assert model.__doc__
+    assert "description" not in schema
+    for name, definition in schema.get("$defs", {}).items():
+        assert "description" not in definition, name
+
+
+def test_factual_classification_still_describes_itself_to_the_judge() -> None:
+    # Act
+    schema = FactualClassification.model_json_schema()
+
+    # Assert
+    assert schema["description"].startswith("A confusion-matrix term set")

@@ -119,7 +119,9 @@ class QueryModality(StrEnum):
 
 
 class MetricKind(StrEnum):
-    """Which of the two metric contracts — `RetrievalMetric` or `GenerationMetric` — produced a
+    """Which metric contract produced a `MetricScore`.
+
+    Which of the two metric contracts — `RetrievalMetric` or `GenerationMetric` — produced a
     `MetricScore`. Carried on `MetricAggregate` rather than looked up at report time; see
     `weft_eval.aggregate`'s own module docstring for why.
     """
@@ -258,7 +260,17 @@ class GenerationMetric(Protocol):
         #: must carry (`runs_in_gate`); it does not carry the value itself.
         required_declarations: ClassVar[tuple[str, ...]]
 
-    async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]: ...
+    async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score one generation sample.
+
+        Args:
+            payload: The question, the prediction and the reference to score.
+            ctx: The run's context, through which a metric reaches any service it needs.
+
+        Returns:
+            The score, or the outcome naming why none could be produced.
+        """
+        ...
 
 
 GenerationMetric.version = GENERATION_METRIC_CONTRACT_VERSION
@@ -280,7 +292,17 @@ class RetrievalMetric(Protocol):
         #: paragraph.
         required_declarations: ClassVar[tuple[str, ...]]
 
-    async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]: ...
+    async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score one retrieval sample.
+
+        Args:
+            payload: The ranked result and the relevance judgement to score it against.
+            ctx: The run's context, through which a metric reaches any service it needs.
+
+        Returns:
+            The score, or the outcome naming why none could be produced.
+        """
+        ...
 
 
 RetrievalMetric.version = RETRIEVAL_METRIC_CONTRACT_VERSION

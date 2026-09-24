@@ -46,7 +46,9 @@ from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 
 
 def _depth(payload: RetrievalSample) -> int:
-    """How many candidates the ranking was drawn from: `candidate_count` when a caller collapsed
+    """How many candidates the ranking was drawn from.
+
+    How many candidates the ranking was drawn from: `candidate_count` when a caller collapsed
     passages into documents (repair R38.5), otherwise the length of what was retrieved.
     """
     if payload.candidate_count is not None:
@@ -95,6 +97,16 @@ class PrecisionAtK:
         self._config = config
 
     async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of relevant ids over the top `k` retrieved.
+
+        Args:
+            payload: The ranked retrieval and the relevant ids it is judged against.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The precision as a `MetricScore`; `NothingToProduce` without relevant ids, and
+            `Failed` when fewer than `k` candidates were retrieved.
+        """
         del ctx
         if not payload.relevant_ids:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
@@ -126,6 +138,16 @@ class RecallAtK:
         self._config = config
 
     async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the fraction of relevant ids found over the top `k` retrieved.
+
+        Args:
+            payload: The ranked retrieval and the relevant ids it is judged against.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The recall as a `MetricScore`; `NothingToProduce` without relevant ids, and
+            `Failed` when fewer than `k` candidates were retrieved.
+        """
         del ctx
         if not payload.relevant_ids:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
@@ -160,6 +182,15 @@ class MeanAveragePrecision:
         del config
 
     async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the mean of the precision measured at each relevant id's own rank.
+
+        Args:
+            payload: The ranked retrieval and the relevant ids it is judged against.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The average precision as a `MetricScore`; `NothingToProduce` without relevant ids.
+        """
         del ctx
         if not payload.relevant_ids:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
@@ -196,6 +227,16 @@ class NDCGAtK:
         self._config = config
 
     async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score normalized discounted cumulative gain over the top `k` retrieved.
+
+        Args:
+            payload: The ranked retrieval and the relevant ids it is judged against.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The nDCG as a `MetricScore`; `NothingToProduce` without relevant ids, and
+            `Failed` when fewer than `k` candidates were retrieved.
+        """
         del ctx
         if not payload.relevant_ids:
             return NothingToProduce(reason="no relevant ids to score retrieval against")
@@ -240,6 +281,16 @@ class MRRAtK:
         self._config = config
 
     async def evaluate(self, payload: RetrievalSample, ctx: Context) -> Outcome[MetricScore]:
+        """Score the reciprocal rank of the first relevant id over the top `k` retrieved.
+
+        Args:
+            payload: The ranked retrieval and the relevant ids it is judged against.
+            ctx: Unused; this metric needs no service.
+
+        Returns:
+            The MRR as a `MetricScore`; `NothingToProduce` without relevant ids, and
+            `Failed` when fewer than `k` candidates were retrieved.
+        """
         del ctx
         if not payload.relevant_ids:
             return NothingToProduce(reason="no relevant ids to score retrieval against")

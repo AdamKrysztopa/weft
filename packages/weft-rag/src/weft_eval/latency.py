@@ -29,7 +29,9 @@ from weft_kernel.payload import Produced
 
 
 def nearest_rank(samples: Sequence[float], quantile: float) -> Produced[float] | NotAggregated:
-    """The `quantile` percentile of `samples`, at nearest rank ⌈quantile·n⌉ — see the module
+    """The `quantile` percentile of `samples`, at nearest rank.
+
+    The `quantile` percentile of `samples`, at nearest rank ⌈quantile·n⌉ — see the module
     docstring for why that rank is computed over `Fraction`, and why a rank of `n` is withheld
     rather than reported as the maximum.
     """
@@ -59,7 +61,9 @@ class LatencySummary(BaseModel):
 
 
 def latency_summary(seconds: PerQuestionSeconds | None) -> LatencySummary | None:
-    """`seconds.seconds.values()` summarised as `LatencySummary`, or `None` for a record that
+    """Summarise a record's per-question seconds, or `None` when none were measured.
+
+    `seconds.seconds.values()` summarised as `LatencySummary`, or `None` for a record that
     measured nothing (`PerQuestionSeconds` itself absent — a record written before task 33.7, or
     a run given no `--questions` to time).
     """
