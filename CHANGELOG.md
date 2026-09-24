@@ -257,6 +257,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **A layer's join stage can no longer write the tree readers are served.** The stage a corpus
+  layer's `layer.incremental` names was handed the build's own writer as its `NodeStore`, so a
+  join that ignored `LayerRevision` could supersede or delete a published node. It is now handed
+  a view that answers every read and refuses every write (`LayerJoinWritesStoreError`). The view
+  offers the same optional capabilities as the store behind it.
 - **`weft delete` never leaves a corpus-wide layer served whole with a hole in it.** It deleted the
   source first and then marked the layers it covered stale. When the mark failed, the error told
   you to run `weft index --layers <name>`, which rebuilt nothing, because every remaining record

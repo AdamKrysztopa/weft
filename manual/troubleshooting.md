@@ -2169,6 +2169,27 @@ and the layer then rebuilds in full whenever sources are added. A document that 
 removes its join stage sets `layer.incremental: none`, since an inherited var cannot be unset. The
 var may not name a layer's only stage: that would leave a full build with nothing to run.
 
+### `LayerJoinWritesStoreError`
+
+**What it looks like:**
+
+```text
+layer 'enrich-with-raptor': its join stage called supersede, and a join does not write to the
+store — it may only return the nodes it creates, and report what they replace through
+LayerRevision.replaced.
+```
+
+**Why:** the stage `layer.incremental` names joins new sources into a published tree. The store it
+reaches through `ctx.require(NodeStore)` answers every read and refuses every write, because
+writing there could change or remove a node readers are still being served. The join's build is
+recorded failed, and the published tree is left as it was.
+
+**What to do:** if you wrote the stage, return each rebuilt node as one it created, and call
+`LayerRevision.replaced(old)` for the published node it stands in for. The build writes and
+publishes the new generation itself (`manual/pack-author-guide.md` §9.6). If the stage came from a
+pack, report it to the pack's author, and set `layer.incremental: none` so the layer rebuilds in
+full in the meantime.
+
 ### `LayerNeedsConsumingStoreError`
 
 **What it looks like** — a layer that needs a particular store, over a base that does not name it:

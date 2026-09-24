@@ -22,6 +22,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import cache
 from typing import Final, cast
 
 from pydantic import BaseModel, ConfigDict
@@ -49,13 +50,15 @@ from weft_kernel.payload import (
     Outcome,
     Produced,
     SourceId,
+    Vector,
 )
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline, pipeline_identity
 from weft_kernel.runner import PipelineResolutionError, RunnablePipeline, Runner, StageSpec
-from weft_store import NodeStore
+from weft_store import MetadataFilter, NodeStore
 from weft_store.contract import (
     Cursor,
+    EmbeddingIdentity,
     Filter,
     FilterOp,
     GenerationCarrying,
@@ -66,10 +69,25 @@ from weft_store.contract import (
     GenerationWithdrawing,
     LayerRecord,
     LayerStatus,
+    NodeSupersedable,
     Page,
+    Promotion,
+    Reconcilable,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
+    Removed,
+    Scored,
+    SingleWriter,
     SourceFailure,
     SourceRecord,
     SourceStatus,
+    TargetCatalogue,
+    TargetHolding,
+    TargetName,
+    TextSearch,
+    VectorSearch,
+    WriterClaim,
 )
 from weft_store.rehydrate import ext_models
 
@@ -262,6 +280,12 @@ class LayerNodeCollisionError(WeftError):
     an unstamped node falls back to its `Representation.technique`. Refused rather than
     overwritten — the batch that collided is recorded `FAILED` first, so nothing here is
     silently accepted.
+    """
+
+
+class LayerJoinWritesStoreError(WeftError):
+    """A corpus layer's join stage called a write on the store it was handed — repair
+    **R43.36**. A join returns the nodes it creates; the build alone writes the generation.
     """
 
 
@@ -1600,14 +1624,204 @@ class _GenerationRevision:
 
 
 def _with_revision(ctx: Context, revision: _GenerationRevision, *, store: object) -> Context:
-    """`ctx` offering `revision`, and the join's bound primary as `NodeStore`: the stage reads
-    the published tree through the generation it writes into, as `LayerCheckpoints.recall`
-    does, never through a handle opened before that tree was published.
+    """`ctx` offering `revision`, and a read-only view of the join's bound primary as
+    `NodeStore`: the stage reads the published tree through the generation the build writes
+    into, as `LayerCheckpoints.recall` does, never through a handle opened before that tree was
+    published — and writes nothing through it (R43.36).
     """
     services = _OfferedServices(ctx.services)
     services.add(LayerRevision, revision)
-    services.add(NodeStore, cast(NodeStore, store))
+    services.add(NodeStore, cast(NodeStore, _join_view(store, layer=revision.layer)))
     return replace(ctx, services=services)
+
+
+class _JoinStoreView:
+    """The `NodeStore` a join stage is handed — repair **R43.36**. Every read forwards to the
+    generation-bound store; every write raises `LayerJoinWritesStoreError` before reaching it.
+    `_join_view` adds one mixin per optional store capability the bound store has, and no other,
+    so a stage's `isinstance` probe answers of the view what it would of the store.
+    """
+
+    def __init__(self, store: object, *, layer: str) -> None:
+        self._store = store
+        self._layer = layer
+
+    def _refused(self, method: str) -> LayerJoinWritesStoreError:
+        return LayerJoinWritesStoreError(
+            f"layer '{self._layer}': its join stage called {method}, and a join does not write "
+            "to the store — it may only return the nodes it creates, and report what they "
+            "replace through LayerRevision.replaced."
+        )
+
+    @property
+    def _nodes(self) -> NodeStore:
+        return cast(NodeStore, self._store)
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        del payload, ctx
+        raise self._refused("run")
+
+    async def add(self, nodes: Sequence[Node]) -> None:
+        del nodes
+        raise self._refused("add")
+
+    async def flush(self) -> None:
+        """Nothing: the view has written nothing, and the bound writer is the build's to flush."""
+
+    async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        return await self._nodes.get(ids)
+
+    async def delete_source(self, source_id: SourceId) -> Removed:
+        del source_id
+        raise self._refused("delete_source")
+
+    async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        return await self._nodes.scan(cursor)
+
+    async def count(self) -> int:
+        return await self._nodes.count()
+
+    async def put_source(self, record: SourceRecord) -> None:
+        del record
+        raise self._refused("put_source")
+
+    async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        return await self._nodes.get_source(source_id)
+
+    async def list_sources(self) -> Sequence[SourceRecord]:
+        return await self._nodes.list_sources()
+
+
+class _VectorSearchView(_JoinStoreView):
+    async def search_vector(
+        self, vector: Vector, top_k: int, filter: Filter | None = None
+    ) -> Sequence[Scored[Node]]:
+        return await cast(VectorSearch, self._store).search_vector(vector, top_k, filter)
+
+
+class _TextSearchView(_JoinStoreView):
+    async def search_text(
+        self, text: str, top_k: int, filter: Filter | None = None
+    ) -> Sequence[Scored[Node]]:
+        return await cast(TextSearch, self._store).search_text(text, top_k, filter)
+
+
+class _MetadataFilterView(_JoinStoreView):
+    async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
+        return await cast(MetadataFilter, self._store).matching(filter, cursor)
+
+
+class _NodeSupersedableView(_JoinStoreView):
+    async def supersede(self, old: NodeId, new: Node) -> None:
+        del old, new
+        raise self._refused("supersede")
+
+
+class _ReconcilableView(_JoinStoreView):
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+        del ctx, mode
+        raise self._refused("reconcile")
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        return await cast(Reconcilable, self._store).estimate(ctx, mode)
+
+
+class _TargetHoldingView(_JoinStoreView):
+    async def target_catalogue(self) -> TargetCatalogue:
+        return await cast(TargetHolding, self._store).target_catalogue()
+
+    async def bind_target(self, target: TargetName) -> _JoinStoreView:
+        bound = await cast(TargetHolding, self._store).bind_target(target)
+        return _join_view(bound, layer=self._layer)
+
+    async def claim_embedding(self, identity: EmbeddingIdentity) -> EmbeddingIdentity:
+        del identity
+        raise self._refused("claim_embedding")
+
+    async def promote(self, promotion: Promotion) -> TargetCatalogue:
+        del promotion
+        raise self._refused("promote")
+
+    async def rollback(self) -> TargetCatalogue:
+        raise self._refused("rollback")
+
+    async def drop_target(self, target: TargetName) -> None:
+        del target
+        raise self._refused("drop_target")
+
+
+class _GenerationHoldingView(_JoinStoreView):
+    async def open_generation(self, layer: str) -> GenerationRecord:
+        del layer
+        raise self._refused("open_generation")
+
+    async def bind_generation(self, generation: GenerationId) -> _JoinStoreView:
+        bound = await cast(GenerationHolding, self._store).bind_generation(generation)
+        return _join_view(bound, layer=self._layer)
+
+    async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        del generation
+        raise self._refused("publish_generation")
+
+    async def retract_generation(self, generation: GenerationId) -> Removed:
+        del generation
+        raise self._refused("retract_generation")
+
+    async def generations(self) -> tuple[GenerationRecord, ...]:
+        return await cast(GenerationHolding, self._store).generations()
+
+
+class _GenerationCarryingView(_JoinStoreView):
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
+        del into, node_ids
+        raise self._refused("carry_forward")
+
+
+class _GenerationWithdrawingView(_JoinStoreView):
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
+        del generation
+        raise self._refused("withdraw_generation")
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        del layer
+        raise self._refused("reclaim_withdrawn")
+
+
+class _SingleWriterView(_JoinStoreView):
+    async def claim_writer(self, writer: WriterClaim) -> None:
+        del writer
+        raise self._refused("claim_writer")
+
+    async def release_writer(self) -> None:
+        raise self._refused("release_writer")
+
+
+#: Every optional capability of the store family beside `NodeStore`, with the mixin that gives
+#: the view its members. `SourceDeletable` is absent: its one member is `NodeStore`'s own.
+_CAPABILITY_VIEWS: Final[tuple[tuple[type[object], type[_JoinStoreView]], ...]] = (
+    (VectorSearch, _VectorSearchView),
+    (TextSearch, _TextSearchView),
+    (MetadataFilter, _MetadataFilterView),
+    (NodeSupersedable, _NodeSupersedableView),
+    (Reconcilable, _ReconcilableView),
+    (TargetHolding, _TargetHoldingView),
+    (GenerationHolding, _GenerationHoldingView),
+    (GenerationCarrying, _GenerationCarryingView),
+    (GenerationWithdrawing, _GenerationWithdrawingView),
+    (SingleWriter, _SingleWriterView),
+)
+
+
+@cache
+def _view_class(mixins: tuple[type[_JoinStoreView], ...]) -> type[_JoinStoreView]:
+    if not mixins:
+        return _JoinStoreView
+    return cast(type[_JoinStoreView], type("_JoinStoreView", mixins, {}))
+
+
+def _join_view(store: object, *, layer: str) -> _JoinStoreView:
+    mixins = tuple(view for capability, view in _CAPABILITY_VIEWS if isinstance(store, capability))
+    return _view_class(mixins)(store, layer=layer)
 
 
 async def _holds_unpublishable(
@@ -2500,6 +2714,7 @@ __all__ = [
     "LayerFailure",
     "LayerIncrementalStageError",
     "LayerJoin",
+    "LayerJoinWritesStoreError",
     "LayerNeedsConsumingStoreError",
     "LayerNeedsGenerationHoldingError",
     "LayerNeedsMetadataFilterError",
