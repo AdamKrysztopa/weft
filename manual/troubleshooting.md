@@ -2134,21 +2134,21 @@ derives something different.
 
 ### `LayerDemotionFailedError`
 
-**What it looks like** — `weft delete` removed the source, then could not mark a corpus-wide layer
-stale:
+**What it looks like** — `weft delete` could not mark a corpus-wide layer stale, so it deleted
+nothing:
 
 ```text
-the source was deleted, but marking corpus layer(s) raptor-corpus stale failed on 'pgvector':
-<the store's own error>. Their trees lost what the source contributed; weft index --layers
-raptor-corpus rebuilds one.
+'docs/b.txt' was not deleted: marking corpus layer(s) raptor-corpus stale failed on 'pgvector':
+<the store's own error>. Nothing was removed; weft delete docs/b.txt again retries it.
 ```
 
 **Why** — a layer built over the whole corpus, such as one RAPTOR tree, loses whatever the deleted
-source contributed. Weft marks it stale so it is no longer served as whole. Here the source's data
-was removed, but the mark could not be written.
+source contributed. Weft marks it stale before deleting anything, so it is never served as whole
+with a hole in it. Here the mark could not be written, so the delete stopped first.
 
-**What to do:** run the `weft index --layers <name>` the message names, once the store is healthy.
-It rebuilds the tree over the sources that remain.
+**What to do:** run the `weft delete` the message names again, once the store is healthy. It
+marks the layer stale and deletes the source, and `weft index --layers <name>` then rebuilds the
+tree over the sources that remain.
 
 ### `LayerIncrementalStageError`
 

@@ -257,6 +257,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
   The router's own role is checked before any model call, and when nothing is left to offer the
   refusal names every missing role at once (`NoRungOfferedError`).
+- **`weft delete` never leaves a corpus-wide layer served whole with a hole in it.** It deleted the
+  source first and then marked the layers it covered stale. When the mark failed, the error told
+  you to run `weft index --layers <name>`, which rebuilt nothing, because every remaining record
+  still read as current. The layers are now marked before anything is deleted. If marking fails,
+  the source is not deleted and the error says to run `weft delete <id>` again.
 - **Two layers deriving one node are refused whatever the node is.** The collision check compared
   techniques through `Representation`, so a graph layer's fact and mention nodes, or a third
   party's, read as the same technique and the second layer silently overwrote the first's. It now

@@ -367,9 +367,9 @@ class ConflictingAskModeError(WeftError):
 
 
 class LayerDemotionFailedError(WeftError):
-    """`weft delete` removed a source, and marking a corpus layer it covered `STALE` then failed
-    on a store — task **43.21**. Raised rather than dropped: the unmarked tree is the silent
-    hole the demotion exists to report.
+    """`weft delete` could not mark a corpus layer the source covered `STALE`, so the delete was
+    refused before anything was removed — tasks **43.21** and **R43.33**. Deleting anyway would
+    serve the unmarked tree whole with a hole in it.
     """
 
 
@@ -2128,10 +2128,14 @@ async def _demote_layer_records(
     list_sources: Callable[[], Awaitable[Sequence[SourceRecord]]],
     put_source: Callable[[SourceRecord], Awaitable[None]],
     names: frozenset[str],
+    excluded: SourceId,
 ) -> Outcome[tuple[str, ...]]:
-    """One store's records: every `ACTIVE` layer in `names` becomes `STALE` (task **43.21**)."""
+    """One store's records but `excluded`'s: every `ACTIVE` layer in `names` becomes `STALE`
+    (task **43.21**)."""
     here: set[str] = set()
     for record in await list_sources():
+        if record.id == excluded:
+            continue
         layers = list(record.layers)
         changed = False
         for index, layer in enumerate(layers):
@@ -2145,11 +2149,12 @@ async def _demote_layer_records(
 
 
 async def _demote_stale_corpus_layers(
-    deps: Dependencies, target: str | None, names: frozenset[str]
+    deps: Dependencies, target: str | None, names: frozenset[str], excluded: SourceId
 ) -> tuple[str, ...]:
-    """Demote `names` from `ACTIVE` to `LayerStatus.STALE` on every remaining source, on every
-    store `_stores_in_use` names — ledger task **43.21**, called *after* the fan-out, so the
-    deleted source's own record is already gone and needs no exclusion by hand. Existing record
+    """Demote `names` from `ACTIVE` to `LayerStatus.STALE` on every source but `excluded`, on
+    every store `_stores_in_use` names — ledger task **43.21**, called *before* the fan-out
+    (**R43.33**) so a tree is marked before it is holed and a failed mark deletes nothing;
+    `excluded` is the source about to be deleted. Existing record
     APIs only (`list_sources`/`put_source`), the same ones `_read_sources_by_store` reads with,
     never a new store method. Returns every name actually demoted somewhere, sorted — a name
     that reaches no `ACTIVE` record on any remaining source is not reported as staled.
@@ -2178,6 +2183,7 @@ async def _demote_stale_corpus_layers(
             cast("Callable[[], Awaitable[Sequence[SourceRecord]]]", raw_list_sources),
             cast("Callable[[SourceRecord], Awaitable[None]]", raw_put_source),
             names,
+            excluded,
         )
         wrapped = wrap(
             _demote,
@@ -2202,9 +2208,9 @@ async def _demote_stale_corpus_layers(
     if failures:
         listed = ", ".join(sorted(names))
         raise LayerDemotionFailedError(
-            f"the source was deleted, but marking corpus layer(s) {listed} stale failed on "
-            f"{'; '.join(failures)}. Their trees lost what the source contributed; "
-            f"weft index --layers {listed.split(', ')[0]} rebuilds one."
+            f"'{excluded}' was not deleted: marking corpus layer(s) {listed} stale failed on "
+            f"{'; '.join(failures)}. Nothing was removed; weft delete {excluded} again "
+            "retries it."
         )
     return tuple(sorted(demoted))
 
@@ -2281,11 +2287,11 @@ class DeleteCommand:
         if not isinstance(staled_names, Produced):
             return cast("Outcome[CommandResult]", staled_names)
         async with claim_all_writers(targets, store_target=typed.target, command="weft delete"):
+            layers_staled = await _demote_stale_corpus_layers(
+                deps, typed.target, staled_names.value, SourceId(source_id)
+            )
             outcomes = await delete_everywhere(
                 SourceId(source_id), targets=targets, target=typed.target
-            )
-            layers_staled = await _demote_stale_corpus_layers(
-                deps, typed.target, staled_names.value
             )
         return Produced(
             value=DeleteCommandResult(

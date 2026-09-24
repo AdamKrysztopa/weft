@@ -24,9 +24,10 @@ import pytest
 
 from weft_chunk import Chunker
 from weft_chunk.fixed_size import FixedSizeChunker
-from weft_cli import commands, render
+from weft_cli import cli, commands, render
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult, run_index
+from weft_command.contract import Command
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
 from weft_engine.registry_bootstrap import Dependencies
@@ -593,27 +594,107 @@ async def test_naming_the_rung_over_a_stale_layer_is_refused_naming_the_layer(
     assert not named.called
 
 
-async def test_a_demotion_that_fails_after_the_delete_is_raised_naming_the_layer(
+def _cli_deps() -> Dependencies:
+    deps = _command_ctx().require(Dependencies)
+    deps.registry.add(Command, "delete", commands.DeleteCommand, distribution="weft-rag")
+    deps.registry.add(Command, "index", commands.IndexCommand, distribution="weft-rag")
+    return deps
+
+
+async def _cli(*argv: str) -> render.Rendered:
+    """What an operator types, through the shipped parser and `cli.run_command`."""
+    deps = _cli_deps()
+    args = cli.build_parser(deps.registry).parse_args(list(argv))
+    return await cli.run_command(argv[0], args, deps)
+
+
+async def _refuse(self: _Store, record: SourceRecord) -> None:
+    del self, record
+    raise RuntimeError("the records table is read-only")
+
+
+async def test_a_demotion_that_fails_stops_the_delete_before_anything_is_removed(
     corpus: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """R43.33 — a tree is marked before it is holed: a mark that cannot be written leaves the
+    source, its nodes and every tree whole, and the refusal says so and names the retry."""
     # Arrange
     await _index_both(corpus)
-
-    async def _refuse(self: _Store, record: SourceRecord) -> None:
-        del self, record
-        raise RuntimeError("the records table is read-only")
-
     monkeypatch.setattr(_Store, "put_source", _refuse)
     deleted = _id_of("b.txt")
+    nodes_before = set(_Store.state.nodes)
     (corpus / "b.txt").unlink()
 
     # Act
-    with pytest.raises(commands.LayerDemotionFailedError) as raised:
-        await commands.DeleteCommand().run(
-            commands.DeleteArgs(source_id=str(deleted)), _command_ctx()
-        )
+    rendered = await _cli("delete", str(deleted), "--yes")
 
-    # Assert — the source is gone, and the message says which tree lost it and how to rebuild.
+    # Assert
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+    assert rendered.stderr is not None
+    assert f"'{deleted}' was not deleted" in rendered.stderr
+    assert f"marking corpus layer(s) {_CORPUS} stale failed" in rendered.stderr
+    assert f"weft delete {deleted} again" in rendered.stderr
+    assert deleted in _Store.state.records
+    assert set(_Store.state.nodes) == nodes_before
+    assert _layer_statuses(_CORPUS) == dict.fromkeys(
+        ("a.txt", "b.txt", "c.txt"), LayerStatus.ACTIVE
+    )
+
+
+async def test_the_remedy_a_failed_demotion_prints_ends_with_the_layer_rebuilt(
+    corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R43.33 — the retry the refusal prints, then the rebuild the retry prints, run the stage
+    again over what remains and publish a new tree in place of the one that lost a source."""
+    # Arrange
+    await _index_both(corpus)
+    (built,) = await _Store().generations()
+    healthy = _Store.put_source
+    monkeypatch.setattr(_Store, "put_source", _refuse)
+    deleted = _id_of("b.txt")
+    (corpus / "b.txt").unlink()
+    refused = await _cli("delete", str(deleted), "--yes")
+    assert f"weft delete {deleted} again" in (refused.stderr or "")
+    monkeypatch.setattr(_Store, "put_source", healthy)
+    _Summary.calls = []
+
+    # Act
+    retried = await _cli("delete", str(deleted), "--yes")
+    rebuilt = await _cli("index", str(corpus), "--layers", _CORPUS)
+
+    # Assert
+    assert retried.exit_code is ExitCode.SUCCESS
+    assert retried.stdout is not None
+    assert _STALE_LINE in retried.stdout.splitlines()
+    assert _Summary.calls == [2]
     assert deleted not in _Store.state.records
-    assert f"marking corpus layer(s) {_CORPUS} stale failed" in str(raised.value)
-    assert f"weft index --layers {_CORPUS} rebuilds" in str(raised.value)
+    assert _layer_statuses(_CORPUS) == {"a.txt": LayerStatus.ACTIVE, "c.txt": LayerStatus.ACTIVE}
+    published = [g for g in await _Store().generations() if g.status is GenerationStatus.PUBLISHED]
+    assert len(published) == 1
+    assert published[0].id != built.id
+    assert rebuilt.exit_code is ExitCode.SUCCESS
+    assert rebuilt.stdout is not None
+    assert "is stale" not in rebuilt.stdout
+
+
+async def test_a_corpus_layer_only_the_deleted_source_held_is_not_reported_stale(
+    corpus: Path,
+) -> None:
+    """R43.33 — marking before the fan-out must not count the source being deleted: a tree no
+    remaining source carries has no remaining source to be stale on."""
+    # Arrange — the tree is built while `a.txt` is the only document.
+    texts = {name: (corpus / name).read_text() for name in ("b.txt", "c.txt")}
+    for name in texts:
+        (corpus / name).unlink()
+    await _index(corpus, layers=(_CORPUS,))
+    for name, text in texts.items():
+        (corpus / name).write_text(text)
+    await _index(corpus)
+
+    # Act
+    rendered = await _delete_file(corpus, "a.txt")
+
+    # Assert
+    assert rendered.stdout is not None
+    assert "is stale" not in rendered.stdout
+    assert _layer_statuses(_CORPUS) == {}
