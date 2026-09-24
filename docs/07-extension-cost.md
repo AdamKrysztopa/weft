@@ -224,4 +224,3 @@ context* owns `weft.toml`'s scope. The correction belongs in those two sections,
 `README.md` → *Protocol* for a reference-document edit — not in this document, and not in the manual.
 Until it is made, anything downstream shows **one** file and states the open question in a single
 line.
-

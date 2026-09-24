@@ -1683,4 +1683,3 @@ text = "how does a pushed authorization request handle a redirect value that a c
 relevant_document = "rfc9126"
 quote = "OAuth 2.0 [RFC6749] allows clients to use unregistered \"redirect_uri\""
 anchors = []
-
