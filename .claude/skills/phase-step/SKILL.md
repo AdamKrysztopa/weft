@@ -297,7 +297,12 @@ docstring which roots it walks (`L12.17`).
 passes against an empty implementation is testing nothing, and a test that fails with `ImportError`
 when you meant to check behaviour has not been read. `brief_facts.py` lists red files that fail at
 collection: stub the missing names in the scratchpad and run each test once, so each fails for its
-own reason (`L28.36`, twice in Phase 43, each a blocked return on a fixture defect the import hid). Test-first is the project owner's standing
+own reason (`L28.36`, twice in Phase 43, each a blocked return on a fixture defect the import hid).
+A dispatched red writer works to `references/red-writer.md`, which carries the pin sweep
+(`L28.45`: a set the change grows is pinned in `tests/` and `examples/`, and the red updates each
+pin) and the stub-and-run. **A version move cites the row of `09`'s two-audience table it follows**
+(`L28.44`); where a contract's version trail disagrees with that table, the disagreement is filed,
+never resolved by following the precedent. Test-first is the project owner's standing
 direction (`build-ledger.md` → *The working protocol*), not a gate — it is not re-argued in a task.
 
 Shape: the mirroring path under `tests/`, happy path, one edge case, one error case, AAA with one
@@ -320,7 +325,11 @@ And an assertion rewritten by find-and-replace ended up comparing a function's o
 same function's output — `L5.6` reached through a door it does not name, because that rule is about
 a comparison *written* and this one was *transformed* (`L11.35`). So: **name the dimension the test
 varies, then check the fixture actually varies it** — and after a bulk edit, re-read every
-assertion it touched rather than trusting that lint would have said something.
+assertion it touched rather than trusting that lint would have said something. **A claim that
+deleting X removes Y is tested where Y has another dependency that outlives X** (`L28.43`): the kg
+store's "deleting the fact makes its relation unreachable" held only on fixtures where the fact was
+the one thing attaching its endpoints, so "cascades from X" and "cascades from what X alone held"
+coincided from Phase 11 until `R43.24`'s red separated them.
 
 **Three more from Phase 31, each a red test wrong before any implementation existed.** A fixture
 parametrised over backends is read *arm by arm for what each leaves behind*: one arm tore down and
@@ -396,7 +405,12 @@ returning `Produced(value=...)`, or every success is recorded as a failed stage.
 `36.1` wrote a failure record and then released the source's nodes with `delete_source`, and every
 test passed against a double that only logged the call. A real store's `delete_source` removes the
 record too, so the exit found no record at all. Read the conformance check that specifies the
-method, and make the double do all of it. **And an exception's path is tested from where it
+method, and make the double do all of it. **And a double is safe under concurrent callers where a
+real handle may not be** (`L28.48`): `raptor` keeps its summaries under `asyncio.gather`, each through
+one `PgVectorStore` connection, and two `add` transactions interleaved into
+`OutOfOrderTransactionNesting` (`R43.40`). Every in-memory double passed, and 43.20's resumable
+corpus build never succeeded on pgvector once it kept two summaries. Where a change makes a store
+method's callers concurrent, one test drives at least two of them against the real store. **And an exception's path is tested from where it
 starts to the handler that should catch it** (`L28.19`): `R38.17`'s tests asserted
 `ReaderGoneError` leaving the client, and the kernel seam then wrapped it again on the way to the
 CLI. Raise it where it originates, assert at the handler.
@@ -558,7 +572,10 @@ about neither, which arrives as three unrelated red tests rather than as anythin
 (`L6.22`). **Parallel dispatches cannot verify their own container-backed tests**
 (`L28.22`): `guard_unstaged_gate.py` refuses a container suite while any sibling worktree is locked,
 even a test that makes its own database, so run those tests yourself at the merge and say in each
-brief which ones the agent will not be able to run. **Every green-phase dispatch passes `isolation: "worktree"`** — **G14**, settled
+brief which ones the agent will not be able to run. **Schedule the container-reaching work first**
+(`L28.46`): a red or green that needs the container runs while no worktree is locked, and red
+writers that need no worktree run in this checkout, on disjoint files, so no lock is taken at all.
+A finished agent's worktree is removed, or unlocked, before the next gate. **Every green-phase dispatch passes `isolation: "worktree"`** — **G14**, settled
 2026-09-14 — so that rule is unreachable rather than only forbidden: `L9.57`'s version of it was
 broken five times in one session. Measured 2026-09-14: the worktree lands at
 `.claude/worktrees/agent-<id>`, holds no `.venv`, no `docs/internal/` and no `WEFT_DATABASE_URL`,
@@ -859,7 +876,11 @@ crashes on the exact state its own non-vacuity exercise produces.
    A conditional fan-out, a retry, a fallback, a rare-input path: running
    the happy case exercises none of them, and two defects once sat behind one such branch where
    the first hid the second, so fixing only what the first traceback named would have shipped the
-   other (`L8.11`). Ask which branch of this change has never executed, then make it execute. *An import probe is not this.* Installing a
+   other (`L8.11`). Ask which branch of this change has never executed, then make it execute.
+   **Pair the check with a control that has the fix removed** (`L28.47`): `R43.39`'s REPL and `Weft`
+   API runs returned 3 hits with and without the fix, because each command opens its own
+   connection and the defect lives on a long-lived one. A check whose control also passes does not
+   reach the defect; record it as such, never as evidence. *An import probe is not this.* Installing a
    distribution alone and importing it proves its **import-time** dependencies and nothing else — a
    subprocess call, a lazily-imported optional backend, a data file opened on first use are all
    invisible to it, and `weft-cli` shipped for a phase needing a `ruff` it declared nowhere

@@ -22,6 +22,8 @@ argument reaches — a directory walked, a glob expanded — is judged by `tests
 `testpaths`, and a path that cannot be read counts as reaching the container, as there.
 Only a `pytest` in command position is a run, and `\`-continued lines are joined first
 (`L28.41`): a `grep pytest` refused two agents, and a continuation dropped every path.
+`pytest.raises` in text being written is not a run, and a `$(cat <file>)` path list is read from
+the file (`L28.46`); a path behind any other expansion is named as unreadable, never as "no path".
 
 Exit 2 with the paths on stderr blocks. Runs under bare `python3` (3.9).
 """
@@ -42,11 +44,12 @@ _CONTAINER_TASK = re.compile(r"(^|[;&|(]\s*|\s)poe\s+(ci-checks|ci-task|test)\b"
 # Command position only (`L28.41`): a `grep pytest` or a quoted string naming it runs nothing.
 _PYTEST = re.compile(
     r"^\s*(?:\w+=\S*\s+)*(?:uv\s+run\s+(?:--?\S+\s+)*)?(?:\S*python3?\s+-m\s+)?"
-    r"(?:\S*/)?pytest(?![\w-])(.*)"
+    r"(?:\S*/)?pytest(?![\w.-])(.*)"
 )
 _CONTINUATION = re.compile(r"\\\n")
 _SEGMENT_BREAK = re.compile(r"[;&|\n()]")
 _TOKENS_LITERAL = re.compile(r"^_CONTAINER_TOKENS\b[^=]*=\s*\((.*?)\)", re.MULTILINE | re.DOTALL)
+_CAT_EXPANSION = re.compile(r"\$\(\s*cat\s+([^()\s;&|]+)\s*\)")
 _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
 
@@ -123,11 +126,20 @@ def _files_under(cwd, argument):
     return list(target.rglob("*.py")) if target.is_dir() else [target]
 
 
+def _read_words(cwd, name):
+    path = Path(name) if Path(name).is_absolute() else cwd / name
+    try:
+        return " ".join(path.read_text(encoding="utf-8").split())
+    except (OSError, UnicodeDecodeError):
+        return "$(cat " + name + ")"
+
+
 def container_reaching(command, cwd):
     """What a pytest run or gate task in `command` would open that reaches Postgres or Qdrant."""
     root = Path((_git_lines(cwd, "rev-parse", "--show-toplevel") or [cwd])[0])
     tokens = _container_tokens(root)
     reached = []
+    command = _CAT_EXPANSION.sub(lambda match: _read_words(Path(cwd), match.group(1)), command)
     for segment in _SEGMENT_BREAK.split(_CONTINUATION.sub(" ", command)):
         if _CONTAINER_TASK.search(segment):
             reached.append(segment.strip())
@@ -142,7 +154,9 @@ def container_reaching(command, cwd):
             for found in _files_under(Path(cwd), argument)
             if _reaches_a_container(found, root, tokens)
         ]
-        if swept and not named:
+        if swept and not named and "$" in call.group(1):
+            reached.append("(its test paths come from a shell expansion this guard cannot read)")
+        elif swept and not named:
             reached.append("(the run named no test path, so all of tests/ was assumed)")
         reached.extend(swept)
     return reached
