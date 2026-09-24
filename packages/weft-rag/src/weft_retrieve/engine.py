@@ -48,6 +48,7 @@ from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Outcome
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry, RegistryEntry, unwrap_factory
+from weft_kernel.resolution import ResolvedPipeline
 from weft_kernel.runner import PipelineResolutionError, Stage
 from weft_kernel.seam import wrap
 from weft_retrieve.payload import RouteCandidate
@@ -66,6 +67,10 @@ _ROUTE_REQUIRES_VAR = "route.requires"
 _ROUTE_VARS: tuple[str, ...] = tuple(
     sorted((_ROUTE_SUMMARY_VAR, _ROUTE_COST_VAR, _ROUTE_REQUIRES_VAR))
 )
+#: Carried repair **R43.30** — the config fields `roles_needed` reads a model role from.
+_ROLE_FIELDS: tuple[str, ...] = ("role", "critic_role", "answer_role", "adjudication_role")
+_SUB_CONFIG_SUFFIX = "_config"
+_NOTHING_MAPPED: frozenset[str] = frozenset()
 
 
 class UnknownRouteVarError(PipelineResolutionError, UnresolvedNameError):
@@ -227,6 +232,57 @@ def _validated_sub_config(entry: RegistryEntry, name: str, config: object) -> ob
         ) from exc
 
 
+def roles_needed(pipeline: ResolvedPipeline, registry: Registry) -> frozenset[str]:
+    """Every `[llm.roles]` name `pipeline`'s stages call a model under — carried repair
+    **R43.30**.
+
+    **A naming convention, and the whole mechanism.** No contract declares which roles its
+    plugin calls under, so this reads each stage's validated config for the fields in
+    `_ROLE_FIELDS`, defaults included, and follows a sibling named through an `X`/`X_config`
+    field pair (`iterative-retrieval`'s `sufficiency`) into that sibling's own config,
+    recursively — the pair `RegistryStageLookup.build_capability` resolves at run time. A
+    plugin that spells its role field otherwise is not seen. When a contract declares its
+    roles, this function is the one place that changes.
+    """
+    roles: set[str] = set()
+    for stage in pipeline.stages:
+        roles |= _config_roles(stage.config, registry)
+    return frozenset(roles)
+
+
+def _config_roles(config: object, registry: Registry) -> frozenset[str]:
+    if not isinstance(config, BaseModel):
+        return frozenset()
+    fields = type(config).model_fields
+    roles = {
+        value
+        for field in _ROLE_FIELDS
+        if field in fields and isinstance(value := getattr(config, field), str)
+    }
+    for field in fields:
+        if f"{field}{_SUB_CONFIG_SUFFIX}" not in fields:
+            continue
+        name = getattr(config, field)
+        if not isinstance(name, str):
+            continue
+        block = getattr(config, f"{field}{_SUB_CONFIG_SUFFIX}")
+        for contract in registry.contracts():
+            if name in registry.names_for(contract):
+                entry = registry.entry(contract, name)
+                roles |= _config_roles(_sub_config(entry, name, block), registry)
+    return frozenset(roles)
+
+
+def _sub_config(entry: RegistryEntry, name: str, block: object) -> object:
+    """The config a sibling is built with — its own defaults when the pair's `X_config` is
+    unset, validated exactly as `RegistryStageLookup` validates it otherwise."""
+    if block is None:
+        if getattr(unwrap_factory(entry.factory), "config_model", None) is None:
+            return None
+        block = {}
+    return _validated_sub_config(entry, name, block)
+
+
 def stage_lookup(registry: Registry) -> RegistryStageLookup:
     """Build the run's `StageLookup`. This pack's own constructor — see the module
     docstring, and `.phase2-design.md` §7: "so a library caller is not forced through
@@ -245,15 +301,29 @@ class PipelineRouteCatalogue:
     same tuple every time — a route decision reads it more than once in one run (the
     scorer's prompt, then a policy's own selection), and nothing about which pipelines
     are routable changes mid-run.
+
+    `rung_roles` — carried repair **R43.30** — maps each routable document to the roles
+    `roles_needed` found on it; a candidate needing a role outside `mapped_roles` is left out,
+    and `missing_roles()` says which roles it lacked. `None` filters on nothing.
     """
 
     def __init__(
-        self, catalogue: Mapping[str, Pipeline], ready_layers: frozenset[str] | None = None
+        self,
+        catalogue: Mapping[str, Pipeline],
+        ready_layers: frozenset[str] | None = None,
+        *,
+        rung_roles: Mapping[str, frozenset[str]] | None = None,
+        mapped_roles: frozenset[str] = _NOTHING_MAPPED,
     ) -> None:
         candidates: list[RouteCandidate] = []
+        self._missing_roles = missing_roles(rung_roles or {}, mapped_roles)
         for name, pipeline in sorted(catalogue.items()):
             _check_route_vars(name, pipeline)
-            if _ROUTE_SUMMARY_VAR in pipeline.vars and _layer_ready(pipeline, ready_layers):
+            if (
+                _ROUTE_SUMMARY_VAR in pipeline.vars
+                and _layer_ready(pipeline, ready_layers)
+                and name not in self._missing_roles
+            ):
                 candidates.append(
                     RouteCandidate(
                         name=name,
@@ -268,6 +338,22 @@ class PipelineRouteCatalogue:
 
     def names(self) -> frozenset[str]:
         return frozenset(candidate.name for candidate in self._candidates)
+
+    def missing_roles(self) -> Mapping[str, tuple[str, ...]]:
+        """Each document left out for an unmapped role, to every role it lacks, sorted."""
+        return self._missing_roles
+
+
+def missing_roles(
+    rung_roles: Mapping[str, frozenset[str]], mapped_roles: frozenset[str]
+) -> dict[str, tuple[str, ...]]:
+    """Each rung in `rung_roles` needing a role `mapped_roles` lacks, to those roles sorted —
+    carried repair **R43.30**, the reason `PipelineRouteCatalogue` leaves a rung out."""
+    return {
+        name: tuple(sorted(needed - mapped_roles))
+        for name, needed in sorted(rung_roles.items())
+        if needed - mapped_roles
+    }
 
 
 def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> bool:
@@ -295,11 +381,19 @@ def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:
 
 
 def route_catalogue(
-    catalogue: Mapping[str, Pipeline], ready_layers: frozenset[str] | None = None
+    catalogue: Mapping[str, Pipeline],
+    ready_layers: frozenset[str] | None = None,
+    *,
+    rung_roles: Mapping[str, frozenset[str]] | None = None,
+    mapped_roles: frozenset[str] = _NOTHING_MAPPED,
 ) -> PipelineRouteCatalogue:
     """Build the run's `RouteCatalogue`. This pack's own constructor — see the module
     docstring on `stage_lookup`, the identical shape. `ready_layers` — ledger task **43.9**
     — is which layers `weft_cli.coverage.ready_layers` found built on every indexed source;
     `None` (every caller before this task) offers every candidate, unfiltered.
+    `rung_roles`/`mapped_roles` — carried repair **R43.30** — leave out a rung needing a role
+    the run's `[llm.roles]` does not map; `PipelineRouteCatalogue`'s own docstring.
     """
-    return PipelineRouteCatalogue(catalogue, ready_layers)
+    return PipelineRouteCatalogue(
+        catalogue, ready_layers, rung_roles=rung_roles, mapped_roles=mapped_roles
+    )

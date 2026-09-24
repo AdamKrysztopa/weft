@@ -2981,6 +2981,24 @@ the model explaining, in prose, why it declined the shape asked for.
 
 ## Which model answers a role — `weft_engine.llm_roles`
 
+### `NoRungOfferedError`
+
+**What it looks like:**
+
+```text
+the router has no rung to offer: every routable pipeline needs a model role [llm.roles] does not
+map — 'grade-then-generate' needs 'grade'; 'iterative-retrieve' needs 'grade'. Roles mapped in
+weft.toml: generate, index, route. Map 'grade' under [llm.roles], or ask with --pipeline <name>.
+```
+
+**Why:** a routed `weft ask` offers only the pipelines whose model roles are all mapped under
+`[llm.roles]`, so it never pays for a routing call and then fails on a role nobody configured.
+Here every pipeline it could offer needs a role that is not mapped.
+
+**What to do:** map the roles the message names under `[llm.roles]` in `weft.toml`, or name a
+pipeline yourself with `weft ask --pipeline <name>`. `weft ask --explain` lists every pipeline left
+out and the role it lacks.
+
 ### `UnmappedLLMRoleError`
 
 **What it looks like** — a call was made under a role `[llm.roles]` never named:

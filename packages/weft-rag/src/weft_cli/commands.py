@@ -154,6 +154,7 @@ from weft_cli.route_ask import (
     named_pipeline,
     pipelines_producing,
     resolve_named_pipeline,
+    routable_rung_roles,
     run_named_ask,
     run_named_retrieve,
     run_routed_ask,
@@ -200,7 +201,7 @@ from weft_kernel.resolution import Contribution, ResolvedPipeline
 from weft_kernel.runner import RunSummary
 from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
-from weft_retrieve.engine import route_requirements
+from weft_retrieve.engine import missing_roles, route_requirements
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
 from weft_store.contract import (
     EmbeddingIdentity,
@@ -603,12 +604,18 @@ def _raise_if_pending(
 
 
 def _excluded_rung_explanations(
-    catalogue: Mapping[str, Pipeline], *, ask_coverage: _AskCoverage, ready: frozenset[str]
+    catalogue: Mapping[str, Pipeline],
+    *,
+    ask_coverage: _AskCoverage,
+    ready: frozenset[str],
+    deps: Dependencies,
 ) -> tuple[str, ...]:
     """`--explain`'s own line per catalogue document the router left out — ledger task **43.9**.
     Routed path only: a rung named directly is refused or accepted before this point, never
     silently excluded. A document with no `route.summary` is never a candidate whatever its
-    layer, so it is not listed as left out (R43.21).
+    layer, so it is not listed as left out (R43.21). Carried repair **R43.30** adds a line per
+    role `[llm.roles]` does not map, read through `weft_retrieve.engine.missing_roles` — the
+    reason the router's own catalogue left the rung out.
     """
     lines: list[str] = []
     for name, layer in sorted(route_requirements(catalogue).items()):
@@ -618,6 +625,11 @@ def _excluded_rung_explanations(
         lines.append(
             f"not offered: '{name}' needs the '{layer}' layer, built on {built:,} of {of:,} sources"
         )
+    rung_roles = routable_rung_roles(
+        catalogue, registry=deps.registry, reports=deps.reports, contributions=deps.contributions
+    )
+    for name, roles in missing_roles(rung_roles, frozenset(deps.llm.roles.roles)).items():
+        lines.extend(f"not offered: '{name}' needs role '{role}'" for role in roles)
     return tuple(lines)
 
 
@@ -1644,7 +1656,7 @@ class AskCommand:
                 # Ledger task **43.9** — routed path only: a rung reached by name was
                 # already refused or accepted above, so there is nothing left to exclude.
                 explanations += _excluded_rung_explanations(
-                    catalogue, ask_coverage=ask_coverage, ready=ready
+                    catalogue, ask_coverage=ask_coverage, ready=ready, deps=deps
                 )
             note = incomparable_note(produced_by)
         return Produced(

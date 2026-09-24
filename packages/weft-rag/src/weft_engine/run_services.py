@@ -502,6 +502,7 @@ async def build_services(
     role_instances: Mapping[str, object] | None = None,
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
+    rung_roles: Mapping[str, frozenset[str]] | None = None,
 ) -> ServiceRegistry:
     """Assemble one run's `ServiceRegistry` — every service a query-path stage may reach
     through `ctx.require(...)`. See the module docstring's *"`build_services` — task 2.8's
@@ -564,6 +565,8 @@ async def build_services(
 
     **`ready_layers` — ledger task 43.9.** Threaded straight to `route_catalogue`, unchanged;
     `None` (every caller before this task) offers every candidate the catalogue holds.
+    `rung_roles` — carried repair **R43.30** — reaches it the same way, beside the role names
+    `llm` maps, so a rung needing an unmapped role is not offered.
     """
     registered = ServiceRegistry()
     registered.add(
@@ -587,7 +590,15 @@ async def build_services(
     )
     await check_embedding_for_query(store_instance, identity, plugin=services.embed, target=target)
     registered.add(StageLookup, stage_lookup(registry))
-    registered.add(RouteCatalogue, route_catalogue(catalogue, ready_layers))
+    registered.add(
+        RouteCatalogue,
+        route_catalogue(
+            catalogue,
+            ready_layers,
+            rung_roles=rung_roles,
+            mapped_roles=frozenset(llm.roles.roles),
+        ),
+    )
 
     role_map = (
         role_instances
@@ -811,7 +822,7 @@ class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameErro
     `pgvector` — a remedy nobody could carry out. Every other call site was a test supplying that
     name by hand, which is exactly why none of them could catch it. Repaired at ledger task
     **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities` call
-    (`weft_cli/route_ask.py:919 'contracts ='`) now takes `store_name` as a parameter fed from
+    (`weft_cli/route_ask.py:943 'contracts ='`) now takes `store_name` as a parameter fed from
     `[services] store` itself, threaded down from each of that module's three call sites, rather
     than deriving one from the instance.
 

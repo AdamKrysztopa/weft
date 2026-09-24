@@ -244,6 +244,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `weft delete` now marks such a layer `stale` on every remaining source and prints so. `weft
   sources list` and `weft index` show it, the router stops offering its rung, and `weft index
   --layers <name>` rebuilds it. The store contract moves to `2.12.0` for the new `LayerStatus.STALE`.
+- **A routed `weft ask` no longer pays for a routing call and then refuses for a missing role.**
+  With only some model roles mapped, a routed ask refused for `route`. Once `route` was mapped, it
+  made the router's model call and then refused for `grade`. Now the router offers only pipelines
+  whose roles are all mapped, and `--explain` says `not offered: '<pipeline>' needs role '<role>'`.
+  The router's own role is checked before any model call, and when nothing is left to offer the
+  refusal names every missing role at once (`NoRungOfferedError`).
 - **A citation of a summary says what it summarises.** An answer citing a corpus-wide RAPTOR
   summary printed `[1]  — <id>` with an empty label, because a node built from several sources has
   no single location. It now prints `summary of <n> sources (<layer>)`. A cited node with no source

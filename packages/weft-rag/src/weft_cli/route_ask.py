@@ -67,7 +67,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 
 from weft_cli.closing import CloseTarget, close_each
-from weft_cli.compile import contracts_for, to_specs
+from weft_cli.compile import RefusedStagePluginError, contracts_for, to_specs
 from weft_cli.pipeline_catalogue import (
     DEFAULT_PIPELINES_DIR,
     UnknownPipelineNameError,
@@ -94,8 +94,9 @@ from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
-from weft_llm.contract import TokenSink
+from weft_llm.contract import LLMProvider, TokenSink
 from weft_retrieve.contract import RoutingPolicy
+from weft_retrieve.engine import roles_needed, route_catalogue
 from weft_retrieve.payload import Passages, Query, QuerySet, Ranking, Route
 from weft_store import NodeStore
 
@@ -164,6 +165,13 @@ class UnroutedPipelineNameError(PipelineResolutionError, UnresolvedNameError):
         self.valid_options = valid_options
 
 
+class NoRungOfferedError(WeftError):
+    """Every rung the router could offer needs a model role `[llm.roles]` does not map —
+    carried repair **R43.30**. Raised before any model call, so the router is never paid to
+    choose between nothing; the message names each missing role and the rungs it would restore.
+    """
+
+
 class PipelineDidNotProduceError(PipelineResolutionError):
     """Either resolution ran to completion but answered `NothingToProduce` or `Failed`
     rather than `Produced` — a real outcome from a real run, never a bare exception, so
@@ -220,6 +228,11 @@ async def run_routed_ask(
     — ledger task **43.9** — reaches it the same way, so the router never offers a rung whose
     `route.requires` layer is not built everywhere.
 
+    **Roles, before any model call — carried repair R43.30.** A role the router itself calls
+    under that `[llm.roles]` does not map raises `weft_llm.roles.UnmappedLLMRoleError`; a rung
+    needing one is left out of the router's candidates, and `NoRungOfferedError` is raised when
+    that leaves none. Both before `_prepared_runner` builds anything.
+
     **Closes what it built — repair R38.6.** The store and embedder `_prepared_runner` builds
     for this call are closed before returning, success or error, through
     `weft_cli.closing.close_each`: this function is `weft ask`'s own default path, and every
@@ -244,6 +257,15 @@ async def run_routed_ask(
             ),
         )
 
+    rung_roles = _offerable_rung_roles(
+        router,
+        catalogue=catalogue,
+        registry=registry,
+        reports=reports,
+        contributions=contributions,
+        llm=llm,
+        ready_layers=ready_layers,
+    )
     built = await _prepared_runner(
         registry=registry,
         catalogue=catalogue,
@@ -254,6 +276,7 @@ async def run_routed_ask(
         roles=roles,
         target=target,
         ready_layers=ready_layers,
+        rung_roles=rung_roles,
     )
     in_flight: BaseException | None = None
     try:
@@ -752,6 +775,7 @@ async def _prepared_runner(
     roles: RoleTable = _NO_ROLES,
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
+    rung_roles: Mapping[str, frozenset[str]] | None = None,
 ) -> PreparedRunner:
     """The setup `run_routed_ask` and `run_named_ask` share: the assembled service
     registry, a `Context` carrying it, a `Runner`, and the resolved `NodeStore` both
@@ -785,7 +809,8 @@ async def _prepared_runner(
     caller before this task) reads the live target.
 
     `ready_layers` — ledger task **43.9** — reaches `build_services` unchanged; `None`
-    (every caller before this task) offers every candidate the catalogue holds.
+    (every caller before this task) offers every candidate the catalogue holds. `rung_roles`
+    — carried repair **R43.30** — reaches it the same way.
     """
     role_instances = selected_role_instances(registry=registry, services=services, table=roles)
     service_registry = await build_services(
@@ -798,6 +823,7 @@ async def _prepared_runner(
         role_instances=role_instances,
         target=target,
         ready_layers=ready_layers,
+        rung_roles=rung_roles,
     )
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)
@@ -924,6 +950,80 @@ def resolve_in_catalogue(
         parents=catalogue,
         contributions=contributions,
     )
+
+
+def routable_rung_roles(
+    catalogue: Mapping[str, Pipeline],
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...] = (),
+) -> dict[str, frozenset[str]]:
+    """Every document carrying `route.summary`, to the roles its resolved form calls a model
+    under (`weft_retrieve.engine.roles_needed`) — carried repair **R43.30**. Resolved through
+    `resolve_in_catalogue`, so a derived rung's `replace`/`set` count.
+
+    A document that does not resolve here is left out of the mapping, so no role filter
+    applies to it and it is offered exactly as before this repair: its own resolution error is
+    raised, by name, if the router selects it.
+    """
+    rung_roles: dict[str, frozenset[str]] = {}
+    for name, pipeline in sorted(catalogue.items()):
+        if "route.summary" not in pipeline.vars:
+            continue
+        try:
+            resolved = resolve_in_catalogue(
+                pipeline,
+                registry=registry,
+                catalogue=catalogue,
+                reports=reports,
+                contributions=contributions,
+            )
+        except (PipelineResolutionError, RefusedStagePluginError):
+            continue
+        rung_roles[name] = roles_needed(resolved, registry)
+    return rung_roles
+
+
+def _offerable_rung_roles(
+    router: Pipeline,
+    *,
+    catalogue: Mapping[str, Pipeline],
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+    llm: LLMSection,
+    ready_layers: frozenset[str] | None,
+) -> dict[str, frozenset[str]]:
+    """`routable_rung_roles`, once the router's own roles are mapped and at least one rung
+    survives the role filter — `run_routed_ask`'s two up-front refusals, carried repair
+    **R43.30**."""
+    resolved_router = resolve_in_catalogue(
+        router, registry=registry, catalogue=catalogue, reports=reports, contributions=contributions
+    )
+    providers = tuple(sorted(registry.names_for(LLMProvider)))
+    for role in sorted(roles_needed(resolved_router, registry)):
+        llm.roles.resolve(role, providers=providers)
+    rung_roles = routable_rung_roles(
+        catalogue, registry=registry, reports=reports, contributions=contributions
+    )
+    mapped = frozenset(llm.roles.roles)
+    offered = route_catalogue(catalogue, ready_layers, rung_roles=rung_roles, mapped_roles=mapped)
+    missing = offered.missing_roles()
+    if missing and not offered.candidates():
+        needed = sorted({role for roles in missing.values() for role in roles})
+        rungs = "; ".join(
+            f"'{name}' needs {', '.join(repr(role) for role in roles)}"
+            for name, roles in missing.items()
+        )
+        raise NoRungOfferedError(
+            f"the router has no rung to offer: every routable pipeline needs a model role "
+            f"[llm.roles] does not map — {rungs}. Roles mapped in weft.toml: "
+            f"{', '.join(sorted(mapped)) or '(none mapped)'}. Map "
+            f"{', '.join(repr(role) for role in needed)} under [llm.roles], or ask with "
+            f"--pipeline <name>."
+        )
+    return rung_roles
 
 
 async def _run_pipeline(
