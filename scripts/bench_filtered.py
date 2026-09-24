@@ -46,6 +46,8 @@ BENCH_NAMESPACE: Final[str] = "weft-bench"
 
 
 class Selectivity(StrEnum):
+    """The share of rows a filtered arm keeps, as its label in the record."""
+
     HALF = "50%"
     TENTH = "10%"
     ONE_PERCENT = "1%"
@@ -53,6 +55,7 @@ class Selectivity(StrEnum):
 
     @property
     def fraction(self) -> float:
+        """The share of rows as a number in `(0, 1]`."""
         return {
             Selectivity.HALF: 0.5,
             Selectivity.TENTH: 0.1,
@@ -62,6 +65,7 @@ class Selectivity(StrEnum):
 
     @property
     def key(self) -> str:
+        """The bucket's key under `BENCH_NAMESPACE` in a row's `ext`."""
         return {
             Selectivity.HALF: "s50",
             Selectivity.TENTH: "s10",
@@ -86,9 +90,11 @@ def bench_ext(node_id: str) -> str:
 
 
 def bucket_predicate(selectivity: Selectivity) -> sql.Composed:
-    """The store's `eq`-on-extension shape (`pgvector_store.py` `_extension_predicate`, `_holds`)
-    against this harness's own bucket, so the filter this script times is exactly the filter a
-    caller would write with `Filter(op=eq, field="ext.weft-bench.<key>", value=True)`.
+    """Render this harness's bucket through the store's own `eq`-on-extension shape.
+
+    The store's shape is `pgvector_store.py` `_extension_predicate`, `_holds`, applied against
+    this harness's own bucket, so the filter this script times is exactly the filter a caller
+    would write with `Filter(op=eq, field="ext.weft-bench.<key>", value=True)`.
     """
     path = sql.Literal([BENCH_NAMESPACE, selectivity.key])
     stored = sql.SQL("(ext #> {})").format(path)
@@ -107,14 +113,36 @@ _STATEMENT_TEMPLATE = sql.SQL(
 
 
 def unfiltered_statement() -> sql.Composed:
+    """Build the top-k query with no filter, taking `vector` and `top_k` parameters."""
     return _STATEMENT_TEMPLATE.format(predicate=sql.SQL("TRUE"))
 
 
 def filtered_statement(selectivity: Selectivity) -> sql.Composed:
+    """Build the top-k query restricted to one selectivity bucket.
+
+    Args:
+        selectivity: The bucket the query must stay inside.
+
+    Returns:
+        The statement, taking `vector` and `top_k` parameters.
+    """
     return _STATEMENT_TEMPLATE.format(predicate=bucket_predicate(selectivity))
 
 
 def recall_at_k(truth: Sequence[str], found: Sequence[str], *, k: int = 10) -> float:
+    """Measure the share of the exact top-k that an approximate answer recovered.
+
+    Args:
+        truth: The exact scan's ids, best first.
+        found: The measured arm's ids, best first.
+        k: How many of each to compare.
+
+    Returns:
+        The recalled fraction of `truth[:k]`.
+
+    Raises:
+        ValueError: `truth` is empty.
+    """
     if not truth:
         raise ValueError("no ground truth to measure recall against")
     wanted = set(truth[:k])
@@ -135,12 +163,23 @@ def truncate_renormalise(values: Sequence[float], width: int) -> tuple[float, ..
 
 
 class PlanShape(StrEnum):
+    """What an arm's `EXPLAIN` plan reads as, coarsely."""
+
     INDEX_SCAN = "index scan"
     SEQ_SCAN = "sequential scan"
     OTHER = "other"
 
 
 def classify_plan(lines: Sequence[str], *, index_name: str) -> PlanShape:
+    """Read an `EXPLAIN` plan's lines as an index scan, a sequential scan or something else.
+
+    Args:
+        lines: The plan, one line per row `EXPLAIN` returned.
+        index_name: The index whose use counts as an index scan.
+
+    Returns:
+        The plan's shape.
+    """
     if any(f"Index Scan using {index_name}" in line for line in lines):
         return PlanShape.INDEX_SCAN
     if any("Seq Scan" in line for line in lines):
@@ -149,6 +188,8 @@ def classify_plan(lines: Sequence[str], *, index_name: str) -> PlanShape:
 
 
 class IterativeScan(StrEnum):
+    """pgvector's `hnsw.iterative_scan` settings, spelled as the server takes them."""
+
     OFF = "off"
     RELAXED_ORDER = "relaxed_order"
     STRICT_ORDER = "strict_order"
@@ -160,6 +201,8 @@ class IterativeScan(StrEnum):
 
 
 class SelectivityCount(BaseModel):
+    """How many rows one selectivity bucket matched."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     selectivity: Selectivity
@@ -167,6 +210,8 @@ class SelectivityCount(BaseModel):
 
 
 class FilteredArmResult(BaseModel):
+    """Recall, rows returned, latency and plan of one iterative-scan mode at one selectivity."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     selectivity: Selectivity | None
@@ -183,6 +228,8 @@ class FilteredArmResult(BaseModel):
 
 
 class FilteredRun(BaseModel):
+    """The whole run as written to `--record`."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     machine: bench_latency.Machine
@@ -413,7 +460,110 @@ def _run_arm(
     return result
 
 
+_FAILURES: Final = (
+    bench_latency.MeasurementRefusedError,
+    bench_latency.RowCountMismatchError,
+    ValueError,
+    psycopg.Error,
+    OSError,
+)
+
+
+def _refuse_existing(admin_dsn: str, name: str) -> None:
+    with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
+        if cur.fetchone() is not None:
+            raise bench_latency.MeasurementRefusedError(
+                f"database {name!r} already exists; refusing to reuse or drop it"
+            )
+
+
+def _measure_and_record(
+    arguments: argparse.Namespace, *, admin_dsn: str, name: str, machine: bench_latency.Machine
+) -> None:
+    _load(admin_dsn, name, arguments.vector_set, arguments.rows)
+    database_dsn = make_conninfo(admin_dsn, dbname=name)
+
+    with psycopg.connect(database_dsn) as conn:
+        register_vector(conn)
+        rows = _row_count(conn)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+            extension_row = cur.fetchone()
+            cur.execute("SHOW server_version")
+            server_row = cur.fetchone()
+        if extension_row is None or server_row is None:
+            raise bench_latency.MeasurementRefusedError(
+                "the database reported no pgvector extension or server version"
+            )
+        pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
+
+        alter_seconds = _type_column(conn, width=arguments.width)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM weft_nodes ORDER BY id")
+            ids = [str(row[0]) for row in cur.fetchall()]
+        _write_buckets(conn, ids)
+        matching_rows = _matching_rows(conn)
+
+        sample = bench_latency.query_sample(ids, arguments.queries)
+        fetched = _fetch_vectors(conn, sample)
+        truth = _ground_truth(conn, sample, fetched)
+
+        index_build_seconds, index_bytes, ef_search, max_scan_tuples = _build_index(conn)
+
+        results: list[FilteredArmResult] = []
+        for mode in IterativeScan:
+            with conn.cursor() as cur:
+                cur.execute(sql.SQL("SET hnsw.iterative_scan = {}").format(sql.Literal(mode.value)))
+            for selectivity in (None, *Selectivity):
+                results.append(
+                    _run_arm(
+                        conn,
+                        mode=mode,
+                        selectivity=selectivity,
+                        sample=sample,
+                        fetched=fetched,
+                        truth=truth,
+                    )
+                )
+
+    if arguments.record is not None:
+        run = FilteredRun(
+            machine=machine,
+            database=name,
+            vector_set=arguments.vector_set.name,
+            rows=rows,
+            width=arguments.width,
+            pgvector_version=pgvector_version,
+            server_version=server_version,
+            alter_seconds=alter_seconds,
+            index_build_seconds=index_build_seconds,
+            index_bytes=index_bytes,
+            ef_search=ef_search,
+            max_scan_tuples=max_scan_tuples,
+            matching_rows=matching_rows,
+            results=tuple(results),
+            taken_at=datetime.now(UTC),
+        )
+        arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
+
+    if arguments.keep:
+        print(f"kept: {name}")
+    else:
+        _drop_database(admin_dsn, name)
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run the filtered-search measurement in a fresh database and drop it unless `--keep`.
+
+    Args:
+        argv: Command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        0 on a completed run, 2 when the measurement was refused or failed.
+    """
     bench_latency.line_buffer_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -443,102 +593,21 @@ def main(argv: list[str] | None = None) -> int:
     print(f"machine: {machine.label}")
 
     name = _database_name(arguments.width)
-    created = False
 
     try:
-        with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
-            if cur.fetchone() is not None:
-                raise bench_latency.MeasurementRefusedError(
-                    f"database {name!r} already exists; refusing to reuse or drop it"
-                )
-        created = True
-        _load(admin_dsn, name, arguments.vector_set, arguments.rows)
-        database_dsn = make_conninfo(admin_dsn, dbname=name)
-
-        with psycopg.connect(database_dsn) as conn:
-            register_vector(conn)
-            rows = _row_count(conn)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
-                extension_row = cur.fetchone()
-                cur.execute("SHOW server_version")
-                server_row = cur.fetchone()
-            if extension_row is None or server_row is None:
-                raise bench_latency.MeasurementRefusedError(
-                    "the database reported no pgvector extension or server version"
-                )
-            pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
-
-            alter_seconds = _type_column(conn, width=arguments.width)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT id FROM weft_nodes ORDER BY id")
-                ids = [str(row[0]) for row in cur.fetchall()]
-            _write_buckets(conn, ids)
-            matching_rows = _matching_rows(conn)
-
-            sample = bench_latency.query_sample(ids, arguments.queries)
-            fetched = _fetch_vectors(conn, sample)
-            truth = _ground_truth(conn, sample, fetched)
-
-            index_build_seconds, index_bytes, ef_search, max_scan_tuples = _build_index(conn)
-
-            results: list[FilteredArmResult] = []
-            for mode in IterativeScan:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        sql.SQL("SET hnsw.iterative_scan = {}").format(sql.Literal(mode.value))
-                    )
-                for selectivity in (None, *Selectivity):
-                    results.append(
-                        _run_arm(
-                            conn,
-                            mode=mode,
-                            selectivity=selectivity,
-                            sample=sample,
-                            fetched=fetched,
-                            truth=truth,
-                        )
-                    )
-
-        if arguments.record is not None:
-            run = FilteredRun(
-                machine=machine,
-                database=name,
-                vector_set=arguments.vector_set.name,
-                rows=rows,
-                width=arguments.width,
-                pgvector_version=pgvector_version,
-                server_version=server_version,
-                alter_seconds=alter_seconds,
-                index_build_seconds=index_build_seconds,
-                index_bytes=index_bytes,
-                ef_search=ef_search,
-                max_scan_tuples=max_scan_tuples,
-                matching_rows=matching_rows,
-                results=tuple(results),
-                taken_at=datetime.now(UTC),
-            )
-            arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
-
-        if arguments.keep:
-            print(f"kept: {name}")
-        else:
-            _drop_database(admin_dsn, name)
-        return 0
-    except (
-        bench_latency.MeasurementRefusedError,
-        bench_latency.RowCountMismatchError,
-        ValueError,
-        psycopg.Error,
-        OSError,
-    ) as exc:
+        _refuse_existing(admin_dsn, name)
+    except _FAILURES as exc:
         print(str(exc), file=sys.stderr)
-        if created and not arguments.keep:
+        return 2
+
+    try:
+        _measure_and_record(arguments, admin_dsn=admin_dsn, name=name, machine=machine)
+    except _FAILURES as exc:
+        print(str(exc), file=sys.stderr)
+        if not arguments.keep:
             _drop_database(admin_dsn, name)
         return 2
+    return 0
 
 
 if __name__ == "__main__":

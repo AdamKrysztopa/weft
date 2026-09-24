@@ -102,8 +102,10 @@ _SUITES_ABOUT_THE_CODE: tuple[str, ...] = ("tests/unit", "tests/integration")
 
 
 def _extra_requirements(repo_root: Path, *extras: str) -> list[str]:
-    """Every library the named `weft-rag` extras list — since G19 the capability packs ship inside
-    `weft-rag`, and this suite imports their libraries directly.
+    """Every library the named `weft-rag` extras list.
+
+    Since G19 the capability packs ship inside `weft-rag`, and this suite imports their libraries
+    directly.
     """
     pyproject = tomllib.loads((repo_root / "packages/weft-rag/pyproject.toml").read_text())
     declared = pyproject["project"]["optional-dependencies"]
@@ -111,6 +113,15 @@ def _extra_requirements(repo_root: Path, *extras: str) -> list[str]:
 
 
 def run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
+    """Run the suites about the code in an isolated environment built from the sdists alone.
+
+    Args:
+        archives: The built sdists to install.
+        repo_root: The checkout whose test suites are run.
+
+    Returns:
+        The pytest exit code.
+    """
     command = [
         "uv",
         "run",
@@ -146,6 +157,13 @@ def run_tests_against_sdists(archives: list[Path], repo_root: Path) -> int:
 
 
 def main() -> int:
+    """Build every published sdist and check it carries what the checkout has.
+
+    `--run-tests` also runs the suites about the code against the built sdists.
+
+    Returns:
+        0 when every sdist is complete (and, if asked, the suites pass); non-zero otherwise.
+    """
     repo_root = Path(__file__).resolve().parents[1]
     run_tests = "--run-tests" in sys.argv[1:]
 

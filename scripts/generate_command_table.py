@@ -29,6 +29,7 @@ MANUAL: Final[Path] = REPO_ROOT / "manual" / "user-manual.md"
 
 
 def main() -> None:
+    """Regenerate the command-table region of the user manual in place."""
     registry = discover_for_reference()
     commands = command_entries(registry)
     table = render_command_table(commands)

@@ -55,7 +55,7 @@ import tempfile
 import threading
 import time
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -135,14 +135,18 @@ _LADDER: Final[tuple[bench_filtered.Selectivity | None, ...]] = (
 
 
 class Backend(StrEnum):
+    """The two stores the settings matrix measures."""
+
     PGVECTOR = "pgvector"
     QDRANT = "qdrant"
 
 
 class Arm(BaseModel):
-    """One configuration this harness measures — task **31.6**, the ninth owner decision's own
-    matrix. `iterative_scan` is `None` on every Qdrant arm and on every `exact` pgvector arm: it
-    is a pgvector session GUC and means nothing to either.
+    """One configuration this harness measures.
+
+    Task **31.6**, the ninth owner decision's own matrix. `iterative_scan` is `None` on every
+    Qdrant arm and on every `exact` pgvector arm: it is a pgvector session GUC and means nothing to
+    either.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -155,6 +159,7 @@ class Arm(BaseModel):
 
     @property
     def is_control(self) -> bool:
+        """Whether this arm is its backend's exact-scan control, which recall is scored against."""
         return self.index is VectorIndexKind.EXACT
 
 
@@ -309,6 +314,8 @@ def filter_document(
 
 
 class SettingsArmResult(BaseModel):
+    """One arm's measured outcome, with the row counts taken around it."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     arm: Arm
@@ -323,6 +330,8 @@ class SettingsArmResult(BaseModel):
 
 
 class SettingsRun(BaseModel):
+    """The one JSON record `--record` writes, read by `bench_record.arms_from_settings`."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     machine: bench_latency.Machine
@@ -399,8 +408,10 @@ def _pgvector_versions(admin_dsn: str, database: str) -> tuple[str, str]:
 
 
 def _qdrant_version(url: str) -> str:
-    """The deployment's own version, over the plain REST root — not `QdrantClient`, which this
-    task's own no-direct-client-call rule refuses for anything the measurement depends on.
+    """Read the Qdrant deployment's own version, over the plain REST root.
+
+    Not `QdrantClient`, which this task's own no-direct-client-call rule refuses for anything the
+    measurement depends on.
     """
     with urllib.request.urlopen(f"{url.rstrip('/')}/", timeout=10) as response:  # noqa: S310
         payload = json.loads(response.read())
@@ -411,8 +422,9 @@ def _qdrant_version(url: str) -> str:
 
 
 def corpus_sources(corpus: Path, *, manifest: Path | None = None) -> tuple[Path, ...]:
-    """The corpus's documents, ordered by `sha256` of the resolved path — deterministic and nested
-    by construction, the same footing `bench_filtered.bucket_rank` uses.
+    """List the corpus's documents, ordered by `sha256` of the resolved path.
+
+    Deterministic and nested by construction, the same footing `bench_filtered.bucket_rank` uses.
 
     **`manifest` is what makes "the corpus" mean the *indexable* set rather than the directory.**
     `corpus/open-ragbench-pdfs.toml` carries **997** `[[document]]` entries — already the filtered
@@ -502,10 +514,11 @@ def _index_rungs(
     dict[bench_filtered.Selectivity | None, int],
     dict[bench_filtered.Selectivity | None, tuple[str, ...]],
 ]:
-    """Index the corpus into one growing slice directory, narrowest rung first, and read each
-    rung's true size straight off `weft index`'s own `nodes now stored: N.` line — never a
-    `count(*)`. Nested by construction: the 0.1% rung's files are a subset of the 1% rung's,
-    which are a subset of the full corpus.
+    """Index the corpus into one growing slice directory, narrowest rung first.
+
+    Each rung's true size is read straight off `weft index`'s own `nodes now stored: N.` line —
+    never a `count(*)`. Nested by construction: the 0.1% rung's files are a subset of the 1%
+    rung's, which are a subset of the full corpus.
     """
     counts = _rung_counts(len(sources))
     slice_dir = workdir / "slice"
@@ -603,9 +616,10 @@ def _run_arm(
     truth: dict[str, tuple[str, ...]] | None,
     label: str,
 ) -> tuple[SettingsArmResult, dict[str, tuple[str, ...]]]:
-    """Run one arm's query sample against the store the caller has already indexed and configured
-    (`weft.toml`, the filter document) — `truth` is `None` only for the control arm that is about
-    to produce it.
+    """Run one arm's query sample against the store the caller has already indexed.
+
+    The caller has also configured it (`weft.toml`, the filter document) — `truth` is `None` only
+    for the control arm that is about to produce it.
     """
     rung = arm.selectivity.value if arm.selectivity is not None else "unfiltered"
     scan = arm.iterative_scan.value if arm.iterative_scan is not None else "-"
@@ -663,8 +677,10 @@ def _run_group(
     ingest_pipeline: str,
     label: str,
 ) -> tuple[list[SettingsArmResult], int]:
-    """One `(index, precision)` group: one throwaway store, indexed once in nested rungs, then
-    every arm in the group (differing only by `iterative_scan`) queried at every rung it names.
+    """Measure one `(index, precision)` group in one throwaway store.
+
+    The store is indexed once in nested rungs, then every arm in the group (differing only by
+    `iterative_scan`) is queried at every rung it names.
 
     `qdrant_collection` is threaded through rather than defaulted because this function rewrites
     `weft.toml` after `_index_rungs` has already indexed against the caller's copy: a collection
@@ -877,8 +893,64 @@ def _plans_for(all_arms: Sequence[Arm]) -> list[_GroupPlan]:
     return plans
 
 
-def main(argv: list[str] | None = None) -> int:
-    bench_latency.line_buffer_stdout()
+def _waves(plans: Sequence[_GroupPlan]) -> tuple[list[_GroupPlan], list[_GroupPlan]]:
+    return (
+        [plan for plan in plans if plan.is_control],
+        [plan for plan in plans if not plan.is_control],
+    )
+
+
+def _run_waves(
+    waves: Sequence[Sequence[_GroupPlan]],
+    *,
+    jobs: int,
+    binary: Path,
+    sources: Sequence[Path],
+    questions: Sequence[str],
+    admin_dsn: str,
+    qdrant_url: str,
+    database_label: str,
+    truth_by_backend: dict[
+        Backend, dict[bench_filtered.Selectivity | None, dict[str, tuple[str, ...]]]
+    ],
+    registry_lock: threading.Lock,
+    created_databases: list[str],
+    outcomes: list[_GroupOutcome],
+    record_now: Callable[[], None],
+) -> int:
+    for number, wave in enumerate(waves, start=1):
+        if not wave:
+            continue
+        names = ", ".join(plan.label for plan in wave)
+        _say("run", f"wave {number} of 2: {len(wave)} group(s) in parallel — {names}")
+        with ThreadPoolExecutor(max_workers=min(jobs, len(wave))) as executor:
+            futures = [
+                executor.submit(
+                    _run_one_group,
+                    binary,
+                    plan,
+                    sources=sources,
+                    questions=questions,
+                    admin_dsn=admin_dsn,
+                    qdrant_url=qdrant_url,
+                    database_label=database_label,
+                    truth_by_selectivity=truth_by_backend[plan.backend],
+                    registry_lock=registry_lock,
+                    created_databases=created_databases,
+                )
+                for plan in wave
+            ]
+            for future in futures:
+                outcomes.append(future.result())
+                record_now()
+        _say("run", f"wave {number} done: {sum(len(o.results) for o in outcomes)} arm(s) so far")
+
+    record_now()
+    _say("run", f"complete: {sum(len(o.results) for o in outcomes)} arm(s)")
+    return 0
+
+
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True, help="a directory of documents")
     parser.add_argument(
@@ -905,7 +977,20 @@ def main(argv: list[str] | None = None) -> int:
             "taken under contention and the record says so. 1 restores the serial run"
         ),
     )
-    arguments = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the 31.6 settings matrix across both backends, in two waves of parallel groups.
+
+    Args:
+        argv: The arguments, or `None` for `sys.argv`.
+
+    Returns:
+        The process exit code: 0 once every arm is measured, 2 for a refused or failed run.
+    """
+    bench_latency.line_buffer_stdout()
+    arguments = _build_parser().parse_args(argv)
     if arguments.jobs < 1:
         print("--jobs must be at least 1", file=sys.stderr)
         return 2
@@ -949,10 +1034,7 @@ def main(argv: list[str] | None = None) -> int:
     truth_by_backend: dict[
         Backend, dict[bench_filtered.Selectivity | None, dict[str, tuple[str, ...]]]
     ] = {backend: {} for backend in Backend}
-    waves = (
-        [plan for plan in plans if plan.is_control],
-        [plan for plan in plans if not plan.is_control],
-    )
+    waves = _waves(plans)
 
     def record_now() -> None:
         if arguments.record is not None:
@@ -972,38 +1054,21 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     try:
-        for number, wave in enumerate(waves, start=1):
-            if not wave:
-                continue
-            names = ", ".join(plan.label for plan in wave)
-            _say("run", f"wave {number} of 2: {len(wave)} group(s) in parallel — {names}")
-            with ThreadPoolExecutor(max_workers=min(arguments.jobs, len(wave))) as executor:
-                futures = [
-                    executor.submit(
-                        _run_one_group,
-                        binary,
-                        plan,
-                        sources=sources,
-                        questions=questions,
-                        admin_dsn=admin_dsn,
-                        qdrant_url=arguments.qdrant_url,
-                        database_label=database_label,
-                        truth_by_selectivity=truth_by_backend[plan.backend],
-                        registry_lock=registry_lock,
-                        created_databases=created_databases,
-                    )
-                    for plan in wave
-                ]
-                for future in futures:
-                    outcomes.append(future.result())
-                    record_now()
-            _say(
-                "run", f"wave {number} done: {sum(len(o.results) for o in outcomes)} arm(s) so far"
-            )
-
-        record_now()
-        _say("run", f"complete: {sum(len(o.results) for o in outcomes)} arm(s)")
-        return 0
+        return _run_waves(
+            waves,
+            jobs=arguments.jobs,
+            binary=binary,
+            sources=sources,
+            questions=questions,
+            admin_dsn=admin_dsn,
+            qdrant_url=arguments.qdrant_url,
+            database_label=database_label,
+            truth_by_backend=truth_by_backend,
+            registry_lock=registry_lock,
+            created_databases=created_databases,
+            outcomes=outcomes,
+            record_now=record_now,
+        )
     except (
         bench_latency.CountNotReportedError,
         bench_latency.RowCountMismatchError,

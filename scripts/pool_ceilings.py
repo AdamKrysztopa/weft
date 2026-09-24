@@ -24,8 +24,8 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_cli.eval_commands import document_labels_from_manifest
 from weft_cli.eval_scoring import resolve_labels
-from weft_eval.pool import PoolManifest, PoolQuestion, load_pool_manifest
-from weft_eval.question_set import Question, QuestionSetError, read_question_set
+from weft_eval.pool import LoadedPool, PoolManifest, PoolQuestion, load_pool_manifest
+from weft_eval.question_set import Question, QuestionSet, QuestionSetError, read_question_set
 from weft_eval.run_record import PerQuestionScores, QuestionKey, RunRecord, load_run_record
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Produced
@@ -63,6 +63,41 @@ class SliceCeiling(BaseModel):
     relevant_in_pool: float
 
 
+def _verify_contents(question: PoolQuestion, contents: Mapping[str, str]) -> None:
+    for chunk in question.chunks:
+        content = contents.get(chunk.node_id)
+        if content is None:
+            raise ValueError(f"no content given for pool chunk '{chunk.node_id}'")
+        if hashlib.sha256(content.encode("utf-8")).hexdigest() != chunk.content_sha256:
+            raise ValueError(
+                f"content for pool chunk '{chunk.node_id}' no longer hashes to its recorded "
+                "content_sha256"
+            )
+
+
+def _best_relevant_rank(question: PoolQuestion, relevant: frozenset[str]) -> int | None:
+    for rank, chunk in enumerate(question.chunks, start=1):
+        if chunk.document_id in relevant:
+            return rank
+    return None
+
+
+def _promotion_gain(
+    question: PoolQuestion,
+    relevant: frozenset[str],
+    contents: Mapping[str, str],
+    anchors: tuple[str, ...],
+    rr5: float,
+) -> float:
+    for chunk in question.chunks:
+        if chunk.document_id not in relevant:
+            continue
+        content = contents[chunk.node_id]
+        if any(anchor_contained(anchor, content) for anchor in anchors):
+            return 1 - rr5
+    return 0.0
+
+
 def question_ceiling(
     question: PoolQuestion,
     *,
@@ -76,21 +111,9 @@ def question_ceiling(
     Every chunk's content is checked against `PoolChunk.content_sha256` before anything else is
     computed, naming the chunk whose content no longer hashes to what the pool recorded.
     """
-    for chunk in question.chunks:
-        content = contents.get(chunk.node_id)
-        if content is None:
-            raise ValueError(f"no content given for pool chunk '{chunk.node_id}'")
-        if hashlib.sha256(content.encode("utf-8")).hexdigest() != chunk.content_sha256:
-            raise ValueError(
-                f"content for pool chunk '{chunk.node_id}' no longer hashes to its recorded "
-                "content_sha256"
-            )
+    _verify_contents(question, contents)
 
-    best_relevant_rank: int | None = None
-    for rank, chunk in enumerate(question.chunks, start=1):
-        if chunk.document_id in relevant:
-            best_relevant_rank = rank
-            break
+    best_relevant_rank = _best_relevant_rank(question, relevant)
     any_relevant_in_pool = best_relevant_rank is not None
     distinct_documents = len({chunk.document_id for chunk in question.chunks})
 
@@ -99,15 +122,9 @@ def question_ceiling(
 
     oracle_gain = (1.0 if any_relevant_in_pool else 0.0) - rr5
 
-    promotion_gain = 0.0
-    if rule_fires:
-        for chunk in question.chunks:
-            if chunk.document_id not in relevant:
-                continue
-            content = contents[chunk.node_id]
-            if any(anchor_contained(anchor, content) for anchor in anchors):
-                promotion_gain = 1 - rr5
-                break
+    promotion_gain = (
+        _promotion_gain(question, relevant, contents, anchors, rr5) if rule_fires else 0.0
+    )
 
     return QuestionCeiling(
         question_id=question.id,
@@ -132,6 +149,26 @@ def _mean_ceiling(group: Sequence[QuestionCeiling]) -> SliceCeiling:
     )
 
 
+def _axis_groups(
+    ceilings: Sequence[QuestionCeiling], axes: Mapping[str, Mapping[str, str]]
+) -> dict[str, list[QuestionCeiling]]:
+    groups: dict[str, list[QuestionCeiling]] = {}
+    axis_values: dict[str, set[str]] = {}
+    for question_axes in axes.values():
+        for axis, value in question_axes.items():
+            axis_values.setdefault(axis, set()).add(value)
+    for axis, values in axis_values.items():
+        for value in values:
+            group = [
+                ceiling
+                for ceiling in ceilings
+                if axes.get(ceiling.question_id, {}).get(axis) == value
+            ]
+            if group:
+                groups[f"{axis}={value}"] = group
+    return groups
+
+
 def slice_summary(
     ceilings: Sequence[QuestionCeiling], axes: Mapping[str, Mapping[str, str]]
 ) -> dict[str, SliceCeiling]:
@@ -146,19 +183,7 @@ def slice_summary(
     if ceilings:
         groups["all"] = list(ceilings)
 
-    axis_values: dict[str, set[str]] = {}
-    for question_axes in axes.values():
-        for axis, value in question_axes.items():
-            axis_values.setdefault(axis, set()).add(value)
-    for axis, values in axis_values.items():
-        for value in values:
-            group = [
-                ceiling
-                for ceiling in ceilings
-                if axes.get(ceiling.question_id, {}).get(axis) == value
-            ]
-            if group:
-                groups[f"{axis}={value}"] = group
+    groups.update(_axis_groups(ceilings, axes))
 
     for flag, label in ((True, "true"), (False, "false")):
         group = [ceiling for ceiling in ceilings if ceiling.rule_fires is flag]
@@ -210,8 +235,9 @@ def relevant_by_question(
 def _rr5_by_question(
     record: RunRecord, questions: Sequence[Question]
 ) -> tuple[dict[str, float], list[str]]:
-    """`record`'s own RR@5 per question, and the ids of every question left out because its
-    outcome was not `Produced`.
+    """`record`'s own RR@5 per question, and the ids of every question it left out.
+
+    A question is left out when its outcome was not `Produced`.
     """
     per_question: PerQuestionScores | None = None
     if record.question_scores is not None:
@@ -261,7 +287,47 @@ def _fetch_contents(
     return contents
 
 
+def _print_slices(slices: Mapping[str, SliceCeiling]) -> None:
+    for name in sorted(slices):
+        summary = slices[name]
+        print(
+            f"{name}: n={summary.n} oracle={summary.oracle_ceiling:.4f} "
+            f"promotion={summary.promotion_ceiling:.4f} mrr5={summary.mrr5:.4f} "
+            f"relevant_in_pool={summary.relevant_in_pool:.4f}",
+            flush=True,
+        )
+
+
+def _load_inputs(args: argparse.Namespace) -> tuple[LoadedPool, RunRecord, QuestionSet]:
+    loaded_pool = load_pool_manifest(args.manifest)
+    record = load_run_record(args.record)
+    question_set = read_question_set(args.questions)
+    return loaded_pool, record, question_set
+
+
+def _scores_and_relevance(
+    record: RunRecord,
+    questions: Sequence[Question],
+    labels: Mapping[str, Sequence[str]],
+    manifest: PoolManifest,
+    document_labels: Mapping[str, str] | None,
+) -> tuple[dict[str, float], list[str], dict[str, frozenset[str]]]:
+    rr5_by_question, excluded = _rr5_by_question(record, questions)
+    relevant = relevant_by_question(
+        labels, document_ids=manifest.document_ids, document_labels=document_labels
+    )
+    return rr5_by_question, excluded, relevant
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    """Compute every scored question's ceilings from a frozen pool and write them with slices.
+
+    Args:
+        argv: The command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        0 once the ceilings are written, 2 when an input cannot be read or does not agree.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--record", type=Path, required=True)
@@ -272,9 +338,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        loaded_pool = load_pool_manifest(args.manifest)
-        record = load_run_record(args.record)
-        question_set = read_question_set(args.questions)
+        loaded_pool, record, question_set = _load_inputs(args)
     except (WeftError, QuestionSetError, ValidationError, OSError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -288,9 +352,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     labels = {question.id: question.relevant_documents for question in question_set.questions}
 
     try:
-        rr5_by_question, excluded = _rr5_by_question(record, question_set.questions)
-        relevant = relevant_by_question(
-            labels, document_ids=manifest.document_ids, document_labels=document_labels
+        rr5_by_question, excluded, relevant = _scores_and_relevance(
+            record, question_set.questions, labels, manifest, document_labels
         )
     except (ValueError, WeftError) as exc:
         print(str(exc), file=sys.stderr)
@@ -336,14 +399,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     slices = slice_summary(ceilings, axes)
 
-    for name in sorted(slices):
-        summary = slices[name]
-        print(
-            f"{name}: n={summary.n} oracle={summary.oracle_ceiling:.4f} "
-            f"promotion={summary.promotion_ceiling:.4f} mrr5={summary.mrr5:.4f} "
-            f"relevant_in_pool={summary.relevant_in_pool:.4f}",
-            flush=True,
-        )
+    _print_slices(slices)
 
     payload = {
         "manifest": loaded_pool.sha256,

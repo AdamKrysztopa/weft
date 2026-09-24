@@ -26,6 +26,8 @@ WORTHWHILE: Final[float] = 0.05
 
 
 class SlicePower(BaseModel):
+    """One slice's power: its spread, the smallest effect it can detect, and the n it would need."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     n: int
@@ -39,8 +41,9 @@ class SlicePower(BaseModel):
 
     @property
     def breakeven_fraction(self) -> float:
-        """The largest share of questions that could move by their whole headroom with this slice
-        still powered: its n over the n it would need were every question to move.
+        """The largest share of questions that could move by their whole headroom, still powered.
+
+        That is this slice's n over the n it would need were every question to move.
         """
         return self.n * self.moved_fraction / self.n_required
 
@@ -51,8 +54,10 @@ def power_for(
     *,
     moved_fraction: float = 1.0,
 ) -> dict[str, SlicePower]:
-    """Each named slice's power, over the questions `slices` assigns it, assuming `moved_fraction`
-    of them move by their whole headroom and the rest not at all (`L27.2`).
+    """Each named slice's power, over the questions `slices` assigns it.
+
+    Assumes `moved_fraction` of them move by their whole headroom and the rest not at all
+    (`L27.2`).
     """
     if not 0 < moved_fraction <= 1:
         raise ValueError(f"moved_fraction must lie in (0, 1], got {moved_fraction}")
@@ -90,8 +95,10 @@ def slices_from(
     labelled: Set[str],
     identifier_exact: Set[str],
 ) -> dict[str, set[str]]:
-    """Which questions each slice holds: every question, every axis value, whether the rule fires,
-    the oracle's labelled population, and the identifier-exact questions.
+    """Which questions each slice holds.
+
+    The slices are every question, every axis value, whether the rule fires, the oracle's labelled
+    population, and the identifier-exact questions.
     """
     ids = {ceiling.question_id for ceiling in ceilings}
     slices: dict[str, set[str]] = {"all": set(ids)}
@@ -106,10 +113,12 @@ def slices_from(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Write one corpus's power table: `--ceilings` (40.4's file), `--questions`, `--labels` (40.5's
-    oracle anchors; a question with a non-empty set is in the oracle's population),
-    `--identifier-exact` (40.5's identifier-exact labels), `--out`, and `--moved-fraction` (41.0's
-    assumption; 40.6's table is the default of 1).
+    """Write one corpus's power table.
+
+    The flags are `--ceilings` (40.4's file), `--questions`, `--labels` (40.5's oracle anchors; a
+    question with a non-empty set is in the oracle's population), `--identifier-exact` (40.5's
+    identifier-exact labels), `--out`, and `--moved-fraction` (41.0's assumption; 40.6's table is
+    the default of 1).
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ceilings", type=Path, required=True)

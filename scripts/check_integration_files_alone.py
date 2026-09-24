@@ -23,6 +23,11 @@ def _run_alone(path: str) -> None:
 
 
 def main() -> int:
+    """Run each integration file alone in a spawned interpreter and report the ones that fail.
+
+    Returns:
+        0 when every file passes alone, 1 otherwise.
+    """
     files = sorted(INTEGRATION.glob("test_*.py"))
     if not files:
         print(f"no integration test files under {INTEGRATION}", file=sys.stderr)

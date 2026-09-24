@@ -55,7 +55,7 @@ import urllib.request
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from open_ragbench import OpenRagbenchRendering, render_document
 from wikitext import Rendering, render
@@ -144,6 +144,10 @@ class Result:
 REQUIRED_KEYS: Final[tuple[str, ...]] = ("id", "path", "format", "language", "sha256", "tier")
 
 
+def _name_and_entries(raw: dict[str, Any]) -> tuple[str, Any]:
+    return str(raw["corpus"]["name"]), raw["document"]
+
+
 def load_manifest(manifest: Path) -> tuple[str, list[Document]]:
     """Reads the manifest, or fails naming the file, the entry and the key that is wrong."""
     if not manifest.exists():
@@ -152,8 +156,7 @@ def load_manifest(manifest: Path) -> tuple[str, list[Document]]:
     with manifest.open("rb") as handle:
         raw = tomllib.load(handle)
     try:
-        name = str(raw["corpus"]["name"])
-        entries = raw["document"]
+        name, entries = _name_and_entries(raw)
     except KeyError as exc:
         message = (
             f"{manifest} is missing {exc}. A manifest needs a [corpus] table with a name, "
@@ -436,6 +439,14 @@ def report(results: list[Result], name: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Verify the corpus on disk against its manifest, or fetch the fetch tier and then verify.
+
+    Args:
+        argv: The command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        The exit code `report` derives from the per-document results.
+    """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

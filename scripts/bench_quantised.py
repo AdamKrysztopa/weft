@@ -45,17 +45,44 @@ _INDEX_CEILING: Final[dict[str, int]] = {"halfvec": 4000, "bit": 64000}
 
 
 class Quantisation(StrEnum):
+    """The compressed form an arm's HNSW index is built over."""
+
     HALFVEC = "halfvec"
     BINARY = "binary"
 
 
 def candidates(oversampling: int, *, top_k: int) -> int:
+    """Size the candidate pool the quantised index returns before exact rescoring.
+
+    Args:
+        oversampling: How many candidates to take per final result.
+        top_k: How many results the rescored query returns.
+
+    Returns:
+        The candidate count.
+
+    Raises:
+        ValueError: `oversampling` is below 1.
+    """
     if oversampling < 1:
         raise ValueError(f"oversampling must be at least 1 (got {oversampling})")
     return oversampling * top_k
 
 
 def index_statement(quantisation: Quantisation, *, width: int, index_name: str) -> sql.Composed:
+    """Build the expression HNSW index over the quantised embedding.
+
+    Args:
+        quantisation: The compressed form to index.
+        width: The typed column's dimension.
+        index_name: The name the index is created under.
+
+    Returns:
+        The `CREATE INDEX` statement.
+
+    Raises:
+        ValueError: `width` is past what HNSW indexes for that form.
+    """
     name = sql.Identifier(index_name)
     literal_width = sql.Literal(width)
     if quantisation is Quantisation.HALFVEC:
@@ -83,6 +110,16 @@ def rescored_statement(
     width: int,
     selectivity: bench_filtered.Selectivity | None,
 ) -> sql.Composed:
+    """Build the query that takes candidates from the quantised index and rescores them exactly.
+
+    Args:
+        quantisation: The compressed form the candidates are ordered by.
+        width: The typed column's dimension.
+        selectivity: The bucket to filter to, or `None` for no filter.
+
+    Returns:
+        The statement, taking `vector`, `candidates` and `top_k` parameters.
+    """
     predicate = (
         sql.SQL("TRUE") if selectivity is None else bench_filtered.bucket_predicate(selectivity)
     )
@@ -109,6 +146,8 @@ def rescored_statement(
 
 
 class IndexBuild(BaseModel):
+    """What building one quantised index cost, in time and bytes."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     quantisation: Quantisation
@@ -117,6 +156,8 @@ class IndexBuild(BaseModel):
 
 
 class QuantisedArmResult(BaseModel):
+    """Recall, latency and plan of one quantisation, selectivity and oversampling factor."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     quantisation: Quantisation
@@ -133,6 +174,8 @@ class QuantisedArmResult(BaseModel):
 
 
 class QuantisedRun(BaseModel):
+    """The whole run as written to `--record`."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     machine: bench_latency.Machine
@@ -348,7 +391,128 @@ def _run_arm(
     return result
 
 
+def _run_arms(
+    conn: psycopg.Connection,
+    *,
+    quantisation: Quantisation,
+    width: int,
+    sample: Sequence[str],
+    fetched: dict[str, object],
+    truth: dict[bench_filtered.Selectivity | None, dict[str, tuple[str, ...]]],
+) -> list[QuantisedArmResult]:
+    return [
+        _run_arm(
+            conn,
+            quantisation=quantisation,
+            width=width,
+            selectivity=selectivity,
+            oversampling=factor,
+            sample=sample,
+            fetched=fetched,
+            truth=truth,
+        )
+        for selectivity in (None, bench_filtered.Selectivity.ONE_PERCENT)
+        for factor in OVERSAMPLING
+    ]
+
+
+_FAILURES: Final = (
+    bench_latency.MeasurementRefusedError,
+    bench_latency.RowCountMismatchError,
+    ValueError,
+    psycopg.Error,
+    OSError,
+)
+
+
+def _refuse_existing(admin_dsn: str, name: str) -> None:
+    with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
+        if cur.fetchone() is not None:
+            raise bench_latency.MeasurementRefusedError(
+                f"database {name!r} already exists; refusing to reuse or drop it"
+            )
+
+
+def _measure_and_record(
+    arguments: argparse.Namespace, *, admin_dsn: str, name: str, machine: bench_latency.Machine
+) -> None:
+    _load(admin_dsn, name, arguments.vector_set, arguments.rows)
+    database_dsn = make_conninfo(admin_dsn, dbname=name)
+
+    with psycopg.connect(database_dsn, autocommit=True) as conn:
+        register_vector(conn)
+        rows = _row_count(conn)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+            extension_row = cur.fetchone()
+            cur.execute("SHOW server_version")
+            server_row = cur.fetchone()
+        if extension_row is None or server_row is None:
+            raise bench_latency.MeasurementRefusedError(
+                "the database reported no pgvector extension or server version"
+            )
+        pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
+
+        alter_seconds = _type_column(conn, width=arguments.width)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM weft_nodes ORDER BY id")
+            ids = [str(row[0]) for row in cur.fetchall()]
+        _write_buckets(conn, ids)
+
+        sample = bench_latency.query_sample(ids, arguments.queries)
+        fetched = _fetch_vectors(conn, sample)
+        truth = _ground_truth(conn, sample, fetched)
+
+        builds: list[IndexBuild] = []
+        results: list[QuantisedArmResult] = []
+        for quantisation in Quantisation:
+            builds.append(_build_index(conn, quantisation, width=arguments.width))
+            results.extend(
+                _run_arms(
+                    conn,
+                    quantisation=quantisation,
+                    width=arguments.width,
+                    sample=sample,
+                    fetched=fetched,
+                    truth=truth,
+                )
+            )
+            _drop_index(conn)
+
+    if arguments.record is not None:
+        run = QuantisedRun(
+            machine=machine,
+            database=name,
+            vector_set=arguments.vector_set.name,
+            rows=rows,
+            width=arguments.width,
+            pgvector_version=pgvector_version,
+            server_version=server_version,
+            alter_seconds=alter_seconds,
+            builds=tuple(builds),
+            results=tuple(results),
+            taken_at=datetime.now(UTC),
+        )
+        arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
+
+    if arguments.keep:
+        print(f"kept: {name}")
+    else:
+        _drop_database(admin_dsn, name)
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run the quantised-index measurement in a fresh database and drop it unless `--keep`.
+
+    Args:
+        argv: Command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        0 on a completed run, 2 when the measurement was refused or failed.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--set", dest="vector_set", type=Path, required=True, help="a 29.6 vector set directory"
@@ -370,97 +534,21 @@ def main(argv: list[str] | None = None) -> int:
     print(f"machine: {machine.label}")
 
     name = _database_name(arguments.width)
-    created = False
 
     try:
-        with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
-            if cur.fetchone() is not None:
-                raise bench_latency.MeasurementRefusedError(
-                    f"database {name!r} already exists; refusing to reuse or drop it"
-                )
-        created = True
-        _load(admin_dsn, name, arguments.vector_set, arguments.rows)
-        database_dsn = make_conninfo(admin_dsn, dbname=name)
-
-        with psycopg.connect(database_dsn, autocommit=True) as conn:
-            register_vector(conn)
-            rows = _row_count(conn)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
-                extension_row = cur.fetchone()
-                cur.execute("SHOW server_version")
-                server_row = cur.fetchone()
-            if extension_row is None or server_row is None:
-                raise bench_latency.MeasurementRefusedError(
-                    "the database reported no pgvector extension or server version"
-                )
-            pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
-
-            alter_seconds = _type_column(conn, width=arguments.width)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT id FROM weft_nodes ORDER BY id")
-                ids = [str(row[0]) for row in cur.fetchall()]
-            _write_buckets(conn, ids)
-
-            sample = bench_latency.query_sample(ids, arguments.queries)
-            fetched = _fetch_vectors(conn, sample)
-            truth = _ground_truth(conn, sample, fetched)
-
-            builds: list[IndexBuild] = []
-            results: list[QuantisedArmResult] = []
-            for quantisation in Quantisation:
-                builds.append(_build_index(conn, quantisation, width=arguments.width))
-                for selectivity in (None, bench_filtered.Selectivity.ONE_PERCENT):
-                    for factor in OVERSAMPLING:
-                        results.append(
-                            _run_arm(
-                                conn,
-                                quantisation=quantisation,
-                                width=arguments.width,
-                                selectivity=selectivity,
-                                oversampling=factor,
-                                sample=sample,
-                                fetched=fetched,
-                                truth=truth,
-                            )
-                        )
-                _drop_index(conn)
-
-        if arguments.record is not None:
-            run = QuantisedRun(
-                machine=machine,
-                database=name,
-                vector_set=arguments.vector_set.name,
-                rows=rows,
-                width=arguments.width,
-                pgvector_version=pgvector_version,
-                server_version=server_version,
-                alter_seconds=alter_seconds,
-                builds=tuple(builds),
-                results=tuple(results),
-                taken_at=datetime.now(UTC),
-            )
-            arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
-
-        if arguments.keep:
-            print(f"kept: {name}")
-        else:
-            _drop_database(admin_dsn, name)
-        return 0
-    except (
-        bench_latency.MeasurementRefusedError,
-        bench_latency.RowCountMismatchError,
-        ValueError,
-        psycopg.Error,
-        OSError,
-    ) as exc:
+        _refuse_existing(admin_dsn, name)
+    except _FAILURES as exc:
         print(str(exc), file=sys.stderr)
-        if created and not arguments.keep:
+        return 2
+
+    try:
+        _measure_and_record(arguments, admin_dsn=admin_dsn, name=name, machine=machine)
+    except _FAILURES as exc:
+        print(str(exc), file=sys.stderr)
+        if not arguments.keep:
             _drop_database(admin_dsn, name)
         return 2
+    return 0
 
 
 if __name__ == "__main__":

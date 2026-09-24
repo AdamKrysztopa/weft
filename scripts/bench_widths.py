@@ -54,6 +54,18 @@ class TruncationComparison(BaseModel):
 
 
 def compare_truncation(native: Sequence[float], api: Sequence[float]) -> TruncationComparison:
+    """Check whether truncating the native vector reproduces what the API returns at that width.
+
+    Args:
+        native: The full-width vector as stored.
+        api: The vector the API returned when asked for a narrower width.
+
+    Returns:
+        The cosine between the two, and whether it clears `MIN_COSINE`.
+
+    Raises:
+        ValueError: `api` is wider than `native`, or is a zero vector.
+    """
     if len(api) > len(native):
         message = (
             f"cannot compare at width {len(api)}: the native vector has {len(native)} components"
@@ -126,14 +138,9 @@ def _count_tokens(contents: Sequence[str]) -> int:
     return sum(len(encoding.encode(content)) for content in contents)
 
 
-def _compare_against_api(
-    vector_set_dir: Path,
-    vector_set: bench_vectors.VectorSet,
-    *,
-    sample: int,
-    yes: bool,
-) -> tuple[ApiComparison, ...] | None:
-    """`None` means the run was refused for lack of `--yes` — already explained on stderr."""
+def _sampled_rows(
+    vector_set_dir: Path, vector_set: bench_vectors.VectorSet, *, sample: int
+) -> tuple[tuple[str, ...], list[str], list[tuple[float, ...]]]:
     nodes_table = next(table for table in vector_set.tables if table.name == "weft_nodes")
     id_index = nodes_table.columns.index("id")
     content_index = nodes_table.columns.index("content")
@@ -154,6 +161,18 @@ def _compare_against_api(
             )
         contents.append(str(content))
         natives.append(tuple(float(component) for component in vectors[position]))
+    return sampled_ids, contents, natives
+
+
+def _compare_against_api(
+    vector_set_dir: Path,
+    vector_set: bench_vectors.VectorSet,
+    *,
+    sample: int,
+    yes: bool,
+) -> tuple[ApiComparison, ...] | None:
+    """`None` means the run was refused for lack of `--yes` — already explained on stderr."""
+    sampled_ids, contents, natives = _sampled_rows(vector_set_dir, vector_set, sample=sample)
 
     tokens = _count_tokens(contents)
     bench_vectors.print_sketch(
@@ -174,29 +193,44 @@ def _compare_against_api(
         )
 
     client = openai.OpenAI()
-    comparisons: list[ApiComparison] = []
-    for width in WIDTHS:
-        per_row: list[TruncationComparison] = []
-        for content, native in zip(contents, natives, strict=True):
-            response = client.embeddings.create(
-                model=vector_set.meta.model.value, input=[content], dimensions=width
-            )
-            api_vector = tuple(float(component) for component in response.data[0].embedding)
-            per_row.append(compare_truncation(native, api_vector))
-        cosines = [comparison.cosine for comparison in per_row]
-        result = ApiComparison(
+    return tuple(
+        _compare_width(
+            client,
+            model=vector_set.meta.model.value,
             width=width,
-            samples=len(per_row),
-            min_cosine=min(cosines),
-            mean_cosine=statistics.fmean(cosines),
-            reproduces=all(comparison.reproduces for comparison in per_row),
+            contents=contents,
+            natives=natives,
         )
-        comparisons.append(result)
-        print(
-            f"api width {width}: samples {result.samples}  min cosine {result.min_cosine:.6f}  "
-            f"mean cosine {result.mean_cosine:.6f}  reproduces {result.reproduces}"
-        )
-    return tuple(comparisons)
+        for width in WIDTHS
+    )
+
+
+def _compare_width(
+    client: openai.OpenAI,
+    *,
+    model: str,
+    width: int,
+    contents: Sequence[str],
+    natives: Sequence[tuple[float, ...]],
+) -> ApiComparison:
+    per_row: list[TruncationComparison] = []
+    for content, native in zip(contents, natives, strict=True):
+        response = client.embeddings.create(model=model, input=[content], dimensions=width)
+        api_vector = tuple(float(component) for component in response.data[0].embedding)
+        per_row.append(compare_truncation(native, api_vector))
+    cosines = [comparison.cosine for comparison in per_row]
+    result = ApiComparison(
+        width=width,
+        samples=len(per_row),
+        min_cosine=min(cosines),
+        mean_cosine=statistics.fmean(cosines),
+        reproduces=all(comparison.reproduces for comparison in per_row),
+    )
+    print(
+        f"api width {width}: samples {result.samples}  min cosine {result.min_cosine:.6f}  "
+        f"mean cosine {result.mean_cosine:.6f}  reproduces {result.reproduces}"
+    )
+    return result
 
 
 def _database_name() -> str:
@@ -387,7 +421,113 @@ def _measure_width(
     return result
 
 
+_FAILURES: Final = (
+    bench_latency.MeasurementRefusedError,
+    bench_latency.RowCountMismatchError,
+    ValueError,
+    psycopg.Error,
+    OSError,
+    openai.OpenAIError,
+)
+
+
+def _prepare(
+    arguments: argparse.Namespace, *, admin_dsn: str, name: str
+) -> tuple[bench_vectors.VectorSet, tuple[ApiComparison, ...]] | None:
+    """`None` means the run was refused for lack of `--yes` — already explained on stderr."""
+    vector_set = bench_vectors.read_vector_set(arguments.vector_set)
+    api = _compare_against_api(
+        arguments.vector_set, vector_set, sample=arguments.sample, yes=arguments.yes
+    )
+    if api is None:
+        return None
+
+    with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
+        if cur.fetchone() is not None:
+            raise bench_latency.MeasurementRefusedError(
+                f"database {name!r} already exists; refusing to reuse or drop it"
+            )
+    return vector_set, api
+
+
+def _measure_and_record(
+    arguments: argparse.Namespace,
+    *,
+    admin_dsn: str,
+    name: str,
+    machine: bench_latency.Machine,
+    vector_set: bench_vectors.VectorSet,
+    api: tuple[ApiComparison, ...],
+) -> None:
+    _load(admin_dsn, name, arguments.vector_set, arguments.rows)
+    database_dsn = make_conninfo(admin_dsn, dbname=name)
+
+    with psycopg.connect(database_dsn, autocommit=True) as conn:
+        register_vector(conn)
+        rows = _row_count(conn)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+            extension_row = cur.fetchone()
+            cur.execute("SHOW server_version")
+            server_row = cur.fetchone()
+        if extension_row is None or server_row is None:
+            raise bench_latency.MeasurementRefusedError(
+                "the database reported no pgvector extension or server version"
+            )
+        pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM weft_nodes ORDER BY id")
+            ids = [str(row[0]) for row in cur.fetchall()]
+        sample = bench_latency.query_sample(ids, arguments.queries)
+        fetched, truth = _native_truth(conn, sample)
+
+        results = tuple(
+            _measure_width(
+                conn,
+                width=width,
+                sample=sample,
+                fetched=fetched,
+                truth=truth,
+                expected_rows=rows,
+            )
+            for width in WIDTHS
+        )
+
+    if arguments.record is not None:
+        run = WidthsRun(
+            machine=machine,
+            database=name,
+            vector_set=arguments.vector_set.name,
+            rows=rows,
+            native_width=vector_set.meta.width,
+            pgvector_version=pgvector_version,
+            server_version=server_version,
+            api=api,
+            results=results,
+            taken_at=datetime.now(UTC),
+        )
+        arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
+
+    if arguments.keep:
+        print(f"kept: {name}")
+    else:
+        _drop_database(admin_dsn, name)
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Compare truncated widths against the API, then measure each width in a fresh database.
+
+    The database is dropped afterwards unless `--keep`.
+
+    Args:
+        argv: Command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        0 on a completed run, 2 when the run was refused, unconfirmed by `--yes`, or failed.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--set", dest="vector_set", type=Path, required=True, help="a 29.6 vector set directory"
@@ -410,91 +550,31 @@ def main(argv: list[str] | None = None) -> int:
     print(f"machine: {machine.label}")
 
     name = _database_name()
-    created = False
 
     try:
-        vector_set = bench_vectors.read_vector_set(arguments.vector_set)
-        api = _compare_against_api(
-            arguments.vector_set, vector_set, sample=arguments.sample, yes=arguments.yes
-        )
-        if api is None:
-            return 2
-
-        with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
-            if cur.fetchone() is not None:
-                raise bench_latency.MeasurementRefusedError(
-                    f"database {name!r} already exists; refusing to reuse or drop it"
-                )
-        created = True
-        _load(admin_dsn, name, arguments.vector_set, arguments.rows)
-        database_dsn = make_conninfo(admin_dsn, dbname=name)
-
-        with psycopg.connect(database_dsn, autocommit=True) as conn:
-            register_vector(conn)
-            rows = _row_count(conn)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
-                extension_row = cur.fetchone()
-                cur.execute("SHOW server_version")
-                server_row = cur.fetchone()
-            if extension_row is None or server_row is None:
-                raise bench_latency.MeasurementRefusedError(
-                    "the database reported no pgvector extension or server version"
-                )
-            pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT id FROM weft_nodes ORDER BY id")
-                ids = [str(row[0]) for row in cur.fetchall()]
-            sample = bench_latency.query_sample(ids, arguments.queries)
-            fetched, truth = _native_truth(conn, sample)
-
-            results = tuple(
-                _measure_width(
-                    conn,
-                    width=width,
-                    sample=sample,
-                    fetched=fetched,
-                    truth=truth,
-                    expected_rows=rows,
-                )
-                for width in WIDTHS
-            )
-
-        if arguments.record is not None:
-            run = WidthsRun(
-                machine=machine,
-                database=name,
-                vector_set=arguments.vector_set.name,
-                rows=rows,
-                native_width=vector_set.meta.width,
-                pgvector_version=pgvector_version,
-                server_version=server_version,
-                api=api,
-                results=results,
-                taken_at=datetime.now(UTC),
-            )
-            arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
-
-        if arguments.keep:
-            print(f"kept: {name}")
-        else:
-            _drop_database(admin_dsn, name)
-        return 0
-    except (
-        bench_latency.MeasurementRefusedError,
-        bench_latency.RowCountMismatchError,
-        ValueError,
-        psycopg.Error,
-        OSError,
-        openai.OpenAIError,
-    ) as exc:
+        prepared = _prepare(arguments, admin_dsn=admin_dsn, name=name)
+    except _FAILURES as exc:
         print(str(exc), file=sys.stderr)
-        if created and not arguments.keep:
+        return 2
+    if prepared is None:
+        return 2
+    vector_set, api = prepared
+
+    try:
+        _measure_and_record(
+            arguments,
+            admin_dsn=admin_dsn,
+            name=name,
+            machine=machine,
+            vector_set=vector_set,
+            api=api,
+        )
+    except _FAILURES as exc:
+        print(str(exc), file=sys.stderr)
+        if not arguments.keep:
             _drop_database(admin_dsn, name)
         return 2
+    return 0
 
 
 if __name__ == "__main__":

@@ -124,6 +124,14 @@ def generate(
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Generate a synthetic corpus of `--chunks` chunks into `--out` and print its digest.
+
+    Args:
+        argv: Command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        0 on success, 2 when the corpus could not be generated.
+    """
     bench_latency.line_buffer_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--chunks", type=int, required=True)

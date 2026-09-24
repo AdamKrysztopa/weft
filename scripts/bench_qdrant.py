@@ -49,6 +49,8 @@ _TOP_K: Final[int] = 10
 
 
 class PayloadIndexing(StrEnum):
+    """Whether a Qdrant arm's collection carries payload indexes over the bucket fields."""
+
     NONE = "no payload index"
     BEFORE_INGEST = "payload index before ingest"
 
@@ -63,9 +65,10 @@ _COLLECTION_SLUG: Final[dict[PayloadIndexing, str]] = {
 
 
 def bucket_filter(selectivity: bench_filtered.Selectivity) -> Filter:
-    """The `Filter` a caller would write to ask for this harness's bucket — the same shape
-    `weft_qdrant.store.to_qdrant_filter` is measured against, so the condition this script
-    times is exactly the one a real query would carry.
+    """Build the `Filter` a caller would write to ask for this harness's bucket.
+
+    It is the same shape `weft_qdrant.store.to_qdrant_filter` is measured against, so the
+    condition this script times is exactly the one a real query would carry.
     """
     return Filter(
         op=FilterOp.EQ,
@@ -75,8 +78,9 @@ def bucket_filter(selectivity: bench_filtered.Selectivity) -> Filter:
 
 
 def point_payload(node_id: str, *, content: str) -> dict[str, object]:
-    """A point's payload, with every bucket nested exactly where `bucket_filter`'s dotted
-    field looks — `bench_filtered.bench_ext` is the one place that patch is built.
+    """Build a point's payload, every bucket nested where `bucket_filter`'s dotted field looks.
+
+    `bench_filtered.bench_ext` is the one place that patch is built.
     """
     return {
         "node_id": node_id,
@@ -98,6 +102,8 @@ def payload_index_fields() -> tuple[str, ...]:
 
 
 class IngestTime(BaseModel):
+    """How long one arm took to ingest every row into its collection."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     indexing: PayloadIndexing
@@ -105,6 +111,8 @@ class IngestTime(BaseModel):
 
 
 class QdrantArmResult(BaseModel):
+    """Recall, latency and point counts of one payload-indexing arm at one selectivity."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     indexing: PayloadIndexing
@@ -119,6 +127,8 @@ class QdrantArmResult(BaseModel):
 
 
 class QdrantRun(BaseModel):
+    """The whole run as written to `--record`."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     machine: bench_latency.Machine
@@ -243,8 +253,9 @@ def _ground_truth(
 
 
 def _ingest(dsn: str, client: QdrantClient, collection: str) -> float:
-    """Stream every row and upsert it into `collection` in batches of 500, timed as one span —
-    the same span whichever arm is ingesting, since the vectors and payloads are identical.
+    """Stream every row and upsert it into `collection` in batches of 500, timed as one span.
+
+    It is the same span whichever arm is ingesting, since the vectors and payloads are identical.
 
     Its own connection, and the one in this harness that is not `autocommit`: a server-side
     cursor is a `DECLARE`, which Postgres refuses outside a transaction. The caller's
@@ -384,7 +395,122 @@ def _run_arm(
     return IngestTime(indexing=indexing, seconds=seconds), results
 
 
+_FAILURES: Final = (
+    bench_latency.MeasurementRefusedError,
+    bench_latency.RowCountMismatchError,
+    ValueError,
+    psycopg.Error,
+    OSError,
+    UnexpectedResponse,
+    ResponseHandlingException,
+)
+
+
+def _refuse_existing(admin_dsn: str, name: str) -> None:
+    with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
+        if cur.fetchone() is not None:
+            raise bench_latency.MeasurementRefusedError(
+                f"database {name!r} already exists; refusing to reuse or drop it"
+            )
+
+
+def _measure_and_record(
+    arguments: argparse.Namespace,
+    *,
+    admin_dsn: str,
+    name: str,
+    machine: bench_latency.Machine,
+    qdrant_url: str,
+    opened: list[QdrantClient],
+) -> None:
+    _load(admin_dsn, name, arguments.vector_set, arguments.rows)
+    database_dsn = make_conninfo(admin_dsn, dbname=name)
+
+    with psycopg.connect(database_dsn, autocommit=True) as conn:
+        register_vector(conn)
+        rows = _row_count(conn)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+            extension_row = cur.fetchone()
+            cur.execute("SHOW server_version")
+            server_row = cur.fetchone()
+        if extension_row is None or server_row is None:
+            raise bench_latency.MeasurementRefusedError(
+                "the database reported no pgvector extension or server version"
+            )
+        pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
+
+        _type_column(conn, width=arguments.width)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM weft_nodes ORDER BY id")
+            ids = [str(row[0]) for row in cur.fetchall()]
+        _write_buckets(conn, ids)
+
+        sample = bench_latency.query_sample(ids, arguments.queries)
+        fetched = _fetch_vectors(conn, sample)
+        truth = _ground_truth(conn, sample, fetched)
+
+        client = QdrantClient(url=qdrant_url)
+        opened.append(client)
+        qdrant_version = client.info().version
+        print(f"qdrant: {qdrant_version}")
+
+        stamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+        ingest_seconds: list[IngestTime] = []
+        results: list[QdrantArmResult] = []
+        for indexing in PayloadIndexing:
+            ingested, arm_results = _run_arm(
+                conn,
+                database_dsn,
+                client,
+                indexing=indexing,
+                stamp=stamp,
+                width=arguments.width,
+                rows=rows,
+                sample=sample,
+                fetched=fetched,
+                truth=truth,
+                keep=arguments.keep,
+            )
+            ingest_seconds.append(ingested)
+            results.extend(arm_results)
+
+    if arguments.record is not None:
+        run = QdrantRun(
+            machine=machine,
+            database=name,
+            vector_set=arguments.vector_set.name,
+            rows=rows,
+            width=arguments.width,
+            qdrant_version=qdrant_version,
+            pgvector_version=pgvector_version,
+            server_version=server_version,
+            ingest_seconds=tuple(ingest_seconds),
+            results=tuple(results),
+            taken_at=datetime.now(UTC),
+        )
+        arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
+
+    if arguments.keep:
+        print(f"kept: {name}")
+    else:
+        _drop_database(admin_dsn, name)
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run the Qdrant filtered-search measurement against a fresh database's vectors.
+
+    The database is dropped afterwards unless `--keep`.
+
+    Args:
+        argv: Command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        0 on a completed run, 2 when the measurement was refused or failed.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--set", dest="vector_set", type=Path, required=True, help="a 29.6 vector set directory"
@@ -410,107 +536,32 @@ def main(argv: list[str] | None = None) -> int:
     print(f"machine: {machine.label}")
 
     name = _database_name(arguments.width)
-    created = False
-    client: QdrantClient | None = None
 
     try:
-        with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
-            if cur.fetchone() is not None:
-                raise bench_latency.MeasurementRefusedError(
-                    f"database {name!r} already exists; refusing to reuse or drop it"
-                )
-        created = True
-        _load(admin_dsn, name, arguments.vector_set, arguments.rows)
-        database_dsn = make_conninfo(admin_dsn, dbname=name)
-
-        with psycopg.connect(database_dsn, autocommit=True) as conn:
-            register_vector(conn)
-            rows = _row_count(conn)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
-                extension_row = cur.fetchone()
-                cur.execute("SHOW server_version")
-                server_row = cur.fetchone()
-            if extension_row is None or server_row is None:
-                raise bench_latency.MeasurementRefusedError(
-                    "the database reported no pgvector extension or server version"
-                )
-            pgvector_version, server_version = str(extension_row[0]), str(server_row[0])
-
-            _type_column(conn, width=arguments.width)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT id FROM weft_nodes ORDER BY id")
-                ids = [str(row[0]) for row in cur.fetchall()]
-            _write_buckets(conn, ids)
-
-            sample = bench_latency.query_sample(ids, arguments.queries)
-            fetched = _fetch_vectors(conn, sample)
-            truth = _ground_truth(conn, sample, fetched)
-
-            client = QdrantClient(url=qdrant_url)
-            qdrant_version = client.info().version
-            print(f"qdrant: {qdrant_version}")
-
-            stamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
-            ingest_seconds: list[IngestTime] = []
-            results: list[QdrantArmResult] = []
-            for indexing in PayloadIndexing:
-                ingested, arm_results = _run_arm(
-                    conn,
-                    database_dsn,
-                    client,
-                    indexing=indexing,
-                    stamp=stamp,
-                    width=arguments.width,
-                    rows=rows,
-                    sample=sample,
-                    fetched=fetched,
-                    truth=truth,
-                    keep=arguments.keep,
-                )
-                ingest_seconds.append(ingested)
-                results.extend(arm_results)
-
-        if arguments.record is not None:
-            run = QdrantRun(
-                machine=machine,
-                database=name,
-                vector_set=arguments.vector_set.name,
-                rows=rows,
-                width=arguments.width,
-                qdrant_version=qdrant_version,
-                pgvector_version=pgvector_version,
-                server_version=server_version,
-                ingest_seconds=tuple(ingest_seconds),
-                results=tuple(results),
-                taken_at=datetime.now(UTC),
-            )
-            arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
-
-        if arguments.keep:
-            print(f"kept: {name}")
-        else:
-            _drop_database(admin_dsn, name)
-        return 0
-    except (
-        bench_latency.MeasurementRefusedError,
-        bench_latency.RowCountMismatchError,
-        ValueError,
-        psycopg.Error,
-        OSError,
-        UnexpectedResponse,
-        ResponseHandlingException,
-    ) as exc:
+        _refuse_existing(admin_dsn, name)
+    except _FAILURES as exc:
         print(str(exc), file=sys.stderr)
-        if created and not arguments.keep:
+        return 2
+
+    opened: list[QdrantClient] = []
+    try:
+        _measure_and_record(
+            arguments,
+            admin_dsn=admin_dsn,
+            name=name,
+            machine=machine,
+            qdrant_url=qdrant_url,
+            opened=opened,
+        )
+    except _FAILURES as exc:
+        print(str(exc), file=sys.stderr)
+        if not arguments.keep:
             _drop_database(admin_dsn, name)
         return 2
     finally:
-        if client is not None:
+        for client in opened:
             client.close()
+    return 0
 
 
 if __name__ == "__main__":

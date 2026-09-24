@@ -184,8 +184,10 @@ def _side(record: RunRecord, corpus: str) -> CorpusSide:
 
 
 def _records(runs: Path) -> dict[tuple[str, int], RunRecord]:
-    """Every run record under `runs`, keyed by `(arm, repetition)` — repair **R38.19**: a second
-    record for one key is refused rather than silently overwriting the first, naming both files.
+    """Every run record under `runs`, keyed by `(arm, repetition)`.
+
+    Repair **R38.19**: a second record for one key is refused rather than silently overwriting the
+    first, naming both files.
     """
     found: dict[tuple[str, int], RunRecord] = {}
     sources: dict[tuple[str, int], Path] = {}
@@ -303,6 +305,14 @@ def table(measured: Measurement) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Measure what reading the raw PDFs costs, or render that measurement as a table.
+
+    Args:
+        argv: The command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        The process exit code.
+    """
     parser = argparse.ArgumentParser(description="What reading the raw PDFs costs — ledger 38.8.")
     commands = parser.add_subparsers(dest="action", required=True)
     measure = commands.add_parser("measure", help="records and stored chunks to one JSON")

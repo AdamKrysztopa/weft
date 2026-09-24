@@ -37,8 +37,10 @@ def verdict(low: float, high: float, mean: float, *, underpowered: bool) -> str:
 
 
 def joint_reading(rule: str, oracle: str) -> str:
-    """`protocol.toml`'s `[joint_reading]`: a rule null beside an oracle gain condemns the
-    extractor; only the oracle can rule promotion out.
+    """Read the rule and oracle verdicts together, as `protocol.toml`'s `[joint_reading]` does.
+
+    A rule null beside an oracle gain condemns the extractor; only the oracle can rule promotion
+    out.
     """
     if oracle in ("harm", "benefit ruled out"):
         return "promotion ruled out on this slice"
@@ -55,6 +57,14 @@ def _read(record: RunRecord, other: RunRecord, keys: frozenset[str]) -> dict[str
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Write every slice's per-arm verdict and joint reading for one corpus.
+
+    Args:
+        argv: The command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        The process exit code.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     for flag in ("--dense", "--rule", "--oracle", "--ceilings", "--power", "--questions"):
         parser.add_argument(flag, type=Path, required=True)

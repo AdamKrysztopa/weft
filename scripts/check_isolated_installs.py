@@ -316,7 +316,80 @@ def _report_example_app(wheelhouse: Path) -> list[str]:
     return ["weft-example-app"]
 
 
+def _build_all(members: tuple[Member, ...], wheelhouse: Path, failures: list[str]) -> list[Member]:
+    built_ok: list[Member] = []
+    for member in members:
+        built = _build(member.name, wheelhouse)
+        sys.stdout.write(built.stdout)
+        sys.stderr.write(built.stderr)
+        if built.returncode != 0:
+            sys.stderr.write(
+                f"\n{member.name} could not be built. It needs the workspace, a path "
+                f"dependency, or an environment variable that a clean build does not have.\n"
+            )
+            failures.append(member.name)
+            continue
+        built_ok.append(member)
+    return built_ok
+
+
+def _report_imported(member: Member) -> None:
+    if not member.modules:
+        sys.stdout.write(f"{member.name}: installed alone, ships no code — nothing to import.\n")
+        return
+    bare = [m for m in member.modules if m not in EXTRA_BACKED_MODULES]
+    deferred = [m for m in member.modules if m in EXTRA_BACKED_MODULES]
+    sys.stdout.write(f"{member.name}: installs alone and imports {', '.join(bare)}.\n")
+    if deferred:
+        extras = ", ".join(f"{m} (needs [{EXTRA_BACKED_MODULES[m]}])" for m in deferred)
+        sys.stdout.write(
+            f"{member.name}: not imported bare, by design — {extras}. A bare "
+            f"install leaves each present and unimportable, and discovery folds "
+            f"that into a FAILED pack report rather than a crash; the probe below "
+            f"is what checks it rather than assuming it.\n"
+        )
+
+
+def _install_all(built_ok: list[Member], wheelhouse: Path, failures: list[str]) -> None:
+    for member in built_ok:
+        checked = _install_and_check(member, wheelhouse)
+        sys.stdout.write(checked.stdout)
+        sys.stderr.write(checked.stderr)
+
+        if checked.returncode == 0:
+            _report_imported(member)
+        else:
+            sys.stderr.write(
+                f"\n{member.name} does not install and import in a clean environment. It "
+                f"needs the workspace, a path dependency, or an environment variable to "
+                f"import — see G1, The kernel boundary.\n"
+            )
+            failures.append(member.name)
+
+
+def _probe_all(built_ok: list[Member], wheelhouse: Path, failures: list[str]) -> None:
+    for member in built_ok:
+        degraded = _degradation_probe(member, wheelhouse)
+        if degraded is None:
+            continue
+        sys.stdout.write(degraded.stdout)
+        sys.stderr.write(degraded.stderr)
+        if degraded.returncode != 0:
+            sys.stderr.write(
+                f"\n{member.name}: a pack whose extra is absent did not degrade. G19 turns on "
+                f"this being true — the code ships and only the library is optional — so a "
+                f"pack that crashes discovery instead of reporting FAILED takes the whole run "
+                f"down for a capability the operator never asked for.\n"
+            )
+            failures.append(f"{member.name} (degradation)")
+
+
 def main() -> int:
+    """Build every published distribution, then install and import each one alone.
+
+    Returns:
+        0 when every distribution builds, imports and degrades as designed; 1 otherwise.
+    """
     try:
         members = publishing_members()
     except PublishSetUnreadableError as error:
@@ -332,70 +405,9 @@ def main() -> int:
         # sibling requirement (`weft-chunk` needing `weft-kernel`, for instance) must be able to
         # resolve against a wheel that already exists there, regardless of where either name
         # falls in sorted order.
-        built_ok: list[Member] = []
-
-        for member in members:
-            built = _build(member.name, wheelhouse)
-            sys.stdout.write(built.stdout)
-            sys.stderr.write(built.stderr)
-            if built.returncode != 0:
-                sys.stderr.write(
-                    f"\n{member.name} could not be built. It needs the workspace, a path "
-                    f"dependency, or an environment variable that a clean build does not have.\n"
-                )
-                failures.append(member.name)
-                continue
-            built_ok.append(member)
-
-        for member in built_ok:
-            checked = _install_and_check(member, wheelhouse)
-            sys.stdout.write(checked.stdout)
-            sys.stderr.write(checked.stderr)
-
-            if checked.returncode == 0:
-                if not member.modules:
-                    sys.stdout.write(
-                        f"{member.name}: installed alone, ships no code — nothing to import.\n"
-                    )
-                else:
-                    bare = [m for m in member.modules if m not in EXTRA_BACKED_MODULES]
-                    deferred = [m for m in member.modules if m in EXTRA_BACKED_MODULES]
-                    sys.stdout.write(
-                        f"{member.name}: installs alone and imports {', '.join(bare)}.\n"
-                    )
-                    if deferred:
-                        extras = ", ".join(
-                            f"{m} (needs [{EXTRA_BACKED_MODULES[m]}])" for m in deferred
-                        )
-                        sys.stdout.write(
-                            f"{member.name}: not imported bare, by design — {extras}. A bare "
-                            f"install leaves each present and unimportable, and discovery folds "
-                            f"that into a FAILED pack report rather than a crash; the probe below "
-                            f"is what checks it rather than assuming it.\n"
-                        )
-            else:
-                sys.stderr.write(
-                    f"\n{member.name} does not install and import in a clean environment. It "
-                    f"needs the workspace, a path dependency, or an environment variable to "
-                    f"import — see G1, The kernel boundary.\n"
-                )
-                failures.append(member.name)
-
-        for member in built_ok:
-            degraded = _degradation_probe(member, wheelhouse)
-            if degraded is None:
-                continue
-            sys.stdout.write(degraded.stdout)
-            sys.stderr.write(degraded.stderr)
-            if degraded.returncode != 0:
-                sys.stderr.write(
-                    f"\n{member.name}: a pack whose extra is absent did not degrade. G19 turns on "
-                    f"this being true — the code ships and only the library is optional — so a "
-                    f"pack that crashes discovery instead of reporting FAILED takes the whole run "
-                    f"down for a capability the operator never asked for.\n"
-                )
-                failures.append(f"{member.name} (degradation)")
-
+        built_ok = _build_all(members, wheelhouse, failures)
+        _install_all(built_ok, wheelhouse, failures)
+        _probe_all(built_ok, wheelhouse, failures)
         failures.extend(_report_example_app(wheelhouse))
 
     if failures:

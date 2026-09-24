@@ -64,6 +64,14 @@ class Plan:
 
 
 def free_disk_mb(path: str = "/System/Volumes/Data") -> int:
+    """Free space on the volume the runs write to, in whole megabytes.
+
+    Args:
+        path: A path on the volume to measure.
+
+    Returns:
+        The free space in MB, rounded down.
+    """
     return shutil.disk_usage(path).free // (1024 * 1024)
 
 
@@ -87,6 +95,14 @@ def plan_of(weft: Path, document: Path, cwd: Path) -> Plan:
 
 
 def refuse(reason: str) -> None:
+    """Stop the run before it starts, naming why on stderr.
+
+    Args:
+        reason: What precondition failed.
+
+    Raises:
+        SystemExit: Always, with exit code 2.
+    """
     print(f"REFUSED: {reason}", file=sys.stderr, flush=True)
     raise SystemExit(2)
 
@@ -120,6 +136,14 @@ def preflight(args: argparse.Namespace, plan: Plan) -> dict[str, Any]:
 
 
 def records(runs: Path) -> list[Path]:
+    """The run records written so far, sorted by name.
+
+    Args:
+        runs: The directory `weft eval experiment` writes its records into.
+
+    Returns:
+        Every `*.json` under `runs`, or nothing when the directory does not exist yet.
+    """
     return sorted(runs.glob("*.json")) if runs.exists() else []
 
 
@@ -190,6 +214,14 @@ def verdict_on(runs: Path, metric: str = "mrr@5") -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Preflight one experiment, run it under a disk watch, and log the verdict on its records.
+
+    Args:
+        argv: The command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        The experiment's exit code; 3 when it was stopped for disk, 4 when a record is invalid.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("document", type=Path, help="the experiment document, inside --cwd")
     parser.add_argument("--cwd", type=Path, required=True, help="the project directory to run in")

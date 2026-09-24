@@ -25,6 +25,7 @@ dependencies, so it costs nothing to run and there is no excuse not to.
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
 
 ARCHIVE = Path(__file__).resolve().parents[1] / "docs" / "internal" / "lessons-archive.md"
@@ -47,50 +48,68 @@ _SECTION = re.compile(r"^## (.+)$")
 EDGES = ("refines", "supersedes", "moves", "recurs", "reverses", "caused-by")
 
 
-def parse(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
-    """Return `{id: drain-date}` and a list of `(source, edge, target)`."""
-    entries: dict[str, str] = {}
-    edges: list[tuple[str, str, str]] = []
-    drain = "?"
+def _unfenced(text: str) -> Iterator[str]:
     fenced = False
-    current: str | None = None
-
     for line in text.splitlines():
         if _FENCE.match(line):
             fenced = not fenced
             continue
         if fenced:
             continue
+        yield line
+
+
+def parse(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
+    """Return `{id: drain-date}` and a list of `(source, edge, target)`."""
+    entries: dict[str, str] = {}
+    edges: list[tuple[str, str, str]] = []
+    drain = "?"
+    current: str | None = None
+
+    for line in _unfenced(text):
         if match := _DRAIN.match(line):
             drain = match.group(1)
-            continue
-        if match := _ENTRY.match(line):
+        elif match := _ENTRY.match(line):
             lesson_id: str = match.group(1)
             entries[lesson_id] = drain
             edges += [(lesson_id, kind, target) for kind, target in _EDGE.findall(match.group(2))]
             current = lesson_id
-            continue
         # An entry's edges are routinely on a *continuation* line — this file's own Format
         # example puts them there, at the end of a wrapped bullet. Reading only the matched
         # line found 6 of the 18 edges actually written down, which made the oscillation
         # check above answer "no oscillation" from a third of the evidence: the one
         # mechanism standing between this loop and an on/off cycle, running blind.
         # Found 2026-08-22 at Phase 6's midpoint drain (`lessons.md` L6.16).
-        if current is not None and line.startswith((" ", "\t")):
+        elif current is not None and line.startswith((" ", "\t")):
             continuation = current
             edges += [(continuation, kind, target) for kind, target in _EDGE.findall(line)]
-            continue
-        if not line.strip():
-            continue
-        # Any other non-blank, non-indented line ends the entry it followed.
-        current = None
+        elif line.strip():
+            # Any other non-blank, non-indented line ends the entry it followed.
+            current = None
 
     return entries, edges
 
 
+def _queue_lines(text: str) -> Iterator[str]:
+    in_queue = False
+    for line in _unfenced(text):
+        if match := _SECTION.match(line):
+            if in_queue:
+                # Any other level-2 heading closes the Queue section.
+                break
+            if match.group(1).strip() == "Queue":
+                in_queue = True
+            continue
+        if not in_queue:
+            continue
+        yield line
+
+
 def parse_queue(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
-    """Return `{id: title}` and a list of `(source, edge, target)` for `docs/internal/lessons.md`'s
-    open **Queue** section alone — carried repair **R9.12** (`docs/internal/lessons.md` `L9.91`).
+    """Return `{id: title}` and `(source, edge, target)` edges for the lessons queue alone.
+
+    The queue is `docs/internal/lessons.md`'s open **Queue** section — carried repair **R9.12**
+    (`docs/internal/lessons.md` `L9.91`).
 
     Bounded to the text between the `## Queue` heading and the next `## ` heading, whatever it is
     named. `docs/internal/lessons.md` also carries an *Applied* section and a closing note, both of
@@ -106,25 +125,9 @@ def parse_queue(text: str) -> tuple[dict[str, str], list[tuple[str, str, str]]]:
     """
     entries: dict[str, str] = {}
     edges: list[tuple[str, str, str]] = []
-    fenced = False
-    in_queue = False
     current: str | None = None
 
-    for line in text.splitlines():
-        if _FENCE.match(line):
-            fenced = not fenced
-            continue
-        if fenced:
-            continue
-        if match := _SECTION.match(line):
-            if in_queue:
-                # Any other level-2 heading closes the Queue section.
-                break
-            if match.group(1).strip() == "Queue":
-                in_queue = True
-            continue
-        if not in_queue:
-            continue
+    for line in _queue_lines(text):
         if match := _QUEUE_ENTRY.match(line):
             lesson_id: str = match.group(1)
             entries[lesson_id] = match.group(2)
@@ -200,6 +203,12 @@ def _report_recurrence(recurs: dict[str, list[str]]) -> int:
 
 
 def main() -> int:
+    """Read the archive and the queue, and report oscillation, recurrence and dangling edges.
+
+    Returns:
+        0 when nothing needs stopping for, 1 on oscillation or repeated recurrence, 2 when either
+        file cannot be read.
+    """
     try:
         archive_text = ARCHIVE.read_text(encoding="utf-8")
     except OSError as exc:

@@ -134,14 +134,28 @@ class Machine(BaseModel):
 
     @property
     def label(self) -> str:
+        """The machine as one line, the form every harness prints and records."""
         return f"{self.chip}, {self.memory_gib} GiB, {self.cpus} CPUs, macOS {self.os_version}"
 
 
 def describe_machine(*, chip: str, memory_bytes: int, cpus: int, os_version: str) -> Machine:
+    """Build a `Machine` from raw facts, rounding memory down to whole GiB.
+
+    Args:
+        chip: The CPU brand string.
+        memory_bytes: Physical memory in bytes.
+        cpus: The logical CPU count.
+        os_version: The macOS product version.
+
+    Returns:
+        The machine the measurement ran on.
+    """
     return Machine(chip=chip, memory_gib=memory_bytes // 2**30, cpus=cpus, os_version=os_version)
 
 
 class Arm(StrEnum):
+    """The three ways this harness times a vector search, from the bare statement to the CLI."""
+
     STORE_STATEMENT = "store statement"
     CLI_RETRIEVE_ONLY = "weft ask --retrieve-only"
     CLI_CONCURRENT = "8 parallel weft ask processes"
@@ -187,6 +201,14 @@ def summarise(
 
 
 def format_result(result: LatencyResult) -> str:
+    """Render one result as the progress line the harness prints.
+
+    Args:
+        result: The arm's outcome.
+
+    Returns:
+        One line naming the arm, its percentiles and its row counts.
+    """
     return (
         f"chunks: {result.chunks:,}  width: {result.width}  arm: {result.arm.value}  "
         f"p50: {result.p50_ms:.1f} ms  p95: {result.p95_ms:.1f} ms  queries: {result.queries}  "
@@ -241,6 +263,14 @@ def _run_text(command: Sequence[str]) -> str:
 
 
 def host_machine() -> Machine:
+    """Describe the machine this process runs on, from `sysctl` and `sw_vers`.
+
+    Returns:
+        The host machine.
+
+    Raises:
+        CalledProcessError: One of the probing commands failed.
+    """
     chip = _run_text(["sysctl", "-n", "machdep.cpu.brand_string"]).strip()
     memory_bytes = int(_run_text(["sysctl", "-n", "hw.memsize"]).strip())
     cpus = int(_run_text(["sysctl", "-n", "hw.ncpu"]).strip())
@@ -307,8 +337,10 @@ def _versions(conn: psycopg.Connection) -> tuple[str, str]:
 
 
 def _debare_column_type(conn: psycopg.Connection) -> None:
-    """29.3's store now commits `embedding` to `vector(64)` at first write; strip the width back
-    to bare so this harness's own timed ALTER still measures a bare->typed rewrite, not a no-op.
+    """Strip the `embedding` column's width back to a bare `vector`.
+
+    29.3's store now commits `embedding` to `vector(64)` at first write; stripping it keeps this
+    harness's own timed ALTER measuring a bare->typed rewrite, not a no-op.
     """
     with conn.cursor() as cur:
         cur.execute(sql.SQL("ALTER TABLE weft_nodes ALTER COLUMN embedding TYPE vector"))
@@ -551,6 +583,15 @@ def _alter_column_type(conn: psycopg.Connection, *, width: int) -> float:
     return elapsed
 
 
+_REFUSALS = (
+    CountNotReportedError,
+    RowCountMismatchError,
+    MeasurementRefusedError,
+    psycopg.Error,
+    OSError,
+)
+
+
 def line_buffer_stdout() -> None:
     """Make a long run's progress visible while it runs — carried repair **R31.8**.
 
@@ -573,7 +614,96 @@ def line_buffer_stdout() -> None:
         reconfigure(line_buffering=True)
 
 
+def _measure_in(
+    arguments: argparse.Namespace,
+    *,
+    binary: Path,
+    machine: Machine,
+    admin_dsn: str,
+    name: str,
+    database_dsn: str,
+) -> int:
+    print(f"database: {name} (nothing else touches it while this runs)")
+
+    with tempfile.TemporaryDirectory() as raw_workdir:
+        workdir = Path(raw_workdir)
+        _run_index(binary, arguments.corpus, database_dsn, arguments.chunks, workdir)
+        # Autocommit: `weft ask` provisions the store's schema with `ALTER TABLE` on every
+        # connection, and it waits forever behind a read this session leaves in a transaction.
+        with psycopg.connect(database_dsn, autocommit=True) as conn:
+            register_vector(conn)
+            assert_rows(label="indexed", expected=arguments.chunks, found=_row_count(conn))
+            pgvector_version, server_version = _versions(conn)
+            print(f"pgvector {pgvector_version}, server {server_version}")
+
+            _debare_column_type(conn)
+
+            synthetic = arguments.width != 64
+            if synthetic:
+                _replace_with_synthetic(conn, width=arguments.width)
+
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM weft_nodes")
+                ids = [str(row[0]) for row in cur.fetchall()]
+            sample = query_sample(ids, arguments.queries)
+            fetched = _fetch_sample(conn, sample)
+
+            results: list[LatencyResult] = [
+                _arm_store_statement(
+                    conn,
+                    chunks=arguments.chunks,
+                    width=arguments.width,
+                    sample=sample,
+                    fetched=fetched,
+                )
+            ]
+            for cli_arm in (_arm_cli_retrieve_only, _arm_cli_concurrent):
+                measured = cli_arm(
+                    conn,
+                    binary,
+                    database_dsn,
+                    workdir,
+                    chunks=arguments.chunks,
+                    width=arguments.width,
+                    sample=sample,
+                    fetched=fetched,
+                )
+                if measured is not None:
+                    results.append(measured)
+
+            alter_seconds = _alter_column_type(conn, width=arguments.width)
+
+    if arguments.record is not None:
+        run = LatencyRun(
+            machine=machine,
+            database=name,
+            pgvector_version=pgvector_version,
+            server_version=server_version,
+            chunks=arguments.chunks,
+            width=arguments.width,
+            synthetic_vectors=synthetic,
+            alter_seconds=alter_seconds,
+            results=tuple(results),
+            taken_at=datetime.now(UTC),
+        )
+        arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
+
+    if arguments.keep:
+        print(f"kept: {name}")
+    else:
+        _drop_database(admin_dsn, name)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run the latency harness against a fresh database of its own.
+
+    Args:
+        argv: The arguments, or `None` for `sys.argv`.
+
+    Returns:
+        The process exit code: 0 once measured, 2 for a refused or failed measurement.
+    """
     line_buffer_stdout()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True, help="a 29.0 output directory")
@@ -601,90 +731,25 @@ def main(argv: list[str] | None = None) -> int:
 
     name = _database_name(chunks=arguments.chunks, width=arguments.width)
     database_dsn = make_conninfo(admin_dsn, dbname=name)
-    created = False
 
     try:
         _create_database(admin_dsn, name)
-        created = True
-        print(f"database: {name} (nothing else touches it while this runs)")
-
-        with tempfile.TemporaryDirectory() as raw_workdir:
-            workdir = Path(raw_workdir)
-            _run_index(binary, arguments.corpus, database_dsn, arguments.chunks, workdir)
-            # Autocommit: `weft ask` provisions the store's schema with `ALTER TABLE` on every
-            # connection, and it waits forever behind a read this session leaves in a transaction.
-            with psycopg.connect(database_dsn, autocommit=True) as conn:
-                register_vector(conn)
-                assert_rows(label="indexed", expected=arguments.chunks, found=_row_count(conn))
-                pgvector_version, server_version = _versions(conn)
-                print(f"pgvector {pgvector_version}, server {server_version}")
-
-                _debare_column_type(conn)
-
-                synthetic = arguments.width != 64
-                if synthetic:
-                    _replace_with_synthetic(conn, width=arguments.width)
-
-                with conn.cursor() as cur:
-                    cur.execute("SELECT id FROM weft_nodes")
-                    ids = [str(row[0]) for row in cur.fetchall()]
-                sample = query_sample(ids, arguments.queries)
-                fetched = _fetch_sample(conn, sample)
-
-                results: list[LatencyResult] = [
-                    _arm_store_statement(
-                        conn,
-                        chunks=arguments.chunks,
-                        width=arguments.width,
-                        sample=sample,
-                        fetched=fetched,
-                    )
-                ]
-                for cli_arm in (_arm_cli_retrieve_only, _arm_cli_concurrent):
-                    measured = cli_arm(
-                        conn,
-                        binary,
-                        database_dsn,
-                        workdir,
-                        chunks=arguments.chunks,
-                        width=arguments.width,
-                        sample=sample,
-                        fetched=fetched,
-                    )
-                    if measured is not None:
-                        results.append(measured)
-
-                alter_seconds = _alter_column_type(conn, width=arguments.width)
-
-        if arguments.record is not None:
-            run = LatencyRun(
-                machine=machine,
-                database=name,
-                pgvector_version=pgvector_version,
-                server_version=server_version,
-                chunks=arguments.chunks,
-                width=arguments.width,
-                synthetic_vectors=synthetic,
-                alter_seconds=alter_seconds,
-                results=tuple(results),
-                taken_at=datetime.now(UTC),
-            )
-            arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
-
-        if arguments.keep:
-            print(f"kept: {name}")
-        else:
-            _drop_database(admin_dsn, name)
-        return 0
-    except (
-        CountNotReportedError,
-        RowCountMismatchError,
-        MeasurementRefusedError,
-        psycopg.Error,
-        OSError,
-    ) as exc:
+    except _REFUSALS as exc:
         print(str(exc), file=sys.stderr)
-        if created and not arguments.keep:
+        return 2
+
+    try:
+        return _measure_in(
+            arguments,
+            binary=binary,
+            machine=machine,
+            admin_dsn=admin_dsn,
+            name=name,
+            database_dsn=database_dsn,
+        )
+    except _REFUSALS as exc:
+        print(str(exc), file=sys.stderr)
+        if not arguments.keep:
             _drop_database(admin_dsn, name)
         return 2
 

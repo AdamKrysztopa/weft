@@ -112,7 +112,7 @@ def _config_for(arm: Arm, dsn: str, workspace: Path) -> Path:
 
 
 async def _database_for(mode: str, server: str) -> str:
-    """A fresh database on the BM25 server, named for its mode so a reader of `\\l` can tell.
+    r"""A fresh database on the BM25 server, named for its mode so a reader of `\l` can tell.
 
     Created rather than reused: a `text_mode` is decided when the schema is built, so an arm that
     inherited another's database would be measuring the other's index under its own name.

@@ -31,7 +31,26 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 LICENCE_FILES = ("LICENSE", "NOTICE")
 
 
+def _sync_member(
+    member: str, directory: Path, originals: dict[str, Path], changed: list[str]
+) -> bool:
+    for name, original in originals.items():
+        target = directory / name
+        if target.is_symlink():
+            print(f"{target} is a link, not a file — remove it by hand", file=sys.stderr)
+            return False
+        if not target.is_file() or target.read_bytes() != original.read_bytes():
+            shutil.copyfile(original, target)
+            changed.append(f"{member}/{name}")
+    return True
+
+
 def main() -> int:
+    """Copy the root licence files into every publishing member whose copy differs.
+
+    Returns:
+        0 when every member is in step afterwards, 1 when a member or a file cannot be synced.
+    """
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from publish_set import publishing_members
 
@@ -48,14 +67,8 @@ def main() -> int:
 
     changed: list[str] = []
     for member in members:
-        for name, original in originals.items():
-            target = member.directory / name
-            if target.is_symlink():
-                print(f"{target} is a link, not a file — remove it by hand", file=sys.stderr)
-                return 1
-            if not target.is_file() or target.read_bytes() != original.read_bytes():
-                shutil.copyfile(original, target)
-                changed.append(f"{member.name}/{name}")
+        if not _sync_member(member.name, member.directory, originals, changed):
+            return 1
 
     print(
         f"{len(members)} distributions checked; "

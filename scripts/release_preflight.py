@@ -90,8 +90,9 @@ PROVENANCE_WAIVED: Final[dict[str, str]] = {
 
 
 def waiver_key(hit: str) -> str:
-    """`hit` cut to its path and the start of its match, stopping at a quote or a backslash so a
-    key never has to spell an escape.
+    """`hit` cut to its path and the start of its match.
+
+    The match stops at a quote or a backslash so a key never has to spell an escape.
     """
     path, _, match = hit.partition(": ")
     readable = re.split(r"[\\\"']", match, maxsplit=1)[0]
@@ -109,9 +110,11 @@ def _copyright_holder() -> str:
 
 
 def provenance_markers(path: Path, text: str, *, holder: str) -> list[str]:
-    """The marks another codebase leaves in `text`: a copyright line naming someone other than
-    `holder`, and a claim to have been adapted or copied from a URL. It cannot prove a line is
-    original — a transcribed function carries neither mark — and is named for what it detects.
+    """The marks another codebase leaves in `text`.
+
+    Those are a copyright line naming someone other than `holder`, and a claim to have been adapted
+    or copied from a URL. It cannot prove a line is original — a transcribed function carries
+    neither mark — and is named for what it detects.
     """
     found = [
         f"{path}: {match.group(0).strip()}"
@@ -122,20 +125,26 @@ def provenance_markers(path: Path, text: str, *, holder: str) -> list[str]:
     return found
 
 
+def _provenance_paths(base: Path) -> list[Path]:
+    return [base] if base.is_file() else sorted(p for p in base.rglob("*") if p.is_file())
+
+
+def _provenance_skipped(path: Path, relative: Path) -> bool:
+    return (
+        str(relative) in _PROVENANCE_SELF
+        or bool(_PROVENANCE_SKIPPED_PARTS & set(relative.parts))
+        or path.suffix in _PROVENANCE_SKIPPED_SUFFIXES
+    )
+
+
 def provenance_hits() -> list[str]:
     """Every provenance marker in the tree the release ships, waived or not."""
     holder = _copyright_holder()
     hits: list[str] = []
     for root in PROVENANCE_ROOTS:
-        base = REPO_ROOT / root
-        paths = [base] if base.is_file() else sorted(p for p in base.rglob("*") if p.is_file())
-        for path in paths:
+        for path in _provenance_paths(REPO_ROOT / root):
             relative = path.relative_to(REPO_ROOT)
-            if str(relative) in _PROVENANCE_SELF:
-                continue
-            if _PROVENANCE_SKIPPED_PARTS & set(relative.parts):
-                continue
-            if path.suffix in _PROVENANCE_SKIPPED_SUFFIXES:
+            if _provenance_skipped(path, relative):
                 continue
             try:
                 text = path.read_text(encoding="utf-8")
@@ -171,14 +180,18 @@ def _project_table(directory: Path) -> dict[str, Any]:
     return cast(dict[str, Any], project)
 
 
+def _index_response(connection: http.client.HTTPSConnection, name: str) -> tuple[int, bytes]:
+    connection.request("GET", _INDEX_PATH.format(name=name), headers={"Accept": "*/*"})
+    response = connection.getresponse()
+    body = response.read()
+    return response.status, body
+
+
 def _versions_on_the_index(name: str) -> frozenset[str] | None:
     """Versions the index holds for `name`; `None` if no such project — not the same thing."""
     connection = http.client.HTTPSConnection(_INDEX_HOST, timeout=30)
     try:
-        connection.request("GET", _INDEX_PATH.format(name=name), headers={"Accept": "*/*"})
-        response = connection.getresponse()
-        body = response.read()
-        status = response.status
+        status, body = _index_response(connection, name)
     except OSError as error:
         message = f"the index was unreachable for {name} ({error}); preflight is not a pass"
         raise PreflightError(message) from error
@@ -280,6 +293,14 @@ def _tag_failures(version: str) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    """Check every precondition of cutting the release a tag names, and report each one.
+
+    Args:
+        argv: The full `sys.argv`, program name first, then the tag `vX.Y.Z`.
+
+    Returns:
+        0 when every precondition holds, 1 when any does not, 2 on a malformed invocation.
+    """
     if len(argv) != 2:
         print(f"usage: {Path(argv[0]).name} vX.Y.Z", file=sys.stderr)
         return 2

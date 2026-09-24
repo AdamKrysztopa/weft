@@ -50,8 +50,9 @@ def techqa_document(text: str) -> str:
 
 
 def esci_document(row: Mapping[str, object]) -> str:
-    """One ESCI product row, rendered as `corpus/esci.toml` pins it: its non-empty fields, one per
-    line, markup stripped, in `_ESCI_FIELDS` order.
+    """Render one ESCI product row the way `corpus/esci.toml` pins it.
+
+    Its non-empty fields, one per line, markup stripped, in `_ESCI_FIELDS` order.
     """
     lines: list[str] = []
     for field in _ESCI_FIELDS:
@@ -112,6 +113,14 @@ def _write_esci(products_parquet: Path, manifest: Path, out: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Write the TechQA or ESCI corpus as one file per document.
+
+    Args:
+        argv: The command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        The process exit code, 0 once the documents are written.
+    """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

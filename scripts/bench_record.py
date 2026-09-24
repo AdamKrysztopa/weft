@@ -39,6 +39,8 @@ from weft_store.contract import VectorPrecision
 
 
 class G22Position(StrEnum):
+    """The five G22 positions an arm or a fact can inform, in the order the table reads them."""
+
     COMMIT_AT_FIRST_WRITE = "1 commit at first write"
     CONFIGURED_WIDTH = "2 configured width"
     EXPRESSION_INDEXES = "3 expression indexes per width"
@@ -47,6 +49,8 @@ class G22Position(StrEnum):
 
 
 class Measure(BaseModel):
+    """One labelled number an arm reports, with its unit (empty for a ratio or a count)."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     label: str
@@ -64,6 +68,8 @@ def _numbers(measures: Iterable[Measure]) -> str:
 
 
 class ArmRecord(BaseModel):
+    """One measured arm: its ledger task, the positions it informs, its row counts and numbers."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     task: str
@@ -84,6 +90,22 @@ class ArmRecord(BaseModel):
         rows_after: int,
         measures: tuple[Measure, ...],
     ) -> ArmRecord:
+        """Build an arm, refusing one whose row count moved while it was measured.
+
+        Args:
+            task: The ledger task the arm came from.
+            name: The arm's name as the session table prints it.
+            positions: The G22 positions the arm informs.
+            rows_before: The row count taken immediately before the arm.
+            rows_after: The row count taken immediately after the arm.
+            measures: The arm's numbers.
+
+        Returns:
+            The arm, once both row counts agree.
+
+        Raises:
+            RowCountMismatchError: The row count moved between before and after.
+        """
         bench_latency.assert_rows(label=f"{task} {name}", expected=rows_before, found=rows_after)
         return cls(
             task=task,
@@ -96,10 +118,11 @@ class ArmRecord(BaseModel):
 
 
 class VersionFact(BaseModel):
-    """A finding that was not taken between two row counts — `facts_from_diskann`'s expression
-    probe runs after the diskann harness's last result, with no row count around it
-    (`bench_diskann.py:582 "probe = _expression_probe(conn)"`). A row count is never invented for
-    it.
+    """A finding that was not taken between two row counts.
+
+    `facts_from_diskann`'s expression probe runs after the diskann harness's last result, with no
+    row count around it (`bench_diskann.py:582 "probe = _expression_probe(conn)"`). A row count is
+    never invented for it.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -111,6 +134,8 @@ class VersionFact(BaseModel):
 
 
 class ImageDigest(BaseModel):
+    """A container image and the digest `docker image inspect` resolved it to."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     image: str
@@ -118,6 +143,8 @@ class ImageDigest(BaseModel):
 
 
 class ExtensionVersion(BaseModel):
+    """A server or extension name and the version a run reported for it."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str
@@ -125,6 +152,8 @@ class ExtensionVersion(BaseModel):
 
 
 class BenchRecord(BaseModel):
+    """The whole session record: machine, images, extension versions, arms and facts."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     machine: bench_latency.Machine
@@ -144,6 +173,14 @@ class ImageDigestError(RuntimeError):
 
 
 def arms_from_latency(run: bench_latency.LatencyRun) -> tuple[ArmRecord, ...]:
+    """Turn a 29.1 latency run into one arm per result.
+
+    Args:
+        run: The latency harness's run model.
+
+    Returns:
+        One arm per result, in the run's order.
+    """
     return tuple(
         ArmRecord.checked(
             task="29.1",
@@ -161,6 +198,14 @@ def arms_from_latency(run: bench_latency.LatencyRun) -> tuple[ArmRecord, ...]:
 
 
 def arms_from_filtered(run: bench_filtered.FilteredRun) -> tuple[ArmRecord, ...]:
+    """Turn a 29.7 filtered run into one arm per result.
+
+    Args:
+        run: The filtered harness's run model.
+
+    Returns:
+        One arm per result, in the run's order.
+    """
     arms: list[ArmRecord] = []
     for result in run.results:
         sel = result.selectivity.value if result.selectivity is not None else "unfiltered"
@@ -186,6 +231,14 @@ def arms_from_filtered(run: bench_filtered.FilteredRun) -> tuple[ArmRecord, ...]
 
 
 def arms_from_quantised(run: bench_quantised.QuantisedRun) -> tuple[ArmRecord, ...]:
+    """Turn a 29.8 quantised run into one arm per result, each carrying its index build.
+
+    Args:
+        run: The quantised harness's run model.
+
+    Returns:
+        One arm per result, in the run's order.
+    """
     builds_by_quantisation = {build.quantisation: build for build in run.builds}
     arms: list[ArmRecord] = []
     for result in run.results:
@@ -221,6 +274,14 @@ def arms_from_quantised(run: bench_quantised.QuantisedRun) -> tuple[ArmRecord, .
 
 
 def arms_from_diskann(run: bench_diskann.DiskannRun) -> tuple[ArmRecord, ...]:
+    """Turn a 29.9 diskann run into one arm per result, each carrying its index build.
+
+    Args:
+        run: The diskann harness's run model.
+
+    Returns:
+        One arm per result, in the run's order.
+    """
     arms: list[ArmRecord] = []
     for result in run.results:
         sel = result.selectivity.value if result.selectivity is not None else "unfiltered"
@@ -253,6 +314,14 @@ def arms_from_diskann(run: bench_diskann.DiskannRun) -> tuple[ArmRecord, ...]:
 
 
 def facts_from_diskann(run: bench_diskann.DiskannRun) -> tuple[VersionFact, ...]:
+    """Turn a 29.9 diskann run's expression probe into a fact with no row count.
+
+    Args:
+        run: The diskann harness's run model.
+
+    Returns:
+        The one fact the probe established.
+    """
     probe = run.expression_probe
     built = "yes" if probe.built else "no"
     queryable = "yes" if probe.queryable else "no"
@@ -275,6 +344,14 @@ def facts_from_diskann(run: bench_diskann.DiskannRun) -> tuple[VersionFact, ...]
 
 
 def arms_from_widths(run: bench_widths.WidthsRun) -> tuple[ArmRecord, ...]:
+    """Turn a 29.10 widths run into one arm per width, adding the API comparison where taken.
+
+    Args:
+        run: The widths harness's run model.
+
+    Returns:
+        One arm per result, in the run's order.
+    """
     api_by_width = {comparison.width: comparison for comparison in run.api}
     arms: list[ArmRecord] = []
     for result in run.results:
@@ -307,6 +384,14 @@ def arms_from_widths(run: bench_widths.WidthsRun) -> tuple[ArmRecord, ...]:
 
 
 def arms_from_qdrant(run: bench_qdrant.QdrantRun) -> tuple[ArmRecord, ...]:
+    """Turn a 29.11 Qdrant run into one arm per result, each carrying its ingest time.
+
+    Args:
+        run: The Qdrant harness's run model.
+
+    Returns:
+        One arm per result, in the run's order.
+    """
     ingest_by_indexing = {entry.indexing: entry for entry in run.ingest_seconds}
     arms: list[ArmRecord] = []
     for result in run.results:
@@ -334,10 +419,11 @@ def arms_from_qdrant(run: bench_qdrant.QdrantRun) -> tuple[ArmRecord, ...]:
 
 
 def _positions_for_settings_arm(arm: bench_settings.Arm) -> tuple[G22Position, ...]:
-    """Mirrors what the Phase 29 adapter gives the arm of the same configuration
-    (`arms_from_filtered:165`, `arms_from_quantised:196-200`, `arms_from_qdrant:315`). That makes
-    the positions line up, not the numbers: recall does not transfer from Phase 29's hash vectors,
-    so `31.6` compares an arm only against its own control.
+    """Give a settings arm the positions the Phase 29 adapter gives the same configuration.
+
+    Mirrors `arms_from_filtered:165`, `arms_from_quantised:196-200`, `arms_from_qdrant:315`. That
+    makes the positions line up, not the numbers: recall does not transfer from Phase 29's hash
+    vectors, so `31.6` compares an arm only against its own control.
     """
     if arm.backend is bench_settings.Backend.QDRANT:
         return (G22Position.UNINDEXED_CEILING,)
@@ -348,6 +434,14 @@ def _positions_for_settings_arm(arm: bench_settings.Arm) -> tuple[G22Position, .
 
 
 def arms_from_settings(run: bench_settings.SettingsRun) -> tuple[ArmRecord, ...]:
+    """Turn a 31.6 settings run into one arm per result.
+
+    Args:
+        run: The settings harness's run model.
+
+    Returns:
+        One arm per result, in the run's order.
+    """
     arms: list[ArmRecord] = []
     for result in run.results:
         arm = result.arm
@@ -378,6 +472,14 @@ def arms_from_settings(run: bench_settings.SettingsRun) -> tuple[ArmRecord, ...]
 
 
 def session_table(record: BenchRecord) -> str:
+    """Render the session's Markdown table, one block of rows per G22 position.
+
+    Args:
+        record: The record to render.
+
+    Returns:
+        The table, naming every position no arm or fact informs.
+    """
     lines = [
         "| G22 position | task | arm | numbers | rows before / after |",
         "|---|---|---|---|---|",
@@ -402,16 +504,38 @@ def session_table(record: BenchRecord) -> str:
 
 
 def missing_positions(record: BenchRecord) -> tuple[G22Position, ...]:
+    """Name the G22 positions that neither an arm nor a fact in the record informs.
+
+    Args:
+        record: The record to inspect.
+
+    Returns:
+        The uninformed positions, in G22's order.
+    """
     named = {position for arm in record.arms for position in arm.positions}
     named |= {position for fact in record.facts for position in fact.positions}
     return tuple(position for position in G22Position if position not in named)
 
 
 def write_record(path: Path, record: BenchRecord) -> None:
+    """Write a record as indented JSON.
+
+    Args:
+        path: Where to write it.
+        record: The record to write.
+    """
     path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
 
 
 def read_record(path: Path) -> BenchRecord:
+    """Read a record written by `write_record`.
+
+    Args:
+        path: The JSON file to read.
+
+    Returns:
+        The validated record.
+    """
     return BenchRecord.model_validate_json(path.read_text(encoding="utf-8"))
 
 
@@ -483,6 +607,17 @@ def _extension_versions(
 
 
 def cmd_build(args: argparse.Namespace) -> int:
+    """Fold the given run records into one `BenchRecord`, write it and print its table.
+
+    Args:
+        args: The parsed `build` arguments.
+
+    Returns:
+        0 on success, 2 when no run was given.
+
+    Raises:
+        MachineMismatchError: The runs measured on different machines.
+    """
     latency = _read_runs(args.latency, bench_latency.LatencyRun)
     filtered = _read_runs(args.filtered, bench_filtered.FilteredRun)
     quantised = _read_runs(args.quantised, bench_quantised.QuantisedRun)
@@ -557,6 +692,14 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 
 def cmd_table(args: argparse.Namespace) -> int:
+    """Print the session table from a record already written.
+
+    Args:
+        args: The parsed `table` arguments.
+
+    Returns:
+        0.
+    """
     print(session_table(read_record(args.record)))
     return 0
 
@@ -591,6 +734,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the record harness's command line.
+
+    Args:
+        argv: The arguments, or `None` for `sys.argv`.
+
+    Returns:
+        The process exit code: 2 for a refused record or unreadable input.
+    """
     bench_latency.line_buffer_stdout()
     parser = _build_parser()
     args = parser.parse_args(argv)

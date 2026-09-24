@@ -47,6 +47,11 @@ OUTPUT = _HERE / "questions.json"
 
 
 def main() -> int:
+    """Write the reproducible, PDF-labelled question subset to `questions.json`.
+
+    Returns:
+        The process exit code, always 0.
+    """
     manifest = tomllib.loads((_REPO_ROOT / "corpus" / "manifest.toml").read_text(encoding="utf-8"))
     documents = manifest["document"]
     tiers = {entry["id"]: entry["tier"] for entry in documents}

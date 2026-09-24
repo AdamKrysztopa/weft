@@ -89,9 +89,71 @@ def _arm(text: str) -> tuple[str, tuple[Path, ...]]:
     return name, tuple(Path(path) for path in paths.split(","))
 
 
+def _power_and_slices(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, set[str]]]:
+    ceilings = [
+        QuestionCeiling.model_validate(row)
+        for row in json.loads(args.ceilings.read_text(encoding="utf-8"))["questions"]
+    ]
+    power = json.loads(args.power.read_text(encoding="utf-8"))["slices"]
+    axes = {q.id: dict(q.axes) for q in read_question_set(args.questions).questions}
+    labelled = {r["question_id"] for r in _jsonl(args.labels) if r["anchors"]}
+    exact = {
+        r["question_id"] for r in _jsonl(args.identifier_exact) if r["identifier_decides"] == "yes"
+    }
+    slices = slices_from(ceilings, axes, labelled=labelled, identifier_exact=exact)
+    return power, slices
+
+
+def _arm_entry(
+    dense: RunRecord,
+    promote: RunRecord,
+    records: tuple[RunRecord, ...],
+    keys: frozenset[str],
+    *,
+    underpowered: bool,
+) -> dict[str, Any]:
+    against_dense = [_paired(dense, record, keys) for record in records]
+    readings = [_read(paired, underpowered=underpowered) for paired in against_dense]
+    return {
+        "against dense": against_dense[0],
+        "repetitions": [
+            {"verdict": reading, "mrr@5": paired.get("mrr@5")}
+            for reading, paired in zip(readings, against_dense, strict=True)
+        ],
+        "repetitions differ on": _paired(records[0], records[-1], keys)
+        .get("mrr@5", {})
+        .get("differing", 0),
+        "against anchor-promote (descriptive)": _paired(promote, records[0], keys),
+        "verdict": stable(readings[0], readings[-1]),
+    }
+
+
+def _slice_entry(
+    frozen: Mapping[str, Any],
+    keys: frozenset[str],
+    dense: RunRecord,
+    promote: RunRecord,
+    arms: Mapping[str, tuple[RunRecord, ...]],
+) -> dict[str, Any]:
+    underpowered = bool(frozen["underpowered"])
+    entry: dict[str, Any] = {
+        "n": len(keys),
+        "underpowered": underpowered,
+        "mde_against_dense": frozen["mde_against_dense"],
+        "mde_between_reorderers": frozen["mde_between_reorderers"],
+        "breakeven_fraction": frozen["breakeven_fraction"],
+        "anchor-promote against dense": _paired(dense, promote, keys),
+    }
+    for arm, records in arms.items():
+        entry[arm] = _arm_entry(dense, promote, records, keys, underpowered=underpowered)
+    return entry
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Write one corpus's table: `--dense` and `--anchor-promote` (40.8's records),
-    `--arm name=rep1.json,rep2.json` per cross-encoder, `--ceilings`, `--power` (41.0's
+    """Write one corpus's table.
+
+    The flags are `--dense` and `--anchor-promote` (40.8's records), `--arm
+    name=rep1.json,rep2.json` per cross-encoder, `--ceilings`, `--power` (41.0's
     `{corpus}-ce-power.json`), `--questions`, `--labels`, `--identifier-exact`, `--out`.
     """
     parser = argparse.ArgumentParser(description=__doc__)
@@ -118,17 +180,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
     )
 
-    ceilings = [
-        QuestionCeiling.model_validate(row)
-        for row in json.loads(args.ceilings.read_text(encoding="utf-8"))["questions"]
-    ]
-    power = json.loads(args.power.read_text(encoding="utf-8"))["slices"]
-    axes = {q.id: dict(q.axes) for q in read_question_set(args.questions).questions}
-    labelled = {r["question_id"] for r in _jsonl(args.labels) if r["anchors"]}
-    exact = {
-        r["question_id"] for r in _jsonl(args.identifier_exact) if r["identifier_decides"] == "yes"
-    }
-    slices = slices_from(ceilings, axes, labelled=labelled, identifier_exact=exact)
+    power, slices = _power_and_slices(args)
 
     out: dict[str, Any] = {
         "worthwhile": WORTHWHILE,
@@ -139,31 +191,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     for name in sorted(power):
         keys = frozenset(slices[name])
-        frozen = power[name]
-        underpowered = bool(frozen["underpowered"])
-        entry: dict[str, Any] = {
-            "n": len(keys),
-            "underpowered": underpowered,
-            "mde_against_dense": frozen["mde_against_dense"],
-            "mde_between_reorderers": frozen["mde_between_reorderers"],
-            "breakeven_fraction": frozen["breakeven_fraction"],
-            "anchor-promote against dense": _paired(dense, promote, keys),
-        }
-        for arm, records in arms.items():
-            against_dense = [_paired(dense, record, keys) for record in records]
-            readings = [_read(paired, underpowered=underpowered) for paired in against_dense]
-            entry[arm] = {
-                "against dense": against_dense[0],
-                "repetitions": [
-                    {"verdict": reading, "mrr@5": paired.get("mrr@5")}
-                    for reading, paired in zip(readings, against_dense, strict=True)
-                ],
-                "repetitions differ on": _paired(records[0], records[-1], keys)
-                .get("mrr@5", {})
-                .get("differing", 0),
-                "against anchor-promote (descriptive)": _paired(promote, records[0], keys),
-                "verdict": stable(readings[0], readings[-1]),
-            }
+        entry = _slice_entry(power[name], keys, dense, promote, arms)
         out["slices"][name] = entry
         print(
             f"{name}: n={len(keys)} " + " ".join(f"{arm}={entry[arm]['verdict']}" for arm in arms),

@@ -36,7 +36,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from check_questions import unmatched_quotes
 from open_ragbench import RAGBENCH_REVISION, render_document
@@ -68,8 +68,10 @@ class UnverifiedQuoteError(ValueError):
 
 @dataclass
 class Build:
-    """What one build did: how many questions it carried, which it could not and why, how many
-    carried quotes no chunk window holds whole, and the digest of each file it wrote.
+    """What one build did.
+
+    How many questions it carried, which it could not and why, how many carried quotes no chunk
+    window holds whole, and the digest of each file it wrote.
     """
 
     carried: int = 0
@@ -82,11 +84,13 @@ class Build:
 
 
 def opening_span(text: str, document: str | None = None) -> str | None:
-    """The shortest defensible opening span of a section: the first sentence of its first line of
-    prose at least `MIN_SPAN` long, cut on a word boundary at the first cap in `SPAN_CAPS` whose
-    span occurs exactly once in `document` — or at `MAX_SPAN` when none does, or when no document
-    is given. A verbatim substring of `text`; `None` where the section has no such line. Headings
-    and figure or table links (`![…](…)`) are not prose.
+    """Return the shortest defensible opening span of a section.
+
+    That is the first sentence of its first line of prose at least `MIN_SPAN` long, cut on a word
+    boundary at the first cap in `SPAN_CAPS` whose span occurs exactly once in `document` — or at
+    `MAX_SPAN` when none does, or when no document is given. A verbatim substring of `text`;
+    `None` where the section has no such line. Headings and figure or table links (`![…](…)`) are
+    not prose.
     """
     chosen: str | None = None
     for cap in SPAN_CAPS:
@@ -133,8 +137,10 @@ def split_of(document_id: str, *, seed: str, dev_fraction: float) -> str:
 
 
 def _straddles(offset: int, length: int) -> bool:
-    """Whether no chunk window holds `[offset, offset + length)` whole. The window starting latest
-    at or before `offset` ends latest, so it is the only one worth asking.
+    """Whether no chunk window holds `[offset, offset + length)` whole.
+
+    The window starting latest at or before `offset` ends latest, so it is the only one worth
+    asking.
     """
     start = (offset // _CHUNK_STRIDE) * _CHUNK_STRIDE
     return offset + length > start + _CHUNK_SIZE
@@ -184,10 +190,12 @@ def _header(split: str, *, seed: str, dev_fraction: float) -> str:
 def stratified_subset(
     questions: Sequence[Question], size: int, *, seed: str
 ) -> tuple[Question, ...]:
-    """`size` questions drawn so each `(evidence, answer-form)` stratum keeps its share of
-    `questions` — Phase 38 Q5. Shares are rounded by largest remainder so the strata sum to `size`
-    exactly; within a stratum the questions taken are the first by `sha256(seed:id)`, so the subset
-    is a pure function of the seed and the ids. The result keeps `questions`' own order.
+    """Draw `size` questions so each `(evidence, answer-form)` stratum keeps its share.
+
+    The share is of `questions` — Phase 38 Q5. Shares are rounded by largest remainder so the
+    strata sum to `size` exactly; within a stratum the questions taken are the first by
+    `sha256(seed:id)`, so the subset is a pure function of the seed and the ids. The result keeps
+    `questions`' own order.
     """
     strata: dict[tuple[str, str], list[Question]] = {}
     for question in questions:
@@ -209,6 +217,63 @@ def stratified_subset(
     return tuple(question for question in questions if question.id in chosen)
 
 
+def _carry(
+    dataset: Path,
+    identifier: str,
+    query: dict[str, Any],
+    label: dict[str, Any],
+    answers: dict[str, Any],
+    texts: dict[str, str],
+    result: Build,
+    *,
+    seed: str,
+    dev_fraction: float,
+) -> tuple[str, Question] | None:
+    document_id = str(label["doc_id"])
+    section_id = int(label["section_id"])
+    source = dataset / "corpus" / f"{document_id}.json"
+    if not source.is_file():
+        result.uncarried[identifier] = f"labelled document {document_id} is not in the corpus"
+        return None
+    body = source.read_bytes()
+    sections = json.loads(body)["sections"]
+    if not 0 <= section_id < len(sections):
+        result.uncarried[identifier] = f"gold section {section_id} of {document_id} does not exist"
+        return None
+    text = texts.setdefault(document_id, render_document(body).text)
+    span = opening_span(str(sections[section_id]["text"]), text)
+    if span is None:
+        result.uncarried[identifier] = (
+            f"gold section {section_id} of {document_id} has no line of prose "
+            f"{MIN_SPAN} characters long"
+        )
+        return None
+    split = split_of(document_id, seed=seed, dev_fraction=dev_fraction)
+    question = Question.model_validate(
+        {
+            "id": identifier,
+            "text": query["query"],
+            "language": "en",
+            "relevant_documents": (document_id,),
+            "reference_answer": answers[identifier],
+            "notes": f"Open RAGBench qrels: document {document_id}, section {section_id}",
+            "quote": ({"document": document_id, "page": 0, "text": span},),
+            "absent": ("kind", "difficulty"),
+            "absent_reason": _ABSENT_REASON,
+            "axes": {
+                "evidence": query["source"],
+                "answer-form": query["type"],
+                "split": split,
+            },
+        }
+    )
+    offset = text.find(span)
+    if offset >= 0 and _straddles(offset, len(span)):
+        result.straddling += 1
+    result.carried += 1
+    return split, question
+
+
 def build(
     dataset: Path,
     out: Path,
@@ -226,52 +291,20 @@ def build(
     texts: dict[str, str] = {}
     by_split: dict[str, list[Question]] = {split: [] for split in SPLITS}
     for identifier, query in queries.items():
-        label = qrels[identifier]
-        document_id = str(label["doc_id"])
-        section_id = int(label["section_id"])
-        source = dataset / "corpus" / f"{document_id}.json"
-        if not source.is_file():
-            result.uncarried[identifier] = f"labelled document {document_id} is not in the corpus"
-            continue
-        body = source.read_bytes()
-        sections = json.loads(body)["sections"]
-        if not 0 <= section_id < len(sections):
-            result.uncarried[identifier] = (
-                f"gold section {section_id} of {document_id} does not exist"
-            )
-            continue
-        text = texts.setdefault(document_id, render_document(body).text)
-        span = opening_span(str(sections[section_id]["text"]), text)
-        if span is None:
-            result.uncarried[identifier] = (
-                f"gold section {section_id} of {document_id} has no line of prose "
-                f"{MIN_SPAN} characters long"
-            )
-            continue
-        split = split_of(document_id, seed=seed, dev_fraction=dev_fraction)
-        question = Question.model_validate(
-            {
-                "id": identifier,
-                "text": query["query"],
-                "language": "en",
-                "relevant_documents": (document_id,),
-                "reference_answer": answers[identifier],
-                "notes": f"Open RAGBench qrels: document {document_id}, section {section_id}",
-                "quote": ({"document": document_id, "page": 0, "text": span},),
-                "absent": ("kind", "difficulty"),
-                "absent_reason": _ABSENT_REASON,
-                "axes": {
-                    "evidence": query["source"],
-                    "answer-form": query["type"],
-                    "split": split,
-                },
-            }
+        carried = _carry(
+            dataset,
+            identifier,
+            query,
+            qrels[identifier],
+            answers,
+            texts,
+            result,
+            seed=seed,
+            dev_fraction=dev_fraction,
         )
-        offset = text.find(span)
-        if offset >= 0 and _straddles(offset, len(span)):
-            result.straddling += 1
-        by_split[split].append(question)
-        result.carried += 1
+        if carried is not None:
+            split, question = carried
+            by_split[split].append(question)
 
     unmatched = unmatched_quotes(
         [question for questions in by_split.values() for question in questions], texts
@@ -300,9 +333,10 @@ def build(
 
 
 def pin_text(result: Build, *, seed: str, dev_fraction: float) -> str:
-    """The tracked record of a build: what it was built from and what it wrote, so a copy of the
-    untracked files can be checked against it and a run record's question-set digest traced to a
-    split.
+    """Render the tracked record of a build.
+
+    What it was built from and what it wrote, so a copy of the untracked files can be checked
+    against it and a run record's question-set digest traced to a split.
     """
     lines = [
         "# The Open RAGBench question files — Phase 38 task 38.4. Generated by",
@@ -329,6 +363,14 @@ def pin_text(result: Build, *, seed: str, dev_fraction: float) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Build the Open RAGBench question files and report what was carried.
+
+    Args:
+        argv: The command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        The process exit code.
+    """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

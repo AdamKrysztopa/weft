@@ -72,10 +72,12 @@ class EmbeddingModel(StrEnum):
 
     @property
     def usd_per_million(self) -> Decimal:
+        """The vendor's published price per million billed tokens."""
         return Decimal("0.13") if self is EmbeddingModel.LARGE else Decimal("0.02")
 
     @property
     def native_width(self) -> int:
+        """The width the model returns when no `dimensions` is asked for."""
         return 3072 if self is EmbeddingModel.LARGE else 1536
 
 
@@ -84,6 +86,18 @@ class UnknownEmbeddingModelError(ValueError):
 
 
 def model_named(name: str) -> EmbeddingModel:
+    """Resolve a `--model` name to a priced model.
+
+    Args:
+        name: The model name as the operator typed it.
+
+    Returns:
+        The priced model.
+
+    Raises:
+        UnknownEmbeddingModelError: The name is not a priced model; the message lists the priced
+            ones.
+    """
     try:
         return EmbeddingModel(name)
     except ValueError as exc:
@@ -105,11 +119,27 @@ class CostSketch(BaseModel):
 
 
 def sketch_cost(*, pdfs: int, chunks: int, tokens: int, model: EmbeddingModel) -> CostSketch:
+    """Price a run before it is run.
+
+    Args:
+        pdfs: How many papers the run embeds.
+        chunks: How many chunks those papers make.
+        tokens: The billed tokens those chunks cost.
+        model: The model that would bill them.
+
+    Returns:
+        The sketch, carrying the unrounded price in USD.
+    """
     usd = Decimal(tokens) * model.usd_per_million / Decimal(1_000_000)
     return CostSketch(pdfs=pdfs, chunks=chunks, tokens=tokens, model=model, usd=usd)
 
 
 def print_sketch(sketch: CostSketch) -> None:
+    """Print a sketch's counts and its price, rounded to the cent.
+
+    Args:
+        sketch: The sketch to print.
+    """
     quantised = sketch.usd.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     print(f"pdfs: {sketch.pdfs:,}")
     print(f"chunks: {sketch.chunks:,}")
@@ -126,6 +156,18 @@ class InsufficientCorpusError(ValueError):
 
 
 def select_prefix(counts: Sequence[tuple[str, int]], *, target: int) -> tuple[str, ...]:
+    """Choose the shortest manifest-order prefix of papers whose chunk counts reach the target.
+
+    Args:
+        counts: Each paper's id and chunk count, in manifest order.
+        target: The chunk count the set needs.
+
+    Returns:
+        The chosen paper ids.
+
+    Raises:
+        InsufficientCorpusError: Every paper together falls short of the target.
+    """
     chosen: list[str] = []
     total = 0
     for identifier, count in counts:
@@ -142,6 +184,21 @@ def select_prefix(counts: Sequence[tuple[str, int]], *, target: int) -> tuple[st
 def distinct_prefix(
     pairs: Iterable[tuple[str, str]], order: Sequence[str], *, target: int
 ) -> tuple[str, ...]:
+    """Choose the shortest prefix of papers whose distinct chunks reach the target.
+
+    A chunk shared by several papers counts once, which is what the store holds.
+
+    Args:
+        pairs: `(node id, paper)` pairs; duplicates are ignored.
+        order: The paper ids in manifest order.
+        target: The distinct chunk count the set needs.
+
+    Returns:
+        The chosen paper ids.
+
+    Raises:
+        InsufficientCorpusError: Every paper together falls short of the target.
+    """
     nodes_by_paper: dict[str, set[str]] = {}
     for node_id, paper in frozenset(pairs):
         nodes_by_paper.setdefault(paper, set()).add(node_id)
@@ -165,11 +222,30 @@ def distinct_prefix(
 
 
 def input_digest(pdf_sha256s: Iterable[str]) -> str:
+    """Digest a set of PDF pins independently of their order.
+
+    Args:
+        pdf_sha256s: The PDFs' sha256 pins.
+
+    Returns:
+        The sha256 of the sorted pins, one per line.
+    """
     joined = "\n".join(sorted(pdf_sha256s))
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
 def vector_set_name(digest: str, model: EmbeddingModel, width: int, day: date) -> str:
+    """Name a vector set by its inputs, model, width and day.
+
+    Args:
+        digest: The `input_digest` of the set's PDFs.
+        model: The embedding model.
+        width: The vectors' width.
+        day: The day the set was made.
+
+    Returns:
+        The directory name the set is written under.
+    """
     return f"{digest[:12]}-{model.value}-{width}-{day.isoformat()}"
 
 
@@ -207,6 +283,14 @@ class S3Page(BaseModel):
 
 
 def parse_s3_listing(body: bytes) -> S3Page:
+    """Read one `ListObjectsV2` page's article keys and continuation token.
+
+    Args:
+        body: The raw XML response.
+
+    Returns:
+        The page's articles, and its continuation token when there is a next page.
+    """
     text = body.decode("utf-8")
     articles = tuple(_COMMON_PREFIX_RE.findall(text))
     match = _CONTINUATION_TOKEN_RE.search(text)
@@ -236,6 +320,14 @@ ADMITTED_LICENSES: Final[frozenset[str]] = frozenset({"CC BY", "CC0"})
 
 
 def admitted(article: PmcArticle) -> bool:
+    """Whether an article may join the set: open access, not retracted, not OCR, reusable.
+
+    Args:
+        article: The article's metadata.
+
+    Returns:
+        True when every admission condition holds and the article has a PDF.
+    """
     return (
         article.is_pmc_openaccess
         and not article.is_retracted
@@ -246,8 +338,10 @@ def admitted(article: PmcArticle) -> bool:
 
 
 def document_for(article_key: str) -> BenchDocument:
-    """Pins an article to the PDF under its own versioned prefix — the key already carries the
-    revision, so the same key can never later resolve to different bytes.
+    """Pin an article to the PDF under its own versioned prefix.
+
+    The key already carries the revision, so the same key can never later resolve to different
+    bytes.
     """
     return BenchDocument(
         id=article_key,
@@ -269,13 +363,23 @@ class RagbenchLabel(BaseModel):
 
 
 def golden_papers(qrels_body: bytes) -> frozenset[str]:
+    """Read which papers `qrels.json` labels at least one query against.
+
+    Args:
+        qrels_body: The raw `qrels.json`.
+
+    Returns:
+        The labelled papers' ids.
+    """
     labels = TypeAdapter(dict[str, RagbenchLabel]).validate_json(qrels_body)
     return frozenset(label.doc_id for label in labels.values())
 
 
 class UnpinnablePaperError(ValueError):
-    """A `pdf_urls.json` id and URL that could later resolve to different bytes: the id carries
-    no arXiv version suffix, or the URL is not exactly `https://arxiv.org/pdf/<id>`.
+    """A `pdf_urls.json` id and URL that could later resolve to different bytes.
+
+    Either the id carries no arXiv version suffix, or the URL is not exactly
+    `https://arxiv.org/pdf/<id>`.
     """
 
 
@@ -283,6 +387,18 @@ _ARXIV_VERSIONED_ID_RE: Final[re.Pattern[str]] = re.compile(r"\d{4}\.\d{4,5}v\d+
 
 
 def ragbench_documents(pdf_urls_body: bytes, golden: frozenset[str]) -> tuple[BenchDocument, ...]:
+    """Pin every `pdf_urls.json` paper to its versioned arXiv URL, golden papers first.
+
+    Args:
+        pdf_urls_body: The raw `pdf_urls.json`.
+        golden: The ids `golden_papers` returned.
+
+    Returns:
+        The documents, golden then the rest, each group sorted by id.
+
+    Raises:
+        UnpinnablePaperError: A paper's id or URL could later resolve to different bytes.
+    """
     pdf_urls = TypeAdapter(dict[str, str]).validate_json(pdf_urls_body)
 
     documents: dict[str, BenchDocument] = {}
@@ -314,14 +430,27 @@ class Exclusion(BaseModel):
 
 
 class UnknownExclusionError(ValueError):
-    """An exclusion names a paper the manifest's documents do not hold — a typo, or an id already
-    excluded.
+    """An exclusion names a paper the manifest's documents do not hold.
+
+    A typo, or an id already excluded.
     """
 
 
 def exclude_documents(
     documents: Sequence[BenchDocument], exclusions: Sequence[Exclusion]
 ) -> tuple[BenchDocument, ...]:
+    """Drop the excluded papers from a manifest's documents.
+
+    Args:
+        documents: The manifest's documents.
+        exclusions: The papers to leave out.
+
+    Returns:
+        The documents that remain, in their original order.
+
+    Raises:
+        UnknownExclusionError: An exclusion names a paper the documents do not hold.
+    """
     known_ids = {document.id for document in documents}
     for exclusion in exclusions:
         if exclusion.id not in known_ids:
@@ -342,6 +471,14 @@ def write_manifest(
     query: str,
     excluded: Sequence[Exclusion] = (),
 ) -> None:
+    """Write a manifest as TOML: its query, its documents, then its exclusions.
+
+    Args:
+        path: Where to write it.
+        documents: The documents, in manifest order.
+        query: How the documents were selected.
+        excluded: The papers left out, with their reasons.
+    """
     lines = [f'query = "{_toml_escape(query)}"', ""]
     for document in documents:
         lines.append("[[document]]")
@@ -358,6 +495,14 @@ def write_manifest(
 
 
 def load_manifest(path: Path) -> tuple[BenchDocument, ...]:
+    """Read a manifest's `[[document]]` entries.
+
+    Args:
+        path: The manifest to read.
+
+    Returns:
+        The documents, in manifest order.
+    """
     with path.open("rb") as handle:
         raw = tomllib.load(handle)
     entries = raw.get("document", [])
@@ -368,6 +513,14 @@ def load_manifest(path: Path) -> tuple[BenchDocument, ...]:
 
 
 def load_exclusions(path: Path) -> tuple[Exclusion, ...]:
+    """Read a manifest's `[[excluded]]` entries.
+
+    Args:
+        path: The manifest to read.
+
+    Returns:
+        The exclusions, in manifest order.
+    """
     with path.open("rb") as handle:
         raw = tomllib.load(handle)
     entries = raw.get("excluded", [])
@@ -385,6 +538,18 @@ class PinMismatchError(ValueError):
 
 
 def pin_or_verify(document: BenchDocument, body: bytes) -> BenchDocument:
+    """Pin a document to its bytes, or verify the bytes against an existing pin.
+
+    Args:
+        document: The document as the manifest holds it.
+        body: The bytes just fetched or read.
+
+    Returns:
+        The document, pinned when it had no pin.
+
+    Raises:
+        PinMismatchError: The bytes disagree with the existing pin.
+    """
     found = hashlib.sha256(body).hexdigest()
     if document.sha256 == "":
         return document.model_copy(update={"sha256": found})
@@ -429,7 +594,7 @@ class VectorSetMeta(BaseModel):
 
 
 class VectorSet(BaseModel):
-    """A reindexable set: the store's own tables. `vectors.f32` sits beside them on disk —
+    """A reindexable set: the store's own tables, with `vectors.f32` beside them on disk.
 
     100,000 x 3072 is ~307 million floats. As a `tuple[tuple[float, ...], ...]` of Python
     `float` objects that is on the order of 10 GB; as `<f4` on disk and a numpy memmap in
@@ -448,8 +613,10 @@ class VectorSetCorruptError(ValueError):
 
 
 def _digest_file(path: Path) -> str:
-    """sha256 of a file, read in 1 MB chunks — `fetch_corpus.digest`'s own shape, so a 1.2 GB
-    `vectors.f32` is never read whole into memory just to be hashed.
+    """Digest a file with sha256, read in 1 MB chunks.
+
+    `fetch_corpus.digest`'s own shape, so a 1.2 GB `vectors.f32` is never read whole into memory
+    just to be hashed.
     """
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
@@ -471,6 +638,27 @@ def write_vector_set(
     vectors: npt.NDArray[np.float32],
     derived_from: str | None = None,
 ) -> VectorSet:
+    """Write a vector set to disk and pin its files in `meta.json`.
+
+    Args:
+        root: The directory the set's own directory is created under.
+        input_digest: The `input_digest` of the set's PDFs.
+        model: The embedding model.
+        width: The vectors' width.
+        day: The day the set was made.
+        billed_tokens: The tokens the embedding billed.
+        pdfs: How many papers the set holds.
+        tables: The store's tables, `weft_nodes` among them.
+        vectors: One vector per `weft_nodes` row, in the same order.
+        derived_from: The parent set's name, for a subset.
+
+    Returns:
+        The written set.
+
+    Raises:
+        ValueError: The vectors' shape disagrees with the width or with `weft_nodes`' row count.
+        FileExistsError: A set of the same name already exists.
+    """
     if vectors.ndim != 2:
         message = f"the set's vectors must be 2-D, got shape {vectors.shape}"
         raise ValueError(message)
@@ -522,6 +710,17 @@ def _corrupt(name: str, expected: str, found: str) -> VectorSetCorruptError:
 
 
 def read_vector_set(directory: Path) -> VectorSet:
+    """Read a vector set's tables, verifying both data files against `meta.json`.
+
+    Args:
+        directory: The set's own directory.
+
+    Returns:
+        The set; its vectors are read separately through `open_vectors`.
+
+    Raises:
+        VectorSetCorruptError: A data file disagrees with its pin.
+    """
     meta = VectorSetMeta.model_validate_json((directory / "meta.json").read_text(encoding="utf-8"))
 
     found_vectors_sha256 = _digest_file(directory / "vectors.f32")
@@ -540,9 +739,10 @@ def read_vector_set(directory: Path) -> VectorSet:
 
 
 def open_vectors(directory: Path, meta: VectorSetMeta) -> npt.NDArray[np.float32]:
-    """A memory map onto `vectors.f32` — 1.2 GB of address space, not of resident memory, and
-    never re-verified here: `read_vector_set` is the one place that checks the digest, so a
-    caller who wants both calls it first and hands this function the `meta` it returned.
+    """Map `vectors.f32` into memory — 1.2 GB of address space, not of resident memory.
+
+    Never re-verified here: `read_vector_set` is the one place that checks the digest, so a caller
+    who wants both calls it first and hands this function the `meta` it returned.
     """
     return np.memmap(
         directory / "vectors.f32", dtype="<f4", mode="r", shape=(meta.rows, meta.width)
@@ -554,6 +754,17 @@ class UnattributableRowError(ValueError):
 
 
 def papers_of_sources(rendered: str | None) -> tuple[str, ...]:
+    """Read the papers a row is attributed to from its rendered `sources` array.
+
+    Args:
+        rendered: The `sources` column as Postgres renders it as text.
+
+    Returns:
+        Each source's file stem, which is the paper id.
+
+    Raises:
+        UnattributableRowError: The row names no source.
+    """
     if rendered is None:
         message = f"0 sources: {rendered!r}"
         raise UnattributableRowError(message)
@@ -566,6 +777,14 @@ def papers_of_sources(rendered: str | None) -> tuple[str, ...]:
 
 
 def chunks_per_paper(pairs: Iterable[tuple[str, str]]) -> dict[str, int]:
+    """Count each paper's chunks, a chunk shared by papers counting once for each.
+
+    Args:
+        pairs: `(node id, paper)` pairs; duplicates are ignored.
+
+    Returns:
+        The chunk count per paper.
+    """
     counts: dict[str, int] = {}
     for pair in frozenset(pairs):
         paper = pair[1]
@@ -574,6 +793,15 @@ def chunks_per_paper(pairs: Iterable[tuple[str, str]]) -> dict[str, int]:
 
 
 def distinct_chunks(pairs: Iterable[tuple[str, str]], papers: frozenset[str]) -> int:
+    """Count the distinct chunks the given papers make together.
+
+    Args:
+        pairs: `(node id, paper)` pairs.
+        papers: The papers to count.
+
+    Returns:
+        The number of distinct node ids attributed to any of them.
+    """
     return len({node_id for node_id, paper in pairs if paper in papers})
 
 
@@ -585,6 +813,21 @@ def subset_vector_set(
     target: int,
     day: date,
 ) -> VectorSet:
+    """Cut a vector set down to the manifest-order prefix of whole papers reaching a target.
+
+    Args:
+        set_dir: The parent set's directory.
+        root: Where the subset's own directory is created.
+        documents: The manifest's documents, in order.
+        target: The distinct chunk count the subset needs.
+        day: The day the subset is made.
+
+    Returns:
+        The written subset, naming its parent in `derived_from`.
+
+    Raises:
+        ValueError: The parent carries a table the subset does not know.
+    """
     parent = read_vector_set(set_dir)
     vectors = open_vectors(set_dir, parent.meta)
 
@@ -707,8 +950,10 @@ def _urlopen(url: str, *, timeout: int, accept: str) -> bytes:
 
 
 def _weft_command() -> list[str]:
-    """The shipped `weft` binary — measured: `python -m weft_cli` fails, `weft_cli` ships no
-    `__main__.py`, so this is `shutil.which`, never the module route.
+    """Find the shipped `weft` binary on PATH.
+
+    Measured: `python -m weft_cli` fails, `weft_cli` ships no `__main__.py`, so this is
+    `shutil.which`, never the module route.
     """
     weft = shutil.which("weft")
     if weft is None:
@@ -891,8 +1136,9 @@ def _copy_nodes(
     rows: Sequence[tuple[str | None, ...]],
     vectors: npt.NDArray[np.float32],
 ) -> None:
-    """Streams `rows` beside `vectors` — a memory-mapped slice, not a materialised list — one
-    `COPY` row at a time.
+    """Stream `rows` beside `vectors`, one `COPY` row at a time.
+
+    `vectors` is a memory-mapped slice, not a materialised list.
     """
     columns = sql.SQL(", ").join(sql.Identifier(column) for column in (*table.columns, "embedding"))
     query = sql.SQL("COPY {} ({}) FROM STDIN").format(sql.Identifier(table.name), columns)
@@ -928,6 +1174,17 @@ class CorpusSource(StrEnum):
 
 
 def cmd_select(args: argparse.Namespace) -> int:
+    """Run `select`: pin which papers make the set into a new manifest.
+
+    Args:
+        args: The parsed `select` arguments.
+
+    Returns:
+        0.
+
+    Raises:
+        FileExistsError: The manifest already exists.
+    """
     manifest = Path(args.manifest)
     if manifest.exists():
         message = f"{manifest} already exists. `select` does not overwrite a manifest."
@@ -959,6 +1216,25 @@ def _select_open_ragbench(manifest: Path) -> int:
     return 0
 
 
+def _pmc_listing_url(start_after: str, continuation: str | None) -> str:
+    if continuation is None:
+        return f"{PMC_BUCKET_URL}/?list-type=2&delimiter=/&max-keys=1000&start-after={start_after}"
+    return (
+        f"{PMC_BUCKET_URL}/?list-type=2&delimiter=/&max-keys=1000"
+        f"&continuation-token={urllib.parse.quote(continuation, safe='')}"
+    )
+
+
+def _read_pmc_article(key: str) -> PmcArticle | None:
+    article_body = _urlopen(
+        f"{PMC_BUCKET_URL}/{key}/{key}.json", timeout=60, accept="application/json"
+    )
+    try:
+        return PmcArticle.model_validate_json(article_body)
+    except ValidationError:
+        return None
+
+
 def _select_pmc(args: argparse.Namespace, manifest: Path) -> int:
     documents: list[BenchDocument] = []
     looked_at = 0
@@ -967,28 +1243,15 @@ def _select_pmc(args: argparse.Namespace, manifest: Path) -> int:
 
     continuation: str | None = None
     while len(documents) < args.count:
-        if continuation is None:
-            listing_url = (
-                f"{PMC_BUCKET_URL}/?list-type=2&delimiter=/&max-keys=1000"
-                f"&start-after={args.start_after}"
-            )
-        else:
-            listing_url = (
-                f"{PMC_BUCKET_URL}/?list-type=2&delimiter=/&max-keys=1000"
-                f"&continuation-token={urllib.parse.quote(continuation, safe='')}"
-            )
+        listing_url = _pmc_listing_url(args.start_after, continuation)
         page = parse_s3_listing(_urlopen(listing_url, timeout=60, accept="application/xml"))
 
         for key in page.articles:
             if len(documents) >= args.count:
                 break
             looked_at += 1
-            article_body = _urlopen(
-                f"{PMC_BUCKET_URL}/{key}/{key}.json", timeout=60, accept="application/json"
-            )
-            try:
-                article = PmcArticle.model_validate_json(article_body)
-            except ValidationError:
+            article = _read_pmc_article(key)
+            if article is None:
                 skipped_unreadable += 1
                 continue
             if not admitted(article):
@@ -1027,7 +1290,28 @@ def _select_pmc(args: argparse.Namespace, manifest: Path) -> int:
 # --- fetch ----------------------------------------------------------------------------------------
 
 
+def _already_present(document: BenchDocument, target: Path) -> BenchDocument | None:
+    if target.exists():
+        body = target.read_bytes()
+        if document.sha256 == "" or hashlib.sha256(body).hexdigest() == document.sha256:
+            return pin_or_verify(document, body) if document.sha256 == "" else document
+    return None
+
+
+def _fetch_pinned(document: BenchDocument) -> tuple[bytes, BenchDocument]:
+    body = _urlopen(document.source, timeout=120, accept="application/pdf")
+    return body, pin_or_verify(document, body)
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
+    """Run `fetch`: download every manifest paper and pin its bytes.
+
+    Args:
+        args: The parsed `fetch` arguments.
+
+    Returns:
+        0 when every paper is present, 1 when any fetch failed.
+    """
     manifest = Path(args.manifest)
     documents = list(load_manifest(manifest))
     query = _manifest_query(manifest)
@@ -1041,17 +1325,15 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 
     for document in documents:
         target = dest / f"{document.id}.pdf"
-        if target.exists():
-            body = target.read_bytes()
-            if document.sha256 == "" or hashlib.sha256(body).hexdigest() == document.sha256:
-                present += 1
-                updated.append(pin_or_verify(document, body) if document.sha256 == "" else document)
-                continue
+        kept = _already_present(document, target)
+        if kept is not None:
+            present += 1
+            updated.append(kept)
+            continue
 
         since_checkpoint += 1
         try:
-            body = _urlopen(document.source, timeout=120, accept="application/pdf")
-            pinned = pin_or_verify(document, body)
+            body, pinned = _fetch_pinned(document)
         except (
             urllib.error.URLError,
             TimeoutError,
@@ -1089,6 +1371,14 @@ def cmd_fetch(args: argparse.Namespace) -> int:
 
 
 def cmd_exclude(args: argparse.Namespace) -> int:
+    """Run `exclude`: drop one paper from the manifest, recording why.
+
+    Args:
+        args: The parsed `exclude` arguments.
+
+    Returns:
+        0.
+    """
     manifest = Path(args.manifest)
     documents = load_manifest(manifest)
     query = _manifest_query(manifest)
@@ -1132,6 +1422,14 @@ def _stage_papers(ids: Sequence[str], pdfs_dir: Path, staged: Path) -> None:
 
 
 def cmd_sketch(args: argparse.Namespace) -> int:
+    """Run `sketch`: index once with the free embedder, choose the prefix and print its price.
+
+    Args:
+        args: The parsed `sketch` arguments.
+
+    Returns:
+        0, once `sketch.json` is written into the work directory.
+    """
     admin_dsn = _require_admin_dsn(args.admin_dsn)
     documents = load_manifest(Path(args.manifest))
     pdfs_dir = Path(args.pdfs).resolve()
@@ -1147,89 +1445,109 @@ def cmd_sketch(args: argparse.Namespace) -> int:
     dsn = _fresh_database(admin_dsn, db_name)
 
     try:
-        env = os.environ.copy()
-        env["WEFT_DATABASE_URL"] = dsn
-        result = _run_weft(
-            ["index", str(staged), "--pipeline", "index-pdf-text"], cwd=work, env=env
+        _sketch_in(
+            dsn, documents=documents, staged=staged, work=work, model=model, target=args.target
         )
-        print(result.stdout)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
-        stored = _parse_stored_count(result.stdout)
-
-        with psycopg.connect(dsn) as conn, conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM weft_nodes")
-            row = cur.fetchone()
-            counted = 0 if row is None else int(row[0])
-            if counted != stored:
-                message = (
-                    f"weft index reported {stored} nodes stored, but weft_nodes holds {counted}"
-                )
-                raise ValueError(message)
-
-            cur.execute("SELECT id, s FROM weft_nodes, unnest(sources) AS s")
-            pair_rows = cur.fetchall()
-
-            pairs = tuple((str(node_id), Path(str(source)).stem) for node_id, source in pair_rows)
-            sources_by_stem: dict[str, str] = {
-                Path(str(source)).stem: str(source) for _node_id, source in pair_rows
-            }
-            counts = chunks_per_paper(pairs)
-
-            if args.target is None:
-                for document in documents:
-                    if counts.get(document.id, 0) == 0:
-                        message = (
-                            f"{document.id} produced no chunks, so a set of all papers "
-                            "cannot include it"
-                        )
-                        raise InsufficientCorpusError(message)
-                chosen = tuple(document.id for document in documents)
-            else:
-                chosen = distinct_prefix(
-                    pairs, [document.id for document in documents], target=args.target
-                )
-            chosen_set = frozenset(chosen)
-
-            chosen_sources = [
-                sources_by_stem[identifier]
-                for identifier in chosen
-                if identifier in sources_by_stem
-            ]
-            cur.execute(
-                "SELECT DISTINCT id, content FROM weft_nodes, unnest(sources) AS s "
-                "WHERE s = ANY(%s)",
-                (chosen_sources,),
-            )
-            content_rows = cur.fetchall()
-
-        tokens = _count_tokens_cl100k([str(content) for _id, content in content_rows])
-        chosen_chunks = distinct_chunks(pairs, chosen_set)
-
-        papers_by_node: dict[str, set[str]] = {}
-        for node_id, paper in frozenset(pairs):
-            papers_by_node.setdefault(node_id, set()).add(paper)
-        shared_nodes = sum(1 for papers in papers_by_node.values() if len(papers) >= 2)
-        print(f"shared nodes: {shared_nodes}")
-
-        sketch = sketch_cost(pdfs=len(chosen), chunks=chosen_chunks, tokens=tokens, model=model)
-        print_sketch(sketch)
-
-        chosen_digest = input_digest(
-            document.sha256 for document in documents if document.id in chosen and document.sha256
-        )
-        result_model = SketchResult(
-            chosen_ids=chosen,
-            chunks=chosen_chunks,
-            tokens=tokens,
-            model=model,
-            input_digest=chosen_digest,
-        )
-        (work / "sketch.json").write_text(result_model.model_dump_json(), encoding="utf-8")
     finally:
         _drop_database(admin_dsn, db_name)
 
     return 0
+
+
+def _require_stored_count(cur: psycopg.Cursor[tuple[Any, ...]], stored: int) -> None:
+    cur.execute("SELECT count(*) FROM weft_nodes")
+    row = cur.fetchone()
+    counted = 0 if row is None else int(row[0])
+    if counted != stored:
+        message = f"weft index reported {stored} nodes stored, but weft_nodes holds {counted}"
+        raise ValueError(message)
+
+
+def _sketch_choice(
+    documents: Sequence[BenchDocument],
+    pairs: Sequence[tuple[str, str]],
+    counts: dict[str, int],
+    *,
+    target: int | None,
+) -> tuple[str, ...]:
+    if target is None:
+        for document in documents:
+            if counts.get(document.id, 0) == 0:
+                message = (
+                    f"{document.id} produced no chunks, so a set of all papers cannot include it"
+                )
+                raise InsufficientCorpusError(message)
+        return tuple(document.id for document in documents)
+    return distinct_prefix(pairs, [document.id for document in documents], target=target)
+
+
+def _shared_nodes(pairs: Iterable[tuple[str, str]]) -> int:
+    papers_by_node: dict[str, set[str]] = {}
+    for node_id, paper in frozenset(pairs):
+        papers_by_node.setdefault(node_id, set()).add(paper)
+    return sum(1 for papers in papers_by_node.values() if len(papers) >= 2)
+
+
+def _sketch_in(
+    dsn: str,
+    *,
+    documents: Sequence[BenchDocument],
+    staged: Path,
+    work: Path,
+    model: EmbeddingModel,
+    target: int | None,
+) -> None:
+    env = os.environ.copy()
+    env["WEFT_DATABASE_URL"] = dsn
+    result = _run_weft(["index", str(staged), "--pipeline", "index-pdf-text"], cwd=work, env=env)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    stored = _parse_stored_count(result.stdout)
+
+    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        _require_stored_count(cur, stored)
+
+        cur.execute("SELECT id, s FROM weft_nodes, unnest(sources) AS s")
+        pair_rows = cur.fetchall()
+
+        pairs = tuple((str(node_id), Path(str(source)).stem) for node_id, source in pair_rows)
+        sources_by_stem: dict[str, str] = {
+            Path(str(source)).stem: str(source) for _node_id, source in pair_rows
+        }
+        counts = chunks_per_paper(pairs)
+
+        chosen = _sketch_choice(documents, pairs, counts, target=target)
+        chosen_set = frozenset(chosen)
+
+        chosen_sources = [
+            sources_by_stem[identifier] for identifier in chosen if identifier in sources_by_stem
+        ]
+        cur.execute(
+            "SELECT DISTINCT id, content FROM weft_nodes, unnest(sources) AS s WHERE s = ANY(%s)",
+            (chosen_sources,),
+        )
+        content_rows = cur.fetchall()
+
+    tokens = _count_tokens_cl100k([str(content) for _id, content in content_rows])
+    chosen_chunks = distinct_chunks(pairs, chosen_set)
+
+    print(f"shared nodes: {_shared_nodes(pairs)}")
+
+    sketch = sketch_cost(pdfs=len(chosen), chunks=chosen_chunks, tokens=tokens, model=model)
+    print_sketch(sketch)
+
+    chosen_digest = input_digest(
+        document.sha256 for document in documents if document.id in chosen and document.sha256
+    )
+    result_model = SketchResult(
+        chosen_ids=chosen,
+        chunks=chosen_chunks,
+        tokens=tokens,
+        model=model,
+        input_digest=chosen_digest,
+    )
+    (work / "sketch.json").write_text(result_model.model_dump_json(), encoding="utf-8")
 
 
 # --- embed ----------------------------------------------------------------------------------------
@@ -1240,6 +1558,19 @@ _ACTIVE_STATUS: Final[str] = "active"
 
 
 def next_slice(chosen: Sequence[str], done: frozenset[str], *, size: int) -> tuple[str, ...]:
+    """Choose the next slice of papers to embed, skipping those already done.
+
+    Args:
+        chosen: The sketch's chosen ids, in order.
+        done: The papers the store already holds as active.
+        size: The most papers one slice may take.
+
+    Returns:
+        Up to `size` ids; empty once every paper is done.
+
+    Raises:
+        ValueError: `size` is below 1.
+    """
     if size < 1:
         message = f"size must be at least 1, got {size}"
         raise ValueError(message)
@@ -1248,6 +1579,14 @@ def next_slice(chosen: Sequence[str], done: frozenset[str], *, size: int) -> tup
 
 
 def active_papers(rows: Iterable[tuple[str | None, str | None]]) -> frozenset[str]:
+    """Read which papers `weft_sources` holds as active.
+
+    Args:
+        rows: `(id, status)` rows of `weft_sources`, as text.
+
+    Returns:
+        The active sources' file stems.
+    """
     return frozenset(
         PurePosixPath(row_id).stem
         for row_id, status in rows
@@ -1271,7 +1610,73 @@ def _read_done_papers(dsn: str) -> frozenset[str]:
     return active_papers(rows)
 
 
+def _print_slice_output(result: subprocess.CompletedProcess[str]) -> None:
+    for line in result.stdout.splitlines():
+        if "documents:" in line or "batch" in line:
+            print(line)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+
+
+def _embed_slices(
+    sketch: SketchResult,
+    *,
+    dsn: str,
+    db_name: str,
+    pdfs_dir: Path,
+    work: Path,
+    env: dict[str, str],
+    batch_size: int,
+) -> None:
+    slice_number = 0
+    while True:
+        done = _read_done_papers(dsn)
+        current = next_slice(sketch.chosen_ids, done, size=batch_size)
+        if not current:
+            break
+        slice_number += 1
+        _stage_papers(current, pdfs_dir, work / "staged")
+        result = _run_weft(
+            ["index", "staged", "--pipeline", "bench-embed", "--batch-size", str(len(current))],
+            cwd=work,
+            env=env,
+        )
+        print(
+            f"slice {slice_number}: {len(current)} papers, "
+            f"{len(done) + len(current)} of {len(sketch.chosen_ids)} done"
+        )
+        _print_slice_output(result)
+        if result.returncode != 0:
+            message = (
+                f"embed failed on the slice {current[0]}..{current[-1]} "
+                f"(exit code {result.returncode}). Database {db_name} was kept, so re-running "
+                "the same `embed` command resumes."
+            )
+            raise ValueError(message)
+        # Without this a slice weft left unmarked would be chosen, and paid for, again forever.
+        stuck = sorted(frozenset(current) - _read_done_papers(dsn))
+        if stuck:
+            message = (
+                f"weft index exited 0 but left {len(stuck)} paper(s) of slice {slice_number} not "
+                f"active: {', '.join(stuck[:5])}. Stopped rather than re-paying that slice; "
+                f"database {db_name} was kept."
+            )
+            raise ValueError(message)
+
+
 def cmd_embed(args: argparse.Namespace) -> int:
+    """Run `embed`: spend the sketch's price in resumable slices and write the vector set.
+
+    Args:
+        args: The parsed `embed` arguments.
+
+    Returns:
+        0 once the set is written, 2 when `--yes` was not passed.
+
+    Raises:
+        FileNotFoundError: No sketch is in the work directory.
+        ValueError: A slice failed, or the store disagrees with the sketch.
+    """
     # The sketch is read and printed before anything checks whether spending is even possible —
     # `--work /nonexistent` must name the missing sketch, not an absent --admin-dsn.
     work = Path(args.work)
@@ -1316,44 +1721,15 @@ def cmd_embed(args: argparse.Namespace) -> int:
     env = os.environ.copy()
     env["WEFT_DATABASE_URL"] = dsn
 
-    slice_number = 0
-    while True:
-        done = _read_done_papers(dsn)
-        current = next_slice(sketch.chosen_ids, done, size=args.batch_size)
-        if not current:
-            break
-        slice_number += 1
-        _stage_papers(current, pdfs_dir, work / "staged")
-        result = _run_weft(
-            ["index", "staged", "--pipeline", "bench-embed", "--batch-size", str(len(current))],
-            cwd=work,
-            env=env,
-        )
-        print(
-            f"slice {slice_number}: {len(current)} papers, "
-            f"{len(done) + len(current)} of {len(sketch.chosen_ids)} done"
-        )
-        for line in result.stdout.splitlines():
-            if "documents:" in line or "batch" in line:
-                print(line)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
-        if result.returncode != 0:
-            message = (
-                f"embed failed on the slice {current[0]}..{current[-1]} "
-                f"(exit code {result.returncode}). Database {db_name} was kept, so re-running "
-                "the same `embed` command resumes."
-            )
-            raise ValueError(message)
-        # Without this a slice weft left unmarked would be chosen, and paid for, again forever.
-        stuck = sorted(frozenset(current) - _read_done_papers(dsn))
-        if stuck:
-            message = (
-                f"weft index exited 0 but left {len(stuck)} paper(s) of slice {slice_number} not "
-                f"active: {', '.join(stuck[:5])}. Stopped rather than re-paying that slice; "
-                f"database {db_name} was kept."
-            )
-            raise ValueError(message)
+    _embed_slices(
+        sketch,
+        dsn=dsn,
+        db_name=db_name,
+        pdfs_dir=pdfs_dir,
+        work=work,
+        env=env,
+        batch_size=args.batch_size,
+    )
 
     done = _read_done_papers(dsn)
     missing = frozenset(sketch.chosen_ids) - done
@@ -1399,6 +1775,18 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
 
 def cmd_load(args: argparse.Namespace) -> int:
+    """Run `load`: restore a vector set into a fresh database, with no API call.
+
+    Args:
+        args: The parsed `load` arguments.
+
+    Returns:
+        0 once the loaded row count is verified.
+
+    Raises:
+        FileExistsError: The database already exists.
+        ValueError: The row counts before or after the load are not the expected ones.
+    """
     admin_dsn = _require_admin_dsn(args.admin_dsn)
     set_dir = Path(args.set_dir)
     vector_set = read_vector_set(set_dir)
@@ -1466,6 +1854,14 @@ def cmd_load(args: argparse.Namespace) -> int:
 
 
 def cmd_subset(args: argparse.Namespace) -> int:
+    """Run `subset`: write a vector set cut down to a prefix of whole papers.
+
+    Args:
+        args: The parsed `subset` arguments.
+
+    Returns:
+        0.
+    """
     documents = load_manifest(Path(args.manifest))
     written = subset_vector_set(
         Path(args.set_dir),
@@ -1574,6 +1970,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the vector-set command line.
+
+    Args:
+        argv: The arguments, or `None` for `sys.argv`.
+
+    Returns:
+        The subcommand's exit code, or 2 for a refusal or failure it raised.
+    """
     bench_latency.line_buffer_stdout()
     parser = _build_parser()
     args = parser.parse_args(argv)

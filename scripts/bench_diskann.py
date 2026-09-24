@@ -45,6 +45,14 @@ _REQUIRED_IMAGE: Final[str] = "timescale/timescaledb-ha:pg17"
 
 
 def label_of(selectivity: bench_filtered.Selectivity) -> int:
+    """Map a selectivity bucket to the `smallint` label that stands for it in `labels`.
+
+    Args:
+        selectivity: The bucket to label.
+
+    Returns:
+        The label, 1 through 4.
+    """
     return {
         bench_filtered.Selectivity.HALF: 1,
         bench_filtered.Selectivity.TENTH: 2,
@@ -54,6 +62,14 @@ def label_of(selectivity: bench_filtered.Selectivity) -> int:
 
 
 def labels_for(node_id: str) -> tuple[int, ...]:
+    """Give the sorted labels of every selectivity bucket a node falls in.
+
+    Args:
+        node_id: The node whose buckets are taken from `bench_filtered.in_bucket`.
+
+    Returns:
+        The labels, ascending.
+    """
     return tuple(
         sorted(
             label_of(selectivity)
@@ -64,7 +80,9 @@ def labels_for(node_id: str) -> tuple[int, ...]:
 
 
 def index_statement(*, index_name: str, with_labels: bool) -> sql.Composed:
-    """`vectorscale--0.9.1.sql`: `vector_cosine_ops` is `DEFAULT` for `diskann`, and
+    """Build the `CREATE INDEX ... USING diskann` statement, with or without the label column.
+
+    `vectorscale--0.9.1.sql`: `vector_cosine_ops` is `DEFAULT` for `diskann`, and
     `vector_smallint_label_ops` is `DEFAULT FOR TYPE smallint[]`, so `labels` needs no class named.
     """
     columns = (
@@ -78,6 +96,14 @@ def index_statement(*, index_name: str, with_labels: bool) -> sql.Composed:
 
 
 def label_filtered_statement(selectivity: bench_filtered.Selectivity) -> sql.Composed:
+    """Build the top-k query filtered through the `labels` column rather than JSONB.
+
+    Args:
+        selectivity: The bucket whose label the query requires.
+
+    Returns:
+        The statement, taking `vector` and `top_k` parameters.
+    """
     return sql.SQL(
         "SELECT id, embedding <=> %(vector)s AS distance FROM weft_nodes "
         "WHERE embedding IS NOT NULL AND labels && ARRAY[{label}]::smallint[] "
@@ -86,11 +112,15 @@ def label_filtered_statement(selectivity: bench_filtered.Selectivity) -> sql.Com
 
 
 class DiskannArm(StrEnum):
+    """How a `diskann` arm applies the selectivity filter."""
+
     JSONB_POST_FILTER = "jsonb post-filter"
     LABEL_COLUMN = "label column"
 
 
 class IndexBuild(BaseModel):
+    """What building one `diskann` index cost, in time and bytes."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     build_seconds: float
@@ -98,6 +128,8 @@ class IndexBuild(BaseModel):
 
 
 class ExpressionProbe(BaseModel):
+    """Whether an expression `diskann` index over a bare `vector` column builds and answers."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     built: bool
@@ -106,6 +138,8 @@ class ExpressionProbe(BaseModel):
 
 
 class DiskannArmResult(BaseModel):
+    """Recall, latency and plan of one arm at one selectivity."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     arm: DiskannArm
@@ -121,6 +155,8 @@ class DiskannArmResult(BaseModel):
 
 
 class DiskannRun(BaseModel):
+    """The whole run as written to `--record`."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     machine: bench_latency.Machine
@@ -417,9 +453,10 @@ def _expression_probe(conn: psycopg.Connection) -> ExpressionProbe:
                 "CREATE INDEX bench_bare_diskann ON bench_bare "
                 "USING diskann ((embedding::vector(8)) vector_cosine_ops)"
             )
-        built = True
     except psycopg.Error as exc:
         error = str(exc)
+    else:
+        built = True
 
     try:
         with conn.cursor() as cur:
@@ -430,10 +467,11 @@ def _expression_probe(conn: psycopg.Connection) -> ExpressionProbe:
                 {"v": probe_vector},
             )
             cur.fetchall()
-        queryable = True
     except psycopg.Error as exc:
         if error is None:
             error = str(exc)
+    else:
+        queryable = True
 
     return ExpressionProbe(built=built, queryable=queryable, error=error)
 
@@ -448,7 +486,188 @@ def _print_probe(version: str, probe: ExpressionProbe) -> None:
     )
 
 
+_FAILURES: Final = (
+    bench_latency.MeasurementRefusedError,
+    bench_latency.RowCountMismatchError,
+    ValueError,
+    psycopg.Error,
+    OSError,
+)
+
+
+def _claim_database(admin_dsn: str, name: str) -> bench_latency.Machine:
+    _preflight(admin_dsn)
+
+    machine = bench_latency.host_machine()
+    print(f"machine: {machine.label}")
+
+    with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
+        if cur.fetchone() is not None:
+            raise bench_latency.MeasurementRefusedError(
+                f"database {name!r} already exists; refusing to reuse or drop it"
+            )
+    return machine
+
+
+def _versions(conn: psycopg.Connection) -> tuple[str, str, str]:
+    with conn.cursor() as cur:
+        cur.execute("SHOW server_version")
+        server_row = cur.fetchone()
+        cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+        vector_row = cur.fetchone()
+        cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vectorscale'")
+        vectorscale_row = cur.fetchone()
+    if server_row is None or vector_row is None or vectorscale_row is None:
+        raise bench_latency.MeasurementRefusedError(
+            "the database reported no server version or extension versions"
+        )
+    return str(server_row[0]), str(vector_row[0]), str(vectorscale_row[0])
+
+
+def _query_settings(conn: psycopg.Connection) -> tuple[str, str]:
+    with conn.cursor() as cur:
+        cur.execute("SHOW diskann.query_rescore")
+        rescore_row = cur.fetchone()
+        cur.execute("SHOW diskann.query_search_list_size")
+        search_list_row = cur.fetchone()
+    if rescore_row is None or search_list_row is None:
+        raise bench_latency.MeasurementRefusedError(
+            "the database reported no diskann.query_rescore or query_search_list_size"
+        )
+    query_rescore = str(rescore_row[0])
+    query_search_list_size = str(search_list_row[0])
+    print(
+        f"diskann.query_rescore = {query_rescore}  "
+        f"diskann.query_search_list_size = {query_search_list_size}"
+    )
+    return query_rescore, query_search_list_size
+
+
+def _measure(
+    conn: psycopg.Connection,
+    arguments: argparse.Namespace,
+    *,
+    machine: bench_latency.Machine,
+    name: str,
+) -> DiskannRun | None:
+    register_vector(conn)
+    with conn.cursor() as cur:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE")
+
+    rows = _row_count(conn)
+    server_version, pgvector_version, vectorscale_version = _versions(conn)
+    print(
+        f"rows: {rows:,}  server: {server_version}  "
+        f"pgvector: {pgvector_version}  vectorscale: {vectorscale_version}"
+    )
+
+    _truncate_column(conn, width=arguments.width)
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM weft_nodes ORDER BY id")
+        ids = [str(row[0]) for row in cur.fetchall()]
+    _write_buckets(conn, ids)
+    _write_labels(conn, ids)
+    matching_rows = _matching_rows(conn)
+
+    sample = bench_latency.query_sample(ids, arguments.queries)
+    fetched = _fetch_vectors(conn, sample)
+    truth = _ground_truth(conn, sample, fetched)
+
+    results: list[DiskannArmResult] = []
+
+    plain_build = _build_index(conn, index_name="bench_diskann", with_labels=False)
+    query_rescore, query_search_list_size = _query_settings(conn)
+
+    for selectivity in (None, *bench_filtered.Selectivity):
+        statement = (
+            bench_filtered.unfiltered_statement()
+            if selectivity is None
+            else bench_filtered.filtered_statement(selectivity)
+        )
+        results.append(
+            _run_arm(
+                conn,
+                arm=DiskannArm.JSONB_POST_FILTER,
+                selectivity=selectivity,
+                statement=statement,
+                sample=sample,
+                fetched=fetched,
+                truth=truth,
+            )
+        )
+    with conn.cursor() as cur:
+        cur.execute("DROP INDEX bench_diskann")
+
+    labelled_build = _build_index(conn, index_name="bench_diskann", with_labels=True)
+    results.extend(
+        _run_arm(
+            conn,
+            arm=DiskannArm.LABEL_COLUMN,
+            selectivity=selectivity,
+            statement=label_filtered_statement(selectivity),
+            sample=sample,
+            fetched=fetched,
+            truth=truth,
+        )
+        for selectivity in bench_filtered.Selectivity
+    )
+    with conn.cursor() as cur:
+        cur.execute("DROP INDEX bench_diskann")
+
+    probe = _expression_probe(conn)
+    _print_probe(vectorscale_version, probe)
+
+    if arguments.record is None:
+        return None
+    return DiskannRun(
+        machine=machine,
+        database=name,
+        vector_set=arguments.vector_set.name,
+        rows=rows,
+        width=arguments.width,
+        server_version=server_version,
+        pgvector_version=pgvector_version,
+        vectorscale_version=vectorscale_version,
+        query_rescore=query_rescore,
+        query_search_list_size=query_search_list_size,
+        plain_build=plain_build,
+        labelled_build=labelled_build,
+        matching_rows=matching_rows,
+        results=tuple(results),
+        expression_probe=probe,
+        taken_at=datetime.now(UTC),
+    )
+
+
+def _measure_and_record(
+    arguments: argparse.Namespace, *, admin_dsn: str, name: str, machine: bench_latency.Machine
+) -> None:
+    _load(admin_dsn, name, arguments.vector_set, arguments.rows)
+    database_dsn = make_conninfo(admin_dsn, dbname=name)
+
+    with psycopg.connect(database_dsn, autocommit=True) as conn:
+        run = _measure(conn, arguments, machine=machine, name=name)
+
+    if run is not None:
+        arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
+
+    if arguments.keep:
+        print(f"kept: {name}")
+    else:
+        _drop_database(admin_dsn, name)
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run the StreamingDiskANN measurement in a fresh database and drop it unless `--keep`.
+
+    Args:
+        argv: Command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        0 on a completed run, 2 when the measurement was refused or failed.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--set", dest="vector_set", type=Path, required=True, help="a 29.6 vector set directory"
@@ -467,158 +686,21 @@ def main(argv: list[str] | None = None) -> int:
 
     admin_dsn = arguments.admin_dsn
     name = _database_name(arguments.width)
-    created = False
 
     try:
-        _preflight(admin_dsn)
-
-        machine = bench_latency.host_machine()
-        print(f"machine: {machine.label}")
-
-        with psycopg.connect(admin_dsn, autocommit=True) as admin, admin.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
-            if cur.fetchone() is not None:
-                raise bench_latency.MeasurementRefusedError(
-                    f"database {name!r} already exists; refusing to reuse or drop it"
-                )
-        created = True
-
-        _load(admin_dsn, name, arguments.vector_set, arguments.rows)
-        database_dsn = make_conninfo(admin_dsn, dbname=name)
-
-        with psycopg.connect(database_dsn, autocommit=True) as conn:
-            register_vector(conn)
-            with conn.cursor() as cur:
-                cur.execute("CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE")
-
-            rows = _row_count(conn)
-            with conn.cursor() as cur:
-                cur.execute("SHOW server_version")
-                server_row = cur.fetchone()
-                cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
-                vector_row = cur.fetchone()
-                cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'vectorscale'")
-                vectorscale_row = cur.fetchone()
-            if server_row is None or vector_row is None or vectorscale_row is None:
-                raise bench_latency.MeasurementRefusedError(
-                    "the database reported no server version or extension versions"
-                )
-            server_version = str(server_row[0])
-            pgvector_version = str(vector_row[0])
-            vectorscale_version = str(vectorscale_row[0])
-            print(
-                f"rows: {rows:,}  server: {server_version}  "
-                f"pgvector: {pgvector_version}  vectorscale: {vectorscale_version}"
-            )
-
-            _truncate_column(conn, width=arguments.width)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT id FROM weft_nodes ORDER BY id")
-                ids = [str(row[0]) for row in cur.fetchall()]
-            _write_buckets(conn, ids)
-            _write_labels(conn, ids)
-            matching_rows = _matching_rows(conn)
-
-            sample = bench_latency.query_sample(ids, arguments.queries)
-            fetched = _fetch_vectors(conn, sample)
-            truth = _ground_truth(conn, sample, fetched)
-
-            results: list[DiskannArmResult] = []
-
-            plain_build = _build_index(conn, index_name="bench_diskann", with_labels=False)
-            with conn.cursor() as cur:
-                cur.execute("SHOW diskann.query_rescore")
-                rescore_row = cur.fetchone()
-                cur.execute("SHOW diskann.query_search_list_size")
-                search_list_row = cur.fetchone()
-            if rescore_row is None or search_list_row is None:
-                raise bench_latency.MeasurementRefusedError(
-                    "the database reported no diskann.query_rescore or query_search_list_size"
-                )
-            query_rescore = str(rescore_row[0])
-            query_search_list_size = str(search_list_row[0])
-            print(
-                f"diskann.query_rescore = {query_rescore}  "
-                f"diskann.query_search_list_size = {query_search_list_size}"
-            )
-
-            for selectivity in (None, *bench_filtered.Selectivity):
-                statement = (
-                    bench_filtered.unfiltered_statement()
-                    if selectivity is None
-                    else bench_filtered.filtered_statement(selectivity)
-                )
-                results.append(
-                    _run_arm(
-                        conn,
-                        arm=DiskannArm.JSONB_POST_FILTER,
-                        selectivity=selectivity,
-                        statement=statement,
-                        sample=sample,
-                        fetched=fetched,
-                        truth=truth,
-                    )
-                )
-            with conn.cursor() as cur:
-                cur.execute("DROP INDEX bench_diskann")
-
-            labelled_build = _build_index(conn, index_name="bench_diskann", with_labels=True)
-            for selectivity in bench_filtered.Selectivity:
-                results.append(
-                    _run_arm(
-                        conn,
-                        arm=DiskannArm.LABEL_COLUMN,
-                        selectivity=selectivity,
-                        statement=label_filtered_statement(selectivity),
-                        sample=sample,
-                        fetched=fetched,
-                        truth=truth,
-                    )
-                )
-            with conn.cursor() as cur:
-                cur.execute("DROP INDEX bench_diskann")
-
-            probe = _expression_probe(conn)
-            _print_probe(vectorscale_version, probe)
-
-        if arguments.record is not None:
-            run = DiskannRun(
-                machine=machine,
-                database=name,
-                vector_set=arguments.vector_set.name,
-                rows=rows,
-                width=arguments.width,
-                server_version=server_version,
-                pgvector_version=pgvector_version,
-                vectorscale_version=vectorscale_version,
-                query_rescore=query_rescore,
-                query_search_list_size=query_search_list_size,
-                plain_build=plain_build,
-                labelled_build=labelled_build,
-                matching_rows=matching_rows,
-                results=tuple(results),
-                expression_probe=probe,
-                taken_at=datetime.now(UTC),
-            )
-            arguments.record.write_text(run.model_dump_json(indent=2), encoding="utf-8")
-
-        if arguments.keep:
-            print(f"kept: {name}")
-        else:
-            _drop_database(admin_dsn, name)
-        return 0
-    except (
-        bench_latency.MeasurementRefusedError,
-        bench_latency.RowCountMismatchError,
-        ValueError,
-        psycopg.Error,
-        OSError,
-    ) as exc:
+        machine = _claim_database(admin_dsn, name)
+    except _FAILURES as exc:
         print(str(exc), file=sys.stderr)
-        if created and not arguments.keep:
+        return 2
+
+    try:
+        _measure_and_record(arguments, admin_dsn=admin_dsn, name=name, machine=machine)
+    except _FAILURES as exc:
+        print(str(exc), file=sys.stderr)
+        if not arguments.keep:
             _drop_database(admin_dsn, name)
         return 2
+    return 0
 
 
 if __name__ == "__main__":

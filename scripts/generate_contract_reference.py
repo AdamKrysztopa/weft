@@ -31,6 +31,7 @@ REFERENCE: Final[Path] = REPO_ROOT / "manual" / "contract-reference.md"
 
 
 def main() -> None:
+    """Regenerate the contract reference from the installed packs."""
     registry = discover_for_reference()
     contracts = published_contracts(registry)
     REFERENCE.write_text(render_contract_reference(contracts), encoding="utf-8")

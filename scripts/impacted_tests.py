@@ -171,10 +171,13 @@ def _reshapes_the_workspace(changed: frozenset[str]) -> bool:
 
 
 def only_first_party_versions(diff: str) -> bool:
-    """Whether a unified diff of `uv.lock` and the distributions' `pyproject.toml` files moves
-    nothing but a first-party `version = ` line and comments — a contract bump, which changes no
-    dependency and so reshapes nothing. Needs `-U3` or wider: in `uv.lock` a package's `name =`
-    line sits directly above its `version =`, and the context is what names whose version moved.
+    """Whether a lockfile and manifest diff moves nothing but first-party versions and comments.
+
+    The diff is a unified diff of `uv.lock` and the distributions' `pyproject.toml` files, and the
+    question is whether it moves nothing but a first-party `version = ` line and comments — a
+    contract bump, which changes no dependency and so reshapes nothing. Needs `-U3` or wider: in
+    `uv.lock` a package's `name =` line sits directly above its `version =`, and the context is
+    what names whose version moved.
     """
     in_lock = False
     package = ""
@@ -239,6 +242,15 @@ def read_change_set(lines: Iterable[str]) -> frozenset[str]:
 
 
 def main(argv: Sequence[str]) -> int:
+    """Select the tests a change set on stdin impacts, then run them unless `--list` is passed.
+
+    Args:
+        argv: The command-line arguments; everything but `--list` and `--version-diff PATH` is
+            forwarded to pytest.
+
+    Returns:
+        pytest's exit code, or 0 when only listing or when nothing is selected.
+    """
     forwarded = [argument for argument in argv if argument != "--list"]
     changed = read_change_set(sys.stdin)
     if "--version-diff" in forwarded:

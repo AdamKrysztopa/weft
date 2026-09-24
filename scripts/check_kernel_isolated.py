@@ -18,6 +18,11 @@ KERNEL = Path(__file__).resolve().parents[1] / "packages" / "weft-kernel"
 
 
 def main() -> int:
+    """Install `weft-kernel` into a clean environment and import it.
+
+    Returns:
+        The exit code of the isolated import.
+    """
     command = [
         "uv",
         "run",

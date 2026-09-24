@@ -59,14 +59,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
         return tomllib.load(handle)
 
 
-def _all_members(repo_root: Path, *, publishing_only: bool) -> tuple[Member, ...]:
-    """Every workspace member that publishes, sorted by name.
-
-    Raises `PublishSetUnreadableError` if the member globs match no directory containing a
-    `pyproject.toml`, or if `[tool.uv.workspace] members` itself is empty — an empty answer is
-    "I did not find it", never "there is none" (`docs/internal/lessons.md` L5.9).
-    """
-    workspace_manifest = repo_root / "pyproject.toml"
+def _workspace_patterns(workspace_manifest: Path) -> list[str]:
     workspace_config = _load_toml(workspace_manifest)
 
     members_field = (
@@ -80,6 +73,23 @@ def _all_members(repo_root: Path, *, publishing_only: bool) -> tuple[Member, ...
             f"this reader expands; an empty one means the read is wrong, not that the workspace "
             f"is empty."
         )
+    return patterns
+
+
+def _modules_of(src: Path) -> tuple[str, ...]:
+    if not src.is_dir():
+        return ()
+    return tuple(sorted(path.name for path in src.iterdir() if (path / "__init__.py").is_file()))
+
+
+def _all_members(repo_root: Path, *, publishing_only: bool) -> tuple[Member, ...]:
+    """Every workspace member that publishes, sorted by name.
+
+    Raises `PublishSetUnreadableError` if the member globs match no directory containing a
+    `pyproject.toml`, or if `[tool.uv.workspace] members` itself is empty — an empty answer is
+    "I did not find it", never "there is none" (`docs/internal/lessons.md` L5.9).
+    """
+    patterns = _workspace_patterns(repo_root / "pyproject.toml")
 
     found: list[Member] = []
     seen_manifests = 0
@@ -97,14 +107,7 @@ def _all_members(repo_root: Path, *, publishing_only: bool) -> tuple[Member, ...
                 continue
 
             name = cast("str", config["project"]["name"])
-            src = candidate / "src"
-            modules = (
-                tuple(
-                    sorted(path.name for path in src.iterdir() if (path / "__init__.py").is_file())
-                )
-                if src.is_dir()
-                else ()
-            )
+            modules = _modules_of(candidate / "src")
             found.append(Member(name=name, directory=candidate, modules=modules))
 
     if seen_manifests == 0:
