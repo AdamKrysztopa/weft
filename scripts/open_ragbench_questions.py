@@ -19,7 +19,7 @@ function of the seed and its id, so the split reproduces from the two recorded v
 **A question the build cannot carry is counted and named, never dropped silently.** `build.json`
 lists each with its reason, and the build prints the count.
 
-Run as `PYTHONPATH=eval uv run python scripts/open_ragbench_questions.py --dataset
+Run as `uv run python scripts/open_ragbench_questions.py --dataset
 corpus/open_ragbench/pdf/arxiv --out corpus/open-ragbench-questions`.
 
 **The quote check is `eval/check_questions.py`'s own**, run over every carried question before a
@@ -37,6 +37,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "eval"))
 
 from check_questions import unmatched_quotes
 from open_ragbench import RAGBENCH_REVISION, render_document
