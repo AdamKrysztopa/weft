@@ -204,7 +204,16 @@ class MyStage:
   constrains G5** — the payload envelope is still G5's to design, but its result type is settled.
 - **A plugin declares its own lifetime.** `Lifetime.RUN` by default: a fresh instance per pipeline
   run, no thread-safety obligation on the author. `Lifetime.PROCESS` is opt-in and accepts the
-  obligation — the instance must be reusable and safe under concurrent `run()`. The kernel's cache
+  obligation — the instance must be reusable and safe under concurrent `run()`.
+
+  > **Widened for stores at Phase 43e, 2026-09-25 (owner's answer, `STORE_CONTRACT_VERSION`
+  > `3.0.0`).** "No thread-safety obligation" never covered callers on one event loop, and a run
+  > has them: `raptor`, `hypothetical-questions` and `llm-facts` fan out under `asyncio.gather`
+  > through one store handle, and two interleaved transactions on one pgvector connection were
+  > `R43.40`. **A store handle owes callers that overlap on one event loop what a serial run would
+  > give them**, its lazy first open included. Threads are still owed nothing. The published kit
+  > states it (`weft_store.conformance`, the three concurrency checks), and the store is the party
+  > that owes it because only the store knows what its own connection can interleave. The kernel's cache
   is keyed `(tenant_id, contract, name, config_hash)`; the tenant is in the key or multi-tenancy is
   broken on day one. A comparable cache seen elsewhere, keyed `f'{tenant_id}:{config.model}'` and one
   of only four locks in a 52,021-line codebase, is the one piece of real tenancy machinery worth

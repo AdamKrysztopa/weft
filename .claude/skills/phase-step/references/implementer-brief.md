@@ -441,7 +441,7 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     it was forbidden to edit — a placement nobody chose. Then, at the phase close, 29 lines of
     *prose* added to `docs/02-extension-model.md`'s store-contract section pushed
     `docs/07-extension-cost.md:210 "The trust model"`'s citation of
-    `02-extension-model.md:1387 "# weft.yaml"` past its window — it had read 1321. **Choosing that
+    `02-extension-model.md:1396 "# weft.yaml"` past its window — it had read 1321. **Choosing that
     fragment is itself the lesson twice over**: the first repair quoted the part of line 210 that
     *is* a citation, backticks and escaped quotes included, and FF17 read a fragment belonging to
     no file at all. When the line you cite is a line about citations, quote the plain prose on it. No agent, no brief, no code. So read this as a check on **any substantial insertion into

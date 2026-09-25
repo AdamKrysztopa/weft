@@ -56,6 +56,7 @@ assertions are, not *which* apply.
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
@@ -385,6 +386,9 @@ class SingleWriterStore(NodeStore, SingleWriter, TargetHolding, Protocol):
     """
 
 
+#: How many callers overlap on one handle in the concurrency checks: raptor's shipped
+#: `max_concurrent_summaries`.
+_CONCURRENT_CALLERS: Final = 8
 _SOURCE_A = SourceId("source-a")
 _SOURCE_B = SourceId("source-b")
 
@@ -697,6 +701,78 @@ async def check_delete_source_removes_exactly_the_nodes_carrying_it(store: NodeS
     _require(
         condition=await store.get_source(_SOURCE_B) is None,
         message="the store did not satisfy: await store.get_source(_SOURCE_B) is None",
+    )
+
+
+async def check_concurrent_writes_on_one_handle_all_land(store: NodeStore) -> None:
+    """One handle owes callers that overlap exactly what a serial run gives them.
+
+    Phase 43e's first owner answer. `raptor`, `hypothetical-questions` and `llm-facts` fan out
+    under `asyncio.gather` through one handle, and the first calls on a handle that has not yet
+    touched storage race to open it. Two interleaved transactions on one pgvector connection
+    were `R43.40`. One event loop only: this asks nothing of threads.
+    """
+    # Arrange — a handle that has not touched storage, so these calls are also its first.
+    nodes = tuple(
+        _node(f"concurrent write {i}", sources=frozenset({_SOURCE_A}))
+        for i in range(_CONCURRENT_CALLERS)
+    )
+
+    # Act
+    await asyncio.gather(*(store.add([node]) for node in nodes))
+    stored = await store.get([node.id for node in nodes])
+    count = await store.count()
+
+    # Assert
+    _require(
+        condition={node.content for node in stored} == {node.content for node in nodes}
+        and count == len(nodes),
+        message=f"{len(nodes)} overlapping writes on one handle left {len(stored)} readable "
+        f"and a count of {count}; a serial run leaves {len(nodes)}",
+    )
+
+
+async def check_reads_overlapping_writes_on_one_handle_answer_as_a_serial_run_would(
+    store: FilterableStore,
+) -> None:
+    """A read that overlaps writes on the same handle answers what it would answer alone.
+
+    Phase 43e's first owner answer, on its read side: a layer reads its leaves and keeps its
+    summaries through one handle while other callers write, and neither may see the other's
+    half-finished transaction.
+    """
+    # Arrange
+    stored = tuple(
+        _node(f"already stored {i}", sources=frozenset({_SOURCE_A}))
+        for i in range(_CONCURRENT_CALLERS)
+    )
+    arriving = tuple(
+        _node(f"arriving {i}", sources=frozenset({_SOURCE_B})) for i in range(_CONCURRENT_CALLERS)
+    )
+    await store.add(stored)
+    of_a = Filter(op=FilterOp.IN, field="lineage.sources", value=(str(_SOURCE_A),))
+
+    # Act
+    _, gets, pages = await asyncio.gather(
+        asyncio.gather(*(store.add([node]) for node in arriving)),
+        asyncio.gather(*(store.get([n.id for n in stored]) for _ in arriving)),
+        asyncio.gather(*(store.matching(of_a) for _ in arriving)),
+    )
+    count = await store.count()
+
+    # Assert
+    wanted = {node.content for node in stored}
+    _require(
+        condition=all({node.content for node in got} == wanted for got in gets)
+        and all({node.content for node in page.items} == wanted for page in pages),
+        message="a read overlapping writes on its handle answered other than a serial read: "
+        f"gets {[len(got) for got in gets]}, filters {[len(p.items) for p in pages]}, of "
+        f"{len(wanted)}",
+    )
+    _require(
+        condition=count == len(stored) + len(arriving),
+        message=f"after overlapping reads and writes the store counts {count}, not "
+        f"{len(stored) + len(arriving)}",
     )
 
 
@@ -2232,6 +2308,37 @@ async def _next_operation(store: GenerationHoldingStore) -> GenerationHoldingSto
     """
     probe = await store.open_generation("conformance-probe")
     return await store.bind_generation(probe.id)
+
+
+async def check_overlapping_writes_into_one_generation_are_published_whole(
+    store: GenerationHoldingStore,
+) -> None:
+    """Every member written through one bound handle by overlapping callers is published.
+
+    Phase 43e's first owner answer, where it was paid for: a corpus build keeps each summary into
+    its open generation as it finishes, `max_concurrent_summaries` of them at a time (`R43.40`).
+    """
+    # Arrange
+    generation = await store.open_generation("summaries")
+    writer = await store.bind_generation(generation.id)
+    members = tuple(
+        _member(f"concurrent member {i}", (1.0, 0.0, 0.0)) for i in range(_CONCURRENT_CALLERS)
+    )
+
+    # Act
+    await asyncio.gather(*(writer.add([member]) for member in members))
+    await store.publish_generation(generation.id)
+    reader = await _next_operation(store)
+    page = await reader.matching(
+        Filter(op=FilterOp.IN, field="lineage.sources", value=(str(_SOURCE_A),))
+    )
+
+    # Assert
+    _require(
+        condition={node.content for node in page.items} == {m.content for m in members},
+        message=f"{len(members)} overlapping writes into one generation published "
+        f"{len(page.items)} members",
+    )
 
 
 async def check_an_unpublished_generation_is_invisible_until_it_is_published(

@@ -130,6 +130,7 @@ from weft_store.conformance import (
     check_base_nodes_are_visible_under_every_set_of_generations,
     check_carrying_a_node_no_published_generation_holds_is_refused_by_name,
     check_claiming_an_identity_creates_the_target_as_a_first_write_does,
+    check_concurrent_writes_on_one_handle_all_land,
     check_delete_source_removes_exactly_the_nodes_carrying_it,
     check_deleting_a_failed_source_removes_it_like_any_other,
     check_deleting_the_last_document_that_produced_a_node_deletes_it,
@@ -139,9 +140,11 @@ from weft_store.conformance import (
     check_estimate_reports_zero_model_calls_on_either_backend,
     check_every_operator_means_the_same_thing_to_both_backends,
     check_in_over_a_set_field_matches_a_node_holding_any_listed_value,
+    check_overlapping_writes_into_one_generation_are_published_whole,
     check_promote_makes_a_target_live_and_rollback_restores_the_previous_one,
     check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do,
     check_promoting_the_live_target_again_changes_nothing,
+    check_reads_overlapping_writes_on_one_handle_answer_as_a_serial_run_would,
     check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held,
     check_reconcile_finishes_a_deletion_that_was_interrupted,
     check_reconcile_leaves_a_healthy_store_alone_on_either_backend,
@@ -461,6 +464,16 @@ async def test_a_parents_children_within_an_ordinal_range_are_one_filter_away(
     store: FilterableStore,
 ) -> None:
     await check_a_parents_children_within_an_ordinal_range_are_one_filter_away(store)
+
+
+async def test_concurrent_writes_on_one_handle_all_land(store: FilterableStore) -> None:
+    await check_concurrent_writes_on_one_handle_all_land(store)
+
+
+async def test_reads_overlapping_writes_on_one_handle_answer_as_a_serial_run_would(
+    store: FilterableStore,
+) -> None:
+    await check_reads_overlapping_writes_on_one_handle_answer_as_a_serial_run_would(store)
 
 
 async def test_in_over_a_set_field_matches_a_node_holding_any_listed_value(
@@ -911,6 +924,12 @@ async def test_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_
     target_store: GenerationHoldingStore,
 ) -> None:
     await check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(target_store)
+
+
+async def test_overlapping_writes_into_one_generation_are_published_whole(
+    target_store: GenerationHoldingStore,
+) -> None:
+    await check_overlapping_writes_into_one_generation_are_published_whole(target_store)
 
 
 # Ledger task **43.20** — a resumed corpus build binds a fresh handle to the generation an earlier,

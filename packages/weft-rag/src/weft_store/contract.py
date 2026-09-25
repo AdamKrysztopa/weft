@@ -165,7 +165,9 @@ from weft_kernel.runner import Stage
 #: **`2.11.0` → `2.12.0` at task 43.21** — `LayerStatus` gains `STALE`, minor for both audiences.
 #: **`2.12.0` → `2.13.0` at task 43.22** — `GenerationCarrying` joins the family, `43.14`'s shape.
 #: **`2.13.0` → `2.14.0` at repair R43.29** — `GenerationWithdrawing` joins, `43.22`'s shape.
-STORE_CONTRACT_VERSION = "2.14.0"
+#: **`2.14.0` → `3.0.0` at task 43.27** — a handle owes correctness to overlapping callers on one
+#: event loop: a new obligation on every implementer and no new method, `09`'s own row for it.
+STORE_CONTRACT_VERSION = "3.0.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →

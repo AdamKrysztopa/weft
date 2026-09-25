@@ -26,7 +26,7 @@ _WHEN = datetime(2026, 9, 23, 12, 0, tzinfo=UTC)
 
 def test_the_contract_moved_a_minor_for_the_new_capability() -> None:
     # Assert — `TargetHolding`'s precedent: a new optional Protocol is a minor for both audiences.
-    assert STORE_CONTRACT_VERSION == "2.14.0"
+    assert STORE_CONTRACT_VERSION == "3.0.0"
     assert GenerationHolding.version == STORE_CONTRACT_VERSION
 
 
@@ -92,4 +92,4 @@ def test_a_writer_busy_refusal_names_the_writer_that_holds_the_store() -> None:
     assert refused.holder == holder
     for fact in ("'weft index corpus'", "pid 4242", "laptop", "2026-09-23T12:00:00"):
         assert fact in str(refused), fact
-    assert SingleWriter.version == "2.14.0"
+    assert SingleWriter.version == "3.0.0"

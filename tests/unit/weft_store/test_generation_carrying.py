@@ -76,7 +76,7 @@ async def _fresh_reader(store: GenerationCarryingStore) -> GenerationCarryingSto
 
 def test_carrying_is_its_own_optional_protocol_so_the_contract_moves_a_minor() -> None:
     # Assert
-    assert STORE_CONTRACT_VERSION == "2.14.0"
+    assert STORE_CONTRACT_VERSION == "3.0.0"
     assert GenerationCarrying.version == STORE_CONTRACT_VERSION
     assert callable(getattr(GenerationCarrying, _OPERATION, None))
     assert not hasattr(GenerationHolding, _OPERATION)

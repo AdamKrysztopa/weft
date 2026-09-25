@@ -848,11 +848,11 @@ def test_a_deprecation_from_a_real_distribution_carries_its_own_removal_release(
     with pytest.warns(DeprecationWarning):
         reports = discover(registry, entry_points=[entry_point])
 
-    # Assert — `weft-rag` is 2.x, so G9's clock reads its next major.
+    # Assert — `weft-rag` is 3.x since `43.27`, so G9's clock reads its next major.
     [report] = reports
     [notice] = report.deprecations
     assert notice.removal.clock is RemovalClock.NEXT_MAJOR
-    assert notice.removal.release == "weft-rag 3.0.0"
+    assert notice.removal.release == "weft-rag 4.0.0"
 
 
 def test_a_raising_register_discards_its_buffered_deprecation_and_warns_of_nothing() -> None:

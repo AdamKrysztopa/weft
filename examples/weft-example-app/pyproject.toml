@@ -14,7 +14,7 @@ requires-python = ">=3.12"
 # distribution that ships the verb, exactly as a pack depends on the distribution that publishes
 # the contract it registers against — the same rule `examples/weft-example-command/pyproject.toml`
 # states for `weft-command`, read from the consuming side.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.5.0,<3.0.0"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=3.0.0,<4.0.0"]
 
 [build-system]
 requires = ["hatchling"]

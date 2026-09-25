@@ -422,6 +422,7 @@ implement:
 | Widen a parameter type | minor | **major** | **major** |
 | Narrow a return type | **major** | minor | **major** |
 | Add an optional field to a returned model | minor | minor | minor |
+| Add a behavioural obligation every implementer must now meet, with no new method (a store owing overlapping callers a serial run's answer, `43.27`) | — | **major** | **major** |
 
 This makes `COMMAND_CONTRACT_VERSION` **1.1.0 a mis-recorded major**: task 3.2 added `help` to
 `required_declarations`, which breaks every `Command` that does not declare one. It is corrected to
@@ -431,7 +432,7 @@ This makes `COMMAND_CONTRACT_VERSION` **1.1.0 a mis-recorded major**: task 3.2 a
 contract's version trail had recorded `SourceStatus.INDEXING`, `LayerStatus.STALE` and
 `GenerationStatus.WITHDRAWN` as minors, while this table said major. Both were right about
 different enums. A store stores and returns a status and tests it by named member
-(`packages/weft-rag/src/weft_qdrant/store.py:775 "record.status is not GenerationStatus.PUBLISHED"`),
+(`packages/weft-rag/src/weft_qdrant/store.py:809 "record.status is not GenerationStatus.PUBLISHED"`),
 so a new member reaches it as "not that member", which is what the new member means. A `FilterOp`
 must be interpreted, and a backend meeting an operator it cannot interpret has no right answer.
 

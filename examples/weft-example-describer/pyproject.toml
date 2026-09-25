@@ -11,7 +11,7 @@ requires-python = ">=3.12"
 # **Both carry `>=X,<MAJOR+1`, and that is the point of an exemplar** — weft's ledger task 6.26.
 # G9 settled that a version requirement *is* the dependency specifier and bare names end;
 # `tests/architecture/test_example_packs_are_exemplars.py` keeps these bounds from drifting off.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.2.0,<3.0.0"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=3.0.0,<4.0.0"]
 
 # The one entry point a pack declares (weft's docs/02-extension-model.md section 2). Nothing under
 # weft's own packages/ or testing/ names this distribution, this module, or the plugin name below

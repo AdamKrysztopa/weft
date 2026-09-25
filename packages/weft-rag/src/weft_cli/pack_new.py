@@ -112,7 +112,7 @@ description = "A Weft pack."
 requires-python = ">=3.12"
 # The kernel, and the pack that publishes the contract being implemented. A contract is
 # published by a pack and never by the kernel (`02` §1), so this is an ordinary dependency.
-dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=2.0.0,<3.0.0"]
+dependencies = ["weft-kernel>=0.1.0,<1.0.0", "weft-rag>=3.0.0,<4.0.0"]
 
 # The whole mechanism. Discovery reads this group; nothing else here makes the pack a pack.
 [project.entry-points."weft.packs"]

@@ -43,6 +43,16 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **A store now owes callers that overlap on one handle what a serial run would give them —
+  `weft-rag` 3.0.0, the store contract's first major.** A corpus layer build keeps its summaries
+  through one store handle, several at a time (`max_concurrent_summaries`, default 8), and two of
+  them interleaving on one pgvector connection failed the build (`OutOfOrderTransactionNesting`).
+  The published conformance kit now checks it: overlapping writes all land, reads overlapping
+  writes answer as they would alone, and overlapping writes into one generation are all
+  published. A third-party store that passed the kit before may fail these three, and that is why
+  this is a major. Threads are still owed nothing. Packs depending on `weft-rag` move their range
+  to `>=3.0.0,<4.0.0`.
+
 - **`raptor` refuses a corpus it cannot cluster in reasonable time, before starting.**
   `similarity_threshold: auto` compares every pair of leaves. On 3,072-dimension vectors that
   measured 86 s and 339 MB at 1,000 leaves, and it grows with the square of the leaves: about 8.6

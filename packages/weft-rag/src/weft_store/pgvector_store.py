@@ -96,6 +96,7 @@ non-default target holds `pg_advisory_lock_shared` on it for the connection's li
 live statement is about to read.
 """
 
+import asyncio
 import hashlib
 import re
 from collections.abc import Mapping, Sequence
@@ -1210,6 +1211,15 @@ class PgVectorStore:
         self._published_generations: frozenset[GenerationId] | None = None
         #: `SingleWriter`'s own claim flag, never the row's presence — task **43.18**.
         self._writer_claimed = False
+        #: Guards only the lazy connect in `_connection()` — never held across a query, so a
+        #: query awaiting `_op_lock` never waits on one already-open connection's own opening.
+        self._open_lock: asyncio.Lock = asyncio.Lock()
+        #: Held for the whole of every operation that touches `self._conn` (Phase 43e, R43.40):
+        #: several callers overlapping on one handle's one connection get exactly what a
+        #: serial run gives them, since only one is ever mid-query at a time. `conn.transaction()`
+        #: tracks its own nesting on the connection object itself and corrupts that bookkeeping
+        #: the moment two of its blocks interleave — measured, `OutOfOrderTransactionNesting`.
+        self._op_lock: asyncio.Lock = asyncio.Lock()
 
     def _search_text_sql(self, predicate: sql.Composable) -> sql.Composed:
         """This store's lexical statement, from the same configuration name the column has.
@@ -1230,41 +1240,51 @@ class PgVectorStore:
         )
 
     async def _connection(self) -> psycopg.AsyncConnection[dict[str, Any]]:
-        """The lazily-opened, schema-provisioned connection this store reuses for its lifetime."""
+        """The lazily-opened, schema-provisioned connection this store reuses for its lifetime.
+
+        Double-checked under `_open_lock`, R43.40: several callers arriving before this handle
+        has ever connected must open exactly one physical connection, never one each.
+        """
         if self._conn is not None:
             return self._conn
-        # Parameterising the class explicitly, rather than relying on inference from
-        # `row_factory=dict_row`, is what makes `Self` bind to `AsyncConnection[dict[str, Any]]`
-        # under strict checking — inference alone resolves `Row` to the class's `TupleRow`
-        # default before it ever looks at `dict_row`'s own return type.
-        # Unprepared: another handle's first embedded write changes a typmod (R43.39).
-        conn = await psycopg.AsyncConnection[dict[str, Any]].connect(
-            self._dsn, autocommit=True, row_factory=dict_row, prepare_threshold=None
-        )
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT current_schema() AS schema")
-            row = await cur.fetchone()
-        home_schema = cast(str, row["schema"]) if row is not None else "public"
-        self._home_schema = home_schema
-        # `CREATE EXTENSION` and the vector type lookup below both run while `search_path` is
-        # still the connection's own default — never after a target has put another schema
-        # ahead of it. A first-ever connection to this database, bound straight to a candidate
-        # target, would otherwise create `vector` inside that target's schema instead of the
-        # home one, and every later default-target connection would find no `vector` type at
-        # all — measured, `34.0`.
-        #
-        # `IF NOT EXISTS` is not atomic against a concurrent creator — measured, R43.4: four
-        # handles opening one fresh database together, and `CREATE EXTENSION`, both catalogue
-        # tables and every table/index/column below each raised `DuplicateTable`/`UniqueViolation`
-        # against each other. `_SCHEMA_LOCK_KEY`, held for this block only and released in
-        # `finally`, serialises every opener of this database.
-        try:
-            await self._provision_under_schema_lock(conn, home_schema)
-        finally:
+        async with self._open_lock:
+            if self._conn is not None:
+                return self._conn
+            # Parameterising the class explicitly, rather than relying on inference from
+            # `row_factory=dict_row`, is what makes `Self` bind to `AsyncConnection[dict[str, Any]]`
+            # under strict checking — inference alone resolves `Row` to the class's `TupleRow`
+            # default before it ever looks at `dict_row`'s own return type.
+            # Unprepared: another handle's first embedded write changes a typmod (R43.39).
+            conn = await psycopg.AsyncConnection[dict[str, Any]].connect(
+                self._dsn, autocommit=True, row_factory=dict_row, prepare_threshold=None
+            )
             async with conn.cursor() as cur:
-                await cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (_SCHEMA_LOCK_KEY,))
-        self._conn = conn
-        return conn
+                await cur.execute("SELECT current_schema() AS schema")
+                row = await cur.fetchone()
+            home_schema = cast(str, row["schema"]) if row is not None else "public"
+            self._home_schema = home_schema
+            # `CREATE EXTENSION` and the vector type lookup below both run while `search_path` is
+            # still the connection's own default — never after a target has put another schema
+            # ahead of it. A first-ever connection to this database, bound straight to a candidate
+            # target, would otherwise create `vector` inside that target's schema instead of the
+            # home one, and every later default-target connection would find no `vector` type at
+            # all — measured, `34.0`.
+            #
+            # `IF NOT EXISTS` is not atomic against a concurrent creator — measured, R43.4: four
+            # handles opening one fresh database together, and `CREATE EXTENSION`, both
+            # catalogue tables and every table/index/column below each raised
+            # `DuplicateTable`/`UniqueViolation` against each other. `_SCHEMA_LOCK_KEY`, held
+            # for this block only and released in `finally`, serialises every opener of this
+            # database.
+            try:
+                await self._provision_under_schema_lock(conn, home_schema)
+            finally:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        "SELECT pg_advisory_unlock(hashtext(%s))", (_SCHEMA_LOCK_KEY,)
+                    )
+            self._conn = conn
+            return conn
 
     async def _provision_under_schema_lock(
         self, conn: psycopg.AsyncConnection[dict[str, Any]], home_schema: str
@@ -1583,65 +1603,68 @@ class PgVectorStore:
         Args:
             nodes: The nodes to write.
         """
-        if not nodes:
-            return
-        conn = await self._connection()
-        await self._reconcile_vector_width(conn, nodes)
-        rows = [_node_to_row(node) for node in nodes]
-        # `GenerationHolding`'s base marker — ledger task **43.14**: an unbound handle writes the
-        # empty marker, a handle `bind_generation` produced writes its own id. Merged on conflict,
-        # below, exactly as `sources` is, so a node the base wrote stays visible whatever
-        # generation also writes it.
-        generation_marker = [self._generation] if self._generation is not None else [""]
-        for row in rows:
-            row["generations"] = generation_marker
-        production_rows = [
-            {
-                "node_id": node.id,
-                "production_key": _production_key(node.lineage.sources),
-                "source_id": source,
-            }
-            for node in nodes
-            for source in node.lineage.sources
-        ]
-        # One transaction, R43.5: committed apart, a node without its productions is what the
-        # backfill a concurrent opener runs inserts for, and the two writers deadlock on the keys.
-        async with conn.transaction(), conn.cursor() as cur:
-            await cur.executemany(
-                """
-                INSERT INTO weft_nodes
-                    (id, parents, sources, content, media_type, embedding, ext, generations)
-                VALUES (%(id)s, %(parents)s, %(sources)s, %(content)s, %(media_type)s,
-                        %(embedding)s, %(ext)s, %(generations)s)
-                ON CONFLICT (id) DO UPDATE SET
-                    parents = EXCLUDED.parents,
-                    sources = ARRAY(
-                        SELECT DISTINCT unnest(weft_nodes.sources || EXCLUDED.sources)
-                    ),
-                    content = EXCLUDED.content,
-                    media_type = EXCLUDED.media_type,
-                    embedding = EXCLUDED.embedding,
-                    ext = EXCLUDED.ext,
-                    generations = ARRAY(
-                        SELECT DISTINCT unnest(weft_nodes.generations || EXCLUDED.generations)
-                    )
-                """,
-                rows,
-            )
-            if production_rows:
-                # One production per `add()` call, over however many documents it names — a
-                # `Node.combine` summary's sources arrive here as one row per source sharing one
-                # `production_key`. `ON CONFLICT DO NOTHING` on the full primary key is what makes
-                # re-adding the same node from the same document set contribute nothing new.
+        async with self._op_lock:
+            if not nodes:
+                return
+            conn = await self._connection()
+            await self._reconcile_vector_width(conn, nodes)
+            rows = [_node_to_row(node) for node in nodes]
+            # `GenerationHolding`'s base marker — ledger task **43.14**: an unbound handle
+            # writes the empty marker, a handle `bind_generation` produced writes its own id.
+            # Merged on conflict, below, exactly as `sources` is, so a node the base wrote
+            # stays visible whatever generation also writes it.
+            generation_marker = [self._generation] if self._generation is not None else [""]
+            for row in rows:
+                row["generations"] = generation_marker
+            production_rows = [
+                {
+                    "node_id": node.id,
+                    "production_key": _production_key(node.lineage.sources),
+                    "source_id": source,
+                }
+                for node in nodes
+                for source in node.lineage.sources
+            ]
+            # One transaction, R43.5: committed apart, a node without its productions is what
+            # the backfill a concurrent opener runs inserts for, and the two writers deadlock
+            # on the keys.
+            async with conn.transaction(), conn.cursor() as cur:
                 await cur.executemany(
                     """
-                    INSERT INTO weft_node_productions (node_id, production_key, source_id)
-                    VALUES (%(node_id)s, %(production_key)s, %(source_id)s)
-                    ON CONFLICT (node_id, production_key, source_id) DO NOTHING
+                    INSERT INTO weft_nodes
+                        (id, parents, sources, content, media_type, embedding, ext, generations)
+                    VALUES (%(id)s, %(parents)s, %(sources)s, %(content)s, %(media_type)s,
+                            %(embedding)s, %(ext)s, %(generations)s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        parents = EXCLUDED.parents,
+                        sources = ARRAY(
+                            SELECT DISTINCT unnest(weft_nodes.sources || EXCLUDED.sources)
+                        ),
+                        content = EXCLUDED.content,
+                        media_type = EXCLUDED.media_type,
+                        embedding = EXCLUDED.embedding,
+                        ext = EXCLUDED.ext,
+                        generations = ARRAY(
+                            SELECT DISTINCT unnest(weft_nodes.generations || EXCLUDED.generations)
+                        )
                     """,
-                    production_rows,
+                    rows,
                 )
-            await self._register_target_if_needed(cur)
+                if production_rows:
+                    # One production per `add()` call, over however many documents it names —
+                    # a `Node.combine` summary's sources arrive here as one row per source
+                    # sharing one `production_key`. `ON CONFLICT DO NOTHING` on the full
+                    # primary key is what makes re-adding the same node from the same document
+                    # set contribute nothing new.
+                    await cur.executemany(
+                        """
+                        INSERT INTO weft_node_productions (node_id, production_key, source_id)
+                        VALUES (%(node_id)s, %(production_key)s, %(source_id)s)
+                        ON CONFLICT (node_id, production_key, source_id) DO NOTHING
+                        """,
+                        production_rows,
+                    )
+                await self._register_target_if_needed(cur)
 
     async def flush(self) -> None:
         """A true no-op: `add()` writes immediately — see the module docstring."""
@@ -1656,13 +1679,14 @@ class PgVectorStore:
         Returns:
             The nodes that exist; an id the store does not hold is absent from the answer.
         """
-        if not ids:
-            return ()
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT * FROM weft_nodes WHERE id = ANY(%s)", (list(ids),))
-            rows = await cur.fetchall()
-        return tuple(_row_to_node(row) for row in rows)
+        async with self._op_lock:
+            if not ids:
+                return ()
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT * FROM weft_nodes WHERE id = ANY(%s)", (list(ids),))
+                rows = await cur.fetchall()
+            return tuple(_row_to_node(row) for row in rows)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
         """Delete what `source_id` produced, idempotently and resumably.
@@ -1673,15 +1697,18 @@ class PgVectorStore:
         Returns:
             How many nodes were deleted and how many were narrowed.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "UPDATE weft_sources SET status = %s WHERE id = %s",
-                (SourceStatus.DELETING.value, source_id),
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "UPDATE weft_sources SET status = %s WHERE id = %s",
+                    (SourceStatus.DELETING.value, source_id),
+                )
+                node_count, narrowed_count = await self._delete_and_narrow(cur, source_id)
+                await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
+            return Removed(
+                source_id=source_id, node_count=node_count, narrowed_count=narrowed_count
             )
-            node_count, narrowed_count = await self._delete_and_narrow(cur, source_id)
-            await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
-        return Removed(source_id=source_id, node_count=node_count, narrowed_count=narrowed_count)
 
     async def _delete_and_narrow(
         self, cur: psycopg.AsyncCursor[dict[str, Any]], source_id: SourceId
@@ -1789,14 +1816,15 @@ class PgVectorStore:
         await self.add([new])
         if old == new.id:
             return
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("DELETE FROM weft_nodes WHERE id = %s", (old,))
-            # `new`'s own `add()` call above already recorded its one production; `old`'s
-            # productions describe a node this call just deleted and carry nothing `new`
-            # inherits — ledger 27.1's answer for `supersede` is that it replaces `old`'s
-            # productions with `new`'s single one, never a union of the two.
-            await cur.execute("DELETE FROM weft_node_productions WHERE node_id = %s", (old,))
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("DELETE FROM weft_nodes WHERE id = %s", (old,))
+                # `new`'s own `add()` call above already recorded its one production; `old`'s
+                # productions describe a node this call just deleted and carry nothing `new`
+                # inherits — ledger 27.1's answer for `supersede` is that it replaces `old`'s
+                # productions with `new`'s single one, never a union of the two.
+                await cur.execute("DELETE FROM weft_node_productions WHERE node_id = %s", (old,))
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """Finish every deletion that was interrupted — `Reconcilable`, task **5.1b**.
@@ -1823,24 +1851,25 @@ class PgVectorStore:
         builds derived state that was never created, and a node store holds no derived state
         to build. `backfilled` is `0` and says so.
         """
-        del ctx
-        conn = await self._connection()
-        examined = 0
-        removed = 0
-        for source_id in await self._tombstoned():
-            async with conn.cursor() as cur:
-                node_count, _narrowed_count = await self._delete_and_narrow(
-                    cur, SourceId(source_id)
-                )
-                removed += node_count
-                await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
-            examined += 1
-        return ReconcileReport(
-            mode=mode,
-            examined=examined,
-            removed=removed,
-            remaining=len(await self._tombstoned()),
-        )
+        async with self._op_lock:
+            del ctx
+            conn = await self._connection()
+            examined = 0
+            removed = 0
+            for source_id in await self._tombstoned():
+                async with conn.cursor() as cur:
+                    node_count, _narrowed_count = await self._delete_and_narrow(
+                        cur, SourceId(source_id)
+                    )
+                    removed += node_count
+                    await cur.execute("DELETE FROM weft_sources WHERE id = %s", (source_id,))
+                examined += 1
+            return ReconcileReport(
+                mode=mode,
+                examined=examined,
+                removed=removed,
+                remaining=len(await self._tombstoned()),
+            )
 
     async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
         """What converging would cost — `Reconcilable`, task **5.1c**.
@@ -1852,14 +1881,15 @@ class PgVectorStore:
         tombstone count `reconcile` itself would examine, read the same way, so the two never
         disagree about what is outstanding.
         """
-        del ctx
-        pending = len(await self._tombstoned())
-        description = (
-            f"{pending} source(s) have an unfinished deletion to finish"
-            if pending
-            else "no unfinished deletions; nothing to converge"
-        )
-        return ReconcileEstimate(mode=mode, pending=pending, description=description)
+        async with self._op_lock:
+            del ctx
+            pending = len(await self._tombstoned())
+            description = (
+                f"{pending} source(s) have an unfinished deletion to finish"
+                if pending
+                else "no unfinished deletions; nothing to converge"
+            )
+            return ReconcileEstimate(mode=mode, pending=pending, description=description)
 
     async def _tombstoned(self) -> tuple[str, ...]:
         """Every source id whose deletion started and did not finish, in id order."""
@@ -1881,15 +1911,16 @@ class PgVectorStore:
         Returns:
             One page of nodes and the cursor for the next, if any.
         """
-        conn = await self._connection()
-        after = cursor if cursor is not None else ""
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT * FROM weft_nodes WHERE id > %s ORDER BY id LIMIT %s",
-                (after, _PAGE_SIZE + 1),
-            )
-            rows = await cur.fetchall()
-        return _page_of(rows)
+        async with self._op_lock:
+            conn = await self._connection()
+            after = cursor if cursor is not None else ""
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT * FROM weft_nodes WHERE id > %s ORDER BY id LIMIT %s",
+                    (after, _PAGE_SIZE + 1),
+                )
+                rows = await cur.fetchall()
+            return _page_of(rows)
 
     async def count(self) -> int:
         """Count the nodes stored.
@@ -1897,11 +1928,12 @@ class PgVectorStore:
         Returns:
             How many nodes this store holds.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT COUNT(*) AS n FROM weft_nodes")
-            row = await cur.fetchone()
-        return cast(int, row["n"]) if row is not None else 0
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT COUNT(*) AS n FROM weft_nodes")
+                row = await cur.fetchone()
+            return cast(int, row["n"]) if row is not None else 0
 
     async def put_source(self, record: SourceRecord) -> None:
         """Write or replace one source's record.
@@ -1909,38 +1941,39 @@ class PgVectorStore:
         Args:
             record: The record to store under its own id.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await self._register_target_if_needed(cur)
-            await cur.execute(
-                """
-                INSERT INTO weft_sources
-                    (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity,
-                     failure, layers)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE SET
-                    uri = EXCLUDED.uri,
-                    content_hash = EXCLUDED.content_hash,
-                    indexed_at = EXCLUDED.indexed_at,
-                    pipeline = EXCLUDED.pipeline,
-                    status = EXCLUDED.status,
-                    pipeline_identity = EXCLUDED.pipeline_identity,
-                    failure = EXCLUDED.failure, layers = EXCLUDED.layers
-                """,
-                (
-                    record.id,
-                    record.uri,
-                    record.content_hash,
-                    record.indexed_at,
-                    record.pipeline,
-                    record.status.value,
-                    record.pipeline_identity,
-                    Jsonb(record.failure.model_dump(mode="json"))
-                    if record.failure is not None
-                    else None,
-                    Jsonb([layer.model_dump(mode="json") for layer in record.layers]),
-                ),
-            )
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await self._register_target_if_needed(cur)
+                await cur.execute(
+                    """
+                    INSERT INTO weft_sources
+                        (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity,
+                         failure, layers)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        uri = EXCLUDED.uri,
+                        content_hash = EXCLUDED.content_hash,
+                        indexed_at = EXCLUDED.indexed_at,
+                        pipeline = EXCLUDED.pipeline,
+                        status = EXCLUDED.status,
+                        pipeline_identity = EXCLUDED.pipeline_identity,
+                        failure = EXCLUDED.failure, layers = EXCLUDED.layers
+                    """,
+                    (
+                        record.id,
+                        record.uri,
+                        record.content_hash,
+                        record.indexed_at,
+                        record.pipeline,
+                        record.status.value,
+                        record.pipeline_identity,
+                        Jsonb(record.failure.model_dump(mode="json"))
+                        if record.failure is not None
+                        else None,
+                        Jsonb([layer.model_dump(mode="json") for layer in record.layers]),
+                    ),
+                )
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
         """Fetch one `weft_sources` row from this handle's target and decode it.
@@ -1951,11 +1984,12 @@ class PgVectorStore:
         Returns:
             The record, or `None` when none is stored.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT * FROM weft_sources WHERE id = %s", (source_id,))
-            row = await cur.fetchone()
-        return _row_to_source_record(row) if row is not None else None
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT * FROM weft_sources WHERE id = %s", (source_id,))
+                row = await cur.fetchone()
+            return _row_to_source_record(row) if row is not None else None
 
     async def list_sources(self) -> Sequence[SourceRecord]:
         """Read every source record this store holds.
@@ -1963,11 +1997,12 @@ class PgVectorStore:
         Returns:
             Every source record.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT * FROM weft_sources ORDER BY id")
-            rows = await cur.fetchall()
-        return tuple(_row_to_source_record(row) for row in rows)
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT * FROM weft_sources ORDER BY id")
+                rows = await cur.fetchall()
+            return tuple(_row_to_source_record(row) for row in rows)
 
     async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
         """Every node `filter` selects, paged — `MetadataFilter`, task 2.6.
@@ -1976,17 +2011,18 @@ class PgVectorStore:
         cursor means something, and one page at a time because a predicate over a
         corpus can select all of it.
         """
-        conn = await self._connection()
-        values: dict[str, object] = {"after": cursor if cursor is not None else ""}
-        statement = sql.SQL(
-            "SELECT * FROM weft_nodes WHERE id > %(after)s AND {predicate} "
-            "ORDER BY id LIMIT %(limit)s"
-        ).format(predicate=_predicate_or_true(filter, values, await self._hidden_generations()))
-        values["limit"] = _PAGE_SIZE + 1
-        async with conn.cursor() as cur:
-            await cur.execute(statement, values)
-            rows = await cur.fetchall()
-        return _page_of(rows)
+        async with self._op_lock:
+            conn = await self._connection()
+            values: dict[str, object] = {"after": cursor if cursor is not None else ""}
+            statement = sql.SQL(
+                "SELECT * FROM weft_nodes WHERE id > %(after)s AND {predicate} "
+                "ORDER BY id LIMIT %(limit)s"
+            ).format(predicate=_predicate_or_true(filter, values, await self._hidden_generations()))
+            values["limit"] = _PAGE_SIZE + 1
+            async with conn.cursor() as cur:
+                await cur.execute(statement, values)
+                rows = await cur.fetchall()
+            return _page_of(rows)
 
     async def search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
@@ -2001,29 +2037,31 @@ class PgVectorStore:
         Returns:
             The best `top_k` nodes with their scores, best first.
         """
-        conn = await self._connection()
-        statement, values = await self._search_vector_statement(top_k, filter)
-        async with conn.cursor() as cur:
-            await cur.execute(
-                statement,
-                # Wrapped in `pgvector.Vector`, not passed as a bare list: a plain Python list
-                # adapts to a Postgres array, and `<=>` has no overload comparing `vector` to
-                # `double precision[]`. `register_vector_async` is what makes `PgVector` dump as
-                # the `vector` type instead.
-                {**values, "vector": PgVector(list(vector.values))},
-            )
-            rows = await cur.fetchall()
-        scored = [
-            Scored(value=_row_to_node(row), score=1.0 - cast(float, row["distance"]))
-            for row in rows
-        ]
-        # Re-sorted rather than trusted from the cursor: `hnsw.iterative_scan = 'relaxed_order'`
-        # (this store's own default — see `PgVectorSettings.iterative_scan`) explicitly permits
-        # pgvector to return rows slightly out of distance order, and every other score this store
-        # returns is already rank-ordered. One return path for every index kind, not a branch on
-        # `self._index` — `ORDER BY` above is still what keeps `LIMIT` cutting the right rows.
-        scored.sort(key=lambda s: s.score, reverse=True)
-        return scored
+        async with self._op_lock:
+            conn = await self._connection()
+            statement, values = await self._search_vector_statement(top_k, filter)
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    statement,
+                    # Wrapped in `pgvector.Vector`, not passed as a bare list: a plain Python list
+                    # adapts to a Postgres array, and `<=>` has no overload comparing `vector` to
+                    # `double precision[]`. `register_vector_async` is what makes `PgVector` dump as
+                    # the `vector` type instead.
+                    {**values, "vector": PgVector(list(vector.values))},
+                )
+                rows = await cur.fetchall()
+            scored = [
+                Scored(value=_row_to_node(row), score=1.0 - cast(float, row["distance"]))
+                for row in rows
+            ]
+            # Re-sorted rather than trusted from the cursor: `hnsw.iterative_scan =
+            # 'relaxed_order'` (this store's own default — see `PgVectorSettings.iterative_scan`)
+            # explicitly permits pgvector to return rows slightly out of distance order, and
+            # every other score this store returns is already rank-ordered. One return path for
+            # every index kind, not a branch on `self._index` — `ORDER BY` above is still what
+            # keeps `LIMIT` cutting the right rows.
+            scored.sort(key=lambda s: s.score, reverse=True)
+            return scored
 
     async def explain_search_vector(
         self, vector: Vector, top_k: int, filter: Filter | None = None
@@ -2038,15 +2076,16 @@ class PgVectorStore:
         a plan read for a copy would be a comparison whose two sides come from one source
         (`L5.6`), which is exactly what it exists to catch.
         """
-        conn = await self._connection()
-        statement, values = await self._search_vector_statement(top_k, filter)
-        explain_statement = sql.SQL("EXPLAIN {statement}").format(statement=statement)
-        async with conn.cursor() as cur:
-            await cur.execute(
-                explain_statement, {**values, "vector": PgVector(list(vector.values))}
-            )
-            rows = await cur.fetchall()
-        return "\n".join(str(row["QUERY PLAN"]) for row in rows)
+        async with self._op_lock:
+            conn = await self._connection()
+            statement, values = await self._search_vector_statement(top_k, filter)
+            explain_statement = sql.SQL("EXPLAIN {statement}").format(statement=statement)
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    explain_statement, {**values, "vector": PgVector(list(vector.values))}
+                )
+                rows = await cur.fetchall()
+            return "\n".join(str(row["QUERY PLAN"]) for row in rows)
 
     async def _search_vector_statement(
         self, top_k: int, filter: Filter | None
@@ -2109,31 +2148,34 @@ class PgVectorStore:
 
         No match is an empty sequence, not an error — see `TextSearch`'s own docstring.
         """
-        conn = await self._connection()
-        values: dict[str, object] = {}
-        predicate = _predicate_or_true(filter, values, await self._hidden_generations())
-        statement = (
-            _search_bm25_sql(predicate)
-            if self._text_mode is TextMode.BM25
-            else self._search_text_sql(predicate)
-        )
-        async with conn.cursor() as cur:
-            await cur.execute(statement, {**values, "text": text, "top_k": top_k})
-            rows = await cur.fetchall()
-        # `pg_textsearch`'s `<@>` is negative-and-ascending — best match `-1.47`, next `-0.73`,
-        # measured 2026-09-13 — while `Scored.score` is higher-is-better everywhere else in this
-        # tree; negating here is where that boundary is crossed, once, rather than at every reader.
-        sign = -1.0 if self._text_mode is TextMode.BM25 else 1.0
-        return [
-            Scored(value=_row_to_node(row), score=sign * float(cast(float, row["rank"])))
-            for row in rows
-        ]
+        async with self._op_lock:
+            conn = await self._connection()
+            values: dict[str, object] = {}
+            predicate = _predicate_or_true(filter, values, await self._hidden_generations())
+            statement = (
+                _search_bm25_sql(predicate)
+                if self._text_mode is TextMode.BM25
+                else self._search_text_sql(predicate)
+            )
+            async with conn.cursor() as cur:
+                await cur.execute(statement, {**values, "text": text, "top_k": top_k})
+                rows = await cur.fetchall()
+            # `pg_textsearch`'s `<@>` is negative-and-ascending — best match `-1.47`, next
+            # `-0.73`, measured 2026-09-13 — while `Scored.score` is higher-is-better everywhere
+            # else in this tree; negating here is where that boundary is crossed, once, rather
+            # than at every reader.
+            sign = -1.0 if self._text_mode is TextMode.BM25 else 1.0
+            return [
+                Scored(value=_row_to_node(row), score=sign * float(cast(float, row["rank"])))
+                for row in rows
+            ]
 
     async def aclose(self) -> None:
         """Close the underlying connection, if one was ever opened. Not part of any contract."""
-        if self._conn is not None:
-            await self._conn.close()
-            self._conn = None
+        async with self._op_lock:
+            if self._conn is not None:
+                await self._conn.close()
+                self._conn = None
 
     # -- TargetHolding — ledger task **34.1** ------------------------------------------------
 
@@ -2143,8 +2185,9 @@ class PgVectorStore:
         Returns:
             The targets, which one is live, which was live before, and the last promotion.
         """
-        conn = await self._connection()
-        return await _pg_target_catalogue(_TARGET_LAYOUT, conn, self._require_home_schema())
+        async with self._op_lock:
+            conn = await self._connection()
+            return await _pg_target_catalogue(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def bind_target(self, target: TargetName) -> Self:
         """Reach a target beside the live one, to build or inspect it before it is promoted.
@@ -2163,14 +2206,15 @@ class PgVectorStore:
         Returns:
             The identity the target holds, which is the earlier one if already claimed.
         """
-        conn = await self._connection()
-        return await _pg_claim_embedding(
-            _TARGET_LAYOUT,
-            conn,
-            self._require_home_schema(),
-            self._require_active_target(),
-            identity,
-        )
+        async with self._op_lock:
+            conn = await self._connection()
+            return await _pg_claim_embedding(
+                _TARGET_LAYOUT,
+                conn,
+                self._require_home_schema(),
+                self._require_active_target(),
+                identity,
+            )
 
     async def promote(self, promotion: Promotion) -> TargetCatalogue:
         """Make the promoted target live, recording the previous one for rollback.
@@ -2179,8 +2223,9 @@ class PgVectorStore:
         the already-live target, so a converging re-run after a crash leaves the rollback an
         operator needs intact.
         """
-        conn = await self._connection()
-        return await _pg_promote(_TARGET_LAYOUT, conn, self._require_home_schema(), promotion)
+        async with self._op_lock:
+            conn = await self._connection()
+            return await _pg_promote(_TARGET_LAYOUT, conn, self._require_home_schema(), promotion)
 
     async def rollback(self) -> TargetCatalogue:
         """Swap the live target with the previous one.
@@ -2191,8 +2236,9 @@ class PgVectorStore:
         Raises:
             NoPreviousTargetError: No target was live before this one.
         """
-        conn = await self._connection()
-        return await _pg_rollback(_TARGET_LAYOUT, conn, self._require_home_schema())
+        async with self._op_lock:
+            conn = await self._connection()
+            return await _pg_rollback(_TARGET_LAYOUT, conn, self._require_home_schema())
 
     async def drop_target(self, target: TargetName) -> None:
         """Delete `target` and everything stored in it.
@@ -2204,8 +2250,9 @@ class PgVectorStore:
             UnknownTargetError: The target is not in the catalogue.
             TargetInUseError: The target is live, previous, or bound by another handle.
         """
-        conn = await self._connection()
-        await _pg_drop_target(_TARGET_LAYOUT, conn, self._require_home_schema(), target)
+        async with self._op_lock:
+            conn = await self._connection()
+            await _pg_drop_target(_TARGET_LAYOUT, conn, self._require_home_schema(), target)
 
     # -- SingleWriter — ledger task **43.18** -------------------------------------------------
 
@@ -2217,53 +2264,54 @@ class PgVectorStore:
         its connection, so a stale row from it is simply overwritten by the upsert below the next
         time the lock is free to take.
         """
-        conn = await self._connection()
-        target = self._require_active_target()
-        table = _pg_home_table(self._require_home_schema(), "weft_writers")
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT pg_try_advisory_lock(hashtext(%s)) AS acquired",
-                (_writer_lock_key(target),),
-            )
-            row = await cur.fetchone()
-            if row is None or not row["acquired"]:
+        async with self._op_lock:
+            conn = await self._connection()
+            target = self._require_active_target()
+            table = _pg_home_table(self._require_home_schema(), "weft_writers")
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT pg_try_advisory_lock(hashtext(%s)) AS acquired",
+                    (_writer_lock_key(target),),
+                )
+                row = await cur.fetchone()
+                if row is None or not row["acquired"]:
+                    await cur.execute(
+                        sql.SQL(
+                            "SELECT host, pid, started_at, command FROM {} WHERE target = %s"
+                        ).format(table),
+                        (target,),
+                    )
+                    holder_row = await cur.fetchone()
+                    if holder_row is None:
+                        raise AssertionError(
+                            "pg_try_advisory_lock refused, but weft_writers holds no row for "
+                            f"target {target!r}"
+                        )
+                    raise WriterBusyError(
+                        WriterClaim(
+                            host=cast(str, holder_row["host"]),
+                            pid=cast(int, holder_row["pid"]),
+                            started_at=cast(datetime, holder_row["started_at"]),
+                            command=cast(str, holder_row["command"]),
+                        )
+                    )
                 await cur.execute(
                     sql.SQL(
-                        "SELECT host, pid, started_at, command FROM {} WHERE target = %s"
+                        "INSERT INTO {} (target, host, pid, started_at, command) "
+                        "VALUES (%(target)s, %(host)s, %(pid)s, %(started_at)s, %(command)s) "
+                        "ON CONFLICT (target) DO UPDATE SET "
+                        "host = EXCLUDED.host, pid = EXCLUDED.pid, "
+                        "started_at = EXCLUDED.started_at, command = EXCLUDED.command"
                     ).format(table),
-                    (target,),
+                    {
+                        "target": target,
+                        "host": writer.host,
+                        "pid": writer.pid,
+                        "started_at": writer.started_at,
+                        "command": writer.command,
+                    },
                 )
-                holder_row = await cur.fetchone()
-                if holder_row is None:
-                    raise AssertionError(
-                        "pg_try_advisory_lock refused, but weft_writers holds no row for "
-                        f"target {target!r}"
-                    )
-                raise WriterBusyError(
-                    WriterClaim(
-                        host=cast(str, holder_row["host"]),
-                        pid=cast(int, holder_row["pid"]),
-                        started_at=cast(datetime, holder_row["started_at"]),
-                        command=cast(str, holder_row["command"]),
-                    )
-                )
-            await cur.execute(
-                sql.SQL(
-                    "INSERT INTO {} (target, host, pid, started_at, command) "
-                    "VALUES (%(target)s, %(host)s, %(pid)s, %(started_at)s, %(command)s) "
-                    "ON CONFLICT (target) DO UPDATE SET "
-                    "host = EXCLUDED.host, pid = EXCLUDED.pid, "
-                    "started_at = EXCLUDED.started_at, command = EXCLUDED.command"
-                ).format(table),
-                {
-                    "target": target,
-                    "host": writer.host,
-                    "pid": writer.pid,
-                    "started_at": writer.started_at,
-                    "command": writer.command,
-                },
-            )
-        self._writer_claimed = True
+            self._writer_claimed = True
 
     async def release_writer(self) -> None:
         """Release this handle's writer claim, if it holds one.
@@ -2272,17 +2320,20 @@ class PgVectorStore:
         `release_writer` call, or one on a handle that lost `claim_writer` to a busy target,
         must not treat as releasing someone else's claim.
         """
-        if not self._writer_claimed:
-            return
-        conn = await self._connection()
-        target = self._require_active_target()
-        table = _pg_home_table(self._require_home_schema(), "weft_writers")
-        async with conn.cursor() as cur:
-            await cur.execute(sql.SQL("DELETE FROM {} WHERE target = %s").format(table), (target,))
-            await cur.execute(
-                "SELECT pg_advisory_unlock(hashtext(%s))", (_writer_lock_key(target),)
-            )
-        self._writer_claimed = False
+        async with self._op_lock:
+            if not self._writer_claimed:
+                return
+            conn = await self._connection()
+            target = self._require_active_target()
+            table = _pg_home_table(self._require_home_schema(), "weft_writers")
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    sql.SQL("DELETE FROM {} WHERE target = %s").format(table), (target,)
+                )
+                await cur.execute(
+                    "SELECT pg_advisory_unlock(hashtext(%s))", (_writer_lock_key(target),)
+                )
+            self._writer_claimed = False
 
     # -- GenerationHolding — ledger task **43.14** -------------------------------------------
 
@@ -2295,18 +2346,19 @@ class PgVectorStore:
         Returns:
             The generation's record, `building`.
         """
-        conn = await self._connection()
-        generation_id = GenerationId(f"g-{uuid4().hex[:12]}")
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "INSERT INTO weft_generations (id, layer, status, opened_at) "
-                "VALUES (%s, %s, %s, now()) RETURNING *",
-                (generation_id, layer, GenerationStatus.BUILDING.value),
-            )
-            row = await cur.fetchone()
-        if row is None:
-            raise AssertionError("INSERT ... RETURNING must return exactly one row")
-        return _row_to_generation_record(row)
+        async with self._op_lock:
+            conn = await self._connection()
+            generation_id = GenerationId(f"g-{uuid4().hex[:12]}")
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO weft_generations (id, layer, status, opened_at) "
+                    "VALUES (%s, %s, %s, now()) RETURNING *",
+                    (generation_id, layer, GenerationStatus.BUILDING.value),
+                )
+                row = await cur.fetchone()
+            if row is None:
+                raise AssertionError("INSERT ... RETURNING must return exactly one row")
+            return _row_to_generation_record(row)
 
     async def bind_generation(self, generation: GenerationId) -> Self:
         """Give a build its own handle whose writes join `generation`, refusing an unknown id.
@@ -2314,15 +2366,16 @@ class PgVectorStore:
         A second handle onto the same database and target, bound to `generation` — its own
         connection, opened lazily on first use exactly as `bind_target`'s is.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (generation,))
-            found = await cur.fetchone()
-            if found is None:
-                raise UnknownGenerationError(
-                    generation, valid_options=await self._known_generation_ids(cur)
-                )
-        return type(self)(self._settings, _bound=self._bound, _generation=generation)
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (generation,))
+                found = await cur.fetchone()
+                if found is None:
+                    raise UnknownGenerationError(
+                        generation, valid_options=await self._known_generation_ids(cur)
+                    )
+            return type(self)(self._settings, _bound=self._bound, _generation=generation)
 
     async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
         """Make `generation` visible to handles that open afterwards.
@@ -2336,19 +2389,20 @@ class PgVectorStore:
         Raises:
             UnknownGenerationError: The store holds no such generation.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "UPDATE weft_generations SET status = %s, published_at = now() "
-                "WHERE id = %s RETURNING *",
-                (GenerationStatus.PUBLISHED.value, generation),
-            )
-            row = await cur.fetchone()
-            if row is None:
-                raise UnknownGenerationError(
-                    generation, valid_options=await self._known_generation_ids(cur)
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "UPDATE weft_generations SET status = %s, published_at = now() "
+                    "WHERE id = %s RETURNING *",
+                    (GenerationStatus.PUBLISHED.value, generation),
                 )
-        return _row_to_generation_record(row)
+                row = await cur.fetchone()
+                if row is None:
+                    raise UnknownGenerationError(
+                        generation, valid_options=await self._known_generation_ids(cur)
+                    )
+            return _row_to_generation_record(row)
 
     async def retract_generation(self, generation: GenerationId) -> Removed:
         """Remove the nodes only `generation` made, and forget it.
@@ -2356,15 +2410,16 @@ class PgVectorStore:
         Remove the nodes only `generation` made, keep every node another generation or the
         base also holds, and forget `generation` — `GenerationHolding`, ledger **43.14**.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (generation,))
-            if await cur.fetchone() is None:
-                raise UnknownGenerationError(
-                    generation, valid_options=await self._known_generation_ids(cur)
-                )
-            node_count = await _retract_generation_rows(cur, generation)
-        return Removed(source_id=SourceId(generation), node_count=node_count)
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (generation,))
+                if await cur.fetchone() is None:
+                    raise UnknownGenerationError(
+                        generation, valid_options=await self._known_generation_ids(cur)
+                    )
+                node_count = await _retract_generation_rows(cur, generation)
+            return Removed(source_id=SourceId(generation), node_count=node_count)
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
         """Read every generation this store's catalogue holds.
@@ -2372,11 +2427,12 @@ class PgVectorStore:
         Returns:
             Every generation record, oldest first.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT * FROM weft_generations ORDER BY opened_at, id")
-            rows = await cur.fetchall()
-        return tuple(_row_to_generation_record(row) for row in rows)
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT * FROM weft_generations ORDER BY opened_at, id")
+                rows = await cur.fetchall()
+            return tuple(_row_to_generation_record(row) for row in rows)
 
     # -- GenerationCarrying — ledger task **43.22** ------------------------------------------
 
@@ -2386,29 +2442,30 @@ class PgVectorStore:
         One transaction: every id is checked against the published generations before any is
         carried, so a refused call writes nothing.
         """
-        requested = list(dict.fromkeys(node_ids))
-        conn = await self._connection()
-        async with conn.transaction(), conn.cursor() as cur:
-            await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (into,))
-            if await cur.fetchone() is None:
-                raise UnknownGenerationError(
-                    into, valid_options=await self._known_generation_ids(cur)
+        async with self._op_lock:
+            requested = list(dict.fromkeys(node_ids))
+            conn = await self._connection()
+            async with conn.transaction(), conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM weft_generations WHERE id = %s", (into,))
+                if await cur.fetchone() is None:
+                    raise UnknownGenerationError(
+                        into, valid_options=await self._known_generation_ids(cur)
+                    )
+                await cur.execute(
+                    "SELECT id FROM weft_nodes WHERE id = ANY(%s) AND generations && "
+                    "ARRAY(SELECT id FROM weft_generations WHERE status = %s)",
+                    (requested, GenerationStatus.PUBLISHED.value),
                 )
-            await cur.execute(
-                "SELECT id FROM weft_nodes WHERE id = ANY(%s) AND generations && "
-                "ARRAY(SELECT id FROM weft_generations WHERE status = %s)",
-                (requested, GenerationStatus.PUBLISHED.value),
-            )
-            members = {cast(str, row["id"]) for row in await cur.fetchall()}
-            refused = [node_id for node_id in requested if node_id not in members]
-            if refused:
-                raise NotAPublishedMemberError(into, node_ids=refused)
-            await cur.execute(
-                "UPDATE weft_nodes SET generations = array_append(generations, %s) "
-                "WHERE id = ANY(%s) AND NOT (%s = ANY(generations))",
-                (into, requested, into),
-            )
-        return len(requested)
+                members = {cast(str, row["id"]) for row in await cur.fetchall()}
+                refused = [node_id for node_id in requested if node_id not in members]
+                if refused:
+                    raise NotAPublishedMemberError(into, node_ids=refused)
+                await cur.execute(
+                    "UPDATE weft_nodes SET generations = array_append(generations, %s) "
+                    "WHERE id = ANY(%s) AND NOT (%s = ANY(generations))",
+                    (into, requested, into),
+                )
+            return len(requested)
 
     # -- GenerationWithdrawing — repair **R43.29** -------------------------------------------
 
@@ -2418,45 +2475,54 @@ class PgVectorStore:
         Mark a published `generation` withdrawn and touch no node: a handle that read its
         manifest before this keeps it, and every handle that reads one after leaves it out.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "UPDATE weft_generations SET status = %s WHERE id = %s AND status = %s RETURNING *",
-                (GenerationStatus.WITHDRAWN.value, generation, GenerationStatus.PUBLISHED.value),
-            )
-            row = await cur.fetchone()
-            if row is not None:
-                return _row_to_generation_record(row)
-            await cur.execute("SELECT status FROM weft_generations WHERE id = %s", (generation,))
-            found = await cur.fetchone()
-            if found is None:
-                raise UnknownGenerationError(
-                    generation, valid_options=await self._known_generation_ids(cur)
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "UPDATE weft_generations SET status = %s WHERE id = %s AND status = %s "
+                    "RETURNING *",
+                    (
+                        GenerationStatus.WITHDRAWN.value,
+                        generation,
+                        GenerationStatus.PUBLISHED.value,
+                    ),
                 )
-            await cur.execute(
-                "SELECT id FROM weft_generations WHERE status = %s ORDER BY id",
-                (GenerationStatus.PUBLISHED.value,),
+                row = await cur.fetchone()
+                if row is not None:
+                    return _row_to_generation_record(row)
+                await cur.execute(
+                    "SELECT status FROM weft_generations WHERE id = %s", (generation,)
+                )
+                found = await cur.fetchone()
+                if found is None:
+                    raise UnknownGenerationError(
+                        generation, valid_options=await self._known_generation_ids(cur)
+                    )
+                await cur.execute(
+                    "SELECT id FROM weft_generations WHERE status = %s ORDER BY id",
+                    (GenerationStatus.PUBLISHED.value,),
+                )
+                published = tuple(cast(str, held["id"]) for held in await cur.fetchall())
+            raise NotAPublishedGenerationError(
+                generation,
+                status=GenerationStatus(cast(str, found["status"])),
+                valid_options=published,
             )
-            published = tuple(cast(str, held["id"]) for held in await cur.fetchall())
-        raise NotAPublishedGenerationError(
-            generation,
-            status=GenerationStatus(cast(str, found["status"])),
-            valid_options=published,
-        )
 
     async def reclaim_withdrawn(self, layer: str) -> Removed:
         """`retract_generation`'s work for every withdrawn generation of `layer`."""
-        conn = await self._connection()
-        node_count = 0
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT id FROM weft_generations WHERE layer = %s AND status = %s ORDER BY id",
-                (layer, GenerationStatus.WITHDRAWN.value),
-            )
-            doomed = [GenerationId(cast(str, row["id"])) for row in await cur.fetchall()]
-            for generation in doomed:
-                node_count += await _retract_generation_rows(cur, generation)
-        return Removed(source_id=SourceId(layer), node_count=node_count)
+        async with self._op_lock:
+            conn = await self._connection()
+            node_count = 0
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT id FROM weft_generations WHERE layer = %s AND status = %s ORDER BY id",
+                    (layer, GenerationStatus.WITHDRAWN.value),
+                )
+                doomed = [GenerationId(cast(str, row["id"])) for row in await cur.fetchall()]
+                for generation in doomed:
+                    node_count += await _retract_generation_rows(cur, generation)
+            return Removed(source_id=SourceId(layer), node_count=node_count)
 
     async def _known_generation_ids(
         self, cur: psycopg.AsyncCursor[dict[str, Any]]
@@ -2476,9 +2542,10 @@ class PgVectorStore:
         Read off the column itself (`atttypmod`) rather than kept in memory, so a store opened
         against a database another process already typed answers correctly on its very first call.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            return await self._read_committed_width(cur)
+        async with self._op_lock:
+            conn = await self._connection()
+            async with conn.cursor() as cur:
+                return await self._read_committed_width(cur)
 
     async def _read_committed_width(self, cur: psycopg.AsyncCursor[dict[str, Any]]) -> int | None:
         await cur.execute(_EMBEDDING_TYPMOD_SQL)

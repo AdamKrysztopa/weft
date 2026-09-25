@@ -106,6 +106,7 @@ from typing import Any, ClassVar, Final, Self, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from qdrant_client import AsyncQdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
 
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
@@ -469,6 +470,10 @@ class QdrantStore:
         #: any — read once in `_connection` and held for this handle's lifetime, `34.3`'s shape
         #: applied again (ledger **43.14**). `None` only before `_connection` has run.
         self._visible_generations: tuple[str, ...] | None = None
+        #: Guards `_ensure_pair_provisioned`'s body (Phase 43e, R43.40): several overlapping
+        #: first callers on one handle must provision `self._nodes`/`self._sources` once, not
+        #: race each other's `create_collection` the way concurrent `add()` calls did.
+        self._provision_lock: asyncio.Lock = asyncio.Lock()
 
     @property
     def vector_index_kind(self) -> VectorIndexKind:
@@ -571,7 +576,7 @@ class QdrantStore:
             # is content to hold a payload-only collection. Guarded rather than assumed
             # alongside `self._nodes`, in case an earlier provisioning was interrupted
             # between the two creates.
-            await client.create_collection(self._sources, vectors_config={})
+            await self._create_collection_racing(client, self._sources, vectors_config={})
         self._vector_width = self._settings.vector_size
         return True
 
@@ -605,6 +610,23 @@ class QdrantStore:
         self._vector_width = await self._read_committed_width(client)
         return True
 
+    async def _create_collection_racing(
+        self, client: AsyncQdrantClient, name: str, **kwargs: Any
+    ) -> None:
+        """Create `name`, treating a creator that lost the race to another as success.
+
+        Two processes can race the same way two coroutines on one handle do — R43.4 is
+        pgvector's precedent for exactly this, there against `IF NOT EXISTS`'s own
+        non-atomicity. Qdrant answers a second creator with `409`; that is read as "the other
+        creator won" only once `collection_exists` confirms it, never swallowed on the status
+        code alone, and re-raised when the collection still is not there.
+        """
+        try:
+            await client.create_collection(name, **kwargs)
+        except UnexpectedResponse as error:
+            if error.status_code != 409 or not await client.collection_exists(name):
+                raise
+
     async def _ensure_pair_provisioned(
         self, client: AsyncQdrantClient, width_hint: int | None
     ) -> None:
@@ -626,52 +648,64 @@ class QdrantStore:
         unconditionally at open, moved here at **R43.2**: same vector configuration, same sparse
         vector, same quantization, same optimizer setting, same payload indexes, same vector-less
         `self._sources`.
+
+        `_provision_lock` (Phase 43e, R43.40) makes this handle's own first write single: several
+        `add`/`put_source` calls overlapping on one still-unprovisioned handle serialise here, so
+        only the first actually calls `create_collection` and the rest find `self._provisioned`
+        already true. `_create_collection_racing` is what is left for a *different* handle, or a
+        different process, reaching the same collection name at the same time.
         """
         if self._provisioned:
             return
-        width = width_hint if width_hint is not None else self._settings.vector_size
-        if not await client.collection_exists(self._nodes):
-            await client.create_collection(
-                self._nodes,
-                vectors_config={
-                    _VECTOR: models.VectorParams(
-                        size=width,
-                        # Cosine, not configurable, and matching pgvector's `<=>` on purpose:
-                        # `Scored.score` is per-search and comparable to nothing, but the
-                        # conformance kit compares two backends' *rankings*, and a distance
-                        # metric chosen per deployment would make that comparison meaningless.
-                        distance=models.Distance.COSINE,
-                        datatype=_datatype_for(self._settings.precision),
-                    )
-                },
-                sparse_vectors_config={
-                    # `modifier=IDF` is the load-bearing part: it is what applies collection
-                    # inverse document frequency at query time, over a sparse dot product that
-                    # would otherwise be plain term-frequency matching wearing BM25's name.
-                    # Measured working on the pinned `v1.12.4`.
-                    _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
-                },
-                quantization_config=_quantization_config_for(self._settings.precision),
-                optimizers_config=(
-                    models.OptimizersConfigDiff(
-                        indexing_threshold=self._settings.indexing_threshold
-                    )
-                    if self._settings.indexing_threshold is not None
-                    else None
-                ),
-            )
-            # Before the first point — task **31.1**: Qdrant generates filterable-HNSW edges
-            # only for data indexed after the payload index exists, so an index created later
-            # still answers filters but the graph it needed was already built without it.
-        await self._reconcile_payload_indexes(client)
-        await self._ensure_generations_payload_index(client)
-        if not await client.collection_exists(self._sources):
-            # No vectors at all: a source record has nothing to be similar to, and Qdrant
-            # is content to hold a payload-only collection.
-            await client.create_collection(self._sources, vectors_config={})
-        await self._register_target_if_needed(client)
-        self._vector_width = width
-        self._provisioned = True
+        async with self._provision_lock:
+            if self._provisioned:
+                return
+            width = width_hint if width_hint is not None else self._settings.vector_size
+            if not await client.collection_exists(self._nodes):
+                await self._create_collection_racing(
+                    client,
+                    self._nodes,
+                    vectors_config={
+                        _VECTOR: models.VectorParams(
+                            size=width,
+                            # Cosine, not configurable, and matching pgvector's `<=>` on
+                            # purpose: `Scored.score` is per-search and comparable to nothing,
+                            # but the conformance kit compares two backends' *rankings*, and a
+                            # distance metric chosen per deployment would make that comparison
+                            # meaningless.
+                            distance=models.Distance.COSINE,
+                            datatype=_datatype_for(self._settings.precision),
+                        )
+                    },
+                    sparse_vectors_config={
+                        # `modifier=IDF` is the load-bearing part: it is what applies collection
+                        # inverse document frequency at query time, over a sparse dot product
+                        # that would otherwise be plain term-frequency matching wearing BM25's
+                        # name. Measured working on the pinned `v1.12.4`.
+                        _LEXICAL: models.SparseVectorParams(modifier=models.Modifier.IDF)
+                    },
+                    quantization_config=_quantization_config_for(self._settings.precision),
+                    optimizers_config=(
+                        models.OptimizersConfigDiff(
+                            indexing_threshold=self._settings.indexing_threshold
+                        )
+                        if self._settings.indexing_threshold is not None
+                        else None
+                    ),
+                )
+                # Before the first point — task **31.1**: Qdrant generates filterable-HNSW
+                # edges only for data indexed after the payload index exists, so an index
+                # created later still answers filters but the graph it needed was already
+                # built without it.
+            await self._reconcile_payload_indexes(client)
+            await self._ensure_generations_payload_index(client)
+            if not await client.collection_exists(self._sources):
+                # No vectors at all: a source record has nothing to be similar to, and Qdrant
+                # is content to hold a payload-only collection.
+                await self._create_collection_racing(client, self._sources, vectors_config={})
+            await self._register_target_if_needed(client)
+            self._vector_width = width
+            self._provisioned = True
 
     async def _read_committed_width(self, client: AsyncQdrantClient) -> int:
         """The width `self._nodes`' vector is configured for, read off the collection.
@@ -862,7 +896,9 @@ class QdrantStore:
         the collections it always had.
         """
         if not await client.collection_exists(self._generations_catalogue):
-            await client.create_collection(self._generations_catalogue, vectors_config={})
+            await self._create_collection_racing(
+                client, self._generations_catalogue, vectors_config={}
+            )
 
     async def _retract_from_nodes(self, client: AsyncQdrantClient, generation: str) -> int:
         """Remove `generation` from the nodes, deleting those only it held.
@@ -1174,7 +1210,7 @@ class QdrantStore:
         Vector-less, like `self._sources`.
         """
         if not await client.collection_exists(self._catalogue):
-            await client.create_collection(self._catalogue, vectors_config={})
+            await self._create_collection_racing(client, self._catalogue, vectors_config={})
 
     async def _register_target_if_needed(self, client: AsyncQdrantClient) -> None:
         """Record a non-default target's catalogue point on its first write.

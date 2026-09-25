@@ -478,7 +478,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 Lets an incremental rebuild keep unchanged nodes without rewriting or re-embedding them.
 
@@ -521,7 +521,7 @@ Raises:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 Lets a corpus-wide layer be rebuilt without any reader seeing a half-built tree.
 
@@ -643,7 +643,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 Hides a replaced tree from new readers at once, while readers already open finish on it.
 
@@ -881,7 +881,7 @@ Raises:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 A store that can evaluate a whole `Filter` against what it holds.
 
@@ -985,7 +985,7 @@ Raises:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 The base every store implements all of — see the module docstring for `run`.
 
@@ -1126,7 +1126,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 A store that can replace one node with another — ledger task **10.24**, G15's *Remove*.
 
@@ -1283,7 +1283,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 Anything whose state can be made to agree with what the corpus actually holds — G7.
 
@@ -1652,7 +1652,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 A store that admits one writer at a time — ledger task **43.18**.
 
@@ -1684,7 +1684,7 @@ End this handle's writer claim, if it holds one.
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 Anything holding data that a source's deletion must reach — G7 (2026-08-21).
 
@@ -1777,7 +1777,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 Lets an index be rebuilt beside the one serving, then swapped in with a rollback.
 
@@ -1873,7 +1873,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 A store that can rank `Node`s by lexical match on their own text.
 
@@ -1925,7 +1925,7 @@ Returns:
 
 **Module:** `weft_store.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `2.14.0`
+**Version:** `3.0.0`
 
 A store that can rank `Node`s by vector similarity.
 
