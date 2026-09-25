@@ -2129,6 +2129,23 @@ async def _holds_unpublishable(
         cursor = page.next_cursor
 
 
+async def _reopen_if_unpublishable(
+    generations: _CorpusGenerations,
+    checkpoints: _GenerationCheckpoints,
+    matching: Callable[[Filter, Cursor | None], Awaitable[Page[Node]]],
+    *,
+    layer: str,
+    created: Sequence[Node],
+) -> None:
+    """Reopen `layer`'s generation when `_holds_unpublishable` says it must not be published.
+
+    Lifted out of `_run_corpus_layer` for its own complexity budget, on `_publish_and_
+    supersede_generations`'s own footing.
+    """
+    if await _holds_unpublishable(generations, checkpoints, matching, layer=layer, created=created):
+        await generations.reopen(layer)
+
+
 async def _publish_and_supersede_generations(
     holders: Mapping[str, GenerationHolding],
     opened: Mapping[str, GenerationRecord],
@@ -2367,8 +2384,16 @@ async def _run_corpus_layer(
             message=message,
         )
 
+    first_stage_id = composition.layer_specs[0].id
     ids = tuple(ref.source_id for ref in eligible)
     leaves = await _paged_leaves(writer_matching, ids)
+    if not leaves:
+        reason = (
+            f"'{composition.layer}' read no leaf from {len(ids)} sources: the store answered "
+            "the leaf filter with nothing, so nothing was built and any published tree is kept"
+        )
+        await _fail("LayerNoLeaves", first_stage_id, reason)
+        return reason
 
     checkpoints = _GenerationCheckpoints(
         runner=runner,
@@ -2378,7 +2403,6 @@ async def _run_corpus_layer(
         layer=composition.layer,
         ctx=indexing_ctx,
     )
-    first_stage_id = composition.layer_specs[0].id
     outcome = await _failing_through(
         lambda: runner.run_once(
             layer_runnable, leaves, _with_checkpoints(indexing_ctx, checkpoints)
@@ -2393,10 +2417,9 @@ async def _run_corpus_layer(
 
     produced_nodes = cast("Sequence[Node]", outcome.value if isinstance(outcome, Produced) else ())
     created = layer_created(leaves, produced_nodes)
-    if await _holds_unpublishable(
+    await _reopen_if_unpublishable(
         generations, checkpoints, writer_matching, layer=composition.layer, created=created
-    ):
-        await generations.reopen(composition.layer)
+    )
 
     if created:
         reason = await _write_corpus_created(
