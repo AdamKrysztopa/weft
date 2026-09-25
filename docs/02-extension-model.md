@@ -840,7 +840,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 >
 > **Amended 2026-09-09 by ledger task `11.4`, as `S12` requires: this is a sentence about
 > obligation, not a prohibition on being one.** Read as a prohibition it is contradicted by the
-> tree — `examples/weft-example-graph/src/weft_example_graph/store.py:153 "class Gr"` *is* a `NodeStore`, and
+> tree — `examples/weft-example-graph/src/weft_example_graph/store.py:202 "class Gr"` *is* a `NodeStore`, and
 > §4's own add-on table lists a graph store under `Store`. What it actually says is narrower and
 > still true: **satisfying `SourceDeletable` must not require satisfying `NodeStore`**, because a
 > pack that only holds derived rows would then owe five methods to answer one question about

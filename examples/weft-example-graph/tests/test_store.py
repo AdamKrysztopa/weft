@@ -9,7 +9,7 @@ documents: a `pytestmark` computed once, from a synchronous reachability probe).
 
 import os
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 
 import psycopg
@@ -20,11 +20,7 @@ from weft_example_graph.store import GraphSettings, GraphStore
 
 from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.payload import MediaType, Node, NodeId, Produced, SourceId
-from weft_store.conformance import (
-    check_a_source_record_round_trips_and_is_listed,
-    check_a_source_records_layers_round_trip_whole_and_are_listed,
-    check_deleting_a_failed_source_removes_it_like_any_other,
-)
+from weft_store.conformance import checks_for, register_conformance_ext_models
 from weft_store.contract import Cursor, NodeStore, Page, ReconcileMode, SourceRecord
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -369,17 +365,49 @@ async def test_repair_without_a_corpus_on_the_passport_says_what_is_missing(
     assert "NodeStore" in str(raised.value)
 
 
-async def test_estimate_repair_reports_a_real_pending_count(store: GraphStore) -> None:
+async def test_estimate_repair_agrees_with_what_reconcile_examines(store: GraphStore) -> None:
+    """`pending` is the count `reconcile` examines, never a second figure (R43.54).
+
+    `ReconcileEstimate`'s contract: a node store's `pending` is its outstanding tombstones. With
+    none, both are zero, though the pass still recomputes every node's graph rows.
+    """
     # Arrange
-    await store.add([_node("some content", source="doc-7")])
+    node = _node("some content", source="doc-7")
+    await store.add([node])
+    ctx = _ctx_with_corpus(_CorpusStore([node], sources=("doc-7",)))
 
     # Act
-    estimate = await store.estimate(_ctx(), ReconcileMode.REPAIR)
+    estimate = await store.estimate(ctx, ReconcileMode.REPAIR)
+    report = await store.reconcile(ctx, ReconcileMode.REPAIR)
 
     # Assert
     assert estimate.mode is ReconcileMode.REPAIR
-    assert estimate.pending >= 1
+    assert estimate.pending == report.examined
     assert estimate.model_calls == 0
+
+
+async def test_a_node_written_before_productions_were_recorded_is_still_deleted() -> None:
+    """A node an older version of this pack stored is one production of its whole `sources`.
+
+    Repair **R43.54**: `delete_source` reads the productions table, which an upgraded database
+    holds no rows of for its existing nodes, so without a backfill it would delete nothing.
+    """
+    # Arrange
+    node = _node("Written before productions existed.", source="doc-legacy")
+    first = GraphStore(GraphSettings(dsn=SecretStr(_DSN)))
+    await first.add([node])
+    await first.aclose()
+    with psycopg.connect(_DSN, autocommit=True) as conn:
+        conn.execute("DELETE FROM exgraph_node_productions WHERE node_id = %s", (node.id,))
+    upgraded = GraphStore(GraphSettings(dsn=SecretStr(_DSN)))
+
+    # Act
+    removed = await upgraded.delete_source(SourceId("doc-legacy"))
+
+    # Assert
+    assert removed.node_count == 1
+    assert await upgraded.get([node.id]) == ()
+    await upgraded.aclose()
 
 
 async def test_rebuild_recomputes_from_current_content(store: GraphStore) -> None:
@@ -408,42 +436,37 @@ def _truncate() -> None:
         conn.execute("TRUNCATE exgraph_nodes, exgraph_sources CASCADE")
 
 
-@pytest.fixture
-async def clean_store(store: GraphStore) -> AsyncIterator[GraphStore]:
-    """The store, emptied before and after, for the published source-record checks.
+async def test_a_strangers_store_passes_every_published_check_it_can_answer() -> None:
+    """Every check `checks_for` offers this store passes, not three picked by hand (R43.54).
 
-    The published source-record checks list every source, so they start from empty tables,
-    and leave none of the kit's corpus behind: its nodes carry ext namespaces this pack's tests
-    do not register.
+    Carried repair **R43.54**: this file bound three source-record checks to a full `NodeStore`,
+    so no scan, deletion or count check had ever run on it; `R43.50` found seven failures in the
+    ingest example by that shape. Each check gets emptied tables and a fresh handle: the kit
+    owns no lifecycle.
     """
+    # Arrange
+    register_conformance_ext_models()
+    offered = checks_for(GraphStore(GraphSettings(dsn=SecretStr(_DSN))))
+
+    # Act
+    failures: list[str] = []
+    for check in offered:
+        failures += await _failure(check)
+
+    # Assert
+    assert len(offered) > 3
+    assert failures == []
+
+
+async def _failure(check: Callable[..., Awaitable[None]]) -> list[str]:
+    store = GraphStore(GraphSettings(dsn=SecretStr(_DSN)))
     await store.count()  # provisions the schema through the public API
     _truncate()
-    yield store
-    _truncate()
-
-
-async def test_a_source_record_round_trips_through_the_published_check(
-    clean_store: NodeStore,
-) -> None:
-    """Protects `weft sources list`'s failure detail for a stranger's store (`R36.2`).
-
-    `R36.2`: a store outside the tree keeps a failure it is handed, which the published
-    conformance kit checks. This store wrote neither `failure` nor `pipeline_identity`, so
-    `weft sources list` printed `failed` with no stage and attempts never advanced.
-    """
-    await check_a_source_record_round_trips_and_is_listed(clean_store)
-
-
-async def test_deleting_a_failed_source_passes_the_published_check(clean_store: NodeStore) -> None:
-    await check_deleting_a_failed_source_removes_it_like_any_other(clean_store)
-
-
-async def test_a_source_s_layers_round_trip_through_the_published_check(
-    clean_store: NodeStore,
-) -> None:
-    """Keeps a stranger's store from silently losing a source's built layers (ledger 43.6).
-
-    Ledger **43.6**: a store outside the tree keeps the layers it is handed, as `R36.2` made it
-    keep the failure.
-    """
-    await check_a_source_records_layers_round_trip_whole_and_are_listed(clean_store)
+    try:
+        await check(store)
+    except AssertionError as refused:
+        return [f"{check.__name__}: {refused}"]
+    finally:
+        await store.aclose()
+        _truncate()
+    return []

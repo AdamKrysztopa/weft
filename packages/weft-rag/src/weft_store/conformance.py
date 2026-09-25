@@ -411,12 +411,15 @@ def _node(
     return node if embedding is None else node.with_embedding(embedding)
 
 
-def _conformance_context() -> Context:
-    """A `Context` for `reconcile`, which takes one and — for a node store — reads nothing from it.
+def _conformance_context(store: NodeStore) -> Context:
+    """A `Context` for `reconcile`, carrying `store` as the run's corpus `NodeStore`.
 
-    A pack that converges by running model calls will; this one has no reason to.
+    A store checked alone is its own corpus, as it is when it is `[services] store`. A secondary
+    store reads the corpus from the passport (G13) and refuses a run without one (R43.54).
     """
-    return Context(tenant_id="conformance", run_id="run-1", trace_id="trace-1", locale="en")
+    ctx = Context(tenant_id="conformance", run_id="run-1", trace_id="trace-1", locale="en")
+    ctx.services.add(NodeStore, store)
+    return ctx
 
 
 def conformance_corpus() -> tuple[Node, ...]:
@@ -1136,8 +1139,8 @@ async def check_reconcile_finishes_a_deletion_that_was_interrupted(
     )
 
     # Act
-    report = await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
-    again = await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
+    report = await store.reconcile(_conformance_context(store), ReconcileMode.REPAIR)
+    again = await store.reconcile(_conformance_context(store), ReconcileMode.REPAIR)
 
     # Assert — the first pass finished the job; the second found nothing and is a no-op.
     _require(
@@ -1175,7 +1178,7 @@ async def check_reconcile_leaves_a_healthy_store_alone_on_either_backend(
     await store.add(conformance_corpus())
 
     # Act
-    report = await store.reconcile(_conformance_context(), ReconcileMode.FULL)
+    report = await store.reconcile(_conformance_context(store), ReconcileMode.FULL)
 
     # Assert
     _require(
@@ -1202,7 +1205,7 @@ async def check_estimate_reports_zero_model_calls_on_either_backend(
     await store.add(conformance_corpus())
 
     # Act
-    estimate = await store.estimate(_conformance_context(), ReconcileMode.FULL)
+    estimate = await store.estimate(_conformance_context(store), ReconcileMode.FULL)
 
     # Assert
     _require(
@@ -1235,8 +1238,8 @@ async def check_estimate_counts_the_identical_tombstones_reconcile_itself_examin
     )
 
     # Act
-    estimate = await store.estimate(_conformance_context(), ReconcileMode.REPAIR)
-    report = await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
+    estimate = await store.estimate(_conformance_context(store), ReconcileMode.REPAIR)
+    report = await store.reconcile(_conformance_context(store), ReconcileMode.REPAIR)
 
     # Assert
     _require(
@@ -1427,8 +1430,8 @@ async def check_reconcile_neither_deletes_nor_clears_a_failed_source(
     await store.put_source(record)
 
     # Act
-    await store.reconcile(_conformance_context(), ReconcileMode.REPAIR)
-    await store.reconcile(_conformance_context(), ReconcileMode.FULL)
+    await store.reconcile(_conformance_context(store), ReconcileMode.REPAIR)
+    await store.reconcile(_conformance_context(store), ReconcileMode.FULL)
 
     # Assert
     _require(

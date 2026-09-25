@@ -65,6 +65,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   before it was scoped. It stays until a language-detection stage writes it or that fixer retires.
   `weft plugins doctor` no longer prints a notice for it.
 
+- **The store conformance kit passes a store itself as the corpus to `reconcile` and
+  `estimate`.** A store checked alone plays the part it has as `[services] store`. So a second
+  store that reads the corpus from the run's context, as `weft-example-graph`'s does, can be held
+  to every check `checks_for` offers it; before, it refused every reconcile check.
+
 - **A store now owes callers that overlap on one handle what a serial run would give them —
   `weft-rag` 3.0.0, the store contract's first major.** A corpus layer build keeps its summaries
   through one store handle, several at a time (`max_concurrent_summaries`, default 8), and two of

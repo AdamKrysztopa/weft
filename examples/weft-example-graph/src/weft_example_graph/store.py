@@ -29,6 +29,7 @@ own `GraphData`) survive a round trip through this store with no special-casing 
 """
 
 from collections.abc import Mapping, Sequence
+from hashlib import sha256
 from typing import Any, cast
 
 import psycopg
@@ -50,6 +51,7 @@ from weft_store.contract import (
     ReconcileReport,
     Removed,
     SourceRecord,
+    SourceStatus,
     source_failure,
     source_layers,
     source_status,
@@ -67,6 +69,38 @@ CREATE TABLE IF NOT EXISTS exgraph_nodes (
     media_type TEXT NOT NULL,
     ext JSONB NOT NULL
 )
+"""
+
+#: `DOUBLE PRECISION[]`, not pgvector's `vector`: nothing here searches it, so the extension is
+#: not a dependency this pack carries.
+_ADD_NODES_COLUMNS = """
+ALTER TABLE exgraph_nodes
+    ADD COLUMN IF NOT EXISTS embedding DOUBLE PRECISION[]
+"""
+
+#: One row per `(node, production, source)`, pgvector's `weft_node_productions` (ledger 27.1):
+#: `production_key` groups what one `add()` wrote, so `_delete_and_narrow` can tell one production
+#: naming two sources from two productions sharing a node.
+_CREATE_PRODUCTIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS exgraph_node_productions (
+    node_id TEXT NOT NULL REFERENCES exgraph_nodes(id) ON DELETE CASCADE,
+    production_key TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    PRIMARY KEY (node_id, production_key, source_id)
+)
+"""
+
+#: A node an older version of this pack stored has no production recorded, and the honest reading
+#: is one production of its whole `sources` — `weft_store.pgvector_store`'s own backfill. A no-op
+#: once every node has one, so it runs on every connect.
+_BACKFILL_NODE_PRODUCTIONS = """
+INSERT INTO exgraph_node_productions (node_id, production_key, source_id)
+SELECT n.id,
+       encode(sha256(convert_to(
+           array_to_string(ARRAY(SELECT unnest(n.sources) ORDER BY 1), '|'), 'UTF8')), 'hex'),
+       s
+FROM exgraph_nodes n, unnest(n.sources) AS s
+WHERE NOT EXISTS (SELECT 1 FROM exgraph_node_productions p WHERE p.node_id = n.id)
 """
 
 _CREATE_SOURCES_TABLE = """
@@ -110,6 +144,17 @@ CREATE TABLE IF NOT EXISTS exgraph_relations (
     PRIMARY KEY (node_id, source_entity, target_entity, predicate)
 )
 """
+
+
+def _production_key(sources: frozenset[SourceId]) -> str:
+    """The digest that groups one `add()` call's rows in `exgraph_node_productions`.
+
+    A digest of the production's own sorted source ids, so writing the same node from the same
+    document set twice contributes one production and idempotent re-indexing does not
+    accumulate a duplicate — `PgVectorStore._production_key`'s own reasoning, a fresh digest
+    rather than an import: that function is a private name of another distribution's module.
+    """
+    return sha256("|".join(sorted(sources)).encode("utf-8")).hexdigest()
 
 
 class GraphSettings(BaseModel):
@@ -180,6 +225,9 @@ class GraphStore:
         )
         async with conn.cursor() as cur:
             await cur.execute(_CREATE_NODES_TABLE)
+            await cur.execute(_ADD_NODES_COLUMNS)
+            await cur.execute(_CREATE_PRODUCTIONS_TABLE)
+            await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
             await cur.execute(_CREATE_SOURCES_TABLE)
             await cur.execute(_ADD_SOURCES_COLUMNS)
             await cur.execute(_CREATE_ENTITIES_TABLE)
@@ -214,7 +262,12 @@ class GraphStore:
         return Produced(value=payload)
 
     async def add(self, nodes: Sequence[Node]) -> None:
-        """Upsert `nodes`, replacing each one's entity and relation rows.
+        """Upsert `nodes`, merging each one's sources with what is already stored.
+
+        A node already held under the same id has its `lineage.sources` merged with the new
+        write's — `check_add_merges_a_nodes_sources_rather_than_replacing_them` — and gets one
+        more row per source in `exgraph_node_productions`, so a later `delete_source` can tell
+        this write apart from any other production that also named this node (ledger **27.1**).
 
         Args:
             nodes: The nodes to write.
@@ -223,20 +276,43 @@ class GraphStore:
             return
         conn = await self._connection()
         rows = [_node_to_row(node) for node in nodes]
+        production_rows = [
+            {
+                "node_id": node.id,
+                "production_key": _production_key(node.lineage.sources),
+                "source_id": source,
+            }
+            for node in nodes
+            for source in node.lineage.sources
+        ]
         async with conn.cursor() as cur:
             await cur.executemany(
                 """
-                INSERT INTO exgraph_nodes (id, parents, sources, content, media_type, ext)
-                VALUES (%(id)s, %(parents)s, %(sources)s, %(content)s, %(media_type)s, %(ext)s)
+                INSERT INTO exgraph_nodes
+                    (id, parents, sources, content, media_type, ext, embedding)
+                VALUES (%(id)s, %(parents)s, %(sources)s, %(content)s, %(media_type)s, %(ext)s,
+                        %(embedding)s)
                 ON CONFLICT (id) DO UPDATE SET
                     parents = EXCLUDED.parents,
-                    sources = EXCLUDED.sources,
+                    sources = ARRAY(
+                        SELECT DISTINCT unnest(exgraph_nodes.sources || EXCLUDED.sources)
+                    ),
                     content = EXCLUDED.content,
                     media_type = EXCLUDED.media_type,
-                    ext = EXCLUDED.ext
+                    ext = EXCLUDED.ext,
+                    embedding = EXCLUDED.embedding
                 """,
                 rows,
             )
+            if production_rows:
+                await cur.executemany(
+                    """
+                    INSERT INTO exgraph_node_productions (node_id, production_key, source_id)
+                    VALUES (%(node_id)s, %(production_key)s, %(source_id)s)
+                    ON CONFLICT (node_id, production_key, source_id) DO NOTHING
+                    """,
+                    production_rows,
+                )
             for node in nodes:
                 await _replace_graph_rows(cur, node.id, node.ext_as(GraphData))
 
@@ -365,25 +441,36 @@ class GraphStore:
     # -- SourceDeletable -------------------------------------------------------------------
 
     async def delete_source(self, source_id: SourceId) -> Removed:
-        """Delete every node from `source_id`, and its source record.
+        """Delete the nodes `source_id` alone produced, and narrow the ones it shares.
+
+        A node another document also produced survives, narrowed rather than deleted — ledger
+        **27.1**, `_delete_and_narrow`'s own doctring has the property. Writes a `DELETING`
+        tombstone first, so an interruption between the two statements is exactly what
+        `reconcile`'s own tombstone-finishing pass (below) resumes rather than restarts.
 
         Args:
             source_id: The source to remove.
 
         Returns:
-            The source removed and how many nodes went with it.
+            The source removed, how many nodes were deleted, and how many were narrowed.
         """
         conn = await self._connection()
         async with conn.cursor() as cur:
-            await cur.execute("DELETE FROM exgraph_nodes WHERE %s = ANY(sources)", (source_id,))
-            node_count = cur.rowcount
+            await cur.execute(
+                "UPDATE exgraph_sources SET status = %s WHERE id = %s",
+                (SourceStatus.DELETING.value, source_id),
+            )
+            node_count, narrowed_count = await _delete_and_narrow(cur, source_id)
             await cur.execute("DELETE FROM exgraph_sources WHERE id = %s", (source_id,))
-        return Removed(source_id=source_id, node_count=node_count)
+        return Removed(source_id=source_id, node_count=node_count, narrowed_count=narrowed_count)
 
     # -- Reconcilable ----------------------------------------------------------------------
 
     async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
         """State what `reconcile` would do in `mode` before it does it.
+
+        `repair`'s `pending` is the outstanding `DELETING` tombstones, the count `reconcile`
+        examines (`ReconcileEstimate`); the node recompute it also does is only described.
 
         Args:
             ctx: The run's context; `full` requires the corpus `NodeStore` on it.
@@ -412,17 +499,19 @@ class GraphStore:
                 model_calls=0,
             )
         del ctx
+        pending = len(await self._tombstoned())
         conn = await self._connection()
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS n FROM exgraph_nodes")
             row = await cur.fetchone()
-        pending = cast(int, row["n"]) if row is not None else 0
+        nodes = cast(int, row["n"]) if row is not None else 0
         return ReconcileEstimate(
             mode=mode,
             pending=pending,
             description=(
-                f"{pending} node(s) in weft-example-graph's own store will have their entities and "
-                f"relations recomputed from stored content and reconciled against it"
+                f"{pending} unfinished deletion(s) in weft-example-graph's own store to finish, "
+                f"then {nodes} node(s) will have their entities and relations recomputed from "
+                f"stored content and reconciled against it"
             ),
             model_calls=0,
         )
@@ -430,21 +519,29 @@ class GraphStore:
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """Converge the graph tables with the corpus after a crash or a missed deletion.
 
-        Repairs this pack's *own* bookkeeping against its *own* stored node content, and,
-        for `full`, also backfills from the corpus.
+        Finishes this store's own interrupted deletions, repairs its bookkeeping against its
+        own stored node content, and, for `full`, also backfills from the corpus.
 
-        **`repair` does two things, and task 6.21 built the second.** It recomputes every
-        node's entities/relations from that node's own stored content and re-derives them, so
-        a partial write (a crash between the node upsert and the entities/relations upsert in
-        `add`, since each statement autocommits independently) cannot leave the two out of
-        step. And it **drops orphans** — `docs/02-extension-model.md` section 4's own table:
-        "`repair` drops orphans left by anything the [deletion] fan-out missed". An orphan is
-        a node here whose source the *primary corpus* no longer lists, which this store cannot
-        answer from its own tables and could not ask about at all until task 6.19 put the
-        corpus on the passport. The deletion fan-out reaching this store in-command (task
-        6.18) makes an orphan rarer, never impossible: a participant that raised part-way
-        through leaves exactly this. Idempotent — running it twice does the same work and
-        reaches the same state.
+        **Finishing a tombstone comes first, ledger 27.1, repair R43.54.** `delete_source`
+        above writes `status=DELETING` before it deletes, exactly as `PgVectorStore.delete_source`
+        does; a crash between the two leaves a source tombstoned and its nodes still standing.
+        `examined` counts these tombstones, one per source finished — the identical count
+        `estimate`'s own `repair` reading answers — and `removed` carries the node count
+        `_delete_and_narrow` reports for each, never the entity/relation row churn the recompute
+        pass below also adds to the same field.
+
+        **`repair` then does two more things, and task 6.21 built the second.** It recomputes
+        every remaining node's entities/relations from that node's own stored content and
+        re-derives them, so a partial write (a crash between the node upsert and the
+        entities/relations upsert in `add`, since each statement autocommits independently)
+        cannot leave the two out of step. And it **drops orphans** — `docs/02-extension-model.md`
+        section 4's own table: "`repair` drops orphans left by anything the [deletion] fan-out
+        missed". An orphan is a node here whose source the *primary corpus* no longer lists,
+        which this store cannot answer from its own tables and could not ask about at all until
+        task 6.19 put the corpus on the passport. The deletion fan-out reaching this store
+        in-command (task 6.18) makes an orphan rarer, never impossible: a participant that
+        raised part-way through leaves exactly this. Idempotent — running it twice does the
+        same work and reaches the same state.
 
         **So `repair` requires the corpus too, and refuses without it.** Doing the half it can
         and silently skipping orphan detection is `01` rule 5's silent degradation with extra
@@ -468,18 +565,10 @@ class GraphStore:
         examined = 0
         removed = 0
         async with conn.cursor() as cur:
-            await cur.execute("SELECT id, ext, sources FROM exgraph_nodes ORDER BY id")
-            rows = await cur.fetchall()
-            for row in rows:
-                examined += 1
-                node_id = cast(NodeId, row["id"])
-                sources = {str(source) for source in cast("list[object]", row["sources"])}
-                if sources and not (sources & live):
-                    removed += await _drop_node(cur, node_id)
-                    continue
-                raw_ext = cast(dict[str, object], row["ext"])
-                data = _graph_data_of(raw_ext)
-                removed += await _replace_graph_rows(cur, node_id, data)
+            tombstones_examined, tombstones_removed = await self._finish_tombstones(cur)
+            examined += tombstones_examined
+            removed += tombstones_removed
+            removed += await self._repair_against_corpus(cur, live)
 
         backfilled = 0
         if mode is ReconcileMode.FULL:
@@ -511,6 +600,58 @@ class GraphStore:
             return []
         held_ids = {held.id for held in await self.get([node.id for node in nodes])}
         return [node for node in nodes if node.id not in held_ids]
+
+    async def _tombstoned(self) -> tuple[str, ...]:
+        """Every source id whose deletion started and did not finish, in id order."""
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id FROM exgraph_sources WHERE status = %s ORDER BY id",
+                (SourceStatus.DELETING.value,),
+            )
+            rows = await cur.fetchall()
+        return tuple(cast(str, row["id"]) for row in rows)
+
+    async def _finish_tombstones(
+        self, cur: "psycopg.AsyncCursor[dict[str, Any]]"
+    ) -> tuple[int, int]:
+        """Finish every `DELETING` source this store started and did not end — ledger **27.1**.
+
+        `reconcile`'s own `examined`/`removed` for this half: one tombstone finished is one
+        examined, and `removed` carries the node count `_delete_and_narrow` reports for it —
+        never the entity/relation row churn `_repair_against_corpus` below also adds to the
+        same field.
+        """
+        examined = 0
+        removed = 0
+        for source_id in await self._tombstoned():
+            node_count, _narrowed_count = await _delete_and_narrow(cur, SourceId(source_id))
+            await cur.execute("DELETE FROM exgraph_sources WHERE id = %s", (source_id,))
+            examined += 1
+            removed += node_count
+        return examined, removed
+
+    async def _repair_against_corpus(
+        self, cur: "psycopg.AsyncCursor[dict[str, Any]]", live: set[str]
+    ) -> int:
+        """Drop orphans against `live` and recompute every survivor's graph rows from `ext`.
+
+        Task **6.21** — see `reconcile`'s own docstring for what an orphan is and why only the
+        corpus can say. Returns how many entity/relation/node rows this touched.
+        """
+        await cur.execute("SELECT id, ext, sources FROM exgraph_nodes ORDER BY id")
+        rows = await cur.fetchall()
+        removed = 0
+        for row in rows:
+            node_id = cast(NodeId, row["id"])
+            sources = {str(source) for source in cast("list[object]", row["sources"])}
+            if sources and not (sources & live):
+                removed += await _drop_node(cur, node_id)
+                continue
+            raw_ext = cast(dict[str, object], row["ext"])
+            data = _graph_data_of(raw_ext)
+            removed += await _replace_graph_rows(cur, node_id, data)
+        return removed
 
     # -- This pack's own additional surface, for its retriever and commands ----------------
 
@@ -723,6 +864,71 @@ async def _replace_graph_rows(
     return removed
 
 
+async def _delete_and_narrow(
+    cur: "psycopg.AsyncCursor[dict[str, Any]]", source_id: SourceId
+) -> tuple[int, int]:
+    """Delete the nodes `source_id` alone produced, narrow the ones it shares.
+
+    Ledger **27.1**, repair **R43.54** — shared by `delete_source` and `reconcile`'s own
+    tombstone-finishing pass, so an interrupted deletion finishes identically to one that ran
+    straight through: `weft_store.pgvector_store.PgVectorStore._delete_and_narrow`'s own shape.
+
+    A node is *doomed* when every production naming it also names `source_id` — no production
+    would survive its removal, and deleting its `exgraph_nodes` row cascades its entities,
+    relations and productions with it, the foreign keys those tables carry doing what
+    `PgVectorStore` does by hand. A node is *narrowed* when at least one production does not
+    name `source_id` — that production is untouched evidence the node still exists — and its
+    `sources` is recomputed as the union of what remains, never merely `source_id` removed from
+    it, because two productions can still overlap in a source neither alone would justify
+    keeping.
+
+    Returns:
+        How many nodes were deleted, and how many were narrowed.
+    """
+    await cur.execute(
+        """
+        WITH tainted AS (
+            SELECT node_id, production_key FROM exgraph_node_productions
+            WHERE source_id = %(source_id)s
+        ), survivors AS (
+            SELECT DISTINCT p.node_id FROM exgraph_node_productions p
+            LEFT JOIN tainted t ON t.node_id = p.node_id AND t.production_key = p.production_key
+            WHERE t.production_key IS NULL
+        )
+        SELECT DISTINCT t.node_id, (s.node_id IS NOT NULL) AS has_survivor
+        FROM tainted t
+        LEFT JOIN survivors s ON s.node_id = t.node_id
+        """,
+        {"source_id": source_id},
+    )
+    rows = await cur.fetchall()
+    doomed = [cast(str, row["node_id"]) for row in rows if not row["has_survivor"]]
+    narrowed = [cast(str, row["node_id"]) for row in rows if row["has_survivor"]]
+    node_count = 0
+    if doomed:
+        await cur.execute("DELETE FROM exgraph_nodes WHERE id = ANY(%s)", (doomed,))
+        node_count = cur.rowcount
+    if narrowed:
+        await cur.execute(
+            "DELETE FROM exgraph_node_productions WHERE source_id = %s AND node_id = ANY(%s)",
+            (source_id, narrowed),
+        )
+        await cur.execute(
+            """
+            UPDATE exgraph_nodes n SET sources = sub.arr
+            FROM (
+                SELECT node_id, ARRAY_AGG(DISTINCT source_id ORDER BY source_id) AS arr
+                FROM exgraph_node_productions
+                WHERE node_id = ANY(%(narrowed)s)
+                GROUP BY node_id
+            ) sub
+            WHERE n.id = sub.node_id
+            """,
+            {"narrowed": narrowed},
+        )
+    return node_count, len(narrowed)
+
+
 def _graph_data_of(raw_ext: Mapping[str, object]) -> GraphData | None:
     rehydrated = rehydrate_ext(raw_ext)
     found = rehydrated.get(GraphData.__namespace__)
@@ -736,6 +942,7 @@ def _dump_graph_data(data: GraphData) -> dict[str, object]:
 def _node_to_row(node: Node) -> dict[str, object]:
     dump = node.model_dump(mode="json")
     lineage = cast(dict[str, object], dump["lineage"])
+    embedding = dump["embedding"]
     return {
         "id": dump["id"],
         "parents": lineage["parents"],
@@ -743,11 +950,13 @@ def _node_to_row(node: Node) -> dict[str, object]:
         "content": dump["content"],
         "media_type": dump["media_type"],
         "ext": Jsonb(dump["ext"]),
+        "embedding": cast("dict[str, object]", embedding)["values"] if embedding else None,
     }
 
 
 def _row_to_node(row: Mapping[str, object]) -> Node:
     raw_ext = cast(dict[str, object], row["ext"])
+    embedding = row.get("embedding")
     return Node.model_validate(
         {
             "id": row["id"],
@@ -758,6 +967,9 @@ def _row_to_node(row: Mapping[str, object]) -> Node:
             "content": row["content"],
             "media_type": row["media_type"],
             "ext": rehydrate_ext(raw_ext),
+            "embedding": {"values": cast("list[float]", embedding)}
+            if embedding is not None
+            else None,
         },
         context={"derived": True},
     )
