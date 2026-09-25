@@ -263,13 +263,13 @@ def _targets_of(cited: str) -> tuple[Path, ...]:
     which. Clause (d) has to be generous in exactly the same way or the two clauses disagree
     about what a citation means — a file whose basename is shared (`__init__.py` is shared
     thirty ways here) would resolve to whichever path the walk happened to reach first, and the
-    fragment would be looked for in a file the citer never opened. The path that literally ends
-    with what was written is tried first, so a citation that spelled out its directory is
-    answered by that file and not by a namesake.
+    fragment would be looked for in a file the citer never opened. A path that literally ends
+    with what was written is the whole answer when one exists (`R43.52`: the example pack's
+    `store.py` had been answering for Qdrant's); only an abbreviation falls back to namesakes.
     """
     candidates = _paths_by_basename().get(Path(cited).name, ())
     exact = tuple(p for p in candidates if str(p).endswith(cited))
-    return exact + tuple(p for p in candidates if p not in exact)
+    return exact or candidates
 
 
 def _without_quotes(text: str) -> str:
@@ -542,6 +542,20 @@ def test_a_self_citation_would_be_caught() -> None:
     basename = Path(match.group(1)).name
     assert basename == Path(__file__).name, "clause (b) sees it"
     assert _basename_exists(basename), "clause (a) does not — the path resolves"
+
+
+def test_a_citation_that_names_its_directory_is_answered_by_that_file_alone() -> None:
+    """Carried repair **R43.52**: a namesake answers only for an abbreviation.
+
+    `docs/09-release.md` cited the Qdrant store at a line holding nothing like its fragment, and
+    stayed green because `examples/weft-example-ingest`'s own `store.py` held it at that line.
+    """
+    spelled = "packages/weft-rag/src/weft_qdrant/store.py"
+    namesakes = _paths_by_basename()["store.py"]
+
+    assert len(namesakes) > 1
+    assert [str(p.relative_to(REPO_ROOT)) for p in _targets_of(spelled)] == [spelled]
+    assert set(_targets_of("store.py")) == set(namesakes)
 
 
 def test_the_check_can_actually_fail() -> None:
