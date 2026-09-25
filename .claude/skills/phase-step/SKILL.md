@@ -75,7 +75,10 @@ it, however many places agree** — and when a gate changes the tree's shape, th
 price is measured before the question is asked** (`L22.23`): Phase 33's recorder was priced at
 *"at most 45 kernel lines"* from its field list and approved on that number, and the honest build
 measured +87 under FF3's own counter. Sketch it and count it with the project's counter and type
-checker, then ask.
+checker, then ask. **And a claim about code placed in a question is read against its callers first**
+(`L28.54`): Phase 43e's opening told the owner twice that a session holds store handles across
+calls, from `Weft._held`'s name and docstring; `_invoke` builds services afresh on every call. An
+answer given on a false premise looks settled, and nothing re-checks it.
 
 **Two places this keeps landing that are not documents, and one sweep shape that lies.** `L22.2`
 and `L22.5`, both paid for in Phase 28. *(a)* **A repair entry is not a document and nothing routes
@@ -154,6 +157,10 @@ had ever computed (`L26.5`).
 **And the two cheapest sentences to write are the two nobody checks: *"it does not exist"* and
 *"that one is unaffected".*** Phase 29 paid for both, an hour apart, in the same session that logged
 the first (`L22.41`, `L22.42`).
+**And a measurement's side effects are part of its cost** (`L28.59`): a flag is harmless only in a
+program that parses it. A `--help` sweep over `scripts/*.py` ran the integration suite and two
+generators that write tracked files, during an exit soak that owned the containers. Read how each
+member of a population handles its arguments before invoking all of them.
 
 *"No record exists"* was written into the ledger as a settled paragraph from **one failed open** —
 a build invoked with `--latency run-29.1.json`, a filename that never existed, returning `[Errno 2]`.
@@ -825,6 +832,10 @@ crashes on the exact state its own non-vacuity exercise produces.
    parser cannot match (anchoring the pattern is what made a mid-sentence example safe), and
    **watch a deliberate disagreement** — the plant this project requires for a sweep applies to
    any two-sided assertion, not only to one that might match nothing (`L12.8`).
+
+   **A fallback that widens what a check accepts answers only where the precise reading is
+   impossible** (`L28.57`): FF17's namesake fallback answered a spelled-out path from a different
+   `store.py` fifty lines away, green for weeks, about a subject the citation did not name.
 
    **A plant-and-revert reverts the file you edited, never the state that file drives.** Renaming
    an extra in a `pyproject.toml` to watch a check go red is item 3 done correctly; the

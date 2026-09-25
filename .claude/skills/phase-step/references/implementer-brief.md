@@ -207,6 +207,9 @@ gate while an `agent-*` worktree is locked; the brief keeps the agent's own runs
 A directory in *Done when* is fine when nothing under it reaches a container: the hook judges what a
 run opens by `tests/conftest.py`'s `_CONTAINER_TOKENS`, not by its spelling (`L28.30`, `L28.34`), and
 refuses a parallel agent any run that does.
+**A check run over many files names how the list is passed** (`L28.53`): this shell is zsh, and an
+unquoted `$FILES` is one argument there, so three of six agents lost a run to `ruff check $FILES`
+failing with "File name too long". Write `xargs` from a file or a zsh array into the command.
 
 **A worktree brief opens with *Step 0 — apply the red tests*** (`docs/internal/lessons.md`
 `L22.19`): the worktree is built from `HEAD` and the failing tests are uncommitted in the
@@ -379,7 +382,10 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
    was elsewhere and every remedy was wasted work the agent dutifully did. `--durations` says
    *which* test is slow and is not evidence about *why*. A brief may state **what was measured**;
    it may not state an unprofiled cause, because the agent cannot tell your hypothesis from your
-   finding and will treat both as the brief.
+   finding and will treat both as the brief. **A budget is the same question** (`L28.51`): before
+   a brief asks a gated quantity to move, run the gate's own counter at the base and the head, per
+   file, and name the lines that grew. FF3's 27 new lines were blamed on docstrings the counter
+   excludes; all 27 were code.
 
 8. **Is the red state you describe quoted, or summarised from a truncated read?** `L11.27`. I told
    an implementer the gate was red *"only on those two files"* from a `tail -25`. A count is

@@ -264,8 +264,9 @@ def _targets_of(cited: str) -> tuple[Path, ...]:
     about what a citation means — a file whose basename is shared (`__init__.py` is shared
     thirty ways here) would resolve to whichever path the walk happened to reach first, and the
     fragment would be looked for in a file the citer never opened. A path that literally ends
-    with what was written is the whole answer when one exists (`R43.52`: the example pack's
-    `store.py` had been answering for Qdrant's); only an abbreviation falls back to namesakes.
+    with what was written is the whole answer when one exists (`R43.52`, `L28.57`: the example
+    pack's `store.py` had been answering for Qdrant's); only an abbreviation falls back to
+    namesakes.
     """
     candidates = _paths_by_basename().get(Path(cited).name, ())
     exact = tuple(p for p in candidates if str(p).endswith(cited))

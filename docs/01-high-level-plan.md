@@ -2095,6 +2095,17 @@ All checks run in CI, before tests.
     steps move into a function and the `try` guards that call. No waiver: at filing it failed on 45
     sites, and all 45 were refactored.
     `tests/architecture/test_ff36_a_try_guards_one_statement.py`.
+37. **A script's imports resolve when it is run directly.** Added 2026-09-25 from `L28.50`.
+    pytest's `pythonpath` and pyright's `extraPaths` both put `eval` on the path, so
+    `scripts/open_ragbench_questions.py` passed its tests and type check while running it raised
+    `ModuleNotFoundError`. The check resolves every module-level absolute import of every tracked
+    `scripts/**.py`, and of each `eval/` harness run directly, without running any of them: over
+    `sys.path` as a directly run interpreter builds it (its prefixes and `.pth` entries, nothing
+    a test runner added), with the script's own directory first, plus any module-level
+    `sys.path.insert(0, ...)` or `append` read statically from the source; one it cannot read
+    fails. At filing: 35 files, 408 imports, none unresolved. Replayed on `24e155a~1`, it names
+    `check_questions`.
+    `tests/architecture/test_ff37_scripts_import_standalone.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
