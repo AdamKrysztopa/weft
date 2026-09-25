@@ -164,9 +164,11 @@ async def test_printing_sink_close_marks_an_error_distinctly_from_a_clean_end() 
     clean = io.StringIO()
     errored = io.StringIO()
 
-    # Act
+    # Act — the errored stream had shown a chunk: task 43.36 marks only a line the reader saw.
     await PrintingSink(stream=clean).close(reason=None)
-    await PrintingSink(stream=errored).close(reason="provider 'x' raised RuntimeError: boom")
+    broken = PrintingSink(stream=errored)
+    await broken.emit(TokenChunk(role="generate", text="partial"))
+    await broken.close(reason="provider 'x' raised RuntimeError: boom")
 
     # Assert — a human reading either scrollback cannot mistake one for the other.
     assert clean.getvalue() == ""

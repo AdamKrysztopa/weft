@@ -261,10 +261,12 @@ class PrintingSink:
             reason: Why the stream did not complete, or `None` when it did.
         """
         with contextlib.suppress(BrokenPipeError):
+            # The marker ends a line the reader watched grow; after hidden chunks alone there is
+            # no such line, and the refusal on stderr is the one account (task 43.36).
             if self.wrote_anything:
                 self._stream.write("\n")
-            if reason is not None:
-                self._stream.write(f"[stream error: {reason}]\n")
+                if reason is not None:
+                    self._stream.write(f"[stream error: {reason}]\n")
             self._stream.flush()
 
     def _write_now(self, text: str) -> None:
