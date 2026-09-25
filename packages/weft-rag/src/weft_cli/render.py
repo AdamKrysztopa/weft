@@ -705,8 +705,8 @@ def _index_trailing_lines(result: IndexCommandResult) -> list[str]:
             f"{failed_earlier} failed earlier, skipped — weft index --retry-failed includes "
             f"{pronoun}"
         )
-    if result.summary.failed:
-        lines.append(f"{result.summary.failed} batch failed.")
+    # No "N batch failed." (task 43.33): since R43.1 a failed batch is re-run document by
+    # document, so every failure is a document's, and the count line already says how many.
     return lines
 
 

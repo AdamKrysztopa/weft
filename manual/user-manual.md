@@ -876,7 +876,6 @@ batch 5/5 · 120/121 documents queryable · 0.1 s since start · 0.0 MB
   failed: 'file:///…/docs/station-121.md' is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 33: invalid start byte
 indexing into target 'default' (live).
 121 documents: 120 indexed, 0 unchanged, 1 failed. nodes now stored: 120.
-1 batch failed.
 mode 'repair' — 1 participant(s):
   pgvector (weft-rag): examined 0, removed 0, backfilled 0
 ```
@@ -890,8 +889,8 @@ the reason a batch was slow. Only the files of the batch in flight are held in m
   that needs the whole corpus in one batch gets one batch, and the line names that stage. §2 says
   why an explicit `--batch-size` is refused for such a pipeline.
 - **One bad document does not fail its batch.** Batch 5 still stored its other 20 documents,
-  which is why 120 are indexed. `1 batch failed.` counts the batch the failure came from, not
-  the documents lost with it.
+  which is why 120 are indexed, and `1 failed` on the count line is the one document lost; its
+  reason is the `failed:` line on stderr.
 - **`--json` carries the same line as data**, one `batch-progress` object per batch, before the
   result:
 

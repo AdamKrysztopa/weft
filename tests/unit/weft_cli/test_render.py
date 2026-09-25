@@ -117,15 +117,20 @@ def test_render_index_distinguishes_a_current_corpus_from_an_empty_directory() -
 
 
 def test_render_index_with_failures_reports_them_in_their_own_unit_and_exits_1() -> None:
-    """A failure is a batch outcome and is printed as one, never folded into the document line.
+    """A failure is counted once, as a document, and its reason is on stderr (task 43.33).
 
-    Mixing the two units is the defect `R19.3` names; repairing it by relabelling one number and
-    leaving another in the same sentence would reproduce it a sentence later.
+    `R19.3` kept batch and document units apart; since `R43.1` a failed batch is re-run document
+    by document, so the only unit left is the document, and a trailing "1 batch failed." named a
+    batch that had stored every other document it held.
     """
     # Arrange
     summary = RunSummary(produced=1, nothing_to_produce=0, failed=1, failed_reasons=("bad file",))
     result = IndexCommandResult(
-        summary=summary, stored_count=None, documents_discovered=1, documents_indexed=1
+        summary=summary,
+        stored_count=None,
+        documents_discovered=2,
+        documents_indexed=1,
+        documents_failed=1,
     )
 
     # Act
@@ -133,8 +138,9 @@ def test_render_index_with_failures_reports_them_in_their_own_unit_and_exits_1()
 
     # Assert
     assert rendered.stdout == (
-        "1 documents: 1 indexed, 0 unchanged. nodes now stored: unknown.\n1 batch failed."
+        "2 documents: 1 indexed, 0 unchanged, 1 failed. nodes now stored: unknown."
     )
+    assert "batch failed" not in rendered.stdout
     assert rendered.stderr == "  failed: bad file"
     assert rendered.exit_code is ExitCode.OPERATION_FAILED
 
