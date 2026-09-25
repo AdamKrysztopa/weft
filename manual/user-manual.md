@@ -1092,13 +1092,15 @@ The tree is built out of sight and made searchable all at once, so a query never
   ```text
   '/…/docs/station-123.md' — 1 participant(s):
     pgvector (weft-rag): 2 node(s) removed
-  layer 'raptor-corpus' is stale: a source it covered was deleted or re-parsed — weft index --layers raptor-corpus rebuilds it.
+  layer 'raptor-corpus' is stale and hidden from reads: a source it covered was deleted or re-parsed — weft index --layers raptor-corpus rebuilds it.
   ```
 
   Every remaining source now reads `raptor-corpus stale` in `weft sources list`. A rung whose
   `route.requires` names the layer is not offered until it is rebuilt. The printed remedy
-  rebuilds the whole tree, because a join can add documents but cannot take one out. Deleting
-  the file from `docs/` does not remove it from the index. `weft delete` does.
+  rebuilds the whole tree, because a join can add documents but cannot take one out. Until then
+  the stale tree is hidden from every read, so no summary quotes the deleted document. Deleting
+  the file from `docs/` removes it too, at the next `weft index docs`, which prints `released 1
+  source no longer on disk.`; `weft delete` does it at once, and accepts the path as you type it.
 - **Re-parsing a covered source does the same.** After one note was edited, `weft index docs`
   re-parsed it and printed the same `stale` line, and `weft index docs --layers raptor-corpus`
   rebuilt the tree over all 122 sources.

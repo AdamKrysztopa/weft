@@ -3124,12 +3124,18 @@ async def demote_layer_records(
     put_source: Callable[[SourceRecord], Awaitable[None]],
     names: frozenset[str],
     excluded: frozenset[SourceId],
+    *,
+    store: object,
 ) -> tuple[str, ...]:
-    """Mark every `ACTIVE` layer in `names` `STALE` on one store's records.
+    """Mark every `ACTIVE` layer in `names` `STALE` on one store's records, and hide it.
 
     One store's records but `excluded`'s: every `ACTIVE` layer in `names` becomes `STALE` —
     task **43.21**, and **R43.41**'s seam for `weft index`. `excluded` is every source about to
     be released, by `weft delete` or by a re-parse; returns the names demoted here.
+
+    Task **43.30** — `store` is this same store's own instance, required so no caller can
+    demote a layer and leave it served: every name demoted here has its `PUBLISHED` generation
+    on `store` hidden too, until a rebuild republishes it.
     """
     here: set[str] = set()
     for record in await list_sources():
@@ -3144,7 +3150,28 @@ async def demote_layer_records(
                 here.add(layer.name)
         if changed:
             await put_source(record.model_copy(update={"layers": tuple(layers)}))
+    for name in here:
+        await _hide_published_generations(store, layer=name)
     return tuple(here)
+
+
+async def _hide_published_generations(store: object, *, layer: str) -> None:
+    """Withdraw or retract every `PUBLISHED` generation of `layer` on a demoted store.
+
+    Task **43.30**: a corpus layer just demoted `STALE` on this store must stop being served
+    by its own generation. `_supersede` already knows the choice — withdraw on
+    `GenerationWithdrawing` so a handle opened before keeps reading it until the next closing
+    pass or `weft reconcile` reclaims it (repair R43.29), retract on a store that can only hold
+    generations, since nothing there can keep one for an open reader. A store this module never
+    bound a generation on is left untouched.
+    """
+    if not isinstance(store, GenerationHolding):
+        return
+    holder = store
+    discarded: set[GenerationId] = set()
+    for generation in await holder.generations():
+        if generation.layer == layer and generation.status is GenerationStatus.PUBLISHED:
+            await _supersede(holder, generation, withdrawn=discarded)
 
 
 async def stale_corpus_layers(

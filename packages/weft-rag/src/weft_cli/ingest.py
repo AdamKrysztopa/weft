@@ -2396,7 +2396,7 @@ async def _demote_released(
     )
     if not held:
         return ()
-    return await demote_layer_records(list_sources, put_source, held, released)
+    return await demote_layer_records(list_sources, put_source, held, released, store=instance)
 
 
 def _delete_source_of(instance: object) -> Callable[[SourceId], Awaitable[object]] | None:

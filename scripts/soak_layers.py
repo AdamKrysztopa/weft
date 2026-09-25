@@ -363,6 +363,9 @@ def check_stale(after: Snapshot, *, released: frozenset[str] = frozenset()) -> l
     problems = (
         [] if set(statuses.values()) == {"stale"} else [f"layer not stale everywhere: {statuses}"]
     )
+    if after.published_tree():
+        # A stale layer is hidden from every read until republished (43.30).
+        problems.append(f"a stale layer still has {len(after.published_tree())} published nodes")
     return (
         problems + [f"a re-parsed source kept its layer record: {missing}"] if missing else problems
     )
@@ -826,8 +829,13 @@ async def _read_while_publishing(soak: Soak, store: MetadataFilter, label: str) 
     print(f"    trees: old {len(old)}, new {len(new)}, {len(old - new)} replaced")
     print(f"    held handle: {held_seen}; fresh asks: {fresh_seen}")
     problems = [] if old != new else ["the publish left the tree unchanged, so no read informs"]
-    problems += [f"held handle read {r}" for r in sorted(set(held_seen) - {"O", "="})]
-    problems += [f"a fresh ask read {r}" for r in sorted(set(fresh_seen) - {"O", "N", "="})]
+    # A stale layer is hidden (43.30): across a rebuild the old tree is already gone, so a read
+    # before the publish legitimately sees none, and the new tree is the only one ever seen.
+    hidden: set[str] = {"x"} if not old else set()
+    problems += [f"held handle read {r}" for r in sorted(set(held_seen) - {"O", "="} - hidden)]
+    problems += [
+        f"a fresh ask read {r}" for r in sorted(set(fresh_seen) - {"O", "N", "="} - hidden)
+    ]
     if "O" in fresh_seen[-2:]:
         problems.append("a fresh ask after the publish read the old tree")
     soak.expect(label, problems)

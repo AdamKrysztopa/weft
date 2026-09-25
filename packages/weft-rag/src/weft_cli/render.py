@@ -848,8 +848,8 @@ def stale_deleted_layer_line(name: str) -> str:
     function so the two commands can never say it two different ways.
     """
     return (
-        f"layer '{name}' is stale: a source it covered was deleted or re-parsed — "
-        f"weft index --layers {name} rebuilds it."
+        f"layer '{name}' is stale and hidden from reads: a source it covered was deleted or "
+        f"re-parsed — weft index --layers {name} rebuilds it."
     )
 
 

@@ -2350,9 +2350,12 @@ async def _demote_layer_records(
     put_source: Callable[[SourceRecord], Awaitable[None]],
     names: frozenset[str],
     excluded: frozenset[SourceId],
+    store: object,
 ) -> Outcome[tuple[str, ...]]:
     """`weft_cli.layers.demote_layer_records` as the `Outcome` the store seam's `wrap` takes."""
-    return Produced(value=await demote_layer_records(list_sources, put_source, names, excluded))
+    return Produced(
+        value=await demote_layer_records(list_sources, put_source, names, excluded, store=store)
+    )
 
 
 async def _demote_stale_corpus_layers(
@@ -2393,6 +2396,7 @@ async def _demote_stale_corpus_layers(
             cast("Callable[[SourceRecord], Awaitable[None]]", raw_put_source),
             names,
             frozenset({excluded}),
+            store,
         )
         wrapped = wrap(
             _demote,

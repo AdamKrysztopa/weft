@@ -84,6 +84,7 @@ class _State:
         self.members: dict[NodeId, set[str]] = {}
         self.records: dict[SourceId, SourceRecord] = {}
         self.generations: dict[GenerationId, GenerationRecord] = {}
+        self.opened = 0
         self.adds: list[tuple[Node, ...]] = []
 
 
@@ -173,8 +174,9 @@ class _GenerationStore(_Store):
     """`_Store` plus `GenerationHolding`, implemented whole (`L28.20`)."""
 
     async def open_generation(self, layer: str) -> GenerationRecord:
+        self._state.opened += 1
         record = GenerationRecord(
-            id=GenerationId(f"g-{len(self._state.generations) + 1}"),
+            id=GenerationId(f"g-{self._state.opened}"),
             layer=layer,
             status=GenerationStatus.BUILDING,
             opened_at=_WHEN_OPENED,

@@ -72,7 +72,8 @@ _CORPUS = "enrich-with-summary"
 _PER_SOURCE = "enrich-with-questions"
 _RUNG = "needs-summary"
 _STALE_LINE = (
-    f"layer '{_CORPUS}' is stale: a source it covered was deleted or re-parsed — "
+    f"layer '{_CORPUS}' is stale and hidden from reads: a source it covered was deleted or "
+    "re-parsed — "
     f"weft index --layers {_CORPUS} rebuilds it."
 )
 
@@ -99,6 +100,7 @@ class _State:
         self.members: dict[NodeId, set[str]] = {}
         self.records: dict[SourceId, SourceRecord] = {}
         self.generations: dict[GenerationId, GenerationRecord] = {}
+        self.opened = 0
 
 
 class _Store:
@@ -185,8 +187,9 @@ class _Store:
         )
 
     async def open_generation(self, layer: str) -> GenerationRecord:
+        self.state.opened += 1
         record = GenerationRecord(
-            id=GenerationId(f"g-{len(self.state.generations) + 1}"),
+            id=GenerationId(f"g-{self.state.opened}"),
             layer=layer,
             status=GenerationStatus.BUILDING,
             opened_at=_WHEN_OPENED,
