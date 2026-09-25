@@ -138,6 +138,7 @@ from weft_store.conformance import (
     check_estimate_counts_the_identical_tombstones_reconcile_itself_examines,
     check_estimate_reports_zero_model_calls_on_either_backend,
     check_every_operator_means_the_same_thing_to_both_backends,
+    check_in_over_a_set_field_matches_a_node_holding_any_listed_value,
     check_promote_makes_a_target_live_and_rollback_restores_the_previous_one,
     check_promote_refuses_a_target_that_does_not_exist_naming_those_that_do,
     check_promoting_the_live_target_again_changes_nothing,
@@ -460,6 +461,12 @@ async def test_a_parents_children_within_an_ordinal_range_are_one_filter_away(
     store: FilterableStore,
 ) -> None:
     await check_a_parents_children_within_an_ordinal_range_are_one_filter_away(store)
+
+
+async def test_in_over_a_set_field_matches_a_node_holding_any_listed_value(
+    store: FilterableStore,
+) -> None:
+    await check_in_over_a_set_field_matches_a_node_holding_any_listed_value(store)
 
 
 async def test_writing_a_node_again_under_its_id_replaces_its_ext(store: FilterableStore) -> None:

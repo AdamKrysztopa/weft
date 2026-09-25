@@ -1627,6 +1627,38 @@ async def check_a_parents_children_within_an_ordinal_range_are_one_filter_away(
     )
 
 
+async def check_in_over_a_set_field_matches_a_node_holding_any_listed_value(
+    store: FilterableStore,
+) -> None:
+    """`in` over `lineage.sources` is overlap: any listed source, among any others, matches.
+
+    Carried repair `R43.50`. `weft_store.fields` admits `in` on a set field, both shipped
+    backends answer it as overlap, and every layer reads its leaves through exactly this
+    (`weft_cli.layers.layer_leaf_filter`). A store comparing the whole set against the list
+    answers nothing, and a corpus layer built over it publishes an empty tree.
+    """
+    # Arrange
+    await store.add(
+        (
+            _node("holds a among others", sources=frozenset({_SOURCE_A, _SOURCE_B})),
+            _node("holds only a", sources=frozenset({_SOURCE_A})),
+            _node("holds only b", sources=frozenset({_SOURCE_B})),
+        )
+    )
+
+    # Act
+    page = await store.matching(
+        Filter(op=FilterOp.IN, field="lineage.sources", value=(str(_SOURCE_A), "source-unheld"))
+    )
+
+    # Assert
+    _require(
+        condition=await _all(page) == frozenset({"holds a among others", "holds only a"}),
+        message="in over lineage.sources must match every node holding a listed source, "
+        f"among others or alone, and no other; got {sorted(await _all(page))}",
+    )
+
+
 async def check_writing_a_node_again_under_its_id_replaces_its_ext(
     store: FilterableStore,
 ) -> None:

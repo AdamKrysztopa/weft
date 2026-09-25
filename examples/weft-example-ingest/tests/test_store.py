@@ -1,5 +1,6 @@
 """This pack's own tests for `InMemoryNodeStore` — the whole store family in one class."""
 
+from collections.abc import Awaitable
 from datetime import UTC, datetime
 from typing import cast
 
@@ -341,3 +342,46 @@ async def test_a_strangers_store_admits_one_writer_and_passes_the_published_chec
     # Assert
     assert isinstance(InMemoryNodeStore(), SingleWriter)
     assert len(writer_checks) == 2
+
+
+async def test_a_strangers_store_passes_every_published_check_it_can_answer() -> None:
+    """Every check `checks_for` offers this store passes, not a hand-picked subset (R43.50).
+
+    Carried repair **R43.50**: this file ran the kit one capability at a time, and no subset
+    reached the filter or deletion checks, so `in` over `lineage.sources` answered nothing and
+    a corpus layer built over this store published an empty tree while every test here passed.
+    The operator matrix runs once per case, as the containers' suite runs it.
+    """
+    # Arrange
+    from weft_store.conformance import (
+        OPERATOR_CASES,
+        check_every_operator_means_the_same_thing_to_both_backends,
+        checks_for,
+        register_conformance_ext_models,
+    )
+
+    register_conformance_ext_models()
+    offered = checks_for(InMemoryNodeStore())
+    matrix = check_every_operator_means_the_same_thing_to_both_backends
+    (operators,) = [c for c in offered if c is matrix]
+    plain = [c for c in offered if c is not matrix]
+
+    # Act — a fresh store per check: the kit owns no lifecycle.
+    failures: list[str] = []
+    for check in plain:
+        failures += await _failure(check.__name__, check(InMemoryNodeStore()))
+    for label, filter_, expected in OPERATOR_CASES:
+        run = operators(InMemoryNodeStore(), label, filter_, expected)
+        failures += await _failure(f"operator {label}", run)
+
+    # Assert
+    assert matrix in offered
+    assert failures == []
+
+
+async def _failure(name: str, run: Awaitable[None]) -> list[str]:
+    try:
+        await run
+    except AssertionError as refused:
+        return [f"{name}: {refused}"]
+    return []

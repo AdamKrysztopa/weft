@@ -41,7 +41,7 @@ is invisible to work already in flight, exactly as a promote already is under `T
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import ClassVar, Self
+from typing import ClassVar, Self, cast
 from uuid import uuid4
 
 from weft_kernel.context import Context
@@ -78,7 +78,7 @@ from weft_store.contract import (
     WriterBusyError,
     WriterClaim,
 )
-from weft_store.fields import FieldKind, FieldPath, field_for
+from weft_store.fields import FieldKind, FieldPath, field_for, leaves
 
 #: The base marker — a node written through an unbound handle carries this in its own
 #: generation set, and it is always in a handle's visible set, so a base write is visible to
@@ -98,6 +98,12 @@ class _Target:
         self.sources: dict[SourceId, SourceRecord] = {}
         self.embedding: EmbeddingIdentity | None = None
         self.generations: dict[GenerationId, GenerationRecord] = {}
+        #: `weft_node_productions` run again over a plain dict — ledger task **27.1**, repair
+        #: **R43.50**. Each `add()` call over a node is one production, its own frozen source
+        #: set; the node's stored `lineage.sources` is the union of every production that has
+        #: ever written it, and a source is deleted for a node only when every production
+        #: naming it also names that source — see `_delete_and_narrow`.
+        self.productions: dict[NodeId, set[frozenset[SourceId]]] = {}
         #: The generation ids that wrote each node — `_BASE` for an unbound write, merged by
         #: union on every further write, exactly as `sources` is merged on `add`.
         self.node_generations: dict[NodeId, frozenset[str]] = {}
@@ -242,7 +248,7 @@ class InMemoryNodeStore:
         target = self._writable()
         marker = self._bound_generation if self._bound_generation is not None else _BASE
         for node in nodes:
-            target.nodes[node.id] = node
+            _record_production(target, node)
             target.node_generations[node.id] = target.node_generations.get(node.id, frozenset()) | {
                 marker
             }
@@ -265,25 +271,24 @@ class InMemoryNodeStore:
         return tuple(nodes[node_id] for node_id in ids if node_id in nodes)
 
     async def delete_source(self, source_id: SourceId) -> Removed:
-        """Delete every node from `source_id`, and its source record.
+        """Delete what `source_id` produced, and its source record.
+
+        A node with another production naming it survives, narrowed rather than deleted — see
+        `_delete_and_narrow`.
 
         Args:
             source_id: The source to remove.
 
         Returns:
-            The source removed and how many nodes went with it.
+            The source removed, how many nodes were deleted, and how many were narrowed.
         """
         target = self._writable()
         record = target.sources.get(source_id)
         if record is not None:
             target.sources[source_id] = record.model_copy(update={"status": SourceStatus.DELETING})
-        removed = tuple(
-            node_id for node_id, node in target.nodes.items() if source_id in node.lineage.sources
-        )
-        for node_id in removed:
-            del target.nodes[node_id]
+        node_count, narrowed_count = _delete_and_narrow(target, source_id)
         target.sources.pop(source_id, None)
-        return Removed(source_id=source_id, node_count=len(removed))
+        return Removed(source_id=source_id, node_count=node_count, narrowed_count=narrowed_count)
 
     async def supersede(self, old: NodeId, new: Node) -> None:
         """`NodeSupersedable` — replace one node with another, written from outside the workspace.
@@ -296,6 +301,10 @@ class InMemoryNodeStore:
         first, delete `old` second** — so an interruption leaves a duplicate, which `reconcile`
         can find, and never a hole, which nothing can. Refuse first, changing nothing, when the
         replacement covers fewer sources than the node it replaces.
+
+        `old`'s productions describe a node this call just deleted and carry nothing `new`
+        inherits — pgvector's own docstring for this method states the same choice: replace
+        `old`'s productions with `new`'s single one, never a union of the two.
         """
         target = self._writable()
         stored = target.nodes.get(old)
@@ -306,9 +315,10 @@ class InMemoryNodeStore:
                 f"{dropped}. A superseding node must carry at least the sources of the node "
                 f"it replaces."
             )
-        target.nodes[new.id] = new
+        _record_production(target, new)
         if old != new.id:
             target.nodes.pop(old, None)
+            target.productions.pop(old, None)
 
     async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
         """`Reconcilable` — finish every deletion this store started and did not end.
@@ -321,22 +331,20 @@ class InMemoryNodeStore:
 
         `full` backfills nothing, and that is honest rather than lazy: this store holds the
         primary nodes, so it has no derived state that was never built.
+
+        Shares `_delete_and_narrow` with `delete_source`, so an interrupted deletion finishes
+        identically to one that ran straight through — pgvector's own reconcile makes the same
+        choice for the same reason.
         """
         del ctx
         target = self._writable()
         removed = 0
         examined = 0
         for source_id in tuple(self._tombstoned()):
-            gone = tuple(
-                node_id
-                for node_id, node in target.nodes.items()
-                if source_id in node.lineage.sources
-            )
-            for node_id in gone:
-                del target.nodes[node_id]
+            node_count, _narrowed_count = _delete_and_narrow(target, source_id)
             target.sources.pop(source_id, None)
             examined += 1
-            removed += len(gone)
+            removed += node_count
         return ReconcileReport(
             mode=mode, examined=examined, removed=removed, remaining=len(tuple(self._tombstoned()))
         )
@@ -426,6 +434,8 @@ class InMemoryNodeStore:
         Returns:
             The best `top_k` nodes, highest score first.
         """
+        if filter is not None:
+            _validate_filter(filter)
         target = self._readable()
         candidates = (
             node
@@ -458,6 +468,8 @@ class InMemoryNodeStore:
             The best `top_k` nodes sharing at least one word, highest score first.
         """
         query_words = _words(text)
+        if filter is not None:
+            _validate_filter(filter)
         if not query_words:
             return ()
         target = self._readable()
@@ -485,6 +497,7 @@ class InMemoryNodeStore:
             A single page holding every match.
         """
         del cursor  # see `scan` — no real pagination in this example store
+        _validate_filter(filter)
         target = self._readable()
         return Page(
             items=tuple(
@@ -779,6 +792,67 @@ class InMemoryNodeStore:
         self._claimed_writer = None
 
 
+def _record_production(target: _Target, node: Node) -> None:
+    """Record one production for `node` and merge its sources into whatever is already stored.
+
+    Ledger task **27.1**, repair **R43.50** — `weft_node_productions` run again over a plain
+    dict: one `add()` (or `supersede`) call is one production over the sources `node` names, and
+    the stored `lineage.sources` is the union of every production that has ever written it,
+    never merely the newest write's. `model_copy` bypasses `Lineage`'s own validator rather than
+    replaying it, on the identical footing `PgVectorStore._row_to_node` reconstructs a node
+    straight from a row: the sources here are demonstrably a correct union of what was already
+    trusted, not authored out of nothing.
+    """
+    productions = target.productions.setdefault(node.id, set())
+    productions.add(frozenset(node.lineage.sources))
+    merged = frozenset[SourceId]().union(*productions)
+    target.nodes[node.id] = node.model_copy(
+        update={"lineage": node.lineage.model_copy(update={"sources": merged})}
+    )
+
+
+def _delete_and_narrow(target: _Target, source_id: SourceId) -> tuple[int, int]:
+    """Delete the nodes `source_id` alone produced, narrow the ones it shares.
+
+    Ledger task **27.1**'s shape, shared by `delete_source` and `reconcile` so an interrupted
+    deletion finishes identically to one that ran straight through — `PgVectorStore`'s own
+    `_delete_and_narrow` is the model.
+
+    A node is *doomed* when every production naming it also names `source_id`. A node is
+    *narrowed* when at least one production survives; `sources` is then recomputed as the union
+    of what remains rather than merely having `source_id` removed, because two productions can
+    still overlap in a source neither alone would justify keeping.
+
+    Returns:
+        How many nodes were deleted, and how many were narrowed.
+    """
+    doomed: list[NodeId] = []
+    narrowed: list[NodeId] = []
+    for node_id, productions in target.productions.items():
+        tainted = {production for production in productions if source_id in production}
+        if not tainted:
+            continue
+        if productions - tainted:
+            narrowed.append(node_id)
+        else:
+            doomed.append(node_id)
+    for node_id in doomed:
+        target.nodes.pop(node_id, None)
+        target.productions.pop(node_id, None)
+        target.node_generations.pop(node_id, None)
+    for node_id in narrowed:
+        survivors = {
+            production for production in target.productions[node_id] if source_id not in production
+        }
+        target.productions[node_id] = survivors
+        merged = frozenset[SourceId]().union(*survivors)
+        node = target.nodes[node_id]
+        target.nodes[node_id] = node.model_copy(
+            update={"lineage": node.lineage.model_copy(update={"sources": merged})}
+        )
+    return len(doomed), len(narrowed)
+
+
 def _retract(target: _Target, generation: GenerationId) -> int:
     """Undo one generation's writes so the target reads as though it never ran.
 
@@ -793,6 +867,7 @@ def _retract(target: _Target, generation: GenerationId) -> int:
     for node_id in removed_ids:
         target.nodes.pop(node_id, None)
         target.node_generations.pop(node_id, None)
+        target.productions.pop(node_id, None)
     for node_id, membership in list(target.node_generations.items()):
         if generation in membership:
             target.node_generations[node_id] = membership - doomed
@@ -831,6 +906,18 @@ def _words(text: str) -> frozenset[str]:
     return frozenset(text.lower().split())
 
 
+def _validate_filter(filter: Filter) -> None:
+    """Refuse an unaddressable field or a mismatched operator before any node is read.
+
+    Repair **R43.50**: a real backend translates a filter into one query before touching a row,
+    so a filter this store cannot honour must be refused whether or not there happens to be a
+    node to test it against — `_matches` alone only ever raised when a candidate reached it,
+    which an empty store, or an unmatched vector/text query, never does.
+    """
+    for leaf in leaves(filter):
+        field_for(leaf.op, leaf.field or "")
+
+
 def _matches(node: Node, filter: Filter) -> bool:
     """Evaluate `filter`'s AST against `node` — the whole of `MetadataFilter`'s promise."""
     if filter.op is FilterOp.AND:
@@ -866,6 +953,22 @@ def _value_at(node: Node, path: FieldPath) -> object:
     }[path.core.value]
 
 
+def _in(value: object, target: object) -> bool:
+    """`FilterOp.IN` — overlap for a set-valued `value`, membership for a scalar one.
+
+    Repair **R43.50**: `lineage.sources`/`lineage.parents` reach here as a `frozenset`, and an
+    extension field a pack stored as an array reaches here the same way — a node holding *any*
+    listed value matches, on the same footing as pgvector's `&&` and Qdrant's native array
+    payload semantics.
+    """
+    if not isinstance(target, tuple):
+        return False
+    wanted = cast("tuple[object, ...]", target)
+    if isinstance(value, frozenset | tuple | list):
+        return any(item in value for item in wanted)
+    return value in wanted
+
+
 def _compare(op: FilterOp, value: object, target: object) -> bool:
     """Every comparison `MetadataFilter` promises, once the field and its target are in hand."""
     if value is None:
@@ -875,7 +978,7 @@ def _compare(op: FilterOp, value: object, target: object) -> bool:
     if op is FilterOp.NE:
         return value != target
     if op is FilterOp.IN:
-        return isinstance(target, tuple) and value in target
+        return _in(value, target)
     if op is FilterOp.CONTAINS:
         return isinstance(value, frozenset | tuple | list) and target in value
     if op in (FilterOp.LT, FilterOp.LTE, FilterOp.GT, FilterOp.GTE):
