@@ -117,7 +117,9 @@ These came out of grilling sessions G1 and G3–G6. They are not preferences; ea
 - **Async only, no exceptions.** Every contract method is `async def`. No sync protocol, no sync
   facade, no declared colour. `asyncio.run` appears exactly **once** in the tree's Python, at
   `weft-cli`'s entry point — the two `poe` tasks that bridge the sweep scripts hold two more, by
-  design, in TOML fitness function 7(a) does not parse (`L23.32`). `CancelledError` propagates and is never swallowed.
+  design, in TOML fitness function 7(a) does not parse (`L23.32`), and `scripts/soak_layers.py` holds
+  one, waived by name in that check, to hold a store handle open the way an application does
+  (Phase 43e). `CancelledError` propagates and is never swallowed.
 - **Built-ins get no shortcut.** A first-party pack registers through the same public entry point a
   third party uses, and receives nothing extra.
 - **Cross-cutting concerns live at the registration seam**, never in a rule authors must remember.

@@ -1389,9 +1389,13 @@ All checks run in CI, before tests.
    see without human judgement about what "changed" means for a Protocol body, and is recorded as a
    known gap rather than asserted shut.
 7. **Colour integrity.** Two clauses, from G6, and **no tuning constants in either.**
-   (a) **One bridge.** `asyncio.run` appears exactly once in the tree, at `weft-cli`'s entry point,
-   asserted by path — so a second one fails the build rather than being noticed in review. This
-   exists because a single bridge observed elsewhere was safe only by docstring.
+   (a) **One bridge.** `asyncio.run` appears exactly once in the library, at `weft-cli`'s entry
+   point, asserted by path — so a second one fails the build rather than being noticed in review.
+   This exists because a single bridge observed elsewhere was safe only by docstring. **One
+   harness is waived by name, and only one:** `scripts/soak_layers.py` (Phase 43e, owner's answer
+   of 2026-09-25) drives an embedding application's long-lived store handle across a publish,
+   which no shipped command holds. A waived harness is outside every package, so it bridges into
+   the library as any application would.
    (b) **No blocking call at the stage seam.** While a stage is executing, the kernel's registration
    wrapper — the same one that applies spans and error attribution — installs a detector for
    blocking calls on the loop thread: file IO, sockets, `time.sleep`, `subprocess`, synchronous

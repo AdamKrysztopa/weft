@@ -49,12 +49,18 @@ _EXCLUDED_DIR_NAMES: Final[frozenset[str]] = frozenset(
 _EXPECTED_PATH: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "src" / "weft_cli" / "cli.py"
 
 
+#: Harnesses outside every package that bridge into the library as an application would, each
+#: named by the owner: the Phase 43e soak holds a store handle open across a publish (`01` item 7).
+#: Equality below keeps it live — a waived file that stops calling `asyncio.run` fails too.
+HARNESS_WAIVER: Final[frozenset[Path]] = frozenset({REPO_ROOT / "scripts" / "soak_layers.py"})
+
+
 def test_asyncio_run_appears_exactly_once_at_the_cli_entry_point() -> None:
     sites = [path for path in _repository_python_files() if _calls_asyncio_run(path)]
 
-    assert sites == [_EXPECTED_PATH], (
-        f"asyncio.run() must appear exactly once in the whole tree, at "
-        f"{_EXPECTED_PATH.relative_to(REPO_ROOT)}. Found it at: "
+    assert sorted(sites) == sorted({_EXPECTED_PATH, *HARNESS_WAIVER}), (
+        f"asyncio.run() must appear exactly once in the library, at "
+        f"{_EXPECTED_PATH.relative_to(REPO_ROOT)}, and in each waived harness. Found it at: "
         f"{[str(site.relative_to(REPO_ROOT)) for site in sites]}. A second bridge is exactly "
         f"the incident this fitness function exists to prevent — see "
         f"docs/01-high-level-plan.md -> Colour."
