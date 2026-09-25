@@ -2214,10 +2214,10 @@ then run the layer over it.
 generations:
 
 ```text
-'my-raptor' builds one tree over the whole corpus, as a generation published whole, and store
-stage 'graph-store' (pgvector-graph) cannot hold generations (GenerationHolding). Run it per source
-(drop layer.scope: corpus), or remove or replace that stage, or index into a store that can:
-pgvector, qdrant.
+'my-raptor' is corpus-scoped (layer.scope: corpus): what it builds over the whole corpus is
+published as one generation, and store stage 'graph-store' (pgvector-graph) cannot hold
+generations (GenerationHolding). Run it per source (drop layer.scope: corpus), or remove or replace
+that stage, or index into a store that can: pgvector, qdrant.
 ```
 
 **Why** — a tree over every document is misleading while half built, so it is written invisibly

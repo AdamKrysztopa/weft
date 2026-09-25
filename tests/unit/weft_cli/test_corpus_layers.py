@@ -364,6 +364,23 @@ async def test_a_store_that_cannot_hold_generations_is_refused_before_the_base_r
     assert store.state.adds == []
 
 
+async def test_the_refusal_describes_the_layer_in_its_own_terms_never_raptors(
+    corpus: Path,
+) -> None:
+    """Task 43.34: a corpus layer that builds no tree is never told it "builds one tree"."""
+    # Arrange
+    store = _Store()
+
+    # Act
+    with pytest.raises(LayerNeedsGenerationHoldingError) as refused:
+        await _index(store, corpus, layers=("enrich-with-summary",))
+
+    # Assert
+    message = str(refused.value)
+    assert "tree" not in message
+    assert "'enrich-with-summary' is corpus-scoped (layer.scope: corpus)" in message
+
+
 async def test_a_built_corpus_layer_is_not_rebuilt_while_nothing_changed(corpus: Path) -> None:
     # Arrange
     store = _GenerationStore()

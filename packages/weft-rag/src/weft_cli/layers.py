@@ -961,10 +961,10 @@ def require_corpus_layers_generation_holding(
     names = ", ".join(f"'{spec.id}' ({spec.name})" for spec in failing)
     installed = ", ".join(valid_options) if valid_options else "(none installed)"
     raise LayerNeedsGenerationHoldingError(
-        f"'{corpus_layer.layer}' builds one tree over the whole corpus, as a generation "
-        f"published whole, and {stage_word} {names} cannot hold generations "
-        "(GenerationHolding). Run it per source (drop layer.scope: corpus), or remove or "
-        f"replace that stage, or index into a store that can: {installed}.",
+        f"'{corpus_layer.layer}' is corpus-scoped (layer.scope: corpus): what it builds over "
+        f"the whole corpus is published as one generation, and {stage_word} {names} "
+        "cannot hold generations (GenerationHolding). Run it per source (drop layer.scope: "
+        f"corpus), or remove or replace that stage, or index into a store that can: {installed}.",
         valid_options=valid_options,
     )
 
