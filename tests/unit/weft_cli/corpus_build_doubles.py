@@ -10,15 +10,23 @@ not refused by the double rather than by the code.
 `ScriptedModel` is an `LLMProvider` that counts the requests it is sent and, on the request
 named by `trip`, cancels the task named by `victim` and waits, which is what Ctrl-C does to
 `weft index`: the cancellation arrives inside an in-flight model call.
+
+**Every call suspends** (task 43.26): a store or model that answers without yielding to the loop
+lets `asyncio.gather` run its callers one after another, so concurrency the build ships with is
+never exercised (`L28.48`). The store is registered by its class, so `participants_for` finds
+it, and `ClosingPassStore` withdraws, carries and reclaims as the kit states, so `weft index`'s
+closing reconcile reaches it (`R43.47`'s double, lifted here).
 """
 
 import asyncio
+import functools
 import hashlib
-from collections.abc import AsyncIterator, Callable, Sequence
+import inspect
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
-from typing import ClassVar, Self
+from typing import ClassVar, Self, cast
 
 from weft_chunk import Chunker
 from weft_chunk.fixed_size import FixedSizeChunker
@@ -47,7 +55,12 @@ from weft_store.contract import (
     GenerationId,
     GenerationRecord,
     GenerationStatus,
+    NotAPublishedGenerationError,
+    NotAPublishedMemberError,
     Page,
+    ReconcileEstimate,
+    ReconcileMode,
+    ReconcileReport,
     Removed,
     SourceRecord,
     UnknownGenerationError,
@@ -60,7 +73,37 @@ CLUSTERS = 4
 TERSE_PROMPT = "summarize-cluster-terse"
 
 _PAGE = 2
+_MODEL_LATENCY_SECONDS = 0.002
 _FIRST_OPENED = datetime(2026, 9, 23, 12, 0, tzinfo=UTC)
+
+
+async def _yield() -> None:
+    """Give the loop a turn, as every real store and provider call does."""
+    await asyncio.sleep(0)
+
+
+def suspending[T](cls: type[T]) -> type[T]:
+    """A subclass of `cls` whose every public coroutine method yields to the loop first.
+
+    For a store the tree certifies but whose own calls never suspend, such as
+    `examples/weft-example-ingest`'s: the behaviour is the class's own, the interleaving is a
+    real store's.
+    """
+    namespace: dict[str, object] = {}
+    for name in dir(cls):
+        method = getattr(cls, name)
+        if not name.startswith("_") and inspect.iscoroutinefunction(method):
+            namespace[name] = _suspended(method)
+    return cast("type[T]", type(f"Suspending{cls.__name__}", (cls,), namespace))
+
+
+def _suspended(method: Callable[..., Awaitable[object]]) -> Callable[..., Awaitable[object]]:
+    @functools.wraps(method)
+    async def call(*args: object, **kwargs: object) -> object:
+        await _yield()
+        return await method(*args, **kwargs)
+
+    return call
 
 
 def _values(node: Node, field: str) -> tuple[str, ...] | None:
@@ -144,11 +187,13 @@ class GenerationStore:
         return bool(self._state.members.get(node.id, {""}) & seen)
 
     async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        await _yield()
         del ctx
         await self.add(payload)
         return Produced(value=payload)
 
     async def add(self, nodes: Sequence[Node]) -> None:
+        await _yield()
         self._touch()
         self._state.adds.append(tuple(nodes))
         marker = self._generation or ""
@@ -157,19 +202,24 @@ class GenerationStore:
             self._state.members.setdefault(node.id, set()).add(marker)
 
     async def flush(self) -> None:
+        await _yield()
         return
 
     async def count(self) -> int:
+        await _yield()
         return len(self._state.nodes)
 
     async def get(self, ids: Sequence[NodeId]) -> Sequence[Node]:
+        await _yield()
         return tuple(self._state.nodes[i] for i in ids if i in self._state.nodes)
 
     async def scan(self, cursor: Cursor | None = None) -> Page[Node]:
+        await _yield()
         del cursor
         return Page(items=tuple(self._state.nodes.values()))
 
     async def delete_source(self, source_id: SourceId) -> Removed:
+        await _yield()
         doomed = [i for i, n in self._state.nodes.items() if source_id in n.lineage.sources]
         for i in doomed:
             del self._state.nodes[i]
@@ -178,15 +228,19 @@ class GenerationStore:
         return Removed(source_id=source_id, node_count=len(doomed))
 
     async def put_source(self, record: SourceRecord) -> None:
+        await _yield()
         self._state.records[record.id] = record
 
     async def get_source(self, source_id: SourceId) -> SourceRecord | None:
+        await _yield()
         return self._state.records.get(source_id)
 
     async def list_sources(self) -> Sequence[SourceRecord]:
+        await _yield()
         return tuple(self._state.records.values())
 
     async def matching(self, filter: Filter, cursor: Cursor | None = None) -> Page[Node]:
+        await _yield()
         selected = sorted(
             (n for n in self._state.nodes.values() if self._visible(n) and holds(n, filter)),
             key=lambda n: n.id,
@@ -199,6 +253,7 @@ class GenerationStore:
         )
 
     async def open_generation(self, layer: str) -> GenerationRecord:
+        await _yield()
         self._state.opened += 1
         record = GenerationRecord(
             id=GenerationId(f"g-{self._state.opened:03d}"),
@@ -215,10 +270,12 @@ class GenerationStore:
         return self._state.generations[generation]
 
     async def bind_generation(self, generation: GenerationId) -> Self:
+        await _yield()
         self._known(generation)
         return type(self)(self._state, generation)
 
     async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        await _yield()
         record = self._known(generation).model_copy(
             update={"status": GenerationStatus.PUBLISHED, "published_at": _FIRST_OPENED}
         )
@@ -226,6 +283,7 @@ class GenerationStore:
         return record
 
     async def retract_generation(self, generation: GenerationId) -> Removed:
+        await _yield()
         self._known(generation)
         doomed = [i for i, m in self._state.members.items() if m == {generation}]
         for i in doomed:
@@ -237,7 +295,70 @@ class GenerationStore:
         return Removed(source_id=SourceId(generation), node_count=len(doomed))
 
     async def generations(self) -> tuple[GenerationRecord, ...]:
+        await _yield()
         return tuple(self._state.generations.values())
+
+
+class ClosingPassStore(GenerationStore):
+    """`GenerationStore` that also withdraws, carries and reconciles, as the kit states.
+
+    `R43.47`'s own double, lifted here at task 43.26: registered by its class, it is a
+    `Reconcilable` participant, so `weft index`'s closing pass reaches it. The plain
+    `GenerationStore` stays a store that cannot withdraw, which some tests need.
+    """
+
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
+        await _yield()
+        record = self._known(generation)
+        if record.status is not GenerationStatus.PUBLISHED:
+            raise NotAPublishedGenerationError(
+                generation,
+                status=record.status,
+                valid_options=tuple(
+                    g
+                    for g, r in self._state.generations.items()
+                    if r.status is GenerationStatus.PUBLISHED
+                ),
+            )
+        withdrawn = record.model_copy(update={"status": GenerationStatus.WITHDRAWN})
+        self._state.generations[generation] = withdrawn
+        return withdrawn
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        await _yield()
+        doomed = [
+            record.id
+            for record in self._state.generations.values()
+            if record.layer == layer and record.status is GenerationStatus.WITHDRAWN
+        ]
+        removed = 0
+        for generation in doomed:
+            removed += (await self.retract_generation(generation)).node_count
+        return Removed(source_id=SourceId(layer), node_count=removed)
+
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
+        await _yield()
+        self._known(into)
+        live = {
+            g for g, r in self._state.generations.items() if r.status is GenerationStatus.PUBLISHED
+        }
+        distinct = list(dict.fromkeys(node_ids))
+        refused = [i for i in distinct if not self._state.members.get(i, set()) & live]
+        if refused:
+            raise NotAPublishedMemberError(into, node_ids=refused)
+        for node_id in distinct:
+            self._state.members[node_id].add(into)
+        return len(distinct)
+
+    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
+        del ctx
+        await _yield()
+        return ReconcileReport(mode=mode)
+
+    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
+        del ctx
+        await _yield()
+        return ReconcileEstimate(mode=mode, description="nothing pending")
 
 
 def plant_older_orphan(store: GenerationStore) -> GenerationId:
@@ -312,6 +433,8 @@ class ScriptedModel:
     victim: ClassVar[asyncio.Task[IndexResult] | None] = None
     watched: ClassVar[GenerationStore | None] = None
     building_seen: ClassVar[list[int]] = []
+    in_flight: ClassVar[int] = 0
+    peak_in_flight: ClassVar[int] = 0
 
     def __init__(self, config: object = None) -> None:
         del config
@@ -324,6 +447,8 @@ class ScriptedModel:
         cls.victim = None
         cls.watched = None
         cls.building_seen = []
+        cls.in_flight = 0
+        cls.peak_in_flight = 0
 
     @staticmethod
     def _text(conv: Conversation, *, model: str) -> str:
@@ -334,6 +459,7 @@ class ScriptedModel:
         self, conv: Conversation, *, model: str, ctx: Context
     ) -> Outcome[Completion]:
         del ctx
+        await _yield()
         text = self._text(conv, model=model)
         return Produced(value=Completion(text=text, model=model, finish_reason="stop"))
 
@@ -346,6 +472,14 @@ class ScriptedModel:
             assert ScriptedModel.victim is not None
             ScriptedModel.victim.cancel()
             await asyncio.Event().wait()
+        ScriptedModel.in_flight += 1
+        ScriptedModel.peak_in_flight = max(ScriptedModel.peak_in_flight, ScriptedModel.in_flight)
+        try:
+            # A model call lasts longer than one loop tick; answering within one, as every
+            # store call around it does, would leave no two calls in flight at once.
+            await asyncio.sleep(_MODEL_LATENCY_SECONDS)
+        finally:
+            ScriptedModel.in_flight -= 1
         yield self._text(conv, model=model)
 
     async def close(self) -> None:
@@ -368,9 +502,13 @@ class CountingEmbedder(HashEmbedder):
         return await super().run(payload, ctx)
 
 
-def _factory(store: GenerationStore, config: object) -> GenerationStore:
-    del config
-    return store
+def _opens(store: GenerationStore) -> Callable[..., GenerationStore]:
+    """A fresh handle of `store`'s class onto its state per run, as a real store opens.
+
+    A `partial` over the class, so `weft_kernel.registry.unwrap_factory` finds the class and
+    `participants_for` sees what it can do — a plain function hid it (`R43.47`).
+    """
+    return partial(type(store), store.state)
 
 
 def registry_for(
@@ -383,9 +521,9 @@ def registry_for(
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
     registry.add(Embedder, "hash", CountingEmbedder, distribution="weft-embed")
-    registry.add(NodeStore, "pgvector", partial(_factory, store), distribution="weft-store")
+    registry.add(NodeStore, "pgvector", _opens(store), distribution="weft-store")
     if second is not None:
-        registry.add(NodeStore, "second", partial(_factory, second), distribution="weft-example")
+        registry.add(NodeStore, "second", _opens(second), distribution="weft-example")
     registry.add(Expander, "raptor", RaptorSummarizer, distribution="weft-index")
     registry.add(Prompt, SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt, distribution="weft-index")
     registry.add(Prompt, TERSE_PROMPT, TersePrompt, distribution="weft-index")

@@ -24,6 +24,7 @@ import json
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -448,12 +449,24 @@ def _reclaimed_lines(rendered: render.Rendered) -> list[str]:
     return [line for line in (rendered.stdout or "").splitlines() if ": reclaimed " in line]
 
 
+class _ReclaimLog(State):
+    def __init__(self) -> None:
+        super().__init__()
+        self.reclaims: list[tuple[str, int]] = []
+
+
 class _RecordingStore(_EveryWayStore):
-    """Every `Removed` a `reclaim_withdrawn` returned, by layer, so a zero is seen to be asked."""
+    """Every `Removed` a `reclaim_withdrawn` returned, by layer, so a zero is seen to be asked.
+
+    Kept on the shared state: each run opens its own handle (task 43.26), as a real store does.
+    """
 
     def __init__(self, state: State | None = None, generation: GenerationId | None = None) -> None:
-        super().__init__(state, generation)
-        self.reclaims: list[tuple[str, int]] = []
+        super().__init__(state if state is not None else _ReclaimLog(), generation)
+
+    @property
+    def reclaims(self) -> list[tuple[str, int]]:
+        return cast(_ReclaimLog, self.state).reclaims
 
     async def reclaim_withdrawn(self, layer: str) -> Removed:
         removed = await super().reclaim_withdrawn(layer)

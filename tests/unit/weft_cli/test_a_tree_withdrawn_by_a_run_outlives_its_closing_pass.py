@@ -10,11 +10,11 @@ pass, and that pass reclaimed every withdrawn generation — the one this same r
 too — so the delay lasted only until the command returned. The pass still reclaims a tree an
 earlier run withdrew.
 
-The store is `test_generation_fallbacks_are_reported`'s withdrawing and carrying double, made a
-`Reconcilable` participant so the closing pass reaches it, over the same two corpus-scoped layers.
+The store is `corpus_build_doubles.ClosingPassStore`, which this file held until task 43.26
+lifted it, over the same two corpus-scoped layers.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from functools import partial
 from pathlib import Path
 from typing import ClassVar
@@ -23,8 +23,8 @@ import pytest
 
 from tests.unit.weft_cli.corpus_build_doubles import (
     LAYER,
+    ClosingPassStore,
     CountingEmbedder,
-    GenerationStore,
     ScriptedModel,
     llm_section,
     make_ctx,
@@ -44,7 +44,6 @@ from weft_index.adrap import AdrapJoiner
 from weft_index.payload import RaptorFacts
 from weft_index.prompts import SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt
 from weft_index.raptor import RaptorSummarizer
-from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import MediaType, Node, NodeId, SourceId
 from weft_kernel.registry import Registry
@@ -56,14 +55,8 @@ from weft_store.contract import (
     Filter,
     FilterOp,
     GenerationId,
-    GenerationRecord,
     GenerationStatus,
-    NotAPublishedGenerationError,
-    NotAPublishedMemberError,
-    ReconcileEstimate,
     ReconcileMode,
-    ReconcileReport,
-    Removed,
 )
 
 _SECOND = "enrich-with-terse-tree"
@@ -71,58 +64,6 @@ _BOTH = f"{LAYER},{_SECOND}"
 _SUMMARIES = Filter(op=FilterOp.EXISTS, field=f"ext.{RaptorFacts.__namespace__}.clusters_found")
 _OTHER_PROMPT = "summarize-cluster-other-tree"
 _CONVERGED = "  pgvector (weft-store): examined 0, removed 0, backfilled 0"
-
-
-class _ClosingPassStore(GenerationStore):
-    """`GenerationWithdrawing`, `GenerationCarrying` and `Reconcilable` on the double."""
-
-    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
-        record = self._known(generation)
-        if record.status is not GenerationStatus.PUBLISHED:
-            raise NotAPublishedGenerationError(
-                generation,
-                status=record.status,
-                valid_options=tuple(
-                    g
-                    for g, r in self.state.generations.items()
-                    if r.status is GenerationStatus.PUBLISHED
-                ),
-            )
-        withdrawn = record.model_copy(update={"status": GenerationStatus.WITHDRAWN})
-        self.state.generations[generation] = withdrawn
-        return withdrawn
-
-    async def reclaim_withdrawn(self, layer: str) -> Removed:
-        doomed = [
-            record.id
-            for record in self.state.generations.values()
-            if record.layer == layer and record.status is GenerationStatus.WITHDRAWN
-        ]
-        removed = 0
-        for generation in doomed:
-            removed += (await GenerationStore.retract_generation(self, generation)).node_count
-        return Removed(source_id=SourceId(layer), node_count=removed)
-
-    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
-        self._known(into)
-        live = {
-            g for g, r in self.state.generations.items() if r.status is GenerationStatus.PUBLISHED
-        }
-        distinct = list(dict.fromkeys(node_ids))
-        refused = [i for i in distinct if not self.state.members.get(i, set()) & live]
-        if refused:
-            raise NotAPublishedMemberError(into, node_ids=refused)
-        for node_id in distinct:
-            self.state.members[node_id].add(into)
-        return len(distinct)
-
-    async def reconcile(self, ctx: Context, mode: ReconcileMode) -> ReconcileReport:
-        del ctx
-        return ReconcileReport(mode=mode)
-
-    async def estimate(self, ctx: Context, mode: ReconcileMode) -> ReconcileEstimate:
-        del ctx
-        return ReconcileEstimate(mode=mode, description="nothing pending")
 
 
 class _OtherTreePrompt(SummarizeClusterPrompt):
@@ -164,7 +105,7 @@ def _write_layers(project: Path, *, incremental: bool) -> None:
         )
 
 
-def _registry(store: GenerationStore) -> Registry:
+def _registry(store: ClosingPassStore) -> Registry:
     """Build the registry with `adrap` and the store registered by its class.
 
     `corpus_build_doubles.registry_for` with `adrap`, the store registered by its class so the
@@ -175,7 +116,7 @@ def _registry(store: GenerationStore) -> Registry:
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
     registry.add(Embedder, "hash", CountingEmbedder, distribution="weft-embed")
     registry.add(
-        NodeStore, "pgvector", partial(_ClosingPassStore, store.state), distribution="weft-store"
+        NodeStore, "pgvector", partial(ClosingPassStore, store.state), distribution="weft-store"
     )
     registry.add(Expander, "raptor", RaptorSummarizer, distribution="weft-index")
     registry.add(Prompt, SUMMARIZE_CLUSTER_NAME, SummarizeClusterPrompt, distribution="weft-index")
@@ -204,7 +145,7 @@ def _deps(registry: Registry) -> Dependencies:
     )
 
 
-async def _index(store: _ClosingPassStore, corpus: Path, *, layers: str) -> render.Rendered:
+async def _index(store: ClosingPassStore, corpus: Path, *, layers: str) -> render.Rendered:
     ctx = make_ctx()
     ctx.services.add(Dependencies, _deps(_registry(store)))
     outcome = await commands.IndexCommand().run(
@@ -216,7 +157,7 @@ async def _index(store: _ClosingPassStore, corpus: Path, *, layers: str) -> rend
 
 
 async def _grown(
-    store: _ClosingPassStore, corpus: Path, *, label: str, layers: str = _BOTH
+    store: ClosingPassStore, corpus: Path, *, label: str, layers: str = _BOTH
 ) -> render.Rendered:
     """Drive one more labelled index run, so its summaries are told apart from earlier runs'.
 
@@ -228,10 +169,10 @@ async def _grown(
     return await _index(store, corpus, layers=layers)
 
 
-async def _reconcile(store: _ClosingPassStore) -> render.Rendered:
+async def _reconcile(store: ClosingPassStore) -> render.Rendered:
     registry = Registry()
     registry.add(
-        NodeStore, "pgvector", partial(_ClosingPassStore, store.state), distribution="weft-store"
+        NodeStore, "pgvector", partial(ClosingPassStore, store.state), distribution="weft-store"
     )
     ctx = make_ctx()
     ctx.services.add(
@@ -250,7 +191,7 @@ async def _reconcile(store: _ClosingPassStore) -> render.Rendered:
     return render.render_outcome(outcome)
 
 
-def _published(store: GenerationStore, layer: str) -> GenerationId:
+def _published(store: ClosingPassStore, layer: str) -> GenerationId:
     (live,) = [
         g
         for g, r in store.state.generations.items()
@@ -259,12 +200,12 @@ def _published(store: GenerationStore, layer: str) -> GenerationId:
     return live
 
 
-def _status(store: GenerationStore, generation: GenerationId) -> GenerationStatus | None:
+def _status(store: ClosingPassStore, generation: GenerationId) -> GenerationStatus | None:
     record = store.state.generations.get(generation)
     return None if record is None else record.status
 
 
-def _tree(store: GenerationStore, generation: GenerationId) -> set[NodeId]:
+def _tree(store: ClosingPassStore, generation: GenerationId) -> set[NodeId]:
     return {i for i, members in store.state.members.items() if generation in members}
 
 
@@ -274,7 +215,7 @@ def _pass_lines(rendered: render.Rendered) -> list[str]:
     ]
 
 
-async def _summaries_seen_by(handle: GenerationStore) -> set[NodeId]:
+async def _summaries_seen_by(handle: ClosingPassStore) -> set[NodeId]:
     """Every summary `handle` finds; its first call fixes its manifest."""
     seen: set[NodeId] = set()
     page = await handle.matching(_SUMMARIES)
@@ -302,7 +243,7 @@ async def test_a_tree_the_run_withdrew_is_still_withdrawn_and_stored_after_its_c
 ) -> None:
     # Arrange
     _write_layers(tmp_path, incremental=incremental)
-    store = _ClosingPassStore()
+    store = ClosingPassStore()
     await _index(store, corpus, layers=_BOTH)
     old = {layer: _published(store, layer) for layer in (LAYER, _SECOND)}
     old_trees = {layer: _tree(store, generation) for layer, generation in old.items()}
@@ -327,9 +268,9 @@ async def test_a_reader_that_opened_before_the_run_keeps_its_tree_after_the_run_
 ) -> None:
     # Arrange
     _write_layers(tmp_path, incremental=incremental)
-    store = _ClosingPassStore()
+    store = ClosingPassStore()
     await _index(store, corpus, layers=_BOTH)
-    reader = _ClosingPassStore(store.state)
+    reader = ClosingPassStore(store.state)
     before = await _summaries_seen_by(reader)
 
     # Act
@@ -346,7 +287,7 @@ async def test_the_next_build_reclaims_the_tree_the_run_before_it_withdrew(
 ) -> None:
     # Arrange
     _write_layers(tmp_path, incremental=incremental)
-    store = _ClosingPassStore()
+    store = ClosingPassStore()
     await _index(store, corpus, layers=_BOTH)
     old = {layer: _published(store, layer) for layer in (LAYER, _SECOND)}
     old_trees = {layer: _tree(store, generation) for layer, generation in old.items()}
@@ -371,7 +312,7 @@ async def test_an_explicit_reconcile_reclaims_the_tree_the_index_run_withdrew(
 ) -> None:
     # Arrange
     _write_layers(tmp_path, incremental=False)
-    store = _ClosingPassStore()
+    store = ClosingPassStore()
     await _index(store, corpus, layers=_BOTH)
     old = {layer: _published(store, layer) for layer in (LAYER, _SECOND)}
     old_trees = {layer: _tree(store, generation) for layer, generation in old.items()}
@@ -402,7 +343,7 @@ def _summary(content: str) -> Node:
     )
 
 
-async def _withdrawn_earlier(store: _ClosingPassStore, layer: str) -> GenerationId:
+async def _withdrawn_earlier(store: ClosingPassStore, layer: str) -> GenerationId:
     """A tree of `layer` published and withdrawn outside this run, holding two nodes of its own."""
     record = await store.open_generation(layer)
     await (await store.bind_generation(record.id)).add([_summary("earlier a"), _summary("b")])
@@ -416,7 +357,7 @@ async def test_the_closing_pass_still_reclaims_a_tree_an_earlier_run_withdrew(
 ) -> None:
     # Arrange — `_SECOND` holds a tree withdrawn before this run; the run builds `LAYER` alone.
     _write_layers(tmp_path, incremental=False)
-    store = _ClosingPassStore()
+    store = ClosingPassStore()
     await _index(store, corpus, layers=_BOTH)
     earlier = await _withdrawn_earlier(store, _SECOND)
     earlier_tree = _tree(store, earlier)
@@ -436,7 +377,7 @@ async def test_naming_a_layer_the_run_does_not_rebuild_does_not_spare_its_earlie
     # Arrange — both layers are current, so a run naming both rebuilds neither and withdraws
     # nothing; what the closing pass spares is what the run withdrew, not what it named.
     _write_layers(tmp_path, incremental=False)
-    store = _ClosingPassStore()
+    store = ClosingPassStore()
     await _index(store, corpus, layers=_BOTH)
     earlier = await _withdrawn_earlier(store, _SECOND)
     earlier_tree = _tree(store, earlier)
@@ -454,7 +395,7 @@ async def test_the_closing_pass_reclaims_an_earlier_runs_tree_and_keeps_its_own(
 ) -> None:
     # Arrange — a run of `_SECOND` alone withdraws its first tree; the next run builds `LAYER`.
     _write_layers(tmp_path, incremental=False)
-    store = _ClosingPassStore()
+    store = ClosingPassStore()
     await _index(store, corpus, layers=_BOTH)
     first_second = _published(store, _SECOND)
     await _grown(store, corpus, label="second", layers=_SECOND)
