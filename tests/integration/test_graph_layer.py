@@ -23,6 +23,7 @@ with one fixed reply, so nothing leaves the machine. An absent container skips w
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from collections.abc import AsyncIterator, Sequence
@@ -321,3 +322,53 @@ async def test_a_relation_two_sources_stated_survives_deleting_one_of_them(dsn: 
 
     # Assert
     assert await _neighbours(dsn, "Acme") == {"Beta"}
+
+
+# --- Task 43.35: `weft_kg`'s connection prepares no statement and opens once under concurrent
+# callers. `R43.39` made `PgVectorStore`'s connection unprepared (psycopg prepares on the fifth
+# run, and a prepared `SELECT *` refuses to run once another handle changes the table under it);
+# `weft_kg.store.resolve_target_connection` still used the default. And `GraphStore._connection`
+# opened lazily with no lock, the race `43.27` closed for pgvector, one module over.
+
+
+async def _backends_in(dsn: str) -> int:
+    name = dsn.rsplit("/", 1)[1]
+    async with await psycopg.AsyncConnection.connect(_DSN, autocommit=True) as admin:
+        row = await (
+            await admin.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = %s", (name,))
+        ).fetchone()
+    return int(row[0]) if row else 0
+
+
+async def test_concurrent_first_calls_on_one_graph_handle_open_one_connection(dsn: str) -> None:
+    # Arrange
+    store = GraphStore(GraphSettings(dsn=SecretStr(dsn)))
+    before = await _backends_in(dsn)
+
+    # Act
+    try:
+        await asyncio.gather(*(store.list_sources() for _ in range(4)))
+        during = await _backends_in(dsn)
+    finally:
+        await store.aclose()
+
+    # Assert
+    assert (before, during) == (0, 1)
+
+
+async def test_a_graph_read_survives_another_handle_adding_a_column_under_it(dsn: str) -> None:
+    # Arrange — a read run past psycopg's preparation threshold on one handle.
+    store = GraphStore(GraphSettings(dsn=SecretStr(dsn)))
+    try:
+        for _ in range(6):
+            await store.list_sources()
+        async with await psycopg.AsyncConnection.connect(dsn, autocommit=True) as other:
+            await other.execute("ALTER TABLE kg_sources ADD COLUMN added_by_another_handle TEXT")
+
+        # Act
+        after = await store.list_sources()
+    finally:
+        await store.aclose()
+
+    # Assert
+    assert list(after) == []

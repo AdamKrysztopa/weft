@@ -1008,6 +1008,9 @@ class GraphStore:
         del config  # the kernel's `factory(None)` convention — nothing at the stage level needed
         self._settings = settings
         self._conn: psycopg.AsyncConnection[dict[str, Any]] | None = None
+        #: Task 43.35: several first callers on one handle open one connection, as `43.27` made
+        #: `PgVectorStore`'s lazy open.
+        self._open_lock = asyncio.Lock()
         #: `None` on an unbound handle — see `_connection`, which reads the live target once and
         #: holds it here for this handle's lifetime (owner decision Q-C, ledger task 34.3),
         #: mirroring `weft_store.pgvector_store.PgVectorStore`'s own target-bound handle.
@@ -1022,12 +1025,14 @@ class GraphStore:
         """The lazily-opened, schema-provisioned connection this store reuses for its lifetime."""
         if self._conn is not None:
             return self._conn
-        dsn = require_dsn(self._settings)
-        conn, home_schema, target = await resolve_target_connection(dsn, bound=self._bound)
-        self._home_schema = home_schema
-        self._active_target = target
-        self._conn = conn
-        return conn
+        async with self._open_lock:
+            if self._conn is None:
+                dsn = require_dsn(self._settings)
+                conn, home_schema, target = await resolve_target_connection(dsn, bound=self._bound)
+                self._home_schema = home_schema
+                self._active_target = target
+                self._conn = conn
+            return self._conn
 
     async def aclose(self) -> None:
         """Close this store's connection, if one was opened.
@@ -2243,8 +2248,10 @@ async def resolve_target_connection(
     create `vector` and `pg_trgm` in the home schema, never inside the target's, or every later
     default-target connection finds neither extension's objects on its own path at all.
     """
+    # Unprepared: another handle may change a `kg_*` table's shape under a prepared `SELECT *`
+    # (R43.39's rule, task 43.35).
     conn = await psycopg.AsyncConnection[dict[str, Any]].connect(
-        dsn, autocommit=True, row_factory=dict_row
+        dsn, autocommit=True, row_factory=dict_row, prepare_threshold=None
     )
     async with conn.cursor() as cur:
         await cur.execute("SELECT current_schema() AS schema")
