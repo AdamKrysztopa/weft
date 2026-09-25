@@ -708,6 +708,12 @@ Rules that matter more than the table:
   naming the flag that would permit it. It never proceeds silently. A pipeline that quietly drops a
   production collection because it could not prompt is the failure this prevents.
 - `--yes` permits `ask` classes for one invocation. Per-class defaults live in `weft.toml`.
+- **`weft index <dir>` releases a source whose file is gone from `<dir>`, unasked** (Phase 43e,
+  the owner's answer, 2026-09-25). It stays `write`, like a re-parse's release of the parse it
+  replaces: the operator already deleted the file, the release removes only state derived from
+  it, and the next index is what drop-to-talk means in reverse. It never runs when the walk finds
+  no file at all, and it prints `released N sources no longer on disk.` `weft delete` of a
+  source whose file still exists stays `destroy`.
 - The prompt states **what will be destroyed and how much of it** — target name and document
   count — not just "are you sure?".
 

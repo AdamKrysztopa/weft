@@ -42,6 +42,20 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 - **A JSON list passed as `weft eval run --questions` is refused**, naming the TOML question form.
   It was read through 2.x by converting it, with a notice that it went at 3.0.0.
 
+### Added
+
+- **`weft index <dir>` releases every source whose file is gone from `<dir>`** and prints
+  `released N sources no longer on disk.` A document deleted from disk stops being retrieved at
+  the next index of its directory, and a corpus layer that covered it goes stale. Nothing is
+  released when the directory holds no file at all.
+- **A corpus layer that is stale is hidden from every read** until `weft index --layers <name>`
+  rebuilds it, so a summary of a deleted or changed document is never quoted. The stale line says
+  so: `layer '<name>' is stale and hidden from reads: …`.
+- **`weft index --layers <name> --layers-only --reprocess` rebuilds a corpus layer** even when
+  nothing changed: the cheap full rebuild, paying the layer's model calls and no re-parse.
+- **`weft delete` accepts a path relative to where you run it**, as `weft sources list`'s paths
+  are typed.
+
 ### Changed
 
 - **`Language`, the `weft_clean` ext model, stays, and its deprecation is withdrawn.** It was marked

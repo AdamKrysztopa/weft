@@ -580,6 +580,9 @@ class IndexResult:
     #: Ledger **43.21**, **R43.41** — layers a deletion or a re-parse staled, this run's among
     #: them: `weft_cli.layers.stale_corpus_layers`.
     layers_stale_deleted: tuple[str, ...] = ()
+    #: Task **43.32** — every source recorded under the walked directory whose file was gone,
+    #: released by this run (`_release_gone`).
+    released_gone: tuple[str, ...] = ()
 
 
 async def count_degraded_expansions(store: MetadataFilter) -> int:
@@ -1118,6 +1121,7 @@ async def _index_claimed(
     run_llm: LLMSection,
     target: str | None,
     target_live: str | None,
+    directory: Path,
 ) -> IndexResult:
     """Check the layers, claim the store's writer, then run the base and every layer.
 
@@ -1154,6 +1158,25 @@ async def _index_claimed(
     # Read *before* the run writes over them: the comparison is against what the last index
     # left, and `_record_sources` below replaces exactly those rows.
     previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
+    corpus_layers = frozenset(
+        corpus_scoped_layer_names(registry=registry, reports=reports, contributions=contributions)
+    )
+    released_gone = (
+        ()
+        if layers_only
+        else await _release_gone(
+            runnable,
+            directory=directory,
+            refs=refs,
+            previous=previous,
+            store_stage_ids=store_stage_ids,
+            corpus_layers=corpus_layers,
+        )
+    )
+    if released_gone:
+        # The release demoted layer records `previous` still holds `ACTIVE`, and the base run
+        # re-records unchanged sources from it.
+        previous = await _recorded_sources(runnable, store_stage_id=store_stage_id)
 
     # `work` is `_run_base`'s own concern — nothing here reads it back; `refs` is what
     # `IndexResult.document_ids`/`content_hashes` are built from, unconditionally.
@@ -1163,9 +1186,6 @@ async def _index_claimed(
         previous=previous,
         layers_only=layers_only,
         reprocess=reprocess,
-    )
-    corpus_layers = frozenset(
-        corpus_scoped_layer_names(registry=registry, reports=reports, contributions=contributions)
     )
     changes, _work, counts, indexed_count, failed_count = await _run_base(
         runnable,
@@ -1254,6 +1274,7 @@ async def _index_claimed(
         layers_stale=layers_stale,
         layers_stale_progress=layers_stale_progress,
         layers_stale_deleted=layers_stale_deleted,
+        released_gone=released_gone,
     )
 
 
@@ -1529,6 +1550,7 @@ async def run_index(
             run_llm=run_llm,
             target=target,
             target_live=target_live,
+            directory=directory,
         )
     except BaseException as failure:
         in_flight = failure
@@ -2335,6 +2357,41 @@ async def _release_reparsed_sources(
     return await _release_sources(
         runnable, store_stage_ids=store_stage_ids, sources=stale, corpus_layers=corpus_layers
     )
+
+
+async def _release_gone(
+    runnable: RunnablePipeline,
+    *,
+    directory: Path,
+    refs: Sequence[SourceRef],
+    previous: Mapping[SourceId, SourceRecord],
+    store_stage_ids: Sequence[str],
+    corpus_layers: frozenset[str],
+) -> tuple[str, ...]:
+    """Release every source recorded under `directory` whose file is gone — task **43.32**.
+
+    The owner's answer at Phase 43e's opening: a document deleted from disk stops being
+    retrievable at the next `weft index` of its directory, released the way a re-parse releases
+    one (`_release_sources`, corpus layers demoted first). Nothing is released when the walk
+    found no file at all, which is an unmounted or mistyped path rather than an emptied corpus,
+    and a source recorded under any other directory, or under an id that is no path, is kept.
+    """
+    if not refs:
+        return ()
+    root = directory.resolve()
+    walked = {ref.source_id for ref in refs}
+    gone = tuple(
+        sorted(source for source in previous if source not in walked and _gone_under(source, root))
+    )
+    await _release_sources(
+        runnable, store_stage_ids=store_stage_ids, sources=gone, corpus_layers=corpus_layers
+    )
+    return tuple(str(source) for source in gone)
+
+
+def _gone_under(source: SourceId, root: Path) -> bool:
+    path = Path(source)
+    return path.is_absolute() and path.is_relative_to(root) and not path.exists()
 
 
 async def _release_sources(

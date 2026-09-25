@@ -962,6 +962,8 @@ class IndexCommandResult(CommandResult):
     #: Ledger task **43.21** — copied from `weft_cli.ingest.IndexResult.layers_stale_deleted`,
     #: the identical reason `layers_stale` is.
     layers_stale_deleted: tuple[str, ...] = ()
+    #: Task **43.32** — copied from `weft_cli.ingest.IndexResult.released_gone`.
+    released_gone: tuple[str, ...] = ()
 
 
 class AskCommandResult(CommandResult):
@@ -1394,6 +1396,7 @@ class IndexCommand:
                 layers_stale=result.layers_stale,
                 layers_stale_progress=result.layers_stale_progress,
                 layers_stale_deleted=result.layers_stale_deleted,
+                released_gone=result.released_gone,
             )
         )
 

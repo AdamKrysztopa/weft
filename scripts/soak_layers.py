@@ -642,14 +642,30 @@ async def lifecycle(soak: Soak) -> None:
     await soak.step("rebuild after re-parse", index)
     soak.expect("rebuild after re-parse", check_rebuilt(*soak.last))
 
+    # By a path relative to the project, as an operator types it (43.31).
     victim = soak.project / "corpus" / "radium-0.md"
     await soak.step(
-        "delete", ["delete", str(victim.resolve()), "--yes"], reclaims=False, line=STALE_LINE
+        "delete", ["delete", "corpus/radium-0.md", "--yes"], reclaims=False, line=STALE_LINE
     )
     soak.expect("delete", check_stale(soak.last[1]))
     victim.unlink()
     await soak.step("rebuild after delete", index)
     soak.expect("rebuild after delete", check_rebuilt(*soak.last))
+
+    # A file removed from disk is released by the next index of its directory (43.32).
+    (soak.project / "corpus" / "thorium-1.md").unlink()
+    await soak.step(
+        "file gone from disk",
+        ["index", "corpus", "--layers", "none"],
+        line=r"released 1 source no longer on disk\.",
+    )
+    soak.expect("file gone from disk", check_stale(soak.last[1]))
+    await soak.step("rebuild after a gone file", index)
+    soak.expect("rebuild after a gone file", check_rebuilt(*soak.last))
+
+    # The cheap full rebuild of an unchanged corpus layer (43.29).
+    await soak.step("reprocess rebuild", [*index, "--layers-only", "--reprocess"])
+    soak.expect("reprocess rebuild", check_rebuilt(*soak.last))
 
 
 async def interrupted(soak: Soak) -> None:

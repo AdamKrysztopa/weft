@@ -680,6 +680,7 @@ def _index_trailing_lines(result: IndexCommandResult) -> list[str]:
         *_changed_layer_lines(result),
         *_released_layer_lines(result),
         *_stale_layer_lines(result),
+        *_released_gone_lines(result),
     ]
     if result.payload_indexes:
         # Ledger task **31.14**. Named rather than counted: a number would satisfy "reports its
@@ -838,6 +839,14 @@ def _released_layer_lines(result: IndexCommandResult) -> list[str]:
         f"rebuilt — weft index --layers {release.layer} rebuilds it."
         for release in result.layers_released
     ]
+
+
+def _released_gone_lines(result: IndexCommandResult) -> list[str]:
+    """The count of sources `weft index` released because their file was gone — task 43.32."""
+    count = len(result.released_gone)
+    if not count:
+        return []
+    return [f"released {count} source{'' if count == 1 else 's'} no longer on disk."]
 
 
 def stale_deleted_layer_line(name: str) -> str:
