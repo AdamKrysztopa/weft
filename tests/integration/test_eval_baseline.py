@@ -142,10 +142,15 @@ async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
     _write_archive(tmp_path / "archive")
     yield tmp_path
     client = AsyncQdrantClient(url=_QDRANT_URL)
-    for name in (collection, f"{collection}__sources"):
+    for suffix in ("", "__sources", "__targets", "__generations"):
+        name = f"{collection}{suffix}"
         if await client.collection_exists(name):
             await client.delete_collection(name)
+    listed = (await client.get_collections()).collections
     await client.close()
+    # R43.49: a companion collection the store creates and this teardown does not name is left
+    # in the container on every run; 196 had accumulated when it was found.
+    assert [c.name for c in listed if c.name.startswith(collection)] == []
 
 
 def _refuse_a_subprocess(*args: object, **kwargs: object) -> None:
