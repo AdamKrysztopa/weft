@@ -117,6 +117,8 @@ class StoredNode(BaseModel):
     generations: frozenset[str]
     summary: bool
     checkpoint: bool
+    #: The layer this node's `weft-index-layer` ext names, `None` for a base node no layer stamped.
+    layer: str | None = None
 
 
 class Snapshot(BaseModel):
@@ -271,7 +273,7 @@ def invariants(
     withdrawn = snap.with_status("withdrawn") - spared if reclaims else frozenset[str]()
     return [
         *_catalogue_problems(snap, building_allowed=building_allowed),
-        *_orphans(snap),
+        *orphans(snap),
         *_survivors(snap, withdrawn),
         *_tree_is_whole(snap),
     ]
@@ -288,8 +290,12 @@ def _catalogue_problems(snap: Snapshot, *, building_allowed: bool) -> list[str]:
     return problems
 
 
-def _orphans(snap: Snapshot) -> list[str]:
-    """Every node whose sources include one no record holds any more."""
+def orphans(snap: Snapshot) -> list[str]:
+    """Every node whose sources include one no record holds any more.
+
+    Public — `soak_shapes.py` reuses this one check against both the primary store and, for a
+    graph shape, the graph store's own tables (task 43.41).
+    """
     recorded = {s.id for s in snap.sources}
     return [
         f"node {node.id[:12]} names sources no record holds: {sorted(node.sources - recorded)}"
@@ -423,47 +429,81 @@ async def admin(statement: sql.Composed) -> None:
         await conn.execute(statement)
 
 
-#: One read of a pgvector database as a single JSON document, shaped as `Snapshot`, for a
-#: database whose store has created its tables; `_PG_NO_GENERATIONS` before a layer ever ran.
-_PG_SNAPSHOT: Final = """
+#: One read of a pgvector-backed table set as a single JSON document, shaped as `Snapshot`. The
+#: table set is `weft` for the primary store, `kg` for the graph store (task **43.41**) — its
+#: `kg_nodes`/`kg_sources`/`kg_generations` carry the identical columns this query reads
+#: (`weft_kg.store`'s own `CREATE TABLE` statements), so one template serves both rather than a
+#: second copy of the SQL, its table names filled in by `sql.Identifier` — `psycopg`'s `Query`
+#: type accepts only a `LiteralString` for `sql.SQL` itself, never one built by string
+#: interpolation, so the table set reaches the query through `.format()`'s placeholders instead.
+#: `{generations}` is `'[]'::json` for a table set with no generations table yet — before a layer
+#: has ever run against it — so a missing table reads as its default rather than raising.
+_PG_SNAPSHOT_SQL: Final = sql.SQL("""
 SELECT json_build_object(
   'generations', (SELECT coalesce(json_agg(json_build_object(
-      'id', id, 'layer', layer, 'status', status)), '[]'::json) FROM weft_generations),
+      'id', id, 'layer', layer, 'status', status)), '[]'::json) FROM {generations}),
   'sources', (SELECT coalesce(json_agg(json_build_object('id', s.id, 'layers', (
-      SELECT coalesce(json_object_agg(r->>'name', r->>'status'), '{}'::json)
-      FROM jsonb_array_elements(s.layers) r))), '[]'::json) FROM weft_sources s),
+      SELECT coalesce(json_object_agg(r->>'name', r->>'status'), '{{}}'::json)
+      FROM jsonb_array_elements(s.layers) r))), '[]'::json) FROM {sources} s),
   'nodes', (SELECT coalesce(json_agg(json_build_object(
       'id', id, 'sources', sources, 'parents', parents, 'generations', generations,
       'summary', coalesce(ext->'weft-index-raptor' ? 'level', false),
-      'checkpoint', coalesce(ext->'weft-index-layer' ? 'checkpoint', false))), '[]'::json)
-    FROM weft_nodes))
-"""
-_PG_NO_GENERATIONS: Final = """
+      'checkpoint', coalesce(ext->'weft-index-layer' ? 'checkpoint', false),
+      'layer', ext->'weft-index-layer'->>'layer')), '[]'::json)
+    FROM {nodes}))
+""")
+_PG_SNAPSHOT_NO_GENERATIONS_SQL: Final = sql.SQL("""
 SELECT json_build_object(
   'generations', '[]'::json,
   'sources', (SELECT coalesce(json_agg(json_build_object('id', s.id, 'layers', (
-      SELECT coalesce(json_object_agg(r->>'name', r->>'status'), '{}'::json)
-      FROM jsonb_array_elements(s.layers) r))), '[]'::json) FROM weft_sources s),
+      SELECT coalesce(json_object_agg(r->>'name', r->>'status'), '{{}}'::json)
+      FROM jsonb_array_elements(s.layers) r))), '[]'::json) FROM {sources} s),
   'nodes', (SELECT coalesce(json_agg(json_build_object(
       'id', id, 'sources', sources, 'parents', parents, 'generations', generations,
       'summary', coalesce(ext->'weft-index-raptor' ? 'level', false),
-      'checkpoint', coalesce(ext->'weft-index-layer' ? 'checkpoint', false))), '[]'::json)
-    FROM weft_nodes))
-"""
-_PG_TABLES: Final = (
-    "SELECT to_regclass('weft_nodes') IS NOT NULL, to_regclass('weft_generations') IS NOT NULL"
+      'checkpoint', coalesce(ext->'weft-index-layer' ? 'checkpoint', false),
+      'layer', ext->'weft-index-layer'->>'layer')), '[]'::json)
+    FROM {nodes}))
+""")
+_PG_TABLES_SQL: Final = sql.SQL(
+    "SELECT to_regclass({nodes}) IS NOT NULL, to_regclass({generations}) IS NOT NULL"
 )
 
 
-async def pg_snapshot(database: str) -> Snapshot:
-    """Read the catalogue, the sources and the nodes of one pgvector database."""
+def _pg_snapshot_sql(table: str, *, has_generations: bool) -> sql.Composed:
+    """The snapshot query for one table set (`weft` or `kg`)."""
+    if not has_generations:
+        return _PG_SNAPSHOT_NO_GENERATIONS_SQL.format(
+            sources=sql.Identifier(f"{table}_sources"), nodes=sql.Identifier(f"{table}_nodes")
+        )
+    return _PG_SNAPSHOT_SQL.format(
+        generations=sql.Identifier(f"{table}_generations"),
+        sources=sql.Identifier(f"{table}_sources"),
+        nodes=sql.Identifier(f"{table}_nodes"),
+    )
+
+
+def _pg_tables_sql(table: str) -> sql.Composed:
+    """Whether `{table}_nodes` and `{table}_generations` exist, in that order."""
+    return _PG_TABLES_SQL.format(
+        nodes=sql.Literal(f"{table}_nodes"), generations=sql.Literal(f"{table}_generations")
+    )
+
+
+async def pg_snapshot(database: str, table: str = "weft") -> Snapshot:
+    """Read the catalogue, the sources and the nodes of one pgvector table set.
+
+    Args:
+        database: The database to connect to.
+        table: `weft` for the primary store, `kg` for the graph store's own tables.
+    """
     async with await psycopg.AsyncConnection.connect(
         f"{PG_URL}/{database}", autocommit=True
     ) as conn:
-        tables = await (await conn.execute(_PG_TABLES)).fetchone()
+        tables = await (await conn.execute(_pg_tables_sql(table))).fetchone()
         if tables is None or not tables[0]:
             return Snapshot(generations=(), sources=(), nodes=())
-        query = _PG_SNAPSHOT if tables[1] else _PG_NO_GENERATIONS
+        query = _pg_snapshot_sql(table, has_generations=bool(tables[1]))
         row = await (await conn.execute(query)).fetchone()
     return Snapshot.model_validate(row[0] if row else {})
 
@@ -507,6 +547,7 @@ class _QdrantNode(BaseModel):
             generations=frozenset(self.generations),
             summary="level" in self.ext.get(RAPTOR, {}),
             checkpoint="checkpoint" in self.ext.get(CHECKPOINT, {}),
+            layer=cast("str | None", self.ext.get(CHECKPOINT, {}).get("layer")),
         )
 
 
@@ -942,6 +983,24 @@ async def _drive(soak: Soak) -> None:
     await reconciled(soak)
 
 
+_SHAPES: Final = ("raptor-corpus", "raptor-source", "questions", "facts-and-graph", "stacked")
+
+
+async def _run(args: argparse.Namespace) -> list[str]:
+    """`raptor-corpus`'s own unchanged lifecycle, or one of `soak_shapes`' other shapes.
+
+    Imported here, never at module level: `soak_shapes` imports this module's own `Backend`,
+    `Snapshot` and command runner, so a module-level import back would be circular.
+    """
+    if args.shape == "raptor-corpus":
+        return await soak_one(args.backend, args.weft, args.work, args.scale)
+    import soak_shapes
+
+    return await soak_shapes.soak_shape(
+        args.backend, soak_shapes.Shape(args.shape), args.weft, args.work, args.scale
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse the arguments, run the soak and print its verdict."""
     parser = argparse.ArgumentParser(description="The corpus-layer lifecycle soak (task 43.25).")
@@ -949,9 +1008,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--weft", type=Path, required=True, help="the installed binary")
     parser.add_argument("--work", type=Path, required=True, help="a directory outside the repo")
     parser.add_argument("--scale", type=int, default=24, help="copies of each document")
+    parser.add_argument("--shape", choices=_SHAPES, default="raptor-corpus")
     args = parser.parse_args(argv)
-    violations = asyncio.run(soak_one(args.backend, args.weft, args.work, args.scale))
-    print(f"=== {args.backend}: {len(violations)} violation(s)")
+    violations = asyncio.run(_run(args))
+    print(f"=== {args.backend} {args.shape}: {len(violations)} violation(s)")
     for violation in violations:
         print(f"  {violation}")
     return 1 if violations else 0
