@@ -2306,10 +2306,14 @@ async def _resolve_deletion_id(
     if not isinstance(read, Produced):
         return given, True
     records = [record for _, records in read.value for record in records]
-    if any(str(record.id) == given for record in records):
-        return given, True
-    by_uri = next((str(record.id) for record in records if record.uri == given), None)
-    return (by_uri, True) if by_uri is not None else (given, False)
+    # Task 43.31: a relative path is resolved against the working directory, as the walk that
+    # recorded the source resolved it.
+    resolved = Path(given).resolve()
+    names = {given, str(resolved), resolved.as_uri()}
+    by_name = next(
+        (str(record.id) for record in records if {str(record.id), record.uri} & names), None
+    )
+    return (by_name, True) if by_name is not None else (given, False)
 
 
 async def _corpus_layers_held_active(
