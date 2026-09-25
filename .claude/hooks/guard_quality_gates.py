@@ -74,9 +74,8 @@ finding there always blocks with a reason telling the agent to put the file back
 escalates to `ask` and never restores the file itself. A gate change that is genuinely wanted goes
 through `Edit`, which is where the owner is asked. **A command that exits non-zero reaches
 `PostToolUseFailure`, not `PostToolUse`** (measured 2026-09-24: its snapshot was never consumed).
-`main` handles that event too, but it reaches this file only if `.claude/settings.json` registers
-it for `Bash`. Where it does not, a gate written by a failing command goes unread, and its
-snapshot is pruned after `_SNAPSHOT_MAX_AGE_SECONDS`.
+so this file is registered on that event for `Bash` too, and answers it with context rather than
+a block. A snapshot no after-event consumes is pruned after `_SNAPSHOT_MAX_AGE_SECONDS`.
 
 A corrupt or unreadable `.gate-attempts.json`, or a malformed stdin payload, must never crash this
 hook — a hook that raises blocks every edit in the session, which is a far worse failure than one
