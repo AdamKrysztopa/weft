@@ -2,7 +2,7 @@ name: index-with-keywords
 extends: index-text
 
 # The cheapest of the three enrichment rungs, and the only one that adds no nodes and calls no
-# model. `keybert` is an `Enhancer`: it attaches keywords to a node's metadata and never changes
+# model. `term-frequency-keywords` is an `Enhancer`: it attaches keywords to a node's metadata and never changes
 # its content or its count — `weft_enhance.contract.Enhancer`'s own division of labour, against
 # a `Chunker` which replaces and an `Expander` which adds.
 #

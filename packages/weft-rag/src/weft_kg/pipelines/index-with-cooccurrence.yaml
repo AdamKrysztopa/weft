@@ -7,7 +7,7 @@ extends: index-with-graph
 # and relation rows on `store: graph`'s next call to `add`. `02` §3's derivation model doing its
 # job: this rung is one insert away from a rung that already exists, not a fresh document.
 #
-# Placed after `chunk`, alongside `keybert` — extracted per chunk, before `embed` and before
+# Placed after `chunk`, alongside `term-frequency-keywords` — extracted per chunk, before `embed` and before
 # either store, so both `pgvector-graph`'s `add` and this stage's own ext data reach the store in
 # the same batch.
 insert:

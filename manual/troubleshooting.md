@@ -2449,7 +2449,7 @@ any contract:
 
 ```text
 stage 'retrieve' names plugin 'vector-top-kk', which no installed distribution registered under any
-contract. Installed plugin names: fixed-size, hash, keybert, pdf-layout, pdf-text, pgvector, text.
+contract. Installed plugin names: fixed-size, hash, pdf-layout, pdf-text, pgvector, term-frequency-keywords, text.
 ```
 
 Usually a typo, sometimes a pack that is named in the document but not installed. It is *not* raised

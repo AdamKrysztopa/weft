@@ -629,9 +629,8 @@ class EvalRunCommandResult(CommandResult):
     stored_count: int | None
     record: RunRecord
     wall_clock_seconds: float
-    #: Task **38.11** — the question set's own shape, when `--questions` was given: `render`'s
-    #: cue to print a deprecation notice for a JSON `--questions` file. `None` for a run given
-    #: no `--questions` at all.
+    #: Task **38.11** — the question set's own shape, when `--questions` was given (TOML only
+    #: since task 43.38). `None` for a run given no `--questions` at all.
     question_set_format: QuestionSetFormat | None = None
 
 

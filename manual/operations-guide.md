@@ -293,8 +293,8 @@ documents it holds. The live target keeps answering questions throughout.
 target:
 
 ```bash
-weft eval run corpus index-text --reuse-index --target default --questions questions.json
-weft eval run corpus index-large --reuse-index --target large --questions questions.json
+weft eval run corpus index-text --reuse-index --target default --questions questions.toml
+weft eval run corpus index-large --reuse-index --target large --questions questions.toml
 weft eval compare <live-run> <candidate-run>
 ```
 

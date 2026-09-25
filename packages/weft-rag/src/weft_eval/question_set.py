@@ -40,7 +40,8 @@ which is what a second copy of someone else's fact does.
 
 **This module is now the one question model — task 38.10.** `Question` used to describe only the
 136 hand-written questions, every field present. It now also holds an *imported* set that cannot
-supply some of them, and a legacy JSON `--questions` list converted rather than re-modelled. A
+supply some of them (a legacy JSON `--questions` list was converted into it until `weft-rag`
+3.0.0, task 43.38). A
 missing field is legal only when the file says, once, which fields it cannot supply and why
 (`absent`/`absent_reason`); a field that is merely missing and unexplained is refused exactly as
 it always was, naming the field.
@@ -469,9 +470,8 @@ class QuestionSetFormat(StrEnum):
 class QuestionSet(BaseModel):
     """A question set as read off disk — its questions, the shape they came from, and its digest.
 
-    `format` is how a caller learns a set was converted from the legacy JSON shape rather than
-    read as the persisted TOML one — the deprecation notice for that belongs to the CLI command
-    that owns printing to a human, task 38.11, not to this module.
+    `format` is the shape it was read from; TOML is the only one since task 43.38 removed the
+    JSON reader, and the field stays because `weft eval run --json` reports it.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -485,14 +485,6 @@ class QuestionSet(BaseModel):
         return question_set_digest(self.questions)
 
 
-_JSON_ENTRY_KEYS: Final[frozenset[str]] = frozenset(
-    {"id", "query", "relevant_documents", "modality", "language", "kind"}
-)
-
-
-#: Every field a JSON `--questions` entry has never been able to carry, stated absent uniformly —
-#: `kind` joins this set per-entry, only when that entry's own `kind` does not resolve to one of
-#: this module's own `Kind` members.
 def question_set_digest(questions: Iterable[Question]) -> str:
     """A sha256 identifying the question set `questions` is, independent of file order.
 

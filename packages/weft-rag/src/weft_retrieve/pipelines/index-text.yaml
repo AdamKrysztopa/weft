@@ -50,7 +50,7 @@ stages:
 # derived-from-what-it-verifies shape the repair exists to end.
 #
 # **Why after `chunk`.** `index-with-keywords` already made this choice by hand and stated it:
-# keybert is placed "after `chunk` and before `embed`, because keywords are extracted per
+# term-frequency-keywords is placed "after `chunk` and before `embed`, because keywords are extracted per
 # chunk, and because the vector is computed from content this stage does not touch". An
 # enrichment slot anywhere else would contradict the one shipped document that already
 # enriches.
