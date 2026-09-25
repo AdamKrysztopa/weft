@@ -1531,7 +1531,9 @@ def _corpus_layer_status(
     this layer never reached, or one an earlier build left `FAILED`/`INDEXING`. A build left
     `FAILED` or `INDEXING` under another identity holds nothing to protect, so it is rebuilt
     unasked rather than reported (R43.9, extended to an interrupted build at task 43.20). Under
-    `reprocess` a moved identity is rebuilt rather than reported (R43.27).
+    `reprocess` a moved identity is rebuilt rather than reported (R43.27), and a whole tree is
+    rebuilt too (task 43.29): `--layers-only --reprocess` is the cheap full rebuild of a corpus
+    layer, paying its model calls and no re-parse.
     """
     existing_by_source: dict[SourceId, LayerRecord | None] = {}
     all_active = True
@@ -1550,7 +1552,7 @@ def _corpus_layer_status(
         if existing.status is not LayerStatus.ACTIVE:
             all_active = False
     if all_active:
-        return False, False, existing_by_source
+        return reprocess, False, existing_by_source
     return (False, True, existing_by_source) if changed else (True, False, existing_by_source)
 
 

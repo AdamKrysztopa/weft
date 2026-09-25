@@ -289,3 +289,50 @@ async def test_layers_only_without_reprocess_still_reports_a_moved_layer_and_lea
     assert result.layers_changed == (layer,)
     assert (ScriptedModel.calls, _Rephrase.calls) == ([], [])
     assert _identities(store, layer) == before
+
+
+async def test_layers_only_reprocess_rebuilds_a_corpus_layer_that_did_not_move(
+    corpus: Path, leaves_embedded: list[int]
+) -> None:
+    """Task 43.29: `--layers-only --reprocess` is the cheap full rebuild of a corpus layer.
+
+    With the layer's identity unchanged and every record `ACTIVE`, `_corpus_layer_status` returned
+    before `reprocess` was read, so the rebuild the flag names was never run.
+    """
+    # Arrange
+    store = GenerationStore()
+    await _index(store, corpus, layer=LAYER)
+    (before,) = published(store)
+    ScriptedModel.calls = []
+    ScriptedModel.label = "second"
+    leaves_embedded.clear()
+
+    # Act
+    await _index(store, corpus, layer=LAYER, layers_only=True, reprocess=True)
+
+    # Assert
+    assert ScriptedModel.calls, "the layer was not rebuilt"
+    (after,) = published(store)
+    assert after.id != before.id
+    summaries = visible_summaries(store)
+    assert summaries
+    assert all("in the second run" in node.content for node in summaries)
+    assert sum(leaves_embedded) == 0, "--layers-only re-embedded the leaves"
+    assert {status for _, status in _identities(store, LAYER)} == {LayerStatus.ACTIVE}
+
+
+async def test_layers_only_without_reprocess_leaves_an_unmoved_corpus_layer_alone(
+    corpus: Path,
+) -> None:
+    # Arrange
+    store = GenerationStore()
+    await _index(store, corpus, layer=LAYER)
+    (before,) = published(store)
+    ScriptedModel.calls = []
+
+    # Act
+    await _index(store, corpus, layer=LAYER, layers_only=True)
+
+    # Assert
+    assert ScriptedModel.calls == []
+    assert published(store) == [before]
