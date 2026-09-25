@@ -455,8 +455,7 @@ async def test_eval_run_with_questions_folds_the_scored_metrics_into_the_record(
     monkeypatch.setattr(
         ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
     )
-    questions_path = tmp_path / "questions.json"
-    questions_path.write_text('[{"query": "q", "relevant_documents": ["doc-a"]}]')
+    questions_path = _toml_questions(tmp_path, ("q",))
 
     async def _fake_score_pipeline(**kwargs: object) -> ScoredRun:
         del kwargs
@@ -491,7 +490,7 @@ async def test_eval_run_with_questions_folds_the_scored_metrics_into_the_record(
     assert isinstance(result, EvalRunCommandResult)
     assert isinstance(result.record.metrics["precision@5"], Produced)
     assert result.record.metrics["precision@5"].value.mean == 0.8
-    assert result.question_set_format is QuestionSetFormat.JSON
+    assert result.question_set_format is QuestionSetFormat.TOML
 
 
 async def test_eval_run_does_not_stream_generated_tokens_to_the_cli_sink(
@@ -513,8 +512,7 @@ async def test_eval_run_does_not_stream_generated_tokens_to_the_cli_sink(
     monkeypatch.setattr(
         ingest_module, "full_catalogue", _stub_catalogue({"index": _document("index")})
     )
-    questions_path = tmp_path / "questions.json"
-    questions_path.write_text('[{"query": "q", "relevant_documents": ["doc-a"]}]')
+    questions_path = _toml_questions(tmp_path, ("q",))
 
     captured = io.StringIO()
     printing_sink = PrintingSink(stream=captured)

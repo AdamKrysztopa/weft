@@ -66,10 +66,11 @@ _PLACEHOLDER_STORE_SETTINGS: Final[Mapping[str, Mapping[str, object]]] = {
 
 #: **Pinned empty is the goal and it is not empty yet.** `weft_clean.Language` is the one entry,
 #: and it is a gap `docs/01-high-level-plan.md` has recorded since Phase 0 rather than a
-#: judgement this check gets wrong. Carried repair `R19.12` settled it with the owner: nothing
-#: will write it, so it is **deprecated, removed in `weft-rag` 3.0.0**, and that removal is what
-#: empties this tuple and closes `L19.7`. A second entry is a visible act in a diff, which is
-#: the whole point of a ratchet.
+#: judgement this check gets wrong. Carried repair `R19.12` deprecated it for removal in
+#: `weft-rag` 3.0.0; the owner withdrew that at task `43.38` (2026-09-25), because
+#: `polish-dictionary-spacing` scopes itself by it and would otherwise apply to every node. It
+#: leaves when a detect stage writes it or that fixer retires. A second entry is a visible act in a
+#: diff, which is the whole point of a ratchet.
 WAIVED: Final[tuple[str, ...]] = ("Language",)
 
 

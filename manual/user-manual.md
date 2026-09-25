@@ -374,7 +374,7 @@ name: specific
 extends: base
 insert:
   - after: chunk
-    stage: {id: keywords, use: keybert, with: {top_n: 8}}
+    stage: {id: keywords, use: term-frequency-keywords, with: {top_n: 8}}
 """
 
 directory = Path(tempfile.mkdtemp())
@@ -391,7 +391,9 @@ catalogue = load_pipeline_catalogue(directory)
 registry = Registry()
 registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
 registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
-registry.add(Enhancer, "keybert", KeyBertKeywordExtractor, distribution="weft-enhance")
+registry.add(
+    Enhancer, "term-frequency-keywords", KeyBertKeywordExtractor, distribution="weft-enhance"
+)
 registry.add(Embedder, "hash", HashEmbedder, distribution="weft-embed")
 
 # Stage id -> contract: `resolve()`'s caller supplies this, never guesses it from
@@ -451,7 +453,7 @@ What that prints — the resolved form, exactly as `resolved.model_dump(mode="js
       "id": "keywords",
       "contract": "Enhancer",
       "contract_version": "1.0.0",
-      "use": "keybert",
+      "use": "term-frequency-keywords",
       "config": {
         "top_n": 8
       },
@@ -512,13 +514,13 @@ name: specific
 extends: base
 insert:
   - after: chunk
-    stage: {id: keywords, use: keybert, with: {top_n: 8}}
+    stage: {id: keywords, use: term-frequency-keywords, with: {top_n: 8}}
 ```
 
 Quoted here, not merely narrated: `01` → *Fitness functions* item 11(b) reads every
 `yaml id=pipeline:...`-tagged block across `manual/` and resolves it against the real,
 installed registry in `ci-checks` — the same check that watches every pipeline a pack ships.
-A rename of `keybert` or a typo in `after: chunk` fails the gate this page's own prose is
+A rename of `term-frequency-keywords` or a typo in `after: chunk` fails the gate this page's own prose is
 checked against, not a reader's first `weft index`.
 
 ## 3. Vars — a decision the whole pipeline shares
@@ -647,7 +649,9 @@ typo = Pipeline.model_validate(
     {
         "name": "typo",
         "extends": "base",
-        "insert": [{"after": "chnk", "stage": {"id": "keywords", "use": "keybert"}}],
+        "insert": [
+            {"after": "chnk", "stage": {"id": "keywords", "use": "term-frequency-keywords"}}
+        ],
     }
 )
 

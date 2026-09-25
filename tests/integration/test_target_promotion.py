@@ -76,11 +76,11 @@ async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
         "name: wide\nextends: narrow\nset:\n  - id: embed\n    with: {dimension: 128}\n",
         encoding="utf-8",
     )
-    (tmp_path / "questions.json").write_text(
-        json.dumps(
+    (tmp_path / "questions.toml").write_text(
+        _toml_questions(
             [
-                {"query": "what moves water", "relevant_documents": [str(pumps.resolve())]},
-                {"query": "what controls flow", "relevant_documents": [str(valves.resolve())]},
+                ("what moves water", str(pumps.resolve())),
+                ("what controls flow", str(valves.resolve())),
             ]
         ),
         encoding="utf-8",
@@ -103,7 +103,7 @@ async def _scored(w: Weft, pipeline: str, target: str | None) -> str:
             "path": "corpus",
             "pipeline": pipeline,
             "corpus_name": "demo",
-            "questions": "questions.json",
+            "questions": "questions.toml",
             "top_k": 2,
             "target": target,
         },
@@ -240,3 +240,16 @@ async def test_a_candidate_whose_embedder_was_never_recorded_is_not_promoted(
         with pytest.raises(CandidateIdentityUnrecordedError) as caught:
             await w.run("target promote", {"name": "w256", "without_evidence": True}, yes=True)
     assert "'w256'" in str(caught.value)
+
+
+def _toml_questions(pairs: list[tuple[str, str]]) -> str:
+    """The TOML question set (the JSON list went at `weft-rag` 3.0.0, task 43.38)."""
+    header = (
+        '[question_set]\nschema = 2\nabsent = ["kind", "difficulty", "quote", "reference_answer", '
+        '"notes"]\nabsent_reason = "an integration fixture"\naxes = []\n\n'
+    )
+    return header + "".join(
+        f'[[question]]\nid = "{i}"\ntext = {json.dumps(text)}\nlanguage = "en"\n'
+        f"relevant_documents = [{json.dumps(document)}]\n\n"
+        for i, (text, document) in enumerate(pairs)
+    )

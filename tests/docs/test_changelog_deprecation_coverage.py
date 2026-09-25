@@ -102,14 +102,16 @@ def test_the_installed_tree_marks_exactly_what_it_has_retired() -> None:
     being asked something. It fired exactly once, at ledger task `21.10`, when `weft-enhance`
     retired `keybert` for `term-frequency-keywords` (`R19.15`).
     It fired a second time at carried repair `R19.12`, when `weft_clean` deprecated `Language`,
-    the ext model nothing in Weft writes.
+    the ext model nothing in Weft writes. At `weft-rag` 3.0.0 (task `43.38`) the set is empty
+    again: `keybert` is removed, as its notice promised, and `Language`'s removal was withdrawn
+    by the owner, because `polish-dictionary-spacing` scopes itself by it.
 
     **So it is pinned rather than deleted.** An equality against a named set keeps doing the job
     the empty one did: a second deprecation arriving without a `CHANGELOG.md` entry, or a
     deprecation quietly disappearing, both fail here. Widening it to a `>=` or dropping it would
     retire the check on the day it first had a subject.
     """
-    assert _real_deprecations() == frozenset({"keybert", "Language"}), (
+    assert _real_deprecations() == frozenset(), (
         "the set of retired first-party surfaces moved. If something was retired, add its "
         "CHANGELOG.md entry and name it here; if `keybert` or `Language` stopped being marked, "
         "either the "

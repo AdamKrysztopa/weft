@@ -584,7 +584,7 @@ running the same command.
 > **`weft eval run --questions <file> [--top-k <n>]`, task 4.9 (2026-08-20) — closes
 > `.phase4-design.md` §7's gap: a persisted `RunRecord` carried no metric scores, so `weft eval
 > compare` could only report that two runs' pipelines *differ*, never what they *produced*.**
-> `--questions` names a question file — *since task 38.11 (2026-09-16) the TOML form `weft_eval.question_set` reads, a directory or one file, with `--manifest` mapping manifest ids to corpus paths; a JSON list of `{"query": ..., "relevant_documents": [...]}` is converted into that form with a deprecation notice until `weft-rag` 3.0* —
+> `--questions` names a question file — *since task 38.11 (2026-09-16) the TOML form `weft_eval.question_set` reads, a directory or one file, with `--manifest` mapping manifest ids to corpus paths; a JSON list of `{"query": ..., "relevant_documents": [...]}` was converted into that form through `weft-rag` 2.x and is refused from 3.0.0 (task 43.38)* —
 > given one, `weft eval run` retrieves for every question through the resolved pipeline's own
 > `Embedder`/`NodeStore` stages (never `[services]` — Q3, task 4.0, still holds for a named
 > pipeline) and scores the gate-safe `RetrievalMetric` subset over the result

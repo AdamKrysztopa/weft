@@ -32,44 +32,23 @@ class Settings(BaseModel):
 #: transformer embedding of the document, and this counts tokens against a fixed stoplist.
 NAME = "term-frequency-keywords"
 
-#: The name `weft-rag 2.4.0` published, kept registered and **marked**. Removing it would turn a
-#: working `weft.toml` into an `UnknownPluginError` on upgrade, and leaving it unmarked would be
-#: the silent half `09` §2.2 refuses: *"inside 0.x a contract may move without a deprecation
-#: period, but never silently."*
-RETIRED_NAME = "keybert"
-
 
 def register(registrar: PackRegistrar, settings: Settings) -> None:
-    """Register `KeyBertKeywordExtractor` under both its names, and the `Keywords` extension.
+    """Register `KeyBertKeywordExtractor` and the `Keywords` extension.
 
-    Register `KeyBertKeywordExtractor` under both names for `Enhancer`, and `Keywords` as
-    this pack's own `ExtModel` — task 5.2g, see `weft_chunk.__init__`'s own module
-    docstring for the full argument for why this costs no `weft-store` dependency.
-
-    **Two names, one plugin, and the old one is marked.** `PackRegistrar.deprecate` is task
-    5.2e's mechanism for exactly this: the fact is stated once here and
-    `weft_kernel.seam.warn_deprecated` emits the notice at the registration seam, so nobody
-    writes a warning by hand and nobody has to remember to.
+    Register `KeyBertKeywordExtractor` for `Enhancer` under `term-frequency-keywords`, and
+    `Keywords` as this pack's own `ExtModel` — task 5.2g, see `weft_chunk.__init__`'s own module
+    docstring for the full argument for why this costs no `weft-store` dependency. The retired
+    name `keybert`, deprecated through 2.x, is gone at `weft-rag` 3.0.0 (task 43.38).
     """
     del settings
     registrar.add(Enhancer, NAME, KeyBertKeywordExtractor)
-    registrar.add(Enhancer, RETIRED_NAME, KeyBertKeywordExtractor)
-    registrar.deprecate(
-        RETIRED_NAME,
-        reason=(
-            f"renamed to '{NAME}', which is what it does: it ranks tokens by frequency against a "
-            f"fixed stoplist, and real KeyBERT ranks n-grams by similarity to a transformer "
-            f"embedding of the document. Change 'use: keybert' to 'use: {NAME}'; nothing else "
-            f"about the stage moves"
-        ),
-    )
     registrar.add_ext_model(Keywords)
 
 
 __all__ = [
     "ENHANCER_CONTRACT_VERSION",
     "NAME",
-    "RETIRED_NAME",
     "Enhancer",
     "KeyBertConfig",
     "KeyBertKeywordExtractor",

@@ -128,7 +128,6 @@ from weft_eval.baseline import Reproduction
 from weft_eval.contract import MetricKind
 from weft_eval.falsify import BaselineSpread, DifferenceJudgement, PairedDifference
 from weft_eval.latency import LatencySummary, latency_summary
-from weft_eval.question_set import QuestionSetFormat
 from weft_eval.run_record import (
     ExperimentRun,
     MetricRunResult,
@@ -1480,12 +1479,6 @@ def _render_eval_run(result: EvalRunCommandResult) -> Rendered:
         )
         stdout += f" tokens: {role_text}."
     stderr_lines: list[str] = []
-    if result.question_set_format is QuestionSetFormat.JSON:
-        stderr_lines.append(
-            "deprecated: a JSON --questions file is read by converting it into the TOML "
-            "question form until weft-rag 3.0, when this reader is removed — write the "
-            "TOML question form instead."
-        )
     if summary.failed_reasons:
         stderr_lines.extend(f"  failed: {reason}" for reason in summary.failed_reasons)
     stderr = "\n".join(stderr_lines) if stderr_lines else None

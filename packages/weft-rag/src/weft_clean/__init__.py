@@ -50,14 +50,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Cleaner, "table-linearize", TableLinearizer)
     registrar.add(Cleaner, "polish-dictionary-spacing", PolishFusedWordFixer)
     registrar.add(Cleaner, "whitespace", WhitespaceNormalizer)
+    # Unmarked since task 43.38: `polish-dictionary-spacing` scopes itself by `Language`, so its
+    # removal, deprecated at R19.12, was withdrawn by the owner.
     registrar.add_ext_model(Language)
-    registrar.deprecate(
-        "Language",
-        reason=(
-            "nothing in Weft writes it: no shipped stage attaches a Language to a node, so a "
-            "store can never hold one, and it is removed rather than kept as an empty promise"
-        ),
-    )
 
 
 __all__ = [

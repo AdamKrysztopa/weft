@@ -358,79 +358,31 @@ def test_a_directory_and_its_one_file_read_as_the_same_set(tmp_path: Path) -> No
     assert from_directory.digest == from_file.digest
 
 
-def test_a_json_questions_file_is_converted_into_the_one_model(tmp_path: Path) -> None:
+def test_a_json_questions_file_is_refused_naming_the_toml_form(tmp_path: Path) -> None:
+    """Task 43.38: the JSON list, deprecated since 38.11 "until weft-rag 3.0", is gone at 3.0.0."""
     # Arrange
     path = tmp_path / "questions.json"
     path.write_text(
-        json.dumps(
-            [
-                {
-                    "query": "What is it?",
-                    "relevant_documents": ["arxiv/a.pdf"],
-                    "kind": "definitional",
-                },
-                {
-                    "query": "How are they linked?",
-                    "relevant_documents": ["b.md"],
-                    "kind": "requires-graph-hop",
-                },
-                {
-                    "query": "Is it here?",
-                    "relevant_documents": [],
-                    "modality": "image",
-                    "language": "pl",
-                },
-            ]
-        ),
-        encoding="utf-8",
+        json.dumps([{"query": "What is it?", "relevant_documents": ["a.md"]}]), encoding="utf-8"
     )
 
     # Act
-    converted = read_question_set(path)
+    with pytest.raises(QuestionSetError) as refused:
+        read_question_set(path)
 
     # Assert
-    assert converted.format is QuestionSetFormat.JSON
-    first, second, third = converted.questions
-    assert [first.id, second.id, third.id] == ["0", "1", "2"]
-    assert first.text == "What is it?"
-    assert first.relevant_documents == ("arxiv/a.pdf",)
-    assert first.kind is Kind.DEFINITIONAL
-    assert first.quote == ()
-    assert {QuestionField.DIFFICULTY, QuestionField.QUOTE} <= first.absent
-    assert QuestionField.KIND not in first.absent
-    assert first.absent_reason
-    assert second.kind is None
-    assert QuestionField.KIND in second.absent
-    assert second.axes["kind"] == "requires-graph-hop"
-    assert third.modality is QueryModality.IMAGE
-    assert third.language == "pl"
-    assert not third.answerable
-
-
-def test_a_json_question_naming_its_own_id_keeps_it(tmp_path: Path) -> None:
-    # Arrange
-    path = tmp_path / "questions.json"
-    path.write_text(
-        json.dumps([{"id": "keep-me", "query": "What?", "relevant_documents": ["a.md"]}]),
-        encoding="utf-8",
-    )
-
-    # Act
-    (question,) = read_question_set(path).questions
-
-    # Assert
-    assert question.id == "keep-me"
+    message = str(refused.value)
+    assert "questions.json" in message
+    assert ".json" in message
+    assert "a directory, or a file ending .toml" in message
 
 
 @pytest.mark.parametrize(
     ("name", "body", "fragment"),
     [
-        ("questions.json", "{not json", "not valid JSON"),
-        ("questions.json", '{"query": "a dict, not a list"}', "list"),
-        ("questions.json", '[{"query": "a"}, {"id": "x", "query": "b"}]', "'id'"),
         ("questions.csv", "query\nwhat", "questions.csv"),
     ],
-    ids=["invalid-json", "not-a-list", "some-ids-only", "unknown-suffix"],
+    ids=["unknown-suffix"],
 )
 def test_a_questions_path_that_cannot_be_read_as_a_set_is_refused_naming_it(
     tmp_path: Path, name: str, body: str, fragment: str
@@ -501,14 +453,9 @@ def test_a_question_built_in_code_states_its_absences_or_is_refused() -> None:
             '[question_set]\nschema = 2\nabsent = ["colour"]\nabsent_reason = "r"\naxes = []\n',
             tuple(field.value for field in QuestionField),
         ),
-        (
-            "entry.json",
-            '[{"query": "q", "colour": "blue"}]',
-            ("id", "kind", "language", "modality", "query", "relevant_documents"),
-        ),
-        ("questions.csv", "query\nwhat", (".json", ".toml")),
+        ("questions.csv", "query\nwhat", (".toml",)),
     ],
-    ids=["unknown-table-key", "unknown-absent-field", "unknown-json-key", "unknown-suffix"],
+    ids=["unknown-table-key", "unknown-absent-field", "unknown-suffix"],
 )
 def test_a_refused_name_is_listed_beside_every_valid_one(
     tmp_path: Path, name: str, body: str, listed: tuple[str, ...]

@@ -34,14 +34,21 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
-### Deprecated
+### Removed
 
-- **`Language`, the `weft_clean` ext model, is deprecated.** Nothing in Weft writes it: no shipped
-  stage attaches a `Language` to a node, so no store holds one, and importing the class is the only
-  thing that stops working. `weft plugins doctor` prints the notice. **Removed in `weft-rag`
-  3.0.0.**
+- **The `keybert` enhancer name is gone**, as its deprecation notice said it would be at
+  `weft-rag` 3.0.0. `use: keybert` is refused by name, and the refusal lists
+  `term-frequency-keywords`, the same plugin under the name that says what it does.
+- **A JSON list passed as `weft eval run --questions` is refused**, naming the TOML question form.
+  It was read through 2.x by converting it, with a notice that it went at 3.0.0.
 
 ### Changed
+
+- **`Language`, the `weft_clean` ext model, stays, and its deprecation is withdrawn.** It was marked
+  for removal at 3.0.0 because nothing writes it. But `polish-dictionary-spacing` scopes itself by
+  it, and without it that fixer would apply to every node, splitting English words the way it did
+  before it was scoped. It stays until a language-detection stage writes it or that fixer retires.
+  `weft plugins doctor` no longer prints a notice for it.
 
 - **A store now owes callers that overlap on one handle what a serial run would give them —
   `weft-rag` 3.0.0, the store contract's first major.** A corpus layer build keeps its summaries

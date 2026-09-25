@@ -815,7 +815,8 @@ def test_a_stale_operator_target_would_be_caught() -> None:
         ("root.yaml", "name: base\nstages: [{id: extract, use: text}]\n"),
         (
             "child.yaml",
-            "name: child\nextends: base\ninsert: [{after: chnk, stage: {id: kw, use: keybert}}]\n",
+            "name: child\nextends: base\n"
+            "insert: [{after: chnk, stage: {id: kw, use: term-frequency-keywords}}]\n",
         ),
     ]
 
@@ -823,7 +824,7 @@ def test_a_stale_operator_target_would_be_caught() -> None:
     unknown_plugins, failures = _resolve_every_pipeline(moved, registry=registry)
 
     # Assert
-    assert not unknown_plugins, "'keybert' and 'text' are both really registered"
+    assert not unknown_plugins, "'term-frequency-keywords' and 'text' are both really registered"
     assert failures, "an insert targeting a stage id that does not exist must be caught"
     assert "StaleOperatorTargetError" in failures[0]
 

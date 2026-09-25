@@ -1836,7 +1836,7 @@ extends: base
 
 insert:
   - after: chunk
-    stage: {id: keywords, use: keybert, with: {top_n: 8}}
+    stage: {id: keywords, use: term-frequency-keywords, with: {top_n: 8}}
 ```
 
 That is the whole change. The parent is referenced, never copied, so improvements to `base` reach
@@ -2253,7 +2253,7 @@ and the operator does, in the file where operator policy already lives:
 ```toml
 # weft.toml
 [plugins]
-"Enhancer:keybert" = "weft-kw"
+"Enhancer:term-frequency-keywords" = "weft-kw"
 ```
 
 The displaced registration is recorded and reported by `weft plugins doctor`. This relaxes Phase 0's

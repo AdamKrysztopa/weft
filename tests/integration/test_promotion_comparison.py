@@ -85,12 +85,12 @@ def _project(root: Path) -> Path:
         "name: wide\nextends: narrow\nset:\n  - id: embed\n    with: {dimension: 128}\n",
         encoding="utf-8",
     )
-    questions = root / "questions.json"
+    questions = root / "questions.toml"
     questions.write_text(
-        json.dumps(
+        _toml_questions(
             [
-                {"query": "what moves water", "relevant_documents": [str(pumps.resolve())]},
-                {"query": "what controls flow", "relevant_documents": [str(valves.resolve())]},
+                ("what moves water", str(pumps.resolve())),
+                ("what controls flow", str(valves.resolve())),
             ]
         ),
         encoding="utf-8",
@@ -104,7 +104,7 @@ async def _run(deps: Dependencies, corpus: Path, pipeline: str, target: str | No
             path=str(corpus),
             pipeline=pipeline,
             corpus_name="demo",
-            questions="questions.json",
+            questions="questions.toml",
             top_k=2,
             target=target,
         ),
@@ -144,3 +144,16 @@ async def test_a_live_and_a_candidate_target_compare_with_the_embedder_as_the_su
     assert "default → w128" in rendered.stdout
     assert "width 64" in rendered.stdout
     assert "width 128" in rendered.stdout
+
+
+def _toml_questions(pairs: list[tuple[str, str]]) -> str:
+    """The TOML question set (the JSON list went at `weft-rag` 3.0.0, task 43.38)."""
+    header = (
+        '[question_set]\nschema = 2\nabsent = ["kind", "difficulty", "quote", "reference_answer", '
+        '"notes"]\nabsent_reason = "an integration fixture"\naxes = []\n\n'
+    )
+    return header + "".join(
+        f'[[question]]\nid = "{i}"\ntext = {json.dumps(text)}\nlanguage = "en"\n'
+        f"relevant_documents = [{json.dumps(document)}]\n\n"
+        for i, (text, document) in enumerate(pairs)
+    )

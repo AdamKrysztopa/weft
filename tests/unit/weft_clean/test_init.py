@@ -61,14 +61,18 @@ def test_settings_refuses_an_unknown_field() -> None:
         Settings.model_validate({"bogus": "x"})
 
 
-def test_language_is_marked_deprecated_because_nothing_writes_it() -> None:
-    """`R19.12`: `Language` is registered with no production writer and must be deprecated first.
+def test_language_is_kept_unmarked_as_the_polish_fixers_scope() -> None:
+    """Task 43.38: `Language`'s removal is withdrawn by the owner, 2026-09-25.
 
-    `R19.12`, settled with the owner: `Language` is the one registered `ExtModel` with no
-    production writer, and removing a published class under G9 needs a deprecation first — the
-    `keybert` precedent. `weft plugins doctor` prints the notice and its removal.
+    `R19.12` deprecated it for removal at `weft-rag` 3.0.0 because nothing writes it, but
+    `polish-dictionary-spacing` scopes itself with `Applies(Language, code="pl")`: removing it
+    would make that fixer apply to every node, the English-splitting defect again. So at 3.0.0 it
+    stays registered and carries no notice, which a 3.0.0 notice reading "removed in 4.0.0" would
+    otherwise have moved silently.
     """
     # Arrange
+    import weft_clean
+
     registry = Registry()
     registrar = PackRegistrar(registry, distribution="weft-rag")
 
@@ -77,6 +81,5 @@ def test_language_is_marked_deprecated_because_nothing_writes_it() -> None:
     registrar.commit()
 
     # Assert
-    marked = {deprecation.surface: deprecation.reason for deprecation in registrar.deprecations}
-    assert "Language" in marked, f"Language is not marked: {sorted(marked)}"
-    assert "nothing in Weft writes it" in marked["Language"]
+    assert registrar.deprecations == ()
+    assert "Language" in weft_clean.__all__

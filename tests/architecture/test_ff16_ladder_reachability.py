@@ -360,22 +360,18 @@ def test_a_deprecated_name_is_exempt_and_a_live_one_beside_it_is_not() -> None:
     assert unreachable == {("Fuser", "never-placed")}
 
 
-def test_the_tree_actually_marks_the_name_this_exemption_is_for() -> None:
-    """Non-vacuity for the exemption's own subject: the tree really marks `keybert` deprecated.
+def test_the_tree_marks_no_name_at_weft_rag_3() -> None:
+    """The exemption's live subject is gone: `keybert` was removed at 3.0.0 (task 43.38).
 
-    The subject is derived from the packs, so a pack that stopped marking `keybert` would
-    silently make the clause cover nothing — and FF16 would then fail on `keybert` rather than
-    passing wrongly, which is the right direction, but this says so out loud rather than
-    leaving it to be discovered.
+    Pinned rather than deleted, as `test_changelog_deprecation_coverage` pins it: a name marked
+    tomorrow fails here and is read, and the exemption itself is still proven by
+    `test_a_deprecated_name_is_exempt_and_a_live_one_beside_it_is_not`.
     """
     # Arrange / Act
     deprecated = _deprecated_names(_reports())
 
     # Assert
-    assert "keybert" in deprecated, (
-        "weft-enhance no longer marks 'keybert' deprecated — either the rename was reverted, or "
-        "the retired name was removed outright, and this clause's only subject went with it"
-    )
+    assert deprecated == frozenset(), f"a first-party name is marked deprecated again: {deprecated}"
 
 
 def test_the_waiver_is_live_rather_than_decorative() -> None:

@@ -192,13 +192,21 @@ def _write_questions(path: Path, *, nitrogen_path: str, saffron_path: str) -> No
     under `index`.
     """
     path.write_text(
-        json.dumps(
-            [
-                {"query": _NITROGEN_OPENING, "relevant_documents": [nitrogen_path]},
-                {"query": _SAFFRON_OPENING, "relevant_documents": [saffron_path]},
-            ]
-        ),
+        _toml_questions([(_NITROGEN_OPENING, nitrogen_path), (_SAFFRON_OPENING, saffron_path)]),
         encoding="utf-8",
+    )
+
+
+def _toml_questions(pairs: list[tuple[str, str]]) -> str:
+    """The TOML question set (the JSON list went at `weft-rag` 3.0.0, task 43.38)."""
+    header = (
+        '[question_set]\nschema = 2\nabsent = ["kind", "difficulty", "quote", "reference_answer", '
+        '"notes"]\nabsent_reason = "an integration fixture"\naxes = []\n\n'
+    )
+    return header + "".join(
+        f'[[question]]\nid = "{i}"\ntext = {json.dumps(text)}\nlanguage = "en"\n'
+        f"relevant_documents = [{json.dumps(document)}]\n\n"
+        for i, (text, document) in enumerate(pairs)
     )
 
 
@@ -216,7 +224,7 @@ async def test_two_derived_pipelines_produce_a_tool_generated_comparison_with_a_
     corpus.mkdir()
     nitrogen_path, saffron_path = _write_corpus(corpus)
     _write_pipelines(tmp_path / "pipelines")
-    questions_path = tmp_path / "questions.json"
+    questions_path = tmp_path / "questions.toml"
     _write_questions(questions_path, nitrogen_path=nitrogen_path, saffron_path=saffron_path)
     deps = build_dependencies(config_path=tmp_path / "weft.toml")
 

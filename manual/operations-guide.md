@@ -1213,9 +1213,9 @@ relevant_documents = ["weft-intro.md"]
 `relevant_documents` names a document, not a chunk: a path relative to the corpus, matched on whole
 path components wherever the corpus is staged, because a node id is a content digest nobody can
 predict before a run. A set that names documents by manifest id, as `eval/questions/` does, is run
-with `--manifest corpus/manifest.toml`, which maps each id to its document's path. A JSON list of
-`{"query": ..., "relevant_documents": [...]}` still scores — converted into the same form, with a
-notice that the format is deprecated and goes at `weft-rag` 3.0.
+with `--manifest corpus/manifest.toml`, which maps each id to its document's path. The JSON list of
+`{"query": ..., "relevant_documents": [...]}` read through `weft-rag` 2.x is refused from 3.0.0,
+naming this TOML form.
 
 ```bash
 $ weft eval run corpus index --questions questions.toml --top-k 5

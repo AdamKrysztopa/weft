@@ -464,7 +464,6 @@ class QuestionSetFormat(StrEnum):
     """
 
     TOML = "toml"
-    JSON = "json"
 
 
 class QuestionSet(BaseModel):
@@ -490,124 +489,10 @@ _JSON_ENTRY_KEYS: Final[frozenset[str]] = frozenset(
     {"id", "query", "relevant_documents", "modality", "language", "kind"}
 )
 
+
 #: Every field a JSON `--questions` entry has never been able to carry, stated absent uniformly —
 #: `kind` joins this set per-entry, only when that entry's own `kind` does not resolve to one of
 #: this module's own `Kind` members.
-_JSON_ALWAYS_ABSENT: Final[frozenset[QuestionField]] = frozenset(
-    {
-        QuestionField.DIFFICULTY,
-        QuestionField.QUOTE,
-        QuestionField.REFERENCE_ANSWER,
-        QuestionField.NOTES,
-    }
-)
-
-_JSON_ABSENT_REASON: Final[str] = (
-    "converted from a JSON '--questions' file, which carries none of these fields"
-)
-
-
-def _json_entry_ids(path: Path, entries: list[dict[str, Any]]) -> None:
-    """Refuse a mix of stated and unstated ids, or two entries sharing one — `path`'s own shape."""
-    ids = [entry["id"] for entry in entries if "id" in entry]
-    if ids and len(ids) != len(entries):
-        raise QuestionSetError(
-            f"{path.name} names an 'id' for some questions and not others — give every "
-            f"question an id, or none at all"
-        )
-    if len(set(ids)) != len(ids):
-        raise QuestionSetError(f"{path.name} repeats an 'id' across two questions")
-
-
-def _json_kind_and_axes(
-    entry: dict[str, Any],
-) -> tuple[Kind | None, frozenset[QuestionField], dict[str, str]]:
-    """`kind`, the fields this entry cannot supply, and the axes standing in for what it cannot.
-
-    A `kind` matching one of this module's own members is kept and never counted absent. Anything
-    else — missing, `""`, or a label this module does not enumerate — is stated absent; a label
-    this module does not enumerate is kept as `axes["kind"]` rather than discarded.
-    """
-    absent = set(_JSON_ALWAYS_ABSENT)
-    axes: dict[str, str] = {}
-    kind_raw = entry.get("kind") or ""
-    if not kind_raw:
-        absent.add(QuestionField.KIND)
-        return None, frozenset(absent), axes
-    try:
-        return Kind(kind_raw), frozenset(absent), axes
-    except ValueError:
-        absent.add(QuestionField.KIND)
-        axes["kind"] = str(kind_raw)
-        return None, frozenset(absent), axes
-
-
-def _convert_json_entry(path: Path, index: int, entry: dict[str, Any]) -> Question:
-    """One JSON `--questions` entry, converted — or refused naming the file and the index."""
-    unknown = set(entry) - _JSON_ENTRY_KEYS
-    if unknown:
-        raise QuestionSetError(
-            f"{path.name}, question {index}: unknown key(s) {sorted(unknown)}. "
-            f"Valid keys: {', '.join(sorted(_JSON_ENTRY_KEYS))}"
-        )
-    if "query" not in entry:
-        raise QuestionSetError(f"{path.name}, question {index}: names no 'query'")
-
-    kind, absent, axes = _json_kind_and_axes(entry)
-    try:
-        return Question.model_validate(
-            {
-                "id": str(entry.get("id", index)),
-                "text": entry["query"],
-                "language": entry.get("language", "en"),
-                "modality": entry.get("modality", QueryModality.TEXT.value),
-                "relevant_documents": tuple(entry.get("relevant_documents", ())),
-                "kind": kind,
-                "absent": absent,
-                "absent_reason": _JSON_ABSENT_REASON,
-                "axes": axes,
-            }
-        )
-    except ValueError as exc:
-        raise QuestionSetError(f"{path.name}, question {index}: {exc}") from exc
-
-
-def _read_json_questions(path: Path) -> tuple[Question, ...]:
-    """The legacy `--questions` JSON list, converted into the one model.
-
-    Reproduces `weft_cli.eval_scoring.load_questions`'s own refusals — not valid JSON, not a
-    list, an id named for some entries and not others, a duplicate id — over a shape converted
-    rather than re-modelled, task 38.10's own boundary; `weft eval run` moves onto this reader at
-    task 38.11.
-    """
-    try:
-        raw_text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise QuestionSetError(f"{path.name}: could not read: {exc}") from exc
-
-    try:
-        parsed: object = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        raise QuestionSetError(f"{path.name} is not valid JSON: {exc}") from exc
-
-    if not isinstance(parsed, list):
-        raise QuestionSetError(
-            f"{path.name} must hold a JSON list of questions, found {type(parsed).__name__}"
-        )
-    entries = cast("list[object]", parsed)
-
-    dict_entries: list[dict[str, Any]] = []
-    for index, entry in enumerate(entries):
-        if not isinstance(entry, dict):
-            raise QuestionSetError(f"{path.name}, question {index}: not a JSON object")
-        dict_entries.append(cast("dict[str, Any]", entry))
-
-    _json_entry_ids(path, dict_entries)
-    return tuple(
-        _convert_json_entry(path, index, entry) for index, entry in enumerate(dict_entries)
-    )
-
-
 def question_set_digest(questions: Iterable[Question]) -> str:
     """A sha256 identifying the question set `questions` is, independent of file order.
 
@@ -629,13 +514,12 @@ def question_set_digest(questions: Iterable[Question]) -> str:
 
 
 def read_question_set(path: Path) -> QuestionSet:
-    """A question set from `path` — a directory, one `.toml` file, or one JSON `--questions` file.
+    """A question set from `path` — a directory or one `.toml` file.
 
     A directory reads exactly as `load_questions` always has. A lone `.toml` file is the same
     reader over one file, so a set that happens to live in one file digests identically to the
-    same content spread over several. A `.json` file is converted through `_read_json_questions`
-    rather than read by a second model. Anything else — a missing path, an unrecognised suffix —
-    is refused naming the path.
+    same content spread over several. Anything else — a missing path, an unrecognised suffix,
+    and the JSON list read until `weft-rag` 3.0.0 (task 43.38) — is refused naming the path.
     """
     if path.is_dir():
         questions = load_questions(path)
@@ -651,15 +535,9 @@ def read_question_set(path: Path) -> QuestionSet:
             questions=questions,
             format=QuestionSetFormat.TOML,
         )
-    if path.suffix == ".json":
-        questions = _read_json_questions(path)
-        return QuestionSet(
-            questions=questions,
-            format=QuestionSetFormat.JSON,
-        )
     raise QuestionSetError(
         f"{path.name}: unsupported question file suffix {path.suffix!r}. "
-        "Valid: a directory, or a file ending .toml or .json"
+        "Valid: a directory, or a file ending .toml (a .json list was read until weft-rag 3.0.0)"
     )
 
 

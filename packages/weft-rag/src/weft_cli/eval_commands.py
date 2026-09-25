@@ -479,9 +479,8 @@ class EvalRunArgs(BaseModel):
             "a question directory or a single TOML question file (weft_eval.question_set's "
             "one model) — when given, this run also retrieves for every question and scores "
             "the gate-safe RetrievalMetric subset over the result, folding it into the "
-            "persisted record's own 'metrics'. A JSON list of {query, relevant_documents} "
-            "judgements is still read, converted at the boundary, and printed as deprecated — "
-            "removed in weft-rag 3.0. Omitted, 'metrics' stays empty, the same honesty "
+            "persisted record's own 'metrics'. A JSON list, read until weft-rag 3.0.0, is "
+            "refused naming the TOML form. Omitted, 'metrics' stays empty, the same honesty "
             "'model_versions' had before task 4.7 named its own gap."
         ),
     )
