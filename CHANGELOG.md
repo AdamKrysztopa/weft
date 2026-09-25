@@ -50,7 +50,8 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   released when the directory holds no file at all.
 - **A corpus layer that is stale is hidden from every read** until `weft index --layers <name>`
   rebuilds it, so a summary of a deleted or changed document is never quoted. The stale line says
-  so: `layer '<name>' is stale and hidden from reads: …`.
+  so: `layer '<name>' is stale and hidden from reads: …`. A layer 2.x left stale is hidden by the
+  next `weft index` or `weft reconcile`.
 - **`weft index --layers <name> --layers-only --reprocess` rebuilds a corpus layer** even when
   nothing changed: the cheap full rebuild, paying the layer's model calls and no re-parse.
 - **`weft delete` accepts a path relative to where you run it**, as `weft sources list`'s paths

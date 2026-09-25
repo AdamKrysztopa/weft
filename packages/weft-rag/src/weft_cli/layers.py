@@ -3174,6 +3174,28 @@ async def _hide_published_generations(store: object, *, layer: str) -> None:
             await _supersede(holder, generation, withdrawn=discarded)
 
 
+async def hide_stale_corpus_layers(store: object) -> None:
+    """Hide the published generation of every layer `STALE` on one of `store`'s `ACTIVE` sources.
+
+    Repair **R43.53**: a layer 2.x demoted kept its `PUBLISHED` generation, and 43.30's hiding
+    runs only at a demotion. The sources are `_stale_among`'s, so what is hidden is what
+    `weft index` reports as a tree missing a source.
+    """
+    found = getattr(store, "list_sources", None)
+    if not isinstance(store, GenerationHolding) or found is None or not callable(found):
+        return
+    list_sources = cast(Callable[[], Awaitable[Sequence[SourceRecord]]], found)
+    stale = {
+        entry.name
+        for record in await list_sources()
+        if record.status is SourceStatus.ACTIVE
+        for entry in record.layers
+        if entry.status is LayerStatus.STALE
+    }
+    for name in sorted(stale):
+        await _hide_published_generations(store, layer=name)
+
+
 async def stale_corpus_layers(
     *,
     runnable: RunnablePipeline,
@@ -3263,6 +3285,7 @@ __all__ = [
     "compose_layers",
     "corpus_scoped_layer_names",
     "demote_layer_records",
+    "hide_stale_corpus_layers",
     "installed_layers",
     "layer_created",
     "layer_enriched",

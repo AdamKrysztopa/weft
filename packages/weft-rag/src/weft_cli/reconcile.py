@@ -34,6 +34,7 @@ import asyncio
 from pydantic import BaseModel, ConfigDict
 
 from weft_cli.fanout import Participant, built, participants_for
+from weft_cli.layers import hide_stale_corpus_layers
 from weft_kernel.context import Context
 from weft_kernel.registry import Registry
 from weft_store import (
@@ -185,9 +186,10 @@ async def _converge(
     return something other than the class it was registered as, and a participant that is not
     what it claimed is a failure with a name rather than an `AttributeError` from deeper down.
 
-    In every mode a `GenerationWithdrawing` participant then reclaims every layer's withdrawn
-    generations — repairs **R43.29**, **R43.46** — except a layer holding one of `spare`
-    (**R43.47**), and the count it removed is returned rather than discarded (**R43.38**).
+    In every mode a layer `STALE` on a source then stops being served (**R43.53**), and a
+    `GenerationWithdrawing` participant reclaims every layer's withdrawn generations — repairs
+    **R43.29**, **R43.46** — except a layer holding one of `spare` (**R43.47**), and the count
+    it removed is returned rather than discarded (**R43.38**).
     """
     if not isinstance(instance, Reconcilable):
         raise TypeError(
@@ -195,6 +197,7 @@ async def _converge(
             f"but the instance it built does not — no 'reconcile' to call"
         )
     report = await instance.reconcile(ctx, mode)
+    await hide_stale_corpus_layers(instance)
     if isinstance(instance, GenerationWithdrawing) and isinstance(instance, GenerationHolding):
         return report, await _reclaim_every_layer(instance, instance, spare=spare)
     return report, 0
