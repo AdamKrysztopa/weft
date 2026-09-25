@@ -27,7 +27,7 @@ from weft_kg.payload import MentionedEntity
 from weft_kg.store import GraphSettings, GraphStore
 from weft_kg.traversal import GraphWalk
 from weft_store.conformance import checks_for, register_conformance_ext_models
-from weft_store.contract import GenerationHolding
+from weft_store.contract import GenerationCarrying, GenerationHolding, GenerationWithdrawing
 from weft_store.rehydrate import register_ext_model
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
@@ -162,3 +162,63 @@ async def test_a_node_the_base_also_wrote_survives_retracting_the_generation(dsn
     # Assert
     assert [node.id for node in kept] == [shared.id]
     assert pump == ["Pump"]
+
+
+def test_the_graph_store_withdraws_and_carries_generations() -> None:
+    """Ledger 43.40: a corpus layer over the graph base supersedes, reclaims and joins."""
+    # Assert
+    store = _graph("postgresql://unused/unused")
+    assert isinstance(store, GenerationWithdrawing)
+    assert isinstance(store, GenerationCarrying)
+    assert "check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name" in {
+        check.__name__ for check in _offered()
+    }
+
+
+async def test_a_withdrawn_generation_leaves_the_graph_and_its_nodes_wait_for_reclaim(
+    dsn: str,
+) -> None:
+    # Arrange
+    store = _graph(dsn)
+    pump = _mention("Pump")
+    generation = await store.open_generation("summaries")
+    await (await store.bind_generation(generation.id)).add([pump])
+    await store.publish_generation(generation.id)
+
+    # Act
+    await store.withdraw_generation(generation.id)
+    after_withdraw = await _entities(dsn, "Pump"), await store.get([pump.id])
+    await store.reclaim_withdrawn("summaries")
+    after_reclaim = await store.get([pump.id])
+    await store.aclose()
+
+    # Assert
+    assert after_withdraw[0] == []
+    assert [node.id for node in after_withdraw[1]] == [pump.id]
+    assert after_reclaim == ()
+
+
+async def test_a_carried_node_keeps_its_entity_when_the_generation_it_left_is_withdrawn(
+    dsn: str,
+) -> None:
+    # Arrange
+    store = _graph(dsn)
+    pump, valve, gear = _mention("Pump"), _mention("Valve"), _mention("Gear")
+    old = await store.open_generation("summaries")
+    await (await store.bind_generation(old.id)).add([pump, valve])
+    await store.publish_generation(old.id)
+    new = await store.open_generation("summaries")
+    await store.carry_forward(new.id, [pump.id])
+    await (await store.bind_generation(new.id)).add([gear])
+    await store.publish_generation(new.id)
+
+    # Act
+    await store.withdraw_generation(old.id)
+    seen = {name: await _entities(dsn, name) for name in ("Pump", "Valve", "Gear")}
+    await store.reclaim_withdrawn("summaries")
+    kept = {node.id for node in await store.get([pump.id, valve.id, gear.id])}
+    await store.aclose()
+
+    # Assert
+    assert seen == {"Pump": ["Pump"], "Valve": [], "Gear": ["Gear"]}
+    assert kept == {pump.id, gear.id}

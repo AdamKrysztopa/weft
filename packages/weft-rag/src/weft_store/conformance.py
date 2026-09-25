@@ -190,8 +190,24 @@ _CAPABILITY_OF: Final[Mapping[str, tuple[tuple[str, str], ...]]] = {
         ("MetadataFilter", "matching"),
     ),
     "GenerationHoldingNodeStore": (("GenerationHolding", "open_generation"),),
-    "GenerationCarryingStore": (("GenerationCarrying", "carry_forward"),),
-    "GenerationWithdrawingStore": (("GenerationWithdrawing", "withdraw_generation"),),
+    "GenerationCarryingStore": (
+        ("GenerationCarrying", "carry_forward"),
+        ("GenerationHolding", "open_generation"),
+        ("VectorSearch", "search_vector"),
+        ("TextSearch", "search_text"),
+        ("MetadataFilter", "matching"),
+    ),
+    "GenerationWithdrawingStore": (
+        ("GenerationWithdrawing", "withdraw_generation"),
+        ("GenerationHolding", "open_generation"),
+        ("VectorSearch", "search_vector"),
+        ("TextSearch", "search_text"),
+        ("MetadataFilter", "matching"),
+    ),
+    "GenerationWithdrawingNodeStore": (
+        ("GenerationWithdrawing", "withdraw_generation"),
+        ("GenerationHolding", "open_generation"),
+    ),
     "SingleWriterStore": (("SingleWriter", "claim_writer"),),
 }
 
@@ -409,6 +425,18 @@ class GenerationWithdrawingStore(GenerationHoldingStore, GenerationWithdrawing, 
 
     A store that withdraws a published generation now and reclaims its nodes later — repair
     **R43.29**.
+    """
+
+
+@runtime_checkable
+class GenerationWithdrawingNodeStore(NodeStore, GenerationHolding, GenerationWithdrawing, Protocol):
+    """A store that withdraws a published generation without searching it — ledger **43.40**.
+
+    The graph store's shape: it derives graph rows from a generation's nodes at publish and
+    retracts them at withdraw, rather than answering `search_vector`, `search_text` or
+    `matching`, so the one withdrawal check that reads only through `NodeStore` and the
+    catalogue — never through a search arm — is typed against this narrower shape rather than
+    `GenerationWithdrawingStore`, and is offered to it.
     """
 
 
@@ -3050,7 +3078,7 @@ async def _published_tree(
 
 
 async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name(
-    store: GenerationWithdrawingStore,
+    store: GenerationWithdrawingNodeStore,
 ) -> None:
     """A mistaken withdraw must fail loudly with the valid choices, never pass as a silent no-op.
 

@@ -355,3 +355,36 @@ def test_a_store_with_no_generations_is_offered_no_generation_check() -> None:
     # Assert
     assert offered & _NODE_READ_GENERATION_CHECKS == set()
     assert {reported[name] for name in _NODE_READ_GENERATION_CHECKS} == {"GenerationHolding"}
+
+
+class _GenerationWithdrawingOnly(_GenerationHoldingOnly):
+    """Holds and withdraws generations and searches nothing, as the graph store does at 43.40."""
+
+    async def withdraw_generation(self, generation: str) -> object:
+        raise AssertionError(f"selection called withdraw_generation({generation!r})")
+
+    async def reclaim_withdrawn(self, layer: str) -> object:
+        raise AssertionError(f"selection called reclaim_withdrawn({layer!r})")
+
+
+def test_a_store_that_withdraws_without_searching_is_asked_the_refusal_check() -> None:
+    """Ledger 43.40: the withdraw refusal reads only the catalogue; its siblings search."""
+    # Arrange
+    from weft_store.conformance import checks_for, unsupported_checks
+
+    # Act
+    offered = {check.__name__ for check in checks_for(_GenerationWithdrawingOnly())}
+    reported = {
+        c.__name__: needed for c, needed in unsupported_checks(_GenerationWithdrawingOnly())
+    }
+    base = {c.__name__: needed for c, needed in unsupported_checks(_GenerationHoldingOnly())}
+
+    # Assert
+    refusal = "check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name"
+    assert refusal in offered
+    assert base[refusal] == "GenerationWithdrawing"
+    assert reported["check_a_layer_rebuilt_twice_reads_as_one_tree_at_every_step"] in {
+        "VectorSearch",
+        "TextSearch",
+        "MetadataFilter",
+    }

@@ -94,6 +94,8 @@ from weft_store.contract import (
     GenerationId,
     GenerationRecord,
     GenerationStatus,
+    NotAPublishedGenerationError,
+    NotAPublishedMemberError,
     Page,
     Promotion,
     ReconcileEstimate,
@@ -2161,6 +2163,130 @@ class GraphStore:
             await cur.execute("SELECT * FROM kg_generations ORDER BY opened_at, id")
             rows = await cur.fetchall()
         return tuple(_row_to_generation_record(row) for row in rows)
+
+    # -- GenerationCarrying — ledger task **43.40** -------------------------------------------
+
+    async def carry_forward(self, into: GenerationId, node_ids: Sequence[NodeId]) -> int:
+        """`into` joins each node's `generations`, and nothing else about it or its graph rows.
+
+        The identical shape `weft_store.pgvector_store.PgVectorStore.carry_forward` carries over
+        its own table: every id is checked against the published generations before any is
+        carried, so a refused call writes nothing. A carried node's own graph rows are untouched
+        here — they are derived, idempotently, when `into` is published (`publish_generation`'s
+        own docstring).
+        """
+        requested = list(dict.fromkeys(node_ids))
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT 1 FROM kg_generations WHERE id = %s", (into,))
+            if await cur.fetchone() is None:
+                raise UnknownGenerationError(
+                    into, valid_options=await self._known_generation_ids(cur)
+                )
+            await cur.execute(
+                "SELECT id FROM kg_nodes WHERE id = ANY(%s) AND generations && "
+                "ARRAY(SELECT id FROM kg_generations WHERE status = %s)",
+                (requested, GenerationStatus.PUBLISHED.value),
+            )
+            members = {cast(str, row["id"]) for row in await cur.fetchall()}
+            refused = [node_id for node_id in requested if node_id not in members]
+            if refused:
+                raise NotAPublishedMemberError(into, node_ids=refused)
+            await cur.execute(
+                "UPDATE kg_nodes SET generations = array_append(generations, %s) "
+                "WHERE id = ANY(%s) AND NOT (%s = ANY(generations))",
+                (into, requested, into),
+            )
+        return len(requested)
+
+    # -- GenerationWithdrawing — ledger task **43.40** ----------------------------------------
+
+    async def withdraw_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Mark a published `generation` withdrawn, taking its graph rows and keeping its nodes.
+
+        Touches no `kg_nodes` row and no membership — a handle that read its manifest before
+        this keeps it, and every handle that reads one after leaves it out, the identical
+        promise `weft_store.pgvector_store.PgVectorStore.withdraw_generation` makes over its own
+        table. What *is* taken here, and that module has no reason to know about: the entity,
+        alias and relation rows of every node `generation` anchors that no base write (`''`) and
+        no other published generation now keeps visible — `kg_nodes` itself is untouched until
+        `reclaim_withdrawn` deletes it.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE kg_generations SET status = %s WHERE id = %s AND status = %s RETURNING *",
+                (
+                    GenerationStatus.WITHDRAWN.value,
+                    generation,
+                    GenerationStatus.PUBLISHED.value,
+                ),
+            )
+            row = await cur.fetchone()
+            if row is not None:
+                await self._retract_generation_graph_rows(cur, generation)
+                return _row_to_generation_record(row)
+            await cur.execute("SELECT status FROM kg_generations WHERE id = %s", (generation,))
+            found = await cur.fetchone()
+            if found is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+            await cur.execute(
+                "SELECT id FROM kg_generations WHERE status = %s ORDER BY id",
+                (GenerationStatus.PUBLISHED.value,),
+            )
+            published = tuple(cast(str, held["id"]) for held in await cur.fetchall())
+        raise NotAPublishedGenerationError(
+            generation,
+            status=GenerationStatus(cast(str, found["status"])),
+            valid_options=published,
+        )
+
+    async def _retract_generation_graph_rows(
+        self, cur: "psycopg.AsyncCursor[dict[str, Any]]", generation: GenerationId
+    ) -> None:
+        """Drop the entity, alias and relation rows of `generation`'s nodes that just went dark.
+
+        A node anchors graph rows while it is visible — held by the base (`''`) or by a
+        published generation (module docstring's `GenerationHolding` note). `generation` has
+        just left `kg_generations` `published`, so this finds every one of its nodes with no
+        other reason to stay visible, deletes their `kg_entity_nodes`/`kg_relations` rows by
+        `node_id` — the join a node's deletion would otherwise cascade through, done by hand
+        because the node itself survives — and sweeps the aliases and entities that leaves with
+        no anchor, exactly as `delete_source` and `_retract_generation_rows` already do.
+        """
+        await cur.execute(
+            "SELECT id FROM kg_nodes n WHERE %s = ANY(n.generations) "
+            "AND NOT ('' = ANY(n.generations)) "
+            "AND NOT EXISTS (SELECT 1 FROM kg_generations g WHERE g.id = ANY(n.generations) "
+            "AND g.status = %s)",
+            (generation, GenerationStatus.PUBLISHED.value),
+        )
+        darkened = [cast(str, row["id"]) for row in await cur.fetchall()]
+        if not darkened:
+            return
+        await cur.execute("DELETE FROM kg_entity_nodes WHERE node_id = ANY(%s)", (darkened,))
+        await cur.execute("DELETE FROM kg_relations WHERE node_id = ANY(%s)", (darkened,))
+        await _drop_orphaned_entities(cur)
+
+    async def reclaim_withdrawn(self, layer: str) -> Removed:
+        """`_retract_generation_rows`'s work for every withdrawn generation of `layer`.
+
+        The identical shape `weft_store.pgvector_store.PgVectorStore.reclaim_withdrawn` carries
+        over its own table.
+        """
+        conn = await self._connection()
+        node_count = 0
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id FROM kg_generations WHERE layer = %s AND status = %s ORDER BY id",
+                (layer, GenerationStatus.WITHDRAWN.value),
+            )
+            doomed = [GenerationId(cast(str, row["id"])) for row in await cur.fetchall()]
+            for doomed_generation in doomed:
+                node_count += await self._retract_generation_rows(cur, doomed_generation)
+        return Removed(source_id=SourceId(layer), node_count=node_count)
 
     async def _known_generation_ids(
         self, cur: "psycopg.AsyncCursor[dict[str, Any]]"

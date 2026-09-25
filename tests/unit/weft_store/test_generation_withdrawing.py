@@ -41,7 +41,8 @@ from weft_store.memory import MemoryStore
 
 _OPERATIONS = ("withdraw_generation", "reclaim_withdrawn")
 _PROTOCOL = "GenerationWithdrawing"
-_STORE_TYPE = "GenerationWithdrawingStore"
+#: 43.40: the refusal check reads only the catalogue, so a store that searches nothing answers it.
+_STORE_TYPES = frozenset({"GenerationWithdrawingStore", "GenerationWithdrawingNodeStore"})
 _KIT_CHECKS = (
     check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on,
     check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it,
@@ -92,7 +93,7 @@ def test_the_kit_offers_the_withdrawing_checks_only_to_a_store_that_withdraws() 
 
     # Assert
     for check in _KIT_CHECKS:
-        assert check.__annotations__.get("store") == _STORE_TYPE
+        assert check.__annotations__.get("store") in _STORE_TYPES
         assert check not in offered
         assert withheld[check] == _PROTOCOL
 
@@ -105,7 +106,7 @@ async def test_a_strangers_store_withdraws_generations_and_passes_the_published_
     withdrawing_checks = [
         check
         for check in checks_for(stranger())
-        if check.__annotations__.get("store") == _STORE_TYPE
+        if check.__annotations__.get("store") in _STORE_TYPES
     ]
 
     # Act — a fresh store per check: the kit owns no lifecycle.
