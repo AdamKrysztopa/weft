@@ -108,6 +108,7 @@ from weft_store.conformance import (
     check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on,
     check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads,
     check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes,
+    check_a_layer_rebuilt_twice_reads_as_one_tree_at_every_step,
     check_a_node_round_trips_through_the_store_with_its_lineage_and_its_ext,
     check_a_node_shared_with_a_published_generation_stays_visible,
     check_a_node_two_documents_each_produced_whole_is_narrowed_not_deleted,
@@ -924,6 +925,12 @@ async def test_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_
     target_store: GenerationHoldingStore,
 ) -> None:
     await check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(target_store)
+
+
+async def test_a_layer_rebuilt_twice_reads_as_one_tree_at_every_step(
+    target_store: GenerationWithdrawingStore,
+) -> None:
+    await check_a_layer_rebuilt_twice_reads_as_one_tree_at_every_step(target_store)
 
 
 async def test_overlapping_writes_into_one_generation_are_published_whole(

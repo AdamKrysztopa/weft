@@ -23,6 +23,7 @@ from weft_store.conformance import (
     GenerationWithdrawingStore,
     check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it,
     check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on,
+    check_a_layer_rebuilt_twice_reads_as_one_tree_at_every_step,
     check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held,
     check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name,
     checks_for,
@@ -44,6 +45,7 @@ _STORE_TYPE = "GenerationWithdrawingStore"
 _KIT_CHECKS = (
     check_a_handle_opened_before_a_withdraw_keeps_reading_the_tree_it_opened_on,
     check_a_handle_opened_after_a_withdraw_sees_only_the_generation_that_replaced_it,
+    check_a_layer_rebuilt_twice_reads_as_one_tree_at_every_step,
     check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generations_held,
     check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name,
 )

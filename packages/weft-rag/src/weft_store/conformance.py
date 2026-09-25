@@ -2939,6 +2939,74 @@ async def check_reclaiming_a_layer_removes_the_nodes_only_its_withdrawn_generati
     )
 
 
+async def check_a_layer_rebuilt_twice_reads_as_one_tree_at_every_step(
+    store: GenerationWithdrawingStore,
+) -> None:
+    """A layer's generation lifecycle, whole: every read sees exactly one tree, at every step.
+
+    Ledger **43.28**. A layer is built, rebuilt sharing three of its nodes, and rebuilt again
+    sharing none; each superseded tree is withdrawn and then reclaimed. At every step a fresh
+    handle reads exactly the newest published tree, a handle opened before a withdraw keeps the
+    tree it opened on, and a node two trees share survives the reclaim of either while one of
+    them still holds it.
+    """
+    # Arrange
+    first, second, third = _OLD_TREE, _OLD_TREE[:3] + _NEW_TREE, _NEW_TREE
+    everything = _OLD_TREE + _NEW_TREE
+    g1 = await _published_tree(store, first)
+    early = await _next_operation(store)
+    await early.count()
+
+    # Act
+    g2 = await _published_tree(store, second)
+    await store.withdraw_generation(g1)
+    after_rebuild = await _seen(await _next_operation(store), everything)
+    kept_by_early = await _seen(early, everything)
+    first_reclaim = await store.reclaim_withdrawn("summaries")
+    after_reclaim = await _seen(await _next_operation(store), everything)
+    await _published_tree(store, third)
+    await store.withdraw_generation(g2)
+    second_reclaim = await store.reclaim_withdrawn("summaries")
+    after_second_rebuild = await _seen(await _next_operation(store), everything)
+
+    # Assert
+    for label, seen, tree in (
+        ("after the first rebuild", after_rebuild, second),
+        ("after the first reclaim", after_reclaim, second),
+        ("after the second rebuild and reclaim", after_second_rebuild, third),
+    ):
+        wanted = {word for word, _ in tree}
+        _require(
+            condition=all(
+                seen[word] == ((True, True, True) if word in wanted else (False, False, False))
+                for word, _ in everything
+            ),
+            message=f"{label}, a fresh handle must read exactly {sorted(wanted)}: {seen}",
+        )
+    _require(
+        condition=all(kept_by_early[word] == (True, True, True) for word, _ in first)
+        and all(kept_by_early[word] == (False, False, False) for word, _ in _NEW_TREE),
+        message=f"a handle opened before the withdraw must keep the first tree: {kept_by_early}",
+    )
+    _require(
+        condition=(first_reclaim.node_count, second_reclaim.node_count) == (2, 3),
+        message="a reclaim removes only what its withdrawn trees alone held (2, then 3): "
+        f"{first_reclaim.node_count}, {second_reclaim.node_count}",
+    )
+
+
+async def _published_tree(
+    store: GenerationWithdrawingStore, tree: tuple[tuple[str, tuple[float, float, float]], ...]
+) -> GenerationId:
+    """Open a generation of `summaries`, write `tree` into it, publish it, return its id."""
+    record = await store.open_generation("summaries")
+    await (await store.bind_generation(record.id)).add(
+        [_member(word, values) for word, values in tree]
+    )
+    await store.publish_generation(record.id)
+    return record.id
+
+
 async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_name(
     store: GenerationWithdrawingStore,
 ) -> None:
