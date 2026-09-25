@@ -162,25 +162,37 @@ class NotAStoreError(WeftError):
     """
 
 
-#: The optional capability each check needs beyond `NodeStore`, derived from the protocol its own
-#: `store` parameter is annotated with — so the selector and the checks cannot disagree about what
-#: a check requires. `L5.6`: two sides of a comparison that come from one source cannot disagree,
-#: and here that is the property wanted rather than the defect, because the annotation **is** the
-#: requirement. A check typed against a composed protocol needs that protocol's extra member; one
-#: typed `NodeStore` needs nothing more.
-_CAPABILITY_OF: Final[Mapping[str, tuple[str, str]]] = {
-    "SearchableStore": ("VectorSearch", "search_vector"),
-    "TextSearchableStore": ("TextSearch", "search_text"),
-    "FilterableTextStore": ("TextSearch", "search_text"),
-    "FilterableSearchableStore": ("MetadataFilter", "matching"),
-    "FilterableStore": ("MetadataFilter", "matching"),
-    "SupersedableStore": ("NodeSupersedable", "supersede"),
-    "ReconcilableStore": ("Reconcilable", "reconcile"),
-    "TargetHoldingStore": ("TargetHolding", "target_catalogue"),
-    "GenerationHoldingStore": ("GenerationHolding", "open_generation"),
-    "GenerationCarryingStore": ("GenerationCarrying", "carry_forward"),
-    "GenerationWithdrawingStore": ("GenerationWithdrawing", "withdraw_generation"),
-    "SingleWriterStore": ("SingleWriter", "claim_writer"),
+#: Every capability each check needs beyond `NodeStore`, derived from the protocol its own `store`
+#: parameter is annotated with — so the selector and the checks cannot disagree about what a check
+#: requires. `L5.6`: two sides of a comparison that come from one source cannot disagree, and here
+#: that is the property wanted rather than the defect, because the annotation **is** the
+#: requirement. Each value is an *ordered* tuple of `(protocol name, proving method)` pairs — a
+#: check typed against a protocol composed of several capabilities needs every one of them, never
+#: just the first its selector happened to check (ledger `43.39`: a store with `open_generation`
+#: and no search arm was offered a check keyed on `open_generation` alone and failed with
+#: `AttributeError`). A check typed `NodeStore` needs nothing more, so its tuple is empty.
+_CAPABILITY_OF: Final[Mapping[str, tuple[tuple[str, str], ...]]] = {
+    "SearchableStore": (("VectorSearch", "search_vector"),),
+    "TextSearchableStore": (("TextSearch", "search_text"),),
+    "FilterableTextStore": (("TextSearch", "search_text"), ("MetadataFilter", "matching")),
+    "FilterableSearchableStore": (
+        ("MetadataFilter", "matching"),
+        ("VectorSearch", "search_vector"),
+    ),
+    "FilterableStore": (("MetadataFilter", "matching"),),
+    "SupersedableStore": (("NodeSupersedable", "supersede"),),
+    "ReconcilableStore": (("Reconcilable", "reconcile"),),
+    "TargetHoldingStore": (("TargetHolding", "target_catalogue"),),
+    "GenerationHoldingStore": (
+        ("GenerationHolding", "open_generation"),
+        ("VectorSearch", "search_vector"),
+        ("TextSearch", "search_text"),
+        ("MetadataFilter", "matching"),
+    ),
+    "GenerationHoldingNodeStore": (("GenerationHolding", "open_generation"),),
+    "GenerationCarryingStore": (("GenerationCarrying", "carry_forward"),),
+    "GenerationWithdrawingStore": (("GenerationWithdrawing", "withdraw_generation"),),
+    "SingleWriterStore": (("SingleWriter", "claim_writer"),),
 }
 
 #: Every method `NodeStore` publishes. A thing missing any of them is refused rather than filtered.
@@ -212,11 +224,15 @@ def _published_checks() -> tuple[Callable[..., Awaitable[None]], ...]:
     return tuple(found)
 
 
-def _capability_needed(check: Callable[..., Awaitable[None]]) -> tuple[str, str] | None:
-    """`(protocol name, the method that proves it)` a check needs beyond `NodeStore`, or `None`."""
+def _capabilities_needed(check: Callable[..., Awaitable[None]]) -> tuple[tuple[str, str], ...]:
+    """Every `(protocol name, the method that proves it)` pair a check needs beyond `NodeStore`.
+
+    Ordered with the annotated shape's defining capability first, as `_CAPABILITY_OF` is built.
+    Empty for a check typed `NodeStore` — nothing more is required.
+    """
     annotation = check.__annotations__.get("store")
     name = getattr(annotation, "__name__", str(annotation))
-    return _CAPABILITY_OF.get(name)
+    return _CAPABILITY_OF.get(name, ())
 
 
 def _require_a_store(store: object) -> None:
@@ -246,8 +262,10 @@ def checks_for(store: object) -> tuple[Callable[..., Awaitable[None]], ...]:
     return tuple(
         check
         for check in _published_checks()
-        if (needed := _capability_needed(check)) is None
-        or callable(getattr(store, needed[1], None))
+        if all(
+            callable(getattr(store, method, None))
+            for _protocol, method in _capabilities_needed(check)
+        )
     )
 
 
@@ -255,15 +273,19 @@ def unsupported_checks(store: object) -> tuple[tuple[Callable[..., Awaitable[Non
     """`(check, the capability it needs)` for every published check `store` cannot answer.
 
     The companion to `checks_for`, and the reason that one may filter at all: a caller reports
-    these rather than discovering later that a green run proved less than they thought.
+    these rather than discovering later that a green run proved less than they thought. When a
+    check needs several capabilities, the **first missing one**, in `_CAPABILITY_OF`'s order, is
+    what is reported — the shape's defining capability, so a store missing that is told about it
+    rather than about an arm it may never grow.
     """
     _require_a_store(store)
-    return tuple(
-        (check, needed[0])
-        for check in _published_checks()
-        if (needed := _capability_needed(check)) is not None
-        and not callable(getattr(store, needed[1], None))
-    )
+    reported: list[tuple[Callable[..., Awaitable[None]], str]] = []
+    for check in _published_checks():
+        for protocol, method in _capabilities_needed(check):
+            if not callable(getattr(store, method, None)):
+                reported.append((check, protocol))
+                break
+    return tuple(reported)
 
 
 def register_conformance_ext_models() -> None:
@@ -362,6 +384,18 @@ class GenerationHoldingStore(
     NodeStore, GenerationHolding, VectorSearch, TextSearch, MetadataFilter, Protocol
 ):
     """A store that holds layer generations and searches them — ledger task **43.14**."""
+
+
+@runtime_checkable
+class GenerationHoldingNodeStore(NodeStore, GenerationHolding, Protocol):
+    """A store that holds layer generations without searching them — ledger task **43.39**.
+
+    The graph pack's store is this shape: it derives graph rows from a generation's nodes at
+    publish rather than answering `search_vector`, `search_text` or `matching`, so the checks that
+    read a generation only through `NodeStore` and the catalogue — never through a search arm —
+    are typed against this narrower shape rather than `GenerationHoldingStore`, and are offered to
+    it.
+    """
 
 
 @runtime_checkable
@@ -2303,11 +2337,16 @@ async def _visible(
     return by_vector, by_text, any(node.content == content for node in page.items)
 
 
-async def _next_operation(store: GenerationHoldingStore) -> GenerationHoldingStore:
+async def _next_operation[T: GenerationHoldingNodeStore](store: T) -> T:
     """A handle bound to a fresh, empty generation, as the next operation reads.
 
     A handle reading as the next operation would: bound to a fresh, empty generation, so its
     manifest is whatever is published when it first touches storage, plus nothing of its own.
+
+    Generic over the store's own shape — bound to `GenerationHoldingNodeStore` rather than
+    `GenerationHoldingStore` — so a caller with a search-capable handle gets one back, and the two
+    checks that read only through `NodeStore` and the catalogue (ledger `43.39`) get one typed no
+    wider than what they call.
     """
     probe = await store.open_generation("conformance-probe")
     return await store.bind_generation(probe.id)
@@ -2452,7 +2491,7 @@ async def check_a_node_shared_with_a_published_generation_stays_visible(
 
 
 async def check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones(
-    store: GenerationHoldingStore,
+    store: GenerationHoldingNodeStore,
 ) -> None:
     """Protects shared and base nodes from the cleanup of an abandoned build.
 
@@ -2532,7 +2571,7 @@ async def check_a_generation_bound_again_sees_and_extends_what_was_written(
 
 
 async def check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name(
-    store: GenerationHoldingStore,
+    store: GenerationHoldingNodeStore,
 ) -> None:
     """Generation records carry their status, and an unknown one is refused.
 
@@ -3069,7 +3108,7 @@ async def check_withdrawing_an_unknown_or_unpublished_generation_is_refused_by_n
 
 
 async def check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes(
-    store: GenerationHoldingStore,
+    store: GenerationHoldingNodeStore,
 ) -> None:
     """An early reader's handle still retracts a generation's nodes.
 
@@ -3101,7 +3140,7 @@ async def check_a_handle_opened_before_any_node_was_stored_retracts_a_generation
 
 
 async def check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads(
-    store: GenerationHoldingStore,
+    store: GenerationHoldingNodeStore,
 ) -> None:
     """An early reader sees what a bound handle later stored.
 

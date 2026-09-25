@@ -284,3 +284,74 @@ def test_gaining_a_text_arm_moves_those_checks_from_unsupported_to_offered() -> 
     assert gained, "adding search_text offered no new check"
     assert gained <= base_missing, "a check that was gained was never reported as missing"
     assert gained & text_missing == frozenset(), "a check is offered and reported missing at once"
+
+
+class _GenerationHoldingOnly(_NodeStoreOnly):
+    """Holds generations and searches nothing, as `weft_kg`'s graph store does at ledger 43.39.
+
+    Selection never calls these; each raises so a check that did would fail loudly here.
+    """
+
+    async def open_generation(self, layer: str) -> object:
+        raise AssertionError(f"selection called open_generation({layer!r})")
+
+    async def bind_generation(self, generation: str) -> object:
+        raise AssertionError(f"selection called bind_generation({generation!r})")
+
+    async def publish_generation(self, generation: str) -> object:
+        raise AssertionError(f"selection called publish_generation({generation!r})")
+
+    async def retract_generation(self, generation: str) -> object:
+        raise AssertionError(f"selection called retract_generation({generation!r})")
+
+    async def generations(self) -> tuple[object, ...]:
+        raise AssertionError("selection called generations()")
+
+
+#: The generation checks that read only through `NodeStore` and the catalogue (ledger 43.39).
+_NODE_READ_GENERATION_CHECKS = frozenset(
+    {
+        "check_retracting_a_generation_removes_its_own_nodes_and_keeps_shared_ones",
+        "check_a_generation_record_round_trips_and_an_unknown_one_is_refused_by_name",
+        "check_a_handle_opened_before_any_node_was_stored_retracts_a_generations_nodes",
+        "check_a_handle_opened_before_any_node_was_stored_reads_what_a_fresh_handle_reads",
+    }
+)
+
+
+def test_a_store_that_holds_generations_without_searching_them_is_asked_what_it_can_answer() -> (
+    None
+):
+    """Ledger 43.39: a check is offered only when a store has every capability it calls.
+
+    The generation checks that search were keyed on `open_generation` alone, so a store that
+    holds generations and has no search arm was offered them and failed with `AttributeError`.
+    """
+    # Arrange
+    from weft_store.conformance import checks_for, unsupported_checks
+
+    # Act
+    offered = {check.__name__ for check in checks_for(_GenerationHoldingOnly())}
+    reported = {c.__name__: needed for c, needed in unsupported_checks(_GenerationHoldingOnly())}
+
+    # Assert
+    assert offered >= _NODE_READ_GENERATION_CHECKS
+    assert "check_an_unpublished_generation_is_invisible_until_it_is_published" not in offered
+    assert reported["check_an_unpublished_generation_is_invisible_until_it_is_published"] in {
+        "VectorSearch",
+        "TextSearch",
+        "MetadataFilter",
+    }
+
+
+def test_a_store_with_no_generations_is_offered_no_generation_check() -> None:
+    # Arrange
+    from weft_store.conformance import checks_for, unsupported_checks
+
+    # Act
+    offered = {check.__name__ for check in checks_for(_NodeStoreOnly())}
+    reported = {c.__name__: needed for c, needed in unsupported_checks(_NodeStoreOnly())}
+
+    # Assert
+    assert offered & _NODE_READ_GENERATION_CHECKS == set()
+    assert {reported[name] for name in _NODE_READ_GENERATION_CHECKS} == {"GenerationHolding"}

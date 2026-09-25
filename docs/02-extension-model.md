@@ -1104,7 +1104,7 @@ plugin receives* lists: `not_a_leaf = True` on an `ExtModel` says a node carryin
 derived evidence, never a leaf a layer enriches
 (`packages/weft-rag/src/weft_kg/payload.py:134 "not_a_leaf: ClassVar[bool] = True"`), and
 `consumes` on a `NodeStore` class names the `ExtModel`s that store turns into rows of its own
-(`packages/weft-rag/src/weft_kg/store.py:999 "consumes: ClassVar"`). No protocol a class satisfies
+(`packages/weft-rag/src/weft_kg/store.py:1038 "consumes: ClassVar"`). No protocol a class satisfies
 implies either, so neither can be derived, and no contract's publisher can promise either for
 every implementation. The engine reads them and checks nothing against the code:
 `not_a_leaf` counts only when it `is True`

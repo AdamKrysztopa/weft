@@ -257,7 +257,8 @@ async def test_a_strangers_store_holds_generations_and_passes_the_published_chec
     generation_checks = [
         check
         for check in checks_for(InMemoryNodeStore())
-        if check.__annotations__.get("store") == "GenerationHoldingStore"
+        if check.__annotations__.get("store")
+        in {"GenerationHoldingStore", "GenerationHoldingNodeStore"}
     ]
 
     # Act — a fresh store per check: the kit owns no lifecycle.

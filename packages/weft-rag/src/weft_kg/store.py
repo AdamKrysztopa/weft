@@ -53,6 +53,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from hashlib import sha256
 from typing import Annotated, Any, ClassVar, Final, NewType, Self, cast
+from uuid import uuid4
 
 import psycopg
 from pgvector import Vector as PgVector
@@ -63,7 +64,15 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from weft_kernel.context import Context
 from weft_kernel.errors import WeftError
-from weft_kernel.payload import ExtModel, Node, NodeId, Outcome, Produced, SourceId, Vector
+from weft_kernel.payload import (
+    ExtModel,
+    Node,
+    NodeId,
+    Outcome,
+    Produced,
+    SourceId,
+    Vector,
+)
 from weft_kg import resolution
 from weft_kg.adjudication import DEFAULT_ADJUDICATION_FLOOR, first_verdict, threshold_adjudicator
 from weft_kg.bridges import BridgeCandidate, BridgeHop
@@ -82,6 +91,9 @@ from weft_prompts.contract import Prompt
 from weft_store.contract import (
     Cursor,
     EmbeddingIdentity,
+    GenerationId,
+    GenerationRecord,
+    GenerationStatus,
     Page,
     Promotion,
     ReconcileEstimate,
@@ -92,6 +104,7 @@ from weft_store.contract import (
     SourceStatus,
     TargetCatalogue,
     TargetName,
+    UnknownGenerationError,
     source_failure,
     source_layers,
     source_status,
@@ -204,6 +217,29 @@ _CREATE_SCHEMA_TABLE = """
 CREATE TABLE IF NOT EXISTS kg_schema (
     surface TEXT PRIMARY KEY,
     version TEXT NOT NULL
+)
+"""
+
+#: Ledger **43.39**, pgvector's column: `''` marks an unbound (base) write, a generation's id a
+#: write through a handle bound to it. A row predating the column reads `'{}'` and counts as base.
+_ADD_NODES_GENERATIONS = (
+    "ALTER TABLE kg_nodes ADD COLUMN IF NOT EXISTS generations TEXT[] NOT NULL DEFAULT '{}'"
+)
+
+_CREATE_GENERATIONS_INDEX = """
+CREATE INDEX IF NOT EXISTS kg_nodes_generations_idx ON kg_nodes USING gin (generations)
+"""
+
+#: The catalogue `GenerationHolding.generations()` reads, in the same schema as `kg_nodes` —
+#: ledger task **43.39**, the identical shape `weft_store.pgvector_store`'s own
+#: `_CREATE_GENERATIONS_TABLE` carries.
+_CREATE_GENERATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS kg_generations (
+    id TEXT PRIMARY KEY,
+    layer TEXT NOT NULL,
+    status TEXT NOT NULL,
+    opened_at TIMESTAMPTZ NOT NULL,
+    published_at TIMESTAMPTZ
 )
 """
 
@@ -482,6 +518,9 @@ async def provision_schema(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> N
     await register_vector_async(conn)
     async with conn.cursor() as cur:
         await cur.execute(_CREATE_NODES_TABLE)
+        await cur.execute(_ADD_NODES_GENERATIONS)
+        await cur.execute(_CREATE_GENERATIONS_INDEX)
+        await cur.execute(_CREATE_GENERATIONS_TABLE)
         await cur.execute(_CREATE_NODE_PRODUCTIONS_TABLE)
         await cur.execute(_BACKFILL_NODE_PRODUCTIONS)
         await cur.execute(_CREATE_SOURCES_TABLE)
@@ -1003,7 +1042,12 @@ class GraphStore:
     )
 
     def __init__(
-        self, settings: GraphSettings, config: object = None, *, _bound: TargetName | None = None
+        self,
+        settings: GraphSettings,
+        config: object = None,
+        *,
+        _bound: TargetName | None = None,
+        _generation: GenerationId | None = None,
     ) -> None:
         del config  # the kernel's `factory(None)` convention — nothing at the stage level needed
         self._settings = settings
@@ -1015,6 +1059,9 @@ class GraphStore:
         #: holds it here for this handle's lifetime (owner decision Q-C, ledger task 34.3),
         #: mirroring `weft_store.pgvector_store.PgVectorStore`'s own target-bound handle.
         self._bound: TargetName | None = _bound
+        #: Set only on a handle `bind_generation` made (ledger 43.39): its writes join this
+        #: generation, and their graph rows wait for `publish_generation`.
+        self._generation: GenerationId | None = _generation
         #: This handle's home schema — `current_schema()`, read once on connect, before
         #: `search_path` ever moves. Every catalogue statement is qualified with it.
         self._home_schema: str | None = None
@@ -1065,11 +1112,18 @@ class GraphStore:
 
         Args:
             nodes: The nodes to store; an empty sequence is a no-op.
+
+        **A handle bound to a generation (ledger `43.39`) derives no graph row here.** Its
+        writes carry that generation's id into `kg_nodes.generations`, and `publish_generation`
+        is what walks those rows through `_derive_graph_rows` — the same path this method uses
+        for an unbound handle's write, just deferred until the build is whole. An unbound handle
+        derives immediately, exactly as before this task.
         """
         if not nodes:
             return
         conn = await self._connection()
-        rows = [_node_to_row(node) for node in nodes]
+        marker: list[str] = [self._generation] if self._generation is not None else [""]
+        rows = [_node_to_row(node, generations=marker) for node in nodes]
         production_rows = [
             {
                 "node_id": node.id,
@@ -1082,9 +1136,10 @@ class GraphStore:
         async with conn.cursor() as cur:
             await cur.executemany(
                 """
-                INSERT INTO kg_nodes (id, parents, sources, content, media_type, embedding, ext)
+                INSERT INTO kg_nodes
+                    (id, parents, sources, content, media_type, embedding, ext, generations)
                 VALUES (%(id)s, %(parents)s, %(sources)s, %(content)s, %(media_type)s,
-                        %(embedding)s, %(ext)s)
+                        %(embedding)s, %(ext)s, %(generations)s)
                 ON CONFLICT (id) DO UPDATE SET
                     parents = EXCLUDED.parents,
                     sources = ARRAY(
@@ -1093,7 +1148,13 @@ class GraphStore:
                     content = EXCLUDED.content,
                     media_type = EXCLUDED.media_type,
                     embedding = EXCLUDED.embedding,
-                    ext = EXCLUDED.ext
+                    ext = EXCLUDED.ext,
+                    generations = ARRAY(
+                        SELECT DISTINCT unnest(
+                            CASE WHEN kg_nodes.generations = '{}' THEN ARRAY['']
+                                 ELSE kg_nodes.generations END || EXCLUDED.generations
+                        )
+                    )
                 """,
                 rows,
             )
@@ -1109,8 +1170,9 @@ class GraphStore:
                     production_rows,
                 )
             await self._register_target_if_needed(cur)
-        for node in nodes:
-            await self._derive_graph_rows(node)
+        if self._generation is None:
+            for node in nodes:
+                await self._derive_graph_rows(node)
 
     async def _derive_graph_rows(self, node: Node) -> None:
         """Derive and write the graph rows `node`'s ext carries.
@@ -1965,6 +2027,153 @@ class GraphStore:
             raise AssertionError("_connection() must run before _active_target is read")
         return self._active_target
 
+    # -- GenerationHolding — ledger task **43.39** --------------------------------------------
+
+    async def open_generation(self, layer: str) -> GenerationRecord:
+        """Open a new, unpublished generation of `layer`.
+
+        Args:
+            layer: The layer the generation builds.
+
+        Returns:
+            The generation's record, `building`.
+        """
+        conn = await self._connection()
+        generation_id = GenerationId(f"g-{uuid4().hex[:12]}")
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "INSERT INTO kg_generations (id, layer, status, opened_at) "
+                "VALUES (%s, %s, %s, now()) RETURNING *",
+                (generation_id, layer, GenerationStatus.BUILDING.value),
+            )
+            row = await cur.fetchone()
+        if row is None:
+            raise AssertionError("INSERT ... RETURNING must return exactly one row")
+        return _row_to_generation_record(row)
+
+    async def bind_generation(self, generation: GenerationId) -> Self:
+        """Give a build its own handle whose writes join `generation`, refusing an unknown id.
+
+        A second handle onto the same database and target, bound to `generation` — its own
+        connection, opened lazily on first use exactly as `bind_target`'s is.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT 1 FROM kg_generations WHERE id = %s", (generation,))
+            found = await cur.fetchone()
+            if found is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+        return type(self)(self._settings, _bound=self._bound, _generation=generation)
+
+    async def publish_generation(self, generation: GenerationId) -> GenerationRecord:
+        """Make `generation` visible: derive the graph rows its own nodes carry, then publish it.
+
+        Args:
+            generation: The generation to publish.
+
+        Returns:
+            The generation's record, `published`.
+
+        Raises:
+            UnknownGenerationError: The store holds no such generation.
+
+        **This is where a generation-bound write's graph rows are actually derived** — `add`
+        deliberately skips `_derive_graph_rows` for a bound handle's write, so a half-built
+        generation's entities, aliases and relations do not exist yet for `weft_kg.traversal.
+        GraphWalk` to find. Every node carrying `generation` in its own `generations` column is
+        walked through the identical `_derive_graph_rows` path an unbound `add` uses, before the
+        catalogue row itself flips to `published` — re-deriving a node this generation shares
+        with an already-derived base write is a no-op, since `put_entity`/`put_relation` are
+        idempotent upserts.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE kg_generations SET status = %s, published_at = now() "
+                "WHERE id = %s RETURNING *",
+                (GenerationStatus.PUBLISHED.value, generation),
+            )
+            row = await cur.fetchone()
+            if row is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+            await cur.execute("SELECT * FROM kg_nodes WHERE generations @> %s", ([generation],))
+            members = [_row_to_node(member) for member in await cur.fetchall()]
+        for member in members:
+            await self._derive_graph_rows(member)
+        return _row_to_generation_record(row)
+
+    async def retract_generation(self, generation: GenerationId) -> Removed:
+        """Remove the nodes only `generation` made, and forget it.
+
+        Remove the nodes only `generation` made, keep every node another generation or the base
+        also holds, and forget `generation` — `GenerationHolding`, ledger **43.39**. A doomed
+        node's own graph rows go with it through the cascades `kg_entity_nodes.node_id` and
+        `kg_relations.node_id` already carry from `kg_nodes`; an alias or entity left with no
+        remaining anchor is then dropped explicitly, the same sweep `delete_source` runs.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT 1 FROM kg_generations WHERE id = %s", (generation,))
+            if await cur.fetchone() is None:
+                raise UnknownGenerationError(
+                    generation, valid_options=await self._known_generation_ids(cur)
+                )
+            node_count = await self._retract_generation_rows(cur, generation)
+        return Removed(source_id=SourceId(generation), node_count=node_count)
+
+    async def _retract_generation_rows(
+        self, cur: "psycopg.AsyncCursor[dict[str, Any]]", generation: GenerationId
+    ) -> int:
+        """Delete `generation`'s sole nodes, strip it from the shared ones, forget it.
+
+        The identical shape `weft_store.pgvector_store._retract_generation_rows` carries over
+        its own table — see that function's docstring — plus this pack's own orphan sweep,
+        because a node's graph rows only cascade from `kg_nodes`, never the reverse.
+        """
+        await cur.execute("SELECT id FROM kg_nodes WHERE generations = %s", ([generation],))
+        doomed = [cast(str, row["id"]) for row in await cur.fetchall()]
+        node_count = 0
+        if doomed:
+            await cur.execute("DELETE FROM kg_nodes WHERE id = ANY(%s)", (doomed,))
+            node_count = cur.rowcount
+            await cur.execute("DELETE FROM kg_node_productions WHERE node_id = ANY(%s)", (doomed,))
+            await _drop_orphaned_entities(cur)
+        await cur.execute(
+            "UPDATE kg_nodes SET generations = array_remove(generations, %s) "
+            "WHERE %s = ANY(generations)",
+            (generation, generation),
+        )
+        await cur.execute("DELETE FROM kg_generations WHERE id = %s", (generation,))
+        return node_count
+
+    async def generations(self) -> tuple[GenerationRecord, ...]:
+        """Read every generation this store's catalogue holds.
+
+        Returns:
+            Every generation record, oldest first.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT * FROM kg_generations ORDER BY opened_at, id")
+            rows = await cur.fetchall()
+        return tuple(_row_to_generation_record(row) for row in rows)
+
+    async def _known_generation_ids(
+        self, cur: "psycopg.AsyncCursor[dict[str, Any]]"
+    ) -> tuple[str, ...]:
+        """The choices a refusal lists when a generation id is unknown.
+
+        Every generation id this store's catalogue holds — fitness function 12's
+        `valid_options`, for `bind_generation`, `publish_generation` and `retract_generation`.
+        """
+        await cur.execute("SELECT id FROM kg_generations ORDER BY id")
+        rows = await cur.fetchall()
+        return tuple(cast(str, row["id"]) for row in rows)
+
     # -- This task's own addition — nothing on any contract; see the class docstring ------
 
     async def put_entity(
@@ -2090,7 +2299,7 @@ def _page_of(rows: Sequence[Mapping[str, object]]) -> Page[Node]:
     return Page(items=tuple(_row_to_node(row) for row in page_rows), next_cursor=next_cursor)
 
 
-def _node_to_row(node: Node) -> dict[str, object]:
+def _node_to_row(node: Node, *, generations: list[str]) -> dict[str, object]:
     dump = node.model_dump(mode="json")
     lineage = cast(dict[str, object], dump["lineage"])
     embedding = dump["embedding"]
@@ -2102,6 +2311,7 @@ def _node_to_row(node: Node) -> dict[str, object]:
         "media_type": dump["media_type"],
         "embedding": cast("dict[str, object]", embedding)["values"] if embedding else None,
         "ext": Jsonb(dump["ext"]),
+        "generations": generations,
     }
 
 
@@ -2140,6 +2350,16 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         if raw_failure is not None
         else None,
         layers=source_layers(cast("Sequence[Mapping[str, object]]", row.get("layers") or [])),
+    )
+
+
+def _row_to_generation_record(row: Mapping[str, object]) -> GenerationRecord:
+    return GenerationRecord(
+        id=GenerationId(cast(str, row["id"])),
+        layer=cast(str, row["layer"]),
+        status=GenerationStatus(cast(str, row["status"])),
+        opened_at=cast(datetime, row["opened_at"]),
+        published_at=cast("datetime | None", row.get("published_at")),
     )
 
 
@@ -2208,6 +2428,7 @@ class GraphTargetTableMissingError(WeftError):
 _TARGET_TABLES: Final[tuple[str, ...]] = (
     "kg_nodes",
     "kg_node_productions",
+    "kg_generations",
     "kg_sources",
     "kg_schema",
     "kg_entities",
