@@ -672,6 +672,7 @@ _CITED_TECHNIQUES: Final[tuple[_CitedTechnique, ...]] = (
     _CitedTechnique("query-scorer", "weft_retrieve", ("2403.14403",)),
     _CitedTechnique("contradiction-check", "weft_generate", ("2403.08319",)),
     _CitedTechnique("refine-on-uncertainty", "weft_generate", ("2305.06983",)),
+    _CitedTechnique("whole-corpus", "weft_retrieve", ("2407.16833", "2412.15605")),
 )
 
 

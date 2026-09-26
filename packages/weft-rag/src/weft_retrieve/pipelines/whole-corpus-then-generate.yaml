@@ -1,0 +1,7 @@
+name: whole-corpus-then-generate
+# No `route.summary`: the router offers this only after Phase 43d's measurement says so.
+stages:
+  - {id: retrieve, use: whole-corpus}
+  - {id: fuse,     use: single-list}
+  - {id: pack,     use: repack, with: {method: forward}}
+  - {id: generate, use: cited-answer, with: {max_passages: null}}

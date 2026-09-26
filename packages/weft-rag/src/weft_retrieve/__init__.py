@@ -297,6 +297,8 @@ from weft_retrieve.transforms import (
 from weft_retrieve.transforms import NAME as CONTEXTUAL_QUERY_REWRITE_NAME
 from weft_retrieve.vector_top_k import NAME as VECTOR_TOP_K_NAME
 from weft_retrieve.vector_top_k import VectorTopK
+from weft_retrieve.whole_corpus import NAME as WHOLE_CORPUS_NAME
+from weft_retrieve.whole_corpus import WholeCorpus, WholeCorpusConfig
 
 
 class Settings(BaseModel):
@@ -396,6 +398,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Retriever, MULTI_RETRIEVER_NAME, MultiRetriever)
     registrar.add(Retriever, ITERATIVE_RETRIEVAL_NAME, IterativeRetrieval)
     registrar.add(Retriever, CORRECTIVE_NAME, Corrective)
+    registrar.add(Retriever, WHOLE_CORPUS_NAME, WholeCorpus)
     registrar.add(Fuser, SINGLE_LIST_NAME, SingleList)
     registrar.add(Fuser, RRF_NAME, ReciprocalRankFusion)
     registrar.add(Fuser, NORMALIZED_SCORE_FUSION_NAME, NormalizedScoreFusion)
@@ -551,6 +554,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource(
         "weft_retrieve", "pipelines/context-construction-then-generate.yaml"
     )
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/whole-corpus-then-generate.yaml")
 
 
 __all__ = [
@@ -601,6 +605,7 @@ __all__ = [
     "SUMMARIZE_FOR_QUERY_NAME",
     "THRESHOLD_LADDER_NAME",
     "VECTOR_TOP_K_NAME",
+    "WHOLE_CORPUS_NAME",
     "Always",
     "AlwaysConfig",
     "Anchor",
@@ -742,6 +747,8 @@ __all__ = [
     "Turn",
     "TurnRole",
     "VectorTopK",
+    "WholeCorpus",
+    "WholeCorpusConfig",
     "contributor_label",
     "find_anchors",
     "fusion_evidence",

@@ -210,9 +210,12 @@ def test_the_pack_imports_exactly_the_packs_whose_types_its_contracts_name() -> 
     # prompt, and both are upstream of this pack on `.phase2-design.md` §2's one-way chain.
     # `weft_chunk` joined at task 32.3: `adjacent-chunks` reads the chunker's own
     # `ChunkPosition` to find a hit's siblings, and `weft_chunk` depends on the kernel alone.
+    # `weft_index` joined at task 43.49: `whole-corpus` reads its leaf definition, and it imports
+    # only packs already upstream of this one.
     # Read from imports rather than from a manifest — see `_first_party_imports`.
     assert _first_party_imports("weft_retrieve") == {
         "weft_chunk",
+        "weft_index",
         "weft_kernel",
         "weft_store",
         "weft_embed",

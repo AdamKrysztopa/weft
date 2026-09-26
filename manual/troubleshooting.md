@@ -3144,6 +3144,23 @@ An `openai-compatible` account never counts, whatever `[packs.openai-compatible]
 says — its model names are not the vendor's, and the vendor's encoder would count an aliased model
 wrongly.
 
+### `CorpusOverTokenBoundError`
+
+**What it looks like** — `whole-corpus` hands the generator every leaf of the corpus, and it counted
+more tokens than its bound before it finished reading:
+
+```text
+CorpusOverTokenBoundError: 'whole-corpus': the corpus's leaves count at least 100,412 tokens against
+a bound of 100,000 tokens — raise max_tokens if the model's context holds the corpus, or ask a
+pipeline that retrieves, such as retrieve-then-generate
+```
+
+**What to do:** one of the two things the message says. The count is *at least*, because reading
+stops at the first leaf past the bound. Raise `max_tokens` in a project document deriving
+`whole-corpus-then-generate` only if the generating model's context window holds the corpus and
+you accept paying for every token on every question; otherwise ask a retrieving pipeline. The
+corpus is never cut to fit: a cut corpus answers from whichever part happened to be read first.
+
 ### `ModelProviderMismatchError`
 
 **What it looks like** — a `[llm.roles]` entry's model string carries a provider prefix naming a
