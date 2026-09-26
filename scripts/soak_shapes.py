@@ -272,6 +272,14 @@ class _Read:
     after_graph: Snapshot | None
 
 
+def _notes(run: _Run) -> list[int]:
+    """The index of every `note-<i>.md` the run's corpus still holds."""
+    return sorted(
+        int(path.stem.removeprefix("note-"))
+        for path in (run.soak.project / "corpus").glob("note-[0-9]*.md")
+    )
+
+
 def _per_source_layers(shape: Shape) -> tuple[str, ...]:
     """This shape's layers other than the corpus one — each with its own per-source checks."""
     return tuple(layer for layer in shape_layers(shape) if layer != soak_layers.LAYER)
@@ -436,7 +444,8 @@ async def _await_indexing(run: _Run, layer: str, process: asyncio.subprocess.Pro
 
 async def _interrupt_and_resume(run: _Run) -> None:
     layer = run.per_source[0]
-    run.soak.write("note-interrupt.md", long_document("interrupt", 0))
+    for index in _notes(run):
+        run.soak.write(f"note-{index}.md", long_document("note", index, revision=2))
     await _command(
         run, "re-parse before interrupt", ["index", "corpus", *run.base, "--layers", "none"]
     )
@@ -453,7 +462,9 @@ async def _interrupt_and_resume(run: _Run) -> None:
         stderr=asyncio.subprocess.PIPE,
     )
     await _await_indexing(run, layer, process)
-    if process.returncode is None:
+    if process.returncode is not None:
+        run.soak.expect("interrupt", ["the build finished before it could be interrupted"])
+    else:
         process.send_signal(signal.SIGINT)
     await process.communicate()
     if process.returncode != 130:
@@ -475,13 +486,15 @@ def _refusal_problems(refused: soak_layers.Outcome, after: Snapshot, victim: str
 
 async def _second_writer(run: _Run) -> None:
     layer = run.per_source[0]
-    run.soak.write("note-writer.md", long_document("writer", 0))
+    # Every source re-parsed, so the build outlasts the poll; one source finishes in ~0.1 s.
+    for index in _notes(run):
+        run.soak.write(f"note-{index}.md", long_document("note", index, revision=3))
     await _command(
         run,
         "re-parse before a second writer",
         ["index", "corpus", *run.base, "--layers", "none"],
     )
-    victim = str((run.soak.project / "corpus" / "note-3.md").resolve())
+    victim = str((run.soak.project / "corpus" / "note-4.md").resolve())
     build = await asyncio.create_subprocess_exec(
         str(run.soak.weft),
         "index",
@@ -501,7 +514,11 @@ async def _second_writer(run: _Run) -> None:
     raced = build.returncode is not None
     await build.communicate()
     after, _ = await _snapshots(run)
-    problems = [] if raced else _refusal_problems(refused, after, victim)
+    problems = (
+        ["the build finished before the delete could race it, so nothing was checked"]
+        if raced
+        else _refusal_problems(refused, after, victim)
+    )
     run.soak.expect("second writer", problems)
 
 
