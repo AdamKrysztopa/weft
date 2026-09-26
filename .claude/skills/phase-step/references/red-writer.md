@@ -21,8 +21,9 @@ from a brief, and may not edit a test, so every test is a specification it must 
 
 1. **Tests only**, under `tests/` (and `examples/*/tests/` for a stranger pack). Production code
    is touched only by the temporary stubs of rule 3. Never `docs/`, `manual/` or the ledger.
-2. **The pin sweep, before writing** (`L28.45`). Grep `tests/` and `examples/` for every pinned set
-   the change grows: var lists, exception families (FF12's `NAME_RESOLUTION_FAMILY`,
+2. **The pin sweep, before writing** (`L28.45`, `L28.62`). Grep `tests/` and `examples/` for every
+   pinned set the change grows, and for every name it renames or re-types as a string literal (a
+   kit check's annotation was counted by name in `examples/`): var lists, exception families (FF12's `NAME_RESOLUTION_FAMILY`,
    `_LOCAL_IMPORT_MEMBERS`), kit check counts, enum value sets, contract-version literals and
    command tables. Update each pin in the patch and list every one checked. Read the *calls* of
    every existing test of the entry point the change touches, and update a superseded test in the

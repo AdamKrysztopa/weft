@@ -253,7 +253,9 @@ specification rather than in the work. Run them against the brief, not against t
    leading-underscore name, by import and by attribute alike. The agent could not both obey and
    pass, so it blocked — correctly, and after doing the whole task. *Usefulness and reachability
    are decided by different files, and the brief's author is reading only the first.* One grep for
-   the name across `packages/*/src`, or one look at the lint configuration, answers it.
+   the name across `packages/*/src`, or one look at the lint configuration, answers it. **A script
+   is a module too** (`L28.63`): a brief sent `soak_shapes.py` to `soak_layers`' `_orphans`, and the
+   agent renamed it to pass.
 
    **The population is every name a brief settles, not only a private first-party one** —
    `L17.20`, and the example above reads narrower than the rule. Task 16.9's brief settled the

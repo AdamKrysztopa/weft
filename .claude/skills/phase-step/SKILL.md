@@ -72,7 +72,9 @@ for once; the accounts are in `references/evidence.md` → *Claims about the tre
   registry enumerates, not the directory the question started in, and where a claim does not need
   a cardinality it states none (`L22.2`). A remedy relying on a computed value names every site
   that computes it — `git grep` the function, not the concept — and is measured on each, the
-  default path first (`L26.2`).
+  default path first (`L26.2`). A repair that binds a check suite to a subject is sized after the
+  suite has run against it once, every exception caught and counted; "read, not run" sized
+  `R43.54` at M and it was L, with a false universal in the kit (`L28.61`).
 - A sweep supporting "one instance left" searches for the **subject** and reads the hits, never
   for the sentence being corrected (`L22.5`).
 - A repair's `owner` is where the raise is: grep the message's literal text, read the function that
@@ -157,9 +159,10 @@ passes against an empty implementation is testing nothing, and a test that fails
 when you meant to check behaviour has not been read. `brief_facts.py` lists red files that fail at
 collection: stub the missing names in the scratchpad and run each test once, so each fails for its
 own reason (`L28.36`, twice in Phase 43, each a blocked return on a fixture defect the import hid).
-A dispatched red writer works to `references/red-writer.md`, which carries the pin sweep
-(`L28.45`: a set the change grows is pinned in `tests/` and `examples/`, and the red updates each
-pin) and the stub-and-run. **A version move cites the row of `09`'s two-audience table it follows**
+A dispatched red writer works to `references/red-writer.md`, and a red you write yourself owes
+the same pin sweep (`L28.45`, `L28.62`): a set the change grows, or a name it renames or re-types, is
+pinned in `tests/` and `examples/` as a literal — `git grep` the old name as a string — and the red
+updates each pin. **A version move cites the row of `09`'s two-audience table it follows**
 (`L28.44`); where a contract's version trail disagrees with that table, the disagreement is filed,
 never resolved by following the precedent. Test-first is the project owner's standing
 direction (`build-ledger.md` → *The working protocol*), not a gate — it is not re-argued in a task.
@@ -306,8 +309,9 @@ independence between test and implementation; below a certain size there is noth
 independent about. **Say which you did, in the ledger entry**: nothing else records it (`L6.20`).
 
 **Never delegated, in either direction:** the gate and fence check, writing or changing any test,
-anything under `docs/`, the ledger tick, the commit message, running the binary, and the lessons
-queue. Those are the steps that need the reasoning, and the implementer has none of it.
+anything under `docs/`, an edit to `.claude/` (auto mode refuses such hunks one at a time, so a
+dispatched change lands partly and passes every gate, `L28.60`), the ledger tick, the commit
+message, running the binary, and the lessons queue. Those are the steps that need the reasoning, and the implementer has none of it.
 
 **What the implementer noticed is harvested, not remembered.** `.claude/hooks/lessons_context.py`
 answers `SubagentStart` as well as `SessionStart`, because `SessionStart` does **not** fire for a
