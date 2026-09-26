@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, cast
@@ -80,9 +80,13 @@ from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
-from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassage
+from weft_eval.contract import GenerationMetric, GenerationSample, RetrievalSample, RetrievedPassage
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
-from weft_eval.harness import score_generation_gate_subset, score_retrieval_at_cutoffs
+from weft_eval.harness import (
+    judge_plugin_names,
+    score_generation_gate_subset,
+    score_retrieval_at_cutoffs,
+)
 from weft_eval.offline import UnknownMetricNameError
 from weft_eval.pool import (
     POOL_MANIFEST_SCHEMA_VERSION,
@@ -94,13 +98,16 @@ from weft_eval.pool import (
     text_sha256,
     write_pool_manifest,
 )
+from weft_eval.pricing import DEFAULT_RATES, RATES_AS_OF
 from weft_eval.question_set import Question, QuestionSet, read_question_sets
 from weft_eval.run_record import ExperimentRun, QueryRung, corpus_identity
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Outcome, Produced
+from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.resolution import ResolvedPipeline
+from weft_llm.roles import LLMRoles, UnmappedLLMRoleError
 from weft_retrieve.intent_and_anchors import find_anchors
 
 _EVAL_EXPERIMENT_HELP = (
@@ -356,6 +363,40 @@ def _arm_incomparable_reasons(
     return tuple(reasons)
 
 
+def _judge_role(plugin_name: str, *, registry: Registry) -> str:
+    """The `[llm.roles]` role `plugin_name`'s judge asks under, without calling a model.
+
+    `plugin_name`'s own `config_model`, built generically (every judge's `with:` shape has a
+    default for every field, `weft_eval.judges.JudgeConfig.role`'s own `"grade"` default) and
+    read back — the identical "no per-plugin branch" posture `weft_eval.harness._generation_
+    metric_config` already takes for a gate-safe metric's configuration.
+    """
+    target = unwrap_factory(registry.lookup(GenerationMetric, plugin_name))
+    config_model = cast("type[BaseModel] | None", getattr(target, "config_model", None))
+    config = config_model() if config_model is not None else None
+    return cast("str", getattr(config, "role", "grade"))
+
+
+def _refuse_unmapped_judge_role(
+    name: str, plugin_name: str, *, registry: Registry, roles: LLMRoles
+) -> None:
+    """Refuse a named judge whose role `[llm.roles]` does not map, before anything is indexed.
+
+    Otherwise every arm indexes and answers, and only then does each judgement fail — the paid
+    half of the run bought with nothing to read it. Names the document's own metric name and
+    the role together, since `UnmappedLLMRoleError`'s own message names only the role.
+    """
+    role = _judge_role(plugin_name, registry=registry)
+    if role in roles.roles:
+        return
+    options = tuple(sorted(roles.roles))
+    raise UnmappedLLMRoleError(
+        f"metric '{name}' needs role '{role}', which [llm.roles] does not map. Roles mapped: "
+        f"{', '.join(options) or '(none mapped)'}.",
+        valid_options=options,
+    )
+
+
 async def _refuse_unrecordable_metrics(
     experiment: Experiment, *, deps: Dependencies, ctx: Context
 ) -> None:
@@ -363,6 +404,11 @@ async def _refuse_unrecordable_metrics(
 
     Refuse before any arm is indexed if `experiment.metrics` names something no run at any of
     `experiment.cutoffs` would actually record. See the module docstring's own paragraph.
+
+    A name a registered judge (`weft_eval.judges.AnswerCorrectness`) declares as its own
+    `reported_name` — never asked of the gate-safe pre-flight above, since a judge is not
+    gate-safe — is accepted here instead, and its own `[llm.roles]` role is checked mapped
+    (`_refuse_unmapped_judge_role`) before any arm indexes anything — ledger task **43.50**.
     """
     passages = tuple(
         RetrievedPassage(id=f"pre-flight-{position}") for position in range(experiment.top_k)
@@ -385,8 +431,12 @@ async def _refuse_unrecordable_metrics(
     recorded |= {
         name for name, outcome in answered.metrics.items() if isinstance(outcome, Produced)
     }
+    judges = judge_plugin_names(experiment.metrics, registry=deps.registry)
     for name in experiment.metrics:
-        if name not in recorded:
+        if name in recorded:
+            continue
+        plugin_name = judges.get(name)
+        if plugin_name is None:
             valid_options = tuple(sorted(recorded))
             raise UnknownMetricNameError(
                 f"'{name}' is not a metric name a run at cutoffs {experiment.cutoffs} would "
@@ -395,6 +445,7 @@ async def _refuse_unrecordable_metrics(
                 valid_options=valid_options,
                 name=name,
             )
+        _refuse_unmapped_judge_role(name, plugin_name, registry=deps.registry, roles=deps.llm.roles)
 
 
 def _corpus_name_for(document_root: Path, corpus_path: Path) -> str:
@@ -490,6 +541,26 @@ class CorpusPlan(BaseModel):
     documents: int
 
 
+class JudgePlan(BaseModel):
+    """The named judge's own cost — ledger task **43.50**.
+
+    `calls` is an upper bound, never a measurement: the plan cannot know how many of an
+    answering arm's own questions a model will actually answer (`ArmPlan.executions`'s own
+    docstring), so `calls` sums that same bound over every arm whose query rung ends in a
+    `Generator`, times how many judges `experiment.metrics` names. `input_per_1k_usd`/
+    `output_per_1k_usd`/`rates_as_of` are `None` when the judge's model carries no entry in
+    `weft_eval.pricing.DEFAULT_RATES` — an absent rate, never a fabricated `$0`.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    calls: int
+    model: str
+    input_per_1k_usd: float | None = None
+    output_per_1k_usd: float | None = None
+    rates_as_of: str | None = None
+
+
 class EvalPlanCommandResult(CommandResult):
     """`weft eval plan`'s answer — the size of the run the document asks for, before it runs."""
 
@@ -497,6 +568,62 @@ class EvalPlanCommandResult(CommandResult):
     digest: str
     arms: tuple[ArmPlan, ...]
     corpora: tuple[CorpusPlan, ...]
+    #: `None` when `experiment.metrics` names no judge, or the judge's own role carries no
+    #: `[llm.roles]` mapping — a plan states nothing it would have to guess, the identical
+    #: posture the class docstring already takes for a model call's own seconds.
+    judge: JudgePlan | None = None
+
+
+def _query_rung_ends_in_generator(query_pipeline: str, *, deps: Dependencies) -> bool:
+    """Whether `query_pipeline`'s own resolved last stage is a `Generator`.
+
+    `EvalPlanCommand`'s own read-only twin of `_resolved_query_rung`'s `generates` — resolving
+    for the identical reason: only an arm ending in a `Generator` ever builds a
+    `GenerationSample` for a judge to score, so only such an arm's own executions count toward
+    `JudgePlan.calls`.
+    """
+    resolved = resolve_named_pipeline(
+        query_pipeline,
+        registry=deps.registry,
+        reports=deps.reports,
+        contributions=deps.contributions,
+    )
+    return bool(resolved.stages) and resolved.stages[-1].contract == "Generator"
+
+
+def _judge_plan(
+    experiment: Experiment, arms: Sequence[tuple[ExperimentArm, ArmPlan]], *, deps: Dependencies
+) -> JudgePlan | None:
+    """What a judge `experiment.metrics` names would cost, or `None` when none is named.
+
+    See `JudgePlan`'s own docstring for what `calls` bounds and why the three rate fields may
+    be `None`. Also `None` when the judge's own role carries no `[llm.roles]` mapping — a plan
+    states nothing it would have to guess, and a `provider:model` this document's own run would
+    refuse to even start (`_refuse_unmapped_judge_role`) is not one this command invents.
+    """
+    judges = judge_plugin_names(experiment.metrics, registry=deps.registry)
+    if not judges:
+        return None
+    plugin_name = next(iter(sorted(judges.values())))
+    role = _judge_role(plugin_name, registry=deps.registry)
+    mapping = deps.llm.roles.roles.get(role)
+    if mapping is None:
+        return None
+    model = f"{mapping.provider}:{mapping.model}" if mapping.model is not None else mapping.provider
+    generating_calls = sum(
+        plan.executions
+        for arm, plan in arms
+        if arm.query_pipeline is not None
+        and _query_rung_ends_in_generator(arm.query_pipeline, deps=deps)
+    )
+    rate = DEFAULT_RATES.get(model)
+    return JudgePlan(
+        calls=generating_calls * len(judges),
+        model=model,
+        input_per_1k_usd=rate.input_per_1k_usd if rate is not None else None,
+        output_per_1k_usd=rate.output_per_1k_usd if rate is not None else None,
+        rates_as_of=RATES_AS_OF if rate is not None else None,
+    )
 
 
 class EvalPlanCommand:
@@ -575,6 +702,9 @@ class EvalPlanCommand:
                 digest=experiment.digest,
                 arms=tuple(arms),
                 corpora=tuple(corpora.values()),
+                judge=_judge_plan(
+                    experiment, tuple(zip(experiment.arms, arms, strict=True)), deps=deps
+                ),
             )
         )
 
@@ -704,6 +834,9 @@ async def _run_arms(
     document_root: Path,
 ) -> list[ExperimentRunRef]:
     """Run every arm × repetition not already written, in arm-then-repetition order."""
+    judge_metrics = tuple(
+        sorted(judge_plugin_names(experiment.metrics, registry=deps.registry).values())
+    )
     indexed_keys: set[tuple[str, Path]] = set()
     runs: list[ExperimentRunRef] = []
     for arm in experiment.arms:
@@ -734,6 +867,7 @@ async def _run_arms(
                 batch_size=experiment.index_batch_size,
                 capture_pool=arm.capture_pool,
                 pool=pool,
+                judge_metrics=judge_metrics,
                 experiment=ExperimentRun(
                     name=experiment.name,
                     digest=experiment.digest,

@@ -361,6 +361,8 @@ class AnswerCorrectness:
     config_model: ClassVar[type[AnswerCorrectnessConfig]] = AnswerCorrectnessConfig
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
+    #: Declared so a caller can name this judge, and key its failures, without calling a model.
+    reported_name: ClassVar[str] = "answer_correctness"
 
     def __init__(self, config: AnswerCorrectnessConfig | None = None) -> None:
         self._config = config if config is not None else AnswerCorrectnessConfig()
@@ -409,7 +411,7 @@ class AnswerCorrectness:
 
         weight = self._config.factual_weight
         value = weight * factual_f1 + (1 - weight) * semantic
-        return Produced(value=MetricScore(metric_name="answer_correctness", value=value))
+        return Produced(value=MetricScore(metric_name=AnswerCorrectness.reported_name, value=value))
 
 
 def _f1(classification: FactualClassification) -> float | None:

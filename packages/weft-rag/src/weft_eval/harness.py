@@ -67,7 +67,7 @@ question that produced no sample at all.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Protocol, cast
@@ -290,6 +290,24 @@ class CollidingMetricNameError(WeftError):
     """
 
 
+def _reported_key(outcome: Outcome[MetricAggregate], target: object, name: str) -> str:
+    """The report key `outcome` is filed under — what a metric reported, computed or not.
+
+    `outcome.value.reported_name` when it produced one; otherwise the class's own declared
+    `reported_name` (`weft_eval.judges.AnswerCorrectness`'s own class attribute, read with
+    `getattr` the way `runs_in_gate`/`gate_unsafe_reason` already are) when it declares one, so
+    an aggregate that failed every observation still keys under the identical name a produced
+    one would have — the `CollidingMetricNameError` scar this repairs: a registered name and a
+    reported name disagreeing left an experiment's two otherwise-paired arms with nothing in
+    common on that metric. `name` — the registered plugin name — is the last resort, for a
+    metric that declares no `reported_name` of its own and never computed one to report either.
+    """
+    if isinstance(outcome, Produced):
+        return outcome.value.reported_name
+    declared = cast("str | None", getattr(target, "reported_name", None))
+    return declared if declared is not None else name
+
+
 def _record_metric(
     report: dict[str, Outcome[MetricAggregate]],
     reported_by: dict[str, str],
@@ -363,7 +381,7 @@ async def score_retrieval_gate_subset(
             by_question_kind=_question_kind_slices(samples, outcomes),
             by_axis=_axis_slices(samples, outcomes),
         )
-        key = outcome.value.reported_name if isinstance(outcome, Produced) else name
+        key = _reported_key(outcome, target, name)
         _record_metric(
             report,
             reported_by,
@@ -529,7 +547,7 @@ async def score_generation_gate_subset(
             by_modality=_modality_slices(payloads, outcomes),
             by_question_kind=_question_kind_slices(payloads, outcomes),
         )
-        key = outcome.value.reported_name if isinstance(outcome, Produced) else name
+        key = _reported_key(outcome, target, name)
         _record_metric(
             report,
             reported_by,
@@ -542,9 +560,85 @@ async def score_generation_gate_subset(
     return SubsetScores(metrics=report, per_question=per_question)
 
 
+def judge_plugin_names(names: Iterable[str], *, registry: Registry) -> Mapping[str, str]:
+    """Every one of `names` a registered `GenerationMetric` declares as its own `reported_name`.
+
+    Maps a document's own recorded metric name — `weft_eval.judges.AnswerCorrectness`'s
+    `answer_correctness`, the name every entry in an experiment's `metrics =` is written in — to
+    the registered plugin name that reports it, reading the class's own `reported_name`
+    (`getattr`, never calling `evaluate` or a model) off every registered `GenerationMetric`.
+    Most of this pack's own `GenerationMetric`s report a name only once they have actually
+    scored something (the module docstring's own paragraph); `AnswerCorrectness` is the one
+    metric that states its own name up front, which is exactly what lets a caller here ask
+    whether a document's metric name *is* a judge without building one, let alone calling a
+    model, to find out — `weft_cli.eval_experiment`'s own pre-flight and its plan command are
+    both this function's callers.
+    """
+    by_reported: dict[str, str] = {}
+    for plugin_name in sorted(registry.names_for(GenerationMetric)):
+        target = unwrap_factory(registry.lookup(GenerationMetric, plugin_name))
+        reported = cast("str | None", getattr(target, "reported_name", None))
+        if reported is not None:
+            by_reported[reported] = plugin_name
+    return {name: by_reported[name] for name in names if name in by_reported}
+
+
+async def score_named_generation_metrics(
+    registry: Registry,
+    names: Sequence[str],
+    samples: Sequence[tuple[str, GenerationSample]],
+    *,
+    ctx: Context,
+) -> SubsetScores:
+    """Score exactly the `GenerationMetric` plugins `names` identifies, never the gate-safe subset.
+
+    `score_generation_gate_subset`'s twin for a caller naming its own metrics rather than asking
+    for whichever gate-safe ones exist — a judge (`weft_eval.judges.AnswerCorrectness`) is not
+    gate-safe (`runs_in_gate = False`) and is scored only when a caller names it by its
+    registered plugin name, which is exactly what `weft_cli.eval_scoring.score_pipeline`'s own
+    `judge_metrics` does for the questions a generating rung actually answered. Shares
+    `_generation_metric_config`'s generic construction, `_modality_slices`/`_question_kind_
+    slices`' slicing and `_record_metric`'s collision guard with `score_generation_gate_subset`;
+    the one thing this function does not share is the gate-safe filter, because a caller here
+    already knows exactly which plugin it wants and pays for calling it regardless.
+    """
+    keys = [key for key, _ in samples]
+    payloads = [sample for _, sample in samples]
+
+    report: dict[str, Outcome[MetricAggregate]] = {}
+    reported_by: dict[str, str] = {}
+    per_question: dict[str, Mapping[str, QuestionOutcome]] = {}
+    for name in names:
+        factory = registry.lookup(GenerationMetric, name)
+        target = unwrap_factory(factory)
+        config_model = cast("type[BaseModel] | None", getattr(target, "config_model", None))
+        config = _generation_metric_config(config_model)
+        metric = cast(GenerationMetric, factory(config))
+        outcomes = [await metric.evaluate(payload, ctx) for payload in payloads]
+        outcome = aggregate(
+            outcomes,
+            kind=MetricKind.GENERATION,
+            by_modality=_modality_slices(payloads, outcomes),
+            by_question_kind=_question_kind_slices(payloads, outcomes),
+        )
+        key = _reported_key(outcome, target, name)
+        _record_metric(
+            report,
+            reported_by,
+            per_question,
+            key=key,
+            name=name,
+            outcome=outcome,
+            scores=_per_question_scores_by_keys(keys, outcomes),
+        )
+    return SubsetScores(metrics=report, per_question=per_question)
+
+
 __all__ = [
     "SubsetScores",
+    "judge_plugin_names",
     "score_generation_gate_subset",
+    "score_named_generation_metrics",
     "score_retrieval_at_cutoffs",
     "score_retrieval_gate_subset",
 ]

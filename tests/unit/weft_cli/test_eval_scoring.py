@@ -11,6 +11,7 @@ reporting empty metrics indistinguishable from "no --questions given").
 """
 
 import hashlib
+import json
 from collections.abc import Sequence
 
 import pytest
@@ -26,9 +27,11 @@ from weft_cli.eval_scoring import (
 )
 from weft_cli.route_ask import PipelineDidNotProduceError
 from weft_embed import Embedder
-from weft_eval import Settings, register
+from weft_engine.llm_roles import LLMSection
+from weft_eval import ANSWER_CORRECTNESS_NAME, Settings, register
 from weft_eval.contract import RetrievalSample
 from weft_eval.harness import SubsetScores
+from weft_eval.judges import AnswerCorrectnessConfig
 from weft_eval.question_set import Kind, Question, QuestionField, question_set_digest
 from weft_eval.run_record import NotScored, QuestionKey
 from weft_generate.payload import Answer
@@ -45,7 +48,11 @@ from weft_kernel.payload import (
 )
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
+from weft_llm.client import NullSink
+from weft_llm.contract import LLMProvider
 from weft_llm.errors import LLMAuthenticationError, LLMGenerationLoopError
+from weft_llm.roles import LLMRoles, RoleMapping
+from weft_llm.scripted import ScriptedProvider
 from weft_retrieve.payload import Passage, Passages, Query
 from weft_store import Filter, NodeStore, Scored
 
@@ -1376,3 +1383,165 @@ async def test_a_generating_rung_records_which_arms_each_questions_answer_was_fe
     assert report.question_contributors is not None
     assert set(report.question_contributors["anchored"]) == {"hybrid:vector", "hybrid:text"}
     assert tuple(report.question_contributors["plain"]) == ("hybrid:vector",)
+
+
+# --- Ledger task 43.50 — a judge metric the caller names is scored over every answered question.
+
+#: A `FactualClassification` the judge prompt asks for (`weft_eval/prompts.py`), fixed so the
+#: `grade` role answers every judgement the same way — `tests/integration/test_graph_layer.py`'s
+#: own `[llm.roles.<role>.settings] reply` double, one role over.
+_JUDGEMENT = json.dumps(
+    {"true_positives": ["forty two"], "false_positives": [], "false_negatives": []}
+)
+
+
+def _judging_registry() -> Registry:
+    registry = _registry()
+    registry.add(LLMProvider, "scripted", ScriptedProvider, distribution="weft-llm")
+    return registry
+
+
+def _grade_mapped() -> LLMSection:
+    role = AnswerCorrectnessConfig().role
+    return LLMSection(
+        roles=LLMRoles(
+            roles={
+                role: RoleMapping(
+                    provider="scripted", model="judge-a", settings={"reply": _JUDGEMENT}
+                )
+            }
+        )
+    )
+
+
+def _answering_all_but(monkeypatch: pytest.MonkeyPatch, *, looping: str) -> None:
+    async def _answer(question: str, *_args: object, **_kwargs: object) -> Answer:
+        if question == looping:
+            raise LLMGenerationLoopError("repeating span", provider="scripted", model="some-model")
+        return Answer(
+            text="It is forty two",
+            origin=Query(text=question),
+            answered_by="fixture",
+            used=(_labelled_passage("doc-a", 0.9, 0),),
+        )
+
+    def _resolved(*_args: object, **_kwargs: object) -> ResolvedPipeline:
+        return _rung("Retriever", "Fuser", "ContextPacker", "Generator")
+
+    monkeypatch.setattr(eval_scoring_module, "resolve_named_pipeline", _resolved)
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+
+
+async def test_a_named_judge_scores_every_answered_question_once_on_its_own_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`answer-correctness` runs when the caller names it: one `grade` call per answered question.
+
+    `43d` compares arms with an LLM judge because `token_recall` rewards long answers; before this
+    task no judge ran from the binary at all. A question whose model looped has no answer, so it
+    is never judged, and the judge's own calls are spent by the run like any other role's.
+    """
+    # Arrange
+    _answering_all_but(monkeypatch, looping="loops")
+    questions = (
+        _answered("forty two", identifier="first", text="first"),
+        _answered("forty two", identifier="looped", text="loops"),
+        _answered("forty two", identifier="second", text="second"),
+    )
+    answered = {"first", "second"}
+
+    # Act
+    scored = await score_pipeline(
+        registry=_judging_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+        llm=_grade_mapped(),
+        sink=NullSink(),
+        judge_metrics=(ANSWER_CORRECTNESS_NAME,),
+    )
+
+    # Assert
+    correctness = scored.metrics.get("answer_correctness")
+    assert isinstance(correctness, Produced), (correctness, sorted(scored.metrics))
+    assert correctness.value.n == len(answered)
+    assert scored.question_scores is not None
+    judged = scored.question_scores["answer_correctness"].scores
+    assert {key for key, score in judged.items() if isinstance(score, Produced)} == answered
+    assert scored.token_usage[AnswerCorrectnessConfig().role].calls == len(answered)
+
+
+async def test_a_judge_nobody_named_makes_no_call_even_with_its_role_mapped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    _answering_all_but(monkeypatch, looping="loops")
+    questions = (
+        _answered("forty two", identifier="first", text="first"),
+        _answered("forty two", identifier="second", text="second"),
+    )
+
+    # Act
+    scored = await score_pipeline(
+        registry=_judging_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+        llm=_grade_mapped(),
+        sink=NullSink(),
+    )
+
+    # Assert
+    assert "answer_correctness" not in scored.metrics
+    assert AnswerCorrectnessConfig().role not in scored.token_usage
+    assert "token_recall" in scored.metrics
+
+
+async def test_a_judge_whose_every_judgement_failed_is_recorded_under_the_name_it_reports(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed aggregate keys under the judge's reported name, so an arm still pairs on it.
+
+    `weft_eval/harness.py` keyed a failed aggregate by the registered name and a produced one by
+    the name the metric reports; an arm whose judgements all failed then held `answer-correctness`
+    while its partner held `answer_correctness`, and the pair had nothing in common to compare.
+    """
+    # Arrange
+    _answering_all_but(monkeypatch, looping="loops")
+    questions = (
+        _answered("forty two", identifier="first", text="first"),
+        _answered("forty two", identifier="second", text="second"),
+    )
+    unparseable = LLMSection(
+        roles=LLMRoles(
+            roles={
+                AnswerCorrectnessConfig().role: RoleMapping(
+                    provider="scripted", model="judge-a", settings={"reply": "not a judgement"}
+                )
+            }
+        )
+    )
+
+    # Act
+    scored = await score_pipeline(
+        registry=_judging_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        query_pipeline="some-rung",
+        corpus_document_ids=("doc-a",),
+        llm=unparseable,
+        sink=NullSink(),
+        judge_metrics=(ANSWER_CORRECTNESS_NAME,),
+    )
+
+    # Assert
+    assert ANSWER_CORRECTNESS_NAME not in scored.metrics
+    assert "answer_correctness" in scored.metrics, sorted(scored.metrics)

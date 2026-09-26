@@ -22,6 +22,7 @@ from weft_chunk import Chunker
 from weft_cli import eval_commands as eval_commands_module
 from weft_cli import ingest as ingest_module
 from weft_cli import route_ask as route_ask_module
+from weft_cli.eval_commands import EvalCompareArgs, EvalCompareCommand, IncomparableRunsError
 from weft_cli.eval_experiment import (
     EvalExperimentArgs,
     EvalExperimentCommand,
@@ -36,17 +37,20 @@ from weft_cli.eval_scoring import ScoredRun
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult, run_index_for
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
-from weft_cli.render import render_outcome
+from weft_cli.render import render_outcome, render_refusal
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
+from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
-from weft_eval import Settings, register
+from weft_eval import ANSWER_CORRECTNESS_NAME, Settings, register
 from weft_eval.experiment import (
     EXPERIMENT_SCHEMA_VERSION,
     ExperimentDocumentError,
     load_experiment,
 )
+from weft_eval.falsify import paired_differences
+from weft_eval.judges import AnswerCorrectnessConfig
 from weft_eval.offline import UnknownMetricNameError
 from weft_eval.pool import (
     LoadedPool,
@@ -55,14 +59,22 @@ from weft_eval.pool import (
     relevant_set_sha256,
     text_sha256,
 )
-from weft_eval.question_set import Question, QuestionSetError, question_set_digest
+from weft_eval.pricing import DEFAULT_RATES, RATES_AS_OF
+from weft_eval.question_set import (
+    Question,
+    QuestionSetError,
+    question_set_digest,
+    read_question_set,
+)
 from weft_eval.run_record import NoQueryRung, PerQuestionScores, QuestionKey, load_run_record
 from weft_extract import Extractor
+from weft_generate import Generator
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
+from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
 from weft_retrieve import ContextPacker
 from weft_store import NodeStore
 
@@ -1246,3 +1258,250 @@ async def test_a_question_id_in_two_named_files_stops_the_experiment_before_anyt
     assert "in both" in message
     assert calls == []
     assert not list(Path("runs").glob("*.json"))
+
+
+# --- Task 43.50 — an experiment scores the judge its `metrics` name, and says what it will cost.
+
+_ANSWER_RUNG = "answer-rung"
+
+#: The role `answer-correctness` asks under unless configured otherwise (`weft_eval/judges.py`).
+_GRADE = AnswerCorrectnessConfig().role
+
+#: What the document names: the name the judge's score is recorded under, like every other entry
+#: in `metrics` (`test_a_refused_metric_name_lists_the_answer_metrics_beside_the_retrieval_ones`).
+_JUDGE_REPORTS = "answer_correctness"
+
+
+def _judged_catalogue() -> dict[str, Pipeline]:
+    catalogue = _query_catalogue()
+    catalogue[_ANSWER_RUNG] = Pipeline(
+        name=_ANSWER_RUNG,
+        stages=(
+            StageDeclaration(id="pack", use="repack"),
+            StageDeclaration(id="generate", use="fixture-answer"),
+        ),
+    )
+    return catalogue
+
+
+def _mapped(**models: str) -> LLMSection:
+    """`[llm.roles]`, each role mapped to the `provider:model` given for it."""
+    mappings: dict[str, RoleMapping] = {}
+    for role, ref in models.items():
+        provider, model = ref.split(":", 1)
+        mappings[role] = RoleMapping(provider=provider, model=model)
+    return LLMSection(roles=LLMRoles(roles=mappings))
+
+
+def _judging_ctx(llm: LLMSection) -> Context:
+    registry = _registry()
+    registry.add(Generator, "fixture-answer", _PassThroughStage, distribution="weft-generate")
+    ctx = Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
+    ctx.services.add(
+        Dependencies,
+        Dependencies(registry=registry, reports=(), services=ServiceSelection(), llm=llm),
+    )
+    return ctx
+
+
+def _judged_scoring_stub(calls: list[dict[str, object]]) -> Callable[..., Any]:
+    """`_scoring_stub`, also scoring `answer_correctness` when the caller asks for the judge."""
+
+    async def _fake(**kwargs: object) -> ScoredRun:
+        calls.append(kwargs)
+        questions = cast("tuple[Question, ...]", kwargs["questions"])
+        per_question = PerQuestionScores(
+            keyed_by=QuestionKey.QUESTION_ID,
+            scores={question.id: Produced(value=1.0) for question in questions},
+        )
+        judged = ANSWER_CORRECTNESS_NAME in cast("tuple[str, ...]", kwargs.get("judge_metrics", ()))
+        return ScoredRun(
+            metrics={},
+            query_rung=NoQueryRung(reason="no query rung was named"),
+            question_scores={
+                "precision@5": per_question,
+                **({_JUDGE_REPORTS: per_question} if judged else {}),
+            },
+            question_set=question_set_digest(questions),
+        )
+
+    return _fake
+
+
+def _answering_arms() -> str:
+    rung = f'query_pipeline = "{_ANSWER_RUNG}"\n'
+    return _arm("dense", "index", rung) + _arm("other", "index-other", rung)
+
+
+async def test_an_experiment_naming_a_judge_hands_it_to_every_arms_scoring(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A judge the document names reaches every arm's scoring, and the arms pair over it.
+
+    `43d` decides between a whole-corpus arm and `retrieve-then-generate` on `answer_correctness`,
+    paired question by question exactly as `token_recall` is today.
+    """
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_judged_catalogue()))
+    path = _experiment(tmp_path, _answering_arms(), metrics=f'["precision@5", "{_JUDGE_REPORTS}"]')
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _judged_scoring_stub(calls))
+    ctx = _judging_ctx(_mapped(**{_GRADE: "scripted:judge-a"}))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced), outcome
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    assert calls
+    assert {tuple(cast("tuple[str, ...]", call.get("judge_metrics", ()))) for call in calls} == {
+        (ANSWER_CORRECTNESS_NAME,)
+    }
+    first = {
+        run.arm: load_run_record(Path("runs") / f"{run.run_id}.json")
+        for run in result.runs
+        if run.repetition == 1
+    }
+    assert _JUDGE_REPORTS in paired_differences(first["dense"], first["other"])
+
+
+async def test_an_experiment_naming_no_judge_asks_for_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_judged_catalogue()))
+    path = _experiment(tmp_path, _answering_arms(), metrics='["precision@5"]')
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _judged_scoring_stub(calls))
+    ctx = _judging_ctx(_mapped(**{_GRADE: "scripted:judge-a"}))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced), outcome
+    assert calls
+    assert all(not call.get("judge_metrics", ()) for call in calls)
+
+
+async def test_records_judged_by_two_different_models_are_refused_by_compare(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The judge is a model version: two records judged by two models do not compare.
+
+    A guard on the model-versions half — `model_versions_of` already records every mapped role as
+    `role:<name>` (repair `R10.3`). It is here so the judge's own mapping is asserted where
+    `weft eval compare` refuses on it, through the path an experiment writes its records by.
+    """
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_judged_catalogue()))
+    path = _experiment(tmp_path, _answering_arms(), metrics=f'["precision@5", "{_JUDGE_REPORTS}"]')
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _judged_scoring_stub([]))
+    first_ctx = _judging_ctx(_mapped(**{_GRADE: "scripted:judge-a"}))
+    second_ctx = _judging_ctx(_mapped(**{_GRADE: "scripted:judge-b"}))
+    first = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), first_ctx)
+    second = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), second_ctx)
+    assert isinstance(first, Produced), first
+    assert isinstance(second, Produced), second
+    first_runs = cast("EvalExperimentCommandResult", first.value).runs
+    second_runs = cast("EvalExperimentCommandResult", second.value).runs
+
+    # Act
+    with pytest.raises(IncomparableRunsError) as caught:
+        await EvalCompareCommand().run(
+            EvalCompareArgs(a=first_runs[0].run_id, b=second_runs[0].run_id), first_ctx
+        )
+
+    # Assert
+    for run in first_runs:
+        record = load_run_record(Path("runs") / f"{run.run_id}.json")
+        assert record.model_versions[f"role:{_GRADE}"] == "scripted:judge-a"
+    differing = [reason for reason in caught.value.reasons if "model versions differ" in reason]
+    assert differing, caught.value.reasons
+    assert "judge-b" in differing[0]
+
+
+async def test_a_judge_whose_role_is_unmapped_is_refused_before_anything_is_indexed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A judge with no model to ask is refused naming the metric and the role, before any spend.
+
+    Otherwise every arm indexes and answers, and only then does each judgement fail — the paid
+    half of the run bought with nothing to read it.
+    """
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_judged_catalogue()))
+    path = _experiment(tmp_path, _answering_arms(), metrics=f'["precision@5", "{_JUDGE_REPORTS}"]')
+    indexed: list[dict[str, Any]] = []
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "run_index_for", _counting_index(indexed))
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _judged_scoring_stub(calls))
+    ctx = _judging_ctx(_mapped(generate="scripted:writer", index="scripted:indexer"))
+
+    # Act
+    with pytest.raises(UnmappedLLMRoleError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), ctx)
+
+    # Assert
+    rendered = render_refusal(caught.value)
+    stderr = rendered.stderr or ""
+    assert rendered.exit_code is ExitCode.OPERATION_FAILED
+    assert _JUDGE_REPORTS in stderr, stderr
+    assert f"'{_GRADE}'" in stderr, stderr
+    assert caught.value.valid_options == ("generate", "index")
+    assert indexed == []
+    assert calls == []
+    assert not Path("runs").exists()
+
+
+async def test_the_plan_states_the_judge_calls_of_every_answering_arm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`weft eval plan` counts the judge's calls before `--yes`: one per question an arm answers.
+
+    An arm that answers nothing — no query rung, or one ending in a packer — is never judged, so
+    it adds nothing. The plan cannot know how many answers a model will give, so every question
+    of an answering arm is counted, per repetition.
+    """
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_judged_catalogue()))
+    answering_repeats = 3
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index", "repeats = 1\n")
+        + _arm("packed", "index", 'query_pipeline = "some-rung"\nrepeats = 2\n')
+        + _arm("answer", "index", f'query_pipeline = "{_ANSWER_RUNG}"\n'),
+        repeats=answering_repeats,
+        metrics=f'["precision@5", "{_JUDGE_REPORTS}"]',
+    )
+    questions = len(read_question_set(path.parent / "questions.toml").questions)
+    ctx = _judging_ctx(_mapped(**{_GRADE: "scripted:judge-a"}))
+
+    # Act
+    outcome = await EvalPlanCommand().run(EvalPlanArgs(path=str(path)), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced), outcome
+    stdout = render_outcome(outcome).stdout or ""
+    assert f"judge calls: {questions * answering_repeats}" in stdout, stdout
+    assert "scripted:judge-a" in stdout, stdout
+
+
+async def test_the_plan_prices_the_judge_from_the_rate_sheet_and_dates_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_judged_catalogue()))
+    path = _experiment(tmp_path, _answering_arms(), metrics=f'["precision@5", "{_JUDGE_REPORTS}"]')
+    priced = next(iter(DEFAULT_RATES))
+    ctx = _judging_ctx(_mapped(**{_GRADE: priced}))
+
+    # Act
+    outcome = await EvalPlanCommand().run(EvalPlanArgs(path=str(path)), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced), outcome
+    stdout = render_outcome(outcome).stdout or ""
+    assert priced in stdout, stdout
+    assert RATES_AS_OF in stdout, stdout

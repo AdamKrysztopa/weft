@@ -79,6 +79,7 @@ from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassa
 from weft_eval.harness import (
     SubsetScores,
     score_generation_gate_subset,
+    score_named_generation_metrics,
     score_retrieval_at_cutoffs,
     score_retrieval_gate_subset,
 )
@@ -1203,6 +1204,55 @@ async def _question_hits(
     )
 
 
+async def _judge_answered_questions(
+    stack: AsyncExitStack,
+    *,
+    judge_metrics: tuple[str, ...],
+    generation_samples: Sequence[tuple[str, GenerationSample]],
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    roles: RoleTable | None,
+    sink: TokenSink | None,
+    target: str | None,
+) -> SubsetScores | None:
+    """Score every named judge over the questions a generating rung actually answered.
+
+    `None` when there is nothing to judge — no judge metric was named (`judge_metrics == ()`,
+    every caller before this task), or a generating rung answered no question at all, every one
+    excluded before a `GenerationSample` ever existed for it — so a caller merges only when this
+    returns something, the identical "absent, never fabricated" posture every other optional
+    `ScoredRun` field already takes.
+
+    Builds its own `Embedder`/`LLM` from `llm`/`services`/`sink`/`roles` through `weft_cli.
+    route_ask.prepared_services` — the tree's one service assembler, entered on `stack` so it
+    closes with everything else this run built — rather than hand-building either: a judge
+    reaches the project's own configured embedder and whichever model `[llm.roles]` maps its
+    own role to, exactly as a retrieval rung's own services are built one call above. Built and
+    scored inside the caller's own `recording_usage()` scope, so a judge's calls are tallied
+    into `ScoredRun.token_usage` under its own role exactly as every other role's calls are.
+    """
+    if not judge_metrics or not generation_samples:
+        return None
+    judging = await stack.enter_async_context(
+        prepared_services(
+            registry=registry,
+            reports=reports,
+            ctx=ctx,
+            llm=llm if llm is not None else LLMSection(),
+            services=services if services is not None else ServiceSelection(),
+            sink=sink if sink is not None else NullSink(),
+            roles=roles if roles is not None else RoleTable(),
+            target=target,
+        )
+    )
+    return await score_named_generation_metrics(
+        registry, judge_metrics, generation_samples, ctx=judging.ctx
+    )
+
+
 async def score_pipeline(
     *,
     registry: Registry,
@@ -1224,6 +1274,7 @@ async def score_pipeline(
     capture_pool: bool = False,
     pool: LoadedPool | None = None,
     target: str | None = None,
+    judge_metrics: tuple[str, ...] = (),
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset.
 
@@ -1362,6 +1413,19 @@ async def score_pipeline(
     path's own `PreparedRunner` (`_prepared_retrieval`), and the plain `run_ask` fallback below
     — is bound to it, so `--reuse-index`'s own scoring reads the same target `weft eval run`'s
     caller validated exists.
+
+    **`judge_metrics` — ledger task 43.50.** `()` (every caller before this task) scores no
+    judge, unchanged. Given registered `GenerationMetric` plugin names instead — never the
+    recorded name a document's own `metrics =` names it by, `weft_cli.eval_experiment`'s own
+    translation — each is scored once per question the generating rung actually answered
+    (`generation_samples`, built by `_generating_question_hits` above; a looped or otherwise
+    excluded question never reaches it), through `weft_eval.harness.
+    score_named_generation_metrics`. Honoured only on the generating-rung path: a retrieval rung
+    or the no-query-rung path never calls a `Generator` and builds no `GenerationSample` to judge
+    at all, `_judge_answered_questions`'s own `not generation_samples` check. Its own `Embedder`/
+    `LLM` are built through `prepared_services` rather than reused from the retrieval-rung path's
+    own (`retrieval_services` is `None` here, since a generating rung's own path never builds
+    one) — see `_judge_answered_questions`'s own docstring.
     """
     if capture_pool and pool is not None:
         raise ValueError(
@@ -1401,6 +1465,7 @@ async def score_pipeline(
     failed: dict[str, str] = {}
     question_pools: dict[str, tuple[PoolChunk, ...]] = {}
     store_rows: int | None = None
+    judge_scores: SubsetScores | None = None
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
     async with AsyncExitStack() as stack:
         retrieval_services, pool_questions_by_id = await _prepared_retrieval(
@@ -1481,6 +1546,19 @@ async def score_pipeline(
                         axes=question.axes,
                     )
                 )
+            judge_scores = await _judge_answered_questions(
+                stack,
+                judge_metrics=judge_metrics,
+                generation_samples=generation_samples,
+                registry=registry,
+                reports=reports,
+                ctx=ctx,
+                llm=llm,
+                services=services,
+                roles=roles,
+                sink=sink,
+                target=target,
+            )
         store_rows = await _captured_store_rows(
             capture_pool=capture_pool, retrieval_services=retrieval_services
         )
@@ -1499,6 +1577,8 @@ async def score_pipeline(
             registry, generation_samples, ctx=ctx, failed_questions=failed
         )
         _merge_generation_scores(generation_scores, metrics=metrics, per_question=per_question)
+    if judge_scores is not None:
+        _merge_generation_scores(judge_scores, metrics=metrics, per_question=per_question)
     question_scores = {
         name: PerQuestionScores(keyed_by=keyed_by, scores=outcomes)
         for name, outcomes in per_question.items()

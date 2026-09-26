@@ -1584,6 +1584,7 @@ async def index_and_score(
     capture_pool: bool = False,
     pool: LoadedPool | None = None,
     target: str | None = None,
+    judge_metrics: tuple[str, ...] = (),
 ) -> IndexAndScoreResult:
     """Keep `weft eval run` and `weft eval experiment` scoring through one identical path.
 
@@ -1660,6 +1661,11 @@ async def index_and_score(
     the identical store name `require_existing_target` above already reads by. A store that does
     not satisfy `weft_store.contract.TargetHolding` records `None` for both; owner decision Q-E
     is what a promotion comparison (`weft eval compare`) reads this pair for.
+
+    `judge_metrics` — ledger task **43.50** — reaches `score_pipeline`'s own keyword of the
+    identical name unchanged; `()` (`weft eval run`, and every caller before this task) scores
+    no judge. `weft_cli.eval_experiment` is the one caller that passes the registered plugin
+    names its own pre-flight translated a document's `metrics =` entries into.
     """
     indexed = await _indexed_corpus(
         deps,
@@ -1718,6 +1724,7 @@ async def index_and_score(
             capture_pool=capture_pool,
             pool=pool,
             target=target,
+            judge_metrics=judge_metrics,
         )
         metrics = scored.metrics
         query_rung = scored.query_rung

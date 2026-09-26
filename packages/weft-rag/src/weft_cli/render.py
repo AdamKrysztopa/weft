@@ -1952,6 +1952,13 @@ def _render_eval_plan(result: EvalPlanCommandResult) -> Rendered:
     The size of the run the document asks for: one line per arm, then one per `(ingest pipeline,
     corpus)`, and a total of the query executions. What it does not print — model calls, hours,
     memory — is what no document can answer.
+
+    **`judge` — ledger task 43.50.** One more line, only when `experiment.metrics` names a
+    judge whose role `[llm.roles]` maps: how many calls it would make (an upper bound, `Eval
+    PlanCommand`'s own reasoning) and the `provider:model` that role resolves to, then — only
+    when that model carries an entry in `weft_eval.pricing.DEFAULT_RATES` — its per-1k input
+    and output rate and the sheet's own date. Never a dollar total: `JudgePlan`'s own docstring
+    says why a call count is not a token count.
     """
     lines = [f"plan for '{result.name}' ({result.digest[:12]}…)"]
     lines.extend(
@@ -1965,6 +1972,14 @@ def _render_eval_plan(result: EvalPlanCommandResult) -> Rendered:
         for corpus in result.corpora
     )
     lines.append(f"  total query executions: {sum(arm.executions for arm in result.arms)}")
+    if result.judge is not None:
+        judge = result.judge
+        lines.append(f"  judge calls: {judge.calls} ({judge.model})")
+        if judge.input_per_1k_usd is not None and judge.output_per_1k_usd is not None:
+            lines.append(
+                f"    rate: ${judge.input_per_1k_usd:.4f}/1k in, "
+                f"${judge.output_per_1k_usd:.4f}/1k out (as of {judge.rates_as_of})"
+            )
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
