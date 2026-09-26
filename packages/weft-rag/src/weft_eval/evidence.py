@@ -444,7 +444,7 @@ def render_evidence_table(table: EvidenceTable) -> str:
         f"repetitions: {_repetitions_cell(table)}",
         f"corpus: {table.corpus_name} ({table.corpus_digest[:12]}…)",
         f"minimum detectable effect: {table.minimum_detectable_effect:g}",
-        f"paired Δ and its interval: arm minus '{table.baseline_arm}' on repetition 1, 95% "
+        f"interval and paired Δ: arm minus '{table.baseline_arm}' on repetition 1, 95% "
         "bootstrap interval over questions",
         "spread verdict: that Δ against the between-repetition spread of arm "
         f"'{table.baseline_arm}'",
@@ -461,7 +461,7 @@ def render_evidence_table(table: EvidenceTable) -> str:
     lines.extend(
         [
             "",
-            f"| arm | metric | {table.baseline_arm} | arm | paired Δ | 95% CI | n | "
+            f"| arm | metric | {table.baseline_arm} | arm | 95% CI | paired Δ | n | "
             "spread verdict |",
             "|---|---|---|---|---|---|---|---|",
         ]
@@ -515,7 +515,7 @@ def _comparison_row(comparison: ArmComparison) -> str:
         verdict = f"{verdict} (zero-width)"
     return (
         f"| {comparison.arm} | {comparison.metric} | {baseline_mean} | {arm_mean} | "
-        f"{paired_mean} | {ci} | {n} | {verdict} |"
+        f"{ci} | {paired_mean} | {n} | {verdict} |"
     )
 
 

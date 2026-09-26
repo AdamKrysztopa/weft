@@ -248,6 +248,27 @@ def test_the_rendered_table_says_which_interval_is_which_and_carries_every_cell(
     assert render_evidence_table(table) == markdown
 
 
+def test_every_paired_interval_is_stated_before_its_point_estimate(tmp_path: Path) -> None:
+    """Task 43.54: a reader meets the interval before the number it bounds, header and row alike.
+
+    A point estimate read first is the number a verdict gets quoted from (`L28.11`); the owner
+    settled at 43.52 that the table's own layout puts the interval ahead of it.
+    """
+    # Arrange
+    experiment = fixture_experiment(tmp_path)
+    table = evidence_table(experiment, complete_records(experiment))
+
+    # Act
+    lines = render_evidence_table(table).splitlines()
+
+    # Assert
+    header = next(line for line in lines if "paired Δ" in line and line.startswith("| arm |"))
+    assert header.index("95% CI") < header.index("paired Δ")
+    row = next(line for line in lines if "| better | precision@5 |" in line)
+    cells = [cell.strip() for cell in row.split("|")]
+    assert cells.index("+0.250") > next(i for i, cell in enumerate(cells) if " to " in cell)
+
+
 def test_regenerate_reads_the_records_on_disk_for_the_document_on_disk(tmp_path: Path) -> None:
     # Arrange
     experiment = fixture_experiment(tmp_path)
