@@ -90,7 +90,7 @@ def test_paths_resolve_against_the_documents_own_directory_not_the_callers(
 
     # Assert
     assert experiment.corpus == (tmp_path / "corpus").resolve()
-    assert experiment.questions == (home / "questions").resolve()
+    assert experiment.questions == ((home / "questions").resolve(),)
     assert experiment.manifest == (tmp_path / "corpus" / "manifest.toml").resolve()
 
 
@@ -112,7 +112,7 @@ def test_an_arm_may_name_its_own_corpus_and_questions_and_otherwise_inherits_the
     assert experiment.corpus_for(dense) == experiment.corpus
     assert experiment.questions_for(dense) == experiment.questions
     assert experiment.corpus_for(elsewhere) == (tmp_path / "other").resolve()
-    assert experiment.questions_for(elsewhere) == (tmp_path / "other.toml").resolve()
+    assert experiment.questions_for(elsewhere) == ((tmp_path / "other.toml").resolve(),)
 
 
 def test_the_digest_is_over_the_documents_bytes(tmp_path: Path) -> None:
@@ -345,3 +345,71 @@ def test_a_bare_top_k_is_a_set_of_one_cutoff(tmp_path: Path) -> None:
 
     # Assert
     assert (experiment.cutoffs, experiment.top_k) == ((5,), 5)
+
+
+# --- Task 43.51 — `questions` may name several files, read as their union.
+
+
+def test_a_document_may_name_several_question_files_kept_in_the_order_written(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
+        'questions = "questions"', 'questions = ["zeta.toml", "alpha.toml"]'
+    )
+    path = _write(tmp_path, body)
+
+    # Act
+    experiment = load_experiment(path)
+
+    # Assert
+    assert experiment.questions == (
+        (tmp_path / "zeta.toml").resolve(),
+        (tmp_path / "alpha.toml").resolve(),
+    )
+    assert all(experiment.questions_for(arm) == experiment.questions for arm in experiment.arms)
+
+
+def test_an_arm_naming_its_own_list_of_question_files_overrides_the_documents(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
+        'questions = "questions"', 'questions = ["fetch.toml", "operator.toml"]'
+    ) + (
+        '\n[[arm]]\nname = "polish"\npipeline = "index-text"\n'
+        'questions = ["polish.toml", "unanswerable.toml"]\n'
+    )
+    path = _write(tmp_path, body)
+
+    # Act
+    experiment = load_experiment(path)
+
+    # Assert
+    dense, _, polish = experiment.arms
+    assert experiment.questions_for(dense) == (
+        (tmp_path / "fetch.toml").resolve(),
+        (tmp_path / "operator.toml").resolve(),
+    )
+    assert experiment.questions_for(polish) == (
+        (tmp_path / "polish.toml").resolve(),
+        (tmp_path / "unanswerable.toml").resolve(),
+    )
+
+
+def test_a_questions_list_naming_no_file_is_refused_naming_the_field(tmp_path: Path) -> None:
+    # Arrange
+    body = _DOCUMENT.format(schema=EXPERIMENT_SCHEMA_VERSION).replace(
+        'questions = "questions"', "questions = []"
+    )
+    path = _write(tmp_path, body)
+
+    # Act
+    with pytest.raises(ExperimentDocumentError) as caught:
+        load_experiment(path)
+
+    # Assert
+    message = str(caught.value)
+    assert "experiment.toml" in message
+    assert "questions" in message
+    assert "names no question file" in message

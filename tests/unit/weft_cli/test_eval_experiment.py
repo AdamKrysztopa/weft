@@ -33,6 +33,7 @@ from weft_cli.eval_experiment import (
     UnscorableArmError,
 )
 from weft_cli.eval_scoring import ScoredRun
+from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult, run_index_for
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.render import render_outcome
@@ -54,7 +55,7 @@ from weft_eval.pool import (
     relevant_set_sha256,
     text_sha256,
 )
-from weft_eval.question_set import Question, question_set_digest
+from weft_eval.question_set import Question, QuestionSetError, question_set_digest
 from weft_eval.run_record import NoQueryRung, PerQuestionScores, QuestionKey, load_run_record
 from weft_extract import Extractor
 from weft_kernel.context import Context
@@ -1130,3 +1131,118 @@ def test_an_arm_both_capturing_and_replaying_a_pool_is_refused_naming_both_keys(
     # Assert
     assert "capture_pool" in str(caught.value)
     assert "pool" in str(caught.value)
+
+
+# --- Task 43.51 — an experiment's `questions` may name several files, run as their union.
+
+_OPERATOR_QUESTIONS = """[question_set]
+schema = 2
+absent = ["kind", "difficulty", "quote", "reference_answer", "notes"]
+absent_reason = "an experiment fixture"
+axes = []
+
+[[question]]
+id = "{first}"
+text = "what does the operator run?"
+language = "en"
+relevant_documents = ["one.txt"]
+
+[[question]]
+id = "op-2"
+text = "what does the operator read?"
+language = "en"
+relevant_documents = ["one.txt"]
+
+[[question]]
+id = "op-3"
+text = "what does the operator keep?"
+language = "en"
+relevant_documents = ["one.txt"]
+"""
+
+
+def _two_file_experiment(root: Path, arms: str, *, first_operator_id: str = "op-1") -> Path:
+    """`_experiment`, naming `questions.toml` (q-1, q-2) and `operator.toml` (three) together."""
+    path = _experiment(root, arms)
+    (path.parent / "operator.toml").write_text(
+        _OPERATOR_QUESTIONS.format(first=first_operator_id), encoding="utf-8"
+    )
+    body = path.read_text(encoding="utf-8")
+    path.write_text(
+        body.replace(
+            'questions = "questions.toml"', 'questions = ["questions.toml", "operator.toml"]'
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+async def test_the_plan_of_a_two_file_document_states_the_unions_question_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _two_file_experiment(
+        tmp_path,
+        _arm("dense", "index", "repeats = 1\n")
+        + _arm("rung", "index", 'query_pipeline = "some-rung"\n'),
+    )
+    scored: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(scored))
+    outcome = await EvalPlanCommand().run(EvalPlanArgs(path=str(path)), _ctx())
+
+    # Act
+    rendered = render_outcome(outcome)
+
+    # Assert
+    stdout = rendered.stdout or ""
+    assert rendered.exit_code == ExitCode.SUCCESS
+    assert "  dense: index, 1 × 5 question(s) = 5 execution(s)" in stdout
+    assert "  rung: index → some-rung, 2 × 5 question(s) = 10 execution(s)" in stdout
+    assert "  total query executions: 15" in stdout
+    assert scored == []
+
+
+async def test_every_arm_of_a_two_file_document_is_scored_on_the_union_in_the_order_named(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _two_file_experiment(tmp_path, _arm("a", "index") + _arm("b", "index-other"))
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    assert len(calls) == 4
+    for call in calls:
+        questions = cast("tuple[Question, ...]", call["questions"])
+        assert [question.id for question in questions] == ["q-1", "q-2", "op-1", "op-2", "op-3"]
+    records = [load_run_record(Path("runs") / f"{run.run_id}.json") for run in result.runs]
+    assert len({record.question_set_digest for record in records}) == 1
+
+
+async def test_a_question_id_in_two_named_files_stops_the_experiment_before_anything_is_scored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _two_file_experiment(
+        tmp_path, _arm("a", "index") + _arm("b", "index-other"), first_operator_id="q-2"
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    with pytest.raises(QuestionSetError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    message = str(caught.value)
+    assert "q-2" in message
+    assert "questions.toml" in message
+    assert "operator.toml" in message
+    assert "in both" in message
+    assert calls == []
+    assert not list(Path("runs").glob("*.json"))

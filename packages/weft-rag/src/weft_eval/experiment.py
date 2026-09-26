@@ -128,6 +128,9 @@ class ExperimentArm(BaseModel):
     and retrieving — resolved against the document's own directory, `corpus`/`questions`' own
     footing. Refused alongside `capture_pool` on the identical arm: a replay reads a pool, it
     never writes one.
+
+    `questions` (task **43.51**) is one or more resolved absolute paths, in the order named — see
+    `Experiment.questions_for`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -136,7 +139,7 @@ class ExperimentArm(BaseModel):
     pipeline: str = Field(min_length=1)
     query_pipeline: str | None = None
     corpus: Path | None = None
-    questions: Path | None = None
+    questions: tuple[Path, ...] | None = None
     repeats: int | None = Field(default=None, ge=1)
     capture_pool: bool = False
     pool: Path | None = None
@@ -163,13 +166,16 @@ class Experiment(BaseModel):
 
     `digest` is a sha256 over the document's own bytes, computed by `load_experiment`, never over
     this resolved model.
+
+    `questions` (task **43.51**) is one or more resolved absolute paths, in the order the
+    document names them — a document writing one path keeps today's single-file shape exactly.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str = Field(min_length=1)
     digest: str = Field(min_length=1)
-    questions: Path
+    questions: tuple[Path, ...] = Field(min_length=1)
     corpus: Path
     manifest: Path | None = None
     repeats: int = Field(ge=2)
@@ -237,8 +243,8 @@ class Experiment(BaseModel):
         """`arm`'s own corpus, or the experiment's, when the arm names none."""
         return arm.corpus if arm.corpus is not None else self.corpus
 
-    def questions_for(self, arm: ExperimentArm) -> Path:
-        """`arm`'s own question set, or the experiment's, when the arm names none."""
+    def questions_for(self, arm: ExperimentArm) -> tuple[Path, ...]:
+        """`arm`'s own question files, or the experiment's, when the arm names none."""
         return arm.questions if arm.questions is not None else self.questions
 
     def repeats_for(self, arm: ExperimentArm) -> int:
@@ -256,6 +262,28 @@ def _resolve(raw: object, *, root: Path) -> Path:
 
 def _resolve_optional(raw: object, *, root: Path) -> Path | None:
     return None if raw is None else _resolve(raw, root=root)
+
+
+def _resolve_questions(raw: object, *, root: Path, path: Path) -> tuple[Path, ...]:
+    """`questions =` as one path or a list of them — always a non-empty tuple, in file order.
+
+    A bare string names one file, the shape every experiment document wrote before task
+    **43.51**. A list names several, read as their union (`weft_eval.question_set.
+    read_question_sets`); an empty list is refused here, naming the field, rather than reaching
+    `read_question_sets` as a set of nothing to score.
+    """
+    if isinstance(raw, list):
+        entries = cast("list[Any]", raw)
+        if not entries:
+            raise ExperimentDocumentError(
+                f"{path.name}: 'questions' names no question file — state at least one path."
+            )
+        return tuple(_resolve(entry, root=root) for entry in entries)
+    return (_resolve(raw, root=root),)
+
+
+def _resolve_optional_questions(raw: object, *, root: Path, path: Path) -> tuple[Path, ...] | None:
+    return None if raw is None else _resolve_questions(raw, root=root, path=path)
 
 
 def _refused_from(exc: ValidationError, path: Path) -> ExperimentDocumentError:
@@ -282,7 +310,7 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
         pipeline=str(entry.get("pipeline", "")),
         query_pipeline=entry.get("query_pipeline"),
         corpus=_resolve_optional(entry.get("corpus"), root=root),
-        questions=_resolve_optional(entry.get("questions"), root=root),
+        questions=_resolve_optional_questions(entry.get("questions"), root=root, path=path),
         repeats=entry.get("repeats"),
         capture_pool=bool(entry.get("capture_pool", False)),
         pool=_resolve_optional(entry.get("pool"), root=root),
@@ -302,7 +330,7 @@ def _build_experiment(
     return Experiment(
         name=str(experiment_table.get("name", "")),
         digest=digest,
-        questions=_resolve(experiment_table.get("questions", ""), root=root),
+        questions=_resolve_questions(experiment_table.get("questions", ""), root=root, path=path),
         corpus=_resolve(experiment_table.get("corpus", ""), root=root),
         manifest=_resolve_optional(experiment_table.get("manifest"), root=root),
         repeats=experiment_table.get("repeats"),

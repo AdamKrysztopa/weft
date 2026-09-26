@@ -67,7 +67,7 @@ from __future__ import annotations
 import hashlib
 import json
 import tomllib
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, cast
@@ -531,6 +531,31 @@ def read_question_set(path: Path) -> QuestionSet:
         f"{path.name}: unsupported question file suffix {path.suffix!r}. "
         "Valid: a directory, or a file ending .toml (a .json list was read until weft-rag 3.0.0)"
     )
+
+
+def read_question_sets(paths: Sequence[Path]) -> QuestionSet:
+    """The union of every question set `paths` names, each file's questions in file order.
+
+    Each path is read exactly as `read_question_set` reads one, and the sets are concatenated in
+    the order `paths` names them. A question id appearing in two named files is refused, naming
+    the id and both files — an experiment scoring the union silently on one copy of a shared id
+    would score the other file's own question against nobody's ground truth. The digest is
+    `question_set_digest` over the union, already order-independent by design, so one file named
+    alone keeps the digest every existing record carries and reordering many files leaves it
+    unchanged.
+    """
+    seen: dict[str, Path] = {}
+    questions: list[Question] = []
+    for path in paths:
+        for question in read_question_set(path).questions:
+            first_path = seen.get(question.id)
+            if first_path is not None:
+                raise QuestionSetError(
+                    f"question id '{question.id}' is in both {first_path.name} and {path.name}"
+                )
+            seen[question.id] = path
+            questions.append(question)
+    return QuestionSet(questions=tuple(questions), format=QuestionSetFormat.TOML)
 
 
 def reproducible_questions(

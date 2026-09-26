@@ -94,7 +94,7 @@ from weft_eval.pool import (
     text_sha256,
     write_pool_manifest,
 )
-from weft_eval.question_set import Question, QuestionSet, read_question_set
+from weft_eval.question_set import Question, QuestionSet, read_question_sets
 from weft_eval.run_record import ExperimentRun, QueryRung, corpus_identity
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
@@ -540,7 +540,7 @@ class EvalPlanCommand:
         arms: list[ArmPlan] = []
         corpora: dict[tuple[str, Path], CorpusPlan] = {}
         for arm in experiment.arms:
-            questions = read_question_set(experiment.questions_for(arm)).questions
+            questions = read_question_sets(experiment.questions_for(arm)).questions
             repetitions = experiment.repeats_for(arm)
             arms.append(
                 ArmPlan(
@@ -630,7 +630,7 @@ class EvalExperimentCommand:
         await _refuse_unrecordable_metrics(experiment, deps=deps, ctx=ctx)
 
         question_sets: dict[str, QuestionSet] = {
-            arm.name: read_question_set(experiment.questions_for(arm)) for arm in experiment.arms
+            arm.name: read_question_sets(experiment.questions_for(arm)) for arm in experiment.arms
         }
 
         identities: dict[str, _ArmIdentity] = {
