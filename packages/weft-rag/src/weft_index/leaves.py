@@ -29,36 +29,37 @@ def not_a_leaf_namespaces() -> tuple[str, ...]:
     return tuple(namespaces)
 
 
-def leaf_filter() -> Filter:
-    """Every leaf of a store, whatever its source.
+def leaf_clauses() -> tuple[Filter, ...]:
+    """The conditions a leaf meets, each a `NOT(EXISTS ...)`; there is always at least one.
 
     `NOT(EXISTS ext.weft-index.technique)` leaves out every node an `Expander` derived, and each
     registered namespace declaring `not_a_leaf` leaves out the nodes carrying it. Every stored
     namespace carries `__schema_version__`, which is what that `EXISTS` reads.
     """
-    return Filter(
-        op=FilterOp.AND,
-        clauses=(
+    return (
+        Filter(
+            op=FilterOp.NOT,
+            clauses=(
+                Filter(op=FilterOp.EXISTS, field=f"ext.{Representation.__namespace__}.technique"),
+            ),
+        ),
+        *(
             Filter(
                 op=FilterOp.NOT,
                 clauses=(
-                    Filter(
-                        op=FilterOp.EXISTS,
-                        field=f"ext.{Representation.__namespace__}.technique",
-                    ),
+                    Filter(op=FilterOp.EXISTS, field=f"ext.{namespace}.{SCHEMA_VERSION_KEY}"),
                 ),
-            ),
-            *(
-                Filter(
-                    op=FilterOp.NOT,
-                    clauses=(
-                        Filter(
-                            op=FilterOp.EXISTS,
-                            field=f"ext.{namespace}.{SCHEMA_VERSION_KEY}",
-                        ),
-                    ),
-                )
-                for namespace in not_a_leaf_namespaces()
-            ),
+            )
+            for namespace in not_a_leaf_namespaces()
         ),
     )
+
+
+def leaf_filter() -> Filter:
+    """Every leaf of a store, whatever its source.
+
+    One condition stands alone: `Filter` refuses an `AND` of fewer than two clauses, and an
+    install where no model declares `not_a_leaf` has only the technique condition.
+    """
+    clauses = leaf_clauses()
+    return clauses[0] if len(clauses) == 1 else Filter(op=FilterOp.AND, clauses=clauses)

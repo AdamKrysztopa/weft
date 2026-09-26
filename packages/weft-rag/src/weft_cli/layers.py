@@ -38,7 +38,7 @@ from weft_engine.run_services import class_provides
 from weft_extract import Extractor
 from weft_extract.text import SourceRef
 from weft_index.contract import LayerCheckpoints, LayerRevision
-from weft_index.leaves import leaf_filter
+from weft_index.leaves import leaf_clauses
 from weft_index.payload import LayerMember, Representation
 from weft_kernel.context import Context, ServiceRegistry, UnresolvedServiceError
 from weft_kernel.discovery import PackReport
@@ -758,7 +758,7 @@ def _stamped(created: Sequence[Node], *, layer: str) -> tuple[Node, ...]:
 def layer_leaf_filter(sources: Sequence[SourceId]) -> Filter:
     """The filter a layer's batch reads its leaves through — ledger task **43.8**, R43.22.
 
-    `weft_index.leaves.leaf_filter`, the store's leaves, narrowed by `IN lineage.sources` to this
+    `weft_index.leaves.leaf_clauses`, the store's leaves, narrowed by `IN lineage.sources` to this
     batch's own sources, so a layer never re-enriches another layer's output (43.47).
     """
     return Filter(
@@ -769,7 +769,7 @@ def layer_leaf_filter(sources: Sequence[SourceId]) -> Filter:
                 field="lineage.sources",
                 value=tuple(str(source) for source in sources),
             ),
-            *leaf_filter().clauses,
+            *leaf_clauses(),
         ),
     )
 

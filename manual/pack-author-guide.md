@@ -1045,7 +1045,7 @@ naming the three (`packages/weft-rag/src/weft_cli/layers.py:417 "which no layer 
 
 - **`not_a_leaf: ClassVar[bool] = True`** on an `ExtModel` whose nodes are derived evidence rather
   than content: every layer's leaf selection leaves out a node carrying that namespace
-  (`packages/weft-rag/src/weft_index/leaves.py:61 "for namespace in not_a_leaf_namespaces"`), as
+  (`packages/weft-rag/src/weft_index/leaves.py:53 "for namespace in not_a_leaf_namespaces"`), as
   the graph pack's fact nodes are left out
   (`packages/weft-rag/src/weft_kg/payload.py:134 "not_a_leaf: ClassVar[bool] = True"`). It is read
   only off models registered through `add_ext_model` (§9.5)

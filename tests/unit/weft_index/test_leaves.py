@@ -9,6 +9,9 @@ definition over a whole store; the layer loop's filter is it narrowed to a batch
 import subprocess
 import sys
 
+import pytest
+
+import weft_index.leaves as leaves_module
 from tests.unit.weft_cli.leaf_selection import (
     DeclaredNotALeaf,
     chunk_node,
@@ -92,3 +95,27 @@ def test_the_leaf_definition_loads_without_the_command_line() -> None:
 
     # Assert
     assert result.stdout.strip() == "False"
+
+
+def test_with_no_model_declaring_itself_not_a_leaf_both_filters_still_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — an install where no registered ext model declares `not_a_leaf`, so the store's
+    # selection has one clause. Before this was pinned the suite passed only when an earlier test
+    # had registered the graph pack's models, and failed run alone.
+    monkeypatch.setattr(leaves_module, "not_a_leaf_namespaces", lambda: ())
+    nodes = _population()
+    batch = next(iter(chunk_node().lineage.sources))
+
+    # Act
+    by_store = {node.content for node in nodes if selects(node, leaf_filter())}
+    by_layer = {node.content for node in nodes if selects(node, layer_leaf_filter((batch,)))}
+
+    # Assert
+    assert by_store == {
+        chunk_node().content,
+        f"a chunk of {_ELSEWHERE}",
+        "a fact",
+        "a stranger's derived node",
+    }
+    assert by_layer == {chunk_node().content, "a fact", "a stranger's derived node"}
