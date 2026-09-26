@@ -1,0 +1,24 @@
+# Task 43.52: the same comparison on `pl-wiki`'s 12 Polish questions, reported beside
+# `whole-corpus-en.toml` and deciding nothing: at n=12 the detectable effect is 0.24
+# (`context-construction-pl-ir.toml`'s header). The corpus fits the shipped 100,000-token bound.
+
+[experiment]
+schema = 1
+name = "whole-corpus-pl"
+questions = "../questions/polish.toml"
+corpus = "../../corpus/pl-wiki"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["answer_correctness", "token_recall", "rouge_l"]
+minimum_detectable_effect = 0.24
+
+[[arm]]
+name = "baseline"
+pipeline = "index-openai-large"
+query_pipeline = "retrieve-then-generate"
+
+[[arm]]
+name = "whole-corpus"
+pipeline = "index-openai-large"
+query_pipeline = "whole-corpus-then-generate"

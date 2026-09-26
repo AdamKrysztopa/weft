@@ -1,0 +1,9 @@
+name: whole-corpus-wide-then-generate
+extends: whole-corpus-then-generate
+
+# `validation-en`'s 1,725 leaves count 253,408 tokens on `gpt-5.6-luna`'s encoding (task 43.52),
+# past the shipped 100,000 bound. 260,000 holds them and keeps the prompt under the 272K input
+# tokens above which that model's price doubles.
+
+set:
+  - {id: retrieve, with: {max_tokens: 260000}}

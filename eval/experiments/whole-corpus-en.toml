@@ -1,0 +1,26 @@
+# Task 43.52: `whole-corpus-then-generate` against `retrieve-then-generate` over Weft's 107 English
+# questions, the union of `fetch.toml` and `operator.toml` (43.51). This record decides Phase 43d.
+# Only answer metrics are named: the whole-corpus arm returns every document by construction, so a
+# retrieval metric says nothing about it. `answer_correctness` decides (43.50); `token_recall`
+# rewards length and is reported beside it.
+
+[experiment]
+schema = 1
+name = "whole-corpus-en"
+questions = ["../questions/fetch.toml", "../questions/operator.toml"]
+corpus = "../../corpus/validation-en"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["answer_correctness", "token_recall", "rouge_l"]
+minimum_detectable_effect = 0.08
+
+[[arm]]
+name = "baseline"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "retrieve-then-generate"
+
+[[arm]]
+name = "whole-corpus"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "whole-corpus-wide-then-generate"
