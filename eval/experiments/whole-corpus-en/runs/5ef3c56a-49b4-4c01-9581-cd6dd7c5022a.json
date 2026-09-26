@@ -1,0 +1,6305 @@
+{
+  "recorded_at": "2026-09-26T11:53:44.919393+00:00",
+  "resolved_pipeline": {
+    "name": "index-openai-large-pdf",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-pdf-text"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.1.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-large",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-openai-large-pdf"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "3.0.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "../../corpus/validation-en",
+    "digest": "fa62239f0e1a53526e3603312898dbc346d1a03e8671733b9e60b98c7d65382a"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-large",
+    "role:generate": "openai:gpt-5.6-luna",
+    "role:grade": "openai:gpt-5.6-luna"
+  },
+  "active_distributions": [
+    "weft-rag"
+  ],
+  "distribution_versions": {
+    "weft-rag": "3.0.0"
+  },
+  "durations": {
+    "ingest_seconds": 0.0,
+    "query_seconds": 1732.912276542047
+  },
+  "corpus_digest_basis": "document-bytes",
+  "query_rung": {
+    "name": "whole-corpus-wide-then-generate",
+    "identity": "9d0a2906aa3dd38a0d6c79694c7a90cc"
+  },
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.11386292834890965,
+        "n": 107,
+        "stdev": 0.24139798533421802,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.11386292834890965,
+            "n": 107,
+            "stdev": 0.24139798533421802
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.1688888888888889,
+            "n": 30,
+            "stdev": 0.31191944796354065
+          },
+          "quantitative": {
+            "mean": 0.12101449275362318,
+            "n": 23,
+            "stdev": 0.25016244173568564
+          },
+          "limitation": {
+            "mean": 0.11574074074074076,
+            "n": 18,
+            "stdev": 0.26373834715281
+          },
+          "comparative": {
+            "mean": 0.07549019607843137,
+            "n": 17,
+            "stdev": 0.15139600930667535
+          },
+          "definitional": {
+            "mean": 0.022222222222222223,
+            "n": 9,
+            "stdev": 0.06666666666666667
+          },
+          "cross-document": {
+            "mean": 0.07666666666666666,
+            "n": 10,
+            "stdev": 0.14427340300559494
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "mrr@5": {
+      "value": {
+        "reported_name": "mrr@5",
+        "mean": 0.11635514018691588,
+        "n": 107,
+        "stdev": 0.2432202428295625,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.11635514018691588,
+            "n": 107,
+            "stdev": 0.2432202428295625
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.1688888888888889,
+            "n": 30,
+            "stdev": 0.31191944796354065
+          },
+          "quantitative": {
+            "mean": 0.12101449275362318,
+            "n": 23,
+            "stdev": 0.25016244173568564
+          },
+          "limitation": {
+            "mean": 0.11574074074074076,
+            "n": 18,
+            "stdev": 0.26373834715281
+          },
+          "comparative": {
+            "mean": 0.07549019607843137,
+            "n": 17,
+            "stdev": 0.15139600930667535
+          },
+          "definitional": {
+            "mean": 0.022222222222222223,
+            "n": 9,
+            "stdev": 0.06666666666666667
+          },
+          "cross-document": {
+            "mean": 0.10333333333333332,
+            "n": 10,
+            "stdev": 0.1808416536744334
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "ndcg@5": {
+      "value": {
+        "reported_name": "ndcg@5",
+        "mean": 0.1489438115266927,
+        "n": 107,
+        "stdev": 0.27598678596803816,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.1489438115266927,
+            "n": 107,
+            "stdev": 0.27598678596803816
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.20886628280624422,
+            "n": 30,
+            "stdev": 0.33526075366132246
+          },
+          "quantitative": {
+            "mean": 0.15562560315003693,
+            "n": 23,
+            "stdev": 0.2879581367805662
+          },
+          "limitation": {
+            "mean": 0.14231146175804726,
+            "n": 18,
+            "stdev": 0.2939596523891618
+          },
+          "comparative": {
+            "mean": 0.11461524228702308,
+            "n": 17,
+            "stdev": 0.21792869133104772
+          },
+          "definitional": {
+            "mean": 0.0429836452482824,
+            "n": 9,
+            "stdev": 0.1289509357448472
+          },
+          "cross-document": {
+            "mean": 0.11946922389591579,
+            "n": 10,
+            "stdev": 0.2078516742074579
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "precision@5": {
+      "value": {
+        "reported_name": "precision@5",
+        "mean": 0.05420560747663552,
+        "n": 107,
+        "stdev": 0.0934459523253705,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.05420560747663552,
+            "n": 107,
+            "stdev": 0.0934459523253705
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.06666666666666667,
+            "n": 30,
+            "stdev": 0.09589266029707684
+          },
+          "quantitative": {
+            "mean": 0.05217391304347827,
+            "n": 23,
+            "stdev": 0.08979555170897592
+          },
+          "limitation": {
+            "mean": 0.044444444444444446,
+            "n": 18,
+            "stdev": 0.08555852638929973
+          },
+          "comparative": {
+            "mean": 0.047058823529411764,
+            "n": 17,
+            "stdev": 0.08744746321952063
+          },
+          "definitional": {
+            "mean": 0.022222222222222223,
+            "n": 9,
+            "stdev": 0.06666666666666667
+          },
+          "cross-document": {
+            "mean": 0.08,
+            "n": 10,
+            "stdev": 0.1398411797560202
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "recall@5": {
+      "value": {
+        "reported_name": "recall@5",
+        "mean": 0.2523364485981308,
+        "n": 107,
+        "stdev": 0.43095895579915144,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.2523364485981308,
+            "n": 107,
+            "stdev": 0.43095895579915144
+          }
+        },
+        "by_question_kind": {
+          "methodological": {
+            "mean": 0.3333333333333333,
+            "n": 30,
+            "stdev": 0.47946330148538413
+          },
+          "quantitative": {
+            "mean": 0.2608695652173913,
+            "n": 23,
+            "stdev": 0.4489777585448796
+          },
+          "limitation": {
+            "mean": 0.2222222222222222,
+            "n": 18,
+            "stdev": 0.4277926319464986
+          },
+          "comparative": {
+            "mean": 0.23529411764705882,
+            "n": 17,
+            "stdev": 0.4372373160976031
+          },
+          "definitional": {
+            "mean": 0.1111111111111111,
+            "n": 9,
+            "stdev": 0.3333333333333333
+          },
+          "cross-document": {
+            "mean": 0.2,
+            "n": 10,
+            "stdev": 0.3496029493900505
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "accuracy": {
+      "value": {
+        "reported_name": "accuracy",
+        "mean": 0.0,
+        "n": 107,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 107,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "embedding-similarity": {
+      "reason": "'embedding-similarity' needs a service this run does not provide: no service is registered for Embedder on this run. It is unavailable because nothing resolved one before this stage ran. Services available on this run: Dependencies, LLM, Prompts, Registry, TokenSink."
+    },
+    "exact_match": {
+      "value": {
+        "reported_name": "exact_match",
+        "mean": 0.0,
+        "n": 107,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 107,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "f1_score": {
+      "value": {
+        "reported_name": "f1_score",
+        "mean": 0.33964532381181056,
+        "n": 107,
+        "stdev": 0.09193572042845125,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.33964532381181056,
+            "n": 107,
+            "stdev": 0.09193572042845125
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "key_terms_precision": {
+      "value": {
+        "reported_name": "key_terms_precision",
+        "mean": 0.35513540288712664,
+        "n": 107,
+        "stdev": 0.12402646027533504,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.35513540288712664,
+            "n": 107,
+            "stdev": 0.12402646027533504
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "overlap-at-threshold": {
+      "reason": "'overlap-at-threshold' needs a configuration this gate-subset run cannot supply with no arguments: 1 validation error for AtThresholdConfig\nthreshold\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing"
+    },
+    "rouge_1": {
+      "value": {
+        "reported_name": "rouge_1",
+        "mean": 0.46814416427295774,
+        "n": 107,
+        "stdev": 0.11569329579457549,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.46814416427295774,
+            "n": 107,
+            "stdev": 0.11569329579457549
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_2": {
+      "value": {
+        "reported_name": "rouge_2",
+        "mean": 0.21489427177122228,
+        "n": 107,
+        "stdev": 0.10671454133973583,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.21489427177122228,
+            "n": 107,
+            "stdev": 0.10671454133973583
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_l": {
+      "value": {
+        "reported_name": "rouge_l",
+        "mean": 0.3291578008287555,
+        "n": 107,
+        "stdev": 0.12032874513700291,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3291578008287555,
+            "n": 107,
+            "stdev": 0.12032874513700291
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_overlap": {
+      "value": {
+        "reported_name": "token_overlap",
+        "mean": 0.32706772653299476,
+        "n": 107,
+        "stdev": 0.10995129670929651,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.32706772653299476,
+            "n": 107,
+            "stdev": 0.10995129670929651
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_recall": {
+      "value": {
+        "reported_name": "token_recall",
+        "mean": 0.543258421028503,
+        "n": 107,
+        "stdev": 0.149381083397875,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.543258421028503,
+            "n": 107,
+            "stdev": 0.149381083397875
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "answer_correctness": {
+      "value": {
+        "reported_name": "answer_correctness",
+        "mean": 0.7397959737965327,
+        "n": 104,
+        "stdev": 0.163830210386668,
+        "excluded": 3,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.7397959737965327,
+            "n": 104,
+            "stdev": 0.163830210386668
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    }
+  },
+  "question_set_digest": "74ff2b89928c56b00b14b824073d8033a2ae9682a267acc0e19c804ab9b236c0",
+  "question_set_digest_basis": "question-set",
+  "question_scores": {
+    "mean_average_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 1.0
+        },
+        "fetch-002": {
+          "value": 1.0
+        },
+        "fetch-003": {
+          "value": 1.0
+        },
+        "fetch-004": {
+          "value": 1.0
+        },
+        "fetch-005": {
+          "value": 1.0
+        },
+        "fetch-006": {
+          "value": 0.5
+        },
+        "fetch-007": {
+          "value": 0.5
+        },
+        "fetch-008": {
+          "value": 0.5
+        },
+        "fetch-009": {
+          "value": 0.5
+        },
+        "fetch-010": {
+          "value": 0.5
+        },
+        "fetch-011": {
+          "value": 0.3333333333333333
+        },
+        "fetch-012": {
+          "value": 0.3333333333333333
+        },
+        "fetch-013": {
+          "value": 0.3333333333333333
+        },
+        "fetch-014": {
+          "value": 0.3333333333333333
+        },
+        "fetch-015": {
+          "value": 0.3333333333333333
+        },
+        "fetch-016": {
+          "value": 0.25
+        },
+        "fetch-017": {
+          "value": 0.25
+        },
+        "fetch-018": {
+          "value": 0.25
+        },
+        "fetch-019": {
+          "value": 0.25
+        },
+        "fetch-020": {
+          "value": 0.25
+        },
+        "fetch-021": {
+          "value": 0.2
+        },
+        "fetch-022": {
+          "value": 0.2
+        },
+        "fetch-023": {
+          "value": 0.2
+        },
+        "fetch-024": {
+          "value": 0.2
+        },
+        "fetch-025": {
+          "value": 0.2
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.41666666666666663
+        },
+        "fetch-052": {
+          "value": 0.25
+        },
+        "fetch-053": {
+          "value": 0.1
+        },
+        "fetch-054": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "mrr@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 1.0
+        },
+        "fetch-002": {
+          "value": 1.0
+        },
+        "fetch-003": {
+          "value": 1.0
+        },
+        "fetch-004": {
+          "value": 1.0
+        },
+        "fetch-005": {
+          "value": 1.0
+        },
+        "fetch-006": {
+          "value": 0.5
+        },
+        "fetch-007": {
+          "value": 0.5
+        },
+        "fetch-008": {
+          "value": 0.5
+        },
+        "fetch-009": {
+          "value": 0.5
+        },
+        "fetch-010": {
+          "value": 0.5
+        },
+        "fetch-011": {
+          "value": 0.3333333333333333
+        },
+        "fetch-012": {
+          "value": 0.3333333333333333
+        },
+        "fetch-013": {
+          "value": 0.3333333333333333
+        },
+        "fetch-014": {
+          "value": 0.3333333333333333
+        },
+        "fetch-015": {
+          "value": 0.3333333333333333
+        },
+        "fetch-016": {
+          "value": 0.25
+        },
+        "fetch-017": {
+          "value": 0.25
+        },
+        "fetch-018": {
+          "value": 0.25
+        },
+        "fetch-019": {
+          "value": 0.25
+        },
+        "fetch-020": {
+          "value": 0.25
+        },
+        "fetch-021": {
+          "value": 0.2
+        },
+        "fetch-022": {
+          "value": 0.2
+        },
+        "fetch-023": {
+          "value": 0.2
+        },
+        "fetch-024": {
+          "value": 0.2
+        },
+        "fetch-025": {
+          "value": 0.2
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.3333333333333333
+        },
+        "fetch-052": {
+          "value": 0.5
+        },
+        "fetch-053": {
+          "value": 0.2
+        },
+        "fetch-054": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "ndcg@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 1.0
+        },
+        "fetch-002": {
+          "value": 1.0
+        },
+        "fetch-003": {
+          "value": 1.0
+        },
+        "fetch-004": {
+          "value": 1.0
+        },
+        "fetch-005": {
+          "value": 1.0
+        },
+        "fetch-006": {
+          "value": 0.6309297535714575
+        },
+        "fetch-007": {
+          "value": 0.6309297535714575
+        },
+        "fetch-008": {
+          "value": 0.6309297535714575
+        },
+        "fetch-009": {
+          "value": 0.6309297535714575
+        },
+        "fetch-010": {
+          "value": 0.6309297535714575
+        },
+        "fetch-011": {
+          "value": 0.5
+        },
+        "fetch-012": {
+          "value": 0.5
+        },
+        "fetch-013": {
+          "value": 0.5
+        },
+        "fetch-014": {
+          "value": 0.5
+        },
+        "fetch-015": {
+          "value": 0.5
+        },
+        "fetch-016": {
+          "value": 0.43067655807339306
+        },
+        "fetch-017": {
+          "value": 0.43067655807339306
+        },
+        "fetch-018": {
+          "value": 0.43067655807339306
+        },
+        "fetch-019": {
+          "value": 0.43067655807339306
+        },
+        "fetch-020": {
+          "value": 0.43067655807339306
+        },
+        "fetch-021": {
+          "value": 0.38685280723454163
+        },
+        "fetch-022": {
+          "value": 0.38685280723454163
+        },
+        "fetch-023": {
+          "value": 0.38685280723454163
+        },
+        "fetch-024": {
+          "value": 0.38685280723454163
+        },
+        "fetch-025": {
+          "value": 0.38685280723454163
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.5706417189553201
+        },
+        "fetch-052": {
+          "value": 0.38685280723454163
+        },
+        "fetch-053": {
+          "value": 0.23719771276929622
+        },
+        "fetch-054": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "precision@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.2
+        },
+        "fetch-002": {
+          "value": 0.2
+        },
+        "fetch-003": {
+          "value": 0.2
+        },
+        "fetch-004": {
+          "value": 0.2
+        },
+        "fetch-005": {
+          "value": 0.2
+        },
+        "fetch-006": {
+          "value": 0.2
+        },
+        "fetch-007": {
+          "value": 0.2
+        },
+        "fetch-008": {
+          "value": 0.2
+        },
+        "fetch-009": {
+          "value": 0.2
+        },
+        "fetch-010": {
+          "value": 0.2
+        },
+        "fetch-011": {
+          "value": 0.2
+        },
+        "fetch-012": {
+          "value": 0.2
+        },
+        "fetch-013": {
+          "value": 0.2
+        },
+        "fetch-014": {
+          "value": 0.2
+        },
+        "fetch-015": {
+          "value": 0.2
+        },
+        "fetch-016": {
+          "value": 0.2
+        },
+        "fetch-017": {
+          "value": 0.2
+        },
+        "fetch-018": {
+          "value": 0.2
+        },
+        "fetch-019": {
+          "value": 0.2
+        },
+        "fetch-020": {
+          "value": 0.2
+        },
+        "fetch-021": {
+          "value": 0.2
+        },
+        "fetch-022": {
+          "value": 0.2
+        },
+        "fetch-023": {
+          "value": 0.2
+        },
+        "fetch-024": {
+          "value": 0.2
+        },
+        "fetch-025": {
+          "value": 0.2
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.4
+        },
+        "fetch-052": {
+          "value": 0.2
+        },
+        "fetch-053": {
+          "value": 0.2
+        },
+        "fetch-054": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "recall@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 1.0
+        },
+        "fetch-002": {
+          "value": 1.0
+        },
+        "fetch-003": {
+          "value": 1.0
+        },
+        "fetch-004": {
+          "value": 1.0
+        },
+        "fetch-005": {
+          "value": 1.0
+        },
+        "fetch-006": {
+          "value": 1.0
+        },
+        "fetch-007": {
+          "value": 1.0
+        },
+        "fetch-008": {
+          "value": 1.0
+        },
+        "fetch-009": {
+          "value": 1.0
+        },
+        "fetch-010": {
+          "value": 1.0
+        },
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-016": {
+          "value": 1.0
+        },
+        "fetch-017": {
+          "value": 1.0
+        },
+        "fetch-018": {
+          "value": 1.0
+        },
+        "fetch-019": {
+          "value": 1.0
+        },
+        "fetch-020": {
+          "value": 1.0
+        },
+        "fetch-021": {
+          "value": 1.0
+        },
+        "fetch-022": {
+          "value": 1.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 1.0
+        },
+        "fetch-025": {
+          "value": 1.0
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 1.0
+        },
+        "fetch-052": {
+          "value": 0.5
+        },
+        "fetch-053": {
+          "value": 0.5
+        },
+        "fetch-054": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "accuracy": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.0
+        },
+        "fetch-002": {
+          "value": 0.0
+        },
+        "fetch-003": {
+          "value": 0.0
+        },
+        "fetch-004": {
+          "value": 0.0
+        },
+        "fetch-005": {
+          "value": 0.0
+        },
+        "fetch-006": {
+          "value": 0.0
+        },
+        "fetch-007": {
+          "value": 0.0
+        },
+        "fetch-008": {
+          "value": 0.0
+        },
+        "fetch-009": {
+          "value": 0.0
+        },
+        "fetch-010": {
+          "value": 0.0
+        },
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-016": {
+          "value": 0.0
+        },
+        "fetch-017": {
+          "value": 0.0
+        },
+        "fetch-018": {
+          "value": 0.0
+        },
+        "fetch-019": {
+          "value": 0.0
+        },
+        "fetch-020": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 0.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.0
+        },
+        "fetch-052": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.0
+        },
+        "fetch-054": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "embedding-similarity": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "exact_match": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.0
+        },
+        "fetch-002": {
+          "value": 0.0
+        },
+        "fetch-003": {
+          "value": 0.0
+        },
+        "fetch-004": {
+          "value": 0.0
+        },
+        "fetch-005": {
+          "value": 0.0
+        },
+        "fetch-006": {
+          "value": 0.0
+        },
+        "fetch-007": {
+          "value": 0.0
+        },
+        "fetch-008": {
+          "value": 0.0
+        },
+        "fetch-009": {
+          "value": 0.0
+        },
+        "fetch-010": {
+          "value": 0.0
+        },
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-016": {
+          "value": 0.0
+        },
+        "fetch-017": {
+          "value": 0.0
+        },
+        "fetch-018": {
+          "value": 0.0
+        },
+        "fetch-019": {
+          "value": 0.0
+        },
+        "fetch-020": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 0.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-041": {
+          "value": 0.0
+        },
+        "fetch-042": {
+          "value": 0.0
+        },
+        "fetch-043": {
+          "value": 0.0
+        },
+        "fetch-044": {
+          "value": 0.0
+        },
+        "fetch-045": {
+          "value": 0.0
+        },
+        "fetch-046": {
+          "value": 0.0
+        },
+        "fetch-047": {
+          "value": 0.0
+        },
+        "fetch-048": {
+          "value": 0.0
+        },
+        "fetch-049": {
+          "value": 0.0
+        },
+        "fetch-050": {
+          "value": 0.0
+        },
+        "fetch-051": {
+          "value": 0.0
+        },
+        "fetch-052": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.0
+        },
+        "fetch-054": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-013": {
+          "value": 0.0
+        },
+        "operator-014": {
+          "value": 0.0
+        },
+        "operator-015": {
+          "value": 0.0
+        },
+        "operator-016": {
+          "value": 0.0
+        },
+        "operator-017": {
+          "value": 0.0
+        },
+        "operator-018": {
+          "value": 0.0
+        },
+        "operator-019": {
+          "value": 0.0
+        },
+        "operator-020": {
+          "value": 0.0
+        },
+        "operator-021": {
+          "value": 0.0
+        },
+        "operator-022": {
+          "value": 0.0
+        },
+        "operator-023": {
+          "value": 0.0
+        },
+        "operator-024": {
+          "value": 0.0
+        },
+        "operator-025": {
+          "value": 0.0
+        },
+        "operator-026": {
+          "value": 0.0
+        },
+        "operator-027": {
+          "value": 0.0
+        },
+        "operator-028": {
+          "value": 0.0
+        },
+        "operator-029": {
+          "value": 0.0
+        },
+        "operator-030": {
+          "value": 0.0
+        },
+        "operator-031": {
+          "value": 0.0
+        },
+        "operator-032": {
+          "value": 0.0
+        },
+        "operator-033": {
+          "value": 0.0
+        },
+        "operator-034": {
+          "value": 0.0
+        },
+        "operator-035": {
+          "value": 0.0
+        },
+        "operator-036": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        },
+        "operator-049": {
+          "value": 0.0
+        },
+        "operator-050": {
+          "value": 0.0
+        },
+        "operator-051": {
+          "value": 0.0
+        },
+        "operator-052": {
+          "value": 0.0
+        },
+        "operator-053": {
+          "value": 0.0
+        }
+      }
+    },
+    "f1_score": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.5057471264367817
+        },
+        "fetch-002": {
+          "value": 0.3041825095057034
+        },
+        "fetch-003": {
+          "value": 0.3609022556390977
+        },
+        "fetch-004": {
+          "value": 0.4955752212389381
+        },
+        "fetch-005": {
+          "value": 0.4298245614035088
+        },
+        "fetch-006": {
+          "value": 0.34285714285714286
+        },
+        "fetch-007": {
+          "value": 0.29545454545454547
+        },
+        "fetch-008": {
+          "value": 0.29545454545454547
+        },
+        "fetch-009": {
+          "value": 0.3106796116504854
+        },
+        "fetch-010": {
+          "value": 0.4444444444444444
+        },
+        "fetch-011": {
+          "value": 0.2248995983935743
+        },
+        "fetch-012": {
+          "value": 0.32067510548523204
+        },
+        "fetch-013": {
+          "value": 0.16666666666666666
+        },
+        "fetch-014": {
+          "value": 0.42307692307692313
+        },
+        "fetch-015": {
+          "value": 0.20689655172413793
+        },
+        "fetch-016": {
+          "value": 0.348993288590604
+        },
+        "fetch-017": {
+          "value": 0.38048780487804873
+        },
+        "fetch-018": {
+          "value": 0.3185840707964602
+        },
+        "fetch-019": {
+          "value": 0.36666666666666664
+        },
+        "fetch-020": {
+          "value": 0.37267080745341613
+        },
+        "fetch-021": {
+          "value": 0.3253012048192771
+        },
+        "fetch-022": {
+          "value": 0.41379310344827586
+        },
+        "fetch-023": {
+          "value": 0.025
+        },
+        "fetch-024": {
+          "value": 0.4355555555555556
+        },
+        "fetch-025": {
+          "value": 0.29032258064516125
+        },
+        "fetch-026": {
+          "value": 0.3398692810457516
+        },
+        "fetch-027": {
+          "value": 0.3225806451612903
+        },
+        "fetch-028": {
+          "value": 0.3
+        },
+        "fetch-029": {
+          "value": 0.2513661202185792
+        },
+        "fetch-030": {
+          "value": 0.3018867924528302
+        },
+        "fetch-031": {
+          "value": 0.32885906040268453
+        },
+        "fetch-032": {
+          "value": 0.30973451327433627
+        },
+        "fetch-033": {
+          "value": 0.2476190476190476
+        },
+        "fetch-034": {
+          "value": 0.19753086419753088
+        },
+        "fetch-035": {
+          "value": 0.3699421965317919
+        },
+        "fetch-036": {
+          "value": 0.376
+        },
+        "fetch-037": {
+          "value": 0.2874251497005988
+        },
+        "fetch-038": {
+          "value": 0.32608695652173914
+        },
+        "fetch-039": {
+          "value": 0.4387755102040816
+        },
+        "fetch-040": {
+          "value": 0.40625000000000006
+        },
+        "fetch-041": {
+          "value": 0.4742268041237113
+        },
+        "fetch-042": {
+          "value": 0.2758620689655172
+        },
+        "fetch-043": {
+          "value": 0.23333333333333336
+        },
+        "fetch-044": {
+          "value": 0.32608695652173914
+        },
+        "fetch-045": {
+          "value": 0.5376344086021505
+        },
+        "fetch-046": {
+          "value": 0.43983402489626555
+        },
+        "fetch-047": {
+          "value": 0.40983606557377045
+        },
+        "fetch-048": {
+          "value": 0.2716049382716049
+        },
+        "fetch-049": {
+          "value": 0.4536082474226804
+        },
+        "fetch-050": {
+          "value": 0.2962962962962963
+        },
+        "fetch-051": {
+          "value": 0.4205298013245033
+        },
+        "fetch-052": {
+          "value": 0.273224043715847
+        },
+        "fetch-053": {
+          "value": 0.21052631578947367
+        },
+        "fetch-054": {
+          "value": 0.3303303303303303
+        },
+        "operator-001": {
+          "value": 0.30967741935483867
+        },
+        "operator-002": {
+          "value": 0.3114754098360656
+        },
+        "operator-003": {
+          "value": 0.44642857142857145
+        },
+        "operator-004": {
+          "value": 0.36111111111111105
+        },
+        "operator-005": {
+          "value": 0.304
+        },
+        "operator-006": {
+          "value": 0.2162162162162162
+        },
+        "operator-007": {
+          "value": 0.2121212121212121
+        },
+        "operator-008": {
+          "value": 0.24043715846994534
+        },
+        "operator-009": {
+          "value": 0.3884892086330935
+        },
+        "operator-010": {
+          "value": 0.2857142857142857
+        },
+        "operator-011": {
+          "value": 0.26548672566371684
+        },
+        "operator-012": {
+          "value": 0.5225225225225225
+        },
+        "operator-013": {
+          "value": 0.2835820895522388
+        },
+        "operator-014": {
+          "value": 0.2824858757062147
+        },
+        "operator-015": {
+          "value": 0.33333333333333337
+        },
+        "operator-016": {
+          "value": 0.22222222222222224
+        },
+        "operator-017": {
+          "value": 0.525
+        },
+        "operator-018": {
+          "value": 0.3833333333333333
+        },
+        "operator-019": {
+          "value": 0.19318181818181818
+        },
+        "operator-020": {
+          "value": 0.3611111111111111
+        },
+        "operator-021": {
+          "value": 0.39316239316239315
+        },
+        "operator-022": {
+          "value": 0.456140350877193
+        },
+        "operator-023": {
+          "value": 0.4489795918367347
+        },
+        "operator-024": {
+          "value": 0.39252336448598124
+        },
+        "operator-025": {
+          "value": 0.1702127659574468
+        },
+        "operator-026": {
+          "value": 0.3598326359832636
+        },
+        "operator-027": {
+          "value": 0.27848101265822783
+        },
+        "operator-028": {
+          "value": 0.3142857142857143
+        },
+        "operator-029": {
+          "value": 0.35443037974683544
+        },
+        "operator-030": {
+          "value": 0.4776119402985074
+        },
+        "operator-031": {
+          "value": 0.45833333333333326
+        },
+        "operator-032": {
+          "value": 0.24054982817869416
+        },
+        "operator-033": {
+          "value": 0.49484536082474223
+        },
+        "operator-034": {
+          "value": 0.3913043478260869
+        },
+        "operator-035": {
+          "value": 0.30357142857142855
+        },
+        "operator-036": {
+          "value": 0.3157894736842105
+        },
+        "operator-037": {
+          "value": 0.2828282828282828
+        },
+        "operator-038": {
+          "value": 0.3448275862068966
+        },
+        "operator-039": {
+          "value": 0.44067796610169496
+        },
+        "operator-040": {
+          "value": 0.3423423423423423
+        },
+        "operator-041": {
+          "value": 0.3134328358208955
+        },
+        "operator-042": {
+          "value": 0.31901840490797545
+        },
+        "operator-043": {
+          "value": 0.48598130841121495
+        },
+        "operator-044": {
+          "value": 0.43478260869565216
+        },
+        "operator-045": {
+          "value": 0.17721518987341772
+        },
+        "operator-046": {
+          "value": 0.38888888888888884
+        },
+        "operator-047": {
+          "value": 0.4545454545454545
+        },
+        "operator-048": {
+          "value": 0.3246753246753247
+        },
+        "operator-049": {
+          "value": 0.29665071770334933
+        },
+        "operator-050": {
+          "value": 0.2695035460992908
+        },
+        "operator-051": {
+          "value": 0.39473684210526316
+        },
+        "operator-052": {
+          "value": 0.205607476635514
+        },
+        "operator-053": {
+          "value": 0.4067796610169492
+        }
+      }
+    },
+    "key_terms_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.5526315789473685
+        },
+        "fetch-002": {
+          "value": 0.16176470588235295
+        },
+        "fetch-003": {
+          "value": 0.45454545454545453
+        },
+        "fetch-004": {
+          "value": 0.5625
+        },
+        "fetch-005": {
+          "value": 0.43478260869565216
+        },
+        "fetch-006": {
+          "value": 0.375
+        },
+        "fetch-007": {
+          "value": 0.5757575757575758
+        },
+        "fetch-008": {
+          "value": 0.34375
+        },
+        "fetch-009": {
+          "value": 0.3684210526315789
+        },
+        "fetch-010": {
+          "value": 0.5
+        },
+        "fetch-011": {
+          "value": 0.22549019607843138
+        },
+        "fetch-012": {
+          "value": 0.22413793103448276
+        },
+        "fetch-013": {
+          "value": 0.38461538461538464
+        },
+        "fetch-014": {
+          "value": 0.4098360655737705
+        },
+        "fetch-015": {
+          "value": 0.1206896551724138
+        },
+        "fetch-016": {
+          "value": 0.4528301886792453
+        },
+        "fetch-017": {
+          "value": 0.38461538461538464
+        },
+        "fetch-018": {
+          "value": 0.5925925925925926
+        },
+        "fetch-019": {
+          "value": 0.3508771929824561
+        },
+        "fetch-020": {
+          "value": 0.4090909090909091
+        },
+        "fetch-021": {
+          "value": 0.3125
+        },
+        "fetch-022": {
+          "value": 0.4716981132075472
+        },
+        "fetch-023": {
+          "value": 0.35714285714285715
+        },
+        "fetch-024": {
+          "value": 0.35106382978723405
+        },
+        "fetch-025": {
+          "value": 0.43636363636363634
+        },
+        "fetch-026": {
+          "value": 0.28
+        },
+        "fetch-027": {
+          "value": 0.41935483870967744
+        },
+        "fetch-028": {
+          "value": 0.4166666666666667
+        },
+        "fetch-029": {
+          "value": 0.23958333333333334
+        },
+        "fetch-030": {
+          "value": 0.4423076923076923
+        },
+        "fetch-031": {
+          "value": 0.17592592592592593
+        },
+        "fetch-032": {
+          "value": 0.205607476635514
+        },
+        "fetch-033": {
+          "value": 0.391304347826087
+        },
+        "fetch-034": {
+          "value": 0.3076923076923077
+        },
+        "fetch-035": {
+          "value": 0.34375
+        },
+        "fetch-036": {
+          "value": 0.43023255813953487
+        },
+        "fetch-037": {
+          "value": 0.203125
+        },
+        "fetch-038": {
+          "value": 0.525
+        },
+        "fetch-039": {
+          "value": 0.30864197530864196
+        },
+        "fetch-040": {
+          "value": 0.5
+        },
+        "fetch-041": {
+          "value": 0.5
+        },
+        "fetch-042": {
+          "value": 0.42857142857142855
+        },
+        "fetch-043": {
+          "value": 0.3090909090909091
+        },
+        "fetch-044": {
+          "value": 0.4583333333333333
+        },
+        "fetch-045": {
+          "value": 0.47368421052631576
+        },
+        "fetch-046": {
+          "value": 0.367816091954023
+        },
+        "fetch-047": {
+          "value": 0.36470588235294116
+        },
+        "fetch-048": {
+          "value": 0.3870967741935484
+        },
+        "fetch-049": {
+          "value": 0.3466666666666667
+        },
+        "fetch-050": {
+          "value": 0.6666666666666666
+        },
+        "fetch-051": {
+          "value": 0.30917874396135264
+        },
+        "fetch-052": {
+          "value": 0.2396694214876033
+        },
+        "fetch-053": {
+          "value": 0.2236842105263158
+        },
+        "fetch-054": {
+          "value": 0.24778761061946902
+        },
+        "operator-001": {
+          "value": 0.22972972972972974
+        },
+        "operator-002": {
+          "value": 0.35555555555555557
+        },
+        "operator-003": {
+          "value": 0.40384615384615385
+        },
+        "operator-004": {
+          "value": 0.5
+        },
+        "operator-005": {
+          "value": 0.26153846153846155
+        },
+        "operator-006": {
+          "value": 0.1388888888888889
+        },
+        "operator-007": {
+          "value": 0.38095238095238093
+        },
+        "operator-008": {
+          "value": 0.27058823529411763
+        },
+        "operator-009": {
+          "value": 0.2153846153846154
+        },
+        "operator-010": {
+          "value": 0.3157894736842105
+        },
+        "operator-011": {
+          "value": 0.29411764705882354
+        },
+        "operator-012": {
+          "value": 0.3877551020408163
+        },
+        "operator-013": {
+          "value": 0.2753623188405797
+        },
+        "operator-014": {
+          "value": 0.18446601941747573
+        },
+        "operator-015": {
+          "value": 0.35555555555555557
+        },
+        "operator-016": {
+          "value": 0.45454545454545453
+        },
+        "operator-017": {
+          "value": 0.42105263157894735
+        },
+        "operator-018": {
+          "value": 0.3333333333333333
+        },
+        "operator-019": {
+          "value": 0.14084507042253522
+        },
+        "operator-020": {
+          "value": 0.22916666666666666
+        },
+        "operator-021": {
+          "value": 0.36
+        },
+        "operator-022": {
+          "value": 0.325
+        },
+        "operator-023": {
+          "value": 0.34782608695652173
+        },
+        "operator-024": {
+          "value": 0.3783783783783784
+        },
+        "operator-025": {
+          "value": 0.36363636363636365
+        },
+        "operator-026": {
+          "value": 0.23478260869565218
+        },
+        "operator-027": {
+          "value": 0.2545454545454545
+        },
+        "operator-028": {
+          "value": 0.5789473684210527
+        },
+        "operator-029": {
+          "value": 0.3076923076923077
+        },
+        "operator-030": {
+          "value": 0.34615384615384615
+        },
+        "operator-031": {
+          "value": 0.42105263157894735
+        },
+        "operator-032": {
+          "value": 0.13178294573643412
+        },
+        "operator-033": {
+          "value": 0.5365853658536586
+        },
+        "operator-034": {
+          "value": 0.21875
+        },
+        "operator-035": {
+          "value": 0.13043478260869565
+        },
+        "operator-036": {
+          "value": 0.47368421052631576
+        },
+        "operator-037": {
+          "value": 0.48484848484848486
+        },
+        "operator-038": {
+          "value": 0.38235294117647056
+        },
+        "operator-039": {
+          "value": 0.5757575757575758
+        },
+        "operator-040": {
+          "value": 0.3157894736842105
+        },
+        "operator-041": {
+          "value": 0.296875
+        },
+        "operator-042": {
+          "value": 0.17525773195876287
+        },
+        "operator-043": {
+          "value": 0.34
+        },
+        "operator-044": {
+          "value": 0.7222222222222222
+        },
+        "operator-045": {
+          "value": 0.15
+        },
+        "operator-046": {
+          "value": 0.3902439024390244
+        },
+        "operator-047": {
+          "value": 0.4666666666666667
+        },
+        "operator-048": {
+          "value": 0.2857142857142857
+        },
+        "operator-049": {
+          "value": 0.31521739130434784
+        },
+        "operator-050": {
+          "value": 0.2465753424657534
+        },
+        "operator-051": {
+          "value": 0.5102040816326531
+        },
+        "operator-052": {
+          "value": 0.14736842105263157
+        },
+        "operator-053": {
+          "value": 0.3118279569892473
+        }
+      }
+    },
+    "overlap-at-threshold": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "rouge_1": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.6222222222222222
+        },
+        "fetch-002": {
+          "value": 0.3602941176470588
+        },
+        "fetch-003": {
+          "value": 0.5
+        },
+        "fetch-004": {
+          "value": 0.7288135593220338
+        },
+        "fetch-005": {
+          "value": 0.6024096385542169
+        },
+        "fetch-006": {
+          "value": 0.4601769911504424
+        },
+        "fetch-007": {
+          "value": 0.5849056603773585
+        },
+        "fetch-008": {
+          "value": 0.5174129353233832
+        },
+        "fetch-009": {
+          "value": 0.39639639639639634
+        },
+        "fetch-010": {
+          "value": 0.6258503401360543
+        },
+        "fetch-011": {
+          "value": 0.36718750000000006
+        },
+        "fetch-012": {
+          "value": 0.3840579710144928
+        },
+        "fetch-013": {
+          "value": 0.3703703703703703
+        },
+        "fetch-014": {
+          "value": 0.5662650602409639
+        },
+        "fetch-015": {
+          "value": 0.27678571428571425
+        },
+        "fetch-016": {
+          "value": 0.5462962962962964
+        },
+        "fetch-017": {
+          "value": 0.5381165919282511
+        },
+        "fetch-018": {
+          "value": 0.39999999999999997
+        },
+        "fetch-019": {
+          "value": 0.454054054054054
+        },
+        "fetch-020": {
+          "value": 0.39506172839506176
+        },
+        "fetch-021": {
+          "value": 0.4023668639053255
+        },
+        "fetch-022": {
+          "value": 0.593939393939394
+        },
+        "fetch-023": {
+          "value": 0.23157894736842102
+        },
+        "fetch-024": {
+          "value": 0.5228215767634855
+        },
+        "fetch-025": {
+          "value": 0.4292682926829269
+        },
+        "fetch-026": {
+          "value": 0.4303797468354431
+        },
+        "fetch-027": {
+          "value": 0.4838709677419355
+        },
+        "fetch-028": {
+          "value": 0.575
+        },
+        "fetch-029": {
+          "value": 0.3297872340425532
+        },
+        "fetch-030": {
+          "value": 0.4615384615384615
+        },
+        "fetch-031": {
+          "value": 0.3564356435643564
+        },
+        "fetch-032": {
+          "value": 0.3565217391304348
+        },
+        "fetch-033": {
+          "value": 0.4827586206896552
+        },
+        "fetch-034": {
+          "value": 0.3493975903614458
+        },
+        "fetch-035": {
+          "value": 0.45555555555555555
+        },
+        "fetch-036": {
+          "value": 0.5324232081911263
+        },
+        "fetch-037": {
+          "value": 0.3488372093023256
+        },
+        "fetch-038": {
+          "value": 0.625
+        },
+        "fetch-039": {
+          "value": 0.5643564356435643
+        },
+        "fetch-040": {
+          "value": 0.5106382978723404
+        },
+        "fetch-041": {
+          "value": 0.6168224299065421
+        },
+        "fetch-042": {
+          "value": 0.5588235294117647
+        },
+        "fetch-043": {
+          "value": 0.4651162790697674
+        },
+        "fetch-044": {
+          "value": 0.58
+        },
+        "fetch-045": {
+          "value": 0.5858585858585859
+        },
+        "fetch-046": {
+          "value": 0.5537190082644629
+        },
+        "fetch-047": {
+          "value": 0.47656249999999994
+        },
+        "fetch-048": {
+          "value": 0.5076142131979695
+        },
+        "fetch-049": {
+          "value": 0.5076142131979695
+        },
+        "fetch-050": {
+          "value": 0.5688073394495413
+        },
+        "fetch-051": {
+          "value": 0.4570552147239264
+        },
+        "fetch-052": {
+          "value": 0.3290488431876607
+        },
+        "fetch-053": {
+          "value": 0.2816901408450704
+        },
+        "fetch-054": {
+          "value": 0.4399421128798842
+        },
+        "operator-001": {
+          "value": 0.38749999999999996
+        },
+        "operator-002": {
+          "value": 0.4444444444444445
+        },
+        "operator-003": {
+          "value": 0.5666666666666667
+        },
+        "operator-004": {
+          "value": 0.5393258426966292
+        },
+        "operator-005": {
+          "value": 0.4822695035460993
+        },
+        "operator-006": {
+          "value": 0.2277777777777778
+        },
+        "operator-007": {
+          "value": 0.48571428571428577
+        },
+        "operator-008": {
+          "value": 0.43076923076923074
+        },
+        "operator-009": {
+          "value": 0.38095238095238093
+        },
+        "operator-010": {
+          "value": 0.45333333333333325
+        },
+        "operator-011": {
+          "value": 0.48695652173913045
+        },
+        "operator-012": {
+          "value": 0.5565217391304348
+        },
+        "operator-013": {
+          "value": 0.380952380952381
+        },
+        "operator-014": {
+          "value": 0.3369565217391305
+        },
+        "operator-015": {
+          "value": 0.46808510638297873
+        },
+        "operator-016": {
+          "value": 0.5454545454545455
+        },
+        "operator-017": {
+          "value": 0.6265060240963856
+        },
+        "operator-018": {
+          "value": 0.4838709677419355
+        },
+        "operator-019": {
+          "value": 0.2222222222222222
+        },
+        "operator-020": {
+          "value": 0.3981900452488688
+        },
+        "operator-021": {
+          "value": 0.4628099173553719
+        },
+        "operator-022": {
+          "value": 0.4915254237288135
+        },
+        "operator-023": {
+          "value": 0.5644171779141104
+        },
+        "operator-024": {
+          "value": 0.46017699115044247
+        },
+        "operator-025": {
+          "value": 0.3018867924528301
+        },
+        "operator-026": {
+          "value": 0.3983739837398374
+        },
+        "operator-027": {
+          "value": 0.345679012345679
+        },
+        "operator-028": {
+          "value": 0.4722222222222222
+        },
+        "operator-029": {
+          "value": 0.3902439024390244
+        },
+        "operator-030": {
+          "value": 0.537313432835821
+        },
+        "operator-031": {
+          "value": 0.5346534653465347
+        },
+        "operator-032": {
+          "value": 0.2538699690402477
+        },
+        "operator-033": {
+          "value": 0.7027027027027027
+        },
+        "operator-034": {
+          "value": 0.39583333333333337
+        },
+        "operator-035": {
+          "value": 0.3130434782608696
+        },
+        "operator-036": {
+          "value": 0.5128205128205129
+        },
+        "operator-037": {
+          "value": 0.4954128440366972
+        },
+        "operator-038": {
+          "value": 0.5833333333333334
+        },
+        "operator-039": {
+          "value": 0.676056338028169
+        },
+        "operator-040": {
+          "value": 0.46031746031746035
+        },
+        "operator-041": {
+          "value": 0.4671532846715328
+        },
+        "operator-042": {
+          "value": 0.31016042780748665
+        },
+        "operator-043": {
+          "value": 0.5535714285714286
+        },
+        "operator-044": {
+          "value": 0.8695652173913043
+        },
+        "operator-045": {
+          "value": 0.2
+        },
+        "operator-046": {
+          "value": 0.4954128440366973
+        },
+        "operator-047": {
+          "value": 0.619718309859155
+        },
+        "operator-048": {
+          "value": 0.45283018867924524
+        },
+        "operator-049": {
+          "value": 0.4234234234234233
+        },
+        "operator-050": {
+          "value": 0.40259740259740256
+        },
+        "operator-051": {
+          "value": 0.5526315789473684
+        },
+        "operator-052": {
+          "value": 0.29437229437229434
+        },
+        "operator-053": {
+          "value": 0.525
+        }
+      }
+    },
+    "rouge_2": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.34090909090909094
+        },
+        "fetch-002": {
+          "value": 0.08148148148148147
+        },
+        "fetch-003": {
+          "value": 0.31506849315068497
+        },
+        "fetch-004": {
+          "value": 0.5517241379310345
+        },
+        "fetch-005": {
+          "value": 0.3319838056680162
+        },
+        "fetch-006": {
+          "value": 0.07207207207207207
+        },
+        "fetch-007": {
+          "value": 0.2692307692307692
+        },
+        "fetch-008": {
+          "value": 0.23115577889447236
+        },
+        "fetch-009": {
+          "value": 0.1834862385321101
+        },
+        "fetch-010": {
+          "value": 0.27586206896551724
+        },
+        "fetch-011": {
+          "value": 0.10236220472440943
+        },
+        "fetch-012": {
+          "value": 0.13868613138686134
+        },
+        "fetch-013": {
+          "value": 0.12834224598930483
+        },
+        "fetch-014": {
+          "value": 0.402439024390244
+        },
+        "fetch-015": {
+          "value": 0.05405405405405406
+        },
+        "fetch-016": {
+          "value": 0.2616822429906542
+        },
+        "fetch-017": {
+          "value": 0.20814479638009048
+        },
+        "fetch-018": {
+          "value": 0.2601626016260163
+        },
+        "fetch-019": {
+          "value": 0.18579234972677594
+        },
+        "fetch-020": {
+          "value": 0.2
+        },
+        "fetch-021": {
+          "value": 0.11976047904191615
+        },
+        "fetch-022": {
+          "value": 0.25766871165644173
+        },
+        "fetch-023": {
+          "value": 0.08602150537634408
+        },
+        "fetch-024": {
+          "value": 0.2761506276150627
+        },
+        "fetch-025": {
+          "value": 0.16748768472906403
+        },
+        "fetch-026": {
+          "value": 0.08974358974358974
+        },
+        "fetch-027": {
+          "value": 0.3333333333333333
+        },
+        "fetch-028": {
+          "value": 0.20512820512820512
+        },
+        "fetch-029": {
+          "value": 0.13978494623655915
+        },
+        "fetch-030": {
+          "value": 0.22754491017964074
+        },
+        "fetch-031": {
+          "value": 0.12624584717607973
+        },
+        "fetch-032": {
+          "value": 0.08771929824561404
+        },
+        "fetch-033": {
+          "value": 0.1754385964912281
+        },
+        "fetch-034": {
+          "value": 0.0975609756097561
+        },
+        "fetch-035": {
+          "value": 0.14606741573033707
+        },
+        "fetch-036": {
+          "value": 0.1718213058419244
+        },
+        "fetch-037": {
+          "value": 0.08235294117647057
+        },
+        "fetch-038": {
+          "value": 0.2545454545454546
+        },
+        "fetch-039": {
+          "value": 0.15
+        },
+        "fetch-040": {
+          "value": 0.2589928057553957
+        },
+        "fetch-041": {
+          "value": 0.3047619047619048
+        },
+        "fetch-042": {
+          "value": 0.36363636363636365
+        },
+        "fetch-043": {
+          "value": 0.12598425196850394
+        },
+        "fetch-044": {
+          "value": 0.32653061224489793
+        },
+        "fetch-045": {
+          "value": 0.4536082474226804
+        },
+        "fetch-046": {
+          "value": 0.23333333333333334
+        },
+        "fetch-047": {
+          "value": 0.15748031496062992
+        },
+        "fetch-048": {
+          "value": 0.2153846153846154
+        },
+        "fetch-049": {
+          "value": 0.17435897435897435
+        },
+        "fetch-050": {
+          "value": 0.3518518518518519
+        },
+        "fetch-051": {
+          "value": 0.12307692307692308
+        },
+        "fetch-052": {
+          "value": 0.082687338501292
+        },
+        "fetch-053": {
+          "value": 0.05673758865248227
+        },
+        "fetch-054": {
+          "value": 0.16835994194484757
+        },
+        "operator-001": {
+          "value": 0.12658227848101267
+        },
+        "operator-002": {
+          "value": 0.20967741935483872
+        },
+        "operator-003": {
+          "value": 0.30508474576271183
+        },
+        "operator-004": {
+          "value": 0.25287356321839083
+        },
+        "operator-005": {
+          "value": 0.2589928057553956
+        },
+        "operator-006": {
+          "value": 0.0782122905027933
+        },
+        "operator-007": {
+          "value": 0.2941176470588235
+        },
+        "operator-008": {
+          "value": 0.14507772020725387
+        },
+        "operator-009": {
+          "value": 0.15172413793103448
+        },
+        "operator-010": {
+          "value": 0.1643835616438356
+        },
+        "operator-011": {
+          "value": 0.2300884955752212
+        },
+        "operator-012": {
+          "value": 0.24778761061946902
+        },
+        "operator-013": {
+          "value": 0.20689655172413793
+        },
+        "operator-014": {
+          "value": 0.13186813186813187
+        },
+        "operator-015": {
+          "value": 0.2608695652173913
+        },
+        "operator-016": {
+          "value": 0.268041237113402
+        },
+        "operator-017": {
+          "value": 0.3950617283950617
+        },
+        "operator-018": {
+          "value": 0.21311475409836064
+        },
+        "operator-019": {
+          "value": 0.11224489795918367
+        },
+        "operator-020": {
+          "value": 0.20091324200913244
+        },
+        "operator-021": {
+          "value": 0.15126050420168066
+        },
+        "operator-022": {
+          "value": 0.20689655172413796
+        },
+        "operator-023": {
+          "value": 0.2732919254658385
+        },
+        "operator-024": {
+          "value": 0.21621621621621623
+        },
+        "operator-025": {
+          "value": 0.15686274509803924
+        },
+        "operator-026": {
+          "value": 0.15573770491803282
+        },
+        "operator-027": {
+          "value": 0.125
+        },
+        "operator-028": {
+          "value": 0.28571428571428575
+        },
+        "operator-029": {
+          "value": 0.15
+        },
+        "operator-030": {
+          "value": 0.18461538461538463
+        },
+        "operator-031": {
+          "value": 0.22222222222222224
+        },
+        "operator-032": {
+          "value": 0.12461059190031153
+        },
+        "operator-033": {
+          "value": 0.4954128440366973
+        },
+        "operator-034": {
+          "value": 0.14893617021276598
+        },
+        "operator-035": {
+          "value": 0.16666666666666669
+        },
+        "operator-036": {
+          "value": 0.19130434782608696
+        },
+        "operator-037": {
+          "value": 0.3551401869158879
+        },
+        "operator-038": {
+          "value": 0.3404255319148936
+        },
+        "operator-039": {
+          "value": 0.3478260869565218
+        },
+        "operator-040": {
+          "value": 0.24193548387096775
+        },
+        "operator-041": {
+          "value": 0.1925925925925926
+        },
+        "operator-042": {
+          "value": 0.16216216216216217
+        },
+        "operator-043": {
+          "value": 0.2
+        },
+        "operator-044": {
+          "value": 0.6818181818181819
+        },
+        "operator-045": {
+          "value": 0.07692307692307693
+        },
+        "operator-046": {
+          "value": 0.14953271028037382
+        },
+        "operator-047": {
+          "value": 0.32857142857142857
+        },
+        "operator-048": {
+          "value": 0.19108280254777069
+        },
+        "operator-049": {
+          "value": 0.17272727272727273
+        },
+        "operator-050": {
+          "value": 0.10526315789473685
+        },
+        "operator-051": {
+          "value": 0.31999999999999995
+        },
+        "operator-052": {
+          "value": 0.13100436681222707
+        },
+        "operator-053": {
+          "value": 0.3025210084033613
+        }
+      }
+    },
+    "rouge_l": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.5777777777777778
+        },
+        "fetch-002": {
+          "value": 0.1985294117647059
+        },
+        "fetch-003": {
+          "value": 0.29729729729729726
+        },
+        "fetch-004": {
+          "value": 0.6610169491525425
+        },
+        "fetch-005": {
+          "value": 0.48995983935742976
+        },
+        "fetch-006": {
+          "value": 0.2300884955752212
+        },
+        "fetch-007": {
+          "value": 0.41509433962264153
+        },
+        "fetch-008": {
+          "value": 0.3482587064676617
+        },
+        "fetch-009": {
+          "value": 0.3423423423423423
+        },
+        "fetch-010": {
+          "value": 0.42176870748299317
+        },
+        "fetch-011": {
+          "value": 0.2109375
+        },
+        "fetch-012": {
+          "value": 0.21739130434782608
+        },
+        "fetch-013": {
+          "value": 0.33862433862433866
+        },
+        "fetch-014": {
+          "value": 0.4578313253012048
+        },
+        "fetch-015": {
+          "value": 0.15178571428571427
+        },
+        "fetch-016": {
+          "value": 0.45370370370370366
+        },
+        "fetch-017": {
+          "value": 0.3856502242152467
+        },
+        "fetch-018": {
+          "value": 0.31999999999999995
+        },
+        "fetch-019": {
+          "value": 0.3027027027027027
+        },
+        "fetch-020": {
+          "value": 0.30864197530864196
+        },
+        "fetch-021": {
+          "value": 0.2603550295857988
+        },
+        "fetch-022": {
+          "value": 0.3757575757575758
+        },
+        "fetch-023": {
+          "value": 0.14736842105263157
+        },
+        "fetch-024": {
+          "value": 0.3817427385892116
+        },
+        "fetch-025": {
+          "value": 0.3024390243902439
+        },
+        "fetch-026": {
+          "value": 0.24050632911392403
+        },
+        "fetch-027": {
+          "value": 0.45161290322580644
+        },
+        "fetch-028": {
+          "value": 0.35000000000000003
+        },
+        "fetch-029": {
+          "value": 0.23404255319148937
+        },
+        "fetch-030": {
+          "value": 0.31952662721893493
+        },
+        "fetch-031": {
+          "value": 0.2112211221122112
+        },
+        "fetch-032": {
+          "value": 0.13913043478260867
+        },
+        "fetch-033": {
+          "value": 0.39655172413793105
+        },
+        "fetch-034": {
+          "value": 0.19277108433734938
+        },
+        "fetch-035": {
+          "value": 0.3
+        },
+        "fetch-036": {
+          "value": 0.26621160409556316
+        },
+        "fetch-037": {
+          "value": 0.22093023255813954
+        },
+        "fetch-038": {
+          "value": 0.4464285714285714
+        },
+        "fetch-039": {
+          "value": 0.32673267326732675
+        },
+        "fetch-040": {
+          "value": 0.3829787234042554
+        },
+        "fetch-041": {
+          "value": 0.3364485981308411
+        },
+        "fetch-042": {
+          "value": 0.3823529411764706
+        },
+        "fetch-043": {
+          "value": 0.27906976744186046
+        },
+        "fetch-044": {
+          "value": 0.5399999999999999
+        },
+        "fetch-045": {
+          "value": 0.5858585858585859
+        },
+        "fetch-046": {
+          "value": 0.36363636363636365
+        },
+        "fetch-047": {
+          "value": 0.3203125
+        },
+        "fetch-048": {
+          "value": 0.3553299492385787
+        },
+        "fetch-049": {
+          "value": 0.19289340101522842
+        },
+        "fetch-050": {
+          "value": 0.47706422018348627
+        },
+        "fetch-051": {
+          "value": 0.18098159509202452
+        },
+        "fetch-052": {
+          "value": 0.13367609254498714
+        },
+        "fetch-053": {
+          "value": 0.15492957746478872
+        },
+        "fetch-054": {
+          "value": 0.19681620839363242
+        },
+        "operator-001": {
+          "value": 0.2625
+        },
+        "operator-002": {
+          "value": 0.3174603174603175
+        },
+        "operator-003": {
+          "value": 0.41666666666666663
+        },
+        "operator-004": {
+          "value": 0.47191011235955055
+        },
+        "operator-005": {
+          "value": 0.4539007092198582
+        },
+        "operator-006": {
+          "value": 0.13333333333333333
+        },
+        "operator-007": {
+          "value": 0.37142857142857144
+        },
+        "operator-008": {
+          "value": 0.26666666666666666
+        },
+        "operator-009": {
+          "value": 0.25850340136054417
+        },
+        "operator-010": {
+          "value": 0.21333333333333332
+        },
+        "operator-011": {
+          "value": 0.36521739130434777
+        },
+        "operator-012": {
+          "value": 0.43478260869565216
+        },
+        "operator-013": {
+          "value": 0.272108843537415
+        },
+        "operator-014": {
+          "value": 0.20652173913043478
+        },
+        "operator-015": {
+          "value": 0.425531914893617
+        },
+        "operator-016": {
+          "value": 0.38383838383838387
+        },
+        "operator-017": {
+          "value": 0.45783132530120485
+        },
+        "operator-018": {
+          "value": 0.3548387096774193
+        },
+        "operator-019": {
+          "value": 0.1717171717171717
+        },
+        "operator-020": {
+          "value": 0.2986425339366515
+        },
+        "operator-021": {
+          "value": 0.21487603305785122
+        },
+        "operator-022": {
+          "value": 0.3559322033898305
+        },
+        "operator-023": {
+          "value": 0.3803680981595092
+        },
+        "operator-024": {
+          "value": 0.21238938053097345
+        },
+        "operator-025": {
+          "value": 0.3018867924528301
+        },
+        "operator-026": {
+          "value": 0.2601626016260163
+        },
+        "operator-027": {
+          "value": 0.2345679012345679
+        },
+        "operator-028": {
+          "value": 0.38888888888888895
+        },
+        "operator-029": {
+          "value": 0.3414634146341463
+        },
+        "operator-030": {
+          "value": 0.3582089552238806
+        },
+        "operator-031": {
+          "value": 0.297029702970297
+        },
+        "operator-032": {
+          "value": 0.17956656346749225
+        },
+        "operator-033": {
+          "value": 0.46846846846846846
+        },
+        "operator-034": {
+          "value": 0.3333333333333333
+        },
+        "operator-035": {
+          "value": 0.2434782608695652
+        },
+        "operator-036": {
+          "value": 0.23931623931623933
+        },
+        "operator-037": {
+          "value": 0.4770642201834862
+        },
+        "operator-038": {
+          "value": 0.45833333333333337
+        },
+        "operator-039": {
+          "value": 0.4507042253521127
+        },
+        "operator-040": {
+          "value": 0.3968253968253968
+        },
+        "operator-041": {
+          "value": 0.30656934306569344
+        },
+        "operator-042": {
+          "value": 0.23529411764705882
+        },
+        "operator-043": {
+          "value": 0.30357142857142855
+        },
+        "operator-044": {
+          "value": 0.8695652173913043
+        },
+        "operator-045": {
+          "value": 0.2
+        },
+        "operator-046": {
+          "value": 0.34862385321100914
+        },
+        "operator-047": {
+          "value": 0.4788732394366197
+        },
+        "operator-048": {
+          "value": 0.31446540880503143
+        },
+        "operator-049": {
+          "value": 0.25225225225225223
+        },
+        "operator-050": {
+          "value": 0.2207792207792208
+        },
+        "operator-051": {
+          "value": 0.39473684210526316
+        },
+        "operator-052": {
+          "value": 0.1904761904761905
+        },
+        "operator-053": {
+          "value": 0.4
+        }
+      }
+    },
+    "token_overlap": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.5102040816326531
+        },
+        "fetch-002": {
+          "value": 0.20245398773006135
+        },
+        "fetch-003": {
+          "value": 0.35714285714285715
+        },
+        "fetch-004": {
+          "value": 0.6296296296296297
+        },
+        "fetch-005": {
+          "value": 0.4262295081967213
+        },
+        "fetch-006": {
+          "value": 0.2898550724637681
+        },
+        "fetch-007": {
+          "value": 0.4107142857142857
+        },
+        "fetch-008": {
+          "value": 0.3717948717948718
+        },
+        "fetch-009": {
+          "value": 0.2602739726027397
+        },
+        "fetch-010": {
+          "value": 0.44776119402985076
+        },
+        "fetch-011": {
+          "value": 0.24060150375939848
+        },
+        "fetch-012": {
+          "value": 0.24647887323943662
+        },
+        "fetch-013": {
+          "value": 0.2857142857142857
+        },
+        "fetch-014": {
+          "value": 0.41333333333333333
+        },
+        "fetch-015": {
+          "value": 0.15384615384615385
+        },
+        "fetch-016": {
+          "value": 0.4246575342465753
+        },
+        "fetch-017": {
+          "value": 0.33663366336633666
+        },
+        "fetch-018": {
+          "value": 0.29850746268656714
+        },
+        "fetch-019": {
+          "value": 0.24761904761904763
+        },
+        "fetch-020": {
+          "value": 0.25
+        },
+        "fetch-021": {
+          "value": 0.20652173913043478
+        },
+        "fetch-022": {
+          "value": 0.425
+        },
+        "fetch-023": {
+          "value": 0.1694915254237288
+        },
+        "fetch-024": {
+          "value": 0.3178294573643411
+        },
+        "fetch-025": {
+          "value": 0.30612244897959184
+        },
+        "fetch-026": {
+          "value": 0.25274725274725274
+        },
+        "fetch-027": {
+          "value": 0.40540540540540543
+        },
+        "fetch-028": {
+          "value": 0.4318181818181818
+        },
+        "fetch-029": {
+          "value": 0.25
+        },
+        "fetch-030": {
+          "value": 0.3258426966292135
+        },
+        "fetch-031": {
+          "value": 0.2127659574468085
+        },
+        "fetch-032": {
+          "value": 0.24087591240875914
+        },
+        "fetch-033": {
+          "value": 0.3548387096774194
+        },
+        "fetch-034": {
+          "value": 0.24358974358974358
+        },
+        "fetch-035": {
+          "value": 0.27884615384615385
+        },
+        "fetch-036": {
+          "value": 0.3684210526315789
+        },
+        "fetch-037": {
+          "value": 0.22448979591836735
+        },
+        "fetch-038": {
+          "value": 0.5102040816326531
+        },
+        "fetch-039": {
+          "value": 0.3490566037735849
+        },
+        "fetch-040": {
+          "value": 0.35526315789473684
+        },
+        "fetch-041": {
+          "value": 0.5192307692307693
+        },
+        "fetch-042": {
+          "value": 0.38461538461538464
+        },
+        "fetch-043": {
+          "value": 0.3548387096774194
+        },
+        "fetch-044": {
+          "value": 0.4426229508196721
+        },
+        "fetch-045": {
+          "value": 0.39285714285714285
+        },
+        "fetch-046": {
+          "value": 0.35772357723577236
+        },
+        "fetch-047": {
+          "value": 0.3142857142857143
+        },
+        "fetch-048": {
+          "value": 0.3225806451612903
+        },
+        "fetch-049": {
+          "value": 0.33035714285714285
+        },
+        "fetch-050": {
+          "value": 0.5056179775280899
+        },
+        "fetch-051": {
+          "value": 0.28125
+        },
+        "fetch-052": {
+          "value": 0.1902439024390244
+        },
+        "fetch-053": {
+          "value": 0.18125
+        },
+        "fetch-054": {
+          "value": 0.2647058823529412
+        },
+        "operator-001": {
+          "value": 0.22916666666666666
+        },
+        "operator-002": {
+          "value": 0.29850746268656714
+        },
+        "operator-003": {
+          "value": 0.42857142857142855
+        },
+        "operator-004": {
+          "value": 0.43478260869565216
+        },
+        "operator-005": {
+          "value": 0.26136363636363635
+        },
+        "operator-006": {
+          "value": 0.18716577540106952
+        },
+        "operator-007": {
+          "value": 0.26666666666666666
+        },
+        "operator-008": {
+          "value": 0.2872340425531915
+        },
+        "operator-009": {
+          "value": 0.23404255319148937
+        },
+        "operator-010": {
+          "value": 0.34782608695652173
+        },
+        "operator-011": {
+          "value": 0.35
+        },
+        "operator-012": {
+          "value": 0.391304347826087
+        },
+        "operator-013": {
+          "value": 0.30120481927710846
+        },
+        "operator-014": {
+          "value": 0.23853211009174313
+        },
+        "operator-015": {
+          "value": 0.3333333333333333
+        },
+        "operator-016": {
+          "value": 0.390625
+        },
+        "operator-017": {
+          "value": 0.4791666666666667
+        },
+        "operator-018": {
+          "value": 0.3142857142857143
+        },
+        "operator-019": {
+          "value": 0.175
+        },
+        "operator-020": {
+          "value": 0.2222222222222222
+        },
+        "operator-021": {
+          "value": 0.32
+        },
+        "operator-022": {
+          "value": 0.29850746268656714
+        },
+        "operator-023": {
+          "value": 0.3595505617977528
+        },
+        "operator-024": {
+          "value": 0.2647058823529412
+        },
+        "operator-025": {
+          "value": 0.1891891891891892
+        },
+        "operator-026": {
+          "value": 0.26515151515151514
+        },
+        "operator-027": {
+          "value": 0.2087912087912088
+        },
+        "operator-028": {
+          "value": 0.375
+        },
+        "operator-029": {
+          "value": 0.25925925925925924
+        },
+        "operator-030": {
+          "value": 0.3488372093023256
+        },
+        "operator-031": {
+          "value": 0.4
+        },
+        "operator-032": {
+          "value": 0.18493150684931506
+        },
+        "operator-033": {
+          "value": 0.5098039215686274
+        },
+        "operator-034": {
+          "value": 0.25862068965517243
+        },
+        "operator-035": {
+          "value": 0.19402985074626866
+        },
+        "operator-036": {
+          "value": 0.375
+        },
+        "operator-037": {
+          "value": 0.43137254901960786
+        },
+        "operator-038": {
+          "value": 0.43902439024390244
+        },
+        "operator-039": {
+          "value": 0.5227272727272727
+        },
+        "operator-040": {
+          "value": 0.2833333333333333
+        },
+        "operator-041": {
+          "value": 0.3157894736842105
+        },
+        "operator-042": {
+          "value": 0.23
+        },
+        "operator-043": {
+          "value": 0.3484848484848485
+        },
+        "operator-044": {
+          "value": 0.8421052631578947
+        },
+        "operator-045": {
+          "value": 0.12727272727272726
+        },
+        "operator-046": {
+          "value": 0.3283582089552239
+        },
+        "operator-047": {
+          "value": 0.4594594594594595
+        },
+        "operator-048": {
+          "value": 0.2916666666666667
+        },
+        "operator-049": {
+          "value": 0.2682926829268293
+        },
+        "operator-050": {
+          "value": 0.24528301886792453
+        },
+        "operator-051": {
+          "value": 0.4915254237288136
+        },
+        "operator-052": {
+          "value": 0.19298245614035087
+        },
+        "operator-053": {
+          "value": 0.32142857142857145
+        }
+      }
+    },
+    "token_recall": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.6944444444444444
+        },
+        "fetch-002": {
+          "value": 0.55
+        },
+        "fetch-003": {
+          "value": 0.5084745762711864
+        },
+        "fetch-004": {
+          "value": 0.85
+        },
+        "fetch-005": {
+          "value": 0.6341463414634146
+        },
+        "fetch-006": {
+          "value": 0.40816326530612246
+        },
+        "fetch-007": {
+          "value": 0.5
+        },
+        "fetch-008": {
+          "value": 0.6744186046511628
+        },
+        "fetch-009": {
+          "value": 0.35185185185185186
+        },
+        "fetch-010": {
+          "value": 0.5454545454545454
+        },
+        "fetch-011": {
+          "value": 0.5079365079365079
+        },
+        "fetch-012": {
+          "value": 0.5737704918032787
+        },
+        "fetch-013": {
+          "value": 0.42857142857142855
+        },
+        "fetch-014": {
+          "value": 0.6888888888888889
+        },
+        "fetch-015": {
+          "value": 0.4489795918367347
+        },
+        "fetch-016": {
+          "value": 0.6078431372549019
+        },
+        "fetch-017": {
+          "value": 0.4857142857142857
+        },
+        "fetch-018": {
+          "value": 0.3333333333333333
+        },
+        "fetch-019": {
+          "value": 0.35135135135135137
+        },
+        "fetch-020": {
+          "value": 0.3333333333333333
+        },
+        "fetch-021": {
+          "value": 0.30158730158730157
+        },
+        "fetch-022": {
+          "value": 0.5573770491803278
+        },
+        "fetch-023": {
+          "value": 0.24390243902439024
+        },
+        "fetch-024": {
+          "value": 0.5394736842105263
+        },
+        "fetch-025": {
+          "value": 0.410958904109589
+        },
+        "fetch-026": {
+          "value": 0.359375
+        },
+        "fetch-027": {
+          "value": 0.7142857142857143
+        },
+        "fetch-028": {
+          "value": 0.7037037037037037
+        },
+        "fetch-029": {
+          "value": 0.7647058823529411
+        },
+        "fetch-030": {
+          "value": 0.4393939393939394
+        },
+        "fetch-031": {
+          "value": 0.47619047619047616
+        },
+        "fetch-032": {
+          "value": 0.5238095238095238
+        },
+        "fetch-033": {
+          "value": 0.5789473684210527
+        },
+        "fetch-034": {
+          "value": 0.4222222222222222
+        },
+        "fetch-035": {
+          "value": 0.42028985507246375
+        },
+        "fetch-036": {
+          "value": 0.5104166666666666
+        },
+        "fetch-037": {
+          "value": 0.39285714285714285
+        },
+        "fetch-038": {
+          "value": 0.7352941176470589
+        },
+        "fetch-039": {
+          "value": 0.5967741935483871
+        },
+        "fetch-040": {
+          "value": 0.40298507462686567
+        },
+        "fetch-041": {
+          "value": 0.7297297297297297
+        },
+        "fetch-042": {
+          "value": 0.5769230769230769
+        },
+        "fetch-043": {
+          "value": 0.7586206896551724
+        },
+        "fetch-044": {
+          "value": 0.675
+        },
+        "fetch-045": {
+          "value": 0.55
+        },
+        "fetch-046": {
+          "value": 0.55
+        },
+        "fetch-047": {
+          "value": 0.4444444444444444
+        },
+        "fetch-048": {
+          "value": 0.4918032786885246
+        },
+        "fetch-049": {
+          "value": 0.5
+        },
+        "fetch-050": {
+          "value": 0.6081081081081081
+        },
+        "fetch-051": {
+          "value": 0.5
+        },
+        "fetch-052": {
+          "value": 0.3170731707317073
+        },
+        "fetch-053": {
+          "value": 0.25663716814159293
+        },
+        "fetch-054": {
+          "value": 0.6101694915254238
+        },
+        "operator-001": {
+          "value": 0.5
+        },
+        "operator-002": {
+          "value": 0.47619047619047616
+        },
+        "operator-003": {
+          "value": 0.7105263157894737
+        },
+        "operator-004": {
+          "value": 0.5882352941176471
+        },
+        "operator-005": {
+          "value": 0.5
+        },
+        "operator-006": {
+          "value": 0.8333333333333334
+        },
+        "operator-007": {
+          "value": 0.3333333333333333
+        },
+        "operator-008": {
+          "value": 0.75
+        },
+        "operator-009": {
+          "value": 0.43137254901960786
+        },
+        "operator-010": {
+          "value": 0.6666666666666666
+        },
+        "operator-011": {
+          "value": 0.7
+        },
+        "operator-012": {
+          "value": 0.574468085106383
+        },
+        "operator-013": {
+          "value": 0.6410256410256411
+        },
+        "operator-014": {
+          "value": 0.8125
+        },
+        "operator-015": {
+          "value": 0.5384615384615384
+        },
+        "operator-016": {
+          "value": 0.5555555555555556
+        },
+        "operator-017": {
+          "value": 0.696969696969697
+        },
+        "operator-018": {
+          "value": 0.5
+        },
+        "operator-019": {
+          "value": 0.6086956521739131
+        },
+        "operator-020": {
+          "value": 0.4827586206896552
+        },
+        "operator-021": {
+          "value": 0.4897959183673469
+        },
+        "operator-022": {
+          "value": 0.425531914893617
+        },
+        "operator-023": {
+          "value": 0.6153846153846154
+        },
+        "operator-024": {
+          "value": 0.3673469387755102
+        },
+        "operator-025": {
+          "value": 0.21212121212121213
+        },
+        "operator-026": {
+          "value": 0.6730769230769231
+        },
+        "operator-027": {
+          "value": 0.34545454545454546
+        },
+        "operator-028": {
+          "value": 0.4166666666666667
+        },
+        "operator-029": {
+          "value": 0.4827586206896552
+        },
+        "operator-030": {
+          "value": 0.46875
+        },
+        "operator-031": {
+          "value": 0.625
+        },
+        "operator-032": {
+          "value": 0.6136363636363636
+        },
+        "operator-033": {
+          "value": 0.7222222222222222
+        },
+        "operator-034": {
+          "value": 0.36585365853658536
+        },
+        "operator-035": {
+          "value": 0.5777777777777777
+        },
+        "operator-036": {
+          "value": 0.48
+        },
+        "operator-037": {
+          "value": 0.55
+        },
+        "operator-038": {
+          "value": 0.72
+        },
+        "operator-039": {
+          "value": 0.6764705882352942
+        },
+        "operator-040": {
+          "value": 0.4358974358974359
+        },
+        "operator-041": {
+          "value": 0.6666666666666666
+        },
+        "operator-042": {
+          "value": 0.8846153846153846
+        },
+        "operator-043": {
+          "value": 0.5897435897435898
+        },
+        "operator-044": {
+          "value": 0.9411764705882353
+        },
+        "operator-045": {
+          "value": 0.16666666666666666
+        },
+        "operator-046": {
+          "value": 0.4583333333333333
+        },
+        "operator-047": {
+          "value": 0.7083333333333334
+        },
+        "operator-048": {
+          "value": 0.5185185185185185
+        },
+        "operator-049": {
+          "value": 0.515625
+        },
+        "operator-050": {
+          "value": 0.4406779661016949
+        },
+        "operator-051": {
+          "value": 0.7435897435897436
+        },
+        "operator-052": {
+          "value": 0.5365853658536586
+        },
+        "operator-053": {
+          "value": 0.6545454545454545
+        }
+      }
+    },
+    "answer_correctness": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-001": {
+          "value": 0.8890348194743651
+        },
+        "fetch-002": {
+          "value": 0.5961315069396462
+        },
+        "fetch-003": {
+          "value": 0.9053459193452069
+        },
+        "fetch-004": {
+          "value": 0.9789507348476111
+        },
+        "fetch-005": {
+          "value": 0.851587258923949
+        },
+        "fetch-006": {
+          "value": 0.8377555783642161
+        },
+        "fetch-007": {
+          "value": 0.7512038516092083
+        },
+        "fetch-008": {
+          "value": 0.8564797527724384
+        },
+        "fetch-009": {
+          "value": 0.7309462437640819
+        },
+        "fetch-010": {
+          "value": 0.9294906634282104
+        },
+        "fetch-011": {
+          "value": 0.6623520538582572
+        },
+        "fetch-012": {
+          "value": 0.6439757118447699
+        },
+        "fetch-013": {
+          "value": 0.9104045951849047
+        },
+        "fetch-014": {
+          "value": 0.8239617884223354
+        },
+        "fetch-015": {
+          "value": 0.1433078915901444
+        },
+        "fetch-016": {
+          "reason": "could not parse a FactualClassification from the completion for role 'grade' after 2 attempt(s). Raw text (200 chars): '### True positives — supported by both answers\\n\\n1. The assumption is that the remaining selected features \\\\(X_{S_i}\\\\) are conditionally independent given \\\\(X_i\\\\):\\n   \\\\[\\n   p(X_{S_i}\\\\mid X_i)=\\\\prod_{j\\\\'"
+        },
+        "fetch-017": {
+          "value": 0.7054793021832348
+        },
+        "fetch-018": {
+          "value": 0.4340223487245404
+        },
+        "fetch-019": {
+          "value": 0.7437437047597062
+        },
+        "fetch-020": {
+          "value": 0.6666039073932508
+        },
+        "fetch-021": {
+          "value": 0.6253210090694841
+        },
+        "fetch-022": {
+          "value": 0.7552654658440408
+        },
+        "fetch-023": {
+          "value": 0.8742666166393075
+        },
+        "fetch-024": {
+          "value": 0.6907168277240183
+        },
+        "fetch-025": {
+          "value": 0.6655702875994876
+        },
+        "fetch-026": {
+          "value": 0.6439923083245386
+        },
+        "fetch-027": {
+          "value": 0.9551083403309103
+        },
+        "fetch-028": {
+          "value": 0.8773043578853279
+        },
+        "fetch-029": {
+          "value": 0.7471125609763168
+        },
+        "fetch-030": {
+          "value": 0.6988666223002484
+        },
+        "fetch-031": {
+          "value": 0.4765776828294571
+        },
+        "fetch-032": {
+          "value": 0.7869773027033433
+        },
+        "fetch-033": {
+          "value": 0.7549210186116645
+        },
+        "fetch-034": {
+          "value": 0.8468834203634084
+        },
+        "fetch-035": {
+          "value": 0.7452805808418084
+        },
+        "fetch-036": {
+          "value": 0.7884398191428127
+        },
+        "fetch-037": {
+          "value": 0.8934534083018241
+        },
+        "fetch-038": {
+          "value": 0.9758670857488998
+        },
+        "fetch-039": {
+          "value": 0.841684034296047
+        },
+        "fetch-040": {
+          "value": 0.5271010560112543
+        },
+        "fetch-041": {
+          "value": 0.9565939248852312
+        },
+        "fetch-042": {
+          "value": 0.9209617827336946
+        },
+        "fetch-043": {
+          "value": 0.8236935169288729
+        },
+        "fetch-044": {
+          "value": 0.9669198446168347
+        },
+        "fetch-045": {
+          "value": 0.9944495183814529
+        },
+        "fetch-046": {
+          "value": 0.8735686638038694
+        },
+        "fetch-047": {
+          "value": 0.7314825178118911
+        },
+        "fetch-048": {
+          "value": 0.9587256929904238
+        },
+        "fetch-049": {
+          "value": 0.8731915487285613
+        },
+        "fetch-050": {
+          "value": 0.7642860335114282
+        },
+        "fetch-051": {
+          "value": 0.7634878689148287
+        },
+        "fetch-052": {
+          "value": 0.43429868647099645
+        },
+        "fetch-053": {
+          "value": 0.6379628132837055
+        },
+        "fetch-054": {
+          "value": 0.4931126239200016
+        },
+        "operator-001": {
+          "value": 0.685408851825463
+        },
+        "operator-002": {
+          "value": 0.7511413962674671
+        },
+        "operator-003": {
+          "value": 0.7973419246054948
+        },
+        "operator-004": {
+          "value": 0.7646226959856653
+        },
+        "operator-005": {
+          "value": 0.6303272932159474
+        },
+        "operator-006": {
+          "value": 0.3785503948691783
+        },
+        "operator-007": {
+          "value": 0.730296265253551
+        },
+        "operator-008": {
+          "value": 0.7796031543162805
+        },
+        "operator-009": {
+          "value": 0.7441121225122532
+        },
+        "operator-010": {
+          "value": 0.711908031569625
+        },
+        "operator-011": {
+          "value": 0.7113076756995633
+        },
+        "operator-012": {
+          "value": 0.9634540344152527
+        },
+        "operator-013": {
+          "value": 0.5105292313890675
+        },
+        "operator-014": {
+          "value": 0.6842354815191581
+        },
+        "operator-015": {
+          "value": 0.8923222698649377
+        },
+        "operator-016": {
+          "value": 0.7674627622057206
+        },
+        "operator-017": {
+          "value": 0.9661792820957419
+        },
+        "operator-018": {
+          "value": 0.8028766692399857
+        },
+        "operator-019": {
+          "value": 0.6072681118331908
+        },
+        "operator-020": {
+          "value": 0.6560659353515094
+        },
+        "operator-021": {
+          "value": 0.7138127315650049
+        },
+        "operator-022": {
+          "value": 0.7406163526006255
+        },
+        "operator-023": {
+          "value": 0.8390522056596257
+        },
+        "operator-024": {
+          "value": 0.7576551952026028
+        },
+        "operator-025": {
+          "value": 0.4984106992738331
+        },
+        "operator-026": {
+          "value": 0.6109330732064555
+        },
+        "operator-027": {
+          "value": 0.7071857463177253
+        },
+        "operator-028": {
+          "value": 0.5686194482520636
+        },
+        "operator-029": {
+          "value": 0.8473704961860857
+        },
+        "operator-030": {
+          "value": 0.5491315677596892
+        },
+        "operator-031": {
+          "value": 0.5717036449430862
+        },
+        "operator-032": {
+          "value": 0.6187090447735278
+        },
+        "operator-033": {
+          "value": 0.8870658218704378
+        },
+        "operator-034": {
+          "value": 0.39109160683104954
+        },
+        "operator-035": {
+          "value": 0.39679445086815746
+        },
+        "operator-036": {
+          "value": 0.7166900118442182
+        },
+        "operator-037": {
+          "value": 0.8148394668081187
+        },
+        "operator-038": {
+          "value": 0.9136228941062997
+        },
+        "operator-039": {
+          "value": 0.9763251067912712
+        },
+        "operator-040": {
+          "value": 0.6238638209173771
+        },
+        "operator-041": {
+          "value": 0.8170654380564912
+        },
+        "operator-042": {
+          "reason": "could not parse a FactualClassification from the completion for role 'grade' after 2 attempt(s). Raw text (200 chars): '### Supported by both (true positives)\\n\\n1. **RDC is a measure of nonlinear dependence between two variables.**\\n\\n2. **RDC transforms each variable using its copula transformation**—the predicted answer'"
+        },
+        "operator-043": {
+          "value": 0.7763154969353461
+        },
+        "operator-044": {
+          "value": 0.98689842300816
+        },
+        "operator-045": {
+          "value": 0.45343924360328225
+        },
+        "operator-046": {
+          "value": 0.7282039099725798
+        },
+        "operator-047": {
+          "value": 0.8242192786997633
+        },
+        "operator-048": {
+          "value": 0.6235257402604056
+        },
+        "operator-049": {
+          "value": 0.7868777109984169
+        },
+        "operator-050": {
+          "value": 0.8481858041001852
+        },
+        "operator-051": {
+          "value": 0.9642011249630199
+        },
+        "operator-052": {
+          "value": 0.4271196584733648
+        },
+        "operator-053": {
+          "reason": "could not parse a FactualClassification from the completion for role 'grade' after 2 attempt(s). Raw text (200 chars): '### Supported by both (true positives)\\n\\n1. **All three methods select the first feature by relevance alone, not by the combined relevance–redundancy criterion.**\\n2. **The combined criterion is used on'"
+        }
+      }
+    }
+  },
+  "question_axes": {
+    "fetch-001": {
+      "kind": "methodological"
+    },
+    "fetch-002": {
+      "kind": "methodological"
+    },
+    "fetch-003": {
+      "kind": "quantitative"
+    },
+    "fetch-004": {
+      "kind": "limitation"
+    },
+    "fetch-005": {
+      "kind": "methodological"
+    },
+    "fetch-006": {
+      "kind": "quantitative"
+    },
+    "fetch-007": {
+      "kind": "quantitative"
+    },
+    "fetch-008": {
+      "kind": "methodological"
+    },
+    "fetch-009": {
+      "kind": "comparative"
+    },
+    "fetch-010": {
+      "kind": "limitation"
+    },
+    "fetch-011": {
+      "kind": "limitation"
+    },
+    "fetch-012": {
+      "kind": "methodological"
+    },
+    "fetch-013": {
+      "kind": "quantitative"
+    },
+    "fetch-014": {
+      "kind": "comparative"
+    },
+    "fetch-015": {
+      "kind": "methodological"
+    },
+    "fetch-016": {
+      "kind": "methodological"
+    },
+    "fetch-017": {
+      "kind": "methodological"
+    },
+    "fetch-018": {
+      "kind": "quantitative"
+    },
+    "fetch-019": {
+      "kind": "comparative"
+    },
+    "fetch-020": {
+      "kind": "limitation"
+    },
+    "fetch-021": {
+      "kind": "methodological"
+    },
+    "fetch-022": {
+      "kind": "methodological"
+    },
+    "fetch-023": {
+      "kind": "quantitative"
+    },
+    "fetch-024": {
+      "kind": "definitional"
+    },
+    "fetch-025": {
+      "kind": "comparative"
+    },
+    "fetch-026": {
+      "kind": "methodological"
+    },
+    "fetch-027": {
+      "kind": "quantitative"
+    },
+    "fetch-028": {
+      "kind": "comparative"
+    },
+    "fetch-029": {
+      "kind": "limitation"
+    },
+    "fetch-030": {
+      "kind": "quantitative"
+    },
+    "fetch-031": {
+      "kind": "methodological"
+    },
+    "fetch-032": {
+      "kind": "definitional"
+    },
+    "fetch-033": {
+      "kind": "quantitative"
+    },
+    "fetch-034": {
+      "kind": "comparative"
+    },
+    "fetch-035": {
+      "kind": "limitation"
+    },
+    "fetch-036": {
+      "kind": "limitation"
+    },
+    "fetch-037": {
+      "kind": "methodological"
+    },
+    "fetch-038": {
+      "kind": "quantitative"
+    },
+    "fetch-039": {
+      "kind": "limitation"
+    },
+    "fetch-040": {
+      "kind": "comparative"
+    },
+    "fetch-041": {
+      "kind": "methodological"
+    },
+    "fetch-042": {
+      "kind": "methodological"
+    },
+    "fetch-043": {
+      "kind": "quantitative"
+    },
+    "fetch-044": {
+      "kind": "limitation"
+    },
+    "fetch-045": {
+      "kind": "comparative"
+    },
+    "fetch-046": {
+      "kind": "methodological"
+    },
+    "fetch-047": {
+      "kind": "quantitative"
+    },
+    "fetch-048": {
+      "kind": "comparative"
+    },
+    "fetch-049": {
+      "kind": "methodological"
+    },
+    "fetch-050": {
+      "kind": "quantitative"
+    },
+    "fetch-051": {
+      "kind": "cross-document"
+    },
+    "fetch-052": {
+      "kind": "cross-document"
+    },
+    "fetch-053": {
+      "kind": "cross-document"
+    },
+    "fetch-054": {
+      "kind": "cross-document"
+    },
+    "operator-001": {
+      "kind": "definitional"
+    },
+    "operator-002": {
+      "kind": "methodological"
+    },
+    "operator-003": {
+      "kind": "methodological"
+    },
+    "operator-004": {
+      "kind": "quantitative"
+    },
+    "operator-005": {
+      "kind": "comparative"
+    },
+    "operator-006": {
+      "kind": "limitation"
+    },
+    "operator-007": {
+      "kind": "definitional"
+    },
+    "operator-008": {
+      "kind": "methodological"
+    },
+    "operator-009": {
+      "kind": "methodological"
+    },
+    "operator-010": {
+      "kind": "quantitative"
+    },
+    "operator-011": {
+      "kind": "comparative"
+    },
+    "operator-012": {
+      "kind": "limitation"
+    },
+    "operator-013": {
+      "kind": "definitional"
+    },
+    "operator-014": {
+      "kind": "methodological"
+    },
+    "operator-015": {
+      "kind": "methodological"
+    },
+    "operator-016": {
+      "kind": "quantitative"
+    },
+    "operator-017": {
+      "kind": "comparative"
+    },
+    "operator-018": {
+      "kind": "limitation"
+    },
+    "operator-019": {
+      "kind": "definitional"
+    },
+    "operator-020": {
+      "kind": "methodological"
+    },
+    "operator-021": {
+      "kind": "methodological"
+    },
+    "operator-022": {
+      "kind": "quantitative"
+    },
+    "operator-023": {
+      "kind": "comparative"
+    },
+    "operator-024": {
+      "kind": "limitation"
+    },
+    "operator-025": {
+      "kind": "quantitative"
+    },
+    "operator-026": {
+      "kind": "methodological"
+    },
+    "operator-027": {
+      "kind": "methodological"
+    },
+    "operator-028": {
+      "kind": "comparative"
+    },
+    "operator-029": {
+      "kind": "limitation"
+    },
+    "operator-030": {
+      "kind": "limitation"
+    },
+    "operator-031": {
+      "kind": "definitional"
+    },
+    "operator-032": {
+      "kind": "methodological"
+    },
+    "operator-033": {
+      "kind": "quantitative"
+    },
+    "operator-034": {
+      "kind": "quantitative"
+    },
+    "operator-035": {
+      "kind": "limitation"
+    },
+    "operator-036": {
+      "kind": "comparative"
+    },
+    "operator-037": {
+      "kind": "methodological"
+    },
+    "operator-038": {
+      "kind": "definitional"
+    },
+    "operator-039": {
+      "kind": "quantitative"
+    },
+    "operator-040": {
+      "kind": "comparative"
+    },
+    "operator-041": {
+      "kind": "limitation"
+    },
+    "operator-042": {
+      "kind": "definitional"
+    },
+    "operator-043": {
+      "kind": "methodological"
+    },
+    "operator-044": {
+      "kind": "quantitative"
+    },
+    "operator-045": {
+      "kind": "quantitative"
+    },
+    "operator-046": {
+      "kind": "comparative"
+    },
+    "operator-047": {
+      "kind": "limitation"
+    },
+    "operator-048": {
+      "kind": "cross-document"
+    },
+    "operator-049": {
+      "kind": "cross-document"
+    },
+    "operator-050": {
+      "kind": "cross-document"
+    },
+    "operator-051": {
+      "kind": "cross-document"
+    },
+    "operator-052": {
+      "kind": "cross-document"
+    },
+    "operator-053": {
+      "kind": "cross-document"
+    }
+  },
+  "question_contributors": {
+    "fetch-001": [
+      "whole-corpus"
+    ],
+    "fetch-002": [
+      "whole-corpus"
+    ],
+    "fetch-003": [
+      "whole-corpus"
+    ],
+    "fetch-004": [
+      "whole-corpus"
+    ],
+    "fetch-005": [
+      "whole-corpus"
+    ],
+    "fetch-006": [
+      "whole-corpus"
+    ],
+    "fetch-007": [
+      "whole-corpus"
+    ],
+    "fetch-008": [
+      "whole-corpus"
+    ],
+    "fetch-009": [
+      "whole-corpus"
+    ],
+    "fetch-010": [
+      "whole-corpus"
+    ],
+    "fetch-011": [
+      "whole-corpus"
+    ],
+    "fetch-012": [
+      "whole-corpus"
+    ],
+    "fetch-013": [
+      "whole-corpus"
+    ],
+    "fetch-014": [
+      "whole-corpus"
+    ],
+    "fetch-015": [
+      "whole-corpus"
+    ],
+    "fetch-016": [
+      "whole-corpus"
+    ],
+    "fetch-017": [
+      "whole-corpus"
+    ],
+    "fetch-018": [
+      "whole-corpus"
+    ],
+    "fetch-019": [
+      "whole-corpus"
+    ],
+    "fetch-020": [
+      "whole-corpus"
+    ],
+    "fetch-021": [
+      "whole-corpus"
+    ],
+    "fetch-022": [
+      "whole-corpus"
+    ],
+    "fetch-023": [
+      "whole-corpus"
+    ],
+    "fetch-024": [
+      "whole-corpus"
+    ],
+    "fetch-025": [
+      "whole-corpus"
+    ],
+    "fetch-026": [
+      "whole-corpus"
+    ],
+    "fetch-027": [
+      "whole-corpus"
+    ],
+    "fetch-028": [
+      "whole-corpus"
+    ],
+    "fetch-029": [
+      "whole-corpus"
+    ],
+    "fetch-030": [
+      "whole-corpus"
+    ],
+    "fetch-031": [
+      "whole-corpus"
+    ],
+    "fetch-032": [
+      "whole-corpus"
+    ],
+    "fetch-033": [
+      "whole-corpus"
+    ],
+    "fetch-034": [
+      "whole-corpus"
+    ],
+    "fetch-035": [
+      "whole-corpus"
+    ],
+    "fetch-036": [
+      "whole-corpus"
+    ],
+    "fetch-037": [
+      "whole-corpus"
+    ],
+    "fetch-038": [
+      "whole-corpus"
+    ],
+    "fetch-039": [
+      "whole-corpus"
+    ],
+    "fetch-040": [
+      "whole-corpus"
+    ],
+    "fetch-041": [
+      "whole-corpus"
+    ],
+    "fetch-042": [
+      "whole-corpus"
+    ],
+    "fetch-043": [
+      "whole-corpus"
+    ],
+    "fetch-044": [
+      "whole-corpus"
+    ],
+    "fetch-045": [
+      "whole-corpus"
+    ],
+    "fetch-046": [
+      "whole-corpus"
+    ],
+    "fetch-047": [
+      "whole-corpus"
+    ],
+    "fetch-048": [
+      "whole-corpus"
+    ],
+    "fetch-049": [
+      "whole-corpus"
+    ],
+    "fetch-050": [
+      "whole-corpus"
+    ],
+    "fetch-051": [
+      "whole-corpus"
+    ],
+    "fetch-052": [
+      "whole-corpus"
+    ],
+    "fetch-053": [
+      "whole-corpus"
+    ],
+    "fetch-054": [
+      "whole-corpus"
+    ],
+    "operator-001": [
+      "whole-corpus"
+    ],
+    "operator-002": [
+      "whole-corpus"
+    ],
+    "operator-003": [
+      "whole-corpus"
+    ],
+    "operator-004": [
+      "whole-corpus"
+    ],
+    "operator-005": [
+      "whole-corpus"
+    ],
+    "operator-006": [
+      "whole-corpus"
+    ],
+    "operator-007": [
+      "whole-corpus"
+    ],
+    "operator-008": [
+      "whole-corpus"
+    ],
+    "operator-009": [
+      "whole-corpus"
+    ],
+    "operator-010": [
+      "whole-corpus"
+    ],
+    "operator-011": [
+      "whole-corpus"
+    ],
+    "operator-012": [
+      "whole-corpus"
+    ],
+    "operator-013": [
+      "whole-corpus"
+    ],
+    "operator-014": [
+      "whole-corpus"
+    ],
+    "operator-015": [
+      "whole-corpus"
+    ],
+    "operator-016": [
+      "whole-corpus"
+    ],
+    "operator-017": [
+      "whole-corpus"
+    ],
+    "operator-018": [
+      "whole-corpus"
+    ],
+    "operator-019": [
+      "whole-corpus"
+    ],
+    "operator-020": [
+      "whole-corpus"
+    ],
+    "operator-021": [
+      "whole-corpus"
+    ],
+    "operator-022": [
+      "whole-corpus"
+    ],
+    "operator-023": [
+      "whole-corpus"
+    ],
+    "operator-024": [
+      "whole-corpus"
+    ],
+    "operator-025": [
+      "whole-corpus"
+    ],
+    "operator-026": [
+      "whole-corpus"
+    ],
+    "operator-027": [
+      "whole-corpus"
+    ],
+    "operator-028": [
+      "whole-corpus"
+    ],
+    "operator-029": [
+      "whole-corpus"
+    ],
+    "operator-030": [
+      "whole-corpus"
+    ],
+    "operator-031": [
+      "whole-corpus"
+    ],
+    "operator-032": [
+      "whole-corpus"
+    ],
+    "operator-033": [
+      "whole-corpus"
+    ],
+    "operator-034": [
+      "whole-corpus"
+    ],
+    "operator-035": [
+      "whole-corpus"
+    ],
+    "operator-036": [
+      "whole-corpus"
+    ],
+    "operator-037": [
+      "whole-corpus"
+    ],
+    "operator-038": [
+      "whole-corpus"
+    ],
+    "operator-039": [
+      "whole-corpus"
+    ],
+    "operator-040": [
+      "whole-corpus"
+    ],
+    "operator-041": [
+      "whole-corpus"
+    ],
+    "operator-042": [
+      "whole-corpus"
+    ],
+    "operator-043": [
+      "whole-corpus"
+    ],
+    "operator-044": [
+      "whole-corpus"
+    ],
+    "operator-045": [
+      "whole-corpus"
+    ],
+    "operator-046": [
+      "whole-corpus"
+    ],
+    "operator-047": [
+      "whole-corpus"
+    ],
+    "operator-048": [
+      "whole-corpus"
+    ],
+    "operator-049": [
+      "whole-corpus"
+    ],
+    "operator-050": [
+      "whole-corpus"
+    ],
+    "operator-051": [
+      "whole-corpus"
+    ],
+    "operator-052": [
+      "whole-corpus"
+    ],
+    "operator-053": [
+      "whole-corpus"
+    ]
+  },
+  "question_seconds": {
+    "keyed_by": "question-id",
+    "seconds": {
+      "fetch-001": 3.998341499827802,
+      "fetch-002": 7.531009332975373,
+      "fetch-003": 5.40850858297199,
+      "fetch-004": 4.497968791984022,
+      "fetch-005": 7.941182458074763,
+      "fetch-006": 4.400375084020197,
+      "fetch-007": 5.836972250137478,
+      "fetch-008": 4.901545624947175,
+      "fetch-009": 3.4267970421351492,
+      "fetch-010": 8.249234375078231,
+      "fetch-011": 6.865566916996613,
+      "fetch-012": 11.150204832898453,
+      "fetch-013": 6.1216896250844,
+      "fetch-014": 6.352990583050996,
+      "fetch-015": 10.090796458069235,
+      "fetch-016": 6.272673832951114,
+      "fetch-017": 5.101001999806613,
+      "fetch-018": 3.8423260408453643,
+      "fetch-019": 4.902862375136465,
+      "fetch-020": 4.446248791879043,
+      "fetch-021": 4.498637792188674,
+      "fetch-022": 4.809640709077939,
+      "fetch-023": 4.389130041003227,
+      "fetch-024": 5.991168165812269,
+      "fetch-025": 5.197649167152122,
+      "fetch-026": 4.17111066612415,
+      "fetch-027": 4.365592374932021,
+      "fetch-028": 4.487839834066108,
+      "fetch-029": 8.659785208990797,
+      "fetch-030": 4.747828500112519,
+      "fetch-031": 9.110168874962255,
+      "fetch-032": 6.539694417035207,
+      "fetch-033": 5.977683999808505,
+      "fetch-034": 7.399769417010248,
+      "fetch-035": 5.1361441251356155,
+      "fetch-036": 7.360755041008815,
+      "fetch-037": 5.146566499955952,
+      "fetch-038": 3.7399605829268694,
+      "fetch-039": 6.0298409999813884,
+      "fetch-040": 3.8710839168634266,
+      "fetch-041": 4.204811124829575,
+      "fetch-042": 3.983328958041966,
+      "fetch-043": 5.90237795910798,
+      "fetch-044": 4.348578000208363,
+      "fetch-045": 3.9868715000338852,
+      "fetch-046": 5.953273999970406,
+      "fetch-047": 6.523779207840562,
+      "fetch-048": 6.3805860409047455,
+      "fetch-049": 4.0874522919766605,
+      "fetch-050": 5.149401499889791,
+      "fetch-051": 10.993963291868567,
+      "fetch-052": 10.880421916022897,
+      "fetch-053": 11.858136666938663,
+      "fetch-054": 14.865483208093792,
+      "operator-001": 7.87740687513724,
+      "operator-002": 8.067618542117998,
+      "operator-003": 3.867021249840036,
+      "operator-004": 5.0568649168126285,
+      "operator-005": 6.093785124830902,
+      "operator-006": 11.685903665842488,
+      "operator-007": 4.031818707939237,
+      "operator-008": 7.393755541881546,
+      "operator-009": 5.315365541959181,
+      "operator-010": 4.3840609160251915,
+      "operator-011": 5.091849833028391,
+      "operator-012": 5.063929000170901,
+      "operator-013": 5.532495624851435,
+      "operator-014": 5.01037916704081,
+      "operator-015": 5.998854875098914,
+      "operator-016": 3.712745875120163,
+      "operator-017": 5.810975250089541,
+      "operator-018": 5.25420791702345,
+      "operator-019": 5.558695833897218,
+      "operator-020": 5.051072790985927,
+      "operator-021": 3.743961124913767,
+      "operator-022": 5.146220791852102,
+      "operator-023": 4.395942999981344,
+      "operator-024": 4.404334249906242,
+      "operator-025": 3.442421207902953,
+      "operator-026": 7.589391707908362,
+      "operator-027": 5.559460083022714,
+      "operator-028": 3.0288427078630775,
+      "operator-029": 5.269848332973197,
+      "operator-030": 3.47885233303532,
+      "operator-031": 4.337569291936234,
+      "operator-032": 9.941571625182405,
+      "operator-033": 7.695824375143275,
+      "operator-034": 4.4854537500068545,
+      "operator-035": 7.472479083109647,
+      "operator-036": 6.1077471249736845,
+      "operator-037": 5.2820294161792845,
+      "operator-038": 4.548789875116199,
+      "operator-039": 4.627401625039056,
+      "operator-040": 9.928557959152386,
+      "operator-041": 6.269991625100374,
+      "operator-042": 7.682490000035614,
+      "operator-043": 3.944305832963437,
+      "operator-044": 4.611973833991215,
+      "operator-045": 4.4465870000422,
+      "operator-046": 6.413125333143398,
+      "operator-047": 5.258549666963518,
+      "operator-048": 9.996086375089362,
+      "operator-049": 7.683459207881242,
+      "operator-050": 5.915068707894534,
+      "operator-051": 5.527034791186452,
+      "operator-052": 11.635837083915249,
+      "operator-053": 8.166695959167555
+    }
+  },
+  "token_usage": {
+    "generate": {
+      "prompt_tokens": 27951112,
+      "completion_tokens": 30266,
+      "calls": 107,
+      "calls_not_reporting": 0
+    },
+    "grade": {
+      "prompt_tokens": 73475,
+      "completion_tokens": 88664,
+      "calls": 110,
+      "calls_not_reporting": 0
+    },
+    "embed": {
+      "prompt_tokens": 25373,
+      "completion_tokens": 0,
+      "calls": 104,
+      "calls_not_reporting": 0
+    }
+  },
+  "experiment": {
+    "name": "whole-corpus-en",
+    "digest": "33af3a396a648b206e33bb6d39661db7282b055ca48995390385969874d5eddb",
+    "invocation": "77a0ab088ccd43688bc0403932c95e6b",
+    "arm": "whole-corpus",
+    "repetition": 2,
+    "pool_manifest": null
+  },
+  "target": "default",
+  "target_embedding": {
+    "plugin": "openai-embeddings",
+    "distribution": "weft-rag",
+    "model": "text-embedding-3-large",
+    "width": null
+  }
+}
