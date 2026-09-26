@@ -38,13 +38,12 @@ from weft_engine.run_services import class_provides
 from weft_extract import Extractor
 from weft_extract.text import SourceRef
 from weft_index.contract import LayerCheckpoints, LayerRevision
+from weft_index.leaves import leaf_filter
 from weft_index.payload import LayerMember, Representation
 from weft_kernel.context import Context, ServiceRegistry, UnresolvedServiceError
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import (
-    SCHEMA_VERSION_KEY,
-    ExtModel,
     Failed,
     Node,
     NodeId,
@@ -90,7 +89,6 @@ from weft_store.contract import (
     VectorSearch,
     WriterClaim,
 )
-from weft_store.rehydrate import ext_models
 
 
 def _is_layer_stage(contract: type[object]) -> bool:
@@ -757,33 +755,11 @@ def _stamped(created: Sequence[Node], *, layer: str) -> tuple[Node, ...]:
     return tuple(node.with_ext(LayerMember(layer=layer)) for node in created)
 
 
-def _not_a_leaf_namespaces() -> tuple[str, ...]:
-    """Every registered ext model namespace whose class declares `not_a_leaf`.
-
-    Every registered ext model's namespace whose class declares `not_a_leaf = True`, read
-    as `_is_layer_stage` reads `layer_stage`, so this module names no pack's model (FF28).
-    """
-    namespaces: list[str] = []
-    for namespace in sorted(ext_models.names_for(ExtModel)):
-        registrant = ext_models.lookup(ExtModel, namespace)
-        if not (isinstance(registrant, type) and issubclass(registrant, ExtModel)):
-            continue
-        if getattr(registrant, "not_a_leaf", False) is True:
-            namespaces.append(namespace)
-    return tuple(namespaces)
-
-
 def layer_leaf_filter(sources: Sequence[SourceId]) -> Filter:
-    """The filter a layer's batch reads its leaves through.
+    """The filter a layer's batch reads its leaves through — ledger task **43.8**, R43.22.
 
-    The selection a layer's own batch reads its leaves through — ledger task **43.8**,
-    extended **R43.22**.
-
-    `IN lineage.sources` narrows to this batch's own sources; `NOT(EXISTS
-    ext.weft-index.technique)` leaves out every node an `Expander` already derived, so a layer
-    never re-enriches another layer's output; and every registered ext model declaring
-    `not_a_leaf` excludes the nodes carrying it (R43.22). Every stored namespace carries
-    `__schema_version__`, which is what the `EXISTS` reads.
+    `weft_index.leaves.leaf_filter`, the store's leaves, narrowed by `IN lineage.sources` to this
+    batch's own sources, so a layer never re-enriches another layer's output (43.47).
     """
     return Filter(
         op=FilterOp.AND,
@@ -793,27 +769,7 @@ def layer_leaf_filter(sources: Sequence[SourceId]) -> Filter:
                 field="lineage.sources",
                 value=tuple(str(source) for source in sources),
             ),
-            Filter(
-                op=FilterOp.NOT,
-                clauses=(
-                    Filter(
-                        op=FilterOp.EXISTS,
-                        field=f"ext.{Representation.__namespace__}.technique",
-                    ),
-                ),
-            ),
-            *(
-                Filter(
-                    op=FilterOp.NOT,
-                    clauses=(
-                        Filter(
-                            op=FilterOp.EXISTS,
-                            field=f"ext.{namespace}.{SCHEMA_VERSION_KEY}",
-                        ),
-                    ),
-                )
-                for namespace in _not_a_leaf_namespaces()
-            ),
+            *leaf_filter().clauses,
         ),
     )
 

@@ -1108,7 +1108,7 @@ derived evidence, never a leaf a layer enriches
 implies either, so neither can be derived, and no contract's publisher can promise either for
 every implementation. The engine reads them and checks nothing against the code:
 `not_a_leaf` counts only when it `is True`
-(`packages/weft-rag/src/weft_cli/layers.py:771 "False) is True"`), and a store whose `consumes`
+(`packages/weft-rag/src/weft_index/leaves.py:27 "False) is True"`), and a store whose `consumes`
 lists a namespace satisfies `layer.store-consumes` whether or not it writes rows for it
 (`packages/weft-rag/src/weft_cli/layers.py:533 "for model in getattr(candidate"`).
 `manual/pack-author-guide.md` §9.6 says where each is read and what it changes.

@@ -1060,7 +1060,7 @@ The tree is built out of sight and made searchable all at once, so a query never
   ```
 
   `reclaimed 2` is the two summaries the first join replaced
-  (`packages/weft-rag/src/weft_cli/layers.py:1735 "reclaim_withdrawn(layer)"`). `weft reconcile`,
+  (`packages/weft-rag/src/weft_cli/layers.py:1693 "reclaim_withdrawn(layer)"`). `weft reconcile`,
   in any mode, removes whatever is still withdrawn — here the tree the second join replaced:
 
   ```text
