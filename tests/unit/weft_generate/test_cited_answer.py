@@ -464,3 +464,28 @@ async def test_a_refusal_for_empty_evidence_still_says_which_arms_were_asked() -
     assert isinstance(outcome, Produced)
     assert outcome.value.stance == AnswerStance.NOT_IN_CORPUS
     assert outcome.value.contributors == _ARMS
+
+
+async def test_a_null_max_passages_offers_every_passage_it_is_handed() -> None:
+    # Arrange — task 43.48: `whole-corpus-then-generate` hands this stage every leaf of a
+    # corpus, so a cap would cut the corpus with nothing said. Twelve passages is past the
+    # default of eight, so a silent cap would show.
+    passages = tuple(_passage(str(i), f"passage number {i}") for i in range(1, 13))
+    llm = _StubLLM(["an answer [12]."])
+    config = CitedAnswerConfig(max_passages=None)
+
+    # Act
+    outcome = await CitedAnswer(config).run(_passages(*passages), _ctx(_services(llm)))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert all(f"passage number {i}" in llm.last_prompt for i in range(1, 13))
+    assert [c.marker for c in outcome.value.citations] == ["12"]
+
+
+def test_the_default_still_offers_eight_passages() -> None:
+    # Arrange / Act
+    config = CitedAnswerConfig()
+
+    # Assert
+    assert config.max_passages == 8

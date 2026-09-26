@@ -99,7 +99,8 @@ class CitedAnswerConfig(BaseModel):
 
     prompt: str = Field(default=ANSWER_WITH_CITATIONS_NAME, min_length=1)
     role: Annotated[str, LLMRole()] = Field(default="generate", min_length=1)
-    max_passages: int = Field(default=8, ge=1)
+    #: `None` offers every passage handed in, for a pipeline that hands in a whole corpus (43.48).
+    max_passages: int | None = Field(default=8, ge=1)
     #: Presents the offered evidence grouped under the retriever that found it, rather
     #: than as one flat numbered list — useful once a fan-out or hybrid pipeline feeds
     #: this stage passages `Passage.retrieved_by` disagrees about.
@@ -144,8 +145,9 @@ class CitedAnswer:
                 )
             offered: tuple[Passage, ...] = ()
         else:
+            limit = self._config.max_passages
             offered = await _resolved_to_citable(
-                payload.best_ranked(self._config.max_passages), ctx=ctx
+                payload.passages if limit is None else payload.best_ranked(limit), ctx=ctx
             )
 
         llm = ctx.require(LLM)
