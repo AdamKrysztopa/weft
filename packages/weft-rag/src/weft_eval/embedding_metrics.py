@@ -101,6 +101,7 @@ class BERTScore:
     #: Task 4.7, Q6: `False` unconditionally — even with the optional extra installed, this
     #: metric downloads a BERT checkpoint on first use, which a clean gate checkout cannot do.
     runs_in_gate: ClassVar[bool] = False
+    reported_name: ClassVar[str] = "bertscore"
     #: Read defensively by `weft_eval.offline`, the same convention-not-seam status `intact`
     #: already has — never required, only read when present.
     gate_unsafe_reason: ClassVar[str] = (
@@ -145,7 +146,9 @@ class BERTScore:
             lang=payload.language,
             verbose=False,
         )
-        return Produced(value=MetricScore(metric_name="bertscore", value=float(f1.mean())))
+        return Produced(
+            value=MetricScore(metric_name=BERTScore.reported_name, value=float(f1.mean()))
+        )
 
 
 __all__ = ["BERT_SCORE_AVAILABLE", "BERTScore", "EmbeddingSimilarity", "NoConfig"]

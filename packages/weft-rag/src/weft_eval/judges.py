@@ -117,6 +117,7 @@ class Faithfulness:
     config_model: ClassVar[type[JudgeConfig]] = JudgeConfig
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
+    reported_name: ClassVar[str] = "faithfulness"
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -158,7 +159,9 @@ class Faithfulness:
 
         supported = sum(1 for statement in statements if statement.supported)
         return Produced(
-            value=MetricScore(metric_name="faithfulness", value=supported / len(statements))
+            value=MetricScore(
+                metric_name=Faithfulness.reported_name, value=supported / len(statements)
+            )
         )
 
 
@@ -288,6 +291,7 @@ class AnswerRelevance:
     config_model: ClassVar[type[JudgeConfig]] = JudgeConfig
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
+    reported_name: ClassVar[str] = "answer_relevance"
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -336,7 +340,8 @@ class AnswerRelevance:
         ]
         return Produced(
             value=MetricScore(
-                metric_name="answer_relevance", value=sum(similarities) / len(similarities)
+                metric_name=AnswerRelevance.reported_name,
+                value=sum(similarities) / len(similarities),
             )
         )
 
@@ -437,6 +442,7 @@ class AnswerCompleteness:
     config_model: ClassVar[type[JudgeConfig]] = JudgeConfig
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
+    reported_name: ClassVar[str] = "answer_completeness"
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -479,7 +485,7 @@ class AnswerCompleteness:
 
         return Produced(
             value=MetricScore(
-                metric_name="answer_completeness", value=len(judgement.covered) / total
+                metric_name=AnswerCompleteness.reported_name, value=len(judgement.covered) / total
             )
         )
 

@@ -563,16 +563,11 @@ async def score_generation_gate_subset(
 def judge_plugin_names(names: Iterable[str], *, registry: Registry) -> Mapping[str, str]:
     """Every one of `names` a registered `GenerationMetric` declares as its own `reported_name`.
 
-    Maps a document's own recorded metric name — `weft_eval.judges.AnswerCorrectness`'s
-    `answer_correctness`, the name every entry in an experiment's `metrics =` is written in — to
-    the registered plugin name that reports it, reading the class's own `reported_name`
-    (`getattr`, never calling `evaluate` or a model) off every registered `GenerationMetric`.
-    Most of this pack's own `GenerationMetric`s report a name only once they have actually
-    scored something (the module docstring's own paragraph); `AnswerCorrectness` is the one
-    metric that states its own name up front, which is exactly what lets a caller here ask
-    whether a document's metric name *is* a judge without building one, let alone calling a
-    model, to find out — `weft_cli.eval_experiment`'s own pre-flight and its plan command are
-    both this function's callers.
+    Maps a document's recorded metric name (`answer_correctness`, as every entry in an
+    experiment's `metrics =` is written) to the registered plugin that reports it, reading each
+    class's declared `reported_name` without building it or calling a model. Every generation
+    judge declares one (R43.57, held by `tests/unit/weft_eval/test_every_judge_is_nameable.py`);
+    a gate-safe metric that reports its name only once it has scored is not found here.
     """
     by_reported: dict[str, str] = {}
     for plugin_name in sorted(registry.names_for(GenerationMetric)):
