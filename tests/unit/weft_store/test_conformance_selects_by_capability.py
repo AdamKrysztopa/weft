@@ -388,3 +388,51 @@ def test_a_store_that_withdraws_without_searching_is_asked_the_refusal_check() -
         "TextSearch",
         "MetadataFilter",
     }
+
+
+def _methods(protocol: type) -> set[str]:
+    return {name for name, value in vars(protocol).items() if callable(value) and name[0] != "_"}
+
+
+def _store_with(methods: set[str]) -> object:
+    async def _unused(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"selection called a store method with {args!r} {kwargs!r}")
+
+    return type("_Shaped", (), dict.fromkeys(methods, _unused))()
+
+
+def test_a_check_is_withheld_from_a_store_lacking_any_capability_its_shape_extends() -> None:
+    """Selection follows every capability a store shape's bases name (43f close).
+
+    The kit's capability map is written by hand beside Protocols that already state it, and it
+    drifted three times in one phase: `43.39` completed one generation shape, `43.40` found two
+    siblings it missed, and the phase review found `SingleWriterStore` missing `TargetHolding`.
+    """
+    # Arrange
+    import weft_store.conformance as kit
+    import weft_store.contract as contract
+    from weft_kernel.runner import Stage
+    from weft_store.conformance import checks_for, unsupported_checks
+
+    capabilities = {
+        name: getattr(contract, name)
+        for name in dir(contract)
+        if getattr(getattr(contract, name), "_is_protocol", False)
+        and name not in {"NodeStore", "Stage", "Protocol"}
+    }
+    base = _methods(contract.NodeStore) | _methods(Stage)
+    every = [check for check, _ in unsupported_checks(_store_with(base))]
+
+    # Act
+    offered_anyway: list[str] = []
+    for check in every:
+        shape = getattr(kit, str(check.__annotations__.get("store")))
+        extends = [c for c in capabilities.values() if c in shape.__mro__]
+        for missing in extends:
+            others = set[str]().union(*(_methods(c) for c in extends if c is not missing))
+            if check in checks_for(_store_with(base | others)):
+                offered_anyway.append(f"{check.__name__} without {missing.__name__}")
+
+    # Assert
+    assert every
+    assert offered_anyway == []

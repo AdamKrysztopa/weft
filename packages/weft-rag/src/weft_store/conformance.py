@@ -208,7 +208,7 @@ _CAPABILITY_OF: Final[Mapping[str, tuple[tuple[str, str], ...]]] = {
         ("GenerationWithdrawing", "withdraw_generation"),
         ("GenerationHolding", "open_generation"),
     ),
-    "SingleWriterStore": (("SingleWriter", "claim_writer"),),
+    "SingleWriterStore": (("SingleWriter", "claim_writer"), ("TargetHolding", "target_catalogue")),
 }
 
 #: Every method `NodeStore` publishes. A thing missing any of them is refused rather than filtered.
