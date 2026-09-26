@@ -56,9 +56,23 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   nothing changed: the cheap full rebuild, paying the layer's model calls and no re-parse.
 - **`weft delete` accepts a path relative to where you run it**, as `weft sources list`'s paths
   are typed.
+- **`whole-corpus-then-generate` answers from every leaf of the corpus**, through a new
+  `whole-corpus` retriever that reads nothing of the question. A corpus whose leaves count more
+  than `max_tokens` (default 100,000) on the generating role's tokenizer is refused by name with
+  `CorpusOverTokenBoundError`, never cut to fit. The router does not offer it: ask it with
+  `--pipeline`.
+- **`cited-answer` takes `max_passages: null`** to offer every passage it is handed. The default
+  is still 8.
+- **An experiment's `questions` may name several files**, scored and paired as one set; a
+  question id in two of them is refused naming both. One file keeps its question-set digest.
+- **An experiment scores `answer_correctness` when its `metrics` name it**, one judgement per
+  answered question on the `grade` role; an unmapped `grade` stops the run before anything is
+  indexed, and `weft eval plan` states the judge calls and their rate.
 
 ### Changed
 
+- **`weft eval table` states each paired interval before its point estimate**: the `95% CI`
+  column now comes before `paired Δ`. Every committed table was regenerated; no number moved.
 - **`Language`, the `weft_clean` ext model, stays, and its deprecation is withdrawn.** It was marked
   for removal at 3.0.0 because nothing writes it. But `polish-dictionary-spacing` scopes itself by
   it, and without it that fixer would apply to every node, splitting English words the way it did

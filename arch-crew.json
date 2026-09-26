@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "weft-high-level-plan",
+      "kind": "architecture-document",
+      "covers": [
+        "fitness-functions",
+        "kernel-boundary",
+        "phases",
+        "quality-requirements"
+      ],
+      "scope": [],
+      "path": "docs/01-high-level-plan.md",
+      "title": null,
+      "designated_by": "Adam Krysztopa",
+      "designated_on": "2026-09-26",
+      "provenance": "Weft's settled plan; gates recorded in docs/internal/README.md",
+      "precedence": 30,
+      "checked_at": null,
+      "digest": null,
+      "notes": null
+    },
+    {
+      "id": "weft-extension-model",
+      "kind": "architecture-document",
+      "covers": [
+        "contracts",
+        "discovery",
+        "payload-model",
+        "trust-model"
+      ],
+      "scope": [],
+      "path": "docs/02-extension-model.md",
+      "title": null,
+      "designated_by": "Adam Krysztopa",
+      "designated_on": "2026-09-26",
+      "provenance": "Weft's settled extension model",
+      "precedence": 30,
+      "checked_at": null,
+      "digest": null,
+      "notes": null
+    }
+  ]
+}

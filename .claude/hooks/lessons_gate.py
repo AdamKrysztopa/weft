@@ -35,8 +35,13 @@ SPOOL = ROOT / ".claude" / "lessons-spool.md"
 _ENTRY_MARK = "\n---\n"
 
 
-def pending(text: str) -> list[str]:
+def pending(text: str, session_id: str = "") -> list[str]:
     """The `## <stamp> — <agent>` heading of every unread entry in the spool.
+
+    **Only this session's entries** (`L28.67`): the harvest runs for every session in this
+    directory, so a headless `claude -p` run's subagents spool here too. An entry counts when its
+    `Transcript:` path names `session_id`, or when it names no transcript at all; with no
+    `session_id` every entry counts, as before.
 
     **Split on the separator, then take one heading per part** — never a scan for `## ` lines
     across the whole file. Two ways that second shape was wrong, one of them found by an
@@ -55,6 +60,11 @@ def pending(text: str) -> list[str]:
     parts = text.split(_ENTRY_MARK)[1:]
     headings: list[str] = []
     for part in parts:
+        transcript = next(
+            (line for line in part.splitlines() if line.startswith("Transcript:")), ""
+        )
+        if session_id and "/" in transcript and f"/{session_id}/" not in transcript:
+            continue
         first = next((line for line in part.splitlines() if line.startswith("## ")), None)
         if first is not None:
             headings.append(first.strip())
@@ -81,7 +91,7 @@ def main() -> int:
     except OSError:
         return 0
 
-    entries = pending(text)
+    entries = pending(text, str(payload.get("session_id") or ""))
     if not entries:
         return 0
 

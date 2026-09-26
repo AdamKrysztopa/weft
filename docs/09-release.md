@@ -951,7 +951,10 @@ downstream. What follows names the four adjustments people actually make, and wh
 1. Write it in **the document that owns phases of its number** — `01` → *Phases* for Phases 0–11,
    and `docs/internal/12-roadmap.md` for everything after, in that document's own section format —
    with an exit that can be **demonstrated rather than argued about**. If the exit cannot be
-   demonstrated, the phase is a wish and does not go in.
+   demonstrated, the phase is a wish and does not go in. A row naming a corpus and a question set is
+   checked by opening the file that pairs them, and a number carried from another document keeps
+   its unit: Phase 43d's row asked for `pl-wiki` "on Weft's 107 questions", fusing a chunk count
+   with a question count, and could not run (`L28.64`).
 
    *(This said `01` unconditionally until 2026-09-12. `12-roadmap.md`'s own first line has read
    "`01` plans Phases 0–11 and stops there" since it was written, and `grep -c "Phase 26a\|Phase

@@ -29,7 +29,7 @@ _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 _ACKNOWLEDGED = "WEFT_MEASUREMENT_CHECKED=1"
 
 REASON = """Refused: a measurement starts only after these are answered.
-(L24.4, L24.7, L24.9-L24.13, L25.4, L26.5, L26.7, L28.2, L28.5, L28.6, L28.8, L28.9)
+(L24.4, L24.7, L24.9-L24.13, L25.4, L26.5, L26.7, L28.2, L28.5, L28.6, L28.8, L28.9, L28.66)
 1. Scale smoke: has this harness run on the free embedder and scripted provider with more than 256
    questions, more than five searches per connection, a planted rung failure and an unparseable
    completion — and were its records read?
@@ -37,6 +37,9 @@ REASON = """Refused: a measurement starts only after these are answered.
    what came back checked against what the consuming code requires — a count, not a status. A 7B
    model returned 49 judgements for 50 passages, valid JSON, and six hours of running excluded 823
    of 830 questions; one call showed it in twenty seconds (L28.9).
+1c. Progress: what does the command print between its start and its first record? A run that
+   prints nothing is watched through open sockets; `weft eval experiment` wrote no line for 25
+   minutes of a paid run (L28.66).
 2. Priced in three units: dollars, wall hours (calls / concurrency x seconds per call) and peak
    memory (nodes per batch x vector width) — all three in the approval. Memory on Apple silicon is
    read with `footprint`, never RSS, which misses Metal buffers by ~10x (L28.5); a served model's

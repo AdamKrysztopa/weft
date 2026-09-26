@@ -118,6 +118,42 @@ question about a document not yet reached gets *"the corpus does not answer this
 not yet indexed"*, not a guess. The runs, the harness and the Qdrant figures are in
 [`eval/fast-ingest/table.md`](eval/fast-ingest/table.md).
 
+## Enrich it later, without re-indexing
+
+The slow, clever parts of RAG (hypothetical questions per chunk, RAPTOR summary trees, an
+LLM-extracted fact graph) are **layers**: built from the chunks already stored, after the base is
+searchable, so they never hold up the first answer.
+
+```bash
+weft index corpus --layers enrich-with-questions            # base first, then the layer
+weft index corpus --layers enrich-with-raptor --layers-only # a layer over an indexed corpus
+```
+
+Four ship: `enrich-with-questions`, `enrich-with-raptor` per document or corpus-wide, and
+`enrich-with-facts-and-graph`. A layer never re-extracts or re-embeds the base. An interrupted
+build resumes without re-paying the clusters it kept. A deleted or changed document hides a stale
+corpus layer from every read until it is rebuilt. A second writer is refused by name. All of it was
+soak-tested from the release wheel: every shipped layer alone and all four stacked, delete,
+re-parse, interrupt and every reconcile mode, twice on pgvector and twice on Qdrant, with zero
+violations (`scripts/soak_layers.py --shape`).
+
+## Or skip retrieval altogether
+
+For a corpus that fits in the model's context, `whole-corpus-then-generate` hands the generator
+every chunk instead of retrieving. It refuses by name, never truncating, when the corpus is over its
+token bound. Measured on Weft's own 107 English questions over 16 papers (253k tokens),
+`gpt-5.6-luna` answering and judging both arms:
+
+| | `retrieve-then-generate` | `whole-corpus-then-generate` |
+|---|---|---|
+| answer correctness (LLM judge) | 0.672 | **0.743**, paired 95% interval **+0.031 to +0.111** |
+| prompt tokens per question | 1,541 | 261,498 (~170×) |
+| p50 latency | 3.7 s | 5.5 s |
+
+It is a better answer at a very different price, so the router does not pick it for you: ask it
+with `--pipeline`. On the 12 Polish questions of a 15k-token corpus, no difference was detectable.
+The records and tables are in [`eval/experiments/whole-corpus-en/`](eval/experiments/whole-corpus-en/table.md).
+
 ## Start here
 
 **[`manual/quickstart.md`](manual/quickstart.md) is the next page**: the four commands above with

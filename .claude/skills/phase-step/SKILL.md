@@ -180,6 +180,9 @@ paid for once; the accounts are in `references/evidence.md` → *Red*.
 - Name the dimension the test varies, then check the fixture actually varies it (`L11.42`,
   `L11.45`); after a bulk edit, re-read every assertion it touched rather than trusting that lint
   would have said something (`L11.35`).
+- A value built from a process-global registry is tested with that registry empty as well as
+  populated: a suite run in order registers what one file alone does not, so a green gate hid a
+  one-clause `AND` that three files failed run alone (`L28.65`).
 - A claim that deleting X removes Y is tested where Y has another dependency that outlives X
   (`L28.43`).
 - A fixture parametrised over backends is read arm by arm for what each leaves behind (`L23.13`).
