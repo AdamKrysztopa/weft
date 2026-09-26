@@ -26,9 +26,9 @@ would ask a human to confirm something the agent cannot do anyway.
 
 **`max_steps` comes from `weft_agent.Settings`, this pack's own configured budget** — an
 operator's decision (that model's own docstring), read here rather than hard-coded a second time.
-Imported inside `run`, not at module scope: `weft_agent/__init__.py` imports `AgentCommand` from
-this module to register it, so a module-scope `from weft_agent import Settings` here would be a
-circular import at the moment `weft_agent` itself is still being defined.
+Imported inside `__init__`, not at module scope: `weft_agent/__init__.py` imports `AgentCommand`
+from this module to register it, so a module-scope `from weft_agent import Settings` here would be
+a circular import at the moment `weft_agent` itself is still being defined.
 """
 
 from __future__ import annotations
@@ -38,13 +38,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from weft_agent import Settings
 
-from collections.abc import Mapping
 from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict
 
 from weft_agent.command_tools import command_tools
-from weft_agent.loop import AgentTool, StopReason, run_agent
+from weft_agent.loop import StopReason, run_agent
 from weft_agent.payload import AgentTranscript
 from weft_command.contract import CommandResult
 from weft_command.permission import PermissionClass
@@ -125,11 +124,6 @@ class AgentCommand:
         Returns:
             `Produced` carrying an `AgentCommandResult`.
         """
-        # Local import: `weft_agent/__init__.py` imports `AgentCommand` from this module to
-        # register it, so a module-scope `from weft_agent import Settings` here would be a
-        # circular import at the moment `weft_agent` itself is still being defined — see this
-        # module's own docstring.
-
         agent_args = cast(AgentArgs, args)
         registry = ctx.require(Registry)
         llm = ctx.require(LLM)
@@ -137,14 +131,7 @@ class AgentCommand:
 
         outcome = await run_agent(
             goal=agent_args.goal,
-            # `CommandTool` satisfies `AgentTool` structurally at runtime (it carries
-            # `description` and an async `call`) but not statically: `AgentTool.description`
-            # is declared `ClassVar[str]`, while `CommandTool` sets it as an instance
-            # attribute in `__init__`. `weft_agent.loop`'s own `NextActionPrompt`/`Prompt`
-            # pairing is the identical, already-established shape for "a static check cannot
-            # see a structural conformance that holds at runtime" — this is that same cast,
-            # not a new pattern.
-            tools=cast("Mapping[str, AgentTool]", tools),
+            tools=tools,
             llm=llm,
             ctx=ctx,
             max_steps=self.max_steps,

@@ -90,12 +90,12 @@ def tool_catalogue(registry: Registry) -> Mapping[str, AgentToolSpec]:
         catalogue[command.name] = AgentToolSpec(
             name=command.name,
             description=command.help,
-            parameters=_args_schema_of(factory, command.name),
+            parameters=args_schema_of(factory, command.name),
         )
     return catalogue
 
 
-def _args_schema_of(factory: object, name: str) -> Mapping[str, object]:
+def args_schema_of(factory: object, name: str) -> Mapping[str, object]:
     """Return a command's argument JSON schema, or fail naming the command and the field.
 
     `factory.args_model.model_json_schema()`, or a loud, specific failure naming which

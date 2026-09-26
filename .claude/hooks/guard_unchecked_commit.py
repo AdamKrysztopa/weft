@@ -97,11 +97,9 @@ _COMMIT = re.compile(r"(?:^|[\n;&|]|\|\||&&)\s*git\s+commit\b")
 REASON = """Refused: this command runs a check and a `git commit` together, so the commit can
 happen while the check's verdict is unread.
 
-Three instances of exactly this shape cost Phase 10 real work (`docs/internal/lessons.md` L10.24):
-an assertion whose message went nowhere and a task committed with no ledger entry; a
-`pytest ... | tail -3 && git commit`, where a pipeline's exit status is its LAST command's,
-so `tail` satisfied the `&&` while tests failed; and a gate whose exit code was reported by
-a wrapper rather than by itself.
+A pipeline's exit status is its LAST command's, so in `pytest ... | tail -3 && git commit`
+`tail` satisfies the `&&` while the tests fail; a backgrounded wrapper's status is likewise not
+the check's (`docs/internal/lessons.md` L10.24).
 
 Split it into two turns:
   1. Run the check alone. Make it the last command in its own chain — never piped into

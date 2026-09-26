@@ -108,10 +108,6 @@ its own citations the same day, each caught by FF17 naming the correct line.
 (`path:line "fragment"`). `39.0`'s brief cited `hybrid` by a bare line range; the implementer
 put that string in a docstring and FF17 stopped the gate on it (`L25.1`).
 
-*Tightening FF17 to demand the fragment be on the exact line was sized and declined: 112 quoted
-citations, **93** exact, **17** inside the window but not on the line. A check arriving red on
-seventeen judgements is one whose waiver is where the real drift hides (`R10.2`).*
-
 **And when the insertion point *is* before a cited line, say in the brief that placement is yours
 to satisfy.** `L22.4`, which is `L21.7` a phase later and the first time an agent could not have
 complied any other way. The `R21.5` implementer returned **green** and put a new public function at
@@ -147,12 +143,6 @@ distances, all three inside Phase 21b, and every one cost a dispatch cycle that 
 This is `L11.17` widened from *doubles* to **any construction the tree has already paid for once**.
 The falsifying move is arithmetic rather than judgement: *what does this repository already contain
 that has this shape?* — and the cost of not asking is paid by the one party forbidden to fix it.
-
-*The mechanical form was sized and declined for the registration half: `registrar.add(` appears in
-**32 of the last 40 commits**, so a hook there fires on 80% of correct work and is one people learn
-to route around (`R10.2`). The skip-count half of the same drain measured **13 of 60** and was
-mechanised as a hook, retired 2026-09-14 with the pinned count it guarded — `tests/conftest.py`'s
-`SkipCause` asks for a cause instead of a number, so there is nothing left to move.*
 
 **On "Already decided".** This is the section that decides whether the dispatch succeeds. Every name
 the test asserts on is already a decision you made; write it down. A brief that says "implement the
@@ -192,12 +182,12 @@ close. The implementer ran the test node ids it was given, which is not the same
 
 ## 4. Parallel dispatch
 
-**Disjoint write sets are not enough, and this paragraph said they were.** Two implementers at
+**Disjoint write sets are not enough.** Two implementers at
 once need **two worktrees**: the same checkout serialises them whether or not their files overlap,
 because the thing they share is not the files, it is the *test suite*, the one `.venv` and the one
 container. Two agents running `pytest` against the same tree truncate each other's tables and get a
 result about neither — three unrelated red tests, naming nothing (`docs/internal/lessons.md` `L9.61`,
-`L6.22`). `isolation: "worktree"`, every dispatch's default since **G14**, gives an agent its own checkout; it does **not** give it its own
+`L6.22`). `isolation: "worktree"`, every green dispatch's default (**G14**), gives an agent its own checkout; it does **not** give it its own
 container, so anything touching the database is serial whatever the isolation.
 
 **A brief's *Done when* names the exact test paths the agent may run** (`L28.21`). "Unit only, no
@@ -217,15 +207,14 @@ dispatcher's checkout, so the brief names a patch path, says to `git apply --ind
 `git apply` leaves a created test untracked and the gate hook refuses the worktree), and asks for the
 failure to be confirmed before any edit. A brief without it sends the agent to make pass a test
 that does not exist in its tree. **Before the patch, Step 0 runs `git merge --ff-only main` and names
-one symbol from the newest commit it depends on to confirm** (`L22.24`). The harness builds a
-worktree from the session's *first* commit, so anything committed since is absent, and the patch
+one symbol from the newest commit it depends on to confirm** (`L22.24`, `L23.33`). A new worktree
+may start behind `main`, so anything committed since is absent, and the patch
 applies cleanly over a tree that lacks the contract the brief was written against. **And a brief never
 tells the agent a change exists that only your checkout holds** (`L22.25`). An uncommitted edit the
 agent's gate reads, such as a documentation file a check walks, is committed or carried in the Step 0
 patch. `R33.1`'s brief said `stream_usage` was *"already documented"* in `weft.toml.example`; that edit
 was uncommitted in main, the worktree lacked it, and the agent correctly blocked on a failing check it
-was forbidden to fix. A hook comparing `git status` against the patch was declined: `docs/internal/`
-is untracked and nearly always dirty, so it would fire on almost every correct dispatch.
+was forbidden to fix.
 
 In practice parallelism is rare inside one ledger task — the tasks are ordered so each is one
 property — and the merge costs more than the sequence saved. Default to one.
@@ -235,46 +224,6 @@ agent's ground truth and are frozen at dispatch: a defect found in them mid-flig
 and re-dispatched, or waited out — never silently repaired underneath (`L9.57`, broken five times in
 one session by the author who had just written the rule down).
 
-
-15. **Does the brief add an error class? Then grep for a *sibling's* name, never for the family's.**
-    `L17.19`. Task 16.5 added two classes to `exit_code_for`'s local-import branch. The brief
-    named the site it knew — fitness function 12's `NAME_RESOLUTION_FAMILY` — and there is a
-    **second** hand-written list, `tests/architecture/test_exit_code_tables_are_live.py`'s
-    `_LOCAL_IMPORT_MEMBERS`, mirroring that branch for a different reason: FF12 asks *does this
-    class carry options*, that one asks *does the module import what the list says*. Neither is
-    reachable from the other, and the second cost a full `ci-no-tests` cycle and a blocked
-    dispatch. The sites are keyed on **two markers at once** — the exception family and the
-    exit-code mechanism — so the search term is an existing member's name
-    (`UnknownQuestionKindError` finds both lists in one grep); the family's own name finds one.
-    **And write what the new name owes outside the code before you dispatch, because the agent
-    may not** (`L22.15`). A new `WeftError` needs a `manual/troubleshooting.md` entry
-    (`tests/docs/test_troubleshooting_coverage.py`), `ci-no-tests` does not run `tests/docs`, and
-    inserting the entry moves every citation below it (check 13). `R22.8` and `R22.7` each spent
-    two full gate runs finding that after a green return. **Grep the sibling's qualname across
-    `tests/` as well as `packages/`** — the sites pinning a family are usually tests, which the agent
-    may not edit, so land that edit yourself in Red (`L23.8`). **A new field on any `*Settings` model
-    owes `weft.toml.example` a line on the same terms**, named in *Files* or written before dispatch
-    (`L23.14`).
-    **And a name the brief moves, renames or stops importing has callers no call graph shows**
-    (`L22.20`): grep the tests for `setattr(<module>, "<name>"` as well as for calls. `R19.17`
-    sized its refactor at 72 direct calls, told the agent to drop `commands.run_index`, and 11
-    tests stubbing that attribute turned a finished task into a blocked return.
-
-16. **A fixture the code cannot reach becomes a specification the agent must satisfy.** `L17.17`,
-    and it recurred four times in one phase. A double written from a contract's prose rather than
-    copied from the existing double of that seam does not merely fail — the one party who may not
-    fix it is the one who has to make it pass, and twice the agent changed *production code* to
-    make an unreachable assertion reachable (a wasted `resolve_in_catalogue` call on every real
-    `weft ask`; a query rung no catalogue held). **An implementer's report saying it moved
-    production code to make a test reachable is a finding about the test**, and the first move is
-    to re-run the fixture against the real composition rather than to accept the workaround.
-
-17. **Does the brief mandate a rendered sentinel a sibling field already uses?** `L17.18`. Two
-    fields whose `None` state both render `(not recorded)` made two assertions — written three
-    hours apart — mutually unsatisfiable, because each set one field and left the other at its
-    helper default. A shared `None` rendering is a design decision and a hostile one for any test
-    that looks for the phrase alone; say in the brief that the assertion carries its field's
-    label.
 
 ## Constraints can be jointly unsatisfiable, and the author is who cannot see it
 
@@ -293,12 +242,10 @@ A branch with no nameable value is a decision still owed, not a constraint. *Alr
 read once per constrained branch, never once per file.
 
 
-## Before you send: seventeen checks a brief fails silently
+## Before you send: checks a brief fails silently
 
-Phase 10 filed **six** entries that are one sentence — *the brief was wrong in a way the dispatcher
-could have checked before sending it*. That density is the finding: none of these is caught by the
-agent, by the gate, or by the tests, because each is a defect in the specification rather than in
-the work. Run these against the brief, not against the code.
+None of these is caught by the agent, by the gate, or by the tests, because each is a defect in the
+specification rather than in the work. Run them against the brief, not against the code.
 
 1. **Every name the brief tells the agent to reach for: does the gate permit reaching it?**
    `L10.39`. A brief said *"you may import `_cosine`, `_format_cluster`... import it rather than
@@ -374,9 +321,6 @@ the work. Run these against the brief, not against the code.
    channel explaining a criterion that could never be met. Keep the dispatcher's checks in *Verify*
    and out of the brief.
 
-**Phase 11 added four more, and every one of them is a claim the brief made about something its
-author had not read.** Six became ten, which is the density Phase 10 already called the finding.
-
 7. **Is the cause the brief names one you measured, or one you inferred?** `L11.9`. A brief
    attributed a slow gate to a cause it had not profiled and listed remedies for it; the real cause
    was elsewhere and every remedy was wasted work the agent dutifully did. `--durations` says
@@ -393,7 +337,7 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
    read. Quote the failure, or say how much of it you read.
 
 9. **Does the brief mandate a *behaviour* change, and did you trace what that behaviour reaches?**
-   `L11.30`, which widens check 3 above from a *signature* to any value a brief changes. A brief
+   `L11.30`, which widens *On the failing test* above from a *signature* to any value a brief changes. A brief
    mandated a new return value that two tests assert exactly, and a registration that put a
    contract on a fitness function's left side — neither is a signature, both are behaviour, and the
    grep the signature rule prescribes was never run because the rule did not seem to apply. **The
@@ -464,6 +408,15 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     worktree guard, which matches the word `eval` (`L24.2`; not a hook of this repository). Tell it to
     invoke the binary through a variable (`SUB=ev; $W ${SUB}al …`).
 
+14. **If the brief rejects a constraint because it would break N existing fixtures, price both
+    sides.** `L14.5`. That breakage is the constraint *doing its job*. `27.1` dropped a foreign
+    key to spare seventeen fixtures and bought a silent unbounded leak instead — measured after one
+    gate run, **1 node and 1,205 production rows, 1,204 of them naming nodes that no longer
+    existed**. The seventeen were edited in the end anyway, so the cost was paid regardless and the
+    enforcement was the only thing given up. `CLAUDE.md`'s own rule is the one in play: a silent
+    fallback is worse than a failure. Ask what the tree loses the day someone forgets, and how loud
+    it is then.
+
 15. **Does the brief tell the agent to configure a plugin — and has one document with that `with:`
     block ever been run?** `L22.26`. A fix plan said the latency corpus is embedded "at dimension
     1536 and at 64", citing `hash_embedder.py`'s docstring, and a brief inherited it. `HashEmbedder`
@@ -493,11 +446,42 @@ author had not read.** Six became ten, which is the density Phase 10 already cal
     a subcommand as "checked by running", run it once and paste the output — help text and a
     docstring are `L12.11`'s fixture that claims to be real.
 
-14. **If the brief rejects a constraint because it would break N existing fixtures, price both
-    sides.** `L14.5`. That breakage is the constraint *doing its job*. `27.1` dropped a foreign
-    key to spare seventeen fixtures and bought a silent unbounded leak instead — measured after one
-    gate run, **1 node and 1,205 production rows, 1,204 of them naming nodes that no longer
-    existed**. The seventeen were edited in the end anyway, so the cost was paid regardless and the
-    enforcement was the only thing given up. `CLAUDE.md`'s own rule is the one in play: a silent
-    fallback is worse than a failure. Ask what the tree loses the day someone forgets, and how loud
-    it is then.
+18. **Does the brief add an error class? Then grep for a *sibling's* name, never for the family's.**
+    `L17.19`. Task 16.5 added two classes to `exit_code_for`'s local-import branch. The brief
+    named the site it knew — fitness function 12's `NAME_RESOLUTION_FAMILY` — and there is a
+    **second** hand-written list, `tests/architecture/test_exit_code_tables_are_live.py`'s
+    `_LOCAL_IMPORT_MEMBERS`, mirroring that branch for a different reason: FF12 asks *does this
+    class carry options*, that one asks *does the module import what the list says*. Neither is
+    reachable from the other, and the second cost a full `ci-no-tests` cycle and a blocked
+    dispatch. The sites are keyed on **two markers at once** — the exception family and the
+    exit-code mechanism — so the search term is an existing member's name
+    (`UnknownQuestionKindError` finds both lists in one grep); the family's own name finds one.
+    **And write what the new name owes outside the code before you dispatch, because the agent
+    may not** (`L22.15`). A new `WeftError` needs a `manual/troubleshooting.md` entry
+    (`tests/docs/test_troubleshooting_coverage.py`), `ci-no-tests` does not run `tests/docs`, and
+    inserting the entry moves every citation below it (check 13). `R22.8` and `R22.7` each spent
+    two full gate runs finding that after a green return. **Grep the sibling's qualname across
+    `tests/` as well as `packages/`** — the sites pinning a family are usually tests, which the agent
+    may not edit, so land that edit yourself in Red (`L23.8`). **A new field on any `*Settings` model
+    owes `weft.toml.example` a line on the same terms**, named in *Files* or written before dispatch
+    (`L23.14`).
+    **And a name the brief moves, renames or stops importing has callers no call graph shows**
+    (`L22.20`): grep the tests for `setattr(<module>, "<name>"` as well as for calls. `R19.17`
+    sized its refactor at 72 direct calls, told the agent to drop `commands.run_index`, and 11
+    tests stubbing that attribute turned a finished task into a blocked return.
+
+19. **A fixture the code cannot reach becomes a specification the agent must satisfy.** `L17.17`,
+    and it recurred four times in one phase. A double written from a contract's prose rather than
+    copied from the existing double of that seam does not merely fail — the one party who may not
+    fix it is the one who has to make it pass, and twice the agent changed *production code* to
+    make an unreachable assertion reachable (a wasted `resolve_in_catalogue` call on every real
+    `weft ask`; a query rung no catalogue held). **An implementer's report saying it moved
+    production code to make a test reachable is a finding about the test**, and the first move is
+    to re-run the fixture against the real composition rather than to accept the workaround.
+
+20. **Does the brief mandate a rendered sentinel a sibling field already uses?** `L17.18`. Two
+    fields whose `None` state both render `(not recorded)` made two assertions — written three
+    hours apart — mutually unsatisfiable, because each set one field and left the other at its
+    helper default. A shared `None` rendering is a design decision and a hostile one for any test
+    that looks for the phrase alone; say in the brief that the assertion carries its field's
+    label.

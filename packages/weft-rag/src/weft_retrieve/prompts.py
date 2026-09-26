@@ -182,6 +182,7 @@ class StandaloneQuestionPrompt(TypedPrompt):
     """
 
     name: ClassVar[str] = STANDALONE_QUESTION_NAME
+    prompt_version: ClassVar[str] = "1.1.0"
     input_model: ClassVar[type[BaseModel]] = StandaloneQuestionRequest
     output_model: ClassVar[type[BaseModel] | None] = StandaloneQuestion
     texts: ClassVar[Mapping[str, PromptText]] = {
@@ -195,8 +196,7 @@ class StandaloneQuestionPrompt(TypedPrompt):
                 "Follow-up question: ${question}\n\n"
                 "Rewrite the follow-up question as a standalone question that keeps its "
                 "meaning but needs none of the conversation above to understand it — resolve "
-                "every pronoun and implicit reference against the history above. Answer with "
-                "the rewritten question and nothing else."
+                "every pronoun and implicit reference against the history above."
             ),
         ),
         "pl": PromptText(
@@ -209,8 +209,7 @@ class StandaloneQuestionPrompt(TypedPrompt):
                 "Pytanie uzupełniające: ${question}\n\n"
                 "Przekształć pytanie uzupełniające w pytanie samodzielne, które zachowuje jego "
                 "znaczenie, ale nie wymaga powyższej rozmowy do zrozumienia — rozwiąż każdy "
-                "zaimek i domyślne odniesienie na podstawie powyższej historii. Odpowiedz "
-                "wyłącznie przekształconym pytaniem."
+                "zaimek i domyślne odniesienie na podstawie powyższej historii."
             ),
         ),
     }
@@ -385,6 +384,7 @@ class StepBackPrompt(TypedPrompt):
     """
 
     name: ClassVar[str] = STEP_BACK_QUESTION_NAME
+    prompt_version: ClassVar[str] = "1.1.0"
     input_model: ClassVar[type[BaseModel]] = StepBackRequest
     output_model: ClassVar[type[BaseModel] | None] = StepBackQuestion
     texts: ClassVar[Mapping[str, PromptText]] = {
@@ -399,8 +399,7 @@ class StepBackPrompt(TypedPrompt):
                 "Question: ${question}\n\n"
                 "Write one more general, higher-level question about the same underlying "
                 "topic or concept — a step back from the specific question above, not a "
-                "rephrasing of it and not an answer to it. Answer with the step-back "
-                "question and nothing else."
+                "rephrasing of it and not an answer to it."
             ),
         ),
         "pl": PromptText(
@@ -414,8 +413,7 @@ class StepBackPrompt(TypedPrompt):
                 "Pytanie: ${question}\n\n"
                 "Napisz jedno bardziej ogólne pytanie wyższego poziomu na ten sam temat lub "
                 "pojęcie — krok w tył od szczegółowego pytania powyżej, a nie jego "
-                "przeformułowanie ani odpowiedź na nie. Odpowiedz wyłącznie pytaniem "
-                "cofniętym o krok."
+                "przeformułowanie ani odpowiedź na nie."
             ),
         ),
     }

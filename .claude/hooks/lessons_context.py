@@ -5,34 +5,21 @@ Put what this repository has already learned into whoever is about to work.
 `docs/internal/lessons.md` records how the work goes wrong. A ledger nobody opens is
 worse than no ledger, because it looks like a control that is working. So
 nothing here depends on anyone remembering the file exists: this hook runs on
-every session start and prints the applied rules plus the open backlog into the
-session's context.
+every session start and prints the open backlog, as titles, and a pointer to the
+archive into the session's context.
 
-Two halves, deliberately asymmetric:
+**The archive's rules are not inlined.** Drained, each already lives in the hook,
+check, skill or document it was routed to; inlined, they reached ~72 KB, past
+what a hook's output may carry into context, so a session received a truncated
+preview and nothing after it.
 
-- **Applied rules are printed in full.** They are the output of the loop — a
-  lesson that cost something, was triaged, and produced an edit. A session that
-  starts without them repeats the mistake that produced them.
-- **Open entries are printed as titles only**, with a count. They are backlog,
-  not doctrine; the detail belongs at the phase close where they are triaged,
-  and pasting six full entries into every session start is how a context block
-  stops being read.
-
-**Subagents get the rules too, and that is why this hook is not `SessionStart`-only.**
-Measured 2026-08-22, not assumed: `SessionStart` does **not** fire for an agent
-dispatched through the Agent tool, so before this change every `weft-implementer`
-worked without a single applied rule in its context. `.claude/agents/weft-implementer.md`
-compensated by hand-copying seven constraints into its own body — and nothing kept that
-copy in step with what `implement-ll` applied, so it aged silently from the moment it was
-written. `SubagentStart` fires and *can* inject (proven with a probe before this was
-built, per `docs/internal/lessons.md` L5.1), so the rules now reach a subagent from the same
-source the main session reads. One file to update, two audiences, no copy to go stale.
-
-**What a subagent is told is deliberately not what the main session is told.** The open
-queue is not injected: a subagent cannot drain it, cannot triage it, and must never write
-to `docs/internal/lessons.md` — that needs reasoning it was not given. What it gets instead is the
-one instruction that makes its findings recoverable: put them under a `## Noticed`
-heading, which `.claude/hooks/subagent_findings.py` harvests by exact match. A heading a
+**`SubagentStart` too, because `SessionStart` does not fire for an agent dispatched
+through the Agent tool** (`docs/internal/lessons.md` L5.1). A subagent is told something
+different from the main session. The open queue is not injected: a subagent cannot
+drain it, cannot triage it, and must never write to `docs/internal/lessons.md`, because
+that needs reasoning it was not given. What it gets instead is the one instruction
+that makes its findings recoverable: put them under a `## Noticed` heading, which
+`.claude/hooks/subagent_findings.py` harvests. A heading a
 machine can find is the difference between a finding that survives the context boundary
 and one that dies in a paragraph nobody re-read.
 
@@ -99,20 +86,20 @@ def _queued_entries(queue_text: str) -> list[tuple[str, str]]:
     ]
 
 
+def _archive_pointer(applied: list[str]) -> str:
+    """One line in place of the archive, which is past what a hook may inline (~70 KB)."""
+    return (
+        f"{len(applied)} drained lessons live in `docs/internal/lessons-archive.md` in the main "
+        "checkout (a worktree carries no `docs/internal/`); each was routed into the hook, "
+        "fitness function, skill or document that now enforces it, or declined with a reason. "
+        "When a message cites an `L` id, grep the archive for it."
+    )
+
+
 def _session_body(applied: list[str], queued: list[tuple[str, str]]) -> list[str]:
-    """What the driving session reads: the rules in full, the backlog as titles."""
+    """What the driving session reads: where the rules live, and the backlog as titles."""
     lines = ["# What this repository has already learned", ""]
-
-    if applied:
-        lines.append("Each of these cost something once. They are rules, not suggestions.")
-        lines.append("")
-        lines += [f"- {rule}" for rule in applied]
-    else:
-        lines.append(
-            "Nothing has been drained into a rule yet. The queue has collected and "
-            "not yet been spent."
-        )
-
+    lines.append(_archive_pointer(applied))
     lines.append("")
     if queued:
         lines.append(
@@ -137,32 +124,19 @@ def _session_body(applied: list[str], queued: list[tuple[str, str]]) -> list[str
 
 
 def _subagent_body(applied: list[str]) -> list[str]:
-    """What a dispatched agent reads: the same rules, and one instruction about reporting.
+    """What a dispatched agent reads: where the rules live, and one instruction about reporting.
 
     No queue. A subagent cannot triage a backlog and must not write `docs/internal/lessons.md`;
     handing it six open entries would be context it can only ignore. The `## Noticed`
     heading is the whole consuming side of this boundary — see the module docstring.
     """
     lines = ["# What this repository has already learned", ""]
-    if applied:
-        lines.append(
-            "Each of these cost this project something once. They bind the code you are "
-            "about to write, and the brief will not re-derive them."
-        )
-        lines.append("")
-        lines += [f"- {rule}" for rule in applied]
-    else:
-        lines.append("Nothing has been drained into a rule yet.")
-
     lines += [
-        "",
         "**This working tree is shared, and `git status` is not evidence about your scope.** "
         "You may be one of several agents running in it at once, and the session that "
         "dispatched you has its own uncommitted edits. Paths you did not touch will be dirty; "
         "that is the arrangement, not a defect, and it is not worth a line in your report. "
-        "Your scope is the files your brief names. `docs/internal/lessons.md` `L13.1`: three of "
-        "four agents in one fan-out each spent a finding reporting this, and the fourth had the "
-        "identical view and said nothing.",
+        "Your scope is the files your brief names.",
         "",
         "**You do not write to `docs/internal/lessons.md`.** Writing a lesson needs reasoning you "
         "were not given, and the session that dispatched you holds it.",
@@ -175,6 +149,8 @@ def _subagent_body(applied: list[str]) -> list[str]:
         "nothing; an empty heading is a fact and a missing one is not. That section is "
         "harvested automatically and routed into the lessons queue by the session that "
         "dispatched you, so it is the one channel by which what only you saw survives.",
+        "",
+        _archive_pointer(applied),
     ]
     return lines
 

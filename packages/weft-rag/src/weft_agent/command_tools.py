@@ -25,9 +25,9 @@ import json
 from collections.abc import Mapping
 from typing import Final, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from weft_agent.tools import tool_catalogue
+from weft_agent.tools import args_schema_of, tool_catalogue
 from weft_command.catalogue import help_of
 from weft_command.contract import Command, CommandResult
 from weft_command.invocation import invoke
@@ -106,6 +106,36 @@ def _observation_of(outcome: Outcome[CommandResult]) -> str:
     return f"command failed: {outcome.reason}"
 
 
+def _without_model_docstrings(schema: Mapping[str, object]) -> dict[str, object]:
+    """`schema` minus the docstrings of its model and of each `$defs` entry.
+
+    Those are written for this tree's maintainers; property descriptions stay, because they
+    are also the CLI's help and are written for whoever calls the command.
+    """
+    trimmed = {key: value for key, value in schema.items() if key != "description"}
+    defs = schema.get("$defs")
+    if isinstance(defs, Mapping):
+        trimmed["$defs"] = {
+            name: _without_model_docstrings(cast("Mapping[str, object]", entry))
+            if isinstance(entry, Mapping)
+            else entry
+            for name, entry in cast("Mapping[str, object]", defs).items()
+        }
+    return trimmed
+
+
+def _invalid_arguments(command_name: str, error: ValidationError) -> str:
+    """Each field the model got wrong, and why, so its next call can correct them."""
+    problems = "; ".join(
+        f"{'.'.join(str(part) for part in detail['loc']) or '(arguments)'}: {detail['msg']}"
+        for detail in error.errors()
+    )
+    return (
+        f"'{command_name}' did not accept these arguments — {problems}. Its arguments are the "
+        "JSON Schema shown beside it in the tool list."
+    )
+
+
 class CommandTool:
     """One registered `Command`, offered to the agent's loop as an `AgentTool`.
 
@@ -123,23 +153,29 @@ class CommandTool:
         self._command_name = command_name
         entry = registry.entry(Command, command_name)
         factory = unwrap_factory(entry.factory)
-        self.description = help_of(factory, command_name)
+        schema = _without_model_docstrings(args_schema_of(factory, command_name))
+        self.description = (
+            f"{help_of(factory, command_name)}\n  arguments (JSON Schema): {json.dumps(schema)}"
+        )
 
     async def call(self, arguments: Mapping[str, object], ctx: Context) -> str:
         """Build this command's `args_model` from `arguments`, then run it through `invoke`.
 
         Never calls `instance.run(...)` — see this module's own docstring, property *(a)*, and
         `test_the_tool_runs_a_command_only_through_the_seam`, which asserts this over the
-        module's source rather than over one call at runtime. `ConsentRefusedError` and any
-        other `WeftError` the command itself raises are caught here and returned as the
-        observation, per this pack's own reliability decision (`weft_agent.loop`'s own
-        docstring): a tool returns a string, and the model reads the refusal on its next turn
-        rather than the run ending underneath it. `CancelledError` is not caught and propagates
-        untouched.
+        module's source rather than over one call at runtime. Arguments `args_model` rejects,
+        `ConsentRefusedError` and any other `WeftError` the command itself raises are caught
+        here and returned as the observation, per this pack's own reliability decision
+        (`weft_agent.loop`'s own docstring): a tool returns a string, and the model reads the
+        refusal on its next turn rather than the run ending underneath it. `CancelledError` is
+        not caught and propagates untouched.
         """
         entry = self._registry.entry(Command, self._command_name)
         instance = cast(Command, entry.factory(None))
-        args_instance = instance.args_model(**dict(arguments))
+        try:
+            args_instance = instance.args_model(**dict(arguments))
+        except ValidationError as error:
+            return _invalid_arguments(self._command_name, error)
 
         try:
             outcome = await invoke(

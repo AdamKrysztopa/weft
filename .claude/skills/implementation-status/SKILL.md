@@ -1,6 +1,6 @@
 ---
 name: implementation-status
-description: Answer "where are we" in the Weft repository with one table of the live phase's tasks — id, a five-word description, a size estimate and a status derived from docs/internal/build-ledger.md and docs/internal/README.md. Use this whenever anyone asks for status, progress, the state of play, how far along we are, what is left, what is done, what is blocked, what is next, how much work remains, or names a phase and asks how much of it is built — including a bare "status?", "where are we?", "what's left?" or "how's Phase 10 going?". Use it before writing any prose summary of project progress, because the table is the answer and a paragraph about the plan is not.
+description: Answer "where are we" in the Weft repository with one table of the live phase's tasks — id, a five-word description, a size estimate and a status derived from docs/internal/build-ledger.md and docs/internal/README.md. Use whenever anyone asks about project or phase progress in any form — what is done, left, blocked or next, how much work remains, or a bare "status?" — and before writing any prose summary of project progress, because the table is the answer and a paragraph about the plan is not.
 ---
 
 # The implementation status table
@@ -119,24 +119,21 @@ python3 .claude/skills/phase-step/scripts/next_task.py     # which task is curre
   field and nothing else.
 - **`docs/internal/README.md`'s Status block** says which phase is live and what is blocked. Its **Next
   action** row **outranks ledger order** — it is the project's own statement of where it is, and
-  the first unticked box can be a line deliberately left unticked. This is live today: `next_task.py`
-  reports `9.15` as the first unticked box while the Next action row names `10.1`. The script prints
-  both, so the disagreement is visible rather than silently resolved the wrong way.
+  the first unticked box can be a line deliberately left unticked. The script prints both, so a
+  disagreement is visible rather than silently resolved the wrong way.
 - **`in progress`** is a fact about this session, not about the tree: the task `next_task.py` names
   is `in progress` if work on it has begun here, `not started` otherwise. A task nobody has touched
   is not in progress merely because it is next.
 - **`blocked`** comes from a `⛔` on the line, or a `⚠` whose gate the phase preamble does not
-  record as discharged. Read the sentence before deciding — **a mentioned `⛔` is not a live one**.
-  Every `⛔` in Phase 10's task lines today is conditional prose ("a ⛔ this phase does not take",
-  "⛔ *if* the ..."), and its preamble discharges all four of its `⚠` marks explicitly. The script
-  flags the mention with `⛔?(read the line)` precisely because text cannot tell a live block from a
-  discussed one; that call is yours, made against the line and the preamble.
+  record as discharged. Read the sentence before deciding — **a mentioned `⛔` is not a live one**:
+  conditional prose such as "a ⛔ this phase does not take" blocks nothing. The script flags the
+  mention with `⛔?(read the line)` because text cannot tell a live block from a discussed one; that call is yours, made against the line and the preamble.
 
 ## After the table
 
-**At most two sentences.** A headline number, or what is blocking, or the one thing the reader
-would otherwise have to work out from the rows — plus the note that sizes are estimates. Not a
-summary of the table: they can see the table.
+Only what the rows cannot show at a glance — a headline number, what is blocking, or the one thing
+the reader would otherwise have to work out — plus the note that sizes are estimates. Not a summary
+of the table: they can see the table.
 
 > Eleven of sixteen tasks remain, and `10.7` and `10.8` cannot start until `10.4` is settled.
 > Sizes are estimates of the work left, not measurements.
@@ -145,18 +142,16 @@ summary of the table: they can see the table.
 
 If the user named a phase, show that phase only. Otherwise show the live phase from
 `docs/internal/README.md`'s Status block — which is what the script defaults to. If they ask about the whole
-project rather than a phase, still give one phase's table (the live one) and let the second
-sentence carry the cross-phase fact, because a table of every task in eleven phases answers nothing.
+project rather than a phase, still give one phase's table (the live one) and let the note after it
+carry the cross-phase fact, because a table of every task in every phase answers nothing.
 
 **When the live phase is closed, the table is the open carried repairs, not its ticked boxes.**
-Owner's instruction, 2026-09-21. Between phases the Status block's Phase row names wherever the
-ledger's first unticked box happens to sit — Phase 38 on that date, sixteen of seventeen ticked
-with a `COULD` left over — and a table of sixteen `done` rows answers nothing about where the work
-actually is. It is in the `R<phase>.<n>` lines, which belong to no phase and therefore appear in no
+Between phases the Status block's Phase row names wherever the ledger's first unticked box happens
+to sit, and a table of `done` rows answers nothing about where the work actually is. It is in the `R<phase>.<n>` lines, which belong to no phase and therefore appear in no
 phase's table. So: if the Status block's **Next action** row names a carried repair, or every task
 in the live phase is ticked but for lines the ledger itself marks conditional, give **one row per
 open carried repair** in ledger order — same four columns, the `id` being `R41.1` and the rest read
-the same way. Say in the second sentence which phase the repairs came out of. The fallback to a
+the same way. Say after the table which phase the repairs came out of. The fallback to a
 phase table stands whenever a phase genuinely has unticked work.
 
 Nothing in this skill restates what `docs/internal/build-ledger.md` and `docs/internal/README.md` own. It reads them

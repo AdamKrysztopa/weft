@@ -17,17 +17,8 @@ python3 scripts/lessons_graph.py
 ```
 
 **Run this before reading the queue, not after routing it.** It walks
-`docs/internal/lessons-archive.md` and reports three things a flat reading cannot see:
-
-**The script reads the archive, so it is blind to the queue in front of you.** A recurrence only
-becomes visible once the recurring entry has been archived with a `recurs` edge, and that happens at
-the *end* of this drain — so the phase whose queue is densest with recurrences is the one the script
-can say least about. Phase 9's drain reported five recurrences and a careful reading of the queue
-found **six more inside that phase alone** (`L5.15` ×5, `L6.4` ×5, `L6.10` ×2, `L5.6` ×2, `L6.14`,
-`L5.19`), every one of them stated in the entries' own prose. Until the script reads the queue too
-(`L9.91`), read each entry for a sentence of the form *"this is `L…`'s shape"* and treat it as a
-provisional `recurs` edge — five rules failing to bite inside one phase is the loop's own closing
-question answering badly, and it is worth a line in the phase's preamble.
+`docs/internal/lessons-archive.md` and the queue's open entries, and reports three things a flat
+reading cannot see:
 
 - **Oscillation** — a `reverses` edge onto an entry that itself reverses something. Per the archive's
   own rule this is a **stop**: what you are holding is an unsettled decision wearing a lesson's
@@ -43,27 +34,17 @@ question answering badly, and it is worth a line in the phase's preamble.
   reads it. Where it is difficulty, say so in the archive with the measurement, and leave the rule
   where it is.
 
-  **`R10.2` is the worked example, and it went four-to-one against mechanising.** Phase 10's close
-  put five rules past this threshold. Exactly one had a concrete, detectable act behind its
-  recurrences — `L5.15`, a shipped pipeline document nothing registered — and it became **fitness
-  function 27**, walking 35 sites and failing 0. The other four were not misplaced: `L5.6` and
-  `L5.19` had most recently recurred in a *dispatch brief* and a *resolver's diagnosis*, neither of
-  which any checker reaches; and `L6.4`'s mechanical form was sized at **152** enum members and
-  would fail **14**, while the one real instance the rule was written from
-  (`PermissionClass.OVERWRITE`) was **not among the 14** — a check that fails fourteen correct
-  sites and misses the one it was written for.
-
-  **And `L5.6`/`L5.19` turned out to be mechanised already, which is the sharpest form of the same
-  answer.** A check over the architecture checks themselves was designed, sized at 9 of 31 modules,
-  and only then found to exist: `tests/architecture/test_ff0b_checks_are_real.py` clause (b) has
-  required every check in that directory to carry a `test_the_check_can_actually_fail` since Phase
-  5's drain, written from `L5.6` and `L5.19` by name. It has held perfectly — it failed the new
-  fitness function 27 the moment it arrived. The rules recurred anyway, in a unit test's control, a
-  **dispatch brief** and a **resolver's diagnosis**, none of which that check reaches or could. So
-  the count was measuring reach, not misplacement. **Before concluding a rule needs machinery, grep
-  for the machinery it may already have** — the gate answered this in nine minutes what one search
-  would have answered in one.
+  Only a concrete, detectable act behind the recurrences argues for machinery. A rule that recurs
+  in briefs, diagnoses or reviews, where no checker reaches, is measuring difficulty. Size any
+  proposed check against its population first, because one that fails many correct sites and misses
+  the instance it was written from is worse than the rule. **Grep for machinery the rule may already
+  have** before concluding it needs some (`R10.2`).
 - **Dangling references** — an edge naming an id the archive does not hold.
+
+The script sees a queue entry's edge only when it is written in the archive's vocabulary, as a
+backticked `` `recurs L…` ``. Read each entry for a prose reference of the form *"this is `L…`'s
+shape"* and treat it as a provisional `recurs` edge. Several rules failing to bite inside one
+phase is worth a line in the phase's preamble.
 
 Then read the archive's entries for this phase's subject matter. Half of what a queue proposes has
 been proposed before, and the archive is the only place that says so.
@@ -103,15 +84,14 @@ executing when the mistake was made.
 
 ## Routing, in order of preference
 
-The order is by **cost of being forgotten**, and it is not negotiable — it is the same ordering
-`CLAUDE.md` states for cross-cutting concerns: every concern applied automatically by machinery held,
-and every concern an author had to remember decayed.
+The order is by **cost of being forgotten** — the same ordering `CLAUDE.md` states for cross-cutting
+concerns: every concern applied automatically by machinery held, and every concern an author had to
+remember decayed.
 
 1. **A hook** (`.claude/hooks/`, registered in `.claude/settings.json`). Use when the moment is
    mechanically detectable — a file being written, a command being run, a session starting. Strongest
    available: it cannot be forgotten, costs nothing to remember, and both files are checked in so it
-   travels with the repository. **Reach here first and only fall through when you genuinely cannot
-   detect the moment.**
+   travels with the repository. Fall through when the moment cannot be detected.
 2. **A fitness function** (`tests/architecture/`). Use when it is a property of the *whole tree*
    rather than of one edit. **Size it against its population before adopting it, and say the two
    numbers** — how many sites it walks, and how many it would fail on today. A proposal justified
@@ -124,19 +104,11 @@ and every concern an author had to remember decayed.
    exactly that. Prefer a ratchet with a named waiver constant pinned empty, so a waiver
    is a visible act in a diff.
 
-   **And ask where the check's own *inputs* come from, which is the half this item did not have.**
-   A drain is exactly when this goes wrong: the router measures on one machine and writes a rule
-   for every machine. `L11.22`'s skip-count guard was routed correctly and then given the number
-   **9** — a fact about a laptop with Qdrant running. The same tree measures **44** with Qdrant
-   unreachable and **48** in CI, and CI went red on the first push. The finding underneath was
-   worth more than the mistake: CI had been running **39 fewer tests than a local gate**, green on
-   every push since Qdrant was added. Then the repair got it wrong in the other dimension — moving
-   the number into the workflow's step `env` applied it to every task in the sequence, so `arch`
-   claimed 48, produced 0, and killed the gate before the tests ran. So: **a constant derived from
-   an environment belongs where that environment is declared, and a developer's machine declares
-   nothing** — and one that is a fact about an environment *and* about a suite needs each half
-   stated in the file that owns it. If no file declares the thing a constant was measured against,
-   the constant does not have a home yet (`docs/internal/lessons.md` `L12.1`).
+   **Ask where the check's own inputs come from.** A drain measures on one machine and writes a
+   rule for every machine: **a constant derived from an environment belongs where that
+   environment is declared, and a developer's machine declares nothing.** A constant that is a
+   fact about an environment *and* about a suite states each half in the file that owns it. If no
+   file declares what a constant was measured against, it has no home yet (`L11.22`, `L12.1`).
 3. **A skill** (`.claude/skills/`). Use when it is judgement applied at a known moment — a step in
    `phase-step`, a lens in `weft-qualities`. **Amend an existing skill rather than writing a new one**
    unless the moment genuinely has no owner; a fifth skill nobody invokes is worse than a sixth
@@ -152,7 +124,7 @@ and every concern an author had to remember decayed.
    check exceeds the cost of the mistake. **Record the reason** — that is the whole value, and it is
    what stops the same proposal arriving next phase.
 
-## The two traps
+## Traps
 
 **A rule routed to one artefact governs that artefact only.** Before calling an entry applied, ask
 which artefact will actually *carry* the claim next time. `L22.26` was routed into the brief
@@ -215,23 +187,18 @@ hardest question into a grep, and it is the cheapest thing in this whole skill.
    reason), where it landed, the commit, and **any edge to an earlier entry**. `lessons.md` ends the
    drain empty.
 
-   **And correct whatever states the queue's depth, in this same commit.** Draining is the act that
-   makes such a number wrong, so this skill owns the correction — `docs/internal/README.md`'s Status row is
-   the usual one. `L6.1` already says a present-tense count expires and must be corrected in place,
-   and it was routed to `weft-qualities`, which reads a change rather than performing this one; the
-   first drain after it was applied left the Status row claiming a queue depth of six against an
-   empty queue (`lessons.md` L6.18). **The same holds inside `lessons.md` itself**: its Queue
-   preamble said "Twenty entries" over a queue of 27 while the checked README row was right
-   (`L23.30`) — a number is protected only by the check that reads it, so the preamble names no count.
-   The durable fix is to state a **pointer** rather than a count:
-   *"`lessons.md` → Queue is where its depth is read"* cannot go stale.
+   **And correct whatever states the queue's depth, in this same commit.** `docs/internal/README.md`'s
+   Status row is the usual one, and `lessons.md`'s own Queue preamble names no count. Draining is the
+   act that makes such a number wrong, so this skill owns the correction. Where you can, replace the
+   count with a pointer: *"`lessons.md` → Queue is where its depth is read"* cannot go stale
+   (`L6.18`, `L23.30`).
 
    **The edges are the part that is easy to skip and expensive to skip.** An entry that refines,
    supersedes, moves, recurs, reverses or is caused-by an earlier one must say so, using the archive's
    closed vocabulary — that is the only thing standing between this loop and an on/off cycle, and the
    next drain's oscillation check can only see what this drain wrote down. The one-sentence rule is
-   written to be read cold by someone who was not there, because it is what the `SessionStart` hook
-   injects and therefore the entire memory of the loop.
+   written to be read cold by someone who was not there, because a later reader reaches it by
+   grepping the archive for a cited id and it is the entire memory of the loop.
 4. **One commit**, naming the lesson ids and saying what each became. The diff says what changed; the
    message says which mistake bought it.
 5. **Answer the loop's own check**, in the phase's build-ledger entry:

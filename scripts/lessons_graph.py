@@ -12,9 +12,11 @@ Three reports, in descending order of how much they should stop you:
    something. Per the archive's own rule this is a stop: the subject is an
    unsettled decision wearing a lesson's clothes, and it belongs in a grilling
    session with the chain as its evidence. Exit 1.
-2. **Recurrence** — a rule that has been re-learned. The rule did not bite, so
-   it is in the wrong artefact; the repair is to `move` it, not to write a
-   second rule saying the same thing louder. Exit 1 at two or more.
+2. **Recurrence** — a rule that has been re-learned. Either it is in the wrong
+   artefact, and the repair is to `move` it rather than write a second rule
+   saying the same thing louder, or it is general judgement whose count
+   measures difficulty; this script cannot tell those apart. Exit 1 at two or
+   more.
 3. **Dangling references** — an edge naming an id the archive does not hold.
    Usually a typo, occasionally an entry deleted when it should have been kept.
 

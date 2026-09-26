@@ -12,12 +12,10 @@ changing what it asserts. Everything else in this repository — which task is n
 documents decided, whether the phase is blocked, what the commit says — has already been done by the
 session that dispatched you, and is not yours.
 
-**Why the split exists, so you can see what you are protecting.** In Phase 5, task 5.1a narrowed a
-settled rule mid-task for a sound-sounding reason, and the tests written alongside the narrowing
-asserted it; eleven tasks and 1,801 tests did not notice (`docs/internal/lessons.md` L5.32). A test written
-by whoever is also writing the implementation can only encode what that author already believed. So
-the test came from the settled documents before you were called, and it is the specification. If it
-is wrong, that is a finding to report — never an edit to make.
+**Why the split exists, so you can see what you are protecting.** A test written by whoever is
+also writing the implementation can only encode what that author already believed. So the test
+came from the settled documents before you were called, and it is the specification. If it is
+wrong, that is a finding to report — never an edit to make.
 
 ## The rules, and what each one is protecting
 
@@ -32,21 +30,14 @@ is wrong, that is a finding to report — never an edit to make.
   `PreToolUse` hook will refuse most of these; the rule is here so you do not spend a turn
   discovering it. Making the check agree with the code is the failure the hook exists for.
 - **Do not run a command that changes the tree beyond your own edits.** No `git stash`, no
-  `git reset`, no `git checkout --`, no `git clean`. **What you run in is shared.** You normally get your
-  own worktree (**G14**) — it holds no `.venv`, so `uv sync` before the first `uv run`, and no
+  `git reset`, no `git checkout --`, no `git clean` — `.claude/hooks/guard_history_rewrites.py`
+  refuses them, even where generic tool guidance says to stash first. **What you run in is
+  shared.** You normally get your own worktree (**G14**) — it holds no `.venv`, so `uv sync` before the first `uv run`, and no
   `docs/internal/`, so checks keyed on it skip naming it — but the database container is shared
   with the session that dispatched you, and a dispatch without isolation shares the checkout
   itself. Those commands silently revert and restore *other people's* uncommitted changes, and
-  everything that happens in between is a lie, including test results and anything the binary
-  does. It has already cost this project two
-  unexplained anomalies in one session: a binary run that showed the exact defect its task had just
-  repaired, and a gate run that came back red on three unrelated tests, both of them landing inside
-  a `git stash` window (`docs/internal/lessons.md` L6.26). If you need to know whether a failure is
-  pre-existing, **ask** — do not rewind the tree to find out. **This is refused by
-  `.claude/hooks/guard_history_rewrites.py` now rather than only written here**, because the
-  sentence above was read and overridden anyway: generic harness guidance said to stash before a
-  destructive operation, and generic guidance beats a project sentence every time there is nothing
-  behind it (`docs/internal/lessons.md` L9.56).
+  every test result or binary run inside that window is wrong (`L6.26`). If you need to know
+  whether a failure is pre-existing, **ask** — do not rewind the tree to find out.
 - **Do not decide anything the brief left open.** If two implementations both make the test pass
   and they differ in a way a reader would call a design choice, say so and stop. Guessing is
   indistinguishable, afterwards, from a decision that was argued.
@@ -60,15 +51,14 @@ for idiom, whatever helps. The line is between *reading the design* and *reinter
 These are settled, and the brief will not re-derive them. **They are a copy, and
 `CLAUDE.md` → *The rules that are already settled* is the original** — if anything here is
 ambiguous or looks out of date, that file decides, and saying so in your report is the right
-move rather than guessing. Separately, a block titled *"What this repository has already
-learned"* is injected into your context at dispatch by `.claude/hooks/lessons_context.py`:
-those are lessons this project has already paid for, they bind your code the same way these
-do, and they arrive from `docs/internal/lessons-archive.md` directly so they are never a stale copy.
+move rather than guessing. A message that cites an `L` id refers to
+`docs/internal/lessons-archive.md` in the main checkout; each of those lessons is enforced by the
+hook, check or document it was routed to.
 
 - **Async only.** Every contract method is `async def`. `CancelledError` propagates untouched —
   never caught, never swallowed.
-- **Return frozen Pydantic models**, never `dict[str, Any]`. `Enum` over `Literal[...]`. Native
-  3.12 hints (`list[str]`, `int | None`).
+- **Return Pydantic models**, frozen where the value is a domain object, never
+  `dict[str, Any]`. `Enum` over `Literal[...]`. Native 3.12 hints (`list[str]`, `int | None`).
 - **Catch specific exceptions.** A silent fallback is worse than a crash: it produces a plausible
   answer nobody can tell from a correct one.
 - **Nothing cross-cutting by hand.** Spans, error attribution, transient stripping and
@@ -115,10 +105,8 @@ around. If there was nothing, write the heading with `- none` under it — an em
 fact, a missing heading is not.
 
 **Why that heading and not a paragraph.** `.claude/hooks/subagent_findings.py` harvests that
-section by exact match when you stop, and appends it to `.claude/lessons-spool.md`;
+section when you stop, and appends it to `.claude/lessons-spool.md`;
 `.claude/hooks/lessons_gate.py` then refuses to let the dispatching session end its turn
-until the entry has been promoted into `docs/internal/lessons.md` or explicitly declined. Before that
-machinery existed, this section was a producing side with no consuming side — it reached the
-caller's context and died there, which is the shape `docs/internal/lessons.md` L5.15 exists to forbid.
+until the entry has been promoted into `docs/internal/lessons.md` or explicitly declined.
 Prose in the middle of your report is not harvestable; the heading is what makes what only
 you saw survive the boundary.

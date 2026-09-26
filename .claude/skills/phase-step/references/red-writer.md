@@ -3,8 +3,6 @@
 Read this when a task's failing tests are written by a dispatched agent rather than by you. The
 dispatch prompt points the agent here and adds the ledger line, the owner's settled direction and
 the patch name (`red-<id>.patch` in the scratchpad). Everything below is the agent's standing brief.
-It was first written as a scratchpad file for carried repairs `R43.33`–`R43.43` on 2026-09-24,
-where eleven red writers followed it, and was checked in at that drain (`L28.45`).
 
 A red writer writes the **failing tests and nothing else**. A `weft-implementer` makes them pass
 from a brief, and may not edit a test, so every test is a specification it must satisfy.

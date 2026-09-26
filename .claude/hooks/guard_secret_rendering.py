@@ -75,8 +75,7 @@ REASON = (
     "A bare `${VAR}` passed to echo/printf/tee or into a redirect does the same thing.\n"
     "\n"
     "docs/internal/lessons.md L11.31: the line written to prove no credential was present printed "
-    "the"
-    "owner's API key into a transcript, and it had to be rotated.\n"
+    "the owner's API key into a transcript, and it had to be rotated.\n"
     "\n"
     "Ask about the NAME, never the value:\n"
     '    if [ -n "${VAR+x}" ]; then echo "set"; else echo "unset"; fi\n'

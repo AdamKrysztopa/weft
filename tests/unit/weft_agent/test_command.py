@@ -83,7 +83,7 @@ class _NoArgs(BaseModel):
     Bare `pydantic.BaseModel` is **not** a legitimate `args_model`: `weft_cli.commands`' own
     argument-free commands declare `NoArgs`, and pydantic refuses `model_json_schema()` on the
     base class itself. The first draft of this fixture used the bare class and found a real gap
-    one layer down — see `weft_agent.tools._args_schema_of`, which now refuses it by name.
+    one layer down — see `weft_agent.tools.args_schema_of`, which now refuses it by name.
     """
 
 

@@ -18,10 +18,10 @@ correction nobody can reconstruct into a rule.
 
 So: write it when it is caught. Not at the end of the task, not at the end of the session.
 
-**And nothing here depends on remembering.** `.claude/hooks/lessons_context.py` injects the applied
-rules and the queue depth on every `SessionStart` — and on every `SubagentStart`, so a dispatched
-agent works under them too; `phase-step` → *Finish* and `README.md` → *Protocol* both require the
-queue to be current before a task or a gate may close.
+**And nothing here depends on remembering.** `.claude/hooks/lessons_context.py` injects the open
+queue's titles and a pointer to `docs/internal/lessons-archive.md`, where the drained rules live, on
+every `SessionStart`; `phase-step` → *Finish* and `README.md` → *Protocol* both require the queue to
+be current before a task or a gate may close.
 
 **One input arrives without anyone noticing it: `.claude/lessons-spool.md`.** A dispatched agent
 ends its report under a `## Noticed` heading, `.claude/hooks/subagent_findings.py` harvests that

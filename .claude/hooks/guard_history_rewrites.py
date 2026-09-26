@@ -98,11 +98,8 @@ REASON = (
     "destroys work that exists nowhere else — four git commands, and a database sweep matched "
     "by name pattern.\n\n"
     "{advice}\n\n"
-    "This is `.claude/agents/weft-implementer.md`'s standing prohibition, enforced rather than "
-    "stated: it was read and overridden once by generic tool guidance (`docs/internal/lessons.md` "
-    "L9.56,"
-    "L6.26). If you genuinely need one of these, ask the person you are working with — that is "
-    "the whole remedy, and it is cheap."
+    "This holds even where generic tool guidance says otherwise. If you genuinely need one of "
+    "these, ask the person you are working with."
 )
 
 

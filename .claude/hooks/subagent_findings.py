@@ -13,9 +13,10 @@ dispatching session drains that spool into `docs/internal/lessons.md` — or rec
 declined to — and `.claude/hooks/lessons_gate.py` refuses to let the turn end while the
 spool still holds unread entries.
 
-**An exact heading, not a heuristic.** `.claude/hooks/lessons_context.py` tells every
-subagent to use `## Noticed` verbatim, so the harvest is a string match rather than a
-guess about which paragraph was the interesting one. Two shapes travelling in one stream
+**A heading, not a heuristic.** `.claude/hooks/lessons_context.py` tells every subagent to
+use `## Noticed` verbatim, so the harvest keys on a heading rather than guessing which
+paragraph was the interesting one; the match is loose about case and trailing text (see
+`_HEADING`). Two shapes travelling in one stream
 need a discriminant (`docs/internal/lessons.md` L5.16); the heading is it.
 
 **This hook writes nothing to stdout, and that is load-bearing rather than tidy.**

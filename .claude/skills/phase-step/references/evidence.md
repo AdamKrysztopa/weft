@@ -6,6 +6,19 @@ that went wrong here, and a rule whose evidence has been lost is the prose that 
 
 Read a section when you are about to argue past the rule it belongs to.
 
+**Contents** — each section is the account behind rules `SKILL.md` states in one line:
+
+- *Running the binary — Phase 3's four repairs*: Finish → run the thing.
+- *A list in a document is not a census*; *"Every X" and the seductive proviso*; *Where a fix goes,
+  and what an empty answer means*; *Checks that cannot fail*; *Two smaller ones*: the older rules
+  marked `→ references/evidence.md` in `SKILL.md`.
+- *A paid measurement is not a unit test — Phase 38*: before any paid run.
+- *Claims about the tree*: Orient step 3's checklist.
+- *Red*: Red's checklist.
+- *Orient*, *Dispatch*, *Verify*, *Finish*, *Close the phase*, *When to stop*: the same-named
+  sections of `SKILL.md`, in the words they had before those sections were reduced to one line
+  per rule. Tense and "above/below" pointers in them refer to that earlier layout.
+
 ---
 
 ## Running the binary — Phase 3's four repairs
@@ -85,7 +98,7 @@ Two shapes pass forever:
   (`docs/internal/lessons.md` L5.19). The floor there is a self-test proving the comparison is not vacuous —
   never an assertion that the real set is non-empty, which would be a different and false claim.
 
-Fitness function 16 enforces the convention. Watching your own check go red against a planted
+Fitness function 0b enforces the convention. Watching your own check go red against a planted
 disagreement is still yours, and this skill's own `scripts/next_task.py --self-test` is an example
 of the shape: its fixture plants the exact input the parser exists to reject.
 
@@ -96,9 +109,10 @@ of the shape: its fixture plants the exact input the parser exists to reject.
 **Run the gate in the foreground.** Three agents in Phase 3 stalled mid-task after backgrounding
 `ci-checks` and waiting on a notification that the work was structured never to produce.
 
-**Run the whole suite, not the part you touched.** Phase 5 shipped a pack whose default claimed a
-process-global slot. It passed its own suite, and each test tree run alone, and failed five things
-in the combined run (`docs/internal/lessons.md` L5.12). An out-of-workspace pack installed into the
+**A scoped run is not the combined run.** Phase 5 shipped a pack whose default claimed a
+process-global slot; it passed its own suite and each test tree alone, and failed five things in
+the combined run (`docs/internal/lessons.md` L5.12). This is why `ci-task` over-selects and
+`ci-checks` runs whole at the phase's close. An out-of-workspace pack installed into the
 development venv changes what the whole suite sees (`docs/internal/lessons.md` L5.31).
 
 ## A paid measurement is not a unit test — Phase 38
@@ -117,3 +131,861 @@ a long green run is timing.
 **The code half is filed, not remembered**: pre-flight estimates and a per-record progress line,
 per-arm repeats, per-batch resumable indexing for model-calling stages, a counted degraded generation
 (`R38.13`), and a scale-smoke integration test — ledger tasks `38.12`–`38.15`.
+
+---
+
+## Claims about the tree
+
+The accounts behind `SKILL.md` → *Orient* step 3.
+
+**And a *count* is the same rule with nothing to grep.** A list at least names its members; a
+cardinality — *"both chunkers"*, *"three distributions"*, *"the five known sites"* — names none, so
+re-stating it elsewhere is not corroboration, because the copies share one source (`L5.6`'s shape
+applied to prose). `R17.1` was filed saying `ChunkOffset` was *"attached by both chunkers"*; one
+grep returns one attach site, and the error had already been copied into two rows of
+`docs/internal/README.md` and from there into the session's opening prompt, so four
+independent-looking statements were one unchecked reading (`L16.2`). The same failure wearing a
+check's clothes: `tests/architecture/test_ff24_no_bytes_in_a_node.py` justified its three subjects
+as *"three distributions and two source roots"*, which **G19 falsified three days earlier** by
+folding every pack into one wheel — a sentence inside a check, about the tree, that the check
+cannot make fail (`L16.1`). So: **re-run the measurement when you act on a count, before you act on
+it, however many places agree** — and when a gate changes the tree's shape, the sentences
+*justifying* a check's subjects are as stale as any assertion. **A count offered as a decision's
+price is measured before the question is asked** (`L22.23`): Phase 33's recorder was priced at
+*"at most 45 kernel lines"* from its field list and approved on that number, and the honest build
+measured +87 under FF3's own counter. Sketch it and count it with the project's counter and type
+checker, then ask. **And a claim about code placed in a question is read against its callers first**
+(`L28.54`): Phase 43e's opening told the owner twice that a session holds store handles across
+calls, from `Weft._held`'s name and docstring; `_invoke` builds services afresh on every call. An
+answer given on a false premise looks settled, and nothing re-checks it.
+
+**Two places this keeps landing that are not documents, and one sweep shape that lies.** `L22.2`
+and `L22.5`, both paid for in Phase 28. *(a)* **A repair entry is not a document and nothing routes
+it through the rule above.** `R21.5` was filed saying *"of the 39 shipped pipeline documents not
+one is text-only"* — 39 is the file count of one directory; the tree ships 48, the binary offers
+47, and `weft_kg` contributes the rest. **A population is what the *system* enumerates, not the
+directory the question started in**: take it from the binary or the registry, and where the claim
+does not need a cardinality, do not state one. **The same holds for a computed value** (`L26.2`):
+a remedy relying on one names every site that computes it — `git grep` the function, not the
+concept — and is measured on each, the default path first; `fix-plans/09` Q5(a) moved the pipeline
+identity on `--pipeline` and not on bare `weft index`, which computes it a second way. *(b)* **"Exactly one surviving instance" is a claim
+about a fact, and a grep can only see a phrasing.** `R21.4` swept `docs/`, `manual/`, `README.md`
+and `packages/` for a sentence it was correcting and reported one instance left; the same false
+claim sat in `hybrid-then-generate.yaml`, inside those roots, saying it in different words — and it
+was propagated into a *new* file before anyone noticed, because the neighbouring document was
+copied. So a sweep supporting "one left" searches for the **subject** (`qdrant`, `TextSearch`) and
+reads the hits, never for the sentence being corrected. A cardinality of one looks too small to be
+worth checking, which is exactly why it is not. *(c)* **A repair's `owner` is where the raise is,
+and an error message names only its subject.** `L22.17`: `R22.9` was filed against
+`weft_kernel.resolution.resolve`, and framed as a gate question, because *"stage 'store' names
+plugin 'pgvector'"* reads like resolution. The raise was one layer up, in
+`weft_cli.compile.contracts_for`, and the fix needed no decision. Grep the message's literal text,
+read the function that raises it, then write the `owner`. **An import cost is owned by every
+importer, not the one `-X importtime` shows**: it charges a shared dependency to whoever imports it
+first, so `R29.5`'s remedy named half the cost (`L28.15`) — state the property (a fresh interpreter
+that did X has not imported Y) and assert it in a subprocess. **From a log, the owner is the exception
+on its last line and the `except` it escaped** (`L26.1`): a traceback printed under *"during closing
+of"* or *"Exception ignored in"* was swallowed by the runtime — `R39.1` was filed against one and
+the fix sat in `weft_cli/eval_scoring.py`. *(d)* **Before filing, search the open
+repairs for the defect's subject, never its id.** `L22.18`: `R22.8` was filed, built and closed
+for an untranslated pydantic error on `--repeats 1`, while `R19.16`, filed a day earlier, named the
+same message from `--batch-size 0` and said every bounded field inherits it. Grep the open lines for
+the exception, the flag class and the message's literal text; a duplicate splits the evidence and
+leaves one line open after the defect is gone.
+
+**3. A list in a document is where to start looking, not a census.** *"The five known sites"* stops
+where its author's reading stopped — task 5.2b was given five and found nine. Grep for the thing
+itself. Read what a check *asserts*, not what its name says it is for, and check a property about
+caller shape structurally rather than textually. → `references/evidence.md`
+
+**A measured number is quoted with the invocation that produced it, flags included** (`L28.26`):
+Phase 43's proposal took "≈2 s/document" as the default `weft index`'s rate and built a 90-second
+bound on it, while the cited ledger line records `--batch-size 50`. Before a number or a proposed
+stage enters a task line, re-read the cited line and the code path it assumes. **And name the input
+it was measured on, format and corpus** (`L28.32`): three fix-plans sized Phase 43's PDF work from a
+correctly quoted invocation over 1,000 papers rendered to markdown, and named a pipeline for the PDF
+arms that reads only `.md`/`.txt`. Resolve a pipeline named for an arm against that arm's files.
+
+**A fix-plan or a review document is a hypothesis about the tree, and its per-task clauses are
+the part nothing checks.** `01`-through-`13`'s factual claims are held to `CLAUDE.md`'s evidence
+rule; a plan under `docs/internal/fix-plans/` is held to nothing, and a task line written from one
+inherits its claims verbatim. Phase 16a found **three false in one phase** (`L17.16`): a
+recommended option matching *0 of 25* shipped labels, cited to a line about something else; a
+field described as *"already carried and dropped"* by a loader that reads a different file into a
+different class; and a citation six lines off whose sentence read as a risk to avoid when it
+described what the code already does. All three were found by read-only agents told to falsify the
+premise. **Treat the plan's *recommended* option as the clause most worth attacking** — it is the
+one the phase will build on unexamined.
+
+**And a correction reaches the document that owns the fact, not the files that quote it**
+(`L17.5`). Before you finish correcting one, grep for the sentence's own distinctive words across
+the tree; `tests/docs/test_pack_guide_samples.py`'s map answers the tagged-sample half of this as
+a lookup, and nothing answers the prose half.
+
+**And read the population, not the declaration.** A marker's meaning is what its *live instances*
+say, not what its definition says; an invariant's scope is the inputs that actually reach it, not the
+ones its comment names. Both halves cost something already. `scripts/next_task.py` was written
+against ⚠'s definition and every live ⚠ meant something the definition did not cover. And
+`weft_cli.route_ask`'s `assert isinstance(answer, Answer)  # every shipped routable pipeline ends in
+a Generator` is checked against documents *anyone* may write — a three-line user pipeline made it
+fail with no message at all. Before you rely on what a thing means, enumerate what it currently is.
+**A measurement plan names each metric with the call site that computes it in a real run**, or a
+record that carries it — `32.0` named three that were registered and unit-tested and that no run
+had ever computed (`L26.5`).
+
+**And the two cheapest sentences to write are the two nobody checks: *"it does not exist"* and
+*"that one is unaffected".*** Phase 29 paid for both, an hour apart, in the same session that logged
+the first (`L22.41`, `L22.42`).
+**And a measurement's side effects are part of its cost** (`L28.59`): a flag is harmless only in a
+program that parses it. A `--help` sweep over `scripts/*.py` ran the integration suite and two
+generators that write tracked files, during an exit soak that owned the containers. Read how each
+member of a population handles its arguments before invoking all of them.
+
+*"No record exists"* was written into the ledger as a settled paragraph from **one failed open** —
+a build invoked with `--latency run-29.1.json`, a filename that never existed, returning `[Errno 2]`.
+Six records had been there the whole time under the producing tool's own naming, `lat-<chunks>-<width>.json`,
+all six parsing cleanly. **A claim that an artefact does not exist is a claim about a directory**, so
+it is made by listing the directory — glob for the *producer's* naming pattern, not for the one name
+you happened to try, and quote what came back. This is `L22.21`'s rule where the "search" was a
+single hardcoded path, and a control costs one `glob`.
+
+*"That caller is unaffected"* was written after grepping for a shared helper's call sites, finding
+one, and reasoning that the other harness "indexes at width 64, which is the width it wants". True
+of its corpus, false of the arm under measurement: at `--width 1536` it *overwrites* those vectors,
+and the run died forty minutes later. **When a change to shared state breaks one caller, the others
+are cleared by running them — under the parameters that differ, not the defaults.** A caller that
+consumes the same resource differently under a flag is invisible to a grep for who calls what.
+
+Both are convenient conclusions, which is the tell: a bounded blast radius and a missing file each
+close a question cheaply, and neither was measured.
+
+**An empty result is a claim about the tool's traversal before it is a claim about the tree — so
+name what the tool drops before believing it.** Phase 31 paid for this five ways in one day, each
+time with a tool that answered correctly about the wrong population: a script and a grep that both
+key on `- [ ]` agreeing a `⊘` withdrawn task did not exist, because a withdrawn task is defined by
+*lacking* the checkbox (`L23.27`); `find` returning nothing under `_external-src`, which is a
+symlink `find` does not enter without `-L` (`L23.28`); a grep for a phrase quoted out of prose,
+which wraps at 78 columns where the source line does not (`L23.29`); a sentence-shaped grep for a
+decision `README.md` stores only as a table row, `| **S5** |` (`L23.31`); and output piped to
+`head`, which can support *present* and never *absent* (`L23.21`). A search that **errors** can
+print the same thing as one that found nothing — `grep --include=*.py` died on a zsh glob and said
+*"no matches found"*. So: search for the shortest token that cannot wrap, use `git grep` rather
+than shell globs, count with `-c` against a **control** that must hit (`L22.21`), and write "there
+is no …" only from an untruncated result.
+
+**And a plan's clauses, a decision brief's options and an amendment's "unchanged" are each
+unexecuted text, checked before anything is built on them.** A clause prescribing what code must do
+is read against the function it would change (`L23.19`); a clause quoting a vendor page carries the
+URL and the date read, and is re-fetched before it becomes a shipped default (`L23.18`); a brief
+enumerating options names, per option, the `path:line` of the call site that makes it possible, so
+a dead option dies at its citation (`L23.23`); every path a document names is checked, `docs/`
+included, not only `scripts/`, `tests/` and `packages/` (`L23.2`, widening `L22.43`); and a section
+declared "unchanged" re-resolves its citations, because identical words can sit over moved lines
+(`L23.4`). When a decision agent reports, check **which document each quotation came from** — one
+cited the proposal it was judging, relabelled as the settled text that ruled on it (`L23.1`). Write a
+cross-module reference as `path:line "fragment"`, never as a dotted import path: FF17 walks the
+first form and cannot reach the second (`L23.6` — a clause resolving dotted paths was sized at 599
+sites in `packages/` and declined).
+
+**And what a plan *shows* you is unexecuted text.** `fix-plans/05`'s exit block displayed the command
+the phase would be judged by — `python scripts/store_bench.py …` — and no such file has ever existed
+in this tree; the harnesses are `bench_latency.py`, `bench_corpus.py`, `bench_widths.py`. It survived
+the writing of all thirteen tasks and was found by the first reader who tried to *act* on it
+(`L22.43`). Its numbers were labelled "the shape of the output, not a prediction", so nothing about
+it read as a claim — but the **path** was a claim, and a path either resolves or it does not. Check
+every `scripts/…`, `tests/…` or `packages/…` path a document names before building on it.
+
+**And an amending document that says *"the other's exit stands"* has copied it without reading it**
+(`L22.44`). `fix-plans/07` amends `05` item by item and defers wholesale on the exit — so two clauses
+`07` never examined were re-adopted, one of them already unsatisfiable (`L22.26`/`L22.26`'s embedder
+width) and one already discharged by a later task. `29.5` opened with its two governing documents
+disagreeing. A deferral records no act of reading: restate the clauses you leave unchanged, or name
+them individually as unchanged with the date you last read them.
+
+**And when you record a size, count the set, do not sum over the join** (`L22.34`). Per-paper chunk
+counts taken over `unnest(sources)` were summed into a corpus total that was 301 too high, because a
+node shared by two papers counts once in the set and twice in the sum. `count(DISTINCT id)`, never a
+sum of per-group counts — any fan-out makes the sum an upper bound wearing a count's clothes. It
+recurred in the same phase in the *prefix* rule, where a target of 100,000 selected 99,724.
+
+**Where a new file lives is a claim about every reader of that directory** (`L27.1`). `40.2`
+wrote a pool manifest as `runs/<id>.pool.json`, and the next `weft eval experiment`'s resume scan read
+it as a `RunRecord` and died. Five readers glob `runs/`, and the writer's tests never ran a second
+invocation. Before a brief fixes a new file's path, `git grep 'glob('` over that directory and say in
+the brief what each reader does with it.
+
+**And two ways of enumerating that lie to you, both paid for at Phase 21a's close.**
+*"Who writes this?"* answered by `grep` has a blind spot **the size of every default**:
+`SourceStatus.ACTIVE` has no production writer anywhere — a grep across `packages/` returns test
+files only — and it is written on every single ingest, by the field default at
+`packages/weft-rag/src/weft_store/contract.py:261 "status: SourceStatus = SourceStatus.ACTIVE"`,
+because the one constructor passes no `status=` at all. So a writer audit over an enum reads the
+constructor sites for **absence** as well as searching for the member's name (`L19.3`). And
+*"which fields does this model have?"* answered by reading the class body stops at the first block
+that is not a field: `PackReport` has fourteen and a `@field_serializer` sits three from the end,
+so a top-down reading yields eleven and a dispatched agent reported exactly that. `type(model).
+model_fields` is one call, is exact, and does not care what interrupts the body — any claim of the
+form *"this model carries N fields"* obtained by reading is a claim obtained by scrolling
+(`L19.4`).
+
+**An id's type is not its alphabet, and a cited mechanism's existence is not its capability.**
+Two ways a fact about the tree gets assumed rather than read. `SourceId` is a `NewType` over `str`
+and says nothing about what characters a real one holds — a blob-key layout was designed around
+short ids and met resolved filesystem paths (`L9.53`); one `select` against a running store would
+have answered it. And a task line asserted the applicability grammar already expressed what it
+needed, when the grammar had no `media_type` field at all (`L9.42`) — the mechanism existed and the
+*capability* did not.
+
+**When a decision names something that will be *installed*, install it and run one real input
+through it.** The namespace rule below is the same act for names; this is it for dependencies, and
+it cost Phase 9 three rounds. An extras list is a claim about an installation: `L9.78`'s set
+resolved and could not be imported, and the repair that fixed the import still could not convert a
+document. A resolver that *succeeds* may have done so by backtracking seventeen minor versions past
+your own pins, reporting that as success (`L9.75`) — so resolve the **current** release explicitly.
+And an import is executable code the kernel runs before a pack has declared anything: one candidate
+called `load_dotenv()` at module scope and rewrote the environment of everything else in the
+process (`L9.76`), which makes import-time behaviour a trust question, not a weight question.
+
+**When a decision names something that will be published, check the namespace it will be published
+into — in the session that decides it.** A name is a claim on a registry somebody else owns, and
+choosing it is not claiming it. Every check in this repository is a check *about* this repository —
+the release set exists, ships no code, pins exactly, every pin matches, all green — and not one of
+them could see that `weft` was already taken on PyPI, at the very version the set declared, until
+the first task that had to reach an index looked (`lessons.md` L6.33). Distribution names,
+entry-point groups, CLI binaries, URL schemes: one lookup, at the moment of choosing.
+
+---
+
+## Red
+
+The accounts behind `SKILL.md` → *Red — you write the test*.
+
+**Derive every expected value from the specification the test cites, never type it from an
+example** (`L24.8`). `R38.11`'s red test expected `\times` to stay literal while `\n` decoded, and
+`\t` is a JSON escape exactly as `\n` is: the implementer bent the code to the contradiction. For a
+parser, run the expected output through the reference implementation before dispatch.
+
+**A fixture whose two sides cannot disagree is the same defect one level out, and Phase 11 met it
+three times.** The rule below is about a *comparison*; this is about the **inputs**. A fixture that
+is symmetric in the very dimension under test makes every assertion over that dimension vacuous
+without any assertion looking wrong. `weft graph bridges` prints a predicate over an undirected
+walk, and every fixture stored its relations in the direction the walk took, so a hop printed
+backwards — the corpus's own claim inverted — was invisible (`L11.42`). The same file's fixtures
+all used `Node.synthetic`, which has **no parent**, so "the node an entity is anchored to" and
+"the chunk it appears in" coincided and a query confusing the two passed everything (`L11.45`).
+And an assertion rewritten by find-and-replace ended up comparing a function's output against the
+same function's output — `L5.6` reached through a door it does not name, because that rule is about
+a comparison *written* and this one was *transformed* (`L11.35`). So: **name the dimension the test
+varies, then check the fixture actually varies it** — and after a bulk edit, re-read every
+assertion it touched rather than trusting that lint would have said something. **A claim that
+deleting X removes Y is tested where Y has another dependency that outlives X** (`L28.43`): the kg
+store's "deleting the fact makes its relation unreachable" held only on fixtures where the fact was
+the one thing attaching its endpoints, so "cascades from X" and "cascades from what X alone held"
+coincided from Phase 11 until `R43.24`'s red separated them.
+
+**Three more from Phase 31, each a red test wrong before any implementation existed.** A fixture
+parametrised over backends is read *arm by arm for what each leaves behind*: one arm tore down and
+the other did not, and only the careless one touched shared state (`L23.13`). A red test that
+changes behaviour an earlier task established carries the superseded test in the same patch — grep
+the target file for the earlier task's id first (`L23.16`), **then read the calls of every test of
+the entry point you change, not their names or assertion text** (`L28.35`): `R43.1` reversed a `36.1`
+test whose name did not say it ran at the default batch size, and a grep for `documents_failed ==`
+could not find it. And assert a property of a returned
+container — its length, its ids, its membership — not equality with a literal, unless you have read
+the pinned return type; two lines of one test disagreed about whether a result was a list or a tuple
+(`L23.17`). The same holds for `str | None`: `"x" in rendered.stdout` type-checks as unsound, and
+`31.14`'s red failed the gate on exactly that before it failed on the missing field.
+
+**The general form, and Phase 12 paid for it four more times: a double is narrower than the real
+thing in exactly the dimension under test, and every assertion over that dimension is then
+vacuous.** Four shapes, all of them cheap to check once named:
+
+- **A failure's *meaning* is set by the caller, not by the stage.** A `Failed` returned by a stage
+  is an error to `weft ask` and **one silently counted exclusion** to `weft eval experiment`
+  (`eval_scoring.py`'s per-question `continue`), so a specification that says "an unreachable
+  server is a `Failed`" ships a reranker whose dead server excludes every question and still writes
+  a record that reads as a null. A fault of the *service* raises; only a fault of the *question* is
+  a `Failed` (`L28.1`). Read both consumers before writing that clause into a brief.
+- **A failure arrives two ways, and a double that raises tests one.** A stage fails by raising
+  or by *returning* `Failed`; the runner lets the second through as a normal return, so code after
+  `runner.run` only ever sees that one. Task 17.1's tests modelled failure as a raise, and
+  `_record_sources` went on writing a failed batch `ACTIVE` until the binary lost a document
+  (`L22.22`, repair `R36.0`). A test of what happens on failure covers both.
+- **One row cannot collide with itself.** Six tests of an operator-facing message each held one
+  `PackReport`; the shipped binary printed seven rows reading `weft-rag (failed)` because the
+  message keyed on `distribution` and **G19** had put fourteen packs in one. Where the thing under
+  test renders a *collection*, the fixture holds at least two entries — or the separators, the
+  ordering, the deduplication and above all *whether two entries are distinguishable* are untested
+  (`L12.6`). **Discovery reports are such a collection at the size a real install produces**
+  (`L28.29`): a real wheel always has several uninstalled extras, and a headline built from one
+  `IMPORT`-failed pack printed six in the binary.
+- **Where the code refuses an answer for not matching the input's *cardinality*, the test offers a
+  realistic number of items** (`L28.12`). `llm-rerank` offers every pooled passage and refuses a
+  judgement set that is not exactly one per passage; every unit test of it offered **one or two**,
+  and at that length the defect is unreachable. The defect was in the prompt — it said *"judge every
+  passage exactly once"* and never said **how many** — so a local model returned the handful it
+  judged relevant and every question was refused. A quantifier a model must ground against a list is
+  not exercised by a list of two, and the shipped pool is fifty. Ask what length the real caller
+  passes, and write one case at it.
+- **A fixture that claims to be real is checked against the real thing, once.** `_INSTALLED` was
+  commented *"the roles a real installation declares"* and named two of five, so the branch that
+  refuses an unselected role was unreachable from it and `weft config get` exited 1 on every
+  project while 2,543 tests were green. An ordinary fixture invents whatever the test needs and
+  owes nothing; the moment its name or comment says *real*, it has asserted something about the
+  world with nothing checking it (`L12.11`).
+- **Where a decorator stands between the caller and the object, no hand-built double is right.**
+  An optional duck-typed method reached by `getattr` was written on both sinks and tested through
+  a double that had it — while every real run hands over a decorator that forwards the contract
+  and nothing else, so the feature was inert on every path. Ask *what type does the caller
+  actually receive*, and construct that (`L12.13`). It recurred one method over (`L28.37`: `43.2`'s
+  progress), and `test_cli.py` now fails a wrapper missing any method a CLI sink adds.
+- **Assert the exception the code should raise, not the family it belongs to.**
+  `pytest.raises(WeftError)` plus `"blob" in str(...)` passed against a build where the sibling
+  error said the opposite of the truth — the substring made it worse, because a key's name appears
+  in every message *about* that key. Name the leaf class, and match a fragment of the sentence's
+  **claim**, not of its subject (`L12.12`).
+
+**A change that makes a store create something on open or on a read is checked against every
+fixture that cleans up after that store** (`L28.27`): `34.5` made Qdrant create
+`<collection>__targets` on every open, every older fixture dropped only the pair it knew of, and
+1,025 empty collections filled an 11.7 GiB Docker VM until Qdrant was OOM-killed. Create on the
+first write, or grep the fixtures. **And a call through `weft_kernel.seam.wrap` returns an
+`Outcome`** (`L28.25`): a plugin method returning a plain value is wrapped through a helper
+returning `Produced(value=...)`, or every success is recorded as a failed stage.
+
+**A double of a store method implements the method's whole documented effect** (`L28.20`):
+`36.1` wrote a failure record and then released the source's nodes with `delete_source`, and every
+test passed against a double that only logged the call. A real store's `delete_source` removes the
+record too, so the exit found no record at all. Read the conformance check that specifies the
+method, and make the double do all of it. **And a double is safe under concurrent callers where a
+real handle may not be** (`L28.48`): `raptor` keeps its summaries under `asyncio.gather`, each through
+one `PgVectorStore` connection, and two `add` transactions interleaved into
+`OutOfOrderTransactionNesting` (`R43.40`). Every in-memory double passed, and 43.20's resumable
+corpus build never succeeded on pgvector once it kept two summaries. Where a change makes a store
+method's callers concurrent, one test drives at least two of them against the real store. **And an exception's path is tested from where it
+starts to the handler that should catch it** (`L28.19`): `R38.17`'s tests asserted
+`ReaderGoneError` leaving the client, and the kernel seam then wrapped it again on the way to the
+CLI. Raise it where it originates, assert at the handler.
+
+**A comparison whose two sides come from one source cannot disagree, and this is not only a
+fitness-function rule.** *Finish* item 3 states it for checks; it applies identically to an ordinary
+unit test — an expected value read from the same literal as the value under test (`L9.28`), or a
+control built by transforming the input by a rule that can degenerate to identity, so one case
+becomes its own control (`L9.58`). Before comparing, ask where each side came from; for a
+parametrised control, assert the transform actually changed something.
+
+**An assertion over rendered output carries its field's label, never a bare value or sentinel.**
+`L17.18`: `assert "(not recorded)" not in stdout` is an assertion about *every* line, and it
+became false the moment a second field started rendering that sentinel for its own `None`. Two
+such assertions, written three hours apart, ended up mutually unsatisfiable — each set one field
+and left the other at the test helper's default. Assert `"<label>: <value>"`.
+
+**Copying an existing double protects the fields you copied; the field you *add* is one you wrote
+from prose.** `L18.3`, and it is the rule below arriving one step later. Task 24.1's `Answer`
+fixture was copied correctly from `tests/unit/weft_cli/test_commands.py`, which carries
+`citations=()` — then gained a citation, and `Answer._citations_resolve` refuses any citation whose
+`marker` and `node_id` do not both resolve to one passage in `used`. The fixture could not be
+constructed at all; the implementer found it, could not fix it, and blocked after doing the whole
+task. So: construct a copied-and-extended fixture once, standing alone, before writing an assertion
+around it — and grep for a double that already carries the field you are adding rather than
+extending one that does not.
+
+**And when a change starts writing a type down that nothing wrote down before, the population is
+what a real run produces.** `L18.5`: task 24.5 asked a `PackReport` to serialise for the first time
+in its life and four fields across three models held live classes and callables. The test written
+to catch that built one report by hand carrying the one field already known — and passed, while the
+binary still failed on **five of twenty-three** real reports. That is `L12.11` written into the test
+that was fixing an instance of `L12.11`. Where the property is *can this type cross this boundary*,
+read the world: walk what discovery, or the registry, or the catalogue actually returns.
+
+**A double for a seam is copied from an existing double of that seam, never written from the
+contract's prose.** `L11.17`, one step more specific than `L6.14`: a hand-written double
+populates what its author believed the seam returns, and the two doubles of that same seam already
+in the tree encode what it actually returns. The implementer caught this one by refusing to edit
+the test, which is the split working — but the cheaper catch is one grep for the existing doubles
+before writing a new one.
+
+**And the cost of not copying it is paid by the implementer, not by you** (`L17.17`, four times
+in Phase 16a). A double the code cannot reach does not merely fail — it becomes a specification,
+and the one party who may not edit it is the one who has to satisfy it. Twice an implementer
+changed *production code* to make an unreachable assertion reachable and said so in its report,
+which is the only reason it was caught. When a blocked return says *"I moved production code to
+make the test reachable"*, that is a finding about the **test**: re-run the fixture against the
+real composition before accepting anything.
+
+**Assert a behavioural property through the seam a caller uses.** Parsing or grepping first-party
+source to check *where* code lives asserts the current arrangement and forbids the refactor that
+would improve it (`L9.39`). A test that something is *not* called patches with `raising=False`, so
+it asserts the behaviour rather than the binding (`L28.38`: one forced a dead re-export to keep a
+name alive). **And a fact a result carries for an operator is asserted where the operator reads
+it** — the rendered line and the exit code — never on the dataclass one layer in (`L28.40`:
+`layers_changed` was tested on `IndexResult` and never printed; fitness function 35 now fails the
+copy, not the rendering). And a value the test supplies by hand is one the caller's real
+derivation was never asked for (`L9.26`): where a value's whole job is to travel from configuration
+to a call, one test must capture that call's arguments, or the wire is untested along its length
+(`L9.79`).
+
+**An assertion is a specification, including the parts you did not mean.** Where the settled text
+states a *set*, assert membership; where it states a fact, assert the fact. An incidental literal —
+an order, a count, a formatting, **or a container shape** — is a design decision handed to
+something that has not read the documents, and it will be satisfied rather than questioned. The
+container case reads as harmless and is not: asserting `constraints != ()` rather than the fact the
+constraint *means* specified storage, and the storage chosen to satisfy it was write-only
+(`L9.43`). Worked example: task 6.18's test asserted a participant
+*list* where `02` §1 states a set, and the implementer duly invented a reordering helper with a
+fluent docstring citing the section it was not in. It said so in its report, which is the only reason
+it was caught. Ask of every literal in an assertion: *would the documents have written this?*
+
+**A new error whose raise site computes the names that would have been valid joins fitness
+function 12's family** (`L28.28`): mix in `UnresolvedNameError` and carry `valid_options` as a
+typed field. `R34.4`'s `EmbedConfigRefusedError` listed the embedder's keys in its message only;
+FF12 cannot see a class that never inherits the marker, and its own docstring says so.
+
+**When a brief introduces or re-parents an exception class, grep for every site keyed on its
+identity before writing *Already decided*.** *(This said "names a base class" until Phase 12, and
+the narrower wording is what let the fifth instance through: that brief deliberately named **no**
+base class — the whole point of the new `RefusedStagePluginError` was that it joins no family —
+so the sentence did not apply and the sites went unlooked-for. What these sites key on is not
+inheritance but **identity**, and a class that joins no family owes the grep more, not less,
+because none of the inheritance-shaped searches will surface it: `L12.5`.)* Putting a class into a
+marked family is not a base-class choice — it is an edit to every site keyed on that marker, and
+none of those sites is reachable from the new code. One error class
+joining `UnresolvedNameError` owed edits to a pinned membership frozenset inside an architecture
+test, an exit-code dispatch branch, and a troubleshooting-coverage ratchet; a fourth site turned up
+in an unrelated task the same day, from a one-line "remove this entry" instruction. Four sites,
+found one at a time by four different mechanisms, when one grep before writing each brief would
+have found them all (`L8.12`). The implementer cannot fix them — most live in tests it may not
+touch — so a brief that omits them is a dispatch that cannot succeed.
+
+**A brief that tells an agent what a file contains has read it, in that session.** `L28.3`: a
+brief said the pool manifests carry each question's `id` and `text`; they carry `id` and
+`text_sha256`, and the text lives in the question file. Quote the field list from the file or from
+`type(model).model_fields`, never from memory of what it ought to hold — which is `L19.4` arriving
+one step earlier, in the sentence that sends somebody looking.
+
+**A sentence that tells a reader what a measurement found cites the committed table, not the
+ledger's verdict.** `L28.7`: `manual/user-manual.md` said "`dedupe` and `mmr` changed nothing" while
+the committed table showed `mmr` at mrr@5 +0.041 [+0.013, +0.075] on one of its three question
+sets — the ledger's "within noise" was about `token_recall`, the metric that run was sized for. Name
+the metric and the question set, and read the table.
+
+**Before listing what a task touches, look up who quotes it.** `L5.14` says a list in a document is
+where to start looking; the sharper version is that the tree has already built the index for some of
+these. `tests/docs/test_pack_guide_samples.py` holds a machine-readable map of every tagged sample
+and the file it claims to quote byte-for-byte, so *"which guides quote this file"* is a lookup, not a
+recollection — and Phase 6's licensing task edited twenty `pyproject.toml` files without it, one of
+which a guide reproduces verbatim (`lessons.md` L6.31). The same question one level out: a change to
+a command's output falsifies every worked transcript of it, and only the *executed* ones fail the
+gate (`L6.19`).
+
+**And when a task runs an existing suite somewhere new, say which parts of it are claims about the
+artefact.** `tests/unit` and `tests/integration` are about the code, so running them against
+installed artefacts is the point; `tests/architecture` and `tests/docs` are about the *checkout* —
+they walk the repository and read `packages/*/pyproject.toml` — and asking them in an artefact
+environment gets a wrong answer rather than a stronger one. Two of them cannot answer at all, since
+`weft-canary` is deliberately never published (`lessons.md` L6.25).
+
+---
+
+## Orient — which checks walk a new file's directory
+
+**And before writing a *new file*, ask which fitness functions walk the directory it is going
+into.** The gate-and-fence step above is about a task; a file added under `scripts/`, `eval/` or
+`examples/` is subject to whole-tree architecture checks no task line mentions, and the cost of
+finding out afterwards is a rewrite rather than an edit. A measurement script for G17 was written
+three times — private helpers refused by `reportPrivateUsage`, then the real async stages, which
+fitness function 7(a) failed because **`asyncio.run` was then allowed exactly once in the whole
+repository** and that walk covers `scripts/` deliberately — and `eval/run_baseline.py` had
+documented the identical fork and its answer in its own module docstring all along. The
+constraint is discoverable: `tests/architecture/` is a small fixed set and each file says in its
+docstring which roots it walks (`L12.17`).
+
+
+---
+
+## Dispatch
+
+**A subagent is finished when its completion notification arrives and at no other moment.**
+`L11.36`, twice in two consecutive tasks. The harness states it plainly — *"you will be notified
+automatically when it completes"* — and both times an inference was substituted for it: once a
+`pgrep` for the agent's process, once a file-hash that had stopped changing. Both said *done* while
+the agent was still editing, and the gate that followed was run against a tree mid-write. **No
+process-liveness probe, no file-hash poll, no "it looks done".** Wait.
+
+**And when that run is red *by design*, the steps behind the red have not run.** `L21.8`.
+`ci-no-tests` is a sequence — `fmt, lint, types, arch` — and it aborts at the first failure. A
+test-first dispatch is *always* red at `types`, which is exactly where your own uncommitted edits
+hide: Phase 21b's own `02` rewrite displaced a citation, `arch` never executed, and the brief told
+the agent *"nothing else is red"* — a claim the gate had never made. Run the later steps by hand
+(`uv run pytest tests/architecture -q`) before dispatching onto an expected red, or say in the
+brief which steps were not reached.
+
+**Run `ci-no-tests` before you dispatch, and then keep off the tree until the agent returns.** Both
+halves cost seconds and both were paid for. The brief's *done when* names the gate, which is a
+promise that the gate currently reports on the agent's diff and nothing else — dispatch onto a tree
+that is already red and you have silently handed over a diagnostic assignment instead
+(`lessons.md` L6.30; the red was `pyright` failing on the test file written for that very task).
+And while it runs: **do not edit the tree, and do not run the gate either.** One container, one
+lockfile, one `.venv` — two concurrent suites truncate each other's tables and produce a result
+about neither, which arrives as three unrelated red tests rather than as anything naming the cause
+(`L6.22`). **Parallel dispatches cannot verify their own container-backed tests**
+(`L28.22`): `guard_unstaged_gate.py` refuses a container suite while any sibling worktree is locked,
+even a test that makes its own database, so run those tests yourself at the merge and say in each
+brief which ones the agent will not be able to run. **Schedule the container-reaching work first**
+(`L28.46`): a red or green that needs the container runs while no worktree is locked, and red
+writers that need no worktree run in this checkout, on disjoint files, so no lock is taken at all.
+A finished agent's worktree is removed, or unlocked, before the next gate. **Every green-phase dispatch passes `isolation: "worktree"`** — **G14**, settled
+2026-09-14 — so that rule is unreachable rather than only forbidden: `L9.57`'s version of it was
+broken five times in one session. Measured 2026-09-14: the worktree lands at
+`.claude/worktrees/agent-<id>`, holds no `.venv`, no `docs/internal/` and no `WEFT_DATABASE_URL`,
+is locked while the agent runs, and is removed by the harness if the agent changed nothing. **One
+the agent changed is yours to remove at *Verify***: read its diff, bring it into this checkout
+(`git -C <worktree> diff` plus any file it created), then `git worktree remove` it and delete its
+branch; `next_task.py --check-live` fails while an unlocked `agent-*` worktree is left. A worktree
+is its own checkout and *not* its own container, so a task needing the database is still serial.
+**And the dispatcher is a writer to the container and to the host** (`L24.3`, `L24.12`): while an
+agent may run a database-backed suite, run no database-backed suite of your own — `ruff`, `pyright`
+and `tests/architecture` alone open no connection — and while a paid measurement runs, dispatch no
+implementer and fan out no research agents on its host. Both were paid in Phase 38: a gate truncated
+an implementer's tables into a flaky red, and a 24 GB host killed a measurement three batches in.
+**And it is built from `HEAD`, where the red tests are not** (`L22.19`): *Red* leaves them
+uncommitted here, so write them to a patch in the scratchpad (`git diff` for edited files,
+`git diff --no-index /dev/null <file>` for new ones — `git add -N` needs a `git reset` to undo)
+and make applying it — `git apply --index`, so a file it creates is tracked before any gate runs
+(`L28.17`; `guard_implementer_brief.py` refuses the plain form) — the brief's **Step 0**, with the agent confirming the tests fail before it
+edits anything. Bring back its non-test diff only; the tests stay yours and land in the one commit.
+**A new worktree does not start at the current commit.** It has been seen at the session's first
+commit (`L22.24`) and at `origin/main`, which can trail local `main` (`L23.33`). So Step 0, in
+every worktree dispatch whatever the agent type, opens with `git merge --ff-only main` and then a
+check that a named symbol of the newest commit it needs exists, before the patch is applied — a
+symbol check without the merge only stops the agent. **And build the patch last, from everything
+uncommitted, and read the red state from the patched tree** (`L23.10`, `L23.24`, `L23.9`): a patch cut
+from the task's own paths misses a prerequisite edit, one cut before a formatter ran describes a tree
+that no longer exists, and a baseline measured before applying it describes a tree the agent never
+sees. **And `isolation: worktree` removes an unchanged worktree when the agent stops** — resuming
+such an agent lands it in the main checkout, so a blocked worktree dispatch is re-sent, not resumed.
+
+**Do it yourself instead when the change is smaller than its brief** — a one-line repair, a rename,
+something where writing *Already decided* would take longer than the edit. The split buys
+independence between test and implementation; below a certain size there is nothing to be
+independent about. **Say which you did, in the ledger entry.** That clause is sized by your own
+estimate and nothing records when it is taken, so a whole phase can run with no dispatch at all and
+the transcript is the only evidence — which is how Phase 6 reached its fifth task before anyone
+noticed (`lessons.md` L6.20).
+
+- **A `ContextVar` set by a wrapper that wraps more than one kind of thing records the innermost,
+  not the meaningful one.** `wrap` is called for stages, for services and for providers, and
+  `weft_llm.client` wraps its own call as `stage=f"llm:{role}"` — so a variable meaning *which
+  pipeline position am I inside* was stamped `llm:generate` on every chunk. If the value means
+  "which X am I inside", only the code that knows it is an X may set it; inferring that from
+  another parameter's presence is a guess that holds until someone else passes it too, and
+  narrowing on *"was `stage` given"* did not fix it — an explicit `position` only the runner
+  supplies did (`L12.13`).
+
+
+---
+
+## Verify
+
+**And when a repair adds an optional parameter, read the other call sites before writing why they
+abstain.** A defaulted parameter with one caller is a narrowing wearing a default, and the docstring
+explaining it is a claim about code the author was not editing. Task 8.18's said *"every other call
+keeps making none"*; twenty lines above, `run_named_ask` built the payload and knew exactly what it
+was — so one command refused a bad pipeline by name at exit `4` and its neighbour died with a raw
+`AttributeError` at exit `1`. The same phase shipped the shape twice: `weft index` passes
+`llm=deps.llm` into `run_index` and `weft eval run` calls the identical function passing nothing,
+which put every model-calling ingest rung out of reach of the evaluator. Both were found by running
+the binary, neither by 2,012 tests (`docs/internal/lessons.md` `L8.24`).
+
+**Before replacing an extracted value with a sentinel, grep the caller for every remaining use
+of that name.** Lifting a shared derivation out of one function leaves the caller's other uses
+behind, and a value that *selects* is often the same value that *explains*. `run_index` computed
+`accepted` twice — once to choose which files to read, and twenty lines later as the set the
+empty-walk message names to an operator; the extraction moved the first and replaced the binding
+with `frozenset()`, which is structurally correct for the use that moved and semantically wrong
+for the one that stayed. A directory of unreadable formats would have been told the installed
+extractors claim nothing at all. It was caught by `ruff` on the *adjacent* variable the same edit
+dropped — had the walk been one line shorter, a green gate would have shipped a lying message
+(`L12.15`).
+
+**The same rule for a *removal*, and it is the half the type checker cannot cover: grep for what
+depended on the thing you deleted, including what will now pass vacuously.** A deletion has two
+kinds of dependent. The first stops compiling and pyright names it. The second goes on running and
+stops meaning anything, and nothing looks for it. `R9.1` retired `PdfPages.starts` and produced one
+of each within the hour: the conformance kit's corpus lost the **only numeric `ext` field its
+operator matrix had**, so five filter cases (`lt`, `lte`, `gt`, `gt-fractional`, `gte`) went red —
+caught, and a full gate run late, because the sentence saying the field was load-bearing sat ninety
+lines above the line being edited, at the registration rather than at the use. And
+`weft_chunk.payload.ChunkOffset` lost its **only reader** (`weft_generate.page.page_for`) while
+staying attached by both chunkers and registered for rehydration — green everywhere, filed as
+`R17.1`. So: before removing a field, a class or a function, grep its name across the file that
+declares it as well as the files that use it, and ask of each survivor *would this still fail if it
+were wrong?* This is `L5.19`'s shape arriving by **subtraction** — machinery that *became*
+unfireable, which every check looking for machinery born that way is blind to (`L15.3`).
+
+**A mechanical edit is verified by something that did not perform it.** A script reported
+`would annotate: 160 … skipped: 0` and then `already carrying one: 160`, and that was read as
+done — but both numbers are the tool's own regex counting its own output, which is `L5.6`'s
+one-source shape wearing a progress report's clothes. **Twenty-nine files had stopped parsing**,
+because the fragment was delimited with `"` and a citation inside a Python file very often sits
+inside a string. `ruff format` found it in about a minute. So after a bulk edit, run the cheapest
+whole-tree *validity* check before the expensive gate and before reading the tool's summary as a
+result — this is `L11.35`'s neighbour one level coarser: that rule is about **meaning** after a
+bulk edit, and this one is about **validity**, which a machine answers for free (`L12.9`).
+
+**And a citation with no filename is invisible to fitness function 17.** Clauses (a) and (c)
+resolve a path and demand a quoted fragment; `_CITATION` requires a filename to match at all, so a
+*relative* citation — `` `:552-587` ``, a line in a file the sentence already named — is checked by
+nothing and can drift arbitrarily far. `docs/11-multimodal.md` carried `:492-524` for a walk that
+sat at `546` and then `552`; a six-line edit to `seam.py` moved three *quoted* citations, all three
+named exactly by clause (d), and said nothing about that one. So when you move code, grep the
+documents that discuss that file for a bare `:NNN` as well as for its name (`L16.3`).
+
+**And a green fitness function 17 is not a citation being right — the fragment decides that.**
+Clause (d) is satisfied by *any* occurrence of the quoted text within ±5 lines of the cited number,
+and FF17 truncates fragments to eight characters, so a citation quoting a common word is checked by
+nothing in particular. `docs/07-extension-cost.md:210 "while `02` §2 → *The trust model*"` cited `02:513 "supplied"` for a claim about a
+`packs:` block **767 lines away**, green, because that one word happened to occur twice near 513.
+So when you act on a citation, read the line; and when you write one, quote
+the fragment that carries the sentence's *claim* rather than its subject (`L18.2`).
+
+**A `path:line` an agent reports is a lead, not evidence.** Re-derive it as you land it: three
+agents reading one paragraph on the same day cited it at three different line numbers (`L9.34`), and
+fitness function 17 cannot help — it proves a path resolves, never that the line says what the
+sentence claims. A citation repeated from another agent's report inherits none of that agent's
+verification.
+
+**A *green* return carries the same findings a blocked one would, and you read them later.**
+`L21.7`. The *Red* rule — *"I moved production code to make the test reachable" is a finding about
+the **test**"* — is written for a blocked return, the one case you are already reading closely. A
+green return's `## Noticed` is harvested to the spool and read at the end of the turn, by which
+point the gate has passed and a contortion looks like a decision somebody made. Phase 21b's `21.7`
+implementer placed two new SQL builders in the wrong half of a file to keep a frozen citation
+inside its ±5-line window, said so, and was right to; moving them back and re-pointing the citation
+took one line. **So read `## Noticed` before you run the gate, not after** — the gate passing is
+what hides it.
+
+
+---
+
+## Finish
+
+0. **Stage first.** `git add -A` before the gate run, not only before planting a disagreeing case.
+   The architecture suite walks `git ls-files`, so an unstaged new file is invisible to every check
+   that reads the tree that way, and the green you get is about a population one file smaller than
+   you think — `L11.34`, which is `L8.10`'s **third** instance and its first outside the
+   plant-and-watch step the rule was written for.
+
+1. **`uv run poe ci-task` is green, run by you** — format, lint and types over the whole tree, then
+   every test the uncommitted change can reach (`scripts/impacted_tests.py`, which over-selects on
+   purpose) and the example packs' suites when `examples/` moved. **The full `uv run poe ci-checks`
+   runs once, at *Close the phase*** (owner's instruction, 2026-09-23: a ~25-minute gate per task
+   bought almost nothing a scoped run did not), and a task whose change reshapes the workspace —
+   a new dependency, a root `pyproject.toml` or `conftest.py` edit — gets it anyway, because
+   `ci-task` then selects the whole tree. The rest of this step applies to whichever run it is.
+   **Read its skip count against the last run's, not only its exit code**
+   (`L28.27`): a dead Qdrant turns its tests into skips and the gate reads green — 101 skipped
+   against 16, the only signal, at `34.7`. **When it is red and you think you know why, re-run the command that failed,
+   not a subset of it.** A green from a narrower scope confirms nothing about the change you just
+   made, and where the failure is order-dependent the narrowing is exactly what makes it vanish:
+   Phase 6 read a `uv sync` as a fix because the run *after* it was one file rather than the suite,
+   and wrote the wrong cause into the queue before the next full run said otherwise
+   (`lessons.md` L6.32). A message naming an environment state is a hypothesis, not a diagnosis.
+   Run it in the foreground: backgrounding it is how three agents in Phase 3 stalled.
+   **And a local green says nothing about CI's clock** (`L26.6`): when a change touches what a
+   timed test exercises, read that test's time on the last CI run, and one past half its timeout
+   gets its own budget before the push — `test_experiment_at_scale` ran 28 s here and 57 of 60 there.
+
+2. **Any fitness function the task's *turns on* field names is wired and green** — wired means added
+   to the `ci-checks` composite in the same commit, because fitness function 0 fails otherwise.
+3. **A check you added can fail, and you have watched it.** Plant a disagreeing case and see it go
+   red, and **name the self-test `test_the_check_can_actually_fail`** — the spelling
+   `tests/architecture/test_ff0b_checks_are_real.py` accepts; authors who could not see that list
+   invented variants of it (`L9.46`). Two shapes make this non-optional: a check whose two sides come from one source cannot fail
+   at all, and a check whose subject is legitimately empty today passes vacuously — there the floor
+   is a self-test proving the comparison is not vacuous. → `references/evidence.md`
+
+   **A check whose population comes from `git ls-files` does not include its own new file until
+that file is staged.** Plant *after* `git add`, not before — otherwise the check runs against a
+tree its own subject is missing from, reports nothing wrong, and the green is about a population
+of one fewer than you think (`L8.10`). The same trap catches the cleanup: a staged-then-deleted
+plant leaves a tracked path with no file behind it, and a sweep that does not guard for that
+crashes on the exact state its own non-vacuity exercise produces.
+
+**Plant the *right* disagreement, and for a check with a waiver that means emptying the waiver.**
+   It is the one plant that separates *"nothing is wrong"* from *"nothing is being looked at"*.
+   Phase 6 shipped a documentation check whose prose sweep matched **nothing in the entire shipped
+   set**, with five green tests including a hand-written non-vacuity test — which asked whether the
+   waived text was *present* rather than whether the check *fired on it*
+   (`lessons.md` L6.29). A waiver-liveness test asserts the sweep fires; those differ exactly when
+   the check is broken, which is the only case either test is for.
+
+   **Two numbers agreeing is not two numbers being right, and the paragraph explaining a check
+   is the most dangerous line on its page.** `R11.7` added a count check over a documented
+   convention: the section states how many names it reserves, and the parser refuses a run that
+   reads a different number. The sentence introducing the convention illustrated it —
+   `` Every reservation below begins its own line with `· `name`` `` — and **`name` was parsed as
+   a twenty-seventh reservation**, against a section holding 26 readable plus one the parser
+   drops. 26 + 1 phantom = 27, the prose said 27, the check passed, and the live defect it was
+   written to expose stayed invisible. Two consequences: illustrate a convention in a form the
+   parser cannot match (anchoring the pattern is what made a mid-sentence example safe), and
+   **watch a deliberate disagreement** — the plant this project requires for a sweep applies to
+   any two-sided assertion, not only to one that might match nothing (`L12.8`).
+
+   **A fallback that widens what a check accepts answers only where the precise reading is
+   impossible** (`L28.57`): FF17's namesake fallback answered a spelled-out path from a different
+   `store.py` fifty lines away, green for weeks, about a subject the citation did not name.
+
+   **A plant-and-revert reverts the file you edited, never the state that file drives.** Renaming
+   an extra in a `pyproject.toml` to watch a check go red is item 3 done correctly; the
+   `uv run pytest` in the middle re-resolved the workspace and rewrote **`uv.lock`**, and
+   reverting the manifest did not revert the lockfile. A full gate then passed against a lock
+   naming an extra that existed nowhere. So run `git status` after the revert rather than
+   re-reading the planted file — and `.github/workflows/ci.yml` now carries `uv lock --check` on
+   a clean checkout, because the same check inside `poe ci-checks` is vacuous: `uv run` heals the
+   lock before poe starts, which was watched passing green against a lockfile it had just made
+   agree (`L12.7`).
+
+   **And where a change is made safe by a default, read every other caller.** "Existing callers are
+   unchanged" is the right property for a signature and the wrong conclusion about a *check*: one
+   that renders through a default stops describing the artefact the moment the artefact starts
+   passing something else, and it goes on agreeing with the shape it produced itself (`L6.21`).
+3b. **Read the verdict from the command that produced it, never from the end of a pipeline.**
+   A pipeline's exit status is its **last** command's, so `weft … 2>&1 | tail -8` followed by
+   `echo "exit=$?"` reports `tail`'s success for a binary that exited 1 — measured, in the session
+   that quotes `L10.24` against exactly that shape. Redirect, capture, then look:
+   `cmd > out.log 2>&1; echo "EXIT=$?"; tail -8 out.log`.
+   `.claude/hooks/guard_unchecked_commit.py` refuses the pipe-then-`$?` form outright, which is
+   where this rule actually lives — this line exists so the reason is readable when it fires
+   (`L12.16`).
+
+4. **You have run the thing, through the shipped entry point, from a directory that is not this
+   repository — including its failure path.** *And take the advice the failure path gives* —
+   run the remedy an error message prints, because a remedy the system refuses is a second defect
+   inside the first (`L23.25`: `estimate` told the operator to name a width in a `with:` block that
+   a hash stage then refused; `31.13` printed `pip install weft-rag[qdrant]` for an installed extra).
+   *And exercise a new check through the input it will really be handed*, never a literal built to
+   match its own pattern — the narration hook read the one message that never carries the violation
+   (`L23.12`). *And construct the condition for any branch that
+   only fires sometimes.* **Branches this step keeps missing, each named by a defect it
+   cost:** the **default, flagless** invocation — the one nobody runs on purpose, every user runs
+   first, and an author verifying their own feature is least likely to reach for (`L9.64`); the
+   **platform**, because a config default inherited from a dependency is safe as a quality
+   judgement and not as a platform one, and `device: auto` crashed on the machine this project is
+   built on (`L9.82`); and the path where a plugin **constructs its own dependency for real**, with
+   no injected double — every unit test on both sides of `describe-figure` injected one, so the
+   whole capability shipped dead and silent (`L9.87`); and **the neighbours of a case some
+   docstring deliberately lets pass quietly** — `weft index` answers an empty directory, a path
+   that does not exist and a path that is a file with **one byte-identical line at exit `0`**, so
+   a user who mistypes a corpus path is told indexing succeeded. *"X is not an error"* is a claim
+   about one input, and the code implementing it usually cannot tell X from its neighbours; run
+   the binary on each and diff, which took under a minute (`L14.6`, repair `R27.1`).
+   Then ask whether the promised behaviour
+   actually *fired* — a published artefact, a computed value, a rendered field: both halves of a
+   seam existing is not either one being reached (`L9.12`, `L9.45`, `L9.67`, `L9.69`), which is
+   `L5.15`'s shape and this phase met it five more times.
+   A conditional fan-out, a retry, a fallback, a rare-input path: running
+   the happy case exercises none of them, and two defects once sat behind one such branch where
+   the first hid the second, so fixing only what the first traceback named would have shipped the
+   other (`L8.11`). Ask which branch of this change has never executed, then make it execute.
+   **Pair the check with a control that has the fix removed** (`L28.47`): `R43.39`'s REPL and `Weft`
+   API runs returned 3 hits with and without the fix, because each command opens its own
+   connection and the defect lives on a long-lived one. A check whose control also passes does not
+   reach the defect; record it as such, never as evidence. *An import probe is not this.* Installing a
+   distribution alone and importing it proves its **import-time** dependencies and nothing else — a
+   subprocess call, a lazily-imported optional backend, a data file opened on first use are all
+   invisible to it, and `weft-cli` shipped for a phase needing a `ruff` it declared nowhere
+   (`lessons.md` L6.24). *A subprocess call is a dependency declaration you have not written yet.* A green suite is not evidence of a working binary:
+   every one of Phase 3's four repairs was found this way and none by its 1,513 tests, and one of
+   them falsified that phase's own Exit criterion while the test written to prove that criterion
+   passed. Paste the real output into the ledger entry; leave no artefacts behind.
+   → `references/evidence.md`
+4b. **Install what you are about to run, and know which artefact answered.** `L11.37`: a
+   diagnosis was made against a wheel `uv` was not running — `uv run --with <wheel>` serves a
+   stale extracted archive — so the behaviour read was a previous build's. Build, `uv pip install`
+   into an explicit venv, and invoke that venv's own binary by path. And **point the run at a
+   database the test suite cannot touch** (`CREATE DATABASE <name>` on the same server): test rows
+   leaked into a measurement twice in one phase before that became a mechanism rather than care.
+   Every service running on the machine is an assumption the run is making — `L11.21`: a Qdrant
+   that happened to be up kept two green local gates over a defect that made `weft index` exit 1
+   on any machine without one, and CI found it in minutes. If a change alters the set of services
+   a run touches, stop the ones it should not need and run it again.
+   **A page whose job is a transcript is run whole, against the artefact it names** (`L22.10`).
+   `docs/REPRODUCING.md` said it carried only commands that were run, while one block held
+   `<pipeline>` placeholders and a count on it had been measured against a local copy of the
+   archive with two files added. Run every fenced command from the published asset, not a copy;
+   a block you did not run is marked as a shape.
+
+
+---
+
+## Close the phase
+
+1. **Read the phase's own preamble in `build-ledger.md` for what it asks for beyond this list.** It
+   is where a phase records its own obligations — Phase 6's, for one, carries Phase 5's finding that
+   *"Phase 6 should drain at its midpoint as well as its close"*, so its queue is drained three
+   times rather than once.
+
+   **Check the conjunction first, not the clauses.** Where an exit's clauses were built by different
+   tasks, the word joining them — *together*, *the same*, *one of which* — is the part no task owned
+   and therefore the part that fails. Phase 8's exit asked that `weft eval` judge two of *those
+   rungs*, meaning the query rungs the clause above names; every box was honestly ticked, both
+   halves were individually demonstrable, and `weft eval run` refuses a query rung outright because
+   it has no `Extractor` stage. Reading clause by clause reproduces the division of labour that left
+   the gap (`docs/internal/lessons.md` `L8.29`).
+4b. **A clause of the Exit that contains a command line is re-checked by *running* it.**
+   `L11.43`: `01` → Phase 11's Exit named `weft eval compare <pipeline> <pipeline> --baseline
+   <pipeline>`, and no part of that invocation is the command — `<a>`/`<b>` are run ids and
+   `--baseline` matches the *ingest* pipeline, so the criterion as written refuses at exit `4`. An
+   exit criterion written as a command line is a claim about a CLI surface, and this project checks
+   worked transcripts in `manual/` and checks these not at all. Run it, then correct the document
+   in place.
+
+4c. **A task id cited in a closing note has a ledger line, or the note says it does not.**
+   `L19.9`: `fix-plans/06-adoption-surface.md` drafted `20b.0` and `20b.1` with owners, sizes and
+   evidence, neither was ever entered in `build-ledger.md`, and **Phase 21a's own closing note
+   then cited both as tasks that "still own" a repair still in the tree**. A fix plan is a
+   hypothesis and its drafted task lines are a producing side with no consuming side — nothing
+   moves a drafted line into the ledger and nothing notices that it was not moved, so a task can
+   be written, argued, sized and cited as live while being scheduled by nobody. When a close note
+   names a task id, grep the ledger for a `- [ ] **<id>**` line; if there is none, enter it or say
+   in the note that it was declined and why.
+
+
+---
+
+## When to stop
+
+- **Settled text says "every X" and you have found an X it should not cover.** That is a gate to
+  reopen, not a proviso to add — and the proviso is seductive because the problem it solves is
+  usually real. Write the narrowing up as an open question: invented mid-task, it is
+  indistinguishable afterwards from a decision that was argued. → `references/evidence.md`
+
+  **"Settled text" includes an invariant written in code.** This rule was Applied for a whole phase
+  and did not bite once, because it was read as being about `docs/`: `weft_cli.route_ask`'s
+  `assert isinstance(answer, Answer)  # every shipped routable pipeline ends in a Generator` is the
+  identical shape — an "every X" stated over what this repository ships, checked against documents
+  anyone may write — and it sat there through Phase 5 and most of Phase 6 failing with no message at
+  all. A comment claiming universality over a population you do not control is the same defect as a
+  document doing it, and it is harder to see because nobody reads a comment as settled text.
+- **You are about to file something as *undecided*.** That is as much a claim about the settled
+  documents as taking the decision would be, and it is cheaper to check — one grep for the
+  identifier the claim turns on, at the moment of filing. The clause above stops a task inventing
+  a narrowing rather than reopening a gate; this is the same rule from the other side, and both
+  halves cost Phase 12 a day. `R11.6` was filed on the premise that adding a field to an envelope
+  *"moves `envelope_version`"*, which `09` §3 rules **"Promised, additively… never frozen"** and
+  which the task that last added such a field had written into code one module over. It was read
+  into the Status block's **Next action** row and routed by `next_task.py` for a day before anyone
+  grepped the identifier (`L12.3`).
+
+  **And a pasted transcript is evidence of the symptom, never of the cause.** The moment a repair,
+  a lesson or a review names a *raise site*, a *class* or a *module* as the origin of output it
+  has quoted, that name is a second claim owing its own second measurement. `R11.3` pasted a real
+  operator transcript and blamed `weft_kernel.registry.UnknownPluginError`; one `--json` run named
+  `UnknownStagePluginError`, raised inside `weft-cli` and already holding the registry, and the
+  wrong cause carried a remedy that was **structurally impossible** — `require_plugin` takes a
+  contract, and the contract is the thing being inferred when the inference fails. Two modules
+  here compose deliberately similar sentences about an unresolvable plugin name, and only one of
+  them ran; `--json` puts the class in the error envelope, which is the field `09` §3 promises for
+  exactly this (`L12.4`). `L9.34` is the same rule for a *citation* and did not reach these,
+  because neither origin was written as a citation — both were written as a diagnosis.

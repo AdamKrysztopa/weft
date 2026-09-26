@@ -126,22 +126,21 @@ def main():
 
     mistakes = _mistakes(completed.stdout, path)
     if mistakes:
-        print(
-            "\n".join(
-                [
-                    "",
-                    "This test calls something that exists and lacks what it was asked for:",
-                    "",
-                    *mistakes[:6],
-                    "",
-                    "An absent module is the red phase and is not reported here. This is the other "
-                    "kind: a call written from memory rather than copied from an existing use. "
-                    "Grep for one real call and copy its shape — docs/internal/lessons.md L8.35, "
-                    "which"
-                    "recurred three times in Phase 7 before this hook existed.",
-                ]
-            ),
-            file=sys.stderr,
+        # Exit-0 stderr never reaches the model on PostToolUse; additionalContext does.
+        message = "\n".join(
+            [
+                "This test calls something that exists and lacks what it was asked for:",
+                "",
+                *mistakes[:6],
+                "",
+                "An absent module is the red phase and is not reported here. This is the other "
+                "kind: a call written from memory. Grep for one real call and copy its shape "
+                "(docs/internal/lessons.md L8.35).",
+            ]
+        )
+        json.dump(
+            {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": message}},
+            sys.stdout,
         )
     return 0
 

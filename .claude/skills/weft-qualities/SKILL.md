@@ -60,7 +60,7 @@ one router existed it was the correct one and the stage pairing it needed could 
 the moment a project can author one, a missing upstream stage becomes somebody's first experience
 of the feature, and it arrived as an `AttributeError` rather than a named refusal (`L8.16`). For
 every constraint the old value met for free, ask who writes the refusal now.
-Phase 5 found three where they could not, all shipped and all green: `ext` models had a registry and
+Phase 5 found three seams where a stranger could not reach both sides, all shipped and all green: `ext` models had a registry and
 no way for a pack to contribute to it (`lessons.md` L5.15); slots had placement, id qualification
 and unplaced-recording and nothing that could *offer* a contribution (`L5.22`, scope decision `S8`);
 and a pack's `Command` can return a typed result that no pack-reachable renderer can turn into text,
@@ -163,14 +163,6 @@ the backend that has three of the four.
 
 ### 5. An unknown name fails loudly, naming the valid options
 
-**A waiver's reason being true is necessary and not sufficient.** The question after establishing
-that a waiver's stated fact is correct is whether the fact *should still hold* — because a reason
-can be perfectly accurate and still be the wrong answer, when a short repair would remove the fact
-instead of documenting it. Two entries were once drafted into a fitness function's waiver with an
-accurate reason, and deleted unwritten when the repair turned out to be smaller than the
-justification (`L8.2`). Ask of every waiver: *what would it cost to make this entry unnecessary?*
-If the answer is "less than the paragraph explaining it", the waiver is the wrong artefact.
-
 **Falsify it:** *what happens on an unknown name, a missing optional dependency, a refused pack?*
 Three failures, one standard: say what was wanted, why it is unavailable, and what the valid options
 are.
@@ -178,10 +170,9 @@ are.
 A silent fallback is worse than a crash, because it produces a plausible answer. Weft's `Outcome`
 type exists so a degraded path is *visible* rather than indistinguishable from success.
 
-**A new caller of a validating model is a new escape path** (`L28.13`). `R41.1` routed a provider's
-`config_model` to bind time, and `model_validate` there let pydantic's own error and documentation
-URL reach `weft ask` — task 7.4's defect, fixed at load time and re-opened one call site later. Ask
-of every new `model_validate(`: what does the operator see when this one fails?
+**A new caller of a validating model is a new escape path** (`L28.13`): a refusal fixed at one call
+site reopens at the next. Ask of every new `model_validate(`: what does the operator see when this
+one fails — a named refusal, or pydantic's own error and URL?
 
 **Worked example:** asking for a metric by name returned **no error and no score** — 6 of 21
 evaluators never registered, and unknown names were silently dropped.
@@ -217,10 +208,14 @@ names off-convention and an entire untraced stage.
 So a review finding is a stopgap, and the durable version of it is a fitness function. When you find
 something, ask whether the seam that would catch it already exists — registration, resolution,
 discovery, config load — because a check that attaches to an existing seam costs almost nothing.
-`docs/01-high-level-plan.md` → *Fitness functions* lists the nine that exist; adding one means adding
+`docs/01-high-level-plan.md` → *Fitness functions* lists the ones that exist; adding one means adding
 it to the `ci-checks` composite in the same commit, which fitness function 0 enforces.
 
 A proposed check is worth more than a fixed line. Say both.
+
+**A waiver's reason being true is necessary and not sufficient.** Ask of every waiver: *what would it
+cost to make this entry unnecessary?* If the answer is "less than the paragraph explaining it", the
+waiver is the wrong artefact (`L8.2`).
 
 **And before you accept a mechanism as this change's escape hatch, run it.** A design that answers
 an objection by pointing at something that already exists — *"the spans already carry that"*, *"the
@@ -232,7 +227,7 @@ fitness function specified in `01` on day one with no file in the tree until fiv
 (`L5.4`). All three were cited in argument before anyone ran them. Naming a mechanism is not
 evidence that it works, and the cost of checking is one command.
 
-**Two more kinds of mechanism, learned in Phase 6, because "run it" is not always one command.**
+**Three kinds of mechanism where "run it" is not one command.**
 
 *A platform mechanism is probed at its failure path, not read from its documentation.* The
 `SubagentStop` hook was designed against a documented "cannot inject into the parent"; probed, its
@@ -260,13 +255,8 @@ L6.28).
 **And a number is a mechanism too: a count a document states in the present tense expires the moment
 a phase could have changed it.** Re-take it before you argue from it, and **correct the document in
 place** with what it says now — a stale count that is only worked around in conversation is a stale
-count the next reader will cite. G10's own brief demonstrated both halves: it instructed *"a count,
-taken on the day of the session"* and then stated the answer in advance — *"today every pack declares
-`dependencies = ["weft-kernel"]` with no bound"* — which G9's Phase 5 work had made false, all 18
-distributions now carrying `>=X,<MAJOR+1` on every sibling. The instruction is what caught it; the
-predicted answer is what would have been argued from. This is `L5.14`'s rule about a *list* of sites,
-applied to a *number*, and it lands here rather than in `phase-step` because the sessions that argue
-from cited numbers are gates and reviews, which is when this skill runs (`lessons.md` L6.1).
+count the next reader will cite. When a brief asks for a fresh count and also predicts the answer,
+take the count and discard the prediction (`L6.1`).
 
 ## Report like this
 
@@ -284,12 +274,10 @@ rather than skipped.
 
 `L21.5`. A check that locates its subject by a **conventional name** is asserting the convention,
 not the property — and every subject that legitimately spells it differently leaves the population
-in silence. `tests/docs/test_pack_settings_documented.py` finds each pack's settings with
-`getattr(module, "Settings", None)`, and **three of twenty-three installed packs bind no such
-name** — `store` (`PgVectorSettings`), `qdrant` (`QdrantSettings`), `otel` (`OtelSettings`). The
-store is the pack with the most settings and the one no operator can avoid configuring, so **six
-fields sat outside a check whose waiver is pinned empty and whose docstring records driving
-thirteen undocumented fields to zero.** It is solved for the population it can see.
+in silence. `tests/docs/test_pack_settings_documented.py` once found settings by
+`getattr(module, "Settings", None)`, and the three packs that named theirs otherwise — the store
+among them — sat outside a check whose waiver was pinned empty. It now reads the type from
+`register`'s signature, the way discovery does.
 
 **The falsifying question:** *how many subjects should this walk find, and how many did it?* Not
 *did it find any* — `L11.5`'s floors already ask that, and this walk found plenty. Wherever a check
@@ -398,8 +386,7 @@ every one of them produced a *plausible* number rather than an obviously broken 
   because meaningless vectors are near-orthogonal and therefore spread out. What separates them is
   the median (−0.003 against 0.433), which needs no tuned constant at all (`L10.22`).
 
-**Phase 11 added three, and all three are the same question asked of a *database column* rather
-than of a metric.**
+**The same question, asked of a *database column* rather than of a metric:**
 
 - **One table, two writers, two meanings of one column.** `weft graph bridges` printed *"0 chunk(s)
   hold both endpoints"* about two names in one sentence: `cooccurrence-graph` anchors an entity to
@@ -419,7 +406,7 @@ than of a metric.**
   the answer is "the same thing", it is not a staleness check. Its sibling `L11.3`: a one-point
   probe of a step function measures that point — probe a derivation where its answer *changes*.
 
-**Phase 16a added one more, and it is about *time* rather than about a field.** A comparison
+**Asked of *time* rather than of a field:** a comparison
 guard that gains a fact does not retroactively hold it constant: every record committed before the
 field existed carries `None`, and two of them "agreeing" is two absences matching rather than two
 measurements agreeing (`L17.3`). The fifteen RAPTOR exit records were read as repetitions of each
@@ -427,8 +414,7 @@ other on five facts none of them carries. **So when a guard learns a fact, ask w
 it guards said before it could** — and make the statement declare the absence rather than leaving
 a reader to infer equality from silence, which is what ledger task 16.2 built.
 
-**Reaching the varied field is not seeing it, and that is two questions where this lens has been
-asking one.** `L19.8`. Task `21.2`'s sweep was designed against this lens explicitly and its own
+**Reaching the varied field is not seeing it — two questions, not one** (`L19.8`). Task `21.2`'s sweep was designed against this lens explicitly and its own
 docstring records the reasoning — `hybrid` is the only shipped retriever that reaches the store's
 text arm, *"which is the half that makes the instrument able to see the thing being varied"*. The
 reasoning was right and the conclusion was still wrong. The field really was **read**: every arm
@@ -452,10 +438,7 @@ arguing from it, and **re-take it before arguing from it a second time**.
 
 - **Not a style review.** Ruff and Pyright run in `ci-checks` and are better at it.
 - **Not an architecture gate.** If the change runs into an *open* decision, stop and name the
-  gate. **Which gates are open is read from `docs/internal/README.md`'s decision log, never from
-  here** — this clause named G2, G7, G8 and G9, and all four had settled by 2026-08-21 while the
-  sentence went on calling them open for twenty-three days (`L19.2`). A pointer cannot go stale
-  the way a list does. Defaulting an open decision in a code
-  review is precisely what the gates exist to prevent.
+  gate, reading which gates are open from `docs/internal/README.md`'s decision log. Defaulting an
+  open decision in a review is precisely what the gates exist to prevent.
 - **Not a veto.** These requirements have costs, recorded in `docs/01` alongside them. A change that
   fails one may still be right; what is not acceptable is failing one without noticing.

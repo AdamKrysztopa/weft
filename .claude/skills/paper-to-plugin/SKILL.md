@@ -18,19 +18,6 @@ skill is how a new paper gets through that door.
 
 ## The thing that goes wrong
 
-**Read the paper, and stop there.** *"Read this paper"* and *"read whatever it points at"* are
-different instructions, and a brief that names a source names what to read rather than where to
-stop. A dispatched agent, told to read a PDF, went to the authors' own GitHub repository on its own
-initiative and drew nine constants from it (`docs/internal/lessons.md` `L9.36`). Nothing was copied — the
-synthesis step rebuilt everything in Weft's own words, which is the only reason the originality rule
-held — but that was luck rather than instruction. The authors' implementation is out of bounds
-unless the brief names it separately.
-
-**A number taken from a paper and used to move a shipped default is a claim about the tree, not
-just about the literature.** Four figures were quoted to justify changing a retrieval default and
-three of them did not exist in the paper (`L9.71`). Cite the page, and quote the sentence the number
-comes from, at the point the default changes.
-
 Not bad code — **an overclaiming name attached to good code**. It is invisible in review, because the
 implementation is fine and the name reads as documentation. It surfaces years later when someone
 configures `self-rag` expecting reflection tokens and gets a confidence threshold.
@@ -51,6 +38,11 @@ Not the abstract, not a summary, not your memory of it. `CLAUDE.md`'s standing r
 before asserting*, and it is nowhere more load-bearing than here — you are about to make a public
 claim about what a paper says.
 
+Read the paper and stop there: *"read this paper"* names what to read, not where to stop, and the
+authors' own implementation is out of bounds unless the brief names it separately (`L9.36`). A
+number from the paper that moves a shipped default is a claim about the tree: cite the page and
+quote the sentence it comes from at the point the default changes (`L9.71`).
+
 What you need out of it, and each of these is a separate fact:
 
 - **The mechanism.** What does the technique actually do, stated as steps.
@@ -58,8 +50,8 @@ What you need out of it, and each of these is a separate fact:
   in the paper; HyDE's sample count is not confirmed at source, and `10` §5 says so out loud.
 - **What the paper claims and what it measured.** These differ more often than not.
 - **What it depends on** — a model class, a corpus property, a language. A technique validated only
-  on English is a technique with a scope, and `weft-eval`'s hardcoded `lang="en"` is the live
-  example of what happens when that scope goes unrecorded.
+  on English is a technique with a scope; record it where a caller can change it, as task 16.8 did
+  when it moved `bert_score`'s fixed `lang="en"` onto the sample.
 
 Write down what you could not determine. An unconfirmed fact stated confidently is worse than a gap,
 and `10` §5 exists as a section rather than as footnotes precisely because *the value of a catalogue
@@ -95,10 +87,8 @@ Three outcomes, and picking wrong is the most expensive error available here:
 - **A plugin**, if it is one mechanism filling one position.
 - **A pipeline**, if it is a composition of things that already exist. `10` §2.1 rule 5:
   *a composition is a pipeline, never a plugin*. `rag_complex` named HyDE plus repacking;
-  registering it would have put a name on data that requirement 3 says is derivable. **Weft ships
-  four pipeline documents in the whole tree, so this outcome is almost certainly under-used, not
-  over-used** — if the paper is a recipe over known parts, a document is the honest answer and it is
-  also the cheaper one.
+  registering it would have put a name on data that requirement 3 says is derivable. If the paper
+  is a recipe over known parts, a document is the honest answer and it is also the cheaper one.
 - **A field on something that exists.** `weft_retrieve.repack` and `collapse-to-parent`'s
   `CollapsePolicy` are one mechanism with a config field rather than three plugins. If the paper's
   contribution is a parameter choice, ship the parameter.
@@ -120,9 +110,9 @@ to any codebase** (`10`'s own framing). You are implementing a described mechani
 contracts, which have different types and a different shape from anything the authors wrote.
 
 The parts that carry the most risk are the text-shaped ones — prompts especially. A prompt in a paper
-is prose you must re-author for Weft's prompt layer, not a string to transcribe. `04`:144-145 is
-explicit that prompts, word lists, locale catalogues and regexes must be authored rather than carried,
-because *for those the text is the asset*.
+is prose you must re-author for Weft's prompt layer, not a string to transcribe. `CLAUDE.md`'s
+text-shaped-asset rule and `NOTICE` item 1 hold that prompts, word lists and locale catalogues are
+authored rather than carried, because *for those the text is the asset*.
 
 While writing, hold Weft's shape: every contract method is `async def`; return frozen Pydantic models,
 never `dict[str, Any]`; `Enum` for string constants, never `Literal`; catch specific exceptions,
@@ -202,8 +192,9 @@ others?* Each yes is a plugin.
   family has a scope. Unstated, it becomes a silent wrong answer — which is the failure class
   `CLAUDE.md` singles out: *it does not crash, it produces a plausible answer against the wrong data.*
 - **Growing the kernel.** If a technique seems to need kernel lines, the technique is not the problem
-  — the seam is. Fitness function 3 caps `weft-kernel` at 3,500 lines with a review trigger at 2,800,
-  and it is at ~3,079. Say what the extension point would have to be instead.
+  — the seam is. Fitness function 3 caps `weft-kernel`'s size;
+  `uv run pytest tests/architecture/test_ff3_kernel_budget.py -s -q` prints where it stands. Say what
+  the extension point would have to be instead.
 
 ## What this skill does not do
 

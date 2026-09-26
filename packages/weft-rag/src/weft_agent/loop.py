@@ -123,7 +123,7 @@ class AgentOutcome(BaseModel):
 
 
 def _render_tools(tools: Mapping[str, AgentTool]) -> str:
-    """The tool catalogue as the numbered list `next-action`'s prompt text asks for."""
+    """The tool catalogue as the bulleted list `next-action`'s prompt text asks for."""
     if not tools:
         return "(no tools are available; you must answer directly)"
     return "\n".join(f"- {name}: {tool.description}" for name, tool in tools.items())

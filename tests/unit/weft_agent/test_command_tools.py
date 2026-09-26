@@ -31,11 +31,12 @@ deletes as redundant.
 from __future__ import annotations
 
 import ast
+from enum import StrEnum
 from pathlib import Path
 from typing import ClassVar
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
@@ -44,8 +45,18 @@ from weft_kernel.payload import Outcome, Produced
 from weft_kernel.registry import Registry
 
 
+class _Unit(StrEnum):
+    """Internal notes about ledger task 0.1 that a model has no use for."""
+
+    NODES = "nodes"
+    SOURCES = "sources"
+
+
 class _CountArgs(BaseModel):
-    what: str = "nodes"
+    """Internal notes about ledger task 0.0 that a model has no use for."""
+
+    what: str = Field(default="nodes", description="what to count")
+    unit: _Unit | None = Field(default=None, description="the unit to count in")
 
 
 class _CountResult(CommandResult):
@@ -142,6 +153,35 @@ async def test_a_read_class_command_is_permitted() -> None:
     observation = await tools["count"].call({}, _ctx())
 
     assert "refus" not in observation.lower()
+
+
+def test_a_tool_shows_the_model_the_arguments_it_takes() -> None:
+    from weft_agent.command_tools import command_tools
+
+    tools = command_tools(_registry_with(count=_Count))
+
+    description = tools["count"].description
+    assert '"what"' in description
+    assert "what to count" in description
+    assert "the unit to count in" in description
+    assert "ledger task 0.0" not in description
+    assert "ledger task 0.1" not in description
+
+
+@pytest.mark.asyncio
+async def test_arguments_the_model_got_wrong_come_back_as_an_observation_naming_the_field() -> None:
+    """The model supplies these arguments, so a mistake in them is something it can correct.
+
+    Raised out of `call`, it would end the whole run inside `run_agent` instead.
+    """
+    from weft_agent.command_tools import command_tools
+
+    tools = command_tools(_registry_with(count=_Count))
+
+    observation = await tools["count"].call({"what": ["not", "a", "string"]}, _ctx())
+
+    assert "what" in observation
+    assert "count" in observation
 
 
 @pytest.mark.asyncio

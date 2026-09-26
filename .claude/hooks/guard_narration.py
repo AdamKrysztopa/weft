@@ -150,8 +150,9 @@ def main():
 
     listed = "\n".join("  line {0}: {1}".format(line, snippet) for line, snippet in hits)
     print(
-        "This reply narrates its own planning, which the owner has now asked to stop three "
-        "times:\n" + listed + "\n\n"
+        "This reply narrates its own planning, which the owner has asked not to see:\n"
+        + listed
+        + "\n\n"
         "The harness reminder that asks you to *privately* list what you need next means "
         "privately — in your reasoning, not in the reply. Keep doing the planning; stop "
         "printing it. Rewrite the reply so it carries the answer, the result, or the "
