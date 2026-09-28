@@ -296,3 +296,13 @@ packages = [
     "src/weft_store",
     "src/weft_vision",
 ]
+
+# R44.7: `hatch_build.py`'s custom build hook stamps `weft_eval/_build_revision.json` with the
+# commit a wheel was built from, because a wheel has no `.git` for
+# `weft_cli.provenance.source_revision` to ask once installed. Registered on both targets since
+# `uv build` builds the sdist first and the wheel *from* it — an unpacked sdist has no `.git`
+# either, so the stamp has to travel through the sdist as an ordinary file the wheel's own
+# `packages` selection above already picks up.
+[tool.hatch.build.targets.sdist.hooks.custom]
+
+[tool.hatch.build.targets.wheel.hooks.custom]

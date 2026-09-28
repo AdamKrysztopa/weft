@@ -58,3 +58,19 @@ async def test_by_default_the_revision_is_the_installed_weft_eval_s_not_the_work
 
     # Assert
     assert revision == expected
+
+
+async def test_outside_a_checkout_a_build_stamp_beside_the_package_is_the_revision(
+    tmp_path: Path,
+) -> None:
+    # Arrange — R44.7: what an installed wheel carries, since it has no checkout to ask.
+    (tmp_path / "_build_revision.json").write_text(
+        '{"commit": "0123456789abcdef0123456789abcdef01234567", "dirty": false}', encoding="utf-8"
+    )
+
+    # Act
+    revision = await source_revision(tmp_path)
+
+    # Assert
+    assert revision.commit == "0123456789abcdef0123456789abcdef01234567"
+    assert revision.dirty is False

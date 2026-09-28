@@ -95,3 +95,7 @@ build/
 
 # complexipy's per-run cache.
 .complexipy_cache/
+
+# R44.7: `packages/weft-rag/hatch_build.py` stamps this file into a build's sdist/wheel from a
+# temporary directory; it must never land in the checkout itself.
+packages/weft-rag/src/weft_eval/_build_revision.json

@@ -47,6 +47,11 @@ dev = [
     # Cognitive complexity, which `C90`'s McCabe count does not measure: nesting costs more than
     # a flat branch. Threshold and paths are in `[tool.complexipy]`.
     "complexipy>=8.0",
+    # R44.7: `packages/weft-rag/hatch_build.py`, the build hook that stamps a wheel with the
+    # commit it was built from, imports hatchling's own build-hook interface. pyright checks
+    # that file, so hatchling has to be importable in the dev env even though `uv sync` never
+    # runs it as a build backend outside an editable install.
+    "hatchling>=1.27",
 ]
 
 # The dev environment's alignment with `compose.yaml`, and nothing a downstream install

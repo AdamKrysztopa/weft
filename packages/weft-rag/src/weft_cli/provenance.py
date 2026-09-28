@@ -2,9 +2,10 @@
 
 `source_revision` reads git in the directory the installed `weft_eval` package was loaded from,
 never `Path.cwd()`: an operator running an installed wheel from inside this repository must not
-have this repository's own commit recorded as the code that ran. Outside any git checkout — a
-wheel install with no `.git` above it — it says so with `commit=None, dirty=None` rather than
-raising, because "not a checkout" is itself the fact worth recording, not a failure.
+have this repository's own commit recorded as the code that ran. A wheel carries its build's own
+stamp instead of a checkout — `_build_revision.json` beside the package — so outside any git
+checkout that stamp is read if present; otherwise it says so with `commit=None, dirty=None`
+rather than raising, because "not a checkout" is itself the fact worth recording, not a failure.
 """
 
 from __future__ import annotations
@@ -27,15 +28,23 @@ async def source_revision(directory: Path | None = None) -> SourceRevision:
     target = directory if directory is not None else Path(weft_eval.__file__).resolve().parent
     git = shutil.which("git")
     if git is None:
-        return SourceRevision(commit=None, dirty=None)
+        return _build_stamp(target)
 
     commit = await _run_git(git, target, "rev-parse", "HEAD")
     if commit is None:
-        return SourceRevision(commit=None, dirty=None)
+        return _build_stamp(target)
 
     status = await _run_git(git, target, "status", "--porcelain", "--untracked-files=no")
     dirty = bool(status.strip()) if status is not None else None
     return SourceRevision(commit=commit.strip(), dirty=dirty)
+
+
+def _build_stamp(directory: Path) -> SourceRevision:
+    """`directory`'s `_build_revision.json`, or `commit=None, dirty=None` if it has none."""
+    stamp = directory / "_build_revision.json"
+    if not stamp.exists():
+        return SourceRevision(commit=None, dirty=None)
+    return SourceRevision.model_validate_json(stamp.read_text(encoding="utf-8"))
 
 
 async def _run_git(git: str, directory: Path, *args: str) -> str | None:
