@@ -1,0 +1,27 @@
+# MuSiQue-Ans, dev split — Phase 44b task 44.40, the multi-hop set for experiment E2.
+#
+# MuSiQue: Multihop Questions via Single-hop Question Composition (Trivedi, Balasubramanian, Khot
+# and Sabharwal, TACL 2022), https://github.com/StonyBrookNLP/musique, distributed under CC BY 4.0
+# (https://creativecommons.org/licenses/by/4.0/). Files derived from it here are modified: each
+# paragraph becomes one document and each item becomes a Weft question, by
+# `scripts/musique_questions.py`.
+#
+# The authors publish only a Google Drive archive, which that host's robots.txt closes to scripted
+# download (read 2026-09-28; the ledger's 44.40 line quotes it). The file below is an unofficial
+# Hugging Face copy under the authors' own file name, chosen by the owner on 2026-09-28. Its sha256
+# is the one that copy publishes, so it vouches for the copy and not for the authors' archive.
+
+[corpus]
+name = "musique-ans-dev"
+
+[dataset]
+repository = "https://huggingface.co/datasets/dgslibisey/MuSiQue"
+revision = "c8f4f8c9465fb69d31a8eae894c3fd509c4ca321"
+authors_release = "https://github.com/StonyBrookNLP/musique/tree/922ac98f19a201998dbdae6d7f2887a5258dbdeb"
+license = "CC-BY-4.0"
+
+[[dataset_file]]
+name = "musique_ans_v1.0_dev.jsonl"
+source = "https://huggingface.co/datasets/dgslibisey/MuSiQue/resolve/c8f4f8c9465fb69d31a8eae894c3fd509c4ca321/musique_ans_v1.0_dev.jsonl"
+sha256 = "15fa63794d18a94ce12411aca6e2327e65b6e83b0b1490efab3f1962e48abf3b"
+bytes = 30439728
