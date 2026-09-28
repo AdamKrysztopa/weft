@@ -458,9 +458,10 @@ class RuleOutcome(StrEnum):
 class Route(BaseModel):
     """A routing decision as data: which pipeline, how it was reached, and what it was told.
 
-    `scorecard` is carried rather than discarded so the decision is auditable from the
-    span alone — a router whose output says only "hyde-fanout-rrf" leaves an operator
-    asking why, and the answer would live nowhere.
+    `pipeline`, `outcome` and `rule` reach the policy stage's own span through
+    `telemetry_attributes()` — R44.2, G28. `scorecard` travels with the `Route` to its
+    caller and is not set on the span; it is the measurement behind the decision, not
+    the decision itself.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -471,6 +472,16 @@ class Route(BaseModel):
     #: was no rule to name rather than because one was forgotten.
     rule: str = ""
     scorecard: Scorecard
+
+    def telemetry_attributes(self) -> Mapping[str, str | bool | int | float]:
+        """The decision's own facts for the policy stage's span — `rule` only when matched."""
+        attributes: dict[str, str | bool | int | float] = {
+            "weft.route.pipeline": self.pipeline,
+            "weft.route.outcome": self.outcome.value,
+        }
+        if self.rule:
+            attributes["weft.route.rule"] = self.rule
+        return attributes
 
 
 class RouteView(BaseModel):

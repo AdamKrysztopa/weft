@@ -71,7 +71,9 @@ from weft_retrieve.payload import (
 #: **`1.0.0` → `1.1.0` at repair R43.42** — the `SubPlugin` marker is published: a minor.
 #: **`1.1.0` → `1.2.0` at task 44.12a** — `Scorecard.features` is added: an optional field,
 #: a minor (`09`'s two-audience table).
-RETRIEVE_CONTRACT_VERSION = "1.2.0"
+#: **`1.2.0` → `1.3.0` at repair R44.2** — `Route.telemetry_attributes()` is added: `09`'s
+#: two-audience row "Add an optional field to a returned model", minor for both audiences.
+RETRIEVE_CONTRACT_VERSION = "1.3.0"
 
 
 @runtime_checkable

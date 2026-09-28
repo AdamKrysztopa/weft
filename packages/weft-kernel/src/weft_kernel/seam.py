@@ -182,10 +182,10 @@ from dataclasses import dataclass
 from enum import Enum, StrEnum
 from importlib import metadata
 from itertools import count
-from typing import cast
+from typing import Protocol, cast, runtime_checkable
 
 from opentelemetry import trace
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import Span, SpanKind
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_kernel import blocking
@@ -488,6 +488,7 @@ def wrap[**P, T](
                     )
                 outcome, nul_count = _sanitize_control_bytes(_strip_transient(outcome))
                 span.set_attribute(_NUL_BYTES_ATTRIBUTE, nul_count)
+                _set_declared_attributes(span, outcome)
                 outcome_kind = _outcome_kind(outcome)
                 items_out = _items_out(outcome)
         finally:
@@ -516,6 +517,36 @@ def wrap[**P, T](
         return outcome
 
     return _wrapped
+
+
+@runtime_checkable
+class TelemetryAttributed(Protocol):
+    """A payload accessor naming facts its own stage's span should carry — G28, R44.2.
+
+    Structural, like `Node.without_transient`: a pack's model implements this by defining
+    the method and imports nothing from OTel. Not a contract method — `sync`, because this
+    is a payload accessor rather than a plugin capability, and `CLAUDE.md`'s async-only rule
+    covers the latter.
+    """
+
+    def telemetry_attributes(self) -> Mapping[str, str | bool | int | float]:
+        """The facts this value wants on its own stage's span."""
+        ...
+
+
+#: The seam's own attribution, which a payload's `telemetry_attributes()` may not rewrite.
+_SEAM_OWNED_ATTRIBUTES = frozenset(
+    {"weft.pack", "weft.contract", "weft.plugin", _NUL_BYTES_ATTRIBUTE}
+)
+
+
+def _set_declared_attributes[T](span: Span, outcome: Outcome[T]) -> None:
+    """Set a `Produced` value's own `telemetry_attributes()` on `span`, except seam attribution."""
+    if not isinstance(outcome, Produced) or not isinstance(outcome.value, TelemetryAttributed):
+        return
+    for key, value in outcome.value.telemetry_attributes().items():
+        if key not in _SEAM_OWNED_ATTRIBUTES:
+            span.set_attribute(key, value)
 
 
 def wrap_flush(

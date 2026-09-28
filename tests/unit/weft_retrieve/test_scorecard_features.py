@@ -57,4 +57,6 @@ def test_a_feature_that_is_not_a_scalar_is_refused() -> None:
 
 def test_adding_features_is_a_minor_contract_version() -> None:
     # Assert
-    assert RETRIEVE_CONTRACT_VERSION == "1.2.0"
+    major, minor, _ = (int(part) for part in RETRIEVE_CONTRACT_VERSION.split("."))
+    assert (major, minor) >= (1, 2)
+    assert major == 1
