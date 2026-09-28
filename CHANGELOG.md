@@ -44,6 +44,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`weft index` records how big each source is.** Each source record carries `stats`: its leaf
+  count, the characters in those leaves and, when a tokenizer is mapped, their tokens (tokens stay
+  unknown on the default index path, never zero). Records written before this read `stats` as
+  not recorded. The store contract moves 3.0.0 → 3.1.0, and a store written by an older release
+  gains the column on first open. A field a newer release wrote is refused by name
+  (`UnknownSourceStatsError`).
+
 - **`weft eval experiment` reports progress while it runs.** Each arm and repetition writes a
   line to stderr when it starts, then every hundredth of its questions, and before and after
   judging (`experiment e · arm 3/5 multi-query · repetition 1/2 · answering 120/600 · 840 s`).
