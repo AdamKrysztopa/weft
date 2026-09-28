@@ -176,6 +176,20 @@ class NoRungOfferedError(WeftError):
     """
 
 
+class UnansweringRungError(WeftError, UnresolvedNameError):
+    """A document offers itself to the router and cannot answer — ledger task **44.0**.
+
+    `route.summary` makes a document a rung, and a routed ask must end in an `Answer`, so a rung
+    whose last stage is no `Generator` would be selected, run, and refused afterwards. Raised
+    before the router runs, so it is never paid to choose one. `valid_options` carries the rungs
+    that do answer.
+    """
+
+    def __init__(self, message: str, *, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.valid_options = valid_options
+
+
 class PipelineDidNotProduceError(PipelineResolutionError):
     """A resolved pipeline ran to completion without producing an answer.
 
@@ -1056,6 +1070,68 @@ def routable_rung_roles(
     return rung_roles
 
 
+def unanswering_rungs(
+    catalogue: Mapping[str, Pipeline],
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...] = (),
+) -> tuple[str, ...]:
+    """Every document carrying `route.summary` whose resolved last stage is no `Generator`.
+
+    Ledger task **44.0**. A document that does not resolve is left out, as
+    `routable_rung_roles` leaves it out: its own resolution error is raised by name if the
+    router selects it.
+    """
+    named: list[str] = []
+    for name, pipeline in sorted(catalogue.items()):
+        if "route.summary" not in pipeline.vars:
+            continue
+        try:
+            resolved = resolve_in_catalogue(
+                pipeline,
+                registry=registry,
+                catalogue=catalogue,
+                reports=reports,
+                contributions=contributions,
+            )
+        except (PipelineResolutionError, RefusedStagePluginError):
+            continue
+        if not resolved.stages or resolved.stages[-1].contract != Generator.__name__:
+            named.append(name)
+    return tuple(named)
+
+
+def _raise_for_unanswering_rungs(
+    catalogue: Mapping[str, Pipeline],
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+) -> None:
+    unanswering = unanswering_rungs(
+        catalogue, registry=registry, reports=reports, contributions=contributions
+    )
+    if not unanswering:
+        return
+    answering = tuple(
+        sorted(
+            name
+            for name, pipeline in catalogue.items()
+            if "route.summary" in pipeline.vars and name not in unanswering
+        )
+    )
+    names = ", ".join(repr(name) for name in unanswering)
+    raise UnansweringRungError(
+        f"{names} carries route.summary, which offers it to the router as a rung, and its last "
+        f"stage is not a Generator, so a routed `weft ask` could select it and get no answer. "
+        f"Remove its route.summary, or end it in a Generator; a retrieve-only document is "
+        f"asked by name with `weft ask --pipeline <name> --retrieve-only`. Rungs that answer: "
+        f"{', '.join(answering) or '(none)'}.",
+        valid_options=answering,
+    )
+
+
 def _offerable_rung_roles(
     router: Pipeline,
     *,
@@ -1068,10 +1144,13 @@ def _offerable_rung_roles(
 ) -> dict[str, frozenset[str]]:
     """Return the rungs a router may offer, refusing when none can run.
 
-    `routable_rung_roles`, once the router's own roles are mapped and at least one rung
-    survives the role filter — `run_routed_ask`'s two up-front refusals, carried repair
-    **R43.30**.
+    `routable_rung_roles`, once every rung answers (task **44.0**), the router's own roles are
+    mapped and at least one rung survives the role filter — `run_routed_ask`'s up-front
+    refusals, carried repair **R43.30**.
     """
+    _raise_for_unanswering_rungs(
+        catalogue, registry=registry, reports=reports, contributions=contributions
+    )
     resolved_router = resolve_in_catalogue(
         router, registry=registry, catalogue=catalogue, reports=reports, contributions=contributions
     )

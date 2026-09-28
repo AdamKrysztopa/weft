@@ -3042,6 +3042,25 @@ Here every pipeline it could offer needs a role that is not mapped.
 pipeline yourself with `weft ask --pipeline <name>`. `weft ask --explain` lists every pipeline left
 out and the role it lacks.
 
+### `UnansweringRungError`
+
+**What it looks like:**
+
+```text
+'my-search' carries route.summary, which offers it to the router as a rung, and its last stage is
+not a Generator, so a routed `weft ask` could select it and get no answer. Remove its
+route.summary, or end it in a Generator; a retrieve-only document is asked by name with `weft ask
+--pipeline <name> --retrieve-only`. Rungs that answer: hybrid-then-generate, retrieve-then-generate.
+```
+
+**Why:** `route.summary` is what offers a pipeline to the router, and a routed `weft ask` must end
+in a generated answer. A pipeline that stops at retrieval or packing would be chosen, run, and then
+refused, so every routed ask is refused before the router runs.
+
+**What to do:** delete the `route.summary` line from the named pipeline if it is meant to return
+passages, and ask it by name with `--retrieve-only`. If it is meant to answer, add a generating
+stage such as `cited-answer` as its last stage.
+
 ### `UnmappedLLMRoleError`
 
 **What it looks like** — a call was made under a role `[llm.roles]` never named:

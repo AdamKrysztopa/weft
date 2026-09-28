@@ -118,6 +118,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_engine.services.UnknownServiceKeyError",
         "weft_cli.route_ask.UnroutedPipelineNameError",
         "weft_cli.route_ask.NoRouterPipelineError",
+        "weft_cli.route_ask.UnansweringRungError",
         "weft_retrieve.engine.UnknownRouteVarError",
         "weft_retrieve.engine.UnknownSubPluginConfigFieldError",
         "weft_engine.run_services.SelectedCapabilityMissingError",

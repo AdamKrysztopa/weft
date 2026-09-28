@@ -71,6 +71,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **A routed `weft ask` offers only pipelines that write an answer.** `lexical-retrieve` and
+  `anchor-promote-retrieve` return passages, not answers, and the router could pick either and
+  then fail. Neither is offered to the router now; both still run by name with
+  `--pipeline <name> --retrieve-only`. A pipeline of your own that carries `route.summary` and ends
+  before a generating stage is refused by name before the router runs (`UnansweringRungError`).
 - **`weft eval table` states each paired interval before its point estimate**: the `95% CI`
   column now comes before `paired Δ`. Every committed table was regenerated; no number moved.
 - **`Language`, the `weft_clean` ext model, stays, and its deprecation is withdrawn.** It was marked

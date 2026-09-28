@@ -24,12 +24,6 @@ name: lexical-retrieve
 # keep.
 #
 # Run with `weft ask "<question>" --pipeline lexical-retrieve --retrieve-only`.
-vars:
-  route.summary: >-
-    Searches the corpus by the literal words alone, through the store's text arm, with no
-    embedding call and no generated answer. The rung to reach for with no account and no
-    model configured at all.
-  route.cost: "one text search against one store, no embedding call, no model call"
 stages:
   - {id: retrieve, use: hybrid, with: {top_k: 20, channels: [text]}}
   - {id: fuse,     use: single-list}
