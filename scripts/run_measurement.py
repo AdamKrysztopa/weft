@@ -61,6 +61,9 @@ class Plan:
 
     executions: int
     arms: tuple[str, ...]
+    digest_prefix: str
+    questions_per_repetition: dict[str, int]
+    repetitions_per_arm: dict[str, int]
 
 
 def free_disk_mb(path: str = "/System/Volumes/Data") -> int:
@@ -75,6 +78,70 @@ def free_disk_mb(path: str = "/System/Volumes/Data") -> int:
     return shutil.disk_usage(path).free // (1024 * 1024)
 
 
+def _parse_arm_line(
+    line: str,
+) -> tuple[str, int, int] | None:
+    """Extract arm name, repetitions, and questions from a plan arm line.
+
+    Returns (arm, repetitions, questions) or None if parsing fails.
+    """
+    if ":" not in line or "→" not in line or "×" not in line:
+        return None
+    arm = line.split(":")[0].strip()
+    stripped = line.strip()
+    for part in stripped.split(","):
+        if "×" in part:
+            rep_and_q = part.split("×")
+            repetitions = int(rep_and_q[0].strip())
+            q_part = rep_and_q[1].strip()
+            questions = int(q_part.split()[0])
+            return (arm, repetitions, questions)
+    return None
+
+
+def plan_from_text(printed: str) -> Plan:
+    """Parse the output of `weft eval plan` into a Plan object.
+
+    Args:
+        printed: The stdout from `weft eval plan`.
+
+    Returns:
+        A Plan with executions, arms, digest_prefix, and questions_per_repetition.
+    """
+    executions = 0
+    arms: list[str] = []
+    questions_per_repetition: dict[str, int] = {}
+    repetitions_per_arm: dict[str, int] = {}
+    digest_prefix = ""
+
+    for line in printed.splitlines():
+        stripped = line.strip()
+
+        if "plan for" in stripped and "(" in stripped:
+            start = stripped.find("(")
+            end = stripped.find("…")
+            if start >= 0 and end > start:
+                digest_prefix = stripped[start + 1 : end]
+
+        if stripped.startswith("total query executions:"):
+            executions = int(stripped.split(":")[1])
+        else:
+            parsed = _parse_arm_line(line)
+            if parsed:
+                arm, repetitions, questions = parsed
+                arms.append(arm)
+                questions_per_repetition[arm] = questions
+                repetitions_per_arm[arm] = repetitions
+
+    return Plan(
+        executions=executions,
+        arms=tuple(arms),
+        digest_prefix=digest_prefix,
+        questions_per_repetition=questions_per_repetition,
+        repetitions_per_arm=repetitions_per_arm,
+    )
+
+
 def plan_of(weft: Path, document: Path, cwd: Path) -> Plan:
     """`weft eval plan`, parsed — the executions it declares and the arms it names."""
     printed = subprocess.run(  # noqa: S603
@@ -84,14 +151,76 @@ def plan_of(weft: Path, document: Path, cwd: Path) -> Plan:
         text=True,
         check=True,
     ).stdout
-    executions = 0
-    arms: list[str] = []
-    for line in printed.splitlines():
-        if line.strip().startswith("total query executions:"):
-            executions = int(line.split(":")[1])
-        elif ":" in line and "→" in line:
-            arms.append(line.split(":")[0].strip())
-    return Plan(executions=executions, arms=tuple(arms))
+    return plan_from_text(printed)
+
+
+def _read_invocations(plan: Plan, runs: Path) -> dict[str, set[tuple[str, int]]]:
+    """Read and group records by invocation, filtered by digest and arms."""
+    invocations: dict[str, set[tuple[str, int]]] = {}
+
+    for record_file in sorted(runs.glob("*.json")):
+        try:
+            body = json.loads(record_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        exp = body.get("experiment", {})
+        digest = exp.get("digest", "")
+        arm = exp.get("arm")
+        repetition = exp.get("repetition")
+        invocation = exp.get("invocation")
+
+        if not digest.startswith(plan.digest_prefix):
+            continue
+        if arm not in plan.arms or invocation is None or repetition is None:
+            continue
+
+        if invocation not in invocations:
+            invocations[invocation] = set()
+        invocations[invocation].add((arm, repetition))
+
+    return invocations
+
+
+def unwritten_executions(plan: Plan, runs: Path) -> int:
+    """Count the executions a resumed run will still perform.
+
+    Read every JSON record in `runs` (missing dir yields none) and filter to the plan's own
+    digest and arms. Group by invocation and check completeness: an invocation is complete when
+    it holds every (arm, repetition) pair the plan declares. If exactly one invocation is
+    incomplete, return `plan.executions` minus the questions it has already recorded; otherwise
+    (zero incomplete or multiple) return `plan.executions` — a new invocation spends everything,
+    and an ambiguous resume is priced at the ceiling rather than guessed.
+
+    Args:
+        plan: The Plan with digest_prefix, arms, and questions_per_repetition.
+        runs: The directory holding `*.json` run records.
+
+    Returns:
+        The number of executions the run will still perform.
+    """
+    if not runs.exists():
+        return plan.executions
+
+    invocations = _read_invocations(plan, runs)
+
+    required = {
+        (arm, rep)
+        for arm in plan.arms
+        for rep in range(1, plan.repetitions_per_arm.get(arm, 1) + 1)
+    }
+
+    incomplete = [recorded for recorded in invocations.values() if recorded != required]
+
+    if len(incomplete) != 1:
+        return plan.executions
+
+    recorded = incomplete[0]
+    remaining = plan.executions
+    for arm, _ in recorded:
+        remaining -= plan.questions_per_repetition.get(arm, 0)
+
+    return remaining
 
 
 def refuse(reason: str) -> None:
