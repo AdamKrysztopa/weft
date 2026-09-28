@@ -30,3 +30,7 @@ replace:
       sufficiency: llm-sufficiency
       leaf: vector-top-k
       leaf_config: {top_k: 20}
+  # One ranked list per round (repair R44.10): the inherited `single-list` refused more than one,
+  # so every question that iterated failed. `k=60` as `corrective-retrieve` and
+  # `hyde-then-retrieve` fuse theirs.
+  - {id: fuse, use: reciprocal-rank-fusion, with: {k: 60}}
