@@ -522,7 +522,7 @@ Three routers ship, and they differ in *how closed* the choice is rather than in
 |---|---|---|
 | `route` | `nearest-description` | Every installed pipeline that states a `route.summary`, matched against the question. **Open** — a rung installed today is selectable today, with no rule edit |
 | `route-by-score` | `threshold-ladder` | Only what its own bands name, in order, first match wins. **Closed** — the shipped rules choose between `no-retrieval` and `retrieve-then-generate`, and every other rung is invisible to it until you add a band |
-| `route-fixed` *(default)* | `always` | One named pipeline, whatever the question: `retrieve-then-generate`, the best measured first stage. Its scorer, `keyword-intents`, calls no model, so this router costs nothing |
+| `route-fixed` *(default)* | `always` | One named pipeline, whatever the question: `retrieve-then-generate`, the best measured first stage. Its scorer, `query-profile`, calls no model, so this router costs nothing, and a routed ask still records what kind of question it was |
 
 Pick `route-by-score` when you want exactly the behaviours you wrote down and want to know which one
 ran and why. `route-fixed` is the default because no router has been measured against always using

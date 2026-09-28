@@ -253,8 +253,8 @@ from weft_retrieve.rerank import NAME as LLM_RERANK_NAME
 from weft_retrieve.rerank import LlmRerank, LlmRerankConfig
 from weft_retrieve.routing import (
     ALWAYS_NAME,
-    KEYWORD_INTENTS_NAME,
     NEAREST_DESCRIPTION_NAME,
+    QUERY_PROFILE_NAME,
     QUERY_SCORER_NAME,
     THRESHOLD_LADDER_NAME,
     Always,
@@ -262,11 +262,11 @@ from weft_retrieve.routing import (
     Comparison,
     Condition,
     Dimension,
-    KeywordIntents,
-    KeywordIntentsConfig,
     LlmQueryScorer,
     NearestDescription,
     NearestDescriptionConfig,
+    QueryProfileScorer,
+    QueryProfileScorerConfig,
     QueryScorerConfig,
     Rule,
     ThresholdLadder,
@@ -434,7 +434,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Prompt, SUFFICIENCY_CHECK_NAME, SufficiencyCheckPrompt)
     registrar.add(Prompt, SUMMARIZE_FOR_QUERY_NAME, SummarizeForQueryPrompt)
     registrar.add(QueryScorer, QUERY_SCORER_NAME, LlmQueryScorer)
-    registrar.add(QueryScorer, KEYWORD_INTENTS_NAME, KeywordIntents)
+    registrar.add(QueryScorer, QUERY_PROFILE_NAME, QueryProfileScorer)
     registrar.add(RoutingPolicy, THRESHOLD_LADDER_NAME, ThresholdLadder)
     registrar.add(RoutingPolicy, NEAREST_DESCRIPTION_NAME, NearestDescription)
     registrar.add(RoutingPolicy, ALWAYS_NAME, Always)
@@ -566,7 +566,6 @@ __all__ = [
     "AdjacentChunks",
     "AdjacentChunksConfig",
     "ALWAYS_NAME",
-    "KEYWORD_INTENTS_NAME",
     "BOOLEAN_COMBINE_NAME",
     "HYBRID_NAME",
     "Hybrid",
@@ -595,6 +594,7 @@ __all__ = [
     "NORMALIZED_SCORE_FUSION_NAME",
     "PASSAGE_RELEVANCE_NAME",
     "POSTQFRAP_NAME",
+    "QUERY_PROFILE_NAME",
     "QUERY_SCORER_NAME",
     "QUESTION_ANCHORS_NAME",
     "RELEVANCE_GRADE_NAME",
@@ -612,8 +612,6 @@ __all__ = [
     "VECTOR_TOP_K_NAME",
     "WHOLE_CORPUS_NAME",
     "Always",
-    "KeywordIntents",
-    "KeywordIntentsConfig",
     "AlwaysConfig",
     "Anchor",
     "AnchorKind",
@@ -701,6 +699,8 @@ __all__ = [
     "PostQfrapPacker",
     "Query",
     "QueryOrigin",
+    "QueryProfileScorer",
+    "QueryProfileScorerConfig",
     "QueryScorer",
     "QueryScorerConfig",
     "QuerySet",

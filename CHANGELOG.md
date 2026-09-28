@@ -109,8 +109,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   once reads exactly as before. The header says `pooled over the repetitions both ran`.
 
 - **`weft ask` answers through `retrieve-then-generate` by default, and calls no model to decide
-  so.** The default `[services] route` is now `route-fixed`, whose new scorer `keyword-intents`
-  calls no model. `route` paid one model call per question on the `route` role, for scores its
+  so.** The default `[services] route` is now `route-fixed`, whose new scorer `query-profile`
+  calls no model and records the question's profile (word count, anchors, cue families) on the
+  routing decision. `route` paid one model call per question on the `route` role, for scores its
   policy never read, and no router has been measured against using one pipeline. `route` and
   `route-by-score` still ship: set `[services] route = "route"` to keep the previous behaviour.
   A `weft.toml` that mapped the `route` role only for the default router no longer needs it.

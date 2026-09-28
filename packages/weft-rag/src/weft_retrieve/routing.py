@@ -62,12 +62,15 @@ from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import RouteCatalogue, StageLookup
 from weft_retrieve.payload import Query, Route, RouteCandidate, RuleOutcome, Scorecard
+from weft_retrieve.profile import profile_query
+from weft_retrieve.profile_cues import DEFAULT_CUES, CueLexicon
 from weft_retrieve.prompts import ROUTE_QUERY_NAME, RouteQueryRequest, RouteQueryScores
 
 #: The name `LlmQueryScorer` is registered and selectable under — see `weft_retrieve.register`.
 QUERY_SCORER_NAME = "query-scorer"
-#: The name `KeywordIntents` is registered under — ledger task **44.1**.
-KEYWORD_INTENTS_NAME = "keyword-intents"
+#: The name `QueryProfileScorer` is registered under — ledger task **44.12b**, superseding
+#: the unreleased task 44.1 `keyword-intents`.
+QUERY_PROFILE_NAME = "query-profile"
 #: The three `RoutingPolicy` names — see `weft_retrieve.register`.
 THRESHOLD_LADDER_NAME = "threshold-ladder"
 NEAREST_DESCRIPTION_NAME = "nearest-description"
@@ -314,37 +317,50 @@ def _score_mapping(
     return scores
 
 
-class KeywordIntentsConfig(BaseModel):
-    """`KeywordIntents`'s `with:` config — `QueryScorerConfig.intent_markers` alone."""
+class QueryProfileScorerConfig(BaseModel):
+    """`QueryProfileScorer`'s `with:` config.
+
+    `intent_markers` is the unreleased `KeywordIntentsConfig`'s one field, kept verbatim —
+    a locale- or domain-keyed table of substrings a `RoutingPolicy` can still test for.
+    `cues` is the lexicon `weft_retrieve.profile.profile_query` reads a question's cue
+    families from; `DEFAULT_CUES` is Weft's own, an operator's `with: {cues: ...}` replaces
+    it wholesale.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     intent_markers: Mapping[str, tuple[str, ...]] = Field(default_factory=dict)
+    cues: CueLexicon = DEFAULT_CUES
 
 
-class KeywordIntents:
-    """Measures a query by its configured keyword intents alone, calling no model.
+class QueryProfileScorer:
+    """Measures a query by its shape and configured keyword intents, calling no model.
 
-    Satisfies `weft_retrieve.contract.QueryScorer` structurally — ledger task **44.1**. A
-    `RoutingPolicy` takes a `Scorecard`, so a router that decides without scores (`always`)
-    still needed `query-scorer` in front of it and paid one model call per ask. This is
-    `query-scorer`'s keyword half on its own: `scores` stays empty, which is what it measured.
+    Satisfies `weft_retrieve.contract.QueryScorer` structurally — ledger task **44.12b**,
+    superseding the unreleased task 44.1 `KeywordIntents`. A `RoutingPolicy` takes a
+    `Scorecard`, so a router that decides without scores (`always`) still needed
+    `query-scorer` in front of it and paid one model call per ask. This scores no dimension
+    either — `scores` stays empty, which is what it measured — but now hands the policy
+    `profile_query`'s `features()` (word count, anchors, cue families) alongside the
+    configured intents, all read from `payload.text` and `ctx.locale` with no service
+    resolved and no model called.
     """
 
-    config_model: ClassVar[type[KeywordIntentsConfig]] = KeywordIntentsConfig
+    config_model: ClassVar[type[QueryProfileScorerConfig]] = QueryProfileScorerConfig
     cost_bound: ClassVar[tuple[int, int]] = (0, 0)
 
-    def __init__(self, config: KeywordIntentsConfig | None = None) -> None:
-        self._config = config if config is not None else KeywordIntentsConfig()
+    def __init__(self, config: QueryProfileScorerConfig | None = None) -> None:
+        self._config = config if config is not None else QueryProfileScorerConfig()
 
     async def run(self, payload: Query, ctx: Context) -> Outcome[Scorecard]:
-        """Tag the configured intents `payload` mentions; score no dimension."""
-        del ctx
+        """Tag the configured intents `payload` mentions and its `profile_query` features."""
+        profile = profile_query(payload.text, locale=ctx.locale, cues=self._config.cues)
         return Produced(
             value=Scorecard(
                 query=payload,
                 scores={},
                 intents=_keyword_intents(payload.text, self._config.intent_markers),
+                features=profile.features(),
             )
         )
 

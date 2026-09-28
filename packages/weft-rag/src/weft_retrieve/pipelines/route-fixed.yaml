@@ -2,9 +2,11 @@ name: route-fixed
 # No `route.summary`: a router is never a routing target.
 
 # Routing turned off without turning the router off, and the default `[services] route` since
-# ledger task 44.1. `always` sends every question to one named pipeline, and `keyword-intents`
-# is the scorer a policy needs as its input that calls no model: this router costs nothing, and
-# `retrieve-then-generate` is the best measured first stage (`manual/evidence.md` §3).
+# ledger task 44.1. `always` sends every question to one named pipeline, and `query-profile`
+# (task 44.12b, superseding the unreleased `keyword-intents`) is the scorer a policy needs as
+# its input that calls no model: this router costs nothing, and `retrieve-then-generate` is the
+# best measured first stage (`manual/evidence.md` §3). The fixed policy ignores every feature
+# `query-profile` measures, but a routed ask still records them on the `Scorecard` it produces.
 #
 # Until 44.1 the scorer here was `query-scorer`, one model call per question for dimensions
 # `always` never reads. A deployment that wants those dimensions in the trace derives this
@@ -12,5 +14,5 @@ name: route-fixed
 #
 # `with: {pipeline: ...}` names the one pipeline; it defaults to `retrieve-then-generate`.
 stages:
-  - {id: score,  use: keyword-intents}
+  - {id: score,  use: query-profile}
   - {id: decide, use: always,         with: {pipeline: retrieve-then-generate}}
