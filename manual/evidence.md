@@ -124,6 +124,26 @@ The five statuses:
 
 ## 4. The measurements, newest first
 
+### Phase 44: could choosing a rung per question beat the best single rung? (2026-09-28)
+
+- **Question.** Before paying for routing experiments: in the experiments already on record, would
+  choosing the best arm for each question beat always using the best arm, by more than judge
+  noise alone does?
+- **Data.** Every committed experiment with at least two arms and a complete run, replayed with
+  `weft eval replay` on its first declared metric. No model was called and nothing was spent.
+  Arms that read gold labels at query time are left out, since no router could choose them.
+- **Result.** For per-question choice, the oracle is the ceiling and the self-oracle is what the
+  best arm's two repetitions reach alone. ESCI's cross-encoder experiments show headroom where the
+  self-oracle is zero, because both rankings are deterministic: **+0.063** mrr@5
+  (+0.051 to +0.076) with MiniLM and +0.052 (+0.041 to +0.063) with BGE. TechQA's are +0.044 and
+  +0.039, with no repeated arm to measure noise. `whole-corpus-en` shows none beyond noise: the
+  oracle's +0.036 answer correctness equals the self-oracle's +0.036. Dense, lexical and hybrid
+  on Open RAGBench differ by at most +0.001 recall@5. Source: `eval/replay/README.md`, generated
+  by `scripts/replay_all.py`.
+- **What it means for you.** Nothing changes yet. Per-question routing is worth measuring
+  between rerankers, not between retrieval backends, and an oracle is an upper bound a real router
+  only approaches.
+
 ### Phase 43: asking while indexing (2026-09-22)
 
 - **Question.** How soon after `weft index` starts can you ask about what it is reading, and does

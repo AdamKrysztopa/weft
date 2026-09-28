@@ -29,14 +29,16 @@ from weft_kernel.resolution import ResolvedPipeline
 METRIC = "answer_correctness"
 
 
-def experiment_of(directory: Path, arms: Sequence[str]) -> Experiment:
+def experiment_of(
+    directory: Path, arms: Sequence[str], *, name: str = "replay-fixture"
+) -> Experiment:
     arm_tables = "".join(
         f'\n[[arm]]\nname = "{arm}"\npipeline = "index"\nquery_pipeline = "rung-{arm}"\n'
         for arm in arms
     )
-    path = directory / "replay-fixture.toml"
+    path = directory / f"{name}.toml"
     path.write_text(
-        f'[experiment]\nschema = {EXPERIMENT_SCHEMA_VERSION}\nname = "replay-fixture"\n'
+        f'[experiment]\nschema = {EXPERIMENT_SCHEMA_VERSION}\nname = "{name}"\n'
         'questions = "questions.toml"\ncorpus = "corpus"\nrepeats = 2\ntop_k = 5\n'
         f'metrics = ["{METRIC}"]\nminimum_detectable_effect = 0.05\n' + arm_tables,
         encoding="utf-8",
