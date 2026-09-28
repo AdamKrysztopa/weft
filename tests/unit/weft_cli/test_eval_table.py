@@ -29,10 +29,13 @@ async def test_the_table_prints_exactly_what_the_library_renders(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Arrange
-    monkeypatch.chdir(tmp_path)
+    # R44.3: the runs beside the document are read, whatever the working directory.
     experiment = fixture_experiment(tmp_path)
     for index, record in enumerate(complete_records(experiment)):
-        write_run_record(record, Path("runs") / f"run-{index}.json")
+        write_run_record(record, tmp_path / "experiment" / "runs" / f"run-{index}.json")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
 
     # Act
     outcome = await EvalTableCommand().run(

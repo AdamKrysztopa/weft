@@ -1,8 +1,8 @@
 """`weft eval table <experiment>` — ledger task **38.1**: the evidence table, printed.
 
 `weft_eval.evidence` computes and renders it; this module is the command that reads the records
-under `runs/` and an experiment document from disk and prints the markdown — so an operator
-regenerates a committed table with
+in the `runs/` directory beside the experiment document (repair R44.3; `--runs` names another) and
+prints the markdown — so an operator regenerates a committed table, from any directory, with
 
     weft eval table eval/experiments/<name>.toml > eval/experiments/<name>/table.md
 
@@ -53,7 +53,13 @@ class EvalTableArgs(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     experiment: str = Field(description="the experiment document")
-    runs: str = Field(default="runs", description="the directory of run records to read")
+    runs: str | None = Field(
+        default=None,
+        description=(
+            "the directory of run records to read; the runs directory beside the document "
+            "when omitted"
+        ),
+    )
     invocation: str | None = Field(
         default=None,
         description="which invocation to build the table from, when more than one is complete",
@@ -94,7 +100,11 @@ class EvalTableCommand:
         del ctx
         table_args = cast(EvalTableArgs, args)
         experiment = load_experiment(Path(table_args.experiment))
-        runs_dir = Path(table_args.runs)
+        runs_dir = (
+            Path(table_args.runs)
+            if table_args.runs is not None
+            else Path(table_args.experiment).with_suffix("") / "runs"
+        )
         records = (
             [load_run_record(path) for path in sorted(runs_dir.glob("*.json"))]
             if runs_dir.is_dir()

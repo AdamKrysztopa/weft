@@ -107,6 +107,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **`weft eval table <experiment>` reads the runs beside the document** (`<experiment>/runs`) when
+  `--runs` is not given, not `./runs` in whatever directory you ran it from. The regeneration
+  command in each table's header now works from anywhere, as `weft eval replay`'s does.
+
 - **`weft eval table`'s paired interval pools every repetition both arms ran**, pairing each
   arm's repetition with the baseline's repetition of the same number. It resamples questions, not
   question-repetition pairs, so a question asked twice counts once and the interval does not
