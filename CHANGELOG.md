@@ -44,6 +44,15 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`weft eval pairwise <experiment> <baseline> <arm>`** judges two arms' recorded answers
+  head to head, for questions with no single right answer. It uses GraphRAG's criteria
+  (comprehensiveness, diversity, empowerment, with directness as a control); `--criterion` picks
+  some, and all four are the default. Each pair is judged once in each order, so the model is
+  called twice per question and criterion, and a verdict that changes with the order counts as a
+  tie. It prints the arm's win rate with a paired interval, and writes a record under
+  `<experiment>/pairwise/`. It never regenerates an answer; a record from before answers were kept
+  is refused (`UnrecordedAnswersError`). `--limit N` judges only the first N questions.
+
 - **A routing decision is on the router's trace span.** The policy stage's span carries
   `weft.route.pipeline`, `weft.route.outcome` and, when a rule matched, `weft.route.rule`, so an
   exported trace says which pipeline a routed `weft ask` chose and why. A stage's output puts

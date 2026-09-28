@@ -166,6 +166,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "eval plan",
         "eval table",
         "eval replay",
+        "eval pairwise",
         "trace",
         # Task 36.4: the operator's view of what the store recorded, failures included.
         "sources list",
@@ -224,6 +225,8 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         # `eval replay` — task **44.6a** — reads the same document and records and prints what
         # any per-question choice among the arms would have scored; it writes nothing.
         "eval replay": PermissionClass.READ,
+        # `eval pairwise` — task **44.43b** — calls the judge model and writes a pairwise record.
+        "eval pairwise": PermissionClass.WRITE,
         "trace": PermissionClass.READ,
         "sources list": PermissionClass.READ,
         # `target list` — task **34.6** — reads each target's catalogue entry and source count.

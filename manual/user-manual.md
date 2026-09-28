@@ -710,6 +710,7 @@ added, removed or reworded without this table noticing fails the build before it
 | `weft eval compare` | `read` | `weft-rag` | the exact, structural difference between two persisted runs' pipelines, and their per-metric aggregates side by side — refuses if the two ran over a different corpus or model versions, rather than reporting a diff that is not apples to apples; a different active distribution set or distribution versions is reported beside it, never refused |
 | `weft eval experiment` | `write` | `weft-rag` | run every arm of an experiment document (eval/experiments/*.toml) for every repetition, through the identical index-and-score path 'weft eval run' uses, and persist one run record per arm and repetition — refuses before indexing anything if two arms are not comparable by corpus digest, question-set digest, pool manifest or model version |
 | `weft eval metrics` | `read` | `weft-rag` | which registered metrics run in the deterministic gate subset — no credentials, no network, no model download — and which do not, or ask about one metric by name |
+| `weft eval pairwise` | `write` | `weft-rag` | judges two arms' recorded answers head to head on GraphRAG's criteria, each pair in both orders, and writes a pairwise record — calls the 'grade' role's model |
 | `weft eval plan` | `read` | `weft-rag` | state the size of an experiment document without running it |
 | `weft eval replay` | `read` | `weft-rag` | print what any per-question choice among an experiment's arms would have scored, from its recorded scores: every arm, the oracle and the best arm's own-repetition oracle, each paired against the best arm — reads only, calls no model |
 | `weft eval run` | `write` | `weft-rag` | run a named pipeline over a corpus and persist a run record — resolved pipeline, corpus identity, active distribution set, and (with --questions) per-metric aggregates — so a later 'weft eval compare' can diff it against another. 'pipeline' is required: a run record needs a resolved pipeline to persist. |
@@ -936,7 +937,7 @@ sources: 1026 indexed · 0 failed · 2974 indexing
 - **A generated answer that finds nothing says whether anything is still outstanding.** While
   sources are `indexing`, it reads *the corpus does not answer this — N sources are not yet
   indexed*, rather than a plain no
-  (`packages/weft-rag/src/weft_cli/render.py:941 "sources are not yet indexed."`).
+  (`packages/weft-rag/src/weft_cli/render.py:943 "sources are not yet indexed."`).
 - **An ask is never refused while an index runs. A second writer is.** A second `weft index`
   into the same store stops before it writes and names the one that is running
   ([`manual/troubleshooting.md`](troubleshooting.md) → `WriterBusyError`).

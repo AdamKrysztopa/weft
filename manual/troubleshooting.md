@@ -3909,6 +3909,34 @@ or hold for no question at all, has nothing to choose among. `valid_options` car
 that were scored per question. **What to do:** pass one of those to `--metric`, or omit it for the
 document's first declared metric.
 
+### `UnknownArmError`
+
+**What it looks like** — `weft eval pairwise` was given a baseline or arm the experiment document
+does not declare:
+
+```text
+$ weft eval pairwise eval/experiments/whole-corpus-en.toml dense whole-corpus ; echo $?
+experiment 'whole-corpus-en' declares no arm named 'dense'; its arms: 'baseline', 'whole-corpus'.
+4
+```
+
+**What to do:** pass one of the arms listed; `valid_options` carries them.
+
+### `UnrecordedAnswersError`
+
+**What it looks like** — `weft eval pairwise` found an arm whose run record keeps scores but no
+answer text:
+
+```text
+$ weft eval pairwise eval/experiments/whole-corpus-en.toml baseline whole-corpus ; echo $?
+arm 'baseline' of experiment 'whole-corpus-en' recorded no answer text in invocation '77a0ab08…' — a record written before answers were kept cannot be judged pairwise; run the arm again with `weft eval experiment`.
+1
+```
+
+A pairwise judge compares two recorded answers and never regenerates one, so a record written
+before answers were kept has nothing to compare. **What to do:** run the experiment again, then
+judge the new invocation.
+
 ### `UnscorableArmError`
 
 **What it looks like** — an experiment arm whose query pipeline ends in a stage an arm cannot be

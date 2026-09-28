@@ -98,6 +98,7 @@ from weft_cli.eval_commands import (
     TraceCommandResult,
 )
 from weft_cli.eval_experiment import EvalExperimentCommandResult, EvalPlanCommandResult
+from weft_cli.eval_pairwise import EvalPairwiseCommandResult
 from weft_cli.eval_replay import EvalReplayCommandResult
 from weft_cli.eval_table import EvalTableCommandResult
 from weft_cli.exit_codes import exit_code_for
@@ -2021,6 +2022,20 @@ def _render_eval_replay(result: EvalReplayCommandResult) -> Rendered:
     return Rendered(stdout=result.markdown.rstrip("\n"), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_eval_pairwise(result: EvalPairwiseCommandResult) -> Rendered:
+    """`weft eval pairwise` — task **44.43b**.
+
+    `weft_eval.pairwise.render_pairwise_table` already wrote the table; this appends the one
+    fact it cannot know — where the paid record landed — `_render_eval_replay`'s own convention.
+    """
+    table = result.markdown.rstrip("\n")
+    return Rendered(
+        stdout=f"{table}\npairwise record: {result.record_path}",
+        stderr=None,
+        exit_code=ExitCode.SUCCESS,
+    )
+
+
 def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
     """Render `weft eval metrics`, marking the offline subset.
 
@@ -2196,6 +2211,10 @@ def _dispatch_eval_replay(result: object) -> Rendered:
     return _render_eval_replay(cast(EvalReplayCommandResult, result))
 
 
+def _dispatch_eval_pairwise(result: object) -> Rendered:
+    return _render_eval_pairwise(cast(EvalPairwiseCommandResult, result))
+
+
 def _dispatch_ask(result: object) -> Rendered:
     # `_render_result`'s own special-case is what actually reads `streamed` for a live
     # request — see that function's docstring. Registering this bound-`False` wrapper keeps
@@ -2244,6 +2263,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(EvalPlanCommandResult, _dispatch_eval_plan)
     registrar.add_renderer(EvalTableCommandResult, _dispatch_eval_table)
     registrar.add_renderer(EvalReplayCommandResult, _dispatch_eval_replay)
+    registrar.add_renderer(EvalPairwiseCommandResult, _dispatch_eval_pairwise)
     registrar.add_renderer(AskCommandResult, _dispatch_ask)
 
 
