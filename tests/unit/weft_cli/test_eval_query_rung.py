@@ -41,6 +41,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
+from tests.unit.weft_cli.routed import routed_to
 from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli import route_ask as route_ask_module
 from weft_cli.eval_commands import EvalRunArgs
@@ -62,6 +63,7 @@ from weft_kernel.resolution import ResolvedPipeline, ResolvedStage, pipeline_ide
 from weft_llm.client import NullSink
 from weft_prompts.contract import Prompt
 from weft_retrieve import ContextPacker, Fuser, NoRetrieval, Repack, Retriever, SingleList
+from weft_retrieve.payload import RouteView, RuleOutcome
 from weft_store import NodeStore
 
 
@@ -525,3 +527,75 @@ async def test_scoring_a_retrieval_rung_builds_its_store_once_and_closes_it(
     # Assert
     assert counts.built == 1, f"built {counts.built} stores for {len(questions)} questions"
     assert counts.closed == 1
+
+
+# --- Task 44.5 — a router is scored as an arm, and each question's route is recorded.
+
+
+async def test_a_router_arm_asks_through_that_router_and_records_each_question_s_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — the router picks a different rung for each question.
+    monkeypatch.setattr(
+        route_ask_module,
+        "full_catalogue",
+        _stub_catalogue({"router-x": _query_document(name="router-x")}),
+    )
+    asked_through: list[str] = []
+    chosen = {"why": "rung-a", "how": "rung-b"}
+
+    async def _routed(question: str, **kwargs: object) -> tuple[object, object]:
+        services = kwargs["services"]
+        assert isinstance(services, ServiceSelection)
+        asked_through.append(services.route)
+        return routed_to(chosen[question]), _FakeAnswer(used=())
+
+    monkeypatch.setattr(eval_scoring_module, "run_routed_ask", _routed)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+
+    # Act
+    scored = await score_pipeline(
+        registry=_query_registry(),
+        resolved_pipeline=_ingest_resolved(),
+        questions=(_question("q-1", "why"), _question("q-2", "how")),
+        top_k=3,
+        ctx=_ctx(),
+        router="router-x",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert asked_through == ["router-x", "router-x"]
+    assert scored.question_routes == {
+        "q-1": RouteView(pipeline="rung-a", outcome=RuleOutcome.MATCHED, rule="always"),
+        "q-2": RouteView(pipeline="rung-b", outcome=RuleOutcome.MATCHED, rule="always"),
+    }
+    assert isinstance(scored.query_rung, QueryRung)
+    assert scored.query_rung.name == "router-x"
+
+
+async def test_a_query_pipeline_arm_records_no_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    monkeypatch.setattr(
+        route_ask_module, "full_catalogue", _stub_catalogue({"rung-a": _query_document()})
+    )
+
+    async def _answer(*_args: object, **_kwargs: object) -> object:
+        return _FakeAnswer(used=())
+
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+
+    # Act
+    scored = await score_pipeline(
+        registry=_query_registry(),
+        resolved_pipeline=_ingest_resolved(),
+        questions=(_question("q-1", "why"),),
+        top_k=3,
+        ctx=_ctx(),
+        query_pipeline="rung-a",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert scored.question_routes is None

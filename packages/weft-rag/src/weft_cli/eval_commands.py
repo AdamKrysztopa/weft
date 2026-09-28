@@ -275,6 +275,7 @@ from weft_kernel.runner import RunSummary
 from weft_kernel.seam import aclose, wrap
 from weft_llm.client import NullSink
 from weft_llm.roles import LLMRoles
+from weft_retrieve.payload import RouteView
 from weft_store import NodeStore
 
 #: `EvalRunArgs.top_k` default — `weft ask`'s own default depth, task 4.9's own retrieval
@@ -1586,6 +1587,7 @@ async def index_and_score(
     pool: LoadedPool | None = None,
     target: str | None = None,
     judge_metrics: tuple[str, ...] = (),
+    router: str | None = None,
 ) -> IndexAndScoreResult:
     """Keep `weft eval run` and `weft eval experiment` scoring through one identical path.
 
@@ -1667,6 +1669,11 @@ async def index_and_score(
     identical name unchanged; `()` (`weft eval run`, and every caller before this task) scores
     no judge. `weft_cli.eval_experiment` is the one caller that passes the registered plugin
     names its own pre-flight translated a document's `metrics =` entries into.
+
+    `router` — ledger task **44.5** — reaches `score_pipeline`'s own keyword of the identical
+    name unchanged; `None` (`weft eval run`, and every caller before this task) names none.
+    `weft_cli.eval_experiment` is the one caller that passes an arm's own `router` name, and the
+    record it produces carries `scored.question_routes` beside every other scored field.
     """
     indexed = await _indexed_corpus(
         deps,
@@ -1705,6 +1712,7 @@ async def index_and_score(
     judge_prompts: Mapping[str, str] | None = None
     question_pools: Mapping[str, tuple[PoolChunk, ...]] | None = None
     result_store_rows: int | None = None
+    question_routes: Mapping[str, RouteView] | None = None
     if questions is not None:
         scored = await score_pipeline(
             registry=deps.registry,
@@ -1715,6 +1723,7 @@ async def index_and_score(
             ctx=ctx,
             corpus_document_ids=document_ids,
             query_pipeline=query_pipeline,
+            router=router,
             reports=deps.reports,
             llm=deps.llm,
             services=deps.services,
@@ -1744,6 +1753,7 @@ async def index_and_score(
         judge_prompts = scored.judge_prompts
         question_pools = scored.question_pools
         result_store_rows = scored.store_rows
+        question_routes = scored.question_routes
     query_seconds = time.monotonic() - query_started
 
     resolved_corpus_name = corpus_name if corpus_name is not None else str(path)
@@ -1785,6 +1795,7 @@ async def index_and_score(
         source_revision=await source_revision(),
         question_tokens=question_tokens,
         judge_prompts=judge_prompts,
+        question_routes=question_routes,
     )
     run_id = str(uuid.uuid4())
     write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")

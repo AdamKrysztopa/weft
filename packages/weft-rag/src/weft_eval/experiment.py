@@ -84,6 +84,7 @@ _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
         "name",
         "pipeline",
         "query_pipeline",
+        "router",
         "corpus",
         "questions",
         "repeats",
@@ -161,6 +162,11 @@ class ExperimentArm(BaseModel):
 
     `questions` (task **43.51**) is one or more resolved absolute paths, in the order named — see
     `Experiment.questions_for`.
+
+    `router` (task **44.5**) names a `RoutingPolicy` document instead of a query rung: the arm
+    answers each question through that router rather than through a fixed `query_pipeline`, and
+    its record carries which rung answered each question. An arm names one or the other, never
+    both — see `_router_and_query_pipeline_are_exclusive`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -168,6 +174,7 @@ class ExperimentArm(BaseModel):
     name: str = Field(min_length=1)
     pipeline: str = Field(min_length=1)
     query_pipeline: str | None = None
+    router: str | None = None
     corpus: Path | None = None
     questions: tuple[Path, ...] | None = None
     repeats: int | None = Field(default=None, ge=1)
@@ -187,6 +194,21 @@ class ExperimentArm(BaseModel):
             raise ValueError(
                 f"arm '{self.name}' sets both capture_pool and pool — a replay reads a pool, "
                 "it never writes one. Remove one of the two keys."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _router_and_query_pipeline_are_exclusive(self) -> ExperimentArm:
+        """Refuse an arm that names both a router and a query pipeline — ledger task **44.5**.
+
+        An arm answers through one or the other: a fixed `query_pipeline`, or a `router` that
+        picks one per question. Naming both would leave `weft_cli.eval_experiment` to pick
+        silently, which is exactly the ambiguity this module refuses at load rather than at run.
+        """
+        if self.router is not None and self.query_pipeline is not None:
+            raise ValueError(
+                f"arm '{self.name}' names both a router and a query_pipeline — an arm answers "
+                "through one or the other."
             )
         return self
 
@@ -355,6 +377,7 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
         name=str(entry.get("name", "")),
         pipeline=str(entry.get("pipeline", "")),
         query_pipeline=entry.get("query_pipeline"),
+        router=entry.get("router"),
         corpus=_resolve_optional(entry.get("corpus"), root=root),
         questions=_resolve_optional_questions(entry.get("questions"), root=root, path=path),
         repeats=entry.get("repeats"),

@@ -468,3 +468,18 @@ class Route(BaseModel):
     #: was no rule to name rather than because one was forgotten.
     rule: str = ""
     scorecard: Scorecard
+
+
+class RouteView(BaseModel):
+    """How a routed ask reached its pipeline — ledger task **44.2**.
+
+    The `Route` without its `scorecard`, which carries the query and a scorer's own open
+    mapping: this is the decision, not the measurement behind it.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pipeline: str
+    outcome: RuleOutcome
+    #: The matching rule's name; empty when the policy matched no rule (`Route.rule`).
+    rule: str

@@ -62,25 +62,10 @@ from pydantic import BaseModel, ConfigDict
 from weft_cli.coverage import LayerCoverage, SourceCoverage
 from weft_cli.sinks import LineKind
 from weft_generate.payload import Answer, AnswerStance, Citation
-from weft_retrieve.payload import Route, RuleOutcome
+from weft_retrieve.payload import Route, RouteView
 
 #: `09` §3's additive promise, carried in the data — see the module docstring.
 ANSWER_ENVELOPE_VERSION: Final[str] = "1.0.0"
-
-
-class RouteView(BaseModel):
-    """How a routed ask reached its pipeline — ledger task **44.2**.
-
-    The `Route` without its `scorecard`, which carries the query and a scorer's own open
-    mapping: this is the decision, not the measurement behind it.
-    """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    pipeline: str
-    outcome: RuleOutcome
-    #: The matching rule's name; empty when the policy matched no rule (`Route.rule`).
-    rule: str
 
 
 class AnswerEnvelope(BaseModel):

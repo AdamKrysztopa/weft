@@ -69,6 +69,7 @@ from weft_cli.route_ask import (
     run_named_ask,
     run_named_rerank,
     run_named_retrieve,
+    run_routed_ask,
 )
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
@@ -120,7 +121,7 @@ from weft_llm.contract import TokenSink
 from weft_llm.errors import LLMGenerationLoopError
 from weft_llm.usage import UsageEntry, record_usage, recording_usage
 from weft_prompts.typed_prompt import TypedPrompt, prompt_digest
-from weft_retrieve.payload import Passage, Query, Ranking
+from weft_retrieve.payload import Passage, Query, Ranking, RouteView
 from weft_store import NodeStore, Scored
 
 
@@ -592,6 +593,10 @@ class ScoredRun:
     #: Task **44.4** — each named judge metric's reported name mapped to a digest of the prompt
     #: it actually sent. `{}` for a run that named no judge metric.
     judge_prompts: Mapping[str, str] = _NO_JUDGE_PROMPTS
+    #: Task **44.5** — each question's own route, keyed identically to `question_scores`, for a
+    #: router arm (`router` given). `None` for a run that named a `query_pipeline` instead, and
+    #: for every construction site written before this task.
+    question_routes: Mapping[str, RouteView] | None = None
 
 
 def _merge_generation_scores(
@@ -645,6 +650,32 @@ def _resolved_cutoffs(cutoffs: tuple[int, ...] | None, *, top_k: int) -> tuple[i
             f"match top_k={top_k} — top_k is the depth the ranking is collapsed to."
         )
     return resolved
+
+
+def _require_exclusive_scoring_modes(
+    *,
+    capture_pool: bool,
+    pool: LoadedPool | None,
+    router: str | None,
+    query_pipeline: str | None,
+) -> None:
+    """Refuse two mutually exclusive `score_pipeline` modes, before anything runs.
+
+    `capture_pool`/`pool` — a replay reads a pool, it never writes one. `router`/`query_pipeline`
+    — task **44.5** — an arm scores through one or the other. Lifted out of `score_pipeline` so
+    its own branching stays inside that function's complexity budget, `_require_capturable_rung`'s
+    own footing one call over.
+    """
+    if capture_pool and pool is not None:
+        raise ValueError(
+            "capture_pool and pool are mutually exclusive — a replay reads a pool, it never "
+            "writes one."
+        )
+    if router is not None and query_pipeline is not None:
+        raise ValueError(
+            f"router ('{router}') and query_pipeline ('{query_pipeline}') are mutually "
+            "exclusive — a run scores through one or the other."
+        )
 
 
 def _require_capturable_rung(*, capture_pool: bool, is_retrieval_rung: bool) -> None:
@@ -842,6 +873,41 @@ async def _hydrated_ranking(
     )
 
 
+def _hits_from_answer(
+    question: Question,
+    answer: object,
+    *,
+    contributors: dict[str, tuple[str, ...]],
+    generation_samples: list[tuple[str, GenerationSample]],
+) -> Sequence[Scored[Node]]:
+    """One question's own hits and `GenerationSample`, built from a generating rung's `Answer`.
+
+    The shared tail of every generating path — task **44.5** lifted this out of
+    `_generating_question_hits` so a router arm's own `_routed_question_hits` builds identically
+    from whichever call produced `answer`, rather than a second, possibly-divergent copy.
+    """
+    contributors[question.id] = tuple(getattr(answer, "contributors", ()))
+    used_passages = passages_for_scoring(answer)
+    hits = _scored_in_ranking_order(used_passages)
+    generation_samples.append(
+        (
+            question.id,
+            GenerationSample(
+                query=question.text,
+                # `getattr`, not `answer.text` — the identical seam `passages_for_scoring`'s
+                # own docstring argues for `used`: a test's duck-typed stand-in carrying no
+                # `text` is "no prediction to evaluate" (`GenerationSample.prediction`'s own
+                # `None` state), never a crash reading an attribute it never promised to carry.
+                prediction=getattr(answer, "text", None),
+                reference=question.reference_answer or "",
+                contexts=tuple(passage.node.content for passage in used_passages),
+                language=question.language,
+            ),
+        )
+    )
+    return hits
+
+
 async def _generating_question_hits(
     question: Question,
     *,
@@ -883,26 +949,58 @@ async def _generating_question_hits(
         contributions=contributions,
         target=target,
     )
-    contributors[question.id] = tuple(getattr(answer, "contributors", ()))
-    used_passages = passages_for_scoring(answer)
-    hits = _scored_in_ranking_order(used_passages)
-    generation_samples.append(
-        (
-            question.id,
-            GenerationSample(
-                query=question.text,
-                # `getattr`, not `answer.text` — the identical seam `passages_for_scoring`'s
-                # own docstring argues for `used`: a test's duck-typed stand-in carrying no
-                # `text` is "no prediction to evaluate" (`GenerationSample.prediction`'s own
-                # `None` state), never a crash reading an attribute it never promised to carry.
-                prediction=getattr(answer, "text", None),
-                reference=question.reference_answer or "",
-                contexts=tuple(passage.node.content for passage in used_passages),
-                language=question.language,
-            ),
-        )
+    return _hits_from_answer(
+        question, answer, contributors=contributors, generation_samples=generation_samples
     )
-    return hits
+
+
+async def _routed_question_hits(
+    question: Question,
+    *,
+    router: str,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    roles: RoleTable | None,
+    sink: TokenSink | None,
+    contributions: tuple[Contribution, ...],
+    generation_samples: list[tuple[str, GenerationSample]],
+    contributors: dict[str, tuple[str, ...]],
+    question_routes: dict[str, RouteView],
+    target: str | None = None,
+) -> Sequence[Scored[Node]]:
+    """Answer one question through `router` and return its hits — ledger task **44.5**.
+
+    One question's own hits, asked through `weft_cli.route_ask.run_routed_ask` with
+    `[services] route` set to `router` — sibling of `_generating_question_hits`, since 44.0
+    already guarantees every rung a router can offer ends in a `Generator`. The route the router
+    actually took for this question is recorded into `question_routes`, keyed by `question.id`,
+    before the shared tail (`_hits_from_answer`) builds its hits and `GenerationSample` exactly
+    as a named generating rung's does. Raises `PipelineDidNotProduceError`/`weft_llm.errors.
+    LLMGenerationLoopError` unchanged, for the caller's own per-question exclusion.
+    """
+    route, answer = await run_routed_ask(
+        question.text,
+        registry=registry,
+        reports=reports,
+        ctx=ctx,
+        llm=llm if llm is not None else LLMSection(),
+        services=(services if services is not None else ServiceSelection()).model_copy(
+            update={"route": router}
+        ),
+        sink=sink if sink is not None else NullSink(),
+        contributions=contributions,
+        roles=roles if roles is not None else RoleTable(),
+        target=target,
+    )
+    question_routes[question.id] = RouteView(
+        pipeline=route.pipeline, outcome=route.outcome, rule=route.rule
+    )
+    return _hits_from_answer(
+        question, answer, contributors=contributors, generation_samples=generation_samples
+    )
 
 
 async def _pool_question_hits(
@@ -999,18 +1097,30 @@ async def _retrieval_question_hits(
 def _resolved_query_rung(
     query_pipeline: str | None,
     *,
+    router: str | None,
     registry: Registry,
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...],
     embed_stage: ResolvedStage,
     store_stage: ResolvedStage,
 ) -> tuple[ScoredQueryRung, bool]:
-    """Resolve `query_pipeline` to its scored rung and whether it generates.
+    """Resolve `query_pipeline`/`router` to its scored rung and whether it generates.
 
-    `query_pipeline`, resolved to the `ScoredQueryRung` a `RunRecord` persists, and whether it
-    generates — task **16.1**'s own resolution, lifted out of `score_pipeline` so its own
-    branching stays inside that function's complexity budget.
+    `query_pipeline` or `router` (never both — `score_pipeline`'s own refusal), resolved to the
+    `ScoredQueryRung` a `RunRecord` persists, and whether it generates — task **16.1**'s own
+    resolution, extended by task **44.5** for a router arm, lifted out of `score_pipeline` so its
+    own branching stays inside that function's complexity budget.
+
+    A router arm always generates — 44.0 guarantees every rung it could offer ends in a
+    `Generator` — so its resolution is identical to a named generating `query_pipeline`'s, one
+    call earlier: resolved once here, through the same `resolve_named_pipeline`, and recorded
+    under the router's own name rather than whichever rung it happens to pick per question.
     """
+    if router is not None:
+        resolved_router = resolve_named_pipeline(
+            router, registry=registry, reports=reports, contributions=contributions
+        )
+        return QueryRung(name=router, identity=pipeline_identity(resolved_router)), True
     if query_pipeline is None:
         return (
             NoQueryRung(
@@ -1171,6 +1281,7 @@ async def _question_hits(
     question: Question,
     *,
     query_pipeline: str | None,
+    router: str | None,
     generates: bool,
     pool: LoadedPool | None,
     pool_questions_by_id: Mapping[str, PoolQuestion] | None,
@@ -1186,6 +1297,7 @@ async def _question_hits(
     generation_samples: list[tuple[str, GenerationSample]],
     contributors: dict[str, tuple[str, ...]],
     question_pools: dict[str, tuple[PoolChunk, ...]],
+    question_routes: dict[str, RouteView],
     capture_pool: bool,
     top_k: int,
     embed_stage: ResolvedStage,
@@ -1193,6 +1305,23 @@ async def _question_hits(
     target: str | None,
 ) -> Sequence[Scored[Node]]:
     """Retrieve one question's hits through whichever rung this run scores."""
+    if router is not None:
+        return await _routed_question_hits(
+            question,
+            router=router,
+            registry=registry,
+            reports=reports,
+            ctx=ctx,
+            llm=llm,
+            services=services,
+            roles=roles,
+            sink=sink,
+            contributions=contributions,
+            generation_samples=generation_samples,
+            contributors=contributors,
+            question_routes=question_routes,
+            target=target,
+        )
     if query_pipeline is not None and generates:
         return await _generating_question_hits(
             question,
@@ -1278,6 +1407,7 @@ async def _answered_question(
     question: Question,
     *,
     query_pipeline: str | None,
+    router: str | None,
     generates: bool,
     pool: LoadedPool | None,
     pool_questions_by_id: Mapping[str, PoolQuestion] | None,
@@ -1293,6 +1423,7 @@ async def _answered_question(
     generation_samples: list[tuple[str, GenerationSample]],
     contributors: dict[str, tuple[str, ...]],
     question_pools: dict[str, tuple[PoolChunk, ...]],
+    question_routes: dict[str, RouteView],
     capture_pool: bool,
     top_k: int,
     embed_stage: ResolvedStage,
@@ -1315,6 +1446,7 @@ async def _answered_question(
             hits = await _question_hits(
                 question,
                 query_pipeline=query_pipeline,
+                router=router,
                 generates=generates,
                 pool=pool,
                 pool_questions_by_id=pool_questions_by_id,
@@ -1330,6 +1462,7 @@ async def _answered_question(
                 generation_samples=generation_samples,
                 contributors=contributors,
                 question_pools=question_pools,
+                question_routes=question_routes,
                 capture_pool=capture_pool,
                 top_k=top_k,
                 embed_stage=embed_stage,
@@ -1434,6 +1567,7 @@ async def score_pipeline(
     pool: LoadedPool | None = None,
     target: str | None = None,
     judge_metrics: tuple[str, ...] = (),
+    router: str | None = None,
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset.
 
@@ -1585,18 +1719,29 @@ async def score_pipeline(
     `LLM` are built through `prepared_services` rather than reused from the retrieval-rung path's
     own (`retrieval_services` is `None` here, since a generating rung's own path never builds
     one) — see `_judge_answered_questions`'s own docstring.
+
+    **`router` — ledger task 44.5.** `None` (every caller before this task) is unchanged: an
+    arm answers through `query_pipeline`, or through neither. Given a name instead —
+    `query_pipeline` must then be `None`, or this raises `ValueError` naming both — every
+    question is asked through `weft_cli.route_ask.run_routed_ask` with `[services] route` set to
+    `router`, exactly as a generating `query_pipeline` rung is, since 44.0 guarantees every rung a
+    router can offer ends in a `Generator`. `ScoredRun.query_rung` carries `QueryRung(name=router,
+    identity=pipeline_identity(<the router document, resolved through the identical
+    `resolve_named_pipeline` call a named `query_pipeline` uses>))`, and `ScoredRun.
+    question_routes` carries the `weft_retrieve.payload.RouteView` each question's own routing
+    decision actually took, keyed identically to `question_scores` — `None` for a run naming no
+    router.
     """
-    if capture_pool and pool is not None:
-        raise ValueError(
-            "capture_pool and pool are mutually exclusive — a replay reads a pool, it never "
-            "writes one."
-        )
+    _require_exclusive_scoring_modes(
+        capture_pool=capture_pool, pool=pool, router=router, query_pipeline=query_pipeline
+    )
     resolved_cutoffs = _resolved_cutoffs(cutoffs, top_k=top_k)
 
     embed_stage, store_stage = _retrieval_stages_of(resolved_pipeline)
 
     query_rung, generates = _resolved_query_rung(
         query_pipeline,
+        router=router,
         registry=registry,
         reports=reports,
         contributions=contributions,
@@ -1618,12 +1763,13 @@ async def score_pipeline(
     axes: dict[str, Mapping[str, str]] = {}
     contributors: dict[str, tuple[str, ...]] = {}
     is_retrieval_rung = query_pipeline is not None and not generates
-    is_generating_rung = query_pipeline is not None and generates
+    is_generating_rung = (query_pipeline is not None or router is not None) and generates
     _require_capturable_rung(capture_pool=capture_pool, is_retrieval_rung=is_retrieval_rung)
     _require_replayable_rung(pool, is_retrieval_rung=is_retrieval_rung)
     failed: dict[str, str] = {}
     question_pools: dict[str, tuple[PoolChunk, ...]] = {}
     question_tokens: dict[str, Mapping[str, RoleTokens]] = {}
+    question_routes: dict[str, RouteView] = {}
     store_rows: int | None = None
     judge_scores: SubsetScores | None = None
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
@@ -1656,6 +1802,7 @@ async def score_pipeline(
                 attempt = await _answered_question(
                     question,
                     query_pipeline=query_pipeline,
+                    router=router,
                     generates=generates,
                     pool=pool,
                     pool_questions_by_id=pool_questions_by_id,
@@ -1671,6 +1818,7 @@ async def score_pipeline(
                     generation_samples=generation_samples,
                     contributors=contributors,
                     question_pools=question_pools,
+                    question_routes=question_routes,
                     capture_pool=capture_pool,
                     top_k=top_k,
                     embed_stage=embed_stage,
@@ -1755,6 +1903,7 @@ async def score_pipeline(
         store_rows=store_rows if capture_pool else None,
         question_tokens=question_tokens,
         judge_prompts=judge_prompt_digests(registry, judge_metrics),
+        question_routes=question_routes if router is not None else None,
     )
 
 

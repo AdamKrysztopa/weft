@@ -44,6 +44,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **An experiment arm may name a `router` instead of a `query_pipeline`.** Each question is
+  asked through `weft ask`'s routed path with that router, scored like any generating rung, and
+  the record's `question_routes` gives the pipeline, outcome and rule each question was routed
+  by. An arm naming both is refused. A router that is missing, or that is a pipeline ending in no
+  `RoutingPolicy`, is refused before anything is indexed, naming the routers installed.
 - **A run record says which code ran, which judge wording scored it, and what each question
   cost.** `source_revision` is the commit, and whether tracked files had changes, of the checkout
   the installed `weft_eval` was loaded from. From a wheel it reads `commit: null`; it is never

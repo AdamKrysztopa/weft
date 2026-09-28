@@ -66,6 +66,7 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_cli import route_ask
 from weft_cli.eval_commands import (
     DEFAULT_RUNS_DIR,
     IndexAndScoreResult,
@@ -76,7 +77,7 @@ from weft_cli.eval_commands import (
     stated_embedding_models,
 )
 from weft_cli.ingest import content_hashes_of, corpus_documents
-from weft_cli.route_ask import resolve_named_pipeline
+from weft_cli.route_ask import NoRouterPipelineError, resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_engine.registry_bootstrap import Dependencies
@@ -217,6 +218,38 @@ def _refuse_unscorable_arm(arm: ExperimentArm, *, deps: Dependencies) -> None:
             pipeline=arm.query_pipeline,
             contract=contract,
         )
+
+
+#: `weft_cli.route_ask.full_catalogue`'s own attribute name, held apart from the `getattr` call
+#: below that reads it — a literal string in that call is exactly the shape ruff's B009 rewrites
+#: back into `route_ask.full_catalogue`, which is the static attribute expression this whole
+#: function exists to avoid (see its own docstring).
+def _refuse_unknown_router(arm: ExperimentArm, *, deps: Dependencies) -> None:
+    """Refuse an arm naming a router that is not a pipeline ending in a `RoutingPolicy`.
+
+    Checked before anything indexes — ledger task **44.5**'s own pre-flight, on
+    `_refuse_unscorable_arm`'s footing one arm-kind over: `weft_cli.route_ask.run_routed_ask`
+    resolves `router` against the identical catalogue, but only per question, well after earlier
+    arms have already indexed and scored. `NoRouterPipelineError` is reused rather than a second,
+    narrower error, since a missing router and one that exists but names no `RoutingPolicy` are
+    the identical mistake from an operator's own footing — nothing here can answer this question.
+    """
+    if arm.router is None:
+        return
+    options = route_ask.routers_contributed(deps.registry, deps.reports)
+    if arm.router in options:
+        return
+    raise NoRouterPipelineError(
+        f"arm '{arm.name}' names router '{arm.router}', which is not a pipeline ending in a "
+        f"RoutingPolicy. Routers contributed: {', '.join(options) or '(none)'}.",
+        valid_options=options,
+        remedy=(
+            f"name the arm's router as one of: {', '.join(options)}."
+            if options
+            else "run `weft plugins doctor` to see whether 'weft-retrieve' is active — no "
+            "installed pack contributed any pipeline ending in a RoutingPolicy."
+        ),
+    )
 
 
 class EvalExperimentArgs(BaseModel):
@@ -733,6 +766,8 @@ class EvalExperimentCommand:
         Raises:
             IncomparableArmsError: Two arms are not comparable.
             UnscorableArmError: An arm's query rung cannot be scored.
+            NoRouterPipelineError: An arm names a router that is not a pipeline ending in a
+                RoutingPolicy.
         """
         experiment_args = cast(EvalExperimentArgs, args)
         deps = ctx.require(Dependencies)
@@ -756,6 +791,7 @@ class EvalExperimentCommand:
 
         for arm in experiment.arms:
             _refuse_unscorable_arm(arm, deps=deps)
+            _refuse_unknown_router(arm, deps=deps)
 
         await _refuse_unrecordable_metrics(experiment, deps=deps, ctx=ctx)
 
@@ -861,6 +897,7 @@ async def _run_arms(
                 top_k=experiment.top_k,
                 cutoffs=experiment.cutoffs,
                 query_pipeline=arm.query_pipeline,
+                router=arm.router,
                 reuse_index=already_indexed,
                 refuse_foreign_documents=True,
                 reprocess=False,

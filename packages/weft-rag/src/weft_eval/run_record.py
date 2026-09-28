@@ -84,6 +84,7 @@ from weft_eval.aggregate import MetricAggregate
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.resolution import ResolvedPipeline
+from weft_retrieve.payload import RouteView
 from weft_store.contract import EmbeddingIdentity
 
 _NO_MODEL_VERSIONS: Final[Mapping[str, str]] = MappingProxyType({})
@@ -489,6 +490,11 @@ class RunRecord(BaseModel):
     #: judging, which runs after the loop and is not attributed per question. `token_usage`
     #: above is still the run's total across every call. `None` means *not recorded*.
     question_tokens: Mapping[str, Mapping[str, RoleTokens]] | None = None
+    #: Task **44.5** — each question's own route, for an arm that answered through a router
+    #: rather than a fixed `query_pipeline`, keyed identically to `question_scores`. `None`
+    #: means *not recorded*: every record written before this task, and every record of a run
+    #: that named a `query_pipeline` rather than a `router`.
+    question_routes: Mapping[str, RouteView] | None = None
 
 
 def build_run_record(
@@ -516,6 +522,7 @@ def build_run_record(
     source_revision: SourceRevision | None = None,
     judge_prompts: Mapping[str, str] | None = None,
     question_tokens: Mapping[str, Mapping[str, RoleTokens]] | None = None,
+    question_routes: Mapping[str, RouteView] | None = None,
 ) -> RunRecord:
     """The one place a run record is built, so what was active is derived, never claimed.
 
@@ -575,6 +582,10 @@ def build_run_record(
     `source_revision`/`judge_prompts`/`question_tokens` — task **44.4** — are passed straight
     through as well: only the caller can read the git revision the installed `weft_eval` was
     loaded from, digest each judge's actual prompt, or attribute a question's own token spend.
+
+    `question_routes` — task **44.5** — is passed straight through too, on the identical
+    footing: only the caller that ran a router arm's question loop
+    (`weft_cli.eval_scoring.score_pipeline`) knows which route answered each question.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -600,6 +611,7 @@ def build_run_record(
         source_revision=source_revision,
         judge_prompts=judge_prompts,
         question_tokens=question_tokens,
+        question_routes=question_routes,
     )
 
 

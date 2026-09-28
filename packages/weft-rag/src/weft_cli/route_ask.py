@@ -200,6 +200,15 @@ class PipelineDidNotProduceError(PipelineResolutionError):
     """
 
 
+def routers_contributed(registry: Registry, reports: Sequence[PackReport]) -> tuple[str, ...]:
+    """Every pipeline a routed ask could use as its router: those ending in a `RoutingPolicy`."""
+    return tuple(
+        pipelines_producing(
+            RoutingPolicy, catalogue=full_catalogue(reports=reports), registry=registry
+        )
+    )
+
+
 async def run_routed_ask(
     question: str,
     *,
@@ -266,7 +275,7 @@ async def run_routed_ask(
     router_name = services.route
     router = catalogue.get(router_name)
     if router is None:
-        options = pipelines_producing(RoutingPolicy, catalogue=catalogue, registry=registry)
+        options = routers_contributed(registry, reports)
         raise NoRouterPipelineError(
             f"no installed pack contributed a pipeline named '{router_name}', which is what "
             f"[services] route selects. Routers contributed: "

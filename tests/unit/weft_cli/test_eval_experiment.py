@@ -38,6 +38,7 @@ from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult, run_index_for
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.render import render_outcome, render_refusal
+from weft_cli.route_ask import NoRouterPipelineError
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
@@ -75,7 +76,7 @@ from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
-from weft_retrieve import ContextPacker
+from weft_retrieve import ContextPacker, RoutingPolicy
 from weft_store import NodeStore
 
 
@@ -141,6 +142,7 @@ def _registry() -> Registry:
     registry.add(Embedder, "fake-openai", _FakeEmbedderWithModel, distribution="test")
     registry.add(NodeStore, "pgvector", _FakeStore, distribution="weft-store")
     registry.add(ContextPacker, "repack", _PassThroughStage, distribution="weft-retrieve")
+    registry.add(RoutingPolicy, "always-route", _PassThroughStage, distribution="weft-retrieve")
     return registry
 
 
@@ -462,6 +464,9 @@ def _query_catalogue() -> dict[str, Pipeline]:
     catalogue["retrieval-ends-in-a-retriever"] = Pipeline(
         name="retrieval-ends-in-a-retriever",
         stages=(StageDeclaration(id="embed", use="hash"),),
+    )
+    catalogue["some-router"] = Pipeline(
+        name="some-router", stages=(StageDeclaration(id="decide", use="always-route"),)
     )
     return catalogue
 
@@ -1505,3 +1510,50 @@ async def test_the_plan_prices_the_judge_from_the_rate_sheet_and_dates_it(
     stdout = render_outcome(outcome).stdout or ""
     assert priced in stdout, stdout
     assert RATES_AS_OF in stdout, stdout
+
+
+# --- Task 44.5 — an arm may be a router.
+
+
+async def test_a_router_arm_is_scored_through_its_router(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index") + _arm("routed", "index", 'router = "some-router"\n'),
+        repeats=2,
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    routed = [call for call in calls if call.get("router") is not None]
+    assert len(routed) == 2
+    assert all(call["router"] == "some-router" for call in routed)
+    assert all(call["query_pipeline"] is None for call in routed)
+
+
+@pytest.mark.parametrize("router", ["no-such-router", "some-rung"])
+async def test_an_arm_naming_something_that_is_not_a_router_is_refused_before_any_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, router: str
+) -> None:
+    # Arrange — a missing name, and a document that exists but chooses no rung.
+    path = _experiment(
+        tmp_path, _arm("dense", "index") + _arm("routed", "index", f'router = "{router}"\n')
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    with pytest.raises(NoRouterPipelineError, match=router) as refused:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert "some-router" in refused.value.valid_options
+    assert calls == []
+    assert not Path("runs").exists()
