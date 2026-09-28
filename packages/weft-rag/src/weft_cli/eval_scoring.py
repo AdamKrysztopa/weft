@@ -122,6 +122,7 @@ from weft_llm.errors import LLMGenerationLoopError
 from weft_llm.usage import UsageEntry, record_usage, recording_usage
 from weft_prompts.typed_prompt import TypedPrompt, prompt_digest
 from weft_retrieve.payload import Passage, Query, Ranking, RouteView
+from weft_retrieve.profile import PROFILER_VERSION, profile_query
 from weft_store import NodeStore, Scored
 
 
@@ -483,6 +484,10 @@ _NO_QUESTION_TOKENS: Final[Mapping[str, Mapping[str, RoleTokens]]] = MappingProx
 #: digested none.
 _NO_JUDGE_PROMPTS: Final[Mapping[str, str]] = MappingProxyType({})
 
+#: `ScoredRun.question_profiles`'s own default — task **44.17**: a run that scored no question
+#: profiled none, `_NO_QUESTION_TOKENS`'s own reasoning one field over.
+_NO_QUESTION_PROFILES: Final[Mapping[str, Mapping[str, int | float | bool]]] = MappingProxyType({})
+
 
 def role_tokens(entries: Sequence[UsageEntry]) -> Mapping[str, RoleTokens]:
     """`entries`, folded to one `RoleTokens` per `UsageEntry.role` — task **33.7**.
@@ -537,6 +542,20 @@ def judge_prompt_digests(registry: Registry, names: Sequence[str]) -> dict[str, 
             reported_name = cast("str", getattr(target, "reported_name", name))
             digests[reported_name] = prompt_digest(prompt)
     return digests
+
+
+def _question_profiles(
+    questions: tuple[Question, ...],
+) -> dict[str, Mapping[str, int | float | bool]]:
+    """`profile_query`'s features for every one of `questions`, keyed by `Question.id`.
+
+    Task **44.17** — of the question, not the answer: every question a run scores carries a
+    profile, whether or not it was ever answered.
+    """
+    return {
+        question.id: profile_query(question.text, locale=question.language).features()
+        for question in questions
+    }
 
 
 @dataclass(frozen=True)
@@ -597,6 +616,14 @@ class ScoredRun:
     #: router arm (`router` given). `None` for a run that named a `query_pipeline` instead, and
     #: for every construction site written before this task.
     question_routes: Mapping[str, RouteView] | None = None
+    #: Task **44.17** — each question's own `weft_retrieve.profile.QueryProfile.features()`,
+    #: keyed identically to `question_scores`, for every question `score_pipeline` scored,
+    #: answered or not. `{}` for a construction site written before this task.
+    question_profiles: Mapping[str, Mapping[str, int | float | bool]] = _NO_QUESTION_PROFILES
+    #: Task **44.17** — `weft_retrieve.profile.PROFILER_VERSION` at the moment
+    #: `question_profiles` was computed. `None` only for a construction site written before this
+    #: task — `score_pipeline` always sets it, `question_seconds`'s own posture.
+    profiler_version: str | None = None
 
 
 def _merge_generation_scores(
@@ -1731,6 +1758,12 @@ async def score_pipeline(
     question_routes` carries the `weft_retrieve.payload.RouteView` each question's own routing
     decision actually took, keyed identically to `question_scores` — `None` for a run naming no
     router.
+
+    **Task 44.17.** `ScoredRun.question_profiles` carries every one of `questions`' own
+    `weft_retrieve.profile.profile_query` features, keyed by `Question.id` — computed for every
+    question this call scores, answered or not, since a profile describes the question rather
+    than the answer. `ScoredRun.profiler_version` names the profiler version they were computed
+    under.
     """
     _require_exclusive_scoring_modes(
         capture_pool=capture_pool, pool=pool, router=router, query_pipeline=query_pipeline
@@ -1904,6 +1937,8 @@ async def score_pipeline(
         question_tokens=question_tokens,
         judge_prompts=judge_prompt_digests(registry, judge_metrics),
         question_routes=question_routes if router is not None else None,
+        question_profiles=_question_profiles(questions),
+        profiler_version=PROFILER_VERSION,
     )
 
 

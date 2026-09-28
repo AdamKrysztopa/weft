@@ -495,6 +495,15 @@ class RunRecord(BaseModel):
     #: means *not recorded*: every record written before this task, and every record of a run
     #: that named a `query_pipeline` rather than a `router`.
     question_routes: Mapping[str, RouteView] | None = None
+    #: Task **44.17** — each question's own `weft_retrieve.profile.QueryProfile.features()`,
+    #: keyed identically to `question_scores`, of the question and not of the answer: recorded
+    #: for every question a run scored, answered or not. `None` means *not recorded* — every
+    #: record written before this task.
+    question_profiles: Mapping[str, Mapping[str, int | float | bool]] | None = None
+    #: Task **44.17** — `weft_retrieve.profile.PROFILER_VERSION` at the moment `question_profiles`
+    #: was computed, so a profile taken under a later profiler is never read as the same
+    #: measurement. `None` on the identical footing `question_profiles` states one field up.
+    profiler_version: str | None = None
 
 
 def build_run_record(
@@ -523,6 +532,8 @@ def build_run_record(
     judge_prompts: Mapping[str, str] | None = None,
     question_tokens: Mapping[str, Mapping[str, RoleTokens]] | None = None,
     question_routes: Mapping[str, RouteView] | None = None,
+    question_profiles: Mapping[str, Mapping[str, int | float | bool]] | None = None,
+    profiler_version: str | None = None,
 ) -> RunRecord:
     """The one place a run record is built, so what was active is derived, never claimed.
 
@@ -586,6 +597,10 @@ def build_run_record(
     `question_routes` — task **44.5** — is passed straight through too, on the identical
     footing: only the caller that ran a router arm's question loop
     (`weft_cli.eval_scoring.score_pipeline`) knows which route answered each question.
+
+    `question_profiles`/`profiler_version` — task **44.17** — are passed straight through as
+    well: only the caller that ran the question loop computed each question's own profile, and
+    under which profiler version.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -612,6 +627,8 @@ def build_run_record(
         judge_prompts=judge_prompts,
         question_tokens=question_tokens,
         question_routes=question_routes,
+        question_profiles=question_profiles,
+        profiler_version=profiler_version,
     )
 
 

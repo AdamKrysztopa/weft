@@ -24,6 +24,7 @@ from weft_kernel.resolution import ResolvedPipeline, ResolvedStage
 from weft_llm.payload import TokenUsage
 from weft_llm.usage import UsageEntry, record_usage
 from weft_prompts.typed_prompt import prompt_digest
+from weft_retrieve.profile import PROFILER_VERSION, profile_query
 from weft_store import Filter, NodeStore, Scored
 
 
@@ -188,3 +189,28 @@ def test_a_judge_metric_records_its_prompt_s_digest_under_its_reported_name() ->
 
     # Assert
     assert digests == {"answer_correctness": prompt_digest(AnswerCorrectnessJudgePrompt)}
+
+
+async def test_each_question_carries_its_profile_under_the_profiler_s_version() -> None:
+    # Arrange — task 44.17: the same profile a routed ask computes, recorded per question.
+    questions = (
+        _question("q-1", "How many looms are there?", ("doc-a",)),
+        _question("q-2", "Why?", ("doc-a",)),
+    )
+
+    # Act
+    report = await score_pipeline(
+        registry=_silent_registry(),
+        resolved_pipeline=_resolved_pipeline(),
+        questions=questions,
+        top_k=1,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a", "doc-b"),
+    )
+
+    # Assert
+    assert report.profiler_version == PROFILER_VERSION
+    assert set(report.question_profiles) == {"q-1", "q-2"}
+    expected = profile_query("How many looms are there?", locale="en").features()
+    assert report.question_profiles["q-1"] == expected
+    assert report.question_profiles["q-2"]["query.word_count"] == 1
