@@ -61,11 +61,11 @@ def test_a_negative_count_is_refused() -> None:
 def test_stored_stats_decode_and_absent_stats_read_none() -> None:
     # Act
     decoded = source_stats(
-        {"leaves": 2, "characters": 40, "tokens": 11, "tokenizer": "gpt-5.6-luna"}
+        {"leaves": 2, "characters": 40, "tokens": 11, "tokenizer": "tokenizer-a"}
     )
 
     # Assert
-    assert decoded == SourceStats(leaves=2, characters=40, tokens=11, tokenizer="gpt-5.6-luna")
+    assert decoded == SourceStats(leaves=2, characters=40, tokens=11, tokenizer="tokenizer-a")
     assert source_stats(None) is None
 
 

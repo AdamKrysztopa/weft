@@ -105,7 +105,7 @@ name = "weft-rag"
 # **2.12.0 → 2.13.0 at ledger task 43.22** — `GenerationCarrying` joins the family, the same binding.
 # **2.13.0 → 2.14.0 at repair R43.29** — `GenerationWithdrawing` joins the family, the same binding.
 # **2.14.0 → 3.0.0 at task 43.27** — the store contract's first major: concurrent callers are owed.
-version = "3.0.0"
+version = "3.1.0"
 description = "Weft — a RAG engine built as a microkernel. The default install: the kernel's packs, and the weft command."
 requires-python = ">=3.12"
 license = "MIT"

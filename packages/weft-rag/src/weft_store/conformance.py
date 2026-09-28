@@ -1346,7 +1346,7 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
             attempts=2,
             last_attempt_at=datetime.now(UTC),
         ),
-        stats=SourceStats(leaves=3, characters=1200, tokens=300, tokenizer="gpt-5.6-luna"),
+        stats=SourceStats(leaves=3, characters=1200, tokens=300, tokenizer="tokenizer-a"),
     )
 
     # Act

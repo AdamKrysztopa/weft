@@ -14,7 +14,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from weft_store.coverage import LayerCoverage, layer_coverage_of, ready_layers
 
 from tests.unit.weft_cli.routed import routed_to
 from weft_cli import commands, render
@@ -32,6 +31,7 @@ from weft_kernel.payload import Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_retrieve.payload import Query, Route
 from weft_store import LayerRecord, LayerStatus, NodeStore, SourceRecord, SourceStatus
+from weft_store.coverage import LayerCoverage, layer_coverage_of, ready_layers
 from weft_store.memory import MemoryStore
 
 _WHEN = datetime(2026, 9, 22, 12, 0, tzinfo=UTC)
