@@ -39,7 +39,7 @@ class BuildRevisionStampHook(BuildHookInterface[Any]):
         if commit is None:
             return
         status = self._run_git("status", "--porcelain", "--untracked-files=no")
-        dirty = bool(status.strip()) if status is not None else False
+        dirty = bool(status.strip()) if status is not None else None
 
         stamp_dir = Path(mkdtemp(prefix="weft-build-revision-"))
         stamp_path = stamp_dir / _STAMP_NAME
