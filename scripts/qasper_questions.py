@@ -173,7 +173,7 @@ def _ordered_papers(
 def _convert_paper(
     paper: QasperPaper, *, seed: str, dev_fraction: float
 ) -> tuple[str, str, list[Question], int]:
-    document_id = f"qp-{paper.id}"
+    document_id = f"qp-{paper.id}.txt"
     split = split_of(document_id, seed=seed, dev_fraction=dev_fraction)
     questions: list[Question] = []
     dropped = 0
@@ -310,7 +310,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     corpus_dir.mkdir(parents=True, exist_ok=True)
     total_characters = 0
     for document_id, content in converted.documents.items():
-        (corpus_dir / f"{document_id}.txt").write_text(content, encoding="utf-8")
+        (corpus_dir / document_id).write_text(content, encoding="utf-8")
         total_characters += len(content)
     (arguments.out / "qasper-questions.toml").write_text(
         questions_toml(converted.questions), encoding="utf-8"

@@ -17,6 +17,7 @@ import pytest
 from open_ragbench_questions import split_of
 from qasper_questions import AnswerKind, convert, parse_paper, questions_toml
 
+from weft_cli.eval_scoring import resolve_labels
 from weft_eval.question_set import read_question_set
 
 _SEED = "44.41"
@@ -74,8 +75,8 @@ def test_each_paper_is_one_document_holding_its_title_abstract_and_sections() ->
     converted = convert([paper], seed=_SEED, dev_fraction=0.5)
 
     # Assert
-    assert set(converted.documents) == {"qp-1901.00001"}
-    content = converted.documents["qp-1901.00001"]
+    assert set(converted.documents) == {"qp-1901.00001.txt"}
+    content = converted.documents["qp-1901.00001.txt"]
     for part in (
         "Warp Tension",
         "studies how looms keep tension",
@@ -111,7 +112,7 @@ def test_each_answer_kind_becomes_its_reference_answer() -> None:
     assert by_id["qp-q-bool"].reference_answer == "Yes"
     assert by_id["qp-q-bool"].axes["answer-type"] == AnswerKind.BOOLEAN.value
     assert all(
-        question.relevant_documents == ("qp-1901.00002",) for question in converted.questions
+        question.relevant_documents == ("qp-1901.00002.txt",) for question in converted.questions
     )
 
 
@@ -150,7 +151,7 @@ def test_a_paper_s_questions_share_its_split() -> None:
     converted = convert([paper], seed=_SEED, dev_fraction=0.5)
 
     # Assert
-    expected = split_of("qp-1901.00004", seed=_SEED, dev_fraction=0.5)
+    expected = split_of("qp-1901.00004.txt", seed=_SEED, dev_fraction=0.5)
     assert {question.axes["split"] for question in converted.questions} == {expected}
 
 
@@ -208,3 +209,21 @@ def test_the_written_question_file_reads_back_as_the_same_questions(tmp_path: Pa
     assert [dict(question.axes) for question in read] == [
         dict(question.axes) for question in converted.questions
     ]
+
+
+def test_every_label_names_the_file_the_converter_writes() -> None:
+    # Arrange — scoring resolves a label as a path suffix of a corpus file, extension included.
+    paper = parse_paper(
+        "1901.00006",
+        _paper("Selvage Edge", [_qa("q-s", "What edge?", _answer(spans=["the selvage"]))]),
+    )
+    converted = convert([paper], seed=_SEED, dev_fraction=0.5)
+    written = [f"/staged/corpus/{name}" for name in converted.documents]
+    labels = {label for question in converted.questions for label in question.relevant_documents}
+
+    # Act
+    resolved = resolve_labels(labels, corpus_document_ids=written)
+
+    # Assert
+    assert set(resolved) == labels
+    assert all(name.endswith(".txt") for name in converted.documents)

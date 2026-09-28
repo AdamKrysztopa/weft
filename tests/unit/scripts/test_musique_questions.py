@@ -18,6 +18,7 @@ import pytest
 from musique_questions import MusiqueItem, convert, parse_item, questions_toml
 from open_ragbench_questions import split_of
 
+from weft_cli.eval_scoring import resolve_labels
 from weft_eval.question_set import read_question_set
 
 _SEED = "44.40"
@@ -102,7 +103,7 @@ def _three_hop(item_id: str) -> MusiqueItem:
 
 
 def _document_id(title: str, text: str) -> str:
-    return "mq-" + hashlib.sha256(f"{title}\n{text}".encode()).hexdigest()[:16]
+    return "mq-" + hashlib.sha256(f"{title}\n{text}".encode()).hexdigest()[:16] + ".txt"
 
 
 def test_hops_are_counted_from_the_decomposition() -> None:
@@ -272,3 +273,23 @@ def test_the_written_question_file_reads_back_as_the_same_questions(tmp_path: Pa
     assert [question.reference_answer for question in read] == [
         question.reference_answer for question in questions
     ]
+
+
+def test_every_label_names_the_file_the_converter_writes() -> None:
+    # Arrange — scoring resolves a label as a path suffix of a corpus file, extension included.
+    converted = convert(
+        [_two_hop("2hop__a"), _three_hop("3hop1__b")], per_hops=5, seed=_SEED, dev_fraction=0.5
+    )
+    written = [f"/staged/corpus/{name}" for name in converted.documents]
+    labels = {
+        label
+        for question in converted.multi_hop + converted.single_hop
+        for label in question.relevant_documents
+    }
+
+    # Act
+    resolved = resolve_labels(labels, corpus_document_ids=written)
+
+    # Assert
+    assert set(resolved) == labels
+    assert all(name.endswith(".txt") for name in converted.documents)

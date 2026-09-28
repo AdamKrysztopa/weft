@@ -138,7 +138,7 @@ def parse_item(raw: Mapping[str, object]) -> MusiqueItem:
 
 
 def _document_id(title: str, text: str) -> str:
-    return "mq-" + hashlib.sha256(f"{title}\n{text}".encode()).hexdigest()[:16]
+    return "mq-" + hashlib.sha256(f"{title}\n{text}".encode()).hexdigest()[:16] + ".txt"
 
 
 def _sample_key(seed: str, item_id: str) -> str:
@@ -308,7 +308,7 @@ def _write(converted: Converted, out: Path) -> None:
     corpus.mkdir(parents=True, exist_ok=True)
     total_characters = 0
     for document_id, text in converted.documents.items():
-        (corpus / f"{document_id}.txt").write_text(text, encoding="utf-8")
+        (corpus / document_id).write_text(text, encoding="utf-8")
         total_characters += len(text)
     questions = converted.multi_hop + converted.single_hop
     (out / "musique-questions.toml").write_text(questions_toml(questions), encoding="utf-8")
