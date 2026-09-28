@@ -44,6 +44,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **An experiment document may pre-register its decision** in a `[decision]` table, with the
+  `metric` that decides, a `margin` and a `direction` (`higher-is-better` or `lower-is-better`).
+  `weft eval table` then prints a `verdict` column reading the paired interval against it:
+  `harm`, `benefit-ruled-out`, `worthwhile`, `positive-below-margin` or `inconclusive`. A table
+  named anything other than `[experiment]`, `[[arm]]` or `[decision]` is now refused, since a
+  misspelt `[decision]` would otherwise be skipped along with its verdict.
 - **`weft eval replay <experiment>` says what choosing an arm per question would have scored**,
   from the records an experiment already wrote and with no model call: each arm, the `oracle`
   (every question's best arm) and the `self-oracle` (the best arm's better repetition per

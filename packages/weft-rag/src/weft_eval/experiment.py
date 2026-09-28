@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import hashlib
 import tomllib
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, cast
 
@@ -91,6 +92,11 @@ _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
     }
 )
 
+#: Every top-level table a document may declare — see `load_experiment`'s own unknown-table
+#: refusal. `[decision]`'s own keys are validated by `Decision` itself, the same way `[[arm]]`'s
+#: are by `_ARM_TABLE_KEYS`/`ExperimentArm` together.
+_TOP_LEVEL_TABLES: Final[frozenset[str]] = frozenset({"experiment", "arm", "decision"})
+
 
 class ExperimentDocumentError(WeftError):
     """Stops an experiment before anything runs when its document is wrong.
@@ -108,6 +114,30 @@ class ExperimentSchemaError(ExperimentDocumentError):
     VERSION`, or older than any release ever wrote (`< 1`). The message names the file, the
     schema it declares, the schema this release supports, and says to upgrade `weft-rag`.
     """
+
+
+class Direction(StrEnum):
+    """Which way a pre-registered decision's metric is better — see `Decision`."""
+
+    HIGHER_IS_BETTER = "higher-is-better"
+    LOWER_IS_BETTER = "lower-is-better"
+
+
+class Decision(BaseModel):
+    """An experiment's own pre-registered decision — task **44.8**.
+
+    Which metric decides, the margin a difference must clear, and which direction is better —
+    declared in a document's optional `[decision]` table, before anything runs. `weft_eval.
+    evidence.render_evidence_table` reads this to print `weft_eval.verdict.verdict`'s reading of
+    that metric's own paired interval, computed from the records rather than chosen after they
+    are seen — see that module's own docstring.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    metric: str = Field(min_length=1)
+    margin: float = Field(gt=0)
+    direction: Direction
 
 
 class ExperimentArm(BaseModel):
@@ -185,6 +215,7 @@ class Experiment(BaseModel):
     minimum_detectable_effect: float = Field(gt=0)
     index_batch_size: int | None = Field(default=None, ge=1)
     arms: tuple[ExperimentArm, ...]
+    decision: Decision | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -238,6 +269,21 @@ class Experiment(BaseModel):
                 raise ValueError(f"two arms are both named '{arm.name}'")
             seen.add(arm.name)
         return arms
+
+    @model_validator(mode="after")
+    def _decision_names_a_measured_metric(self) -> Experiment:
+        """`[decision]`'s own `metric` must be one the experiment actually measures.
+
+        A pre-registered decision over a metric no run will score can never be read — task
+        **44.8**. Checked here, after `metrics` and `decision` have each validated on their own,
+        since the refusal names both.
+        """
+        if self.decision is not None and self.decision.metric not in self.metrics:
+            raise ValueError(
+                f"[decision] names metric '{self.decision.metric}', which is not among the "
+                f"experiment's own metrics: {', '.join(self.metrics)}."
+            )
+        return self
 
     def corpus_for(self, arm: ExperimentArm) -> Path:
         """`arm`'s own corpus, or the experiment's, when the arm names none."""
@@ -317,9 +363,16 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
     )
 
 
+def _build_decision(decision_table: dict[str, Any] | None) -> Decision | None:
+    if decision_table is None:
+        return None
+    return Decision.model_validate(decision_table)
+
+
 def _build_experiment(
     experiment_table: Any,
     arm_entries: list[dict[str, Any]],
+    decision_table: dict[str, Any] | None,
     *,
     digest: str,
     root: Path,
@@ -340,6 +393,7 @@ def _build_experiment(
         minimum_detectable_effect=experiment_table.get("minimum_detectable_effect"),
         index_batch_size=experiment_table.get("index_batch_size"),
         arms=arms,
+        decision=_build_decision(decision_table),
     )
 
 
@@ -362,6 +416,14 @@ def load_experiment(path: Path) -> Experiment:
         raw = tomllib.loads(raw_bytes.decode("utf-8"))
     except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
         raise ExperimentDocumentError(f"{path.name} is not valid TOML: {exc}") from exc
+
+    unknown_tables = set(raw) - _TOP_LEVEL_TABLES
+    if unknown_tables:
+        name = sorted(unknown_tables)[0]
+        raise ExperimentDocumentError(
+            f"{path.name} names an unknown table '[{name}]'. Valid tables: "
+            f"{', '.join(f'[{t}]' for t in sorted(_TOP_LEVEL_TABLES))}."
+        )
 
     try:
         experiment_table = raw["experiment"]
@@ -396,15 +458,25 @@ def load_experiment(path: Path) -> Experiment:
 
     root = path.resolve().parent
     arm_entries = raw.get("arm", [])
+    decision_table = raw.get("decision")
 
     try:
-        return _build_experiment(experiment_table, arm_entries, digest=digest, root=root, path=path)
+        return _build_experiment(
+            experiment_table,
+            arm_entries,
+            decision_table,
+            digest=digest,
+            root=root,
+            path=path,
+        )
     except ValidationError as exc:
         raise _refused_from(exc, path) from exc
 
 
 __all__ = [
     "EXPERIMENT_SCHEMA_VERSION",
+    "Decision",
+    "Direction",
     "Experiment",
     "ExperimentArm",
     "ExperimentDocumentError",

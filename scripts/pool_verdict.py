@@ -19,21 +19,27 @@ from pool_power import WORTHWHILE, slices_from
 from weft_eval.falsify import paired_differences
 from weft_eval.question_set import read_question_set
 from weft_eval.run_record import RunRecord, load_run_record
+from weft_eval.verdict import EffectVerdict
+from weft_eval.verdict import verdict as _read_verdict
 
 _METRICS = ("mrr@5", "recall@1", "ndcg@10")
 
+#: `EffectVerdict`'s own spelling, as `protocol.toml`'s `[[verdict]]` table wrote it.
+_LABELS: dict[EffectVerdict, str] = {
+    EffectVerdict.HARM: "harm",
+    EffectVerdict.BENEFIT_RULED_OUT: "benefit ruled out",
+    EffectVerdict.WORTHWHILE: "worthwhile",
+    EffectVerdict.POSITIVE_BELOW_MARGIN: "positive, below worthwhile",
+    EffectVerdict.INCONCLUSIVE: "inconclusive",
+}
+
 
 def verdict(low: float, high: float, mean: float, *, underpowered: bool) -> str:
-    """`protocol.toml`'s `[[verdict]]` table, first match wins."""
-    if high < 0:
-        return "harm"
-    if high < WORTHWHILE:
-        return "benefit ruled out"
-    if low > 0 and mean >= WORTHWHILE:
-        return "worthwhile"
-    if low > 0:
-        return "positive, below worthwhile"
-    return "inconclusive (underpowered)" if underpowered else "inconclusive"
+    """`protocol.toml`'s `[[verdict]]` table, first match wins — `weft_eval.verdict.verdict`."""
+    read = _read_verdict(low, high, mean, margin=WORTHWHILE)
+    if read is EffectVerdict.INCONCLUSIVE and underpowered:
+        return "inconclusive (underpowered)"
+    return _LABELS[read]
 
 
 def joint_reading(rule: str, oracle: str) -> str:

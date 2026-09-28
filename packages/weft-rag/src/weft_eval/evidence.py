@@ -49,7 +49,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
+from weft_eval.experiment import Decision, Direction, Experiment, ExperimentArm, load_experiment
 from weft_eval.falsify import (
     BaselineMeasurement,
     DifferenceJudgement,
@@ -62,6 +62,8 @@ from weft_eval.falsify import (
 )
 from weft_eval.latency import LatencySummary, nearest_rank
 from weft_eval.run_record import ExperimentRun, RunRecord, load_run_record
+from weft_eval.verdict import EffectVerdict
+from weft_eval.verdict import verdict as _verdict
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Produced
 
@@ -124,6 +126,10 @@ class ArmComparison(BaseModel):
     #: reason `judgement` itself is carried rather than re-derived: one place computes the
     #: fact, and `_comparison_row`/the header block only read it.
     zero_width_spread: bool
+    #: The pre-registered reading of `paired` against `Experiment.decision` — task **44.8**. `None`
+    #: whenever the experiment declared no `[decision]`, this row's `metric` is not the one it
+    #: names, or `paired` has no interval to read.
+    verdict: EffectVerdict | None = None
 
 
 class ArmCost(BaseModel):
@@ -167,6 +173,10 @@ class EvidenceTable(BaseModel):
     repeats_by_arm: tuple[tuple[str, int], ...]
     comparisons: tuple[ArmComparison, ...]
     costs: tuple[ArmCost, ...]
+    #: `experiment.decision`, copied across unchanged — `None` renders byte-identically to before
+    #: task **44.8**; set, it adds the header line and the verdict column `render_evidence_table`
+    #: reads it for.
+    decision: Decision | None = None
 
 
 def _missing_pairs(experiment: Experiment, matched: Sequence[_MatchedRecord]) -> list[str]:
@@ -274,6 +284,24 @@ def _unjudged(baseline_arm: ExperimentArm, arm: ExperimentArm, metric: str) -> D
     )
 
 
+def _pre_registered_verdict(
+    decision: Decision | None, metric: str, paired: PairedDifference | None
+) -> EffectVerdict | None:
+    """`paired` read against `decision`, if both name this `metric` — see `ArmComparison.verdict`.
+
+    `None` whenever `decision` is `None`, `decision.metric` is not `metric`, or `paired` has no
+    bootstrap interval. `LOWER_IS_BETTER` reads the negated interval, so a rise in a metric where
+    lower is better is read as harm the same way a fall in `HIGHER_IS_BETTER` is.
+    """
+    if decision is None or decision.metric != metric or paired is None:
+        return None
+    if paired.low is None or paired.high is None:
+        return None
+    if decision.direction is Direction.HIGHER_IS_BETTER:
+        return _verdict(paired.low, paired.high, paired.mean, margin=decision.margin)
+    return _verdict(-paired.high, -paired.low, -paired.mean, margin=decision.margin)
+
+
 def _build_comparisons(
     experiment: Experiment,
     baseline_arm: ExperimentArm,
@@ -300,6 +328,7 @@ def _build_comparisons(
                 judgement = _unjudged(baseline_arm, arm, metric)
             baseline_stats = _metric_stats(baseline_first, metric)
             arm_stats = _metric_stats(arm_first, metric)
+            paired = paired_map.get(metric)
             comparisons.append(
                 ArmComparison(
                     arm=arm.name,
@@ -310,11 +339,12 @@ def _build_comparisons(
                     arm_mean=arm_stats[0] if arm_stats is not None else None,
                     arm_n=arm_stats[1] if arm_stats is not None else None,
                     arm_excluded=arm_stats[2] if arm_stats is not None else 0,
-                    paired=paired_map.get(metric),
+                    paired=paired,
                     judgement=judgement,
                     zero_width_spread=(
                         judgement.spread is not None and judgement.spread.width == 0.0
                     ),
+                    verdict=_pre_registered_verdict(experiment.decision, metric, paired),
                 )
             )
     return comparisons
@@ -432,6 +462,7 @@ def evidence_table(
         repeats_by_arm=tuple((arm.name, experiment.repeats_for(arm)) for arm in experiment.arms),
         comparisons=tuple(_build_comparisons(experiment, baseline_arm, baseline_records, by_key)),
         costs=tuple(_build_costs(experiment, by_key)),
+        decision=experiment.decision,
     )
 
 
@@ -467,22 +498,28 @@ def render_evidence_table(table: EvidenceTable) -> str:
         "difference's bootstrap interval and the spread verdict each read only the record's "
         "own numbers, never a chosen threshold.",
     ]
+    if table.decision is not None:
+        d = table.decision
+        lines.append(
+            f"pre-registered decision: '{d.metric}', {d.direction.value}, margin {d.margin:g} "
+            "— the verdict column reads the paired interval against it"
+        )
     if any(comparison.zero_width_spread for comparison in table.comparisons):
         lines.append(
             "at least one spread verdict below was judged against a zero-width baseline "
             "spread: these repetitions did not vary at all, which is a claim about them, not "
             "proof the system is deterministic."
         )
-    lines.extend(
-        [
-            "",
-            f"| arm | metric | {table.baseline_arm} | arm | 95% CI | paired Δ | n | "
-            "spread verdict |",
-            "|---|---|---|---|---|---|---|---|",
-        ]
-    )
+    header = f"| arm | metric | {table.baseline_arm} | arm | 95% CI | paired Δ | n | spread verdict"
+    separator = "|---|---|---|---|---|---|---|---"
+    if table.decision is not None:
+        header += " | verdict"
+        separator += "|---"
+    header += " |"
+    separator += "|"
+    lines.extend(["", header, separator])
     for comparison in table.comparisons:
-        lines.append(_comparison_row(comparison))
+        lines.append(_comparison_row(comparison, with_verdict=table.decision is not None))
     lines.extend(
         [
             "",
@@ -509,7 +546,7 @@ def _mean_cell(mean: float | None, n: int | None, excluded: int) -> str:
     return f"{mean:.3f} (n {n}, {excluded} excluded)"
 
 
-def _comparison_row(comparison: ArmComparison) -> str:
+def _comparison_row(comparison: ArmComparison, *, with_verdict: bool) -> str:
     baseline_mean = _mean_cell(
         comparison.baseline_mean, comparison.baseline_n, comparison.baseline_excluded
     )
@@ -525,13 +562,17 @@ def _comparison_row(comparison: ArmComparison) -> str:
         paired_mean = "—"
         ci = "—"
         n = "—"
-    verdict = comparison.judgement.verdict.value
+    spread_verdict = comparison.judgement.verdict.value
     if comparison.zero_width_spread:
-        verdict = f"{verdict} (zero-width)"
-    return (
+        spread_verdict = f"{spread_verdict} (zero-width)"
+    row = (
         f"| {comparison.arm} | {comparison.metric} | {baseline_mean} | {arm_mean} | "
-        f"{ci} | {paired_mean} | {n} | {verdict} |"
+        f"{ci} | {paired_mean} | {n} | {spread_verdict} |"
     )
+    if with_verdict:
+        decision_verdict = comparison.verdict.value if comparison.verdict is not None else "—"
+        row = f"{row[:-2]} | {decision_verdict} |"
+    return row
 
 
 def _cost_row(cost: ArmCost) -> str:
