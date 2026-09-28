@@ -1,0 +1,43 @@
+# Task 44.54, E3 (fix-plans/23 §4): on long single documents, does widening what the model reads
+# help over plain dense retrieval?
+#
+# QASPER dev (CC BY 4.0, Dasigi et al., NAACL 2021; pins and attribution in `corpus/qasper.toml`),
+# converted by `scripts/qasper_questions.py --archive corpus/qasper/qasper-train-dev-v0.3.tgz --out
+# corpus/qasper`: 281 paper documents (median about 21,500 characters) and 910 answerable
+# questions, with `answer-type` and `split` axes. Both are untracked; regenerate with that command.
+#
+# Each arm runs once, approved by the owner on 2026-09-28 at ≤ $5 (D6). RAPTOR
+# (`raptor-and-leaves-rrf`) needs its layer built first and is priced as its own document.
+
+[experiment]
+schema = 1
+name = "qasper-long-document"
+questions = "../../corpus/qasper/qasper-questions.toml"
+corpus = "../../corpus/qasper/corpus"
+repeats = 2
+top_k = [5, 10]
+metrics = ["answer_correctness", "f1_score", "recall@5", "recall@10"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.05
+direction = "higher-is-better"
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "retrieve-then-generate"
+repeats = 1
+
+[[arm]]
+name = "adjacent-chunks"
+pipeline = "index-openai-large"
+query_pipeline = "adjacent-chunks-then-generate"
+repeats = 1
+
+[[arm]]
+name = "context-construction"
+pipeline = "index-openai-large"
+query_pipeline = "context-construction-then-generate"
+repeats = 1

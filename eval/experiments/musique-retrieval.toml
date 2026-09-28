@@ -1,0 +1,59 @@
+# Task 44.53, E2 (fix-plans/23 §4): on multi-hop questions, does any retrieval rung beat dense
+# without losing on single-hop questions over the same corpus?
+#
+# MuSiQue-Ans dev (CC BY 4.0, Trivedi et al., TACL 2022; pins and attribution in
+# `corpus/musique.toml`), 100 items each at 2, 3 and 4 hops, converted by
+# `scripts/musique_questions.py --per-hops 100 --seed 44.40`: 300 multi-hop questions, 300 single-hop
+# controls from each item's first step, and 4,084 paragraph documents. The questions carry
+# `control` (`multi-hop`, `single-hop`), `hops` and `split` axes, so every arm is read on the
+# multi-hop slice and on the controls separately. Both files are untracked; regenerate them with
+# the command above.
+#
+# Each arm runs once: the owner approved repetition 1 first (2026-09-28, D6), and a second
+# repetition, if approved, is its own document. Every arm shares one index. RAPTOR and the graph
+# arms need a layer built first and are priced as their own documents.
+
+[experiment]
+schema = 1
+name = "musique-retrieval"
+questions = "../../corpus/musique/musique-questions.toml"
+corpus = "../../corpus/musique/corpus"
+repeats = 2
+top_k = [5, 10]
+metrics = ["answer_correctness", "recall@5", "recall@10", "exact_match", "f1_score"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.05
+direction = "higher-is-better"
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "retrieve-then-generate"
+repeats = 1
+
+[[arm]]
+name = "hybrid"
+pipeline = "index-openai-large"
+query_pipeline = "hybrid-then-generate"
+repeats = 1
+
+[[arm]]
+name = "multi-query"
+pipeline = "index-openai-large"
+query_pipeline = "multi-query-then-retrieve"
+repeats = 1
+
+[[arm]]
+name = "iterative"
+pipeline = "index-openai-large"
+query_pipeline = "iterative-retrieve"
+repeats = 1
+
+[[arm]]
+name = "broad-and-refined"
+pipeline = "index-openai-large"
+query_pipeline = "broad-and-refined-rrf"
+repeats = 1
