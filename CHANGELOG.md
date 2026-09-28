@@ -44,6 +44,10 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **The `weft_retrieve` contract moves to `1.2.0`: `Scorecard.features`**, an open map of named
+  scalar facts about the question and corpus (`query.word_count`, `query.cue.comparison`, …)
+  that a routing policy can test. A minor for both callers and implementers: a scorecard built
+  without it validates as before, and no policy has to read it.
 - **An experiment arm may name a `router` instead of a `query_pipeline`.** Each question is
   asked through `weft ask`'s routed path with that router, scored like any generating rung, and
   the record's `question_routes` gives the pipeline, outcome and rule each question was routed

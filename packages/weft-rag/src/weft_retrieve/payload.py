@@ -409,6 +409,9 @@ class Scorecard(BaseModel):
     #: From a keyword classifier, never a model call — `10` §1.1's `query-scorer` row.
     intents: frozenset[str] = frozenset()
     observed: bool = True
+    #: Named, scalar facts about the question and corpus that a routing rule tests
+    #: (task 44.12a); unlike `scores`, not range-checked.
+    features: Mapping[str, int | float | bool] = Field(default_factory=dict)
 
     @field_validator("scores", mode="after")
     @classmethod

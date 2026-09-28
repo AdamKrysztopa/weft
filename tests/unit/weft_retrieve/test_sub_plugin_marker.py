@@ -25,5 +25,7 @@ def test_the_marker_names_the_field_holding_the_sub_plugin_config() -> None:
 
 
 def test_publishing_the_marker_is_a_minor_contract_version() -> None:
-    # Assert
-    assert RETRIEVE_CONTRACT_VERSION == "1.1.0"
+    # Assert — 1.1.0 at R43.42; later minors (44.12a: 1.2.0) keep the major.
+    major, minor, _ = (int(part) for part in RETRIEVE_CONTRACT_VERSION.split("."))
+    assert (major, minor) >= (1, 1)
+    assert major == 1

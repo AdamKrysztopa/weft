@@ -69,7 +69,9 @@ from weft_retrieve.payload import (
 #: published together, versioned together, and a change to the query vocabulary they
 #: share is a change to all of them.
 #: **`1.0.0` → `1.1.0` at repair R43.42** — the `SubPlugin` marker is published: a minor.
-RETRIEVE_CONTRACT_VERSION = "1.1.0"
+#: **`1.1.0` → `1.2.0` at task 44.12a** — `Scorecard.features` is added: an optional field,
+#: a minor (`09`'s two-audience table).
+RETRIEVE_CONTRACT_VERSION = "1.2.0"
 
 
 @runtime_checkable
