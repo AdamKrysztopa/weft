@@ -16,6 +16,7 @@ from weft_eval.harness import score_named_generation_metrics
 from weft_kernel.context import Context
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.registry import Registry
+from weft_llm.errors import LLMGenerationLoopError
 
 
 class _Always:
@@ -57,3 +58,44 @@ async def test_a_question_the_rung_failed_is_counted_as_excluded() -> None:
     [per_question] = scores.per_question.values()
     assert set(per_question) == {"q-1", "q-2", "q-3"}
     assert not isinstance(per_question["q-3"], Produced)
+
+
+class _LoopsOnOne:
+    """A judge stand-in the loop-breaker stops on one answer and not the others — R44.12."""
+
+    runs_in_gate: ClassVar[bool] = False
+
+    def __init__(self, config: object = None) -> None:
+        del config
+
+    async def evaluate(self, payload: GenerationSample, ctx: Context) -> Outcome[MetricScore]:
+        del ctx
+        if payload.query == "loops":
+            raise LLMGenerationLoopError(
+                "was generating a repeating span", provider="openai", model="gpt"
+            )
+        return Produced(value=MetricScore(metric_name="loops-on-one", value=1.0))
+
+
+async def test_a_judge_that_loops_on_one_answer_excludes_that_question_and_goes_on() -> None:
+    # Arrange — E3's third arm answered 910 questions and died judging one of them.
+    registry = Registry()
+    registry.add(GenerationMetric, "loops-on-one", _LoopsOnOne, distribution="weft-eval")
+    samples = [("q-1", _sample("one")), ("q-2", _sample("loops")), ("q-3", _sample("three"))]
+
+    # Act
+    scores = await score_named_generation_metrics(
+        registry,
+        ("loops-on-one",),
+        samples,
+        ctx=Context(tenant_id="t", run_id="r", trace_id="x", locale="en"),
+    )
+
+    # Assert
+    [aggregate] = scores.metrics.values()
+    assert isinstance(aggregate, Produced)
+    assert (aggregate.value.n, aggregate.value.excluded) == (2, 1)
+    [per_question] = scores.per_question.values()
+    assert isinstance(per_question["q-1"], Produced)
+    assert not isinstance(per_question["q-2"], Produced)
+    assert "repeating span" in str(per_question["q-2"])

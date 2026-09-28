@@ -90,6 +90,7 @@ from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
+from weft_llm.errors import LLMGenerationLoopError
 
 
 @dataclass(frozen=True)
@@ -454,6 +455,18 @@ def _generation_metric_config(config_model: type[BaseModel] | None) -> BaseModel
     return config_model()
 
 
+async def _evaluate_generation_sample(
+    metric: GenerationMetric,
+    payload: GenerationSample,
+    ctx: Context,
+) -> Outcome[MetricScore]:
+    """R44.12, R39.1: catch loop-breaker stops on a judge and exclude that sample alone."""
+    try:
+        return await metric.evaluate(payload, ctx)
+    except LLMGenerationLoopError as exc:
+        return Failed(reason=str(exc))
+
+
 async def score_generation_gate_subset(
     registry: Registry,
     samples: Sequence[tuple[str, GenerationSample]],
@@ -521,7 +534,9 @@ async def score_generation_gate_subset(
         metric = cast(GenerationMetric, factory(config))
 
         try:
-            outcomes = [await metric.evaluate(payload, ctx) for payload in payloads]
+            outcomes = [
+                await _evaluate_generation_sample(metric, payload, ctx) for payload in payloads
+            ]
         except UnresolvedServiceError as exc:
             # `embedding-similarity`'s own `ctx.require(Embedder)` — "whatever embedder a run
             # has configured" — has nothing to resolve when the caller could not provide one
@@ -619,7 +634,7 @@ async def score_named_generation_metrics(
         config_model = cast("type[BaseModel] | None", getattr(target, "config_model", None))
         config = _generation_metric_config(config_model)
         metric = cast(GenerationMetric, factory(config))
-        outcomes = [await metric.evaluate(payload, ctx) for payload in payloads]
+        outcomes = [await _evaluate_generation_sample(metric, payload, ctx) for payload in payloads]
         failures = [Failed(reason=reason) for reason in failed_questions.values()]
         outcome = aggregate(
             [*outcomes, *failures],
