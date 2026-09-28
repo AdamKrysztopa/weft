@@ -114,6 +114,7 @@ from weft_cli.pipeline_commands import (
 from weft_cli.pipeline_diff import PipelineDiff
 from weft_cli.plugins_report import render_doctor, render_list
 from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
+from weft_cli.route_explain import RouteExplainCommandResult
 from weft_command import ExitCode
 
 # Explicit re-export — `Rendered` moved to `weft-command` at task 6.20 (see that
@@ -147,6 +148,7 @@ from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.payload.applicability import Applies
 from weft_kernel.registry import Registry, UnknownPluginError
 from weft_kernel.seam import StageRecord
+from weft_retrieve.payload import RouteView
 from weft_store.coverage import LayerCoverage, SourceCoverage
 
 
@@ -2052,6 +2054,29 @@ def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _route_line(route: RouteView) -> str:
+    """`route: <pipeline> (<outcome>[, rule '<rule>'])` — `weft route explain`'s own last line."""
+    reached = f"route: {route.pipeline} ({route.outcome.value}"
+    return f"{reached}, rule '{route.rule}')" if route.rule else f"{reached})"
+
+
+def _render_route_explain(result: RouteExplainCommandResult) -> Rendered:
+    """`weft route explain` — task **44.16**: the query profile, the corpus profile, the route.
+
+    One `  <key>: <value>` line per feature, sorted, under each profile's own header — the
+    identical `features()` mapping the router itself reads and an evidence claim would cite,
+    printed rather than summarised, so nothing here can drift from what actually decided.
+    """
+    lines = ["query profile:"]
+    lines.extend(f"  {key}: {value}" for key, value in sorted(result.query_profile.items()))
+    lines.append("corpus profile:")
+    lines.extend(
+        f"  {key}: {value}" for key, value in sorted(result.corpus_profile.features().items())
+    )
+    lines.append(_route_line(result.route))
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 # --- the built-in dispatch wrappers, and `register_renderers` — task 6.20 ------
 #
 # Each wrapper below is a plain module-level `def`, never a `lambda` bound inside
@@ -2215,6 +2240,10 @@ def _dispatch_eval_pairwise(result: object) -> Rendered:
     return _render_eval_pairwise(cast(EvalPairwiseCommandResult, result))
 
 
+def _dispatch_route_explain(result: object) -> Rendered:
+    return _render_route_explain(cast(RouteExplainCommandResult, result))
+
+
 def _dispatch_ask(result: object) -> Rendered:
     # `_render_result`'s own special-case is what actually reads `streamed` for a live
     # request — see that function's docstring. Registering this bound-`False` wrapper keeps
@@ -2263,6 +2292,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(EvalPlanCommandResult, _dispatch_eval_plan)
     registrar.add_renderer(EvalTableCommandResult, _dispatch_eval_table)
     registrar.add_renderer(EvalReplayCommandResult, _dispatch_eval_replay)
+    registrar.add_renderer(RouteExplainCommandResult, _dispatch_route_explain)
     registrar.add_renderer(EvalPairwiseCommandResult, _dispatch_eval_pairwise)
     registrar.add_renderer(AskCommandResult, _dispatch_ask)
 

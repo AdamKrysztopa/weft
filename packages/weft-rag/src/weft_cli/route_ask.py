@@ -275,6 +275,127 @@ async def run_routed_ask(
     turn of the REPL calls it again, so a store built here and never closed held one Postgres
     connection per turn until the process exited.
     """
+    catalogue, router, router_name, built = await _router_and_prepared_runner(
+        registry=registry,
+        reports=reports,
+        ctx=ctx,
+        llm=llm,
+        services=services,
+        sink=sink,
+        contributions=contributions,
+        roles=roles,
+        target=target,
+        ready_layers=ready_layers,
+        corpus=corpus,
+    )
+    in_flight: BaseException | None = None
+    try:
+        routed = await _route_and_answer(
+            question,
+            router,
+            router_name=router_name,
+            built=built,
+            sink=sink,
+            registry=registry,
+            services=services,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        )
+    except BaseException as failure:
+        in_flight = failure
+        raise
+    finally:
+        await close_each(built.close_targets, in_flight=in_flight)
+    return routed
+
+
+async def explain_route(
+    question: str,
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection,
+    services: ServiceSelection,
+    sink: TokenSink,
+    contributions: tuple[Contribution, ...] = (),
+    roles: RoleTable = _NO_ROLES,
+    target: str | None = None,
+    ready_layers: frozenset[str] | None = None,
+    corpus: CorpusProfile | None = None,
+) -> Route:
+    """Run the router alone over `question`, and return the `Route` it picks — task **44.16**.
+
+    `weft route explain`'s own path: the identical up-front refusals `run_routed_ask` performs
+    — the router's own roles resolved through `llm.roles.resolve`, raising
+    `weft_llm.roles.UnmappedLLMRoleError` before any call (repair **R43.30**) — and the
+    identical service assembly, through the shared `_router_and_prepared_runner` helper. It
+    then runs **only** the router pipeline, through the same `_run_router` step
+    `run_routed_ask` runs as the first half of its own `_route_and_answer`, and returns the
+    `Route` that step produced. The rung the router names is never resolved and never run, so
+    a routed ask's own model call for an answer never happens here.
+
+    Every parameter is `run_routed_ask`'s own; see that function's docstring for what each
+    means. **Closes what it built — repair R38.6**, on the identical footing.
+    """
+    catalogue, router, router_name, built = await _router_and_prepared_runner(
+        registry=registry,
+        reports=reports,
+        ctx=ctx,
+        llm=llm,
+        services=services,
+        sink=sink,
+        contributions=contributions,
+        roles=roles,
+        target=target,
+        ready_layers=ready_layers,
+        corpus=corpus,
+    )
+    in_flight: BaseException | None = None
+    try:
+        route = await _run_router(
+            question,
+            router,
+            router_name=router_name,
+            built=built,
+            sink=sink,
+            registry=registry,
+            services=services,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        )
+    except BaseException as failure:
+        in_flight = failure
+        raise
+    finally:
+        await close_each(built.close_targets, in_flight=in_flight)
+    return route
+
+
+async def _router_and_prepared_runner(
+    *,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection,
+    services: ServiceSelection,
+    sink: TokenSink,
+    contributions: tuple[Contribution, ...],
+    roles: RoleTable,
+    target: str | None,
+    ready_layers: frozenset[str] | None,
+    corpus: CorpusProfile | None,
+) -> tuple[dict[str, Pipeline], Pipeline, str, PreparedRunner]:
+    """Resolve the configured router and assemble the services both callers run against.
+
+    The setup `run_routed_ask` and `explain_route` share, lifted out at ledger task **44.16**
+    rather than duplicated: the catalogue, `[services] route` looked up in it
+    (`NoRouterPipelineError` by name if nothing answers), the rungs it may offer
+    (`_offerable_rung_roles`, which raises `UnmappedLLMRoleError` before any call — repair
+    **R43.30**), and the assembled `PreparedRunner` both callers run stages against.
+    """
     catalogue = full_catalogue(reports=reports)
     router_name = services.route
     router = catalogue.get(router_name)
@@ -315,29 +436,10 @@ async def run_routed_ask(
         rung_roles=rung_roles,
         corpus=corpus,
     )
-    in_flight: BaseException | None = None
-    try:
-        routed = await _route_and_answer(
-            question,
-            router,
-            router_name=router_name,
-            built=built,
-            sink=sink,
-            registry=registry,
-            services=services,
-            catalogue=catalogue,
-            reports=reports,
-            contributions=contributions,
-        )
-    except BaseException as failure:
-        in_flight = failure
-        raise
-    finally:
-        await close_each(built.close_targets, in_flight=in_flight)
-    return routed
+    return catalogue, router, router_name, built
 
 
-async def _route_and_answer(
+async def _run_router(
     question: str,
     router: Pipeline,
     *,
@@ -349,8 +451,8 @@ async def _route_and_answer(
     catalogue: Mapping[str, Pipeline],
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...],
-) -> tuple[Route, Answer]:
-    """Run the router over `question`, then the pipeline it selects, and require an answer."""
+) -> Route:
+    """Run the router over `question` alone, and require the `Route` it names."""
     query = Query(text=question)
     route = await _run_pipeline(
         router,
@@ -369,8 +471,37 @@ async def _route_and_answer(
         contributions=contributions,
         entry_type=Query,
     )
-    route = _require(route, Route, pipeline=router_name, produced_by="routing")
+    return _require(route, Route, pipeline=router_name, produced_by="routing")
 
+
+async def _route_and_answer(
+    question: str,
+    router: Pipeline,
+    *,
+    router_name: str,
+    built: PreparedRunner,
+    sink: TokenSink,
+    registry: Registry,
+    services: ServiceSelection,
+    catalogue: Mapping[str, Pipeline],
+    reports: Sequence[PackReport],
+    contributions: tuple[Contribution, ...],
+) -> tuple[Route, Answer]:
+    """Run the router over `question`, then the pipeline it selects, and require an answer."""
+    route = await _run_router(
+        question,
+        router,
+        router_name=router_name,
+        built=built,
+        sink=sink,
+        registry=registry,
+        services=services,
+        catalogue=catalogue,
+        reports=reports,
+        contributions=contributions,
+    )
+
+    query = Query(text=question)
     selected_pipeline = catalogue.get(route.pipeline)
     if selected_pipeline is None:
         options = tuple(sorted(catalogue))

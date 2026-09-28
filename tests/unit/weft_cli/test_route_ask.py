@@ -30,6 +30,7 @@ import yaml
 from weft_cli.pipeline_catalogue import ProjectPipelineNameCollisionError, full_catalogue
 from weft_cli.route_ask import (
     NoRouterPipelineError,
+    explain_route,
     pipelines_producing,
     run_named_ask,
     run_routed_ask,
@@ -53,7 +54,7 @@ from weft_kernel.runner import StageCompositionError
 from weft_llm.client import NullSink
 from weft_llm.contract import LLMProvider
 from weft_llm.payload import TokenChunk
-from weft_llm.roles import LLMRoles, RoleMapping
+from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
 from weft_llm.scripted import ScriptedConfig, ScriptedProvider
 from weft_prompts.contract import Prompt
 from weft_retrieve import (
@@ -754,3 +755,46 @@ def test_no_stages_tells_the_sink_nothing_rather_than_naming_one_that_does_not_e
     sink = _StageNarrowingSink()
     show_only_the_answering_stage((), sink=sink)
     assert sink.told == []
+
+
+# --- Task 44.16 — explaining a route runs the router alone.
+
+
+async def test_explaining_a_route_runs_the_router_and_never_its_rung() -> None:
+    # Arrange
+    sink = _RecordingSink()
+
+    # Act
+    route = await explain_route(
+        "what happens if a store advertises no capability at all?",
+        registry=_registry(),
+        reports=_reports(),
+        ctx=_ctx(),
+        llm=_llm(),
+        services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
+        sink=sink,
+    )
+
+    # Assert — the same route `run_routed_ask` takes, with no answer generated.
+    assert route.pipeline == "no-retrieval"
+    assert route.outcome is RuleOutcome.NEAREST
+    assert not any(chunk.role == "generate" for chunk in sink.chunks)
+
+
+async def test_explaining_a_route_whose_router_needs_an_unmapped_role_is_refused_first() -> None:
+    # Arrange — the `route` router's scorer calls the `route` role, which is not mapped.
+    llm = LLMSection(roles=LLMRoles(roles={"generate": RoleMapping(provider="scripted")}))
+    sink = _RecordingSink()
+
+    # Act / Assert
+    with pytest.raises(UnmappedLLMRoleError, match="'route'"):
+        await explain_route(
+            "anything",
+            registry=_registry(),
+            reports=_reports(),
+            ctx=_ctx(),
+            llm=llm,
+            services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
+            sink=sink,
+        )
+    assert sink.chunks == []

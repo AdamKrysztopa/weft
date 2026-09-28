@@ -526,23 +526,43 @@ class _AskCoverage:
     records: tuple[SourceRecord, ...] = ()
 
 
-async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[_AskCoverage]:
-    """Let `weft ask` say how much of the corpus, and which layers, its answer could see.
+async def source_records(
+    deps: Dependencies, target: str | None
+) -> Outcome[tuple[SourceRecord, ...]]:
+    """The one `list_sources()` read across the stores in use, bound to `target`.
 
-    `AskCommandResult.coverage`/`.layers` for one ask — ledger task **43.4**, widened at
-    **43.9**. `coverage` is `None` only when no store `_stores_in_use` names could answer
-    `list_sources` at all, so a build with none does (every existing test's own registry,
-    `weft eval baseline`'s deterministic store included) renders exactly as it did before this
-    task; a store that answered with nothing outstanding still sets `coverage`,
-    `SourceCoverage.complete` and all, which is what lets `weft_cli.render._render_ask` tell
-    "nothing to say" from "nothing was asked".
+    Every store `_read_sources_by_store` reads, flattened into one tuple — task **44.16**'s own
+    extraction from `_coverage_for`, made public so `weft route explain` can build a
+    `weft_retrieve.profile.CorpusProfile` from the identical read `weft ask` already takes,
+    rather than a second `list_sources()` round trip. Empty when no store `_stores_in_use`
+    names could answer `list_sources` at all, the same shape a store that answered with
+    nothing outstanding produces — `_read_sources_by_store`'s own docstring states why the two
+    are left indistinguishable here: a store with zero recorded sources reports
+    `SourceCoverage(0, 0, 0)`, which is `.complete`, so `_coverage_for` renders it identically
+    to `coverage=None` either way.
     """
     read = await _read_sources_by_store(deps, target)
     if not isinstance(read, Produced):
         return read
+    return Produced(value=tuple(record for _, records in read.value for record in records))
+
+
+async def _coverage_for(deps: Dependencies, target: str | None) -> Outcome[_AskCoverage]:
+    """Let `weft ask` say how much of the corpus, and which layers, its answer could see.
+
+    `AskCommandResult.coverage`/`.layers` for one ask — ledger task **43.4**, widened at
+    **43.9**. `coverage` is `None` only when `source_records` came back empty, so a build with
+    none does (every existing test's own registry, `weft eval baseline`'s deterministic store
+    included) renders exactly as it did before this task; a store that answered with nothing
+    outstanding still sets `coverage`, `SourceCoverage.complete` and all, which is what lets
+    `weft_cli.render._render_ask` tell "nothing to say" from "nothing was asked".
+    """
+    read = await source_records(deps, target)
+    if not isinstance(read, Produced):
+        return read
     if not read.value:
         return Produced(value=_AskCoverage(coverage=None, layers=()))
-    records = tuple(record for _, records in read.value for record in records)
+    records = read.value
     return Produced(
         value=_AskCoverage(
             coverage=coverage_of(records), layers=layer_coverage_of(records), records=records
@@ -2825,6 +2845,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     """
     del settings
     from weft_cli.render import register_renderers
+    from weft_cli.route_explain import register_route_explain_command
 
     registrar.add(Command, "index", IndexCommand)
     registrar.add(Command, "ask", AskCommand)
@@ -2846,6 +2867,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     register_eval_table_command(registrar)
     register_eval_replay_command(registrar)
     register_eval_pairwise_command(registrar)
+    register_route_explain_command(registrar)
     register_renderers(registrar)
 
 
