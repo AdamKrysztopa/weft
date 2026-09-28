@@ -55,6 +55,7 @@ from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import StageLookup
+from weft_retrieve.locale import resolve_locale
 from weft_retrieve.payload import Assessment, Passage, Passages, Query
 from weft_retrieve.prompts import (
     SUFFICIENCY_CHECK_NAME,
@@ -254,13 +255,9 @@ def _markers_for(locale: str | None, markers: Mapping[str, tuple[str, ...]]) -> 
 
     The same three-step fallback `weft_prompts.typed_prompt.TypedPrompt`'s own selection uses
     for translated text (that module's own docstring: "exact locale → primary subtag → en"),
-    applied here to a configuration table instead of a template, so `pl-PL` reaches the same
-    markers `pl` does without a second key in every operator's table.
+    named once at `weft_retrieve.locale.resolve_locale` and applied here to a configuration
+    table instead of a template, so `pl-PL` reaches the same markers `pl` does without a
+    second key in every operator's table.
     """
-    if locale is not None:
-        if locale in markers:
-            return markers[locale]
-        primary = locale.split("-", 1)[0]
-        if primary in markers:
-            return markers[primary]
-    return markers.get("en", ())
+    key = resolve_locale(locale, markers)
+    return markers[key] if key is not None else ()
