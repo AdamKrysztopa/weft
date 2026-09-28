@@ -23,10 +23,10 @@ then resolved and run *second*, taking a `QuerySet` — the same two-step `.phas
 doing the actual resolution and execution work for both, exactly as they would for any
 other pipeline document. Neither resolution is special-cased: this module names no plugin
 and no pipeline of its own at all. **Which document is the router is `[services] route`'s
-answer since task 8.3**, defaulting to `route` — until then the name was a constant here, and
-that made it the one pipeline in the tree nobody could substitute: a pack cannot contribute a
-second document under a name another pack already holds, and a project that ships its own
-`route.yaml` is refused by `full_catalogue` and takes every `weft pipeline` command with it.
+answer since task 8.3**, defaulting to `route-fixed` since task 44.1 — until 8.3 the name was a
+constant here, and that made it the one pipeline in the tree nobody could substitute: a pack
+cannot contribute a second document under a name another pack already holds, and a project that
+ships its own `route.yaml` is refused by `full_catalogue` and takes every `weft pipeline` command with it.
 `weft_engine.services.DEFAULT_ROUTER` carries the argument, and the two registered routing
 policies that were unreachable because of it are the evidence.
 
