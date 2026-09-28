@@ -113,6 +113,7 @@ from weft_eval.prompts import (
     ContextRecallJudgePrompt,
     ContextRelevanceJudgePrompt,
     FaithfulnessJudgePrompt,
+    PairwiseJudgePrompt,
 )
 from weft_eval.qa_metrics import Accuracy, ExactMatch, F1Score
 from weft_eval.run_record import (
@@ -238,6 +239,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Prompt, AnswerRelevanceJudgePrompt.name, AnswerRelevanceJudgePrompt)
     registrar.add(Prompt, AnswerCorrectnessJudgePrompt.name, AnswerCorrectnessJudgePrompt)
     registrar.add(Prompt, AnswerCompletenessJudgePrompt.name, AnswerCompletenessJudgePrompt)
+    registrar.add(Prompt, PairwiseJudgePrompt.name, PairwiseJudgePrompt)
 
     # Repair R22.4c — the shipped document `weft eval baseline` resolves by default. See
     # `pipelines/baseline.yaml`'s own header for what it deliberately is and is not.

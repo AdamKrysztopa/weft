@@ -624,6 +624,12 @@ class ScoredRun:
     #: `question_profiles` was computed. `None` only for a construction site written before this
     #: task — `score_pipeline` always sets it, `question_seconds`'s own posture.
     profiler_version: str | None = None
+    #: Task **44.43a** — each answered question's own answer text, keyed identically to
+    #: `question_scores`, for a position-swapped pairwise judge to read later. `None` for a
+    #: retrieval-only rung (nothing was generated to keep); for a generating or router rung,
+    #: each answered question's `GenerationSample.prediction`, skipping a question that reached
+    #: `generation_samples` with no prediction to evaluate.
+    question_answers: Mapping[str, str] | None = None
 
 
 def _merge_generation_scores(
@@ -662,6 +668,26 @@ def _merge_generation_scores(
             )
         metrics[name] = aggregate_outcome
         per_question[name] = generation_scores.per_question[name]
+
+
+def _question_answers(
+    generation_samples: Sequence[tuple[str, GenerationSample]], *, is_generating_rung: bool
+) -> Mapping[str, str] | None:
+    """Each answered question's own answer text — task **44.43a**.
+
+    `None` for a retrieval-only rung, which never calls a `Generator` and builds no
+    `GenerationSample` at all — the identical condition `question_contributors` already gates
+    on for the generating half. For a generating or router rung, `GenerationSample.prediction`
+    keyed by question id, skipping a question whose prediction is `None` — `passages_for_scoring`'s
+    own "no prediction to evaluate" posture, one field over.
+    """
+    if not is_generating_rung:
+        return None
+    return {
+        question_id: sample.prediction
+        for question_id, sample in generation_samples
+        if sample.prediction is not None
+    }
 
 
 def _resolved_cutoffs(cutoffs: tuple[int, ...] | None, *, top_k: int) -> tuple[int, ...]:
@@ -1939,6 +1965,9 @@ async def score_pipeline(
         question_routes=question_routes if router is not None else None,
         question_profiles=_question_profiles(questions),
         profiler_version=PROFILER_VERSION,
+        question_answers=_question_answers(
+            generation_samples, is_generating_rung=is_generating_rung
+        ),
     )
 
 

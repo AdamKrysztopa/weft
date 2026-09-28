@@ -599,3 +599,65 @@ async def test_a_query_pipeline_arm_records_no_routes(monkeypatch: pytest.Monkey
 
     # Assert
     assert scored.question_routes is None
+
+
+# --- Task 44.43a — a generating rung's answers are recorded, for a pairwise judge to read later.
+
+
+class _AnsweringFake(BaseModel):
+    """`_FakeAnswer` with the text a generating rung produced."""
+
+    used: tuple[object, ...] = ()
+    text: str = ""
+
+
+async def test_a_generating_rung_records_each_question_s_answer_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    monkeypatch.setattr(
+        route_ask_module, "full_catalogue", _stub_catalogue({"rung-a": _query_document()})
+    )
+    answers = {"why": "because the warp is taut", "how": "by passing the weft"}
+
+    async def _answer(question: str, **_kwargs: object) -> object:
+        return _AnsweringFake(text=answers[question])
+
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+
+    # Act
+    scored = await score_pipeline(
+        registry=_query_registry(),
+        resolved_pipeline=_ingest_resolved(),
+        questions=(_question("q-1", "why"), _question("q-2", "how")),
+        top_k=3,
+        ctx=_ctx(),
+        query_pipeline="rung-a",
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert scored.question_answers == {
+        "q-1": "because the warp is taut",
+        "q-2": "by passing the weft",
+    }
+
+
+async def test_a_retrieval_rung_records_no_answers(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    monkeypatch.setattr(eval_scoring_module, "run_ask", _no_hits)
+
+    # Act
+    scored = await score_pipeline(
+        registry=_query_registry(),
+        resolved_pipeline=_ingest_resolved(),
+        questions=(_question("q-1", "why"),),
+        top_k=3,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a",),
+    )
+
+    # Assert
+    assert scored.question_answers is None

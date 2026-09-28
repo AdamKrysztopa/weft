@@ -1674,6 +1674,11 @@ async def index_and_score(
     name unchanged; `None` (`weft eval run`, and every caller before this task) names none.
     `weft_cli.eval_experiment` is the one caller that passes an arm's own `router` name, and the
     record it produces carries `scored.question_routes` beside every other scored field.
+
+    **Task 44.43a.** The record carries `scored.question_answers` beside every other scored
+    field too — `None` for a retrieval-only rung, each answered question's own answer text for
+    a generating or router one — so a position-swapped pairwise judge can compare two runs'
+    answers without regenerating either.
     """
     indexed = await _indexed_corpus(
         deps,
@@ -1715,6 +1720,7 @@ async def index_and_score(
     question_routes: Mapping[str, RouteView] | None = None
     question_profiles: Mapping[str, Mapping[str, int | float | bool]] | None = None
     profiler_version: str | None = None
+    question_answers: Mapping[str, str] | None = None
     if questions is not None:
         scored = await score_pipeline(
             registry=deps.registry,
@@ -1758,6 +1764,7 @@ async def index_and_score(
         question_routes = scored.question_routes
         question_profiles = scored.question_profiles
         profiler_version = scored.profiler_version
+        question_answers = scored.question_answers
     query_seconds = time.monotonic() - query_started
 
     resolved_corpus_name = corpus_name if corpus_name is not None else str(path)
@@ -1802,6 +1809,7 @@ async def index_and_score(
         question_routes=question_routes,
         question_profiles=question_profiles,
         profiler_version=profiler_version,
+        question_answers=question_answers,
     )
     run_id = str(uuid.uuid4())
     write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")

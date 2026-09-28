@@ -111,14 +111,16 @@ def test_every_one_of_the_21_task_4_2_metrics_registers_under_the_right_contract
         assert registry.entry(RetrievalMetric, name).distribution == "weft-eval"
 
 
-def test_the_six_judge_prompts_register_under_prompt() -> None:
+def test_every_judge_prompt_registers_under_prompt() -> None:
     # Arrange / Act
     registry = _registry()
 
     # Assert — a judge prompt that exists in source but registers nowhere is unreachable at
     # runtime; registered names here is the fix, held as a fact rather than a claim.
     prompt_names = registry.names_for(Prompt)
-    assert len(prompt_names) == 6
+    # Six single-answer judges, and `pairwise-judge` (44.43a).
+    assert len(prompt_names) == 7
+    assert "pairwise-judge" in prompt_names
 
 
 def test_settings_refuses_an_unknown_field() -> None:

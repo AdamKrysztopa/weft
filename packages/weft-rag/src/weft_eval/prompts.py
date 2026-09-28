@@ -23,6 +23,7 @@ this tree must declare; a translation is additive work this task does not claim 
 """
 
 from collections.abc import Mapping
+from enum import StrEnum
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict
@@ -394,6 +395,82 @@ class AnswerCompletenessJudgePrompt(TypedPrompt):
     }
 
 
+# ---------------------------------------------------------------------------------------------
+# pairwise-judge
+# ---------------------------------------------------------------------------------------------
+
+PAIRWISE_JUDGE_PROMPT_NAME = "pairwise-judge"
+
+
+class Position(StrEnum):
+    """Which shown answer the pairwise judge preferred — never the caller's own A/B.
+
+    `weft_eval.pairwise.judge_pair` shows the two answers once in each order, so the judge is
+    never told which caller-side answer it is reading — only whether it preferred the one it
+    read `FIRST`, the one it read `SECOND`, or found no difference (`TIE`) on the criterion it
+    was asked about. Reading each order separately and comparing is the position-bias check this
+    exists for: a judge that always answers `FIRST` is exactly what a mismatch between the two
+    orders' own `Position` values exposes.
+    """
+
+    FIRST = "first"
+    SECOND = "second"
+    TIE = "tie"
+
+
+class PairwiseChoice(BaseModel):
+    """The pairwise judge's answer: which shown answer it preferred, and why.
+
+    Attributes:
+        winner: `FIRST`/`SECOND` when one shown answer was preferred, `TIE` when the judge found
+            no meaningful difference on the named criterion.
+        reasoning: A short account of the comparison, for a human auditing a verdict — never
+            parsed.
+    """
+
+    model_config = _JUDGE_OUTPUT_CONFIG
+
+    winner: Position
+    reasoning: str
+
+
+class PairwiseJudgeRequest(BaseModel):
+    """The values the pairwise judge prompt is rendered from."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    question: str
+    first_answer: str
+    second_answer: str
+    criterion_name: str
+    criterion_definition: str
+
+
+class PairwiseJudgePrompt(TypedPrompt):
+    """Compare two answers to one question on one named criterion, and say which does better."""
+
+    name: ClassVar[str] = PAIRWISE_JUDGE_PROMPT_NAME
+    version: ClassVar[str] = PROMPT_CONTRACT_VERSION
+    input_model: ClassVar[type[BaseModel]] = PairwiseJudgeRequest
+    output_model: ClassVar[type[BaseModel] | None] = PairwiseChoice
+    texts: ClassVar[Mapping[str, PromptText]] = {
+        "en": PromptText(
+            system=(
+                "You compare two answers to the same question on one criterion at a time, and "
+                "judge which one does better on it — never which one you happen to agree with, "
+                "and never any criterion but the one named."
+            ),
+            user=(
+                "Question:\n${question}\n\n"
+                "Criterion: ${criterion_name} — ${criterion_definition}\n\n"
+                "First answer:\n${first_answer}\n\nSecond answer:\n${second_answer}\n\n"
+                "Which answer does better on this criterion — the first, the second, or is it "
+                "a tie? Give a short reason for your answer."
+            ),
+        ),
+    }
+
+
 __all__ = [
     "ANSWER_COMPLETENESS_PROMPT_NAME",
     "ANSWER_CORRECTNESS_PROMPT_NAME",
@@ -401,6 +478,7 @@ __all__ = [
     "CONTEXT_RECALL_PROMPT_NAME",
     "CONTEXT_RELEVANCE_PROMPT_NAME",
     "FAITHFULNESS_PROMPT_NAME",
+    "PAIRWISE_JUDGE_PROMPT_NAME",
     "AnswerCompletenessJudgePrompt",
     "AnswerCompletenessRequest",
     "AnswerCorrectnessJudgePrompt",
@@ -420,5 +498,9 @@ __all__ = [
     "FaithfulnessJudgement",
     "FaithfulnessRequest",
     "GeneratedQuestions",
+    "PairwiseChoice",
+    "PairwiseJudgePrompt",
+    "PairwiseJudgeRequest",
+    "Position",
     "StatementSupport",
 ]

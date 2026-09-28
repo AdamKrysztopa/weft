@@ -339,6 +339,7 @@ prevent. The check now asserts that every audited distribution actually resolved
 | `answer-completeness-judge` | `Prompt` | The prompt the `answer-completeness` metric resolves — does the answer cover what the reference covers |
 | `context-relevance-judge` | `Prompt` | The prompt the `context-relevance` metric resolves — is the retrieved context about the question |
 | `context-recall-judge` | `Prompt` | The prompt the `context-recall` metric resolves — does the retrieved context contain what the reference needed |
+| `pairwise-judge` | `Prompt` | Which of two answers to one question does better on one named criterion, asked once in each order by `weft_eval.pairwise.judge_pair`; an order-dependent verdict is a tie. **Diverges** from its origin: the criteria (comprehensiveness, diversity, empowerment, and directness as a control) are GraphRAG's (Edge et al., arXiv:2404.16130, 2024), which repeats each comparison five times and averages rather than swapping order; the both-orders-or-tie rule is the position-bias safeguard of LLM-as-a-judge (Zheng et al., NeurIPS 2023); the win rate carries a paired bootstrap interval, not the paper's Wilcoxon tests. Ledger `44.43a` |
 
 **What this table deliberately does not owe rows for, and where those live instead.** A `Command`
 is `03`'s subject and is already generated into `manual/user-manual.md`'s command table; a

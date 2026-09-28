@@ -44,6 +44,11 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A run record keeps each question's answer text** (`question_answers`) when the rung
+  generates, so answers can be judged again later without regenerating them. A new
+  `pairwise-judge` prompt compares two answers on one criterion (comprehensiveness, diversity,
+  empowerment or directness). Each pair is asked once in each order, and a verdict that changes
+  with the order counts as a tie.
 - **The `weft_retrieve` contract moves to `1.2.0`: `Scorecard.features`**, an open map of named
   scalar facts about the question and corpus (`query.word_count`, `query.cue.comparison`, …)
   that a routing policy can test. A minor for both callers and implementers: a scorecard built

@@ -504,6 +504,12 @@ class RunRecord(BaseModel):
     #: was computed, so a profile taken under a later profiler is never read as the same
     #: measurement. `None` on the identical footing `question_profiles` states one field up.
     profiler_version: str | None = None
+    #: Task **44.43a** — each answered question's own answer text, keyed identically to
+    #: `question_scores`, for a position-swapped pairwise judge (`weft_eval.pairwise.judge_pair`)
+    #: to compare after the fact, without regenerating either arm's answer. `None` means *not
+    #: recorded*: every record written before this task, and a retrieval-only run that never
+    #: generated an answer to keep.
+    question_answers: Mapping[str, str] | None = None
 
 
 def build_run_record(
@@ -534,6 +540,7 @@ def build_run_record(
     question_routes: Mapping[str, RouteView] | None = None,
     question_profiles: Mapping[str, Mapping[str, int | float | bool]] | None = None,
     profiler_version: str | None = None,
+    question_answers: Mapping[str, str] | None = None,
 ) -> RunRecord:
     """The one place a run record is built, so what was active is derived, never claimed.
 
@@ -601,6 +608,10 @@ def build_run_record(
     `question_profiles`/`profiler_version` — task **44.17** — are passed straight through as
     well: only the caller that ran the question loop computed each question's own profile, and
     under which profiler version.
+
+    `question_answers` — task **44.43a** — is passed straight through too, on the identical
+    footing: only the caller that ran the question loop (`weft_cli.eval_scoring.score_pipeline`)
+    knows which arm generated which answer.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -629,6 +640,7 @@ def build_run_record(
         question_routes=question_routes,
         question_profiles=question_profiles,
         profiler_version=profiler_version,
+        question_answers=question_answers,
     )
 
 
