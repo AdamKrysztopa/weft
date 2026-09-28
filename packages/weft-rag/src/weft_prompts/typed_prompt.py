@@ -17,6 +17,8 @@ Selection is exact locale → primary subtag → `en`; a missing translation deg
 *language*, which a reader can see, never the answer, which they cannot.
 """
 
+import hashlib
+import json
 from collections.abc import Mapping
 from typing import ClassVar
 
@@ -128,3 +130,22 @@ class TypedPrompt:
         if primary is not None:
             return primary
         return self.texts[FALLBACK_LOCALE]
+
+
+def prompt_digest(prompt: type[TypedPrompt]) -> str:
+    """Sha256 hex of `prompt`'s wording — its name, version and every locale's text.
+
+    Two prompts of the same name and version but different wording digest differently, so a run
+    record can tell "the same judge ran" from "a judge with this name ran, worded differently" —
+    `weft_eval.run_record.RunRecord.judge_prompts`'s own reason to exist.
+    """
+    payload = {
+        "name": prompt.name,
+        "prompt_version": prompt.prompt_version,
+        "texts": {
+            locale: {"system": text.system, "user": text.user}
+            for locale, text in prompt.texts.items()
+        },
+    }
+    canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

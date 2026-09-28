@@ -44,6 +44,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A run record says which code ran, which judge wording scored it, and what each question
+  cost.** `source_revision` is the commit, and whether tracked files had changes, of the checkout
+  the installed `weft_eval` was loaded from. From a wheel it reads `commit: null`; it is never
+  the commit of the directory you ran from. `judge_prompts` maps each LLM-judge metric to a digest
+  of the prompt it sent. `question_tokens` gives each question's tokens by role for answering it;
+  judging is not attributed per question. Records written earlier read each field as `null`.
 - **An experiment document may pre-register its decision** in a `[decision]` table, with the
   `metric` that decides, a `margin` and a `direction` (`higher-is-better` or `lower-is-better`).
   `weft eval table` then prints a `verdict` column reading the paired interval against it:

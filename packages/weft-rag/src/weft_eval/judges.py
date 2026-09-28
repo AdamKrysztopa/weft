@@ -28,7 +28,7 @@ never a computed zero.
 """
 
 import re
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -63,6 +63,8 @@ from weft_kernel.context import Context
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute
+from weft_prompts.contract import Prompt
+from weft_prompts.typed_prompt import TypedPrompt
 
 
 class JudgeConfig(BaseModel):
@@ -118,6 +120,7 @@ class Faithfulness:
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
     reported_name: ClassVar[str] = "faithfulness"
+    prompt: ClassVar[type[TypedPrompt]] = FaithfulnessJudgePrompt
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -142,7 +145,7 @@ class Faithfulness:
         llm = ctx.require(LLM)
         outcome = await execute(
             llm=llm,
-            prompt=FaithfulnessJudgePrompt(),
+            prompt=cast("Prompt", self.prompt()),
             values=FaithfulnessRequest(
                 answer=payload.prediction, contexts=_numbered(payload.contexts)
             ),
@@ -171,6 +174,7 @@ class ContextRecall:
     config_model: ClassVar[type[JudgeConfig]] = JudgeConfig
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
+    prompt: ClassVar[type[TypedPrompt]] = ContextRecallJudgePrompt
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -195,7 +199,7 @@ class ContextRecall:
         contexts = _numbered(tuple(passage.text for passage in payload.retrieved))
         outcome = await execute(
             llm=llm,
-            prompt=ContextRecallJudgePrompt(),
+            prompt=cast("Prompt", self.prompt()),
             values=ContextRecallRequest(reference=payload.reference, contexts=contexts),
             output=ContextRecallJudgement,
             role=self._config.role,
@@ -227,6 +231,7 @@ class ContextRelevance:
     config_model: ClassVar[type[JudgeConfig]] = JudgeConfig
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
+    prompt: ClassVar[type[TypedPrompt]] = ContextRelevanceJudgePrompt
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -254,7 +259,7 @@ class ContextRelevance:
         llm = ctx.require(LLM)
         outcome = await execute(
             llm=llm,
-            prompt=ContextRelevanceJudgePrompt(),
+            prompt=cast("Prompt", self.prompt()),
             values=ContextRelevanceRequest(question=payload.query, sentences=_numbered(sentences)),
             output=ContextRelevanceJudgement,
             role=self._config.role,
@@ -292,6 +297,7 @@ class AnswerRelevance:
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
     reported_name: ClassVar[str] = "answer_relevance"
+    prompt: ClassVar[type[TypedPrompt]] = AnswerRelevanceJudgePrompt
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -316,7 +322,7 @@ class AnswerRelevance:
         llm = ctx.require(LLM)
         outcome = await execute(
             llm=llm,
-            prompt=AnswerRelevanceJudgePrompt(),
+            prompt=cast("Prompt", self.prompt()),
             values=AnswerRelevanceRequest(answer=payload.prediction),
             output=GeneratedQuestions,
             role=self._config.role,
@@ -368,6 +374,7 @@ class AnswerCorrectness:
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
     #: Declared so a caller can name this judge, and key its failures, without calling a model.
     reported_name: ClassVar[str] = "answer_correctness"
+    prompt: ClassVar[type[TypedPrompt]] = AnswerCorrectnessJudgePrompt
 
     def __init__(self, config: AnswerCorrectnessConfig | None = None) -> None:
         self._config = config if config is not None else AnswerCorrectnessConfig()
@@ -391,7 +398,7 @@ class AnswerCorrectness:
         llm = ctx.require(LLM)
         outcome = await execute(
             llm=llm,
-            prompt=AnswerCorrectnessJudgePrompt(),
+            prompt=cast("Prompt", self.prompt()),
             values=AnswerCorrectnessRequest(
                 question=payload.query, prediction=payload.prediction, reference=payload.reference
             ),
@@ -443,6 +450,7 @@ class AnswerCompleteness:
     runs_in_gate: ClassVar[bool] = False
     gate_unsafe_reason: ClassVar[str] = _NEEDS_A_JUDGE_MODEL
     reported_name: ClassVar[str] = "answer_completeness"
+    prompt: ClassVar[type[TypedPrompt]] = AnswerCompletenessJudgePrompt
 
     def __init__(self, config: JudgeConfig | None = None) -> None:
         self._config = config if config is not None else JudgeConfig()
@@ -467,7 +475,7 @@ class AnswerCompleteness:
         llm = ctx.require(LLM)
         outcome = await execute(
             llm=llm,
-            prompt=AnswerCompletenessJudgePrompt(),
+            prompt=cast("Prompt", self.prompt()),
             values=AnswerCompletenessRequest(
                 prediction=payload.prediction, reference=payload.reference
             ),

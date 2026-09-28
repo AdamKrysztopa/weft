@@ -220,6 +220,7 @@ from weft_cli.eval_scoring import score_pipeline
 from weft_cli.ingest import SourceChange, content_hashes_of, corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
+from weft_cli.provenance import source_revision
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
@@ -1700,6 +1701,8 @@ async def index_and_score(
     question_set_basis: QuestionSetDigestBasis | None = None
     question_seconds: PerQuestionSeconds | None = None
     token_usage: Mapping[str, RoleTokens] | None = None
+    question_tokens: Mapping[str, Mapping[str, RoleTokens]] | None = None
+    judge_prompts: Mapping[str, str] | None = None
     question_pools: Mapping[str, tuple[PoolChunk, ...]] | None = None
     result_store_rows: int | None = None
     if questions is not None:
@@ -1737,6 +1740,8 @@ async def index_and_score(
         )
         question_seconds = scored.question_seconds
         token_usage = scored.token_usage
+        question_tokens = scored.question_tokens
+        judge_prompts = scored.judge_prompts
         question_pools = scored.question_pools
         result_store_rows = scored.store_rows
     query_seconds = time.monotonic() - query_started
@@ -1777,6 +1782,9 @@ async def index_and_score(
         experiment=experiment,
         target=scored_target_name,
         target_embedding=scored_target_embedding,
+        source_revision=await source_revision(),
+        question_tokens=question_tokens,
+        judge_prompts=judge_prompts,
     )
     run_id = str(uuid.uuid4())
     write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")

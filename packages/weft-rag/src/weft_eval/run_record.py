@@ -350,6 +350,21 @@ class ExperimentRun(BaseModel):
     pool_manifest: str | None = None
 
 
+class SourceRevision(BaseModel):
+    """The git revision of the code that ran — task **44.4**.
+
+    `commit`/`dirty` are both `None` when the code was not loaded from a git checkout at all —
+    an installed wheel, say — and neither can be measured. That is a different fact from
+    `RunRecord.source_revision` itself being `None`: the field absent means the record predates
+    this task, never wrote a revision at all.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    commit: str | None
+    dirty: bool | None
+
+
 class RunDurations(BaseModel):
     """Ledger task 10.22 — how long the two halves of a run took, kept apart on purpose.
 
@@ -461,6 +476,19 @@ class RunRecord(BaseModel):
     #: two conditions `target` above is: no `TargetHolding` store, or a record written before
     #: this task.
     target_embedding: EmbeddingIdentity | None = None
+    #: Task **44.4** — the git revision of the checkout the installed `weft_eval` package was
+    #: loaded from, never of the working directory. `None` means *not recorded*: every record
+    #: written before this task. `SourceRevision(commit=None, dirty=None)` is the different fact
+    #: that the code was measured and found to be outside any git checkout — a wheel install.
+    source_revision: SourceRevision | None = None
+    #: Task **44.4** — each LLM-judge metric's reported name mapped to a digest of the prompt it
+    #: actually sent (`weft_prompts.typed_prompt.prompt_digest`), so two records scored by
+    #: differently worded judges cannot be read as one measurement. `None` means *not recorded*.
+    judge_prompts: Mapping[str, str] | None = None
+    #: Task **44.4** — what answering each question spent, by role: retrieval and generation, not
+    #: judging, which runs after the loop and is not attributed per question. `token_usage`
+    #: above is still the run's total across every call. `None` means *not recorded*.
+    question_tokens: Mapping[str, Mapping[str, RoleTokens]] | None = None
 
 
 def build_run_record(
@@ -485,6 +513,9 @@ def build_run_record(
     experiment: ExperimentRun | None = None,
     target: str | None = None,
     target_embedding: EmbeddingIdentity | None = None,
+    source_revision: SourceRevision | None = None,
+    judge_prompts: Mapping[str, str] | None = None,
+    question_tokens: Mapping[str, Mapping[str, RoleTokens]] | None = None,
 ) -> RunRecord:
     """The one place a run record is built, so what was active is derived, never claimed.
 
@@ -540,6 +571,10 @@ def build_run_record(
     identical footing: only the caller that scored against a store (`weft_engine.targets.
     scored_target`) knows which target it read and what identity that store's own catalogue
     recorded for it.
+
+    `source_revision`/`judge_prompts`/`question_tokens` — task **44.4** — are passed straight
+    through as well: only the caller can read the git revision the installed `weft_eval` was
+    loaded from, digest each judge's actual prompt, or attribute a question's own token spend.
     """
     return RunRecord(
         recorded_at=recorded_at,
@@ -562,6 +597,9 @@ def build_run_record(
         experiment=experiment,
         target=target,
         target_embedding=target_embedding,
+        source_revision=source_revision,
+        judge_prompts=judge_prompts,
+        question_tokens=question_tokens,
     )
 
 

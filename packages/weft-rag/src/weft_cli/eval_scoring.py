@@ -75,7 +75,13 @@ from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import ServiceSelection
 from weft_eval.aggregate import MetricAggregate
-from weft_eval.contract import GenerationSample, RetrievalSample, RetrievedPassage
+from weft_eval.contract import (
+    GenerationMetric,
+    GenerationSample,
+    RetrievalMetric,
+    RetrievalSample,
+    RetrievedPassage,
+)
 from weft_eval.harness import (
     SubsetScores,
     score_generation_gate_subset,
@@ -107,12 +113,13 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Node, NodeId, Outcome
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage, pipeline_identity
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_llm.errors import LLMGenerationLoopError
-from weft_llm.usage import UsageEntry, recording_usage
+from weft_llm.usage import UsageEntry, record_usage, recording_usage
+from weft_prompts.typed_prompt import TypedPrompt, prompt_digest
 from weft_retrieve.payload import Passage, Query, Ranking
 from weft_store import NodeStore, Scored
 
@@ -467,6 +474,14 @@ _NO_QUESTION_SCORES: Final[Mapping[str, PerQuestionScores]] = MappingProxyType({
 #: different claim: *not recorded at all*).
 _NO_TOKEN_USAGE: Final[Mapping[str, RoleTokens]] = MappingProxyType({})
 
+#: `ScoredRun.question_tokens`'s own default — task **44.4**, `_NO_TOKEN_USAGE`'s own reasoning
+#: one field over: a run that asked no question a model was involved in has `{}`.
+_NO_QUESTION_TOKENS: Final[Mapping[str, Mapping[str, RoleTokens]]] = MappingProxyType({})
+
+#: `ScoredRun.judge_prompts`'s own default — task **44.4**: a run that named no judge metric
+#: digested none.
+_NO_JUDGE_PROMPTS: Final[Mapping[str, str]] = MappingProxyType({})
+
 
 def role_tokens(entries: Sequence[UsageEntry]) -> Mapping[str, RoleTokens]:
     """`entries`, folded to one `RoleTokens` per `UsageEntry.role` — task **33.7**.
@@ -489,6 +504,38 @@ def role_tokens(entries: Sequence[UsageEntry]) -> Mapping[str, RoleTokens]:
             bucket["prompt_tokens"] += entry.usage.prompt_tokens
             bucket["completion_tokens"] += entry.usage.completion_tokens
     return {role: RoleTokens(**counts) for role, counts in totals.items()}
+
+
+def judge_prompt_digests(registry: Registry, names: Sequence[str]) -> dict[str, str]:
+    """Each of `names` that is a registered judge, to a digest of the prompt it actually sends.
+
+    `names` are registered plugin names (`weft_eval.judges.AnswerCorrectness`'s own
+    `"answer-correctness"`), checked against `RetrievalMetric`/`GenerationMetric` — the two
+    contracts `score_pipeline`'s own `judge_metrics` ever names — and skipped when a name is
+    registered under neither: this function is handed names a run already resolved, and a name
+    it cannot place is not this function's fault to raise over. A metric with no `prompt` class
+    attribute (every gate-safe metric, none of which is an LLM judge) is skipped identically.
+
+    Mapped by the factory's own `reported_name`, not the registered plugin name, so this reads
+    exactly as `RunRecord.metrics`/`ScoredRun.question_scores` already key every other per-metric
+    fact — `weft_eval.run_record`'s own module docstring, task **4.9**'s paragraph on `metrics`.
+    """
+    generation_names = registry.names_for(GenerationMetric)
+    retrieval_names = registry.names_for(RetrievalMetric)
+    digests: dict[str, str] = {}
+    for name in names:
+        if name in generation_names:
+            contract: type[object] = GenerationMetric
+        elif name in retrieval_names:
+            contract = RetrievalMetric
+        else:
+            continue
+        target = unwrap_factory(registry.lookup(contract, name))
+        prompt = getattr(target, "prompt", None)
+        if isinstance(prompt, type) and issubclass(prompt, TypedPrompt):
+            reported_name = cast("str", getattr(target, "reported_name", name))
+            digests[reported_name] = prompt_digest(prompt)
+    return digests
 
 
 @dataclass(frozen=True)
@@ -538,6 +585,13 @@ class ScoredRun:
     #: Task **40.2** — the store's own row count at capture time, read once after the question
     #: loop. `None` when capture was not asked for.
     store_rows: int | None = None
+    #: Task **44.4** — what answering each question spent, by role, keyed identically to
+    #: `question_scores`. `{}` for a run that asked no model while answering any question —
+    #: `token_usage`'s own default one field up — never `None`: `score_pipeline` always measures.
+    question_tokens: Mapping[str, Mapping[str, RoleTokens]] = _NO_QUESTION_TOKENS
+    #: Task **44.4** — each named judge metric's reported name mapped to a digest of the prompt
+    #: it actually sent. `{}` for a run that named no judge metric.
+    judge_prompts: Mapping[str, str] = _NO_JUDGE_PROMPTS
 
 
 def _merge_generation_scores(
@@ -1204,6 +1258,111 @@ async def _question_hits(
     )
 
 
+@dataclass(frozen=True)
+class _QuestionAttempt:
+    """One question's own answering attempt — task **44.4**: its hits or its failure, and cost.
+
+    `entries` is whatever `_answered_question`'s own `recording_usage()` scope collected while
+    answering this question alone. The caller re-records every one into the run-wide scope —
+    for a failed attempt exactly as for an answered one, so `ScoredRun.token_usage`'s own total
+    does not lose a call this question's own failed attempt still made.
+    """
+
+    hits: Sequence[Scored[Node]] | None
+    elapsed: float
+    failure: str | None
+    entries: tuple[UsageEntry, ...]
+
+
+async def _answered_question(
+    question: Question,
+    *,
+    query_pipeline: str | None,
+    generates: bool,
+    pool: LoadedPool | None,
+    pool_questions_by_id: Mapping[str, PoolQuestion] | None,
+    retrieval_services: PreparedRunner | None,
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    roles: RoleTable | None,
+    sink: TokenSink | None,
+    contributions: tuple[Contribution, ...],
+    generation_samples: list[tuple[str, GenerationSample]],
+    contributors: dict[str, tuple[str, ...]],
+    question_pools: dict[str, tuple[PoolChunk, ...]],
+    capture_pool: bool,
+    top_k: int,
+    embed_stage: ResolvedStage,
+    store_stage: ResolvedStage,
+    target: str | None,
+) -> _QuestionAttempt:
+    """Answer one question inside its own usage scope — task **44.4**.
+
+    `recording_usage()` scopes record into the innermost only (`weft_llm.usage`'s own
+    docstring), so nothing collected here reaches the run-wide scope on its own; `score_pipeline`
+    re-records every entry once this returns. Lifted out of `score_pipeline`'s own per-question
+    loop for the identical complexity-budget reason every other per-question helper in this
+    module already was.
+    """
+    hits: Sequence[Scored[Node]] | None = None
+    failure: str | None = None
+    with recording_usage() as question_tally:
+        started = time.monotonic()
+        try:
+            hits = await _question_hits(
+                question,
+                query_pipeline=query_pipeline,
+                generates=generates,
+                pool=pool,
+                pool_questions_by_id=pool_questions_by_id,
+                retrieval_services=retrieval_services,
+                registry=registry,
+                reports=reports,
+                ctx=ctx,
+                llm=llm,
+                services=services,
+                roles=roles,
+                sink=sink,
+                contributions=contributions,
+                generation_samples=generation_samples,
+                contributors=contributors,
+                question_pools=question_pools,
+                capture_pool=capture_pool,
+                top_k=top_k,
+                embed_stage=embed_stage,
+                store_stage=store_stage,
+                target=target,
+            )
+        except (PipelineDidNotProduceError, LLMGenerationLoopError) as exc:
+            failure = str(exc)
+    elapsed = time.monotonic() - started
+    return _QuestionAttempt(
+        hits=hits, elapsed=elapsed, failure=failure, entries=question_tally.entries
+    )
+
+
+def _record_question_usage(
+    attempt: _QuestionAttempt,
+    question_key: str,
+    *,
+    question_tokens: dict[str, Mapping[str, RoleTokens]],
+) -> None:
+    """Re-record `attempt`'s own entries into the run-wide scope, and tally them by question.
+
+    `recording_usage()` scopes record into the innermost only — see `_answered_question`'s own
+    docstring for why nothing `attempt.entries` holds has reached the run-wide scope yet.
+    `question_tokens` gains no entry for `question_key` when `attempt` collected nothing, the
+    identical "absent, never fabricated" posture every other optional `ScoredRun` field takes.
+    """
+    for entry in attempt.entries:
+        record_usage(entry)
+    if attempt.entries:
+        question_tokens[question_key] = role_tokens(attempt.entries)
+
+
 async def _judge_answered_questions(
     stack: AsyncExitStack,
     *,
@@ -1464,6 +1623,7 @@ async def score_pipeline(
     _require_replayable_rung(pool, is_retrieval_rung=is_retrieval_rung)
     failed: dict[str, str] = {}
     question_pools: dict[str, tuple[PoolChunk, ...]] = {}
+    question_tokens: dict[str, Mapping[str, RoleTokens]] = {}
     store_rows: int | None = None
     judge_scores: SubsetScores | None = None
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
@@ -1493,37 +1653,36 @@ async def score_pipeline(
                     else question.axes.get("kind", "")
                 )
                 axes[question_key] = _question_axes(question, pool_questions_by_id)
-                hits: Sequence[Scored[Node]]
-                started = time.monotonic()
-                try:
-                    hits = await _question_hits(
-                        question,
-                        query_pipeline=query_pipeline,
-                        generates=generates,
-                        pool=pool,
-                        pool_questions_by_id=pool_questions_by_id,
-                        retrieval_services=retrieval_services,
-                        registry=registry,
-                        reports=reports,
-                        ctx=ctx,
-                        llm=llm,
-                        services=services,
-                        roles=roles,
-                        sink=sink,
-                        contributions=contributions,
-                        generation_samples=generation_samples,
-                        contributors=contributors,
-                        question_pools=question_pools,
-                        capture_pool=capture_pool,
-                        top_k=top_k,
-                        embed_stage=embed_stage,
-                        store_stage=store_stage,
-                        target=target,
-                    )
-                except (PipelineDidNotProduceError, LLMGenerationLoopError) as failure:
-                    failed[question_key] = str(failure)
+                attempt = await _answered_question(
+                    question,
+                    query_pipeline=query_pipeline,
+                    generates=generates,
+                    pool=pool,
+                    pool_questions_by_id=pool_questions_by_id,
+                    retrieval_services=retrieval_services,
+                    registry=registry,
+                    reports=reports,
+                    ctx=ctx,
+                    llm=llm,
+                    services=services,
+                    roles=roles,
+                    sink=sink,
+                    contributions=contributions,
+                    generation_samples=generation_samples,
+                    contributors=contributors,
+                    question_pools=question_pools,
+                    capture_pool=capture_pool,
+                    top_k=top_k,
+                    embed_stage=embed_stage,
+                    store_stage=store_stage,
+                    target=target,
+                )
+                _record_question_usage(attempt, question_key, question_tokens=question_tokens)
+                if attempt.failure is not None:
+                    failed[question_key] = attempt.failure
                     continue
-                seconds[question_key] = time.monotonic() - started
+                hits = cast("Sequence[Scored[Node]]", attempt.hits)
+                seconds[question_key] = attempt.elapsed
                 if refuse_foreign_documents:
                     _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
                 samples.append(
@@ -1594,6 +1753,8 @@ async def score_pipeline(
         token_usage=role_tokens(tally.entries),
         question_pools=question_pools if capture_pool else None,
         store_rows=store_rows if capture_pool else None,
+        question_tokens=question_tokens,
+        judge_prompts=judge_prompt_digests(registry, judge_metrics),
     )
 
 
@@ -1605,6 +1766,7 @@ __all__ = [
     "PipelineNotRetrievableError",
     "ScoredRun",
     "UnresolvableLabelError",
+    "judge_prompt_digests",
     "passages_for_scoring",
     "resolve_labels",
     "role_tokens",
