@@ -192,6 +192,7 @@ def test_the_win_rate_counts_a_tie_as_half() -> None:
     assert (summary.n, summary.wins_a, summary.wins_b, summary.ties) == (4, 1, 2, 1)
     assert summary.win_rate_b == pytest.approx(0.625)
     assert summary.low is not None and summary.high is not None
+    assert summary.win_rate_b is not None
     assert summary.low <= summary.win_rate_b <= summary.high
 
 
