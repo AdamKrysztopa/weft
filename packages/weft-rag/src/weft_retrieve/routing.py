@@ -66,6 +66,8 @@ from weft_retrieve.prompts import ROUTE_QUERY_NAME, RouteQueryRequest, RouteQuer
 
 #: The name `LlmQueryScorer` is registered and selectable under — see `weft_retrieve.register`.
 QUERY_SCORER_NAME = "query-scorer"
+#: The name `KeywordIntents` is registered under — ledger task **44.1**.
+KEYWORD_INTENTS_NAME = "keyword-intents"
 #: The three `RoutingPolicy` names — see `weft_retrieve.register`.
 THRESHOLD_LADDER_NAME = "threshold-ladder"
 NEAREST_DESCRIPTION_NAME = "nearest-description"
@@ -310,6 +312,41 @@ def _score_mapping(
             )
         )
     return scores
+
+
+class KeywordIntentsConfig(BaseModel):
+    """`KeywordIntents`'s `with:` config — `QueryScorerConfig.intent_markers` alone."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    intent_markers: Mapping[str, tuple[str, ...]] = Field(default_factory=dict)
+
+
+class KeywordIntents:
+    """Measures a query by its configured keyword intents alone, calling no model.
+
+    Satisfies `weft_retrieve.contract.QueryScorer` structurally — ledger task **44.1**. A
+    `RoutingPolicy` takes a `Scorecard`, so a router that decides without scores (`always`)
+    still needed `query-scorer` in front of it and paid one model call per ask. This is
+    `query-scorer`'s keyword half on its own: `scores` stays empty, which is what it measured.
+    """
+
+    config_model: ClassVar[type[KeywordIntentsConfig]] = KeywordIntentsConfig
+    cost_bound: ClassVar[tuple[int, int]] = (0, 0)
+
+    def __init__(self, config: KeywordIntentsConfig | None = None) -> None:
+        self._config = config if config is not None else KeywordIntentsConfig()
+
+    async def run(self, payload: Query, ctx: Context) -> Outcome[Scorecard]:
+        """Tag the configured intents `payload` mentions; score no dimension."""
+        del ctx
+        return Produced(
+            value=Scorecard(
+                query=payload,
+                scores={},
+                intents=_keyword_intents(payload.text, self._config.intent_markers),
+            )
+        )
 
 
 def _keyword_intents(text: str, markers: Mapping[str, tuple[str, ...]]) -> frozenset[str]:

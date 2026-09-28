@@ -520,15 +520,17 @@ Three routers ship, and they differ in *how closed* the choice is rather than in
 
 | `[services] route` | Policy | What it selects from |
 |---|---|---|
-| `route` *(default)* | `nearest-description` | Every installed pipeline that states a `route.summary`, matched against the question. **Open** — a rung installed today is selectable today, with no rule edit |
+| `route` | `nearest-description` | Every installed pipeline that states a `route.summary`, matched against the question. **Open** — a rung installed today is selectable today, with no rule edit |
 | `route-by-score` | `threshold-ladder` | Only what its own bands name, in order, first match wins. **Closed** — the shipped rules choose between `no-retrieval` and `retrieve-then-generate`, and every other rung is invisible to it until you add a band |
-| `route-fixed` | `always` | One named pipeline, whatever the question. The scorecard is still produced and still travels into the trace; it is simply not consulted |
+| `route-fixed` *(default)* | `always` | One named pipeline, whatever the question: `retrieve-then-generate`, the best measured first stage. Its scorer, `keyword-intents`, calls no model, so this router costs nothing |
 
 Pick `route-by-score` when you want exactly the behaviours you wrote down and want to know which one
-ran and why. Pick `route-fixed` to pin behaviour — a benchmark that must hit one pipeline every
-time, or an incident where you want the router out of the loop without losing the dimensions that
-would show whether it was at fault. **`route-fixed` is not free**: `RoutingPolicy` takes a
-`Scorecard`, so the scorer stage still runs and still costs one model call per question.
+ran and why. `route-fixed` is the default because no router has been measured against always using
+one pipeline (`manual/evidence.md` §2, *Routing*): until one has, the default answers through the
+pipeline the measurements favour and spends nothing deciding. **`route` and `route-by-score` are not
+free**: `RoutingPolicy` takes a `Scorecard`, and their scorer, `query-scorer`, costs one model call
+per question on the `route` role. `route`'s policy, `nearest-description`, does not read the scores
+it paid for.
 
 Only a pipeline an installed pack **contributed** can be named here — not a document in your own
 `pipelines/` directory. A name nothing contributed is refused by listing every router that is

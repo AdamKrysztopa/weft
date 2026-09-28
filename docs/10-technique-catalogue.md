@@ -265,6 +265,7 @@ naming, not just citation, so a name with nothing to cite still needs a row.
 | `threshold-ladder` | `RoutingPolicy` | Closed, operator-authored bands over `query-scorer`'s dimensions |
 | `nearest-description` | `RoutingPolicy` | Open: matches a query against every installed pipeline's own `route.summary`, zero-edit on install |
 | `always` | `RoutingPolicy` | The constant policy — one named pipeline, no scoring |
+| `keyword-intents` | `QueryScorer` | `query-scorer`'s keyword half alone: configured `intent_markers` become `Scorecard.intents`, no dimension is scored, no model is called. The scorer in front of `always` in `route-fixed`, the default router since ledger `44.1` |
 | `llm-sufficiency` | `Sufficiency` | Asks the model whether the evidence suffices — this build's own mechanism; §1.1's `refine-on-uncertainty` row states neither `Sufficiency` implementation traces to a paper |
 | `hedge-phrases` | `Sufficiency` | A locale-keyed hedge-phrase table, authored fresh for Weft as the documented weak baseline, replacing the substring-matching mechanism described in §1.4 rather than porting it |
 | `cited-answer` | `Generator` | The one generator every pipeline above resolves. `when_no_evidence` switches stance (refuse, or answer from memory) rather than a second plugin existing |

@@ -146,4 +146,4 @@ def test_services_route_names_the_pipeline_document_weft_ask_routes_through() ->
 
     # Assert
     assert selection.route == "route-by-score"
-    assert ServiceSelection().route == DEFAULT_ROUTER == "route"
+    assert ServiceSelection().route == DEFAULT_ROUTER == "route-fixed"

@@ -269,7 +269,7 @@ async def _routed(calls: Calls, llm: LLMSection) -> tuple[str, Answer]:
         reports=_reports(*_ROUTER_AND_MEMORY),
         ctx=_ctx(),
         llm=llm,
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         sink=NullSink(),
     )
 
@@ -346,7 +346,7 @@ async def test_with_no_rung_left_to_offer_the_refusal_names_the_missing_role(
             reports=_reports("route.yaml"),
             ctx=_ctx(),
             llm=_llm(route="scores", generate="answers"),
-            services=ServiceSelection(embed="hash", store="memory"),
+            services=ServiceSelection(embed="hash", store="memory", route="route"),
             sink=NullSink(),
         )
 
@@ -391,7 +391,7 @@ async def test_a_named_ask_needing_only_generate_is_not_refused_for_router_or_ru
         reports=_reports(*_ROUTER_AND_MEMORY),
         ctx=_ctx(),
         llm=_llm(generate="answers"),
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         sink=NullSink(),
     )
 
@@ -422,7 +422,7 @@ async def test_explain_names_each_rung_left_out_and_the_role_it_needs(
     deps = Dependencies(
         registry=_registry([]),
         reports=_reports(*_ROUTER_AND_MEMORY),
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         llm=_llm(route="scores", generate="answers"),
     )
     ctx = _ctx()
@@ -513,7 +513,7 @@ async def test_a_rung_whose_stranger_role_field_is_unmapped_is_not_offered(
         reports=_reports(*_ROUTER_AND_MEMORY),
         ctx=_ctx(),
         llm=_llm(route="scores", generate="answers"),
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         sink=NullSink(),
     )
 
@@ -535,7 +535,7 @@ async def test_explain_names_a_stranger_rung_and_the_role_its_config_sets(
     deps = Dependencies(
         registry=_registry_with_stranger([]),
         reports=_reports(*_ROUTER_AND_MEMORY),
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         llm=_llm(route="scores", judge="grades", generate="answers"),
     )
     ctx = _ctx()
@@ -608,7 +608,7 @@ async def test_a_rung_whose_multi_retriever_arm_role_is_unmapped_is_not_offered(
         reports=_reports(*_ROUTER_AND_MEMORY),
         ctx=_ctx(),
         llm=_llm(route="scores", generate="answers"),
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         sink=NullSink(),
     )
 
@@ -630,7 +630,7 @@ async def test_explain_names_a_multi_retriever_rung_and_the_role_its_arm_sets(
     deps = Dependencies(
         registry=_registry_with_multi_retriever([]),
         reports=_reports(*_ROUTER_AND_MEMORY),
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         llm=_llm(route="scores", grade="grades", generate="answers"),
     )
     ctx = _ctx()
@@ -753,7 +753,7 @@ async def test_a_routed_ask_over_a_misdeclared_sub_plugin_is_refused_before_any_
             reports=_reports(*_ROUTER_AND_MEMORY),
             ctx=_ctx(),
             llm=_llm(route="scores", judge="grades", generate="answers"),
-            services=ServiceSelection(embed="hash", store="memory"),
+            services=ServiceSelection(embed="hash", store="memory", route="route"),
             sink=NullSink(),
         )
 
@@ -772,7 +772,7 @@ async def test_explain_over_a_misdeclared_sub_plugin_is_refused_naming_the_field
     deps = Dependencies(
         registry=_registry_with_misdeclared_panel([]),
         reports=_reports(*_ROUTER_AND_MEMORY),
-        services=ServiceSelection(embed="hash", store="memory"),
+        services=ServiceSelection(embed="hash", store="memory", route="route"),
         llm=_llm(route="scores", judge="grades", generate="answers"),
     )
     ctx = _ctx()

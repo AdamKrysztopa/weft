@@ -253,6 +253,7 @@ from weft_retrieve.rerank import NAME as LLM_RERANK_NAME
 from weft_retrieve.rerank import LlmRerank, LlmRerankConfig
 from weft_retrieve.routing import (
     ALWAYS_NAME,
+    KEYWORD_INTENTS_NAME,
     NEAREST_DESCRIPTION_NAME,
     QUERY_SCORER_NAME,
     THRESHOLD_LADDER_NAME,
@@ -261,6 +262,8 @@ from weft_retrieve.routing import (
     Comparison,
     Condition,
     Dimension,
+    KeywordIntents,
+    KeywordIntentsConfig,
     LlmQueryScorer,
     NearestDescription,
     NearestDescriptionConfig,
@@ -431,6 +434,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(Prompt, SUFFICIENCY_CHECK_NAME, SufficiencyCheckPrompt)
     registrar.add(Prompt, SUMMARIZE_FOR_QUERY_NAME, SummarizeForQueryPrompt)
     registrar.add(QueryScorer, QUERY_SCORER_NAME, LlmQueryScorer)
+    registrar.add(QueryScorer, KEYWORD_INTENTS_NAME, KeywordIntents)
     registrar.add(RoutingPolicy, THRESHOLD_LADDER_NAME, ThresholdLadder)
     registrar.add(RoutingPolicy, NEAREST_DESCRIPTION_NAME, NearestDescription)
     registrar.add(RoutingPolicy, ALWAYS_NAME, Always)
@@ -562,6 +566,7 @@ __all__ = [
     "AdjacentChunks",
     "AdjacentChunksConfig",
     "ALWAYS_NAME",
+    "KEYWORD_INTENTS_NAME",
     "BOOLEAN_COMBINE_NAME",
     "HYBRID_NAME",
     "Hybrid",
@@ -607,6 +612,8 @@ __all__ = [
     "VECTOR_TOP_K_NAME",
     "WHOLE_CORPUS_NAME",
     "Always",
+    "KeywordIntents",
+    "KeywordIntentsConfig",
     "AlwaysConfig",
     "Anchor",
     "AnchorKind",

@@ -101,10 +101,14 @@ DEFAULT_EMBEDDER_MEANING: Final[str] = (
 #: it is resolved by name through the same registry every other store is.
 DEFAULT_STORE: Final[str] = "pgvector"
 
-#: `weft-retrieve`'s own `route.yaml`. **Added by ledger task 8.3, and it is a repair rather
-#: than a feature.** Until it existed, `weft_cli.route_ask` held `"route"` as a module constant
-#: — "the one pipeline name this module ever writes itself" — and that made the router the only
-#: privileged pipeline in the tree: a pack cannot contribute a second document under a name
+#: `weft-retrieve`'s own `route-fixed.yaml` since ledger task **44.1**: `route` paid a model call
+#: per ask and was never measured, while `route-fixed` answers through the best measured first
+#: stage and calls no model. `route` stays shipped and selectable.
+#:
+#: **Added by ledger task 8.3, and it is a repair rather than a feature.** Until it existed,
+#: `weft_cli.route_ask` held `"route"` as a module constant — "the one pipeline name this
+#: module ever writes itself" — and that made the router the only privileged pipeline in the
+#: tree: a pack cannot contribute a second document under a name
 #: another pack already contributed, and a project cannot ship its own `route.yaml` either,
 #: because `weft_cli.pipeline_catalogue.full_catalogue` refuses a name declared by both sources
 #: and takes every `weft pipeline` command down with it until the file is renamed. So
@@ -112,7 +116,7 @@ DEFAULT_STORE: Final[str] = "pgvector"
 #: placeable by nobody, which is requirement 4 broken in exactly the shape `01` item 11 names:
 #: a strategy that registers, is listed, is described to a model, and can never run. Here it
 #: is a name resolved by the same mechanism `embed` and `store` already use.
-DEFAULT_ROUTER: Final[str] = "route"
+DEFAULT_ROUTER: Final[str] = "route-fixed"
 
 #: The `[services]` key that names the router — the one accepted key no pack declares, named
 #: once here so `accepted_service_keys` is the only place it is added. Carried repair **R9.4**.

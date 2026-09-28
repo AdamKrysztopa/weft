@@ -189,7 +189,7 @@ async def test_run_routed_ask_selects_and_executes_the_only_routable_pipeline() 
         reports=_reports(),
         ctx=_ctx(),
         llm=_llm(),
-        services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
         sink=NullSink(),
     )
 
@@ -228,7 +228,7 @@ async def test_run_routed_ask_streams_generation_tokens_into_the_caller_s_sink()
         reports=_reports(),
         ctx=_ctx(),
         llm=_llm(),
-        services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
         sink=sink,
     )
 
@@ -253,7 +253,7 @@ async def test_run_routed_ask_raises_when_no_pack_contributed_a_router() -> None
             reports=(),
             ctx=_ctx(),
             llm=_llm(),
-            services=ServiceSelection(embed="fake-embed", store="fake-store"),
+            services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
             sink=NullSink(),
         )
 
@@ -297,7 +297,7 @@ async def test_run_named_ask_resolves_a_derived_pipeline(
         reports=(),
         ctx=_ctx(),
         llm=_llm(),
-        services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
         sink=NullSink(),
     )
 
@@ -363,7 +363,7 @@ async def test_run_named_ask_places_a_contribution_in_a_declared_slot(
         reports=(),
         ctx=_ctx(),
         llm=_llm(),
-        services=ServiceSelection(embed="fake-embed", store="fake-store"),
+        services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
         sink=NullSink(),
         contributions=(contribution,),
     )
@@ -522,7 +522,7 @@ async def test_the_router_refuses_a_name_a_project_and_a_pack_both_declare(
             reports=_reports(),
             ctx=_ctx(),
             llm=_llm(),
-            services=ServiceSelection(embed="fake-embed", store="fake-store"),
+            services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
             sink=NullSink(),
         )
 
@@ -674,7 +674,7 @@ async def test_a_stage_needing_a_service_no_role_provides_is_refused_before_anyt
             reports=(),
             ctx=_ctx(),
             llm=_llm(),
-            services=ServiceSelection(embed="fake-embed", store="fake-store"),
+            services=ServiceSelection(embed="fake-embed", store="fake-store", route="route"),
             sink=NullSink(),
         )
     assert "retrieve" in str(caught.value), "the refusal does not name the stage that demanded it"

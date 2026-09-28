@@ -71,6 +71,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **`weft ask` answers through `retrieve-then-generate` by default, and calls no model to decide
+  so.** The default `[services] route` is now `route-fixed`, whose new scorer `keyword-intents`
+  calls no model. `route` paid one model call per question on the `route` role, for scores its
+  policy never read, and no router has been measured against using one pipeline. `route` and
+  `route-by-score` still ship: set `[services] route = "route"` to keep the previous behaviour.
+  A `weft.toml` that mapped the `route` role only for the default router no longer needs it.
 - **A routed `weft ask` offers only pipelines that write an answer.** `lexical-retrieve` and
   `anchor-promote-retrieve` return passages, not answers, and the router could pick either and
   then fail. Neither is offered to the router now; both still run by name with
