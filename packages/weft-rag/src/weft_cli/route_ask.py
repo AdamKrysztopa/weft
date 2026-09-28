@@ -26,8 +26,8 @@ and no pipeline of its own at all. **Which document is the router is `[services]
 answer since task 8.3**, defaulting to `route-fixed` since task 44.1 — until 8.3 the name was a
 constant here, and that made it the one pipeline in the tree nobody could substitute: a pack
 cannot contribute a second document under a name another pack already holds, and a project that
-ships its own `route.yaml` is refused by `full_catalogue` and takes every `weft pipeline` command with it.
-`weft_engine.services.DEFAULT_ROUTER` carries the argument, and the two registered routing
+ships its own `route.yaml` is refused by `full_catalogue` and takes every `weft pipeline` command
+with it. `weft_engine.services.DEFAULT_ROUTER` carries the argument, and the two registered routing
 policies that were unreachable because of it are the evidence.
 
 `weft_engine.run_services.check_store_capabilities` runs once per resolved pipeline,
