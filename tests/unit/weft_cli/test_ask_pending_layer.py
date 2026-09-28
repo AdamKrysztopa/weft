@@ -14,11 +14,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from weft_store.coverage import LayerCoverage, layer_coverage_of, ready_layers
 
 from tests.unit.weft_cli.routed import routed_to
 from weft_cli import commands, render
 from weft_cli.commands import AskCommandResult
-from weft_cli.coverage import LayerCoverage, layer_coverage_of, ready_layers
 from weft_cli.layers import UnknownLayerError
 from weft_cli.output import AskFormat
 from weft_embed import Embedder

@@ -1,7 +1,10 @@
 """Let `weft ask` warn when its answer came from only part of the corpus.
 
 How much of the corpus `weft ask` could see, from one `list_sources()` read — task **43.4**,
-widened at **43.9** to answer per-layer coverage from the identical read.
+widened at **43.9** to answer per-layer coverage from the identical read. Moved here from
+`weft_cli.coverage` at task **44.15**: this reads only `SourceRecord`s, and `weft_retrieve`'s
+own `weft_retrieve.profile.corpus_profile` needs it too — `weft_retrieve` imports nothing from
+`weft_cli`.
 
 The denominator is what the store has recorded, never the directory: a file no run has reached is
 unknown here as it is to `weft sources list`. `indexing` covers a run in flight and one that died
@@ -14,7 +17,7 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_store import LayerStatus, SourceRecord, SourceStatus
+from weft_store.contract import LayerStatus, SourceRecord, SourceStatus
 
 
 class SourceCoverage(BaseModel):

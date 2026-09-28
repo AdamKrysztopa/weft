@@ -54,7 +54,7 @@ from typing import Annotated, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from weft_embed.contract import Embedder
-from weft_kernel.context import Context
+from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.payload import Failed, MediaType, Node, NothingToProduce, Outcome, Produced, Vector
 from weft_llm.contract import LLM, LLMRole
 from weft_llm.payload import OnFailure
@@ -62,7 +62,7 @@ from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import RouteCatalogue, StageLookup
 from weft_retrieve.payload import Query, Route, RouteCandidate, RuleOutcome, Scorecard
-from weft_retrieve.profile import profile_query
+from weft_retrieve.profile import CorpusProfile, profile_query
 from weft_retrieve.profile_cues import DEFAULT_CUES, CueLexicon
 from weft_retrieve.prompts import ROUTE_QUERY_NAME, RouteQueryRequest, RouteQueryScores
 
@@ -344,6 +344,12 @@ class QueryProfileScorer:
     `profile_query`'s `features()` (word count, anchors, cue families) alongside the
     configured intents, all read from `payload.text` and `ctx.locale` with no service
     resolved and no model called.
+
+    **`corpus.*` features — ledger task 44.15.** When a `weft_retrieve.profile.CorpusProfile`
+    is registered on this run (`weft_engine.run_services.build_services`'s own `corpus=`),
+    its `features()` are merged in alongside the query's own — the one resolution this plugin
+    makes, and the one it is allowed to fail: no `CorpusProfile` on the run (every caller
+    before this task, and `weft eval`'s scoring path) leaves the `Scorecard` exactly as it was.
     """
 
     config_model: ClassVar[type[QueryProfileScorerConfig]] = QueryProfileScorerConfig
@@ -353,14 +359,21 @@ class QueryProfileScorer:
         self._config = config if config is not None else QueryProfileScorerConfig()
 
     async def run(self, payload: Query, ctx: Context) -> Outcome[Scorecard]:
-        """Tag the configured intents `payload` mentions and its `profile_query` features."""
+        """Tag the configured intents, `profile_query`'s features, and any `corpus.*` ones."""
         profile = profile_query(payload.text, locale=ctx.locale, cues=self._config.cues)
+        features = dict(profile.features())
+        try:
+            corpus = ctx.require(CorpusProfile)
+        except UnresolvedServiceError:
+            corpus = None
+        if corpus is not None:
+            features.update(corpus.features())
         return Produced(
             value=Scorecard(
                 query=payload,
                 scores={},
                 intents=_keyword_intents(payload.text, self._config.intent_markers),
-                features=profile.features(),
+                features=features,
             )
         )
 

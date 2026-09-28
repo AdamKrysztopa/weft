@@ -93,13 +93,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from weft_cli.ask import AskHit, hits_for, run_ask
 from weft_cli.config_commands import register_config_commands
-from weft_cli.coverage import (
-    LayerCoverage,
-    SourceCoverage,
-    coverage_of,
-    layer_coverage_of,
-    ready_layers,
-)
 from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
@@ -208,6 +201,7 @@ from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
 from weft_retrieve.engine import missing_roles, route_requirements
 from weft_retrieve.payload import Route
+from weft_retrieve.profile import CorpusProfile, corpus_profile
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
 from weft_store.contract import (
     EmbeddingIdentity,
@@ -216,6 +210,13 @@ from weft_store.contract import (
     TargetCatalogue,
     TargetHolding,
     target_name,
+)
+from weft_store.coverage import (
+    LayerCoverage,
+    SourceCoverage,
+    coverage_of,
+    layer_coverage_of,
+    ready_layers,
 )
 
 _INDEX_HELP = (
@@ -1730,6 +1731,13 @@ class AskCommand:
             return coverage_outcome
         ask_coverage = coverage_outcome.value
         ready = ready_layers(ask_coverage.layers)
+        # Ledger task **44.15** — the same `list_sources()` read, never a second one; the
+        # `generate` role's declared context window, or `None` when nothing declared it.
+        generate_role = deps.llm.roles.roles.get("generate")
+        corpus = corpus_profile(
+            ask_coverage.records,
+            context_tokens=generate_role.context_tokens if generate_role is not None else None,
+        )
         catalogue = full_catalogue(reports=deps.reports)
         # R43.13: a misspelt route.requires is a fault in the document, never a layer that is
         # merely not built yet — checked over the whole catalogue before either branch below,
@@ -1742,6 +1750,7 @@ class AskCommand:
             catalogue=catalogue,
             ask_coverage=ask_coverage,
             ready=ready,
+            corpus=corpus,
         )
         explanations: tuple[str, ...] = ()
         note: str | None = None
@@ -1810,10 +1819,14 @@ async def _ask_named_or_routed(
     catalogue: Mapping[str, Pipeline],
     ask_coverage: _AskCoverage,
     ready: frozenset[str],
+    corpus: CorpusProfile,
 ) -> tuple[str, Route | None, Answer]:
     """Answer by `--pipeline`'s name, or through the router: the pipeline, its route, the answer.
 
     The `Route` is `None` on a named ask, which took no routing decision (ledger task **44.2**).
+    `corpus` — ledger task **44.15** — reaches only the routed path, the same `ready` a rung's
+    own `route.requires` is checked against: a directly named `--pipeline` bypasses the router
+    that would read it, exactly as it already bypasses `ready_layers`.
     """
     if ask_args.pipeline is None:
         route, answer = await run_routed_ask(
@@ -1828,6 +1841,7 @@ async def _ask_named_or_routed(
             roles=deps.roles,
             target=ask_args.target,
             ready_layers=ready,
+            corpus=corpus,
         )
         return route.pipeline, route, answer
     pipeline_name = ask_args.pipeline
@@ -2053,7 +2067,7 @@ class ListedTarget(BaseModel):
     embedding: EmbeddingIdentity | None
     sources: int
     #: Ledger task **43.10** — every layer built on every source of this target
-    #: (`weft_cli.coverage.ready_layers`), sorted. Empty for a target with none, or none
+    #: (`weft_store.coverage.ready_layers`), sorted. Empty for a target with none, or none
     #: complete on every one of its sources.
     layers_complete: tuple[str, ...] = ()
 

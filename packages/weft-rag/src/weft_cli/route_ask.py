@@ -98,6 +98,7 @@ from weft_llm.contract import LLMProvider, TokenSink
 from weft_retrieve.contract import RoutingPolicy
 from weft_retrieve.engine import roles_needed, route_catalogue
 from weft_retrieve.payload import Passages, Query, QuerySet, Ranking, Route
+from weft_retrieve.profile import CorpusProfile
 from weft_store import NodeStore
 
 #: `route.yaml`'s own `name:` field, and **the default rather than the law** since ledger task
@@ -222,6 +223,7 @@ async def run_routed_ask(
     roles: RoleTable = _NO_ROLES,
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
+    corpus: CorpusProfile | None = None,
 ) -> tuple[Route, Answer]:
     """`weft ask`'s default path: the router picks the pipeline, so the user need not name one.
 
@@ -258,7 +260,9 @@ async def run_routed_ask(
     `target` — ledger task **34.6** — reaches `_prepared_runner`'s own `build_services` call
     unchanged; `None` (every caller before this task) reads the live target. `ready_layers`
     — ledger task **43.9** — reaches it the same way, so the router never offers a rung whose
-    `route.requires` layer is not built everywhere.
+    `route.requires` layer is not built everywhere. `corpus` — ledger task **44.15** — reaches
+    it the same way, so `weft_retrieve.routing.QueryProfileScorer` can read `corpus.*` features;
+    `None` (every caller before this task, and every `weft eval` path) registers nothing.
 
     **Roles, before any model call — carried repair R43.30.** A role the router itself calls
     under that `[llm.roles]` does not map raises `weft_llm.roles.UnmappedLLMRoleError`; a rung
@@ -309,6 +313,7 @@ async def run_routed_ask(
         target=target,
         ready_layers=ready_layers,
         rung_roles=rung_roles,
+        corpus=corpus,
     )
     in_flight: BaseException | None = None
     try:
@@ -863,6 +868,7 @@ async def _prepared_runner(
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
     rung_roles: Mapping[str, frozenset[str]] | None = None,
+    corpus: CorpusProfile | None = None,
 ) -> PreparedRunner:
     """Assemble the services, context, runner and store both ask paths share.
 
@@ -899,7 +905,9 @@ async def _prepared_runner(
 
     `ready_layers` — ledger task **43.9** — reaches `build_services` unchanged; `None`
     (every caller before this task) offers every candidate the catalogue holds. `rung_roles`
-    — carried repair **R43.30** — reaches it the same way.
+    — carried repair **R43.30** — reaches it the same way. `corpus` — ledger task **44.15**
+    — reaches `build_services` unchanged; `None` (every caller before this task) registers
+    nothing.
     """
     role_instances = selected_role_instances(registry=registry, services=services, table=roles)
     service_registry = await build_services(
@@ -913,6 +921,7 @@ async def _prepared_runner(
         target=target,
         ready_layers=ready_layers,
         rung_roles=rung_roles,
+        corpus=corpus,
     )
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)

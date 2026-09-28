@@ -59,10 +59,10 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict
 
-from weft_cli.coverage import LayerCoverage, SourceCoverage
 from weft_cli.sinks import LineKind
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_retrieve.payload import Route, RouteView
+from weft_store.coverage import LayerCoverage, SourceCoverage
 
 #: `09` §3's additive promise, carried in the data — see the module docstring.
 ANSWER_ENVELOPE_VERSION: Final[str] = "1.0.0"

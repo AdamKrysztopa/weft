@@ -49,6 +49,7 @@ from weft_llm.scripted import ScriptedProvider
 from weft_prompts.contract import Prompts
 from weft_retrieve import Candidates, QuerySet, Retriever
 from weft_retrieve.contract import RouteCatalogue, StageLookup
+from weft_retrieve.profile import CorpusProfile, corpus_profile
 from weft_store import Filter, NodeStore, Scored, TextSearch, VectorSearch
 from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
@@ -576,3 +577,31 @@ async def test_an_estimate_run_offers_no_model_so_a_stage_reaching_for_one_is_re
 
     # The sink is not a model service and is deliberately still registered.
     assert services.resolve(TokenSink) is not None
+
+
+async def test_build_services_registers_the_corpus_profile_it_is_handed() -> None:
+    # Arrange — task 44.15: the profile built from the ask's own `list_sources()` read.
+    registry = _services_registry()
+    profile = corpus_profile((), context_tokens=None)
+
+    # Act
+    given = await build_services(
+        registry=registry,
+        catalogue=_routable_catalogue(),
+        llm=LLMSection(),
+        services=ServiceSelection(embed="fake", store="fake"),
+        sink=NullSink(),
+        corpus=profile,
+    )
+    absent = await build_services(
+        registry=registry,
+        catalogue=_routable_catalogue(),
+        llm=LLMSection(),
+        services=ServiceSelection(embed="fake", store="fake"),
+        sink=NullSink(),
+    )
+
+    # Assert
+    assert given.resolve(CorpusProfile) is profile
+    with pytest.raises(UnresolvedServiceError):
+        absent.resolve(CorpusProfile)

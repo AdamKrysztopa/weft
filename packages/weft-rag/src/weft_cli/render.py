@@ -85,7 +85,6 @@ from weft_cli.commands import (
     TargetRollbackCommandResult,
 )
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
-from weft_cli.coverage import LayerCoverage, SourceCoverage
 from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import build_error_envelope
 from weft_cli.eval_commands import (
@@ -148,6 +147,7 @@ from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced
 from weft_kernel.payload.applicability import Applies
 from weft_kernel.registry import Registry, UnknownPluginError
 from weft_kernel.seam import StageRecord
+from weft_store.coverage import LayerCoverage, SourceCoverage
 
 
 def render_outcome(

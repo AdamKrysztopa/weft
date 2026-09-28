@@ -500,7 +500,7 @@ def route_catalogue(
     """Build the run's `RouteCatalogue`.
 
     This pack's own constructor — see the module docstring on `stage_lookup`, the identical shape.
-    `ready_layers` — ledger task **43.9** — is which layers `weft_cli.coverage.ready_layers` found
+    `ready_layers` — ledger task **43.9** — is which layers `weft_store.coverage.ready_layers` found
     built on every indexed source; `None` (every caller before this task) offers every candidate,
     unfiltered. `rung_roles`/`mapped_roles` — carried repair **R43.30** — leave out a rung needing a
     role the run's `[llm.roles]` does not map; `PipelineRouteCatalogue`'s own docstring.

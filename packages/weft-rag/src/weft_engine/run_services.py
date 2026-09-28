@@ -80,6 +80,7 @@ from weft_prompts.contract import Prompts
 from weft_prompts.registry import prompts_service
 from weft_retrieve.contract import RouteCatalogue, StageLookup
 from weft_retrieve.engine import route_catalogue, stage_lookup
+from weft_retrieve.profile import CorpusProfile
 from weft_store import NodeStore
 from weft_store.contract import target_name
 
@@ -533,6 +534,7 @@ async def build_services(
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
     rung_roles: Mapping[str, frozenset[str]] | None = None,
+    corpus: CorpusProfile | None = None,
 ) -> ServiceRegistry:
     """Assemble one run's `ServiceRegistry`.
 
@@ -598,6 +600,12 @@ async def build_services(
     `None` (every caller before this task) offers every candidate the catalogue holds.
     `rung_roles` — carried repair **R43.30** — reaches it the same way, beside the role names
     `llm` maps, so a rung needing an unmapped role is not offered.
+
+    **`corpus` — ledger task 44.15.** Registered under `CorpusProfile` when given, so
+    `weft_retrieve.routing.QueryProfileScorer` (or any other stage) can reach it through
+    `ctx.require`; `None` (every caller before this task, and every `weft eval` path) registers
+    nothing, leaving `ctx.require(CorpusProfile)` to raise `UnresolvedServiceError`, exactly as
+    it did before this parameter existed.
     """
     registered = ServiceRegistry()
     registered.add(
@@ -630,6 +638,8 @@ async def build_services(
             mapped_roles=frozenset(llm.roles.roles),
         ),
     )
+    if corpus is not None:
+        registered.add(CorpusProfile, corpus)
 
     role_map = (
         role_instances
@@ -855,7 +865,7 @@ class SelectedCapabilityMissingError(PipelineResolutionError, UnresolvedNameErro
     `pgvector` — a remedy nobody could carry out. Every other call site was a test supplying that
     name by hand, which is exactly why none of them could catch it. Repaired at ledger task
     **11.10**: `weft_cli.route_ask._run_pipeline`'s own `check_store_capabilities` call
-    (`weft_cli/route_ask.py:1036 'contracts ='`) now takes `store_name` as a parameter fed from
+    (`weft_cli/route_ask.py:1045 'contracts ='`) now takes `store_name` as a parameter fed from
     `[services] store` itself, threaded down from each of that module's three call sites, rather
     than deriving one from the instance.
 

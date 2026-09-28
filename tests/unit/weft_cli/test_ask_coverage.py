@@ -13,11 +13,11 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+from weft_store.coverage import SourceCoverage
 
 from tests.unit.weft_cli.routed import routed_to
 from weft_cli import commands, render
 from weft_cli.commands import AskCommandResult
-from weft_cli.coverage import SourceCoverage
 from weft_cli.output import AskFormat
 from weft_embed import Embedder
 from weft_engine.registry_bootstrap import Dependencies
