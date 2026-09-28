@@ -395,6 +395,12 @@ expensive, CPU-bound `_split` step offloads it with `asyncio.to_thread`, the sam
 first-party pack in this repository uses, so the detector never fires on the one call that is
 supposed to block a worker thread instead of the loop.
 
+If your stage's output carries a fact an operator would want in a trace, give its payload model a
+`telemetry_attributes()` method returning a mapping of attribute names to scalars; the seam sets
+them on your stage's span when the stage produces. `weft_retrieve.payload.Route` is the worked
+example. Name the keys under a namespace of your own (`weft.route.*` is `weft-retrieve`'s): the
+seam's own `weft.pack`, `weft.contract` and `weft.plugin` are never overwritten.
+
 The `Runner`-and-`StageSpec` route above is still the one a *test* takes, because a test wants
 the seam without a database or a corpus. The pipeline document is the one a *user* takes.
 

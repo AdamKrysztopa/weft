@@ -12,7 +12,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from weft_eval.replay import ReplayRow, UnscoredMetricError, render_replay_table, replay
 
 from tests.unit.weft_eval.replay_records import (
     METRIC,
@@ -22,6 +21,7 @@ from tests.unit.weft_eval.replay_records import (
 )
 from weft_eval.evidence import AmbiguousInvocationError, IncompleteExperimentError
 from weft_eval.falsify import UnpairableRecordsError
+from weft_eval.replay import ReplayRow, UnscoredMetricError, render_replay_table, replay
 
 
 def _rows(rows: tuple[ReplayRow, ...]) -> dict[str, ReplayRow]:

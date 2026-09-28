@@ -44,6 +44,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A routing decision is on the router's trace span.** The policy stage's span carries
+  `weft.route.pipeline`, `weft.route.outcome` and, when a rule matched, `weft.route.rule`, so an
+  exported trace says which pipeline a routed `weft ask` chose and why. A stage's output puts
+  facts on its own span by declaring `telemetry_attributes()`; the seam applies them and keeps its
+  own `weft.pack`, `weft.contract` and `weft.plugin`. The `weft-retrieve` contract version moves
+  1.2.0 → 1.3.0.
+
 - **A run record keeps each question's answer text** (`question_answers`) when the rung
   generates, so answers can be judged again later without regenerating them. A new
   `pairwise-judge` prompt compares two answers on one criterion (comprehensiveness, diversity,

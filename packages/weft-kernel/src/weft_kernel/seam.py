@@ -521,12 +521,10 @@ def wrap[**P, T](
 
 @runtime_checkable
 class TelemetryAttributed(Protocol):
-    """A payload accessor naming facts its own stage's span should carry — G28, R44.2.
+    """Facts a produced value puts on its own stage's span (G28).
 
-    Structural, like `Node.without_transient`: a pack's model implements this by defining
-    the method and imports nothing from OTel. Not a contract method — `sync`, because this
-    is a payload accessor rather than a plugin capability, and `CLAUDE.md`'s async-only rule
-    covers the latter.
+    A pack's model defines the method and imports nothing from OTel. A payload accessor, not a
+    contract method, so sync.
     """
 
     def telemetry_attributes(self) -> Mapping[str, str | bool | int | float]:

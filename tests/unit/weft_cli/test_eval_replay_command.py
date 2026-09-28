@@ -11,13 +11,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from weft_cli.eval_replay import EvalReplayArgs, EvalReplayCommand
-from weft_eval.replay import UnscoredMetricError, render_replay_table, replay
 
 from tests.unit.weft_eval.replay_records import METRIC, experiment_of, records_of
+from weft_cli.eval_replay import EvalReplayArgs, EvalReplayCommand
 from weft_cli.exit_codes import ExitCode, exit_code_for
 from weft_cli.render import render_outcome
 from weft_command.permission import PermissionClass
+from weft_eval.replay import UnscoredMetricError, render_replay_table, replay
 from weft_eval.run_record import write_run_record
 from weft_kernel.context import Context
 from weft_kernel.payload import Produced

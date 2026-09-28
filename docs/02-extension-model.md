@@ -256,7 +256,10 @@ class MyStage:
 - **The author supplies no observability.** Span name and `span_kind` are derived at the registration
   seam from contract and plugin name. Hand-written spans are a known decay path — one measured
   instance had drifted to 38 of 54 names off-convention and 5 with no kind, because both were an
-  author's job; here there is nothing to forget and nothing to get wrong.
+  author's job; here there is nothing to forget and nothing to get wrong. A fact a stage's *output*
+  owns reaches the same span the same way (G28, 2026-09-28): the seam applies whatever a produced
+  value returns from `telemetry_attributes()`, and keeps its own attribution keys. A `Route` puts
+  the chosen pipeline, its outcome and its rule there; the plugin that built it writes no span.
 
   > **Narrowed in Phase 0 step 3 (2026-08-15).** `stage` is the fourth field on `WeftError`, and
   > this section did not say where it comes from. A pipeline *position* — which slot in an ordered
