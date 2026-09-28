@@ -44,6 +44,15 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`weft route explain "<question>"` shows how a question would be routed, without answering
+  it**: the query's profile, the corpus's profile and the route the configured router picks.
+  `--json` gives one object with `query_profile`, `corpus_profile` and `route`. It calls no
+  model when the router needs none (the default `route-fixed`).
+- **Routing rules can test the corpus.** A routed `weft ask` gives the router `corpus.*`
+  features — documents, leaves, leaf tokens, whether the corpus fits the generate role's
+  `context_tokens`, whether each layer is ready — from the source records the ask already reads.
+  A feature whose value is not known is left out rather than guessed.
+
 - **`weft index` records how big each source is.** Each source record carries `stats`: its leaf
   count, the characters in those leaves and, when a tokenizer is mapped, their tokens (tokens stay
   unknown on the default index path, never zero). Records written before this read `stats` as
