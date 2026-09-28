@@ -151,6 +151,7 @@ from weft_store.contract import (
     WriterClaim,
     source_failure,
     source_layers,
+    source_stats,
     source_status,
 )
 from weft_store.contract import (
@@ -224,6 +225,9 @@ ALTER TABLE weft_sources
 _ADD_SOURCES_LAYERS = (  # task 43.6, `_ADD_SOURCES_FAILURE`'s own footing above.
     "ALTER TABLE weft_sources ADD COLUMN IF NOT EXISTS layers JSONB NOT NULL DEFAULT '[]'::jsonb"
 )
+#: Task **44.13**, `_ADD_SOURCES_FAILURE`'s own footing: nullable, so a row `put_source` wrote
+#: before this task reads back `stats=None` rather than failing to parse.
+_ADD_SOURCES_STATS = "ALTER TABLE weft_sources ADD COLUMN IF NOT EXISTS stats JSONB"
 
 # `embedding` is declared as a bare `vector`: its width is not known until the first node with an
 # embedding reaches `add()`. `_reconcile_vector_width` then pins the column to that width with
@@ -1378,6 +1382,7 @@ class PgVectorStore:
             sql.SQL(_ADD_SOURCES_PIPELINE_IDENTITY),
             sql.SQL(_ADD_SOURCES_FAILURE),
             sql.SQL(_ADD_SOURCES_LAYERS),
+            sql.SQL(_ADD_SOURCES_STATS),
             sql.SQL(_CREATE_NODES_TABLE),
             sql.SQL(_CREATE_NODE_PRODUCTIONS_TABLE),
             sql.SQL(_ADD_NODE_PRODUCTIONS_FK),
@@ -1949,8 +1954,8 @@ class PgVectorStore:
                     """
                     INSERT INTO weft_sources
                         (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity,
-                         failure, layers)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         failure, layers, stats)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO UPDATE SET
                         uri = EXCLUDED.uri,
                         content_hash = EXCLUDED.content_hash,
@@ -1958,7 +1963,8 @@ class PgVectorStore:
                         pipeline = EXCLUDED.pipeline,
                         status = EXCLUDED.status,
                         pipeline_identity = EXCLUDED.pipeline_identity,
-                        failure = EXCLUDED.failure, layers = EXCLUDED.layers
+                        failure = EXCLUDED.failure, layers = EXCLUDED.layers,
+                        stats = EXCLUDED.stats
                     """,
                     (
                         record.id,
@@ -1972,6 +1978,9 @@ class PgVectorStore:
                         if record.failure is not None
                         else None,
                         Jsonb([layer.model_dump(mode="json") for layer in record.layers]),
+                        Jsonb(record.stats.model_dump(mode="json"))
+                        if record.stats is not None
+                        else None,
                     ),
                 )
 
@@ -2859,6 +2868,7 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         if raw_failure is not None
         else None,
         layers=source_layers(cast("Sequence[Mapping[str, object]]", row.get("layers") or [])),
+        stats=source_stats(cast("Mapping[str, object] | None", row.get("stats"))),
     )
 
 

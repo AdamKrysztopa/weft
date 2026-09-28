@@ -129,6 +129,7 @@ from weft_cli.layers import (
     compose_layers,
     corpus_scoped_layer_names,
     demote_layer_records,
+    layer_leaf_filter,
     require_corpus_layers_generation_holding,
     require_layers_metadata_filter,
     run_layers,
@@ -154,10 +155,10 @@ from weft_extract import (
 from weft_extract.text import SourceRef, inventory_source_refs, load_source_docs
 from weft_index.contract import Expander
 from weft_index.payload import ExpansionDegraded
-from weft_kernel.context import Context
+from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import SourceId
+from weft_kernel.payload import Node, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import (
     Contribution,
@@ -175,7 +176,7 @@ from weft_kernel.runner import (
 )
 from weft_kernel.seam import OutcomeKind, StageRecord, recording
 from weft_llm.client import NullSink
-from weft_llm.contract import TokenSink
+from weft_llm.contract import LLM, TokenCounter, TokenSink
 from weft_store import NodeStore
 from weft_store.contract import (
     Cursor,
@@ -187,6 +188,7 @@ from weft_store.contract import (
     MetadataFilter,
     SourceFailure,
     SourceRecord,
+    SourceStats,
     SourceStatus,
     TargetHolding,
 )
@@ -197,6 +199,12 @@ from weft_store.contract import (
 #: pipeline", and a field meaning "which pipeline" cannot be empty on the path most corpora
 #: are indexed by.
 BUILT_IN_PIPELINE_NAME: Final[str] = "built-in"
+
+#: The one role `weft index` counts a written source's tokens under — task **44.13**. Not
+#: configurable: `SourceStats.tokens` records what a corpus will actually be asked against,
+#: which is `generate`'s own model, never a role a stage happens to have mapped for another
+#: purpose.
+_STATS_ROLE: Final[str] = "generate"
 
 #: Chunking: fixed, explicit, and stated once. See the module docstring for why extraction
 #: is chosen at run time, and `weft_engine.services` for why embedding and storage are.
@@ -726,6 +734,7 @@ async def _settle_batch(
     previous: Mapping[SourceId, SourceRecord],
     identity: str,
     pipeline: str | None,
+    counter: tuple[TokenCounter, str] | None,
 ) -> tuple[list[RunSummary], int, int]:
     """Record one finished batch's sources, re-running a failed multi-document batch singly.
 
@@ -734,12 +743,16 @@ async def _settle_batch(
         its documents were indexed and how many recorded `FAILED`.
     """
     if batch_summary.failed == 0:
+        stats = await _written_source_stats(
+            runnable, store_stage_ids=store_stage_ids, docs=batch_refs, counter=counter
+        )
         await _record_sources(
             runnable,
             store_stage_ids=store_stage_ids,
             docs=batch_refs,
             pipeline=pipeline,
             identity=identity,
+            stats=stats,
         )
         return [batch_summary], len(batch_refs), 0
     if len(batch_refs) == 1:
@@ -765,6 +778,7 @@ async def _settle_batch(
         previous=previous,
         identity=identity,
         pipeline=pipeline,
+        counter=counter,
     )
 
 
@@ -785,6 +799,7 @@ async def _run_base(
     on_batch: Callable[[BatchProgress], Awaitable[None]] | None,
     indexing_ctx: Context,
     corpus_layers: frozenset[str],
+    counter: tuple[TokenCounter, str] | None,
 ) -> tuple[Mapping[SourceId, SourceChange], tuple[SourceRef, ...], list[RunSummary], int, int]:
     """Run every batch of `work` through `runnable`, or nothing under `layers_only`.
 
@@ -908,6 +923,7 @@ async def _run_base(
             previous=previous,
             identity=identity,
             pipeline=pipeline,
+            counter=counter,
         )
         counts.extend(settled)
         indexed_count += indexed_delta
@@ -1203,6 +1219,7 @@ async def _index_claimed(
         on_batch=on_batch,
         indexing_ctx=indexing_ctx,
         corpus_layers=corpus_layers,
+        counter=_generate_counter(indexing_ctx, run_llm),
     )
     summary = _summed(counts)
     layers_released = _layers_released(
@@ -2135,6 +2152,7 @@ async def _rerun_batch_singly(
     previous: Mapping[SourceId, SourceRecord],
     identity: str,
     pipeline: str | None,
+    counter: tuple[TokenCounter, str] | None,
 ) -> tuple[list[RunSummary], int, int]:
     """Re-run a failed multi-document batch one document at a time.
 
@@ -2164,12 +2182,16 @@ async def _rerun_batch_singly(
                 raise
         summaries.append(doc_summary)
         if doc_summary.failed == 0:
+            stats = await _written_source_stats(
+                runnable, store_stage_ids=store_stage_ids, docs=(doc,), counter=counter
+            )
             await _record_sources(
                 runnable,
                 store_stage_ids=store_stage_ids,
                 docs=(doc,),
                 pipeline=pipeline,
                 identity=identity,
+                stats=stats,
             )
             indexed += 1
         else:
@@ -2641,6 +2663,134 @@ def _change_of(
     return SourceChange.UNCHANGED
 
 
+def _generate_counter(ctx: Context, llm: LLMSection) -> tuple[TokenCounter, str] | None:
+    """This run's `(counter, model)` for `_STATS_ROLE`, or `None` — ledger task **44.13**.
+
+    `None` — the default `weft index` case — unless `[llm.roles] generate` names a model *and*
+    this run's `LLM` service satisfies `weft_llm.contract.TokenCounter`. Never raises: a run with
+    no `[llm]` table at all, or a service that cannot count, records `tokens=None` rather than
+    failing an index over a measurement `01` never promised.
+    """
+    mapped = llm.roles.roles.get(_STATS_ROLE)
+    if mapped is None or mapped.model is None:
+        return None
+    try:
+        service = ctx.require(LLM)
+    except UnresolvedServiceError:
+        return None
+    if not isinstance(service, TokenCounter):
+        return None
+    return service, mapped.model
+
+
+def _first_filterable_store(
+    runnable: RunnablePipeline, store_stage_ids: Sequence[str]
+) -> MetadataFilter | None:
+    """The first store stage among `store_stage_ids` that can evaluate a `Filter`, or `None`.
+
+    `_store_stage_id_of`'s "one authority" precedent, applied to a read this run does for
+    itself rather than to the report an operator reads.
+    """
+    wanted = set(store_stage_ids)
+    for stage in runnable.stages:
+        if stage.id in wanted and isinstance(stage.instance, MetadataFilter):
+            return stage.instance
+    return None
+
+
+async def _leaves_by_source(
+    store: MetadataFilter, source_ids: Sequence[SourceId]
+) -> Mapping[SourceId, list[Node]]:
+    """Every leaf naming one of `source_ids`, grouped by each source it names.
+
+    `weft_index.leaves.leaf_clauses`, narrowed to `source_ids` by `weft_cli.layers.
+    layer_leaf_filter` exactly as the layer loop narrows a batch's own leaves — paged to
+    `next_cursor is None`, `whole_corpus.py:_read_bounded`'s own shape. A leaf whose
+    `lineage.sources` names more than one of `source_ids` counts toward each.
+    """
+    by_source: dict[SourceId, list[Node]] = {source_id: [] for source_id in source_ids}
+    cursor: Cursor | None = None
+    filter_ = layer_leaf_filter(source_ids)
+    while True:
+        page = await store.matching(filter_, cursor)
+        for node in page.items:
+            for source_id in node.lineage.sources:
+                bucket = by_source.get(source_id)
+                if bucket is not None:
+                    bucket.append(node)
+        if page.next_cursor is None:
+            return by_source
+        cursor = page.next_cursor
+
+
+async def _stats_for_nodes(
+    nodes: Sequence[Node], *, counter: tuple[TokenCounter, str] | None
+) -> SourceStats:
+    """One source's `SourceStats` from its own leaves.
+
+    `tokens`/`tokenizer` only when `counter` is given, never a character estimate standing in
+    for a count nobody made.
+    """
+    tokens: int | None = None
+    tokenizer: str | None = None
+    if counter is not None:
+        counting, tokenizer = counter
+        tokens = 0
+        for node in nodes:
+            tokens += await counting.count_tokens(_STATS_ROLE, node.content)
+    return SourceStats(
+        leaves=len(nodes),
+        characters=sum(len(node.content) for node in nodes),
+        tokens=tokens,
+        tokenizer=tokenizer,
+    )
+
+
+async def _written_source_stats(
+    runnable: RunnablePipeline,
+    *,
+    store_stage_ids: Sequence[str],
+    docs: Sequence[SourceDoc | SourceRef],
+    counter: tuple[TokenCounter, str] | None,
+) -> Mapping[SourceId, SourceStats]:
+    """Each of `docs`' leaves, characters and (when `counter` is given) tokens — task **44.13**.
+
+    Read back from the store this run itself just wrote to, never computed at ask time (G29).
+    `{}` when `docs` is empty or no store stage in `store_stage_ids` can evaluate a `Filter`
+    at all — the record it feeds `_record_sources` then keeps `stats=None`, the same "not
+    recorded" a store predating this task already means.
+    """
+    wanted = tuple(doc.source_id for doc in docs)
+    if not wanted:
+        return {}
+    store = _first_filterable_store(runnable, store_stage_ids)
+    if store is None:
+        return {}
+    by_source = await _leaves_by_source(store, wanted)
+    return {
+        source_id: await _stats_for_nodes(nodes, counter=counter)
+        for source_id, nodes in by_source.items()
+    }
+
+
+def _carried_stats(
+    source_id: SourceId,
+    *,
+    changes: Mapping[SourceId, SourceChange] | None,
+    previous: Mapping[SourceId, SourceRecord] | None,
+) -> SourceStats | None:
+    """The `stats` a `_record_sources` write should carry forward.
+
+    `_carried_layers`'s own condition applied to the field task **44.13** adds: `None` unless
+    this source's own `changes` entry is `SourceChange.UNCHANGED`, in which case whatever this
+    project already measured about it is still true, because the base did not re-parse it.
+    """
+    if changes is None or previous is None or changes.get(source_id) is not SourceChange.UNCHANGED:
+        return None
+    record = previous.get(source_id)
+    return record.stats if record is not None else None
+
+
 async def _record_sources(
     runnable: RunnablePipeline,
     *,
@@ -2653,6 +2803,7 @@ async def _record_sources(
     changes: Mapping[SourceId, SourceChange] | None = None,
     previous: Mapping[SourceId, SourceRecord] | None = None,
     demoted: frozenset[str] = frozenset(),
+    stats: Mapping[SourceId, SourceStats] | None = None,
 ) -> None:
     """Record one `SourceRecord` per indexed `SourceDoc` in every store written to.
 
@@ -2667,6 +2818,13 @@ async def _record_sources(
     forward whatever `previous` already recorded for it under `layers`; every other doc — a
     reparse, a fresh source, one this run could not compare — writes `layers=()`, since the
     base re-parsed it and a layer built over the old nodes has nothing left to enrich.
+
+    **`stats`, ledger task 44.13, `layers`' own shape one field over.** A doc named in `stats`
+    writes exactly the `SourceStats` given for it — `_written_source_stats`'s answer for the
+    sources a batch just wrote. A doc `stats` does not name carries `_carried_stats` forward
+    instead: whatever this project already measured, when `changes`/`previous` say this doc is
+    `UNCHANGED`, and `None` otherwise — a `FAILED` write or the pre-run `INDEXING` placeholder,
+    neither of which measured anything this call could carry.
 
     **`failures`, ledger 36.1.** `None` for every `status` but `SourceStatus.FAILED`, on
     `SourceRecord.failure`'s own rule: an `ACTIVE` write carries `failure=None` regardless of
@@ -2743,6 +2901,11 @@ async def _record_sources(
                     failure=(failures.get(doc.source_id) if failures is not None else None),
                     layers=_carried_layers(
                         doc.source_id, changes=changes, previous=previous, demoted=demoted
+                    ),
+                    stats=(
+                        stats.get(doc.source_id)
+                        if stats is not None
+                        else _carried_stats(doc.source_id, changes=changes, previous=previous)
                     ),
                 )
             )

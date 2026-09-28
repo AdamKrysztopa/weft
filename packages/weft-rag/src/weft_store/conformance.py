@@ -96,6 +96,7 @@ from weft_store.contract import (
     SingleWriter,
     SourceFailure,
     SourceRecord,
+    SourceStats,
     SourceStatus,
     SupersedeNarrowsSourcesError,
     TargetHolding,
@@ -1345,6 +1346,7 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
             attempts=2,
             last_attempt_at=datetime.now(UTC),
         ),
+        stats=SourceStats(leaves=3, characters=1200, tokens=300, tokenizer="gpt-5.6-luna"),
     )
 
     # Act
@@ -1360,6 +1362,38 @@ async def check_a_source_record_round_trips_and_is_listed(store: NodeStore) -> N
     _require(
         condition=tuple(item.id for item in listed) == (_SOURCE_A,),
         message="the store did not satisfy: tuple(item.id for item in listed) == (_SOURCE_A,)",
+    )
+
+
+async def check_a_source_record_without_stats_reads_none(store: NodeStore) -> None:
+    """`stats` defaults `None`, and a store must read that absence back as `None`, not `()`-like.
+
+    Task **44.13**: a record with no `stats` — every record `weft index` wrote before this task —
+    round-trips through `get_source` and `list_sources` with `stats is None`, never a `SourceStats`
+    of zeroes a store's own default might otherwise manufacture.
+    """
+    # Arrange
+    record = SourceRecord(
+        id=_SOURCE_A,
+        uri="file:///corpus/a.txt",
+        content_hash="hash-a",
+        indexed_at=datetime.now(UTC),
+        pipeline="conformance",
+    )
+
+    # Act
+    await store.put_source(record)
+    found = await store.get_source(_SOURCE_A)
+    listed = await store.list_sources()
+
+    # Assert
+    _require(
+        condition=found is not None and found.stats is None,
+        message="the store did not satisfy: found is not None and found.stats is None",
+    )
+    _require(
+        condition=all(item.stats is None for item in listed),
+        message="the store did not satisfy: all(item.stats is None for item in listed)",
     )
 
 

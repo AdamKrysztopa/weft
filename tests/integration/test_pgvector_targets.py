@@ -519,3 +519,34 @@ async def test_a_reader_keeps_getting_nodes_after_another_handle_writes_the_firs
     stored = by_id[embedded.id].embedding
     assert stored is not None
     assert stored.values == (1.0, 0.0, 0.0)
+
+
+async def test_a_source_a_3_0_0_store_wrote_reads_back_with_no_stats(
+    store: PgVectorStore,
+) -> None:
+    """Task **44.13**: `stats` is a column added beside `layers`, on the same upgrade footing."""
+    # Arrange — a 3.0.0-shaped database: no `stats` column, and no schema stamp.
+    record = SourceRecord(
+        id=SourceId("doc"),
+        uri="file:///doc.txt",
+        content_hash="h",
+        indexed_at=datetime.now(UTC),
+        pipeline="index-text",
+    )
+    await store.put_source(record)
+    await store.aclose()
+    await _execute(
+        sql.SQL("ALTER TABLE weft_sources DROP COLUMN stats"),
+        sql.SQL("DROP TABLE weft_schema_stamp"),
+    )
+    upgraded = _store()
+
+    # Act
+    try:
+        found = await upgraded.get_source(SourceId("doc"))
+    finally:
+        await upgraded.aclose()
+
+    # Assert
+    assert found == record
+    assert found is not None and found.stats is None

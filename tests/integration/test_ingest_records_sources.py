@@ -42,11 +42,13 @@ from pydantic import SecretStr
 
 from weft_cli.ingest import run_index
 from weft_engine.registry_bootstrap import build_dependencies
+from weft_index.leaves import leaf_filter
 from weft_kernel.context import Context
-from weft_kernel.payload import SourceId
+from weft_kernel.payload import Node, SourceId
 from weft_kg.store import GraphSettings, GraphStore
 from weft_store.conformance import check_a_source_records_layers_round_trip_whole_and_are_listed
 from weft_store.contract import (
+    Cursor,
     NodeStore,
     SourceFailure,
     SourceRecord,
@@ -394,3 +396,44 @@ async def test_the_graph_store_keeps_a_source_s_layers_whole(graph_store: GraphS
     await check_a_source_records_layers_round_trip_whole_and_are_listed(
         cast("NodeStore", graph_store)
     )
+
+
+async def test_indexing_records_each_source_s_leaves_and_characters(
+    clean_database: None,
+    store: PgVectorStore,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Task **44.13**: each record's `stats` agree with the leaves the store holds for it.
+
+    The other side is counted here, independently, through the published leaf filter — never
+    read back off the record under test. No tokenizer is mapped for `weft index`, so `tokens`
+    is unknown rather than zero.
+    """
+    # Arrange
+    del clean_database
+    monkeypatch.setenv("WEFT_DATABASE_URL", _DSN)
+    (tmp_path / "fox.txt").write_text("The quick brown fox jumps over the lazy dog.")
+    (tmp_path / "notes.md").write_text("# Notes\n\nWeft is a microkernel RAG engine.\n" * 40)
+    deps = build_dependencies(config_path=tmp_path / "weft.toml")
+
+    # Act
+    await run_index(tmp_path, registry=deps.registry, ctx=_ctx())
+    recorded = await store.list_sources()
+
+    # Assert
+    leaves: list[Node] = []
+    cursor: Cursor | None = None
+    while True:
+        page = await store.matching(leaf_filter(), cursor)
+        leaves.extend(page.items)
+        if page.next_cursor is None:
+            break
+        cursor = page.next_cursor
+    assert len(recorded) == 2
+    for record in recorded:
+        own = [node for node in leaves if record.id in node.lineage.sources]
+        assert record.stats is not None, record.uri
+        assert record.stats.leaves == len(own) >= 1
+        assert record.stats.characters == sum(len(node.content) for node in own)
+        assert record.stats.tokens is None

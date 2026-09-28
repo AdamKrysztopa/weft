@@ -149,6 +149,7 @@ from weft_store.contract import (
     WriterClaim,
     source_failure,
     source_layers,
+    source_stats,
     source_status,
 )
 from weft_store.contract import (
@@ -2588,4 +2589,6 @@ def _to_source_record(record: models.Record) -> SourceRecord:
         payload["failure"] = source_failure(cast("Mapping[str, object]", failure))
     if "layers" in payload:
         payload["layers"] = source_layers(cast("Sequence[Mapping[str, object]]", payload["layers"]))
+    if "stats" in payload:
+        payload["stats"] = source_stats(cast("Mapping[str, object] | None", payload["stats"]))
     return SourceRecord.model_validate(payload)

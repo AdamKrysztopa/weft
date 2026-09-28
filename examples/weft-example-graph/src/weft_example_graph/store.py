@@ -54,6 +54,7 @@ from weft_store.contract import (
     SourceStatus,
     source_failure,
     source_layers,
+    source_stats,
     source_status,
 )
 from weft_store.rehydrate import rehydrate_ext
@@ -119,7 +120,8 @@ _ADD_SOURCES_COLUMNS = """
 ALTER TABLE exgraph_sources
     ADD COLUMN IF NOT EXISTS pipeline_identity TEXT NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS failure JSONB,
-    ADD COLUMN IF NOT EXISTS layers JSONB NOT NULL DEFAULT '[]'::jsonb
+    ADD COLUMN IF NOT EXISTS layers JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS stats JSONB
 """
 
 #: `ON DELETE CASCADE` is what makes `exgraph_nodes`'s own row the one place a node's
@@ -386,8 +388,8 @@ class GraphStore:
                 """
                 INSERT INTO exgraph_sources
                     (id, uri, content_hash, indexed_at, pipeline, status,
-                     pipeline_identity, failure, layers)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     pipeline_identity, failure, layers, stats)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     uri = EXCLUDED.uri,
                     content_hash = EXCLUDED.content_hash,
@@ -396,7 +398,8 @@ class GraphStore:
                     status = EXCLUDED.status,
                     pipeline_identity = EXCLUDED.pipeline_identity,
                     failure = EXCLUDED.failure,
-                    layers = EXCLUDED.layers
+                    layers = EXCLUDED.layers,
+                    stats = EXCLUDED.stats
                 """,
                 (
                     record.id,
@@ -408,6 +411,7 @@ class GraphStore:
                     record.pipeline_identity,
                     Jsonb(record.failure.model_dump(mode="json")) if record.failure else None,
                     Jsonb([layer.model_dump(mode="json") for layer in record.layers]),
+                    Jsonb(record.stats.model_dump(mode="json")) if record.stats else None,
                 ),
             )
 
@@ -988,6 +992,7 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         if (raw := row.get("failure")) is not None
         else None,
         layers=source_layers(cast("Sequence[Mapping[str, object]]", row.get("layers") or [])),
+        stats=source_stats(cast("Mapping[str, object] | None", row.get("stats"))),
     )
 
 

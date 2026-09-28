@@ -109,6 +109,7 @@ from weft_store.contract import (
     UnknownGenerationError,
     source_failure,
     source_layers,
+    source_stats,
     source_status,
 )
 from weft_store.pg_targets import PgTargetLayout
@@ -212,6 +213,13 @@ ALTER TABLE kg_sources
 _ADD_SOURCES_LAYERS = """
 ALTER TABLE kg_sources
     ADD COLUMN IF NOT EXISTS layers JSONB NOT NULL DEFAULT '[]'::jsonb
+"""
+
+#: Ledger task **44.13** — additive on the same footing as `_ADD_SOURCES_FAILURE` above: not a
+#: `KG_SCHEMA_VERSION` move, and a row written before this task reads back `stats=None`.
+_ADD_SOURCES_STATS = """
+ALTER TABLE kg_sources
+    ADD COLUMN IF NOT EXISTS stats JSONB
 """
 
 #: The version row — see `KG_SCHEMA_VERSION`'s own docstring.
@@ -528,6 +536,7 @@ async def provision_schema(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> N
         await cur.execute(_CREATE_SOURCES_TABLE)
         await cur.execute(_ADD_SOURCES_FAILURE)
         await cur.execute(_ADD_SOURCES_LAYERS)
+        await cur.execute(_ADD_SOURCES_STATS)
         await cur.execute(_CREATE_SCHEMA_TABLE)
         await cur.execute(_CREATE_ENTITIES_TABLE)
         await cur.execute(_CREATE_ALIASES_TABLE)
@@ -1291,8 +1300,8 @@ class GraphStore:
                 """
                 INSERT INTO kg_sources
                     (id, uri, content_hash, indexed_at, pipeline, status, pipeline_identity,
-                     failure, layers)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     failure, layers, stats)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     uri = EXCLUDED.uri,
                     content_hash = EXCLUDED.content_hash,
@@ -1301,7 +1310,8 @@ class GraphStore:
                     status = EXCLUDED.status,
                     pipeline_identity = EXCLUDED.pipeline_identity,
                     failure = EXCLUDED.failure,
-                    layers = EXCLUDED.layers
+                    layers = EXCLUDED.layers,
+                    stats = EXCLUDED.stats
                 """,
                 (
                     record.id,
@@ -1315,6 +1325,9 @@ class GraphStore:
                     if record.failure is not None
                     else None,
                     Jsonb([layer.model_dump(mode="json") for layer in record.layers]),
+                    Jsonb(record.stats.model_dump(mode="json"))
+                    if record.stats is not None
+                    else None,
                 ),
             )
 
@@ -2476,6 +2489,7 @@ def _row_to_source_record(row: Mapping[str, object]) -> SourceRecord:
         if raw_failure is not None
         else None,
         layers=source_layers(cast("Sequence[Mapping[str, object]]", row.get("layers") or [])),
+        stats=source_stats(cast("Mapping[str, object] | None", row.get("stats"))),
     )
 
 

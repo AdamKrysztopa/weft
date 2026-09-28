@@ -373,8 +373,9 @@ def test_the_family_version_moved_when_the_family_grew_a_capability() -> None:
     # moves it to `2.12.0`: `LayerStatus` gains `STALE`, `17.1`'s shape. Task **43.22** moves it to
     # `2.13.0`: `GenerationCarrying`, a new optional Protocol, `43.14`'s precedent. Repair
     # **R43.29** moves it to `2.14.0`: `GenerationWithdrawing`, `43.22`'s precedent. Task
-    # **43.27** moves it to `3.0.0`: a handle owes overlapping callers a serial run's answer.
-    assert STORE_CONTRACT_VERSION == "3.0.0"
+    # **43.27** moves it to `3.0.0`: a handle owes overlapping callers a serial run's answer. Task
+    # **44.13** moves it to `3.1.0`: `SourceRecord.stats`, an optional field on a returned model.
+    assert STORE_CONTRACT_VERSION == "3.1.0"
 
 
 def test_a_report_can_say_a_pair_was_asked_about_and_nobody_decided() -> None:

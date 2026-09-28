@@ -167,7 +167,9 @@ from weft_kernel.runner import Stage
 #: **`2.13.0` → `2.14.0` at repair R43.29** — `GenerationWithdrawing` joins, `43.22`'s shape.
 #: **`2.14.0` → `3.0.0` at task 43.27** — a handle owes correctness to overlapping callers on one
 #: event loop: a new obligation on every implementer and no new method, `09`'s own row for it.
-STORE_CONTRACT_VERSION = "3.0.0"
+#: **`3.0.0` → `3.1.0` at task 44.13** — `SourceRecord` gains optional `stats`, an optional field
+#: on a returned model: minor for both audiences, `9.17`'s own shape.
+STORE_CONTRACT_VERSION = "3.1.0"
 
 #: Versioned separately from `STORE_CONTRACT_VERSION`: a `Filter` is data that
 #: outlives any one store, serialised into a resolved, stored pipeline. Moved `1.0.0` →
@@ -233,6 +235,24 @@ class SourceStatus(StrEnum):
     FAILED = "failed"
 
 
+class SourceStats(BaseModel):
+    """How big one source is, recorded once at index time — task **44.13** (G29).
+
+    `corpus.*` routing features need a corpus's size, and computing it at ask time is a scan G29
+    rejected; `NodeStore.count()` is no substitute either, because it includes layer nodes
+    (`R44.1`) and `leaves` here must not. `tokens` is `None` exactly when no tokenizer was at hand
+    for the run that wrote this record — never zero, which would claim a count nobody made.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    leaves: int = Field(ge=0)
+    characters: int = Field(ge=0)
+    tokens: int | None = Field(default=None, ge=0)
+    #: The model whose tokenizer produced `tokens` — `None` exactly when `tokens` is.
+    tokenizer: str | None = None
+
+
 class SourceRecord(BaseModel):
     """One indexed document's record — `docs/02-extension-model.md`'s "last reach-through" fix.
 
@@ -270,6 +290,13 @@ class SourceRecord(BaseModel):
     failure: "SourceFailure | None" = None
     #: One `LayerRecord` per layer built over this source, defaulting to none — task **43.6**.
     layers: "tuple[LayerRecord, ...]" = ()
+    #: This source's leaves, characters and (when a tokenizer was at hand) tokens, written once by
+    #: `weft index` at index time — task **44.13**.
+    #:
+    #: **Defaults `None`, and `None` means "not recorded", never "empty".** Every record already
+    #: on disk was written before this field existed, so a missing value is the absence of a
+    #: measurement rather than a source with no leaves.
+    stats: "SourceStats | None" = None
 
     @model_validator(mode="after")
     def _reject_duplicate_layer_names(self) -> "SourceRecord":
@@ -432,6 +459,33 @@ def source_layers(raw: Sequence[Mapping[str, object]]) -> tuple[LayerRecord, ...
             data["failure"] = source_failure(cast("Mapping[str, object]", failure_raw))
         layers.append(LayerRecord.model_validate(data))
     return tuple(layers)
+
+
+class UnknownSourceStatsError(WeftError):
+    """Tells an older release a stats field came from a newer one, rather than calling it corrupt.
+
+    A stored `SourceRecord.stats` carries a field this release's `SourceStats` does not declare —
+    task **44.13**. Raised by `source_stats`, `source_layers`'s counterpart.
+    """
+
+
+def source_stats(raw: Mapping[str, object] | None) -> SourceStats | None:
+    """Read a stored `stats` mapping as `SourceStats`, refusing an unknown field by name.
+
+    `None` in, `None` out — a record `weft index` wrote before this task, or a source this store
+    never recorded stats for, carries no `stats` column value to decode. Otherwise refuses by name
+    a field a newer release added, `source_failure`'s own shape.
+    """
+    if raw is None:
+        return None
+    unknown = set(raw) - set(SourceStats.model_fields)
+    if unknown:
+        raise UnknownSourceStatsError(
+            f"a source record's stats carry field(s) "
+            f"{', '.join(repr(key) for key in sorted(unknown))} this weft-rag does not know: a "
+            "newer weft-rag wrote it. Install the release that wrote it, or re-index with this one."
+        )
+    return SourceStats.model_validate(raw)
 
 
 def _freeze_removed(value: Mapping[str, int]) -> Mapping[str, int]:

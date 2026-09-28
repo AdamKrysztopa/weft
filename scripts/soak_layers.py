@@ -60,7 +60,7 @@ QDRANT_URL: Final = "http://localhost:6333"
 QUESTION: Final = "What was measured in Paris?"
 STALE_LINE: Final = rf"layer '{LAYER}' is stale and hidden from reads: a source it covered"
 #: The companion collections a Qdrant store creates beside its own
-#: (`weft_qdrant/store.py:427 "__sources"`, and the two after it).
+#: (`weft_qdrant/store.py:429 "__sources"`, and the two after it).
 QDRANT_SUFFIXES: Final = ("", "__sources", "__targets", "__generations")
 
 _JOINED = re.compile(r"layer '([^']+)': joined (\d+) leaves, (\d+) unassigned")

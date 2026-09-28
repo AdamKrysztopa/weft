@@ -4699,6 +4699,23 @@ reading the record while ignoring it would be a guess about whether that layer i
 **What to do:** run the command with the release that wrote the store, or re-index the corpus
 with this one.
 
+### `UnknownSourceStatsError`
+
+**What it looks like** — any command that reads a store's source records, against a store a
+**newer** `weft-rag` has recorded a source's size into:
+
+```text
+a source record's stats carry field(s) 'pages' this weft-rag does not know: a newer weft-rag
+wrote it. Install the release that wrote it, or re-index with this one.
+```
+
+**Why** — `weft index` records each source's leaf count, characters and, when a tokenizer is
+mapped, tokens. A newer release can record more, and reading the record while ignoring that would
+report a size this release cannot vouch for.
+
+**What to do:** run the command with the release that wrote the store, or re-index the corpus
+with this one.
+
 ### `UnknownSourceStatusError`
 
 **What it looks like** — any command that reads a store's source records, against a store a
