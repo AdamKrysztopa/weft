@@ -217,3 +217,13 @@ def test_the_prompt_is_registered_under_its_name() -> None:
     # Assert
     assert entry.factory is PairwiseJudgePrompt
     assert PairwiseJudgePrompt.output_model is PairwiseChoice
+
+
+def test_no_verdicts_have_no_win_rate() -> None:
+    # Act — R44.6: nothing judged is not a loss.
+    summary = summarise([])
+
+    # Assert
+    assert summary.n == 0
+    assert summary.win_rate_b is None
+    assert summary.low is None and summary.high is None

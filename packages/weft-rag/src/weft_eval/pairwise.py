@@ -158,7 +158,7 @@ class PairwiseSummary(BaseModel):
     wins_a: int
     wins_b: int
     ties: int
-    win_rate_b: float
+    win_rate_b: float | None
     low: float | None
     high: float | None
 
@@ -287,17 +287,20 @@ def _shared_criterion(verdicts: Sequence[PairwiseVerdict]) -> PairwiseCriterion 
     return next(iter(criteria)) if len(criteria) == 1 else None
 
 
-def summarise(verdicts: Sequence[PairwiseVerdict]) -> PairwiseSummary:
+def summarise(
+    verdicts: Sequence[PairwiseVerdict], *, criterion: PairwiseCriterion | None = None
+) -> PairwiseSummary:
     """`verdicts`' own win rate for B, and its paired bootstrap interval over questions.
 
     Each question scores `1.0` for a B win, `0.5` for a tie, `0.0` for an A win; `win_rate_b` is
-    their mean. The interval shifts `weft_eval.falsify.paired_interval`'s own `[-0.5, 0.5]`-scale
-    difference back onto the `[0, 1]` win-rate scale `win_rate_b` reports on, since that function
-    takes a *difference* from a neutral `0.5` rather than a win rate directly.
+    their mean, or `None` when nothing was judged. The interval shifts
+    `weft_eval.falsify.paired_interval`'s own `[-0.5, 0.5]`-scale difference back onto the
+    `[0, 1]` win-rate scale `win_rate_b` reports on, since that function takes a *difference*
+    from a neutral `0.5` rather than a win rate directly.
     """
     n = len(verdicts)
     scores = [_SCORE_FOR_B[verdict.outcome] for verdict in verdicts]
-    win_rate_b = sum(scores) / n if n else 0.0
+    win_rate_b = sum(scores) / n if n else None
     low, high = paired_interval(
         [
             (verdict.question_id, score - 0.5)
@@ -305,7 +308,7 @@ def summarise(verdicts: Sequence[PairwiseVerdict]) -> PairwiseSummary:
         ]
     )
     return PairwiseSummary(
-        criterion=_shared_criterion(verdicts),
+        criterion=criterion if criterion is not None else _shared_criterion(verdicts),
         n=n,
         wins_a=sum(1 for verdict in verdicts if verdict.outcome is Preference.A),
         wins_b=sum(1 for verdict in verdicts if verdict.outcome is Preference.B),
@@ -490,7 +493,10 @@ async def compare_arms(
         ctx=ctx,
     )
     summaries = tuple(
-        summarise([verdict for verdict in verdicts if verdict.criterion == criterion])
+        summarise(
+            [verdict for verdict in verdicts if verdict.criterion == criterion],
+            criterion=criterion,
+        )
         for criterion in criteria
     )
     return PairwiseRecord(
@@ -520,6 +526,12 @@ def load_pairwise_record(path: Path) -> PairwiseRecord:
     return PairwiseRecord.model_validate_json(path.read_text(encoding="utf-8"))
 
 
+def _win_rate_cell(summary: PairwiseSummary) -> str:
+    if summary.win_rate_b is None:
+        return "—"
+    return f"{summary.win_rate_b:.3f}"
+
+
 def _interval_cell(summary: PairwiseSummary) -> str:
     if summary.low is None or summary.high is None:
         return "—"
@@ -529,7 +541,7 @@ def _interval_cell(summary: PairwiseSummary) -> str:
 def _render_summary_row(summary: PairwiseSummary) -> str:
     return (
         f"| {summary.criterion} | {summary.n} | {summary.wins_a} | {summary.wins_b} | "
-        f"{summary.ties} | {summary.win_rate_b:.3f} | {_interval_cell(summary)} |"
+        f"{summary.ties} | {_win_rate_cell(summary)} | {_interval_cell(summary)} |"
     )
 
 

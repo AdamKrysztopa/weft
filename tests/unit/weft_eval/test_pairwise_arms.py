@@ -303,3 +303,32 @@ async def test_a_pairwise_record_round_trips_and_renders_each_criterion(tmp_path
     assert "diversity" in table
     assert "wide" in table
     assert "dense" in table
+
+
+async def test_a_criterion_whose_every_judgement_failed_reports_no_win_rate(
+    tmp_path: Path,
+) -> None:
+    # Arrange — R44.6: the one paired question is unreadable to the judge.
+    experiment, records = _records(
+        tmp_path,
+        baseline_answers={"q3": "PLAIN-dense-3"},
+        arm_answers={"q3": "BETTER-wide-3"},
+    )
+
+    # Act
+    record = await compare_arms(
+        experiment,
+        records,
+        questions=_QUESTIONS,
+        baseline="dense",
+        arm="wide",
+        criteria=(PairwiseCriterion.DIVERSITY,),
+        ctx=_ctx(_JudgeLLM()),
+    )
+
+    # Assert
+    [summary] = record.summaries
+    assert summary.criterion is PairwiseCriterion.DIVERSITY
+    assert summary.n == 0
+    assert summary.win_rate_b is None
+    assert "diversity" in render_pairwise_table(record)
