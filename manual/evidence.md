@@ -124,6 +124,32 @@ The five statuses:
 
 ## 4. The measurements, newest first
 
+### Phase 44: does anything answer multi-hop questions better than one search? (2026-09-29)
+
+- **Question.** Questions whose answer chains two to four facts from different passages
+  (MuSiQue) are where a single search should fall short. Does searching again, searching more
+  ways, or searching more widely answer them better than `retrieve-then-generate`?
+- **Data.** MuSiQue-Ans dev, 600 questions: 200 each of two, three and four hops, over the 4,084
+  paragraphs they draw on. Five arms, one repetition each, `gpt-5.6-luna` answering and judging,
+  `text-embedding-3-large` embedding. $3.51 for the five arms, plus $0.72 spent on the first,
+  failed iterative run.
+- **Result.** Nothing clears the pre-registered margin of +0.05 `answer_correctness`, so every
+  arm is `benefit-ruled-out`. `iterative-retrieve` is the only one ahead: +0.018 (95% interval
+  +0.002 to +0.034) over 597 paired questions, at about four times the grading tokens and
+  twice the median latency. `hybrid`, `multi-query` and `broad-and-refined` are indistinguishable
+  from one search. Retrieval itself holds up (recall@5 0.748 for one search) and falls with hop
+  count; the loss is in chaining what was found. Source:
+  `eval/experiments/musique-retrieval/table.md`.
+- **Correction on the way.** The first run of `iterative-retrieve` failed 263 of its 600
+  questions — every question it actually iterated on — because the document inherited a fuser
+  that refuses more than one ranked list. Its mean over the 334 survivors (0.649) looked like a
+  large win and was not: one search scores 0.656 on those same questions. The document now fuses
+  its rounds (repair R44.10), and a judged metric now counts a failed question as excluded
+  (repair R44.11), so a survivor mean can no longer pass for a whole-set one.
+- **What it means for you.** Keep `retrieve-then-generate` for multi-hop questions. Per-question
+  choice among these five could reach +0.097 in principle (`eval/replay/README.md`), but with one
+  repetition that ceiling cannot be told apart from judge noise.
+
 ### Phase 44: can a question's wording tell which kind of question it is? (2026-09-28)
 
 - **Question.** A routing rule could send a multi-hop or yes/no question somewhere special only
