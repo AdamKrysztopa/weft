@@ -44,6 +44,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`weft eval experiment` reports progress while it runs.** Each arm and repetition writes a
+  line to stderr when it starts, then every hundredth of its questions, and before and after
+  judging (`experiment e · arm 3/5 multi-query · repetition 1/2 · answering 120/600 · 840 s`).
+  Under `--json` each is a line of `kind` `experiment-progress`. A paid run used to be silent for
+  as long as 25 minutes.
+
 - **`weft eval pairwise <experiment> <baseline> <arm>`** judges two arms' recorded answers
   head to head, for questions with no single right answer. It uses GraphRAG's criteria
   (comprehensiveness, diversity, empowerment, with directness as a control); `--criterion` picks

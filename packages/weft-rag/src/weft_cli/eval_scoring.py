@@ -1615,12 +1615,7 @@ async def _report_answering_progress(
     total: int,
     step: int,
 ) -> None:
-    """Report `done` questions answered, on `step` or the last — the batching rule of R43.58.
-
-    `step = max(1, total // 100)` never divides by zero, and `0 % step == 0` for any `step >= 1`,
-    which is what lets the one call before the question loop (`done=0`) and every in-loop call
-    share this rule rather than the first needing a rule of its own.
-    """
+    """Report `done` questions attempted, on every `step`-th and the last — R43.58."""
     if done % step == 0 or done == total:
         await _report_progress(
             on_progress, ScoringProgress(stage=ScoringStage.ANSWERING, done=done, total=total)
@@ -1642,12 +1637,7 @@ def _record_attempt_outcome(
     top_k: int,
     resolved_document_id: Callable[[str], str],
 ) -> None:
-    """Turn one question's own `_QuestionAttempt` into a `RetrievalSample`, or a failure entry.
-
-    Lifted out of `score_pipeline`'s own per-question loop for the identical complexity-budget
-    reason every other per-question helper in this module already was — see `_document_id_
-    resolver`'s own docstring for the pattern.
-    """
+    """Turn one question's `_QuestionAttempt` into a `RetrievalSample`, or a failure entry."""
     if attempt.failure is not None:
         failed[question_key] = attempt.failure
         return
@@ -1691,14 +1681,7 @@ async def _judge_with_progress(
     target: str | None,
     on_progress: Callable[[ScoringProgress], Awaitable[None]] | None,
 ) -> SubsetScores | None:
-    """`_judge_answered_questions`, bracketed by its own `JUDGING` progress — carried repair R43.58.
-
-    Reports only when it will actually judge something — `judge_metrics` non-empty and at least
-    one generation sample — the identical condition `_judge_answered_questions`'s own
-    `not judge_metrics or not generation_samples` check applies one call down, kept here as its
-    own predicate so a caller checking `on_progress` events never sees a `JUDGING` pair for a run
-    that judged nothing.
-    """
+    """`_judge_answered_questions`, bracketed by `JUDGING` progress when it judges — R43.58."""
     will_judge = bool(judge_metrics) and bool(generation_samples)
     total = len(generation_samples)
     if will_judge:
@@ -1919,16 +1902,9 @@ async def score_pipeline(
     than the answer. `ScoredRun.profiler_version` names the profiler version they were computed
     under.
 
-    **`on_progress` — carried repair R43.58.** `None` (every caller before this task) reports
-    nothing, unchanged. Given a callback instead, `ANSWERING` is reported once before the
-    question loop (`done=0`) and again after each question is attempted — answered or failed,
-    both count — on every `step`-th attempt and always the last, `step = max(1, len(questions)
-    // 100)`, never twice for the same `done`. `JUDGING` is reported before and after
-    `_judge_answered_questions`, `done=0` and `done=len(generation_samples)`, only when it will
-    actually judge something (`judge_metrics` non-empty and at least one generation sample) —
-    the identical condition that function's own `not judge_metrics or not generation_samples`
-    check applies one call down, so a caller checking `on_progress` events never sees a
-    `JUDGING` pair for a run that judged nothing.
+    **`on_progress` — carried repair R43.58.** Given a callback, `ANSWERING` is reported before
+    the question loop (`done=0`), then on every hundredth question attempted (answered or failed)
+    and the last; `JUDGING` before and after judging, only when something is judged.
     """
     _require_exclusive_scoring_modes(
         capture_pool=capture_pool, pool=pool, router=router, query_pipeline=query_pipeline

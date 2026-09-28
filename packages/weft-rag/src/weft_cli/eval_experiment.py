@@ -868,12 +868,9 @@ def _experiment_progress_callback(
     repetition: int,
     repetitions: int,
 ) -> Callable[[ScoringProgress], Awaitable[None]]:
-    """Label one arm-repetition's own `ScoringProgress` and forward it — carried repair R43.58.
+    """Label one arm-repetition's `ScoringProgress` and forward it — R43.58.
 
-    `started` is `time.monotonic()` the moment this callback is built, immediately before the
-    `index_and_score` call it reports for — `ExperimentProgress.seconds` is seconds since this
-    one arm-repetition began, not since the whole experiment did, the figure a reader watching
-    one arm stall actually wants.
+    `seconds` counts from this arm-repetition's start, not the experiment's: a stalled arm shows.
     """
     started = time.monotonic()
 

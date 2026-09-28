@@ -916,6 +916,13 @@ writes one line per batch to stderr, `batch k/K · n/N documents queryable · t 
 Under `--json` it writes a line of `kind` `batch-progress` on the event stream instead. A pipeline
 that must see the whole corpus in one batch says so on that line and names the stage.
 
+**Progress, while `weft eval experiment` runs (repair `R43.58`).** Each arm and repetition writes
+to stderr as it answers, `experiment e · arm a/A name · repetition r/R · answering n/N · t s`: one
+line when it starts, then every hundredth of its questions, counting failed questions as done. A
+run with judge metrics adds a `judging 0/M` line before judging the answers and a `judging M/M`
+line after. Under `--json` each is a line of `kind` `experiment-progress`. A repetition that
+already has a record from an earlier run of the same invocation writes nothing.
+
 **Layers, after the base (tasks `43.8`–`43.10`).** `weft index <path> --layers a,b` runs each named
 layer document over the stored leaves of every indexed source, after the last base batch, in
 batches of the same size. `--layers none` runs none, and `--layers-only` runs them without

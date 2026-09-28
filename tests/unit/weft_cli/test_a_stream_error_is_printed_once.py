@@ -3,7 +3,7 @@
 A command that streamed nothing but hidden `index`-role chunks and then failed printed the
 failure twice: `[stream error: …]` on stdout from `PrintingSink.close`, and the refusal on stderr.
 `_EmissionTrackingSink` is role-blind by design
-(`weft_cli/cli.py:363 "class _EmissionTrackingSink"`), so it counts a chunk no reader saw as a
+(`weft_cli/cli.py:368 "class _EmissionTrackingSink"`), so it counts a chunk no reader saw as a
 stream that broke. The marker ends a line the reader watched grow; with nothing
 shown, there is no such line and the refusal on stderr is the one account of the failure. This is
 the 2026-08-20 double print, back for streams nobody sees (found writing `R43.48`'s red).
