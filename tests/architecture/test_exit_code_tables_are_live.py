@@ -66,6 +66,8 @@ _LOCAL_IMPORT_MEMBERS: Final[tuple[str, ...]] = (
     # Task **38.2** — `--slice axis=value` naming a slice neither run recorded; `--kind`'s sibling.
     "UnknownSliceError",
     "UnknownMetricNameError",
+    # Task **44.6a** — `weft eval replay --metric` naming a metric no record scored.
+    "UnscoredMetricError",
     # Task **16.5** — a ground-truth label naming no document, and one naming several. Both
     # ride this branch for the reason every member above does: a module-scope import of
     # `weft_cli.eval_scoring` would make `weft --version` pay for that module's import chain.

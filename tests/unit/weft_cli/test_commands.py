@@ -165,6 +165,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "eval experiment",
         "eval plan",
         "eval table",
+        "eval replay",
         "trace",
         # Task 36.4: the operator's view of what the store recorded, failures included.
         "sources list",
@@ -220,6 +221,9 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         # `eval table` — task **38.1** — reads an experiment document and the records under
         # `runs/`, and prints the table they produce; it writes nothing.
         "eval table": PermissionClass.READ,
+        # `eval replay` — task **44.6a** — reads the same document and records and prints what
+        # any per-question choice among the arms would have scored; it writes nothing.
+        "eval replay": PermissionClass.READ,
         "trace": PermissionClass.READ,
         "sources list": PermissionClass.READ,
         # `target list` — task **34.6** — reads each target's catalogue entry and source count.

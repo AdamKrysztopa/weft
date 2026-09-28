@@ -229,7 +229,8 @@ QUEUE_DEPTH_IN_STATUS = re.compile(r"^(?P<count>\d+)\b")
 #: "fails on a correct tree". It went unnoticed because falling back agreed by coincidence
 #: while the Next action row happened to point inside the same phase the first unticked box
 #: was in. A regex is a claim about a document's shape and is checked against the document.
-NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+)")
+#: A lettered split, `44.6a`, is a task id as `REPAIR_ID`'s `R22.4b` is a repair id.
+NEXT_ACTION_TASK = re.compile(r"[Tt]ask\s+[*`]{0,2}(?P<identifier>\d+\.\d+[a-z]?)")
 
 #: A carried-repair id, `R22.4` or a task-split `R22.4b` — one fragment every repair pattern below
 #: composes, so the vocabulary cannot widen in one and not its siblings (`docs/internal/lessons.md`

@@ -105,6 +105,7 @@ from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.eval_experiment import register_eval_experiment_command
+from weft_cli.eval_replay import register_eval_replay_command
 from weft_cli.eval_table import register_eval_table_command
 from weft_cli.exit_codes import ExitCode
 from weft_cli.explain import (
@@ -2828,6 +2829,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     register_eval_baseline_command(registrar)
     register_eval_experiment_command(registrar)
     register_eval_table_command(registrar)
+    register_eval_replay_command(registrar)
     register_renderers(registrar)
 
 

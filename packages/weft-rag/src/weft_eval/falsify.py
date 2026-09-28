@@ -340,7 +340,7 @@ class PairedDifference(BaseModel):
     differing: int = Field(ge=0)
 
 
-def _pairing_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
+def pairing_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
     """Why `a` and `b` cannot pair.
 
     A digest either side lacks, or two digests over different bases, is not a disagreement.
@@ -388,7 +388,7 @@ def _percentile(sorted_values: Sequence[float], pct: float) -> float:
     return sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * fraction
 
 
-def _bootstrap_interval(
+def paired_interval(
     keyed_diffs: Sequence[tuple[str, float]],
 ) -> tuple[float | None, float | None]:
     """The 95% bootstrap interval of the mean of `keyed_diffs`' differences.
@@ -480,7 +480,7 @@ def paired_differences(
     Raises `UnpairableRecordsError` when the records' pool manifests or question-set digests
     disagree — repair R41.3.
     """
-    reasons = _pairing_reasons(a, b)
+    reasons = pairing_reasons(a, b)
     if reasons:
         raise UnpairableRecordsError(
             f"these two records do not pair question by question: "
@@ -501,7 +501,7 @@ def paired_differences(
         if not keyed_diffs:
             continue
         mean = sum(diff for _, diff in keyed_diffs) / len(keyed_diffs)
-        low, high = _bootstrap_interval(keyed_diffs)
+        low, high = paired_interval(keyed_diffs)
         differing = sum(1 for _, diff in keyed_diffs if diff != 0.0)
         result[name] = PairedDifference(
             metric=name, mean=mean, low=low, high=high, n=len(keyed_diffs), differing=differing
@@ -521,4 +521,6 @@ __all__ = [
     "baseline_spreads",
     "judge_differences",
     "paired_differences",
+    "paired_interval",
+    "pairing_reasons",
 ]

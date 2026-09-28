@@ -146,6 +146,10 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     deliberately left off this list to fall through to `OPERATION_FAILED` below, the identical
     footing `EmptyCorpusError`/`IncomparableRunsError` already have.
 
+    **`weft_eval.replay.UnscoredMetricError`, task 44.6a — the same family, riding the same
+    import.** `weft eval replay --metric` naming a metric no record scored is "fix what you typed";
+    `UnpairableRecordsError`, replay's other refusal, is not a name and stays `OPERATION_FAILED`.
+
     **`weft_cli.eval_scoring.UnresolvableLabelError`/`AmbiguousLabelError`, task 16.5 — the
     same family, riding the same import.** A `--questions` file's `relevant_documents` label
     naming no document, or more than one, in the corpus that was scored is "fix what you
@@ -176,6 +180,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     from weft_cli.eval_scoring import AmbiguousLabelError, UnresolvableLabelError
     from weft_cli.route_ask import NoRouterPipelineError
     from weft_eval.offline import UnknownMetricNameError
+    from weft_eval.replay import UnscoredMetricError
 
     if isinstance(
         exc,
@@ -186,6 +191,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
             UnknownQuestionKindError,
             UnknownSliceError,
             UnknownMetricNameError,
+            UnscoredMetricError,
             UnresolvableLabelError,
             AmbiguousLabelError,
         ),

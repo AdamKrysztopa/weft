@@ -386,6 +386,27 @@ def _build_costs(
     return [_arm_cost(experiment, by_key, arm) for arm in experiment.arms]
 
 
+def select_invocation(
+    experiment: Experiment, records: Sequence[RunRecord], *, invocation: str | None
+) -> tuple[str, Mapping[tuple[str, int], RunRecord]]:
+    """Choose one complete invocation of `experiment` from `records` — see the module docstring.
+
+    Matches `records` to `experiment` by digest (`ExperimentRun.digest == Experiment.digest`),
+    never by name alone, then picks a named invocation or the single complete one — see the
+    module docstring's *"One invocation, chosen honestly"* paragraph. Raises
+    `IncompleteExperimentError`/`AmbiguousInvocationError` — see each error's own docstring for
+    exactly when. Shared by `evidence_table` and `weft_eval.replay.replay`, so the two choose an
+    invocation identically.
+    """
+    matching: list[_MatchedRecord] = []
+    for record in records:
+        run = record.experiment
+        if run is not None and run.digest == experiment.digest:
+            matching.append((record, run))
+
+    return _choose_invocation(experiment, matching, invocation=invocation)
+
+
 def evidence_table(
     experiment: Experiment, records: Sequence[RunRecord], *, invocation: str | None = None
 ) -> EvidenceTable:
@@ -394,13 +415,7 @@ def evidence_table(
     Raises `IncompleteExperimentError`/`AmbiguousInvocationError` — see each error's own
     docstring for exactly when.
     """
-    matching: list[_MatchedRecord] = []
-    for record in records:
-        run = record.experiment
-        if run is not None and run.digest == experiment.digest:
-            matching.append((record, run))
-
-    chosen_invocation, by_key = _choose_invocation(experiment, matching, invocation=invocation)
+    chosen_invocation, by_key = select_invocation(experiment, records, invocation=invocation)
 
     baseline_arm = experiment.arms[0]
     baseline_records = _arm_records(experiment, by_key, baseline_arm)
@@ -561,4 +576,5 @@ __all__ = [
     "evidence_table",
     "regenerate",
     "render_evidence_table",
+    "select_invocation",
 ]

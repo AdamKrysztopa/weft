@@ -3893,6 +3893,22 @@ more than one complete invocation of experiment 'fixture' (5abd131efc38…) exis
 
 **What to do:** pass `--invocation` with the one the table should describe.
 
+### `UnscoredMetricError`
+
+**What it looks like** — `weft eval replay` asked for a metric no arm of the invocation scored on
+any question:
+
+```text
+$ weft eval replay eval/experiments/whole-corpus-en.toml --metric token_recal ; echo $?
+no arm of experiment 'whole-corpus-en' scored 'token_recal' on any question in invocation '77a0ab088ccd43688bc0403932c95e6b'; scored per question: 'accuracy', 'answer_correctness', 'exact_match', 'f1_score', 'key_terms_precision', 'mean_average_precision', 'mrr@5', 'ndcg@5', 'precision@5', 'recall@5', 'rouge_1', 'rouge_2', 'rouge_l', 'token_overlap', 'token_recall'.
+4
+```
+
+A replay chooses among per-question scores, so a metric the records hold only as a run-level mean,
+or hold for no question at all, has nothing to choose among. `valid_options` carries the metrics
+that were scored per question. **What to do:** pass one of those to `--metric`, or omit it for the
+document's first declared metric.
+
 ### `UnscorableArmError`
 
 **What it looks like** — an experiment arm whose query pipeline ends in a stage an arm cannot be

@@ -98,6 +98,7 @@ from weft_cli.eval_commands import (
     TraceCommandResult,
 )
 from weft_cli.eval_experiment import EvalExperimentCommandResult, EvalPlanCommandResult
+from weft_cli.eval_replay import EvalReplayCommandResult
 from weft_cli.eval_table import EvalTableCommandResult
 from weft_cli.exit_codes import exit_code_for
 from weft_cli.ingest import SourceChange
@@ -2011,6 +2012,15 @@ def _render_eval_table(result: EvalTableCommandResult) -> Rendered:
     return Rendered(stdout=result.markdown.rstrip("\n"), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_eval_replay(result: EvalReplayCommandResult) -> Rendered:
+    """`weft eval replay` — task **44.6a**.
+
+    `weft_eval.replay.render_replay_table` already wrote the whole answer; this only trims the
+    one trailing newline `Rendered.stdout` does not carry, `_render_eval_table`'s own convention.
+    """
+    return Rendered(stdout=result.markdown.rstrip("\n"), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
     """Render `weft eval metrics`, marking the offline subset.
 
@@ -2027,7 +2037,7 @@ def _render_eval_metrics(result: EvalMetricsCommandResult) -> Rendered:
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
-# --- the twenty-two built-in dispatch wrappers, and `register_renderers` — task 6.20 ------
+# --- the built-in dispatch wrappers, and `register_renderers` — task 6.20 ------
 #
 # Each wrapper below is a plain module-level `def`, never a `lambda` bound inside
 # `register_renderers` itself: `register_renderers` runs once per `discover()` call, and a
@@ -2182,6 +2192,10 @@ def _dispatch_eval_table(result: object) -> Rendered:
     return _render_eval_table(cast(EvalTableCommandResult, result))
 
 
+def _dispatch_eval_replay(result: object) -> Rendered:
+    return _render_eval_replay(cast(EvalReplayCommandResult, result))
+
+
 def _dispatch_ask(result: object) -> Rendered:
     # `_render_result`'s own special-case is what actually reads `streamed` for a live
     # request — see that function's docstring. Registering this bound-`False` wrapper keeps
@@ -2196,7 +2210,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     Task **6.20**, G13's third repair — requirement 4 ("built-ins get no privileged path"),
     made checkable at runtime rather than merely asserted: `weft_cli.commands.register` calls
     this on the same footing it calls `register_pipeline_commands`/`register_eval_commands`,
-    so every one of these twenty-two calls to `registrar.add_renderer` is indistinguishable, at
+    so every one of these calls to `registrar.add_renderer` is indistinguishable, at
     the seam, from the identical call any third-party pack's own `register()` makes for its own
     result type. **This module may not name the pack that proves it**, and that is fitness
     function 9(b) rather than shyness: a first-party file naming the out-of-tree pack would make
@@ -2229,6 +2243,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(EvalExperimentCommandResult, _dispatch_eval_experiment)
     registrar.add_renderer(EvalPlanCommandResult, _dispatch_eval_plan)
     registrar.add_renderer(EvalTableCommandResult, _dispatch_eval_table)
+    registrar.add_renderer(EvalReplayCommandResult, _dispatch_eval_replay)
     registrar.add_renderer(AskCommandResult, _dispatch_ask)
 
 
@@ -2243,7 +2258,7 @@ def _bootstrap_built_in_renderers() -> None:
     `register_renderers`/`register_renderers_from_reports` path a real discovery pass would,
     against a throwaway `Registry`/`PackRegistrar`, so the built-ins are reachable either way
     without a second, independently-drifting registration mechanism: a later, real discovery
-    pass registering the same twenty-two callables again is the identical-renderer repeat case
+    pass registering the same callables again is the identical-renderer repeat case
     `register_renderers_from_reports` already treats as a no-op, never a collision.
     """
     registrar = PackRegistrar(Registry(), distribution="weft-cli")

@@ -44,6 +44,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`weft eval replay <experiment>` says what choosing an arm per question would have scored**,
+  from the records an experiment already wrote and with no model call: each arm, the `oracle`
+  (every question's best arm) and the `self-oracle` (the best arm's better repetition per
+  question, which is what judge noise alone reaches), each paired against the best arm with the
+  interval first. It reads the runs beside the document unless `--runs` names others, refuses
+  arms over different questions or corpora, and names the metrics the records did score when
+  `--metric` names one they did not.
 - **A routed `weft ask` says how it chose.** The `--json` answer carries
   `"route": {"pipeline", "outcome", "rule"}`, and `--explain` prints
   `route: matched by rule 'always'`. An ask naming `--pipeline` carries no `route` key.
