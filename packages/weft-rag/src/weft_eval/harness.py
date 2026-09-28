@@ -584,6 +584,7 @@ async def score_named_generation_metrics(
     samples: Sequence[tuple[str, GenerationSample]],
     *,
     ctx: Context,
+    failed_questions: Mapping[str, str] = _NO_FAILED_QUESTIONS,
 ) -> SubsetScores:
     """Score exactly the `GenerationMetric` plugins `names` identifies, never the gate-safe subset.
 
@@ -596,9 +597,18 @@ async def score_named_generation_metrics(
     slices`' slicing and `_record_metric`'s collision guard with `score_generation_gate_subset`;
     the one thing this function does not share is the gate-safe filter, because a caller here
     already knows exactly which plugin it wants and pays for calling it regardless.
+
+    `failed_questions` — repair R44.11 — maps a question key to why a generating rung raised for
+    it before any `GenerationSample` could be built. Every metric's aggregate excludes one `Failed`
+    observation per entry (`MetricAggregate.excluded`, not `nothing_to_produce`) and its
+    `per_question` carries `NotScored(reason=...)` for that key, on top of whatever `samples`
+    itself produced.
     """
     keys = [key for key, _ in samples]
     payloads = [sample for _, sample in samples]
+    failure_scores = {
+        question_key: NotScored(reason=reason) for question_key, reason in failed_questions.items()
+    }
 
     report: dict[str, Outcome[MetricAggregate]] = {}
     reported_by: dict[str, str] = {}
@@ -610,8 +620,9 @@ async def score_named_generation_metrics(
         config = _generation_metric_config(config_model)
         metric = cast(GenerationMetric, factory(config))
         outcomes = [await metric.evaluate(payload, ctx) for payload in payloads]
+        failures = [Failed(reason=reason) for reason in failed_questions.values()]
         outcome = aggregate(
-            outcomes,
+            [*outcomes, *failures],
             kind=MetricKind.GENERATION,
             by_modality=_modality_slices(payloads, outcomes),
             by_question_kind=_question_kind_slices(payloads, outcomes),
@@ -624,7 +635,7 @@ async def score_named_generation_metrics(
             key=key,
             name=name,
             outcome=outcome,
-            scores=_per_question_scores_by_keys(keys, outcomes),
+            scores={**_per_question_scores_by_keys(keys, outcomes), **failure_scores},
         )
     return SubsetScores(metrics=report, per_question=per_question)
 

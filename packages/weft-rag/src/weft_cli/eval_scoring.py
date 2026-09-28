@@ -1563,6 +1563,7 @@ async def _judge_answered_questions(
     roles: RoleTable | None,
     sink: TokenSink | None,
     target: str | None,
+    failed_questions: Mapping[str, str],
 ) -> SubsetScores | None:
     """Score every named judge over the questions a generating rung actually answered.
 
@@ -1595,7 +1596,11 @@ async def _judge_answered_questions(
         )
     )
     return await score_named_generation_metrics(
-        registry, judge_metrics, generation_samples, ctx=judging.ctx
+        registry,
+        judge_metrics,
+        generation_samples,
+        ctx=judging.ctx,
+        failed_questions=failed_questions,
     )
 
 
@@ -1680,6 +1685,7 @@ async def _judge_with_progress(
     sink: TokenSink | None,
     target: str | None,
     on_progress: Callable[[ScoringProgress], Awaitable[None]] | None,
+    failed_questions: Mapping[str, str],
 ) -> SubsetScores | None:
     """`_judge_answered_questions`, bracketed by `JUDGING` progress when it judges — R43.58."""
     will_judge = bool(judge_metrics) and bool(generation_samples)
@@ -1700,6 +1706,7 @@ async def _judge_with_progress(
         roles=roles,
         sink=sink,
         target=target,
+        failed_questions=failed_questions,
     )
     if will_judge:
         await _report_progress(
@@ -2037,6 +2044,7 @@ async def score_pipeline(
                 sink=sink,
                 target=target,
                 on_progress=on_progress,
+                failed_questions=failed,
             )
         store_rows = await _captured_store_rows(
             capture_pool=capture_pool, retrieval_services=retrieval_services
