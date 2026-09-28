@@ -560,6 +560,10 @@ route    = { provider = "scripted" }
 api_key = "${env:OPENAI_API_KEY}"
 ```
 
+A role may also state its model's context window, `context_tokens = 272000`. Weft knows no
+model's context size by itself, so a role that leaves it out is *unknown*, and the corpus
+profile then never reports that the whole corpus fits the model's context.
+
 `rerank` is in that list because it is the first role a *shipped* plugin asks under: `llm-rerank`
 defaults to it. Which role a technique asks under is that technique's own `role:` field, so a
 pipeline that wants its reranking done by a cheaper model than its answers changes one word in a
