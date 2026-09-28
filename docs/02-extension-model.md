@@ -843,7 +843,7 @@ class MetadataFilter(Protocol): ...                # marker: supports the whole 
 >
 > **Amended 2026-09-09 by ledger task `11.4`, as `S12` requires: this is a sentence about
 > obligation, not a prohibition on being one.** Read as a prohibition it is contradicted by the
-> tree — `examples/weft-example-graph/src/weft_example_graph/store.py:202 "class Gr"` *is* a `NodeStore`, and
+> tree — `examples/weft-example-graph/src/weft_example_graph/store.py:204 "class Gr"` *is* a `NodeStore`, and
 > §4's own add-on table lists a graph store under `Store`. What it actually says is narrower and
 > still true: **satisfying `SourceDeletable` must not require satisfying `NodeStore`**, because a
 > pack that only holds derived rows would then owe five methods to answer one question about
@@ -1107,7 +1107,7 @@ plugin receives* lists: `not_a_leaf = True` on an `ExtModel` says a node carryin
 derived evidence, never a leaf a layer enriches
 (`packages/weft-rag/src/weft_kg/payload.py:134 "not_a_leaf: ClassVar[bool] = True"`), and
 `consumes` on a `NodeStore` class names the `ExtModel`s that store turns into rows of its own
-(`packages/weft-rag/src/weft_kg/store.py:1040 "consumes: ClassVar"`). No protocol a class satisfies
+(`packages/weft-rag/src/weft_kg/store.py:1049 "consumes: ClassVar"`). No protocol a class satisfies
 implies either, so neither can be derived, and no contract's publisher can promise either for
 every implementation. The engine reads them and checks nothing against the code:
 `not_a_leaf` counts only when it `is True`

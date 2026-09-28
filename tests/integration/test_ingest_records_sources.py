@@ -437,3 +437,31 @@ async def test_indexing_records_each_source_s_leaves_and_characters(
         assert record.stats.leaves == len(own) >= 1
         assert record.stats.characters == sum(len(node.content) for node in own)
         assert record.stats.tokens is None
+
+
+async def test_an_unchanged_source_keeps_its_stats_when_indexed_again(
+    clean_database: None,
+    store: PgVectorStore,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Task **44.13**: re-indexing an unchanged file rewrites its record without its leaves.
+
+    Nothing is re-parsed, so nothing is counted; the record must carry the stats it already had,
+    as it carries its layers, rather than read as never measured.
+    """
+    # Arrange
+    del clean_database
+    monkeypatch.setenv("WEFT_DATABASE_URL", _DSN)
+    (tmp_path / "fox.txt").write_text("The quick brown fox jumps over the lazy dog.")
+    deps = build_dependencies(config_path=tmp_path / "weft.toml")
+    await run_index(tmp_path, registry=deps.registry, ctx=_ctx())
+    [first] = await store.list_sources()
+
+    # Act
+    await run_index(tmp_path, registry=deps.registry, ctx=_ctx())
+    [again] = await store.list_sources()
+
+    # Assert
+    assert first.stats is not None
+    assert again.stats == first.stats
