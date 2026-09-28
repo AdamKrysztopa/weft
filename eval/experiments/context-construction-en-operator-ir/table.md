@@ -3,43 +3,43 @@
 experiment digest: f71544fda41f… · invocation: f911ae886554442a86874417e42affa0 · repetitions: 2
 corpus: ../../corpus/validation-en (fa62239f0e1a…)
 minimum detectable effect: 0.08
-interval and paired Δ: arm minus 'baseline' on repetition 1, 95% bootstrap interval over questions
+interval and paired Δ: arm minus 'baseline', pooled over the repetitions both ran, each paired with the same repetition of 'baseline'; 95% bootstrap interval resampling questions
 spread verdict: that Δ against the between-repetition spread of arm 'baseline'
 the minimum detectable effect is not applied to either verdict above: the paired difference's bootstrap interval and the spread verdict each read only the record's own numbers, never a chosen threshold.
 at least one spread verdict below was judged against a zero-width baseline spread: these repetitions did not vary at all, which is a claim about them, not proof the system is deterministic.
 
 | arm | metric | baseline | arm | 95% CI | paired Δ | n | spread verdict |
 |---|---|---|---|---|---|---|---|
-| dedupe | recall@5 | 0.903 (n 53) | 0.903 (n 53) | +0.000 to +0.000 | +0.000 | 53, 0 differing | within-baseline-spread (zero-width) |
-| dedupe | mrr@5 | 0.833 (n 53) | 0.830 (n 53) | -0.009 to +0.000 | -0.003 | 53, 1 differing | outside-baseline-spread (zero-width) |
-| dedupe | ndcg@5 | 0.838 (n 53) | 0.836 (n 53) | -0.007 to +0.000 | -0.002 | 53, 1 differing | outside-baseline-spread (zero-width) |
-| dedupe | token_recall | 0.516 (n 53) | 0.523 (n 53) | -0.011 to +0.024 | +0.006 | 53, 43 differing | within-baseline-spread |
-| dedupe | rouge_l | 0.333 (n 53) | 0.335 (n 53) | -0.014 to +0.019 | +0.002 | 53, 50 differing | outside-baseline-spread |
-| dedupe-t030 | recall@5 | 0.903 (n 53) | 0.921 (n 53) | +0.000 to +0.057 | +0.019 | 53, 1 differing | outside-baseline-spread (zero-width) |
-| dedupe-t030 | mrr@5 | 0.833 (n 53) | 0.836 (n 53) | -0.009 to +0.019 | +0.003 | 53, 2 differing | outside-baseline-spread (zero-width) |
-| dedupe-t030 | ndcg@5 | 0.838 (n 53) | 0.845 (n 53) | -0.007 to +0.028 | +0.007 | 53, 2 differing | outside-baseline-spread (zero-width) |
-| dedupe-t030 | token_recall | 0.516 (n 53) | 0.530 (n 53) | -0.002 to +0.030 | +0.013 | 53, 40 differing | outside-baseline-spread |
-| dedupe-t030 | rouge_l | 0.333 (n 53) | 0.333 (n 53) | -0.016 to +0.015 | +0.000 | 53, 50 differing | within-baseline-spread |
-| dedupe-t070 | recall@5 | 0.903 (n 53) | 0.903 (n 53) | +0.000 to +0.000 | +0.000 | 53, 0 differing | within-baseline-spread (zero-width) |
-| dedupe-t070 | mrr@5 | 0.833 (n 53) | 0.830 (n 53) | -0.009 to +0.000 | -0.003 | 53, 1 differing | outside-baseline-spread (zero-width) |
-| dedupe-t070 | ndcg@5 | 0.838 (n 53) | 0.836 (n 53) | -0.007 to +0.000 | -0.002 | 53, 1 differing | outside-baseline-spread (zero-width) |
-| dedupe-t070 | token_recall | 0.516 (n 53) | 0.522 (n 53) | -0.011 to +0.024 | +0.006 | 53, 40 differing | within-baseline-spread |
-| dedupe-t070 | rouge_l | 0.333 (n 53) | 0.334 (n 53) | -0.011 to +0.015 | +0.001 | 53, 51 differing | within-baseline-spread |
-| mmr | recall@5 | 0.903 (n 53) | 0.984 (n 53) | +0.025 to +0.157 | +0.082 | 53, 6 differing | outside-baseline-spread (zero-width) |
-| mmr | mrr@5 | 0.833 (n 53) | 0.874 (n 53) | +0.013 to +0.075 | +0.041 | 53, 7 differing | outside-baseline-spread (zero-width) |
-| mmr | ndcg@5 | 0.838 (n 53) | 0.894 (n 53) | +0.018 to +0.100 | +0.056 | 53, 8 differing | outside-baseline-spread (zero-width) |
-| mmr | token_recall | 0.516 (n 53) | 0.530 (n 53) | -0.009 to +0.037 | +0.014 | 53, 44 differing | outside-baseline-spread |
-| mmr | rouge_l | 0.333 (n 53) | 0.349 (n 53) | -0.005 to +0.038 | +0.016 | 53, 52 differing | outside-baseline-spread |
-| mmr-w030 | recall@5 | 0.903 (n 53) | 0.965 (n 53) | +0.012 to +0.132 | +0.063 | 53, 4 differing | outside-baseline-spread (zero-width) |
-| mmr-w030 | mrr@5 | 0.833 (n 53) | 0.872 (n 53) | +0.013 to +0.071 | +0.038 | 53, 7 differing | outside-baseline-spread (zero-width) |
-| mmr-w030 | ndcg@5 | 0.838 (n 53) | 0.882 (n 53) | +0.011 to +0.085 | +0.044 | 53, 8 differing | outside-baseline-spread (zero-width) |
-| mmr-w030 | token_recall | 0.516 (n 53) | 0.483 (n 53) | -0.062 to -0.007 | -0.034 | 53, 43 differing | outside-baseline-spread |
-| mmr-w030 | rouge_l | 0.333 (n 53) | 0.316 (n 53) | -0.043 to +0.009 | -0.017 | 53, 50 differing | outside-baseline-spread |
-| mmr-w100 | recall@5 | 0.903 (n 53) | 0.903 (n 53) | +0.000 to +0.000 | +0.000 | 53, 0 differing | within-baseline-spread (zero-width) |
-| mmr-w100 | mrr@5 | 0.833 (n 53) | 0.833 (n 53) | +0.000 to +0.000 | +0.000 | 53, 0 differing | within-baseline-spread (zero-width) |
-| mmr-w100 | ndcg@5 | 0.838 (n 53) | 0.838 (n 53) | +0.000 to +0.000 | +0.000 | 53, 0 differing | within-baseline-spread (zero-width) |
-| mmr-w100 | token_recall | 0.516 (n 53) | 0.507 (n 53) | -0.031 to +0.010 | -0.009 | 53, 42 differing | within-baseline-spread |
-| mmr-w100 | rouge_l | 0.333 (n 53) | 0.336 (n 53) | -0.013 to +0.017 | +0.003 | 53, 51 differing | outside-baseline-spread |
+| dedupe | recall@5 | 0.903 (n 53) | 0.903 (n 53) | +0.000 to +0.000 | +0.000 | 106, 0 differing | within-baseline-spread (zero-width) |
+| dedupe | mrr@5 | 0.833 (n 53) | 0.830 (n 53) | -0.009 to +0.000 | -0.003 | 106, 2 differing | outside-baseline-spread (zero-width) |
+| dedupe | ndcg@5 | 0.838 (n 53) | 0.836 (n 53) | -0.007 to +0.000 | -0.002 | 106, 2 differing | outside-baseline-spread (zero-width) |
+| dedupe | token_recall | 0.516 (n 53) | 0.523 (n 53) | -0.021 to +0.015 | -0.003 | 106, 89 differing | within-baseline-spread |
+| dedupe | rouge_l | 0.333 (n 53) | 0.335 (n 53) | -0.012 to +0.018 | +0.004 | 106, 100 differing | outside-baseline-spread |
+| dedupe-t030 | recall@5 | 0.903 (n 53) | 0.921 (n 53) | +0.000 to +0.057 | +0.019 | 106, 2 differing | outside-baseline-spread (zero-width) |
+| dedupe-t030 | mrr@5 | 0.833 (n 53) | 0.836 (n 53) | -0.009 to +0.019 | +0.003 | 106, 4 differing | outside-baseline-spread (zero-width) |
+| dedupe-t030 | ndcg@5 | 0.838 (n 53) | 0.845 (n 53) | -0.007 to +0.028 | +0.007 | 106, 4 differing | outside-baseline-spread (zero-width) |
+| dedupe-t030 | token_recall | 0.516 (n 53) | 0.530 (n 53) | +0.000 to +0.034 | +0.016 | 106, 84 differing | outside-baseline-spread |
+| dedupe-t030 | rouge_l | 0.333 (n 53) | 0.333 (n 53) | -0.006 to +0.019 | +0.006 | 106, 101 differing | within-baseline-spread |
+| dedupe-t070 | recall@5 | 0.903 (n 53) | 0.903 (n 53) | +0.000 to +0.000 | +0.000 | 106, 0 differing | within-baseline-spread (zero-width) |
+| dedupe-t070 | mrr@5 | 0.833 (n 53) | 0.830 (n 53) | -0.009 to +0.000 | -0.003 | 106, 2 differing | outside-baseline-spread (zero-width) |
+| dedupe-t070 | ndcg@5 | 0.838 (n 53) | 0.836 (n 53) | -0.007 to +0.000 | -0.002 | 106, 2 differing | outside-baseline-spread (zero-width) |
+| dedupe-t070 | token_recall | 0.516 (n 53) | 0.522 (n 53) | -0.019 to +0.010 | -0.005 | 106, 82 differing | within-baseline-spread |
+| dedupe-t070 | rouge_l | 0.333 (n 53) | 0.334 (n 53) | -0.011 to +0.014 | +0.001 | 106, 102 differing | within-baseline-spread |
+| mmr | recall@5 | 0.903 (n 53) | 0.984 (n 53) | +0.025 to +0.157 | +0.082 | 106, 12 differing | outside-baseline-spread (zero-width) |
+| mmr | mrr@5 | 0.833 (n 53) | 0.874 (n 53) | +0.013 to +0.072 | +0.041 | 106, 14 differing | outside-baseline-spread (zero-width) |
+| mmr | ndcg@5 | 0.838 (n 53) | 0.894 (n 53) | +0.021 to +0.098 | +0.056 | 106, 16 differing | outside-baseline-spread (zero-width) |
+| mmr | token_recall | 0.516 (n 53) | 0.530 (n 53) | -0.015 to +0.031 | +0.008 | 106, 90 differing | outside-baseline-spread |
+| mmr | rouge_l | 0.333 (n 53) | 0.349 (n 53) | -0.002 to +0.037 | +0.017 | 106, 101 differing | outside-baseline-spread |
+| mmr-w030 | recall@5 | 0.903 (n 53) | 0.965 (n 53) | +0.006 to +0.138 | +0.063 | 106, 8 differing | outside-baseline-spread (zero-width) |
+| mmr-w030 | mrr@5 | 0.833 (n 53) | 0.872 (n 53) | +0.013 to +0.072 | +0.038 | 106, 14 differing | outside-baseline-spread (zero-width) |
+| mmr-w030 | ndcg@5 | 0.838 (n 53) | 0.882 (n 53) | +0.011 to +0.085 | +0.044 | 106, 16 differing | outside-baseline-spread (zero-width) |
+| mmr-w030 | token_recall | 0.516 (n 53) | 0.483 (n 53) | -0.065 to -0.011 | -0.038 | 106, 89 differing | outside-baseline-spread |
+| mmr-w030 | rouge_l | 0.333 (n 53) | 0.316 (n 53) | -0.045 to +0.005 | -0.020 | 106, 103 differing | outside-baseline-spread |
+| mmr-w100 | recall@5 | 0.903 (n 53) | 0.903 (n 53) | +0.000 to +0.000 | +0.000 | 106, 0 differing | within-baseline-spread (zero-width) |
+| mmr-w100 | mrr@5 | 0.833 (n 53) | 0.833 (n 53) | +0.000 to +0.000 | +0.000 | 106, 0 differing | within-baseline-spread (zero-width) |
+| mmr-w100 | ndcg@5 | 0.838 (n 53) | 0.838 (n 53) | +0.000 to +0.000 | +0.000 | 106, 0 differing | within-baseline-spread (zero-width) |
+| mmr-w100 | token_recall | 0.516 (n 53) | 0.507 (n 53) | -0.023 to +0.006 | -0.008 | 106, 83 differing | within-baseline-spread |
+| mmr-w100 | rouge_l | 0.333 (n 53) | 0.336 (n 53) | -0.002 to +0.021 | +0.009 | 106, 102 differing | outside-baseline-spread |
 
 | arm | latency p50 (s) | latency p95 (s) | tokens per query |
 |---|---|---|---|

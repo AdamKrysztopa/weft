@@ -45,6 +45,14 @@ paired questions actually differ, because `n` alone hides a mean carried by almo
 
 Repair **R41.3**: `paired_differences` refuses two records whose pool manifests or question-set
 digests disagree, `40.2`'s rule, rather than pairing them on question keys alone.
+
+Task **44.9**, owner decision D7: `pooled_paired_differences` pools every repetition both a
+baseline and an arm ran, pairing repetition *k* of one against repetition *k* of the other,
+question by question. Two repetitions of the same question are not two independent
+observations of it, so the bootstrap it runs resamples **question keys**, never the flat list
+of (question, repetition) differences — a question asked twice must not narrow the interval
+as if twice as many questions had been asked. With exactly one pair, it reads identically to
+`paired_differences` on that pair, to the bit.
 """
 
 from __future__ import annotations
@@ -480,14 +488,7 @@ def paired_differences(
     Raises `UnpairableRecordsError` when the records' pool manifests or question-set digests
     disagree — repair R41.3.
     """
-    reasons = pairing_reasons(a, b)
-    if reasons:
-        raise UnpairableRecordsError(
-            f"these two records do not pair question by question: "
-            f"{'; '.join(reasons)} — task 40.2: two arms compare only on the same pool "
-            f"manifest and question-set digests",
-            reasons=reasons,
-        )
+    _refuse_unpairable(a, b)
 
     if a.question_scores is None or b.question_scores is None:
         return MappingProxyType({})
@@ -509,6 +510,112 @@ def paired_differences(
     return MappingProxyType(result)
 
 
+def _refuse_unpairable(a: RunRecord, b: RunRecord) -> None:
+    """Raise `UnpairableRecordsError` naming every reason `a` and `b` cannot pair."""
+    reasons = pairing_reasons(a, b)
+    if reasons:
+        raise UnpairableRecordsError(
+            f"these two records do not pair question by question: "
+            f"{'; '.join(reasons)} — task 40.2: two arms compare only on the same pool "
+            f"manifest and question-set digests",
+            reasons=reasons,
+        )
+
+
+def _pooled_keyed_diffs(
+    pairs: Sequence[tuple[RunRecord, RunRecord]], metric: str
+) -> dict[str, list[float]]:
+    """Every (repetition, question) difference for `metric`, grouped by question key."""
+    by_key: dict[str, list[float]] = {}
+    for a, b in pairs:
+        if a.question_scores is None or b.question_scores is None:
+            continue
+        a_per = a.question_scores.get(metric)
+        b_per = b.question_scores.get(metric)
+        if a_per is None or b_per is None:
+            continue
+        for key, diff in _keyed_diffs(a_per.scores, b_per.scores, None):
+            by_key.setdefault(key, []).append(diff)
+    return by_key
+
+
+def _pooled_interval(by_key: Mapping[str, list[float]]) -> tuple[float | None, float | None]:
+    """The 95% bootstrap interval of the mean of `by_key`'s pooled differences.
+
+    Resamples question keys, `paired_interval`'s own `_RESAMPLES`/`_index_stream`/`_percentile`
+    unchanged — each resampled key contributes every repetition's difference it holds, so a
+    key drawn twice counts its differences twice, and a key with two repetitions is still one
+    draw. `None`/`None` for fewer than two distinct keys, `BaselineSpread`'s own rule for a
+    single observation.
+    """
+    distinct_keys = sorted(by_key)
+    n_keys = len(distinct_keys)
+    if n_keys < 2:
+        return None, None
+
+    key_sums = [sum(by_key[key]) for key in distinct_keys]
+    key_counts = [len(by_key[key]) for key in distinct_keys]
+    seed_material = "|".join(
+        f"{key}:{diff!r}"
+        for key, diff in sorted((key, diff) for key in by_key for diff in by_key[key])
+    )
+    indices = _index_stream(seed_material, count=_RESAMPLES * n_keys, modulus=n_keys)
+
+    means = sorted(
+        # The unit resampled is the question, not the (question, repetition) pair — two
+        # repetitions of one question are not two independent draws.
+        sum(key_sums[index] for index in indices[start : start + n_keys])
+        / sum(key_counts[index] for index in indices[start : start + n_keys])
+        for start in range(0, _RESAMPLES * n_keys, n_keys)
+    )
+    return _percentile(means, 2.5), _percentile(means, 97.5)
+
+
+def pooled_paired_differences(
+    pairs: Sequence[tuple[RunRecord, RunRecord]],
+) -> Mapping[str, PairedDifference]:
+    """One `PairedDifference` per metric, pooled over every `(baseline, arm)` repetition pair.
+
+    `pairs` is `(baseline record, arm record)` of one repetition each, in repetition order —
+    repetition *k* of the arm is paired with repetition *k* of the baseline. For each metric
+    both sides scored per question, in any pair, every pair's own question-by-question
+    differences (the identical `Produced`-on-both-sides rule `_keyed_diffs`/`paired_differences`
+    already apply — `NotScored` is never a zero) count toward `mean` and `n`; a metric with no
+    differences in any pair produces no entry. `differing` counts every one of those
+    (repetition, question) differences that is not exactly zero.
+
+    `low`/`high` bootstrap over question keys rather than over the flat list of differences —
+    see `_pooled_interval`. With exactly one pair, every value here is identical, to the bit, to
+    `paired_differences(a, b)` on that pair: with one difference per question, the seed
+    material, the resampling indices and every arithmetic step this function performs collapse
+    to exactly the steps `paired_interval` performs.
+
+    Raises `UnpairableRecordsError` for any pair whose two records cannot pair — see
+    `pairing_reasons`, the identical refusal `paired_differences` itself raises.
+    """
+    for a, b in pairs:
+        _refuse_unpairable(a, b)
+
+    metrics: set[str] = set()
+    for a, b in pairs:
+        if a.question_scores is not None and b.question_scores is not None:
+            metrics.update(set(a.question_scores) & set(b.question_scores))
+
+    result: dict[str, PairedDifference] = {}
+    for name in sorted(metrics):
+        by_key = _pooled_keyed_diffs(pairs, name)
+        if not by_key:
+            continue
+        all_diffs = [diff for key in sorted(by_key) for diff in by_key[key]]
+        mean = sum(all_diffs) / len(all_diffs)
+        differing = sum(1 for diff in all_diffs if diff != 0.0)
+        low, high = _pooled_interval(by_key)
+        result[name] = PairedDifference(
+            metric=name, mean=mean, low=low, high=high, n=len(all_diffs), differing=differing
+        )
+    return MappingProxyType(result)
+
+
 __all__ = [
     "BaselineMeasurement",
     "BaselineSpread",
@@ -523,4 +630,5 @@ __all__ = [
     "paired_differences",
     "paired_interval",
     "pairing_reasons",
+    "pooled_paired_differences",
 ]

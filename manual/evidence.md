@@ -41,9 +41,9 @@ those same questions.
   ledger only.
 - **Opt-in rungs are there to try on your own data, not because they won here.** None of them
   beat the default by the pre-set margin on any data Weft holds. The closest are:
-  - `context-construction-then-generate`: token recall +0.030 to +0.035, for about twice the
+  - `context-construction-then-generate`: token recall +0.038 to +0.050, for about twice the
     prompt tokens.
-  - `adjacent-chunks-then-generate`: +0.032 on one English set.
+  - `adjacent-chunks-then-generate`: +0.031 to +0.042 on the two English sets.
   - `mmr-then-generate`: mrr@5 +0.041 [+0.013, +0.075] on the 53 operator questions, and nothing
     on the other two sets.
 - **Do not add a cross-encoder reranker on the strength of its reputation.** Measured over dense's
@@ -112,7 +112,7 @@ The five statuses:
 | `index-with-deep-raptor` | wrong questions, and harms on them | `eval/raptor-baseline/after-16a/remeasurement.json` |
 | `graph-then-generate`, `graph-and-vector-rrf`, `index-with-facts`, `index-with-facts-openai`, `index-with-cooccurrence` | wrong questions (12 one-sentence documents, questions generated from the graph under test) | Phase 11 exit (ledger only) |
 | `cross-encoder-retrieve`, `cross-encoder-rerank-then-generate` | no gain on ESCI, harms on TechQA | `eval/pool-promotion/esci-ce-verdict.json`, `techqa-ce-verdict.json` |
-| `whole-corpus-then-generate` | helps on Weft's 107 English questions (answer correctness, 95% interval +0.031 to +0.111), at about 170× the prompt tokens; no difference on the 12 Polish | `eval/experiments/whole-corpus-en/table.md`, `whole-corpus-pl/table.md` |
+| `whole-corpus-then-generate` | helps on Weft's 107 English questions (answer correctness, 95% interval +0.039 to +0.117), at about 170× the prompt tokens; no difference on the 12 Polish | `eval/experiments/whole-corpus-en/table.md`, `whole-corpus-pl/table.md` |
 | `replay-llm-rerank` | helps on ESCI at ~$1.83/830 questions, underpowered, one repetition | ledger `41.4` |
 | `graph-2hop-then-generate`, `graph-then-rerank`, `rerank-then-generate`, `iterative-retrieve`, `corrective-retrieve`, `grade-then-generate`, `multi-query-then-retrieve`, `step-back-then-retrieve`, `rewrite-then-retrieve`, `boolean-then-retrieve`, `broad-and-refined-rrf`, `contradiction-aware`, `draft-then-refine`, `summarise-then-generate`, `no-retrieval`, `route`, `route-by-score`, `route-fixed`, `enrich-with-questions`, `enrich-with-raptor`, `enrich-with-facts-and-graph`, `questions-then-generate`, `index-with-adrap`, `index-with-graph`, `index-with-keywords` | never | none |
 | `index-text` | helps (the leaves arm RAPTOR is measured against) | `eval/raptor-baseline/after-16a/remeasurement.json` |
@@ -261,11 +261,11 @@ The five statuses:
   neighbours improve what the model reads?
 - **Data.** Weft's own English corpus with 54 fetch and 53 operator questions, sized to detect 0.08.
   Separately, 12 Polish questions, too few to detect anything under 0.24.
-- **Result.** Neighbour-widening and the full composition raised token recall by +0.035
-  [+0.013, +0.061] and +0.030 [+0.004, +0.058], below the 0.08 set beforehand and for about twice
-  the prompt tokens (`eval/experiments/context-construction-en-*-widen/table.md`). Deduplication
+- **Result.** The full composition raised token recall by +0.038 [+0.017, +0.059] on the fetch
+  set and +0.050 [+0.027, +0.076] on the operator set, and neighbour-widening alone by +0.042 and
+  +0.031, all below the 0.08 set beforehand and for about twice the prompt tokens (`eval/experiments/context-construction-en-*-widen/table.md`). Deduplication
   changed nothing: the corpus has no repeated passages. MMR lifted mrr@5 by +0.041
-  [+0.013, +0.075] on the operator set only, and left the fetch and Polish sets unchanged
+  [+0.013, +0.072] on the operator set only, and left the fetch and Polish sets unchanged
   (`eval/experiments/context-construction-*-ir/table.md`). Polish measured nothing
   (`eval/experiments/context-construction-pl-*/table.md`).
 - **Changed.** Four opt-in rungs; no default moved.

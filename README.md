@@ -146,7 +146,7 @@ token bound. Measured on Weft's own 107 English questions over 16 papers (253k t
 
 | | `retrieve-then-generate` | `whole-corpus-then-generate` |
 |---|---|---|
-| answer correctness (LLM judge) | 0.672 | **0.743**, paired 95% interval **+0.031 to +0.111** |
+| answer correctness (LLM judge) | 0.672 | **0.743**, paired 95% interval **+0.039 to +0.117** |
 | prompt tokens per question | 1,541 | 261,498 (~170×) |
 | p50 latency | 3.7 s | 5.5 s |
 

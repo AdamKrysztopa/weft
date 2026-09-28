@@ -58,7 +58,7 @@ from weft_eval.falsify import (
     Verdict,
     baseline_spreads,
     judge_differences,
-    paired_differences,
+    pooled_paired_differences,
 )
 from weft_eval.latency import LatencySummary, nearest_rank
 from weft_eval.run_record import ExperimentRun, RunRecord, load_run_record
@@ -319,8 +319,15 @@ def _build_comparisons(
     baseline_first = baseline_records[0]
     comparisons: list[ArmComparison] = []
     for arm in experiment.arms[1:]:
-        arm_first = _arm_records(experiment, by_key, arm)[0]
-        paired_map = paired_differences(baseline_first, arm_first)
+        arm_records = _arm_records(experiment, by_key, arm)
+        arm_first = arm_records[0]
+        # 44.9/D7: paired over every repetition both the baseline and this arm ran, repetition
+        # k of one paired with repetition k of the other — the spread verdict below stays on
+        # repetition 1 alone.
+        pooled_repeats = min(experiment.repeats_for(baseline_arm), experiment.repeats_for(arm))
+        paired_map = pooled_paired_differences(
+            list(zip(baseline_records[:pooled_repeats], arm_records[:pooled_repeats], strict=True))
+        )
         judgement_map = judge_differences(baseline_first, arm_first, spreads)
         for metric in experiment.metrics:
             judgement = judgement_map.get(metric)
@@ -490,8 +497,9 @@ def render_evidence_table(table: EvidenceTable) -> str:
         f"repetitions: {_repetitions_cell(table)}",
         f"corpus: {table.corpus_name} ({table.corpus_digest[:12]}…)",
         f"minimum detectable effect: {table.minimum_detectable_effect:g}",
-        f"interval and paired Δ: arm minus '{table.baseline_arm}' on repetition 1, 95% "
-        "bootstrap interval over questions",
+        f"interval and paired Δ: arm minus '{table.baseline_arm}', pooled over the repetitions "
+        f"both ran, each paired with the same repetition of '{table.baseline_arm}'; 95% "
+        "bootstrap interval resampling questions",
         "spread verdict: that Δ against the between-repetition spread of arm "
         f"'{table.baseline_arm}'",
         "the minimum detectable effect is not applied to either verdict above: the paired "

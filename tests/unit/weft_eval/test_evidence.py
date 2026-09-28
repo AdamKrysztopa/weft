@@ -151,8 +151,9 @@ def test_each_arm_is_compared_with_the_first_by_a_paired_interval_and_a_spread_v
     (comparison,) = table.comparisons
     assert (comparison.arm, comparison.metric) == ("better", "precision@5")
     assert comparison.paired is not None
-    assert comparison.paired.mean == pytest.approx(0.25)
-    assert comparison.paired.n == 4
+    # Pooled over both repetitions (44.9): +0.25 on seven pairs, +0.17 on base's second q-4.
+    assert comparison.paired.mean == pytest.approx(0.24)
+    assert comparison.paired.n == 8
     assert comparison.judgement.verdict is Verdict.OUTSIDE_BASELINE_SPREAD
 
 
@@ -240,10 +241,10 @@ def test_the_rendered_table_says_which_interval_is_which_and_carries_every_cell(
     # Assert
     assert experiment.digest[:12] in markdown
     assert "minimum detectable effect: 0.05" in markdown
-    assert "bootstrap interval over questions" in markdown
+    assert "bootstrap interval resampling questions" in markdown
     assert "between-repetition spread of arm 'base'" in markdown
     row = next(line for line in markdown.splitlines() if "| better | precision@5 |" in line)
-    assert "+0.250" in row
+    assert "+0.240" in row
     assert Verdict.OUTSIDE_BASELINE_SPREAD.value in row
     assert render_evidence_table(table) == markdown
 
@@ -266,7 +267,7 @@ def test_every_paired_interval_is_stated_before_its_point_estimate(tmp_path: Pat
     assert header.index("95% CI") < header.index("paired Δ")
     row = next(line for line in lines if "| better | precision@5 |" in line)
     cells = [cell.strip() for cell in row.split("|")]
-    assert cells.index("+0.250") > next(i for i, cell in enumerate(cells) if " to " in cell)
+    assert cells.index("+0.240") > next(i for i, cell in enumerate(cells) if " to " in cell)
 
 
 def test_regenerate_reads_the_records_on_disk_for_the_document_on_disk(tmp_path: Path) -> None:
@@ -456,10 +457,10 @@ def test_a_paired_difference_counts_the_questions_that_actually_differ(tmp_path:
     # Assert
     comparison = next(c for c in table.comparisons if c.arm == "better")
     assert comparison.paired is not None
-    assert comparison.paired.n == 4
-    assert comparison.paired.differing == 1
+    assert comparison.paired.n == 8
+    assert comparison.paired.differing == 2
     row = next(line for line in markdown.splitlines() if "| better | precision@5 |" in line)
-    assert "| 4, 1 differing |" in row
+    assert "| 8, 2 differing |" in row
 
 
 def test_the_table_names_the_corpus_its_records_were_measured_on(tmp_path: Path) -> None:

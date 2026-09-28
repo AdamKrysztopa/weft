@@ -152,10 +152,10 @@ alone, which is the control every other rung on this list is measured against.
 
 **None is a default, on measurement.** On Weft's own 107 English validation questions,
 `eval/experiments/context-construction-*`:
-- The composition raised `token_recall` by +0.035 (95% interval +0.013 to +0.061) and +0.030
-  (+0.004 to +0.058) on the two question sets. That is below the 0.08 the run was sized to
+- The composition raised `token_recall` by +0.038 (95% interval +0.017 to +0.059) and +0.050
+  (+0.027 to +0.076) on the two question sets. That is below the 0.08 the run was sized to
   detect, and it used about twice the prompt tokens.
-- `adjacent-chunks` alone gained about +0.03.
+- `adjacent-chunks` alone gained +0.03 to +0.04.
 - `dedupe` and `mmr` changed nothing on a corpus with no repeated passages.
 - `rouge-l` and the 12 Polish questions moved for no arm.
 

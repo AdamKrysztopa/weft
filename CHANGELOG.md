@@ -87,6 +87,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Changed
 
+- **`weft eval table`'s paired interval pools every repetition both arms ran**, pairing each
+  arm's repetition with the baseline's repetition of the same number. It resamples questions, not
+  question-repetition pairs, so a question asked twice counts once and the interval does not
+  narrow as if twice as many had been asked. The `n` column now counts pairs, and an arm that ran
+  once reads exactly as before. The header says `pooled over the repetitions both ran`.
+
 - **`weft ask` answers through `retrieve-then-generate` by default, and calls no model to decide
   so.** The default `[services] route` is now `route-fixed`, whose new scorer `keyword-intents`
   calls no model. `route` paid one model call per question on the `route` role, for scores its
