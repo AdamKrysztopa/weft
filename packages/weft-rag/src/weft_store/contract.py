@@ -922,7 +922,11 @@ class NodeStore(Stage[Sequence[Node], Sequence[Node]], Protocol):
         ...
 
     async def count(self) -> int:
-        """Count the nodes stored.
+        """Count the nodes stored — every node, not a corpus size.
+
+        Layer nodes (summaries, generated questions) and a generation's unpublished members count
+        too, so this is no measure of how many leaves or documents a corpus holds; a caller wanting
+        that reads `list_sources()` and each record's own facts (repair R44.1).
 
         Returns:
             How many nodes this store holds.
