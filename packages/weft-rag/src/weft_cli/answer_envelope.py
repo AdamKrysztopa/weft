@@ -62,9 +62,25 @@ from pydantic import BaseModel, ConfigDict
 from weft_cli.coverage import LayerCoverage, SourceCoverage
 from weft_cli.sinks import LineKind
 from weft_generate.payload import Answer, AnswerStance, Citation
+from weft_retrieve.payload import Route, RuleOutcome
 
 #: `09` §3's additive promise, carried in the data — see the module docstring.
 ANSWER_ENVELOPE_VERSION: Final[str] = "1.0.0"
+
+
+class RouteView(BaseModel):
+    """How a routed ask reached its pipeline — ledger task **44.2**.
+
+    The `Route` without its `scorecard`, which carries the query and a scorer's own open
+    mapping: this is the decision, not the measurement behind it.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pipeline: str
+    outcome: RuleOutcome
+    #: The matching rule's name; empty when the policy matched no rule (`Route.rule`).
+    rule: str
 
 
 class AnswerEnvelope(BaseModel):
@@ -103,6 +119,10 @@ class AnswerEnvelope(BaseModel):
     #: answer. `None`, and omitted from the serialized envelope, when nothing is pending —
     #: `coverage`'s own additive rule, one field over.
     layers: tuple[LayerCoverage, ...] | None = None
+    #: Task **44.2** — the routing decision, on a routed ask only. Omitted from the serialized
+    #: envelope when `None`, `coverage`'s own additive rule, so a named ask's envelope is
+    #: byte-identical to before.
+    route: RouteView | None = None
 
 
 def build_answer_envelope(
@@ -111,6 +131,7 @@ def build_answer_envelope(
     pipeline_name: str | None,
     coverage: SourceCoverage | None = None,
     layers: tuple[LayerCoverage, ...] | None = None,
+    route: Route | None = None,
 ) -> AnswerEnvelope:
     """The one place an `Answer` becomes an `AnswerEnvelope`.
 
@@ -126,7 +147,15 @@ def build_answer_envelope(
         stance=answer.stance,
         coverage=coverage,
         layers=layers,
+        route=None
+        if route is None
+        else RouteView(pipeline=route.pipeline, outcome=route.outcome, rule=route.rule),
     )
 
 
-__all__: list[str] = ["ANSWER_ENVELOPE_VERSION", "AnswerEnvelope", "build_answer_envelope"]
+__all__: list[str] = [
+    "ANSWER_ENVELOPE_VERSION",
+    "AnswerEnvelope",
+    "RouteView",
+    "build_answer_envelope",
+]

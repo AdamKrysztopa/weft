@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.unit.weft_cli.routed import routed_to
 from weft_cli import commands, render
 from weft_cli.commands import AskCommandResult
 from weft_cli.coverage import LayerCoverage, layer_coverage_of, ready_layers
@@ -29,7 +30,7 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Produced, SourceId
 from weft_kernel.registry import Registry
-from weft_retrieve.payload import Query
+from weft_retrieve.payload import Query, Route
 from weft_store import LayerRecord, LayerStatus, NodeStore, SourceRecord, SourceStatus
 from weft_store.memory import MemoryStore
 
@@ -140,9 +141,9 @@ class _Routed:
     def __init__(self) -> None:
         self.kwargs: dict[str, object] = {}
 
-    async def __call__(self, *_args: object, **kwargs: object) -> tuple[str, Answer]:
+    async def __call__(self, *_args: object, **kwargs: object) -> tuple[Route, Answer]:
         self.kwargs = kwargs
-        return "retrieve-then-generate", _answer()
+        return routed_to("retrieve-then-generate"), _answer()
 
 
 def test_each_layer_is_counted_against_the_sources_that_are_indexed() -> None:

@@ -71,7 +71,7 @@ from weft_retrieve import (
     SingleList,
 )
 from weft_retrieve.contract import QueryTransform
-from weft_retrieve.payload import Candidates, QuerySet
+from weft_retrieve.payload import Candidates, QuerySet, RuleOutcome
 from weft_store import NodeStore
 
 #: `LlmQueryScorer`'s own JSON contract — `RouteQueryScores` — with every one of the
@@ -183,7 +183,7 @@ async def test_run_routed_ask_selects_and_executes_the_only_routable_pipeline() 
     # argmax has exactly one thing to be nearest to.
 
     # Act
-    pipeline_name, answer = await run_routed_ask(
+    route, answer = await run_routed_ask(
         "what happens if a store advertises no capability at all?",
         registry=_registry(),
         reports=_reports(),
@@ -194,7 +194,8 @@ async def test_run_routed_ask_selects_and_executes_the_only_routable_pipeline() 
     )
 
     # Assert
-    assert pipeline_name == "no-retrieval"
+    assert route.pipeline == "no-retrieval"
+    assert route.outcome is RuleOutcome.NEAREST
     assert isinstance(answer, Answer)
 
 
@@ -222,7 +223,7 @@ async def test_run_routed_ask_streams_generation_tokens_into_the_caller_s_sink()
     sink = _RecordingSink()
 
     # Act
-    _pipeline_name, answer = await run_routed_ask(
+    _route, answer = await run_routed_ask(
         "what happens if a store advertises no capability at all?",
         registry=_registry(),
         reports=_reports(),
@@ -490,7 +491,7 @@ async def test_the_router_resolves_a_project_local_document_named_by_services_ro
     # Assert — the router the project authored ran, and it selected the rung the project
     # authored: both halves, since a router that resolves but can only ever choose a pack's
     # own documents is still half a seam.
-    assert selected == "my-rung"
+    assert selected.pipeline == "my-rung"
     assert isinstance(answer, Answer)
 
 

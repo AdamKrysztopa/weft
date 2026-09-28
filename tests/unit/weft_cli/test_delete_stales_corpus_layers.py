@@ -22,6 +22,7 @@ from typing import ClassVar, Self
 
 import pytest
 
+from tests.unit.weft_cli.routed import routed_to
 from weft_chunk import Chunker
 from weft_chunk.fixed_size import FixedSizeChunker
 from weft_cli import cli, commands, render
@@ -50,7 +51,7 @@ from weft_kernel.payload import (
     Vector,
 )
 from weft_kernel.registry import Registry
-from weft_retrieve.payload import Query
+from weft_retrieve.payload import Query, Route
 from weft_store import NodeStore
 from weft_store.contract import (
     Cursor,
@@ -547,9 +548,9 @@ class _Routed:
     def __init__(self) -> None:
         self.kwargs: dict[str, object] = {}
 
-    async def __call__(self, *_args: object, **kwargs: object) -> tuple[str, Answer]:
+    async def __call__(self, *_args: object, **kwargs: object) -> tuple[Route, Answer]:
         self.kwargs = kwargs
-        return "retrieve-then-generate", _answer()
+        return routed_to("retrieve-then-generate"), _answer()
 
 
 async def test_the_router_stops_offering_the_rung_once_its_layer_is_stale(

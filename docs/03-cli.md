@@ -906,6 +906,11 @@ envelope carries the same counts as `coverage`. A refusal then says how many sou
 indexed. The count is of sources the store has recorded, not of files in a directory it has never
 seen. With every source active, nothing is printed and the envelope has no `coverage` key.
 
+**The routing decision (task `44.2`).** A routed `weft ask` keeps the `Route` its router took. The
+`--json` envelope carries it as `route`, `{"pipeline", "outcome", "rule"}`, where `outcome` is
+`matched`, `fell-through` or `nearest`; `--explain` prints `route: <outcome> by rule '<rule>'`. A
+`--pipeline` ask took no routing decision, so its envelope has no `route` key.
+
 **Progress, while `weft index` runs (task `43.2`).** `weft index` runs batches of 25 by default and
 writes one line per batch to stderr, `batch k/K · n/N documents queryable · t s since start`.
 Under `--json` it writes a line of `kind` `batch-progress` on the event stream instead. A pipeline

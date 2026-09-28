@@ -213,11 +213,12 @@ async def run_routed_ask(
     roles: RoleTable = _NO_ROLES,
     target: str | None = None,
     ready_layers: frozenset[str] | None = None,
-) -> tuple[str, Answer]:
+) -> tuple[Route, Answer]:
     """`weft ask`'s default path: the router picks the pipeline, so the user need not name one.
 
     Route `question` through the real router, run whichever pipeline it selects, and
-    return `(the pipeline name selected, the Answer it produced)`.
+    return `(the Route taken, the Answer it produced)` — the whole `Route` since ledger task
+    **44.2**, so how the choice was reached reaches `--json` and `--explain`.
 
     Raises `NoRouterPipelineError` if no installed pack contributed `route.yaml`;
     `UnroutedPipelineNameError` if a `RoutingPolicy` names a pipeline the catalogue does
@@ -334,7 +335,7 @@ async def _route_and_answer(
     catalogue: Mapping[str, Pipeline],
     reports: Sequence[PackReport],
     contributions: tuple[Contribution, ...],
-) -> tuple[str, Answer]:
+) -> tuple[Route, Answer]:
     """Run the router over `question`, then the pipeline it selects, and require an answer."""
     query = Query(text=question)
     route = await _run_pipeline(
@@ -395,7 +396,7 @@ async def _route_and_answer(
         produced_by="`weft ask`",
         alternatives=pipelines_producing(Generator, catalogue=catalogue, registry=registry),
     )
-    return route.pipeline, answer
+    return route, answer
 
 
 class PipelineProducedTheWrongShapeError(WeftError):

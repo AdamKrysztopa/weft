@@ -205,6 +205,7 @@ from weft_kernel.runner import RunSummary
 from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
 from weft_retrieve.engine import missing_roles, route_requirements
+from weft_retrieve.payload import Route
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
 from weft_store.contract import (
     EmbeddingIdentity,
@@ -1009,6 +1010,9 @@ class AskCommandResult(CommandResult):
     #: narrows this to the pending ones before stating anything under the answer or in the
     #: JSON envelope; a corpus with nothing pending renders exactly as it did before this task.
     layers: tuple[LayerCoverage, ...] = ()
+    #: Ledger task **44.2** — the routing decision a routed ask took. `None` on a named or
+    #: retrieve-only ask, which took none.
+    route: Route | None = None
 
 
 _RENDER_HELP: Final[str] = (
@@ -1729,41 +1733,14 @@ class AskCommand:
         # merely not built yet — checked over the whole catalogue before either branch below,
         # so a routed ask over such a document is refused rather than routed around it.
         _raise_for_uninstalled_route_layers(catalogue, deps=deps)
-        if ask_args.pipeline is not None:
-            pipeline_name = ask_args.pipeline
-            if not ask_args.allow_pending:
-                _raise_if_pending(
-                    pipeline_name, catalogue=catalogue, ask_coverage=ask_coverage, deps=deps
-                )
-            answer = await run_named_ask(
-                ask_args.question,
-                pipeline_name=pipeline_name,
-                registry=deps.registry,
-                reports=deps.reports,
-                ctx=ctx,
-                llm=deps.llm,
-                services=deps.services,
-                sink=deps.token_sink,
-                contributions=deps.contributions,
-                # Ledger task **9.0** — every declared role `[services]` selected reaches
-                # this query-path run, exactly as `deps.llm` above already does.
-                roles=deps.roles,
-                target=ask_args.target,
-            )
-        else:
-            pipeline_name, answer = await run_routed_ask(
-                ask_args.question,
-                registry=deps.registry,
-                reports=deps.reports,
-                ctx=ctx,
-                llm=deps.llm,
-                services=deps.services,
-                sink=deps.token_sink,
-                contributions=deps.contributions,
-                roles=deps.roles,
-                target=ask_args.target,
-                ready_layers=ready,
-            )
+        pipeline_name, route, answer = await _ask_named_or_routed(
+            ask_args,
+            deps=deps,
+            ctx=ctx,
+            catalogue=catalogue,
+            ask_coverage=ask_coverage,
+            ready=ready,
+        )
         explanations: tuple[str, ...] = ()
         note: str | None = None
         if ask_args.explain:
@@ -1798,6 +1775,8 @@ class AskCommand:
                 explanation.rendered()
                 for explanation in arm_explanations(produced_by, producers=producers, store=store)
             )
+            if route is not None:
+                explanations += (_route_explanation(route),)
             if ask_args.pipeline is None:
                 # Ledger task **43.9** — routed path only: a rung reached by name was
                 # already refused or accepted above, so there is nothing left to exclude.
@@ -1816,8 +1795,64 @@ class AskCommand:
                 score_note=note,
                 coverage=ask_coverage.coverage,
                 layers=ask_coverage.layers,
+                route=route,
             )
         )
+
+
+async def _ask_named_or_routed(
+    ask_args: AskArgs,
+    *,
+    deps: Dependencies,
+    ctx: Context,
+    catalogue: Mapping[str, Pipeline],
+    ask_coverage: _AskCoverage,
+    ready: frozenset[str],
+) -> tuple[str, Route | None, Answer]:
+    """Answer by `--pipeline`'s name, or through the router: the pipeline, its route, the answer.
+
+    The `Route` is `None` on a named ask, which took no routing decision (ledger task **44.2**).
+    """
+    if ask_args.pipeline is None:
+        route, answer = await run_routed_ask(
+            ask_args.question,
+            registry=deps.registry,
+            reports=deps.reports,
+            ctx=ctx,
+            llm=deps.llm,
+            services=deps.services,
+            sink=deps.token_sink,
+            contributions=deps.contributions,
+            roles=deps.roles,
+            target=ask_args.target,
+            ready_layers=ready,
+        )
+        return route.pipeline, route, answer
+    pipeline_name = ask_args.pipeline
+    if not ask_args.allow_pending:
+        _raise_if_pending(pipeline_name, catalogue=catalogue, ask_coverage=ask_coverage, deps=deps)
+    answer = await run_named_ask(
+        ask_args.question,
+        pipeline_name=pipeline_name,
+        registry=deps.registry,
+        reports=deps.reports,
+        ctx=ctx,
+        llm=deps.llm,
+        services=deps.services,
+        sink=deps.token_sink,
+        contributions=deps.contributions,
+        # Ledger task **9.0** — every declared role `[services]` selected reaches
+        # this query-path run, exactly as `deps.llm` above already does.
+        roles=deps.roles,
+        target=ask_args.target,
+    )
+    return pipeline_name, None, answer
+
+
+def _route_explanation(route: Route) -> str:
+    """How a routed ask reached its pipeline, for `--explain` — ledger task **44.2**."""
+    reached = f"route: {route.outcome.value}"
+    return f"{reached} by rule '{route.rule}'" if route.rule else reached
 
 
 class PluginsListCommand:

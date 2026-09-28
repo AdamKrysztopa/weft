@@ -26,6 +26,7 @@ from unittest import mock
 import pytest
 from pydantic import ValidationError
 
+from tests.unit.weft_cli.routed import routed_to
 from weft_cli import commands
 from weft_cli import ingest as ingest_module
 from weft_cli.exit_codes import ExitCode
@@ -47,7 +48,7 @@ from weft_kernel.pipeline import StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution
 from weft_kernel.runner import RunSummary
-from weft_retrieve.payload import Query
+from weft_retrieve.payload import Query, Route
 from weft_store import (
     NodeStore,
     ReconcileEstimate,
@@ -533,8 +534,8 @@ async def test_ask_command_routes_by_default(monkeypatch: pytest.MonkeyPatch) ->
         answered_by="scripted",
     )
 
-    async def _fake_run_routed_ask(*_args: object, **_kwargs: object) -> tuple[str, Answer]:
-        return "specific", answer
+    async def _fake_run_routed_ask(*_args: object, **_kwargs: object) -> tuple[Route, Answer]:
+        return routed_to("specific"), answer
 
     monkeypatch.setattr(commands, "run_routed_ask", _fake_run_routed_ask)
     args = commands.AskArgs(question="what changed?")
@@ -574,7 +575,7 @@ async def test_ask_command_with_pipeline_names_one_directly_and_skips_the_router
         seen_pipeline_names.append(cast(str, kwargs["pipeline_name"]))
         return answer
 
-    async def _boom(*_args: object, **_kwargs: object) -> tuple[str, Answer]:
+    async def _boom(*_args: object, **_kwargs: object) -> tuple[Route, Answer]:
         raise AssertionError("--pipeline must never fall through to the router")
 
     monkeypatch.setattr(commands, "run_named_ask", _fake_run_named_ask)
@@ -625,9 +626,9 @@ async def test_ask_command_passes_the_run_s_own_token_sink(
     )
     seen_sinks: list[object] = []
 
-    async def _fake_run_routed_ask(*_args: object, **kwargs: object) -> tuple[str, Answer]:
+    async def _fake_run_routed_ask(*_args: object, **kwargs: object) -> tuple[Route, Answer]:
         seen_sinks.append(kwargs["sink"])
-        return "specific", answer
+        return routed_to("specific"), answer
 
     monkeypatch.setattr(commands, "run_routed_ask", _fake_run_routed_ask)
     args = commands.AskArgs(question="what changed?")

@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from tests.unit.weft_cli.routed import routed_to
 from weft_cli import commands, render
 from weft_cli.commands import AskCommandResult
 from weft_cli.coverage import SourceCoverage
@@ -26,7 +27,7 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Produced, SourceId
 from weft_kernel.registry import Registry
-from weft_retrieve.payload import Query
+from weft_retrieve.payload import Query, Route
 from weft_store import NodeStore, SourceRecord, SourceStatus
 from weft_store.memory import MemoryStore
 
@@ -115,8 +116,8 @@ async def test_ask_counts_the_recorded_sources_by_status(monkeypatch: pytest.Mon
         )
     )
 
-    async def _fake_run_routed_ask(*_args: object, **_kwargs: object) -> tuple[str, Answer]:
-        return "retrieve-then-generate", _answer()
+    async def _fake_run_routed_ask(*_args: object, **_kwargs: object) -> tuple[Route, Answer]:
+        return routed_to("retrieve-then-generate"), _answer()
 
     monkeypatch.setattr(commands, "run_routed_ask", _fake_run_routed_ask)
 

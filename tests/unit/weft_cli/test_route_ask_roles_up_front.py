@@ -19,6 +19,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from tests.discovery import installed_packs_except_the_canary
+from tests.unit.weft_cli.routed import routed_to
 from weft_cli import commands
 from weft_cli.commands import AskCommandResult
 from weft_cli.exit_codes import ExitCode
@@ -68,7 +69,7 @@ from weft_retrieve.iterative import NAME as ITERATIVE_RETRIEVAL
 from weft_retrieve.iterative import IterativeRetrieval
 from weft_retrieve.multi_retriever import NAME as MULTI_RETRIEVER
 from weft_retrieve.multi_retriever import MultiRetriever
-from weft_retrieve.payload import Candidates, Passage, Query, QuerySet, RankedList, Ranking
+from weft_retrieve.payload import Candidates, Passage, Query, QuerySet, RankedList, Ranking, Route
 from weft_retrieve.prompts import (
     RELEVANCE_GRADE_NAME,
     SUFFICIENCY_CHECK_NAME,
@@ -262,7 +263,7 @@ def _names(message: str, word: str) -> bool:
     return re.search(rf"\b{re.escape(word)}\b", message) is not None
 
 
-async def _routed(calls: Calls, llm: LLMSection) -> tuple[str, Answer]:
+async def _routed(calls: Calls, llm: LLMSection) -> tuple[Route, Answer]:
     return await run_routed_ask(
         _QUESTION,
         registry=_registry(calls),
@@ -302,10 +303,10 @@ async def test_a_rung_whose_stage_role_is_unmapped_is_not_offered(
     calls: Calls = []
 
     # Act
-    pipeline_name, answer = await _routed(calls, _llm(route="scores", generate="answers"))
+    route, answer = await _routed(calls, _llm(route="scores", generate="answers"))
 
     # Assert
-    assert pipeline_name == _MEMORY_RUNG
+    assert route.pipeline == _MEMORY_RUNG
     assert isinstance(answer, Answer)
     assert [provider for provider, _ in calls] == ["scores", "answers"]
     assert _GRADED_RUNG not in calls[0][1]
@@ -322,10 +323,10 @@ async def test_a_rung_whose_sub_plugin_role_is_unmapped_is_not_offered(
     calls: Calls = []
 
     # Act
-    pipeline_name, _answer = await _routed(calls, _llm(route="scores", generate="answers"))
+    route, _answer = await _routed(calls, _llm(route="scores", generate="answers"))
 
     # Assert
-    assert pipeline_name == _MEMORY_RUNG
+    assert route.pipeline == _MEMORY_RUNG
     assert [provider for provider, _ in calls] == ["scores", "answers"]
     assert _LOOPING_RUNG not in calls[0][1]
 
@@ -365,12 +366,10 @@ async def test_a_routed_ask_with_every_role_mapped_offers_and_runs_the_graded_ru
     calls: Calls = []
 
     # Act
-    pipeline_name, answer = await _routed(
-        calls, _llm(route="scores", grade="grades", generate="answers")
-    )
+    route, answer = await _routed(calls, _llm(route="scores", grade="grades", generate="answers"))
 
     # Assert
-    assert pipeline_name == _GRADED_RUNG
+    assert route.pipeline == _GRADED_RUNG
     assert isinstance(answer, Answer)
     assert [provider for provider, _ in calls] == ["scores", "grades", "answers"]
 
@@ -401,8 +400,8 @@ async def test_a_named_ask_needing_only_generate_is_not_refused_for_router_or_ru
 
 
 class _Routed:
-    async def __call__(self, *_args: object, **_kwargs: object) -> tuple[str, Answer]:
-        return _MEMORY_RUNG, Answer(
+    async def __call__(self, *_args: object, **_kwargs: object) -> tuple[Route, Answer]:
+        return routed_to(_MEMORY_RUNG), Answer(
             origin=Query(text=_QUESTION),
             text="the answer",
             stance=AnswerStance.ANSWERED,
@@ -507,7 +506,7 @@ async def test_a_rung_whose_stranger_role_field_is_unmapped_is_not_offered(
     calls: Calls = []
 
     # Act
-    pipeline_name, answer = await run_routed_ask(
+    route, answer = await run_routed_ask(
         _QUESTION,
         registry=_registry_with_stranger(calls),
         reports=_reports(*_ROUTER_AND_MEMORY),
@@ -518,7 +517,7 @@ async def test_a_rung_whose_stranger_role_field_is_unmapped_is_not_offered(
     )
 
     # Assert
-    assert pipeline_name == _MEMORY_RUNG
+    assert route.pipeline == _MEMORY_RUNG
     assert isinstance(answer, Answer)
     assert [provider for provider, _ in calls] == ["scores", "answers"]
     assert _JUDGE_RUNG not in calls[0][1]
@@ -602,7 +601,7 @@ async def test_a_rung_whose_multi_retriever_arm_role_is_unmapped_is_not_offered(
     calls: Calls = []
 
     # Act
-    pipeline_name, answer = await run_routed_ask(
+    route, answer = await run_routed_ask(
         _QUESTION,
         registry=_registry_with_multi_retriever(calls),
         reports=_reports(*_ROUTER_AND_MEMORY),
@@ -613,7 +612,7 @@ async def test_a_rung_whose_multi_retriever_arm_role_is_unmapped_is_not_offered(
     )
 
     # Assert
-    assert pipeline_name == _MEMORY_RUNG
+    assert route.pipeline == _MEMORY_RUNG
     assert isinstance(answer, Answer)
     assert [provider for provider, _ in calls] == ["scores", "answers"]
     assert _FANOUT_RUNG not in calls[0][1]

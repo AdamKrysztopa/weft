@@ -52,6 +52,7 @@ from weft_kernel.payload import Failed, Node, NodeId, Outcome, Produced, SourceI
 from weft_kernel.registry import Registry
 from weft_llm.contract import LLMProvider
 from weft_prompts.contract import Prompt
+from weft_retrieve.payload import Route
 from weft_store import NodeStore
 from weft_store.contract import (
     GenerationId,
@@ -326,7 +327,7 @@ class _Routed:
     def __init__(self) -> None:
         self.ready: frozenset[str] | None = None
 
-    async def __call__(self, *_args: object, **kwargs: object) -> tuple[str, object]:
+    async def __call__(self, *_args: object, **kwargs: object) -> tuple[Route, object]:
         ready = kwargs.get("ready_layers")
         assert isinstance(ready, frozenset)
         self.ready = cast("frozenset[str]", ready)

@@ -898,6 +898,7 @@ def _render_answer_json(result: AskCommandResult, answer: Answer) -> Rendered:
         pipeline_name=result.pipeline_name,
         coverage=_stated_coverage(result),
         layers=_pending_layers(result) or None,
+        route=result.route,
     )
     # `coverage`/`layers` alone are excluded when absent, never a blanket
     # `exclude_none`: every other optional field (`pipeline_name` included) keeps
@@ -908,6 +909,8 @@ def _render_answer_json(result: AskCommandResult, answer: Answer) -> Rendered:
         omit.add("coverage")
     if envelope.layers is None:
         omit.add("layers")
+    if envelope.route is None:
+        omit.add("route")
     return Rendered(
         stdout=envelope.model_dump_json(exclude=omit),
         stderr=None,

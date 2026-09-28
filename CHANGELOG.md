@@ -44,6 +44,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A routed `weft ask` says how it chose.** The `--json` answer carries
+  `"route": {"pipeline", "outcome", "rule"}`, and `--explain` prints
+  `route: matched by rule 'always'`. An ask naming `--pipeline` carries no `route` key.
 - **`weft index <dir>` releases every source whose file is gone from `<dir>`** and prints
   `released N sources no longer on disk.` A document deleted from disk stops being retrieved at
   the next index of its directory, and a corpus layer that covered it goes stale. Nothing is
