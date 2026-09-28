@@ -249,15 +249,17 @@ def preflight(args: argparse.Namespace, plan: Plan) -> dict[str, Any]:
         except httpx.HTTPError as exc:
             refuse(f"the model endpoint {args.info_url} did not answer: {type(exc).__name__}")
 
-    price = args.price_per_question * plan.executions
+    unwritten = unwritten_executions(plan, args.cwd / "runs")
+    price = args.price_per_question * unwritten
     if args.cap is not None and price > args.cap:
         refuse(
-            f"the plan's {plan.executions} executions price at ${price:.2f}, "
-            f"above the ${args.cap:.2f} left of the cap"
+            f"the {unwritten} executions not yet recorded (of the plan's {plan.executions}) "
+            f"price at ${price:.2f}, above the ${args.cap:.2f} left of the cap"
         )
     return {
         "free_disk_mb": disk,
         "plan_executions": plan.executions,
+        "unwritten_executions": unwritten,
         "arms": list(plan.arms),
         "estimated_usd": round(price, 4),
         "model_identity": identity,

@@ -38,7 +38,9 @@ def _record(
             "invocation": invocation,
         }
     }
-    (runs / f"{digest[:8]}-{arm}-{repetition}-{invocation}.json").write_text(json.dumps(body), encoding="utf-8")
+    (runs / f"{digest[:8]}-{arm}-{repetition}-{invocation}.json").write_text(
+        json.dumps(body), encoding="utf-8"
+    )
 
 
 def test_the_plan_names_each_arm_s_questions_per_repetition() -> None:
