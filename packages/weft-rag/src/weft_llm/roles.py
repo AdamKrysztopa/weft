@@ -64,6 +64,9 @@ class RoleMapping(BaseModel):
     #: `_bind` tell "no settings" from "settings that did not arrive": the first builds the
     #: provider with `None` exactly as before, and the second is now impossible rather than silent.
     settings: Mapping[str, object] = Field(default_factory=dict)
+    #: The model's context window in tokens, declared because nothing in Weft knows it; `None` is
+    #: unknown, which the corpus profile never reads as fitting (task 44.14, G30).
+    context_tokens: int | None = Field(default=None, gt=0, strict=True)
 
 
 class UnmappedLLMRoleError(WeftError, UnresolvedNameError):
