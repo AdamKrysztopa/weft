@@ -206,7 +206,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -220,6 +220,7 @@ from weft_cli.eval_scoring import score_pipeline
 from weft_cli.ingest import SourceChange, content_hashes_of, corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
+from weft_cli.progress import ScoringProgress
 from weft_cli.provenance import source_revision
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
@@ -1588,6 +1589,7 @@ async def index_and_score(
     target: str | None = None,
     judge_metrics: tuple[str, ...] = (),
     router: str | None = None,
+    on_progress: Callable[[ScoringProgress], Awaitable[None]] | None = None,
 ) -> IndexAndScoreResult:
     """Keep `weft eval run` and `weft eval experiment` scoring through one identical path.
 
@@ -1679,6 +1681,11 @@ async def index_and_score(
     field too — `None` for a retrieval-only rung, each answered question's own answer text for
     a generating or router one — so a position-swapped pairwise judge can compare two runs'
     answers without regenerating either.
+
+    **`on_progress` — carried repair R43.58.** Reaches `score_pipeline`'s own keyword of the
+    identical name unchanged; `None` (`weft eval run`, and every caller before this task) reports
+    nothing. `weft_cli.eval_experiment._run_arms` is the one caller that passes a callback,
+    labelling each `ScoringProgress` it receives with the arm and repetition it belongs to.
     """
     indexed = await _indexed_corpus(
         deps,
@@ -1745,6 +1752,7 @@ async def index_and_score(
             pool=pool,
             target=target,
             judge_metrics=judge_metrics,
+            on_progress=on_progress,
         )
         metrics = scored.metrics
         query_rung = scored.query_rung

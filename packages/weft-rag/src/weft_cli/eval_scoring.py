@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from pathlib import PurePath
@@ -61,6 +61,7 @@ from typing import Any, Final, cast
 from pydantic import BaseModel
 
 from weft_cli.ask import run_ask
+from weft_cli.progress import ScoringProgress, ScoringStage
 from weft_cli.route_ask import (
     PipelineDidNotProduceError,
     PreparedRunner,
@@ -1598,6 +1599,132 @@ async def _judge_answered_questions(
     )
 
 
+async def _report_progress(
+    on_progress: Callable[[ScoringProgress], Awaitable[None]] | None,
+    event: ScoringProgress,
+) -> None:
+    """Send `event` to `on_progress` when `score_pipeline` was asked to report — R43.58."""
+    if on_progress is not None:
+        await on_progress(event)
+
+
+async def _report_answering_progress(
+    on_progress: Callable[[ScoringProgress], Awaitable[None]] | None,
+    *,
+    done: int,
+    total: int,
+    step: int,
+) -> None:
+    """Report `done` questions answered, on `step` or the last — the batching rule of R43.58.
+
+    `step = max(1, total // 100)` never divides by zero, and `0 % step == 0` for any `step >= 1`,
+    which is what lets the one call before the question loop (`done=0`) and every in-loop call
+    share this rule rather than the first needing a rule of its own.
+    """
+    if done % step == 0 or done == total:
+        await _report_progress(
+            on_progress, ScoringProgress(stage=ScoringStage.ANSWERING, done=done, total=total)
+        )
+
+
+def _record_attempt_outcome(
+    attempt: _QuestionAttempt,
+    question: Question,
+    *,
+    question_key: str,
+    question_text: str,
+    question_kind: str,
+    samples: list[RetrievalSample],
+    failed: dict[str, str],
+    seconds: dict[str, float],
+    refuse_foreign_documents: bool,
+    corpus_document_ids: Sequence[str],
+    top_k: int,
+    resolved_document_id: Callable[[str], str],
+) -> None:
+    """Turn one question's own `_QuestionAttempt` into a `RetrievalSample`, or a failure entry.
+
+    Lifted out of `score_pipeline`'s own per-question loop for the identical complexity-budget
+    reason every other per-question helper in this module already was — see `_document_id_
+    resolver`'s own docstring for the pattern.
+    """
+    if attempt.failure is not None:
+        failed[question_key] = attempt.failure
+        return
+    hits = cast("Sequence[Scored[Node]]", attempt.hits)
+    seconds[question_key] = attempt.elapsed
+    if refuse_foreign_documents:
+        _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
+    samples.append(
+        RetrievalSample(
+            query=question_text,
+            question_key=question_key,
+            retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
+            # A replay's own `hits` is whatever the capture run happened to pack for this one
+            # question, never a fresh search — the pool's `store_rows` is the honest depth a
+            # metric named `@k` should compare `k` against (`weft_eval.ir_metrics`'s own module
+            # docstring, R38.5): the corpus this rung was captured over, not how many of its
+            # chunks one question's own ranking happened to keep.
+            candidate_count=len(hits),
+            relevant_ids=frozenset(
+                resolved_document_id(entry) for entry in question.relevant_documents
+            ),
+            modality=question.modality,
+            kind=question_kind,
+            axes=question.axes,
+        )
+    )
+
+
+async def _judge_with_progress(
+    stack: AsyncExitStack,
+    *,
+    judge_metrics: tuple[str, ...],
+    generation_samples: Sequence[tuple[str, GenerationSample]],
+    registry: Registry,
+    reports: Sequence[PackReport],
+    ctx: Context,
+    llm: LLMSection | None,
+    services: ServiceSelection | None,
+    roles: RoleTable | None,
+    sink: TokenSink | None,
+    target: str | None,
+    on_progress: Callable[[ScoringProgress], Awaitable[None]] | None,
+) -> SubsetScores | None:
+    """`_judge_answered_questions`, bracketed by its own `JUDGING` progress — carried repair R43.58.
+
+    Reports only when it will actually judge something — `judge_metrics` non-empty and at least
+    one generation sample — the identical condition `_judge_answered_questions`'s own
+    `not judge_metrics or not generation_samples` check applies one call down, kept here as its
+    own predicate so a caller checking `on_progress` events never sees a `JUDGING` pair for a run
+    that judged nothing.
+    """
+    will_judge = bool(judge_metrics) and bool(generation_samples)
+    total = len(generation_samples)
+    if will_judge:
+        await _report_progress(
+            on_progress, ScoringProgress(stage=ScoringStage.JUDGING, done=0, total=total)
+        )
+    judge_scores = await _judge_answered_questions(
+        stack,
+        judge_metrics=judge_metrics,
+        generation_samples=generation_samples,
+        registry=registry,
+        reports=reports,
+        ctx=ctx,
+        llm=llm,
+        services=services,
+        roles=roles,
+        sink=sink,
+        target=target,
+    )
+    if will_judge:
+        await _report_progress(
+            on_progress, ScoringProgress(stage=ScoringStage.JUDGING, done=total, total=total)
+        )
+    return judge_scores
+
+
 async def score_pipeline(
     *,
     registry: Registry,
@@ -1621,6 +1748,7 @@ async def score_pipeline(
     target: str | None = None,
     judge_metrics: tuple[str, ...] = (),
     router: str | None = None,
+    on_progress: Callable[[ScoringProgress], Awaitable[None]] | None = None,
 ) -> ScoredRun:
     """Retrieve for every one of `questions` and score the gate-safe `RetrievalMetric` subset.
 
@@ -1790,6 +1918,17 @@ async def score_pipeline(
     question this call scores, answered or not, since a profile describes the question rather
     than the answer. `ScoredRun.profiler_version` names the profiler version they were computed
     under.
+
+    **`on_progress` — carried repair R43.58.** `None` (every caller before this task) reports
+    nothing, unchanged. Given a callback instead, `ANSWERING` is reported once before the
+    question loop (`done=0`) and again after each question is attempted — answered or failed,
+    both count — on every `step`-th attempt and always the last, `step = max(1, len(questions)
+    // 100)`, never twice for the same `done`. `JUDGING` is reported before and after
+    `_judge_answered_questions`, `done=0` and `done=len(generation_samples)`, only when it will
+    actually judge something (`judge_metrics` non-empty and at least one generation sample) —
+    the identical condition that function's own `not judge_metrics or not generation_samples`
+    check applies one call down, so a caller checking `on_progress` events never sees a
+    `JUDGING` pair for a run that judged nothing.
     """
     _require_exclusive_scoring_modes(
         capture_pool=capture_pool, pool=pool, router=router, query_pipeline=query_pipeline
@@ -1831,6 +1970,12 @@ async def score_pipeline(
     question_routes: dict[str, RouteView] = {}
     store_rows: int | None = None
     judge_scores: SubsetScores | None = None
+    total_questions = len(questions)
+    answering_step = max(1, total_questions // 100)
+    answered_count = 0
+    await _report_answering_progress(
+        on_progress, done=0, total=total_questions, step=answering_step
+    )
     # R38.6: one store for the run, so no question's seconds include a connection and its DDL.
     async with AsyncExitStack() as stack:
         retrieval_services, pool_questions_by_id = await _prepared_retrieval(
@@ -1885,34 +2030,25 @@ async def score_pipeline(
                     target=target,
                 )
                 _record_question_usage(attempt, question_key, question_tokens=question_tokens)
-                if attempt.failure is not None:
-                    failed[question_key] = attempt.failure
-                    continue
-                hits = cast("Sequence[Scored[Node]]", attempt.hits)
-                seconds[question_key] = attempt.elapsed
-                if refuse_foreign_documents:
-                    _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
-                samples.append(
-                    RetrievalSample(
-                        query=question_text,
-                        question_key=question_key,
-                        retrieved=_deduplicated_by_document(_ranked_by_score(hits), top_k=top_k),
-                        # A replay's own `hits` is whatever the capture run happened to pack for
-                        # this one question, never a fresh search — the pool's `store_rows` is
-                        # the honest depth a metric named `@k` should compare `k` against
-                        # (`weft_eval.ir_metrics`'s own module docstring, R38.5): the corpus this
-                        # rung was captured over, not how many of its chunks one question's own
-                        # ranking happened to keep.
-                        candidate_count=len(hits),
-                        relevant_ids=frozenset(
-                            _resolved_document_id(entry) for entry in question.relevant_documents
-                        ),
-                        modality=question.modality,
-                        kind=question_kind,
-                        axes=question.axes,
-                    )
+                _record_attempt_outcome(
+                    attempt,
+                    question,
+                    question_key=question_key,
+                    question_text=question_text,
+                    question_kind=question_kind,
+                    samples=samples,
+                    failed=failed,
+                    seconds=seconds,
+                    refuse_foreign_documents=refuse_foreign_documents,
+                    corpus_document_ids=corpus_document_ids,
+                    top_k=top_k,
+                    resolved_document_id=_resolved_document_id,
                 )
-            judge_scores = await _judge_answered_questions(
+                answered_count += 1
+                await _report_answering_progress(
+                    on_progress, done=answered_count, total=total_questions, step=answering_step
+                )
+            judge_scores = await _judge_with_progress(
                 stack,
                 judge_metrics=judge_metrics,
                 generation_samples=generation_samples,
@@ -1924,6 +2060,7 @@ async def score_pipeline(
                 roles=roles,
                 sink=sink,
                 target=target,
+                on_progress=on_progress,
             )
         store_rows = await _captured_store_rows(
             capture_pool=capture_pool, retrieval_services=retrieval_services

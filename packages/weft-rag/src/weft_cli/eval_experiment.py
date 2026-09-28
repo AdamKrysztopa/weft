@@ -58,8 +58,9 @@ at two absolute paths must still write one corpus identity, or `weft eval compar
 from __future__ import annotations
 
 import os
+import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, cast
@@ -77,6 +78,7 @@ from weft_cli.eval_commands import (
     stated_embedding_models,
 )
 from weft_cli.ingest import content_hashes_of, corpus_documents
+from weft_cli.progress import ExperimentProgress, ExperimentProgressReporter, ScoringProgress
 from weft_cli.route_ask import NoRouterPipelineError, resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
@@ -856,6 +858,44 @@ def _refuse_incomparable_arms(
             )
 
 
+def _experiment_progress_callback(
+    sink: ExperimentProgressReporter,
+    *,
+    experiment: str,
+    arm: str,
+    arm_number: int,
+    arms: int,
+    repetition: int,
+    repetitions: int,
+) -> Callable[[ScoringProgress], Awaitable[None]]:
+    """Label one arm-repetition's own `ScoringProgress` and forward it — carried repair R43.58.
+
+    `started` is `time.monotonic()` the moment this callback is built, immediately before the
+    `index_and_score` call it reports for — `ExperimentProgress.seconds` is seconds since this
+    one arm-repetition began, not since the whole experiment did, the figure a reader watching
+    one arm stall actually wants.
+    """
+    started = time.monotonic()
+
+    async def _report(event: ScoringProgress) -> None:
+        await sink.experiment_progress(
+            ExperimentProgress(
+                experiment=experiment,
+                arm=arm,
+                arm_number=arm_number,
+                arms=arms,
+                repetition=repetition,
+                repetitions=repetitions,
+                stage=event.stage,
+                done=event.done,
+                total=event.total,
+                seconds=time.monotonic() - started,
+            )
+        )
+
+    return _report
+
+
 async def _run_arms(
     experiment: Experiment,
     *,
@@ -875,17 +915,32 @@ async def _run_arms(
     )
     indexed_keys: set[tuple[str, Path]] = set()
     runs: list[ExperimentRunRef] = []
-    for arm in experiment.arms:
+    reports_progress = isinstance(deps.token_sink, ExperimentProgressReporter)
+    for arm_number, arm in enumerate(experiment.arms, start=1):
         pool = pools.get(arm.name)
         corpus_path = experiment.corpus_for(arm)
         questions = question_sets[arm.name].questions
         index_key = (arm.pipeline, corpus_path)
-        for repetition in range(1, experiment.repeats_for(arm) + 1):
+        repetitions = experiment.repeats_for(arm)
+        for repetition in range(1, repetitions + 1):
             found = written.get((arm.name, repetition))
             if found is not None:
                 runs.append(ExperimentRunRef(arm=arm.name, repetition=repetition, run_id=found))
                 continue
             already_indexed = index_key in indexed_keys
+            on_progress = (
+                _experiment_progress_callback(
+                    cast("ExperimentProgressReporter", deps.token_sink),
+                    experiment=experiment.name,
+                    arm=arm.name,
+                    arm_number=arm_number,
+                    arms=len(experiment.arms),
+                    repetition=repetition,
+                    repetitions=repetitions,
+                )
+                if reports_progress
+                else None
+            )
             result = await index_and_score(
                 deps,
                 ctx=ctx,
@@ -913,6 +968,7 @@ async def _run_arms(
                     repetition=repetition,
                     pool_manifest=pool.sha256 if pool is not None else None,
                 ),
+                on_progress=on_progress,
             )
             if pool is None:
                 indexed_keys.add(index_key)

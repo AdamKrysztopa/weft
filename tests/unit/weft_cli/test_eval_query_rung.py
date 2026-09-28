@@ -46,6 +46,7 @@ from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli import route_ask as route_ask_module
 from weft_cli.eval_commands import EvalRunArgs
 from weft_cli.eval_scoring import score_pipeline
+from weft_cli.progress import ScoringProgress, ScoringStage
 from weft_cli.route_ask import resolve_named_pipeline, run_named_ask, run_named_retrieve
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
@@ -661,3 +662,81 @@ async def test_a_retrieval_rung_records_no_answers(monkeypatch: pytest.MonkeyPat
 
     # Assert
     assert scored.question_answers is None
+
+
+# --- Carried repair R43.58 — scoring reports progress in questions attempted.
+
+
+async def test_scoring_reports_each_question_attempted_and_the_judging_around_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    monkeypatch.setattr(
+        route_ask_module, "full_catalogue", _stub_catalogue({"rung-a": _query_document()})
+    )
+
+    async def _answer(question: str, **_kwargs: object) -> object:
+        return _AnsweringFake(text=f"answer to {question}")
+
+    async def _no_judging(stack: object, **_kwargs: object) -> None:
+        del stack
+
+    monkeypatch.setattr(eval_scoring_module, "run_named_ask", _answer)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    monkeypatch.setattr(eval_scoring_module, "_judge_answered_questions", _no_judging)
+    seen: list[ScoringProgress] = []
+
+    async def _record(event: ScoringProgress) -> None:
+        seen.append(event)
+
+    # Act
+    await score_pipeline(
+        registry=_query_registry(),
+        resolved_pipeline=_ingest_resolved(),
+        questions=(_question("q-1", "why"), _question("q-2", "how")),
+        top_k=3,
+        ctx=_ctx(),
+        query_pipeline="rung-a",
+        corpus_document_ids=("doc-a",),
+        judge_metrics=("answer-judge",),
+        on_progress=_record,
+    )
+
+    # Assert
+    assert [(event.stage, event.done, event.total) for event in seen] == [
+        (ScoringStage.ANSWERING, 0, 2),
+        (ScoringStage.ANSWERING, 1, 2),
+        (ScoringStage.ANSWERING, 2, 2),
+        (ScoringStage.JUDGING, 0, 2),
+        (ScoringStage.JUDGING, 2, 2),
+    ]
+
+
+async def test_a_large_question_set_reports_in_hundredths_and_always_the_last(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — 250 questions: a line every 2 questions (250 // 100), and the 250th.
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    monkeypatch.setattr(eval_scoring_module, "run_ask", _no_hits)
+    seen: list[ScoringProgress] = []
+
+    async def _record(event: ScoringProgress) -> None:
+        seen.append(event)
+
+    # Act
+    await score_pipeline(
+        registry=_query_registry(),
+        resolved_pipeline=_ingest_resolved(),
+        questions=tuple(_question(f"q-{index}", f"why {index}") for index in range(250)),
+        top_k=3,
+        ctx=_ctx(),
+        corpus_document_ids=("doc-a",),
+        on_progress=_record,
+    )
+
+    # Assert
+    done = [event.done for event in seen]
+    assert done[0] == 0
+    assert done[-1] == 250
+    assert len(done) == 1 + 125
+    assert done == sorted(done)

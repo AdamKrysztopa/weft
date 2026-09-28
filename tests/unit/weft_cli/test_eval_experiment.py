@@ -37,6 +37,7 @@ from weft_cli.eval_scoring import ScoredRun
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult, run_index_for
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
+from weft_cli.progress import ExperimentProgress, ScoringProgress, ScoringStage
 from weft_cli.render import render_outcome, render_refusal
 from weft_cli.route_ask import NoRouterPipelineError
 from weft_command.permission import PermissionClass
@@ -1557,3 +1558,90 @@ async def test_an_arm_naming_something_that_is_not_a_router_is_refused_before_an
     assert "some-router" in refused.value.valid_options
     assert calls == []
     assert not Path("runs").exists()
+
+
+# --- Carried repair R43.58 — each arm and repetition's progress reaches the sink, labelled.
+
+
+class _ProgressRecorder:
+    """A token sink that also takes experiment progress; `weft_cli.sinks`' own shape."""
+
+    def __init__(self) -> None:
+        self.events: list[ExperimentProgress] = []
+
+    async def emit(self, chunk: object) -> None:
+        del chunk
+
+    async def close(self, *, reason: str | None = None) -> None:
+        del reason
+
+    async def experiment_progress(self, event: ExperimentProgress) -> None:
+        self.events.append(event)
+
+
+def _progressing_stub() -> Callable[..., Any]:
+    scoring = _scoring_stub([])
+
+    async def _fake(**kwargs: object) -> ScoredRun:
+        report = cast("Callable[[ScoringProgress], Any] | None", kwargs.get("on_progress"))
+        if report is not None:
+            await report(ScoringProgress(stage=ScoringStage.ANSWERING, done=0, total=2))
+            await report(ScoringProgress(stage=ScoringStage.ANSWERING, done=2, total=2))
+        return await scoring(**kwargs)
+
+    return _fake
+
+
+async def test_each_arm_and_repetition_reports_its_progress_to_the_sink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(tmp_path, _arm("dense", "index") + _arm("wide", "index"), repeats=2)
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _progressing_stub())
+    recorder = _ProgressRecorder()
+    ctx = Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
+    ctx.services.add(
+        Dependencies,
+        Dependencies(
+            registry=_registry(),
+            reports=(),
+            services=ServiceSelection(),
+            token_sink=recorder,
+        ),
+    )
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    labelled = [
+        (event.arm, event.arm_number, event.arms, event.repetition, event.repetitions, event.done)
+        for event in recorder.events
+    ]
+    assert labelled == [
+        ("dense", 1, 2, 1, 2, 0),
+        ("dense", 1, 2, 1, 2, 2),
+        ("dense", 1, 2, 2, 2, 0),
+        ("dense", 1, 2, 2, 2, 2),
+        ("wide", 2, 2, 1, 2, 0),
+        ("wide", 2, 2, 1, 2, 2),
+        ("wide", 2, 2, 2, 2, 0),
+        ("wide", 2, 2, 2, 2, 2),
+    ]
+    assert {event.experiment for event in recorder.events} == {"fixture"}
+    assert all(event.seconds >= 0.0 for event in recorder.events)
+
+
+async def test_a_sink_without_progress_runs_the_experiment_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — `_ctx()`'s dependencies carry the default `NullSink`.
+    path = _experiment(tmp_path, _arm("dense", "index") + _arm("wide", "index"), repeats=2)
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _progressing_stub())
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)

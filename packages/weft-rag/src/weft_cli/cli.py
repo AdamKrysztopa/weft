@@ -79,7 +79,12 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from weft_cli.argparse_gen import add_model_arguments, build_command_arguments_error
 from weft_cli.exit_codes import ExitCode
-from weft_cli.progress import BatchProgress, ProgressReporter
+from weft_cli.progress import (
+    BatchProgress,
+    ExperimentProgress,
+    ExperimentProgressReporter,
+    ProgressReporter,
+)
 from weft_cli.sinks import JsonSink, PrintingSink, ReaderGoneError
 from weft_command.contract import Command
 from weft_command.invocation import invoke
@@ -397,6 +402,17 @@ class _EmissionTrackingSink:
         """
         if isinstance(self._sink, ProgressReporter):
             await self._sink.batch_progress(event)
+
+    async def experiment_progress(self, event: ExperimentProgress) -> None:
+        """Forward `weft eval experiment`'s own progress when the wrapped sink can show it.
+
+        Carried repair **R43.58**, `batch_progress`'s own footing one method over: forwarded
+        when the wrapped sink is an `ExperimentProgressReporter`, dropped otherwise, and never
+        sets `.emitted` — `.emitted` answers whether a streamed *answer* reached the sink, and
+        progress is not one.
+        """
+        if isinstance(self._sink, ExperimentProgressReporter):
+            await self._sink.experiment_progress(event)
 
     def show_only_stage(self, stage: str) -> None:
         """Forward carried repair **R10.1**'s narrowing to the sink underneath.

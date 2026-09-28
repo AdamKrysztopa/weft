@@ -65,7 +65,7 @@ if TYPE_CHECKING:
     # Not imported at runtime: `weft_cli.progress` imports `LineKind` from this module, and a
     # real import back here would be the cycle. Every use below is attribute access, which
     # `from __future__ import annotations` already lets stay a deferred string.
-    from weft_cli.progress import BatchProgress
+    from weft_cli.progress import BatchProgress, ExperimentProgress
 
 #: `weft_llm.payload.TokenChunk`'s own documented default — a critic's or a grader's own
 #: role never reaches a reader unless a caller widens this explicitly.
@@ -115,6 +115,9 @@ class LineKind(StrEnum):
     #: Ledger task **43.2** — one `weft index` batch's own progress. Joins the vocabulary
     #: additively, on the same footing `ANSWER_ENVELOPE` did.
     BATCH_PROGRESS = "batch-progress"
+    #: Carried repair **R43.58** — one `weft eval experiment` arm-repetition's own progress.
+    #: Joins the vocabulary additively, on the same footing `BATCH_PROGRESS` did.
+    EXPERIMENT_PROGRESS = "experiment-progress"
 
 
 class StreamEvent(BaseModel):
@@ -310,6 +313,20 @@ class PrintingSink:
         self._progress_stream.write(f"{line}\n")
         self._progress_stream.flush()
 
+    async def experiment_progress(self, event: ExperimentProgress) -> None:
+        """One line to `progress_stream` per `weft eval experiment` arm-repetition — R43.58.
+
+        Never the answer stream (`self._stream`): a run's progress is not part of its output,
+        the identical separation `batch_progress` already keeps.
+        """
+        line = (
+            f"experiment {event.experiment} · arm {event.arm_number}/{event.arms} {event.arm} · "
+            f"repetition {event.repetition}/{event.repetitions} · "
+            f"{event.stage} {event.done}/{event.total} · {event.seconds:.0f} s"
+        )
+        self._progress_stream.write(f"{line}\n")
+        self._progress_stream.flush()
+
 
 class JsonSink:
     """One `StreamEvent`, as one line of JSON, per `emit`/`close` call — `--json`'s sink.
@@ -397,6 +414,15 @@ class JsonSink:
         `event.model_dump_json()` directly, not wrapped in a `StreamEvent`: `BatchProgress`
         already carries its own `kind` discriminant, so a second envelope around it would
         only duplicate that field under a different name.
+        """
+        self._stream.write(f"{event.model_dump_json()}\n")
+        self._stream.flush()
+
+    async def experiment_progress(self, event: ExperimentProgress) -> None:
+        """One `experiment-progress` line per `weft eval experiment` arm-repetition — R43.58.
+
+        `event.model_dump_json()` directly, on the identical footing `batch_progress` already
+        writes `BatchProgress` — `ExperimentProgress` already carries its own `kind`.
         """
         self._stream.write(f"{event.model_dump_json()}\n")
         self._stream.flush()
