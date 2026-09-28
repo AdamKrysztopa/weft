@@ -67,7 +67,8 @@ for once; the accounts are in `references/evidence.md` → *Claims about the tre
   is sketched and counted with the project's own counter and type checker before the question is
   asked (`L22.23`).
 - A claim about code placed in a question to the owner is read against the code's callers first,
-  never its name or docstring (`L28.54`).
+  never its name or docstring (`L28.54`); a pipeline's cost is every stage of its resolved form,
+  never the stage it is named for (`L28.68`).
 - A repair entry is held to this as much as a document. A population is what the binary or the
   registry enumerates, not the directory the question started in, and where a claim does not need
   a cardinality it states none (`L22.2`). A remedy relying on a computed value names every site
