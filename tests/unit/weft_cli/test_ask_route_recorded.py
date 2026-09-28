@@ -103,6 +103,7 @@ async def test_a_named_ask_took_no_routing_decision(monkeypatch: pytest.MonkeyPa
         return _answer()
 
     monkeypatch.setattr(commands, "run_named_ask", _fake_run_named_ask)
+
     def _nothing_pending(*_args: object, **_kwargs: object) -> None:
         return None
 
