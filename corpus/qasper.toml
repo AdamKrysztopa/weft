@@ -1,0 +1,25 @@
+# QASPER v0.3, train and dev — Phase 44b task 44.41, the long-document set for experiment E3.
+#
+# QASPER: A Dataset of Information-Seeking Questions and Answers Anchored in Research Papers
+# (Dasigi, Lo, Beltagy, Cohan, Smith and Gardner, NAACL 2021), https://allenai.org/data/qasper,
+# distributed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Files derived from it
+# are modified: each paper becomes one document and each question a Weft question.
+#
+# The archive is the one the authors' own loader fetches (`qasper.py` at the pinned
+# `allenai/qasper` revision names this URL). Its MD5 equals the S3 object's ETag, and the sha256
+# below was taken at download, 2026-09-28.
+
+[corpus]
+name = "qasper-dev"
+
+[dataset]
+repository = "https://huggingface.co/datasets/allenai/qasper"
+revision = "fdc9d8214fbab5dd782958601db4d678e6934a54"
+license = "CC-BY-4.0"
+
+[[dataset_file]]
+name = "qasper-train-dev-v0.3.tgz"
+source = "https://qasper-dataset.s3.us-west-2.amazonaws.com/qasper-train-dev-v0.3.tgz"
+sha256 = "a28fdf966db827bcee3d873107d6b6669864fb7ca8fbf73a192f5e39191bdb5a"
+md5 = "b83437b72f7a13f2d00da079288769df"
+bytes = 10835856
