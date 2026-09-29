@@ -145,6 +145,22 @@ The five statuses:
   not answer quality. Declaring `context_tokens` on the generate role is what lets the router
   test `corpus.fits_context`.
 
+### Phase 44: does reading more of a long document help, when the document is always found? (2026-09-29)
+
+- **Question.** E3 left open whether reading more around the hits failed on QASPER only because
+  search missed the passage. QuALITY asks four-option questions of long stories and articles,
+  one document each, in a corpus small enough that search always finds it.
+- **Data.** QuALITY v1.0.1 dev, 20 articles sampled by seed, 365 questions, the same three arms,
+  one repetition. $1.11. The questions carry no stated licence and stay untracked
+  (`corpus/quality.toml`).
+- **Result.** Neither arm clears the +0.05 margin; both are `benefit-ruled-out`.
+  `adjacent-chunks` +0.013 (95% interval −0.011 to +0.040), `context-construction` +0.022
+  (−0.003 to +0.048), over 365 paired questions, with one search at 0.538 and recall@5 at 0.986.
+  Source: `eval/experiments/quality-long-document/table.md`.
+- **What it means for you.** With the right document found almost every time, handing the model
+  more of it still adds under +0.05. Keep `retrieve-then-generate` for questions about one long
+  document.
+
 ### Phase 44: does reading more of a long document help? (2026-09-29)
 
 - **Question.** When a question is about one long paper, does giving the model more of the paper
