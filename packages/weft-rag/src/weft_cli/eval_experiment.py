@@ -619,8 +619,9 @@ class JudgePlan(BaseModel):
 
     `calls` is an upper bound, never a measurement: the plan cannot know how many of an
     answering arm's own questions a model will actually answer (`ArmPlan.executions`'s own
-    docstring), so `calls` sums that same bound over every arm whose query rung ends in a
-    `Generator`, times how many judges `experiment.metrics` names. `input_per_1k_usd`/
+    docstring), so `calls` sums that same bound over every router arm and every arm whose query
+    rung ends in a `Generator`, times how many judges `experiment.metrics` names.
+    `input_per_1k_usd`/
     `output_per_1k_usd`/`rates_as_of` are `None` when the judge's model carries no entry in
     `weft_eval.pricing.DEFAULT_RATES` — an absent rate, never a fabricated `$0`.
     """
@@ -683,11 +684,15 @@ def _judge_plan(
     if mapping is None:
         return None
     model = f"{mapping.provider}:{mapping.model}" if mapping.model is not None else mapping.provider
+    # A router arm (R44.14) routes every question to an answering rung, so each is judged.
     generating_calls = sum(
         plan.executions
         for arm, plan in arms
-        if arm.query_pipeline is not None
-        and _query_rung_ends_in_generator(arm.query_pipeline, deps=deps)
+        if arm.router is not None
+        or (
+            arm.query_pipeline is not None
+            and _query_rung_ends_in_generator(arm.query_pipeline, deps=deps)
+        )
     )
     rate = DEFAULT_RATES.get(model)
     return JudgePlan(

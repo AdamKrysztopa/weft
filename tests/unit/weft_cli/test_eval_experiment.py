@@ -1494,6 +1494,31 @@ async def test_the_plan_states_the_judge_calls_of_every_answering_arm(
     assert "scripted:judge-a" in stdout, stdout
 
 
+async def test_the_plan_counts_the_judge_calls_of_a_router_arm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R44.14: a router arm names no query rung, and every question it routes is answered."""
+    # Arrange
+    monkeypatch.setattr(route_ask_module, "full_catalogue", _stub_catalogue(_judged_catalogue()))
+    path = _experiment(
+        tmp_path,
+        _arm("dense", "index", "repeats = 1\n")
+        + _arm("routed", "index", 'router = "some-router"\n'),
+        repeats=2,
+        metrics=f'["precision@5", "{_JUDGE_REPORTS}"]',
+    )
+    questions = len(read_question_set(path.parent / "questions.toml").questions)
+    ctx = _judging_ctx(_mapped(**{_GRADE: "scripted:judge-a"}))
+
+    # Act
+    outcome = await EvalPlanCommand().run(EvalPlanArgs(path=str(path)), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced), outcome
+    stdout = render_outcome(outcome).stdout or ""
+    assert f"judge calls: {questions * 2}" in stdout, stdout
+
+
 async def test_the_plan_prices_the_judge_from_the_rate_sheet_and_dates_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
