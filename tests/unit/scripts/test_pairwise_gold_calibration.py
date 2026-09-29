@@ -9,7 +9,7 @@ apart. The selection and the arithmetic are pure; only the judging calls a model
 from __future__ import annotations
 
 import pytest
-from pairwise_gold_calibration import CalibrationRow, agreement, clear_pairs
+from pairwise_gold_calibration import CalibrationRow, agreement, clear_pairs, rows_from_record
 
 
 def test_only_pairs_whose_gold_scores_differ_by_the_threshold_are_chosen() -> None:
@@ -58,3 +58,39 @@ def test_no_decided_pair_has_no_rate() -> None:
 
     # Assert
     assert result.rate is None and result.low is None and result.high is None
+
+
+def test_a_pairwise_record_s_verdicts_become_rows_scored_against_gold() -> None:
+    # Arrange — the record `weft eval pairwise` writes, baseline `dense` as a, arm `wide` as b.
+    record = {
+        "baseline": "dense",
+        "arm": "wide",
+        "verdicts": [
+            {
+                "question_id": "q1",
+                "criterion": "comprehensiveness",
+                "first": "b",
+                "swapped": "b",
+                "outcome": "b",
+            },
+            {
+                "question_id": "q2",
+                "criterion": "comprehensiveness",
+                "first": "a",
+                "swapped": "b",
+                "outcome": "tie",
+            },
+        ],
+    }
+    scores = {"dense": {"q1": 0.1, "q2": 0.9}, "wide": {"q1": 0.8, "q2": 0.2}}
+
+    # Act
+    rows = rows_from_record(record, scores)
+
+    # Assert
+    assert [(row.question, row.gold, row.judge) for row in rows] == [
+        ("q1", "b", "b"),
+        ("q2", "a", "tie"),
+    ]
+    assert rows[0].arm_a == "dense" and rows[0].arm_b == "wide"
+    assert rows[0].delta == pytest.approx(-0.7)

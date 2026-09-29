@@ -10,6 +10,7 @@ this command's `READ` sibling, mirrored here on the identical structure.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import ClassVar, cast
 
@@ -46,6 +47,9 @@ class EvalPairwiseArgs(BaseModel):
     `runs` defaults to the runs directory beside the document, `EvalReplayArgs`'s own default.
     `--baseline`/`--arm` naming the same arm is refused here, before a document is even read —
     a pairwise judgement needs two different arms to compare.
+    `only` restricts judging to the ids a file names, one per line, keeping the question set's
+    own order — a named id the set does not have is ignored, and a file naming none of the set's
+    ids is a `ValueError` rather than a silent empty run.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -74,6 +78,10 @@ class EvalPairwiseArgs(BaseModel):
             "judge only the first this-many paired questions; every paired question when omitted"
         ),
     )
+    only: str | None = Field(
+        default=None,
+        description="a file of question ids, one per line; judge only those",
+    )
 
     @model_validator(mode="after")
     def _baseline_and_arm_differ(self) -> EvalPairwiseArgs:
@@ -94,6 +102,27 @@ class EvalPairwiseCommandResult(CommandResult):
 
 def _arm_by_name(experiment: Experiment, name: str) -> ExperimentArm | None:
     return next((candidate for candidate in experiment.arms if candidate.name == name), None)
+
+
+def _restrict_to_named_questions(
+    questions: Mapping[str, str], only_path: Path
+) -> Mapping[str, str]:
+    """Keep only the ids `only_path` names, one per line, in `questions`' own order.
+
+    An id the file names that `questions` does not is ignored; a file naming none of `questions`
+    is a `ValueError` naming `only_path`, since a silent empty run would look like agreement.
+    """
+    wanted = {
+        line.strip() for line in only_path.read_text(encoding="utf-8").splitlines() if line.strip()
+    }
+    restricted = {
+        question_id: text for question_id, text in questions.items() if question_id in wanted
+    }
+    if not restricted:
+        raise ValueError(
+            f"'{only_path}' names no question id present in the experiment's own question set."
+        )
+    return restricted
 
 
 class EvalPairwiseCommand:
@@ -137,6 +166,8 @@ class EvalPairwiseCommand:
         questions = {
             question.id: question.text for question in read_question_sets(question_paths).questions
         }
+        if pairwise_args.only is not None:
+            questions = _restrict_to_named_questions(questions, Path(pairwise_args.only))
         runs_dir = (
             Path(pairwise_args.runs)
             if pairwise_args.runs is not None

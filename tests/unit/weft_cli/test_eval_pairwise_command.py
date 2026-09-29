@@ -183,3 +183,30 @@ def test_the_command_calls_a_model_and_writes() -> None:
     # Assert
     assert EvalPairwiseCommand.permission_class is PermissionClass.WRITE
     assert EvalPairwiseCommand.help
+
+
+async def test_only_judges_the_questions_named_in_the_file(tmp_path: Path) -> None:
+    # Arrange — 44.43b's gold-referee calibration judges chosen questions, not the first N.
+    document = _document(tmp_path)
+    only = tmp_path / "only.txt"
+    only.write_text("q2\n", encoding="utf-8")
+    llm = _JudgeLLM()
+
+    # Act
+    outcome = await EvalPairwiseCommand().run(
+        EvalPairwiseArgs(
+            experiment=str(document),
+            baseline="dense",
+            arm="wide",
+            criterion=PairwiseCriterion.COMPREHENSIVENESS,
+            only=str(only),
+        ),
+        _ctx(llm),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    [written] = sorted((tmp_path / "replay-fixture" / "pairwise").glob("*.json"))
+    record = load_pairwise_record(written)
+    assert [verdict.question_id for verdict in record.verdicts] == ["q2"]
+    assert len(llm.sent) == 2
