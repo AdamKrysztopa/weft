@@ -1,0 +1,583 @@
+{
+  "experiment": "global-synthesis",
+  "invocation": "66c44023c1004b06b13d07ad633e6540",
+  "baseline": "dense",
+  "arm": "whole-corpus",
+  "prompt_version": "1.0.0",
+  "summaries": [
+    {
+      "criterion": "empowerment",
+      "n": 80,
+      "wins_a": 1,
+      "wins_b": 78,
+      "ties": 1,
+      "win_rate_b": 0.98125,
+      "low": 0.95,
+      "high": 1.0
+    }
+  ],
+  "verdicts": [
+    {
+      "question_id": "global-train-001",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-002",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-003",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-004",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-005",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-006",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-007",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-008",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-009",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-010",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-011",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-012",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-013",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-014",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-015",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-016",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-017",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-018",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-019",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-020",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-021",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-022",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-023",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-024",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-025",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-026",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-027",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-028",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-029",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-030",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-031",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-032",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-033",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-034",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-035",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-036",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-037",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-038",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-039",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-040",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-001",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-002",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-003",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-004",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-005",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-006",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-007",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-008",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-009",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-010",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-011",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-012",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-013",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-014",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-015",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-016",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-017",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-018",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-019",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-020",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-021",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-022",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-023",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-024",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-025",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-026",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-027",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-028",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-029",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-030",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-031",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-032",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-033",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-034",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-035",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-036",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-037",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-038",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-039",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-040",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    }
+  ],
+  "failures": [],
+  "unpaired": []
+}

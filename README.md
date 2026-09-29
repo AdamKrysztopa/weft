@@ -154,6 +154,30 @@ It is a better answer at a very different price, so the router does not pick it 
 with `--pipeline`. On the 12 Polish questions of a 15k-token corpus, no difference was detectable.
 The records and tables are in [`eval/experiments/whole-corpus-en/`](eval/experiments/whole-corpus-en/table.md).
 
+## What Weft has measured on harder questions
+
+Each experiment below states its decision rule before it runs: a rung has to beat one search
+(`retrieve-then-generate`) by a set margin in LLM-judged answer correctness, on the paired 95%
+interval. The records and tables are committed, and every number regenerates from them.
+
+| question | what was tried | result against one search |
+|---|---|---|
+| Corpus-wide ("what themes recur across these papers?"), 80 questions over 16 papers | read everything · RAPTOR tree over the corpus · summarise retrieved passages · graph of extracted facts | reading everything **+0.059** [+0.030, +0.089], worth it at ~160× the tokens · RAPTOR +0.025 [0.000, +0.051], below the margin · summarise no gain · graph **−0.080**, worse |
+| Routing, 107 questions | the shipped model router and score router, against always one search | no gain (−0.000, +0.012); the model router doubles p95 latency |
+| Multi-hop (MuSiQue), 600 questions | iterative retrieval, hybrid, multi-query, broad-and-refined | nothing clears +0.05; iterative +0.018 |
+| One long document (QASPER, QuALITY) | adjacent chunks, context construction | nothing clears +0.05; on QuALITY that holds even though the right document is found 99% of the time |
+
+A position-swapped pairwise judge, calibrated at 61% agreement with gold and so read as
+preference, prefers the answers from reading everything 98% of the time for comprehensiveness,
+and RAPTOR's about 70%. The null results carry the same weight as the wins. Where one search is as
+good, it is the cheaper and faster choice. [`manual/evidence.md`](manual/evidence.md) has every
+experiment, its data, its cost and what it means for a deployment. The tables:
+[corpus-wide](eval/experiments/global-synthesis/table.md) and
+[its RAPTOR arm](eval/experiments/global-synthesis-raptor/table.md) ·
+[routing](eval/experiments/route-shipped-en/table.md) ·
+[multi-hop](eval/experiments/musique-retrieval/table.md) ·
+[long documents](eval/experiments/qasper-long-document/table.md).
+
 ## Start here
 
 **[`manual/quickstart.md`](manual/quickstart.md) is the next page**: the four commands above with

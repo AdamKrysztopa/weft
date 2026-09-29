@@ -1,0 +1,583 @@
+{
+  "experiment": "global-synthesis-raptor",
+  "invocation": "8a4594b3f6ec480198cd1c15b4c79b40",
+  "baseline": "dense",
+  "arm": "raptor",
+  "prompt_version": "1.0.0",
+  "summaries": [
+    {
+      "criterion": "comprehensiveness",
+      "n": 80,
+      "wins_a": 14,
+      "wins_b": 50,
+      "ties": 16,
+      "win_rate_b": 0.725,
+      "low": 0.64375,
+      "high": 0.8064062499999991
+    }
+  ],
+  "verdicts": [
+    {
+      "question_id": "global-train-001",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-002",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-train-003",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-004",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-005",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-006",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-007",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-008",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-009",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-010",
+      "criterion": "comprehensiveness",
+      "first": "tie",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-011",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-train-012",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-013",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-014",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-015",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-016",
+      "criterion": "comprehensiveness",
+      "first": "tie",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-017",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-018",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-019",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-020",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-021",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-022",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-023",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-024",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-025",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-026",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-027",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-train-028",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-train-029",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-train-030",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-031",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-032",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-033",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-train-034",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-035",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-036",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-train-037",
+      "criterion": "comprehensiveness",
+      "first": "tie",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-038",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-train-039",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-train-040",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-heldout-001",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-002",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-003",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-004",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-005",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-006",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-007",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-008",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-009",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-010",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-011",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-heldout-012",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-013",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-014",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-015",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-016",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-017",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-018",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-heldout-019",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-020",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-021",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-022",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-023",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-024",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-025",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-heldout-026",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-027",
+      "criterion": "comprehensiveness",
+      "first": "tie",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-heldout-028",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-029",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-030",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-031",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-032",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-heldout-033",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-034",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "global-heldout-035",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-036",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-037",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-038",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "global-heldout-039",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "global-heldout-040",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    }
+  ],
+  "failures": [],
+  "unpaired": []
+}

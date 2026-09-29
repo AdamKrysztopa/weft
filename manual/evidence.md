@@ -55,12 +55,15 @@ those same questions.
   questions before trusting it. **Asking a strong LLM to do the reranking did roughly twice as
   well** — `gpt-5.6-luna` gained +0.058 [+0.043, +0.074] on the same ESCI pool — but it is priced
   per question rather than per server, it ran once, and every slice of it is underpowered.
-- **Multi-hop and corpus-wide questions: no evidence either way.** RAPTOR and the graph rungs exist
-  for questions that need several documents, or a view of the whole corpus. Every question set
-  Weft has measured on asks single-document questions. Nothing on this page tells you whether
-  `index-with-raptor` or `graph-then-generate` helps on the questions they were built for (see §2).
+- **For a question about the whole corpus, read all of it when it fits.** On 80 corpus-wide
+  questions, `whole-corpus-then-generate` beat one search by +0.059 answer correctness
+  [+0.030, +0.089], at about 160× the prompt tokens. A corpus-wide RAPTOR tree gained +0.025
+  [0.000, +0.051], under the margin; summarising retrieved passages gained nothing; and the
+  graph rung over extracted facts did worse, −0.080 (§4, Phase 44).
+- **Keep the fixed router.** The model-driven `route` and `route-by-score` tied always using one
+  search on the 107 English questions, and `route` more than doubled p95 latency (§4, Phase 44).
 - **Most shipped settings are unmeasured defaults**, not tuned values: chunk size 512 with overlap
-  50, `top_k` 20, `top_n` 8, the packer's `reverse` order, the router, and RRF's k 60 and 0.8 text
+  50, `top_k` 20, `top_n` 8, the packer's `reverse` order, and RRF's k 60 and 0.8 text
   weight. Treat them as reasonable starting points.
 
 ---
@@ -77,6 +80,10 @@ those same questions.
 | **Follow-up questions** | `rewrite-then-retrieve` | recall@5 on the follow-up turn | no conversational set exists yet | not yet priced | keep opt-in or withdraw |
 | **Routing** | `route`, `route-by-score`, `route-fixed` | the routed rung's end metric against always using one rung | the union of the sets above, each question labelled with its winning rung | one router call per question | whether `weft ask` keeps the router by default |
 | **Extractors and embedders on PDFs** | `index-pdf*`, `index-messy-text`, `index-polish`; `hash` against real embedders | recall@5 sliced by evidence type (text, table, image) | Open RAGBench dev, 1,548 questions (licence read at source) | ≈ $3.87 per 3-large ingest, ≈ $0.60 per 3-small | an extractor that wins the table and image slices without losing text becomes `index-pdf`'s default candidate; the first measured number for `hash` against a real embedder |
+
+**Four of these gaps have since been tested (§4, Phase 44):** multi-hop questions (MuSiQue),
+long documents (QASPER, then QuALITY), corpus-wide questions, and routing. The rows are kept as
+the tests that were proposed.
 
 **Weft's graph rungs are not GraphRAG.** They walk an entity's neighbourhood. GraphRAG answers
 corpus-wide questions by summarising communities, and Weft ships no community summaries
@@ -108,13 +115,18 @@ The five statuses:
 | `mmr-then-generate` | helps on one set of three | `eval/experiments/context-construction-en-operator-ir/table.md` |
 | `adjacent-chunks-then-generate`, `context-construction-then-generate` | helps, below the pre-set margin | `eval/experiments/context-construction-en-*-widen/table.md` |
 | `hyde-then-retrieve`, `index-with-questions` | no gain (the data had no headroom) | `eval/experiments/orb-hyde-questions/table.md` |
-| `index-with-raptor`, `raptor-and-leaves-rrf` | wrong questions | `eval/raptor-baseline/` |
+| `index-with-raptor` | wrong questions | `eval/raptor-baseline/` |
+| `raptor-and-leaves-rrf`, `enrich-with-raptor` | helps, below the pre-set margin, on corpus-wide questions (+0.025, 95% interval 0.000 to +0.051), over a corpus-scoped tree | `eval/experiments/global-synthesis-raptor/table.md` |
 | `index-with-deep-raptor` | wrong questions, and harms on them | `eval/raptor-baseline/after-16a/remeasurement.json` |
-| `graph-then-generate`, `graph-and-vector-rrf`, `index-with-facts`, `index-with-facts-openai`, `index-with-cooccurrence` | wrong questions (12 one-sentence documents, questions generated from the graph under test) | Phase 11 exit (ledger only) |
+| `graph-and-vector-rrf`, `enrich-with-facts-and-graph` | harms on corpus-wide questions (−0.080, −0.111 to −0.049), which are not the multi-hop questions it was built for | `eval/experiments/global-synthesis/table.md` |
+| `graph-then-generate`, `index-with-facts`, `index-with-facts-openai`, `index-with-cooccurrence` | wrong questions (12 one-sentence documents, questions generated from the graph under test) | Phase 11 exit (ledger only) |
 | `cross-encoder-retrieve`, `cross-encoder-rerank-then-generate` | no gain on ESCI, harms on TechQA | `eval/pool-promotion/esci-ce-verdict.json`, `techqa-ce-verdict.json` |
-| `whole-corpus-then-generate` | helps on Weft's 107 English questions (answer correctness, 95% interval +0.039 to +0.117), at about 170× the prompt tokens; no difference on the 12 Polish | `eval/experiments/whole-corpus-en/table.md`, `whole-corpus-pl/table.md` |
+| `whole-corpus-then-generate` | helps on Weft's 107 English questions (answer correctness, 95% interval +0.039 to +0.117), at about 170× the prompt tokens; no difference on the 12 Polish; helps on 80 corpus-wide questions (+0.030 to +0.089) | `eval/experiments/whole-corpus-en/table.md`, `whole-corpus-pl/table.md`, `global-synthesis/table.md` |
+| `summarise-then-generate` | no gain on corpus-wide questions (−0.018, −0.049 to +0.010) | `eval/experiments/global-synthesis/table.md` |
+| `route`, `route-by-score` | no gain over `route-fixed` (−0.000 and +0.012 answer correctness on the 107 English questions) | `eval/experiments/route-shipped-en/table.md` |
+| `route-fixed` | the baseline the routers were measured against | `eval/experiments/route-shipped-en/table.md` |
 | `replay-llm-rerank` | helps on ESCI at ~$1.83/830 questions, underpowered, one repetition | ledger `41.4` |
-| `graph-2hop-then-generate`, `graph-then-rerank`, `rerank-then-generate`, `iterative-retrieve`, `corrective-retrieve`, `grade-then-generate`, `multi-query-then-retrieve`, `step-back-then-retrieve`, `rewrite-then-retrieve`, `boolean-then-retrieve`, `broad-and-refined-rrf`, `contradiction-aware`, `draft-then-refine`, `summarise-then-generate`, `no-retrieval`, `route`, `route-by-score`, `route-fixed`, `enrich-with-questions`, `enrich-with-raptor`, `enrich-with-facts-and-graph`, `questions-then-generate`, `index-with-adrap`, `index-with-graph`, `index-with-keywords` | never | none |
+| `graph-2hop-then-generate`, `graph-then-rerank`, `rerank-then-generate`, `iterative-retrieve`, `corrective-retrieve`, `grade-then-generate`, `multi-query-then-retrieve`, `step-back-then-retrieve`, `rewrite-then-retrieve`, `boolean-then-retrieve`, `broad-and-refined-rrf`, `contradiction-aware`, `draft-then-refine`, `no-retrieval`, `enrich-with-questions`, `questions-then-generate`, `index-with-adrap`, `index-with-graph`, `index-with-keywords` | never | none |
 | `index-text` | helps (the leaves arm RAPTOR is measured against) | `eval/raptor-baseline/after-16a/remeasurement.json` |
 | `index-pdf-text` | no dense cost against clean markdown; lexical recall@5 −0.037 | `eval/parser-tax/table.md` |
 | `index-pdf`, `index-pdf-described`, `index-pdf-learned`, `index-pdf-rows`, `index-pdf-undescribed`, `index-messy-text`, `index-polish`, `index-openai*`, `index-qdrant` | never, as a comparison | none |
@@ -123,6 +135,38 @@ The five statuses:
 ---
 
 ## 4. The measurements, newest first
+
+### Phase 44: do corpus-wide questions need something other than one search? (2026-09-29)
+
+- **Question.** "What themes recur", "where do these papers disagree": questions whose answer is
+  spread across the corpus. Does reading everything, summarising the retrieved passages, a RAPTOR
+  tree over the corpus, or a graph of the corpus's facts beat `retrieve-then-generate`?
+- **Data.** 80 corpus-wide questions over the 16 `validation-en` papers (253k tokens), written
+  and verified for this experiment, each with a reference answer. One repetition per arm,
+  `gpt-5.6-luna` answering and judging, `text-embedding-3-large`. RAPTOR ran in a document and
+  store of its own, so that no arm read another arm's layer. About $9 of the $10 approved.
+- **Result.** Against the pre-registered +0.05 `answer_correctness` margin:
+  - `whole-corpus-then-generate`: **+0.059** (95% interval +0.030 to +0.089), `worthwhile`,
+    at about 160× the generation prompt tokens (262k against 1.7k).
+  - `raptor-and-leaves-rrf` over a corpus-wide tree: +0.025 (0.000 to +0.051),
+    `positive-below-margin`.
+  - `summarise-then-generate`: −0.018 (−0.049 to +0.010), `benefit-ruled-out`.
+  - `graph-and-vector-rrf` over an LLM-extracted facts layer: **−0.080** (−0.111 to −0.049),
+    `harm`.
+
+  One search scored 0.496 and 0.485 in the two stores. A position-swapped pairwise judge, read
+  as preference because it agrees with the gold-preferred answer only 0.607 of the time,
+  prefers whole-corpus answers 0.98 on comprehensiveness, diversity and empowerment, and RAPTOR's
+  0.69 to 0.74, while preferring one search's for directness. It prefers one search over the
+  graph arm's 0.84 of the time on comprehensiveness. Sources:
+  `eval/experiments/global-synthesis/table.md`,
+  `eval/experiments/global-synthesis-raptor/table.md`, and each directory's `pairwise/`.
+- **What it means for you.** For a question about the whole corpus, when the corpus fits the
+  model's context, reading all of it is the one rung that measurably answers better, at a much
+  higher price: ask with `--pipeline whole-corpus-then-generate`, raising its `max_tokens` to
+  the corpus as `eval/experiments/pipelines/whole-corpus-wide-then-generate.yaml` does.
+  A RAPTOR tree reads as more comprehensive to a judge but is not measurably more correct yet.
+  Do not use the graph rung for corpus-wide synthesis.
 
 ### Phase 44: do the shipped routers beat always using one search? (2026-09-29)
 
