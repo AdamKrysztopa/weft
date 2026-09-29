@@ -1,0 +1,39 @@
+# Task 44.50b, E0b (fix-plans/23 §4, fix-plans/24 Task 6): is the shipped `route` router, or
+# `route-by-score`, any better than always answering with one search (`route-fixed`, which picks
+# `retrieve-then-generate`)? Each arm routes every question of the 107 English questions over the
+# 16 validation-en papers, and its records say which rung answered each one (`question_routes`).
+# One repetition per arm.
+
+[experiment]
+schema = 1
+name = "route-shipped-en"
+questions = ["../questions/fetch.toml", "../questions/operator.toml"]
+corpus = "../../corpus/validation-en"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["answer_correctness", "token_recall"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.03
+direction = "higher-is-better"
+
+[[arm]]
+name = "fixed"
+pipeline = "index-openai-large-pdf"
+router = "route-fixed"
+repeats = 1
+
+[[arm]]
+name = "route"
+pipeline = "index-openai-large-pdf"
+router = "route"
+repeats = 1
+
+[[arm]]
+name = "by-score"
+pipeline = "index-openai-large-pdf"
+router = "route-by-score"
+repeats = 1
