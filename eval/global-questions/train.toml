@@ -1,0 +1,370 @@
+# Task 44.42 — corpus-wide ("global") questions over corpus/validation-en, train half drafted by Claude (Sonnet).
+# D8, amended by the owner 2026-09-28 and 2026-09-29: both halves drafted, an independent agent
+# verified all 80 against the papers (docs/internal/global-verification.md: 69 pass, 11 fixed, 0
+# dropped), and the owner spot-checks 10 verdicts without blocking E4. Written in Weft's own words
+# from the papers' text; no sentence is quoted.
+[question_set]
+schema = 2
+absent = ["kind", "difficulty", "quote"]
+absent_reason = "corpus-wide questions have no single kind, difficulty or quotable span"
+axes = ["global-type", "split"]
+
+[[question]]
+id = "global-train-001"
+text = "Across the corpus, several papers try to make mutual-information- or mRMR-based feature selection scale to large or high-dimensional datasets. What different strategies do they use to achieve this, and how do the strategies differ from each other?"
+language = "en"
+relevant_documents = ["arxiv/1411.2331v1.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2208.09901v2.pdf", "arxiv/2508.18901v1.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Three main scaling strategies recur: (1) low-level parallel/distributed engineering that keeps the original mRMR criterion but speeds up its computation — Fast-mRMR's CPU/GPU-CUDA/Apache Spark implementations and caching optimizations, and VMR_mRMR's vertical-partitioning Iterative MapReduce/Spark framework built on entropy and conditional-entropy formulas; (2) replacing the discrete combinatorial mRMR search with a continuous, convex-friendly reformulation — N3LARS reframes HSIC-based redundancy-aware selection as a non-negative LARS regression solvable in m steps and speeds it further with Nystrom approximation plus map-reduce, and SmRMR recasts mRMR as a penalized M-estimation problem solved by continuous optimization rather than discrete search; (3) production engineering choices that trade some accuracy-maximizing complexity for speed and robustness, as in Zhao et al.'s Uber platform choosing the fast, model-free FCQ variant over slower MI-based variants (MID/MIQ) precisely because of computation time at scale."
+notes = "Drafted from the introductions/conclusions of N3LARS, Fast-mRMR, VMR_mRMR, SmRMR and the Uber mRMR paper; needs synthesis across five papers to see the three distinct scaling strategies rather than one paper's approach alone."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-002"
+text = "This collection applies minimum-redundancy-maximum-relevance-style feature selection to several very different application domains. What domains are represented, and what domain-specific challenges does each face?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/radovic-2017-bmc.pdf", "arxiv/2510.00907v1.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "The corpus applies mRMR-family feature selection across four distinct domains: microarray/gene-expression classification (Ding & Peng's original mRMR on six cancer datasets — NCI, Lymphoma, Lung, Child Leukemia, Leukemia and Colon; BoMGene's Boruta-mRMR hybrid on 25 ArrayExpress gene-expression datasets; Radovic's temporal TMRMR on viral-challenge H3N2/HRV/RSV datasets); electrical power-system transient-stability assessment (Li Yang & Gu Xueping's improved mRMR on PMU-derived features for New England 39-bus and IEEE 50-generator systems); solar-energy forecasting (Bouzgou & Gueymard's MRMR-ELM for global horizontal irradiance at 20 worldwide sites); and industrial marketing/customer-targeting machine learning (Zhao, Anand & Wang's mRMR variants deployed in Uber's production Auto ML platform). Domain-specific challenges differ: gene-expression work confronts extreme high-dimensionality with very few samples; power-system and solar work must handle strongly temporal or PMU/time-series-derived features; the marketing platform work must satisfy production constraints like computation time and pipeline robustness rather than pure accuracy."
+notes = "Requires reading the domain/motivation sections of six papers spanning bioinformatics, power systems, energy forecasting and industrial ML."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-003"
+text = "Beyond simple linear correlation, what different ways of measuring 'redundancy' or dependence between features recur across this collection, and which papers use which measure?"
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "arxiv/1411.2331v1.pdf", "arxiv/radovic-2017-bmc.pdf", "arxiv/1908.05376v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "Beyond linear correlation, the corpus uses several distinct measures: the Randomized Dependence Coefficient (RDC), measuring nonlinear dependence via copula transformation, random nonlinear projections and canonical correlation at O(n log n) cost; the normalized Hilbert-Schmidt Independence Criterion (NHSIC), used by N3LARS to measure feature-feature similarity in a kernel space; Dynamic Time Warping (DTW) distance, used by Radovic's TMRMR to compare whole gene-expression time series rather than flattened scalar values; and blended measures such as Xie's ImRMR, which combines Pearson correlation and mutual information with an adjustable weighting factor. Zhao et al.'s Uber paper explicitly imports RDC as one of its proposed redundancy measures (the FRQ and RFRQ variants), directly linking the RDC line of work to the mRMR literature."
+notes = "Needs cross-referencing RDC's own method section with how the Uber paper later reuses RDC, plus N3LARS's NHSIC, Radovic's DTW and Xie's blended factor."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-004"
+text = "Several papers in this collection target the standard greedy, single-feature-at-a-time mRMR selection procedure as their point of departure. What do they see as wrong with it, and what alternative formulations do they propose?"
+language = "en"
+relevant_documents = ["arxiv/1606.02827v1.pdf", "arxiv/1706.07535v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "arxiv/2508.18901v1.pdf"]
+reference_answer = "Gao, Ver Steeg & Galstyan (VMI) argue that the two independence assumptions implicitly underlying low-order mutual-information approximations, including mRMR's, cannot both hold except in unrealistic data, and replace the approximation with a tractable variational lower bound on mutual information, proving forward selection optimal under tree graphical models. Venkateswara et al. keep the conditional-independence approximation but reformulate selection as one global Binary Quadratic Problem over all candidate features, solved approximately with Truncated Power Method or Low-Rank Bilinear Approximation instead of greedily. Xie et al.'s ImRMR criticizes mRMR for evaluating only one feature's contribution at a time, neglecting the joint contribution of multiple features, and proposes an equal-grouping method evaluating candidate feature subsets rather than single features. Naylor et al.'s SmRMR reformulates the discrete mRMR optimization as a continuous, non-convex-penalized M-estimation problem, sidestepping combinatorial search and adding false-discovery-rate control via a knockoff filter."
+notes = "Requires each paper's own stated critique of mRMR/greedy MI selection, not just its proposed method."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-005"
+text = "A number of papers in this collection combine an mRMR-style filter with a second technique into a two-stage or hybrid pipeline. What second techniques are paired with mRMR-style filtering, and why?"
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "BoMGene applies mRMR first to shrink the search space and then Boruta (a Random-Forest-based wrapper using shadow features) to refine it before final classification; Li Yang & Gu Xueping pair an improved, weighted mRMR with SVM as a wrapper-style validator that tests each nested candidate subset's cross-validated accuracy; Bouzgou & Gueymard pair an MI-based MRMR filter (via sequential forward selection) with an Extreme Learning Machine that both evaluates candidate subsets during selection and performs the final forecast; and Zhao et al. pair mRMR-family scoring, including a Random-Forest-based relevance variant, with downstream classifiers and a Random Forest AUC sweep to decide how many features to keep. In each case the filter narrows the space cheaply and the second stage adds classifier-aware or wrapper-style refinement."
+notes = "Needs the algorithm/pipeline sections of four papers to see the common two-stage pattern."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-006"
+text = "How does the collection handle data with an explicit temporal dimension, compared to how it handles ordinary static tabular data, and which papers fall into each camp?"
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/2510.00907v1.pdf"]
+reference_answer = "Only two papers explicitly grapple with temporal structure: Radovic et al.'s TMRMR avoids flattening multivariate temporal gene-expression data (which loses temporal-order information) by computing relevance as an average F-statistic across time steps and redundancy via Dynamic Time Warping between z-score-normalized gene time series; Bouzgou & Gueymard treat a solar-irradiance time series as a set of lagged 'variables' and apply ordinary MRMR incremental forward selection across them, not preserving sequence structure beyond treating each lag as an independent feature. By contrast, Ding & Peng's original mRMR and BoMGene's Boruta-mRMR both operate on static, non-temporal tabular gene-expression data with no temporal dimension at all, illustrating a real difference in how much temporal structure a domain forces a paper to confront."
+notes = "Requires contrasting Radovic's and Bouzgou's temporal handling against the static-data assumptions of Ding & Peng and BoMGene."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-007"
+text = "A recurring design choice across this collection is how to combine a relevance score and a redundancy score into one selection criterion. What different combination schemes appear, and what tradeoffs between them are identified?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/radovic-2017-bmc.pdf", "arxiv/1908.05376v1.pdf", "arxiv/1903.01907v1.pdf"]
+reference_answer = "Two dominant schemes recur: the difference scheme (MID/FCD: relevance minus redundancy) and the quotient scheme (MIQ/FCQ: relevance divided by redundancy). Ding & Peng's original mRMR introduces both, and its own discussion explicitly recommends the quotient form as the better choice (MIQ for discrete features, FCQ for continuous ones). Radovic warns the quotient (MIQ) criterion can select an irrelevant second feature simply because it looks maximally different from the first, mitigated with a top-alpha-relevant-features restriction. Li Yang & Gu Xueping generalize the difference scheme into a tunable weighted combination (a weight the paper calls alpha) searched empirically over several values. Zhao et al. at Uber find empirically that the quotient scheme (FCQ) is more robust to scale differences between relevance and redundancy measures and performs as well as or better than difference-based and pure MI variants, while running much faster."
+notes = "Needs the specific MID/MIQ discussion in Ding&Peng, Radovic's stated MIQ risk, Uber's empirical difference-vs-quotient comparison and Li Yang's weight-factor search."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-008"
+text = "Despite covering very different application domains, what motivations for doing feature selection at all recur consistently across this collection's papers?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/2510.00907v1.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf", "arxiv/1908.05376v1.pdf", "arxiv/2208.09901v2.pdf"]
+reference_answer = "The papers converge on a consistent set of motivations: reducing computational cost and training/prediction time (VMR_mRMR's big-data motivation, BoMGene's training-time comparisons, Uber's need for fast production pipelines); avoiding overfitting and improving generalization under high dimensionality with few samples (Ding & Peng's microarray motivation, BoMGene's curse-of-dimensionality framing); improving interpretability and identifying a compact, meaningful subset of variables (Ding & Peng's 'marker gene' framing, Li Yang's dimensionality reduction for power-system monitoring, Uber's easier model diagnosis and compliance checking); and, specific to redundancy-aware methods, avoiding wasted or narrowly-representative feature sets from picking only top individually-relevant features without considering correlation among them, argued explicitly by Ding & Peng and echoed by Bouzgou & Gueymard, who adopt MRMR to cut redundancy among the historical input variables."
+notes = "Requires comparing the stated motivations across six papers from unrelated domains to find the common thread."
+axes = { global-type = "themes", split = "train" }
+
+[[question]]
+id = "global-train-009"
+text = "Compare how Radovic et al.'s temporal mRMR method and Bouzgou & Gueymard's solar-forecasting mRMR method each handle the fact that their input data has a time dimension."
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf"]
+reference_answer = "Radovic et al.'s TMRMR treats each gene as a full multivariate time series and avoids flattening: relevance is the average F-statistic across all time steps, and redundancy between two genes is a Dynamic Time Warping distance between their z-score-normalized temporal curves, designed to preserve when in time a difference occurs. Bouzgou & Gueymard instead implicitly flatten time by treating each historical lag as a separate ordinary feature and apply standard mutual-information-based MRMR incremental forward selection across those lag-features, with an Extreme Learning Machine performing the final forecast; temporal order is only implicit in which lag indices tend to get selected (the most recent lag most often). Both use the same minimum-redundancy-maximum-relevance framing and greedy incremental search, but only Radovic's redundancy measure is sensitive to temporal shape rather than to a single lag-indexed value."
+notes = "Needs both papers' methodology sections describing relevance/redundancy computation."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-010"
+text = "Compare how Li Yang & Gu Xueping's improved mRMR and Xie et al.'s ImRMR each introduce a tunable weighting factor into the mRMR criterion, and what each factor actually controls."
+language = "en"
+relevant_documents = ["arxiv/1903.01907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "Both add a tunable weighting factor rather than treating relevance and redundancy as equally weighted, but control different things. Li Yang & Gu Xueping introduce a scalar weight, called alpha in the paper (searched over {0, 0.25, 0.5, 0.75, 1}), that linearly re-balances the standard maximum-relevance and minimum-redundancy terms, applied to power-system PMU-derived features and validated with SVM via incremental nested-subset search. Xie et al.'s ImRMR instead uses a weighting factor to blend two different relevance measures (Pearson correlation and mutual information) into one relevance score, and separately changes the search granularity from single features to candidate feature subsets via an equal-grouping method, refined by sequence forward search with a random forest classifier. So Li Yang's weight adjusts the relevance-vs-redundancy trade-off, while Xie's weight adjusts which relevance measure to trust."
+notes = "Requires the specific formula sections of both papers describing their respective weighting factors."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-011"
+text = "Compare Senawi et al.'s MRmMC method and Ding & Peng's original mRMR method in terms of what dependency measure each relies on and what limitation each measure has."
+language = "en"
+relevant_documents = ["mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf"]
+reference_answer = "Ding & Peng's original mRMR measures relevance and redundancy with mutual information for discrete (discretized) data, combined via a difference (MID) or quotient (MIQ) criterion, and offers F-statistic relevance with correlation redundancy (FCD/FCQ) for continuous data. Senawi et al.'s MRmMC deliberately avoids mutual information: relevance is a conditional-variance-based correlation characteristic, and redundancy ('multicollinearity') is eliminated via multiple correlation computed with an orthogonal projection scheme, motivated partly by MI-based methods typically needing pre-specified control parameters and being harder to implement. MRmMC's own stated limitation is that its correlation-based redundancy measure works well for quantitative features but cannot effectively evaluate redundancy between a quantitative and a nominal feature — a limitation Ding & Peng's fully general MI approach does not have, since MI is defined for any joint distribution including categorical variables."
+notes = "Needs Senawi's stated limitation paragraph and Ding&Peng's foundational MI definitions."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-012"
+text = "Compare how BoMGene's Boruta-mRMR hybrid and Ramírez-Gallego et al.'s Fast-mRMR each address mRMR's computational cost, and whether each approach changes which features get selected."
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "BoMGene does not speed up mRMR itself — mRMR still runs in full as its first stage. Its cost argument is that mRMR cheaply shrinks a very large gene-expression feature space so Boruta (a Random Forest compared against permuted shadow features) is not swamped, and that the resulting smaller feature set makes downstream classifiers cheaper to train: mean GBM training time on the selected features is about 641 s against about 5,456 s for mRMR's larger selection. Ramírez-Gallego et al.'s Fast-mRMR instead speeds up mRMR itself, leaving its criterion, search and output unchanged and re-engineering only its execution — incremental redundancy accumulation, caching, a feature-wise data layout, and CPU/GPU-CUDA/Apache Spark implementations — reporting up to 374x speedups while selecting exactly the same features. BoMGene changes which features are selected (the wrapper stage prunes mRMR's output), while Fast-mRMR changes only how the same computation is executed."
+notes = "Needs BoMGene's training-time table/discussion and Fast-mRMR's concluding remarks about result equivalence."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-013"
+text = "Compare Vivek & Prasad's VMR_mRMR and Yamada et al.'s N3LARS as two different distributed, big-data approaches to feature selection, including what each one distributes and what selection criterion each one keeps or replaces."
+language = "en"
+relevant_documents = ["arxiv/2208.09901v2.pdf", "arxiv/1411.2331v1.pdf"]
+reference_answer = "VMR_mRMR keeps the standard MI-based mRMR criterion exactly but reformulates its entropy/conditional-entropy computations for an Iterative MapReduce (Spark) framework using vertical partitioning (splitting the feature space across nodes), designed to fix redundant computations and missing metadata in earlier vertical-partitioning solutions. N3LARS instead replaces the mRMR criterion itself with a nonlinear, HSIC-based Non-negative LARS regression (a convex reformulation guaranteeing a global optimum), scaling via a Nystrom kernel approximation plus a Hadoop/map-reduce implementation. Both target large, high-dimensional data and both use MapReduce-style distributed computing, but VMR_mRMR distributes an unchanged discrete mRMR search while N3LARS distributes a fundamentally different, continuous, nonlinear regression-based selection method."
+notes = "Needs each paper's framing of what problem their distributed computing solves and what mathematical object is being distributed."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-014"
+text = "Compare how Gao, Ver Steeg & Galstyan's variational information maximization paper and Venkateswara et al.'s binary-quadratic-problem paper each respond to the conditional-independence assumption behind greedy mutual-information feature selection."
+language = "en"
+relevant_documents = ["arxiv/1606.02827v1.pdf", "arxiv/1706.07535v1.pdf"]
+reference_answer = "Gao, Ver Steeg & Galstyan's VMI diagnoses the flaw as the two independence assumptions (feature independence and class-conditional independence given the candidate feature) being mutually inconsistent except in unrealistic data, and fixes this by maximizing a tractable variational lower bound on mutual information instead of a crude low-order approximation, proving forward selection optimal under tree graphical models. Venkateswara et al. instead keep essentially the same conditional-independence assumption (their Assumption 2.1) to reduce subset mutual information to pairwise conditional mutual information, but reformulate selecting a full k-feature subset as one global, NP-hard Binary Quadratic Problem, solved approximately with Truncated Power Method or Low-Rank Bilinear Approximation rather than a greedy step-by-step search. VMI targets the accuracy of the per-step estimate under a proven optimality condition; the BQP paper targets the greediness of the procedure itself, accepting the same approximate pairwise estimate but optimizing globally."
+notes = "Requires VMI's Assumption 1/2 discussion and Venkateswara et al.'s Assumption 2.1 and BQP formulation."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-015"
+text = "Compare Zhao, Anand & Wang's Uber mRMR-extension paper and the BoMGene paper in terms of what alternative relevance/redundancy measures each substitutes for mutual information, and how each validates its choice for real-world use."
+language = "en"
+relevant_documents = ["arxiv/1908.05376v1.pdf", "arxiv/2510.00907v1.pdf"]
+reference_answer = "Zhao, Anand & Wang extend mRMR with an F-statistic or Random-Forest-based relevance measure and a Pearson-correlation or RDC-based redundancy measure, comparing eight variants across synthetic and three real Uber marketing datasets, and deploy the fast, model-free FCQ variant into a Scala Spark production Auto ML pipeline validated by an online randomized marketing experiment. BoMGene instead uses an F-test for relevance and Pearson correlation for redundancy (via the FeatureWiz library) purely as a first-stage filter, then hands off to the Boruta wrapper for refinement, evaluated across 25 gene-expression datasets with four downstream classifiers rather than through an online experiment. Uber's paper is about choosing the single best mRMR variant for one production system; BoMGene's is about combining an mRMR variant with a second, different algorithm family to get a better feature set than either alone."
+notes = "Needs each paper's validation methodology section (Uber's online experiment vs BoMGene's 25-dataset cross-validation)."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-016"
+text = "Compare what computational bottleneck the Randomized Dependence Coefficient paper addresses versus what bottleneck the Fast-mRMR paper addresses, even though both are concerned with the cost of measuring or using dependence between variables."
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "The RDC paper targets the general problem of measuring nonlinear dependence between two random variables cheaply, achieving O(n log n) cost via copula transformation, random nonlinear projections and canonical correlation, proposed as a general-purpose dependence measure usable inside any feature-selection method. Fast-mRMR instead targets the computational cost of the mRMR feature-selection procedure itself, keeping mutual information as the dependence measure but removing unnecessary recomputation and adding GPU/Spark parallelism, achieving up to 374x speedups while leaving the selected feature set identical to standard mRMR's. RDC addresses the cost of computing dependence between two variables (a building block that could replace mutual information in a criterion like mRMR, as Uber's paper later does), while Fast-mRMR addresses the cost of running the mRMR selection algorithm across many candidate features, without changing the dependence measure at all."
+notes = "Needs RDC's complexity discussion (Section 4) and Fast-mRMR's stated optimizations."
+axes = { global-type = "compare-docs", split = "train" }
+
+[[question]]
+id = "global-train-017"
+text = "The concept of mutual information is treated very differently by different papers in this collection. Using at least three papers, describe how its role changes: as a direct criterion, as a target to be approximated, and as one option compared against alternatives."
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/1606.02827v1.pdf", "arxiv/1908.05376v1.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf"]
+reference_answer = "In Ding & Peng's original mRMR, mutual information is the sole relevance and redundancy measure, combined via MID or MIQ. In Bouzgou & Gueymard's solar forecasting paper it is likewise used directly and simply as the sole criterion for scoring historical lagged variables, without concern about high-dimensional estimation. In Gao, Ver Steeg & Galstyan's VMI paper, mutual information is the theoretically correct but practically intractable target: rather than using it directly, they show common low-order MI approximations (including mRMR's) rest on mutually inconsistent independence assumptions, and instead maximize a tractable variational lower bound on MI. In Zhao, Anand & Wang's Uber paper, MI-based variants (MID, MIQ) are one option among several, empirically found slower to compute and no more accurate than F-statistic- or Random-Forest-based relevance measures, leading the authors to prefer a non-MI variant for deployment."
+notes = "Requires reading four papers' differing treatment of the same underlying quantity."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-018"
+text = "'Redundancy' between features is operationalized by a different concrete computation in different papers. Using at least four papers, describe the different mechanisms used to compute redundancy."
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "arxiv/2510.00907v1.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "arxiv/1908.05376v1.pdf", "arxiv/1411.2331v1.pdf"]
+reference_answer = "Radovic's TMRMR uses Dynamic Time Warping distance between z-score-normalized gene expression time series, capturing shape similarity even out of phase in time. BoMGene uses simple Pearson correlation between already-selected and candidate features, chosen explicitly over mutual information for continuous gene-expression data. Senawi et al.'s MRmMC frames redundancy as multicollinearity removed via multiple correlation with an orthogonal projection scheme, admitting it cannot handle a quantitative-nominal feature pair well. Zhao et al.'s Uber paper extends correlation-based redundancy with the Randomized Dependence Coefficient (RDC) to capture nonlinear feature-feature association (FRQ/RFRQ variants). Yamada et al.'s N3LARS measures feature-feature similarity with a normalized Hilbert-Schmidt Independence Criterion (NHSIC) inside a non-negative LARS regression rather than as an explicit greedy penalty term."
+notes = "Needs the redundancy-definition section of five different papers."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-019"
+text = "'Relevance' of a feature to a target/class is measured differently across the collection. Using at least four papers, describe the different measures used and why each was chosen."
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/radovic-2017-bmc.pdf", "arxiv/2510.00907v1.pdf", "arxiv/1908.05376v1.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"]
+reference_answer = "Ding & Peng's original mRMR uses mutual information between each candidate feature and the class label. Radovic's TMRMR uses an F-statistic computed at each time step and averaged across the whole series, chosen for continuous features and class-mean differences. BoMGene likewise uses an F-test rather than mutual information, citing better suitability for continuous gene-expression values. Zhao et al.'s Uber paper additionally proposes Random Forest feature importance as a relevance measure (RFCQ/RFRQ variants), motivated by the tree-based downstream classifiers used at Uber. Senawi et al.'s MRmMC instead measures relevance via a conditional-variance-based correlation characteristic rather than any information-theoretic or tree-based quantity."
+notes = "Needs the relevance-definition passages of five papers to contrast choices and stated motivations."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-020"
+text = "The scalability of mRMR-style computation to large datasets is approached through different technical means across the collection. Using at least three papers, describe the distinct approaches."
+language = "en"
+relevant_documents = ["mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2208.09901v2.pdf", "arxiv/1411.2331v1.pdf", "arxiv/2508.18901v1.pdf"]
+reference_answer = "Fast-mRMR keeps the original quadratic-in-features, linear-in-samples mRMR computation but engineers it faster with caching and a new data-access pattern, then ports it to GPU-CUDA and Apache Spark, producing identical selected features to plain mRMR. VMR_mRMR redesigns the algorithm's data layout for distributed execution using vertical partitioning within an Iterative MapReduce/Spark framework built on entropy and conditional-entropy formulas, targeting cases where the feature space dominates. N3LARS avoids the discrete, greedy mRMR search altogether, reformulating a HSIC-based redundancy-aware problem as a convex non-negative LARS regression, sped up with a Nystrom approximation and a Hadoop/map-reduce implementation. Naylor et al.'s SmRMR instead relaxes the discrete combinatorial mRMR optimization into a continuous, penalized M-estimation problem solvable by standard continuous optimization, avoiding combinatorial search entirely."
+notes = "Requires the scalability/complexity discussion of four separate papers to see they solve the same problem in genuinely different ways."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-021"
+text = "A conditional-independence assumption recurs across papers that reduce a subset's mutual information to pairwise terms. Using at least two papers that discuss it explicitly, describe how each paper treats this assumption."
+language = "en"
+relevant_documents = ["arxiv/1606.02827v1.pdf", "arxiv/1706.07535v1.pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf"]
+reference_answer = "Gao, Ver Steeg & Galstyan's VMI paper names two such assumptions explicitly (feature independence and class-conditional independence given the candidate feature), used by prior greedy MI-based methods including mRMR, proves they cannot both hold except in a very specific unrealistic data-generating structure, and abandons the assumption for a variational lower bound. Venkateswara et al.'s BQP paper instead states essentially the same assumption explicitly as their Assumption 2.1 and uses it constructively to reduce subset mutual information to pairwise conditional mutual information, accepting it as a practical approximation and focusing their innovation on global rather than greedy optimization. Ding & Peng's original mRMR paper never states any such assumption explicitly; its additive combination of pairwise relevance and redundancy terms implicitly relies on a similar simplification without discussing or justifying it."
+notes = "Needs VMI's Section 2.2 (Assumption 1/2), Venkateswara et al.'s Assumption 2.1, and the absence of such discussion in Ding&Peng."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-022"
+text = "How relevance and redundancy scores get combined into a single feature-selection criterion is a recurring design choice. Using at least three papers, describe the different combination schemes and what they each control."
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Ding & Peng's original mRMR treats relevance and redundancy as equally important terms but introduces two ways to combine them, MID (a difference) and MIQ (a quotient), and its own discussion explicitly recommends the quotient form as the better choice. Li Yang & Gu Xueping generalize the difference scheme with a tunable scalar weight, called alpha in the paper, shifting emphasis between relevance and redundancy, searched over five values. Xie et al.'s ImRMR applies a tunable weighting factor not to the relevance-redundancy balance but to blend two different relevance measures (Pearson correlation and mutual information) into one score. Zhao, Anand & Wang's Uber paper empirically compares the difference scheme (MID, FCD) against the quotient scheme (MIQ, FCQ) at production scale, finding the quotient scheme more robust to scale differences, and deploys a quotient-based variant."
+notes = "Requires the combination-scheme formulas across four papers."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-023"
+text = "Measuring genuinely nonlinear dependence between variables recurs as a concept across several papers, sometimes as a stated goal and sometimes as an implicit assumption it isn't needed. Using at least three papers, describe how each treats nonlinear dependence."
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "arxiv/1411.2331v1.pdf", "arxiv/1908.05376v1.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"]
+reference_answer = "The RDC paper builds a general-purpose nonlinear dependence estimator from copula transformation, random nonlinear projections and canonical correlation, explicit that Pearson, Spearman and Kendall only capture linear or monotonic association. Yamada et al.'s N3LARS uses a normalized Hilbert-Schmidt Independence Criterion (NHSIC), a kernel-based dependence measure, motivated by needing to capture nonlinear feature-feature and feature-target relationships in large, high-dimensional data. Zhao et al.'s Uber paper directly imports RDC as an explicit nonlinear redundancy extension to mRMR (FRQ/RFRQ). By contrast, Senawi et al.'s MRmMC claims its conditional-correlation relevance measure can also reveal nonlinear relation when there is a clear functional relationship between a feature and the class — a claim the paper makes about its relevance measure, not its multicollinearity-based redundancy measure, which the paper itself frames as a linear-dependency detector — implicitly suggesting a correlation-based relevance measure can substitute for a genuinely nonlinear one in at least some cases."
+notes = "Needs RDC's motivation section, N3LARS's use of NHSIC, Uber's import of RDC, and Senawi's claim about capturing nonlinear relations. Corrected: the nonlinear-capturing claim in Senawi et al.'s conclusion is about their relevance measure (the conditional correlation coefficient, Eq. 16), not their redundancy/multicollinearity measure, which the draft originally conflated."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-024"
+text = "Greedy, incremental, forward feature-by-feature search recurs as the default selection procedure across the collection. Using at least four papers, describe how each treats or modifies this procedure."
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "arxiv/1606.02827v1.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "Ding & Peng's original mRMR selects one feature at a time, keeping previously selected features fixed. Li Yang & Gu Xueping keep this same structure but apply it to their weighted criterion, producing a nested sequence of candidate subsets later validated by SVM. Xie et al.'s ImRMR deliberately departs from single-feature greediness, grouping ranked features into candidate subsets via equal grouping so joint contributions are evaluated together. Gao, Ver Steeg & Galstyan's VMI paper keeps the forward, one-feature-at-a-time structure but proves it achieves the globally optimal subset when the data follows a tree graphical model. Fast-mRMR keeps the exact same incremental greedy search as Ding & Peng's original algorithm unchanged, but distributes or parallelizes the per-step computation across GPUs or Spark executors."
+notes = "Requires the search-procedure description in five papers to see which keep, modify, or formally justify the greedy structure."
+axes = { global-type = "recurring-concept", split = "train" }
+
+[[question]]
+id = "global-train-025"
+text = "Do the papers in this collection agree on whether mutual information is worth its cost as a relevance/redundancy measure, or is there real disagreement? Cite specific papers and their stated reasons."
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf", "arxiv/1606.02827v1.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "arxiv/2510.00907v1.pdf", "arxiv/1908.05376v1.pdf", "arxiv/radovic-2017-bmc.pdf"]
+reference_answer = "There is real disagreement. Ding & Peng's original mRMR uses MI for both relevance and redundancy, Bouzgou & Gueymard use MI as the sole solar-forecasting criterion, and Gao et al.'s VMI paper treats MI as the theoretically correct target worth approximating carefully via a variational bound. Other papers move away from MI: Senawi et al.'s MRmMC avoids MI entirely, citing the need to pre-specify control parameters and implementation difficulty of MI-based methods; BoMGene explicitly replaces MI with an F-test and Pearson correlation, stating this better suits continuous gene-expression features; Zhao et al.'s Uber paper finds MI-based variants take much longer to compute without being more accurate, and deploys a non-MI variant in production; Radovic's TMRMR uses an F-statistic and DTW rather than MI for temporal gene-expression data. The corpus disagrees on whether MI's estimation cost and complexity are worth it relative to simpler measures."
+notes = "Grounded in explicit statements: Senawi's rationale for avoiding MI, BoMGene's explicit substitution rationale, and Uber's empirical timing comparison."
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-026"
+text = "Is there a tension between how confidently the Fast-mRMR paper presents its distributed/parallel optimizations as having solved mRMR's computational bottleneck, and how the VMR_mRMR paper describes the state of existing vertical-partitioning distributed mRMR approaches? Explain the tension and cite the specific claims involved."
+language = "en"
+relevant_documents = ["arxiv/2208.09901v2.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "Vivek & Prasad's VMR_mRMR paper explicitly states that existing vertical-partitioning MapReduce/Spark approaches to mRMR — naming a 2019 vertical-partitioning solution from the Ramírez-Gallego research group among the two prior vertical-partitioning methods it reviews — were found to have several limitations resulting in redundant and repetitive computations and omission of metadata information, motivating their own redesign. This sits in tension with the framing in the Fast-mRMR paper (by an overlapping set of authors), which presents its CPU/GPU/Spark optimizations as having already solved mRMR's computational bottleneck, reporting up to 374x speedups and guaranteeing results identical to standard mRMR. One paper's claim of having optimized mRMR for distributed execution is directly disputed, on efficiency grounds, by a later paper reviewing that same line of vertical-partitioning work."
+notes = "The critiqued paper (VMR_mRMR's reference [21]) is a 2018 IEEE TSMC paper by the same research group as Fast-mRMR (mrmr folder), not literally the identical PDF; the tension is between closely related work by overlapping authors, stated carefully in the answer."
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-027"
+text = "Radovic et al. and Zhao, Anand & Wang reach seemingly different conclusions about the quotient-based (MIQ/FCQ) combination scheme for relevance and redundancy. What does each paper claim, and are the claims actually in tension?"
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Radovic et al. warn that the quotient-based MIQ criterion can select a second feature simply because it looks maximally different from the first-selected feature, even if actually irrelevant to the target — a specific named flaw, mitigated with a top-alpha-relevant-features restriction. Zhao, Anand & Wang's Uber paper, evaluating on real production marketing data, instead finds the quotient scheme (their FCQ variant) the more robust and production-ready choice precisely because it is relatively immune to scale differences between relevance and redundancy measures, and it becomes their deployed method. One paper identifies a concrete risk in the quotient formulation while another paper's empirical evaluation favors it over the difference formulation."
+notes = "Grounded in Radovic's explicit warning paragraph and Uber's explicit preference for FCQ in the discussion section."
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-028"
+text = "Radovic et al. and BoMGene make differently-framed claims about how consistently their proposed methods improve on baselines. Describe the difference in framing and the specific evidence each paper gives."
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "arxiv/2510.00907v1.pdf"]
+reference_answer = "Radovic et al. report a comparatively modest improvement: TMRMR outperformed the tested alternatives in 34 out of 54 experiments (about 63%), explicitly not claiming universal superiority. BoMGene's results instead frame its Boruta-mRMR hybrid as consistently attaining the highest or near-highest mean accuracy across all four classifiers tested, a stronger near-universal claim — yet BoMGene's own discussion later concedes a specific counterexample (dataset 20711 with GBM, where plain mRMR alone outperforms the hybrid, 84.444% versus 77.778%). The corpus contains differing standards for framing improvement claims: one reports a bounded win rate up front, the other initially frames near-universal superiority before admitting a specific exception."
+notes = "Grounded in Radovic's explicit 34/54 statistic and BoMGene's stated dataset-20711 counterexample."
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-029"
+text = "Is there a disagreement in this collection about whether the classic pairwise mRMR criterion itself is adequate for large-scale, high-dimensional data, or whether it merely needs faster computation? Cite the specific papers and positions involved."
+language = "en"
+relevant_documents = ["arxiv/1411.2331v1.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2208.09901v2.pdf"]
+reference_answer = "Yes. Yamada et al.'s N3LARS levels two separate critiques at pairwise mRMR-style selection: it names plain 'Maximum Relevance' (MR, relevance-only scoring with no redundancy term) as prone to selecting redundant features because it only uses input-output relevance and not input-input relevance, and treats classic mRMR itself as already a historical fix for that specific problem; N3LARS's own critique of mRMR proper is instead that its greedy, non-convex search tends to get stuck in locally optimal feature sets and that its mutual-information density estimates are inaccurate at the small sample sizes common in high-dimensional data, motivating N3LARS's convex, HSIC-based reformulation with a global-optimum guarantee for large, high-dimensional, nonlinear data. In apparent tension, both Ramírez-Gallego et al.'s Fast-mRMR and Vivek & Prasad's VMR_mRMR invest substantial engineering effort scaling up the exact same classic mRMR criterion and its greedy search to GPU, Spark and MapReduce settings rather than replacing it, implying they consider the original criterion adequate provided it can be computed fast enough — a disagreement about whether the bottleneck is mRMR's statistical/optimization adequacy or merely its computational cost."
+notes = "Grounded in N3LARS's stated critique of MR-based (relevance-only) methods and its separate critique of mRMR's greedy search and MI estimation, plus the unchanged-criterion framing of both distributed mRMR papers."
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-030"
+text = "Does BoMGene's reported training-time result sit comfortably with the general expectation (stated in this collection) that wrapper-based feature selection is more computationally expensive than filter-based feature selection? Explain using specific numbers from the paper."
+language = "en"
+relevant_documents = ["mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2510.00907v1.pdf"]
+reference_answer = "The filter/wrapper/embedded taxonomy used in this collection (e.g. in Fast-mRMR's background section) generally treats wrapper methods as more computationally expensive than filters because they repeatedly train and evaluate a classifier over candidate subsets. BoMGene's own results complicate this: its hybrid Boruta(wrapper)-mRMR(filter) pipeline achieves the lowest and most stable mean training time among all compared methods on several datasets — roughly 641 seconds with Gradient Boosting versus 5,456 seconds for mRMR alone and much larger, spikier times for standalone Boruta — meaning adding a wrapper stage after a filter stage reduced total cost below either method run alone, rather than adding cost as the general framing would suggest."
+notes = "Grounded in BoMGene's explicit GBM training-time comparison (641s vs 5,456s) and Fast-mRMR's filter/wrapper taxonomy."
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-031"
+text = "The Randomized Dependence Coefficient paper and Senawi et al.'s MRmMC paper appear to disagree about whether correlation-based measures are adequate for capturing nonlinear feature dependence. Describe each paper's position and the tension between them."
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"]
+reference_answer = "The RDC paper is motivated explicitly by the claim that commonly used correlation-style measures (Pearson's rho, Spearman's rank, Kendall's tau) only capture a limited class of linear or monotonically increasing association patterns, which is why a genuinely nonlinear dependence estimator like RDC is needed. Senawi et al.'s MRmMC paper instead claims its conditional-correlation relevance measure (used to score a feature against the class label, not against other features) can well capture linear relations and can also identify nonlinear relations when there is a clear functional relationship between two variables — a claim made specifically about their correlation-based relevance measure, separate from their multicollinearity-based redundancy measure, which the paper itself treats as detecting linear dependency only. This implicitly suggests a correlation-based measure can substitute for a genuinely nonlinear one in at least some practical cases, in tension with RDC's founding motivation that such measures are fundamentally inadequate for nonlinear association."
+notes = "Grounded in RDC's Introduction motivation and Senawi's explicit claim about capturing nonlinear relation. Corrected: the draft originally attributed Senawi et al.'s nonlinear-capturing claim to their redundancy (multicollinearity) measure; the paper's conclusion makes that claim about their relevance measure (conditional correlation coefficient, Eq. 16) instead."
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-032"
+text = "Gao, Ver Steeg & Galstyan's VMI paper and Xie et al.'s ImRMR paper each diagnose a different flaw in standard greedy mRMR. Are these the same underlying flaw described two ways, or genuinely different problems? Explain using each paper's own diagnosis."
+language = "en"
+relevant_documents = ["arxiv/1606.02827v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "The two diagnoses are different, not obviously overlapping. VMI diagnoses a statistical/estimation problem: the low-order mutual-information approximation used by mRMR-style methods rests on two independence assumptions that cannot both hold except in an unrealistic data-generating structure, so the approximation itself is flawed regardless of search strategy. Xie et al.'s ImRMR instead diagnoses a search-granularity problem: mRMR only considers one feature's contribution at a time and so neglects the joint contribution of multiple features together, proposing to evaluate candidate feature subsets via equal grouping while leaving the underlying relevance/redundancy formulas otherwise similar to mRMR's. Fixing Xie's subset-evaluation problem would not by itself correct VMI's estimation-assumption problem, and vice versa, so the two papers' fixes address different layers of the same overall greedy mRMR procedure."
+notes = "Grounded in VMI's Assumption 1/2 argument and Xie's explicit critique that mRMR 'only considered the contribution of a single feature.'"
+axes = { global-type = "contradiction", split = "train" }
+
+[[question]]
+id = "global-train-033"
+text = "Combining what Radovic et al. say about how TMRMR computes redundancy with what the Fast-mRMR paper says about mRMR's computational complexity, would TMRMR's redundancy computation be expected to scale better, worse, or about the same as standard mRMR's redundancy computation, and why?"
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "Radovic's TMRMR requires computing a Dynamic Time Warping distance between every pair of candidate genes' full temporal expression curves (an N x N distance matrix per gene pair, restricted to the top alpha-times-G most relevant genes) as its redundancy step, in place of a single scalar similarity value. Fast-mRMR's complexity analysis establishes that even the cheapest, standard scalar-based mRMR computation already scales quadratically with the number of features and linearly with the number of samples, which is exactly the bottleneck their GPU/Spark engineering was built to relieve. Combining the two: TMRMR's DTW-based redundancy step would compound mRMR's already quadratic-in-features cost with an additional per-pair cost growing with time-series length and sample count, meaning TMRMR would likely need distributed engineering like Fast-mRMR's (or VMR_mRMR's) to scale to large feature counts, even though neither paper discusses the other or this combination."
+notes = "Requires combining Radovic's DTW procedure (never discussed in complexity terms in that paper) with Fast-mRMR's stated quadratic-in-features baseline complexity; neither paper makes this comparison itself."
+axes = { global-type = "distant-synthesis", split = "train" }
+
+[[question]]
+id = "global-train-034"
+text = "Combining what the RDC paper says about the assumptions behind its copula transformation with what Senawi et al. say about MRmMC's limitation on nominal features, would substituting RDC as MRmMC's redundancy measure fix that limitation? Why or why not?"
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"]
+reference_answer = "The RDC paper's Probability Integral Transform theorem underlies RDC's copula-transformation step and assumes each variable has a continuous marginal cumulative distribution function; RDC's invariance properties are built on that continuous-marginal assumption. Senawi et al.'s MRmMC paper admits its multicollinearity-based redundancy measure cannot effectively evaluate redundancy between a quantitative and a nominal random variable — its limitation is specifically about categorical, non-continuous features. Substituting RDC would not actually fix this: RDC's own copula machinery likewise presumes continuous marginal distributions, and a nominal variable has no well-defined continuous CDF for the probability integral transform to act on, so RDC would need substantial adaptation rather than a simple drop-in replacement; the fix is at best partial and does not follow automatically from either paper's stated results alone."
+notes = "Requires combining RDC's Theorem 1 (continuous marginal assumption) with Senawi's stated nominal-feature limitation; neither paper discusses the other."
+axes = { global-type = "distant-synthesis", split = "train" }
+
+[[question]]
+id = "global-train-035"
+text = "Combining the scale of the feature-selection problem addressed by Li Yang & Gu Xueping with the scale N3LARS was designed for, would N3LARS's distributed nonlinear machinery be necessary, helpful-but-optional, or unnecessary overkill for Li Yang & Gu Xueping's power-system feature set? Explain."
+language = "en"
+relevant_documents = ["arxiv/1903.01907v1.pdf", "arxiv/1411.2331v1.pdf"]
+reference_answer = "Li Yang & Gu Xueping's improved mRMR selects from only 33 hand-engineered power-system features (Tz1 through Tz33), a dimensionality low enough that their exhaustive incremental search over five weight values is computationally trivial. Yamada et al.'s N3LARS is explicitly designed for large sample size n and large dimensionality d, using Nystrom kernel approximation and a Hadoop/map-reduce implementation specifically to make nonlinear HSIC-based selection tractable at that scale. N3LARS's distributed nonlinear machinery would be unnecessary overkill for a 33-feature dataset — the entire motivation for its engineering (handling d in the thousands or more, and large n via map-reduce) does not apply when d=33 — so a much simpler method, such as Li Yang's own weighted incremental mRMR or even exhaustive search, would suffice; N3LARS's advantages would only become relevant if the power-system feature set were expanded by orders of magnitude."
+notes = "Requires combining Li Yang's explicit 33-feature table with N3LARS's stated large-n-large-d motivation; neither paper mentions the other's scale."
+axes = { global-type = "distant-synthesis", split = "train" }
+
+[[question]]
+id = "global-train-036"
+text = "Combining how BoMGene's pipeline is built to consume static tabular gene-expression features with what Radovic et al. say about the consequences of flattening temporal gene-expression data, what would happen if BoMGene's pipeline were applied directly to Radovic's temporal viral-challenge datasets, and what would fix it?"
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "arxiv/radovic-2017-bmc.pdf"]
+reference_answer = "BoMGene's Boruta-mRMR pipeline assumes tabular, non-temporal gene-expression input: its mRMR stage uses an F-test and Pearson correlation computed per static feature column, and its Boruta stage compares each feature against randomly permuted shadow copies of that same static column. Radovic's TMRMR paper explains that applying an ordinary non-temporal feature-selection method to multivariate temporal gene-expression data requires first flattening the temporal data into a single matrix, a step explicitly identified as causing loss of temporal-order information. Applying BoMGene's pipeline directly to Radovic's temporal viral-challenge datasets (H3N2, HRV, RSV) would require exactly this flattening as preprocessing, since neither BoMGene stage has any native way to consume a time-series feature; Radovic's own TMRMR method (relevance via averaged F-statistic across time steps, redundancy via DTW) is presented as the temporal-information-preserving alternative that would be the natural fix."
+notes = "Requires combining BoMGene's static-feature pipeline description with Radovic's explicit flattening-loses-information argument; BoMGene never discusses temporal data and Radovic never discusses BoMGene."
+axes = { global-type = "distant-synthesis", split = "train" }
+
+[[question]]
+id = "global-train-037"
+text = "Combining the size of the feature-selection problem in Bouzgou & Gueymard's solar-forecasting paper with the complexity figures Venkateswara et al. report for their global approximation methods, would a global BQP-style method have been computationally feasible for Bouzgou & Gueymard's problem, and might it plausibly have found a better variable subset?"
+language = "en"
+relevant_documents = ["mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf", "arxiv/1706.07535v1.pdf"]
+reference_answer = "Bouzgou & Gueymard select from only n=50 lagged historical variables using ordinary MRMR incremental forward selection, without discussing whether their greedy search approaches a global optimum. Venkateswara et al.'s complexity table shows that even the cheapest global approximation methods scale from O(n^2) (Spectral) up to O(n^4.5) (SDP) in the number of candidate features n, meaning at n=50 several of their global methods (Spectral, SDP, TPower, LowRank) would all be cheap and feasible to run. Because Bouzgou's problem size sits well within the range Venkateswara et al. show their approximations handle efficiently, a BQP-style global method would likely have been computationally feasible to run. Whether it would have found a better subset is doubtful, though: Venkateswara et al. state that TPower and LowRank generally do well against the full field of baselines they test, but their own reported win/tie/loss counts specifically against MRMR are unconvincing — TPower loses to MRMR more often than it beats it (5 wins, 1 tie, 7 losses over 13 datasets) and LowRank only breaks even (6 wins, 1 tie, 6 losses) — so the paper's own results do not support an expectation that a global method would have outperformed Bouzgou's greedy MRMR pipeline in particular."
+notes = "Requires combining Bouzgou's n=50 candidate-variable count with Venkateswara et al.'s Table I complexity figures and reported greedy-vs-global accuracy comparison; neither paper discusses the other's setting."
+axes = { global-type = "distant-synthesis", split = "train" }
+
+[[question]]
+id = "global-train-038"
+text = "Combining the specific graphical-model condition under which Gao, Ver Steeg & Galstyan prove greedy mutual-information forward selection is optimal with the kind of dependency structure Bouzgou & Gueymard describe among their lagged solar-irradiance variables, does their optimality guarantee plausibly extend to Bouzgou & Gueymard's setting? Explain why or why not."
+language = "en"
+relevant_documents = ["arxiv/1606.02827v1.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf"]
+reference_answer = "Gao, Ver Steeg & Galstyan prove greedy forward MI feature selection is optimal specifically when the underlying data follows a tree graphical model — a dependency structure with no cycles. Bouzgou & Gueymard's solar-irradiance lagged-variable selection problem, by construction, involves strongly autocorrelated, sequentially dependent variables, and the paper itself notes the most recent lag tends to be selected most often due to persistence. A densely autocorrelated set of nearby lags more closely resembles a densely connected dependency graph among neighboring lags rather than a sparse tree, so VMI's tree-optimality guarantee cannot be assumed to transfer cleanly to Bouzgou's autocorrelated lagged-variable setting without further justification neither paper provides; read together, the two papers expose an open question about whether Bouzgou's greedy MRMR selection enjoys any formal optimality guarantee at all."
+notes = "Requires combining VMI's tree-graphical-model optimality condition with Bouzgou's description of lag persistence/autocorrelation; neither paper discusses the other's setting or graphical structure explicitly."
+axes = { global-type = "distant-synthesis", split = "train" }
+
+[[question]]
+id = "global-train-039"
+text = "Combining how Xie et al.'s ImRMR evaluates candidate feature subsets as groups with how Vivek & Prasad's VMR_mRMR distributes mRMR's per-feature computation across a vertically-partitioned cluster, would the two approaches be straightforwardly compatible, or would combining them require rethinking part of the distributed design? Explain."
+language = "en"
+relevant_documents = ["mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "arxiv/2208.09901v2.pdf"]
+reference_answer = "Xie et al.'s ImRMR replaces mRMR's single-feature-at-a-time evaluation with an equal-grouping method that ranks features first and then evaluates the relevance/redundancy of whole candidate subsets together. Vivek & Prasad's VMR_mRMR distributes the standard, unchanged single-feature-at-a-time mRMR computation across a vertically-partitioned MapReduce/Spark cluster, where each node holds a subset of features and computes entropy/conditional-entropy terms for the features it holds, exchanging incremental score updates as features are added one at a time. Xie's group-based, subset-level evaluation is not straightforwardly compatible with VMR's per-feature incremental partitioning scheme, because vertical partitioning is designed around each node contributing one feature's score at a time to a shared growing selected set, whereas equal grouping needs to jointly score several ranked features together before deciding admission; reconciling the two would likely require redesigning VMR's MapReduce communication pattern to exchange whole candidate groups rather than single-feature score updates, a combination neither paper considers."
+notes = "Requires combining Xie's equal-grouping search description with VMR's vertical-partitioning MapReduce mechanics; neither paper discusses the other's method."
+axes = { global-type = "distant-synthesis", split = "train" }
+
+[[question]]
+id = "global-train-040"
+text = "Combining how Naylor et al.'s SmRMR chooses how many features to keep with how Zhao, Anand & Wang's Uber platform chooses how many features to keep, could SmRMR's approach replace Uber's approach, and what would that require?"
+language = "en"
+relevant_documents = ["arxiv/2508.18901v1.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Naylor et al.'s SmRMR formally controls the false discovery rate of its feature-screening step via a knockoff filter, letting the user specify only a target FDR threshold rather than a fixed number of features to keep, contrasted explicitly with standard mRMR-style methods that require specifying the number of features directly. Zhao, Anand & Wang's Uber paper instead decides how many features to keep via an auxiliary procedure: running a Random Forest model across an increasing number of top-ranked features and choosing the smallest count achieving the highest AUC, a heuristic, model-dependent sweep rather than a principled statistical guarantee. SmRMR's FDR-controlled knockoff-filter threshold could in principle substitute for Uber's Random-Forest-AUC sweep, giving a statistically grounded stopping rule instead of a heuristic one, but doing so would require adapting SmRMR's continuous, penalized M-estimation formulation to Uber's production relevance/redundancy measures rather than SmRMR's own V-statistic-based marginal utility, a translation neither paper addresses."
+notes = "Requires combining SmRMR's FDR/knockoff-filter stopping rule with Uber's Random-Forest-AUC-sweep stopping rule; neither paper discusses the other's feature-count-selection method."
+axes = { global-type = "distant-synthesis", split = "train" }

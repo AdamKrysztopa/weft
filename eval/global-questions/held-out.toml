@@ -1,0 +1,390 @@
+# Task 44.42 — corpus-wide ("global") questions over corpus/validation-en, held-out half drafted by Claude (Sonnet) in isolation from the train half and the router.
+# D8, amended by the owner 2026-09-28 and 2026-09-29: both halves drafted, an independent agent
+# verified all 80 against the papers (docs/internal/global-verification.md: 69 pass, 11 fixed, 0
+# dropped), and the owner spot-checks 10 verdicts without blocking E4. Written in Weft's own words
+# from the papers' text; no sentence is quoted.
+[question_set]
+schema = 2
+absent = ["kind", "difficulty", "quote"]
+absent_reason = "corpus-wide questions have no single kind, difficulty or quotable span"
+axes = ["global-type", "split"]
+
+# ---------------------------------------------------------------------------
+# themes (001-008)
+# ---------------------------------------------------------------------------
+
+[[question]]
+id = "global-heldout-001"
+text = "Across this collection, several papers debate what statistic should stand in for redundancy in a relevance-redundancy feature-selection criterion, and why does the disagreement matter?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "arxiv/1606.02827v1.pdf"]
+reference_answer = "Ding and Peng's original minimum-redundancy-maximum-relevance framework scores both relevance and redundancy with mutual information, treating it as the natural currency for any max-relevance/min-redundancy criterion. Senawi, Wei and Billings argue mutual information is hard to estimate reliably in this setting and replace it with an F-statistic for relevance and a conditional correlation coefficient for redundancy, trading some ability to capture arbitrary non-linear structure for tractability and the removal of tunable control parameters. Gao, Ver Steeg and Galstyan go further and show that the low-order mutual-information approximations used by this whole family of greedy selectors rest on two independence assumptions that cannot generally both hold, undermining the theoretical basis for using raw mutual information as the scoring statistic at all."
+notes = "Draws on Ding and Peng's mutual-information criterion, Senawi et al.'s correlation-based alternative and stated motivation, and Gao et al.'s theoretical critique of mutual-information approximations."
+axes = { global-type = "themes", split = "held-out" }
+
+[[question]]
+id = "global-heldout-002"
+text = "Several of these papers describe their own scaling solution's remaining limits or stated future work, rather than presenting it as solved for good. Using fast-mRMR, VMR_mRMR and N3LARS, what does each paper say still bounds or complicates it at larger scale?"
+language = "en"
+relevant_documents = ["mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2208.09901v2.pdf", "arxiv/1411.2331v1.pdf"]
+reference_answer = "Ramirez-Gallego et al. report their GPU implementation as the better choice only once instance counts exceed roughly a hundred thousand, and for the very largest problems, many millions of features together with sparse data, they still hand off to the Spark version rather than claiming the GPU path scales without limit on its own. Yelleti and Prasad's VMR_mRMR explicitly frames its vertical-partitioning approach as suited to a large feature space paired with a comparatively moderate sample count, and their own conclusion states plainly that handling a large feature space and a large sample count at the same time is future work their present design does not yet address. Yamada et al.'s N3LARS keeps its non-linear HSIC-based criterion tractable at large sample size only by trading exactness for a Nystrom kernel approximation, so its stated recourse for still-larger data is to push that approximation further rather than remove the tradeoff, and its Hadoop/map-reduce implementation still has to communicate partial kernel computations across the cluster, a communication cost the paper does not claim disappears as the cluster grows."
+notes = "Reframed from the original draft, which restated global-train-001's description of fast-mRMR, VMR_mRMR and N3LARS's scaling strategies almost fact-for-fact; this version asks about each paper's own stated remaining limits instead. Drops the Uber paper, since it is not part of the new comparison."
+axes = { global-type = "themes", split = "held-out" }
+
+[[question]]
+id = "global-heldout-003"
+text = "How do papers applying mRMR-style feature selection to time-indexed or production data typically adapt the base criterion to fit their domain?"
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf", "arxiv/1903.01907v1.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Rather than using mRMR unchanged, each of these papers customizes its relevance or redundancy term to the structure of its data. Radovic et al. keep gene-expression data in its original multivariate temporal form and compute redundancy between genes with dynamic time warping instead of a static correlation. Bouzgou and Gueymard instead apply mutual-information-based mRMR unchanged to select the most informative individual lagged irradiance variables from a 50-lag candidate window, using an Extreme Learning Machine both to score candidate subsets during that selection and to produce the final forecast, and compare the resulting mRMR-chosen subset against simpler fixed-window and PCA baselines rather than modifying the mRMR criterion itself. Li and Gu introduce a tunable weighting factor between the relevance and redundancy terms so power-system operators can favor one over the other for transient-stability features drawn from phasor measurement units. Zhao, Anand and Wang similarly extend the criterion with alternative relevance and redundancy measures chosen for robustness and speed in a live marketing pipeline."
+notes = "Draws on each paper's specific domain adaptation of the mRMR relevance and redundancy terms; Bouzgou and Gueymard leave the mRMR criterion itself unmodified and instead compare its output against separate windowing/PCA baselines."
+axes = { global-type = "themes", split = "held-out" }
+
+[[question]]
+id = "global-heldout-004"
+text = "Where does the idea of replacing linear correlation with a non-linear dependence statistic recur across this collection, and in what forms?"
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "arxiv/1908.05376v1.pdf", "arxiv/1411.2331v1.pdf", "arxiv/2508.18901v1.pdf"]
+reference_answer = "Lopez-Paz, Hennig and Schoelkopf introduce the randomized dependence coefficient as a general-purpose, copula-based estimator of non-linear statistical dependence that is cheap to compute and invariant to monotonic transformations. Zhao, Anand and Wang adopt this same statistic as one option for measuring feature redundancy inside an extended mRMR framework for marketing feature selection. Yamada et al.'s N3LARS instead builds on the Hilbert-Schmidt Independence Criterion, a related kernel-based dependence measure, to capture non-linear relationships between features and outputs at scale. Naylor et al.'s sparse mRMR paper explicitly benchmarks itself against an HSIC-based method, situating its own penalized approach within this same family of non-linear alternatives to plain correlation."
+notes = "Draws on the RDC and HSIC statistics and their reuse across the Uber, N3LARS and SmRMR papers."
+axes = { global-type = "themes", split = "held-out" }
+
+[[question]]
+id = "global-heldout-005"
+text = "Several papers combine a fast filter-style relevance and redundancy score with a slower, more thorough refinement step. What pattern do they share?"
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "Phan et al.'s BoMGene first uses mRMR to cheaply narrow a large gene-expression feature space, then applies the shadow-feature wrapper method Boruta to refine that narrowed set with random-forest-based importance testing. Li and Gu follow a related two-stage pattern, generating nested candidate feature subsets with an improved mRMR criterion and then using support vector machine cross-validation to pick the best-performing subset among them. Xie et al.'s ImRMR groups features into candidate subsets and ranks them by relevance and redundancy before a final sequential forward search combined with a random-forest classifier selects the working feature set. In each case the cheap filter stage exists mainly to make the expensive refinement stage computationally feasible."
+notes = "Draws on the two-stage filter-then-wrapper structure common to BoMGene, Li and Gu's transient-stability paper, and ImRMR."
+axes = { global-type = "themes", split = "held-out" }
+
+[[question]]
+id = "global-heldout-006"
+text = "How does this collection show feature selection moving from ranking one feature at a time toward evaluating whole subsets or a single global objective?"
+language = "en"
+relevant_documents = ["arxiv/1706.07535v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf"]
+reference_answer = "Ding and Peng's original mRMR selects features one at a time in a greedy loop, adding whichever single candidate best improves the running relevance-minus-redundancy score. Venkateswara et al. instead pose feature selection as a single global combinatorial optimization, a binary quadratic problem over pairwise conditional mutual information whose exact solution is NP-hard and must be approximated. Xie et al. sit between these extremes, dividing the raw feature set into candidate subsets with an equal-grouping method and scoring whole subsets by their joint relevance and redundancy before a sequential search picks the final set. Together the three papers trace a shift from purely greedy, single-feature evaluation toward richer subset- or global-level objectives."
+notes = "Draws on Ding and Peng's greedy loop, the Binary Quadratic Problem paper's global formulation, and ImRMR's subset-based scoring."
+axes = { global-type = "themes", split = "held-out" }
+
+[[question]]
+id = "global-heldout-007"
+text = "What recurring application domain keeps reappearing for mRMR-style feature selection, and how does the criterion get adapted for it?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/radovic-2017-bmc.pdf", "arxiv/2510.00907v1.pdf", "arxiv/2508.18901v1.pdf"]
+reference_answer = "Gene-expression and other biomedical classification tasks are the original proving ground for the minimum-redundancy-maximum-relevance idea and remain a recurring target throughout this literature. Ding and Peng introduced the criterion itself on several cancer microarray datasets. Radovic et al. extended it to temporal, multivariate gene-expression data from viral-challenge studies using dynamic time warping for redundancy. Phan et al. combined mRMR with a wrapper refinement step across twenty-five public gene-expression datasets, and Naylor et al. built a penalized, false-discovery-rate-controlled version of the criterion aimed at high-dimensional feature screening, including gene-expression-style settings."
+notes = "Draws on the shared gene-expression application across Ding and Peng, Radovic et al., BoMGene and SmRMR."
+axes = { global-type = "themes", split = "held-out" }
+
+[[question]]
+id = "global-heldout-008"
+text = "How do several of these papers try to establish that their feature-selection method is broadly useful rather than a one-dataset result?"
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "arxiv/1606.02827v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf"]
+reference_answer = "Phan et al. evaluate their hybrid Boruta-mRMR method across twenty-five separate public gene-expression datasets and four different downstream classifiers, explicitly noting cases where the hybrid does not win so as not to overstate generality. Gao, Ver Steeg and Galstyan test their variational information maximization approach against several established mutual-information-based selectors over a wide range of benchmark classification datasets, reporting win, tie and loss counts rather than a single headline number. Xie et al. run their subset-based ImRMR method on seven datasets spanning different domains and feature types. Bouzgou and Gueymard validate their mRMR-plus-extreme-learning-machine forecasting approach on solar irradiance measurements from twenty different sites around the world with varying climates, treating the multi-site spread itself as part of the evidence."
+notes = "Draws on the multi-dataset evaluation designs of BoMGene, VMI, ImRMR and MRMR-ELM."
+axes = { global-type = "themes", split = "held-out" }
+
+# ---------------------------------------------------------------------------
+# compare-docs (009-016)
+# ---------------------------------------------------------------------------
+
+[[question]]
+id = "global-heldout-009"
+text = "How do Ding and Peng's original minimum-redundancy-maximum-relevance criterion and Senawi, Wei and Billings' maximum relevance-minimum multicollinearity method differ in how they measure redundancy among candidate features?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"]
+reference_answer = "The two methods differ mechanically in what a candidate feature's redundancy is computed against. Ding and Peng average pairwise similarity: a candidate's redundancy is the arithmetic mean of its mutual information (or, for continuous data, its absolute Pearson correlation) against each already-selected feature taken one at a time, so every earlier feature contributes an independent term to the average. Senawi, Wei and Billings instead score redundancy jointly: MRmMC first orthogonalizes the already-selected features into a mutually independent set through a projection scheme, then measures a candidate's redundancy as its squared multiple correlation against that whole orthogonalized set at once, which is why the authors call it multicollinearity rather than pairwise redundancy. Ding and Peng's measure asks how similar a candidate is to each selected feature separately; Senawi et al.'s asks how much of the candidate's variance the selected group jointly already explains."
+notes = "Refocused on the mechanical difference (pairwise-averaged similarity vs. joint orthogonal-projection multicollinearity) rather than the measure-choice/motivation angle, since that angle substantially overlapped global-train-011's comparison of the same two papers."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+[[question]]
+id = "global-heldout-010"
+text = "How do fast-mRMR and VMR_mRMR differ in their approach to making mRMR feasible on large datasets, and which data shapes does each favor?"
+language = "en"
+relevant_documents = ["mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2208.09901v2.pdf"]
+reference_answer = "Ramirez-Gallego et al.'s fast-mRMR keeps the original per-feature-pair mRMR computation but restructures its data-access pattern and caching, then ports the optimized algorithm to sequential C++, GPU-CUDA and Apache Spark versions, reporting the GPU version becomes preferable once instance counts grow very large and Spark becomes necessary for very high feature counts or huge instance counts. Yelleti and Prasad's VMR_mRMR instead partitions the feature space itself across a MapReduce cluster using vertical partitioning with memoization, and the paper reports this approach suits datasets with a large feature space and a moderate number of samples, while a companion horizontal-partitioning framework from the same group performs better when the sample count is large and the feature space is moderate."
+notes = "Draws on the differing parallelization axes, instance and feature counts versus feature-space partitioning, and the regimes each paper claims to suit."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+[[question]]
+id = "global-heldout-011"
+text = "How do the Uber marketing feature-selection paper and Li and Gu's transient-stability paper each modify the basic max-relevance/min-redundancy tradeoff for their own decision-making context?"
+language = "en"
+relevant_documents = ["arxiv/1908.05376v1.pdf", "arxiv/1903.01907v1.pdf"]
+reference_answer = "Zhao, Anand and Wang keep the standard difference- and quotient-style mRMR formulas but swap in alternative relevance and redundancy statistics, including a random-forest-based importance score for relevance and the randomized dependence coefficient for redundancy, ultimately deploying the simpler, model-free correlation-quotient variant first in production because of its speed and robustness. Li and Gu instead keep mutual information and the difference-style criterion but insert a single tunable weighting factor between the relevance and redundancy terms, letting power-system engineers shift the balance between the two, and validate the resulting feature subsets with support vector machine cross-validation on New England and IEEE test systems. Both papers treat the original mRMR formula as a template to be parameterized for their application rather than a fixed rule."
+notes = "Draws on the Uber paper's alternative relevance and redundancy statistics and Li and Gu's weighted difference criterion."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+[[question]]
+id = "global-heldout-012"
+text = "How do Senawi et al.'s MRmMC and Xie et al.'s ImRMR each modify the statistic Ding and Peng originally used for measuring feature-to-feature redundancy?"
+language = "en"
+relevant_documents = ["mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf"]
+reference_answer = "Ding and Peng originally scored redundancy purely with mutual information between a candidate feature and the features already chosen. Senawi, Wei and Billings keep the same difference-based combination rule but replace that mutual-information redundancy term, together with the relevance term, with an F-statistic and a conditional correlation coefficient, aiming to remove estimation difficulty and tuning parameters at the cost of weaker handling of nominal features. Xie et al. instead keep mutual information as one ingredient of redundancy but combine it with Pearson correlation, and apply the resulting score to whole candidate feature subsets, formed by an equal-grouping method, rather than to single features. Both papers extend Ding and Peng's original mutual-information-only design, but Senawi et al. change what is measured while Xie et al. change what unit is being scored."
+notes = "Draws on Ding and Peng's original mutual-information redundancy term as the baseline both MRmMC and ImRMR depart from, in different directions."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+[[question]]
+id = "global-heldout-013"
+text = "How do BoMGene and ImRMR differ in the way they extend single-feature mRMR ranking into a richer selection procedure?"
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "Phan et al.'s BoMGene runs mRMR first as a fast global filter to shrink the feature space, then hands the reduced set to Boruta, a wrapper method that compares each real feature's random-forest importance against randomly permuted shadow copies to decide what survives. Xie et al.'s ImRMR instead groups the raw features into multiple candidate subsets with an equal-grouping method, scores whole subsets by combined relevance and redundancy using both Pearson correlation and mutual information, and then applies a sequential forward search with a random-forest classifier to settle on a final feature set. BoMGene's second stage is a classifier-driven wrapper applied after mRMR, while ImRMR's extension works by evaluating subsets rather than single features within the mRMR-style scoring itself."
+notes = "Draws on BoMGene's filter-then-wrapper structure versus ImRMR's subset-based extension of the mRMR score."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+[[question]]
+id = "global-heldout-014"
+text = "How do N3LARS and fast-mRMR each try to make a redundancy-aware feature-selection method tractable at scale, and how do their strategies differ in kind?"
+language = "en"
+relevant_documents = ["arxiv/1411.2331v1.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "Yamada, Saha, Ouyang, Yin and Chang's N3LARS reformulates HSIC Lasso, a kernel-based redundancy-aware selection problem, as a convex non-negative LARS-type optimization that can add one feature at a time and be distributed across a map-reduce cluster, giving it a global-optimum guarantee that the original combinatorial mRMR search lacks. Ramirez-Gallego et al.'s fast-mRMR instead leaves the original mRMR objective and its greedy search unchanged and focuses entirely on speeding up the same computation through caching and a better data-access pattern, then parallelizing that unchanged computation on GPU or Spark hardware. The first paper changes what optimization problem is being solved; the second changes only how quickly the original problem is computed."
+notes = "Draws on N3LARS's convex reformulation versus fast-mRMR's optimization of the original algorithm's execution."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+[[question]]
+id = "global-heldout-015"
+text = "How do BoMGene and SmRMR differ in what they add on top of the classic mRMR criterion to arrive at a final feature set?"
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "arxiv/2508.18901v1.pdf"]
+reference_answer = "Phan et al.'s BoMGene adds a wrapper-style second stage, applying Boruta's shadow-feature permutation test with random-forest importance to further refine whatever mRMR's relevance-redundancy filter leaves behind, aiming for higher downstream classification accuracy across many gene-expression datasets and classifiers. Naylor, Poignard, Climente-Gonzalez and Yamada's SmRMR instead adds a statistical control, turning mRMR into a continuously penalized estimation problem whose zero coefficients identify inactive features, and layering a knockoff-filter procedure on top of the surviving set to bound the false discovery rate at a chosen confidence level. BoMGene's addition is a classifier-driven refinement aimed at accuracy, while SmRMR's addition is a formal statistical guarantee aimed at controlling false positives, and neither paper adopts the other's kind of addition."
+notes = "Draws on BoMGene's wrapper-based refinement versus SmRMR's penalized-estimation-plus-knockoff-filter approach as two different additions to the base mRMR criterion."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+[[question]]
+id = "global-heldout-016"
+text = "How do the randomized dependence coefficient paper and the sparse mRMR paper differ in their treatment of non-linear dependence for feature selection purposes?"
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "arxiv/2508.18901v1.pdf"]
+reference_answer = "Lopez-Paz, Hennig and Schoelkopf present the randomized dependence coefficient as a general-purpose statistic for any pair of random variables, built from copula transformations and random non-linear projections, and evaluate it purely as a dependence measure rather than inside a specific selection algorithm. Naylor, Poignard, Climente-Gonzalez and Yamada instead build a continuous, penalized version of the mRMR criterion for feature screening and compare its performance against HSIC-LASSO, a different non-linear kernel-based method, rather than against the randomized dependence coefficient itself, ultimately favoring a more conservative selection with fewer retained features and false-discovery-rate control via a knockoff filter. The first paper is a foundational statistic paper; the second is an applied screening method that references a different non-linear alternative as its comparison point."
+notes = "Draws on RDC's general-purpose framing versus SmRMR's applied penalized-screening comparison against HSIC-LASSO."
+axes = { global-type = "compare-docs", split = "held-out" }
+
+# ---------------------------------------------------------------------------
+# recurring-concept (017-024)
+# ---------------------------------------------------------------------------
+
+[[question]]
+id = "global-heldout-017"
+text = "Trace how the core max-relevance/min-redundancy tradeoff is expressed differently across Ding and Peng's original paper, Senawi et al.'s MRmMC, Li and Gu's transient-stability paper, and Phan et al.'s BoMGene."
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "arxiv/1903.01907v1.pdf", "arxiv/2510.00907v1.pdf"]
+reference_answer = "Ding and Peng define the tradeoff as maximizing average mutual information with the class label while minimizing average mutual information among already-selected features, combined either as a difference or a quotient. Senawi, Wei and Billings keep the same difference structure but substitute an F-statistic for relevance and a conditional correlation coefficient for redundancy. Li and Gu keep mutual information for both terms but insert a tunable weight so the two terms can be balanced unevenly rather than treated as equally important. Phan et al. use mRMR's relevance and redundancy scoring only as a first-stage filter, treating the tradeoff as a coarse screening step whose output then gets refined by a separate wrapper method."
+notes = "Draws on the differing implementations of the relevance and redundancy tradeoff across these four papers."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+[[question]]
+id = "global-heldout-018"
+text = "How does the difficulty of estimating mutual information in feature selection recur across Gao et al., Yamada et al., Venkateswara et al. and Senawi et al., and how does each respond to it?"
+language = "en"
+relevant_documents = ["arxiv/1606.02827v1.pdf", "arxiv/1411.2331v1.pdf", "arxiv/1706.07535v1.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"]
+reference_answer = "Gao, Ver Steeg and Galstyan argue that high-dimensional mutual information is generally intractable to estimate and that the usual low-order approximations rest on assumptions that cannot both be true, so they replace direct estimation with a variational lower bound. Yamada et al. sidestep raw mutual-information estimation altogether by using the Hilbert-Schmidt Independence Criterion, a kernel-based dependence measure, inside a convex optimization. Venkateswara et al. keep mutual information as the target quantity but reduce the estimation burden by assuming conditional independence so that only pairwise, rather than full joint, mutual information needs to be estimated. Senawi et al. avoid the estimation problem entirely by not using mutual information as their primary statistic, relying on correlation-based measures instead."
+notes = "Draws on four distinct responses to the same underlying difficulty of estimating mutual information at scale."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+[[question]]
+id = "global-heldout-019"
+text = "Fast-mRMR, VMR_mRMR and N3LARS all scale mRMR-style selection as a purely algorithmic or numerical problem, validated on benchmark or synthetic data. The Uber paper instead has to make a scaled variant work inside a live production system. What extra demands does that put on the Uber paper that the other three do not have to satisfy?"
+language = "en"
+relevant_documents = ["mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2208.09901v2.pdf", "arxiv/1411.2331v1.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Fast-mRMR, VMR_mRMR and N3LARS all report success purely as speed or throughput measured on benchmark or synthetic datasets: none of them has to answer to a live user, a business metric, or a downstream team relying on the selected features working correctly. The Uber paper cannot stop at a speed benchmark. Zhao, Anand and Wang have to fold their chosen mRMR variant into a Scala Spark training pipeline that other engineers depend on, compare eight candidate relevance/redundancy variants not just for accuracy but for robustness and computation time under production load, and ultimately justify the choice with an online randomized experiment that measured a real increase in user product adoption rather than an offline cross-validation score. That live-experiment requirement is also why they deploy the simplest, most model-free variant (FCQ) first, deferring the fancier non-linear or model-based variants to a later phase, a staged-rollout caution that a purely algorithmic scaling paper has no occasion to practice."
+notes = "Reframed from the original draft, which asked what 'forms' scaling took across the same four papers, restating global-train-020's description of fast-mRMR, VMR_mRMR and N3LARS almost fact-for-fact; this version instead asks what distinguishes the Uber paper's production setting from the other three's purely algorithmic scaling, which train-020 does not ask."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+[[question]]
+id = "global-heldout-020"
+text = "Several papers deliberately keep a linear or information-theoretic dependence measure instead of adopting a kernel-based non-linear one. Using Senawi et al., Ding and Peng, and BoMGene, what reasons do they give for not building their criterion around something like HSIC or the randomized dependence coefficient?"
+language = "en"
+relevant_documents = ["mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/2510.00907v1.pdf"]
+reference_answer = "Senawi, Wei and Billings build MRmMC around a correlation-based conditional-variance measure rather than a kernel-based non-linear one, citing the practical burden of estimating mutual information reliably and the need to pre-specify control parameters that MI-based methods typically require; in return they accept a stated limitation that their measure cannot properly evaluate redundancy between a quantitative and a nominal feature, something a fully general measure would handle. Ding and Peng's original mRMR uses mutual information rather than any kernel-based statistic for both relevance and redundancy, motivated simply by mutual information's ability to capture arbitrary statistical dependence between features of any type without needing a specialized kernel machine. Phan et al.'s BoMGene goes a step further away from any information-theoretic or kernel measure, replacing mutual information in its mRMR stage with an ordinary F-test and Pearson correlation specifically because these are simpler and better suited to continuous gene-expression values, relying on the later Boruta wrapper stage rather than a richer dependence statistic to catch what a linear measure might miss."
+notes = "Reframed from the original draft, which asked the mirror-image question (who adopts a non-linear statistic) using almost the same four documents and near-identical descriptions as global-heldout-004; this version asks who deliberately avoids one, and why, using a different paper set."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+[[question]]
+id = "global-heldout-021"
+text = "How is validating a feature-selection method by downstream classifier accuracy across several datasets carried out differently by Ding and Peng, Phan et al., Li and Gu, and Xie et al.?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/2510.00907v1.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "Ding and Peng validate minimum-redundancy-maximum-relevance by showing consistent accuracy gains across four different classifiers on six separate cancer gene-expression datasets. Phan et al. test their hybrid Boruta-mRMR method across twenty-five gene-expression datasets and four classifiers, explicitly reporting cases where the hybrid does not win. Li and Gu validate their weighted mRMR variant primarily through support-vector-machine cross-validation accuracy on two power-system simulation testbeds, then check that the resulting feature subset also works well with several other classifier types. Xie et al. validate ImRMR on seven datasets from different application areas using a random-forest classifier and several accuracy-related metrics beyond raw classification accuracy, such as dimensionality-reduction rate."
+notes = "Draws on the differing scope and metrics each paper uses to validate its feature-selection method empirically."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+[[question]]
+id = "global-heldout-022"
+text = "How does the concept of a strictly greedy, incremental forward search recur as the underlying search procedure across Ding and Peng, Senawi et al., Xie et al. and N3LARS, even as what gets scored at each step changes?"
+language = "en"
+relevant_documents = ["mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "arxiv/1411.2331v1.pdf"]
+reference_answer = "Ding and Peng's original mRMR builds its feature set by repeatedly adding whichever single unselected feature currently has the best mutual-information relevance-minus-redundancy score, never revisiting earlier choices. Senawi, Wei and Billings keep this same one-feature-at-a-time greedy loop but swap in their F-statistic and conditional-correlation scoring at each step rather than mutual information. Xie et al. extend the greedy idea to operate on candidate subsets instead of single features, incrementally ranking subsets by relevance and redundancy before a final sequential forward search commits to a working set. Yamada et al.'s N3LARS keeps the one-feature-at-a-time character of the search but reframes each step as a least-angle-regression move within a convex optimization, trading pure greediness for a path that is provably optimal for the reformulated objective."
+notes = "Draws on the shared greedy or incremental search structure across Ding and Peng, Senawi et al., Xie et al. and N3LARS despite each changing what is scored at every step."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+[[question]]
+id = "global-heldout-023"
+text = "BoMGene, Li and Gu's transient-stability paper, and Xie et al.'s ImRMR each use a different concrete mechanism to pick a winner among the candidate feature subsets an initial mRMR-style ranking produces. Using all three, describe exactly what each refinement mechanism computes and compares to make that choice."
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "arxiv/1903.01907v1.pdf"]
+reference_answer = "Phan et al.'s BoMGene refines its mRMR-filtered set with Boruta: a random forest is trained against the real features plus randomly permuted 'shadow' copies of them, and a feature is kept only if its importance score exceeds the maximum importance among the shadow features over repeated rounds, so the comparison is each real feature against noise. Li and Gu instead build a nested sequence of candidate feature subsets from their weighted mRMR criterion and pick among them by five-fold cross-validated support vector machine classification accuracy, so the comparison is one candidate subset's mean accuracy against another's. Xie et al.'s ImRMR compares differently again: ranked features are grouped into candidate subsets by an equal-grouping method, and a final sequential forward search adds subsets one at a time, keeping an addition only if it improves a random forest classifier's accuracy on the growing set. All three pick a winner with a classifier-driven procedure, but what gets compared against what differs in each case: a feature against its own shuffled copy, one whole subset's accuracy against another's, or a growing subset's accuracy before and after an addition."
+notes = "Reframed from the original draft, which asked why the same two-stage filter-then-refine pattern recurs across these three papers, restating global-heldout-005's point about the same three papers almost fact-for-fact; this version instead asks for the specific comparison each refinement mechanism performs, which heldout-005 does not."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+[[question]]
+id = "global-heldout-024"
+text = "How does the concept of using mRMR-style feature selection inside a live decision-support or production system, rather than only as a research benchmark, appear across the Uber paper, Li and Gu, and Bouzgou and Gueymard?"
+language = "en"
+relevant_documents = ["arxiv/1908.05376v1.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf"]
+reference_answer = "The Uber paper describes an mRMR variant running inside an automated machine-learning platform for marketing, including an online randomized experiment that measured a real increase in user product adoption from the resulting models. Li and Gu build their improved mRMR criterion specifically to support transient-stability assessment, a safety-relevant power-grid decision problem, and validate it on standard grid simulation testbeds rather than only generic benchmark datasets. Bouzgou and Gueymard aim their mRMR-plus-extreme-learning-machine pipeline at solar radiation forecasting for grid and plant operators who need dependable short- and medium-term forecasts, evaluating it across twenty real-world radiometric stations rather than synthetic data alone."
+notes = "Draws on the applied, decision-support framing shared by the Uber, transient-stability and solar-forecasting papers."
+axes = { global-type = "recurring-concept", split = "held-out" }
+
+# ---------------------------------------------------------------------------
+# contradiction (025-032)
+# ---------------------------------------------------------------------------
+
+[[question]]
+id = "global-heldout-025"
+text = "How do Venkateswara et al.'s Binary Quadratic Problem paper and Ramirez-Gallego et al.'s fast-mRMR paper implicitly disagree about what is actually wrong with the original greedy mRMR-style search that most needs fixing?"
+language = "en"
+relevant_documents = ["arxiv/1706.07535v1.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "Venkateswara et al. treat the greedy, one-feature-at-a-time character of mRMR-style search itself as the weakness worth addressing, arguing that scoring an entire feature subset jointly through a global combinatorial objective can find a better subset than any sequence of locally optimal greedy choices, even though the resulting binary quadratic problem is NP-hard and only approximately solvable. Ramirez-Gallego et al. take the opposite view: they leave mRMR's original greedy, one-feature-at-a-time search completely untouched and treat its only real problem as computational cost, dedicating their paper to making that same greedy search run faster through caching, a better data-access pattern, and GPU or Spark parallelization. The two papers disagree about whether the standard greedy search itself needs to be replaced or merely accelerated."
+notes = "Draws on the Binary Quadratic Problem paper's case for replacing greedy search with a global combinatorial objective versus fast-mRMR's choice to leave the greedy search unchanged and only speed it up."
+axes = { global-type = "contradiction", split = "held-out" }
+
+[[question]]
+id = "global-heldout-026"
+text = "Do Venkateswara et al.'s Binary Quadratic Problem paper and Yamada et al.'s N3LARS agree on whether mutual-information-style estimation is trustworthy enough to keep, once the greedy search itself is no longer the only thing being fixed?"
+language = "en"
+relevant_documents = ["arxiv/1706.07535v1.pdf", "arxiv/1411.2331v1.pdf"]
+reference_answer = "No. Venkateswara et al. keep mutual information, reduced under their Assumption 2.1 to pairwise conditional mutual information, as the estimand throughout their paper: the greedy, one-feature-at-a-time search is what they treat as broken, and they leave the underlying dependence measure untouched while replacing only the search with a global binary quadratic optimization. Yamada et al.'s N3LARS instead treats mutual-information-based estimation itself as part of the problem, not just the search: alongside its critique of greedy search producing locally optimal feature sets, N3LARS specifically notes that mutual-information density estimates become inaccurate at the small sample sizes common in high-dimensional data, and this is a separate, additional motivation (beyond wanting a convex, globally-optimal search) for abandoning mutual information entirely in favor of a kernel-based Hilbert-Schmidt Independence Criterion. So Venkateswara et al.'s reform targets only the search strategy while keeping mutual-information-style estimation as trustworthy; N3LARS's reform targets both the search strategy and the estimation itself as untrustworthy."
+notes = "Redirected from a comparison of Ding and Peng vs Senawi et al. on which statistic to use, which restated global-train-011's and global-heldout-009's point about the same two papers; this version compares a different pair (the Binary Quadratic Problem paper and N3LARS) on whether mutual-information estimation itself, as opposed to only the greedy search built on it, is trustworthy."
+axes = { global-type = "contradiction", split = "held-out" }
+
+[[question]]
+id = "global-heldout-027"
+text = "Where does BoMGene's own reported result contradict the general pattern, illustrated by Xie et al. and Li and Gu, that adding a refinement stage to mRMR reliably improves on the plain baseline?"
+language = "en"
+relevant_documents = ["arxiv/2510.00907v1.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf", "arxiv/1903.01907v1.pdf"]
+reference_answer = "Xie et al. report that their subset-based ImRMR extension outperforms plain mRMR on most of the seven datasets they test, and Li and Gu similarly report that their weighted mRMR variant matches or exceeds standard mRMR's downstream accuracy on both power-system testbeds they use, supporting a general expectation that a richer criterion or an added refinement stage tends to help. Phan et al.'s own results push against that expectation on at least one case: on one gene-expression dataset evaluated with a gradient boosting classifier, their two-stage Boruta-mRMR hybrid scores lower than plain mRMR used alone, which the authors attribute to the wrapper stage occasionally discarding features that turn out to be useful for a particular dataset and classifier combination. This shows the added-refinement-helps pattern is not universal even within a single paper's own experiments."
+notes = "Draws on BoMGene's own reported exception alongside the more consistently positive results reported by ImRMR and the transient-stability paper."
+axes = { global-type = "contradiction", split = "held-out" }
+
+[[question]]
+id = "global-heldout-028"
+text = "How do fast-mRMR and VMR_mRMR reach different, situation-dependent conclusions about the best way to scale mRMR, rather than agreeing on one universally better strategy?"
+language = "en"
+relevant_documents = ["mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/2208.09901v2.pdf"]
+reference_answer = "Ramirez-Gallego et al. recommend their GPU implementation once the number of instances passes roughly one hundred thousand and reserve their Spark implementation for very high feature counts, very large instance counts, or extreme feature sparsity, treating instance-count growth as the main driver of when parallelization pays off. Yelleti and Prasad instead frame the choice around whether the feature space or the sample space is larger, reporting that their vertical-partitioning VMR_mRMR wins when the feature space is large and the sample count is moderate, while a companion horizontal-partitioning framework from the same authors wins in the opposite situation. The two papers disagree about which axis of the data, sample count alone or the balance between sample and feature count, should determine the scaling strategy."
+notes = "Draws on the differing regimes each paper reports as favoring its own approach."
+axes = { global-type = "contradiction", split = "held-out" }
+
+[[question]]
+id = "global-heldout-029"
+text = "How do Li and Gu's motivation for building a larger original feature set and Ramirez-Gallego et al.'s treatment of a large feature count in fast-mRMR represent two almost opposite attitudes toward feature-set growth?"
+language = "en"
+relevant_documents = ["arxiv/1903.01907v1.pdf", "mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf"]
+reference_answer = "Li and Gu treat the availability of extra, phasor-measurement-unit-derived real-time post-fault information as a reason to deliberately construct a larger and richer original feature set before applying their weighted mRMR criterion, on the view that more informative raw candidates can only help once redundancy is controlled afterward. Ramirez-Gallego et al., by contrast, discuss a growing feature count only as a cost: their entire contribution is about making mRMR's per-feature-pair computation cheap enough to survive datasets with many thousands of features, with no suggestion that more raw features are a goal worth pursuing rather than a burden to tolerate. Read together, the two papers disagree, implicitly, about whether a larger candidate feature pool is primarily an opportunity for a better final subset or primarily an engineering problem to be minimized."
+notes = "Draws on Li and Gu's rationale for deliberately expanding the original PMU-derived feature set versus fast-mRMR's purely cost-oriented framing of large feature counts."
+axes = { global-type = "contradiction", split = "held-out" }
+
+[[question]]
+id = "global-heldout-030"
+text = "How does the Uber marketing paper's production choice sit in tension with the randomized dependence coefficient paper's claim about the value of non-linear dependence measures?"
+language = "en"
+relevant_documents = ["arxiv/1908.05376v1.pdf", "arxiv/1304.7717v2.pdf"]
+reference_answer = "Lopez-Paz, Hennig and Schoelkopf motivate the randomized dependence coefficient by arguing that measures limited to linear or simple monotonic association, such as ordinary correlation, miss many real dependence patterns that a non-linear statistic like theirs can detect. Zhao, Anand and Wang build a version of mRMR that can use this exact statistic for redundancy, yet report choosing the simpler, correlation-based, model-free variant for the first production phase of their marketing platform specifically because of its simplicity, speed and robustness, deferring the non-linear and model-based variants to a later phase. This shows a gap between the theoretical case for non-linear dependence measures and what an applied team judges worth the added complexity in a live system, at least initially."
+notes = "Draws on RDC's stated rationale for non-linear measures and the Uber paper's explicit reason for preferring a simpler measure in production first."
+axes = { global-type = "contradiction", split = "held-out" }
+
+[[question]]
+id = "global-heldout-031"
+text = "Do SmRMR and N3LARS agree on whether selecting fewer features from a redundancy-aware criterion is a strength or an incidental side effect?"
+language = "en"
+relevant_documents = ["arxiv/2508.18901v1.pdf", "arxiv/1411.2331v1.pdf"]
+reference_answer = "Naylor, Poignard, Climente-Gonzalez and Yamada present their sparse mRMR method as deliberately more conservative than HSIC-LASSO in the number of features it retains, treating this conservatism, combined with knockoff-filter false-discovery-rate control, as a feature-screening strength that avoids reporting spurious associations at a chosen confidence level. Yamada et al.'s N3LARS instead presents the ability to add exactly as many or as few features as desired, one at a time along its LARS-type solution path, as a convenience for exploring a regularization path rather than as evidence of statistical conservatism, and does not frame a smaller selected set as inherently more trustworthy than a larger one. The two papers value selecting fewer features for different reasons: one for its false-discovery-rate guarantee, the other simply for algorithmic flexibility."
+notes = "Draws on SmRMR's false-discovery-rate-motivated conservatism versus N3LARS's framing of incremental feature addition as a convenience rather than a conservatism claim."
+axes = { global-type = "contradiction", split = "held-out" }
+
+[[question]]
+id = "global-heldout-032"
+text = "How does SmRMR's framing of having to specify the number of features in advance as a limitation of classical mRMR conflict with how Ding and Peng, Radovic et al. and Xie et al. treat the same requirement?"
+language = "en"
+relevant_documents = ["arxiv/2508.18901v1.pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf", "arxiv/radovic-2017-bmc.pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "Naylor, Poignard, Climente-Gonzalez and Yamada present the classical mRMR requirement to fix a target number of features in advance as a genuine drawback, and design their sparse mRMR method so a false-discovery-rate threshold, rather than a feature count, controls how many features get selected. Ding and Peng, by contrast, simply treat the number of features to retain as an ordinary parameter the user sets based on prior knowledge or trial and error, without presenting it as something requiring extra machinery to avoid. Radovic et al. and Xie et al. likewise generate nested sequences of candidate feature subsets of increasing size and evaluate them directly, treating the need to eventually settle on a count as a normal, manageable part of the pipeline rather than a limitation worth engineering around. The papers disagree about whether specifying a feature count is a problem needing a solution or simply how feature selection works."
+notes = "Draws on SmRMR's explicit critique of fixed feature counts versus the unproblematic treatment of the same requirement in Ding and Peng, Radovic et al. and Xie et al."
+axes = { global-type = "contradiction", split = "held-out" }
+
+# ---------------------------------------------------------------------------
+# distant-synthesis (033-040)
+# ---------------------------------------------------------------------------
+
+[[question]]
+id = "global-heldout-033"
+text = "Trace how the randomized dependence coefficient, introduced as a general statistical tool, gets used or bypassed in two very different applied feature-selection settings."
+language = "en"
+relevant_documents = ["arxiv/1304.7717v2.pdf", "arxiv/1908.05376v1.pdf", "arxiv/1903.01907v1.pdf"]
+reference_answer = "Lopez-Paz, Hennig and Schoelkopf introduce the randomized dependence coefficient purely as a fast, general-purpose estimator of non-linear statistical dependence, defined through copula transforms, random non-linear projections and canonical correlation, with no reference to any specific application. Zhao, Anand and Wang pick up this exact statistic and offer it as an optional redundancy measure inside an mRMR variant built for marketing feature selection at Uber, treating it as one candidate among several rather than the default choice. Li and Gu, working on power-system transient-stability feature selection, never adopt a non-linear dependence statistic at all and do not raise the randomized dependence coefficient's motivating concern about non-linear association; their own stated worry is different, that the standard mutual-information difference criterion is too blunt an instrument to weigh relevance against redundancy well, which they address by adding a single tunable weighting factor rather than by changing the dependence measure itself. So one applied paper reuses the randomized dependence coefficient's exact statistic while the other addresses an unrelated concern with an unrelated fix, illustrating how differently 'redundancy' gets engineered once it leaves the original RDC paper."
+notes = "Corrected: the draft originally attributed to Li and Gu a stated worry about non-linear dependence that their paper does not express; their own stated motivation (the difference criterion being too blunt to balance relevance and redundancy) is unrelated to RDC's non-linear-association motivation, so the two applied papers are contrasted on that basis instead."
+axes = { global-type = "distant-synthesis", split = "held-out" }
+
+[[question]]
+id = "global-heldout-034"
+text = "Connect Gao et al.'s theoretical critique of mutual-information-based feature selection to how two applied papers, BoMGene and MRmMC, actually handle the same underlying issue."
+language = "en"
+relevant_documents = ["arxiv/1606.02827v1.pdf", "arxiv/2510.00907v1.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf"]
+reference_answer = "Gao, Ver Steeg and Galstyan show that the standard low-order mutual-information approximations behind greedy selectors such as mRMR rest on independence assumptions that cannot generally both hold, calling into question the theoretical soundness of using plain mutual information this way. Phan et al.'s BoMGene nonetheless uses mutual-information-flavored mRMR scoring as its first-stage global filter for gene-expression classification without engaging with this critique, relying instead on the second-stage Boruta wrapper to correct for whatever imperfect features the first stage lets through. Senawi, Wei and Billings sidestep the critique from a different angle, having already abandoned mutual information in favor of a correlation-based statistic for reasons of estimation reliability rather than the specific inconsistency Gao et al. identify, so their method happens not to be exposed to that particular theoretical objection at all."
+notes = "Draws on the VMI paper's theoretical argument and two applied papers' independent, non-engaging responses to the same underlying weakness."
+axes = { global-type = "distant-synthesis", split = "held-out" }
+
+[[question]]
+id = "global-heldout-035"
+text = "Connect the big-data engineering optimizations in fast-mRMR and N3LARS to the concrete production scale described in the Uber marketing platform paper."
+language = "en"
+relevant_documents = ["mrmr/Ramírez-Gallego et al. - 2017 - Fast-mRMR Fast Minimum Redundancy Maximum Relevan.pdf", "arxiv/1411.2331v1.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Ramirez-Gallego et al. optimize mRMR's data-access pattern and offer GPU and Spark implementations specifically to handle feature counts and instance counts that make the naive quadratic-cost algorithm impractical, reporting benefits once instance counts exceed roughly a hundred thousand or feature counts exceed a couple of thousand. Yamada et al.'s N3LARS reaches for a different technique, a convex LARS-style reformulation of an HSIC-based redundancy criterion, to reach the same kind of scale, and explicitly designs it to run under Hadoop or Spark's map-reduce model. Zhao, Anand and Wang's description of an mRMR variant running inside a Scala Spark training pipeline at Uber, processing large marketing datasets and needing to run reliably enough to power a randomized online experiment, is a concrete instance of exactly the scale both engineering papers are built to serve."
+notes = "Draws on fast-mRMR's and N3LARS's differing scalability techniques and the Uber paper's description of large-scale production use."
+axes = { global-type = "distant-synthesis", split = "held-out" }
+
+[[question]]
+id = "global-heldout-036"
+text = "Using Ding and Peng's original mRMR as the common starting point, how do Radovic et al.'s temporal extension and Venkateswara et al.'s global combinatorial formulation pull the same base idea in opposite directions?"
+language = "en"
+relevant_documents = ["arxiv/radovic-2017-bmc.pdf", "arxiv/1706.07535v1.pdf", "mrmr/Ding i Peng - 2005 - MINIMUM REDUNDANCY FEATURE SELECTION FROM MICROARR.pdf"]
+reference_answer = "Ding and Peng's original mRMR greedily adds one feature at a time to maximize relevance to the class label while minimizing redundancy with features already chosen, treating each feature as a fixed, non-temporal vector of values. Radovic et al. extend this idea toward preserving structure the original method discards, keeping each gene's full time-series form intact and replacing static redundancy with a dynamic-time-warping comparison between whole trajectories, at the cost of added computational complexity for a more faithful representation of temporal genes. Venkateswara et al. extend the same base idea in the opposite direction, toward global optimality rather than temporal fidelity, reformulating relevance-redundancy feature selection as a single combinatorial binary quadratic problem over pairwise conditional mutual information and accepting an NP-hard optimization that must be approximated, in exchange for scoring an entire feature subset jointly rather than greedily one feature at a time."
+notes = "Draws on Ding and Peng's baseline greedy formulation and the two papers' opposite extensions toward temporal fidelity versus global combinatorial scoring."
+axes = { global-type = "distant-synthesis", split = "held-out" }
+
+[[question]]
+id = "global-heldout-037"
+text = "Connect SmRMR's false-discovery-rate control to the accuracy-driven feature-count selection used in the power-system and solar-forecasting papers, and what this difference suggests about each domain's tolerance for a wrong feature."
+language = "en"
+relevant_documents = ["arxiv/2508.18901v1.pdf", "arxiv/1903.01907v1.pdf", "mrmr/Bouzgou i Gueymard - 2017 - Minimum redundancy – Maximum relevance with extrem.pdf"]
+reference_answer = "Naylor, Poignard, Climente-Gonzalez and Yamada build a second stage into their sparse mRMR method specifically to bound the false discovery rate at a pre-specified confidence level, treating the risk of keeping a spuriously active feature as something needing an explicit statistical guarantee rather than just good downstream accuracy. Li and Gu instead pick their final feature subset purely by which nested candidate subset gives the highest cross-validated support-vector-machine accuracy on grid-stability test systems, with no separate step bounding the chance that an included feature is actually uninformative. Bouzgou and Gueymard make the same kind of accuracy-driven choice for solar forecasting, selecting among windowing and dimensionality-reduction scenarios by forecast error rather than any formal discovery-rate guarantee. The contrast suggests that domains built around commercial forecasting accuracy are content to let cross-validated performance stand in for feature correctness, while a screening method aimed at potentially scientific discovery treats an explicit error-rate guarantee as worth the extra machinery."
+notes = "Draws on SmRMR's explicit false-discovery-rate-control mechanism versus the purely accuracy-driven subset selection in the transient-stability and solar-forecasting papers."
+axes = { global-type = "distant-synthesis", split = "held-out" }
+
+[[question]]
+id = "global-heldout-038"
+text = "Using the randomized dependence coefficient's invariance to monotonic marginal transformations as a reference point, what do the correlation- and mutual-information-based redundancy measures in MRmMC and ImRMR give up by not using a copula-based statistic like it?"
+language = "en"
+relevant_documents = ["mrmr/Lopez-Paz et al. - The Randomized Dependence Coefficient.pdf", "mrmr/Senawi et al. - 2017 - A new maximum relevance-minimum multicollinearity .pdf", "mrmr/Xie et al. - 2023 - A new improved maximal relevance and minimal redun.pdf"]
+reference_answer = "Lopez-Paz, Hennig and Schoelkopf's randomized dependence coefficient is built from empirical copula transforms specifically so that its value does not change under any monotonically increasing transformation applied separately to either variable, meaning it responds only to the underlying dependence structure and not to the particular scale or shape of each feature's marginal distribution. Senawi, Wei and Billings' conditional correlation coefficient in MRmMC does not have this property: because it is a correlation-style statistic, rescaling or non-linearly re-expressing a feature's values can change the measured redundancy even when the underlying dependence has not changed, which is part of why the authors flag it as most reliable only for quantitative features related in a sufficiently regular way. Xie et al.'s ImRMR mixes Pearson correlation with mutual information for its subset-level relevance and redundancy scores, gaining mutual information's greater flexibility for that component but still inheriting the same marginal-sensitivity limitation through its correlation component. Neither applied method achieves the randomized dependence coefficient's specific marginal-invariance guarantee, trading it for simplicity and lower computational cost."
+notes = "Draws on RDC's stated invariance property and the correlation- and mutual-information-based measures used by MRmMC and ImRMR that lack it."
+axes = { global-type = "distant-synthesis", split = "held-out" }
+
+[[question]]
+id = "global-heldout-039"
+text = "Connect VMR_mRMR's finding about which partitioning strategy suits which data shape to the actual data shapes described in the BoMGene gene-expression paper and the Uber marketing platform paper."
+language = "en"
+relevant_documents = ["arxiv/2208.09901v2.pdf", "arxiv/2510.00907v1.pdf", "arxiv/1908.05376v1.pdf"]
+reference_answer = "Yelleti and Prasad report that their vertical-partitioning MapReduce approach to mRMR performs best on datasets with a large feature space and a comparatively moderate number of samples, while a horizontal-partitioning cousin framework performs better when the sample count is large and the feature space is moderate. Phan et al.'s BoMGene operates on gene-expression datasets, the classic microarray shape with many thousands of genes measured on comparatively few patient samples, which matches the wide, feature-heavy regime VMR_mRMR's vertical partitioning is reported to favor. Zhao, Anand and Wang's Uber marketing platform instead works over large-scale user-activity datasets with many samples relative to a more moderate, engineered feature set, closer to the tall, sample-heavy regime VMR_mRMR reports favoring horizontal partitioning for instead. Neither applied paper actually uses a MapReduce-partitioned mRMR implementation, but their described data shapes illustrate the two regimes VMR_mRMR's comparison is built around."
+notes = "Draws on VMR_mRMR's stated partitioning-versus-data-shape finding and the contrasting data shapes described in BoMGene and the Uber paper."
+axes = { global-type = "distant-synthesis", split = "held-out" }
+
+[[question]]
+id = "global-heldout-040"
+text = "Trace one line of development for non-linear dependence measures in feature selection, from the randomized dependence coefficient as a general statistic, through N3LARS's use of a related kernel-based criterion, to SmRMR's comparison against HSIC-LASSO."
+language = "en"
+relevant_documents = ["mrmr/Lopez-Paz et al. - The Randomized Dependence Coefficient.pdf", "arxiv/1411.2331v1.pdf", "arxiv/2508.18901v1.pdf"]
+reference_answer = "The randomized dependence coefficient paper establishes a general, computationally cheap statistic for non-linear dependence between arbitrary random variables, built from copula transforms, random non-linear feature projections and canonical correlation, without tying it to any particular downstream selection algorithm. Yamada, Saha, Ouyang, Yin and Chang's N3LARS develops a related but distinct line, building its redundancy-aware selection method around the Hilbert-Schmidt Independence Criterion, a kernel-based dependence measure with its own theoretical grounding, and reformulating the resulting HSIC Lasso objective as a convex, incrementally solvable optimization suited to very large and high-dimensional data. Naylor, Poignard, Climente-Gonzalez and Yamada's SmRMR paper then compares its own penalized, screening-oriented version of mRMR directly against HSIC-LASSO, the method N3LARS is built to make scalable, showing how a kernel-based non-linear dependence idea introduced for one purpose becomes the benchmark against which a later, statistically motivated screening method measures itself."
+notes = "Draws on RDC's general framing, N3LARS's HSIC-based reformulation, and SmRMR's explicit comparison against HSIC-LASSO."
+axes = { global-type = "distant-synthesis", split = "held-out" }
