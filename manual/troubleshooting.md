@@ -3972,6 +3972,27 @@ would read as worse than it is. `weft eval run` still scores such a store; the e
 refuses it. **What to do:** give the experiment a store holding only its corpus — a fresh database
 in `[packs.store] dsn`, or a new `[packs.qdrant] collection`.
 
+### `LayersNotAsNamedError`
+
+**What it looks like** — an experiment arm about to be scored against a store whose layers are not
+exactly the ones the arm names in `layers = [...]`:
+
+```text
+the store holds layer(s) enrich-with-raptor-corpus, which arm 'dense' does not name, so its retrieval would read their nodes too. Score the experiment against a store holding only the layers its arms name.
+```
+
+```text
+arm 'raptor' names layer 'enrich-with-raptor-corpus', built on 14 of 16 source(s), so it would read part of a layer. Finish it with `weft index <corpus> --pipeline index-with-graph --layers enrich-with-raptor-corpus --layers-only --retry-failed`, then run the experiment again.
+```
+
+Every arm shares one store, and a query rung's search reads every node there, a layer's summaries
+included. A layer left by an earlier invocation would be read by an arm that never named it, and a
+layer that failed on some sources would be read in part, while each record said otherwise. The
+check runs after an arm's index and before it is scored, so nothing is recorded for that arm.
+**What to do:** for a layer the arm does not name, give the experiment a fresh store, as for
+`ForeignDocumentRetrievedError`. For a partly built one, run the printed command; the experiment
+resumes at that arm.
+
 ### `CorpusManifestError`
 
 **What it looks like** — a manifest entry declaring a tier that does not exist:

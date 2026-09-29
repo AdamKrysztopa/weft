@@ -53,6 +53,12 @@ R38.2.** `corpus_name` is `corpus_for(arm)` relative to the experiment document'
 POSIX-style — the same footing `weft_eval.experiment`'s own module docstring already gives every
 resolved path, applied here to what a run record persists: two checkouts of one committed document
 at two absolute paths must still write one corpus identity, or `weft eval compare` cannot pair them.
+
+**An arm naming `layers` is indexed once per `(pipeline, corpus, layers)` — ledger task 44.55a.**
+Arms share one store and `vector-top-k` filters no derived node out, so `weft_eval.experiment`
+refuses a document whose layers do not only grow from arm to arm. Here an unknown layer is refused
+before anything is indexed, and `index_and_score` refuses to score an arm unless the store holds
+exactly the layers it names.
 """
 
 from __future__ import annotations
@@ -78,6 +84,7 @@ from weft_cli.eval_commands import (
     stated_embedding_models,
 )
 from weft_cli.ingest import content_hashes_of, corpus_documents
+from weft_cli.layers import compose_layers
 from weft_cli.progress import ExperimentProgress, ExperimentProgressReporter, ScoringProgress
 from weft_cli.route_ask import NoRouterPipelineError, resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
@@ -110,6 +117,7 @@ from weft_kernel.errors import WeftError
 from weft_kernel.payload import Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.resolution import ResolvedPipeline
+from weft_kernel.runner import StageSpec
 from weft_llm.roles import LLMRoles, UnmappedLLMRoleError
 from weft_retrieve.intent_and_anchors import find_anchors
 
@@ -254,6 +262,29 @@ def _refuse_unknown_router(arm: ExperimentArm, *, deps: Dependencies) -> None:
     )
 
 
+def _refuse_unknown_layers(
+    arm: ExperimentArm, identity: _ArmIdentity, *, deps: Dependencies
+) -> None:
+    """Compose an arm's own `layers` before anything runs — ledger task **44.55a**.
+
+    `weft_cli.layers.compose_layers` refuses an unknown or non-layer name, naming it, before
+    `weft index --layers` ever would mid-run; called here, against `identity.specs` —
+    `corpus_documents`' own tail specs, computed once by `_arm_identity` — so this pre-flight
+    never walks the corpus a second time. A replay arm never reaches this: it names no layer
+    (refused at document load, `weft_eval.experiment.ExperimentArm`'s own validator).
+    """
+    if arm.pool is not None or not arm.layers:
+        return
+    compose_layers(
+        arm.layers,
+        base=arm.pipeline,
+        specs=identity.specs,
+        registry=deps.registry,
+        reports=deps.reports,
+        contributions=deps.contributions,
+    )
+
+
 class EvalExperimentArgs(BaseModel):
     """`weft eval experiment <path>` — one positional, the experiment document."""
 
@@ -298,6 +329,10 @@ class _ArmIdentity:
     question_set_digest: str
     model_versions: dict[str, str]
     pool_manifest: str | None
+    #: Ledger **44.55a** — `corpus_documents`' own tail specs, reused by the pre-flight that
+    #: composes an arm's `layers` (`_refuse_unknown_layers`) rather than walking the corpus a
+    #: second time. `()` for a replay arm, which never calls `corpus_documents` at all.
+    specs: tuple[StageSpec, ...] = ()
 
 
 async def _arm_identity(
@@ -335,14 +370,13 @@ async def _arm_identity(
             ),
             pool_manifest=pool.sha256,
         )
-    resolved, _specs, documents = corpus_documents(
+    resolved, specs, documents = corpus_documents(
         experiment.corpus_for(arm),
         pipeline=arm.pipeline,
         registry=deps.registry,
         reports=deps.reports,
         contributions=deps.contributions,
     )
-    del _specs
     return _ArmIdentity(
         resolved=resolved,
         corpus_digest=corpus_identity(arm.name, content_hashes_of(documents)).digest,
@@ -355,6 +389,7 @@ async def _arm_identity(
             )
         ),
         pool_manifest=None,
+        specs=specs,
     )
 
 
@@ -564,6 +599,9 @@ class ArmPlan(BaseModel):
     repetitions: int
     questions: int
     executions: int
+    #: Ledger **44.55a** — the layer pipelines this arm names, in the order it names them. `()`
+    #: for an arm reading none, and for every plan built before this task.
+    layers: tuple[str, ...] = ()
 
 
 class CorpusPlan(BaseModel):
@@ -712,6 +750,7 @@ class EvalPlanCommand:
                     repetitions=repetitions,
                     questions=len(questions),
                     executions=len(questions) * repetitions,
+                    layers=arm.layers,
                 )
             )
             if arm.pool is not None:
@@ -809,6 +848,9 @@ class EvalExperimentCommand:
         }
 
         _refuse_incomparable_arms(experiment, identities)
+
+        for arm in experiment.arms:
+            _refuse_unknown_layers(arm, identities[arm.name], deps=deps)
 
         document_root = Path(experiment_args.path).resolve().parent
         runs = await _run_arms(
@@ -910,14 +952,14 @@ async def _run_arms(
     judge_metrics = tuple(
         sorted(judge_plugin_names(experiment.metrics, registry=deps.registry).values())
     )
-    indexed_keys: set[tuple[str, Path]] = set()
+    indexed_keys: set[tuple[str, Path, frozenset[str]]] = set()
     runs: list[ExperimentRunRef] = []
     reports_progress = isinstance(deps.token_sink, ExperimentProgressReporter)
     for arm_number, arm in enumerate(experiment.arms, start=1):
         pool = pools.get(arm.name)
         corpus_path = experiment.corpus_for(arm)
         questions = question_sets[arm.name].questions
-        index_key = (arm.pipeline, corpus_path)
+        index_key = (arm.pipeline, corpus_path, frozenset(arm.layers))
         repetitions = experiment.repeats_for(arm)
         for repetition in range(1, repetitions + 1):
             found = written.get((arm.name, repetition))
@@ -964,8 +1006,10 @@ async def _run_arms(
                     arm=arm.name,
                     repetition=repetition,
                     pool_manifest=pool.sha256 if pool is not None else None,
+                    layers=arm.layers,
                 ),
                 on_progress=on_progress,
+                layers=arm.layers if pool is None else None,
             )
             if pool is None:
                 indexed_keys.add(index_key)

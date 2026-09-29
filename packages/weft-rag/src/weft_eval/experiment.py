@@ -90,6 +90,7 @@ _ARM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
         "repeats",
         "capture_pool",
         "pool",
+        "layers",
     }
 )
 
@@ -167,6 +168,13 @@ class ExperimentArm(BaseModel):
     answers each question through that router rather than through a fixed `query_pipeline`, and
     its record carries which rung answered each question. An arm names one or the other, never
     both — see `_router_and_query_pipeline_are_exclusive`.
+
+    `layers` (task **44.55a**) names the layer pipelines this arm reads — a RAPTOR rung's summary
+    tier, built by `weft index --layers` after the base index. Every arm shares one store and a
+    layer once built stays in it for every arm scored after, so an arm naming fewer layers than an
+    earlier one would read summaries it never asked for; `Experiment`'s own validator refuses a
+    document whose arms do not name layers in a non-decreasing order. Empty for an arm reading
+    none, and refused together with `pool`, since a replay reads a captured pool and no index.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -180,6 +188,7 @@ class ExperimentArm(BaseModel):
     repeats: int | None = Field(default=None, ge=1)
     capture_pool: bool = False
     pool: Path | None = None
+    layers: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def _capture_and_replay_are_exclusive(self) -> ExperimentArm:
@@ -209,6 +218,29 @@ class ExperimentArm(BaseModel):
             raise ValueError(
                 f"arm '{self.name}' names both a router and a query_pipeline — an arm answers "
                 "through one or the other."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _layers_are_named_once_each(self) -> ExperimentArm:
+        """Refuse an arm naming one layer twice — ledger task **44.55a**."""
+        seen: set[str] = set()
+        for layer in self.layers:
+            if layer in seen:
+                raise ValueError(f"arm '{self.name}' names layer '{layer}' more than once.")
+            seen.add(layer)
+        return self
+
+    @model_validator(mode="after")
+    def _pool_and_layers_are_exclusive(self) -> ExperimentArm:
+        """Refuse an arm that both replays a pool and names layers — ledger task **44.55a**.
+
+        A replay reads a captured pool and no index, so a layer it names would never be read.
+        """
+        if self.pool is not None and self.layers:
+            raise ValueError(
+                f"arm '{self.name}' sets both pool and layers — a replay reads a pool and no "
+                "index, so the layers it names would never be read."
             )
         return self
 
@@ -307,6 +339,32 @@ class Experiment(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _layers_only_grow_across_arms(self) -> Experiment:
+        """Refuse an arm naming fewer layers than an earlier arm — ledger task **44.55a**.
+
+        Every non-pool arm shares one store, and a layer once built stays there for every arm
+        scored after it — `vector-top-k` does not filter derived nodes out. So walking the arms
+        in document order, the set of layers named must only grow; an arm falling short of an
+        earlier arm's layers would read a layer it never asked for.
+        """
+        built_by: dict[str, str] = {}
+        for arm in self.arms:
+            if arm.pool is not None:
+                continue
+            named = set(arm.layers)
+            for layer, earlier in built_by.items():
+                if layer not in named:
+                    raise ValueError(
+                        f"arm '{arm.name}' does not name layer '{layer}', which arm "
+                        f"'{earlier}' builds before it — arms share one store, so every arm "
+                        f"reads every layer already built there. Order the arms so the layers "
+                        f"each names only grow."
+                    )
+            for layer in arm.layers:
+                built_by.setdefault(layer, arm.name)
+        return self
+
     def corpus_for(self, arm: ExperimentArm) -> Path:
         """`arm`'s own corpus, or the experiment's, when the arm names none."""
         return arm.corpus if arm.corpus is not None else self.corpus
@@ -383,6 +441,7 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
         repeats=entry.get("repeats"),
         capture_pool=bool(entry.get("capture_pool", False)),
         pool=_resolve_optional(entry.get("pool"), root=root),
+        layers=tuple(entry.get("layers", ())),
     )
 
 

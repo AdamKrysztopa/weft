@@ -349,6 +349,10 @@ class ExperimentRun(BaseModel):
     #: down which one. `None` for an arm that indexed and retrieved, and for every record
     #: written before this task — additive, on `RunRecord`'s own footing throughout this class.
     pool_manifest: str | None = None
+    #: Task **44.55a** — the layer pipelines the arm read, in the order it named them. `()` for
+    #: an arm naming none, and for every record written before this task — additive, like
+    #: `pool_manifest` above.
+    layers: tuple[str, ...] = ()
 
 
 class SourceRevision(BaseModel):

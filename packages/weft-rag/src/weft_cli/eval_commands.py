@@ -228,7 +228,12 @@ from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_embed.contract import EmbeddingModel, IdentifiedEmbedder
 from weft_engine.registry_bootstrap import Dependencies
-from weft_engine.targets import render_embedding_identity, require_existing_target, scored_target
+from weft_engine.targets import (
+    bind_store,
+    render_embedding_identity,
+    require_existing_target,
+    scored_target,
+)
 from weft_eval.aggregate import MetricAggregate, PartitionSlice
 from weft_eval.baseline import (
     BaselineReport,
@@ -277,7 +282,8 @@ from weft_kernel.seam import aclose, wrap
 from weft_llm.client import NullSink
 from weft_llm.roles import LLMRoles
 from weft_retrieve.payload import RouteView
-from weft_store import NodeStore
+from weft_store import NodeStore, SourceRecord, SourceStatus
+from weft_store.coverage import layer_coverage_of, ready_layers
 
 #: `EvalRunArgs.top_k` default — `weft ask`'s own default depth, task 4.9's own retrieval
 #: scoring reuses it rather than inventing a second "how many results" default.
@@ -344,6 +350,31 @@ class CorpusHasFailedSourcesError(WeftError):
     A skipped source has no nodes, while the run record's corpus identity still covers it, so
     the scores would be over a smaller corpus than the record names. Refused, naming the fix.
     """
+
+
+class LayersNotAsNamedError(WeftError):
+    """Refuse to score when the store does not hold exactly the layers an arm names.
+
+    Every arm shares one store and `vector-top-k` filters no derived node out, so a layer left
+    behind by another arm or an earlier invocation (`unnamed`), or one `weft index --layers`
+    only reached part of the corpus (`unbuilt`), would be read without the record saying so —
+    ledger task **44.55a**. Raised before `score_pipeline` runs, never after.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        arm: str | None,
+        named: tuple[str, ...],
+        unnamed: tuple[str, ...],
+        unbuilt: tuple[str, ...],
+    ) -> None:
+        super().__init__(message)
+        self.arm = arm
+        self.named = named
+        self.unnamed = unnamed
+        self.unbuilt = unbuilt
 
 
 class IncomparableRunsError(WeftError):
@@ -1439,6 +1470,7 @@ async def _indexed_corpus(
     batch_size: int | None,
     pool: LoadedPool | None,
     target: str | None,
+    layers: tuple[str, ...] | None,
 ) -> _IndexedCorpus:
     """Resolve the corpus from a pool replay, what is already stored, or a fresh index."""
     if pool is not None:
@@ -1461,6 +1493,7 @@ async def _indexed_corpus(
         reprocess=reprocess,
         batch_size=batch_size,
         target=target,
+        layers=layers if layers is not None else (),
     )
 
 
@@ -1512,8 +1545,11 @@ async def _freshly_indexed_corpus(
     reprocess: bool,
     batch_size: int | None,
     target: str | None,
+    layers: tuple[str, ...] = (),
 ) -> _IndexedCorpus:
     """Index the corpus under `path`, timing the ingest on the wall clock.
+
+    `layers` (task **44.55a**) reaches `run_index_for` unchanged, the `weft index --layers` build.
 
     Raises:
         EmptyCorpusError: Indexing `path` produced nothing.
@@ -1535,6 +1571,7 @@ async def _freshly_indexed_corpus(
         batch_size=batch_size,
         retry_failed=False,
         target=target,
+        layers=layers,
     )
     ingest_seconds = time.monotonic() - started
     if not result.document_ids:
@@ -1567,6 +1604,137 @@ async def _freshly_indexed_corpus(
     )
 
 
+def _layer_subject(arm: str | None) -> str:
+    """`"arm '<name>'"`, or `"this run"` when no experiment arm is naming the check."""
+    return f"arm '{arm}'" if arm is not None else "this run"
+
+
+async def _read_source_records(
+    deps: Dependencies, store: NodeStore
+) -> tuple[SourceRecord, ...] | None:
+    """One `list_sources()` read through the same seam `weft_cli.commands` reads a store by.
+
+    `None` when `store` carries no `list_sources` at all — `weft_cli.commands.
+    _read_sources_by_store`'s own "skipped, not refused" reading, replicated here for one
+    store rather than imported: that module imports this one, so the reverse import would cycle.
+    """
+    if not hasattr(store, "list_sources"):
+        return None
+    entry = deps.registry.entry(NodeStore, deps.services.store)
+
+    async def _list(store: NodeStore = store) -> Outcome[tuple[SourceRecord, ...]]:
+        return Produced(value=tuple(await store.list_sources()))
+
+    wrapped = wrap(
+        _list,
+        distribution=entry.distribution,
+        contract=NodeStore.__qualname__,
+        plugin=deps.services.store,
+        stage="sources:list",
+    )
+    try:
+        listed = await wrapped()
+    finally:
+        await aclose(
+            store,
+            distribution=entry.distribution,
+            contract=NodeStore.__qualname__,
+            plugin=deps.services.store,
+        )
+    if not isinstance(listed, Produced):
+        raise WeftError(
+            f"could not read sources from store '{deps.services.store}' to confirm which "
+            f"layers it holds: {listed.reason}"
+        )
+    return listed.value
+
+
+def _refuse_unnamed_layers(
+    records: tuple[SourceRecord, ...], *, layers: tuple[str, ...], arm: str | None
+) -> None:
+    """Refuse when the store holds a layer none of `layers` names — ledger task **44.55a**."""
+    coverage = layer_coverage_of(records)
+    unnamed = tuple(
+        sorted(one.name for one in coverage if one.built > 0 and one.name not in layers)
+    )
+    if not unnamed:
+        return
+    raise LayersNotAsNamedError(
+        f"the store holds layer(s) {', '.join(unnamed)}, which {_layer_subject(arm)} does not "
+        "name, so its retrieval would read their nodes too. Score the experiment against a "
+        "store holding only the layers its arms name.",
+        arm=arm,
+        named=layers,
+        unnamed=unnamed,
+        unbuilt=(),
+    )
+
+
+def _refuse_unbuilt_layers(
+    records: tuple[SourceRecord, ...],
+    *,
+    layers: tuple[str, ...],
+    arm: str | None,
+    path: Path,
+    pipeline: str,
+) -> None:
+    """Refuse when a named layer is not yet built on every source — ledger task **44.55a**."""
+    coverage = {one.name: one for one in layer_coverage_of(records)}
+    ready = ready_layers(coverage.values())
+    unbuilt = tuple(name for name in layers if name not in ready)
+    if not unbuilt:
+        return
+    name = unbuilt[0]
+    found = coverage.get(name)
+    active = sum(1 for record in records if record.status is SourceStatus.ACTIVE)
+    built, of = (found.built, found.of) if found is not None else (0, active)
+    raise LayersNotAsNamedError(
+        f"{_layer_subject(arm)} names layer '{name}', built on {built} of {of} source(s), so "
+        f"it would read part of a layer. Finish it with `weft index {path} --pipeline "
+        f"{pipeline} --layers {name} --layers-only --retry-failed`, then run the experiment "
+        "again.",
+        arm=arm,
+        named=layers,
+        unnamed=(),
+        unbuilt=unbuilt,
+    )
+
+
+async def _refuse_layers_not_as_named(
+    deps: Dependencies,
+    *,
+    layers: tuple[str, ...],
+    arm: str | None,
+    path: Path,
+    pipeline: str,
+    target: str | None,
+) -> None:
+    """Refuse to score unless the store holds exactly `layers`, each built on every source.
+
+    See `LayersNotAsNamedError`. A store without `list_sources` passes only when `layers` is
+    empty: there is nothing to confirm.
+    """
+    store = await bind_store(
+        deps.registry.entry(NodeStore, deps.services.store).factory(None),
+        target,
+        store_name=deps.services.store,
+    )
+    records = await _read_source_records(deps, store)
+    if records is None:
+        if not layers:
+            return
+        raise LayersNotAsNamedError(
+            f"store '{deps.services.store}' records no sources, so {_layer_subject(arm)} "
+            f"cannot confirm layer(s) {', '.join(layers)} were built.",
+            arm=arm,
+            named=layers,
+            unnamed=(),
+            unbuilt=layers,
+        )
+    _refuse_unnamed_layers(records, layers=layers, arm=arm)
+    _refuse_unbuilt_layers(records, layers=layers, arm=arm, path=path, pipeline=pipeline)
+
+
 async def index_and_score(
     deps: Dependencies,
     *,
@@ -1590,6 +1758,7 @@ async def index_and_score(
     judge_metrics: tuple[str, ...] = (),
     router: str | None = None,
     on_progress: Callable[[ScoringProgress], Awaitable[None]] | None = None,
+    layers: tuple[str, ...] | None = None,
 ) -> IndexAndScoreResult:
     """Keep `weft eval run` and `weft eval experiment` scoring through one identical path.
 
@@ -1686,6 +1855,11 @@ async def index_and_score(
     identical name unchanged; `None` (`weft eval run`, and every caller before this task) reports
     nothing. `weft_cli.eval_experiment._run_arms` is the one caller that passes a callback,
     labelling each `ScoringProgress` it receives with the arm and repetition it belongs to.
+
+    **`layers` — ledger task 44.55a.** `None` (`weft eval run`) builds no layer and checks
+    nothing. Given, as `weft_cli.eval_experiment._run_arms` does for every non-pool arm, a fresh
+    index builds those layers, and before scoring `_refuse_layers_not_as_named` refuses unless
+    the store holds exactly them, each built on every source.
     """
     indexed = await _indexed_corpus(
         deps,
@@ -1697,6 +1871,7 @@ async def index_and_score(
         batch_size=batch_size,
         pool=pool,
         target=target,
+        layers=layers,
     )
     resolved = indexed.resolved
     document_ids = indexed.document_ids
@@ -1704,6 +1879,16 @@ async def index_and_score(
     summary = indexed.summary
     stored_count = indexed.stored_count
     ingest_seconds = indexed.ingest_seconds
+
+    if layers is not None and pool is None:
+        await _refuse_layers_not_as_named(
+            deps,
+            layers=layers,
+            arm=experiment.arm if experiment is not None else None,
+            path=path,
+            pipeline=pipeline,
+            target=target,
+        )
 
     # Task 4.9's own gap to fill — see the module docstring's paragraph on `--questions`.
     # `{}` with no questions, the same honesty `model_versions` had before task 4.7.
@@ -2269,6 +2454,7 @@ __all__ = [
     "EvalRunCommandResult",
     "IncomparableRunsError",
     "IndexAndScoreResult",
+    "LayersNotAsNamedError",
     "MetricComparison",
     "NoBaselineRunsError",
     "NotABaselineReportError",

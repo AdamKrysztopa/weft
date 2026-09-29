@@ -44,6 +44,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **An experiment arm can read a layer.** `layers = ["enrich-with-raptor"]` on an `[[arm]]` builds
+  that layer after the base index, once for every arm naming the same set, and the arm's records
+  carry `experiment.layers`. `weft eval plan` shows each arm's layers. Arms share one store and a
+  search reads every node in it, so a document whose layers shrink from one arm to the next is
+  refused, and an arm is not scored unless the store holds exactly the layers it names, each
+  built on every source (`LayersNotAsNamedError`).
 - **`weft route explain "<question>"` shows how a question would be routed, without answering
   it**: the query's profile, the corpus's profile and the route the configured router picks.
   `--json` gives one object with `query_profile`, `corpus_profile` and `route`. It calls no

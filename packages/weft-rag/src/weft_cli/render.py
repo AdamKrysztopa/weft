@@ -1970,6 +1970,7 @@ def _render_eval_plan(result: EvalPlanCommandResult) -> Rendered:
     lines = [f"plan for '{result.name}' ({result.digest[:12]}…)"]
     lines.extend(
         f"  {arm.arm}: {arm.pipeline}"
+        + (f" + layers {', '.join(arm.layers)}" if arm.layers else "")
         + (f" → {arm.query_pipeline}" if arm.query_pipeline else "")
         + f", {arm.repetitions} × {arm.questions} question(s) = {arm.executions} execution(s)"
         for arm in result.arms
