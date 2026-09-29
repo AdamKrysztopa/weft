@@ -102,11 +102,12 @@ def _question_toml_lines(question: Question) -> list[str]:
     if question.reference_answer:
         lines.append(f"reference_answer = {_toml_string(question.reference_answer)}")
     if question.quote:
-        q = question.quote[0]
-        quote_text = _toml_string(q.text)
-        quote_page = q.page
-        quote_line = f"{{ text = {quote_text}, page = {quote_page} }}"
-        lines.append(f"quote = {quote_line}")
+        quotes = ", ".join(
+            f"{{ document = {_toml_string(quote.document)}, text = {_toml_string(quote.text)}, "
+            f"page = {quote.page} }}"
+            for quote in question.quote
+        )
+        lines.append(f"quote = [{quotes}]")
     if question.notes:
         lines.append(f"notes = {_toml_string(question.notes)}")
     if question.axes:
@@ -117,7 +118,7 @@ def _question_toml_lines(question: Question) -> list[str]:
     return lines
 
 
-def _write_questions_toml(questions: Sequence[Question], path: Path) -> None:
+def write_questions_toml(questions: Sequence[Question], path: Path) -> None:
     """Write questions to a TOML file, preserving all fields from input questions."""
     lines: list[str] = ["[question_set]", "schema = 2"]
 
@@ -193,7 +194,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         subset_questions = questions_within(all_questions, subset_docs, labels=labels)
 
         questions_file = out_dir / f"{subset_dir_name}-questions.toml"
-        _write_questions_toml(subset_questions, questions_file)
+        write_questions_toml(subset_questions, questions_file)
 
         pct = int(fraction * 100)
         print(

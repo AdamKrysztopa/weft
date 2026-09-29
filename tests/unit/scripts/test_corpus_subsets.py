@@ -9,10 +9,11 @@ lies outside the subset would measure the subset, not the method.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 
-from corpus_subsets import nested_subsets, questions_within
+from corpus_subsets import nested_subsets, questions_within, write_questions_toml
 
-from weft_eval.question_set import Question, QuestionField
+from weft_eval.question_set import Question, QuestionField, read_question_set
 
 _DOCUMENTS = tuple(f"papers/p{n:02d}.pdf" for n in range(16))
 
@@ -80,3 +81,36 @@ def test_a_manifest_id_label_resolves_through_the_manifest_s_path() -> None:
 
     # Assert
     assert [question.id for question in kept] == ["in"]
+
+
+def test_a_written_subset_reads_back_with_every_quote(tmp_path: Path) -> None:
+    # Arrange — the first real run wrote `quote = { … }`, which a schema-2 file refuses.
+    question = Question.model_validate(
+        {
+            "id": "quoted",
+            "text": "Which loom keeps its warp taut?",
+            "language": "en",
+            "relevant_documents": ("papers/p00.pdf",),
+            "reference_answer": "the upright loom",
+            "quote": (
+                {
+                    "document": "papers/p00.pdf",
+                    "text": "The upright loom holds its warp.",
+                    "page": 3,
+                },
+                {"document": "papers/p00.pdf", "text": "Tension stays even.", "page": 4},
+            ),
+            "absent": frozenset(
+                {QuestionField.KIND, QuestionField.DIFFICULTY, QuestionField.NOTES}
+            ),
+            "absent_reason": "a subset fixture",
+        }
+    )
+    path = tmp_path / "subset.toml"
+
+    # Act
+    write_questions_toml((question,), path)
+    [read] = read_question_set(path).questions
+
+    # Assert
+    assert read == question

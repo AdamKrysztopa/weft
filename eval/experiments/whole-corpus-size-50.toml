@@ -1,0 +1,38 @@
+# Task 44.51, E1 (fix-plans/23 §4): at what corpus size does reading the whole corpus stop
+# beating one search? This is the 50% point of the sweep; the 100% point is
+# `whole-corpus-en`, already measured over the same 107 questions and 16 papers.
+#
+# The subset and its questions are written by `scripts/corpus_subsets.py --corpus
+# corpus/validation-en --manifest corpus/manifest.toml --questions eval/questions/fetch.toml
+# eval/questions/operator.toml --out corpus/subsets` (seed 44.51): the first 50% of the 16
+# papers in seeded order, keeping only questions whose every cited paper is in it. Both are
+# untracked; regenerate with that command. One repetition per arm, approved by the owner on
+# 2026-09-29 (D6).
+
+[experiment]
+schema = 1
+name = "whole-corpus-size-50"
+questions = "../../corpus/subsets/validation-en-50-questions.toml"
+corpus = "../../corpus/subsets/validation-en-50"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["answer_correctness", "token_recall", "rouge_l"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.05
+direction = "higher-is-better"
+
+[[arm]]
+name = "baseline"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "retrieve-then-generate"
+repeats = 1
+
+[[arm]]
+name = "whole-corpus"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "whole-corpus-wide-then-generate"
+repeats = 1
