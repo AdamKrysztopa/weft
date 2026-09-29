@@ -1,0 +1,53 @@
+# Task 44.55, E4 (fix-plans/26): do corpus-wide questions ("what themes recur", "where do these
+# papers disagree") need something other than one search? Reading everything, summarising the
+# retrieved passages, or a graph of the corpus's facts, each against `retrieve-then-generate` on
+# the 80 verified questions in `eval/global-questions/` over the 16 `validation-en` papers.
+#
+# The RAPTOR arm is in `global-synthesis-raptor.toml`, over its own store. Every arm here shares
+# one store and a search reads every node in it, so a layer built for one arm is read by every
+# arm after it (44.55a refuses that). The graph arm's facts layer is built last here, and RAPTOR's
+# summaries get a store of their own rather than being read by the graph arm's vector search.
+#
+# Pairwise preference against `dense` is `weft eval pairwise`, read as preference: the judge's
+# agreement with gold is 0.607 (Wilson 0.526 to 0.683, `a666ef8`).
+
+[experiment]
+schema = 1
+name = "global-synthesis"
+questions = ["../global-questions/train.toml", "../global-questions/held-out.toml"]
+corpus = "../../corpus/validation-en"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["answer_correctness", "token_recall", "rouge_l"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.05
+direction = "higher-is-better"
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large-pdf-graph"
+query_pipeline = "retrieve-then-generate"
+repeats = 1
+
+[[arm]]
+name = "whole-corpus"
+pipeline = "index-openai-large-pdf-graph"
+query_pipeline = "whole-corpus-wide-then-generate"
+repeats = 1
+
+[[arm]]
+name = "summarise"
+pipeline = "index-openai-large-pdf-graph"
+query_pipeline = "summarise-then-generate"
+repeats = 1
+
+[[arm]]
+name = "graph"
+pipeline = "index-openai-large-pdf-graph"
+query_pipeline = "graph-and-vector-rrf"
+repeats = 1
+layers = ["enrich-with-facts-and-graph"]

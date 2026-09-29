@@ -1,0 +1,34 @@
+# Task 44.55, E4's RAPTOR arm (fix-plans/26): a corpus-wide RAPTOR tree fused with the leaves
+# (`raptor-and-leaves-rrf`) against `retrieve-then-generate`, on the same 80 questions and 16
+# papers as `global-synthesis.toml`. It is a document of its own, run over its own store, so that
+# no arm there reads RAPTOR's summaries and this arm reads no facts layer. `dense` is repeated
+# here so the verdict pairs arms scored against one store.
+
+[experiment]
+schema = 1
+name = "global-synthesis-raptor"
+questions = ["../global-questions/train.toml", "../global-questions/held-out.toml"]
+corpus = "../../corpus/validation-en"
+manifest = "../../corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["answer_correctness", "token_recall", "rouge_l"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.05
+direction = "higher-is-better"
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "retrieve-then-generate"
+repeats = 1
+
+[[arm]]
+name = "raptor"
+pipeline = "index-openai-large-pdf"
+query_pipeline = "raptor-and-leaves-rrf"
+repeats = 1
+layers = ["enrich-with-raptor-corpus"]

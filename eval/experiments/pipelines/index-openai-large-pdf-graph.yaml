@@ -1,0 +1,9 @@
+name: index-openai-large-pdf-graph
+extends: index-openai-large-pdf
+
+# E4 (44.55b): the PDF reader and `text-embedding-3-large` of E1–E3, with `pgvector-graph` beside
+# the vector store, as `index-with-graph` inserts it. The graph arm's layer writes its facts there.
+
+insert:
+  - after: store
+    stage: {id: graph-store, use: pgvector-graph}

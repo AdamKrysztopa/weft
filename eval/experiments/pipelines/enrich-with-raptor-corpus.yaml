@@ -1,0 +1,14 @@
+name: enrich-with-raptor-corpus
+extends: enrich-with-raptor
+
+# E4 (44.55b): one RAPTOR tree over the whole corpus rather than one per document, the variant
+# `enrich-with-raptor`'s own header describes. A corpus-wide question is the one it is for.
+
+vars:
+  layer.scope: corpus
+
+# validation-en's 1,725 leaves make 1,486,950 pairs, past `raptor`'s default `max_pairs` of
+# 500,000; a corpus-scoped build hands it all of them at once.
+
+set:
+  - {id: raptor, with: {max_pairs: 1600000}}
