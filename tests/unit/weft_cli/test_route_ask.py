@@ -20,6 +20,7 @@ machinery above — not a fake standing in for `weft_llm.client.LLMClient`.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
@@ -186,6 +187,7 @@ async def test_run_routed_ask_selects_and_executes_the_only_routable_pipeline() 
     # Act
     route, answer = await run_routed_ask(
         "what happens if a store advertises no capability at all?",
+        ready_layers=None,
         registry=_registry(),
         reports=_reports(),
         ctx=_ctx(),
@@ -226,6 +228,7 @@ async def test_run_routed_ask_streams_generation_tokens_into_the_caller_s_sink()
     # Act
     _route, answer = await run_routed_ask(
         "what happens if a store advertises no capability at all?",
+        ready_layers=None,
         registry=_registry(),
         reports=_reports(),
         ctx=_ctx(),
@@ -251,6 +254,7 @@ async def test_run_routed_ask_raises_when_no_pack_contributed_a_router() -> None
     with pytest.raises(NoRouterPipelineError, match="route"):
         await run_routed_ask(
             "anything",
+            ready_layers=None,
             registry=_registry(),
             reports=(),
             ctx=_ctx(),
@@ -481,6 +485,7 @@ async def test_the_router_resolves_a_project_local_document_named_by_services_ro
     # Act
     selected, answer = await run_routed_ask(
         "what happens if a store advertises no capability at all?",
+        ready_layers=None,
         registry=_registry(),
         reports=(),
         ctx=_ctx(),
@@ -520,6 +525,7 @@ async def test_the_router_refuses_a_name_a_project_and_a_pack_both_declare(
     with pytest.raises(ProjectPipelineNameCollisionError, match="route"):
         await run_routed_ask(
             "anything",
+            ready_layers=None,
             registry=_registry(),
             reports=_reports(),
             ctx=_ctx(),
@@ -587,6 +593,7 @@ async def test_a_router_that_cannot_accept_a_query_is_refused_by_name(
     with pytest.raises(StageCompositionError) as caught:
         await run_routed_ask(
             "anything",
+            ready_layers=None,
             registry=_registry(),
             reports=(),
             ctx=_ctx(),
@@ -798,3 +805,12 @@ async def test_explaining_a_route_whose_router_needs_an_unmapped_role_is_refused
             sink=sink,
         )
     assert sink.chunks == []
+
+
+def test_a_routed_ask_must_be_told_which_layers_are_ready() -> None:
+    """R44.13a: omitting `ready_layers` offered every rung, built or not; E0b did exactly that."""
+    # Act
+    parameter = inspect.signature(run_routed_ask).parameters["ready_layers"]
+
+    # Assert
+    assert parameter.default is inspect.Parameter.empty

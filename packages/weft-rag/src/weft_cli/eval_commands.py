@@ -216,7 +216,7 @@ from typing import ClassVar, Final, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from weft_cli.eval_scoring import score_pipeline
+from weft_cli.eval_scoring import read_source_records, score_pipeline
 from weft_cli.ingest import SourceChange, content_hashes_of, corpus_documents, run_index_for
 from weft_cli.installed_versions import active_distribution_versions
 from weft_cli.pipeline_diff import PipelineDiff, diff_resolved
@@ -1609,46 +1609,6 @@ def _layer_subject(arm: str | None) -> str:
     return f"arm '{arm}'" if arm is not None else "this run"
 
 
-async def _read_source_records(
-    deps: Dependencies, store: NodeStore
-) -> tuple[SourceRecord, ...] | None:
-    """One `list_sources()` read through the same seam `weft_cli.commands` reads a store by.
-
-    `None` when `store` carries no `list_sources` at all — `weft_cli.commands.
-    _read_sources_by_store`'s own "skipped, not refused" reading, replicated here for one
-    store rather than imported: that module imports this one, so the reverse import would cycle.
-    """
-    if not hasattr(store, "list_sources"):
-        return None
-    entry = deps.registry.entry(NodeStore, deps.services.store)
-
-    async def _list(store: NodeStore = store) -> Outcome[tuple[SourceRecord, ...]]:
-        return Produced(value=tuple(await store.list_sources()))
-
-    wrapped = wrap(
-        _list,
-        distribution=entry.distribution,
-        contract=NodeStore.__qualname__,
-        plugin=deps.services.store,
-        stage="sources:list",
-    )
-    try:
-        listed = await wrapped()
-    finally:
-        await aclose(
-            store,
-            distribution=entry.distribution,
-            contract=NodeStore.__qualname__,
-            plugin=deps.services.store,
-        )
-    if not isinstance(listed, Produced):
-        raise WeftError(
-            f"could not read sources from store '{deps.services.store}' to confirm which "
-            f"layers it holds: {listed.reason}"
-        )
-    return listed.value
-
-
 def _refuse_unnamed_layers(
     records: tuple[SourceRecord, ...], *, layers: tuple[str, ...], arm: str | None
 ) -> None:
@@ -1719,7 +1679,7 @@ async def _refuse_layers_not_as_named(
         target,
         store_name=deps.services.store,
     )
-    records = await _read_source_records(deps, store)
+    records = await read_source_records(deps.registry, store, store_name=deps.services.store)
     if records is None:
         if not layers:
             return

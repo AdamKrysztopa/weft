@@ -76,6 +76,7 @@ from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import ServiceSelection
+from weft_engine.targets import bind_store
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import (
     GenerationMetric,
@@ -114,9 +115,10 @@ from weft_eval.run_record import (
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import Node, NodeId, Outcome
+from weft_kernel.payload import Node, NodeId, Outcome, Produced
 from weft_kernel.registry import Registry, unwrap_factory
 from weft_kernel.resolution import Contribution, ResolvedPipeline, ResolvedStage, pipeline_identity
+from weft_kernel.seam import aclose, wrap
 from weft_llm.client import NullSink
 from weft_llm.contract import TokenSink
 from weft_llm.errors import LLMGenerationLoopError
@@ -124,7 +126,8 @@ from weft_llm.usage import UsageEntry, record_usage, recording_usage
 from weft_prompts.typed_prompt import TypedPrompt, prompt_digest
 from weft_retrieve.payload import Passage, Query, Ranking, RouteView
 from weft_retrieve.profile import PROFILER_VERSION, profile_query
-from weft_store import NodeStore, Scored
+from weft_store import NodeStore, Scored, SourceRecord
+from weft_store.coverage import layer_coverage_of, ready_layers
 
 
 class PipelineNotRetrievableError(WeftError):
@@ -1023,6 +1026,7 @@ async def _routed_question_hits(
     generation_samples: list[tuple[str, GenerationSample]],
     contributors: dict[str, tuple[str, ...]],
     question_routes: dict[str, RouteView],
+    ready_layers: frozenset[str],
     target: str | None = None,
 ) -> Sequence[Scored[Node]]:
     """Answer one question through `router` and return its hits — ledger task **44.5**.
@@ -1034,6 +1038,10 @@ async def _routed_question_hits(
     before the shared tail (`_hits_from_answer`) builds its hits and `GenerationSample` exactly
     as a named generating rung's does. Raises `PipelineDidNotProduceError`/`weft_llm.errors.
     LLMGenerationLoopError` unchanged, for the caller's own per-question exclusion.
+
+    `ready_layers` — ledger task **R44.13a** — is `_router_ready_layers`'s one read for this
+    whole scoring run, threaded straight through to `run_routed_ask` so this arm never offers a
+    rung `weft ask` would withhold.
     """
     route, answer = await run_routed_ask(
         question.text,
@@ -1047,6 +1055,7 @@ async def _routed_question_hits(
         sink=sink if sink is not None else NullSink(),
         contributions=contributions,
         roles=roles if roles is not None else RoleTable(),
+        ready_layers=ready_layers,
         target=target,
     )
     question_routes[question.id] = RouteView(
@@ -1331,6 +1340,73 @@ def _retrieval_stages_of(
     return embed_stage, store_stage
 
 
+async def read_source_records(
+    registry: Registry, store: NodeStore, *, store_name: str
+) -> tuple[SourceRecord, ...] | None:
+    """One `list_sources()` read through the same seam `weft_cli.commands` reads a store by.
+
+    `None` when `store` carries no `list_sources` at all — `weft_cli.commands.
+    _read_sources_by_store`'s own "skipped, not refused" reading. Shared by
+    `weft_cli.eval_commands._refuse_layers_not_as_named` (ledger task **44.55a**) and
+    `_router_ready_layers` below (ledger task **R44.13a**), so this store-reading walk exists once.
+    """
+    entry = registry.entry(NodeStore, store_name)
+    if not hasattr(store, "list_sources"):
+        await aclose(
+            store,
+            distribution=entry.distribution,
+            contract=NodeStore.__qualname__,
+            plugin=store_name,
+        )
+        return None
+
+    async def _list(store: NodeStore = store) -> Outcome[tuple[SourceRecord, ...]]:
+        return Produced(value=tuple(await store.list_sources()))
+
+    wrapped = wrap(
+        _list,
+        distribution=entry.distribution,
+        contract=NodeStore.__qualname__,
+        plugin=store_name,
+        stage="sources:list",
+    )
+    try:
+        listed = await wrapped()
+    finally:
+        await aclose(
+            store,
+            distribution=entry.distribution,
+            contract=NodeStore.__qualname__,
+            plugin=store_name,
+        )
+    if not isinstance(listed, Produced):
+        raise WeftError(
+            f"could not read sources from store '{store_name}' to confirm which layers it "
+            f"holds: {listed.reason}"
+        )
+    return listed.value
+
+
+async def _router_ready_layers(
+    *, registry: Registry, services: ServiceSelection | None, target: str | None
+) -> frozenset[str]:
+    """The layers `[services] store` has built everywhere, read once for a whole scoring run.
+
+    The walk `weft ask` takes before every ask, so a router arm is offered what `weft ask` would
+    offer (R44.13a). A store with no `list_sources` has no layer ready, as `weft ask` reads it.
+    """
+    resolved_services = services if services is not None else ServiceSelection()
+    store = await bind_store(
+        registry.entry(NodeStore, resolved_services.store).factory(None),
+        target,
+        store_name=resolved_services.store,
+    )
+    records = await read_source_records(registry, store, store_name=resolved_services.store)
+    if records is None:
+        return frozenset()
+    return ready_layers(layer_coverage_of(records))
+
+
 async def _question_hits(
     question: Question,
     *,
@@ -1352,6 +1428,7 @@ async def _question_hits(
     contributors: dict[str, tuple[str, ...]],
     question_pools: dict[str, tuple[PoolChunk, ...]],
     question_routes: dict[str, RouteView],
+    ready_layers: frozenset[str],
     capture_pool: bool,
     top_k: int,
     embed_stage: ResolvedStage,
@@ -1374,6 +1451,7 @@ async def _question_hits(
             generation_samples=generation_samples,
             contributors=contributors,
             question_routes=question_routes,
+            ready_layers=ready_layers,
             target=target,
         )
     if query_pipeline is not None and generates:
@@ -1478,6 +1556,7 @@ async def _answered_question(
     contributors: dict[str, tuple[str, ...]],
     question_pools: dict[str, tuple[PoolChunk, ...]],
     question_routes: dict[str, RouteView],
+    ready_layers: frozenset[str],
     capture_pool: bool,
     top_k: int,
     embed_stage: ResolvedStage,
@@ -1514,6 +1593,7 @@ async def _answered_question(
                 sink=sink,
                 contributions=contributions,
                 generation_samples=generation_samples,
+                ready_layers=ready_layers,
                 contributors=contributors,
                 question_pools=question_pools,
                 question_routes=question_routes,
@@ -1930,6 +2010,14 @@ async def score_pipeline(
         store_stage=store_stage,
     )
 
+    # Ledger task R44.13a — one read for the whole run, never per question; a query-pipeline
+    # or no-query-rung run offers no router arm, so it reads no source records for this at all.
+    router_ready_layers = (
+        await _router_ready_layers(registry=registry, services=services, target=target)
+        if router is not None
+        else frozenset[str]()
+    )
+
     # Task 38.11 — `weft_eval.question_set.Question.id` is required, so every question has an
     # identity and keying is never by position.
     keyed_by = QuestionKey.QUESTION_ID
@@ -2006,6 +2094,7 @@ async def score_pipeline(
                     contributors=contributors,
                     question_pools=question_pools,
                     question_routes=question_routes,
+                    ready_layers=router_ready_layers,
                     capture_pool=capture_pool,
                     top_k=top_k,
                     embed_stage=embed_stage,
@@ -2102,6 +2191,7 @@ __all__ = [
     "UnresolvableLabelError",
     "judge_prompt_digests",
     "passages_for_scoring",
+    "read_source_records",
     "resolve_labels",
     "role_tokens",
     "score_pipeline",

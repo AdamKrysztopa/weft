@@ -222,7 +222,7 @@ async def run_routed_ask(
     contributions: tuple[Contribution, ...] = (),
     roles: RoleTable = _NO_ROLES,
     target: str | None = None,
-    ready_layers: frozenset[str] | None = None,
+    ready_layers: frozenset[str] | None,
     corpus: CorpusProfile | None = None,
 ) -> tuple[Route, Answer]:
     """`weft ask`'s default path: the router picks the pipeline, so the user need not name one.

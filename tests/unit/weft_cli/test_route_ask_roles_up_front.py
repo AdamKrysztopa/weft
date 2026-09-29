@@ -266,6 +266,7 @@ def _names(message: str, word: str) -> bool:
 async def _routed(calls: Calls, llm: LLMSection) -> tuple[Route, Answer]:
     return await run_routed_ask(
         _QUESTION,
+        ready_layers=None,
         registry=_registry(calls),
         reports=_reports(*_ROUTER_AND_MEMORY),
         ctx=_ctx(),
@@ -343,6 +344,7 @@ async def test_with_no_rung_left_to_offer_the_refusal_names_the_missing_role(
     with pytest.raises(WeftError) as raised:
         await run_routed_ask(
             _QUESTION,
+            ready_layers=None,
             registry=_registry(calls),
             reports=_reports("route.yaml"),
             ctx=_ctx(),
@@ -508,6 +510,7 @@ async def test_a_rung_whose_stranger_role_field_is_unmapped_is_not_offered(
     # Act
     route, answer = await run_routed_ask(
         _QUESTION,
+        ready_layers=None,
         registry=_registry_with_stranger(calls),
         reports=_reports(*_ROUTER_AND_MEMORY),
         ctx=_ctx(),
@@ -603,6 +606,7 @@ async def test_a_rung_whose_multi_retriever_arm_role_is_unmapped_is_not_offered(
     # Act
     route, answer = await run_routed_ask(
         _QUESTION,
+        ready_layers=None,
         registry=_registry_with_multi_retriever(calls),
         reports=_reports(*_ROUTER_AND_MEMORY),
         ctx=_ctx(),
@@ -748,6 +752,7 @@ async def test_a_routed_ask_over_a_misdeclared_sub_plugin_is_refused_before_any_
     with pytest.raises(UnknownSubPluginConfigFieldError) as refused:
         await run_routed_ask(
             _QUESTION,
+            ready_layers=None,
             registry=_registry_with_misdeclared_panel(calls),
             reports=_reports(*_ROUTER_AND_MEMORY),
             ctx=_ctx(),

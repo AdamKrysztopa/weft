@@ -187,6 +187,7 @@ async def test_a_rung_ending_in_no_generator_is_refused_before_the_router_is_pai
     with pytest.raises(UnansweringRungError) as refused:
         await run_routed_ask(
             "what happens if a store advertises no capability at all?",
+            ready_layers=None,
             registry=_registry(calls),
             reports=(),
             ctx=_ctx(),

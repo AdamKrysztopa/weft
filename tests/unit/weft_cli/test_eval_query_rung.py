@@ -36,6 +36,7 @@ apart, and the tests at the foot of this file are that gap closed.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -58,6 +59,7 @@ from weft_eval.run_record import NoQueryRung, QueryRung
 from weft_generate import CitedAnswer, Generator
 from weft_generate.prompts import ANSWER_WITH_CITATIONS_NAME, AnswerWithCitationsPrompt
 from weft_kernel.context import Context
+from weft_kernel.payload import SourceId
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage, pipeline_identity
@@ -65,7 +67,8 @@ from weft_llm.client import NullSink
 from weft_prompts.contract import Prompt
 from weft_retrieve import ContextPacker, Fuser, NoRetrieval, Repack, Retriever, SingleList
 from weft_retrieve.payload import RouteView, RuleOutcome
-from weft_store import NodeStore
+from weft_store import LayerRecord, LayerStatus, NodeStore, SourceRecord, SourceStatus
+from weft_store.memory import MemoryStore
 
 
 def _question(identifier: str, text: str, relevant_documents: tuple[str, ...] = ()) -> Question:
@@ -562,6 +565,7 @@ async def test_a_router_arm_asks_through_that_router_and_records_each_question_s
         top_k=3,
         ctx=_ctx(),
         router="router-x",
+        services=ServiceSelection(embed="fake-embed", store="fake-store"),
         corpus_document_ids=("doc-a",),
     )
 
@@ -573,6 +577,106 @@ async def test_a_router_arm_asks_through_that_router_and_records_each_question_s
     }
     assert isinstance(scored.query_rung, QueryRung)
     assert scored.query_rung.name == "router-x"
+
+
+_LAYER_RECORDED_AT = datetime(2026, 9, 29, 12, 0, tzinfo=UTC)
+
+
+async def _store_with_layer(layer: LayerStatus) -> MemoryStore:
+    store = MemoryStore()
+    await store.put_source(
+        SourceRecord(
+            id=SourceId("file:///corpus/doc-a.txt"),
+            uri="file:///corpus/doc-a.txt",
+            content_hash="hash-a",
+            indexed_at=_LAYER_RECORDED_AT,
+            pipeline="index-text",
+            status=SourceStatus.ACTIVE,
+            layers=(
+                LayerRecord(
+                    name="enrich-x",
+                    pipeline_identity="x",
+                    status=layer,
+                    attempts=1,
+                    at=_LAYER_RECORDED_AT,
+                ),
+            ),
+        )
+    )
+    return store
+
+
+def _serving(store: MemoryStore) -> Callable[[object], MemoryStore]:
+    def _factory(config: object) -> MemoryStore:
+        del config
+        return store
+
+    return _factory
+
+
+async def _ready_layers_offered(
+    monkeypatch: pytest.MonkeyPatch, registry: Registry, store: str
+) -> list[object]:
+    """Score one question through a router and return the `ready_layers` each ask was handed."""
+    monkeypatch.setattr(
+        route_ask_module,
+        "full_catalogue",
+        _stub_catalogue({"router-x": _query_document(name="router-x")}),
+    )
+    offered: list[object] = []
+
+    async def _routed(question: str, **kwargs: object) -> tuple[object, object]:
+        del question
+        offered.append(kwargs.get("ready_layers", "not passed"))
+        return routed_to("rung-a"), _FakeAnswer(used=())
+
+    monkeypatch.setattr(eval_scoring_module, "run_routed_ask", _routed)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    await score_pipeline(
+        registry=registry,
+        resolved_pipeline=_ingest_resolved(),
+        questions=(_question("q-1", "why"),),
+        top_k=3,
+        ctx=_ctx(),
+        router="router-x",
+        services=ServiceSelection(embed="fake-embed", store=store),
+        corpus_document_ids=("doc-a",),
+    )
+    return offered
+
+
+async def test_a_router_arm_is_offered_only_the_layers_the_store_has_built(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R44.13a: `weft ask` withholds a rung whose layer is not built, and so does an experiment.
+
+    Told nothing, the router offered every rung: E0b's `route` arm chose
+    `questions-then-generate` over an index that never built its layer.
+    """
+    # Arrange
+    built = await _store_with_layer(LayerStatus.ACTIVE)
+    failed = await _store_with_layer(LayerStatus.FAILED)
+    registry = _query_registry()
+    registry.add(NodeStore, "built-store", _serving(built), distribution="weft-store")
+    registry.add(NodeStore, "failed-store", _serving(failed), distribution="weft-store")
+
+    # Act
+    offered_built = await _ready_layers_offered(monkeypatch, registry, "built-store")
+    offered_failed = await _ready_layers_offered(monkeypatch, registry, "failed-store")
+
+    # Assert
+    assert offered_built == [frozenset({"enrich-x"})]
+    assert offered_failed == [frozenset()]
+
+
+async def test_a_router_arm_over_a_store_that_lists_no_sources_is_offered_no_layer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Act
+    offered = await _ready_layers_offered(monkeypatch, _query_registry(), "fake-store")
+
+    # Assert
+    assert offered == [frozenset()]
 
 
 async def test_a_query_pipeline_arm_records_no_routes(monkeypatch: pytest.MonkeyPatch) -> None:
