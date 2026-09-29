@@ -1,0 +1,613 @@
+{
+  "experiment": "qasper-long-document",
+  "invocation": "a0a82bd2d0334f55bffd5c025ab29519",
+  "baseline": "dense",
+  "arm": "adjacent-chunks",
+  "prompt_version": "1.0.0",
+  "summaries": [
+    {
+      "criterion": "comprehensiveness",
+      "n": 20,
+      "wins_a": 5,
+      "wins_b": 9,
+      "ties": 6,
+      "win_rate_b": 0.6,
+      "low": 0.425,
+      "high": 0.775
+    },
+    {
+      "criterion": "diversity",
+      "n": 20,
+      "wins_a": 5,
+      "wins_b": 9,
+      "ties": 6,
+      "win_rate_b": 0.6,
+      "low": 0.425,
+      "high": 0.775
+    },
+    {
+      "criterion": "empowerment",
+      "n": 20,
+      "wins_a": 5,
+      "wins_b": 8,
+      "ties": 7,
+      "win_rate_b": 0.575,
+      "low": 0.4,
+      "high": 0.75
+    },
+    {
+      "criterion": "directness",
+      "n": 20,
+      "wins_a": 8,
+      "wins_b": 8,
+      "ties": 4,
+      "win_rate_b": 0.5,
+      "low": 0.3,
+      "high": 0.7
+    }
+  ],
+  "verdicts": [
+    {
+      "question_id": "qp-4cbe5a36b492b99f9f9fea8081fe4ba10a7a0e94",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-4cbe5a36b492b99f9f9fea8081fe4ba10a7a0e94",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-4cbe5a36b492b99f9f9fea8081fe4ba10a7a0e94",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-4cbe5a36b492b99f9f9fea8081fe4ba10a7a0e94",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-a4d115220438c0ded06a91ad62337061389a6747",
+      "criterion": "comprehensiveness",
+      "first": "tie",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-a4d115220438c0ded06a91ad62337061389a6747",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-a4d115220438c0ded06a91ad62337061389a6747",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-a4d115220438c0ded06a91ad62337061389a6747",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-d087539e6a38c42f0a521ff2173ef42c0733878e",
+      "criterion": "comprehensiveness",
+      "first": "tie",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-d087539e6a38c42f0a521ff2173ef42c0733878e",
+      "criterion": "diversity",
+      "first": "tie",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-d087539e6a38c42f0a521ff2173ef42c0733878e",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-d087539e6a38c42f0a521ff2173ef42c0733878e",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-efe9bad55107a6be7704ed97ecce948a8ca7b1d2",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-efe9bad55107a6be7704ed97ecce948a8ca7b1d2",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-efe9bad55107a6be7704ed97ecce948a8ca7b1d2",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-efe9bad55107a6be7704ed97ecce948a8ca7b1d2",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-b0d66760829f111b8fad0bd81ca331ddd943ef41",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-b0d66760829f111b8fad0bd81ca331ddd943ef41",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-b0d66760829f111b8fad0bd81ca331ddd943ef41",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-b0d66760829f111b8fad0bd81ca331ddd943ef41",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-ae7c93646aa5f3206cd759904965b4d484d12f83",
+      "criterion": "comprehensiveness",
+      "first": "tie",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-ae7c93646aa5f3206cd759904965b4d484d12f83",
+      "criterion": "diversity",
+      "first": "tie",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-ae7c93646aa5f3206cd759904965b4d484d12f83",
+      "criterion": "empowerment",
+      "first": "tie",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-ae7c93646aa5f3206cd759904965b4d484d12f83",
+      "criterion": "directness",
+      "first": "tie",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-d1ec42b2b5a3c956ff528543636e024bfde5e5ba",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-d1ec42b2b5a3c956ff528543636e024bfde5e5ba",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-d1ec42b2b5a3c956ff528543636e024bfde5e5ba",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-d1ec42b2b5a3c956ff528543636e024bfde5e5ba",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-1dac4bc5af239024566fcb0f43bb9ff1c248ecec",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-1dac4bc5af239024566fcb0f43bb9ff1c248ecec",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-1dac4bc5af239024566fcb0f43bb9ff1c248ecec",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-1dac4bc5af239024566fcb0f43bb9ff1c248ecec",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-3bf0306e9bd044f723e38170c13455877b2aeec3",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-3bf0306e9bd044f723e38170c13455877b2aeec3",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-3bf0306e9bd044f723e38170c13455877b2aeec3",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-3bf0306e9bd044f723e38170c13455877b2aeec3",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-1ff0fccf0dca95a6630380c84b0422bed854269a",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-1ff0fccf0dca95a6630380c84b0422bed854269a",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-1ff0fccf0dca95a6630380c84b0422bed854269a",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-1ff0fccf0dca95a6630380c84b0422bed854269a",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-3d7d865e905295d11f1e85af5fa89b210e3e9fdf",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-3d7d865e905295d11f1e85af5fa89b210e3e9fdf",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-3d7d865e905295d11f1e85af5fa89b210e3e9fdf",
+      "criterion": "empowerment",
+      "first": "tie",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-3d7d865e905295d11f1e85af5fa89b210e3e9fdf",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-2ad4d3d222f5237ed97923640bc8e199409cbe52",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-2ad4d3d222f5237ed97923640bc8e199409cbe52",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-2ad4d3d222f5237ed97923640bc8e199409cbe52",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-2ad4d3d222f5237ed97923640bc8e199409cbe52",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-3fad42be0fb2052bb404b989cc7d58b440cd23a0",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-3fad42be0fb2052bb404b989cc7d58b440cd23a0",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-3fad42be0fb2052bb404b989cc7d58b440cd23a0",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-3fad42be0fb2052bb404b989cc7d58b440cd23a0",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-37a79be0148e1751ffb2daabe4c8ec6680036106",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-37a79be0148e1751ffb2daabe4c8ec6680036106",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "tie",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-37a79be0148e1751ffb2daabe4c8ec6680036106",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-37a79be0148e1751ffb2daabe4c8ec6680036106",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-518dae6f936882152c162058895db4eca815e649",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-518dae6f936882152c162058895db4eca815e649",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-518dae6f936882152c162058895db4eca815e649",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-518dae6f936882152c162058895db4eca815e649",
+      "criterion": "directness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-e44a6bf67ce3fde0c6608b150030e44d87eb25e3",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-e44a6bf67ce3fde0c6608b150030e44d87eb25e3",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-e44a6bf67ce3fde0c6608b150030e44d87eb25e3",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-e44a6bf67ce3fde0c6608b150030e44d87eb25e3",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-6a31db1aca57a818f36bba9002561724655372a7",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-6a31db1aca57a818f36bba9002561724655372a7",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-6a31db1aca57a818f36bba9002561724655372a7",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-6a31db1aca57a818f36bba9002561724655372a7",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-e330e162ec29722f5ec9f83853d129c9e0693d65",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-e330e162ec29722f5ec9f83853d129c9e0693d65",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-e330e162ec29722f5ec9f83853d129c9e0693d65",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-e330e162ec29722f5ec9f83853d129c9e0693d65",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "b",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-d3093062aebff475b4deab90815004051e802aa6",
+      "criterion": "comprehensiveness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-d3093062aebff475b4deab90815004051e802aa6",
+      "criterion": "diversity",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-d3093062aebff475b4deab90815004051e802aa6",
+      "criterion": "empowerment",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-d3093062aebff475b4deab90815004051e802aa6",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    },
+    {
+      "question_id": "qp-384bf1f55c34b36cb03f916f50bbefade6c86a75",
+      "criterion": "comprehensiveness",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-384bf1f55c34b36cb03f916f50bbefade6c86a75",
+      "criterion": "diversity",
+      "first": "b",
+      "swapped": "b",
+      "outcome": "b"
+    },
+    {
+      "question_id": "qp-384bf1f55c34b36cb03f916f50bbefade6c86a75",
+      "criterion": "empowerment",
+      "first": "b",
+      "swapped": "a",
+      "outcome": "tie"
+    },
+    {
+      "question_id": "qp-384bf1f55c34b36cb03f916f50bbefade6c86a75",
+      "criterion": "directness",
+      "first": "a",
+      "swapped": "a",
+      "outcome": "a"
+    }
+  ],
+  "failures": [],
+  "unpaired": []
+}
