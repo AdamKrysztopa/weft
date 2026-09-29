@@ -18,6 +18,11 @@ One agent definition, two models. `model` on the dispatch overrides the definiti
 | **`haiku`** | The test fully specifies the artefact. Every field, type, name and signature is either in the test or in the brief, and a careful reader could produce the file with no other input — payload models, enum files, fixtures, a registration entry, a fully-specified helper. | Nothing is left to judgment, so nothing is bought by paying for judgment. |
 | **`sonnet`** (default) | Everything else — anything where the implementation shape is still open, touches the seam, spans more than one module, or needs the surrounding code read to get right. | This is the working tier. When you are unsure which side the task falls on, it is this one. |
 
+A `haiku` green is read for new validators, adapters and suppressions outside the brief: a cheaper
+tier contorts production code where a stronger one blocks (`L28.74`). And a brief for any agent
+that edits shared files in place, implementer or not, says it may not fork or spawn agents; where
+two agents' readings of a source disagree, the dispatcher reads the source (`L28.80`).
+
 **Escalation goes up, never sideways.** A dispatch that comes back blocked or fails your review is
 re-dispatched **one tier up** with the blocker answered in the brief — never re-sent at the same
 tier with a firmer tone. Above `sonnet` is you: a task that fails review twice is a task whose test

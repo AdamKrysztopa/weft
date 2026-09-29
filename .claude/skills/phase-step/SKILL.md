@@ -68,14 +68,18 @@ for once; the accounts are in `references/evidence.md` → *Claims about the tre
   asked (`L22.23`).
 - A claim about code placed in a question to the owner is read against the code's callers first,
   never its name or docstring (`L28.54`); a pipeline's cost is every stage of its resolved form,
-  never the stage it is named for (`L28.68`).
+  never the stage it is named for (`L28.68`). A plan that puts several arms on one store lists,
+  per arm, every kind of node that arm's retriever reads there, derived layers included, against
+  the retriever's default filter (`L28.82`).
 - A repair entry is held to this as much as a document. A population is what the binary or the
   registry enumerates, not the directory the question started in, and where a claim does not need
   a cardinality it states none (`L22.2`). A remedy relying on a computed value names every site
   that computes it — `git grep` the function, not the concept — and is measured on each, the
   default path first (`L26.2`). A repair that binds a check suite to a subject is sized after the
   suite has run against it once, every exception caught and counted; "read, not run" sized
-  `R43.54` at M and it was L, with a false universal in the kit (`L28.61`).
+  `R43.54` at M and it was L, with a false universal in the kit (`L28.61`). A repair filed from
+  reading names the record or run that would show the defect, and every docstring on the cited
+  path is read before filing (`L28.75`).
 - A sweep supporting "one instance left" searches for the **subject** and reads the hits, never
   for the sentence being corrected (`L22.5`).
 - A repair's `owner` is where the raise is: grep the message's literal text, read the function that
@@ -163,7 +167,10 @@ own reason (`L28.36`, twice in Phase 43, each a blocked return on a fixture defe
 A dispatched red writer works to `references/red-writer.md`, and a red you write yourself owes
 the same pin sweep (`L28.45`, `L28.62`): a set the change grows, or a name it renames or re-types, is
 pinned in `tests/` and `examples/` as a literal — `git grep` the old name as a string — and the red
-updates each pin. **A version move cites the row of `09`'s two-audience table it follows**
+updates each pin. The sweep covers a class placed into an identity-keyed site (every file the grep
+for a sibling class returns is opened, `L28.69`) and every rendered string or computed number the
+change moves, across `tests/`, `manual/` and `README.md` (`L28.72`). Before writing a file you
+believe is new, list its path (`L28.70`). **A version move cites the row of `09`'s two-audience table it follows**
 (`L28.44`); where a contract's version trail disagrees with that table, the disagreement is filed,
 never resolved by following the precedent. Test-first is the project owner's standing
 direction (`build-ledger.md` → *The working protocol*), not a gate — it is not re-argued in a task.
@@ -218,7 +225,15 @@ paid for once; the accounts are in `references/evidence.md` → *Red*.
   much as in a fitness function; for a parametrised control, assert the transform actually changed
   something (`L9.28`, `L9.58`).
 - An assertion over rendered output carries its field's label — `"<label>: <value>"` — never a
-  bare value or sentinel (`L17.18`).
+  bare value or sentinel (`L17.18`); a new column is asserted by whole cells, never a suffix a
+  neighbouring label already ends in (`L28.71`).
+- A red builds every value through the path the product reads it by: configuration through the
+  product's loader, command arguments through `weft_cli.cli.build_parser`, produced ground truth
+  through the consumer that resolves it — never a model constructor fed a remembered shape
+  (`L28.73`, `L28.74`, `L28.77`). Every item in a brief's *Already decided* has a red test that
+  fails without it (`L28.81`).
+- A check looping over a committed population is parametrised per member when it is written, so
+  its timeout does not grow with the population (`L28.84`, recurring `L26.6`).
 - A copied-and-extended fixture is constructed once, standing alone, before an assertion is
   written around it, and a double already carrying the field you add is grepped for first
   (`L18.3`). When a change starts writing a type down that nothing wrote down before, the test
@@ -272,7 +287,8 @@ Step 0 and what to check on return. The agent's standing prohibitions live in
 1. **Run `uv run poe ci-no-tests` before dispatching.** The brief's *done when* names the gate, so
    it must report on the agent's diff and nothing else; a tree already red hands over a diagnosis
    instead (`L6.30`). A test-first tree is red at `types`, where `ci-no-tests` aborts, so also run
-   `uv run pytest tests/architecture -q`, or say in the brief which steps were not reached (`L21.8`).
+   `uv run pytest tests/architecture -q` and `uv run poe cognitive`, or say in the brief which
+   steps were not reached (`L21.8`, `L28.83`).
 2. **Build the red patch last, from everything uncommitted**, into the scratchpad: `git diff` for
    edited files, `git diff --no-index /dev/null <file>` for new ones (`git add -N` needs a
    `git reset` to undo). The worktree is built from `HEAD`, where the red tests are not (`L22.19`).
@@ -403,7 +419,11 @@ A task is not done until all of these are true. Accounts in `references/evidence
      narrower green confirms nothing, and an order-dependent failure vanishes under narrowing. A
      message naming an environment state is a hypothesis, not a diagnosis (`L6.32`);
    - when the change touches what a timed test exercises, read that test's time on the last CI
-     run; past half its timeout, it gets its own budget before the push (`L26.6`).
+     run; past half its timeout, it gets its own budget before the push (`L26.6`);
+   - a held container narrows where tests run, never which: point `WEFT_DATABASE_URL` at a
+     throwaway instance and run the whole gate, never a hand-picked subset (`L28.78`);
+   - a paid run's score is reported with its `n` and `excluded` beside it, and arms are compared on
+     the questions both scored (`L28.79`).
 3. **Any fitness function the task's *turns on* field names is wired and green** — added to the
    `ci-checks` composite in the same commit, because fitness function 0 fails otherwise.
 4. **A check you added can fail, and you have watched it.** Plant a disagreeing case *after*

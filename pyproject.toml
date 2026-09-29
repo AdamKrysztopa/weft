@@ -90,6 +90,8 @@ lint = "ruff check ."
 # invalidated it. Two real errors sat under a green gate across four runs. `ci-checks` is the
 # canonical gate and runs rarely, so it can afford to start cold; `ci-no-tests` is the fast
 # baseline and keeps its cache, which is what makes the two tasks mean different things.
+# `ci-task` starts cold too (`L28.76`): every red-first task creates exactly the file whose
+# existence flips a classification, and the per-task gate is what reaches main.
 cold-lint-cache = "ruff clean"
 types = "pyright"
 cognitive = "complexipy"
@@ -190,7 +192,7 @@ if printf '%s\\n' "$changed" | grep -q '^examples/'; then poe examples-tests; fi
 """
 
 [tool.poe.tasks.ci-task]
-sequence = ["fmt", "lint", "types", "cognitive", "test-task"]
+sequence = ["cold-lint-cache", "fmt", "lint", "types", "cognitive", "test-task"]
 help = "Per task: format, lint, types, cognitive complexity over the whole tree, then only the impacted tests. Not the gate — ci-checks runs at a phase's close."
 
 [tool.poe.tasks.ci-checks]
