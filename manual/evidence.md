@@ -124,6 +124,25 @@ The five statuses:
 
 ## 4. The measurements, newest first
 
+### Phase 44: do the shipped routers beat always using one search? (2026-09-29)
+
+- **Question.** `weft ask` can route each question to a rung. Does the model-driven `route`, or
+  `route-by-score`, answer better than `route-fixed`, which always picks
+  `retrieve-then-generate`?
+- **Data.** The 107 English questions over the 16 `validation-en` papers, one repetition per
+  router, `gpt-5.6-luna` answering and judging, `text-embedding-3-large`. About $0.65.
+- **Result.** Neither clears the pre-registered +0.03 margin; both are `benefit-ruled-out`.
+  `route` −0.000 `answer_correctness` (95% interval −0.026 to +0.024), `route-by-score` +0.012
+  (−0.008 to +0.030), with `route-fixed` at 0.670. Both lose a little `token_recall`, and `route`
+  more than doubles the p95 latency (21.8 s against 9.1 s). `route` sent 64 of the 107 questions
+  to `raptor-and-leaves-rrf` on an index with no RAPTOR tree, so those answers came from its leaf
+  search alone. One question it routed to `corrective-retrieve`, which kept three passages, so its
+  @5 retrieval metrics are undefined; `answer_correctness` excludes none. Source:
+  `eval/experiments/route-shipped-en/table.md`.
+- **What it means for you.** Keep `route-fixed`, the default. Choosing among the shipped rungs by
+  a model's reading of the question does not answer these questions better and costs a second
+  model call and latency.
+
 ### Phase 44: at what corpus size does reading everything stop paying off? (2026-09-29)
 
 - **Question.** `whole-corpus-wide-then-generate` sends the model every leaf of the corpus.
