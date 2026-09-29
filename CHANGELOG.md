@@ -73,7 +73,7 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   called twice per question and criterion, and a verdict that changes with the order counts as a
   tie. It prints the arm's win rate with a paired interval, and writes a record under
   `<experiment>/pairwise/`. It never regenerates an answer; a record from before answers were kept
-  is refused (`UnrecordedAnswersError`). `--limit N` judges only the first N questions.
+  is refused (`UnrecordedAnswersError`). `--limit N` judges only the first N questions. `--only <file>` judges only the question ids the file lists, one per line.
 
 - **A routing decision is on the router's trace span.** The policy stage's span carries
   `weft.route.pipeline`, `weft.route.outcome` and, when a rule matched, `weft.route.rule`, so an
