@@ -15,7 +15,7 @@ speaks only to refuse. Fixing one of the two points is not fixing the seam.
 
 **And the refusal has to name something an operator can type.** The one production call site passes
 `store_name=type(store).__name__`
-(`packages/weft-rag/src/weft_cli/route_ask.py:1018 'to turn '`), so
+(`packages/weft-rag/src/weft_cli/route_ask.py:1034 'to turn '`), so
 a live
 refusal reads *the configured store 'PgVectorStore'* while `[services] store` accepts `pgvector`.
 Every one of the six other call sites is a test passing a plausible plugin-shaped name by hand, so

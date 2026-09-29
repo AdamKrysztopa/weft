@@ -97,7 +97,12 @@ def test_an_unknown_route_key_is_refused_naming_the_document_and_the_keys(
     message = str(refused.value)
     assert "'misspelt'" in message
     assert "'route.require'" in message
-    assert refused.value.valid_options == ("route.cost", "route.requires", "route.summary")
+    assert refused.value.valid_options == (
+        "route.cost",
+        "route.requires",
+        "route.requires-nodes",
+        "route.summary",
+    )
 
 
 def test_a_document_whose_only_route_key_is_misspelt_is_refused_too() -> None:

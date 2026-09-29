@@ -57,6 +57,7 @@ from weft_kernel.seam import wrap
 from weft_llm.contract import LLMRole
 from weft_retrieve.contract import SubPlugin
 from weft_retrieve.payload import RouteCandidate
+from weft_store.contract import Filter, FilterOp
 
 #: The two `vars:` keys a routable pipeline writes — `weft_retrieve.contract.
 #: RouteCatalogue`'s own docstring, and `.phase2-design.md` §5's worked examples.
@@ -66,11 +67,16 @@ _ROUTE_COST_VAR = "route.cost"
 #: built over the whole corpus writes the layer's own document name here. A candidate naming
 #: one is offered only when the caller's `ready_layers` says that layer is built everywhere.
 _ROUTE_REQUIRES_VAR = "route.requires"
+#: Carried repair **R44.13b/c** — a rung whose retrieval reads nodes a base pipeline, the
+#: shipped layer or a project's own derived layer may have written writes the equality here
+#: (`<field>=<value>`) rather than naming a layer, because no layer name is common to all
+#: three sources. A candidate naming one is offered only when the store holds a matching node.
+_ROUTE_REQUIRES_NODES_VAR = "route.requires-nodes"
 #: Carried repair **R43.13** — every `route.` var a routable document may write, sorted:
-#: `UnknownRouteVarError`'s own `valid_options`, derived rather than restated so the three
+#: `UnknownRouteVarError`'s own `valid_options`, derived rather than restated so the four
 #: constants above stay the one place this set is spelled.
 _ROUTE_VARS: tuple[str, ...] = tuple(
-    sorted((_ROUTE_SUMMARY_VAR, _ROUTE_COST_VAR, _ROUTE_REQUIRES_VAR))
+    sorted((_ROUTE_SUMMARY_VAR, _ROUTE_COST_VAR, _ROUTE_REQUIRES_VAR, _ROUTE_REQUIRES_NODES_VAR))
 )
 _NOTHING_MAPPED: frozenset[str] = frozenset()
 
@@ -120,11 +126,22 @@ class UnknownSubPluginConfigFieldError(PipelineResolutionError, UnresolvedNameEr
         self.valid_options = valid_options
 
 
+class MalformedRouteRequirementError(PipelineResolutionError):
+    """A document's `route.requires-nodes` is not `<field>=<value>` — carried repair **R44.13b/c**.
+
+    Not `UnresolvedNameError`: there is no enumerable set of valid values to offer, only a
+    shape the string must have. `pipeline` names the document that wrote it.
+    """
+
+
 def _check_route_vars(name: str, pipeline: Pipeline) -> None:
     """Catch a misspelt `route.` key at load, naming the keys the router actually reads.
 
     Refuse `pipeline` when its own `vars` carry a `route.` key outside `_ROUTE_VARS` —
-    carried repair **R43.13**. Keys outside the `route.` namespace are untouched.
+    carried repair **R43.13**. Keys outside the `route.` namespace are untouched. Also
+    refuses a malformed `route.requires-nodes` value — carried repair **R44.13b/c** — so a
+    typo is caught here, at load, beside its sibling refusal rather than only where the
+    value is later read as a filter.
     """
     for key in pipeline.vars:
         if key.startswith("route.") and key not in _ROUTE_VARS:
@@ -134,6 +151,45 @@ def _check_route_vars(name: str, pipeline: Pipeline) -> None:
                 valid_options=_ROUTE_VARS,
                 pipeline=name,
             )
+    if _ROUTE_REQUIRES_NODES_VAR in pipeline.vars:
+        _validated_node_requirement(name, pipeline.vars[_ROUTE_REQUIRES_NODES_VAR])
+
+
+def _validated_node_requirement(name: str, value: object) -> str:
+    """`value`, as a `str`, once it has proven itself a valid node requirement spec."""
+    spec = str(value)
+    try:
+        node_requirement_filter(spec)
+    except ValueError as exc:
+        raise MalformedRouteRequirementError(
+            f"'{name}' sets route.requires-nodes to {value!r}, which is not "
+            f"'<field>=<value>' — for example 'ext.weft-index.technique=raptor'.",
+            pipeline=name,
+        ) from exc
+    return spec
+
+
+def node_requirement_filter(spec: str) -> Filter:
+    """The equality filter `spec` (`<field>=<value>`) describes.
+
+    Raises `ValueError` when `spec` does not split on exactly one `=` into two non-empty,
+    stripped halves — the catalogue turns that into `MalformedRouteRequirementError`, named
+    for the document that wrote it.
+    """
+    field, sep, value = spec.partition("=")
+    field, value = field.strip(), value.strip()
+    if not sep or not field or not value:
+        raise ValueError(f"{spec!r} is not '<field>=<value>'")
+    return Filter(op=FilterOp.EQ, field=field, value=value)
+
+
+def node_requirements(catalogue: Mapping[str, Pipeline]) -> frozenset[str]:
+    """Every distinct `route.requires-nodes` value written anywhere in `catalogue`."""
+    return frozenset(
+        str(pipeline.vars[_ROUTE_REQUIRES_NODES_VAR])
+        for pipeline in catalogue.values()
+        if _ROUTE_REQUIRES_NODES_VAR in pipeline.vars
+    )
 
 
 class RegistryStageLookup:
@@ -466,12 +522,19 @@ def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> boo
     """Whether `pipeline` may be offered, given the layers that are ready.
 
     Whether `pipeline` may be offered — `ready_layers=None` (told nothing) offers
-    everything, on every caller before ledger task **43.9**'s own footing.
+    everything, on every caller before ledger task **43.9**'s own footing. A
+    `route.requires-nodes` value is checked the identical way — carried repair
+    **R44.13b/c** — as its exact spec string, once the caller has folded every
+    requirement the store actually satisfies into `ready_layers`
+    (`weft_cli.route_ask.satisfied_node_requirements`).
     """
     if ready_layers is None:
         return True
     required = pipeline.vars.get(_ROUTE_REQUIRES_VAR)
-    return required is None or str(required) in ready_layers
+    if required is not None and str(required) not in ready_layers:
+        return False
+    required_nodes = pipeline.vars.get(_ROUTE_REQUIRES_NODES_VAR)
+    return required_nodes is None or str(required_nodes) in ready_layers
 
 
 def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:

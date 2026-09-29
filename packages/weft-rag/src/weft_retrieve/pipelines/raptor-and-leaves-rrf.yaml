@@ -2,6 +2,8 @@ name: raptor-and-leaves-rrf
 vars:
   route.summary: "Two bases at once — the leaf chunks and the RAPTOR summaries built over them — fused by reciprocal rank."
   route.cost: "one embedding call, two searches, one model call"
+  # Its summary arm above reads exactly this node — offer it only where one exists (R44.13b/c).
+  route.requires-nodes: ext.weft-index.technique=raptor
 stages:
   # One retriever, two arms. It is one stage rather than two because a pipeline is an ordered
   # list: two retrievers in sequence do not compose by type, and the binary says so. See

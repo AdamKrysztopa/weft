@@ -2294,13 +2294,29 @@ The answer then says under it how far the layer has got.
 
 ```text
 'my-rung' sets 'route.require', which the router does not read. A routable document reads:
-route.cost, route.requires, route.summary.
+route.cost, route.requires, route.requires-nodes, route.summary.
 ```
 
 **Why** — a misspelt key would be ignored: `route.require` would leave a rung offered over a
 layer that is still being built, and `route.sumary` would leave it never offered at all.
 
 **What to do:** correct the key to one the message lists, or remove it.
+
+### `MalformedRouteRequirementError`
+
+**What it looks like** — a pipeline document's `route.requires-nodes` is not `<field>=<value>`:
+
+```text
+'my-rung' sets route.requires-nodes to 'raptor', which is not '<field>=<value>' — for example
+'ext.weft-index.technique=raptor'.
+```
+
+**Why** — the router offers a rung only when the store holds a node its retrieval would read,
+and it asks the store with exactly this equality. A value it cannot read as one would either
+offer the rung over nothing or never offer it, with nothing said.
+
+**What to do:** write the field the rung's own filter reads, then `=`, then the value, as
+`raptor-and-leaves-rrf` does.
 
 ### `UnknownSubPluginConfigFieldError`
 

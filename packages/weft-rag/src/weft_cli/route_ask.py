@@ -62,9 +62,10 @@ and the resolved store — factored out once both existed, rather than a second 
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
+from typing import cast
 
 from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import RefusedStagePluginError, contracts_for, to_specs
@@ -84,22 +85,29 @@ from weft_engine.run_services import (
 )
 from weft_engine.service_roles import RoleTable
 from weft_engine.services import DEFAULT_ROUTER, ServiceSelection
+from weft_engine.targets import bind_store
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import Produced
+from weft_kernel.payload import Node, Produced
 from weft_kernel.pipeline import Pipeline
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
+from weft_kernel.seam import aclose
 from weft_llm.contract import LLMProvider, TokenSink
 from weft_retrieve.contract import RoutingPolicy
-from weft_retrieve.engine import roles_needed, route_catalogue
+from weft_retrieve.engine import (
+    node_requirement_filter,
+    node_requirements,
+    roles_needed,
+    route_catalogue,
+)
 from weft_retrieve.payload import Passages, Query, QuerySet, Ranking, Route
 from weft_retrieve.profile import CorpusProfile
-from weft_store import NodeStore
+from weft_store import Filter, NodeStore, Page
 
 #: `route.yaml`'s own `name:` field, and **the default rather than the law** since ledger task
 #: **8.3**. It was a module constant until then, and `weft_engine.services.DEFAULT_ROUTER` — where
@@ -395,8 +403,16 @@ async def _router_and_prepared_runner(
     (`NoRouterPipelineError` by name if nothing answers), the rungs it may offer
     (`_offerable_rung_roles`, which raises `UnmappedLLMRoleError` before any call — repair
     **R43.30**), and the assembled `PreparedRunner` both callers run stages against.
+
+    `ready_layers` is folded together with `_ready_layers_including_nodes` before either of
+    those two — carried repair **R44.13b/c** — so a rung's `route.requires-nodes` reaches
+    both the up-front role check and the `RouteCatalogue` `_prepared_runner` registers as one
+    fact, asked of the store exactly once per call.
     """
     catalogue = full_catalogue(reports=reports)
+    ready_layers = await _ready_layers_including_nodes(
+        ready_layers, catalogue, registry=registry, services=services, target=target
+    )
     router_name = services.route
     router = catalogue.get(router_name)
     if router is None:
@@ -1514,3 +1530,66 @@ async def run_named_rerank(
         pipeline=pipeline_name,
         produced_by="a pool replay",
     )
+
+
+async def _ready_layers_including_nodes(
+    ready_layers: frozenset[str] | None,
+    catalogue: Mapping[str, Pipeline],
+    *,
+    registry: Registry,
+    services: ServiceSelection,
+    target: str | None,
+) -> frozenset[str] | None:
+    """`ready_layers`, plus every `route.requires-nodes` spec the configured store satisfies.
+
+    Carried repair **R44.13b/c**. `ready_layers=None` (told nothing) is returned untouched —
+    the store is never queried on that path, exactly as `weft_retrieve.engine._layer_ready`'s
+    own docstring says of a caller who asked for nothing filtered. Otherwise a fresh
+    `NodeStore` is built and bound to `target` the identical way `weft_engine.run_services.
+    build_services` binds its own, asked once for every distinct `route.requires-nodes` spec
+    `node_requirements` finds in `catalogue`, and closed again before this returns — the
+    router's own store, built next by `_prepared_runner`, is a separate instance.
+    """
+    if ready_layers is None:
+        return None
+    requirements = node_requirements(catalogue)
+    if not requirements:
+        return ready_layers
+    entry = registry.entry(NodeStore, services.store)
+    store = await bind_store(entry.factory(None), target, store_name=services.store)
+    try:
+        satisfied = await satisfied_node_requirements(store, requirements)
+    finally:
+        await aclose(
+            store,
+            distribution=entry.distribution,
+            contract=NodeStore.__name__,
+            plugin=services.store,
+            stage="route:requires-nodes",
+        )
+    return ready_layers | satisfied
+
+
+async def satisfied_node_requirements(
+    store: object, requirements: frozenset[str]
+) -> frozenset[str]:
+    """Every `route.requires-nodes` spec in `requirements` a node in `store` actually satisfies.
+
+    Carried repair **R44.13b**: a requirement is satisfied when `store`'s own `matching` finds
+    at least one node for the requirement's filter — the first page only, since existence is
+    all the question asks. A store with no callable `matching` satisfies none rather than
+    raising, the same defensive read `weft_kernel.seam.aclose` already gives an optional
+    capability. No requirements asks the store nothing at all.
+    """
+    if not requirements:
+        return frozenset()
+    found = getattr(store, "matching", None)
+    if found is None or not callable(found):
+        return frozenset()
+    matching = cast("Callable[[Filter], Awaitable[Page[Node]]]", found)
+    satisfied: set[str] = set()
+    for spec in requirements:
+        page = await matching(node_requirement_filter(spec))
+        if page.items:
+            satisfied.add(spec)
+    return frozenset(satisfied)
