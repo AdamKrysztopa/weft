@@ -124,6 +124,27 @@ The five statuses:
 
 ## 4. The measurements, newest first
 
+### Phase 44: at what corpus size does reading everything stop paying off? (2026-09-29)
+
+- **Question.** `whole-corpus-wide-then-generate` sends the model every leaf of the corpus.
+  Where, as a corpus grows, does that stop beating one search? The answer is the first routing
+  rule's threshold.
+- **Data.** Nested subsets of `validation-en` — 4, 8 and 16 papers, chosen by seed — each keeping
+  only the questions whose every cited paper is inside: 23, 50 and 107 questions. The 16-paper
+  point is `whole-corpus-en` (two repetitions); the two subsets ran one repetition each for $2.22.
+- **Result.** No such size within this corpus. Reading everything holds at about 0.75
+  `answer_correctness` at every size (0.756, 0.758, 0.743), while one search falls as the corpus
+  grows (0.736, 0.722, 0.672). The paired gain grows with it: +0.020 (95% interval −0.032 to
+  +0.077) at 4 papers, +0.036 (−0.012 to +0.089) at 8, +0.075 (+0.039 to +0.117) at 16 — the
+  first two inconclusive on 23 and 50 questions. Sources:
+  `eval/experiments/whole-corpus-size-25/table.md`, `-50/table.md`,
+  `eval/experiments/whole-corpus-en/table.md`.
+- **What it means for you.** While the whole corpus fits the generate role's `context_tokens`,
+  reading it is at least as good as one search here, and better as the corpus grows. What limits
+  it is context and cost — about 260,000 prompt tokens, $0.054, per question at 16 papers —
+  not answer quality. Declaring `context_tokens` on the generate role is what lets the router
+  test `corpus.fits_context`.
+
 ### Phase 44: does reading more of a long document help? (2026-09-29)
 
 - **Question.** When a question is about one long paper, does giving the model more of the paper

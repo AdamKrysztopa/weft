@@ -1,0 +1,2578 @@
+{
+  "recorded_at": "2026-09-29T08:28:42.396554+00:00",
+  "resolved_pipeline": {
+    "name": "index-openai-large-pdf",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-pdf-text"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.1.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-large",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-openai-large-pdf"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "3.1.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "../../corpus/subsets/validation-en-25",
+    "digest": "ba5aa8f9346d3702db68af2e8c0a804c15554cf09cb6ab292eddf2682377562e"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-large",
+    "role:fanout": "openai:gpt-5.6-luna",
+    "role:generate": "openai:gpt-5.6-luna",
+    "role:grade": "openai:gpt-5.6-luna",
+    "role:hyde": "openai:gpt-5.6-luna",
+    "role:rerank": "openai:gpt-5.6-luna",
+    "role:rewrite": "openai:gpt-5.6-luna",
+    "role:stepback": "openai:gpt-5.6-luna"
+  },
+  "active_distributions": [
+    "weft-rag"
+  ],
+  "distribution_versions": {
+    "weft-rag": "3.1.0"
+  },
+  "durations": {
+    "ingest_seconds": 14.777281749993563,
+    "query_seconds": 326.36368670896627
+  },
+  "corpus_digest_basis": "document-bytes",
+  "query_rung": {
+    "name": "retrieve-then-generate",
+    "identity": "2d5ec8cdd06ec8ab312c0709f35af360"
+  },
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.9347826086956522,
+        "n": 23,
+        "stdev": 0.17217511078754547,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9347826086956522,
+            "n": 23,
+            "stdev": 0.17217511078754547
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.9,
+            "n": 5,
+            "stdev": 0.22360679774997896
+          },
+          "methodological": {
+            "mean": 0.9285714285714286,
+            "n": 7,
+            "stdev": 0.18898223650461363
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.5,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "mrr@5": {
+      "value": {
+        "reported_name": "mrr@5",
+        "mean": 0.9565217391304348,
+        "n": 23,
+        "stdev": 0.1440520327600152,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9565217391304348,
+            "n": 23,
+            "stdev": 0.1440520327600152
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.9,
+            "n": 5,
+            "stdev": 0.22360679774997896
+          },
+          "methodological": {
+            "mean": 0.9285714285714286,
+            "n": 7,
+            "stdev": 0.18898223650461363
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "ndcg@5": {
+      "value": {
+        "reported_name": "ndcg@5",
+        "mean": 0.9510872478221032,
+        "n": 23,
+        "stdev": 0.1291676622867489,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9510872478221032,
+            "n": 23,
+            "stdev": 0.1291676622867489
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.9261859507142916,
+            "n": 5,
+            "stdev": 0.16505323189736398
+          },
+          "methodological": {
+            "mean": 0.9472756790816368,
+            "n": 7,
+            "stdev": 0.1394954411947497
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.6131471927654584,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "precision@5": {
+      "value": {
+        "reported_name": "precision@5",
+        "mean": 0.2,
+        "n": 23,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.2,
+            "n": 23,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.2,
+            "n": 5,
+            "stdev": 0.0
+          },
+          "methodological": {
+            "mean": 0.2,
+            "n": 7,
+            "stdev": 0.0
+          },
+          "quantitative": {
+            "mean": 0.2,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 0.2,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 0.2,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.2,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "recall@5": {
+      "value": {
+        "reported_name": "recall@5",
+        "mean": 0.9782608695652174,
+        "n": 23,
+        "stdev": 0.10425720702853739,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9782608695652174,
+            "n": 23,
+            "stdev": 0.10425720702853739
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 1.0,
+            "n": 5,
+            "stdev": 0.0
+          },
+          "methodological": {
+            "mean": 1.0,
+            "n": 7,
+            "stdev": 0.0
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.5,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "accuracy": {
+      "value": {
+        "reported_name": "accuracy",
+        "mean": 0.0,
+        "n": 23,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 23,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "embedding-similarity": {
+      "reason": "'embedding-similarity' needs a service this run does not provide: no service is registered for Embedder on this run. It is unavailable because nothing resolved one before this stage ran. Services available on this run: Dependencies, LLM, Prompts, Registry, TokenSink."
+    },
+    "exact_match": {
+      "value": {
+        "reported_name": "exact_match",
+        "mean": 0.0,
+        "n": 23,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 23,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "f1_score": {
+      "value": {
+        "reported_name": "f1_score",
+        "mean": 0.3545942171746414,
+        "n": 23,
+        "stdev": 0.09474358007422524,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3545942171746414,
+            "n": 23,
+            "stdev": 0.09474358007422524
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "key_terms_precision": {
+      "value": {
+        "reported_name": "key_terms_precision",
+        "mean": 0.3506868947001204,
+        "n": 23,
+        "stdev": 0.11639758080894043,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3506868947001204,
+            "n": 23,
+            "stdev": 0.11639758080894043
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "overlap-at-threshold": {
+      "reason": "'overlap-at-threshold' needs a configuration this gate-subset run cannot supply with no arguments: 1 validation error for AtThresholdConfig\nthreshold\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing"
+    },
+    "rouge_1": {
+      "value": {
+        "reported_name": "rouge_1",
+        "mean": 0.4913303599537559,
+        "n": 23,
+        "stdev": 0.1155273059179492,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.4913303599537559,
+            "n": 23,
+            "stdev": 0.1155273059179492
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_2": {
+      "value": {
+        "reported_name": "rouge_2",
+        "mean": 0.22962858055492014,
+        "n": 23,
+        "stdev": 0.11372609187126477,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.22962858055492014,
+            "n": 23,
+            "stdev": 0.11372609187126477
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_l": {
+      "value": {
+        "reported_name": "rouge_l",
+        "mean": 0.3685987319882214,
+        "n": 23,
+        "stdev": 0.12598257228416246,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3685987319882214,
+            "n": 23,
+            "stdev": 0.12598257228416246
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_overlap": {
+      "value": {
+        "reported_name": "token_overlap",
+        "mean": 0.33715678806427757,
+        "n": 23,
+        "stdev": 0.11202217681521891,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.33715678806427757,
+            "n": 23,
+            "stdev": 0.11202217681521891
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_recall": {
+      "value": {
+        "reported_name": "token_recall",
+        "mean": 0.539798075971515,
+        "n": 23,
+        "stdev": 0.1297000009932691,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.539798075971515,
+            "n": 23,
+            "stdev": 0.1297000009932691
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "answer_correctness": {
+      "value": {
+        "reported_name": "answer_correctness",
+        "mean": 0.7360249495836808,
+        "n": 23,
+        "stdev": 0.20433086400126965,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.7360249495836808,
+            "n": 23,
+            "stdev": 0.20433086400126965
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    }
+  },
+  "question_set_digest": "3bc5e80eebc19f8300a9a2fb262922fd7efa03bf8107dff0b53171ba785f9c23",
+  "question_set_digest_basis": "question-set",
+  "question_scores": {
+    "mean_average_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.5
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.5
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.5
+        }
+      }
+    },
+    "mrr@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.5
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.5
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 1.0
+        }
+      }
+    },
+    "ndcg@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.6309297535714575
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.6309297535714575
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.6131471927654584
+        }
+      }
+    },
+    "precision@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.2
+        },
+        "fetch-012": {
+          "value": 0.2
+        },
+        "fetch-013": {
+          "value": 0.2
+        },
+        "fetch-014": {
+          "value": 0.2
+        },
+        "fetch-015": {
+          "value": 0.2
+        },
+        "fetch-036": {
+          "value": 0.2
+        },
+        "fetch-037": {
+          "value": 0.2
+        },
+        "fetch-038": {
+          "value": 0.2
+        },
+        "fetch-039": {
+          "value": 0.2
+        },
+        "fetch-040": {
+          "value": 0.2
+        },
+        "operator-001": {
+          "value": 0.2
+        },
+        "operator-002": {
+          "value": 0.2
+        },
+        "operator-003": {
+          "value": 0.2
+        },
+        "operator-004": {
+          "value": 0.2
+        },
+        "operator-005": {
+          "value": 0.2
+        },
+        "operator-006": {
+          "value": 0.2
+        },
+        "operator-007": {
+          "value": 0.2
+        },
+        "operator-008": {
+          "value": 0.2
+        },
+        "operator-009": {
+          "value": 0.2
+        },
+        "operator-010": {
+          "value": 0.2
+        },
+        "operator-011": {
+          "value": 0.2
+        },
+        "operator-012": {
+          "value": 0.2
+        },
+        "operator-048": {
+          "value": 0.2
+        }
+      }
+    },
+    "recall@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 1.0
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 1.0
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.5
+        }
+      }
+    },
+    "accuracy": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        }
+      }
+    },
+    "embedding-similarity": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "exact_match": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        }
+      }
+    },
+    "f1_score": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.28301886792452835
+        },
+        "fetch-012": {
+          "value": 0.3121951219512195
+        },
+        "fetch-013": {
+          "value": 0.26573426573426573
+        },
+        "fetch-014": {
+          "value": 0.5573770491803278
+        },
+        "fetch-015": {
+          "value": 0.3054187192118227
+        },
+        "fetch-036": {
+          "value": 0.35074626865671643
+        },
+        "fetch-037": {
+          "value": 0.45714285714285713
+        },
+        "fetch-038": {
+          "value": 0.3076923076923077
+        },
+        "fetch-039": {
+          "value": 0.5028571428571429
+        },
+        "fetch-040": {
+          "value": 0.3776223776223776
+        },
+        "operator-001": {
+          "value": 0.3194444444444445
+        },
+        "operator-002": {
+          "value": 0.3548387096774193
+        },
+        "operator-003": {
+          "value": 0.5581395348837208
+        },
+        "operator-004": {
+          "value": 0.2647058823529412
+        },
+        "operator-005": {
+          "value": 0.3653846153846154
+        },
+        "operator-006": {
+          "value": 0.2533333333333333
+        },
+        "operator-007": {
+          "value": 0.31249999999999994
+        },
+        "operator-008": {
+          "value": 0.31205673758865243
+        },
+        "operator-009": {
+          "value": 0.43137254901960786
+        },
+        "operator-010": {
+          "value": 0.3934426229508196
+        },
+        "operator-011": {
+          "value": 0.20224719101123595
+        },
+        "operator-012": {
+          "value": 0.39639639639639634
+        },
+        "operator-048": {
+          "value": 0.272
+        }
+      }
+    },
+    "key_terms_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.2391304347826087
+        },
+        "fetch-012": {
+          "value": 0.19318181818181818
+        },
+        "fetch-013": {
+          "value": 0.4528301886792453
+        },
+        "fetch-014": {
+          "value": 0.5625
+        },
+        "fetch-015": {
+          "value": 0.23711340206185566
+        },
+        "fetch-036": {
+          "value": 0.39080459770114945
+        },
+        "fetch-037": {
+          "value": 0.2535211267605634
+        },
+        "fetch-038": {
+          "value": 0.5526315789473685
+        },
+        "fetch-039": {
+          "value": 0.4461538461538462
+        },
+        "fetch-040": {
+          "value": 0.3877551020408163
+        },
+        "operator-001": {
+          "value": 0.2535211267605634
+        },
+        "operator-002": {
+          "value": 0.2641509433962264
+        },
+        "operator-003": {
+          "value": 0.5
+        },
+        "operator-004": {
+          "value": 0.4642857142857143
+        },
+        "operator-005": {
+          "value": 0.40425531914893614
+        },
+        "operator-006": {
+          "value": 0.13953488372093023
+        },
+        "operator-007": {
+          "value": 0.42857142857142855
+        },
+        "operator-008": {
+          "value": 0.3508771929824561
+        },
+        "operator-009": {
+          "value": 0.3157894736842105
+        },
+        "operator-010": {
+          "value": 0.34210526315789475
+        },
+        "operator-011": {
+          "value": 0.37142857142857144
+        },
+        "operator-012": {
+          "value": 0.3111111111111111
+        },
+        "operator-048": {
+          "value": 0.20454545454545456
+        }
+      }
+    },
+    "overlap-at-threshold": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "rouge_1": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.3963963963963964
+        },
+        "fetch-012": {
+          "value": 0.3614457831325302
+        },
+        "fetch-013": {
+          "value": 0.47567567567567565
+        },
+        "fetch-014": {
+          "value": 0.7669172932330827
+        },
+        "fetch-015": {
+          "value": 0.41777777777777775
+        },
+        "fetch-036": {
+          "value": 0.5
+        },
+        "fetch-037": {
+          "value": 0.4751381215469613
+        },
+        "fetch-038": {
+          "value": 0.6486486486486487
+        },
+        "fetch-039": {
+          "value": 0.6404494382022471
+        },
+        "fetch-040": {
+          "value": 0.48101265822784817
+        },
+        "operator-001": {
+          "value": 0.4295302013422819
+        },
+        "operator-002": {
+          "value": 0.4444444444444445
+        },
+        "operator-003": {
+          "value": 0.688888888888889
+        },
+        "operator-004": {
+          "value": 0.4878048780487805
+        },
+        "operator-005": {
+          "value": 0.5882352941176471
+        },
+        "operator-006": {
+          "value": 0.2967741935483871
+        },
+        "operator-007": {
+          "value": 0.5294117647058824
+        },
+        "operator-008": {
+          "value": 0.45283018867924535
+        },
+        "operator-009": {
+          "value": 0.5357142857142856
+        },
+        "operator-010": {
+          "value": 0.5352112676056338
+        },
+        "operator-011": {
+          "value": 0.4175824175824176
+        },
+        "operator-012": {
+          "value": 0.4
+        },
+        "operator-048": {
+          "value": 0.3307086614173228
+        }
+      }
+    },
+    "rouge_2": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.09090909090909093
+        },
+        "fetch-012": {
+          "value": 0.12955465587044535
+        },
+        "fetch-013": {
+          "value": 0.2076502732240437
+        },
+        "fetch-014": {
+          "value": 0.5801526717557252
+        },
+        "fetch-015": {
+          "value": 0.22421524663677128
+        },
+        "fetch-036": {
+          "value": 0.2222222222222222
+        },
+        "fetch-037": {
+          "value": 0.14525139664804468
+        },
+        "fetch-038": {
+          "value": 0.29357798165137616
+        },
+        "fetch-039": {
+          "value": 0.3295454545454546
+        },
+        "fetch-040": {
+          "value": 0.23076923076923078
+        },
+        "operator-001": {
+          "value": 0.17687074829931973
+        },
+        "operator-002": {
+          "value": 0.19548872180451127
+        },
+        "operator-003": {
+          "value": 0.40909090909090917
+        },
+        "operator-004": {
+          "value": 0.19999999999999998
+        },
+        "operator-005": {
+          "value": 0.2905982905982906
+        },
+        "operator-006": {
+          "value": 0.1045751633986928
+        },
+        "operator-007": {
+          "value": 0.33333333333333337
+        },
+        "operator-008": {
+          "value": 0.1910828025477707
+        },
+        "operator-009": {
+          "value": 0.2289156626506024
+        },
+        "operator-010": {
+          "value": 0.2608695652173913
+        },
+        "operator-011": {
+          "value": 0.24719101123595505
+        },
+        "operator-012": {
+          "value": 0.1415929203539823
+        },
+        "operator-048": {
+          "value": 0.047999999999999994
+        }
+      }
+    },
+    "rouge_l": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.2522522522522523
+        },
+        "fetch-012": {
+          "value": 0.20080321285140565
+        },
+        "fetch-013": {
+          "value": 0.4216216216216216
+        },
+        "fetch-014": {
+          "value": 0.6165413533834587
+        },
+        "fetch-015": {
+          "value": 0.3022222222222222
+        },
+        "fetch-036": {
+          "value": 0.33766233766233766
+        },
+        "fetch-037": {
+          "value": 0.2541436464088398
+        },
+        "fetch-038": {
+          "value": 0.4684684684684684
+        },
+        "fetch-039": {
+          "value": 0.449438202247191
+        },
+        "fetch-040": {
+          "value": 0.34177215189873417
+        },
+        "operator-001": {
+          "value": 0.3087248322147651
+        },
+        "operator-002": {
+          "value": 0.3111111111111111
+        },
+        "operator-003": {
+          "value": 0.6222222222222223
+        },
+        "operator-004": {
+          "value": 0.43902439024390244
+        },
+        "operator-005": {
+          "value": 0.5210084033613446
+        },
+        "operator-006": {
+          "value": 0.21935483870967742
+        },
+        "operator-007": {
+          "value": 0.5
+        },
+        "operator-008": {
+          "value": 0.4276729559748428
+        },
+        "operator-009": {
+          "value": 0.36904761904761907
+        },
+        "operator-010": {
+          "value": 0.2816901408450704
+        },
+        "operator-011": {
+          "value": 0.3956043956043956
+        },
+        "operator-012": {
+          "value": 0.29565217391304344
+        },
+        "operator-048": {
+          "value": 0.14173228346456693
+        }
+      }
+    },
+    "token_overlap": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.25
+        },
+        "fetch-012": {
+          "value": 0.23140495867768596
+        },
+        "fetch-013": {
+          "value": 0.3625
+        },
+        "fetch-014": {
+          "value": 0.603448275862069
+        },
+        "fetch-015": {
+          "value": 0.25862068965517243
+        },
+        "fetch-036": {
+          "value": 0.3357664233576642
+        },
+        "fetch-037": {
+          "value": 0.30927835051546393
+        },
+        "fetch-038": {
+          "value": 0.5652173913043478
+        },
+        "fetch-039": {
+          "value": 0.49411764705882355
+        },
+        "fetch-040": {
+          "value": 0.28888888888888886
+        },
+        "operator-001": {
+          "value": 0.26373626373626374
+        },
+        "operator-002": {
+          "value": 0.26666666666666666
+        },
+        "operator-003": {
+          "value": 0.48
+        },
+        "operator-004": {
+          "value": 0.37777777777777777
+        },
+        "operator-005": {
+          "value": 0.34782608695652173
+        },
+        "operator-006": {
+          "value": 0.16363636363636364
+        },
+        "operator-007": {
+          "value": 0.32558139534883723
+        },
+        "operator-008": {
+          "value": 0.34782608695652173
+        },
+        "operator-009": {
+          "value": 0.35106382978723405
+        },
+        "operator-010": {
+          "value": 0.37777777777777777
+        },
+        "operator-011": {
+          "value": 0.32653061224489793
+        },
+        "operator-012": {
+          "value": 0.2602739726027397
+        },
+        "operator-048": {
+          "value": 0.16666666666666666
+        }
+      }
+    },
+    "token_recall": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.49206349206349204
+        },
+        "fetch-012": {
+          "value": 0.45901639344262296
+        },
+        "fetch-013": {
+          "value": 0.5178571428571429
+        },
+        "fetch-014": {
+          "value": 0.7777777777777778
+        },
+        "fetch-015": {
+          "value": 0.6122448979591837
+        },
+        "fetch-036": {
+          "value": 0.4791666666666667
+        },
+        "fetch-037": {
+          "value": 0.5357142857142857
+        },
+        "fetch-038": {
+          "value": 0.7647058823529411
+        },
+        "fetch-039": {
+          "value": 0.6774193548387096
+        },
+        "fetch-040": {
+          "value": 0.3880597014925373
+        },
+        "operator-001": {
+          "value": 0.5454545454545454
+        },
+        "operator-002": {
+          "value": 0.47619047619047616
+        },
+        "operator-003": {
+          "value": 0.631578947368421
+        },
+        "operator-004": {
+          "value": 0.5
+        },
+        "operator-005": {
+          "value": 0.5217391304347826
+        },
+        "operator-006": {
+          "value": 0.42857142857142855
+        },
+        "operator-007": {
+          "value": 0.3888888888888889
+        },
+        "operator-008": {
+          "value": 0.6666666666666666
+        },
+        "operator-009": {
+          "value": 0.6470588235294118
+        },
+        "operator-010": {
+          "value": 0.7083333333333334
+        },
+        "operator-011": {
+          "value": 0.5333333333333333
+        },
+        "operator-012": {
+          "value": 0.40425531914893614
+        },
+        "operator-048": {
+          "value": 0.25925925925925924
+        }
+      }
+    },
+    "answer_correctness": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.8039645007533869
+        },
+        "fetch-012": {
+          "value": 0.6077930432743894
+        },
+        "fetch-013": {
+          "value": 0.9432985282358614
+        },
+        "fetch-014": {
+          "value": 0.9130036378314794
+        },
+        "fetch-015": {
+          "value": 0.3833347275216802
+        },
+        "fetch-036": {
+          "value": 0.5956331143631013
+        },
+        "fetch-037": {
+          "value": 0.6987227408035459
+        },
+        "fetch-038": {
+          "value": 0.9757122380918788
+        },
+        "fetch-039": {
+          "value": 0.9793549388447975
+        },
+        "fetch-040": {
+          "value": 0.7263529772027562
+        },
+        "operator-001": {
+          "value": 0.7311586497947635
+        },
+        "operator-002": {
+          "value": 0.6833499430758505
+        },
+        "operator-003": {
+          "value": 0.9747391577488882
+        },
+        "operator-004": {
+          "value": 0.6723424427620529
+        },
+        "operator-005": {
+          "value": 0.8850822201723553
+        },
+        "operator-006": {
+          "value": 0.2770467468896343
+        },
+        "operator-007": {
+          "value": 0.667791421522785
+        },
+        "operator-008": {
+          "value": 0.8373850149424524
+        },
+        "operator-009": {
+          "value": 0.7265677269145401
+        },
+        "operator-010": {
+          "value": 0.9594274337962444
+        },
+        "operator-011": {
+          "value": 0.7117315013233523
+        },
+        "operator-012": {
+          "value": 0.8653445700075583
+        },
+        "operator-048": {
+          "value": 0.30943656455130353
+        }
+      }
+    }
+  },
+  "question_axes": {
+    "fetch-011": {
+      "kind": "limitation"
+    },
+    "fetch-012": {
+      "kind": "methodological"
+    },
+    "fetch-013": {
+      "kind": "quantitative"
+    },
+    "fetch-014": {
+      "kind": "comparative"
+    },
+    "fetch-015": {
+      "kind": "methodological"
+    },
+    "fetch-036": {
+      "kind": "limitation"
+    },
+    "fetch-037": {
+      "kind": "methodological"
+    },
+    "fetch-038": {
+      "kind": "quantitative"
+    },
+    "fetch-039": {
+      "kind": "limitation"
+    },
+    "fetch-040": {
+      "kind": "comparative"
+    },
+    "operator-001": {
+      "kind": "definitional"
+    },
+    "operator-002": {
+      "kind": "methodological"
+    },
+    "operator-003": {
+      "kind": "methodological"
+    },
+    "operator-004": {
+      "kind": "quantitative"
+    },
+    "operator-005": {
+      "kind": "comparative"
+    },
+    "operator-006": {
+      "kind": "limitation"
+    },
+    "operator-007": {
+      "kind": "definitional"
+    },
+    "operator-008": {
+      "kind": "methodological"
+    },
+    "operator-009": {
+      "kind": "methodological"
+    },
+    "operator-010": {
+      "kind": "quantitative"
+    },
+    "operator-011": {
+      "kind": "comparative"
+    },
+    "operator-012": {
+      "kind": "limitation"
+    },
+    "operator-048": {
+      "kind": "cross-document"
+    }
+  },
+  "question_contributors": {
+    "fetch-011": [
+      "vector-top-k:vector"
+    ],
+    "fetch-012": [
+      "vector-top-k:vector"
+    ],
+    "fetch-013": [
+      "vector-top-k:vector"
+    ],
+    "fetch-014": [
+      "vector-top-k:vector"
+    ],
+    "fetch-015": [
+      "vector-top-k:vector"
+    ],
+    "fetch-036": [
+      "vector-top-k:vector"
+    ],
+    "fetch-037": [
+      "vector-top-k:vector"
+    ],
+    "fetch-038": [
+      "vector-top-k:vector"
+    ],
+    "fetch-039": [
+      "vector-top-k:vector"
+    ],
+    "fetch-040": [
+      "vector-top-k:vector"
+    ],
+    "operator-001": [
+      "vector-top-k:vector"
+    ],
+    "operator-002": [
+      "vector-top-k:vector"
+    ],
+    "operator-003": [
+      "vector-top-k:vector"
+    ],
+    "operator-004": [
+      "vector-top-k:vector"
+    ],
+    "operator-005": [
+      "vector-top-k:vector"
+    ],
+    "operator-006": [
+      "vector-top-k:vector"
+    ],
+    "operator-007": [
+      "vector-top-k:vector"
+    ],
+    "operator-008": [
+      "vector-top-k:vector"
+    ],
+    "operator-009": [
+      "vector-top-k:vector"
+    ],
+    "operator-010": [
+      "vector-top-k:vector"
+    ],
+    "operator-011": [
+      "vector-top-k:vector"
+    ],
+    "operator-012": [
+      "vector-top-k:vector"
+    ],
+    "operator-048": [
+      "vector-top-k:vector"
+    ]
+  },
+  "question_seconds": {
+    "keyed_by": "question-id",
+    "seconds": {
+      "fetch-011": 4.589058541925624,
+      "fetch-012": 7.475310749839991,
+      "fetch-013": 3.4308389159850776,
+      "fetch-014": 2.7194555420428514,
+      "fetch-015": 9.65257995785214,
+      "fetch-036": 7.563778624869883,
+      "fetch-037": 3.0296064999420196,
+      "fetch-038": 1.8236179589293897,
+      "fetch-039": 3.094992334023118,
+      "fetch-040": 2.5683735420461744,
+      "operator-001": 2.7971097079571337,
+      "operator-002": 3.076593125006184,
+      "operator-003": 1.9837286248803139,
+      "operator-004": 3.5749942080583423,
+      "operator-005": 2.7309536659158766,
+      "operator-006": 4.892391332890838,
+      "operator-007": 1.3757532499730587,
+      "operator-008": 4.387889875099063,
+      "operator-009": 3.2915112909395248,
+      "operator-010": 1.5443028339650482,
+      "operator-011": 2.3896331661380827,
+      "operator-012": 3.56245708395727,
+      "operator-048": 7.32134958403185
+    }
+  },
+  "token_usage": {
+    "embed": {
+      "prompt_tokens": 5780,
+      "completion_tokens": 0,
+      "calls": 46,
+      "calls_not_reporting": 0
+    },
+    "generate": {
+      "prompt_tokens": 28360,
+      "completion_tokens": 7045,
+      "calls": 23,
+      "calls_not_reporting": 0
+    },
+    "grade": {
+      "prompt_tokens": 14893,
+      "completion_tokens": 17922,
+      "calls": 23,
+      "calls_not_reporting": 0
+    }
+  },
+  "experiment": {
+    "name": "whole-corpus-size-25",
+    "digest": "4c3d5c79ec440ab9970fc5519b4b54a7e2a50bab882be711a8df596c90bcddb5",
+    "invocation": "335e52b91a5749fc83a2aa4467cd650d",
+    "arm": "baseline",
+    "repetition": 1,
+    "pool_manifest": null
+  },
+  "target": "default",
+  "target_embedding": {
+    "plugin": "openai-embeddings",
+    "distribution": "weft-rag",
+    "model": "text-embedding-3-large",
+    "width": null
+  },
+  "source_revision": {
+    "commit": "905e31a6c6e861c841bc7b60ad612f668bcf8e09",
+    "dirty": false
+  },
+  "judge_prompts": {
+    "answer_correctness": "ee0647c30769bd5855ef9396a004af76b3111fde9472c81f1df34a175d35df23"
+  },
+  "question_tokens": {
+    "fetch-011": {
+      "embed": {
+        "prompt_tokens": 31,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1056,
+        "completion_tokens": 397,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-012": {
+      "embed": {
+        "prompt_tokens": 38,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1399,
+        "completion_tokens": 783,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-013": {
+      "embed": {
+        "prompt_tokens": 45,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1272,
+        "completion_tokens": 315,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-014": {
+      "embed": {
+        "prompt_tokens": 33,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1359,
+        "completion_tokens": 227,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-015": {
+      "embed": {
+        "prompt_tokens": 30,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1214,
+        "completion_tokens": 733,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-036": {
+      "embed": {
+        "prompt_tokens": 24,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1518,
+        "completion_tokens": 780,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-037": {
+      "embed": {
+        "prompt_tokens": 27,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1344,
+        "completion_tokens": 245,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-038": {
+      "embed": {
+        "prompt_tokens": 50,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1187,
+        "completion_tokens": 117,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-039": {
+      "embed": {
+        "prompt_tokens": 19,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1093,
+        "completion_tokens": 238,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-040": {
+      "embed": {
+        "prompt_tokens": 26,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1194,
+        "completion_tokens": 181,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-001": {
+      "embed": {
+        "prompt_tokens": 26,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 990,
+        "completion_tokens": 183,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-002": {
+      "embed": {
+        "prompt_tokens": 23,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1153,
+        "completion_tokens": 221,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-003": {
+      "embed": {
+        "prompt_tokens": 28,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1017,
+        "completion_tokens": 121,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-004": {
+      "embed": {
+        "prompt_tokens": 35,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1344,
+        "completion_tokens": 258,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-005": {
+      "embed": {
+        "prompt_tokens": 30,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1145,
+        "completion_tokens": 180,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-006": {
+      "embed": {
+        "prompt_tokens": 23,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1047,
+        "completion_tokens": 402,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-007": {
+      "embed": {
+        "prompt_tokens": 27,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1083,
+        "completion_tokens": 42,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-008": {
+      "embed": {
+        "prompt_tokens": 32,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1346,
+        "completion_tokens": 364,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-009": {
+      "embed": {
+        "prompt_tokens": 22,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1299,
+        "completion_tokens": 254,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-010": {
+      "embed": {
+        "prompt_tokens": 40,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1927,
+        "completion_tokens": 76,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-011": {
+      "embed": {
+        "prompt_tokens": 46,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1183,
+        "completion_tokens": 163,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-012": {
+      "embed": {
+        "prompt_tokens": 34,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1092,
+        "completion_tokens": 174,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-048": {
+      "embed": {
+        "prompt_tokens": 37,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1098,
+        "completion_tokens": 591,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    }
+  },
+  "question_routes": null,
+  "question_profiles": {
+    "fetch-011": {
+      "query.word_count": 25,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-012": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-013": {
+      "query.word_count": 39,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-014": {
+      "query.word_count": 21,
+      "query.anchor.identifier": 3,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-015": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-036": {
+      "query.word_count": 18,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-037": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-038": {
+      "query.word_count": 40,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-039": {
+      "query.word_count": 14,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-040": {
+      "query.word_count": 19,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-001": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-002": {
+      "query.word_count": 20,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-003": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-004": {
+      "query.word_count": 29,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": true,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-005": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-006": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-007": {
+      "query.word_count": 22,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-008": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": true,
+      "query.cue.cross-document": false
+    },
+    "operator-009": {
+      "query.word_count": 19,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-010": {
+      "query.word_count": 32,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-011": {
+      "query.word_count": 33,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-012": {
+      "query.word_count": 30,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": true,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-048": {
+      "query.word_count": 31,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    }
+  },
+  "profiler_version": "1",
+  "question_answers": {
+    "fetch-011": "They argue that the two assumptions correspond to treating the already selected features as conditionally independent both:\n\n1. given the candidate feature \\(x_i\\), and  \n2. given \\(x_i\\) **and** the class/target \\(y\\).  \n\nThese are the assumptions that make the low-order entropy approximations exact. [4]\n\nThe problem is that conditioning on \\(y\\) can create dependencies among the selected features. Thus, if the second assumption holds, the first generally cannot also hold. [7] The only exception would be a highly specific—and unrealistic—data-generating structure; moreover, in that special case \\(x_i\\) would be more informative about \\(y\\) than the already selected features, so it should have been selected earlier, contradicting the assumed selection process. [8][7] Therefore, methods that implicitly rely on both assumptions rest on mutually inconsistent premises. [1][2]",
+    "fetch-012": "In the Pairwise Q-distribution, the autoregressive conditional is formed as the geometric mean of the pairwise conditionals between the new feature and each previously selected feature:\n\n\\[\nq(x_{f_t}\\mid x_{f_{<t}},y)\n=\n\\left(\\prod_{i=1}^{t-1}p(x_{f_t}\\mid x_{f_i},y)\\right)^{1/(t-1)}.\n\\]\n\nThus, it is built from lower-order, pairwise conditionals rather than assuming complete conditional independence. The resulting updates can be obtained recursively from the previous conditional, as shown by\n\n\\[\nq(x_i\\mid x_{S_t},y)\n=\n\\left[p(x_i\\mid x_{f_t},y)\\,q(x_i\\mid x_{S_{t-1}},y)^{t-1}\\right]^{1/t}.\n\\]\n\n[5] The authors justify this construction primarily on tractability grounds: if the autoregressive conditional is tractable, then the whole \\(q(x_S\\mid y)\\) is tractable, making it suitable for forward feature selection. [7] They also present Pairwise Q-distribution as a more general alternative to the Naive Bayes Q-distribution. [6]",
+    "fetch-013": "The reported mutual information values \\(I(x_i;y)\\) are:\n\n- \\(x_1\\): 0.111  \n- \\(x_2\\): 0.052  \n- \\(x_3\\): 0.022  \n- \\(x_4\\): 0.058  \n- \\(x_5\\): 0.058  \n- \\(x_6\\): 0.025  \n- \\(x_7\\): 0.029  \n- \\(x_8\\): 0.012  \n- \\(x_9\\): 0.013 [8]\n\nUnder maximum relevance, the top three are \\(x_1, x_4,\\) and \\(x_5\\) (with \\(x_4\\) and \\(x_5\\) tied). [7][8] In contrast, \\(VMI_{\\text{naive}}\\) selects \\(x_1, x_2,\\) and \\(x_3\\) as its first three features—even though \\(x_2\\) and \\(x_3\\) have relatively weak individual mutual information with \\(y\\). [7]",
+    "fetch-014": "The paper claims that both **VMI_naive** and **VMI_pairwise** have total computational complexity\n\n\\[\nO(NDT),\n\\]\n\nwhere \\(N\\) is the number of samples, \\(D\\) the total number of features, and \\(T\\) the number of selected features.[6]\n\nThis is the **same complexity as mRMR**, which the paper also lists as \\(O(NDT)\\).[7] In contrast, **SPEC_CMI** has complexity\n\n\\[\nO(ND^2),\n\\]\n\nbecause it precomputes a pairwise mutual-information matrix.[7][8]",
+    "fetch-015": "For the real-world datasets, the authors used a **5-fold nested cross-validation** scheme. In the inner loop, they used **64% of the samples for training and 16% for validation** to tune the feature-selection hyperparameters—\\(k\\) for HSIC-LASSO and \\(\\alpha\\) for SmRMR—by validation accuracy; the remaining **20%** formed the outer test set [7]. They then selected features using the best hyperparameters, trained a **random forest** on the combined training and validation data, and evaluated it on the outer-test fold [5]. This entire procedure was repeated **10 times**, with results averaged [3].\n\nThe supplied passages do not describe how the **synthetic experiment** was set up. They do mention a separate protocol using **3-nearest-neighbor for Gisette and Madelon** and **linear SVM for the remaining datasets**, with either validation or leave-one-out cross-validation depending on sample size, but they do not identify this as the synthetic experiment [8].",
+    "fetch-036": "The paper’s sparsistency result covers the **non-convex SCAD and MCP penalties**. Theorem 3.6 explicitly assumes that \\(p(\\lambda_n,\\cdot)\\) is SCAD or MCP and concludes that the estimator sets the true zero coefficients to zero with probability tending to one [5]. This is the paper’s stated sparsistency property: recovery of the true zero coefficients for a consistent local estimator [7].\n\nThe **LASSO is outside this result** because Theorem 3.6 is not stated for the LASSO; the LASSO is treated in the preceding consistency result, where its relevant penalty quantity is \\(a_n=\\lambda_n\\) [4]. Moreover, the sparsistency theorem requires\n\\[\n\\lambda_n\\to0,\\qquad \n\\sqrt{\\frac{n}{p_ns_n^2\\log p_n}}\\,\\lambda_n\\to\\infty,\n\\]\nwhereas LASSO consistency requires\n\\[\n\\lambda_n=O\\!\\left(\\sqrt{\\frac{s_n^2\\log p_n}{n}}\\right),\n\\]\nso the tuning requirements needed for this sparsistency argument are not compatible with the LASSO consistency requirement in the paper’s setting [5][8].",
+    "fetch-037": "The obstacle is that in the ultra-high-dimensional setting, the full feature set is too large for practical knockoff construction and computation; the procedure therefore first reduces the number of covariates to a manageable size [5], and pre-screening makes it possible to create knockoff features [4].\n\nThe paper gets around this by splitting the data: it uses one subsample to screen and select a subset of variables, then applies the knockoff procedure only to those screened variables on the remaining data [8]. It further reduces the screened set through marginal screening and a feature-selection step before constructing the knockoffs [7].",
+    "fetch-038": "For the simplest linear DGP (linear 1.a), with sample size fixed at \\(n=100\\), SmRMR(PC, None)’s MSE rises as the number of features increases: **3.8** at \\(p=100\\), **6.7** at \\(p=500\\), and **9.5** at \\(p=5{,}000\\). [7][8]\n\nWhen the sample size increases to \\(n=500\\), the MSE decreases to **1.7**. [8]",
+    "fetch-039": "SmRMR2 is a variant of SmRMR that modifies the final knockoff-filter step: it increases \\(\\alpha\\) by 0.05 until features are retained; if \\(\\alpha\\) reaches 1 and none are selected, it returns the feature with the largest knockoff statistic. [1] It was introduced to prevent the method from returning an empty set. [7]\n\nRegarding false discovery rate, the paper reports that ordinary SmRMR controls the FDR, with observed FDR rates below \\(\\alpha\\), but that FDR is not controlled in every situation for SmRMR2. [4]",
+    "fetch-040": "On the real-world benchmark datasets, SmRMR outperformed HSIC-LASSO on **TOX_171** and **orlraws10P**, while HSIC-LASSO performed better on the other datasets [8]. Overall, their performance was at similar levels, but SmRMR selected fewer features [7]. The trade-off was that HSIC-LASSO’s better scores came with roughly **three times more selected features** [8]—higher predictive performance in exchange for lower sparsity and interpretability.",
+    "operator-001": "Filter methods are performed as a preprocessing step: they rank variables using intrinsic relevance or predictive-strength measures, then select those above a threshold before model training or prediction. They are generally independent of the learning method, computationally efficient, and have better generalization properties. [2] [4] [7] [8]\n\nWrapper methods, by contrast, wrap the selection process around a particular learning or forecasting method. They use the predictor’s estimated performance as the objective function and employ search—often heuristic—to find the variable subset that maximizes forecasting performance. [2] [6] [8]",
+    "operator-002": "The first variable is chosen solely by **maximum relevance**: it is the feature with the highest mutual information with the target—\\(I(h,i)\\) for classification, or \\(I(y,t_i)\\) for forecasting. [8][2]\n\nAfter that, variables are added **incrementally**. Previously selected variables remain in the set, and each new variable is chosen from the unselected variables by optimizing the combined MRMR criterion—high relevance to the target while minimizing redundancy with the variables already selected. [8][2][3]",
+    "operator-003": "For each site, the first year of measured data was assigned entirely to the training set. A portion of the second year was then split equally between the validation and test sets [8]. This model-selection scheme is called the **hold-out method** [8].",
+    "operator-004": "At Alice Springs, the ELM required **21.0 seconds**, compared with **2,451.2 seconds** for LS-SVM—about **117 times less computing time**. The ELM selected **6 variables**, while LS-SVM selected **11**. [8]",
+    "operator-005": "At the 15-min-ahead horizon, the **MRMR** and **short-window (the five most recent data points)** input-selection scenarios performed best. This was attributed to strong short-term persistence. [1]\n\nAt the 24-hour-ahead horizon, performance declined substantially across the error metrics, but **MRMR became the leading input-selection approach, competing favorably with the clear-sky model**. [2]",
+    "operator-006": "The passages do not identify the exact datasets or baseline configurations where MRMR-ELM loses. They state only that it outperforms the other dimensionality-reduction scenarios “in the majority of cases,” implying some exceptions [7]. The listed forecasting baselines are MLP, Gaussian processes, and LS-SVM, but the provided excerpt does not report which of these, if any, outperform MRMR-ELM [3].\n\nIts performance explicitly degrades as cloud frequency increases [6]. The authors also propose using longer learning time series and more recent variables to improve its applicability and accuracy, suggesting that limited historical data or too few recent inputs may constrain performance [6].",
+    "operator-007": "MRMR stands for **minimum redundancy–maximum relevance**. It combines **minimum redundancy among selected features** with **maximum relevance to the target phenotypes/classification variable** [1][6].",
+    "operator-008": "Ding and Peng discretized each gene separately using that gene’s sample mean \\(\\mu\\) and standard deviation \\(\\sigma\\). An expression value above \\(\\mu+\\sigma/2\\) was assigned state \\(1\\); a value between \\(\\mu-\\sigma/2\\) and \\(\\mu+\\sigma/2\\) was assigned state \\(0\\); and a value below \\(\\mu-\\sigma/2\\) was assigned state \\(-1\\) [6][8]. They also tested alternative discretization parameters producing either two-state or three-state variables before applying MRMR [5].\n\nBiologically, the three states represent over-expression (\\(1\\)), baseline expression (\\(0\\)), and under-expression (\\(-1\\)) relative to that gene’s mean expression level [8].",
+    "operator-009": "Ding and Peng do not solve the MRMR objective exactly because it is a difficult discrete optimization problem, and an exact solution would require \\(O(N|S|)\\) searches, where \\(N\\) is the total number of features and \\(|S|\\) is the selected-set size. They argue that a near-optimal solution is sufficient in practice. [5][7]\n\nInstead, they use a simple incremental heuristic (linear search): first select the feature with the highest relevance \\(I(h,i)\\), then add features one at a time from the unselected set, keeping previously selected features and choosing the next feature according to the MRMR criterion. [2][8]",
+    "operator-010": "Ding and Peng reported a **1.67% LOOCV error rate** on the NCI dataset using Naive Bayes, compared with **14.6%** reported by Ooi and Tan. Thus, Ding and Peng’s error rate was **12.93 percentage points lower** (about **one-ninth as large**). [8]",
+    "operator-011": "- **Discrete data:** MIQ performed better than MID. [5][7]  \n- **Continuous data:** FCQ performed better than FCD. [5][7]  \n- **General conclusion:** The **divisive** combination of relevance and redundancy was preferred over the difference-based combination; it tended to select features with less redundancy. [7][8][2]",
+    "operator-012": "The authors recorded a caveat: the advantage was not uniformly observed across every classifier and feature-set size. For the child leukemia data, MRMR performed especially better with LDA and SVM, while for Naïve Bayes the advantage was clear only with fewer than 30 features; Naïve Bayes became non-robust when more than 30 features were included. [8]",
+    "operator-048": "Yes, in the general sense: the study incrementally selected variables that were “most relevant and minimally redundant” [7], matching MRMR’s simultaneous optimization of maximal relevance and minimal redundancy [4]. However, the supplied passages do not state which specific relevance–redundancy formulation Ding and Peng preferred, nor whether the study used that exact formulation."
+  }
+}

@@ -1,0 +1,4711 @@
+{
+  "recorded_at": "2026-09-29T08:48:35.117375+00:00",
+  "resolved_pipeline": {
+    "name": "index-openai-large-pdf",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-pdf-text"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.1.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-large",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-openai-large-pdf"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "3.1.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "../../corpus/subsets/validation-en-50",
+    "digest": "fa7a074ad22ee3a4f7b4fd6413c7707d51e4cad9f6dc792482c6b857811925a2"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-large",
+    "role:fanout": "openai:gpt-5.6-luna",
+    "role:generate": "openai:gpt-5.6-luna",
+    "role:grade": "openai:gpt-5.6-luna",
+    "role:hyde": "openai:gpt-5.6-luna",
+    "role:rerank": "openai:gpt-5.6-luna",
+    "role:rewrite": "openai:gpt-5.6-luna",
+    "role:stepback": "openai:gpt-5.6-luna"
+  },
+  "active_distributions": [
+    "weft-rag"
+  ],
+  "distribution_versions": {
+    "weft-rag": "3.1.0"
+  },
+  "durations": {
+    "ingest_seconds": 17.475657624891028,
+    "query_seconds": 614.0711875420529
+  },
+  "corpus_digest_basis": "document-bytes",
+  "query_rung": {
+    "name": "retrieve-then-generate",
+    "identity": "2d5ec8cdd06ec8ab312c0709f35af360"
+  },
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.93,
+        "n": 50,
+        "stdev": 0.2022828894072328,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.93,
+            "n": 50,
+            "stdev": 0.2022828894072328
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.9444444444444444,
+            "n": 9,
+            "stdev": 0.16666666666666666
+          },
+          "methodological": {
+            "mean": 0.8461538461538461,
+            "n": 13,
+            "stdev": 0.3152125859780576
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 11,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 6,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.5,
+            "n": 2,
+            "stdev": 0.0
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "mrr@5": {
+      "value": {
+        "reported_name": "mrr@5",
+        "mean": 0.95,
+        "n": 50,
+        "stdev": 0.1821078397711709,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.95,
+            "n": 50,
+            "stdev": 0.1821078397711709
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.9444444444444444,
+            "n": 9,
+            "stdev": 0.16666666666666666
+          },
+          "methodological": {
+            "mean": 0.8461538461538461,
+            "n": 13,
+            "stdev": 0.3152125859780576
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 11,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 6,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "ndcg@5": {
+      "value": {
+        "reported_name": "ndcg@5",
+        "mean": 0.9423816729249057,
+        "n": 50,
+        "stdev": 0.1773935523631198,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.9423816729249057,
+            "n": 50,
+            "stdev": 0.1773935523631198
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.9589921948412731,
+            "n": 9,
+            "stdev": 0.12302341547618083
+          },
+          "methodological": {
+            "mean": 0.8662968851648396,
+            "n": 13,
+            "stdev": 0.29439640165395153
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 11,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 6,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.6131471927654584,
+            "n": 2,
+            "stdev": 0.0
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "precision@5": {
+      "value": {
+        "reported_name": "precision@5",
+        "mean": 0.196,
+        "n": 50,
+        "stdev": 0.0282842712474619,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.196,
+            "n": 50,
+            "stdev": 0.0282842712474619
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.2,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "methodological": {
+            "mean": 0.18461538461538465,
+            "n": 13,
+            "stdev": 0.05547001962252292
+          },
+          "quantitative": {
+            "mean": 0.2,
+            "n": 11,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 0.2,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 0.20000000000000004,
+            "n": 6,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.2,
+            "n": 2,
+            "stdev": 0.0
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "recall@5": {
+      "value": {
+        "reported_name": "recall@5",
+        "mean": 0.96,
+        "n": 50,
+        "stdev": 0.17023393268304265,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.96,
+            "n": 50,
+            "stdev": 0.17023393268304265
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 1.0,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "methodological": {
+            "mean": 0.9230769230769231,
+            "n": 13,
+            "stdev": 0.2773500981126146
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 11,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 9,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 6,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.5,
+            "n": 2,
+            "stdev": 0.0
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "accuracy": {
+      "value": {
+        "reported_name": "accuracy",
+        "mean": 0.0,
+        "n": 50,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 50,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "embedding-similarity": {
+      "reason": "'embedding-similarity' needs a service this run does not provide: no service is registered for Embedder on this run. It is unavailable because nothing resolved one before this stage ran. Services available on this run: Dependencies, LLM, Prompts, Registry, TokenSink."
+    },
+    "exact_match": {
+      "value": {
+        "reported_name": "exact_match",
+        "mean": 0.0,
+        "n": 50,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 50,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "f1_score": {
+      "value": {
+        "reported_name": "f1_score",
+        "mean": 0.3562325622534475,
+        "n": 50,
+        "stdev": 0.09526773398247297,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3562325622534475,
+            "n": 50,
+            "stdev": 0.09526773398247297
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "key_terms_precision": {
+      "value": {
+        "reported_name": "key_terms_precision",
+        "mean": 0.37101228194767744,
+        "n": 50,
+        "stdev": 0.12815931363907418,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.37101228194767744,
+            "n": 50,
+            "stdev": 0.12815931363907418
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "overlap-at-threshold": {
+      "reason": "'overlap-at-threshold' needs a configuration this gate-subset run cannot supply with no arguments: 1 validation error for AtThresholdConfig\nthreshold\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing"
+    },
+    "rouge_1": {
+      "value": {
+        "reported_name": "rouge_1",
+        "mean": 0.47768658699636,
+        "n": 50,
+        "stdev": 0.11528455581250223,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.47768658699636,
+            "n": 50,
+            "stdev": 0.11528455581250223
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_2": {
+      "value": {
+        "reported_name": "rouge_2",
+        "mean": 0.22077980841266648,
+        "n": 50,
+        "stdev": 0.1114153125040662,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.22077980841266648,
+            "n": 50,
+            "stdev": 0.1114153125040662
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_l": {
+      "value": {
+        "reported_name": "rouge_l",
+        "mean": 0.35164729492128677,
+        "n": 50,
+        "stdev": 0.1246684658208012,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.35164729492128677,
+            "n": 50,
+            "stdev": 0.1246684658208012
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_overlap": {
+      "value": {
+        "reported_name": "token_overlap",
+        "mean": 0.3346222132804801,
+        "n": 50,
+        "stdev": 0.11134699531915677,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3346222132804801,
+            "n": 50,
+            "stdev": 0.11134699531915677
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_recall": {
+      "value": {
+        "reported_name": "token_recall",
+        "mean": 0.5257374650958614,
+        "n": 50,
+        "stdev": 0.14620790852094262,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.5257374650958614,
+            "n": 50,
+            "stdev": 0.14620790852094262
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "answer_correctness": {
+      "value": {
+        "reported_name": "answer_correctness",
+        "mean": 0.7216483228274002,
+        "n": 50,
+        "stdev": 0.21554164916023508,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.7216483228274002,
+            "n": 50,
+            "stdev": 0.21554164916023508
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    }
+  },
+  "question_set_digest": "0eab26ce69b2dc42f6e08fbf67607e006dc25f8b3e0440b04c3842ad6a183766",
+  "question_set_digest_basis": "question-set",
+  "question_scores": {
+    "mean_average_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 0.5
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 1.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 1.0
+        },
+        "fetch-025": {
+          "value": 1.0
+        },
+        "fetch-026": {
+          "value": 1.0
+        },
+        "fetch-027": {
+          "value": 1.0
+        },
+        "fetch-028": {
+          "value": 1.0
+        },
+        "fetch-029": {
+          "value": 1.0
+        },
+        "fetch-030": {
+          "value": 1.0
+        },
+        "fetch-031": {
+          "value": 1.0
+        },
+        "fetch-032": {
+          "value": 1.0
+        },
+        "fetch-033": {
+          "value": 1.0
+        },
+        "fetch-034": {
+          "value": 1.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "fetch-053": {
+          "value": 0.5
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.5
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.5
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.5
+        }
+      }
+    },
+    "mrr@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 0.5
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 1.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 1.0
+        },
+        "fetch-025": {
+          "value": 1.0
+        },
+        "fetch-026": {
+          "value": 1.0
+        },
+        "fetch-027": {
+          "value": 1.0
+        },
+        "fetch-028": {
+          "value": 1.0
+        },
+        "fetch-029": {
+          "value": 1.0
+        },
+        "fetch-030": {
+          "value": 1.0
+        },
+        "fetch-031": {
+          "value": 1.0
+        },
+        "fetch-032": {
+          "value": 1.0
+        },
+        "fetch-033": {
+          "value": 1.0
+        },
+        "fetch-034": {
+          "value": 1.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "fetch-053": {
+          "value": 1.0
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.5
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.5
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 1.0
+        }
+      }
+    },
+    "ndcg@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 0.6309297535714575
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 1.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 1.0
+        },
+        "fetch-025": {
+          "value": 1.0
+        },
+        "fetch-026": {
+          "value": 1.0
+        },
+        "fetch-027": {
+          "value": 1.0
+        },
+        "fetch-028": {
+          "value": 1.0
+        },
+        "fetch-029": {
+          "value": 1.0
+        },
+        "fetch-030": {
+          "value": 1.0
+        },
+        "fetch-031": {
+          "value": 1.0
+        },
+        "fetch-032": {
+          "value": 1.0
+        },
+        "fetch-033": {
+          "value": 1.0
+        },
+        "fetch-034": {
+          "value": 1.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "fetch-053": {
+          "value": 0.6131471927654584
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 0.6309297535714575
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 0.6309297535714575
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.6131471927654584
+        }
+      }
+    },
+    "precision@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.2
+        },
+        "fetch-012": {
+          "value": 0.2
+        },
+        "fetch-013": {
+          "value": 0.2
+        },
+        "fetch-014": {
+          "value": 0.2
+        },
+        "fetch-015": {
+          "value": 0.2
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 0.2
+        },
+        "fetch-023": {
+          "value": 0.2
+        },
+        "fetch-024": {
+          "value": 0.2
+        },
+        "fetch-025": {
+          "value": 0.2
+        },
+        "fetch-026": {
+          "value": 0.2
+        },
+        "fetch-027": {
+          "value": 0.2
+        },
+        "fetch-028": {
+          "value": 0.2
+        },
+        "fetch-029": {
+          "value": 0.2
+        },
+        "fetch-030": {
+          "value": 0.2
+        },
+        "fetch-031": {
+          "value": 0.2
+        },
+        "fetch-032": {
+          "value": 0.2
+        },
+        "fetch-033": {
+          "value": 0.2
+        },
+        "fetch-034": {
+          "value": 0.2
+        },
+        "fetch-035": {
+          "value": 0.2
+        },
+        "fetch-036": {
+          "value": 0.2
+        },
+        "fetch-037": {
+          "value": 0.2
+        },
+        "fetch-038": {
+          "value": 0.2
+        },
+        "fetch-039": {
+          "value": 0.2
+        },
+        "fetch-040": {
+          "value": 0.2
+        },
+        "fetch-053": {
+          "value": 0.2
+        },
+        "operator-001": {
+          "value": 0.2
+        },
+        "operator-002": {
+          "value": 0.2
+        },
+        "operator-003": {
+          "value": 0.2
+        },
+        "operator-004": {
+          "value": 0.2
+        },
+        "operator-005": {
+          "value": 0.2
+        },
+        "operator-006": {
+          "value": 0.2
+        },
+        "operator-007": {
+          "value": 0.2
+        },
+        "operator-008": {
+          "value": 0.2
+        },
+        "operator-009": {
+          "value": 0.2
+        },
+        "operator-010": {
+          "value": 0.2
+        },
+        "operator-011": {
+          "value": 0.2
+        },
+        "operator-012": {
+          "value": 0.2
+        },
+        "operator-037": {
+          "value": 0.2
+        },
+        "operator-038": {
+          "value": 0.2
+        },
+        "operator-039": {
+          "value": 0.2
+        },
+        "operator-040": {
+          "value": 0.2
+        },
+        "operator-041": {
+          "value": 0.2
+        },
+        "operator-042": {
+          "value": 0.2
+        },
+        "operator-043": {
+          "value": 0.2
+        },
+        "operator-044": {
+          "value": 0.2
+        },
+        "operator-045": {
+          "value": 0.2
+        },
+        "operator-046": {
+          "value": 0.2
+        },
+        "operator-047": {
+          "value": 0.2
+        },
+        "operator-048": {
+          "value": 0.2
+        }
+      }
+    },
+    "recall@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 1.0
+        },
+        "fetch-023": {
+          "value": 1.0
+        },
+        "fetch-024": {
+          "value": 1.0
+        },
+        "fetch-025": {
+          "value": 1.0
+        },
+        "fetch-026": {
+          "value": 1.0
+        },
+        "fetch-027": {
+          "value": 1.0
+        },
+        "fetch-028": {
+          "value": 1.0
+        },
+        "fetch-029": {
+          "value": 1.0
+        },
+        "fetch-030": {
+          "value": 1.0
+        },
+        "fetch-031": {
+          "value": 1.0
+        },
+        "fetch-032": {
+          "value": 1.0
+        },
+        "fetch-033": {
+          "value": 1.0
+        },
+        "fetch-034": {
+          "value": 1.0
+        },
+        "fetch-035": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "fetch-053": {
+          "value": 0.5
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 1.0
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 1.0
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-037": {
+          "value": 1.0
+        },
+        "operator-038": {
+          "value": 1.0
+        },
+        "operator-039": {
+          "value": 1.0
+        },
+        "operator-040": {
+          "value": 1.0
+        },
+        "operator-041": {
+          "value": 1.0
+        },
+        "operator-042": {
+          "value": 1.0
+        },
+        "operator-043": {
+          "value": 1.0
+        },
+        "operator-044": {
+          "value": 1.0
+        },
+        "operator-045": {
+          "value": 1.0
+        },
+        "operator-046": {
+          "value": 1.0
+        },
+        "operator-047": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 0.5
+        }
+      }
+    },
+    "accuracy": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 0.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        }
+      }
+    },
+    "embedding-similarity": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "exact_match": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-021": {
+          "value": 0.0
+        },
+        "fetch-022": {
+          "value": 0.0
+        },
+        "fetch-023": {
+          "value": 0.0
+        },
+        "fetch-024": {
+          "value": 0.0
+        },
+        "fetch-025": {
+          "value": 0.0
+        },
+        "fetch-026": {
+          "value": 0.0
+        },
+        "fetch-027": {
+          "value": 0.0
+        },
+        "fetch-028": {
+          "value": 0.0
+        },
+        "fetch-029": {
+          "value": 0.0
+        },
+        "fetch-030": {
+          "value": 0.0
+        },
+        "fetch-031": {
+          "value": 0.0
+        },
+        "fetch-032": {
+          "value": 0.0
+        },
+        "fetch-033": {
+          "value": 0.0
+        },
+        "fetch-034": {
+          "value": 0.0
+        },
+        "fetch-035": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "fetch-053": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-037": {
+          "value": 0.0
+        },
+        "operator-038": {
+          "value": 0.0
+        },
+        "operator-039": {
+          "value": 0.0
+        },
+        "operator-040": {
+          "value": 0.0
+        },
+        "operator-041": {
+          "value": 0.0
+        },
+        "operator-042": {
+          "value": 0.0
+        },
+        "operator-043": {
+          "value": 0.0
+        },
+        "operator-044": {
+          "value": 0.0
+        },
+        "operator-045": {
+          "value": 0.0
+        },
+        "operator-046": {
+          "value": 0.0
+        },
+        "operator-047": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        }
+      }
+    },
+    "f1_score": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.3106796116504854
+        },
+        "fetch-012": {
+          "value": 0.3125
+        },
+        "fetch-013": {
+          "value": 0.26993865030674846
+        },
+        "fetch-014": {
+          "value": 0.5072463768115941
+        },
+        "fetch-015": {
+          "value": 0.2393162393162393
+        },
+        "fetch-021": {
+          "value": 0.2535211267605634
+        },
+        "fetch-022": {
+          "value": 0.40601503759398494
+        },
+        "fetch-023": {
+          "value": 0.34545454545454546
+        },
+        "fetch-024": {
+          "value": 0.4919786096256684
+        },
+        "fetch-025": {
+          "value": 0.33333333333333337
+        },
+        "fetch-026": {
+          "value": 0.3157894736842105
+        },
+        "fetch-027": {
+          "value": 0.3870967741935484
+        },
+        "fetch-028": {
+          "value": 0.4050632911392405
+        },
+        "fetch-029": {
+          "value": 0.37500000000000006
+        },
+        "fetch-030": {
+          "value": 0.5
+        },
+        "fetch-031": {
+          "value": 0.3185840707964601
+        },
+        "fetch-032": {
+          "value": 0.24539877300613497
+        },
+        "fetch-033": {
+          "value": 0.25263157894736843
+        },
+        "fetch-034": {
+          "value": 0.2647058823529412
+        },
+        "fetch-035": {
+          "value": 0.3891402714932127
+        },
+        "fetch-036": {
+          "value": 0.33613445378151263
+        },
+        "fetch-037": {
+          "value": 0.3793103448275862
+        },
+        "fetch-038": {
+          "value": 0.3595505617977528
+        },
+        "fetch-039": {
+          "value": 0.5207100591715976
+        },
+        "fetch-040": {
+          "value": 0.3676470588235294
+        },
+        "fetch-053": {
+          "value": 0.25925925925925924
+        },
+        "operator-001": {
+          "value": 0.3829787234042553
+        },
+        "operator-002": {
+          "value": 0.2631578947368421
+        },
+        "operator-003": {
+          "value": 0.574468085106383
+        },
+        "operator-004": {
+          "value": 0.27272727272727276
+        },
+        "operator-005": {
+          "value": 0.3333333333333333
+        },
+        "operator-006": {
+          "value": 0.27999999999999997
+        },
+        "operator-007": {
+          "value": 0.3235294117647059
+        },
+        "operator-008": {
+          "value": 0.3846153846153846
+        },
+        "operator-009": {
+          "value": 0.43902439024390244
+        },
+        "operator-010": {
+          "value": 0.3934426229508196
+        },
+        "operator-011": {
+          "value": 0.26168224299065423
+        },
+        "operator-012": {
+          "value": 0.5046728971962617
+        },
+        "operator-037": {
+          "value": 0.30357142857142855
+        },
+        "operator-038": {
+          "value": 0.273972602739726
+        },
+        "operator-039": {
+          "value": 0.4666666666666667
+        },
+        "operator-040": {
+          "value": 0.3917525773195876
+        },
+        "operator-041": {
+          "value": 0.18784530386740333
+        },
+        "operator-042": {
+          "value": 0.38775510204081626
+        },
+        "operator-043": {
+          "value": 0.5840707964601771
+        },
+        "operator-044": {
+          "value": 0.18666666666666668
+        },
+        "operator-045": {
+          "value": 0.4
+        },
+        "operator-046": {
+          "value": 0.3564356435643564
+        },
+        "operator-047": {
+          "value": 0.45901639344262296
+        },
+        "operator-048": {
+          "value": 0.2542372881355932
+        }
+      }
+    },
+    "key_terms_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.2553191489361702
+        },
+        "fetch-012": {
+          "value": 0.225
+        },
+        "fetch-013": {
+          "value": 0.417910447761194
+        },
+        "fetch-014": {
+          "value": 0.5098039215686274
+        },
+        "fetch-015": {
+          "value": 0.1282051282051282
+        },
+        "fetch-021": {
+          "value": 0.22727272727272727
+        },
+        "fetch-022": {
+          "value": 0.5128205128205128
+        },
+        "fetch-023": {
+          "value": 0.48717948717948717
+        },
+        "fetch-024": {
+          "value": 0.4794520547945205
+        },
+        "fetch-025": {
+          "value": 0.5909090909090909
+        },
+        "fetch-026": {
+          "value": 0.42105263157894735
+        },
+        "fetch-027": {
+          "value": 0.4482758620689655
+        },
+        "fetch-028": {
+          "value": 0.4857142857142857
+        },
+        "fetch-029": {
+          "value": 0.36065573770491804
+        },
+        "fetch-030": {
+          "value": 0.5185185185185185
+        },
+        "fetch-031": {
+          "value": 0.2
+        },
+        "fetch-032": {
+          "value": 0.24615384615384617
+        },
+        "fetch-033": {
+          "value": 0.5
+        },
+        "fetch-034": {
+          "value": 0.35135135135135137
+        },
+        "fetch-035": {
+          "value": 0.2553191489361702
+        },
+        "fetch-036": {
+          "value": 0.36363636363636365
+        },
+        "fetch-037": {
+          "value": 0.20512820512820512
+        },
+        "fetch-038": {
+          "value": 0.5384615384615384
+        },
+        "fetch-039": {
+          "value": 0.49206349206349204
+        },
+        "fetch-040": {
+          "value": 0.4782608695652174
+        },
+        "fetch-053": {
+          "value": 0.26153846153846155
+        },
+        "operator-001": {
+          "value": 0.25
+        },
+        "operator-002": {
+          "value": 0.1836734693877551
+        },
+        "operator-003": {
+          "value": 0.5
+        },
+        "operator-004": {
+          "value": 0.5
+        },
+        "operator-005": {
+          "value": 0.4186046511627907
+        },
+        "operator-006": {
+          "value": 0.175
+        },
+        "operator-007": {
+          "value": 0.38461538461538464
+        },
+        "operator-008": {
+          "value": 0.36538461538461536
+        },
+        "operator-009": {
+          "value": 0.3870967741935484
+        },
+        "operator-010": {
+          "value": 0.34285714285714286
+        },
+        "operator-011": {
+          "value": 0.3023255813953488
+        },
+        "operator-012": {
+          "value": 0.425
+        },
+        "operator-037": {
+          "value": 0.3333333333333333
+        },
+        "operator-038": {
+          "value": 0.4117647058823529
+        },
+        "operator-039": {
+          "value": 0.5588235294117647
+        },
+        "operator-040": {
+          "value": 0.3939393939393939
+        },
+        "operator-041": {
+          "value": 0.09473684210526316
+        },
+        "operator-042": {
+          "value": 0.29411764705882354
+        },
+        "operator-043": {
+          "value": 0.3673469387755102
+        },
+        "operator-044": {
+          "value": 0.18181818181818182
+        },
+        "operator-045": {
+          "value": 0.5238095238095238
+        },
+        "operator-046": {
+          "value": 0.3684210526315789
+        },
+        "operator-047": {
+          "value": 0.5660377358490566
+        },
+        "operator-048": {
+          "value": 0.2619047619047619
+        }
+      }
+    },
+    "overlap-at-threshold": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "rouge_1": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.4186046511627907
+        },
+        "fetch-012": {
+          "value": 0.358974358974359
+        },
+        "fetch-013": {
+          "value": 0.43601895734597157
+        },
+        "fetch-014": {
+          "value": 0.697986577181208
+        },
+        "fetch-015": {
+          "value": 0.2992125984251969
+        },
+        "fetch-021": {
+          "value": 0.2953020134228188
+        },
+        "fetch-022": {
+          "value": 0.5405405405405405
+        },
+        "fetch-023": {
+          "value": 0.4576271186440678
+        },
+        "fetch-024": {
+          "value": 0.606060606060606
+        },
+        "fetch-025": {
+          "value": 0.47311827956989255
+        },
+        "fetch-026": {
+          "value": 0.4028776978417266
+        },
+        "fetch-027": {
+          "value": 0.5084745762711865
+        },
+        "fetch-028": {
+          "value": 0.65
+        },
+        "fetch-029": {
+          "value": 0.5254237288135593
+        },
+        "fetch-030": {
+          "value": 0.5856353591160222
+        },
+        "fetch-031": {
+          "value": 0.3463203463203463
+        },
+        "fetch-032": {
+          "value": 0.31952662721893493
+        },
+        "fetch-033": {
+          "value": 0.5192307692307693
+        },
+        "fetch-034": {
+          "value": 0.4335664335664336
+        },
+        "fetch-035": {
+          "value": 0.44827586206896547
+        },
+        "fetch-036": {
+          "value": 0.49454545454545457
+        },
+        "fetch-037": {
+          "value": 0.41304347826086957
+        },
+        "fetch-038": {
+          "value": 0.6605504587155964
+        },
+        "fetch-039": {
+          "value": 0.6589595375722543
+        },
+        "fetch-040": {
+          "value": 0.49333333333333335
+        },
+        "fetch-053": {
+          "value": 0.30388692579505294
+        },
+        "operator-001": {
+          "value": 0.4444444444444445
+        },
+        "operator-002": {
+          "value": 0.34426229508196726
+        },
+        "operator-003": {
+          "value": 0.6734693877551019
+        },
+        "operator-004": {
+          "value": 0.5
+        },
+        "operator-005": {
+          "value": 0.5517241379310345
+        },
+        "operator-006": {
+          "value": 0.3398692810457516
+        },
+        "operator-007": {
+          "value": 0.4722222222222222
+        },
+        "operator-008": {
+          "value": 0.5369127516778524
+        },
+        "operator-009": {
+          "value": 0.5333333333333333
+        },
+        "operator-010": {
+          "value": 0.5070422535211268
+        },
+        "operator-011": {
+          "value": 0.5
+        },
+        "operator-012": {
+          "value": 0.5636363636363636
+        },
+        "operator-037": {
+          "value": 0.4201680672268907
+        },
+        "operator-038": {
+          "value": 0.5641025641025641
+        },
+        "operator-039": {
+          "value": 0.6666666666666666
+        },
+        "operator-040": {
+          "value": 0.4954128440366973
+        },
+        "operator-041": {
+          "value": 0.22340425531914898
+        },
+        "operator-042": {
+          "value": 0.47058823529411753
+        },
+        "operator-043": {
+          "value": 0.6050420168067226
+        },
+        "operator-044": {
+          "value": 0.3466666666666666
+        },
+        "operator-045": {
+          "value": 0.44705882352941173
+        },
+        "operator-046": {
+          "value": 0.39215686274509803
+        },
+        "operator-047": {
+          "value": 0.625
+        },
+        "operator-048": {
+          "value": 0.3140495867768595
+        }
+      }
+    },
+    "rouge_2": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.1220657276995305
+        },
+        "fetch-012": {
+          "value": 0.1293103448275862
+        },
+        "fetch-013": {
+          "value": 0.2200956937799043
+        },
+        "fetch-014": {
+          "value": 0.5170068027210885
+        },
+        "fetch-015": {
+          "value": 0.05555555555555555
+        },
+        "fetch-021": {
+          "value": 0.054421768707483
+        },
+        "fetch-022": {
+          "value": 0.2602739726027397
+        },
+        "fetch-023": {
+          "value": 0.17241379310344826
+        },
+        "fetch-024": {
+          "value": 0.31632653061224486
+        },
+        "fetch-025": {
+          "value": 0.20652173913043478
+        },
+        "fetch-026": {
+          "value": 0.1021897810218978
+        },
+        "fetch-027": {
+          "value": 0.3508771929824561
+        },
+        "fetch-028": {
+          "value": 0.30769230769230765
+        },
+        "fetch-029": {
+          "value": 0.3620689655172414
+        },
+        "fetch-030": {
+          "value": 0.33519553072625696
+        },
+        "fetch-031": {
+          "value": 0.061135371179039305
+        },
+        "fetch-032": {
+          "value": 0.04790419161676646
+        },
+        "fetch-033": {
+          "value": 0.19607843137254902
+        },
+        "fetch-034": {
+          "value": 0.18439716312056736
+        },
+        "fetch-035": {
+          "value": 0.12173913043478261
+        },
+        "fetch-036": {
+          "value": 0.2197802197802198
+        },
+        "fetch-037": {
+          "value": 0.12087912087912087
+        },
+        "fetch-038": {
+          "value": 0.2803738317757009
+        },
+        "fetch-039": {
+          "value": 0.3391812865497076
+        },
+        "fetch-040": {
+          "value": 0.22972972972972971
+        },
+        "fetch-053": {
+          "value": 0.08540925266903915
+        },
+        "operator-001": {
+          "value": 0.11920529801324502
+        },
+        "operator-002": {
+          "value": 0.08333333333333334
+        },
+        "operator-003": {
+          "value": 0.43749999999999994
+        },
+        "operator-004": {
+          "value": 0.20512820512820512
+        },
+        "operator-005": {
+          "value": 0.2982456140350877
+        },
+        "operator-006": {
+          "value": 0.09271523178807947
+        },
+        "operator-007": {
+          "value": 0.2571428571428572
+        },
+        "operator-008": {
+          "value": 0.3129251700680273
+        },
+        "operator-009": {
+          "value": 0.24060150375939848
+        },
+        "operator-010": {
+          "value": 0.2608695652173913
+        },
+        "operator-011": {
+          "value": 0.32075471698113206
+        },
+        "operator-012": {
+          "value": 0.22222222222222224
+        },
+        "operator-037": {
+          "value": 0.20512820512820512
+        },
+        "operator-038": {
+          "value": 0.34210526315789475
+        },
+        "operator-039": {
+          "value": 0.45714285714285713
+        },
+        "operator-040": {
+          "value": 0.16822429906542055
+        },
+        "operator-041": {
+          "value": 0.05376344086021504
+        },
+        "operator-042": {
+          "value": 0.26
+        },
+        "operator-043": {
+          "value": 0.25641025641025644
+        },
+        "operator-044": {
+          "value": 0.19178082191780824
+        },
+        "operator-045": {
+          "value": 0.2168674698795181
+        },
+        "operator-046": {
+          "value": 0.22000000000000003
+        },
+        "operator-047": {
+          "value": 0.3174603174603175
+        },
+        "operator-048": {
+          "value": 0.10084033613445376
+        }
+      }
+    },
+    "rouge_l": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.3069767441860465
+        },
+        "fetch-012": {
+          "value": 0.2222222222222222
+        },
+        "fetch-013": {
+          "value": 0.3981042654028436
+        },
+        "fetch-014": {
+          "value": 0.5771812080536912
+        },
+        "fetch-015": {
+          "value": 0.1889763779527559
+        },
+        "fetch-021": {
+          "value": 0.1610738255033557
+        },
+        "fetch-022": {
+          "value": 0.4594594594594595
+        },
+        "fetch-023": {
+          "value": 0.30508474576271183
+        },
+        "fetch-024": {
+          "value": 0.4848484848484849
+        },
+        "fetch-025": {
+          "value": 0.3118279569892473
+        },
+        "fetch-026": {
+          "value": 0.2302158273381295
+        },
+        "fetch-027": {
+          "value": 0.47457627118644075
+        },
+        "fetch-028": {
+          "value": 0.425
+        },
+        "fetch-029": {
+          "value": 0.4576271186440678
+        },
+        "fetch-030": {
+          "value": 0.3646408839779006
+        },
+        "fetch-031": {
+          "value": 0.18181818181818182
+        },
+        "fetch-032": {
+          "value": 0.16568047337278108
+        },
+        "fetch-033": {
+          "value": 0.4230769230769231
+        },
+        "fetch-034": {
+          "value": 0.22377622377622378
+        },
+        "fetch-035": {
+          "value": 0.28448275862068967
+        },
+        "fetch-036": {
+          "value": 0.26909090909090905
+        },
+        "fetch-037": {
+          "value": 0.2391304347826087
+        },
+        "fetch-038": {
+          "value": 0.4587155963302752
+        },
+        "fetch-039": {
+          "value": 0.43930635838150295
+        },
+        "fetch-040": {
+          "value": 0.3333333333333333
+        },
+        "fetch-053": {
+          "value": 0.1625441696113074
+        },
+        "operator-001": {
+          "value": 0.3137254901960784
+        },
+        "operator-002": {
+          "value": 0.22950819672131145
+        },
+        "operator-003": {
+          "value": 0.5918367346938777
+        },
+        "operator-004": {
+          "value": 0.44999999999999996
+        },
+        "operator-005": {
+          "value": 0.5172413793103449
+        },
+        "operator-006": {
+          "value": 0.23529411764705885
+        },
+        "operator-007": {
+          "value": 0.41666666666666663
+        },
+        "operator-008": {
+          "value": 0.5100671140939597
+        },
+        "operator-009": {
+          "value": 0.4
+        },
+        "operator-010": {
+          "value": 0.2816901408450704
+        },
+        "operator-011": {
+          "value": 0.38888888888888884
+        },
+        "operator-012": {
+          "value": 0.38181818181818183
+        },
+        "operator-037": {
+          "value": 0.3025210084033613
+        },
+        "operator-038": {
+          "value": 0.48717948717948717
+        },
+        "operator-039": {
+          "value": 0.6388888888888888
+        },
+        "operator-040": {
+          "value": 0.3486238532110092
+        },
+        "operator-041": {
+          "value": 0.14893617021276598
+        },
+        "operator-042": {
+          "value": 0.33333333333333326
+        },
+        "operator-043": {
+          "value": 0.31932773109243695
+        },
+        "operator-044": {
+          "value": 0.31999999999999995
+        },
+        "operator-045": {
+          "value": 0.3529411764705882
+        },
+        "operator-046": {
+          "value": 0.3529411764705882
+        },
+        "operator-047": {
+          "value": 0.5468749999999999
+        },
+        "operator-048": {
+          "value": 0.16528925619834708
+        }
+      }
+    },
+    "token_overlap": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.256
+        },
+        "fetch-012": {
+          "value": 0.22608695652173913
+        },
+        "fetch-013": {
+          "value": 0.36666666666666664
+        },
+        "fetch-014": {
+          "value": 0.5238095238095238
+        },
+        "fetch-015": {
+          "value": 0.1527777777777778
+        },
+        "fetch-021": {
+          "value": 0.16304347826086957
+        },
+        "fetch-022": {
+          "value": 0.3888888888888889
+        },
+        "fetch-023": {
+          "value": 0.40350877192982454
+        },
+        "fetch-024": {
+          "value": 0.3925233644859813
+        },
+        "fetch-025": {
+          "value": 0.3448275862068966
+        },
+        "fetch-026": {
+          "value": 0.2911392405063291
+        },
+        "fetch-027": {
+          "value": 0.42857142857142855
+        },
+        "fetch-028": {
+          "value": 0.55
+        },
+        "fetch-029": {
+          "value": 0.37681159420289856
+        },
+        "fetch-030": {
+          "value": 0.3953488372093023
+        },
+        "fetch-031": {
+          "value": 0.21311475409836064
+        },
+        "fetch-032": {
+          "value": 0.20754716981132076
+        },
+        "fetch-033": {
+          "value": 0.38461538461538464
+        },
+        "fetch-034": {
+          "value": 0.28125
+        },
+        "fetch-035": {
+          "value": 0.2734375
+        },
+        "fetch-036": {
+          "value": 0.3106060606060606
+        },
+        "fetch-037": {
+          "value": 0.2641509433962264
+        },
+        "fetch-038": {
+          "value": 0.5531914893617021
+        },
+        "fetch-039": {
+          "value": 0.524390243902439
+        },
+        "fetch-040": {
+          "value": 0.32941176470588235
+        },
+        "fetch-053": {
+          "value": 0.18666666666666668
+        },
+        "operator-001": {
+          "value": 0.2727272727272727
+        },
+        "operator-002": {
+          "value": 0.18181818181818182
+        },
+        "operator-003": {
+          "value": 0.5294117647058824
+        },
+        "operator-004": {
+          "value": 0.3953488372093023
+        },
+        "operator-005": {
+          "value": 0.3283582089552239
+        },
+        "operator-006": {
+          "value": 0.2079207920792079
+        },
+        "operator-007": {
+          "value": 0.2916666666666667
+        },
+        "operator-008": {
+          "value": 0.35384615384615387
+        },
+        "operator-009": {
+          "value": 0.3614457831325301
+        },
+        "operator-010": {
+          "value": 0.37209302325581395
+        },
+        "operator-011": {
+          "value": 0.30357142857142855
+        },
+        "operator-012": {
+          "value": 0.4032258064516129
+        },
+        "operator-037": {
+          "value": 0.29411764705882354
+        },
+        "operator-038": {
+          "value": 0.40476190476190477
+        },
+        "operator-039": {
+          "value": 0.5111111111111111
+        },
+        "operator-040": {
+          "value": 0.3333333333333333
+        },
+        "operator-041": {
+          "value": 0.11965811965811966
+        },
+        "operator-042": {
+          "value": 0.3508771929824561
+        },
+        "operator-043": {
+          "value": 0.4426229508196721
+        },
+        "operator-044": {
+          "value": 0.19607843137254902
+        },
+        "operator-045": {
+          "value": 0.3125
+        },
+        "operator-046": {
+          "value": 0.2835820895522388
+        },
+        "operator-047": {
+          "value": 0.5074626865671642
+        },
+        "operator-048": {
+          "value": 0.18518518518518517
+        }
+      }
+    },
+    "token_recall": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.5079365079365079
+        },
+        "fetch-012": {
+          "value": 0.4262295081967213
+        },
+        "fetch-013": {
+          "value": 0.5892857142857143
+        },
+        "fetch-014": {
+          "value": 0.7333333333333333
+        },
+        "fetch-015": {
+          "value": 0.4489795918367347
+        },
+        "fetch-021": {
+          "value": 0.23809523809523808
+        },
+        "fetch-022": {
+          "value": 0.45901639344262296
+        },
+        "fetch-023": {
+          "value": 0.5609756097560976
+        },
+        "fetch-024": {
+          "value": 0.5526315789473685
+        },
+        "fetch-025": {
+          "value": 0.410958904109589
+        },
+        "fetch-026": {
+          "value": 0.359375
+        },
+        "fetch-027": {
+          "value": 0.7142857142857143
+        },
+        "fetch-028": {
+          "value": 0.8148148148148148
+        },
+        "fetch-029": {
+          "value": 0.7647058823529411
+        },
+        "fetch-030": {
+          "value": 0.5151515151515151
+        },
+        "fetch-031": {
+          "value": 0.4126984126984127
+        },
+        "fetch-032": {
+          "value": 0.3492063492063492
+        },
+        "fetch-033": {
+          "value": 0.5263157894736842
+        },
+        "fetch-034": {
+          "value": 0.4
+        },
+        "fetch-035": {
+          "value": 0.5072463768115942
+        },
+        "fetch-036": {
+          "value": 0.4270833333333333
+        },
+        "fetch-037": {
+          "value": 0.5
+        },
+        "fetch-038": {
+          "value": 0.7647058823529411
+        },
+        "fetch-039": {
+          "value": 0.6935483870967742
+        },
+        "fetch-040": {
+          "value": 0.417910447761194
+        },
+        "fetch-053": {
+          "value": 0.24778761061946902
+        },
+        "operator-001": {
+          "value": 0.5454545454545454
+        },
+        "operator-002": {
+          "value": 0.3333333333333333
+        },
+        "operator-003": {
+          "value": 0.7105263157894737
+        },
+        "operator-004": {
+          "value": 0.5
+        },
+        "operator-005": {
+          "value": 0.4782608695652174
+        },
+        "operator-006": {
+          "value": 0.5
+        },
+        "operator-007": {
+          "value": 0.3888888888888889
+        },
+        "operator-008": {
+          "value": 0.6388888888888888
+        },
+        "operator-009": {
+          "value": 0.5882352941176471
+        },
+        "operator-010": {
+          "value": 0.6666666666666666
+        },
+        "operator-011": {
+          "value": 0.5666666666666667
+        },
+        "operator-012": {
+          "value": 0.5319148936170213
+        },
+        "operator-037": {
+          "value": 0.5
+        },
+        "operator-038": {
+          "value": 0.68
+        },
+        "operator-039": {
+          "value": 0.6764705882352942
+        },
+        "operator-040": {
+          "value": 0.46153846153846156
+        },
+        "operator-041": {
+          "value": 0.3888888888888889
+        },
+        "operator-042": {
+          "value": 0.7692307692307693
+        },
+        "operator-043": {
+          "value": 0.6923076923076923
+        },
+        "operator-044": {
+          "value": 0.5882352941176471
+        },
+        "operator-045": {
+          "value": 0.35714285714285715
+        },
+        "operator-046": {
+          "value": 0.3958333333333333
+        },
+        "operator-047": {
+          "value": 0.7083333333333334
+        },
+        "operator-048": {
+          "value": 0.2777777777777778
+        }
+      }
+    },
+    "answer_correctness": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.7082922164923691
+        },
+        "fetch-012": {
+          "value": 0.5106696975540039
+        },
+        "fetch-013": {
+          "value": 0.9730406716904492
+        },
+        "fetch-014": {
+          "value": 0.8987298404102687
+        },
+        "fetch-015": {
+          "value": 0.18012180688154966
+        },
+        "fetch-021": {
+          "value": 0.17380259762483577
+        },
+        "fetch-022": {
+          "value": 0.6174466379849327
+        },
+        "fetch-023": {
+          "value": 0.901832986933401
+        },
+        "fetch-024": {
+          "value": 0.6639166702893613
+        },
+        "fetch-025": {
+          "value": 0.6518495368883707
+        },
+        "fetch-026": {
+          "value": 0.7491413143998373
+        },
+        "fetch-027": {
+          "value": 0.9627366438840923
+        },
+        "fetch-028": {
+          "value": 0.8916314000772315
+        },
+        "fetch-029": {
+          "value": 0.8786830146425699
+        },
+        "fetch-030": {
+          "value": 0.7068592644322435
+        },
+        "fetch-031": {
+          "value": 0.664909334637563
+        },
+        "fetch-032": {
+          "value": 0.6761339044160388
+        },
+        "fetch-033": {
+          "value": 0.8527937424040156
+        },
+        "fetch-034": {
+          "value": 0.7229986443938745
+        },
+        "fetch-035": {
+          "value": 0.597068871526235
+        },
+        "fetch-036": {
+          "value": 0.6649457830549423
+        },
+        "fetch-037": {
+          "value": 0.6304685340064274
+        },
+        "fetch-038": {
+          "value": 0.9753338566958693
+        },
+        "fetch-039": {
+          "value": 0.9183968227490319
+        },
+        "fetch-040": {
+          "value": 0.7280216803481986
+        },
+        "fetch-053": {
+          "value": 0.6384341606229377
+        },
+        "operator-001": {
+          "value": 0.7353618805936932
+        },
+        "operator-002": {
+          "value": 0.6081012806527376
+        },
+        "operator-003": {
+          "value": 0.9761034850603816
+        },
+        "operator-004": {
+          "value": 0.6727203802448756
+        },
+        "operator-005": {
+          "value": 0.8878366094276016
+        },
+        "operator-006": {
+          "value": 0.23474334313253287
+        },
+        "operator-007": {
+          "value": 0.8402212274314278
+        },
+        "operator-008": {
+          "value": 0.8973779224145133
+        },
+        "operator-009": {
+          "value": 0.8610559024230527
+        },
+        "operator-010": {
+          "value": 0.9593585752364522
+        },
+        "operator-011": {
+          "value": 0.8206076251323153
+        },
+        "operator-012": {
+          "value": 0.9618239404983073
+        },
+        "operator-037": {
+          "value": 0.40520190457232497
+        },
+        "operator-038": {
+          "value": 0.972191634422394
+        },
+        "operator-039": {
+          "value": 0.9813633261843203
+        },
+        "operator-040": {
+          "value": 0.4458331062439121
+        },
+        "operator-041": {
+          "value": 0.42671553209457813
+        },
+        "operator-042": {
+          "value": 0.9683046415132248
+        },
+        "operator-043": {
+          "value": 0.8298239151342538
+        },
+        "operator-044": {
+          "value": 0.6310018979109955
+        },
+        "operator-045": {
+          "value": 0.5722150843465457
+        },
+        "operator-046": {
+          "value": 0.6347530423030037
+        },
+        "operator-047": {
+          "value": 0.8918954974828439
+        },
+        "operator-048": {
+          "value": 0.3295447518730742
+        }
+      }
+    }
+  },
+  "question_axes": {
+    "fetch-011": {
+      "kind": "limitation"
+    },
+    "fetch-012": {
+      "kind": "methodological"
+    },
+    "fetch-013": {
+      "kind": "quantitative"
+    },
+    "fetch-014": {
+      "kind": "comparative"
+    },
+    "fetch-015": {
+      "kind": "methodological"
+    },
+    "fetch-021": {
+      "kind": "methodological"
+    },
+    "fetch-022": {
+      "kind": "methodological"
+    },
+    "fetch-023": {
+      "kind": "quantitative"
+    },
+    "fetch-024": {
+      "kind": "definitional"
+    },
+    "fetch-025": {
+      "kind": "comparative"
+    },
+    "fetch-026": {
+      "kind": "methodological"
+    },
+    "fetch-027": {
+      "kind": "quantitative"
+    },
+    "fetch-028": {
+      "kind": "comparative"
+    },
+    "fetch-029": {
+      "kind": "limitation"
+    },
+    "fetch-030": {
+      "kind": "quantitative"
+    },
+    "fetch-031": {
+      "kind": "methodological"
+    },
+    "fetch-032": {
+      "kind": "definitional"
+    },
+    "fetch-033": {
+      "kind": "quantitative"
+    },
+    "fetch-034": {
+      "kind": "comparative"
+    },
+    "fetch-035": {
+      "kind": "limitation"
+    },
+    "fetch-036": {
+      "kind": "limitation"
+    },
+    "fetch-037": {
+      "kind": "methodological"
+    },
+    "fetch-038": {
+      "kind": "quantitative"
+    },
+    "fetch-039": {
+      "kind": "limitation"
+    },
+    "fetch-040": {
+      "kind": "comparative"
+    },
+    "fetch-053": {
+      "kind": "cross-document"
+    },
+    "operator-001": {
+      "kind": "definitional"
+    },
+    "operator-002": {
+      "kind": "methodological"
+    },
+    "operator-003": {
+      "kind": "methodological"
+    },
+    "operator-004": {
+      "kind": "quantitative"
+    },
+    "operator-005": {
+      "kind": "comparative"
+    },
+    "operator-006": {
+      "kind": "limitation"
+    },
+    "operator-007": {
+      "kind": "definitional"
+    },
+    "operator-008": {
+      "kind": "methodological"
+    },
+    "operator-009": {
+      "kind": "methodological"
+    },
+    "operator-010": {
+      "kind": "quantitative"
+    },
+    "operator-011": {
+      "kind": "comparative"
+    },
+    "operator-012": {
+      "kind": "limitation"
+    },
+    "operator-037": {
+      "kind": "methodological"
+    },
+    "operator-038": {
+      "kind": "definitional"
+    },
+    "operator-039": {
+      "kind": "quantitative"
+    },
+    "operator-040": {
+      "kind": "comparative"
+    },
+    "operator-041": {
+      "kind": "limitation"
+    },
+    "operator-042": {
+      "kind": "definitional"
+    },
+    "operator-043": {
+      "kind": "methodological"
+    },
+    "operator-044": {
+      "kind": "quantitative"
+    },
+    "operator-045": {
+      "kind": "quantitative"
+    },
+    "operator-046": {
+      "kind": "comparative"
+    },
+    "operator-047": {
+      "kind": "limitation"
+    },
+    "operator-048": {
+      "kind": "cross-document"
+    }
+  },
+  "question_contributors": {
+    "fetch-011": [
+      "vector-top-k:vector"
+    ],
+    "fetch-012": [
+      "vector-top-k:vector"
+    ],
+    "fetch-013": [
+      "vector-top-k:vector"
+    ],
+    "fetch-014": [
+      "vector-top-k:vector"
+    ],
+    "fetch-015": [
+      "vector-top-k:vector"
+    ],
+    "fetch-021": [
+      "vector-top-k:vector"
+    ],
+    "fetch-022": [
+      "vector-top-k:vector"
+    ],
+    "fetch-023": [
+      "vector-top-k:vector"
+    ],
+    "fetch-024": [
+      "vector-top-k:vector"
+    ],
+    "fetch-025": [
+      "vector-top-k:vector"
+    ],
+    "fetch-026": [
+      "vector-top-k:vector"
+    ],
+    "fetch-027": [
+      "vector-top-k:vector"
+    ],
+    "fetch-028": [
+      "vector-top-k:vector"
+    ],
+    "fetch-029": [
+      "vector-top-k:vector"
+    ],
+    "fetch-030": [
+      "vector-top-k:vector"
+    ],
+    "fetch-031": [
+      "vector-top-k:vector"
+    ],
+    "fetch-032": [
+      "vector-top-k:vector"
+    ],
+    "fetch-033": [
+      "vector-top-k:vector"
+    ],
+    "fetch-034": [
+      "vector-top-k:vector"
+    ],
+    "fetch-035": [
+      "vector-top-k:vector"
+    ],
+    "fetch-036": [
+      "vector-top-k:vector"
+    ],
+    "fetch-037": [
+      "vector-top-k:vector"
+    ],
+    "fetch-038": [
+      "vector-top-k:vector"
+    ],
+    "fetch-039": [
+      "vector-top-k:vector"
+    ],
+    "fetch-040": [
+      "vector-top-k:vector"
+    ],
+    "fetch-053": [
+      "vector-top-k:vector"
+    ],
+    "operator-001": [
+      "vector-top-k:vector"
+    ],
+    "operator-002": [
+      "vector-top-k:vector"
+    ],
+    "operator-003": [
+      "vector-top-k:vector"
+    ],
+    "operator-004": [
+      "vector-top-k:vector"
+    ],
+    "operator-005": [
+      "vector-top-k:vector"
+    ],
+    "operator-006": [
+      "vector-top-k:vector"
+    ],
+    "operator-007": [
+      "vector-top-k:vector"
+    ],
+    "operator-008": [
+      "vector-top-k:vector"
+    ],
+    "operator-009": [
+      "vector-top-k:vector"
+    ],
+    "operator-010": [
+      "vector-top-k:vector"
+    ],
+    "operator-011": [
+      "vector-top-k:vector"
+    ],
+    "operator-012": [
+      "vector-top-k:vector"
+    ],
+    "operator-037": [
+      "vector-top-k:vector"
+    ],
+    "operator-038": [
+      "vector-top-k:vector"
+    ],
+    "operator-039": [
+      "vector-top-k:vector"
+    ],
+    "operator-040": [
+      "vector-top-k:vector"
+    ],
+    "operator-041": [
+      "vector-top-k:vector"
+    ],
+    "operator-042": [
+      "vector-top-k:vector"
+    ],
+    "operator-043": [
+      "vector-top-k:vector"
+    ],
+    "operator-044": [
+      "vector-top-k:vector"
+    ],
+    "operator-045": [
+      "vector-top-k:vector"
+    ],
+    "operator-046": [
+      "vector-top-k:vector"
+    ],
+    "operator-047": [
+      "vector-top-k:vector"
+    ],
+    "operator-048": [
+      "vector-top-k:vector"
+    ]
+  },
+  "question_seconds": {
+    "keyed_by": "question-id",
+    "seconds": {
+      "fetch-011": 5.510858292225748,
+      "fetch-012": 7.760836499975994,
+      "fetch-013": 3.458967666141689,
+      "fetch-014": 3.6278646669816226,
+      "fetch-015": 7.839454957982525,
+      "fetch-021": 4.813487333012745,
+      "fetch-022": 2.4814440000336617,
+      "fetch-023": 2.0726965409703553,
+      "fetch-024": 3.3924921669531614,
+      "fetch-025": 3.0015121668111533,
+      "fetch-026": 1.448558749863878,
+      "fetch-027": 1.9989529591985047,
+      "fetch-028": 2.194838457973674,
+      "fetch-029": 2.8212436670437455,
+      "fetch-030": 3.1356267498340458,
+      "fetch-031": 5.1402939169202,
+      "fetch-032": 4.587590749841183,
+      "fetch-033": 2.8973338338546455,
+      "fetch-034": 3.6569986671674997,
+      "fetch-035": 4.381810165941715,
+      "fetch-036": 7.209758792072535,
+      "fetch-037": 4.095856917090714,
+      "fetch-038": 1.7205181661993265,
+      "fetch-039": 3.029670209158212,
+      "fetch-040": 2.567637750180438,
+      "fetch-053": 7.291232457850128,
+      "operator-001": 3.0365239998791367,
+      "operator-002": 3.650775584159419,
+      "operator-003": 2.305394666036591,
+      "operator-004": 2.786710459040478,
+      "operator-005": 2.9645799580030143,
+      "operator-006": 5.372714166995138,
+      "operator-007": 2.24843241693452,
+      "operator-008": 3.1318254999350756,
+      "operator-009": 2.8789882499258965,
+      "operator-010": 1.7898161250632256,
+      "operator-011": 2.946431583026424,
+      "operator-012": 2.5796570831444114,
+      "operator-037": 8.557312125107273,
+      "operator-038": 3.5698931249789894,
+      "operator-039": 1.8737466670572758,
+      "operator-040": 5.40346408309415,
+      "operator-041": 7.546284166863188,
+      "operator-042": 2.7961417499464005,
+      "operator-043": 2.6215200829319656,
+      "operator-044": 6.293589541921392,
+      "operator-045": 2.2550563330296427,
+      "operator-046": 3.161359583027661,
+      "operator-047": 2.8024769169278443,
+      "operator-048": 6.364679249934852
+    }
+  },
+  "token_usage": {
+    "embed": {
+      "prompt_tokens": 11795,
+      "completion_tokens": 0,
+      "calls": 100,
+      "calls_not_reporting": 0
+    },
+    "generate": {
+      "prompt_tokens": 63441,
+      "completion_tokens": 14305,
+      "calls": 50,
+      "calls_not_reporting": 0
+    },
+    "grade": {
+      "prompt_tokens": 31557,
+      "completion_tokens": 34824,
+      "calls": 50,
+      "calls_not_reporting": 0
+    }
+  },
+  "experiment": {
+    "name": "whole-corpus-size-50",
+    "digest": "72737c693d8981a27f51d046da26f441c2299c94b48a1e7deef8146b4a5f23ca",
+    "invocation": "65978e3a3beb482fb75e9900e90d191a",
+    "arm": "baseline",
+    "repetition": 1,
+    "pool_manifest": null
+  },
+  "target": "default",
+  "target_embedding": {
+    "plugin": "openai-embeddings",
+    "distribution": "weft-rag",
+    "model": "text-embedding-3-large",
+    "width": null
+  },
+  "source_revision": {
+    "commit": "905e31a6c6e861c841bc7b60ad612f668bcf8e09",
+    "dirty": false
+  },
+  "judge_prompts": {
+    "answer_correctness": "ee0647c30769bd5855ef9396a004af76b3111fde9472c81f1df34a175d35df23"
+  },
+  "question_tokens": {
+    "fetch-011": {
+      "embed": {
+        "prompt_tokens": 31,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1056,
+        "completion_tokens": 448,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-012": {
+      "embed": {
+        "prompt_tokens": 38,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1399,
+        "completion_tokens": 758,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-013": {
+      "embed": {
+        "prompt_tokens": 45,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1272,
+        "completion_tokens": 363,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-014": {
+      "embed": {
+        "prompt_tokens": 33,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1352,
+        "completion_tokens": 279,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-015": {
+      "embed": {
+        "prompt_tokens": 30,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1159,
+        "completion_tokens": 765,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-021": {
+      "embed": {
+        "prompt_tokens": 50,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1018,
+        "completion_tokens": 380,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-022": {
+      "embed": {
+        "prompt_tokens": 34,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 2192,
+        "completion_tokens": 168,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-023": {
+      "embed": {
+        "prompt_tokens": 44,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1794,
+        "completion_tokens": 152,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-024": {
+      "embed": {
+        "prompt_tokens": 42,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 2906,
+        "completion_tokens": 224,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-025": {
+      "embed": {
+        "prompt_tokens": 40,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1819,
+        "completion_tokens": 205,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-026": {
+      "embed": {
+        "prompt_tokens": 35,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1188,
+        "completion_tokens": 58,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-027": {
+      "embed": {
+        "prompt_tokens": 27,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1069,
+        "completion_tokens": 99,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-028": {
+      "embed": {
+        "prompt_tokens": 35,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1208,
+        "completion_tokens": 147,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-029": {
+      "embed": {
+        "prompt_tokens": 33,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1029,
+        "completion_tokens": 184,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-030": {
+      "embed": {
+        "prompt_tokens": 20,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1023,
+        "completion_tokens": 220,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-031": {
+      "embed": {
+        "prompt_tokens": 35,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1572,
+        "completion_tokens": 445,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-032": {
+      "embed": {
+        "prompt_tokens": 39,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1197,
+        "completion_tokens": 372,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-033": {
+      "embed": {
+        "prompt_tokens": 45,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1285,
+        "completion_tokens": 226,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-034": {
+      "embed": {
+        "prompt_tokens": 35,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1207,
+        "completion_tokens": 108,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-035": {
+      "embed": {
+        "prompt_tokens": 33,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1268,
+        "completion_tokens": 353,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-036": {
+      "embed": {
+        "prompt_tokens": 24,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1518,
+        "completion_tokens": 738,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-037": {
+      "embed": {
+        "prompt_tokens": 27,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1344,
+        "completion_tokens": 337,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-038": {
+      "embed": {
+        "prompt_tokens": 50,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1187,
+        "completion_tokens": 112,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-039": {
+      "embed": {
+        "prompt_tokens": 19,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1093,
+        "completion_tokens": 220,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-040": {
+      "embed": {
+        "prompt_tokens": 26,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1194,
+        "completion_tokens": 179,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-053": {
+      "embed": {
+        "prompt_tokens": 61,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1173,
+        "completion_tokens": 683,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-001": {
+      "embed": {
+        "prompt_tokens": 26,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 990,
+        "completion_tokens": 180,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-002": {
+      "embed": {
+        "prompt_tokens": 23,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1144,
+        "completion_tokens": 200,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-003": {
+      "embed": {
+        "prompt_tokens": 28,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1029,
+        "completion_tokens": 162,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-004": {
+      "embed": {
+        "prompt_tokens": 35,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1344,
+        "completion_tokens": 177,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-005": {
+      "embed": {
+        "prompt_tokens": 30,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1145,
+        "completion_tokens": 207,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-006": {
+      "embed": {
+        "prompt_tokens": 23,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1100,
+        "completion_tokens": 441,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-007": {
+      "embed": {
+        "prompt_tokens": 27,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1041,
+        "completion_tokens": 51,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-008": {
+      "embed": {
+        "prompt_tokens": 32,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1346,
+        "completion_tokens": 257,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-009": {
+      "embed": {
+        "prompt_tokens": 22,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1273,
+        "completion_tokens": 179,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-010": {
+      "embed": {
+        "prompt_tokens": 40,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1927,
+        "completion_tokens": 76,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-011": {
+      "embed": {
+        "prompt_tokens": 46,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1135,
+        "completion_tokens": 176,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-012": {
+      "embed": {
+        "prompt_tokens": 34,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1092,
+        "completion_tokens": 204,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-037": {
+      "embed": {
+        "prompt_tokens": 36,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1103,
+        "completion_tokens": 613,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-038": {
+      "embed": {
+        "prompt_tokens": 30,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1086,
+        "completion_tokens": 233,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-039": {
+      "embed": {
+        "prompt_tokens": 33,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1178,
+        "completion_tokens": 107,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-040": {
+      "embed": {
+        "prompt_tokens": 31,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1181,
+        "completion_tokens": 416,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-041": {
+      "embed": {
+        "prompt_tokens": 20,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 974,
+        "completion_tokens": 573,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-042": {
+      "embed": {
+        "prompt_tokens": 29,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1133,
+        "completion_tokens": 169,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-043": {
+      "embed": {
+        "prompt_tokens": 28,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1146,
+        "completion_tokens": 117,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-044": {
+      "embed": {
+        "prompt_tokens": 21,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1394,
+        "completion_tokens": 463,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-045": {
+      "embed": {
+        "prompt_tokens": 21,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1065,
+        "completion_tokens": 91,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-046": {
+      "embed": {
+        "prompt_tokens": 25,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 983,
+        "completion_tokens": 233,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-047": {
+      "embed": {
+        "prompt_tokens": 27,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1101,
+        "completion_tokens": 177,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-048": {
+      "embed": {
+        "prompt_tokens": 37,
+        "completion_tokens": 0,
+        "calls": 1,
+        "calls_not_reporting": 0
+      },
+      "generate": {
+        "prompt_tokens": 1009,
+        "completion_tokens": 580,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    }
+  },
+  "question_routes": null,
+  "question_profiles": {
+    "fetch-011": {
+      "query.word_count": 25,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-012": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-013": {
+      "query.word_count": 39,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-014": {
+      "query.word_count": 21,
+      "query.anchor.identifier": 3,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-015": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-021": {
+      "query.word_count": 39,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-022": {
+      "query.word_count": 31,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-023": {
+      "query.word_count": 37,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-024": {
+      "query.word_count": 35,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-025": {
+      "query.word_count": 35,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-026": {
+      "query.word_count": 31,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-027": {
+      "query.word_count": 25,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": true,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-028": {
+      "query.word_count": 32,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-029": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-030": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-031": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-032": {
+      "query.word_count": 32,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-033": {
+      "query.word_count": 29,
+      "query.anchor.identifier": 3,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-034": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-035": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-036": {
+      "query.word_count": 18,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-037": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-038": {
+      "query.word_count": 40,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-039": {
+      "query.word_count": 14,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-040": {
+      "query.word_count": 19,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-053": {
+      "query.word_count": 50,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-001": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-002": {
+      "query.word_count": 20,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-003": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-004": {
+      "query.word_count": 29,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": true,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-005": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-006": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-007": {
+      "query.word_count": 22,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-008": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": true,
+      "query.cue.cross-document": false
+    },
+    "operator-009": {
+      "query.word_count": 19,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-010": {
+      "query.word_count": 32,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-011": {
+      "query.word_count": 33,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-012": {
+      "query.word_count": 30,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": true,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-037": {
+      "query.word_count": 31,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-038": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-039": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-040": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-041": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-042": {
+      "query.word_count": 22,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-043": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-044": {
+      "query.word_count": 19,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": true,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-045": {
+      "query.word_count": 18,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-046": {
+      "query.word_count": 20,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-047": {
+      "query.word_count": 22,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-048": {
+      "query.word_count": 31,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    }
+  },
+  "profiler_version": "1",
+  "question_answers": {
+    "fetch-011": "Gao, Ver Steeg, and Galstyan argue that the assumptions are mutually inconsistent because the low-order approximations used by these methods require the selected features to satisfy particular conditional-independence relationships, both without and with the class variable \\(y\\) conditioned on [4]. If the second assumption holds, conditioning on \\(y\\) removes dependencies among the features, but those dependencies generally remain when \\(y\\) is not conditioned on; thus the first assumption cannot also hold in general [7]. Both assumptions can coexist only under a very specific—and unrealistic—data-generating structure [8]. Moreover, in that exceptional case, the candidate feature \\(x_i\\) would contain more information about \\(y\\) than the already selected features, so it should have been selected first, contradicting the feature-selection procedure [7].",
+    "fetch-012": "For the Pairwise Q-distribution, the autoregressive conditional is constructed as the geometric mean of the pairwise class-conditional distributions between the new feature and each previously selected feature:\n\n\\[\nq(x_{f_t}\\mid x_{f_{<t}},y)\n=\n\\left(\\prod_{i=1}^{t-1} p(x_{f_t}\\mid x_{f_i},y)\\right)^{1/(t-1)}.\n\\]\n\nThis makes the model more general than the Naive Bayes Q-distribution while remaining tractable, since the full \\(q(x_S\\mid y)\\) can be computed from tractable autoregressive conditionals [6][7]. The authors also justify it computationally by showing that the resulting conditionals can be updated recursively when a new feature is selected:\n\n\\[\nq(x_i\\mid x_{S_t},y)\n=\n\\left[p(x_i\\mid x_{f_t},y)\\,\nq(x_i\\mid x_{S_{t-1}},y)^{t-1}\\right]^{1/t},\n\\]\n\nso the algorithm need not recompute them from scratch [5].",
+    "fetch-013": "The paper reports the following mutual information values \\(I(x_i;y)\\):\n\n- \\(x_1\\): 0.111  \n- \\(x_2\\): 0.052  \n- \\(x_3\\): 0.022  \n- \\(x_4\\): 0.058  \n- \\(x_5\\): 0.058  \n- \\(x_6\\): 0.025  \n- \\(x_7\\): 0.029  \n- \\(x_8\\): 0.012  \n- \\(x_9\\): 0.013 [8]\n\nUnder the maximum-relevance criterion, the top three are \\(x_1, x_4,\\) and \\(x_5\\), since they have the highest individual mutual information values. [7][8] In contrast, VMI\\(_{\\text{naive}}\\) selects \\(x_1, x_2,\\) and \\(x_3\\) as its first three features. [7] Thus, the methods agree on \\(x_1\\), but maximum relevance selects \\(x_4,x_5\\), whereas VMI\\(_{\\text{naive}}\\) selects \\(x_2,x_3\\), despite the latter being only weakly correlated with \\(y\\). [7]",
+    "fetch-014": "The paper claims that both **VMI_naive** and **VMI_pairwise** have total computational complexity **\\(O(NDT)\\)**, where \\(N\\) is the number of samples, \\(D\\) the total number of features, and \\(T\\) the number of selected features. [6]\n\nThis is the **same time complexity as mRMR**. [7] In contrast, **SPEC_CMI** has complexity **\\(O(ND^2)\\)** because it precomputes the pairwise mutual-information matrix. [7] Thus, VMI_naive and VMI_pairwise scale linearly with the number of selected features, whereas SPEC_CMI scales quadratically with the total number of features. [6][7]",
+    "fetch-015": "- **Real-world datasets:** The authors used a **5-fold nested cross-validation**. The inner loop selected the hyperparameters \\(k\\) for HSIC-LASSO and \\(\\alpha\\) for SmRMR, using **64% of the samples for training and 16% for validation**, and choosing the settings with the highest validation accuracy [2]. Random Forest was among the classifiers, with 50 trees, depth 10, a minimum leaf size of 50, and entropy as the split criterion [3]. The passages also indicate that three classification models were compared, including Random Forest and Naive Bayes, but they do not identify all three by name [5][7].\n\n- **Synthetic experiment:** They generated a new synthetic dataset in each of **10 data-generation trials**. Each dataset was split once into **50% training and 50% testing** [6]. Each feature-selection method ranked the features, and the top 20 were retained; classifiers were then trained using the first \\(m=1,\\ldots,20\\) ranked features [8]. Performance was evaluated from test-set label probabilities using **AUC and F1 score**, averaged over the 10 trials [5][7][8]. The design comprised **8 feature-selection methods × 3 classifiers** [7].",
+    "fetch-021": "The weighting factor balances the Pearson correlation coefficient and mutual information when measuring feature relevance, allowing the two criteria to be traded off [2][3][5]. The provided passages do not specify the factor’s numerical value at which ImRMR reduces to standard mRMR, so that value cannot be determined from the excerpts.",
+    "fetch-022": "The classification accuracy \\(J(S)\\) is estimated as the mean SVM classification accuracy from five-fold cross-validation on the training set for feature subset \\(S\\) [8].  \n\nThe search over the weighting factor \\(\\alpha\\) is performed from 0 to 1 in increments of 0.25: \\(0, 0.25, 0.5, 0.75,\\) and \\(1\\) [7].",
+    "fetch-023": "The proposed method achieves its highest classification accuracy at a weighting factor of **0.25**, reaching **99.00%** with a **7-dimensional** feature subset. Standard mRMR achieves **97.50%** accuracy with a **10-dimensional** subset. Thus, the proposed method improves accuracy by **1.50 percentage points** while reducing the subset dimension by **3 features** [7].",
+    "fetch-024": "- The original feature set contains **33 system-level features**. [8]  \n- **Tz13–Tz33** is the group of features introduced to exploit PMU-provided post-fault measurements; they describe the system’s stability characteristics during the period after fault clearing. [6]  \n- The authors chose system-level rather than single-machine features because the number of input variables then does **not increase proportionally with system size**, making the approach more suitable for stability assessment in large power systems. [2] These features also collectively characterize different aspects and stages of the system’s overall disturbance process. [7]",
+    "fetch-025": "In the IEEE 50-generator test case, the proposed feature subset **B1** contains **11 features**, compared with **33** in the full original set **B** and **15** in the PCA-reduced set **B2**. Its test accuracy is **96.50%**, higher than the original set’s **95.00%** and PCA’s **94.50%**. Thus, the proposed method uses the fewest features while achieving the highest accuracy. [8]",
+    "fetch-026": "The authors use a quotient because the random-forest feature-importance relevance score and the correlation-based redundancy score are on different scales. A difference would make their trade-off sensitive to those scale differences, whereas the quotient is relatively more scale-invariant. [7] [8]",
+    "fetch-027": "The evaluation produces **96 sets of empirical performance results**, calculated as:\n\n**8 feature selection methods × 3 classification models × 4 datasets = 96**. [8]\n\nThus, the three crossed factors are **feature selection method, classification model, and dataset**. [8]",
+    "fetch-028": "The fastest methods are **FCD and FCQ**, followed by **RF and RFCQ**. The slower, relatively computationally expensive methods are **MID, MIQ, FRQ, and RFRQ**. [6][7] The paper reports that **FCD and FCQ take less than one minute to run in all evaluated scenarios**. [7]",
+    "fetch-029": "No. On the synthetic data, the model-based feature-importance extension—RFCQ and RFRQ—“seems to be successful,” but replacing linear correlation with the nonlinear RDC redundancy measure did not show significant improvement [6].\n\nRDC was intended to capture nonlinear dependence by using the largest canonical correlation between randomly selected nonlinear projections of copula-transformed variables [7]. However, in this synthetic experiment, the paper reports that the RDC-based extension was not notably better than the standard approach [6].",
+    "fetch-030": "The online randomized experiment measured **new-product adoption/conversion** among users targeted by the cross-sell model: the top 60% of treatment users by predicted conversion probability received app notifications and display ads, while outcomes were compared with control users. [7][8] The deployed model produced a **12% incremental adoption lift** for the targeted top 60% versus the equivalent control group. [6] Additionally, the top 20% of control users by predicted propensity had **4× the baseline adoption rate**. [8]",
+    "fetch-031": "VMR_mRMR preserves the following state across iterations:\n\n- The entropy score of each feature, stored by feature ID after the initial parallel map computation [4].\n- Each feature’s relevance score with respect to the decision variable \\(d_t\\), since this score does not depend on the selected subset and therefore need not be recomputed [6].\n- The selected-feature subset \\(s_F\\), including the most recently selected feature, which is broadcast for the next calculation [2][7].\n\nConsequently, each iteration does not recompute relevance or all feature-pair redundancies. It computes the conditional-entropy terms for the remaining candidates \\(F-s_F\\): relative to \\(d_t\\) in the first iteration, and relative to only the most recently selected feature in subsequent iterations [8]. These values are then used to form the incremental mRMR scores [3].",
+    "fetch-032": "VMR_mRMR uses a **memorized map/data structure of the relevant attribute-value pairs—`possiblePairs`—and their frequencies**. These values can then be retrieved to calculate conditional entropy; the map also enables constant-time item retrieval. [5] [7]\n\nIt avoids contingency tables and histograms because constructing them is computationally intensive and consumes more space, proportional to the product of the feature-domain sizes. Instead, VMR_mRMR computes only the needed entropy and conditional-entropy values and restricts pair calculations to `possiblePairs`, avoiding redundant work. [8]",
+    "fetch-033": "- **Leukemia:** VMR_mRMR took **49.669 seconds**, versus **212.012 seconds** for Spark_VIFS. [5]\n- **nci9:** VMR_mRMR took **72.803 seconds**, versus **241.910 seconds** for Spark_VIFS. [5]\n- Across the benchmark datasets, VMR_mRMR achieved a **47%–72% computational gain** over Spark_VIFS; for nci9 specifically, the gain was **69.905% (about 69.91%)**. [5][7]",
+    "fetch-034": "The comparison establishes that **HMR_mRMR is better suited to tall datasets**—where the number of objects greatly exceeds the number of features—while **VMR_mRMR is better suited to wide datasets**—where features greatly exceed objects. [3][7]\n\nThe gain ranges support this: on tall datasets, HMR_mRMR achieved **90%–98% computational gain**, whereas on wide datasets, VMR_mRMR achieved **47%–76% computational gain**. [8]",
+    "fetch-035": "The passages frame the evaluation of VMR_mRMR around **computational gain and total execution time (TET)**, reporting how much faster it is than competing approaches rather than presenting classification-quality results [2][3][5]. They do not explicitly explain why classification quality was excluded, so the safest conclusion is that the reported comparison was focused on computational efficiency.\n\nThe comparison with **Spark_Info-theoretic** was especially limited because, despite several attempts, the code available in the authors’ repository could run only on a **single node**. Consequently, the comparison was restricted to single-node experiments rather than a full distributed or parallel evaluation [8]. The passages also note that Spark_Info-theoretic’s histogram construction is computationally intensive and uses more space, which further explains why the comparison emphasized execution time and resource-related computational gain [7].",
+    "fetch-036": "The sparsistency result in Theorem 3.6 covers the **SCAD and MCP non-convex penalties**. It requires \\(\\lambda_n\\to0\\) and\n\\[\n\\sqrt{\\frac{n}{p_n s_n^2\\log(p_n)}}\\,\\lambda_n\\to\\infty,\n\\]\nunder the theorem’s other assumptions; then the estimator sets the true zero coefficients to zero with probability tending to one [5].\n\nThe LASSO is not covered by this result because its tuning requirement for consistency is weaker:\n\\[\n\\lambda_n=O\\!\\left(\\sqrt{\\frac{s_n^2\\log(p_n)}{n}}\\right),\n\\]\nwhereas Theorem 3.6 requires \\(\\lambda_n\\) to be asymptotically larger, on the order of \\(\\sqrt{p_n}\\) times that scale. Thus, when \\(p_n\\) grows, the LASSO’s consistency requirement is incompatible with the stronger tuning condition needed for the stated sparsistency theorem [8].",
+    "fetch-037": "The practical obstacle is that, in an ultra-high-dimensional setting, there are too many features to construct and use knockoff copies directly—particularly when the sample size is smaller than roughly twice the number of features (\\(n<2p\\))—and the computation becomes burdensome [1][5].\n\nThe paper circumvents this by first screening the features: it uses one data subsample to select a manageable subset, then constructs knockoffs and applies the knockoff filter only to those screened variables on the remaining data [8]. The screening itself is performed in stages, first marginally and then by selecting the top features via a model-fitting step [1][7].",
+    "fetch-038": "For the simplest linear DGP (1.a) with fixed sample size \\(n=100\\), SmRMR(PC, None)’s MSE increases as the number of features grows: **3.8 at \\(p=100\\), 6.7 at \\(p=500\\), and 9.5 at \\(p=5{,}000\\)**. [7][8] When the sample size rises to \\(n=500\\), the MSE decreases to **1.7**. [8]",
+    "fetch-039": "SmRMR2 is a variant of SmRMR that increases the knockoff-filter level \\(\\alpha\\) by 0.05 when no features are retained; if \\(\\alpha\\) reaches 1 without selecting any features, it returns the feature with the largest knockoff statistic. Its purpose is to prevent returning an empty set. [1][7]\n\nRegarding false discovery rate (FDR), the paper reports that ordinary SmRMR controls the FDR, with observed FDR rates below \\(\\alpha\\). However, FDR was not controlled in every situation for SmRMR2. [4]",
+    "fetch-040": "On the real-world benchmark datasets, SmRMR outperformed HSIC-LASSO on **TOX_171** and **orlraws10P**, while HSIC-LASSO performed better on the other datasets. [8] The trade-off was that HSIC-LASSO’s higher scores came with selecting about **three times as many features**. [8] Overall, SmRMR achieved broadly comparable performance while producing a much smaller feature set. [7]",
+    "fetch-053": "- **Difference-based fix:** retain the subtraction but introduce a weighting/scale-adjustment factor so that relevance and redundancy contribute comparably—for example, use \\( \\mathrm{Rel}(F)-\\lambda\\,\\mathrm{Red}(F) \\) rather than an unweighted difference. This preserves the classic MID-style structure, \\( \\mathrm{Rel}(F)-\\mathrm{Red}(F) \\) [1], while addressing the scale mismatch between the two measures [8].\n\n- **Quotient-based fix:** discard subtraction and divide relevance by redundancy, using a quotient such as \\( \\mathrm{Rel}(F)/\\mathrm{Red}(F) \\). The quotient scheme is presented as an alternative to difference schemes such as MID and FCD when the measures are on different scales [8].",
+    "operator-001": "Filter methods select variables during preprocessing, using their intrinsic relevance or predictive strength—often by ranking variables and applying a threshold—before the forecasting model is run. They are independent of the learning method, making them efficient and generally better at generalization [2][4][7][8].\n\nWrapper methods, by contrast, wrap the variable-selection process around a forecasting or learning method. They use the model’s predictive performance as the objective and search—often heuristically—for the subset that yields the best forecasting performance, so they are dependent on the chosen model [5][6][8].",
+    "operator-002": "The very first variable is chosen as the feature with the highest relevance to the target—specifically, the one maximizing \\(I(h,i)\\) [8].  \n\nAfter that, variables are added incrementally: previously selected variables remain in the subset, and at each iteration the next-best candidate is chosen from the unselected features \\(F-sF\\) according to the mRMR criterion, then appended to the selected set [2][8].",
+    "operator-003": "At each test site, the two years of measured data were split so that the entire first year formed the training set. A portion of the second year was then divided equally between the validation set and the test set. [8] This model-selection scheme is called the **hold-out method**. [8]",
+    "operator-004": "At Alice Springs, the ELM required **21.0 seconds**, compared with **2,451.2 seconds** for LS-SVM—about **117 times faster**. ELM selected **6 variables**, while LS-SVM selected **11 variables**. [8]",
+    "operator-005": "At the **15-min-ahead horizon**, the **MRMR scenario and the short-window scenario using the five most recent data points** performed best, reflecting strong short-term persistence [1]. At the **24-hour-ahead horizon**, performance dropped substantially overall, but **MRMR became competitive with the clear-sky scenario**, while all input-selection scenarios substantially outperformed persistence [2].",
+    "operator-006": "- The passages do not identify the exact datasets or cases where MRMR-ELM fails to beat its baselines. They state only that it outperforms the other dimensionality-reduction scenarios in a **majority** of cases, implying that it does not win in all cases [7].  \n- Its comparisons include MLP, Gaussian processes, and LS-SVM, but the supplied excerpt does not report which of these, if any, outperform MRMR-ELM [3].  \n- The approach’s performance decreases as **cloud frequency increases**, for climatic reasons [6]. The text also suggests that longer training time series and more recent variables could improve its applicability and accuracy [6].",
+    "operator-007": "MRMR stands for **minimum redundancy–maximum relevance**. It combines two criteria: **minimizing redundancy among the selected features** and **maximizing their relevance to the target phenotypes/classification variable** [5][6].",
+    "operator-008": "Ding and Peng discretized each gene’s continuous expression values using that gene’s sample mean (\\(\\mu\\)) and standard deviation (\\(\\sigma\\)): values greater than \\(\\mu+\\sigma/2\\) became state \\(1\\), values between \\(\\mu-\\sigma/2\\) and \\(\\mu+\\sigma/2\\) became state \\(0\\), and values below \\(\\mu-\\sigma/2\\) became state \\(-1\\). [6][8]\n\nBiologically, these states represent **over-expression** (\\(1\\)), **baseline expression** (\\(0\\)), and **under-expression** (\\(-1\\)), respectively. [8] This converted the continuous gene variables into categorical variables suitable for the mutual-information-based MRMR analysis. [4][7]",
+    "operator-009": "Ding and Peng do not solve the MRMR objective exactly because an exact search would require \\(O(N^{|S|})\\) searches, making it computationally impractical; they regard a near-optimal solution as sufficient instead. [7]\n\nThey therefore use a simple incremental heuristic: first select the feature with the highest relevance \\(I(h,i)\\), then repeatedly add the best feature from the remaining set while keeping previously selected features fixed. [8] [1]",
+    "operator-010": "Ding and Peng reported a **1.67% LOOCV error rate** on the NCI dataset using Naive Bayes, compared with **14.6%** reported by Ooi and Tan. Thus, Ding and Peng’s error rate was **12.93 percentage points lower** (about **8.8 times lower**). [8]",
+    "operator-011": "- **Discrete data:** **MIQ** performed better than **MID**. [5][7]  \n- **Continuous data:** **FCQ** performed better than **FCD**. [5][7]  \n- **General conclusion:** Ding and Peng concluded that the **divisive combination of relevance and redundancy**—used by MIQ and FCQ—was preferred over the difference combination used by MID and FCD. [8] They noted that this approach tends to select features with less redundancy. [2]",
+    "operator-012": "The authors recorded a caveat: the MRMR advantage was strongest for LDA and SVM, while for Naïve Bayes it was clear only with fewer than 30 features. They attributed this limitation to Naïve Bayes’ non-robustness to extra features beyond 30, so comparisons there should be restricted to fewer than 30 features. [8]",
+    "operator-037": "ImRMR uses an equal-grouping method (EGM) to divide the ranked features into candidate subsets [6][8]. The supplied passages do not state the general formula for fixing the subset size or the number of subsets.  \n\nFor the worked example with \\(M=20\\) features, the paper sets \\(F_c=4\\) features per candidate subset and \\(r=5\\) as the range/number of feature subsets [2].",
+    "operator-038": "The **comprehensive rate** \\(Z\\) evaluates feature selection by combining the **classification accuracy rate** (\\(\\mathrm{Acc}\\)) with the **dimensionality-reduction rate** (\\(\\mathrm{Dr}\\)). Its tradeoff factor \\(\\lambda\\) was set to **0.5** in the experiments, giving equal weight to both criteria. [8]",
+    "operator-039": "ImRMR with equal grouping (ImRMR-EGM) achieved a dimensionality reduction rate of **55.56%–90.96%** across the seven datasets, while raising classification accuracy by **2.34–18.75 percentage points** over the raw features. [8]",
+    "operator-040": "Yes. ImRMR did not achieve the highest comprehensive rate on three datasets:\n\n- **Musk:** 0.6% lower than **mRMR**. [7]\n- **Ionosphere:** 0.52% lower than **mRMR**. [8]\n- **Glass:** 3.3% lower than **ReliefF (RfF)** and 8.08% lower than **mRMR**. [8]\n\nIt outperformed the other methods on those datasets. [7] [8]",
+    "operator-041": "The authors identify several limitations:\n\n- **Candidate-subset formation is relatively coarse:** ImRMR first uses an equal-grouping method to divide the features into candidate subsets, so the initial grouping—not an adaptive search over all possible subsets—structures the subsequent selection process [8].\n- **The relevance and redundancy measures are heterogeneous:** ImRMR combines Pearson correlation with mutual information and introduces a weight factor to balance them [2][8]. Because the two measures can have different scales, choosing that trade-off is difficult and can affect the balance between relevance and redundancy [5].\n- **The underlying mRMR-style calculations can miss group effects:** Single-feature relevance and redundancy measures do not fully capture the joint contribution of multiple features or the correlation/redundancy between feature subsets [6]. ImRMR is proposed specifically to address this limitation by operating on feature subsets [6].",
+    "operator-042": "The **randomized dependence coefficient (RDC)** is a nonlinear dependence measure between two random variables. It transforms each variable via its **copula transformation**, projects those transformed values through randomly chosen nonlinear kernels, and then computes the **canonical correlations** between the resulting projection sets. [7][8]\n\nThe RDC value is specifically the **largest canonical correlation** between those two sets of randomized nonlinear projections—not mutual information or ordinary Pearson correlation. [7][8]",
+    "operator-043": "The authors used a quotient scheme because the random-forest feature-importance score and the correlation-based redundancy measure are on different scales. This scale mismatch can distort the trade-off between relevance and redundancy in a difference scheme. [6] The quotient scheme was preferred because it is relatively immune to such scale differences, making it more appropriate for combining random-forest importance with correlation redundancy. [8]",
+    "operator-044": "The synthetic dataset contains **70 features** [5]. The study says these are divided into **four types** [8], including **independent informative features** [8] and **linear redundant features** [4]. However, the provided passages do not specify how many features belong to each type, so the exact numerical breakdown cannot be determined from them.",
+    "operator-045": "The experiment reported a **12% lift in incremental adoption** among the top 60% propensity users in the treatment group compared with the equivalent control group [6].",
+    "operator-046": "The authors recommend **RFCQ**, particularly when the downstream classifier is a Random Forest, because it offers strong performance with fewer features [7]. However, they actually put **FCQ** into production first, citing its simplicity, robust performance, and fast computation [3][5].",
+    "operator-047": "No. The model-based relevance extension performed successfully: RFCQ and RFRQ showed advantages across all three synthetic-data scenarios. [5] By contrast, replacing linear correlation with the nonlinear RDC measure did not produce significant improvement. [8]\n\nFCD’s weak performance is attributed to a scale imbalance between its relevance measure, the F statistic, and its redundancy measure, correlation, within the difference scheme. [8]",
+    "operator-048": "The passages do not state Ding and Peng’s preferred combination, so this cannot be established definitively. They do show that the solar-radiation study incrementally selected variables that were both highly relevant and minimally redundant [7], consistent with MRMR’s simultaneous optimization of relevance and redundancy [4]."
+  }
+}

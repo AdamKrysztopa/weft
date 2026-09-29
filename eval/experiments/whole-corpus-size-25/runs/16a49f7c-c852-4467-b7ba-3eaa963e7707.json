@@ -1,0 +1,2440 @@
+{
+  "recorded_at": "2026-09-29T08:34:33.669430+00:00",
+  "resolved_pipeline": {
+    "name": "index-openai-large-pdf",
+    "vars": {},
+    "stages": [
+      {
+        "id": "extract",
+        "contract": "Extractor",
+        "contract_version": "1.0.0",
+        "use": "pdf-text",
+        "config": {
+          "mode": "plain",
+          "password": null,
+          "strict": false,
+          "orientations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "space_width": 200.0,
+          "layout_mode_space_vertically": true,
+          "layout_mode_scale_weight": 1.25,
+          "layout_mode_strip_rotated": true,
+          "layout_mode_font_height_weight": 1.0
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-pdf-text"
+      },
+      {
+        "id": "normalize",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "unicode-normalize",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "whitespace",
+        "contract": "Cleaner",
+        "contract_version": "1.0.0",
+        "use": "whitespace",
+        "config": {},
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "chunk",
+        "contract": "Chunker",
+        "contract_version": "1.0.0",
+        "use": "fixed-size",
+        "config": {
+          "size": 512,
+          "overlap": 50
+        },
+        "fallback": [],
+        "applies_to": [
+          {
+            "fact": null,
+            "constraints": [],
+            "media_type": [
+              "text"
+            ]
+          }
+        ],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      },
+      {
+        "id": "embed",
+        "contract": "Embedder",
+        "contract_version": "1.1.0",
+        "use": "openai-embeddings",
+        "config": {
+          "model": "text-embedding-3-large",
+          "dimensions": null,
+          "batch_size": 128
+        },
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-openai-large-pdf"
+      },
+      {
+        "id": "store",
+        "contract": "NodeStore",
+        "contract_version": "3.1.0",
+        "use": "pgvector",
+        "config": {},
+        "fallback": [],
+        "applies_to": [],
+        "distribution": "weft-rag",
+        "provenance": "index-text"
+      }
+    ],
+    "unapplied_operators": [],
+    "unplaced_contributions": []
+  },
+  "corpus": {
+    "name": "../../corpus/subsets/validation-en-25",
+    "digest": "ba5aa8f9346d3702db68af2e8c0a804c15554cf09cb6ab292eddf2682377562e"
+  },
+  "model_versions": {
+    "embed": "openai-embeddings:text-embedding-3-large",
+    "role:fanout": "openai:gpt-5.6-luna",
+    "role:generate": "openai:gpt-5.6-luna",
+    "role:grade": "openai:gpt-5.6-luna",
+    "role:hyde": "openai:gpt-5.6-luna",
+    "role:rerank": "openai:gpt-5.6-luna",
+    "role:rewrite": "openai:gpt-5.6-luna",
+    "role:stepback": "openai:gpt-5.6-luna"
+  },
+  "active_distributions": [
+    "weft-rag"
+  ],
+  "distribution_versions": {
+    "weft-rag": "3.1.0"
+  },
+  "durations": {
+    "ingest_seconds": 0.0,
+    "query_seconds": 351.1561496669892
+  },
+  "corpus_digest_basis": "document-bytes",
+  "query_rung": {
+    "name": "whole-corpus-wide-then-generate",
+    "identity": "9d0a2906aa3dd38a0d6c79694c7a90cc"
+  },
+  "metrics": {
+    "mean_average_precision": {
+      "value": {
+        "reported_name": "mean_average_precision",
+        "mean": 0.4963768115942029,
+        "n": 23,
+        "stdev": 0.2859044006421442,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.4963768115942029,
+            "n": 23,
+            "stdev": 0.2859044006421442
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.5166666666666667,
+            "n": 5,
+            "stdev": 0.29107081994288303
+          },
+          "methodological": {
+            "mean": 0.5238095238095238,
+            "n": 7,
+            "stdev": 0.3358043333022227
+          },
+          "quantitative": {
+            "mean": 0.5208333333333334,
+            "n": 4,
+            "stdev": 0.3359274061791062
+          },
+          "comparative": {
+            "mean": 0.5208333333333334,
+            "n": 4,
+            "stdev": 0.3359274061791062
+          },
+          "definitional": {
+            "mean": 0.29166666666666663,
+            "n": 2,
+            "stdev": 0.058925565098878946
+          },
+          "cross-document": {
+            "mean": 0.41666666666666663,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "mrr@5": {
+      "value": {
+        "reported_name": "mrr@5",
+        "mean": 0.4927536231884058,
+        "n": 23,
+        "stdev": 0.2874841272279097,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.4927536231884058,
+            "n": 23,
+            "stdev": 0.2874841272279097
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.5166666666666667,
+            "n": 5,
+            "stdev": 0.29107081994288303
+          },
+          "methodological": {
+            "mean": 0.5238095238095238,
+            "n": 7,
+            "stdev": 0.3358043333022227
+          },
+          "quantitative": {
+            "mean": 0.5208333333333334,
+            "n": 4,
+            "stdev": 0.3359274061791062
+          },
+          "comparative": {
+            "mean": 0.5208333333333334,
+            "n": 4,
+            "stdev": 0.3359274061791062
+          },
+          "definitional": {
+            "mean": 0.29166666666666663,
+            "n": 2,
+            "stdev": 0.058925565098878946
+          },
+          "cross-document": {
+            "mean": 0.3333333333333333,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "ndcg@5": {
+      "value": {
+        "reported_name": "ndcg@5",
+        "mean": 0.6221456450109986,
+        "n": 23,
+        "stdev": 0.21599535392974306,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.6221456450109986,
+            "n": 23,
+            "stdev": 0.21599535392974306
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.6385072130432616,
+            "n": 5,
+            "stdev": 0.219755375370012
+          },
+          "methodological": {
+            "mean": 0.6417546956740348,
+            "n": 7,
+            "stdev": 0.2536708245449597
+          },
+          "quantitative": {
+            "mean": 0.6404015779112127,
+            "n": 4,
+            "stdev": 0.2537045050519738
+          },
+          "comparative": {
+            "mean": 0.6404015779112127,
+            "n": 4,
+            "stdev": 0.2537045050519738
+          },
+          "definitional": {
+            "mean": 0.46533827903669656,
+            "n": 2,
+            "stdev": 0.04901907588149559
+          },
+          "cross-document": {
+            "mean": 0.5706417189553201,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "precision@5": {
+      "value": {
+        "reported_name": "precision@5",
+        "mean": 0.2086956521739131,
+        "n": 23,
+        "stdev": 0.04170288281141495,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 0.2086956521739131,
+            "n": 23,
+            "stdev": 0.04170288281141495
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 0.2,
+            "n": 5,
+            "stdev": 0.0
+          },
+          "methodological": {
+            "mean": 0.2,
+            "n": 7,
+            "stdev": 0.0
+          },
+          "quantitative": {
+            "mean": 0.2,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 0.2,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 0.2,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 0.4,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "recall@5": {
+      "value": {
+        "reported_name": "recall@5",
+        "mean": 1.0,
+        "n": 23,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "retrieval",
+        "by_modality": {
+          "text": {
+            "mean": 1.0,
+            "n": 23,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {
+          "limitation": {
+            "mean": 1.0,
+            "n": 5,
+            "stdev": 0.0
+          },
+          "methodological": {
+            "mean": 1.0,
+            "n": 7,
+            "stdev": 0.0
+          },
+          "quantitative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "comparative": {
+            "mean": 1.0,
+            "n": 4,
+            "stdev": 0.0
+          },
+          "definitional": {
+            "mean": 1.0,
+            "n": 2,
+            "stdev": 0.0
+          },
+          "cross-document": {
+            "mean": 1.0,
+            "n": 1,
+            "stdev": null
+          }
+        },
+        "by_axis": {}
+      }
+    },
+    "accuracy": {
+      "value": {
+        "reported_name": "accuracy",
+        "mean": 0.0,
+        "n": 23,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 23,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "embedding-similarity": {
+      "reason": "'embedding-similarity' needs a service this run does not provide: no service is registered for Embedder on this run. It is unavailable because nothing resolved one before this stage ran. Services available on this run: Dependencies, LLM, Prompts, Registry, TokenSink."
+    },
+    "exact_match": {
+      "value": {
+        "reported_name": "exact_match",
+        "mean": 0.0,
+        "n": 23,
+        "stdev": 0.0,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.0,
+            "n": 23,
+            "stdev": 0.0
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "f1_score": {
+      "value": {
+        "reported_name": "f1_score",
+        "mean": 0.33182809058112833,
+        "n": 23,
+        "stdev": 0.09451690417831159,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.33182809058112833,
+            "n": 23,
+            "stdev": 0.09451690417831159
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "key_terms_precision": {
+      "value": {
+        "reported_name": "key_terms_precision",
+        "mean": 0.32789368397153923,
+        "n": 23,
+        "stdev": 0.11727886060391889,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.32789368397153923,
+            "n": 23,
+            "stdev": 0.11727886060391889
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "overlap-at-threshold": {
+      "reason": "'overlap-at-threshold' needs a configuration this gate-subset run cannot supply with no arguments: 1 validation error for AtThresholdConfig\nthreshold\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing"
+    },
+    "rouge_1": {
+      "value": {
+        "reported_name": "rouge_1",
+        "mean": 0.4660988973817663,
+        "n": 23,
+        "stdev": 0.10859921699645954,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.4660988973817663,
+            "n": 23,
+            "stdev": 0.10859921699645954
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_2": {
+      "value": {
+        "reported_name": "rouge_2",
+        "mean": 0.2105017768957401,
+        "n": 23,
+        "stdev": 0.08917251700915681,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.2105017768957401,
+            "n": 23,
+            "stdev": 0.08917251700915681
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "rouge_l": {
+      "value": {
+        "reported_name": "rouge_l",
+        "mean": 0.3420305682019669,
+        "n": 23,
+        "stdev": 0.10426453328885206,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.3420305682019669,
+            "n": 23,
+            "stdev": 0.10426453328885206
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_overlap": {
+      "value": {
+        "reported_name": "token_overlap",
+        "mean": 0.31711009548653113,
+        "n": 23,
+        "stdev": 0.09282442378498762,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.31711009548653113,
+            "n": 23,
+            "stdev": 0.09282442378498762
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "token_recall": {
+      "value": {
+        "reported_name": "token_recall",
+        "mean": 0.5544316718056923,
+        "n": 23,
+        "stdev": 0.12576027881034046,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.5544316718056923,
+            "n": 23,
+            "stdev": 0.12576027881034046
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    },
+    "answer_correctness": {
+      "value": {
+        "reported_name": "answer_correctness",
+        "mean": 0.7555410783552837,
+        "n": 23,
+        "stdev": 0.15508630857005734,
+        "excluded": 0,
+        "nothing_to_produce": 0,
+        "kind": "generation",
+        "by_modality": {
+          "text": {
+            "mean": 0.7555410783552837,
+            "n": 23,
+            "stdev": 0.15508630857005734
+          }
+        },
+        "by_question_kind": {},
+        "by_axis": {}
+      }
+    }
+  },
+  "question_set_digest": "3bc5e80eebc19f8300a9a2fb262922fd7efa03bf8107dff0b53171ba785f9c23",
+  "question_set_digest_basis": "question-set",
+  "question_scores": {
+    "mean_average_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 0.5
+        },
+        "fetch-037": {
+          "value": 0.5
+        },
+        "fetch-038": {
+          "value": 0.5
+        },
+        "fetch-039": {
+          "value": 0.5
+        },
+        "fetch-040": {
+          "value": 0.5
+        },
+        "operator-001": {
+          "value": 0.3333333333333333
+        },
+        "operator-002": {
+          "value": 0.3333333333333333
+        },
+        "operator-003": {
+          "value": 0.3333333333333333
+        },
+        "operator-004": {
+          "value": 0.3333333333333333
+        },
+        "operator-005": {
+          "value": 0.3333333333333333
+        },
+        "operator-006": {
+          "value": 0.3333333333333333
+        },
+        "operator-007": {
+          "value": 0.25
+        },
+        "operator-008": {
+          "value": 0.25
+        },
+        "operator-009": {
+          "value": 0.25
+        },
+        "operator-010": {
+          "value": 0.25
+        },
+        "operator-011": {
+          "value": 0.25
+        },
+        "operator-012": {
+          "value": 0.25
+        },
+        "operator-048": {
+          "value": 0.41666666666666663
+        }
+      }
+    },
+    "mrr@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 0.5
+        },
+        "fetch-037": {
+          "value": 0.5
+        },
+        "fetch-038": {
+          "value": 0.5
+        },
+        "fetch-039": {
+          "value": 0.5
+        },
+        "fetch-040": {
+          "value": 0.5
+        },
+        "operator-001": {
+          "value": 0.3333333333333333
+        },
+        "operator-002": {
+          "value": 0.3333333333333333
+        },
+        "operator-003": {
+          "value": 0.3333333333333333
+        },
+        "operator-004": {
+          "value": 0.3333333333333333
+        },
+        "operator-005": {
+          "value": 0.3333333333333333
+        },
+        "operator-006": {
+          "value": 0.3333333333333333
+        },
+        "operator-007": {
+          "value": 0.25
+        },
+        "operator-008": {
+          "value": 0.25
+        },
+        "operator-009": {
+          "value": 0.25
+        },
+        "operator-010": {
+          "value": 0.25
+        },
+        "operator-011": {
+          "value": 0.25
+        },
+        "operator-012": {
+          "value": 0.25
+        },
+        "operator-048": {
+          "value": 0.3333333333333333
+        }
+      }
+    },
+    "ndcg@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 0.6309297535714575
+        },
+        "fetch-037": {
+          "value": 0.6309297535714575
+        },
+        "fetch-038": {
+          "value": 0.6309297535714575
+        },
+        "fetch-039": {
+          "value": 0.6309297535714575
+        },
+        "fetch-040": {
+          "value": 0.6309297535714575
+        },
+        "operator-001": {
+          "value": 0.5
+        },
+        "operator-002": {
+          "value": 0.5
+        },
+        "operator-003": {
+          "value": 0.5
+        },
+        "operator-004": {
+          "value": 0.5
+        },
+        "operator-005": {
+          "value": 0.5
+        },
+        "operator-006": {
+          "value": 0.5
+        },
+        "operator-007": {
+          "value": 0.43067655807339306
+        },
+        "operator-008": {
+          "value": 0.43067655807339306
+        },
+        "operator-009": {
+          "value": 0.43067655807339306
+        },
+        "operator-010": {
+          "value": 0.43067655807339306
+        },
+        "operator-011": {
+          "value": 0.43067655807339306
+        },
+        "operator-012": {
+          "value": 0.43067655807339306
+        },
+        "operator-048": {
+          "value": 0.5706417189553201
+        }
+      }
+    },
+    "precision@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.2
+        },
+        "fetch-012": {
+          "value": 0.2
+        },
+        "fetch-013": {
+          "value": 0.2
+        },
+        "fetch-014": {
+          "value": 0.2
+        },
+        "fetch-015": {
+          "value": 0.2
+        },
+        "fetch-036": {
+          "value": 0.2
+        },
+        "fetch-037": {
+          "value": 0.2
+        },
+        "fetch-038": {
+          "value": 0.2
+        },
+        "fetch-039": {
+          "value": 0.2
+        },
+        "fetch-040": {
+          "value": 0.2
+        },
+        "operator-001": {
+          "value": 0.2
+        },
+        "operator-002": {
+          "value": 0.2
+        },
+        "operator-003": {
+          "value": 0.2
+        },
+        "operator-004": {
+          "value": 0.2
+        },
+        "operator-005": {
+          "value": 0.2
+        },
+        "operator-006": {
+          "value": 0.2
+        },
+        "operator-007": {
+          "value": 0.2
+        },
+        "operator-008": {
+          "value": 0.2
+        },
+        "operator-009": {
+          "value": 0.2
+        },
+        "operator-010": {
+          "value": 0.2
+        },
+        "operator-011": {
+          "value": 0.2
+        },
+        "operator-012": {
+          "value": 0.2
+        },
+        "operator-048": {
+          "value": 0.4
+        }
+      }
+    },
+    "recall@5": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 1.0
+        },
+        "fetch-012": {
+          "value": 1.0
+        },
+        "fetch-013": {
+          "value": 1.0
+        },
+        "fetch-014": {
+          "value": 1.0
+        },
+        "fetch-015": {
+          "value": 1.0
+        },
+        "fetch-036": {
+          "value": 1.0
+        },
+        "fetch-037": {
+          "value": 1.0
+        },
+        "fetch-038": {
+          "value": 1.0
+        },
+        "fetch-039": {
+          "value": 1.0
+        },
+        "fetch-040": {
+          "value": 1.0
+        },
+        "operator-001": {
+          "value": 1.0
+        },
+        "operator-002": {
+          "value": 1.0
+        },
+        "operator-003": {
+          "value": 1.0
+        },
+        "operator-004": {
+          "value": 1.0
+        },
+        "operator-005": {
+          "value": 1.0
+        },
+        "operator-006": {
+          "value": 1.0
+        },
+        "operator-007": {
+          "value": 1.0
+        },
+        "operator-008": {
+          "value": 1.0
+        },
+        "operator-009": {
+          "value": 1.0
+        },
+        "operator-010": {
+          "value": 1.0
+        },
+        "operator-011": {
+          "value": 1.0
+        },
+        "operator-012": {
+          "value": 1.0
+        },
+        "operator-048": {
+          "value": 1.0
+        }
+      }
+    },
+    "accuracy": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        }
+      }
+    },
+    "embedding-similarity": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "exact_match": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.0
+        },
+        "fetch-012": {
+          "value": 0.0
+        },
+        "fetch-013": {
+          "value": 0.0
+        },
+        "fetch-014": {
+          "value": 0.0
+        },
+        "fetch-015": {
+          "value": 0.0
+        },
+        "fetch-036": {
+          "value": 0.0
+        },
+        "fetch-037": {
+          "value": 0.0
+        },
+        "fetch-038": {
+          "value": 0.0
+        },
+        "fetch-039": {
+          "value": 0.0
+        },
+        "fetch-040": {
+          "value": 0.0
+        },
+        "operator-001": {
+          "value": 0.0
+        },
+        "operator-002": {
+          "value": 0.0
+        },
+        "operator-003": {
+          "value": 0.0
+        },
+        "operator-004": {
+          "value": 0.0
+        },
+        "operator-005": {
+          "value": 0.0
+        },
+        "operator-006": {
+          "value": 0.0
+        },
+        "operator-007": {
+          "value": 0.0
+        },
+        "operator-008": {
+          "value": 0.0
+        },
+        "operator-009": {
+          "value": 0.0
+        },
+        "operator-010": {
+          "value": 0.0
+        },
+        "operator-011": {
+          "value": 0.0
+        },
+        "operator-012": {
+          "value": 0.0
+        },
+        "operator-048": {
+          "value": 0.0
+        }
+      }
+    },
+    "f1_score": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.28947368421052627
+        },
+        "fetch-012": {
+          "value": 0.3004694835680751
+        },
+        "fetch-013": {
+          "value": 0.2138364779874214
+        },
+        "fetch-014": {
+          "value": 0.48571428571428565
+        },
+        "fetch-015": {
+          "value": 0.27972027972027974
+        },
+        "fetch-036": {
+          "value": 0.30434782608695654
+        },
+        "fetch-037": {
+          "value": 0.38554216867469876
+        },
+        "fetch-038": {
+          "value": 0.27659574468085113
+        },
+        "fetch-039": {
+          "value": 0.4251207729468599
+        },
+        "fetch-040": {
+          "value": 0.44776119402985076
+        },
+        "operator-001": {
+          "value": 0.42372881355932196
+        },
+        "operator-002": {
+          "value": 0.2619047619047619
+        },
+        "operator-003": {
+          "value": 0.5192307692307692
+        },
+        "operator-004": {
+          "value": 0.3098591549295775
+        },
+        "operator-005": {
+          "value": 0.3119266055045871
+        },
+        "operator-006": {
+          "value": 0.15593220338983052
+        },
+        "operator-007": {
+          "value": 0.2727272727272727
+        },
+        "operator-008": {
+          "value": 0.24675324675324678
+        },
+        "operator-009": {
+          "value": 0.358974358974359
+        },
+        "operator-010": {
+          "value": 0.30508474576271183
+        },
+        "operator-011": {
+          "value": 0.21359223300970873
+        },
+        "operator-012": {
+          "value": 0.453125
+        },
+        "operator-048": {
+          "value": 0.390625
+        }
+      }
+    },
+    "key_terms_precision": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.25842696629213485
+        },
+        "fetch-012": {
+          "value": 0.20212765957446807
+        },
+        "fetch-013": {
+          "value": 0.4
+        },
+        "fetch-014": {
+          "value": 0.49019607843137253
+        },
+        "fetch-015": {
+          "value": 0.22602739726027396
+        },
+        "fetch-036": {
+          "value": 0.4
+        },
+        "fetch-037": {
+          "value": 0.2191780821917808
+        },
+        "fetch-038": {
+          "value": 0.5
+        },
+        "fetch-039": {
+          "value": 0.3258426966292135
+        },
+        "fetch-040": {
+          "value": 0.5365853658536586
+        },
+        "operator-001": {
+          "value": 0.29411764705882354
+        },
+        "operator-002": {
+          "value": 0.15492957746478872
+        },
+        "operator-003": {
+          "value": 0.4166666666666667
+        },
+        "operator-004": {
+          "value": 0.46875
+        },
+        "operator-005": {
+          "value": 0.3333333333333333
+        },
+        "operator-006": {
+          "value": 0.07058823529411765
+        },
+        "operator-007": {
+          "value": 0.34782608695652173
+        },
+        "operator-008": {
+          "value": 0.2857142857142857
+        },
+        "operator-009": {
+          "value": 0.2261904761904762
+        },
+        "operator-010": {
+          "value": 0.2972972972972973
+        },
+        "operator-011": {
+          "value": 0.3111111111111111
+        },
+        "operator-012": {
+          "value": 0.3448275862068966
+        },
+        "operator-048": {
+          "value": 0.4318181818181818
+        }
+      }
+    },
+    "overlap-at-threshold": {
+      "keyed_by": "question-id",
+      "scores": {}
+    },
+    "rouge_1": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.4273504273504274
+        },
+        "fetch-012": {
+          "value": 0.3724696356275303
+        },
+        "fetch-013": {
+          "value": 0.41346153846153844
+        },
+        "fetch-014": {
+          "value": 0.6666666666666666
+        },
+        "fetch-015": {
+          "value": 0.39252336448598135
+        },
+        "fetch-036": {
+          "value": 0.47407407407407404
+        },
+        "fetch-037": {
+          "value": 0.4228571428571428
+        },
+        "fetch-038": {
+          "value": 0.6363636363636365
+        },
+        "fetch-039": {
+          "value": 0.5116279069767441
+        },
+        "fetch-040": {
+          "value": 0.54421768707483
+        },
+        "operator-001": {
+          "value": 0.47540983606557374
+        },
+        "operator-002": {
+          "value": 0.2994652406417112
+        },
+        "operator-003": {
+          "value": 0.6181818181818182
+        },
+        "operator-004": {
+          "value": 0.5287356321839081
+        },
+        "operator-005": {
+          "value": 0.5483870967741935
+        },
+        "operator-006": {
+          "value": 0.16613418530351434
+        },
+        "operator-007": {
+          "value": 0.4788732394366197
+        },
+        "operator-008": {
+          "value": 0.4268292682926829
+        },
+        "operator-009": {
+          "value": 0.3976608187134502
+        },
+        "operator-010": {
+          "value": 0.4571428571428572
+        },
+        "operator-011": {
+          "value": 0.45045045045045046
+        },
+        "operator-012": {
+          "value": 0.5151515151515151
+        },
+        "operator-048": {
+          "value": 0.49624060150375937
+        }
+      }
+    },
+    "rouge_2": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.11206896551724138
+        },
+        "fetch-012": {
+          "value": 0.12244897959183673
+        },
+        "fetch-013": {
+          "value": 0.19417475728155342
+        },
+        "fetch-014": {
+          "value": 0.4054054054054055
+        },
+        "fetch-015": {
+          "value": 0.18181818181818185
+        },
+        "fetch-036": {
+          "value": 0.208955223880597
+        },
+        "fetch-037": {
+          "value": 0.09248554913294797
+        },
+        "fetch-038": {
+          "value": 0.2777777777777778
+        },
+        "fetch-039": {
+          "value": 0.21596244131455397
+        },
+        "fetch-040": {
+          "value": 0.26206896551724135
+        },
+        "operator-001": {
+          "value": 0.2
+        },
+        "operator-002": {
+          "value": 0.11891891891891894
+        },
+        "operator-003": {
+          "value": 0.3333333333333333
+        },
+        "operator-004": {
+          "value": 0.21176470588235294
+        },
+        "operator-005": {
+          "value": 0.34426229508196726
+        },
+        "operator-006": {
+          "value": 0.025723472668810286
+        },
+        "operator-007": {
+          "value": 0.2898550724637681
+        },
+        "operator-008": {
+          "value": 0.16049382716049382
+        },
+        "operator-009": {
+          "value": 0.14201183431952663
+        },
+        "operator-010": {
+          "value": 0.17647058823529407
+        },
+        "operator-011": {
+          "value": 0.27522935779816515
+        },
+        "operator-012": {
+          "value": 0.23076923076923078
+        },
+        "operator-048": {
+          "value": 0.25954198473282447
+        }
+      }
+    },
+    "rouge_l": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.23076923076923075
+        },
+        "fetch-012": {
+          "value": 0.22672064777327935
+        },
+        "fetch-013": {
+          "value": 0.38461538461538464
+        },
+        "fetch-014": {
+          "value": 0.5066666666666667
+        },
+        "fetch-015": {
+          "value": 0.2990654205607477
+        },
+        "fetch-036": {
+          "value": 0.3259259259259259
+        },
+        "fetch-037": {
+          "value": 0.25142857142857145
+        },
+        "fetch-038": {
+          "value": 0.45454545454545453
+        },
+        "fetch-039": {
+          "value": 0.39069767441860465
+        },
+        "fetch-040": {
+          "value": 0.3945578231292517
+        },
+        "operator-001": {
+          "value": 0.36065573770491804
+        },
+        "operator-002": {
+          "value": 0.21390374331550804
+        },
+        "operator-003": {
+          "value": 0.4727272727272727
+        },
+        "operator-004": {
+          "value": 0.4597701149425288
+        },
+        "operator-005": {
+          "value": 0.46774193548387105
+        },
+        "operator-006": {
+          "value": 0.08306709265175717
+        },
+        "operator-007": {
+          "value": 0.4225352112676056
+        },
+        "operator-008": {
+          "value": 0.29268292682926833
+        },
+        "operator-009": {
+          "value": 0.24561403508771934
+        },
+        "operator-010": {
+          "value": 0.2857142857142857
+        },
+        "operator-011": {
+          "value": 0.3423423423423424
+        },
+        "operator-012": {
+          "value": 0.40909090909090906
+        },
+        "operator-048": {
+          "value": 0.3458646616541353
+        }
+      }
+    },
+    "token_overlap": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.26666666666666666
+        },
+        "fetch-012": {
+          "value": 0.2109375
+        },
+        "fetch-013": {
+          "value": 0.3333333333333333
+        },
+        "fetch-014": {
+          "value": 0.5
+        },
+        "fetch-015": {
+          "value": 0.27450980392156865
+        },
+        "fetch-036": {
+          "value": 0.32558139534883723
+        },
+        "fetch-037": {
+          "value": 0.2647058823529412
+        },
+        "fetch-038": {
+          "value": 0.49019607843137253
+        },
+        "fetch-039": {
+          "value": 0.3482142857142857
+        },
+        "fetch-040": {
+          "value": 0.38461538461538464
+        },
+        "operator-001": {
+          "value": 0.3013698630136986
+        },
+        "operator-002": {
+          "value": 0.17708333333333334
+        },
+        "operator-003": {
+          "value": 0.4576271186440678
+        },
+        "operator-004": {
+          "value": 0.40425531914893614
+        },
+        "operator-005": {
+          "value": 0.3108108108108108
+        },
+        "operator-006": {
+          "value": 0.1099476439790576
+        },
+        "operator-007": {
+          "value": 0.2553191489361702
+        },
+        "operator-008": {
+          "value": 0.2926829268292683
+        },
+        "operator-009": {
+          "value": 0.25
+        },
+        "operator-010": {
+          "value": 0.32608695652173914
+        },
+        "operator-011": {
+          "value": 0.3392857142857143
+        },
+        "operator-012": {
+          "value": 0.36363636363636365
+        },
+        "operator-048": {
+          "value": 0.30666666666666664
+        }
+      }
+    },
+    "token_recall": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.5079365079365079
+        },
+        "fetch-012": {
+          "value": 0.4426229508196721
+        },
+        "fetch-013": {
+          "value": 0.5178571428571429
+        },
+        "fetch-014": {
+          "value": 0.7111111111111111
+        },
+        "fetch-015": {
+          "value": 0.8571428571428571
+        },
+        "fetch-036": {
+          "value": 0.4375
+        },
+        "fetch-037": {
+          "value": 0.48214285714285715
+        },
+        "fetch-038": {
+          "value": 0.7352941176470589
+        },
+        "fetch-039": {
+          "value": 0.6290322580645161
+        },
+        "fetch-040": {
+          "value": 0.44776119402985076
+        },
+        "operator-001": {
+          "value": 0.5
+        },
+        "operator-002": {
+          "value": 0.40476190476190477
+        },
+        "operator-003": {
+          "value": 0.7105263157894737
+        },
+        "operator-004": {
+          "value": 0.5588235294117647
+        },
+        "operator-005": {
+          "value": 0.5
+        },
+        "operator-006": {
+          "value": 0.5
+        },
+        "operator-007": {
+          "value": 0.3333333333333333
+        },
+        "operator-008": {
+          "value": 0.6666666666666666
+        },
+        "operator-009": {
+          "value": 0.5294117647058824
+        },
+        "operator-010": {
+          "value": 0.625
+        },
+        "operator-011": {
+          "value": 0.6333333333333333
+        },
+        "operator-012": {
+          "value": 0.5957446808510638
+        },
+        "operator-048": {
+          "value": 0.42592592592592593
+        }
+      }
+    },
+    "answer_correctness": {
+      "keyed_by": "question-id",
+      "scores": {
+        "fetch-011": {
+          "value": 0.8360829393520925
+        },
+        "fetch-012": {
+          "value": 0.6156861633536781
+        },
+        "fetch-013": {
+          "value": 0.9347633528103514
+        },
+        "fetch-014": {
+          "value": 0.9172755223554407
+        },
+        "fetch-015": {
+          "value": 0.6086633358664528
+        },
+        "fetch-036": {
+          "value": 0.7430789196030836
+        },
+        "fetch-037": {
+          "value": 0.6376665907522441
+        },
+        "fetch-038": {
+          "value": 0.9690231502960933
+        },
+        "fetch-039": {
+          "value": 0.8553157003818641
+        },
+        "fetch-040": {
+          "value": 0.677062782560089
+        },
+        "operator-001": {
+          "value": 0.739711731035417
+        },
+        "operator-002": {
+          "value": 0.640844911091775
+        },
+        "operator-003": {
+          "value": 0.7682652555806795
+        },
+        "operator-004": {
+          "value": 0.7606133376067962
+        },
+        "operator-005": {
+          "value": 0.7189479658829414
+        },
+        "operator-006": {
+          "value": 0.27309818762197957
+        },
+        "operator-007": {
+          "value": 0.829247140588878
+        },
+        "operator-008": {
+          "value": 0.8276559966212234
+        },
+        "operator-009": {
+          "value": 0.6089718012803036
+        },
+        "operator-010": {
+          "value": 0.9592751615447558
+        },
+        "operator-011": {
+          "value": 0.8090058545877684
+        },
+        "operator-012": {
+          "value": 0.9074832879867163
+        },
+        "operator-048": {
+          "value": 0.7397057134108995
+        }
+      }
+    }
+  },
+  "question_axes": {
+    "fetch-011": {
+      "kind": "limitation"
+    },
+    "fetch-012": {
+      "kind": "methodological"
+    },
+    "fetch-013": {
+      "kind": "quantitative"
+    },
+    "fetch-014": {
+      "kind": "comparative"
+    },
+    "fetch-015": {
+      "kind": "methodological"
+    },
+    "fetch-036": {
+      "kind": "limitation"
+    },
+    "fetch-037": {
+      "kind": "methodological"
+    },
+    "fetch-038": {
+      "kind": "quantitative"
+    },
+    "fetch-039": {
+      "kind": "limitation"
+    },
+    "fetch-040": {
+      "kind": "comparative"
+    },
+    "operator-001": {
+      "kind": "definitional"
+    },
+    "operator-002": {
+      "kind": "methodological"
+    },
+    "operator-003": {
+      "kind": "methodological"
+    },
+    "operator-004": {
+      "kind": "quantitative"
+    },
+    "operator-005": {
+      "kind": "comparative"
+    },
+    "operator-006": {
+      "kind": "limitation"
+    },
+    "operator-007": {
+      "kind": "definitional"
+    },
+    "operator-008": {
+      "kind": "methodological"
+    },
+    "operator-009": {
+      "kind": "methodological"
+    },
+    "operator-010": {
+      "kind": "quantitative"
+    },
+    "operator-011": {
+      "kind": "comparative"
+    },
+    "operator-012": {
+      "kind": "limitation"
+    },
+    "operator-048": {
+      "kind": "cross-document"
+    }
+  },
+  "question_contributors": {
+    "fetch-011": [
+      "whole-corpus"
+    ],
+    "fetch-012": [
+      "whole-corpus"
+    ],
+    "fetch-013": [
+      "whole-corpus"
+    ],
+    "fetch-014": [
+      "whole-corpus"
+    ],
+    "fetch-015": [
+      "whole-corpus"
+    ],
+    "fetch-036": [
+      "whole-corpus"
+    ],
+    "fetch-037": [
+      "whole-corpus"
+    ],
+    "fetch-038": [
+      "whole-corpus"
+    ],
+    "fetch-039": [
+      "whole-corpus"
+    ],
+    "fetch-040": [
+      "whole-corpus"
+    ],
+    "operator-001": [
+      "whole-corpus"
+    ],
+    "operator-002": [
+      "whole-corpus"
+    ],
+    "operator-003": [
+      "whole-corpus"
+    ],
+    "operator-004": [
+      "whole-corpus"
+    ],
+    "operator-005": [
+      "whole-corpus"
+    ],
+    "operator-006": [
+      "whole-corpus"
+    ],
+    "operator-007": [
+      "whole-corpus"
+    ],
+    "operator-008": [
+      "whole-corpus"
+    ],
+    "operator-009": [
+      "whole-corpus"
+    ],
+    "operator-010": [
+      "whole-corpus"
+    ],
+    "operator-011": [
+      "whole-corpus"
+    ],
+    "operator-012": [
+      "whole-corpus"
+    ],
+    "operator-048": [
+      "whole-corpus"
+    ]
+  },
+  "question_seconds": {
+    "keyed_by": "question-id",
+    "seconds": {
+      "fetch-011": 3.6726792498957366,
+      "fetch-012": 7.524783041793853,
+      "fetch-013": 3.2951354167889804,
+      "fetch-014": 3.015010334085673,
+      "fetch-015": 5.513699125032872,
+      "fetch-036": 3.98197687510401,
+      "fetch-037": 2.950133000034839,
+      "fetch-038": 2.650433458155021,
+      "fetch-039": 3.8005502079613507,
+      "fetch-040": 1.9410831248387694,
+      "operator-001": 2.177345125004649,
+      "operator-002": 4.678305874811485,
+      "operator-003": 2.216416624840349,
+      "operator-004": 2.3302023329306394,
+      "operator-005": 4.110558750107884,
+      "operator-006": 10.21901175007224,
+      "operator-007": 1.9719427078962326,
+      "operator-008": 5.239225167082623,
+      "operator-009": 4.5366552078630775,
+      "operator-010": 1.9807421669829637,
+      "operator-011": 2.8862334170844406,
+      "operator-012": 3.6400502079632133,
+      "operator-048": 5.167038291925564
+    }
+  },
+  "token_usage": {
+    "generate": {
+      "prompt_tokens": 2180387,
+      "completion_tokens": 6839,
+      "calls": 23,
+      "calls_not_reporting": 0
+    },
+    "grade": {
+      "prompt_tokens": 15672,
+      "completion_tokens": 19230,
+      "calls": 23,
+      "calls_not_reporting": 0
+    },
+    "embed": {
+      "prompt_tokens": 5837,
+      "completion_tokens": 0,
+      "calls": 23,
+      "calls_not_reporting": 0
+    }
+  },
+  "experiment": {
+    "name": "whole-corpus-size-25",
+    "digest": "4c3d5c79ec440ab9970fc5519b4b54a7e2a50bab882be711a8df596c90bcddb5",
+    "invocation": "335e52b91a5749fc83a2aa4467cd650d",
+    "arm": "whole-corpus",
+    "repetition": 1,
+    "pool_manifest": null
+  },
+  "target": "default",
+  "target_embedding": {
+    "plugin": "openai-embeddings",
+    "distribution": "weft-rag",
+    "model": "text-embedding-3-large",
+    "width": null
+  },
+  "source_revision": {
+    "commit": "905e31a6c6e861c841bc7b60ad612f668bcf8e09",
+    "dirty": false
+  },
+  "judge_prompts": {
+    "answer_correctness": "ee0647c30769bd5855ef9396a004af76b3111fde9472c81f1df34a175d35df23"
+  },
+  "question_tokens": {
+    "fetch-011": {
+      "generate": {
+        "prompt_tokens": 94798,
+        "completion_tokens": 254,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-012": {
+      "generate": {
+        "prompt_tokens": 94806,
+        "completion_tokens": 764,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-013": {
+      "generate": {
+        "prompt_tokens": 94813,
+        "completion_tokens": 277,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-014": {
+      "generate": {
+        "prompt_tokens": 94801,
+        "completion_tokens": 171,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-015": {
+      "generate": {
+        "prompt_tokens": 94798,
+        "completion_tokens": 573,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-036": {
+      "generate": {
+        "prompt_tokens": 94791,
+        "completion_tokens": 311,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-037": {
+      "generate": {
+        "prompt_tokens": 94795,
+        "completion_tokens": 219,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-038": {
+      "generate": {
+        "prompt_tokens": 94819,
+        "completion_tokens": 118,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-039": {
+      "generate": {
+        "prompt_tokens": 94787,
+        "completion_tokens": 295,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "fetch-040": {
+      "generate": {
+        "prompt_tokens": 94794,
+        "completion_tokens": 89,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-001": {
+      "generate": {
+        "prompt_tokens": 94791,
+        "completion_tokens": 76,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-002": {
+      "generate": {
+        "prompt_tokens": 94791,
+        "completion_tokens": 359,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-003": {
+      "generate": {
+        "prompt_tokens": 94796,
+        "completion_tokens": 83,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-004": {
+      "generate": {
+        "prompt_tokens": 94804,
+        "completion_tokens": 137,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-005": {
+      "generate": {
+        "prompt_tokens": 94800,
+        "completion_tokens": 380,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-006": {
+      "generate": {
+        "prompt_tokens": 94791,
+        "completion_tokens": 1101,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-007": {
+      "generate": {
+        "prompt_tokens": 94795,
+        "completion_tokens": 47,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-008": {
+      "generate": {
+        "prompt_tokens": 94800,
+        "completion_tokens": 324,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-009": {
+      "generate": {
+        "prompt_tokens": 94790,
+        "completion_tokens": 354,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-010": {
+      "generate": {
+        "prompt_tokens": 94808,
+        "completion_tokens": 74,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-011": {
+      "generate": {
+        "prompt_tokens": 94812,
+        "completion_tokens": 185,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-012": {
+      "generate": {
+        "prompt_tokens": 94803,
+        "completion_tokens": 241,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    },
+    "operator-048": {
+      "generate": {
+        "prompt_tokens": 94804,
+        "completion_tokens": 407,
+        "calls": 1,
+        "calls_not_reporting": 0
+      }
+    }
+  },
+  "question_routes": null,
+  "question_profiles": {
+    "fetch-011": {
+      "query.word_count": 25,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-012": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-013": {
+      "query.word_count": 39,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-014": {
+      "query.word_count": 21,
+      "query.anchor.identifier": 3,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-015": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-036": {
+      "query.word_count": 18,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-037": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-038": {
+      "query.word_count": 40,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-039": {
+      "query.word_count": 14,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "fetch-040": {
+      "query.word_count": 19,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-001": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-002": {
+      "query.word_count": 20,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-003": {
+      "query.word_count": 24,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-004": {
+      "query.word_count": 29,
+      "query.anchor.identifier": 1,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": true,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-005": {
+      "query.word_count": 26,
+      "query.anchor.identifier": 2,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-006": {
+      "query.word_count": 17,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-007": {
+      "query.word_count": 22,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-008": {
+      "query.word_count": 27,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": true,
+      "query.cue.cross-document": false
+    },
+    "operator-009": {
+      "query.word_count": 19,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-010": {
+      "query.word_count": 32,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-011": {
+      "query.word_count": 33,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": true,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-012": {
+      "query.word_count": 30,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": true,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    },
+    "operator-048": {
+      "query.word_count": 31,
+      "query.anchor.identifier": 0,
+      "query.anchor.quoted": 0,
+      "query.anchor.entity": 0,
+      "query.locale_fallback": false,
+      "query.cue.comparison": false,
+      "query.cue.aggregation": false,
+      "query.cue.global": false,
+      "query.cue.temporal": false,
+      "query.cue.cross-document": false
+    }
+  },
+  "profiler_version": "1",
+  "question_answers": {
+    "fetch-011": "They argue that the assumptions impose incompatible dependency structures:\n\n- **Assumption 1** says the selected features are mutually independent once we condition on the candidate unselected feature \\(x_i\\). In graphical terms, \\(x_i\\) is their only common cause, so conditioning on it removes their dependence. [1][38]\n- **Assumption 2** says the selected features are independent only after conditioning on both \\(x_i\\) **and** the class label \\(y\\). Thus, even after conditioning on \\(x_i\\), the class label generally leaves residual dependencies among the selected features. [1][38]\n\nTherefore, conditioning only on \\(x_i\\) cannot generally produce the factorization required by Assumption 1 if Assumption 2 holds. Both can hold only under a very specific, unrealistic data-generating structure. Moreover, in that exceptional structure \\(x_i\\) would be more informative about \\(y\\) than the already selected features, so it should have been selected first—contradicting the forward-selection process. [44]",
+    "fetch-012": "The Pairwise Q-distribution approximates the higher-order conditional by taking the geometric mean of pairwise, class-conditioned conditionals:\n\n\\[\nq(x_{f_t}\\mid x_{f_{<t}},y)\n=\n\\left[\n\\prod_{i=1}^{t-1}\np(x_{f_t}\\mid x_{f_i},y)\n\\right]^{1/(t-1)}.\n\\]\n\nThus, instead of modeling the full dependence on all previously selected features, it combines the lower-order conditionals \\(p(x_{f_t}\\mid x_{f_i},y)\\). The resulting \\(q(x_i\\mid x_{S_t},y)\\) can also be updated recursively from the previous step using the newly selected feature’s pairwise conditional [48].\n\nThe authors justify this construction as a tractable alternative that is more general than the Naive Bayes Q-distribution, while still fitting the autoregressive decomposition: if each conditional factor is tractable, then the full \\(q(x_S\\mid y)\\) is tractable as well [13]. It also avoids imposing full conditional independence among features, which is the restrictive assumption underlying Naive Bayes [27].",
+    "fetch-013": "The reported mutual information values \\(I(x_i:y)\\) are:\n\n- \\(x_1:\\) **0.111**\n- \\(x_2:\\) **0.052**\n- \\(x_3:\\) **0.022**\n- \\(x_4:\\) **0.058**\n- \\(x_5:\\) **0.058**\n- \\(x_6:\\) **0.025**\n- \\(x_7:\\) **0.029**\n- \\(x_8:\\) **0.012**\n- \\(x_9:\\) **0.013** [26]\n\nThus, the maximum-relevance criterion selects **\\(x_1, x_4, x_5\\)**—the three features with the largest individual mutual information values. In contrast, **VMI\\(_{\\text{naive}}\\)** selects **\\(x_1, x_2, x_3\\)** as its first three features. The difference is that VMI\\(_{\\text{naive}}\\) selects the first-layer features \\(x_1,x_2,x_3\\), even though \\(x_2\\) and \\(x_3\\) have weaker marginal mutual information with \\(y\\) than the descendant features \\(x_4\\) and \\(x_5\\). [90]",
+    "fetch-014": "The paper claims:\n\n- **VMI_naive:** \\(O(NDT)\\)\n- **VMI_pairwise:** \\(O(NDT)\\)\n\nwhere \\(N\\) is the number of samples, \\(D\\) the total number of features, and \\(T\\) the number of selected features. Thus, both have the **same time complexity as mRMR**, also \\(O(NDT)\\). [52] [67] [69]\n\nBy contrast, **SPEC_CMI** requires precomputing a pairwise mutual-information matrix, giving it \\(O(ND^2)\\) complexity. Therefore, VMI_naive and VMI_pairwise are linear in the number of selected features \\(T\\), whereas SPEC_CMI is quadratic in the total number of features \\(D\\). [67] [69]",
+    "fetch-015": "### Real-world dataset comparison\n\n- They compared VMI-naive and VMI-pairwise with mRMR, JMI, CMIM, SPECCMI, and related information-theoretic feature-selection methods on 17 discretized datasets. Performance was measured by the **average cross-validation error rate over 10–100 selected features**. [34]\n- The validation scheme was **10-fold cross-validation** for datasets with at least 100 samples, and **leave-one-out cross-validation** for smaller datasets. [34][53]\n- For classification, they used **3-nearest neighbors for Gisette and Madelon**, following prior work, and **linear SVM for all remaining datasets**. [53]\n\n### Synthetic experiment\n\n- The synthetic data followed a **tree graphical model** with a binary root label \\(y\\sim\\mathrm{Bernoulli}(0.5)\\). The first-layer variables were Gaussian with means tied to \\(y\\): \\(x_1\\) had mean \\(y\\), \\(x_2\\) mean \\(y/1.5\\), and \\(x_3\\) mean \\(y/2.25\\). The second-layer variables \\(x_4,x_5\\) depended on \\(x_1\\), \\(x_6,x_7\\) on \\(x_2\\), and \\(x_8,x_9\\) on \\(x_3\\), all with Gaussian noise of standard deviation 1. [6]\n- They generated **5,000 samples**, used **VMI-naive** to optimize the variational lower bound, and estimated the variational distributions with a **kernel density estimator**. [82]\n- The experiment examined the order in which features were selected and compared the lower bound with the true mutual information. In the reported behavior, VMI-naive selected \\(x_1,x_2,x_3\\) first, whereas continuing into the deeper tree features caused the lower bound to decrease. [90]\n- For reference, ground-truth mutual information values were estimated separately using **100,000 samples**. [26]",
+    "fetch-036": "The sparsistency result covers the **non-convex SCAD and MCP penalties**. Theorem 3.6 explicitly states that, under its conditions, SCAD and MCP recover the true zero coefficients with probability tending to one. [221]\n\nThe paper does **not** establish this sparsistency result for the LASSO. Although the LASSO is included in the paper’s consistency result—with \\(a_n=\\lambda_n\\)—its tuning-parameter requirements are incompatible with the stronger zero-recovery condition: consistency requires \\(\\lambda_n=O\\!\\left(\\sqrt{s_n^2\\log(p_n)/n}\\right)\\), whereas sparsistency requires \\(\\sqrt{n/(p_ns_n^2\\log p_n)}\\,\\lambda_n\\to\\infty\\). [175] [273] Thus, the LASSO may be consistent in estimation, but the paper’s sparsistency theorem does not cover it. [175] [221]",
+    "fetch-037": "The practical obstacle is a **sample-size requirement**: constructing knockoffs for all \\(p\\) features requires \\(n>2p\\), which often fails in high-dimensional settings where the number of features exceeds the sample size [109].  \n\nThe paper gets around this by using a **two-stage, data-splitting procedure**: it first screens features on one subsample to obtain a much smaller candidate set, then constructs knockoffs and applies the knockoff filter to that reduced set on the remaining subsample [154]. The screened set is chosen so that its size satisfies the knockoff construction requirement, \\(2|\\widehat S_0|<n_1\\) [195].",
+    "fetch-038": "For the simplest linear DGP (1.a), with fixed sample size \\(n=100\\), SmRMR(PC, None)’s MSE increases as the number of features grows:\n\n- \\(p=100\\): **3.8**\n- \\(p=500\\): **6.7**\n- \\(p=5{,}000\\): **9.5** [245]\n\nWhen the sample size is increased to \\(n=500\\), the MSE decreases to **1.7** (reported for the corresponding setting). [245]",
+    "fetch-039": "**SmRMR2** is a modified version of **Sparse Minimum Redundancy Maximum Relevance (SmRMR)**. SmRMR performs penalized mRMR feature selection, combining feature–target relevance with feature–feature redundancy and using a sparsity-inducing penalty. [135] SmRMR2 modifies the knockoff-filter procedure to avoid returning an empty feature set: if no features are selected, it increases the FDR level \\(\\alpha\\) in increments of 0.05; if \\(\\alpha\\) reaches 1 without selecting anything, it returns the feature with the largest knockoff statistic. [142]\n\nRegarding false discovery rate, the paper reports that **unmodified SmRMR generally controls FDR, with observed rates below the target \\(\\alpha\\)**. However, **SmRMR2 does not control FDR in every tested situation**, because its forced-selection modification can override the conservative empty-set outcome. [278]",
+    "fetch-040": "On the real-world benchmark datasets, SmRMR outperformed HSIC-LASSO on **TOX_171** and **orlraws10P**, but HSIC-LASSO performed better on the other datasets. [247] The trade-off was that SmRMR’s better scores came with selecting roughly **three times as many features**, whereas it was more conservative in feature selection on the remaining datasets. [247]",
+    "operator-001": "Filter methods rank or score variables as a preprocessing step using an intrinsic measure—such as mutual information—and then select those exceeding a threshold, independently of the forecasting model [387]. Wrapper methods instead search for the subset that produces the best forecasting performance, using the predictor’s performance itself as the objective; this can involve heuristic search and is typically computationally intensive [398].",
+    "operator-002": "The first variable is chosen solely by **maximum relevance**: it is the unselected feature with the largest mutual information with the class label, \\(I(h,i)\\). [562]\n\nAfter that, the procedure adds variables incrementally. Previously selected features remain in the set, and each candidate is scored using both:\n\n- its relevance to the class, \\(I(i,h)\\), and\n- its redundancy with the already selected features, measured by the average \\(I(i,j)\\) over \\(j\\in S\\). [562]\n\nThe paper uses either:\n\n- **MID:** maximize \\(I(i,h)-\\frac{1}{|S|}\\sum_{j\\in S} I(i,j)\\), or\n- **MIQ:** maximize \\(I(i,h)\\) divided by that average redundancy. [540]\n\nSo, in short: **start with the most class-informative variable, then repeatedly add the unselected variable that offers the best relevance–redundancy tradeoff.** [562]",
+    "operator-003": "At each site, the two years of measured data were divided chronologically: the entire first year was used for training, while the second year was split equally into validation and test sets. [311] This is a **hold-out model-selection method**: the validation set selects the model and its meta-parameters, and the test set gives the final evaluation on unseen data. [292][311]",
+    "operator-004": "At Alice Springs for 15-minute-ahead forecasting, the ELM required **21.0 seconds**, compared with **2,451.2 seconds** for LS-SVM—about **117 times less computing time**. The ELM selected **6 variables**, while LS-SVM selected **11**. [439]",
+    "operator-005": "At the **15-min-ahead horizon**, **MRMR and the short-window input selection (the five most recent data points)** were the two best-performing scenarios, largely because short-term irradiance is highly persistent [288].  \n\nAt the **24-hour-ahead horizon**, the short-window advantage did not carry over: **MRMR competed most favorably with the clear-sky model**, as longer horizons require more historical information [355].",
+    "operator-006": "The MRMR–ELM method does **not consistently outperform every baseline**:\n\n- **Against the clear-sky model**, it can lose at the **24-hour horizon**. For example, at Palaiseau the clear-sky model has higher forecast skill than MRMR (0.472 vs. 0.357), and at Bermuda it also performs better (0.399 vs. 0.345). [306] [321]\n- **Against the short-window baseline**, MRMR is not always best at short horizons. At Alice Springs, for example, the 15-minute results show the short-window model achieving a forecast skill of 0.443 versus 0.0226 for MRMR in the cited comparison. [315]\n- **As a forecasting learner**, ELM itself does not beat all alternative learners: it is slightly worse than LS-SVM at Alice Springs (RMSE 74.5 vs. 73.1), substantially worse at Brasilia (117.4 vs. 110.5), and worse at Payerne (197.3 vs. 177.8). Its main advantage is speed, not uniformly superior accuracy. [439] [442] [449]\n\nPerformance degrades under several conditions:\n\n- **Increasing cloud frequency** is explicitly associated with lower performance. [382]\n- **Longer forecast horizons**, especially 24-hour forecasting, cause a major drop in accuracy; the paper attributes this partly to the need for more historical information at long horizons. [355] [363]\n- **Highly variable or cloudy conditions** are difficult for the method, since short-term high-frequency fluctuations can reduce forecast quality, while hourly averaging removes some of those fluctuations. [333]\n- The fixed input window may be too short: the authors note that using **more than the latest 50 observations** might improve results, particularly when longer-range temporal information matters. [319]\n",
+    "operator-007": "MRMR stands for **Minimum Redundancy–Maximum Relevance**. It combines the criteria of **minimum redundancy among selected features** and **maximum relevance to the target/class labels** [470][505][545].",
+    "operator-008": "For each gene, Ding and Peng computed its sample mean \\(\\mu\\) and standard deviation \\(\\sigma\\), then discretized each continuous expression value into three categories:\n\n- **State \\(1\\)**: expression \\(>\\mu+\\sigma/2\\)\n- **State \\(0\\)**: expression between \\(\\mu-\\sigma/2\\) and \\(\\mu+\\sigma/2\\)\n- **State \\(-1\\)**: expression \\(<\\mu-\\sigma/2\\) [557]\n\nBiologically, these states represent **over-expression** (\\(1\\)), **baseline expression** (\\(0\\)), and **under-expression** (\\(-1\\)), respectively. [512] They used this categorization partly to reduce the substantial noise in the original continuous readings and because categorical values allow conditional probabilities to be represented with small tables, which is useful for classifiers such as naïve Bayes. [582] [557]",
+    "operator-009": "Ding and Peng do not solve the MRMR objective by exhaustive exact optimization because that would require an impractically large combinatorial search—described as \\(O(N^{|S|})\\) searches—while a near-optimal solution is considered sufficient [532].\n\nInstead, they use a greedy, incremental linear-search procedure. They first select the feature with the highest relevance to the class label. Then, at each step, they retain the already selected features and add the unselected feature that best balances relevance and redundancy: using the MID criterion (mutual information difference) or MIQ criterion (mutual information quotient) for discrete features, and analogous FCD/FCQ criteria for continuous features [562][540].",
+    "operator-010": "Ding and Peng reported a **1.67% LOOCV error rate** for Naive Bayes on the NCI dataset. Ooi and Tan reported **14.6%**, so Ding and Peng’s result was **12.93 percentage points lower**—about an **88.6% relative reduction** in error. [552]",
+    "operator-011": "- **Discrete data:** **MIQ** (mutual-information quotient) outperformed **MID** (mutual-information difference).  \n- **Continuous data:** **FCQ** (F-test/correlation quotient) outperformed **FCD** (F-test/correlation difference). [503]\n\nTheir general conclusion was that the **divisive/quotient combination of relevance and redundancy**—MIQ or FCQ—was preferable to the difference combination, because it tended to produce feature sets with **lower redundancy** and broader coverage of class characteristics. [500][518]",
+    "operator-012": "No. The authors recorded a caveat: MRMR features produced fewer errors overall, **especially for LDA and SVM**, but for Naïve Bayes the advantage was clear only with **fewer than 30 features**. They warned that Naïve Bayes was non-robust to extra features beyond 30, so comparisons there were not considered reliable. [524] The summary table likewise shows improvements for NB, LDA, and SVM, but not a uniformly stronger result at every feature-set size. [564]",
+    "operator-048": "No. Ding and Peng preferred the **divisive/quotient** combination of relevance and redundancy—the MIQ criterion—over the difference combination [500]. The solar-radiation study instead selected later variables incrementally using its Eq. (4) criterion [291], which is the **difference** form of combining relevance and redundancy [450]. Thus, its incremental selection did **not** follow Ding and Peng’s stated preference."
+  }
+}
