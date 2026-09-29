@@ -1,0 +1,36 @@
+# QuALITY v1.0.1, dev — Phase 44b task 44.41b, the long-document set for experiment E3b
+# (scheduled by D5 because E3 on QASPER was null, 8acf204).
+#
+# QuALITY: Question Answering with Long Input Texts, Yes! (Pang, Parrish, Joshi, Nangia, Phang,
+# Chen, Padmakumar, Ma, Thompson, He and Bowman, NAACL 2022), https://github.com/nyu-mll/quality.
+# Files derived from it are modified: each article becomes one document and each question one
+# Weft question whose text carries its four options.
+#
+# **Licence, read 2026-09-29 before the download.** The articles: the paper's §2.1 says "we use
+# only sources that are licensed under CC-BY (or more permissive licenses)", and every article row
+# carries its own `license` field (Project Gutenberg's licence, OANC's, or CC BY 4.0). The
+# questions, options and gold labels: the repository has no LICENSE file, and neither its README
+# nor the paper states a licence for them. The owner decided on 2026-09-29 to use the dev split
+# for internal evaluation only, the use the authors published it and ran a leaderboard for, so
+# the converted question set and the documents stay untracked (`/corpus/*/` in `.gitignore`) and
+# only this pin, the converter and Weft's own result tables are committed.
+#
+# **Host terms.** Fetched from `raw.githubusercontent.com` at the pinned commit. GitHub's Terms of
+# Service §D.8: "Unless specifically set forth herein, these Terms do not restrict lawful access
+# to or use of the contents of public repositories by third parties." The authors' own README
+# points to this repository's `data/v1.0.1/` for the download. The sha256 below was taken at
+# download, 2026-09-29.
+
+[corpus]
+name = "quality-dev"
+
+[dataset]
+repository = "https://github.com/nyu-mll/quality"
+revision = "05e85750d4c5444d2a0a4ad299f6df5f4df06068"
+license = "articles: CC-BY or more permissive, per article; questions and labels: none stated"
+
+[[dataset_file]]
+name = "QuALITY.v1.0.1.htmlstripped.dev"
+source = "https://raw.githubusercontent.com/nyu-mll/quality/05e85750d4c5444d2a0a4ad299f6df5f4df06068/data/v1.0.1/QuALITY.v1.0.1.htmlstripped.dev"
+sha256 = "99852d874994078e4b4112b71ceca4dd35aa3a24ff6d3a35c051be25295b4fef"
+bytes = 8804985
