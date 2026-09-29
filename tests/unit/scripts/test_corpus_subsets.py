@@ -65,3 +65,18 @@ def test_a_question_with_a_document_outside_the_subset_is_left_out() -> None:
 
     # Assert — a label resolves as a path suffix of a corpus file, as scoring resolves it.
     assert [question.id for question in kept] == ["both-in", "suffix"]
+
+
+def test_a_manifest_id_label_resolves_through_the_manifest_s_path() -> None:
+    # Arrange — `eval/questions/*.toml` label documents by manifest id (`ax-1304.7717v2`), and an
+    # experiment naming `manifest =` scores them through its id-to-path map; the first real run
+    # kept 0 questions at 100% because the ids were matched as paths.
+    inside = ("papers/p00.pdf", "papers/p01.pdf")
+    labels = {"ax-p00": "papers/p00.pdf", "ax-p09": "papers/p09.pdf"}
+    questions = (_question("in", ("ax-p00",)), _question("out", ("ax-p09",)))
+
+    # Act
+    kept = questions_within(questions, inside, labels=labels)
+
+    # Assert
+    assert [question.id for question in kept] == ["in"]

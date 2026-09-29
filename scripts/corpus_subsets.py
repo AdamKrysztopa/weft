@@ -11,9 +11,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePath
 
+from weft_cli.eval_commands import document_labels_from_manifest
 from weft_eval.question_set import Question, read_question_set
 
 
@@ -55,12 +56,25 @@ def nested_subsets(
 
 
 def questions_within(
-    questions: Sequence[Question], documents: Sequence[str]
+    questions: Sequence[Question],
+    documents: Sequence[str],
+    *,
+    labels: Mapping[str, str] | None = None,
 ) -> tuple[Question, ...]:
-    """Keep questions whose relevant_documents all resolve within documents."""
+    """Keep questions whose relevant_documents all resolve within documents.
+
+    When labels is provided, each document label is first mapped through it before resolving
+    as a path suffix against documents. A label absent from labels is used as-is.
+    """
     kept: list[Question] = []
     for question in questions:
-        if all(_document_resolves(label, documents) for label in question.relevant_documents):
+        all_resolve = True
+        for label in question.relevant_documents:
+            resolved_label = labels.get(label, label) if labels else label
+            if not _document_resolves(resolved_label, documents):
+                all_resolve = False
+                break
+        if all_resolve:
             kept.append(question)
     return tuple(kept)
 
@@ -141,6 +155,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Fractions (default: 0.25 0.5 1.0)",
     )
     parser.add_argument("--seed", default="44.51", help="Random seed (default: 44.51)")
+    parser.add_argument("--manifest", type=Path, help="Corpus manifest for label resolution")
     parser.add_argument("--out", type=Path, required=True, help="Output directory")
     args = parser.parse_args(argv)
 
@@ -158,6 +173,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         all_questions = all_questions + qs
 
     corpus_name = corpus_dir.name
+    labels = document_labels_from_manifest(str(args.manifest) if args.manifest else None)
     subsets = nested_subsets(
         document_files, fractions=tuple(sorted(args.fractions)), seed=args.seed
     )
@@ -174,7 +190,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.symlink_to(src.resolve())
 
-        subset_questions = questions_within(all_questions, subset_docs)
+        subset_questions = questions_within(all_questions, subset_docs, labels=labels)
 
         questions_file = out_dir / f"{subset_dir_name}-questions.toml"
         _write_questions_toml(subset_questions, questions_file)
