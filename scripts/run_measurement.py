@@ -228,28 +228,22 @@ def unwritten_executions(plan: Plan, runs: Path) -> int:
 
 
 def retries_too_few(cwd: Path) -> str | None:
-    """Check if the OpenAI pack's retries are set high enough for a paid run.
+    """Why `[packs.openai] max_retries` is too low for a paid run, or `None` — R44.8.
 
-    Read `cwd / "weft.toml"` and check the `[packs.openai]` table for `max_retries`. If the
-    table is absent, return None. If `max_retries` is absent or below PAID_RUN_MIN_RETRIES,
-    return a reason string naming the key and both numbers; otherwise return None.
+    Absent `max_retries` is the SDK default of 2. A run with no `weft.toml` or no
+    `[packs.openai]` is not asked; a `weft.toml` that does not parse raises.
 
     Args:
-        cwd: The project directory containing weft.toml.
+        cwd: The project directory holding `weft.toml`.
 
     Returns:
-        A reason string if retries are too few, else None. Also returns None if weft.toml
-        is missing or has no [packs.openai] section.
+        The refusal reason, or `None` when the run may proceed.
     """
     toml_path = cwd / "weft.toml"
     if not toml_path.exists():
         return None
-
-    try:
-        with toml_path.open("rb") as f:
-            config = tomllib.load(f)
-    except (OSError, tomllib.TOMLDecodeError):
-        return None
+    with toml_path.open("rb") as handle:
+        config = tomllib.load(handle)
 
     openai_config = config.get("packs", {}).get("openai", {})
     if not openai_config:
