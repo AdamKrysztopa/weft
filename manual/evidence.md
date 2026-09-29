@@ -124,6 +124,25 @@ The five statuses:
 
 ## 4. The measurements, newest first
 
+### Phase 44: does reading more of a long document help? (2026-09-29)
+
+- **Question.** When a question is about one long paper, does giving the model more of the paper
+  — each hit's neighbouring chunks, or a context assembled around the hits — answer it better
+  than the chunks one search returns?
+- **Data.** QASPER dev, 910 answerable questions over 281 NLP papers (median about 21,500
+  characters). Three arms, one repetition each, `gpt-5.6-luna` answering and judging,
+  `text-embedding-3-large` embedding. $3.43 for the three arms, plus about $1.20 on a first
+  `context-construction` run the judge lost (repair R44.12).
+- **Result.** Neither clears the pre-registered margin of +0.05 `answer_correctness`; both are
+  `benefit-ruled-out`. `adjacent-chunks` +0.008 (95% interval −0.002 to +0.018) over 905 paired
+  questions, `context-construction` +0.003 (−0.008 to +0.013), each at about two and a half
+  times the generation tokens. Every arm scores low here (0.232 for one search): the answers are
+  short spans or yes/no, and one search finds a supporting passage for under half the questions
+  (recall@5 0.456). Source: `eval/experiments/qasper-long-document/table.md`.
+- **What it means for you.** Reading more around the hits does not help on these papers; the
+  miss is in finding the right passage. Keep `retrieve-then-generate`. Per-question choice could
+  reach +0.060 (`eval/replay/README.md`), again from one repetition.
+
 ### Phase 44: does anything answer multi-hop questions better than one search? (2026-09-29)
 
 - **Question.** Questions whose answer chains two to four facts from different passages
