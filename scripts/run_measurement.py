@@ -41,9 +41,10 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import httpx
 
@@ -53,6 +54,9 @@ from weft_kernel.payload import Failed, Produced
 #: Free disk below this is what wedged the store on 2026-09-20. Swap is deliberately not a floor:
 #: macOS keeps it nearly full by design, and the first version of this check stopped a healthy run.
 DISK_FLOOR_MB = 3072
+
+#: E2's embeddings timeout outlasted the SDK default of 2 retries (R44.8).
+PAID_RUN_MIN_RETRIES: Final[int] = 6
 
 
 @dataclass(frozen=True)
@@ -223,6 +227,43 @@ def unwritten_executions(plan: Plan, runs: Path) -> int:
     return remaining
 
 
+def retries_too_few(cwd: Path) -> str | None:
+    """Check if the OpenAI pack's retries are set high enough for a paid run.
+
+    Read `cwd / "weft.toml"` and check the `[packs.openai]` table for `max_retries`. If the
+    table is absent, return None. If `max_retries` is absent or below PAID_RUN_MIN_RETRIES,
+    return a reason string naming the key and both numbers; otherwise return None.
+
+    Args:
+        cwd: The project directory containing weft.toml.
+
+    Returns:
+        A reason string if retries are too few, else None. Also returns None if weft.toml
+        is missing or has no [packs.openai] section.
+    """
+    toml_path = cwd / "weft.toml"
+    if not toml_path.exists():
+        return None
+
+    try:
+        with toml_path.open("rb") as f:
+            config = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+
+    openai_config = config.get("packs", {}).get("openai", {})
+    if not openai_config:
+        return None
+
+    retries = openai_config.get("max_retries", 2)
+    if retries < PAID_RUN_MIN_RETRIES:
+        return (
+            f"[packs.openai] max_retries is {retries}; a paid run sets it to at least "
+            f"{PAID_RUN_MIN_RETRIES} so one timed-out request does not abort an arm (R44.8)"
+        )
+    return None
+
+
 def refuse(reason: str) -> None:
     """Stop the run before it starts, naming why on stderr.
 
@@ -248,6 +289,10 @@ def preflight(args: argparse.Namespace, plan: Plan) -> dict[str, Any]:
             identity = httpx.get(args.info_url, timeout=10.0).json()
         except httpx.HTTPError as exc:
             refuse(f"the model endpoint {args.info_url} did not answer: {type(exc).__name__}")
+
+    retries_reason = retries_too_few(args.cwd)
+    if retries_reason is not None:
+        refuse(retries_reason)
 
     unwritten = unwritten_executions(plan, args.cwd / "runs")
     price = args.price_per_question * unwritten

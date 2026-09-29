@@ -78,3 +78,41 @@ def test_a_resumed_run_spends_only_what_its_invocation_has_not_recorded(tmp_path
 
     # Assert
     assert remaining == 600
+
+
+# --- Carried repair R44.8 — a paid run's embedder retries long enough to outlast a short outage.
+
+
+def _project(tmp_path: Path, body: str) -> Path:
+    (tmp_path / "weft.toml").write_text(body, encoding="utf-8")
+    return tmp_path
+
+
+def test_a_run_whose_openai_pack_keeps_the_default_retries_is_refused(tmp_path: Path) -> None:
+    # Arrange — the default two retries did not outlast E2's outage (R44.8).
+    project = _project(tmp_path, '[packs.openai]\nembedding_model = "text-embedding-3-large"\n')
+
+    # Act
+    reason = run_measurement.retries_too_few(project)
+
+    # Assert
+    assert reason is not None
+    assert "max_retries" in reason
+    assert str(run_measurement.PAID_RUN_MIN_RETRIES) in reason
+
+
+def test_a_run_that_raised_its_retries_passes(tmp_path: Path) -> None:
+    # Arrange
+    project = _project(tmp_path, "[packs.openai]\nmax_retries = 6\n")
+
+    # Act / Assert
+    assert run_measurement.retries_too_few(project) is None
+    assert run_measurement.PAID_RUN_MIN_RETRIES == 6
+
+
+def test_a_run_that_uses_no_openai_pack_is_not_asked(tmp_path: Path) -> None:
+    # Arrange
+    project = _project(tmp_path, '[services]\nembed = "hash"\n')
+
+    # Act / Assert
+    assert run_measurement.retries_too_few(project) is None
