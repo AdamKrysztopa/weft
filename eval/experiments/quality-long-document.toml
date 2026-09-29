@@ -1,0 +1,43 @@
+# Task 44.54b, E3b (fix-plans/23 §4, D5): E3 on QASPER was null (8acf204), so the long-document
+# question is asked again on longer single documents with a different answer shape.
+#
+# QuALITY v1.0.1 dev (Pang et al., NAACL 2022; pin, licence and the owner's decision in
+# `corpus/quality.toml`), converted by `scripts/quality_questions.py --source
+# corpus/quality/QuALITY.v1.0.1.htmlstripped.dev --out corpus/quality --max-articles 20`: 20
+# articles sampled by the default seed, each question carrying its four options, the gold option
+# as reference. Both outputs are untracked; regenerate with that command.
+#
+# Each arm runs once, approved by the owner on 2026-09-29 at ≤ $1.70 (D6).
+
+[experiment]
+schema = 1
+name = "quality-long-document"
+questions = "../../corpus/quality/quality-questions.toml"
+corpus = "../../corpus/quality/corpus"
+repeats = 2
+top_k = [5, 10]
+metrics = ["answer_correctness", "f1_score", "recall@5", "recall@10"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.05
+direction = "higher-is-better"
+
+[[arm]]
+name = "dense"
+pipeline = "index-openai-large"
+query_pipeline = "retrieve-then-generate"
+repeats = 1
+
+[[arm]]
+name = "adjacent-chunks"
+pipeline = "index-openai-large"
+query_pipeline = "adjacent-chunks-then-generate"
+repeats = 1
+
+[[arm]]
+name = "context-construction"
+pipeline = "index-openai-large"
+query_pipeline = "context-construction-then-generate"
+repeats = 1
