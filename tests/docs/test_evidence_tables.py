@@ -12,6 +12,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
+import pytest
+
 from weft_eval.evidence import regenerate
 
 _EXPERIMENTS: Final[Path] = Path(__file__).resolve().parents[2] / "eval" / "experiments"
@@ -34,9 +36,26 @@ def stale_tables(root: Path) -> list[str]:
     ]
 
 
-def test_every_committed_table_regenerates_byte_identical_from_its_records() -> None:
-    # Act / Assert
-    assert stale_tables(_EXPERIMENTS) == []
+_COMMITTED: Final[list[tuple[Path, Path, Path]]] = committed_tables(_EXPERIMENTS)
+
+
+def test_committed_tables_are_found() -> None:
+    """Without this, an empty glob would parametrize the check below into nothing."""
+    assert _COMMITTED
+
+
+# One case per table: as one test, fifteen took 38.5 s locally and over 60 s on CI (36549412501).
+@pytest.mark.parametrize(
+    ("document", "runs", "table"), _COMMITTED, ids=[document.name for document, _, _ in _COMMITTED]
+)
+def test_every_committed_table_regenerates_byte_identical_from_its_records(
+    document: Path, runs: Path, table: Path
+) -> None:
+    # Act
+    regenerated = regenerate(document, runs)
+
+    # Assert
+    assert regenerated == table.read_text(encoding="utf-8"), f"{document.name} is stale"
 
 
 def test_the_check_can_actually_fail(tmp_path: Path) -> None:
