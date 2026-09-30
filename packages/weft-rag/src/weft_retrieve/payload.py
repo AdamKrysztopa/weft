@@ -472,6 +472,23 @@ class Route(BaseModel):
     #: was no rule to name rather than because one was forgotten.
     rule: str = ""
     scorecard: Scorecard
+    #: Why the policy chose this pipeline, and what it passed over, one sentence each (44.22).
+    reasons: tuple[str, ...] = ()
+    #: The evidence claims the matching rule cites; empty for a policy that cites none.
+    claims: tuple[str, ...] = ()
+    #: The rung to run instead if `pipeline` refuses at run time (44.23).
+    fallback: str | None = None
+
+    def view(self) -> "RouteView":
+        """This decision without its `scorecard`."""
+        return RouteView(
+            pipeline=self.pipeline,
+            outcome=self.outcome,
+            rule=self.rule,
+            reasons=self.reasons,
+            claims=self.claims,
+            fallback=self.fallback,
+        )
 
     def telemetry_attributes(self) -> Mapping[str, str | bool | int | float]:
         """The decision's own facts for the policy stage's span — `rule` only when matched."""
@@ -497,3 +514,6 @@ class RouteView(BaseModel):
     outcome: RuleOutcome
     #: The matching rule's name; empty when the policy matched no rule (`Route.rule`).
     rule: str
+    reasons: tuple[str, ...] = ()
+    claims: tuple[str, ...] = ()
+    fallback: str | None = None

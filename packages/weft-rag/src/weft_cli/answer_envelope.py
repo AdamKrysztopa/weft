@@ -132,9 +132,7 @@ def build_answer_envelope(
         stance=answer.stance,
         coverage=coverage,
         layers=layers,
-        route=None
-        if route is None
-        else RouteView(pipeline=route.pipeline, outcome=route.outcome, rule=route.rule),
+        route=None if route is None else route.view(),
     )
 
 

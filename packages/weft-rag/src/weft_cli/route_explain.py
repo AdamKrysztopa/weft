@@ -122,7 +122,7 @@ class RouteExplainCommand:
                 question=explain_args.question,
                 query_profile=profile_query(explain_args.question, locale=ctx.locale).features(),
                 corpus_profile=corpus,
-                route=RouteView(pipeline=route.pipeline, outcome=route.outcome, rule=route.rule),
+                route=route.view(),
             )
         )
 

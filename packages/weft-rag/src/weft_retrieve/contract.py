@@ -73,7 +73,9 @@ from weft_retrieve.payload import (
 #: a minor (`09`'s two-audience table).
 #: **`1.2.0` → `1.3.0` at repair R44.2** — `Route.telemetry_attributes()` is added: `09`'s
 #: two-audience row "Add an optional field to a returned model", minor for both audiences.
-RETRIEVE_CONTRACT_VERSION = "1.3.0"
+#: **`1.3.0` → `1.4.0` at task 44.22** — `Route.reasons`, `claims` and `fallback` are added, each
+#: optional: the same row, minor for both audiences.
+RETRIEVE_CONTRACT_VERSION = "1.4.0"
 
 
 @runtime_checkable

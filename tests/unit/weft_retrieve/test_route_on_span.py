@@ -49,7 +49,7 @@ def test_a_route_declares_its_pipeline_outcome_and_rule() -> None:
 def test_a_method_on_a_returned_model_is_a_minor_contract_version() -> None:
     # Assert — `09`'s two-audience table, "Add an optional field to a returned model": minor for
     # both audiences, since a policy constructs `Route` and inherits the method.
-    assert RETRIEVE_CONTRACT_VERSION == "1.3.0"
+    assert RETRIEVE_CONTRACT_VERSION == "1.4.0"
 
 
 def test_a_route_that_matched_no_rule_names_none() -> None:

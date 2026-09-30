@@ -134,7 +134,14 @@ def test_the_json_envelope_carries_the_route_and_omits_it_on_a_named_ask() -> No
     assert routed.stdout is not None
     assert named.stdout is not None
     envelope = json.loads(routed.stdout)
-    assert envelope["route"] == {"pipeline": "specific", "outcome": "matched", "rule": "always"}
+    assert envelope["route"] == {
+        "pipeline": "specific",
+        "outcome": "matched",
+        "rule": "always",
+        "reasons": [],
+        "claims": [],
+        "fallback": None,
+    }
     assert envelope["envelope_version"] == json.loads(named.stdout)["envelope_version"]
     assert "route" not in json.loads(named.stdout)
 

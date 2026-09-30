@@ -1058,9 +1058,7 @@ async def _routed_question_hits(
         ready_layers=ready_layers,
         target=target,
     )
-    question_routes[question.id] = RouteView(
-        pipeline=route.pipeline, outcome=route.outcome, rule=route.rule
-    )
+    question_routes[question.id] = route.view()
     return _hits_from_answer(
         question, answer, contributors=contributors, generation_samples=generation_samples
     )
