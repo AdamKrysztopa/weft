@@ -394,6 +394,8 @@ class AnswerCorrectness:
             return Failed(reason="no prediction to evaluate — the sample carries none")
         if not payload.reference.strip():
             return NothingToProduce(reason="reference is empty — nothing to compare against")
+        if not payload.prediction.strip():
+            return NothingToProduce(reason="prediction is empty — nothing to classify")
 
         llm = ctx.require(LLM)
         outcome = await execute(

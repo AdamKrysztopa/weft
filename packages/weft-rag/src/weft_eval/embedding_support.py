@@ -33,9 +33,15 @@ async def embed_texts(
 ) -> Outcome[tuple[Vector, ...]]:
     """Every string in `texts`, embedded in order, or `Failed` naming what went wrong.
 
+    A blank string fails here, before the embedder: a real embeddings API refuses an empty input
+    by raising, and a raise from a judging pass aborts the arm rather than one question (R44.21).
+
     Each string becomes a throwaway `Node.synthetic` — this helper's own caller never needs the
     node identity, only the vector it comes back carrying.
     """
+    for position, text in enumerate(texts):
+        if not text.strip():
+            return Failed(reason=f"embedding skipped: text {position} is empty")
     nodes = tuple(
         Node.synthetic(content=text, media_type=MediaType.TEXT, reason="weft-eval embedding")
         for text in texts

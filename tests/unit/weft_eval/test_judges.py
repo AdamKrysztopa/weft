@@ -286,6 +286,34 @@ async def test_answer_correctness_empty_reference_is_nothing_to_produce() -> Non
     assert isinstance(outcome, NothingToProduce)
 
 
+async def test_answer_correctness_empty_prediction_is_nothing_to_produce() -> None:
+    # Arrange — R44.21: an empty prediction reached the embedder, which refuses empty input and
+    # aborted the whole arm. The judge must not be called either: there is nothing to classify.
+    metric = AnswerCorrectness(AnswerCorrectnessConfig())
+    sample = GenerationSample(query="q", prediction="  ", reference="Paris")
+
+    # Act
+    outcome = await metric.evaluate(sample, _ctx(_StubLLM([]), embedder=HashEmbedder()))
+
+    # Assert
+    assert isinstance(outcome, NothingToProduce)
+
+
+async def test_answer_relevance_a_blank_derived_question_fails_that_sample_only() -> None:
+    # Arrange — R44.21: the judge's own output can hold a blank question, which the embedder
+    # refuses; that is one sample's failure, not the arm's.
+    llm = _StubLLM([GeneratedQuestions(questions=("What is the capital of France?", " "))])
+    metric = AnswerRelevance(JudgeConfig())
+    sample = GenerationSample(query="q", prediction="Paris.", reference="Paris")
+
+    # Act
+    outcome = await metric.evaluate(sample, _ctx(llm, embedder=HashEmbedder()))
+
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "empty" in outcome.reason
+
+
 async def test_answer_completeness_scores_the_fraction_of_covered_points() -> None:
     # Arrange
     llm = _StubLLM([CompletenessJudgement(covered=("point one",), missing=("point two",))])
