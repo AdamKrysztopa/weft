@@ -51,7 +51,7 @@ from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
 from typing import Annotated, ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from weft_embed.contract import Embedder
 from weft_kernel.context import Context, UnresolvedServiceError
@@ -62,7 +62,12 @@ from weft_prompts.cascade import execute
 from weft_prompts.contract import Prompt
 from weft_retrieve.contract import RouteCatalogue, StageLookup
 from weft_retrieve.payload import Query, Route, RouteCandidate, RuleOutcome, Scorecard
-from weft_retrieve.profile import CorpusProfile, profile_query
+from weft_retrieve.profile import (
+    DECLARED_FEATURES,
+    CorpusProfile,
+    is_declared_feature,
+    profile_query,
+)
 from weft_retrieve.profile_cues import DEFAULT_CUES, CueLexicon
 from weft_retrieve.prompts import ROUTE_QUERY_NAME, RouteQueryRequest, RouteQueryScores
 
@@ -395,33 +400,56 @@ def _keyword_intents(text: str, markers: Mapping[str, tuple[str, ...]]) -> froze
 
 
 class Comparison(StrEnum):
-    """One dimension-to-threshold comparison a `Rule`'s `Condition` tests."""
+    """One name-to-value comparison a `Rule`'s `Condition` tests."""
 
     LT = "lt"
     LTE = "lte"
     GT = "gt"
     GTE = "gte"
+    EQ = "eq"
+    NE = "ne"
 
 
 #: `Comparison`'s own meaning, the one place it is written — `weft_retrieve.prompts.
 #: Grade`'s own `GRADE_ORDER` precedent: a single table rather than a chain of `if`s a
 #: fourth member would have to be inserted into by hand.
-_COMPARISONS: Mapping[Comparison, Callable[[float, float], bool]] = {
+_COMPARISONS: Mapping[Comparison, Callable[[float | bool, float | bool], bool]] = {
     Comparison.LT: operator_module.lt,
     Comparison.LTE: operator_module.le,
     Comparison.GT: operator_module.gt,
     Comparison.GTE: operator_module.ge,
+    Comparison.EQ: operator_module.eq,
+    Comparison.NE: operator_module.ne,
 }
+
+_EQUALITY_OPS = frozenset({Comparison.EQ, Comparison.NE})
 
 
 class Condition(BaseModel):
-    """One test a `Rule` makes against a `Scorecard`'s own `scores` mapping."""
+    """One test a `Rule` makes against a `Scorecard`'s `scores` or its typed `features`.
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    `feature` names a score dimension (`complexity`) or a profiler feature (`corpus.fits_context`);
+    a document written before 44.20 says `dimension`, which still loads. A score wins a name both
+    carry. A feature the scorecard does not carry is *unknown*, and an unknown value satisfies no op
+    — `ne` included, since a corpus of unknown size is not a corpus that is not small. A name that
+    is neither carried nor declared (`weft_retrieve.profile.is_declared_feature`) is refused by
+    name, because there it is an operator's typo.
+    """
 
-    dimension: str = Field(min_length=1)
+    model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
+
+    feature: str = Field(min_length=1, validation_alias=AliasChoices("feature", "dimension"))
     op: Comparison
-    value: float
+    value: int | float | bool
+
+    @model_validator(mode="after")
+    def _a_boolean_is_only_compared_for_equality(self) -> "Condition":
+        if isinstance(self.value, bool) and self.op not in _EQUALITY_OPS:
+            raise ValueError(
+                f"'{self.feature}' is compared to a boolean with '{self.op}'; a boolean supports "
+                f"only 'eq' and 'ne'."
+            )
+        return self
 
 
 class Rule(BaseModel):
@@ -443,63 +471,63 @@ _TEN_SEED_RULES: tuple[Rule, ...] = (
     Rule(
         name="confident-and-simple-answers-from-memory",
         when=(
-            Condition(dimension="parametric_confidence", op=Comparison.GTE, value=0.8),
-            Condition(dimension="complexity", op=Comparison.LTE, value=0.2),
-            Condition(dimension="verifiability_need", op=Comparison.LTE, value=0.3),
+            Condition(feature="parametric_confidence", op=Comparison.GTE, value=0.8),
+            Condition(feature="complexity", op=Comparison.LTE, value=0.2),
+            Condition(feature="verifiability_need", op=Comparison.LTE, value=0.3),
         ),
         then="no-retrieval",
     ),
     Rule(
         name="trivial-and-unverifiable",
         when=(
-            Condition(dimension="complexity", op=Comparison.LTE, value=0.3),
-            Condition(dimension="verifiability_need", op=Comparison.LTE, value=0.2),
+            Condition(feature="complexity", op=Comparison.LTE, value=0.3),
+            Condition(feature="verifiability_need", op=Comparison.LTE, value=0.2),
         ),
         then="no-retrieval",
     ),
     Rule(
         name="genuinely-multi-hop",
-        when=(Condition(dimension="multi_hop", op=Comparison.GTE, value=0.7),),
+        when=(Condition(feature="multi_hop", op=Comparison.GTE, value=0.7),),
         then="retrieve-then-generate",
     ),
     Rule(
         name="high-complexity",
-        when=(Condition(dimension="complexity", op=Comparison.GTE, value=0.7),),
+        when=(Condition(feature="complexity", op=Comparison.GTE, value=0.7),),
         then="retrieve-then-generate",
     ),
     Rule(
         name="high-ambiguity",
-        when=(Condition(dimension="ambiguity", op=Comparison.GTE, value=0.7),),
+        when=(Condition(feature="ambiguity", op=Comparison.GTE, value=0.7),),
         then="retrieve-then-generate",
     ),
     Rule(
         name="time-sensitive",
-        when=(Condition(dimension="temporal_sensitivity", op=Comparison.GTE, value=0.6),),
+        when=(Condition(feature="temporal_sensitivity", op=Comparison.GTE, value=0.6),),
         then="retrieve-then-generate",
     ),
     Rule(
         name="needs-a-citable-source",
-        when=(Condition(dimension="verifiability_need", op=Comparison.GTE, value=0.6),),
+        when=(Condition(feature="verifiability_need", op=Comparison.GTE, value=0.6),),
         then="retrieve-then-generate",
     ),
     Rule(
         name="narrow-and-specific",
         when=(
-            Condition(dimension="specificity", op=Comparison.GTE, value=0.7),
-            Condition(dimension="complexity", op=Comparison.LTE, value=0.4),
+            Condition(feature="specificity", op=Comparison.GTE, value=0.7),
+            Condition(feature="complexity", op=Comparison.LTE, value=0.4),
         ),
         then="retrieve-then-generate",
     ),
     Rule(
         name="low-parametric-confidence",
-        when=(Condition(dimension="parametric_confidence", op=Comparison.LTE, value=0.3),),
+        when=(Condition(feature="parametric_confidence", op=Comparison.LTE, value=0.3),),
         then="retrieve-then-generate",
     ),
     Rule(
         name="moderate-everything",
         when=(
-            Condition(dimension="complexity", op=Comparison.GTE, value=0.4),
-            Condition(dimension="multi_hop", op=Comparison.GTE, value=0.3),
+            Condition(feature="complexity", op=Comparison.GTE, value=0.4),
+            Condition(feature="multi_hop", op=Comparison.GTE, value=0.3),
         ),
         then="retrieve-then-generate",
     ),
@@ -562,17 +590,19 @@ class ThresholdLadder:
         fires.
         """
         del ctx
-        unknown = _unknown_dimension(self._config.rules, payload.scores)
+        unknown = _unknown_dimension(self._config.rules, payload)
         if unknown is not None:
-            available = ", ".join(sorted(payload.scores)) or "(none)"
+            dimensions = ", ".join(sorted(payload.scores)) or "(none)"
+            features = ", ".join(sorted({*DECLARED_FEATURES, *payload.features}))
             return Failed(
                 reason=(
-                    f"'{THRESHOLD_LADDER_NAME}' has a rule testing dimension '{unknown}', "
-                    f"which this scorecard does not carry. Scored dimensions: {available}."
+                    f"'{THRESHOLD_LADDER_NAME}' has a rule testing '{unknown}', which is neither a "
+                    f"score this scorecard carries nor a declared feature. Scored dimensions: "
+                    f"{dimensions}. Features: {features}, and corpus.layer.<name>.ready."
                 )
             )
         for rule in self._config.rules:
-            if all(_holds(condition, payload.scores) for condition in rule.when):
+            if all(_holds(condition, payload) for condition in rule.when):
                 return Produced(
                     value=Route(
                         pipeline=rule.then,
@@ -598,16 +628,28 @@ class ThresholdLadder:
         return frozenset(rule.then for rule in self._config.rules) | {self._config.default}
 
 
-def _unknown_dimension(rules: Sequence[Rule], scores: Mapping[str, float]) -> str | None:
+def _unknown_dimension(rules: Sequence[Rule], card: Scorecard) -> str | None:
     for rule in rules:
         for condition in rule.when:
-            if condition.dimension not in scores:
-                return condition.dimension
+            name = condition.feature
+            if (
+                name not in card.scores
+                and name not in card.features
+                and not is_declared_feature(name)
+            ):
+                return name
     return None
 
 
-def _holds(condition: Condition, scores: Mapping[str, float]) -> bool:
-    return _COMPARISONS[condition.op](scores[condition.dimension], condition.value)
+def _holds(condition: Condition, card: Scorecard) -> bool:
+    name = condition.feature
+    if name in card.scores:
+        observed: float | bool | None = card.scores[name]
+    else:
+        observed = card.features.get(name)
+    if observed is None:
+        return False
+    return _COMPARISONS[condition.op](observed, condition.value)
 
 
 class NearestDescriptionConfig(BaseModel):

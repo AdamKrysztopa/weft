@@ -321,7 +321,7 @@ def _ladder_config() -> ThresholdLadderConfig:
         rules=(
             Rule(
                 name="high-complexity",
-                when=(Condition(dimension="complexity", op=Comparison.GTE, value=0.5),),
+                when=(Condition(feature="complexity", op=Comparison.GTE, value=0.5),),
                 then="retrieve-then-generate",
             ),
         ),
@@ -377,6 +377,163 @@ async def test_threshold_ladder_refuses_a_rule_testing_an_uncarried_dimension() 
     assert "complexity" in outcome.reason
 
 
+def _feature_ladder(
+    op: str, *, value: float | bool, feature: str = "corpus.leaf_tokens"
+) -> ThresholdLadderConfig:
+    return ThresholdLadderConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "name": "on-feature",
+                    "when": [{"feature": feature, "op": op, "value": value}],
+                    "then": "matched-rung",
+                }
+            ],
+            "default": "default-rung",
+        }
+    )
+
+
+def _featured(features: Mapping[str, int | float | bool]) -> Scorecard:
+    return Scorecard(query=Query(text="a profiled question"), scores={}, features=features)
+
+
+@pytest.mark.parametrize(
+    ("op", "threshold", "holds_at_5", "holds_at_10", "holds_at_20"),
+    [
+        ("lt", 10, True, False, False),
+        ("lte", 10, True, True, False),
+        ("gt", 10, False, False, True),
+        ("gte", 10, False, True, True),
+        ("eq", 10, False, True, False),
+        ("ne", 10, True, False, True),
+    ],
+)
+async def test_threshold_ladder_compares_an_integer_feature_under_every_op(
+    *, op: str, threshold: int, holds_at_5: bool, holds_at_10: bool, holds_at_20: bool
+) -> None:
+    # Arrange — R44.15: a rule could read `Scorecard.scores` only, never `.features`.
+    ladder = ThresholdLadder(_feature_ladder(op, value=threshold))
+
+    # Act
+    routed = {
+        tokens: (await ladder.run(_featured({"corpus.leaf_tokens": tokens}), _ctx()))
+        for tokens in (5, 10, 20)
+    }
+
+    # Assert
+    for tokens, expected in ((5, holds_at_5), (10, holds_at_10), (20, holds_at_20)):
+        outcome = routed[tokens]
+        assert isinstance(outcome, Produced)
+        assert (outcome.value.pipeline == "matched-rung") is expected, f"{op} at {tokens}"
+
+
+@pytest.mark.parametrize(
+    ("fits", "op", "expected"),
+    [
+        (True, "eq", True),
+        (False, "eq", False),
+        (True, "ne", False),
+        (False, "ne", True),
+    ],
+)
+async def test_threshold_ladder_compares_a_boolean_feature(
+    *, fits: bool, op: str, expected: bool
+) -> None:
+    # Arrange
+    ladder = ThresholdLadder(_feature_ladder(op, value=True, feature="corpus.fits_context"))
+
+    # Act
+    outcome = await ladder.run(_featured({"corpus.fits_context": fits}), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert (outcome.value.pipeline == "matched-rung") is expected
+
+
+@pytest.mark.parametrize("op", ["eq", "ne", "lt", "gte"])
+async def test_an_unknown_feature_holds_under_no_op_and_the_ladder_falls_through(op: str) -> None:
+    # Arrange — `corpus.fits_context` is omitted when the corpus is unknown, which must never
+    # read as "not equal to True".
+    ladder = ThresholdLadder(_feature_ladder(op, value=1, feature="corpus.fits_context"))
+
+    # Act
+    outcome = await ladder.run(_featured({}), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.pipeline == "default-rung"
+    assert outcome.value.outcome is RuleOutcome.FELL_THROUGH
+
+
+async def test_a_misspelt_feature_is_refused_naming_the_valid_ones() -> None:
+    # Arrange — R44.15: "a missing feature simply does not match" must not cover a typo.
+    ladder = ThresholdLadder(_feature_ladder("eq", value=True, feature="corpus.fits_contxt"))
+
+    # Act
+    outcome = await ladder.run(_featured({"corpus.documents": 3}), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Failed)
+    assert "corpus.fits_contxt" in outcome.reason
+    assert "corpus.fits_context" in outcome.reason
+
+
+async def test_a_feature_the_scorecard_carries_is_accepted_whoever_declared_it() -> None:
+    # Arrange — `Scorecard.features` is an open key space (44.12a): a third-party scorer's own.
+    ladder = ThresholdLadder(_feature_ladder("gte", value=0.5, feature="acme.risk"))
+
+    # Act
+    outcome = await ladder.run(_featured({"acme.risk": 0.9}), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.pipeline == "matched-rung"
+
+
+async def test_a_declared_layer_feature_the_corpus_lacks_does_not_match() -> None:
+    # Arrange — a layer the corpus never built is unknown to *this* corpus, not a typo.
+    ladder = ThresholdLadder(
+        _feature_ladder("eq", value=True, feature="corpus.layer.enrich-with-raptor.ready")
+    )
+
+    # Act
+    outcome = await ladder.run(_featured({"corpus.documents": 3}), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.pipeline == "default-rung"
+
+
+def test_a_boolean_value_is_refused_under_an_ordering_op() -> None:
+    # Act / Assert
+    with pytest.raises(ValidationError, match="eq.*ne"):
+        Condition(feature="corpus.fits_context", op=Comparison.GTE, value=True)
+
+
+def test_condition_loads_under_the_old_dimension_spelling_and_the_new_feature_one() -> None:
+    # Arrange — a `ThresholdLadder` document written before 44.20 says `dimension`.
+    old = Condition.model_validate({"dimension": "complexity", "op": "gte", "value": 0.5})
+    new = Condition.model_validate({"feature": "complexity", "op": "gte", "value": 0.5})
+
+    # Assert
+    assert old == new
+    assert new.feature == "complexity"
+
+
+async def test_a_score_dimension_wins_a_name_both_carry() -> None:
+    # Arrange
+    config = _feature_ladder("gte", value=0.5, feature="shared")
+    card = Scorecard(query=Query(text="q"), scores={"shared": 0.9}, features={"shared": 0.1})
+
+    # Act
+    outcome = await ThresholdLadder(config).run(card, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.pipeline == "matched-rung"
+
+
 async def test_threshold_ladder_reachable_is_every_rule_target_plus_the_default() -> None:
     # Act
     reachable = await ThresholdLadder(_ladder_config()).reachable(())
@@ -411,12 +568,12 @@ def test_threshold_ladder_config_refuses_a_repeated_rule_name() -> None:
             rules=(
                 Rule(
                     name="dup",
-                    when=(Condition(dimension="x", op=Comparison.GTE, value=0.5),),
+                    when=(Condition(feature="x", op=Comparison.GTE, value=0.5),),
                     then="a",
                 ),
                 Rule(
                     name="dup",
-                    when=(Condition(dimension="x", op=Comparison.LT, value=0.5),),
+                    when=(Condition(feature="x", op=Comparison.LT, value=0.5),),
                     then="b",
                 ),
             )

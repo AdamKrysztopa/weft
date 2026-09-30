@@ -123,3 +123,35 @@ def test_any_text_profiles_without_raising(text: str) -> None:
     # Assert
     assert {f"query.cue.{cue.value}" for cue in CueName} <= set(features)
     assert isinstance(features["query.word_count"], int)
+
+
+def test_every_feature_a_real_profile_emits_is_declared() -> None:
+    # Arrange — R44.15: the vocabulary a rule is checked against is derived from nothing, so
+    # it is compared with what the two profilers actually emit, with every optional key present.
+    from weft_retrieve.profile import CorpusProfile, LayerState, is_declared_feature
+
+    query = profile_query("Compare X with Y", locale="en")
+    corpus = CorpusProfile(
+        documents=2,
+        leaves=3,
+        leaf_tokens=10,
+        leaf_tokens_complete=True,
+        layers={"enrich-with-questions": LayerState(built=1, of=2, ready=False)},
+        fully_enriched=False,
+        fits_context=True,
+    )
+
+    # Act
+    emitted = {*query.features(), *corpus.features()}
+
+    # Assert
+    assert {name for name in emitted if not is_declared_feature(name)} == set()
+    assert len(emitted) > 10
+
+
+def test_a_misspelt_feature_is_not_declared() -> None:
+    from weft_retrieve.profile import is_declared_feature
+
+    assert not is_declared_feature("corpus.fits_contxt")
+    assert not is_declared_feature("query.cue.nonsense")
+    assert not is_declared_feature("corpus.layer..ready")

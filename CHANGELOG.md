@@ -44,6 +44,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **A `threshold-ladder` rule can test a profiler feature.** `when: [{feature: corpus.fits_context,
+  op: eq, value: true}]` reads the question and corpus profile (`weft route explain` prints them),
+  with `eq` and `ne` added beside the four ordering ops and integer and boolean values beside
+  floats. A feature the corpus does not report matches nothing, `ne` included; a name that is
+  neither carried nor a declared feature is refused, naming the ones that are. The old `dimension:`
+  spelling still loads.
+
 - **An experiment arm can read a layer.** `layers = ["enrich-with-raptor"]` on an `[[arm]]` builds
   that layer after the base index, once for every arm naming the same set, and the arm's records
   carry `experiment.layers`. `weft eval plan` shows each arm's layers. Arms share one store and a

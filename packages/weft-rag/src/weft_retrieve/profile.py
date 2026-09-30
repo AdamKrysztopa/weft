@@ -45,6 +45,34 @@ _COUNTED_ANCHOR_KINDS: Final[tuple[AnchorKind, ...]] = (
 
 _WORD_RE: Final[re.Pattern[str]] = re.compile(r"\w+")
 
+#: Every `features()` key these two profilers can emit but one: `corpus.layer.<name>.ready` is named
+#: by whichever layers a corpus carries, so it is matched by shape in `is_declared_feature`.
+DECLARED_FEATURES: Final[frozenset[str]] = frozenset(
+    {
+        "query.word_count",
+        "query.locale_fallback",
+        *(f"query.anchor.{kind.value}" for kind in _COUNTED_ANCHOR_KINDS),
+        *(f"query.cue.{cue.value}" for cue in CueName),
+        "corpus.documents",
+        "corpus.fully_enriched",
+        "corpus.leaves",
+        "corpus.leaf_tokens",
+        "corpus.fits_context",
+    }
+)
+
+_LAYER_FEATURE_RE: Final[re.Pattern[str]] = re.compile(r"corpus\.layer\..+\.ready")
+
+
+def is_declared_feature(name: str) -> bool:
+    """Whether `name` is a feature `QueryProfile` or `CorpusProfile` can emit.
+
+    What a routing rule's misspelt feature is checked against (R44.15): a declared name the
+    corpus omits is *unknown* and matches nothing, while a name neither declared nor carried by a
+    scorecard is an error.
+    """
+    return name in DECLARED_FEATURES or _LAYER_FEATURE_RE.fullmatch(name) is not None
+
 
 class QueryProfile(BaseModel):
     """A question's shape, described with no model call — see the module docstring."""
