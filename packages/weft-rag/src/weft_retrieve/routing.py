@@ -47,7 +47,7 @@ clause, applied to the router itself.
 
 import math
 import operator as operator_module
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import StrEnum
 from typing import Annotated, ClassVar
 
@@ -590,19 +590,13 @@ class ThresholdLadder:
         fires.
         """
         del ctx
-        unknown = _unknown_dimension(self._config.rules, payload)
+        unknown = unknown_condition_name(
+            (condition for rule in self._config.rules for condition in rule.when), payload
+        )
         if unknown is not None:
-            dimensions = ", ".join(sorted(payload.scores)) or "(none)"
-            features = ", ".join(sorted({*DECLARED_FEATURES, *payload.features}))
-            return Failed(
-                reason=(
-                    f"'{THRESHOLD_LADDER_NAME}' has a rule testing '{unknown}', which is neither a "
-                    f"score this scorecard carries nor a declared feature. Scored dimensions: "
-                    f"{dimensions}. Features: {features}, and corpus.layer.<name>.ready."
-                )
-            )
+            return Failed(reason=unknown_name_reason(THRESHOLD_LADDER_NAME, unknown, payload))
         for rule in self._config.rules:
-            if all(_holds(condition, payload) for condition in rule.when):
+            if all(condition_holds(condition, payload) for condition in rule.when):
                 return Produced(
                     value=Route(
                         pipeline=rule.then,
@@ -628,20 +622,28 @@ class ThresholdLadder:
         return frozenset(rule.then for rule in self._config.rules) | {self._config.default}
 
 
-def _unknown_dimension(rules: Sequence[Rule], card: Scorecard) -> str | None:
-    for rule in rules:
-        for condition in rule.when:
-            name = condition.feature
-            if (
-                name not in card.scores
-                and name not in card.features
-                and not is_declared_feature(name)
-            ):
-                return name
+def unknown_condition_name(conditions: Iterable[Condition], card: Scorecard) -> str | None:
+    """The first name in `conditions` that is neither carried by `card` nor a declared feature."""
+    for condition in conditions:
+        name = condition.feature
+        if name not in card.scores and name not in card.features and not is_declared_feature(name):
+            return name
     return None
 
 
-def _holds(condition: Condition, card: Scorecard) -> bool:
+def unknown_name_reason(policy: str, name: str, card: Scorecard) -> str:
+    """Why `policy`'s rule testing `name` is refused, naming every valid score and feature."""
+    dimensions = ", ".join(sorted(card.scores)) or "(none)"
+    features = ", ".join(sorted({*DECLARED_FEATURES, *card.features}))
+    return (
+        f"'{policy}' has a rule testing '{name}', which is neither a score this scorecard carries "
+        f"nor a declared feature. Scored dimensions: {dimensions}. Features: {features}, and "
+        f"corpus.layer.<name>.ready."
+    )
+
+
+def condition_holds(condition: Condition, card: Scorecard) -> bool:
+    """Whether `condition` holds on `card`; an unknown value satisfies no op."""
     name = condition.feature
     if name in card.scores:
         observed: float | bool | None = card.scores[name]

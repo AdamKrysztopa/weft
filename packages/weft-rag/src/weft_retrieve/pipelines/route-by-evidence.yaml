@@ -1,0 +1,14 @@
+name: route-by-evidence
+# No `route.summary`: a router is never a routing target.
+
+# The router whose every rule must cite the evidence claim that justifies it (`evidence-policy`).
+# It ships with no rules yet, and that is the honest state rather than a placeholder: a rule needs
+# a claim recomputed from committed records, and the claim format has not shipped yet. Until a
+# rule is added this routes every question to `retrieve-then-generate`, exactly as `route-fixed`
+# does, so selecting it changes nothing and costs nothing — `query-profile` calls no model.
+#
+# Derive it to add a rule or a budget, never edit it in place:
+#   derive: {from: route-by-evidence, set: {decide.with.constraints: {max_prompt_tokens: 100000}}}
+stages:
+  - {id: score,  use: query-profile}
+  - {id: decide, use: evidence-policy, with: {fallback: retrieve-then-generate}}

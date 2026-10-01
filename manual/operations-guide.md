@@ -516,13 +516,14 @@ selects another pipeline to answer it — and `[services] route` names which doc
 route = "route-by-score"
 ```
 
-Three routers ship, and they differ in *how closed* the choice is rather than in quality:
+Four routers ship, and they differ in *how closed* the choice is rather than in quality:
 
 | `[services] route` | Policy | What it selects from |
 |---|---|---|
 | `route` | `nearest-description` | Every installed pipeline that states a `route.summary`, matched against the question. **Open** — a rung installed today is selectable today, with no rule edit |
 | `route-by-score` | `threshold-ladder` | Only what its own bands name, in order, first match wins. **Closed** — the shipped rules choose between `no-retrieval` and `retrieve-then-generate`, and every other rung is invisible to it until you add a band |
 | `route-fixed` *(default)* | `always` | One named pipeline, whatever the question: `retrieve-then-generate`, the best measured first stage. Its scorer, `query-profile`, calls no model, so this router costs nothing, and a routed ask still records what kind of question it was |
+| `route-by-evidence` | `evidence-policy` | Rules that each cite the evidence claim behind them, with a fallback rung and optional prompt-token and model-call ceilings. It ships with no rules, so today it answers through `retrieve-then-generate` like `route-fixed`; derive it to add a rule or a budget |
 
 Pick `route-by-score` when you want exactly the behaviours you wrote down and want to know which one
 ran and why. `route-fixed` is the default because no router has been measured against always using

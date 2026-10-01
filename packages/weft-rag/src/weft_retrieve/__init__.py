@@ -193,6 +193,14 @@ from weft_retrieve.payload import (
     Turn,
     TurnRole,
 )
+from weft_retrieve.policy import (
+    EVIDENCE_POLICY_NAME,
+    EvidencePolicy,
+    EvidencePolicyConfig,
+    PolicyConstraints,
+    PolicyRule,
+    PromptCost,
+)
 from weft_retrieve.postqfrap import NAME as POSTQFRAP_NAME
 from weft_retrieve.postqfrap import PostQfrapConfig, PostQfrapPacker
 from weft_retrieve.prompts import (
@@ -436,6 +444,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add(QueryScorer, QUERY_SCORER_NAME, LlmQueryScorer)
     registrar.add(QueryScorer, QUERY_PROFILE_NAME, QueryProfileScorer)
     registrar.add(RoutingPolicy, THRESHOLD_LADDER_NAME, ThresholdLadder)
+    registrar.add(RoutingPolicy, EVIDENCE_POLICY_NAME, EvidencePolicy)
     registrar.add(RoutingPolicy, NEAREST_DESCRIPTION_NAME, NearestDescription)
     registrar.add(RoutingPolicy, ALWAYS_NAME, Always)
     registrar.add(Prompt, ROUTE_QUERY_NAME, RouteQueryPrompt)
@@ -552,6 +561,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/preview-plain.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/preview-markdown.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-score.yaml")
+    registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-evidence.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-fixed.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/dedupe-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/adjacent-chunks-then-generate.yaml")
@@ -749,6 +759,12 @@ __all__ = [
     "SufficiencyJudgement",
     "SummarizeForQueryPrompt",
     "SummarizeForQueryRequest",
+    "EVIDENCE_POLICY_NAME",
+    "EvidencePolicy",
+    "EvidencePolicyConfig",
+    "PolicyConstraints",
+    "PolicyRule",
+    "PromptCost",
     "ThresholdLadder",
     "ThresholdLadderConfig",
     "Turn",
