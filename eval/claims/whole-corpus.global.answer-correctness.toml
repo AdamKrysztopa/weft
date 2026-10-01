@@ -1,0 +1,35 @@
+# Whole-corpus reading against one search, on 80 corpus-wide questions (global synthesis): a second
+# population over the same corpus, which is what lets a rule built on it be a default.
+
+[claim]
+schema = 1
+id = "whole-corpus.global.answer-correctness"
+rung = "whole-corpus-wide-then-generate"
+baseline = "retrieve-then-generate"
+metric = "answer_correctness"
+status = "helps"
+basis = "records"
+margin = 0.05
+
+[claim.regime]
+when = [
+  { feature = "corpus.fits_context", op = "eq", value = true },
+  { feature = "corpus.leaf_tokens", op = "gte", value = 200000 },
+  { feature = "corpus.leaf_tokens", op = "lte", value = 260000 },
+]
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/global-questions/train.toml", "eval/global-questions/held-out.toml"]
+
+[claim.source]
+experiment = "eval/experiments/global-synthesis.toml"
+invocation = "66c44023c1004b06b13d07ad633e6540"
+
+[claim.untested]
+regimes = [
+  "corpus.leaf_tokens < 200000",
+  "corpus.leaf_tokens > 260000",
+  "language other than en",
+]

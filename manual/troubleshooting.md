@@ -3861,6 +3861,70 @@ newer.toml names schema 2, and this weft-rag reads schema 1 — upgrade weft-rag
 **What to do:** upgrade `weft-rag` to a release that reads that schema, or run the document with the
 release that wrote it.
 
+### `ClaimDocumentError`
+
+**What it looks like** — `weft eval claims check` over a claim file that cannot be read as written,
+here one with a key a claim does not have:
+
+```text
+$ weft eval claims check ; echo $?
+bad-doc.toml: [claim] names an unknown key 'confidence'. Valid keys: baseline, basis, id, ledger, margin, metric, population, regime, rung, schema, source, status, untested.
+1
+```
+
+A claim states a rung's standing against a baseline, the regime it holds in, what it was measured on
+and where the records are. An unknown key, a status that is not one of `helps`, `no-gain`, `harms`,
+`wrong-questions` or `never`, a file not named after its `id`, a missing or newer `schema`, a
+`records` claim with no `[claim.source]` and a `ledger` claim with no `ledger` entry are all refused
+naming the file and the field. A population key such as `benchmark` in `[claim.regime]` is refused
+too: a regime is what a router can observe, and what a claim was measured on is not.
+**What to do:** fix the named field.
+
+### `UnknownClaimFeatureError`
+
+**What it looks like** — a claim whose regime tests a feature neither profiler reports:
+
+```text
+$ weft eval claims check ; echo $?
+bad-feature.toml: the regime tests 'corpus.fits_contxt', which neither profiler declares. Valid features: corpus.documents, corpus.fits_context, corpus.fully_enriched, corpus.leaf_tokens, corpus.leaves, query.anchor.entity, … query.word_count, corpus.layer.<name>.ready.
+1
+```
+
+**What to do:** use one of the names the message lists. A misspelt feature is refused rather than
+read as "never holds", because a rule that quietly never fires is the failure a regime exists to
+prevent.
+
+### `UnresolvedClaimArmError`
+
+**What it looks like** — a claim whose `rung` or `baseline` is not run by any arm of the
+experiment it names:
+
+```text
+$ weft eval claims check ; echo $?
+claim 'bad-rung': its rung 'hyde-then-generate' is run by no arm of eval/experiments/global-synthesis.toml. Rungs run: graph-and-vector-rrf, retrieve-then-generate, summarise-then-generate, whole-corpus-wide-then-generate.
+1
+```
+
+**What to do:** name a rung the message lists, or point `[claim.source]` at the experiment that ran
+the rung you mean.
+
+### `ClaimMismatchError`
+
+**What it looks like** — a claim stating a status that its own records do not support:
+
+```text
+$ weft eval claims check ; echo $?
+claim 'bad-status' states 'no-gain', but its records give a paired difference of +0.059 (95% interval +0.030 to +0.089, n 80) against a margin of 0.05, which reads as 'helps' (worthwhile).
+1
+```
+
+`weft eval claims check` recomputes the paired interval from the committed run records a claim
+names and reads it against the claim's `margin` (the experiment's `minimum_detectable_effect` when a
+claim states none). Every mismatched claim is named in one refusal. The same error is raised when no
+record scored the claim's metric, when the records directory is missing, or when too few questions
+were paired for an interval. **What to do:** correct the status to what the records say, or the
+`margin` to the one that was pre-registered; never edit a record.
+
 ### `IncomparableArmsError`
 
 **What it looks like** — an experiment whose arms would not measure the same thing, refused before

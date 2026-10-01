@@ -1,0 +1,19 @@
+name: whole-corpus-wide-then-generate
+extends: whole-corpus-then-generate
+
+# `validation-en`'s 1,725 leaves count 253,408 tokens on `gpt-5.6-luna`'s encoding (task 43.52),
+# past the shipped 100,000 bound. 260,000 holds them and keeps the prompt under the 272K input
+# tokens above which that model's price doubles.
+#
+# Shipped, not left beside the experiments, because this is the rung every measurement of reading
+# the whole corpus ran (`eval/claims/whole-corpus.*`), so it is the rung a rule can cite. The
+# `route.summary` below is what makes it offerable to a router, and it is a routing label: it
+# changes the document's `pipeline_identity`, which hashes `vars`, from the one the records name.
+# It reads the corpus every question, so it costs prompt tokens in proportion to the corpus.
+vars:
+  route.summary: >-
+    Reads every leaf of the corpus into one prompt — for a corpus that fits the model's context,
+    and questions that need the whole of it.
+
+set:
+  - {id: retrieve, with: {max_tokens: 260000}}

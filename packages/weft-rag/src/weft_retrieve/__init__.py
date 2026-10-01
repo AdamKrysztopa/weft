@@ -562,6 +562,9 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/preview-markdown.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-score.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-by-evidence.yaml")
+    registrar.add_pipeline_resource(
+        "weft_retrieve", "pipelines/whole-corpus-wide-then-generate.yaml"
+    )
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/route-fixed.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/dedupe-then-generate.yaml")
     registrar.add_pipeline_resource("weft_retrieve", "pipelines/adjacent-chunks-then-generate.yaml")

@@ -121,7 +121,7 @@ The five statuses:
 | `graph-and-vector-rrf`, `enrich-with-facts-and-graph` | harms on corpus-wide questions (−0.080, −0.111 to −0.049), which are not the multi-hop questions it was built for | `eval/experiments/global-synthesis/table.md` |
 | `graph-then-generate`, `index-with-facts`, `index-with-facts-openai`, `index-with-cooccurrence` | wrong questions (12 one-sentence documents, questions generated from the graph under test) | Phase 11 exit (ledger only) |
 | `cross-encoder-retrieve`, `cross-encoder-rerank-then-generate` | no gain on ESCI, harms on TechQA | `eval/pool-promotion/esci-ce-verdict.json`, `techqa-ce-verdict.json` |
-| `whole-corpus-then-generate` | helps on Weft's 107 English questions (answer correctness, 95% interval +0.039 to +0.117), at about 170× the prompt tokens; no difference on the 12 Polish; helps on 80 corpus-wide questions (+0.030 to +0.089) | `eval/experiments/whole-corpus-en/table.md`, `whole-corpus-pl/table.md`, `global-synthesis/table.md` |
+| `whole-corpus-then-generate`, `whole-corpus-wide-then-generate` | helps on Weft's 107 English questions (answer correctness, 95% interval +0.039 to +0.117), at about 170× the prompt tokens; no difference on the 12 Polish; helps on 80 corpus-wide questions (+0.030 to +0.089) | `eval/experiments/whole-corpus-en/table.md`, `whole-corpus-pl/table.md`, `global-synthesis/table.md` |
 | `summarise-then-generate` | no gain on corpus-wide questions (−0.018, −0.049 to +0.010) | `eval/experiments/global-synthesis/table.md` |
 | `route`, `route-by-score` | no gain over `route-fixed` (−0.000 and +0.012 answer correctness on the 107 English questions) | `eval/experiments/route-shipped-en/table.md` |
 | `route-fixed` | the baseline the routers were measured against | `eval/experiments/route-shipped-en/table.md` |
@@ -164,7 +164,7 @@ The five statuses:
 - **What it means for you.** For a question about the whole corpus, when the corpus fits the
   model's context, reading all of it is the one rung that measurably answers better, at a much
   higher price: ask with `--pipeline whole-corpus-then-generate`, raising its `max_tokens` to
-  the corpus as `eval/experiments/pipelines/whole-corpus-wide-then-generate.yaml` does.
+  the corpus as the shipped `whole-corpus-wide-then-generate` does.
   A RAPTOR tree reads as more comprehensive to a judge but is not measurably more correct yet.
   Do not use the graph rung for corpus-wide synthesis.
 

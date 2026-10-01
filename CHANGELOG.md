@@ -44,6 +44,15 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Added
 
+- **`weft eval claims check` recomputes the evidence behind a routing rule.** A claim in
+  `eval/claims/` states one rung's standing against a baseline, the profiler regime it holds in and
+  the committed experiment it rests on; the command re-derives the paired interval from those run
+  records and refuses a stated status they do not support, naming every mismatch. Two claims ship,
+  for reading the whole corpus (+0.075 on 107 fetch and operator questions, +0.059 on 80
+  corpus-wide ones). `whole-corpus-wide-then-generate`, the rung those measurements ran, now ships
+  and is offerable to a router. `route-by-evidence` and its `evidence-policy` ship with no rules
+  yet.
+
 - **A `threshold-ladder` rule can test a profiler feature.** `when: [{feature: corpus.fits_context,
   op: eq, value: true}]` reads the question and corpus profile (`weft route explain` prints them),
   with `eq` and `ne` added beside the four ordering ops and integer and boolean values beside

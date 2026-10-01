@@ -1,0 +1,36 @@
+# Whole-corpus reading against one search, on the 107 English questions (fetch + operator) over the
+# 16-paper `validation-en` corpus, which counts 253,408 tokens. The regime is the size measured:
+# the two smaller subsets (23 and 50 questions) were inconclusive, so the claim starts above them.
+
+[claim]
+schema = 1
+id = "whole-corpus.fetch-operator.answer-correctness"
+rung = "whole-corpus-wide-then-generate"
+baseline = "retrieve-then-generate"
+metric = "answer_correctness"
+status = "helps"
+basis = "records"
+margin = 0.05
+
+[claim.regime]
+when = [
+  { feature = "corpus.fits_context", op = "eq", value = true },
+  { feature = "corpus.leaf_tokens", op = "gte", value = 200000 },
+  { feature = "corpus.leaf_tokens", op = "lte", value = 260000 },
+]
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/questions/fetch.toml", "eval/questions/operator.toml"]
+
+[claim.source]
+experiment = "eval/experiments/whole-corpus-en.toml"
+invocation = "77a0ab088ccd43688bc0403932c95e6b"
+
+[claim.untested]
+regimes = [
+  "corpus.leaf_tokens < 200000 (inconclusive at 23 and 50 questions: whole-corpus-size-25, -50)",
+  "corpus.leaf_tokens > 260000 (above the 100,000-token default bound and the price step at 272K)",
+  "language = pl (12 questions, no difference: whole-corpus-pl)",
+]

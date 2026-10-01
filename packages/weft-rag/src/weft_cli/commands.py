@@ -96,6 +96,7 @@ from weft_cli.config_commands import register_config_commands
 from weft_cli.deletion import ParticipantOutcome, delete_everywhere
 from weft_cli.deletion import participants as deletion_participants
 from weft_cli.eval_baseline import register_eval_baseline_command
+from weft_cli.eval_claims import register_eval_claims_command
 from weft_cli.eval_commands import DEFAULT_RUNS_DIR, register_eval_commands
 from weft_cli.eval_experiment import register_eval_experiment_command
 from weft_cli.eval_pairwise import register_eval_pairwise_command
@@ -2866,6 +2867,7 @@ def register(registrar: PackRegistrar, settings: Settings) -> None:
     register_eval_experiment_command(registrar)
     register_eval_table_command(registrar)
     register_eval_replay_command(registrar)
+    register_eval_claims_command(registrar)
     register_eval_pairwise_command(registrar)
     register_route_explain_command(registrar)
     register_renderers(registrar)
