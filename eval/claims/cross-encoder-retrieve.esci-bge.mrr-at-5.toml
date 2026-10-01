@@ -1,7 +1,7 @@
 # The bge cross-encoder replayed over the frozen dense pool against the pool unreordered, mrr@5 on esci.
 
 [claim]
-schema = 1
+schema = 2
 id = "cross-encoder-retrieve.esci-bge.mrr-at-5"
 rung = "cross-encoder-retrieve"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "cross-encoder-bge"
 baseline_arm = "dense"
 metric = "mrr@5"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

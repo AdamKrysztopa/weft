@@ -28,7 +28,7 @@ from weft_kernel.payload import Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_llm.roles import RoleMapping
 from weft_retrieve.payload import Query, Route, RuleOutcome, Scorecard
-from weft_store import NodeStore, SourceRecord, SourceStats
+from weft_store import NodeStore, SourceRecord, SourceStats, SourceStatus
 from weft_store.memory import MemoryStore
 
 
@@ -214,3 +214,70 @@ async def test_a_router_whose_scorer_measures_no_feature_shows_an_empty_query_pr
 
     # Assert
     assert document["query_profile"] == {}
+
+
+async def test_the_text_output_answers_why_with_the_claims_facts_ceilings_and_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange
+    async def _explain(question: str, **_kwargs: object) -> Route:
+        del question
+        return Route(
+            pipeline="whole-corpus-wide-then-generate",
+            outcome=RuleOutcome.MATCHED,
+            rule="whole-corpus-when-it-fits",
+            scorecard=Scorecard(query=Query(text="q"), scores={}, features=_MEASURED),
+            reasons=("rule 'whole-corpus-when-it-fits' held, routing to 'x'",),
+            claims=("whole-corpus.global.answer-correctness",),
+            fallback="retrieve-then-generate",
+            facts={"corpus.base_complete": True},
+            unstated=("corpus.leaf_tokens",),
+            constraints={"max_prompt_tokens": 300000},
+            policy="0123456789abcdef",
+        )
+
+    async def _records_read(deps: object, target: object) -> Produced[tuple[SourceRecord, ...]]:
+        del deps, target
+        return Produced(value=_records())
+
+    monkeypatch.setattr(route_explain_module, "explain_route", _explain)
+    monkeypatch.setattr(route_explain_module, "source_records", _records_read)
+
+    # Act
+    outcome = await RouteExplainCommand().run(RouteExplainArgs(question="q"), _ctx())
+    stdout = render_outcome(outcome).stdout or ""
+
+    # Assert
+    assert "claims: whole-corpus.global.answer-correctness" in stdout
+    assert "fallback: retrieve-then-generate" in stdout
+    assert "reasons:" in stdout and "held, routing to" in stdout
+    assert "constraints: max_prompt_tokens=300000" in stdout
+    assert "unstated: corpus.leaf_tokens" in stdout
+    assert "policy: 0123456789abcdef" in stdout
+
+
+async def test_a_corpus_still_indexing_says_so_in_both_outputs_and_states_no_size(
+    monkeypatch: pytest.MonkeyPatch, explained: list[str]
+) -> None:
+    # Arrange — one source searchable and one still in flight.
+    async def _partial(deps: object, target: object) -> Produced[tuple[SourceRecord, ...]]:
+        del deps, target
+        sized = _records()[0].model_copy(
+            update={"stats": SourceStats(leaves=4, characters=400, tokens=1100, tokenizer="t")}
+        )
+        pending = sized.model_copy(update={"id": SourceId("b"), "status": SourceStatus.INDEXING})
+        return Produced(value=(sized, pending))
+
+    monkeypatch.setattr(route_explain_module, "source_records", _partial)
+
+    # Act
+    outcome = await RouteExplainCommand().run(RouteExplainArgs(question="q"), _ctx())
+    stdout = render_outcome(outcome).stdout or ""
+    document = json.loads(render_outcome(outcome, as_json=True).stdout or "")
+
+    # Assert
+    assert explained
+    assert "corpus.base_complete: False" in stdout
+    assert "corpus.sources_pending: 1" in stdout
+    assert "corpus.leaf_tokens" not in stdout
+    assert document["corpus_profile"]["base_complete"] is False

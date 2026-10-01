@@ -138,6 +138,9 @@ def test_every_feature_a_real_profile_emits_is_declared() -> None:
         leaf_tokens_complete=True,
         layers={"enrich-with-questions": LayerState(built=1, of=2, ready=False)},
         fully_enriched=False,
+        base_complete=True,
+        sources_pending=0,
+        sources_failed=0,
         fits_context=True,
         fits_context_by_role={"small": False},
     )

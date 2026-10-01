@@ -1,7 +1,7 @@
 # Graph retrieval at the Phase 11 exit: measured on 12 one-sentence documents with questions generated from the graph under test, so the questions do not test it (ledger only). Not recomputable.
 
 [claim]
-schema = 1
+schema = 2
 id = "index-with-facts.graph-fixture.recall-at-5"
 rung = "index-with-facts"
 baseline = "retrieve-then-generate"

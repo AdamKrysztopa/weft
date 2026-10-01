@@ -217,7 +217,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Chooses, orders and labels the evidence that will enter a prompt.
 
@@ -448,7 +448,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Collapses k ranked lists into one. The arity-reducing position, by definition.
 
@@ -1223,7 +1223,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Measures a query along named dimensions. Decides nothing (ledger 2.25).
 
@@ -1253,7 +1253,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Rewrites, expands or narrows the set of queries that will be retrieved for.
 
@@ -1405,7 +1405,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Rescores one list against the question, and returns one list.
 
@@ -1463,7 +1463,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Turns queries into ranked lists — one per query per channel, never fused.
 
@@ -1608,7 +1608,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Turns a scorecard into a named pipeline. The second half of the router.
 
@@ -1741,7 +1741,7 @@ Returns:
 
 **Module:** `weft_retrieve.contract`  
 **Registered by:** `weft-rag`  
-**Version:** `1.5.0`
+**Version:** `1.6.0`
 
 Judges whether the evidence in hand answers the question. **Not a pipeline position**.
 

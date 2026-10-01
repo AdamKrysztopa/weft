@@ -1,12 +1,13 @@
 # Graph-and-vector fusion (layer enrich-with-facts-and-graph) against one search, on 80 corpus-wide questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "graph-and-vector-rrf.global.answer-correctness"
 rung = "graph-and-vector-rrf"
 baseline = "retrieve-then-generate"
 metric = "answer_correctness"
 status = "harms"
+verdict = "harm"
 basis = "records"
 margin = 0.05
 

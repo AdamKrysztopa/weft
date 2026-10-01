@@ -2,17 +2,19 @@
 # population over the same corpus, which is what lets a rule built on it be a default.
 
 [claim]
-schema = 1
+schema = 2
 id = "whole-corpus.global.answer-correctness"
 rung = "whole-corpus-wide-then-generate"
 baseline = "retrieve-then-generate"
 metric = "answer_correctness"
 status = "helps"
+verdict = "worthwhile"
 basis = "records"
 margin = 0.05
 
 [claim.regime]
 when = [
+  { feature = "corpus.base_complete", op = "eq", value = true },
   { feature = "corpus.fits_context", op = "eq", value = true },
   { feature = "corpus.leaf_tokens", op = "gte", value = 200000 },
   { feature = "corpus.leaf_tokens", op = "lte", value = 260000 },
@@ -33,3 +35,11 @@ regimes = [
   "corpus.leaf_tokens > 260000",
   "language other than en",
 ]
+
+[claim.fingerprint]
+rung = "9d0a2906aa3dd38a0d6c79694c7a90cc"
+baseline = "e9eeb3e1cf0e411fb0b14712d10d2059"
+index = "0222c3657f96ed2cda3b4d209cfbcab2"
+baseline_index = "0222c3657f96ed2cda3b4d209cfbcab2"
+judge = "ee0647c30769bd5855ef9396a004af76b3111fde9472c81f1df34a175d35df23"
+profiler = "1"

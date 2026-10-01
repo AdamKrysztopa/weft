@@ -1,7 +1,7 @@
 # Normalised-score fusion against rank fusion; the dense arm carried no meaning.
 
 [claim]
-schema = 1
+schema = 2
 id = "hybrid-normalized-scores.weft-corpus-25-docs.recall-5"
 rung = "hybrid-normalized-scores"
 baseline = "hybrid-then-generate"

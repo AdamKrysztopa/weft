@@ -1,12 +1,13 @@
 # Widening each hit with its neighbouring chunks against plain retrieval, token recall of the generated answer on the polish questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "adjacent-chunks-then-generate.polish.token-recall"
 rung = "adjacent-chunks-then-generate"
 baseline = "retrieve-then-generate"
 metric = "token_recall"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

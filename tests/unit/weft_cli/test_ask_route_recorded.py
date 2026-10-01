@@ -141,6 +141,10 @@ def test_the_json_envelope_carries_the_route_and_omits_it_on_a_named_ask() -> No
         "reasons": [],
         "claims": [],
         "fallback": None,
+        "facts": {},
+        "unstated": [],
+        "constraints": {},
+        "policy": "",
     }
     assert envelope["envelope_version"] == json.loads(named.stdout)["envelope_version"]
     assert "route" not in json.loads(named.stdout)

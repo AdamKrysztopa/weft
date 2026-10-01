@@ -1,12 +1,13 @@
 # Near-duplicate removal against plain retrieval, recall@5 on the fetch-en questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "dedupe-then-generate.fetch-en.recall-at-5"
 rung = "dedupe-then-generate"
 baseline = "retrieve-then-generate"
 metric = "recall@5"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

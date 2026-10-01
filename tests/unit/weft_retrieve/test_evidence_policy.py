@@ -353,3 +353,115 @@ async def test_driving_evidence_policy_through_the_seam_produces_a_route() -> No
     assert isinstance(outcome, Produced)
     assert isinstance(policy, RoutingPolicy)
     assert EVIDENCE_POLICY_NAME == "evidence-policy"
+
+
+async def test_a_decision_carries_the_facts_it_turned_on_and_no_others() -> None:
+    # Arrange — the card also states a query feature no rule tests; it is not the decision's.
+    config = _config(
+        defaults=[_rule("small", WHOLE, prompt_tokens="corpus")],
+        constraints={"max_prompt_tokens": 300_000},
+    )
+    card = _card(
+        {"corpus.fits_context": True, "corpus.leaf_tokens": 250_000, "query.word_count": 7}
+    )
+
+    # Act
+    outcome = await _route(config, card)
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert dict(outcome.value.facts) == {"corpus.fits_context": True}
+    assert outcome.value.unstated == ()
+    assert dict(outcome.value.constraints) == {"max_prompt_tokens": 300_000}
+
+
+async def test_a_fact_the_profile_did_not_state_is_named_as_unstated_not_as_false() -> None:
+    # Arrange — a rule keyed to a feature the corpus omitted holds nothing, and says why.
+    config = _config(
+        defaults=[_rule("sized", WHOLE, feature="corpus.leaf_tokens", op="lte", value=1)]
+    )
+
+    # Act
+    outcome = await _route(config, _card({"corpus.fits_context": True}))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.outcome is RuleOutcome.FELL_THROUGH
+    assert outcome.value.unstated == ("corpus.leaf_tokens",)
+    assert "corpus.leaf_tokens" not in outcome.value.facts
+
+
+async def test_a_fell_through_decision_still_shows_the_facts_every_rule_was_judged_on() -> None:
+    # Arrange
+    config = _config(
+        exceptions=[_rule("a", GRAPH, feature="corpus.base_complete")],
+        defaults=[_rule("b", WHOLE)],
+    )
+
+    # Act
+    outcome = await _route(
+        config, _card({"corpus.base_complete": False, "corpus.fits_context": False})
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.outcome is RuleOutcome.FELL_THROUGH
+    assert dict(outcome.value.facts) == {
+        "corpus.base_complete": False,
+        "corpus.fits_context": False,
+    }
+
+
+async def test_the_rules_digest_moves_with_a_rule_a_threshold_or_a_ceiling_and_nothing_else() -> (
+    None
+):
+    # Arrange
+    def digest_of(config: EvidencePolicyConfig) -> str:
+        return EvidencePolicy(config).digest
+
+    base = _config(defaults=[_rule("r", WHOLE, value=True)], constraints={"max_prompt_tokens": 1})
+
+    # Act / Assert
+    assert digest_of(base) == digest_of(
+        _config(defaults=[_rule("r", WHOLE, value=True)], constraints={"max_prompt_tokens": 1})
+    )
+    assert digest_of(base) != digest_of(
+        _config(defaults=[_rule("r", WHOLE, value=False)], constraints={"max_prompt_tokens": 1})
+    )
+    assert digest_of(base) != digest_of(
+        _config(defaults=[_rule("r", WHOLE, value=True)], constraints={"max_prompt_tokens": 2})
+    )
+    assert digest_of(base) != digest_of(
+        _config(
+            defaults=[_rule("r", WHOLE, cites=("claim.two",))], constraints={"max_prompt_tokens": 1}
+        )
+    )
+
+
+async def test_the_receipt_reaches_the_route_view_and_the_policy_span() -> None:
+    # Arrange
+    config = _config(
+        defaults=[_rule("small", WHOLE, prompt_tokens="corpus")],
+        constraints={"max_prompt_tokens": 300_000},
+    )
+
+    # Act
+    outcome = await _route(
+        config, _card({"corpus.fits_context": True, "corpus.leaf_tokens": 250_000})
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    route = outcome.value
+    view = route.view()
+    assert (dict(view.facts), dict(view.constraints), view.policy) == (
+        dict(route.facts),
+        dict(route.constraints),
+        route.policy,
+    )
+    assert len(route.policy) == 16
+    attributes = route.telemetry_attributes()
+    assert attributes["weft.route.claims"] == "claim.one"
+    assert attributes["weft.route.fallback"] == DENSE
+    assert attributes["weft.route.policy"] == route.policy
+    assert attributes["weft.route.constraint.max_prompt_tokens"] == 300_000

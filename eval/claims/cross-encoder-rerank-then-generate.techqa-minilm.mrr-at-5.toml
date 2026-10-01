@@ -1,7 +1,7 @@
 # The minilm cross-encoder replayed over the frozen dense pool against the pool unreordered, mrr@5 on techqa.
 
 [claim]
-schema = 1
+schema = 2
 id = "cross-encoder-rerank-then-generate.techqa-minilm.mrr-at-5"
 rung = "cross-encoder-rerank-then-generate"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "cross-encoder-minilm"
 baseline_arm = "dense"
 metric = "mrr@5"
 status = "harms"
+verdict = "harm"
 basis = "records"
 margin = 0.05
 

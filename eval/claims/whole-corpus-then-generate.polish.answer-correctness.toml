@@ -1,17 +1,19 @@
 # Whole-corpus reading against one search, on the 12 Polish questions over pl-wiki.
 
 [claim]
-schema = 1
+schema = 2
 id = "whole-corpus-then-generate.polish.answer-correctness"
 rung = "whole-corpus-then-generate"
 baseline = "retrieve-then-generate"
 metric = "answer_correctness"
 status = "no-gain"
+verdict = "inconclusive"
 basis = "records"
 margin = 0.05
 
 [claim.regime]
 when = [
+  { feature = "corpus.base_complete", op = "eq", value = true },
   { feature = "corpus.fits_context", op = "eq", value = true },
 ]
 

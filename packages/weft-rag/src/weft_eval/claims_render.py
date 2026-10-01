@@ -26,12 +26,13 @@ def _regime(claim: Claim) -> str:
 
 def _sentence(claim: Claim, check: ClaimCheck) -> str:
     on = f"`{claim.metric}` ({claim.population.language}, {claim.population.benchmark})"
-    lead = f"**{claim.status}** against `{claim.baseline}` on {on}"
+    standing = f"{claim.status} ({claim.verdict})" if claim.verdict else str(claim.status)
+    lead = f"**{standing}** against `{claim.baseline}` on {on}"
     if claim.basis is ClaimBasis.LEDGER or not check.reproducible:
         return f"{lead}: not reproducible from committed records ({claim.ledger})"
     if check.mean is None or check.low is None or check.high is None:
         return f"{lead}: asserted, not derivable from an interval"
-    stale = f" — stale: {check.stale}" if check.stale else ""
+    stale = f" — {check.staleness}: {check.stale}" if check.stale else ""
     asserted = "; asserted, not derivable from an interval" if check.derived is None else ""
     return (
         f"{lead}{_regime(claim)}: {check.mean:+.3f} (95% interval {check.low:+.3f} to "

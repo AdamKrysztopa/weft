@@ -17,6 +17,7 @@ recompute (a phase measured before records were kept), names the ledger entry it
 rendered as not reproducible from committed records.
 """
 
+import re
 import tomllib
 from enum import StrEnum
 from pathlib import Path
@@ -24,12 +25,17 @@ from typing import Any, Final, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from weft_eval.verdict import ClaimStatus
+from weft_eval.fingerprint import ClaimFingerprint
+from weft_eval.verdict import ClaimStatus, EffectVerdict
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_retrieve.profile import DECLARED_FEATURES, is_declared_feature
 from weft_retrieve.routing import Condition
 
-CLAIM_SCHEMA_VERSION: Final[int] = 1
+CLAIM_SCHEMA_VERSION: Final[int] = 2
+
+#: The verdicts an automatic router may act on. `positive-below-margin` is a real effect the
+#: experiment pre-registered as too small to be worth its cost, so it is not among them.
+ROUTING_ADOPTION_VERDICTS: Final[frozenset[EffectVerdict]] = frozenset({EffectVerdict.WORTHWHILE})
 
 _CLAIM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
     {
@@ -41,16 +47,24 @@ _CLAIM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
         "baseline_arm",
         "metric",
         "status",
+        "verdict",
         "basis",
         "margin",
         "ledger",
         "regime",
         "population",
         "source",
+        "fingerprint",
         "untested",
     }
 )
 _REGIME_KEYS: Final[frozenset[str]] = frozenset({"when"})
+
+#: The `corpus.*` features that say whether the corpus is whole, rather than describe it.
+BASE_COMPLETE_FEATURE: Final[str] = "corpus.base_complete"
+_COMPLETENESS_FEATURES: Final[frozenset[str]] = frozenset(
+    {BASE_COMPLETE_FEATURE, "corpus.sources_pending", "corpus.sources_failed"}
+)
 _UNTESTED_KEYS: Final[frozenset[str]] = frozenset({"regimes"})
 
 
@@ -108,6 +122,9 @@ class Claim(BaseModel):
     baseline_arm: str | None = Field(default=None, min_length=1)
     metric: str = Field(min_length=1)
     status: ClaimStatus
+    #: The reading beneath `status`: `helps` is both `worthwhile` and `positive-below-margin`, and
+    #: only the first justifies routing. `None` for the statuses no interval gives.
+    verdict: EffectVerdict | None = None
     basis: ClaimBasis
     #: The pre-registered effect size a difference must clear; read against the interval.
     margin: float | None = Field(default=None, gt=0)
@@ -115,7 +132,63 @@ class Claim(BaseModel):
     regime: tuple[Condition, ...] = ()
     population: ClaimPopulation
     source: ClaimSource | None = None
+    #: What the claim was validated against, pinned by `weft eval claims pin`; `None` until then.
+    fingerprint: ClaimFingerprint | None = None
     untested: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _a_corpus_regime_states_whether_the_base_is_complete(self) -> "Claim":
+        """A claim about corpus size or enrichment says which state of the corpus it holds in.
+
+        A size or a readiness is a fact about a corpus the index has finished with; a Fast Track
+        corpus still indexing can show the same number for a part of it. The profiler already
+        states no extent until the base is complete, and this is the explicit half: the claim
+        names the state it was measured in, so a rule carrying its regime inherits it.
+        """
+        about_corpus = any(
+            condition.feature.startswith("corpus.")
+            and condition.feature not in _COMPLETENESS_FEATURES
+            for condition in self.regime
+        )
+        states_it = any(condition.feature == BASE_COMPLETE_FEATURE for condition in self.regime)
+        if about_corpus and not states_it:
+            raise ValueError(
+                f"the regime tests the corpus but not whether its base is complete: add "
+                f'{{ feature = "{BASE_COMPLETE_FEATURE}", op = "eq", value = true }} (or false, '
+                f"for a claim measured on a corpus still indexing)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_verdict_is_the_one_the_status_reads_from(self) -> "Claim":
+        if self.status in {ClaimStatus.WRONG_QUESTIONS, ClaimStatus.NEVER}:
+            if self.verdict is not None:
+                raise ValueError(
+                    f"status '{self.status}' is not read from an interval, so it carries no "
+                    f"'verdict'; remove it"
+                )
+            return self
+        readings = sorted(v.value for v in EffectVerdict if v.status is self.status)
+        if self.verdict is None:
+            raise ValueError(
+                f"status '{self.status}' hides which verdict it stands for; state 'verdict' as one "
+                f"of: {', '.join(readings)}"
+            )
+        if self.verdict.status is not self.status:
+            raise ValueError(
+                f"verdict '{self.verdict}' reads as status '{self.verdict.status}', not "
+                f"'{self.status}'; state one of: {', '.join(readings)}"
+            )
+        return self
+
+    @property
+    def adoptable_for_routing(self) -> bool:
+        """Whether an automatic router may cite this claim.
+
+        A verdict in `ROUTING_ADOPTION_VERDICTS`, on committed records: a ledger claim cannot be
+        recomputed, so nothing could notice it going stale.
+        """
+        return self.verdict in ROUTING_ADOPTION_VERDICTS and self.basis is ClaimBasis.RECORDS
 
     @model_validator(mode="after")
     def _basis_decides_what_it_must_name(self) -> "Claim":
@@ -167,6 +240,12 @@ def _read_schema(table: dict[str, Any], path: Path) -> None:
         raise ClaimDocumentError(f"{path.name}: [claim] states no 'schema'.")
     if isinstance(schema, bool) or not isinstance(schema, int) or schema < 1:
         raise ClaimDocumentError(f"{path.name}: 'schema' must be a positive integer.")
+    if schema < CLAIM_SCHEMA_VERSION:
+        raise ClaimDocumentError(
+            f"{path.name}: declares schema {schema}, which states no 'verdict'; add the verdict "
+            f"beneath 'status' (`weft eval claims check` prints each one) and set schema = "
+            f"{CLAIM_SCHEMA_VERSION}."
+        )
     if schema > CLAIM_SCHEMA_VERSION:
         raise ClaimDocumentError(
             f"{path.name}: declares schema {schema}; this weft-rag reads up to "
@@ -221,6 +300,38 @@ def load_claim(path: Path) -> Claim:
     return claim
 
 
+_TABLE_HEADER_RE: Final[re.Pattern[str]] = re.compile(r"^\[")
+_PIN_HEADER: Final[str] = "[claim.fingerprint]"
+
+
+def _fingerprint_block(fingerprint: ClaimFingerprint) -> str:
+    fields = fingerprint.model_dump(exclude_none=True)
+    return (
+        "\n".join([_PIN_HEADER, *(f'{name} = "{value}"' for name, value in fields.items())]) + "\n"
+    )
+
+
+def pin_claim(path: Path, fingerprint: ClaimFingerprint) -> None:
+    """Write `fingerprint` into the claim file at `path`, replacing any pin it already holds.
+
+    Text surgery on the one table, so a person's comments and the order of everything else survive
+    and the diff is the pin and nothing more. `fingerprint` carries only digests and a version, so
+    no value needs quoting.
+    """
+    kept: list[str] = []
+    inside = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip() == _PIN_HEADER:
+            inside = True
+            continue
+        if inside and _TABLE_HEADER_RE.match(line):
+            inside = False
+        if not inside:
+            kept.append(line)
+    body = "\n".join(kept).rstrip("\n")
+    path.write_text(f"{body}\n\n{_fingerprint_block(fingerprint)}", encoding="utf-8")
+
+
 def load_claims(directory: Path) -> tuple[Claim, ...]:
     """Every `*.toml` claim in `directory`, in id order; two files sharing an id are refused."""
     if not directory.is_dir():
@@ -230,7 +341,9 @@ def load_claims(directory: Path) -> tuple[Claim, ...]:
 
 
 __all__ = [
+    "BASE_COMPLETE_FEATURE",
     "CLAIM_SCHEMA_VERSION",
+    "ROUTING_ADOPTION_VERDICTS",
     "Claim",
     "ClaimBasis",
     "ClaimDocumentError",
@@ -239,4 +352,5 @@ __all__ = [
     "UnknownClaimFeatureError",
     "load_claim",
     "load_claims",
+    "pin_claim",
 ]

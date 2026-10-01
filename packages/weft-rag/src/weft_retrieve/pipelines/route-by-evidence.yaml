@@ -30,6 +30,7 @@ stages:
       defaults:
         - name: whole-corpus-when-it-fits
           when:
+            - {feature: corpus.base_complete, op: eq, value: true}
             - {feature: corpus.fits_context, op: eq, value: true}
             - {feature: corpus.leaf_tokens, op: gte, value: 200000}
             - {feature: corpus.leaf_tokens, op: lte, value: 260000}

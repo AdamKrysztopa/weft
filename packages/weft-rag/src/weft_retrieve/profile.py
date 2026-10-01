@@ -55,6 +55,9 @@ DECLARED_FEATURES: Final[frozenset[str]] = frozenset(
         *(f"query.anchor.{kind.value}" for kind in _COUNTED_ANCHOR_KINDS),
         *(f"query.cue.{cue.value}" for cue in CueName),
         "corpus.documents",
+        "corpus.base_complete",
+        "corpus.sources_pending",
+        "corpus.sources_failed",
         "corpus.fully_enriched",
         "corpus.leaves",
         "corpus.leaf_tokens",
@@ -188,6 +191,14 @@ class CorpusProfile(BaseModel):
     partial one silently reported as the whole. `leaf_tokens` additionally requires every
     counted source to share one tokenizer: token counts from two tokenizers are not
     comparable, let alone summable.
+
+    **`base_complete`** is the same discipline applied to the corpus itself: no source still
+    indexing and none failed, over at least one searchable source. A Fast Track corpus that is
+    still indexing has a *searchable subset* whose size can land inside a range an evidence claim
+    was measured on for a complete corpus, so `features()` states no extent (`leaves`,
+    `leaf_tokens`, `fits_context*`) and no layer or enrichment readiness until the base is
+    complete: a size is a fact about the corpus, and a partial one is not that. The fields below
+    keep what the searchable subset measures, for a reader that wants it.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -198,6 +209,9 @@ class CorpusProfile(BaseModel):
     leaf_tokens_complete: bool
     layers: Mapping[str, LayerState]
     fully_enriched: bool
+    base_complete: bool
+    sources_pending: int
+    sources_failed: int
     fits_context: bool | None
     fits_context_by_role: Mapping[str, bool] = Field(default_factory=dict)
 
@@ -205,8 +219,15 @@ class CorpusProfile(BaseModel):
         """The flat, named `corpus.*` features a routing rule tests, omitting every unknown."""
         features: dict[str, int | float | bool] = {
             "corpus.documents": self.documents,
+            "corpus.base_complete": self.base_complete,
+            "corpus.sources_pending": self.sources_pending,
+            "corpus.sources_failed": self.sources_failed,
             "corpus.fully_enriched": self.fully_enriched,
         }
+        for name, layer in self.layers.items():
+            features[f"corpus.layer.{name}.ready"] = layer.ready and self.base_complete
+        if not self.base_complete:
+            return features
         if self.leaves is not None:
             features["corpus.leaves"] = self.leaves
         if self.leaf_tokens is not None:
@@ -215,8 +236,6 @@ class CorpusProfile(BaseModel):
             features[_FITS_CONTEXT] = self.fits_context
         for role, fits in sorted(self.fits_context_by_role.items()):
             features[f"{_FITS_CONTEXT_ROLE_PREFIX}{role}"] = fits
-        for name, layer in self.layers.items():
-            features[f"corpus.layer.{name}.ready"] = layer.ready
         return features
 
 
@@ -270,6 +289,9 @@ def corpus_profile(
     contributes nothing, so no role is ever read as fitting by another's window (R44.20b).
     """
     active = tuple(record for record in records if record.status is SourceStatus.ACTIVE)
+    pending = sum(1 for record in records if record.status is SourceStatus.INDEXING)
+    failed = sum(1 for record in records if record.status is SourceStatus.FAILED)
+    base_complete = bool(active) and pending == 0 and failed == 0
     stats = tuple(record.stats for record in active)
     leaves = _summed_leaves(stats)
     leaf_tokens = _summed_leaf_tokens(stats)
@@ -290,7 +312,12 @@ def corpus_profile(
         leaf_tokens=leaf_tokens,
         leaf_tokens_complete=leaf_tokens is not None,
         layers=layers,
-        fully_enriched=bool(layers) and all(layer.ready for layer in layers.values()),
+        fully_enriched=base_complete
+        and bool(layers)
+        and all(layer.ready for layer in layers.values()),
+        base_complete=base_complete,
+        sources_pending=pending,
+        sources_failed=failed,
         fits_context=fits_context,
         fits_context_by_role=fits_by_role,
     )

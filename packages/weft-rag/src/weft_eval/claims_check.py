@@ -15,9 +15,12 @@ A rung or baseline is resolved against the experiment's own arms and never taken
 line (`L28.86`); a pipeline run by more than one arm is refused until the claim names one with
 `arm`/`baseline_arm`, never resolved to the last (`L28.87`).
 
-**Staleness** is a warning, never a refusal: a claim whose records were written by a different major
-version of `weft-rag` than the one running is marked, so a reader knows the evidence predates the
-code. A pipeline-identity and default-model comparison is not made here.
+**Staleness** is a reading, never a refusal (`weft_eval.fingerprint` says what it compares): a claim
+pinned to the stages of the tree that is running is `valid`; a pinned component that has moved is
+`definitely-stale`; a claim with no pin, or whose tree cannot be resolved here, is `possibly-stale`.
+The caller resolves the live tree and hands it in as `live`, because resolving a pipeline needs the
+registry and this module reads records. `weft eval claims check` prints the reading and a rule that
+cites the claim is held to it by fitness function 38.
 """
 
 from collections.abc import Mapping
@@ -30,6 +33,7 @@ from weft_eval.claims import Claim, ClaimBasis, ClaimSource
 from weft_eval.evidence import select_invocation
 from weft_eval.experiment import Direction, Experiment, ExperimentArm, load_experiment
 from weft_eval.falsify import pooled_paired_differences
+from weft_eval.fingerprint import LiveEvidence, Staleness, assess_staleness
 from weft_eval.run_record import RunRecord, load_run_record
 from weft_eval.verdict import ClaimStatus, EffectVerdict, verdict
 from weft_kernel.errors import UnresolvedNameError, WeftError
@@ -54,6 +58,7 @@ class ClaimCheck(BaseModel):
 
     claim_id: str
     stated: ClaimStatus
+    stated_verdict: EffectVerdict | None
     #: `None` when the claim is not recomputable: a ledger claim, or a status no interval gives.
     derived: ClaimStatus | None
     verdict: EffectVerdict | None
@@ -63,7 +68,17 @@ class ClaimCheck(BaseModel):
     n: int | None
     margin: float | None
     reproducible: bool
+    staleness: Staleness
+    #: Every reason for a staleness other than `valid`, `None` when it is valid.
     stale: str | None
+
+
+def claim_arms(claim: Claim, experiment: Experiment) -> tuple[ExperimentArm, ExperimentArm]:
+    """The experiment arms that ran `claim`'s rung and its baseline."""
+    return (
+        _arm_for(claim.rung, claim.arm, experiment, claim=claim, what="rung"),
+        _arm_for(claim.baseline, claim.baseline_arm, experiment, claim=claim, what="baseline"),
+    )
 
 
 def _arm_for(
@@ -113,22 +128,34 @@ def _runs_dir(source: ClaimSource, experiment_path: Path, root: Path) -> Path:
     return experiment_path.with_suffix("") / "runs"
 
 
-def _stale(records: list[RunRecord]) -> str | None:
+_NOT_COMPARED = LiveEvidence(fingerprint=None, unresolved="this check was given no live tree")
+
+
+def _staleness(
+    claim: Claim, records: list[RunRecord], live: LiveEvidence
+) -> tuple[Staleness, str | None]:
     recorded = records[0].distribution_versions
-    if recorded is None or "weft-rag" not in recorded:
-        return None
-    current = metadata.version("weft-rag")
-    if recorded["weft-rag"].split(".")[0] == current.split(".")[0]:
-        return None
-    return f"recorded under weft-rag {recorded['weft-rag']}; this is {current}"
+    reading = assess_staleness(
+        claim.fingerprint,
+        live,
+        recorded_major=recorded.get("weft-rag") if recorded else None,
+        current_major=metadata.version("weft-rag"),
+    )
+    reasons = "; ".join(reading.reasons)
+    return reading.staleness, reasons or None
 
 
-def check_claim(claim: Claim, *, root: Path) -> ClaimCheck:
-    """Recompute `claim` from the records beside its experiment, refusing an unsupported status."""
+def check_claim(claim: Claim, *, root: Path, live: LiveEvidence | None = None) -> ClaimCheck:
+    """Recompute `claim` from the records beside its experiment, refusing an unsupported status.
+
+    `live` is what the running tree gives for the claim; without it the claim is `possibly-stale`,
+    never `valid`, because nothing was compared.
+    """
     if claim.basis is ClaimBasis.LEDGER or claim.source is None:
         return ClaimCheck(
             claim_id=claim.id,
             stated=claim.status,
+            stated_verdict=claim.verdict,
             derived=None,
             verdict=None,
             mean=None,
@@ -137,7 +164,8 @@ def check_claim(claim: Claim, *, root: Path) -> ClaimCheck:
             n=None,
             margin=None,
             reproducible=False,
-            stale=None,
+            staleness=Staleness.POSSIBLY_STALE,
+            stale="a ledger claim has no records to recompute and no pipelines to pin",
         )
     experiment_path = root / claim.source.experiment
     experiment = load_experiment(experiment_path)
@@ -146,10 +174,7 @@ def check_claim(claim: Claim, *, root: Path) -> ClaimCheck:
         raise ClaimMismatchError(f"claim '{claim.id}': no run records at {runs}.")
     records = [load_run_record(path) for path in sorted(runs.glob("*.json"))]
     _, by_key = select_invocation(experiment, records, invocation=claim.source.invocation)
-    rung_arm = _arm_for(claim.rung, claim.arm, experiment, claim=claim, what="rung")
-    base_arm = _arm_for(
-        claim.baseline, claim.baseline_arm, experiment, claim=claim, what="baseline"
-    )
+    rung_arm, base_arm = claim_arms(claim, experiment)
     rung_records = _records_of(by_key, rung_arm.name)
     base_records = _records_of(by_key, base_arm.name)
     repeats = min(len(rung_records), len(base_records))
@@ -172,21 +197,23 @@ def check_claim(claim: Claim, *, root: Path) -> ClaimCheck:
         and decision.direction is Direction.LOWER_IS_BETTER
     ):
         mean, low, high = -mean, -high, -low
-    stale = _stale(rung_records)
+    staleness, stale = _staleness(claim, rung_records, live or _NOT_COMPARED)
     if claim.status in {ClaimStatus.WRONG_QUESTIONS, ClaimStatus.NEVER}:
         derived, reading = None, None
     else:
         reading = verdict(low, high, mean, margin=margin)
         derived = reading.status
-        if derived is not claim.status:
+        if reading is not claim.verdict:
             raise ClaimMismatchError(
-                f"claim '{claim.id}' states '{claim.status}', but its records give a paired "
-                f"difference of {mean:+.3f} (95% interval {low:+.3f} to {high:+.3f}, n {paired.n}) "
-                f"against a margin of {margin}, which reads as '{derived}' ({reading})."
+                f"claim '{claim.id}' states '{claim.status}' ({claim.verdict}), but its records "
+                f"give a paired difference of {mean:+.3f} (95% interval {low:+.3f} to {high:+.3f}, "
+                f"n {paired.n}) against a margin of {margin}, which reads as '{derived}' "
+                f"({reading})."
             )
     return ClaimCheck(
         claim_id=claim.id,
         stated=claim.status,
+        stated_verdict=claim.verdict,
         derived=derived,
         verdict=reading,
         mean=mean,
@@ -195,6 +222,7 @@ def check_claim(claim: Claim, *, root: Path) -> ClaimCheck:
         n=paired.n,
         margin=margin,
         reproducible=True,
+        staleness=staleness,
         stale=stale,
     )
 
@@ -204,4 +232,5 @@ __all__ = [
     "ClaimMismatchError",
     "UnresolvedClaimArmError",
     "check_claim",
+    "claim_arms",
 ]

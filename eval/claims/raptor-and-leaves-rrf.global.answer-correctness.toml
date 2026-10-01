@@ -1,12 +1,13 @@
 # RAPTOR-and-leaves fusion (layer enrich-with-raptor-corpus, a corpus-scoped tree) against one search, on 80 corpus-wide questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "raptor-and-leaves-rrf.global.answer-correctness"
 rung = "raptor-and-leaves-rrf"
 baseline = "retrieve-then-generate"
 metric = "answer_correctness"
 status = "helps"
+verdict = "positive-below-margin"
 basis = "records"
 margin = 0.05
 

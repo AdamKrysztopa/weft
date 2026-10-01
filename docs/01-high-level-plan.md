@@ -2109,8 +2109,10 @@ All checks run in CI, before tests.
 38. **Every rule of a shipped evidence-policy router cites evidence that holds.** Added 2026-09-30
     (task 44.24; `fix-plans/23` MUST-3 named it FF40 before FF38 and FF39 were free). For every
     tracked first-party pipeline document with an `evidence-policy` stage, each rule cites at least
-    one claim that exists in `eval/claims/`, whose `status` is `helps` and whose `rung` is the
-    rule's `then`; the rule's `when` contains every regime predicate of each cited claim, equal or
+    one claim that exists in `eval/claims/`, whose verdict is `worthwhile` on committed records (a
+    `positive-below-margin` claim is refused; task 44.61) and which is `valid` against the running
+    tree (pinned, and no pipeline, judge prompt or profiler it names has changed; task 44.62), and
+    whose `rung` is the rule's `then`; the rule's `when` contains every regime predicate of each cited claim, equal or
     tighter; it tests only declared profiler features; and a `defaults` rule cites claims from two
     distinct populations (D9). The waiver is pinned empty. Planted, each of those fails.
     `tests/architecture/test_ff38_policy_cites_evidence.py`.

@@ -34,6 +34,31 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+### Changed
+
+- **Evidence-based routing no longer applies evidence outside the conditions it was measured in.**
+  A corpus profile states `corpus.base_complete`, `corpus.sources_pending` and
+  `corpus.sources_failed`, and a corpus still indexing (or with a failed source) states no size, no
+  context fit and no layer or enrichment readiness, so a rule measured on a complete corpus cannot
+  fire on a searchable part of one. A claim that tests the corpus must say whether its base is
+  complete.
+- **A claim states its verdict.** `helps` was both *worthwhile* and *positive below the margin*; a
+  claim now carries `verdict` beneath `status` (claim schema 2), `weft eval claims check` refuses a
+  verdict its records do not give, and only a *worthwhile* claim on committed records may be cited by
+  a shipped router (fitness function 38). The evidence page prints both.
+- **Evidence is checked against the tree that is running.** `weft eval claims pin <claim>` pins a
+  fingerprint of the stages of the rung, baseline and index pipelines, the judge prompt and the
+  profiler version; `weft eval claims check` reads each claim as valid, possibly stale or definitely
+  stale. A comment, a routing label, the package version or a document edit does not move it; a
+  stage's configuration does. `manual/evidence.md` §3 lists what does and does not.
+- **A routing decision carries its receipt.** `Route` and `RouteView` gain `facts`, `unstated`,
+  `constraints` and `policy`, the policy span gains `weft.route.claims`, `.fallback`, `.policy` and
+  `.constraint.*`, and `weft route explain` prints them (`weft_retrieve` contract 1.6.0, optional
+  fields).
+- **`route-by-evidence` ships one rule, not none.** The operations guide and this file said it
+  shipped empty; it reads the whole corpus for a complete corpus of 200,000 to 260,000 tokens when
+  you give it a budget, and is not the default.
+
 ### Removed
 
 - **The `keybert` enhancer name is gone**, as its deprecation notice said it would be at

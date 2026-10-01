@@ -1,12 +1,13 @@
 # The shipped rule router against the fixed router, on 107 English questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "route.fetch-operator.answer-correctness"
 rung = "route"
 baseline = "route-fixed"
 metric = "answer_correctness"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.03
 

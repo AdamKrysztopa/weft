@@ -16,7 +16,8 @@ from weft_eval.claims_check import (
     UnresolvedClaimArmError,
     check_claim,
 )
-from weft_eval.verdict import ClaimStatus
+from weft_eval.fingerprint import ClaimFingerprint, LiveEvidence, Staleness
+from weft_eval.verdict import ClaimStatus, EffectVerdict
 from weft_kernel.errors import UnresolvedNameError
 
 REPO = Path(__file__).resolve().parents[3]
@@ -24,13 +25,13 @@ COMMITTED = sorted((REPO / "eval" / "claims").glob("*.toml"))
 
 _CLAIM = """\
 [claim]
-schema = 1
+schema = 2
 id = "{id}"
 rung = "{rung}"
 baseline = "{baseline}"
 metric = "{metric}"
 status = "{status}"
-basis = "records"
+{verdict_line}basis = "records"
 margin = {margin}
 {extra}
 [claim.population]
@@ -42,6 +43,9 @@ question_sets = []
 experiment = "eval/experiments/whole-corpus-en.toml"
 invocation = "77a0ab088ccd43688bc0403932c95e6b"
 """
+
+
+_VERDICT_OF_STATUS = {"helps": "worthwhile", "no-gain": "benefit-ruled-out", "harms": "harm"}
 
 
 @pytest.fixture
@@ -66,7 +70,10 @@ def _claim(
     margin: float = 0.05,
     id: str = "c.one",  # noqa: A002
     extra: str = "",
+    verdict: str | None = None,
 ) -> Claim:
+    verdict = verdict or _VERDICT_OF_STATUS.get(status)
+    verdict_line = f'verdict = "{verdict}"\n' if verdict else ""
     path = root / "eval" / "claims" / f"{id}.toml"
     path.write_text(
         _CLAIM.format(
@@ -75,6 +82,7 @@ def _claim(
             baseline=baseline,
             metric=metric,
             status=status,
+            verdict_line=verdict_line,
             margin=margin,
             extra=extra,
         ),
@@ -114,14 +122,30 @@ def test_a_status_the_records_do_not_support_is_refused_with_the_numbers(
 
 def test_a_tighter_margin_changes_what_the_same_records_support(copied: Path) -> None:
     # Arrange — the mean is 0.075 and its interval's low end is above zero, so a margin above
-    # the mean reads as positive-below-margin, which is still 'helps'; one above the interval's
-    # top reads as benefit ruled out.
-    check = check_claim(_claim(copied, margin=0.09), root=copied)
+    # the mean reads as positive-below-margin; one above the interval's top reads as benefit
+    # ruled out.
+    check = check_claim(_claim(copied, margin=0.09, verdict="positive-below-margin"), root=copied)
 
     # Assert
     assert check.derived is ClaimStatus.HELPS
+    assert check.verdict is EffectVerdict.POSITIVE_BELOW_MARGIN
+    assert check.stated_verdict is EffectVerdict.POSITIVE_BELOW_MARGIN
     with pytest.raises(ClaimMismatchError):
         check_claim(_claim(copied, margin=0.2), root=copied)
+
+
+def test_a_positive_effect_below_the_margin_cannot_be_stated_as_worthwhile(copied: Path) -> None:
+    # Arrange — both read as 'helps', so only the verdict tells them apart.
+    claim = _claim(copied, margin=0.09, verdict="worthwhile")
+
+    # Act / Assert
+    with pytest.raises(ClaimMismatchError) as raised:
+        check_claim(claim, root=copied)
+
+    # Assert
+    message = str(raised.value)
+    assert "states 'helps' (worthwhile)" in message
+    assert "positive-below-margin" in message
 
 
 def test_an_arm_the_experiment_does_not_run_is_refused_naming_the_rungs_it_does(
@@ -177,6 +201,7 @@ def _hyde_claim(tmp_path: Path, *, extra: str = "") -> Claim:
             baseline="vector-retrieve",
             metric="mrr@5",
             status="no-gain",
+            verdict_line='verdict = "benefit-ruled-out"\n',
             margin=0.05,
             extra=extra,
         ).replace(
@@ -242,23 +267,76 @@ def test_records_that_are_missing_are_refused(copied: Path) -> None:
         check_claim(_claim(copied), root=copied)
 
 
-def test_a_claim_from_another_major_version_is_marked_stale_not_refused(
+def _fingerprint(**changes: str) -> ClaimFingerprint:
+    fields = {"rung": "r", "baseline": "b", "index": "i", "baseline_index": "i", **changes}
+    return ClaimFingerprint.model_validate(fields)
+
+
+def _pinned(root: Path, fingerprint: ClaimFingerprint | None) -> Claim:
+    claim = _claim(root)
+    return claim.model_copy(update={"fingerprint": fingerprint})
+
+
+def test_a_claim_pinned_to_the_live_fingerprint_is_valid_even_from_another_major(
     copied: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Arrange
-
+    # Arrange — recorded under 2.x/3.x, run under 99.0.0: the version moved, the pipelines did not.
     def newer(_name: str) -> str:
         return "99.0.0"
 
     monkeypatch.setattr("weft_eval.claims_check.metadata.version", newer)
+    live = LiveEvidence(fingerprint=_fingerprint(), unresolved=None)
 
     # Act
-    check = check_claim(_claim(copied), root=copied)
+    check = check_claim(_pinned(copied, _fingerprint()), root=copied, live=live)
 
     # Assert
+    assert check.staleness is Staleness.VALID
+    assert check.stale is None
+    assert check.derived is ClaimStatus.HELPS
+
+
+def test_a_pipeline_changed_since_the_pin_makes_the_claim_definitely_stale_not_refused(
+    copied: Path,
+) -> None:
+    # Arrange
+    live = LiveEvidence(fingerprint=_fingerprint(rung="moved"), unresolved=None)
+
+    # Act
+    check = check_claim(_pinned(copied, _fingerprint()), root=copied, live=live)
+
+    # Assert
+    assert check.staleness is Staleness.DEFINITELY_STALE
+    assert check.stale is not None and "rung changed" in check.stale
+    assert check.derived is ClaimStatus.HELPS
+
+
+def test_an_unpinned_claim_from_another_major_is_possibly_stale_naming_the_version(
+    copied: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    def newer(_name: str) -> str:
+        return "99.0.0"
+
+    monkeypatch.setattr("weft_eval.claims_check.metadata.version", newer)
+    live = LiveEvidence(fingerprint=_fingerprint(), unresolved=None)
+
+    # Act
+    check = check_claim(_claim(copied), root=copied, live=live)
+
+    # Assert
+    assert check.staleness is Staleness.POSSIBLY_STALE
     assert check.stale is not None
     assert "99.0.0" in check.stale
-    assert check.derived is ClaimStatus.HELPS
+    assert "weft eval claims pin" in check.stale
+
+
+def test_a_claim_checked_with_no_live_tree_is_never_read_as_valid(copied: Path) -> None:
+    # Act
+    check = check_claim(_pinned(copied, _fingerprint()), root=copied)
+
+    # Assert
+    assert check.staleness is Staleness.POSSIBLY_STALE
 
 
 def test_a_ledger_claim_is_reported_as_not_reproducible(tmp_path: Path) -> None:
@@ -267,12 +345,13 @@ def test_a_ledger_claim_is_reported_as_not_reproducible(tmp_path: Path) -> None:
     path.write_text(
         """\
 [claim]
-schema = 1
+schema = 2
 id = "h.one"
 rung = "hybrid-then-generate"
 baseline = "retrieve-then-generate"
 metric = "answer_correctness"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "ledger"
 ledger = "Phase 39"
 

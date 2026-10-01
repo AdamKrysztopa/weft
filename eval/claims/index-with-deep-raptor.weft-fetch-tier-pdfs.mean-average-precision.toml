@@ -1,7 +1,7 @@
 # Multi-level RAPTOR against leaves only; wrong questions, and it lost on them.
 
 [claim]
-schema = 1
+schema = 2
 id = "index-with-deep-raptor.weft-fetch-tier-pdfs.mean-average-precision"
 rung = "index-with-deep-raptor"
 baseline = "index-text"

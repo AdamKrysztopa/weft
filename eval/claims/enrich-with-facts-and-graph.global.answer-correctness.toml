@@ -1,7 +1,7 @@
 # Graph-and-vector fusion (layer enrich-with-facts-and-graph) against one search, on 80 corpus-wide questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "enrich-with-facts-and-graph.global.answer-correctness"
 rung = "enrich-with-facts-and-graph"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "graph"
 baseline_arm = "dense"
 metric = "answer_correctness"
 status = "harms"
+verdict = "harm"
 basis = "records"
 margin = 0.05
 

@@ -5,10 +5,14 @@ names a claim in prose is a rule nobody can tell is still supported. For every t
 pipeline document with a stage using `evidence-policy`, each rule must satisfy all of:
 
 - it cites at least one claim, and every cited claim exists in `eval/claims/`;
-- each cited claim's `status` is `helps`;
+- each cited claim's verdict is one routing adopts (`worthwhile`, on records), so a positive
+  effect below its pre-registered margin never becomes a routing rule;
 - each cited claim's `rung` is the rule's `then`;
 - the rule's `when` contains every regime predicate of each cited claim, equal or tighter, so the
   rule never fires where the evidence does not reach;
+- each cited claim is `valid` against the running tree (`weft_eval.fingerprint`): pinned, and no
+  pipeline, judge prompt or profiler it was validated against has changed since — so a change to
+  a rung's stages turns this red until the evidence is re-measured or consciously re-pinned;
 - the rule tests only declared profiler features — what a claim was measured on (`population`) is
   never something a rule can name;
 - a rule testing a context-fit feature tests the one for the role its rung's answer is generated
@@ -28,19 +32,25 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final, cast
+from unittest import mock
 
 import yaml
 
+from weft_cli.claims_live import live_evidence
 from weft_cli.pipeline_catalogue import full_catalogue
 from weft_cli.route_ask import resolve_in_catalogue
 from weft_engine import registry_bootstrap
 from weft_eval.claims import Claim, load_claims
+from weft_eval.claims_check import check_claim
+from weft_eval.fingerprint import Staleness
 from weft_generate.generating_role import generating_role
 from weft_retrieve.policy import EvidencePolicyConfig, PolicyRule
 from weft_retrieve.profile import fits_context_role, is_declared_feature
 from weft_retrieve.routing import Comparison, Condition
 
 from .conftest import REPO_ROOT, tracked_files
+
+_RESOLUTION_ONLY_DSN: Final[str] = "postgresql://nobody@localhost:1/none"
 
 #: `(document stem, rule name)` pairs exempt from the check. Empty, and pinned empty below.
 RULES_WAIVED: Final[frozenset[tuple[str, str]]] = frozenset()
@@ -120,6 +130,32 @@ def _fit_violations(
     return found
 
 
+def _claim_violations(
+    where: str, rule: PolicyRule, claim: Claim, not_valid: str | None
+) -> list[str]:
+    """What a rule's citation of one claim gets wrong: its standing, its rung, its regime."""
+    cited = claim.id
+    found: list[str] = []
+    if not claim.adoptable_for_routing:
+        found.append(
+            f"{where} cites '{cited}', whose verdict is '{claim.verdict}' on '{claim.basis}', "
+            f"not 'worthwhile' on records"
+        )
+    if not_valid is not None:
+        found.append(f"{where} cites '{cited}', which is {not_valid}")
+    if claim.rung != rule.then:
+        found.append(
+            f"{where} routes to '{rule.then}' but cites '{cited}', a claim about '{claim.rung}'"
+        )
+    found.extend(
+        f"{where} does not carry the regime of '{cited}': {predicate.feature} {predicate.op} "
+        f"{predicate.value}"
+        for predicate in claim.regime
+        if not any(implies(condition, predicate) for condition in rule.when)
+    )
+    return found
+
+
 def _rule_violations(
     document: str,
     rule: PolicyRule,
@@ -127,6 +163,7 @@ def _rule_violations(
     default: bool,
     claims: Mapping[str, Claim],
     generating_roles: Mapping[str, str | None],
+    not_valid: Mapping[str, str],
 ) -> list[str]:
     where = f"{document}: rule '{rule.name}'"
     found: list[str] = _fit_violations(where, rule, generating_roles)
@@ -140,18 +177,7 @@ def _rule_violations(
             found.append(f"{where} cites '{cited}', which is not in eval/claims/")
             continue
         populations.add(frozenset(claim.population.question_sets))
-        if claim.status.value != "helps":
-            found.append(f"{where} cites '{cited}', whose status is '{claim.status}', not 'helps'")
-        if claim.rung != rule.then:
-            found.append(
-                f"{where} routes to '{rule.then}' but cites '{cited}', a claim about '{claim.rung}'"
-            )
-        found.extend(
-            f"{where} does not carry the regime of '{cited}': {predicate.feature} {predicate.op} "
-            f"{predicate.value}"
-            for predicate in claim.regime
-            if not any(implies(condition, predicate) for condition in rule.when)
-        )
+        found.extend(_claim_violations(where, rule, claim, not_valid.get(cited)))
     if default and len(populations) < 2 and all(cited in claims for cited in rule.cites):
         found.append(
             f"{where} is a default and cites claims from {len(populations)} population(s); a "
@@ -165,8 +191,13 @@ def policy_violations(
     claims: Sequence[Claim],
     *,
     generating_roles: Mapping[str, str | None],
+    not_valid: Mapping[str, str],
 ) -> list[str]:
-    """Every way a shipped evidence-policy document's rules fail to be supported."""
+    """Every way a shipped evidence-policy document's rules fail to be supported.
+
+    `not_valid` maps a claim id to why it is not `valid` against the running tree, and omits the
+    ones that are.
+    """
     by_id = {claim.id: claim for claim in claims}
     found: list[str] = []
     for document, config in sorted(documents.items()):
@@ -181,6 +212,7 @@ def policy_violations(
                         default=default,
                         claims=by_id,
                         generating_roles=generating_roles,
+                        not_valid=not_valid,
                     )
                 )
     return found
@@ -238,6 +270,38 @@ def shipped_generating_roles(
             os.chdir(previous)
 
 
+def shipped_staleness(
+    documents: Mapping[str, EvidencePolicyConfig], claims: Sequence[Claim]
+) -> dict[str, str]:
+    """Why each claim a shipped rule cites is not `valid`, recomputed against the running tree."""
+    cited = {
+        name
+        for config in documents.values()
+        for rule in (*config.exceptions, *config.defaults)
+        for name in rule.cites
+    }
+    by_id = {claim.id: claim for claim in claims}
+    not_valid: dict[str, str] = {}
+    with tempfile.TemporaryDirectory() as scratch:
+        config_path = Path(scratch) / "weft.toml"
+        config_path.write_text("", encoding="utf-8")
+        previous = Path.cwd()
+        os.chdir(scratch)
+        patcher = mock.patch.dict(os.environ, {"WEFT_DATABASE_URL": _RESOLUTION_ONLY_DSN})
+        patcher.start()
+        try:
+            deps = registry_bootstrap.build_dependencies(config_path=config_path)
+            for name in sorted(cited & set(by_id)):
+                live = live_evidence(by_id[name], root=REPO_ROOT, deps=deps)
+                check = check_claim(by_id[name], root=REPO_ROOT, live=live)
+                if check.staleness is not Staleness.VALID:
+                    not_valid[name] = f"{check.staleness}: {check.stale}"
+        finally:
+            patcher.stop()
+            os.chdir(previous)
+    return not_valid
+
+
 def test_the_waiver_is_pinned_empty() -> None:
     assert frozenset() == RULES_WAIVED
 
@@ -254,10 +318,12 @@ def test_at_least_one_shipped_router_uses_evidence_policy_with_a_rule() -> None:
 def test_every_shipped_evidence_rule_cites_evidence_that_holds() -> None:
     # Act
     documents = shipped_policy_documents()
+    claims = load_claims(REPO_ROOT / "eval" / "claims")
     found = policy_violations(
         documents,
-        load_claims(REPO_ROOT / "eval" / "claims"),
+        claims,
         generating_roles=shipped_generating_roles(documents),
+        not_valid=shipped_staleness(documents, claims),
     )
 
     # Assert
@@ -269,6 +335,7 @@ def _claim(
     *,
     rung: str = "whole",
     status: str = "helps",
+    verdict: str = "worthwhile",
     sets: tuple[str, ...] = ("a.toml",),
 ) -> Claim:
     return Claim.model_validate(
@@ -278,11 +345,13 @@ def _claim(
             "baseline": "dense",
             "metric": "answer_correctness",
             "status": status,
+            "verdict": verdict,
             "basis": "records",
             "margin": 0.05,
             "population": {"benchmark": "b", "language": "en", "question_sets": list(sets)},
             "source": {"experiment": "e.toml", "invocation": "i"},
             "regime": [
+                {"feature": "corpus.base_complete", "op": "eq", "value": True},
                 {"feature": "corpus.fits_context", "op": "eq", "value": True},
                 {"feature": "corpus.leaf_tokens", "op": "lte", "value": 260000},
             ],
@@ -298,10 +367,12 @@ def _config(
     fits: bool = True,
     default: bool = True,
     feature: str = "corpus.fits_context",
+    base_complete: bool = True,
 ) -> dict[str, EvidencePolicyConfig]:
     rule = {
         "name": "r",
         "when": [
+            {"feature": "corpus.base_complete", "op": "eq", "value": base_complete},
             {"feature": feature, "op": "eq", "value": fits},
             {"feature": "corpus.leaf_tokens", "op": "lte", "value": tokens},
         ],
@@ -316,10 +387,14 @@ def _found(
     config: dict[str, EvidencePolicyConfig],
     claims: list[Claim],
     roles: Mapping[str, str | None] | None = None,
+    not_valid: Mapping[str, str] | None = None,
 ) -> str:
     return "\n".join(
         policy_violations(
-            config, claims, generating_roles={"whole": "generate"} if roles is None else roles
+            config,
+            claims,
+            generating_roles={"whole": "generate"} if roles is None else roles,
+            not_valid={} if not_valid is None else not_valid,
         )
     )
 
@@ -331,15 +406,25 @@ def test_the_check_can_actually_fail() -> None:
 
     # Act / Assert — the supported rule is clean, and each way of not being one is named.
     roles = {"whole": "generate"}
-    assert policy_violations(_config(), [one, two], generating_roles=roles) == []
+    assert policy_violations(_config(), [one, two], generating_roles=roles, not_valid={}) == []
     assert (
-        policy_violations(_config(default=False, cites=("c.one",)), [one], generating_roles=roles)
+        policy_violations(
+            _config(default=False, cites=("c.one",)), [one], generating_roles=roles, not_valid={}
+        )
         == []
     )
-    assert "not in eval/claims" in _found(_config(cites=("c.nope",)), [one, two])
-    assert "not 'helps'" in _found(
-        _config(), [one, _claim("c.two", status="no-gain", sets=("b.toml",))]
+    assert "which is definitely-stale: rung changed" in _found(
+        _config(), [one, two], not_valid={"c.two": "definitely-stale: rung changed"}
     )
+    assert "not in eval/claims" in _found(_config(cites=("c.nope",)), [one, two])
+    assert "not 'worthwhile'" in _found(
+        _config(),
+        [one, _claim("c.two", status="no-gain", verdict="benefit-ruled-out", sets=("b.toml",))],
+    )
+    assert "'positive-below-margin'" in _found(
+        _config(), [one, _claim("c.two", verdict="positive-below-margin", sets=("b.toml",))]
+    )
+    assert "does not carry the regime" in _found(_config(base_complete=False), [one, two])
     assert "a claim about 'other'" in _found(
         _config(), [one, _claim("c.two", rung="other", sets=("b.toml",))]
     )

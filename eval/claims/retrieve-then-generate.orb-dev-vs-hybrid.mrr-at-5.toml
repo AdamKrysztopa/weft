@@ -1,7 +1,7 @@
 # Dense first stage against hybrid fusion on the same questions: whether dense is the best first stage.
 
 [claim]
-schema = 1
+schema = 2
 id = "retrieve-then-generate.orb-dev-vs-hybrid.mrr-at-5"
 rung = "retrieve-then-generate"
 baseline = "hybrid-then-generate"
@@ -9,6 +9,7 @@ arm = "dense"
 baseline_arm = "hybrid"
 metric = "mrr@5"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

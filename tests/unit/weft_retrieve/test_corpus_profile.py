@@ -53,7 +53,6 @@ def test_sizes_sum_over_active_sources_and_become_features() -> None:
     records = (
         _source("a", stats=_stats(3, tokens=300, tokenizer="luna")),
         _source("b", stats=_stats(2, tokens=200, tokenizer="luna")),
-        _source("c", status=SourceStatus.FAILED),
     )
 
     # Act
@@ -258,3 +257,127 @@ def test_the_profile_under_no_generate_role_has_no_plain_fit() -> None:
     # Assert
     assert "corpus.fits_context" not in features
     assert features["corpus.fits_context.small"] is False
+
+
+_SIZED = _stats(3, tokens=300, tokenizer="luna")
+_EXTENTS = (
+    "corpus.leaves",
+    "corpus.leaf_tokens",
+    "corpus.fits_context",
+    "corpus.fits_context.generate",
+)
+
+
+def test_a_fully_indexed_corpus_is_base_complete_and_states_its_extent() -> None:
+    # Arrange
+    records = (_source("a", stats=_SIZED), _source("b", stats=_SIZED))
+
+    # Act
+    features = corpus_profile(
+        records, context_tokens=1000, role_context_tokens={"generate": 1000}
+    ).features()
+
+    # Assert
+    assert features["corpus.base_complete"] is True
+    assert features["corpus.sources_pending"] == 0
+    assert features["corpus.sources_failed"] == 0
+    assert all(name in features for name in _EXTENTS)
+
+
+def test_a_fast_track_corpus_still_indexing_states_no_extent_a_rule_could_mistake_for_whole() -> (
+    None
+):
+    # Arrange — two sources searchable and one in flight: 600 tokens is a subset, not the corpus.
+    records = (
+        _source("a", stats=_SIZED),
+        _source("b", stats=_SIZED),
+        _source("c", status=SourceStatus.INDEXING),
+    )
+
+    # Act
+    profile = corpus_profile(records, context_tokens=1000, role_context_tokens={"generate": 1000})
+    features = profile.features()
+
+    # Assert
+    assert features["corpus.base_complete"] is False
+    assert features["corpus.documents"] == 2
+    assert features["corpus.sources_pending"] == 1
+    assert not [name for name in _EXTENTS if name in features]
+
+
+def test_a_failed_source_is_a_corpus_missing_a_document_and_so_not_base_complete() -> None:
+    # Arrange
+    records = (_source("a", stats=_SIZED), _source("b", status=SourceStatus.FAILED))
+
+    # Act
+    features = corpus_profile(records, context_tokens=1000).features()
+
+    # Assert
+    assert features["corpus.base_complete"] is False
+    assert features["corpus.sources_failed"] == 1
+    assert "corpus.leaf_tokens" not in features
+
+
+def test_no_searchable_source_is_not_a_complete_corpus_of_anything() -> None:
+    # Act
+    features = corpus_profile((), context_tokens=1000).features()
+
+    # Assert
+    assert features["corpus.base_complete"] is False
+
+
+def test_enrichment_incomplete_on_a_complete_base_is_told_apart_from_the_reverse() -> None:
+    # Arrange
+    raptor_on_one = (
+        _source("a", stats=_SIZED, layers=(_layer("raptor", LayerStatus.ACTIVE),)),
+        _source("b", stats=_SIZED),
+    )
+
+    # Act
+    features = corpus_profile(raptor_on_one, context_tokens=1000).features()
+
+    # Assert
+    assert features["corpus.base_complete"] is True
+    assert features["corpus.layer.raptor.ready"] is False
+    assert features["corpus.fully_enriched"] is False
+
+
+def test_a_layer_built_on_every_searchable_source_is_not_ready_while_the_base_is_incomplete() -> (
+    None
+):
+    # Arrange — raptor reaches both searchable sources; a third is still being indexed.
+    records = (
+        _source("a", stats=_SIZED, layers=(_layer("raptor", LayerStatus.ACTIVE),)),
+        _source("b", stats=_SIZED, layers=(_layer("raptor", LayerStatus.ACTIVE),)),
+        _source("c", status=SourceStatus.INDEXING),
+    )
+
+    # Act
+    profile = corpus_profile(records, context_tokens=1000)
+    features = profile.features()
+
+    # Assert
+    assert profile.layers["raptor"].ready is True
+    assert features["corpus.layer.raptor.ready"] is False
+    assert features["corpus.fully_enriched"] is False
+
+
+def test_finishing_the_last_source_makes_the_same_corpus_complete_and_its_extent_appears() -> None:
+    # Arrange
+    layers = (_layer("raptor", LayerStatus.ACTIVE),)
+    during = (
+        _source("a", stats=_SIZED, layers=layers),
+        _source("b", status=SourceStatus.INDEXING),
+    )
+    after = (_source("a", stats=_SIZED, layers=layers), _source("b", stats=_SIZED, layers=layers))
+
+    # Act
+    before_features = corpus_profile(during, context_tokens=1000).features()
+    after_features = corpus_profile(after, context_tokens=1000).features()
+
+    # Assert
+    assert before_features["corpus.base_complete"] is False
+    assert "corpus.leaf_tokens" not in before_features
+    assert after_features["corpus.base_complete"] is True
+    assert after_features["corpus.leaf_tokens"] == 600
+    assert after_features["corpus.layer.raptor.ready"] is True

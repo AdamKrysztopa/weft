@@ -1,12 +1,13 @@
 # Summarise-then-generate against one search, on 80 corpus-wide questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "summarise-then-generate.global.answer-correctness"
 rung = "summarise-then-generate"
 baseline = "retrieve-then-generate"
 metric = "answer_correctness"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

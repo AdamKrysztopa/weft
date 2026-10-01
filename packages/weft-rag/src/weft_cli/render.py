@@ -2061,6 +2061,25 @@ def _route_line(route: RouteView) -> str:
     return f"{reached}, rule '{route.rule}')" if route.rule else f"{reached})"
 
 
+def _route_receipt_lines(route: RouteView) -> list[str]:
+    """The rest of the receipt, one `  <label>: <value>` line each, omitting what is empty."""
+    entries = (
+        ("claims", ", ".join(route.claims)),
+        ("fallback", route.fallback or ""),
+        (
+            "constraints",
+            ", ".join(f"{name}={ceiling}" for name, ceiling in route.constraints.items()),
+        ),
+        ("unstated", ", ".join(route.unstated)),
+        ("policy", route.policy),
+    )
+    lines = [f"  {label}: {value}" for label, value in entries if value]
+    if route.reasons:
+        lines.append("  reasons:")
+        lines.extend(f"    {reason}" for reason in route.reasons)
+    return lines
+
+
 def _render_route_explain(result: RouteExplainCommandResult) -> Rendered:
     """`weft route explain` — task **44.16**: the query profile, the corpus profile, the route.
 
@@ -2075,6 +2094,7 @@ def _render_route_explain(result: RouteExplainCommandResult) -> Rendered:
         f"  {key}: {value}" for key, value in sorted(result.corpus_profile.features().items())
     )
     lines.append(_route_line(result.route))
+    lines.extend(_route_receipt_lines(result.route))
     return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
 
 

@@ -11,9 +11,11 @@ The policy stays a pure function of a `Scorecard` and the route catalogue — no
 embedder — so it satisfies `cost_bound = (0, 0)` exactly as `threshold-ladder` does.
 """
 
+import hashlib
+import json
 from collections.abc import Sequence
 from enum import StrEnum
-from typing import Annotated, ClassVar
+from typing import Annotated, Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -91,6 +93,8 @@ class EvidencePolicy:
 
     def __init__(self, config: EvidencePolicyConfig) -> None:
         self._config = config
+        canonical = json.dumps(config.model_dump(mode="json"), sort_keys=True)
+        self.digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
     @property
     def _rules(self) -> tuple[PolicyRule, ...]:
@@ -104,6 +108,7 @@ class EvidencePolicy:
         if unknown is not None:
             return Failed(reason=unknown_name_reason(EVIDENCE_POLICY_NAME, unknown, payload))
         offered = ctx.require(RouteCatalogue).names()
+        receipt = self._receipt(payload)
         skipped: list[str] = []
         for rule in self._rules:
             if not all(condition_holds(condition, payload) for condition in rule.when):
@@ -121,6 +126,7 @@ class EvidencePolicy:
                     reasons=(*skipped, f"rule '{rule.name}' held, routing to '{rule.then}'"),
                     claims=rule.cites,
                     fallback=self._fallback_for(rule.then, offered),
+                    **receipt,
                 )
             )
         fallback = self._config.fallback
@@ -139,8 +145,19 @@ class EvidencePolicy:
                 outcome=RuleOutcome.FELL_THROUGH,
                 scorecard=payload,
                 reasons=(*skipped, f"no rule held, so the fallback '{fallback}'"),
+                **receipt,
             )
         )
+
+    def _receipt(self, card: Scorecard) -> dict[str, Any]:
+        """What a reader needs to say why: facts judged, unknowns, ceilings and the policy."""
+        tested = dict.fromkeys(condition.feature for rule in self._rules for condition in rule.when)
+        return {
+            "facts": {name: card.features[name] for name in tested if name in card.features},
+            "unstated": tuple(name for name in tested if name not in card.features),
+            "constraints": self._config.constraints.model_dump(exclude_none=True),
+            "policy": self.digest,
+        }
 
     def _fallback_for(self, chosen: str, offered: frozenset[str]) -> str | None:
         fallback = self._config.fallback

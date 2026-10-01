@@ -4,6 +4,7 @@ The policy configuration is read out of the shipped document itself, never rebui
 rule edited in the YAML is the rule exercised here.
 """
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,10 +12,12 @@ import pytest
 import yaml
 
 from weft_kernel.context import Context, ServiceRegistry
-from weft_kernel.payload import Produced
+from weft_kernel.payload import Produced, SourceId
 from weft_retrieve.contract import RouteCatalogue
 from weft_retrieve.payload import Query, RouteCandidate, RuleOutcome, Scorecard
 from weft_retrieve.policy import EvidencePolicy, EvidencePolicyConfig
+from weft_retrieve.profile import corpus_profile
+from weft_store import SourceRecord, SourceStats, SourceStatus
 
 DOCUMENT = (
     Path(__file__).resolve().parents[3]
@@ -47,8 +50,12 @@ def _ctx() -> Context:
     return Context(tenant_id="t", run_id="r", trace_id="x", locale="en", services=services)
 
 
-def _card(*, tokens: int | None, fits: bool | None = True) -> Scorecard:
+def _card(
+    *, tokens: int | None, fits: bool | None = True, base_complete: bool | None = True
+) -> Scorecard:
     features: dict[str, int | float | bool] = {}
+    if base_complete is not None:
+        features["corpus.base_complete"] = base_complete
     if tokens is not None:
         features["corpus.leaf_tokens"] = tokens
     if fits is not None:
@@ -81,14 +88,24 @@ async def test_shipped_with_no_budget_it_answers_through_one_search_and_says_why
 
 
 @pytest.mark.parametrize(
-    ("tokens", "fits"),
-    [(50_000, True), (261_000, True), (253_408, False), (253_408, None), (None, True)],
+    ("tokens", "fits", "complete"),
+    [
+        (50_000, True, True),
+        (261_000, True, True),
+        (253_408, False, True),
+        (253_408, None, True),
+        (None, True, True),
+        (253_408, True, False),
+        (253_408, True, None),
+    ],
 )
 async def test_outside_the_measured_regime_it_is_one_search_even_with_a_budget(
-    *, tokens: int | None, fits: bool | None
+    *, tokens: int | None, fits: bool | None, complete: bool | None
 ) -> None:
     # Act
-    pipeline, _, _ = await _pipeline(_config(budget=10_000_000), _card(tokens=tokens, fits=fits))
+    pipeline, _, _ = await _pipeline(
+        _config(budget=10_000_000), _card(tokens=tokens, fits=fits, base_complete=complete)
+    )
 
     # Assert
     assert pipeline == DENSE
@@ -114,3 +131,53 @@ async def test_the_chosen_route_carries_both_claims_and_the_fallback() -> None:
         "whole-corpus.global.answer-correctness",
     )
     assert outcome.value.fallback == DENSE
+
+
+def _records(*statuses: SourceStatus) -> tuple[SourceRecord, ...]:
+    now = datetime.now(UTC)
+    return tuple(
+        SourceRecord(
+            id=SourceId(f"s{index}"),
+            uri=f"file:///s{index}.txt",
+            content_hash=f"s{index}",
+            indexed_at=now,
+            pipeline="index-text",
+            status=status,
+            stats=SourceStats(leaves=10, characters=1000, tokens=126_704, tokenizer="luna"),
+        )
+        for index, status in enumerate(statuses)
+    )
+
+
+async def _routed(records: tuple[SourceRecord, ...]) -> tuple[str, RuleOutcome]:
+    features = corpus_profile(records, context_tokens=300_000).features()
+    card = Scorecard(query=Query(text="q"), scores={}, features=features)
+    outcome = await EvidencePolicy(_config(budget=300_000)).run(card, _ctx())
+    assert isinstance(outcome, Produced)
+    return outcome.value.pipeline, outcome.value.outcome
+
+
+async def test_fast_track_state_decides_whether_the_complete_corpus_rule_may_fire() -> None:
+    # Arrange — 253,408 tokens across two sources: the size the claims were measured at.
+    complete = _records(SourceStatus.ACTIVE, SourceStatus.ACTIVE)
+    one_still_indexing = _records(SourceStatus.ACTIVE, SourceStatus.ACTIVE, SourceStatus.INDEXING)
+    one_failed = _records(SourceStatus.ACTIVE, SourceStatus.ACTIVE, SourceStatus.FAILED)
+
+    # Act / Assert
+    assert await _routed(complete) == (WHOLE, RuleOutcome.MATCHED)
+    assert await _routed(one_still_indexing) == (DENSE, RuleOutcome.FELL_THROUGH)
+    assert await _routed(one_failed) == (DENSE, RuleOutcome.FELL_THROUGH)
+
+
+async def test_the_partial_corpus_becomes_eligible_the_moment_it_completes() -> None:
+    # Arrange
+    during = _records(SourceStatus.ACTIVE, SourceStatus.ACTIVE, SourceStatus.INDEXING)
+    after = _records(SourceStatus.ACTIVE, SourceStatus.ACTIVE)
+
+    # Act
+    before_route = await _routed(during)
+    after_route = await _routed(after)
+
+    # Assert
+    assert before_route[0] == DENSE
+    assert after_route[0] == WHOLE

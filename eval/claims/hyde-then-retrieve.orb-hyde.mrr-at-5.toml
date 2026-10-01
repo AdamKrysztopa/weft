@@ -1,7 +1,7 @@
 # HyDE at query time against plain dense retrieval.
 
 [claim]
-schema = 1
+schema = 2
 id = "hyde-then-retrieve.orb-hyde.mrr-at-5"
 rung = "hyde-then-retrieve"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "hyde"
 baseline_arm = "plain"
 metric = "mrr@5"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

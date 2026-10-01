@@ -1,7 +1,7 @@
 # The lexical first stage against the dense first stage on Open RAGBench's dev questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "lexical-retrieve.orb-dev.recall-at-5"
 rung = "lexical-retrieve"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "lexical"
 baseline_arm = "dense"
 metric = "recall@5"
 status = "harms"
+verdict = "harm"
 basis = "records"
 margin = 0.05
 

@@ -1,7 +1,7 @@
 # Hypothetical questions at index time against plain dense retrieval.
 
 [claim]
-schema = 1
+schema = 2
 id = "index-with-questions.orb-hyde.mrr-at-5"
 rung = "index-with-questions"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "questions"
 baseline_arm = "plain"
 metric = "mrr@5"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

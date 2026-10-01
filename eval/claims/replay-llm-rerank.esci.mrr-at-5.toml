@@ -1,12 +1,13 @@
 # An LLM reranker over the frozen dense pool: +0.058 mrr@5 [+0.043, +0.074] on 830 questions, underpowered, run once, about $1.83 (ledger 41.4). Not recomputable.
 
 [claim]
-schema = 1
+schema = 2
 id = "replay-llm-rerank.esci.mrr-at-5"
 rung = "replay-llm-rerank"
 baseline = "replay-identity"
 metric = "mrr@5"
 status = "helps"
+verdict = "worthwhile"
 basis = "ledger"
 margin = 0.05
 ledger = "ledger `41.4`"

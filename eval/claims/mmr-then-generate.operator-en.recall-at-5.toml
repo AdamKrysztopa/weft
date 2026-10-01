@@ -1,12 +1,13 @@
 # Maximal-marginal-relevance selection against plain retrieval, recall@5 on the operator-en questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "mmr-then-generate.operator-en.recall-at-5"
 rung = "mmr-then-generate"
 baseline = "retrieve-then-generate"
 metric = "recall@5"
 status = "helps"
+verdict = "worthwhile"
 basis = "records"
 margin = 0.05
 

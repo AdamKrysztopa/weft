@@ -3,7 +3,10 @@
 from weft_eval.claims import Claim
 from weft_eval.claims_check import ClaimCheck
 from weft_eval.claims_render import HEADER, render_claims_table
+from weft_eval.fingerprint import Staleness
 from weft_eval.verdict import ClaimStatus, EffectVerdict
+
+_VERDICT_OF_STATUS = {"helps": "worthwhile", "no-gain": "benefit-ruled-out", "harms": "harm"}
 
 
 def _claim(
@@ -14,6 +17,7 @@ def _claim(
     status: str = "helps",
     language: str = "en",
     regime: bool = False,
+    verdict: str | None = None,
 ) -> Claim:
     body: dict[str, object] = {
         "id": claim_id,
@@ -22,6 +26,7 @@ def _claim(
         "metric": "answer_correctness",
         "status": status,
         "basis": basis,
+        "verdict": verdict or _VERDICT_OF_STATUS.get(status),
         "population": {"benchmark": "validation-en", "language": language, "question_sets": []},
     }
     if basis == "records":
@@ -30,7 +35,10 @@ def _claim(
     else:
         body["ledger"] = "Phase 39"
     if regime:
-        body["regime"] = [{"feature": "corpus.fits_context", "op": "eq", "value": True}]
+        body["regime"] = [
+            {"feature": "corpus.base_complete", "op": "eq", "value": True},
+            {"feature": "corpus.fits_context", "op": "eq", "value": True},
+        ]
     return Claim.model_validate(body)
 
 
@@ -38,6 +46,7 @@ def _check(claim: Claim, *, mean: float | None = 0.075, derived: bool = True) ->
     return ClaimCheck(
         claim_id=claim.id,
         stated=claim.status,
+        stated_verdict=claim.verdict,
         derived=claim.status if derived and mean is not None else None,
         verdict=EffectVerdict.WORTHWHILE if derived and mean is not None else None,
         mean=mean,
@@ -46,6 +55,7 @@ def _check(claim: Claim, *, mean: float | None = 0.075, derived: bool = True) ->
         n=210 if mean is not None else None,
         margin=0.05,
         reproducible=mean is not None,
+        staleness=Staleness.VALID,
         stale=None,
     )
 
@@ -60,9 +70,9 @@ def test_a_records_claim_renders_its_recomputed_numbers_and_its_source() -> None
     # Assert
     assert table.startswith(HEADER)
     assert (
-        "| `whole` | **helps** against `dense` on `answer_correctness` (en, validation-en) when "
-        "corpus.fits_context eq True: +0.075 (95% interval +0.035 to +0.115), n 210 "
-        "| `eval/experiments/whole-corpus-en` |"
+        "| `whole` | **helps (worthwhile)** against `dense` on `answer_correctness` "
+        "(en, validation-en) when corpus.base_complete eq True and corpus.fits_context eq True: "
+        "+0.075 (95% interval +0.035 to +0.115), n 210 | `eval/experiments/whole-corpus-en` |"
     ) in table
 
 
@@ -122,3 +132,32 @@ def test_with_no_claims_every_shipped_rung_is_never() -> None:
 
     # Assert
     assert table == f"{HEADER}\n| `a`, `b` | never | none |"
+
+
+def test_a_positive_effect_below_the_margin_is_not_rendered_as_a_worthwhile_one() -> None:
+    # Arrange
+    claim = _claim("c.one", verdict="positive-below-margin")
+
+    # Act
+    table = render_claims_table([(claim, _check(claim))], shipped_rungs=["whole"])
+
+    # Assert
+    assert "**helps (positive-below-margin)**" in table
+    assert "worthwhile" not in table
+
+
+def test_a_stale_claim_says_how_stale_and_why() -> None:
+    # Arrange
+    claim = _claim("c.one")
+    stale = _check(claim).model_copy(
+        update={
+            "staleness": Staleness.DEFINITELY_STALE,
+            "stale": "rung changed since the claim was pinned",
+        }
+    )
+
+    # Act
+    table = render_claims_table([(claim, stale)], shipped_rungs=["whole"])
+
+    # Assert
+    assert "— definitely-stale: rung changed since the claim was pinned" in table

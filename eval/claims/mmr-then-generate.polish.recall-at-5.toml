@@ -1,12 +1,13 @@
 # Maximal-marginal-relevance selection against plain retrieval, recall@5 on the polish questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "mmr-then-generate.polish.recall-at-5"
 rung = "mmr-then-generate"
 baseline = "retrieve-then-generate"
 metric = "recall@5"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "records"
 margin = 0.05
 

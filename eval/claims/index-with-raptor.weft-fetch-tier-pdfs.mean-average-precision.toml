@@ -1,7 +1,7 @@
 # One-level RAPTOR against leaves only on ten PDFs; single-document questions are not RAPTOR's regime.
 
 [claim]
-schema = 1
+schema = 2
 id = "index-with-raptor.weft-fetch-tier-pdfs.mean-average-precision"
 rung = "index-with-raptor"
 baseline = "index-text"

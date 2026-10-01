@@ -1,7 +1,7 @@
 # Anchor promotion replayed over the frozen dense pool against the pool unreordered, mrr@5 on techqa.
 
 [claim]
-schema = 1
+schema = 2
 id = "anchor-promote-then-generate.techqa.mrr-at-5"
 rung = "anchor-promote-then-generate"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "anchor-promote"
 baseline_arm = "dense"
 metric = "mrr@5"
 status = "harms"
+verdict = "harm"
 basis = "records"
 margin = 0.05
 

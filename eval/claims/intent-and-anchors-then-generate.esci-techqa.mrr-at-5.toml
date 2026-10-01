@@ -1,12 +1,13 @@
 # Identifier-only search against dense, held out: TechQA -0.008 mrr@5 [-0.021, +0.005], ESCI +0.001 [-0.015, +0.018] (ledger 39.7). Not recomputable.
 
 [claim]
-schema = 1
+schema = 2
 id = "intent-and-anchors-then-generate.esci-techqa.mrr-at-5"
 rung = "intent-and-anchors-then-generate"
 baseline = "retrieve-then-generate"
 metric = "mrr@5"
 status = "no-gain"
+verdict = "benefit-ruled-out"
 basis = "ledger"
 margin = 0.05
 ledger = "Phase 39 (ledger only, records not committed)"

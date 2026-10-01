@@ -480,6 +480,17 @@ class Route(BaseModel):
     claims: tuple[str, ...] = ()
     #: The rung to run instead if `pipeline` refuses at run time (44.23).
     fallback: str | None = None
+    #: The profile features the rules were judged on, as the scorecard stated them — the part of
+    #: the query and corpus profile the decision turned on, not the whole of either (44.64).
+    facts: Mapping[str, int | float | bool] = Field(default_factory=dict)
+    #: Features a rule tests that the scorecard did not state. A rule keyed to one holds nothing,
+    #: and this is how a reader tells *unknown* from *false*.
+    unstated: tuple[str, ...] = ()
+    #: The cost ceilings in force, only those set.
+    constraints: Mapping[str, int] = Field(default_factory=dict)
+    #: A digest of the rules, claims and ceilings in force, so a decision names the policy that made
+    #: it. Empty for a policy that has none to name.
+    policy: str = ""
 
     def view(self) -> "RouteView":
         """This decision without its `scorecard`."""
@@ -490,6 +501,10 @@ class Route(BaseModel):
             reasons=self.reasons,
             claims=self.claims,
             fallback=self.fallback,
+            facts=self.facts,
+            unstated=self.unstated,
+            constraints=self.constraints,
+            policy=self.policy,
         )
 
     def telemetry_attributes(self) -> Mapping[str, str | bool | int | float]:
@@ -500,6 +515,14 @@ class Route(BaseModel):
         }
         if self.rule:
             attributes["weft.route.rule"] = self.rule
+        if self.claims:
+            attributes["weft.route.claims"] = ",".join(self.claims)
+        if self.fallback:
+            attributes["weft.route.fallback"] = self.fallback
+        if self.policy:
+            attributes["weft.route.policy"] = self.policy
+        for name, ceiling in self.constraints.items():
+            attributes[f"weft.route.constraint.{name}"] = ceiling
         return attributes
 
 
@@ -519,3 +542,7 @@ class RouteView(BaseModel):
     reasons: tuple[str, ...] = ()
     claims: tuple[str, ...] = ()
     fallback: str | None = None
+    facts: Mapping[str, int | float | bool] = Field(default_factory=dict)
+    unstated: tuple[str, ...] = ()
+    constraints: Mapping[str, int] = Field(default_factory=dict)
+    policy: str = ""

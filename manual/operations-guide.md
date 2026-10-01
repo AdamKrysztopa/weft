@@ -523,7 +523,7 @@ Four routers ship, and they differ in *how closed* the choice is rather than in 
 | `route` | `nearest-description` | Every installed pipeline that states a `route.summary`, matched against the question. **Open** — a rung installed today is selectable today, with no rule edit |
 | `route-by-score` | `threshold-ladder` | Only what its own bands name, in order, first match wins. **Closed** — the shipped rules choose between `no-retrieval` and `retrieve-then-generate`, and every other rung is invisible to it until you add a band |
 | `route-fixed` *(default)* | `always` | One named pipeline, whatever the question: `retrieve-then-generate`, the best measured first stage. Its scorer, `query-profile`, calls no model, so this router costs nothing, and a routed ask still records what kind of question it was |
-| `route-by-evidence` | `evidence-policy` | Rules that each cite the evidence claim behind them, with a fallback rung and optional prompt-token and model-call ceilings. It ships with no rules, so today it answers through `retrieve-then-generate` like `route-fixed`; derive it to add a rule or a budget |
+| `route-by-evidence` | `evidence-policy` | Rules that each cite the evidence claim behind them, with a fallback rung and optional prompt-token and model-call ceilings. It ships one rule, reading the whole corpus when it fits, and a budget of 0 that keeps that rule from firing, so it answers through `retrieve-then-generate` like `route-fixed` until you derive it with a budget. **Opt-in, never the default** |
 
 Pick `route-by-score` when you want exactly the behaviours you wrote down and want to know which one
 ran and why. `route-fixed` is the default because no router has been measured against always using
@@ -559,8 +559,22 @@ set:
 route = "route-with-budget"
 ```
 
-`weft route explain "<question>"` prints the decision, the rules it skipped and why, and the claims
-the chosen rule cites; `weft eval claims check` recomputes those claims from the committed records.
+The query profile, the corpus profile, executable evidence and the policy are all implemented:
+a router reads what the question and the corpus look like, applies only rules whose cited claim is
+a recomputed, pinned, **worthwhile** measurement, and stays inside the ceilings you set. It is
+deliberately conservative. One rule ships, and not every rung Weft implements is eligible for
+routing: a rung is eligible only once an experiment has measured a worthwhile gain for it.
+
+A rule that depends on the corpus's size or enrichment applies only when the corpus is **complete**:
+no source still indexing (a Fast Track corpus mid-ingest) and none failed. Until then the router
+states `corpus.base_complete: False` and no size, so a searchable subset that happens to land in the
+measured range does not trigger a rule measured on a whole corpus. Run `weft index --retry-failed`
+or wait for the run to finish.
+
+`weft route explain "<question>"` prints the decision, the rules it skipped and why, the claims
+the chosen rule cites, the facts it was judged on, any it could not state, the ceilings in force and
+a digest of the policy that decided; `weft eval claims check` recomputes those claims from the
+committed records, and `weft eval claims pin` records what they were validated against.
 If whole-corpus reading refuses at run time because the corpus counted past its bound, the ask is
 answered by `retrieve-then-generate` and the route says it fell back. To bypass the router for one
 question, `weft ask --pipeline <name>`.

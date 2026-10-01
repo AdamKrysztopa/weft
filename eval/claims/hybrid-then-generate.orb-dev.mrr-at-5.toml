@@ -1,7 +1,7 @@
 # Hybrid fusion against the dense first stage on Open RAGBench's dev questions.
 
 [claim]
-schema = 1
+schema = 2
 id = "hybrid-then-generate.orb-dev.mrr-at-5"
 rung = "hybrid-then-generate"
 baseline = "retrieve-then-generate"
@@ -9,6 +9,7 @@ arm = "hybrid"
 baseline_arm = "dense"
 metric = "mrr@5"
 status = "harms"
+verdict = "harm"
 basis = "records"
 margin = 0.05
 

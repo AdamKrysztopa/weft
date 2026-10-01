@@ -10,9 +10,12 @@ The warp is the fixed frame on a loom; the weft is every thread through it.
 > **Status: built and running.** The walking skeleton (Phase 0) and every build phase since are
 > closed, through Phase 44a: retrieval, generation, the CLI, evaluation, release, the agent pack,
 > the product ladder, multimodal nodes, RAPTOR, the graph pack and index layers. Phase 44b,
-> evidence-driven routing, has measured what a router should route on and ships `route-by-evidence`, a
-> router whose every rule cites a measured claim; it is not the default, because no measured rung beats
-> one search by enough to justify the price. Indexing, retrieval,
+> evidence-driven routing, is built: a query and corpus profiler, executable evidence (claims
+> recomputed from committed run records, pinned against the pipelines they measured), an evidence
+> policy, and `route-by-evidence`, a router whose every rule cites a worthwhile measured claim and
+> that records why it chose what it chose. It is deliberately conservative, with one rule today, and
+> it is opt-in, not the default, because no measured rung beats one search by enough to justify the
+> price. Not every rung Weft implements is eligible for routing. Indexing, retrieval,
 > generation, evaluation and a graph pack all run end to end, proven from outside this repository.
 > Every architectural decision this project has taken was argued at a recorded gate, and no gate
 > open today blocks anything that ships. (The log itself is developer-local, so this page states
