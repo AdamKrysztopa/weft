@@ -2110,8 +2110,10 @@ All checks run in CI, before tests.
     (task 44.24; `fix-plans/23` MUST-3 named it FF40 before FF38 and FF39 were free). For every
     tracked first-party pipeline document with an `evidence-policy` stage, each rule cites at least
     one claim that exists in `eval/claims/`, whose verdict is `worthwhile` on committed records (a
-    `positive-below-margin` claim is refused; task 44.61) and which is `valid` against the running
-    tree (pinned, and no pipeline, judge prompt or profiler it names has changed; task 44.62), and
+    `positive-below-margin` claim is refused; task 44.61, `L28.89`) and which is `valid` against the running
+    tree (pinned, and no pipeline, judge prompt or profiler it names has changed; task 44.62; staleness
+    reads `stage_identity`, because `pipeline_identity` hashes a `route.summary` an operator may add
+    later, `L28.90`), and
     whose `rung` is the rule's `then`; the rule's `when` contains every regime predicate of each cited claim, equal or
     tighter; it tests only declared profiler features; and a `defaults` rule cites claims from two
     distinct populations (D9). The waiver is pinned empty. Planted, each of those fails.
@@ -2122,6 +2124,15 @@ All checks run in CI, before tests.
     `extends`. That it needs no model role beyond `generate` is **not** checked: a document does
     not declare its stages' roles.
     `tests/architecture/test_ff39_a_safe_fallback.py`.
+40. **A test never writes to `os.environ` directly.** Added 2026-10-01 from `L28.93`. `poe ci-checks`
+    exports `WEFT_DATABASE_URL` for every test; four fixtures set it to a throwaway value and then
+    called `os.environ.pop`, which deleted the exported one, so two container tests failed in the
+    full gate and in nothing narrower. An AST walk over every tracked `.py` under a `tests`
+    directory, and any `test_*.py` or `conftest.py` elsewhere, fails on a subscript assignment, a
+    `del`, or a call to `pop`, `popitem`, `setdefault`, `update` or `clear` on `os.environ`,
+    naming `path:line`; `mock.patch.dict(os.environ, ...)` and `monkeypatch.setenv` restore what
+    was there and are not flagged. At filing: 708 test files, 0 sites. The waiver is pinned empty.
+    `tests/architecture/test_ff40_a_test_does_not_mutate_the_environment.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and

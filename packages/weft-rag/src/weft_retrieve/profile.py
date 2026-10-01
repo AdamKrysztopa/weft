@@ -195,7 +195,7 @@ class CorpusProfile(BaseModel):
     **`base_complete`** is the same discipline applied to the corpus itself: no source still
     indexing and none failed, over at least one searchable source. A Fast Track corpus that is
     still indexing has a *searchable subset* whose size can land inside a range an evidence claim
-    was measured on for a complete corpus, so `features()` states no extent (`leaves`,
+    was measured on for a complete corpus (`L28.91`), so `features()` states no extent (`leaves`,
     `leaf_tokens`, `fits_context*`) and no layer or enrichment readiness until the base is
     complete: a size is a fact about the corpus, and a partial one is not that. The fields below
     keep what the searchable subset measures, for a reader that wants it.
