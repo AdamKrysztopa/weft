@@ -1,0 +1,27 @@
+# Maximal-marginal-relevance selection against plain retrieval, recall@5 on the fetch-en questions.
+
+[claim]
+schema = 1
+id = "mmr-then-generate.fetch-en.recall-at-5"
+rung = "mmr-then-generate"
+baseline = "retrieve-then-generate"
+metric = "recall@5"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/questions/fetch.toml"]
+
+[claim.source]
+experiment = "eval/experiments/context-construction-en-fetch-ir.toml"
+invocation = "dcb801defdf5405b99c1b2daf9f4894a"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "corpora other than the 16-paper validation-en corpus",
+  "a question mix other than the one question set measured",
+]

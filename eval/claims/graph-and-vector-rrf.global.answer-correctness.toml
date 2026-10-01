@@ -1,0 +1,27 @@
+# Graph-and-vector fusion (layer enrich-with-facts-and-graph) against one search, on 80 corpus-wide questions.
+
+[claim]
+schema = 1
+id = "graph-and-vector-rrf.global.answer-correctness"
+rung = "graph-and-vector-rrf"
+baseline = "retrieve-then-generate"
+metric = "answer_correctness"
+status = "harms"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/global-questions/train.toml", "eval/global-questions/held-out.toml"]
+
+[claim.source]
+experiment = "eval/experiments/global-synthesis.toml"
+invocation = "66c44023c1004b06b13d07ad633e6540"
+
+[claim.untested]
+regimes = [
+  "corpora other than the 16-paper validation-en corpus (253,408 leaf tokens)",
+  "language other than en",
+  "multi-hop questions, which graph retrieval was built for",
+]

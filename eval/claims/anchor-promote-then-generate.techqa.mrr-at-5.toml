@@ -1,0 +1,29 @@
+# Anchor promotion replayed over the frozen dense pool against the pool unreordered, mrr@5 on techqa.
+
+[claim]
+schema = 1
+id = "anchor-promote-then-generate.techqa.mrr-at-5"
+rung = "anchor-promote-then-generate"
+baseline = "retrieve-then-generate"
+arm = "anchor-promote"
+baseline_arm = "dense"
+metric = "mrr@5"
+status = "harms"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "techqa"
+language = "en"
+question_sets = ["corpus/techqa-questions.toml"]
+
+[claim.source]
+experiment = "eval/experiments/techqa-promote.toml"
+invocation = "9e6fa854aa874314aacc01b2661b7537"
+runs = "eval/pool-promotion/runs"
+
+[claim.untested]
+regimes = [
+  "corpora other than the one named (exploratory on a reused benchmark)",
+  "a pool depth other than the frozen 50 chunks",
+]

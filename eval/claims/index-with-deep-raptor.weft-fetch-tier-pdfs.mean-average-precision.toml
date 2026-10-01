@@ -1,0 +1,20 @@
+# Multi-level RAPTOR against leaves only; wrong questions, and it lost on them.
+
+[claim]
+schema = 1
+id = "index-with-deep-raptor.weft-fetch-tier-pdfs.mean-average-precision"
+rung = "index-with-deep-raptor"
+baseline = "index-text"
+metric = "mean_average_precision"
+status = "wrong-questions"
+basis = "ledger"
+margin = 0.05
+ledger = "16a re-measurement, eval/raptor-baseline/after-16a/remeasurement.json (MAP -0.023 [-0.047, -0.005]; no experiment document)"
+
+[claim.population]
+benchmark = "weft-fetch-tier-pdfs"
+language = "en"
+question_sets = []
+
+[claim.untested]
+regimes = ["long documents and multi-document questions (see section 2)"]

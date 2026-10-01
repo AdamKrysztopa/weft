@@ -1,0 +1,28 @@
+# HyDE at query time against plain dense retrieval.
+
+[claim]
+schema = 1
+id = "hyde-then-retrieve.orb-hyde.mrr-at-5"
+rung = "hyde-then-retrieve"
+baseline = "retrieve-then-generate"
+arm = "hyde"
+baseline_arm = "plain"
+metric = "mrr@5"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "open-ragbench"
+language = "en"
+question_sets = ["corpus/open-ragbench-questions/dev-subset-300.toml"]
+
+[claim.source]
+experiment = "eval/experiments/orb-hyde-questions.toml"
+invocation = "cbd9fc318b1e4d2eb11b95d346ee4b07"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "a corpus where dense retrieval has headroom (dense mrr@5 is already near 0.95 here)",
+]

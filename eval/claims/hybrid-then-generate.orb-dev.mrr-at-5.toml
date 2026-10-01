@@ -1,0 +1,28 @@
+# Hybrid fusion against the dense first stage on Open RAGBench's dev questions.
+
+[claim]
+schema = 1
+id = "hybrid-then-generate.orb-dev.mrr-at-5"
+rung = "hybrid-then-generate"
+baseline = "retrieve-then-generate"
+arm = "hybrid"
+baseline_arm = "dense"
+metric = "mrr@5"
+status = "harms"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "open-ragbench"
+language = "en"
+question_sets = ["corpus/open-ragbench-questions/dev.toml"]
+
+[claim.source]
+experiment = "eval/experiments/orb-retrieval-baseline.toml"
+invocation = "7017a15bea924619a66024d24b532b7d"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "corpora other than open-ragbench (1,548 questions, three repetitions)",
+]

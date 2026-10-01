@@ -1,0 +1,26 @@
+# The composed context-construction pipeline (dedupe, MMR, neighbours) against plain retrieval, token recall of the generated answer on the polish questions.
+
+[claim]
+schema = 1
+id = "context-construction-then-generate.polish.token-recall"
+rung = "context-construction-then-generate"
+baseline = "retrieve-then-generate"
+metric = "token_recall"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "pl-wiki"
+language = "pl"
+question_sets = ["eval/questions/polish.toml"]
+
+[claim.source]
+experiment = "eval/experiments/context-construction-pl-widen.toml"
+invocation = "e0782e833c884013835c83aae6d184ba"
+
+[claim.untested]
+regimes = [
+  "language other than pl",
+  "corpora other than pl-wiki (12 questions, underpowered: minimum detectable effect 0.24)",
+]

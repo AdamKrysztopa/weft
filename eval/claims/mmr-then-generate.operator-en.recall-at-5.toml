@@ -1,0 +1,27 @@
+# Maximal-marginal-relevance selection against plain retrieval, recall@5 on the operator-en questions.
+
+[claim]
+schema = 1
+id = "mmr-then-generate.operator-en.recall-at-5"
+rung = "mmr-then-generate"
+baseline = "retrieve-then-generate"
+metric = "recall@5"
+status = "helps"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/questions/operator.toml"]
+
+[claim.source]
+experiment = "eval/experiments/context-construction-en-operator-ir.toml"
+invocation = "f911ae886554442a86874417e42affa0"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "corpora other than the 16-paper validation-en corpus",
+  "a question mix other than the one question set measured",
+]

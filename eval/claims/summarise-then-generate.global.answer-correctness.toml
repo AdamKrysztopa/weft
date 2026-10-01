@@ -1,0 +1,27 @@
+# Summarise-then-generate against one search, on 80 corpus-wide questions.
+
+[claim]
+schema = 1
+id = "summarise-then-generate.global.answer-correctness"
+rung = "summarise-then-generate"
+baseline = "retrieve-then-generate"
+metric = "answer_correctness"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/global-questions/train.toml", "eval/global-questions/held-out.toml"]
+
+[claim.source]
+experiment = "eval/experiments/global-synthesis.toml"
+invocation = "66c44023c1004b06b13d07ad633e6540"
+
+[claim.untested]
+regimes = [
+  "corpora other than the 16-paper validation-en corpus (253,408 leaf tokens)",
+  "language other than en",
+  "multi-hop questions, which graph retrieval was built for",
+]

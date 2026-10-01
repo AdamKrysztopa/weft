@@ -37,6 +37,8 @@ _CLAIM_TABLE_KEYS: Final[frozenset[str]] = frozenset(
         "id",
         "rung",
         "baseline",
+        "arm",
+        "baseline_arm",
         "metric",
         "status",
         "basis",
@@ -100,6 +102,10 @@ class Claim(BaseModel):
     id: str = Field(min_length=1)
     rung: str = Field(min_length=1)
     baseline: str = Field(min_length=1)
+    #: The experiment arms that ran `rung` and `baseline`, when naming the pipeline is ambiguous or
+    #: the experiment's pipeline carries a different name from the rung it measures.
+    arm: str | None = Field(default=None, min_length=1)
+    baseline_arm: str | None = Field(default=None, min_length=1)
     metric: str = Field(min_length=1)
     status: ClaimStatus
     basis: ClaimBasis

@@ -1,0 +1,20 @@
+# One-level RAPTOR against leaves only on ten PDFs; single-document questions are not RAPTOR's regime.
+
+[claim]
+schema = 1
+id = "index-with-raptor.weft-fetch-tier-pdfs.mean-average-precision"
+rung = "index-with-raptor"
+baseline = "index-text"
+metric = "mean_average_precision"
+status = "wrong-questions"
+basis = "ledger"
+margin = 0.05
+ledger = "16a re-measurement, eval/raptor-baseline/after-16a/remeasurement.json (no experiment document)"
+
+[claim.population]
+benchmark = "weft-fetch-tier-pdfs"
+language = "en"
+question_sets = []
+
+[claim.untested]
+regimes = ["long documents and multi-document questions (see section 2)"]

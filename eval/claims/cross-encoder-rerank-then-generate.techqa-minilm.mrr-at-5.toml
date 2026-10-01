@@ -1,0 +1,29 @@
+# The minilm cross-encoder replayed over the frozen dense pool against the pool unreordered, mrr@5 on techqa.
+
+[claim]
+schema = 1
+id = "cross-encoder-rerank-then-generate.techqa-minilm.mrr-at-5"
+rung = "cross-encoder-rerank-then-generate"
+baseline = "retrieve-then-generate"
+arm = "cross-encoder-minilm"
+baseline_arm = "dense"
+metric = "mrr@5"
+status = "harms"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "techqa"
+language = "en"
+question_sets = ["corpus/techqa-questions.toml"]
+
+[claim.source]
+experiment = "eval/experiments/techqa-cross-encoder-minilm.toml"
+invocation = "8909d5819f4d48618b75d2216e01563a"
+runs = "eval/pool-promotion/runs"
+
+[claim.untested]
+regimes = [
+  "corpora other than the one named (exploratory on a reused benchmark)",
+  "a pool depth other than the frozen 50 chunks",
+]

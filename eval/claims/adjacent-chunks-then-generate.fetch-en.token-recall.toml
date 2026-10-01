@@ -1,0 +1,27 @@
+# Widening each hit with its neighbouring chunks against plain retrieval, token recall of the generated answer on the fetch-en questions.
+
+[claim]
+schema = 1
+id = "adjacent-chunks-then-generate.fetch-en.token-recall"
+rung = "adjacent-chunks-then-generate"
+baseline = "retrieve-then-generate"
+metric = "token_recall"
+status = "helps"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/questions/fetch.toml"]
+
+[claim.source]
+experiment = "eval/experiments/context-construction-en-fetch-widen.toml"
+invocation = "9253c9aae61644e58c34f17e535d2284"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "corpora other than the 16-paper validation-en corpus",
+  "a question mix other than the one question set measured",
+]

@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from weft_cli.eval_claims import EvalClaimsCheckArgs, EvalClaimsCheckCommand, EvalClaimsCheckResult
+from weft_cli.eval_claims import (
+    EvalClaimsCheckArgs,
+    EvalClaimsCheckCommand,
+    EvalClaimsCheckResult,
+    EvalClaimsRenderCommand,
+)
 from weft_command.permission import PermissionClass
 from weft_eval.claims_check import ClaimMismatchError
 from weft_kernel.context import Context, ServiceRegistry
@@ -86,3 +91,37 @@ async def test_every_mismatched_claim_is_named_in_one_refusal(root: Path) -> Non
 def test_the_command_reads_only() -> None:
     # Assert
     assert EvalClaimsCheckCommand.permission_class is PermissionClass.READ
+
+
+async def test_render_prints_the_generated_table_with_a_never_row(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "helps"), encoding="utf-8")
+    shipped: tuple[str, ...] = ("whole-corpus-wide-then-generate", "hyde-then-generate")
+
+    def _fixed(_ctx: Context) -> tuple[str, ...]:
+        return shipped
+
+    monkeypatch.setattr("weft_cli.eval_claims._shipped_rungs", _fixed)
+
+    # Act
+    outcome = await EvalClaimsRenderCommand().run(EvalClaimsCheckArgs(root=str(root)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert isinstance(outcome.value, EvalClaimsCheckResult)
+    table = outcome.value.markdown
+    assert (
+        "| `whole-corpus-wide-then-generate` | **helps** against `retrieve-then-generate`" in table
+    )
+    assert table.splitlines()[-1] == "| `hyde-then-generate` | never | none |"
+
+
+async def test_render_refuses_when_a_claim_is_unsupported_as_check_does(root: Path) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "harms"), encoding="utf-8")
+
+    # Act / Assert
+    with pytest.raises(ClaimMismatchError, match="'a.one'"):
+        await EvalClaimsRenderCommand().run(EvalClaimsCheckArgs(root=str(root)), _ctx())

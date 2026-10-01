@@ -167,6 +167,7 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         "eval table",
         "eval replay",
         "eval claims check",
+        "eval claims render",
         "eval pairwise",
         "route explain",
         "trace",
@@ -230,6 +231,8 @@ def test_register_wires_every_built_in_with_its_permission_class() -> None:
         # `eval claims check` — task **44.31** — recomputes each claim from committed records and
         # writes nothing.
         "eval claims check": PermissionClass.READ,
+        # `eval claims render` — task **44.32** — prints the evidence page's rung table.
+        "eval claims render": PermissionClass.READ,
         # `eval pairwise` — task **44.43b** — calls the judge model and writes a pairwise record.
         "eval pairwise": PermissionClass.WRITE,
         # `route explain` — task **44.16** — runs the router alone and answers nothing.

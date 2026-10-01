@@ -1,0 +1,29 @@
+# The bge cross-encoder replayed over the frozen dense pool against the pool unreordered, mrr@5 on techqa.
+
+[claim]
+schema = 1
+id = "cross-encoder-retrieve.techqa-bge.mrr-at-5"
+rung = "cross-encoder-retrieve"
+baseline = "retrieve-then-generate"
+arm = "cross-encoder-bge"
+baseline_arm = "dense"
+metric = "mrr@5"
+status = "harms"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "techqa"
+language = "en"
+question_sets = ["corpus/techqa-questions.toml"]
+
+[claim.source]
+experiment = "eval/experiments/techqa-cross-encoder-bge.toml"
+invocation = "baf6eeb0026645cb8a6f886a2e4b722e"
+runs = "eval/pool-promotion/runs"
+
+[claim.untested]
+regimes = [
+  "corpora other than the one named (exploratory on a reused benchmark)",
+  "a pool depth other than the frozen 50 chunks",
+]

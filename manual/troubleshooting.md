@@ -3906,7 +3906,10 @@ claim 'bad-rung': its rung 'hyde-then-generate' is run by no arm of eval/experim
 ```
 
 **What to do:** name a rung the message lists, or point `[claim.source]` at the experiment that ran
-the rung you mean.
+the rung you mean. Two arms of one experiment can run the same pipeline (`orb-hyde-questions` runs
+`vector-retrieve` twice); the check then refuses, listing the arms, and the claim says which it
+means with `arm = "<arm name>"` and `baseline_arm = "<arm name>"`. The same two keys back a rung
+whose shipped name differs from the pipeline its experiment ran.
 
 ### `ClaimMismatchError`
 

@@ -1,0 +1,31 @@
+# Whole-corpus reading against one search, on the 12 Polish questions over pl-wiki.
+
+[claim]
+schema = 1
+id = "whole-corpus-then-generate.polish.answer-correctness"
+rung = "whole-corpus-then-generate"
+baseline = "retrieve-then-generate"
+metric = "answer_correctness"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.regime]
+when = [
+  { feature = "corpus.fits_context", op = "eq", value = true },
+]
+
+[claim.population]
+benchmark = "pl-wiki"
+language = "pl"
+question_sets = ["eval/questions/polish.toml"]
+
+[claim.source]
+experiment = "eval/experiments/whole-corpus-pl.toml"
+invocation = "800e1e9cf55644f5b260e9c9770d1297"
+
+[claim.untested]
+regimes = [
+  "language other than pl",
+  "corpora other than pl-wiki (12 questions, underpowered: minimum detectable effect 0.24)",
+]

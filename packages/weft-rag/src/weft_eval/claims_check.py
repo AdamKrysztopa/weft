@@ -62,21 +62,41 @@ class ClaimCheck(BaseModel):
     stale: str | None
 
 
-def _arm_for(rung: str, experiment: Experiment, *, claim: Claim, what: str) -> ExperimentArm:
-    named: dict[str, ExperimentArm] = {}
+def _arm_for(
+    rung: str, arm_name: str | None, experiment: Experiment, *, claim: Claim, what: str
+) -> ExperimentArm:
+    where = claim.source.experiment if claim.source else "its experiment"
+    if arm_name is not None:
+        by_name = {arm.name: arm for arm in experiment.arms}
+        if arm_name not in by_name:
+            options = tuple(sorted(by_name))
+            raise UnresolvedClaimArmError(
+                f"claim '{claim.id}': its {what} arm '{arm_name}' is not an arm of {where}. "
+                f"Arms: {', '.join(options)}.",
+                valid_options=options,
+            )
+        return by_name[arm_name]
+    named: dict[str, list[ExperimentArm]] = {}
     for arm in experiment.arms:
         run_name = arm.query_pipeline or arm.router
         if run_name:
-            named[run_name] = arm
+            named.setdefault(run_name, []).append(arm)
     if rung not in named:
         options = tuple(sorted(named))
         raise UnresolvedClaimArmError(
-            f"claim '{claim.id}': its {what} '{rung}' is run by no arm of "
-            f"{claim.source.experiment if claim.source else 'its experiment'}. Rungs run: "
+            f"claim '{claim.id}': its {what} '{rung}' is run by no arm of {where}. Rungs run: "
             f"{', '.join(options)}.",
             valid_options=options,
         )
-    return named[rung]
+    arms = named[rung]
+    if len(arms) > 1:
+        options = tuple(sorted(arm.name for arm in arms))
+        raise UnresolvedClaimArmError(
+            f"claim '{claim.id}': its {what} '{rung}' is run by more than one arm of {where}: "
+            f"{', '.join(options)}. Name the one it means with `arm`/`baseline_arm`.",
+            valid_options=options,
+        )
+    return arms[0]
 
 
 def _records_of(by_key: Mapping[tuple[str, int], RunRecord], arm: str) -> list[RunRecord]:
@@ -122,8 +142,10 @@ def check_claim(claim: Claim, *, root: Path) -> ClaimCheck:
         raise ClaimMismatchError(f"claim '{claim.id}': no run records at {runs}.")
     records = [load_run_record(path) for path in sorted(runs.glob("*.json"))]
     _, by_key = select_invocation(experiment, records, invocation=claim.source.invocation)
-    rung_arm = _arm_for(claim.rung, experiment, claim=claim, what="rung")
-    base_arm = _arm_for(claim.baseline, experiment, claim=claim, what="baseline")
+    rung_arm = _arm_for(claim.rung, claim.arm, experiment, claim=claim, what="rung")
+    base_arm = _arm_for(
+        claim.baseline, claim.baseline_arm, experiment, claim=claim, what="baseline"
+    )
     rung_records = _records_of(by_key, rung_arm.name)
     base_records = _records_of(by_key, base_arm.name)
     repeats = min(len(rung_records), len(base_records))

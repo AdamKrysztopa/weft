@@ -1,0 +1,26 @@
+# Near-duplicate removal against plain retrieval, recall@5 on the polish questions.
+
+[claim]
+schema = 1
+id = "dedupe-then-generate.polish.recall-at-5"
+rung = "dedupe-then-generate"
+baseline = "retrieve-then-generate"
+metric = "recall@5"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "pl-wiki"
+language = "pl"
+question_sets = ["eval/questions/polish.toml"]
+
+[claim.source]
+experiment = "eval/experiments/context-construction-pl-ir.toml"
+invocation = "247ce33f3b4c4da0b0a8f266ab93828f"
+
+[claim.untested]
+regimes = [
+  "language other than pl",
+  "corpora other than pl-wiki (12 questions, underpowered: minimum detectable effect 0.24)",
+]

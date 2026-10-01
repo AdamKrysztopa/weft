@@ -1,0 +1,27 @@
+# The score-driven router against the fixed router, on 107 English questions.
+
+[claim]
+schema = 1
+id = "route-by-score.fetch-operator.answer-correctness"
+rung = "route-by-score"
+baseline = "route-fixed"
+metric = "answer_correctness"
+status = "no-gain"
+basis = "records"
+margin = 0.03
+
+[claim.population]
+benchmark = "validation-en"
+language = "en"
+question_sets = ["eval/questions/fetch.toml", "eval/questions/operator.toml"]
+
+[claim.source]
+experiment = "eval/experiments/route-shipped-en.toml"
+invocation = "05c3ea9337ad4b14aa01f71681a3eeaf"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "corpora other than validation-en",
+  "a corpus the routers do not send to a different rung than route-fixed",
+]

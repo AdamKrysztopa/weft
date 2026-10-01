@@ -1,0 +1,28 @@
+# Dense first stage against hybrid fusion on the same questions: whether dense is the best first stage.
+
+[claim]
+schema = 1
+id = "retrieve-then-generate.orb-dev-vs-hybrid.mrr-at-5"
+rung = "retrieve-then-generate"
+baseline = "hybrid-then-generate"
+arm = "dense"
+baseline_arm = "hybrid"
+metric = "mrr@5"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "open-ragbench"
+language = "en"
+question_sets = ["corpus/open-ragbench-questions/dev.toml"]
+
+[claim.source]
+experiment = "eval/experiments/orb-retrieval-baseline.toml"
+invocation = "7017a15bea924619a66024d24b532b7d"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "corpora other than open-ragbench (1,548 questions, three repetitions)",
+]

@@ -1,0 +1,29 @@
+# Anchor promotion replayed over the frozen dense pool against the pool unreordered, mrr@5 on esci.
+
+[claim]
+schema = 1
+id = "anchor-promote-retrieve.esci.mrr-at-5"
+rung = "anchor-promote-retrieve"
+baseline = "retrieve-then-generate"
+arm = "anchor-promote"
+baseline_arm = "dense"
+metric = "mrr@5"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "esci"
+language = "en"
+question_sets = ["corpus/esci-questions.toml"]
+
+[claim.source]
+experiment = "eval/experiments/esci-promote.toml"
+invocation = "dcbb8e9976d84324b243a9247dba9134"
+runs = "eval/pool-promotion/runs"
+
+[claim.untested]
+regimes = [
+  "corpora other than the one named (exploratory on a reused benchmark)",
+  "a pool depth other than the frozen 50 chunks",
+]

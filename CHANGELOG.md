@@ -53,6 +53,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   and is offerable to a router. `route-by-evidence` and its `evidence-policy` ship with no rules
   yet.
 
+- **`manual/evidence.md` §3 is generated from the claims.** `weft eval claims render` prints the
+  rung table from `eval/claims/` (49 claims, each recomputed from its committed run records), and a
+  doc test fails when the page's block differs from it. A claim may name the experiment arm that ran
+  its rung (`arm`, `baseline_arm`); two arms sharing one pipeline are refused until it does, where
+  they were silently resolved to the last. A rung with no claim reads *never*.
+
 - **A `threshold-ladder` rule can test a profiler feature.** `when: [{feature: corpus.fits_context,
   op: eq, value: true}]` reads the question and corpus profile (`weft route explain` prints them),
   with `eq` and `ne` added beside the four ordering ops and integer and boolean values beside

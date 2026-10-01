@@ -1,0 +1,20 @@
+# Normalised-score fusion against rank fusion; the dense arm carried no meaning.
+
+[claim]
+schema = 1
+id = "hybrid-normalized-scores.weft-corpus-25-docs.recall-5"
+rung = "hybrid-normalized-scores"
+baseline = "hybrid-then-generate"
+metric = "recall@5"
+status = "wrong-questions"
+basis = "ledger"
+margin = 0.05
+ledger = "task 21.9, eval/lexical-fusion/measurement.json (no experiment document; dense arm used the hash embedder)"
+
+[claim.population]
+benchmark = "weft-corpus-25-docs"
+language = "en"
+question_sets = []
+
+[claim.untested]
+regimes = ["a real embedder (the record itself refuses to move a default until re-run with one)"]

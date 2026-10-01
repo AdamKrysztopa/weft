@@ -1,0 +1,29 @@
+# The bge cross-encoder replayed over the frozen dense pool against the pool unreordered, mrr@5 on esci.
+
+[claim]
+schema = 1
+id = "cross-encoder-rerank-then-generate.esci-bge.mrr-at-5"
+rung = "cross-encoder-rerank-then-generate"
+baseline = "retrieve-then-generate"
+arm = "cross-encoder-bge"
+baseline_arm = "dense"
+metric = "mrr@5"
+status = "no-gain"
+basis = "records"
+margin = 0.05
+
+[claim.population]
+benchmark = "esci"
+language = "en"
+question_sets = ["corpus/esci-questions.toml"]
+
+[claim.source]
+experiment = "eval/experiments/esci-cross-encoder-bge.toml"
+invocation = "63c2c8de45264f3aba8c2441031cf84f"
+runs = "eval/pool-promotion/runs"
+
+[claim.untested]
+regimes = [
+  "corpora other than the one named (exploratory on a reused benchmark)",
+  "a pool depth other than the frozen 50 chunks",
+]

@@ -32,7 +32,7 @@ metric = "{metric}"
 status = "{status}"
 basis = "records"
 margin = {margin}
-
+{extra}
 [claim.population]
 benchmark = "validation-en"
 language = "en"
@@ -65,11 +65,18 @@ def _claim(
     metric: str = "answer_correctness",
     margin: float = 0.05,
     id: str = "c.one",  # noqa: A002
+    extra: str = "",
 ) -> Claim:
     path = root / "eval" / "claims" / f"{id}.toml"
     path.write_text(
         _CLAIM.format(
-            id=id, rung=rung, baseline=baseline, metric=metric, status=status, margin=margin
+            id=id,
+            rung=rung,
+            baseline=baseline,
+            metric=metric,
+            status=status,
+            margin=margin,
+            extra=extra,
         ),
         encoding="utf-8",
     )
@@ -128,6 +135,83 @@ def test_an_arm_the_experiment_does_not_run_is_refused_naming_the_rungs_it_does(
     assert isinstance(raised.value, UnresolvedNameError)
     assert "whole-corpus-wide-then-generate" in raised.value.valid_options
     assert "retrieve-then-generate" in raised.value.valid_options
+
+
+def test_a_claim_names_the_arm_that_ran_when_the_rung_is_not_a_pipeline_name(
+    copied: Path,
+) -> None:
+    # Arrange
+    claim = _claim(
+        copied,
+        rung="a-shipped-rung",
+        baseline="another-shipped-rung",
+        extra='arm = "whole-corpus"\nbaseline_arm = "baseline"\n',
+    )
+
+    # Act
+    result = check_claim(claim, root=copied)
+
+    # Assert
+    assert result.derived is ClaimStatus.HELPS
+
+
+def test_an_arm_name_the_experiment_does_not_have_is_refused_naming_the_arms_it_has(
+    copied: Path,
+) -> None:
+    # Act / Assert
+    with pytest.raises(UnresolvedClaimArmError) as raised:
+        check_claim(_claim(copied, extra='arm = "no-such-arm"\n'), root=copied)
+
+    # Assert
+    assert isinstance(raised.value, UnresolvedNameError)
+    assert set(raised.value.valid_options) == {"baseline", "whole-corpus"}
+
+
+def _hyde_claim(tmp_path: Path, *, extra: str = "") -> Claim:
+    # `orb-hyde-questions` runs `vector-retrieve` in two arms and `hyde-vector-retrieve` in two.
+    path = tmp_path / "c.hyde.toml"
+    path.write_text(
+        _CLAIM.format(
+            id="c.hyde",
+            rung="hyde-vector-retrieve",
+            baseline="vector-retrieve",
+            metric="mrr@5",
+            status="no-gain",
+            margin=0.05,
+            extra=extra,
+        ).replace(
+            'experiment = "eval/experiments/whole-corpus-en.toml"\n'
+            'invocation = "77a0ab088ccd43688bc0403932c95e6b"',
+            'experiment = "eval/experiments/orb-hyde-questions.toml"\n'
+            'invocation = "cbd9fc318b1e4d2eb11b95d346ee4b07"',
+        ),
+        encoding="utf-8",
+    )
+    return load_claim(path)
+
+
+def test_two_arms_sharing_a_pipeline_are_refused_until_the_claim_names_one(
+    tmp_path: Path,
+) -> None:
+    # Act / Assert
+    with pytest.raises(UnresolvedClaimArmError) as raised:
+        check_claim(_hyde_claim(tmp_path), root=REPO)
+
+    # Assert
+    assert set(raised.value.valid_options) == {"hyde", "questions-hyde"}
+    assert "Name the one it means" in str(raised.value)
+
+
+def test_a_claim_naming_both_arms_of_a_shared_pipeline_is_recomputed(tmp_path: Path) -> None:
+    # Arrange
+    claim = _hyde_claim(tmp_path, extra='arm = "hyde"\nbaseline_arm = "plain"\n')
+
+    # Act
+    result = check_claim(claim, root=REPO)
+
+    # Assert
+    assert result.reproducible is True
+    assert result.derived is ClaimStatus.NO_GAIN
 
 
 def test_a_metric_no_record_scored_is_refused_naming_the_ones_that_were(copied: Path) -> None:
