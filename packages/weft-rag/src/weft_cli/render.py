@@ -2066,6 +2066,7 @@ def _route_receipt_lines(route: RouteView) -> list[str]:
     entries = (
         ("claims", ", ".join(route.claims)),
         ("fallback", route.fallback or ""),
+        ("facts", ", ".join(f"{name}={value}" for name, value in route.facts.items())),
         (
             "constraints",
             ", ".join(f"{name}={ceiling}" for name, ceiling in route.constraints.items()),

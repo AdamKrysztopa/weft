@@ -251,6 +251,7 @@ async def test_the_text_output_answers_why_with_the_claims_facts_ceilings_and_po
     assert "claims: whole-corpus.global.answer-correctness" in stdout
     assert "fallback: retrieve-then-generate" in stdout
     assert "reasons:" in stdout and "held, routing to" in stdout
+    assert "facts: corpus.base_complete=True" in stdout
     assert "constraints: max_prompt_tokens=300000" in stdout
     assert "unstated: corpus.leaf_tokens" in stdout
     assert "policy: 0123456789abcdef" in stdout
