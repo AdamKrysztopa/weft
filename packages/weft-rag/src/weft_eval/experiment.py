@@ -423,6 +423,21 @@ def _refused_from(exc: ValidationError, path: Path) -> ExperimentDocumentError:
     return ExperimentDocumentError(f"{path.name}: {field}: {first['msg']}")
 
 
+def _layers_of(entry: dict[str, Any], *, path: Path) -> tuple[str, ...]:
+    """The arm's `layers`, which must be written as a list — R44.20.
+
+    `tuple("raptor")` is five characters, which then fail as "names layer 'r' more than once":
+    the refusal blamed a layer for a spelling mistake.
+    """
+    raw = entry.get("layers", [])
+    if not isinstance(raw, list):
+        raise ExperimentDocumentError(
+            f"{path.name}: arm '{entry.get('name', '')}' writes layers as {raw!r}; layers must be "
+            f'a list of layer names, as in layers = ["raptor"].'
+        )
+    return tuple(str(layer) for layer in cast("list[object]", raw))
+
+
 def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentArm:
     unknown = set(entry) - _ARM_TABLE_KEYS
     if unknown:
@@ -441,7 +456,7 @@ def _build_arm(entry: dict[str, Any], *, root: Path, path: Path) -> ExperimentAr
         repeats=entry.get("repeats"),
         capture_pool=bool(entry.get("capture_pool", False)),
         pool=_resolve_optional(entry.get("pool"), root=root),
-        layers=tuple(entry.get("layers", ())),
+        layers=_layers_of(entry, path=path),
     )
 
 

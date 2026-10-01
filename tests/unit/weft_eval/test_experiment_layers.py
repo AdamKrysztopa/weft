@@ -133,3 +133,16 @@ def test_an_arm_naming_one_layer_twice_is_refused_naming_it(tmp_path: Path) -> N
     # Assert
     assert "enrich-a" in str(caught.value)
     assert "'raptor'" in str(caught.value)
+
+
+@pytest.mark.parametrize("written", ['"enrich-with-raptor-corpus"', "3", "true"])
+def test_layers_written_as_anything_but_a_list_is_refused_saying_so(
+    tmp_path: Path, written: str
+) -> None:
+    # Arrange — R44.20: a bare string was split into characters and refused as "names layer 'e'
+    # more than once", which blamed the layer rather than the spelling.
+    path = _write(tmp_path, _arm("dense") + _arm("raptor", f"layers = {written}\n"))
+
+    # Act / Assert
+    with pytest.raises(ExperimentDocumentError, match=r"layers must be a list.*\[\"raptor\"\]"):
+        load_experiment(path)
