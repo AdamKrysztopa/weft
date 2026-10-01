@@ -20,9 +20,12 @@ from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
 from weft_eval.pairwise import (
-    PairwiseCriterion,
+    SHIPPED_CRITERIA,
+    Criterion,
     compare_arms,
+    load_criteria,
     render_pairwise_table,
+    resolve_criterion,
     write_pairwise_record,
 )
 from weft_eval.question_set import read_question_sets
@@ -40,10 +43,11 @@ _EVAL_PAIRWISE_HELP = (
 class EvalPairwiseArgs(BaseModel):
     """Parameters of `weft eval pairwise <experiment> --baseline A --arm B`.
 
-    `criterion` names one criterion to judge; every criterion, in `PairwiseCriterion`'s own
-    declaration order, is judged when it is omitted — `str | None` wrapping a `StrEnum`,
-    `weft_cli.commands.SourcesListArgs.status`'s own shape, which `weft_cli.argparse_gen`
-    already knows how to turn into a `choices=`-bounded flag.
+    `criteria_file` names a TOML file of `[[criterion]]` tables — a name and a definition each —
+    that replaces the four shipped criteria as the set available; `criterion` names one of the
+    available set to judge, every one of them, in order, being judged when it is omitted. A name
+    the set does not hold is refused naming the ones it does, at run time, since the set is not
+    known until the file is read.
     `runs` defaults to the runs directory beside the document, `EvalReplayArgs`'s own default.
     `--baseline`/`--arm` naming the same arm is refused here, before a document is even read —
     a pairwise judgement needs two different arms to compare.
@@ -57,9 +61,16 @@ class EvalPairwiseArgs(BaseModel):
     experiment: str = Field(description="the experiment document")
     baseline: str = Field(description="the baseline arm's name")
     arm: str = Field(description="the arm to compare against the baseline")
-    criterion: PairwiseCriterion | None = Field(
+    criterion: str | None = Field(
         default=None,
         description="which criterion to judge; every criterion, in order, when omitted",
+    )
+    criteria_file: str | None = Field(
+        default=None,
+        description=(
+            "a TOML file of [[criterion]] tables (name, definition) to judge instead of the "
+            "four shipped criteria"
+        ),
     )
     runs: str | None = Field(
         default=None,
@@ -125,6 +136,18 @@ def _restrict_to_named_questions(
     return restricted
 
 
+def _criteria_to_judge(args: EvalPairwiseArgs) -> tuple[Criterion, ...]:
+    """The shipped criteria or the file's, narrowed to the one `--criterion` names, if any."""
+    available = (
+        load_criteria(Path(args.criteria_file))
+        if args.criteria_file is not None
+        else SHIPPED_CRITERIA
+    )
+    if args.criterion is None:
+        return available
+    return (resolve_criterion(args.criterion, available),)
+
+
 class EvalPairwiseCommand:
     """`weft eval pairwise` — see the module docstring."""
 
@@ -150,11 +173,16 @@ class EvalPairwiseCommand:
         Raises:
             weft_eval.pairwise.UnknownArmError: `args.baseline`/`args.arm` names no arm of the
                 document.
+            weft_eval.pairwise.UnknownCriterionError: `args.criterion` names no available
+                criterion.
+            weft_eval.pairwise.InvalidCriteriaError: `args.criteria_file` is unreadable or holds a
+                malformed or duplicated criterion.
             weft_eval.pairwise.UnrecordedAnswersError: a chosen record kept no answer text.
             weft_eval.falsify.UnpairableRecordsError: the two arms did not answer the same
                 questions of the same corpus.
         """
         pairwise_args = cast(EvalPairwiseArgs, args)
+        criteria = _criteria_to_judge(pairwise_args)
         experiment_path = Path(pairwise_args.experiment)
         experiment = load_experiment(experiment_path)
         baseline_arm = _arm_by_name(experiment, pairwise_args.baseline)
@@ -177,11 +205,6 @@ class EvalPairwiseCommand:
             [load_run_record(path) for path in sorted(runs_dir.glob("*.json"))]
             if runs_dir.is_dir()
             else []
-        )
-        criteria = (
-            (pairwise_args.criterion,)
-            if pairwise_args.criterion is not None
-            else tuple(PairwiseCriterion)
         )
         record = await compare_arms(
             experiment,

@@ -222,7 +222,9 @@ that recomputed it. Edit a claim file, never this block.
   reading it is at least as good as one search here, and better as the corpus grows. What limits
   it is context and cost — about 260,000 prompt tokens, $0.054, per question at 16 papers —
   not answer quality. Declaring `context_tokens` on the generate role is what lets the router
-  test `corpus.fits_context`.
+  test `corpus.fits_context`. A rung whose answer is written under another role is tested with
+  `corpus.fits_context.<role>`, that role's own `context_tokens`; a role that declares none has
+  no such feature, so no rule about it matches.
 
 ### Phase 44: does reading more of a long document help, when the document is always found? (2026-09-29)
 

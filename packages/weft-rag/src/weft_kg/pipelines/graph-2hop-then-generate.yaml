@@ -14,6 +14,7 @@ extends: graph-then-generate
 # `1/(1 + hops)` is what keeps the second ring visibly less trusted than the first rather than
 # tied with it.
 vars:
+  route.requires-role: graph
   route.summary: >-
     `graph-then-generate`, walked two relation edges out instead of one — reaches a fact two steps
     from the question's own named entities, at the cost of trusting a farther, noisier ring.

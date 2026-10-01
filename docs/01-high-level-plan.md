@@ -2116,7 +2116,7 @@ All checks run in CI, before tests.
     `tests/architecture/test_ff38_policy_cites_evidence.py`.
 39. **A router's fallback can always answer.** Added 2026-09-30 (task 44.24). The fallback of every
     shipped evidence-policy router is a tracked first-party pipeline document that carries a
-    `route.summary` and names no `route.requires` or `route.requires-nodes`, directly or through
+    `route.summary` and names no `route.requires`, `route.requires-nodes` or `route.requires-role`, directly or through
     `extends`. That it needs no model role beyond `generate` is **not** checked: a document does
     not declare its stages' roles.
     `tests/architecture/test_ff39_a_safe_fallback.py`.

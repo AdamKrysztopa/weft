@@ -72,11 +72,23 @@ _ROUTE_REQUIRES_VAR = "route.requires"
 #: (`<field>=<value>`) rather than naming a layer, because no layer name is common to all
 #: three sources. A candidate naming one is offered only when the store holds a matching node.
 _ROUTE_REQUIRES_NODES_VAR = "route.requires-nodes"
+#: Carried repair **R44.13e** — a rung that reads a service other than the vector store (a graph
+#: traversal) names the `[services]` role key here. It is offered only when the plugin selected
+#: for that role reports it holds data (`weft_cli.route_ask.satisfied_role_requirements`).
+_ROUTE_REQUIRES_ROLE_VAR = "route.requires-role"
 #: Carried repair **R43.13** — every `route.` var a routable document may write, sorted:
 #: `UnknownRouteVarError`'s own `valid_options`, derived rather than restated so the four
 #: constants above stay the one place this set is spelled.
 _ROUTE_VARS: tuple[str, ...] = tuple(
-    sorted((_ROUTE_SUMMARY_VAR, _ROUTE_COST_VAR, _ROUTE_REQUIRES_VAR, _ROUTE_REQUIRES_NODES_VAR))
+    sorted(
+        (
+            _ROUTE_SUMMARY_VAR,
+            _ROUTE_COST_VAR,
+            _ROUTE_REQUIRES_VAR,
+            _ROUTE_REQUIRES_NODES_VAR,
+            _ROUTE_REQUIRES_ROLE_VAR,
+        )
+    )
 )
 _NOTHING_MAPPED: frozenset[str] = frozenset()
 
@@ -153,6 +165,8 @@ def _check_route_vars(name: str, pipeline: Pipeline) -> None:
             )
     if _ROUTE_REQUIRES_NODES_VAR in pipeline.vars:
         _validated_node_requirement(name, pipeline.vars[_ROUTE_REQUIRES_NODES_VAR])
+    if _ROUTE_REQUIRES_ROLE_VAR in pipeline.vars:
+        _validated_role_requirement(name, pipeline.vars[_ROUTE_REQUIRES_ROLE_VAR])
 
 
 def _validated_node_requirement(name: str, value: object) -> str:
@@ -167,6 +181,34 @@ def _validated_node_requirement(name: str, value: object) -> str:
             pipeline=name,
         ) from exc
     return spec
+
+
+def _validated_role_requirement(name: str, value: object) -> str:
+    """`value`, as a role key, once it has proven itself a non-blank string."""
+    if not isinstance(value, str) or not value.strip():
+        raise MalformedRouteRequirementError(
+            f"'{name}' sets route.requires-role to {value!r}, which is not a `[services]` role "
+            f"key — for example 'graph'.",
+            pipeline=name,
+        )
+    return value.strip()
+
+
+def role_requirement_token(role: str) -> str:
+    """The entry a role's satisfied requirement adds to the ready set.
+
+    Prefixed so a layer or a `<field>=<value>` spec spelt like a role key is not mistaken for it.
+    """
+    return f"role:{role}"
+
+
+def role_requirements(catalogue: Mapping[str, Pipeline]) -> frozenset[str]:
+    """Every distinct role key a `route.requires-role` names anywhere in `catalogue`."""
+    return frozenset(
+        _validated_role_requirement(name, pipeline.vars[_ROUTE_REQUIRES_ROLE_VAR])
+        for name, pipeline in catalogue.items()
+        if _ROUTE_REQUIRES_ROLE_VAR in pipeline.vars
+    )
 
 
 def node_requirement_filter(spec: str) -> Filter:
@@ -526,7 +568,9 @@ def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> boo
     `route.requires-nodes` value is checked the identical way — carried repair
     **R44.13b/c** — as its exact spec string, once the caller has folded every
     requirement the store actually satisfies into `ready_layers`
-    (`weft_cli.route_ask.satisfied_node_requirements`).
+    (`weft_cli.route_ask.satisfied_node_requirements`); a `route.requires-role` value, carried
+    repair **R44.13e**, as `role_requirement_token`'s entry
+    (`weft_cli.route_ask.satisfied_role_requirements`).
     """
     if ready_layers is None:
         return True
@@ -534,7 +578,12 @@ def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> boo
     if required is not None and str(required) not in ready_layers:
         return False
     required_nodes = pipeline.vars.get(_ROUTE_REQUIRES_NODES_VAR)
-    return required_nodes is None or str(required_nodes) in ready_layers
+    if required_nodes is not None and str(required_nodes) not in ready_layers:
+        return False
+    required_role = pipeline.vars.get(_ROUTE_REQUIRES_ROLE_VAR)
+    return (
+        required_role is None or role_requirement_token(str(required_role).strip()) in ready_layers
+    )
 
 
 def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:

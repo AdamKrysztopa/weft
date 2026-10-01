@@ -211,6 +211,24 @@ async def test_entities_are_found_by_name(store: GraphStore, walk: GraphWalk) ->
     assert found[0].id != azouz.id
 
 
+async def test_a_walk_holds_data_only_once_an_entity_exists(
+    store: GraphStore, walk: GraphWalk
+) -> None:
+    """Carried repair **R44.13e** — the question the router asks before offering a graph rung."""
+    # Arrange
+    node = _node("Chucri wrote about adRAP.", source="doc-a")
+    await store.add([node])
+    before = await walk.holds_data()
+
+    # Act
+    await store.put_entity(name="Chucri", nodes=[node.id])
+    after = await walk.holds_data()
+
+    # Assert — nodes alone are not a graph; the first entity is.
+    assert before is False
+    assert after is True
+
+
 async def test_nodes_for_entities_omits_an_id_the_store_does_not_hold(
     store: GraphStore, walk: GraphWalk
 ) -> None:

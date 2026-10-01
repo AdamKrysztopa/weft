@@ -2294,7 +2294,7 @@ The answer then says under it how far the layer has got.
 
 ```text
 'my-rung' sets 'route.require', which the router does not read. A routable document reads:
-route.cost, route.requires, route.requires-nodes, route.summary.
+route.cost, route.requires, route.requires-nodes, route.requires-role, route.summary.
 ```
 
 **Why** — a misspelt key would be ignored: `route.require` would leave a rung offered over a
@@ -2317,6 +2317,24 @@ offer the rung over nothing or never offer it, with nothing said.
 
 **What to do:** write the field the rung's own filter reads, then `=`, then the value, as
 `raptor-and-leaves-rrf` does.
+
+### `RoleNotProbeableError`
+
+**What it looks like** — a routed `weft ask`, `weft ask --explain` or `weft route explain` refuses
+before any model call:
+
+```text
+'my-walker', the plugin selected for role 'graph', has no `holds_data()`, which a rung needs
+to know whether it holds anything.
+```
+
+**Why** — a rung that writes `route.requires-role: graph` is offered only when the service
+selected for that role says it holds data. A service that cannot say would either offer the rung
+over an empty graph or withhold it from a full one, with nothing said.
+
+**What to do:** give the plugin an `async def holds_data(self) -> bool`, or select another plugin
+for the role under `[services]`. A role nothing selects is not an error: the rung is simply
+not offered.
 
 ### `UnknownSubPluginConfigFieldError`
 
@@ -3886,7 +3904,7 @@ too: a regime is what a router can observe, and what a claim was measured on is 
 
 ```text
 $ weft eval claims check ; echo $?
-bad-feature.toml: the regime tests 'corpus.fits_contxt', which neither profiler declares. Valid features: corpus.documents, corpus.fits_context, corpus.fully_enriched, corpus.leaf_tokens, corpus.leaves, query.anchor.entity, … query.word_count, corpus.layer.<name>.ready.
+bad-feature.toml: the regime tests 'corpus.fits_contxt', which neither profiler declares. Valid features: corpus.documents, corpus.fits_context, corpus.fully_enriched, corpus.leaf_tokens, corpus.leaves, query.anchor.entity, … query.word_count, corpus.layer.<name>.ready, corpus.fits_context.<role>.
 1
 ```
 
@@ -4004,6 +4022,36 @@ experiment 'whole-corpus-en' declares no arm named 'dense'; its arms: 'baseline'
 ```
 
 **What to do:** pass one of the arms listed; `valid_options` carries them.
+
+### `UnknownCriterionError`
+
+**What it looks like** — `weft eval pairwise --criterion` named a criterion that is not in the set
+being judged, which is the four shipped ones, or the ones `--criteria-file` declares:
+
+```text
+$ weft eval pairwise eval/experiments/whole-corpus-en.toml dense whole-corpus --criterion groundedness ; echo $?
+no criterion named 'groundedness'; the criteria: 'comprehensiveness', 'diversity', 'empowerment', 'directness'.
+4
+```
+
+**What to do:** pass one of the criteria listed (`valid_options` carries them), or declare
+`groundedness` in a `--criteria-file`. With a file, the shipped four are not in the set.
+
+### `InvalidCriteriaError`
+
+**What it looks like** — the `--criteria-file` of `weft eval pairwise` cannot be read, is not TOML,
+declares no `[[criterion]]` table, holds a criterion whose `name` is not a lower-case slug or whose
+`definition` is empty, or names one criterion twice:
+
+```text
+$ weft eval pairwise eval/experiments/whole-corpus-en.toml dense whole-corpus --criteria-file criteria.toml ; echo $?
+criteria file 'criteria.toml' declares no `[[criterion]]` table — each criterion is a `[[criterion]]` with a `name` and a `definition`.
+1
+```
+
+Each criterion is judged and summarised under its own name, so a repeated name would count one
+criterion's verdicts into the other's. **What to do:** give each `[[criterion]]` a `name` of
+lower-case letters, digits, `-` or `_`, starting with a letter, and a non-empty `definition`.
 
 ### `UnrecordedAnswersError`
 

@@ -36,7 +36,7 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Outcome, Produced
 from weft_retrieve.payload import RouteView
-from weft_retrieve.profile import CorpusProfile, corpus_profile
+from weft_retrieve.profile import CorpusProfile, corpus_profile_under
 from weft_store.coverage import layer_coverage_of, ready_layers
 
 _ROUTE_EXPLAIN_HELP = (
@@ -104,11 +104,7 @@ class RouteExplainCommand:
         ready = ready_layers(layer_coverage_of(records))
         # The same `list_sources()` read `weft_cli.commands.AskCommand`'s own routed path uses
         # to build one — ledger task **44.15** — never a second one.
-        generate_role = deps.llm.roles.roles.get("generate")
-        corpus = corpus_profile(
-            records,
-            context_tokens=generate_role.context_tokens if generate_role is not None else None,
-        )
+        corpus = corpus_profile_under(records, deps.llm.roles.roles)
         route = await explain_route(
             explain_args.question,
             registry=deps.registry,

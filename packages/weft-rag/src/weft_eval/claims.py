@@ -208,7 +208,11 @@ def load_claim(path: Path) -> Claim:
         )
     for condition in claim.regime:
         if not is_declared_feature(condition.feature):
-            options = (*sorted(DECLARED_FEATURES), "corpus.layer.<name>.ready")
+            options = (
+                *sorted(DECLARED_FEATURES),
+                "corpus.layer.<name>.ready",
+                "corpus.fits_context.<role>",
+            )
             raise UnknownClaimFeatureError(
                 f"{path.name}: the regime tests '{condition.feature}', which neither profiler "
                 f"declares. Valid features: {', '.join(options)}.",

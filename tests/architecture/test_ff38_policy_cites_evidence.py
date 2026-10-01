@@ -11,6 +11,9 @@ pipeline document with a stage using `evidence-policy`, each rule must satisfy a
   rule never fires where the evidence does not reach;
 - the rule tests only declared profiler features — what a claim was measured on (`population`) is
   never something a rule can name;
+- a rule testing a context-fit feature tests the one for the role its rung's answer is generated
+  under — `corpus.fits_context` for `generate`, `corpus.fits_context.<role>` otherwise — because
+  a corpus that fits one role's window says nothing about another's (R44.20b);
 - a rule under `defaults` cites claims from at least two distinct populations (D9), because a rule
   keyed to one benchmark wins there and nowhere else; an `exceptions` rule needs one.
 
@@ -20,15 +23,21 @@ The waiver constant is pinned empty: a waiver is a visible act in a diff.
 from __future__ import annotations
 
 import math
+import os
+import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final, cast
 
 import yaml
 
+from weft_cli.pipeline_catalogue import full_catalogue
+from weft_cli.route_ask import resolve_in_catalogue
+from weft_engine import registry_bootstrap
 from weft_eval.claims import Claim, load_claims
+from weft_generate.generating_role import generating_role
 from weft_retrieve.policy import EvidencePolicyConfig, PolicyRule
-from weft_retrieve.profile import is_declared_feature
+from weft_retrieve.profile import fits_context_role, is_declared_feature
 from weft_retrieve.routing import Comparison, Condition
 
 from .conftest import REPO_ROOT, tracked_files
@@ -88,11 +97,39 @@ def implies(rule: Condition, claim: Condition) -> bool:
     return _within(_interval(rule.op, rule.value), _interval(claim.op, claim.value))
 
 
+def _fit_violations(
+    where: str, rule: PolicyRule, generating_roles: Mapping[str, str | None]
+) -> list[str]:
+    """A context-fit predicate must be about the role the rung's answer is written under."""
+    rung_role = generating_roles.get(rule.then)
+    found: list[str] = []
+    for condition in rule.when:
+        tested = fits_context_role(condition.feature)
+        if tested is None:
+            continue
+        if rung_role is None:
+            found.append(
+                f"{where} tests '{condition.feature}', but the generating role of its rung "
+                f"'{rule.then}' cannot be read"
+            )
+        elif tested != rung_role:
+            found.append(
+                f"{where} tests '{condition.feature}', the fit under role '{tested}', but its "
+                f"rung '{rule.then}' generates under '{rung_role}'"
+            )
+    return found
+
+
 def _rule_violations(
-    document: str, rule: PolicyRule, *, default: bool, claims: Mapping[str, Claim]
+    document: str,
+    rule: PolicyRule,
+    *,
+    default: bool,
+    claims: Mapping[str, Claim],
+    generating_roles: Mapping[str, str | None],
 ) -> list[str]:
     where = f"{document}: rule '{rule.name}'"
-    found: list[str] = []
+    found: list[str] = _fit_violations(where, rule, generating_roles)
     for condition in rule.when:
         if not is_declared_feature(condition.feature):
             found.append(f"{where} tests '{condition.feature}', which no profiler declares")
@@ -124,7 +161,10 @@ def _rule_violations(
 
 
 def policy_violations(
-    documents: Mapping[str, EvidencePolicyConfig], claims: Sequence[Claim]
+    documents: Mapping[str, EvidencePolicyConfig],
+    claims: Sequence[Claim],
+    *,
+    generating_roles: Mapping[str, str | None],
 ) -> list[str]:
     """Every way a shipped evidence-policy document's rules fail to be supported."""
     by_id = {claim.id: claim for claim in claims}
@@ -134,7 +174,15 @@ def policy_violations(
             for rule in rules:
                 if (document, rule.name) in RULES_WAIVED:
                     continue
-                found.extend(_rule_violations(document, rule, default=default, claims=by_id))
+                found.extend(
+                    _rule_violations(
+                        document,
+                        rule,
+                        default=default,
+                        claims=by_id,
+                        generating_roles=generating_roles,
+                    )
+                )
     return found
 
 
@@ -157,6 +205,39 @@ def shipped_policy_documents() -> dict[str, EvidencePolicyConfig]:
     return documents
 
 
+def shipped_generating_roles(
+    documents: Mapping[str, EvidencePolicyConfig],
+) -> dict[str, str | None]:
+    """The role each rung a shipped policy routes to writes its answer under, resolved for real."""
+    rungs = {
+        rule.then
+        for config in documents.values()
+        for rule in (*config.exceptions, *config.defaults)
+    }
+    with tempfile.TemporaryDirectory() as scratch:
+        config_path = Path(scratch) / "weft.toml"
+        config_path.write_text("", encoding="utf-8")
+        previous = Path.cwd()
+        os.chdir(scratch)
+        try:
+            deps = registry_bootstrap.build_dependencies(config_path=config_path)
+            catalogue = full_catalogue(reports=deps.reports)
+            return {
+                rung: generating_role(
+                    resolve_in_catalogue(
+                        catalogue[rung],
+                        registry=deps.registry,
+                        catalogue=catalogue,
+                        reports=deps.reports,
+                        contributions=deps.contributions,
+                    )
+                )
+                for rung in sorted(rungs)
+            }
+        finally:
+            os.chdir(previous)
+
+
 def test_the_waiver_is_pinned_empty() -> None:
     assert frozenset() == RULES_WAIVED
 
@@ -172,8 +253,11 @@ def test_at_least_one_shipped_router_uses_evidence_policy_with_a_rule() -> None:
 
 def test_every_shipped_evidence_rule_cites_evidence_that_holds() -> None:
     # Act
+    documents = shipped_policy_documents()
     found = policy_violations(
-        shipped_policy_documents(), load_claims(REPO_ROOT / "eval" / "claims")
+        documents,
+        load_claims(REPO_ROOT / "eval" / "claims"),
+        generating_roles=shipped_generating_roles(documents),
     )
 
     # Assert
@@ -228,8 +312,16 @@ def _config(
     return {"planted": EvidencePolicyConfig.model_validate({"fallback": "dense", key: [rule]})}
 
 
-def _found(config: dict[str, EvidencePolicyConfig], claims: list[Claim]) -> str:
-    return "\n".join(policy_violations(config, claims))
+def _found(
+    config: dict[str, EvidencePolicyConfig],
+    claims: list[Claim],
+    roles: Mapping[str, str | None] | None = None,
+) -> str:
+    return "\n".join(
+        policy_violations(
+            config, claims, generating_roles={"whole": "generate"} if roles is None else roles
+        )
+    )
 
 
 def test_the_check_can_actually_fail() -> None:
@@ -238,8 +330,12 @@ def test_the_check_can_actually_fail() -> None:
     two = _claim("c.two", sets=("b.toml",))
 
     # Act / Assert — the supported rule is clean, and each way of not being one is named.
-    assert policy_violations(_config(), [one, two]) == []
-    assert policy_violations(_config(default=False, cites=("c.one",)), [one]) == []
+    roles = {"whole": "generate"}
+    assert policy_violations(_config(), [one, two], generating_roles=roles) == []
+    assert (
+        policy_violations(_config(default=False, cites=("c.one",)), [one], generating_roles=roles)
+        == []
+    )
     assert "not in eval/claims" in _found(_config(cites=("c.nope",)), [one, two])
     assert "not 'helps'" in _found(
         _config(), [one, _claim("c.two", status="no-gain", sets=("b.toml",))]
@@ -251,3 +347,30 @@ def test_the_check_can_actually_fail() -> None:
     assert "does not carry the regime" in _found(_config(fits=False), [one, two])
     assert "a default needs two" in _found(_config(), [one, _claim("c.two", sets=("a.toml",))])
     assert "no profiler declares" in _found(_config(feature="benchmark.x"), [one, two])
+
+
+def test_a_fit_feature_must_name_the_role_its_rung_generates_under() -> None:
+    # Arrange
+    one = _claim("c.one", sets=("a.toml",))
+    two = _claim("c.two", sets=("b.toml",))
+    small = _config(feature="corpus.fits_context.small")
+
+    # Act / Assert — plain `corpus.fits_context` is `generate`'s; a rung under another role
+    # states that role's feature, and a rung whose role cannot be read states neither.
+    assert _found(_config(), [one, two], {"whole": "generate"}) == ""
+    assert "generates under 'small'" in _found(_config(), [one, two], {"whole": "small"})
+    assert "the fit under role 'small'" in _found(small, [one, two], {"whole": "generate"})
+    assert "cannot be read" in _found(_config(), [one, two], {"whole": None})
+    assert "cannot be read" in _found(_config(), [one, two], {})
+    assert fits_context_role("corpus.fits_context") == "generate"
+
+
+def test_the_shipped_policy_rung_generates_under_the_role_its_fit_names() -> None:
+    # Arrange — the control that must hit: the real shipped rung resolves to a real role.
+    documents = shipped_policy_documents()
+
+    # Act
+    roles = shipped_generating_roles(documents)
+
+    # Assert
+    assert roles["whole-corpus-wide-then-generate"] == "generate"

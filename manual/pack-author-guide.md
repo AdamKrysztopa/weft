@@ -320,13 +320,13 @@ annotate the field naming its `[llm.roles]` role `Annotated[str, LLMRole()]`, wi
 `Annotated[str, LLMRole()] | None`. A routed `weft ask` offers only rungs whose roles are mapped. It
 finds a rung's roles by reading every field so marked, whatever the field is called, in the stage's
 config and in every model nested in it
-(`packages/weft-rag/src/weft_retrieve/engine.py:363 "if any(isinstance(item, LLMRole)"`).
+(`packages/weft-rag/src/weft_retrieve/engine.py:405 "if any(isinstance(item, LLMRole)"`).
 
 **If your plugin composes another, declare that too.** Annotate the field naming the plugin your
 code hands to `StageLookup.build` or `build_capability` as
 `Annotated[str, SubPlugin(config="<field holding its with: block>")]`, with `SubPlugin` from
 `weft_retrieve`. The walk follows a declared reference into that plugin's own config
-(`packages/weft-rag/src/weft_retrieve/engine.py:359 "if isinstance(marker, SubPlugin)"`), and only a
+(`packages/weft-rag/src/weft_retrieve/engine.py:401 "if isinstance(marker, SubPlugin)"`), and only a
 declared one. An unmarked role field, or an undeclared reference however it is spelt, is invisible
 to it. On a project that has not mapped that role, your rung is offered anyway and refuses after
 the router has already paid for a call. `examples/weft-example-query` carries both:
@@ -1009,7 +1009,11 @@ stages:
 ```
 
 A query rung that answers from a layer declares it in `vars` as `route.requires: <layer>`, and is
-not routed to until that layer is built on every indexed source.
+not routed to until that layer is built on every indexed source. A rung that reads a service
+other than the vector store — a graph traversal — declares `route.requires-role: <role key>`
+instead, and is not routed to unless the plugin selected for that role's `[services]` key answers
+`holds_data()` with `True`; a role nothing selects holds nothing, and a selected plugin with no
+`holds_data()` is refused as `RoleNotProbeableError`.
 
 **A layer document reads three `layer.` vars, and refuses any other** as `UnknownLayerVarError`,
 naming the three (`packages/weft-rag/src/weft_cli/layers.py:417 "which no layer reads"`).

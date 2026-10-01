@@ -21,6 +21,11 @@ for `weft_eval.contract.GenerationSample.reference` to hold and no `GenerationMe
 compare them. A pairwise judge sidesteps that entirely: two arms' own answers, read head to
 head, on one named criterion at a time, never against a reference neither arm was given.
 
+**A criterion is data (carried repair R44.20a).** `Criterion` is a name and the definition the
+judge is shown, so a pack judges what Weft does not ship by writing a `[[criterion]]` file
+(`load_criteria`) rather than by registering anything: nothing about a criterion is behaviour. The
+four above are `SHIPPED_CRITERIA`, the default when no file is given.
+
 **`Preference` is the caller's own frame (`A`/`B`/`TIE`); `Position` is the judge's own
 (`weft_eval.prompts.Position`, `FIRST`/`SECOND`/`TIE`).** `judge_pair` shows the two answers once
 in each order, so the judge itself never learns which caller-side arm it is reading — only which
@@ -28,12 +33,13 @@ position it preferred — and `reconcile` is what turns the two `Position` answe
 `Preference` the caller can act on.
 """
 
+import tomllib
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import cast
+from typing import Annotated, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 
 from weft_eval.evidence import select_invocation
 from weft_eval.experiment import Experiment
@@ -82,17 +88,129 @@ class UnrecordedAnswersError(WeftError):
         self.arm = arm
 
 
-class PairwiseCriterion(StrEnum):
-    """GraphRAG's own three head-to-head targets, plus `directness` as a control.
+class InvalidCriteriaError(WeftError):
+    """A criterion, or the set of them a run was asked to judge, is malformed.
 
-    See the module docstring for provenance and for what a pairwise judge diverges from the
-    paper on.
+    A criteria file that is unreadable, is not TOML, declares no `[[criterion]]` table, or holds
+    a criterion with an empty or ill-formed name or definition; or a set naming one criterion
+    twice, or none at all. Not a name-resolution failure — there is no valid alternative to
+    offer, only a document to repair — so this stays plain `WeftError`, `OPERATION_FAILED`.
     """
 
-    COMPREHENSIVENESS = "comprehensiveness"
-    DIVERSITY = "diversity"
-    EMPOWERMENT = "empowerment"
-    DIRECTNESS = "directness"
+
+class UnknownCriterionError(WeftError, UnresolvedNameError):
+    """`resolve_criterion` was asked for a criterion name the available set does not hold.
+
+    FF12's family: `valid_options` names every available criterion, in order — the shipped four,
+    or the ones the criteria file declares when one was given.
+    """
+
+    def __init__(self, message: str, *, criterion: str, valid_options: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.criterion = criterion
+        self.valid_options = valid_options
+
+
+class Criterion(BaseModel):
+    """One thing two answers are compared on: a name and the definition put to the judge.
+
+    A criterion is data, not a plugin: it has no behaviour, only the plain-language definition
+    `weft_eval.prompts.PairwiseJudgePrompt` renders as `criterion_definition`, so a pack judges a
+    criterion Weft does not ship by naming it and saying what it means (`load_criteria`). `name`
+    is what a verdict, a table row and `--criterion` refer to it by, so it is a lower-case slug.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_-]*$")]
+    definition: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+#: GraphRAG's own three head-to-head targets, plus `directness` as a control — see the module
+#: docstring for provenance. Each definition is written for Weft, not transcribed from GraphRAG's
+#: own prompt or criteria text.
+COMPREHENSIVENESS = Criterion(
+    name="comprehensiveness", definition="how fully the answer covers what the question asks"
+)
+DIVERSITY = Criterion(
+    name="diversity", definition="how many distinct angles or sources the answer brings"
+)
+EMPOWERMENT = Criterion(
+    name="empowerment",
+    definition="how well the answer equips the reader to judge the topic for themselves",
+)
+DIRECTNESS = Criterion(
+    name="directness", definition="how plainly and briefly the answer answers the question"
+)
+
+#: What `weft eval pairwise` judges when no criteria file is given, in this order.
+SHIPPED_CRITERIA: tuple[Criterion, ...] = (COMPREHENSIVENESS, DIVERSITY, EMPOWERMENT, DIRECTNESS)
+
+
+def check_criteria(criteria: Sequence[Criterion]) -> None:
+    """Refuse an empty set, or one naming a criterion twice — `InvalidCriteriaError`.
+
+    Two criteria sharing a name would share a summary row and one's verdicts would be counted
+    into the other's, so the second is refused rather than merged.
+    """
+    if not criteria:
+        raise InvalidCriteriaError("no criterion to judge — name at least one.")
+    seen: set[str] = set()
+    for criterion in criteria:
+        if criterion.name in seen:
+            raise InvalidCriteriaError(
+                f"criterion '{criterion.name}' is named more than once — each criterion is "
+                "judged and summarised under its own name."
+            )
+        seen.add(criterion.name)
+
+
+def load_criteria(path: Path) -> tuple[Criterion, ...]:
+    """Read the `[[criterion]]` tables of the TOML file at `path`, in file order.
+
+    ```toml
+    [[criterion]]
+    name = "groundedness"
+    definition = "how well each claim in the answer is supported by what was retrieved"
+    ```
+
+    Raises:
+        InvalidCriteriaError: the file cannot be read, is not TOML, declares no criterion, or
+            holds a criterion with an ill-formed `name`, an empty `definition`, or an unknown
+            key; or two criteria share a name.
+    """
+    try:
+        document = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise InvalidCriteriaError(f"criteria file '{path}' cannot be read: {error}") from error
+    tables = document.get("criterion")
+    if not isinstance(tables, list) or not tables:
+        raise InvalidCriteriaError(
+            f"criteria file '{path}' declares no `[[criterion]]` table — each criterion is a "
+            "`[[criterion]]` with a `name` and a `definition`."
+        )
+    try:
+        criteria = tuple(Criterion.model_validate(table) for table in cast("list[object]", tables))
+    except ValidationError as error:
+        raise InvalidCriteriaError(
+            f"criteria file '{path}' holds a bad criterion: {error}"
+        ) from error
+    check_criteria(criteria)
+    return criteria
+
+
+def resolve_criterion(name: str, available: Sequence[Criterion]) -> Criterion:
+    """The criterion of `available` called `name`, or `UnknownCriterionError` naming them all."""
+    for criterion in available:
+        if criterion.name == name:
+            return criterion
+    valid_options = tuple(criterion.name for criterion in available)
+    named = ", ".join(f"'{option}'" for option in valid_options)
+    raise UnknownCriterionError(
+        f"no criterion named '{name}'; the criteria: {named}.",
+        criterion=name,
+        valid_options=valid_options,
+    )
 
 
 class Preference(StrEnum):
@@ -109,18 +227,6 @@ class Preference(StrEnum):
     TIE = "tie"
 
 
-#: Each criterion's own plain-language definition, put to the judge as the `criterion_definition`
-#: value — written for Weft, not transcribed from GraphRAG's own prompt or criteria text.
-CRITERION_DEFINITIONS: Mapping[PairwiseCriterion, str] = {
-    PairwiseCriterion.COMPREHENSIVENESS: "how fully the answer covers what the question asks",
-    PairwiseCriterion.DIVERSITY: "how many distinct angles or sources the answer brings",
-    PairwiseCriterion.EMPOWERMENT: (
-        "how well the answer equips the reader to judge the topic for themselves"
-    ),
-    PairwiseCriterion.DIRECTNESS: "how plainly and briefly the answer answers the question",
-}
-
-
 class PairwiseVerdict(BaseModel):
     """One question's own head-to-head verdict, on one criterion, in both orders and reconciled.
 
@@ -135,7 +241,7 @@ class PairwiseVerdict(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     question_id: str
-    criterion: PairwiseCriterion
+    criterion: str
     first: Preference
     swapped: Preference
     outcome: Preference
@@ -153,7 +259,7 @@ class PairwiseSummary(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    criterion: PairwiseCriterion | None
+    criterion: str | None
     n: int
     wins_a: int
     wins_b: int
@@ -196,14 +302,14 @@ def _pairwise_request(
     question: str,
     first_answer: str,
     second_answer: str,
-    criterion: PairwiseCriterion,
+    criterion: Criterion,
 ) -> PairwiseJudgeRequest:
     return PairwiseJudgeRequest(
         question=question,
         first_answer=first_answer,
         second_answer=second_answer,
-        criterion_name=criterion.value,
-        criterion_definition=CRITERION_DEFINITIONS[criterion],
+        criterion_name=criterion.name,
+        criterion_definition=criterion.definition,
     )
 
 
@@ -213,7 +319,7 @@ async def judge_pair(
     question: str,
     answer_a: str,
     answer_b: str,
-    criterion: PairwiseCriterion,
+    criterion: Criterion,
     ctx: Context,
     role: str = "grade",
 ) -> Outcome[PairwiseVerdict]:
@@ -266,7 +372,7 @@ async def judge_pair(
     return Produced(
         value=PairwiseVerdict(
             question_id=question_id,
-            criterion=criterion,
+            criterion=criterion.name,
             first=first,
             swapped=swapped,
             outcome=reconcile(first, swapped),
@@ -282,13 +388,13 @@ _SCORE_FOR_B: Mapping[Preference, float] = {
 }
 
 
-def _shared_criterion(verdicts: Sequence[PairwiseVerdict]) -> PairwiseCriterion | None:
+def _shared_criterion(verdicts: Sequence[PairwiseVerdict]) -> str | None:
     criteria = {verdict.criterion for verdict in verdicts}
     return next(iter(criteria)) if len(criteria) == 1 else None
 
 
 def summarise(
-    verdicts: Sequence[PairwiseVerdict], *, criterion: PairwiseCriterion | None = None
+    verdicts: Sequence[PairwiseVerdict], *, criterion: str | None = None
 ) -> PairwiseSummary:
     """`verdicts`' own win rate for B, and its paired bootstrap interval over questions.
 
@@ -329,7 +435,7 @@ class PairwiseFailure(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     question_id: str
-    criterion: PairwiseCriterion
+    criterion: str
     reason: str
 
 
@@ -348,6 +454,7 @@ class PairwiseRecord(BaseModel):
     baseline: str
     arm: str
     prompt_version: str
+    criteria: tuple[Criterion, ...] = ()
     summaries: tuple[PairwiseSummary, ...]
     verdicts: tuple[PairwiseVerdict, ...]
     failures: tuple[PairwiseFailure, ...]
@@ -422,7 +529,7 @@ async def _judge_paired_questions(
     questions: Mapping[str, str],
     baseline_answers: Mapping[str, str],
     arm_answers: Mapping[str, str],
-    criteria: Sequence[PairwiseCriterion],
+    criteria: Sequence[Criterion],
     ctx: Context,
 ) -> tuple[tuple[PairwiseVerdict, ...], tuple[PairwiseFailure, ...]]:
     verdicts: list[PairwiseVerdict] = []
@@ -442,7 +549,7 @@ async def _judge_paired_questions(
             else:
                 failures.append(
                     PairwiseFailure(
-                        question_id=question_id, criterion=criterion, reason=outcome.reason
+                        question_id=question_id, criterion=criterion.name, reason=outcome.reason
                     )
                 )
     return tuple(verdicts), tuple(failures)
@@ -455,7 +562,7 @@ async def compare_arms(
     questions: Mapping[str, str],
     baseline: str,
     arm: str,
-    criteria: Sequence[PairwiseCriterion],
+    criteria: Sequence[Criterion],
     ctx: Context,
     invocation: str | None = None,
     limit: int | None = None,
@@ -466,6 +573,7 @@ async def compare_arms(
     one of `UnknownArmError`/`UnpairableRecordsError`/`UnrecordedAnswersError` is raised before a
     single model call, and only `UnknownArmError` joins FF12's family.
     """
+    check_criteria(criteria)
     _check_known_arms(experiment, baseline=baseline, arm=arm)
     chosen_invocation, by_key = select_invocation(experiment, records, invocation=invocation)
     baseline_record = by_key[(baseline, 1)]
@@ -494,8 +602,8 @@ async def compare_arms(
     )
     summaries = tuple(
         summarise(
-            [verdict for verdict in verdicts if verdict.criterion == criterion],
-            criterion=criterion,
+            [verdict for verdict in verdicts if verdict.criterion == criterion.name],
+            criterion=criterion.name,
         )
         for criterion in criteria
     )
@@ -505,6 +613,7 @@ async def compare_arms(
         baseline=baseline,
         arm=arm,
         prompt_version=PairwiseJudgePrompt.version,
+        criteria=tuple(criteria),
         summaries=summaries,
         verdicts=verdicts,
         failures=failures,
@@ -565,9 +674,14 @@ def render_pairwise_table(record: PairwiseRecord) -> str:
 
 
 __all__ = [
-    "CRITERION_DEFINITIONS",
+    "COMPREHENSIVENESS",
+    "DIRECTNESS",
+    "DIVERSITY",
+    "EMPOWERMENT",
+    "SHIPPED_CRITERIA",
+    "Criterion",
+    "InvalidCriteriaError",
     "PairwiseChoice",
-    "PairwiseCriterion",
     "PairwiseFailure",
     "PairwiseRecord",
     "PairwiseSummary",
@@ -575,12 +689,16 @@ __all__ = [
     "Position",
     "Preference",
     "UnknownArmError",
+    "UnknownCriterionError",
     "UnrecordedAnswersError",
+    "check_criteria",
     "compare_arms",
     "judge_pair",
+    "load_criteria",
     "load_pairwise_record",
     "reconcile",
     "render_pairwise_table",
+    "resolve_criterion",
     "summarise",
     "write_pairwise_record",
 ]

@@ -15,6 +15,7 @@ extends: retrieve-then-generate
 # retriever knowing the other exists; the split below is a starting position, not a measured
 # optimum, on `hybrid-then-generate`'s own admission — retune it with `weft eval`.
 vars:
+  route.requires-role: graph
   route.summary: >-
     Searches the corpus by meaning and walks its graph from the question's own named entities, at
     the same time, and fuses the two rankings by reciprocal rank. The rung to reach for when a

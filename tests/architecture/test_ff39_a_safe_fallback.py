@@ -7,8 +7,8 @@ For every tracked first-party pipeline document with an `evidence-policy` stage,
 
 - be a tracked first-party pipeline document, so it exists wherever the router does;
 - carry a `route.summary`, directly or through `extends`, so the catalogue offers it;
-- name no `route.requires` and no `route.requires-nodes`, directly or through `extends`, so it is
-  offerable on a base-only corpus.
+- name no `route.requires`, `route.requires-nodes` or `route.requires-role`, directly or through
+  `extends`, so it is offerable on a base-only corpus.
 
 **Not checked**, and said so: that the fallback needs no model role beyond `generate`. A pipeline
 document does not declare the roles its stages use, so that half would be a guess; it is carried
@@ -25,7 +25,7 @@ import yaml
 
 from .conftest import REPO_ROOT, tracked_files
 
-_REQUIRES = ("route.requires", "route.requires-nodes")
+_REQUIRES = ("route.requires", "route.requires-nodes", "route.requires-role")
 _SUMMARY = "route.summary"
 
 
@@ -114,6 +114,7 @@ def _router(fallback: str) -> dict[str, dict[str, Any]]:
         "layered": {"extends": "dense", "vars": {"route.requires": "enrich-with-questions"}},
         "noted": {"vars": {}},
         "nodes": {"vars": {"route.summary": "s", "route.requires-nodes": "ext.x=y"}},
+        "roled": {"vars": {"route.summary": "s", "route.requires-role": "graph"}},
     }
 
 
@@ -124,3 +125,4 @@ def test_the_check_can_actually_fail() -> None:
     assert "route.requires" in "".join(fallback_violations(_router("layered")))
     assert "no route.summary" in "".join(fallback_violations(_router("noted")))
     assert "route.requires-nodes" in "".join(fallback_violations(_router("nodes")))
+    assert "route.requires-role" in "".join(fallback_violations(_router("roled")))

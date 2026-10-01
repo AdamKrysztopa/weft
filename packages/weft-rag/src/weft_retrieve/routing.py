@@ -637,8 +637,8 @@ def unknown_name_reason(policy: str, name: str, card: Scorecard) -> str:
     features = ", ".join(sorted({*DECLARED_FEATURES, *card.features}))
     return (
         f"'{policy}' has a rule testing '{name}', which is neither a score this scorecard carries "
-        f"nor a declared feature. Scored dimensions: {dimensions}. Features: {features}, and "
-        f"corpus.layer.<name>.ready."
+        f"nor a declared feature. Scored dimensions: {dimensions}. Features: {features}, "
+        f"corpus.layer.<name>.ready and corpus.fits_context.<role>."
     )
 
 

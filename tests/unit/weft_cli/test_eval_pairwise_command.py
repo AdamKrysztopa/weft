@@ -20,10 +20,13 @@ from weft_cli.exit_codes import ExitCode, exit_code_for
 from weft_cli.render import render_outcome
 from weft_command.permission import PermissionClass
 from weft_eval.pairwise import (
+    COMPREHENSIVENESS,
+    SHIPPED_CRITERIA,
+    InvalidCriteriaError,
     PairwiseChoice,
-    PairwiseCriterion,
     Position,
     UnknownArmError,
+    UnknownCriterionError,
     load_pairwise_record,
 )
 from weft_eval.run_record import write_run_record
@@ -89,6 +92,10 @@ def _ctx(llm: _JudgeLLM) -> Context:
     )
 
 
+def _prompt_text(rendered: Rendered) -> str:
+    return "\n".join(message.content for message in rendered.conversation.messages)
+
+
 def _document(tmp_path: Path) -> Path:
     (tmp_path / "questions.toml").write_text(_QUESTION_SET, encoding="utf-8")
     experiment = experiment_of(tmp_path, ("dense", "wide"))
@@ -121,7 +128,7 @@ async def test_the_command_judges_writes_a_record_beside_the_document_and_prints
             experiment=str(document),
             baseline="dense",
             arm="wide",
-            criterion=PairwiseCriterion.COMPREHENSIVENESS,
+            criterion=COMPREHENSIVENESS.name,
         ),
         _ctx(llm),
     )
@@ -154,8 +161,10 @@ async def test_every_criterion_is_judged_when_none_is_named(tmp_path: Path) -> N
     assert isinstance(outcome, Produced)
     [written] = sorted((tmp_path / "replay-fixture" / "pairwise").glob("*.json"))
     record = load_pairwise_record(written)
-    assert {summary.criterion for summary in record.summaries} == set(PairwiseCriterion)
-    assert len(llm.sent) == len(PairwiseCriterion) * 2
+    assert {summary.criterion for summary in record.summaries} == {
+        criterion.name for criterion in SHIPPED_CRITERIA
+    }
+    assert len(llm.sent) == len(SHIPPED_CRITERIA) * 2
 
 
 async def test_an_unknown_arm_is_a_resolution_failure(tmp_path: Path) -> None:
@@ -198,7 +207,7 @@ async def test_only_judges_the_questions_named_in_the_file(tmp_path: Path) -> No
             experiment=str(document),
             baseline="dense",
             arm="wide",
-            criterion=PairwiseCriterion.COMPREHENSIVENESS,
+            criterion=COMPREHENSIVENESS.name,
             only=str(only),
         ),
         _ctx(llm),
@@ -210,3 +219,103 @@ async def test_only_judges_the_questions_named_in_the_file(tmp_path: Path) -> No
     record = load_pairwise_record(written)
     assert [verdict.question_id for verdict in record.verdicts] == ["q2"]
     assert len(llm.sent) == 2
+
+
+_GROUNDED = (
+    '[[criterion]]\nname = "groundedness"\n'
+    'definition = "how well each claim is supported by what was retrieved"\n'
+)
+
+
+async def test_a_criteria_file_replaces_the_shipped_criteria(tmp_path: Path) -> None:
+    # Arrange
+    document = _document(tmp_path)
+    criteria = tmp_path / "criteria.toml"
+    criteria.write_text(_GROUNDED, encoding="utf-8")
+    llm = _JudgeLLM()
+
+    # Act
+    outcome = await EvalPairwiseCommand().run(
+        EvalPairwiseArgs(
+            experiment=str(document), baseline="dense", arm="wide", criteria_file=str(criteria)
+        ),
+        _ctx(llm),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    [written] = sorted((tmp_path / "replay-fixture" / "pairwise").glob("*.json"))
+    record = load_pairwise_record(written)
+    assert [summary.criterion for summary in record.summaries] == ["groundedness"]
+    assert [criterion.name for criterion in record.criteria] == ["groundedness"]
+    assert len(llm.sent) == 4
+    assert all("supported by what was retrieved" in _prompt_text(sent) for sent in llm.sent)
+
+
+async def test_criterion_picks_one_of_the_files_criteria_and_refuses_a_shipped_one(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    document = _document(tmp_path)
+    criteria = tmp_path / "criteria.toml"
+    criteria.write_text(_GROUNDED, encoding="utf-8")
+    llm = _JudgeLLM()
+
+    # Act
+    with pytest.raises(UnknownCriterionError) as refused:
+        await EvalPairwiseCommand().run(
+            EvalPairwiseArgs(
+                experiment=str(document),
+                baseline="dense",
+                arm="wide",
+                criteria_file=str(criteria),
+                criterion="diversity",
+            ),
+            _ctx(llm),
+        )
+
+    # Assert
+    assert refused.value.valid_options == ("groundedness",)
+    assert exit_code_for(refused.value) is ExitCode.RESOLUTION_FAILED
+    assert llm.sent == []
+
+
+async def test_an_unknown_criterion_among_the_shipped_ones_names_all_four(tmp_path: Path) -> None:
+    # Arrange
+    document = _document(tmp_path)
+
+    # Act
+    with pytest.raises(UnknownCriterionError) as refused:
+        await EvalPairwiseCommand().run(
+            EvalPairwiseArgs(
+                experiment=str(document), baseline="dense", arm="wide", criterion="groundedness"
+            ),
+            _ctx(_JudgeLLM()),
+        )
+
+    # Assert
+    assert refused.value.valid_options == tuple(c.name for c in SHIPPED_CRITERIA)
+
+
+async def test_an_unreadable_criteria_file_is_refused_before_any_model_call(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    document = _document(tmp_path)
+    llm = _JudgeLLM()
+
+    # Act
+    with pytest.raises(InvalidCriteriaError, match="cannot be read") as refused:
+        await EvalPairwiseCommand().run(
+            EvalPairwiseArgs(
+                experiment=str(document),
+                baseline="dense",
+                arm="wide",
+                criteria_file=str(tmp_path / "absent.toml"),
+            ),
+            _ctx(llm),
+        )
+
+    # Assert
+    assert exit_code_for(refused.value) is ExitCode.OPERATION_FAILED
+    assert llm.sent == []

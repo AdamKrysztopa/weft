@@ -84,6 +84,19 @@ class GraphWalk:
             await self._conn.close()
             self._conn = None
 
+    async def holds_data(self) -> bool:
+        """Whether the live target holds at least one entity — carried repair **R44.13e**.
+
+        Not part of `GraphTraversal`: what the router asks before it offers a graph rung
+        (`weft_cli.route_ask.satisfied_role_requirements`). One entity is the least a walk can
+        seed from; nodes alone are not a graph.
+        """
+        conn = await self._connection()
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT EXISTS (SELECT 1 FROM kg_entities) AS held")
+            row = await cur.fetchone()
+        return row is not None and bool(row["held"])
+
     async def entities_by_name(self, names: Sequence[str]) -> tuple[Entity, ...]:
         """The distinct canonical entities the named aliases currently point at.
 

@@ -105,6 +105,20 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `<experiment>/pairwise/`. It never regenerates an answer; a record from before answers were kept
   is refused (`UnrecordedAnswersError`). `--limit N` judges only the first N questions. `--only <file>` judges only the question ids the file lists, one per line.
 
+- **`weft eval pairwise` judges a criterion you write.** `--criteria-file <file>` takes TOML
+  `[[criterion]]` tables, each a `name` and the `definition` the judge is shown, and judges those
+  instead of the four shipped ones; `--criterion <name>` then picks one of them. A criterion is
+  text, not a plugin, so nothing is registered. An unknown `--criterion` is refused naming the
+  valid ones (`UnknownCriterionError`, exit 4), and an unreadable or malformed file, or a
+  criterion named twice, is refused before any model call (`InvalidCriteriaError`, exit 1). A
+  pairwise record now carries the criteria it judged, and a record from before that still loads.
+
+- **The router no longer offers a graph rung over an index with no graph.** The four `graph-*`
+  rungs write `route.requires-role: graph`, and are offered only when the plugin selected for the
+  `graph` role under `[services]` holds at least one entity; a project that selects none is not
+  offered them either. A rung of your own may write the same var for any role. A selected plugin
+  with no `holds_data()` is refused (`RoleNotProbeableError`, exit 4) rather than guessed at.
+
 - **A routing decision is on the router's trace span.** The policy stage's span carries
   `weft.route.pipeline`, `weft.route.outcome` and, when a rule matched, `weft.route.rule`, so an
   exported trace says which pipeline a routed `weft ask` chose and why. A stage's output puts

@@ -24,8 +24,9 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from weft_llm.roles import RoleMapping
 from weft_retrieve.intent_and_anchors import AnchorKind, find_anchors
 from weft_retrieve.profile_cues import DEFAULT_CUES, CueLexicon, CueName
 from weft_store.contract import SourceRecord, SourceStats, SourceStatus
@@ -63,6 +64,10 @@ DECLARED_FEATURES: Final[frozenset[str]] = frozenset(
 
 _LAYER_FEATURE_RE: Final[re.Pattern[str]] = re.compile(r"corpus\.layer\..+\.ready")
 
+_FITS_CONTEXT: Final[str] = "corpus.fits_context"
+_FITS_CONTEXT_ROLE_PREFIX: Final[str] = f"{_FITS_CONTEXT}."
+_ANSWER_ROLE: Final[str] = "generate"
+
 
 def is_declared_feature(name: str) -> bool:
     """Whether `name` is a feature `QueryProfile` or `CorpusProfile` can emit.
@@ -71,7 +76,23 @@ def is_declared_feature(name: str) -> bool:
     corpus omits is *unknown* and matches nothing, while a name neither declared nor carried by a
     scorecard is an error.
     """
-    return name in DECLARED_FEATURES or _LAYER_FEATURE_RE.fullmatch(name) is not None
+    return (
+        name in DECLARED_FEATURES
+        or _LAYER_FEATURE_RE.fullmatch(name) is not None
+        or fits_context_role(name) is not None
+    )
+
+
+def fits_context_role(feature: str) -> str | None:
+    """The role a context-fit feature is about, or `None` when `feature` is not one.
+
+    `corpus.fits_context` is `generate`'s; `corpus.fits_context.<role>` is `<role>`'s (R44.20b).
+    """
+    if feature == _FITS_CONTEXT:
+        return _ANSWER_ROLE
+    if feature.startswith(_FITS_CONTEXT_ROLE_PREFIX):
+        return feature.removeprefix(_FITS_CONTEXT_ROLE_PREFIX) or None
+    return None
 
 
 class QueryProfile(BaseModel):
@@ -178,6 +199,7 @@ class CorpusProfile(BaseModel):
     layers: Mapping[str, LayerState]
     fully_enriched: bool
     fits_context: bool | None
+    fits_context_by_role: Mapping[str, bool] = Field(default_factory=dict)
 
     def features(self) -> Mapping[str, int | float | bool]:
         """The flat, named `corpus.*` features a routing rule tests, omitting every unknown."""
@@ -190,7 +212,9 @@ class CorpusProfile(BaseModel):
         if self.leaf_tokens is not None:
             features["corpus.leaf_tokens"] = self.leaf_tokens
         if self.fits_context is not None:
-            features["corpus.fits_context"] = self.fits_context
+            features[_FITS_CONTEXT] = self.fits_context
+        for role, fits in sorted(self.fits_context_by_role.items()):
+            features[f"{_FITS_CONTEXT_ROLE_PREFIX}{role}"] = fits
         for name, layer in self.layers.items():
             features[f"corpus.layer.{name}.ready"] = layer.ready
         return features
@@ -229,14 +253,21 @@ def _layer_states(records: Sequence[SourceRecord]) -> dict[str, LayerState]:
     }
 
 
-def corpus_profile(records: Sequence[SourceRecord], *, context_tokens: int | None) -> CorpusProfile:
+def corpus_profile(
+    records: Sequence[SourceRecord],
+    *,
+    context_tokens: int | None,
+    role_context_tokens: Mapping[str, int | None] | None = None,
+) -> CorpusProfile:
     """`records`' shape: how many sources, how big, how enriched, and whether it fits a context.
 
     `records` is the whole `list_sources()` read a caller already made — see the module
     docstring for why this never reads a store itself. `context_tokens` is the role a run would
     generate under's declared context window (`weft_llm.roles.RoleMapping.context_tokens`),
     or `None` when it is not declared; `fits_context` is `None` whenever either side of that
-    comparison is unknown.
+    comparison is unknown. `role_context_tokens` is every role's own declared window, from which
+    `fits_context_by_role` is built — a role with no window, or a corpus with no known size,
+    contributes nothing, so no role is ever read as fitting by another's window (R44.20b).
     """
     active = tuple(record for record in records if record.status is SourceStatus.ACTIVE)
     stats = tuple(record.stats for record in active)
@@ -248,6 +279,11 @@ def corpus_profile(records: Sequence[SourceRecord], *, context_tokens: int | Non
         if leaf_tokens is not None and context_tokens is not None
         else None
     )
+    fits_by_role = {
+        role: leaf_tokens <= window
+        for role, window in (role_context_tokens or {}).items()
+        if leaf_tokens is not None and window is not None
+    }
     return CorpusProfile(
         documents=len(active),
         leaves=leaves,
@@ -256,4 +292,19 @@ def corpus_profile(records: Sequence[SourceRecord], *, context_tokens: int | Non
         layers=layers,
         fully_enriched=bool(layers) and all(layer.ready for layer in layers.values()),
         fits_context=fits_context,
+        fits_context_by_role=fits_by_role,
+    )
+
+
+def corpus_profile_under(
+    records: Sequence[SourceRecord], roles: Mapping[str, RoleMapping]
+) -> CorpusProfile:
+    """`corpus_profile` over every window `roles` declares, `generate`'s as the plain fit.
+
+    The one place a `[llm.roles]` block becomes context windows, so the three callers that build
+    a profile — `weft ask`, `weft route explain` and an eval router arm — cannot disagree.
+    """
+    windows = {name: mapping.context_tokens for name, mapping in roles.items()}
+    return corpus_profile(
+        records, context_tokens=windows.get(_ANSWER_ROLE), role_context_tokens=windows
     )

@@ -173,3 +173,88 @@ async def test_the_query_profile_scorer_adds_the_corpus_features_when_the_servic
     assert scored.value.features["corpus.documents"] == 1
     assert "query.word_count" in scored.value.features
     assert not any(key.startswith("corpus.") for key in bare.value.features)
+
+
+def test_a_corpus_fits_each_role_by_its_own_window_and_the_plain_fit_stays_generates() -> None:
+    # Arrange — R44.20b: one corpus of 1,100 tokens, two roles with two different windows.
+    records = (_source("a", stats=_stats(3, tokens=1100, tokenizer="luna")),)
+
+    # Act
+    features = corpus_profile(
+        records,
+        context_tokens=2000,
+        role_context_tokens={"generate": 2000, "small": 1000},
+    ).features()
+
+    # Assert
+    assert features["corpus.fits_context"] is True
+    assert features["corpus.fits_context.generate"] is True
+    assert features["corpus.fits_context.small"] is False
+
+
+def test_a_role_with_no_declared_window_has_no_fit_feature_and_never_borrows_anothers() -> None:
+    # Arrange
+    records = (_source("a", stats=_stats(3, tokens=1100, tokenizer="luna")),)
+
+    # Act
+    features = corpus_profile(
+        records,
+        context_tokens=2000,
+        role_context_tokens={"generate": 2000, "unsized": None},
+    ).features()
+
+    # Assert
+    assert "corpus.fits_context.unsized" not in features
+    assert "corpus.fits_context.generate" in features
+
+
+def test_an_unsized_corpus_has_no_per_role_fit_at_all() -> None:
+    # Arrange
+    records = (_source("a", stats=_stats(3)),)
+
+    # Act
+    features = corpus_profile(
+        records, context_tokens=2000, role_context_tokens={"generate": 2000}
+    ).features()
+
+    # Assert
+    assert not [name for name in features if name.startswith("corpus.fits_context")]
+
+
+def test_the_profile_under_a_role_mapping_reads_every_declared_window() -> None:
+    # Arrange
+    from weft_llm.roles import RoleMapping
+
+    records = (_source("a", stats=_stats(3, tokens=1100, tokenizer="luna")),)
+    roles = {
+        "generate": RoleMapping(provider="scripted", context_tokens=2000),
+        "small": RoleMapping(provider="scripted", context_tokens=1000),
+        "unsized": RoleMapping(provider="scripted"),
+    }
+
+    # Act
+    from weft_retrieve.profile import corpus_profile_under
+
+    features = corpus_profile_under(records, roles).features()
+
+    # Assert
+    assert features["corpus.fits_context"] is True
+    assert features["corpus.fits_context.small"] is False
+    assert "corpus.fits_context.unsized" not in features
+
+
+def test_the_profile_under_no_generate_role_has_no_plain_fit() -> None:
+    # Arrange
+    from weft_llm.roles import RoleMapping
+    from weft_retrieve.profile import corpus_profile_under
+
+    records = (_source("a", stats=_stats(3, tokens=1100, tokenizer="luna")),)
+
+    # Act
+    features = corpus_profile_under(
+        records, {"small": RoleMapping(provider="scripted", context_tokens=1000)}
+    ).features()
+
+    # Assert
+    assert "corpus.fits_context" not in features
+    assert features["corpus.fits_context.small"] is False

@@ -202,7 +202,7 @@ from weft_kernel.seam import StageRecord, aclose, recording, wrap
 from weft_retrieve.contract import ContextPacker, Retriever
 from weft_retrieve.engine import missing_roles, route_requirements
 from weft_retrieve.payload import Route
-from weft_retrieve.profile import CorpusProfile, corpus_profile
+from weft_retrieve.profile import CorpusProfile, corpus_profile_under
 from weft_store import NodeStore, ReconcileMode, SourceRecord, SourceStatus
 from weft_store.contract import (
     EmbeddingIdentity,
@@ -1752,13 +1752,9 @@ class AskCommand:
             return coverage_outcome
         ask_coverage = coverage_outcome.value
         ready = ready_layers(ask_coverage.layers)
-        # Ledger task **44.15** — the same `list_sources()` read, never a second one; the
-        # `generate` role's declared context window, or `None` when nothing declared it.
-        generate_role = deps.llm.roles.roles.get("generate")
-        corpus = corpus_profile(
-            ask_coverage.records,
-            context_tokens=generate_role.context_tokens if generate_role is not None else None,
-        )
+        # Ledger task **44.15** — the same `list_sources()` read, never a second one; each
+        # role's declared context window, none where nothing declared it.
+        corpus = corpus_profile_under(ask_coverage.records, deps.llm.roles.roles)
         catalogue = full_catalogue(reports=deps.reports)
         # R43.13: a misspelt route.requires is a fault in the document, never a layer that is
         # merely not built yet — checked over the whole catalogue before either branch below,

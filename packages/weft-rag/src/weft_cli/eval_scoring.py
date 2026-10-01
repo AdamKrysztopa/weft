@@ -125,7 +125,12 @@ from weft_llm.errors import LLMGenerationLoopError
 from weft_llm.usage import UsageEntry, record_usage, recording_usage
 from weft_prompts.typed_prompt import TypedPrompt, prompt_digest
 from weft_retrieve.payload import Passage, Query, Ranking, RouteView
-from weft_retrieve.profile import PROFILER_VERSION, CorpusProfile, corpus_profile, profile_query
+from weft_retrieve.profile import (
+    PROFILER_VERSION,
+    CorpusProfile,
+    corpus_profile_under,
+    profile_query,
+)
 from weft_store import NodeStore, Scored, SourceRecord
 from weft_store.coverage import layer_coverage_of, ready_layers
 
@@ -1423,13 +1428,9 @@ async def _router_store_view(
     records = await read_source_records(registry, store, store_name=resolved_services.store)
     if records is None:
         return RouterStoreView(ready_layers=frozenset(), corpus=None)
-    generate_role = llm.roles.roles.get("generate") if llm is not None else None
     return RouterStoreView(
         ready_layers=ready_layers(layer_coverage_of(records)),
-        corpus=corpus_profile(
-            records,
-            context_tokens=generate_role.context_tokens if generate_role is not None else None,
-        ),
+        corpus=corpus_profile_under(records, llm.roles.roles if llm is not None else {}),
     )
 
 

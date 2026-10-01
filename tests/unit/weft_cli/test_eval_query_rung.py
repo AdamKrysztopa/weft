@@ -51,7 +51,7 @@ from weft_cli.progress import ScoringProgress, ScoringStage
 from weft_cli.route_ask import resolve_named_pipeline, run_named_ask, run_named_retrieve
 from weft_embed import Embedder
 from weft_embed.hash_embedder import HashEmbedder
-from weft_engine.llm_roles import LLMSection
+from weft_engine.llm_roles import LLMRoles, LLMSection
 from weft_engine.services import ServiceSelection
 from weft_eval.harness import SubsetScores
 from weft_eval.question_set import Question, QuestionField
@@ -64,11 +64,19 @@ from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import ResolvedPipeline, ResolvedStage, pipeline_identity
 from weft_llm.client import NullSink
+from weft_llm.roles import RoleMapping
 from weft_prompts.contract import Prompt
 from weft_retrieve import ContextPacker, Fuser, NoRetrieval, Repack, Retriever, SingleList
 from weft_retrieve.payload import RouteView, RuleOutcome
 from weft_retrieve.profile import CorpusProfile
-from weft_store import LayerRecord, LayerStatus, NodeStore, SourceRecord, SourceStatus
+from weft_store import (
+    LayerRecord,
+    LayerStatus,
+    NodeStore,
+    SourceRecord,
+    SourceStats,
+    SourceStatus,
+)
 from weft_store.memory import MemoryStore
 
 
@@ -718,6 +726,46 @@ async def test_a_router_arm_is_handed_the_corpus_profile_weft_ask_hands_a_router
     assert corpus.documents == 1
     assert corpus.layers["enrich-x"].ready is True
     assert corpus.features()["corpus.documents"] == 1
+
+
+async def test_a_router_arm_corpus_profile_fits_each_declared_role_by_its_own_window() -> None:
+    """R44.20b: the eval path builds its profile as `weft ask` does, every window declared."""
+    # Arrange
+    store = MemoryStore()
+    await store.put_source(
+        SourceRecord(
+            id=SourceId("file:///corpus/doc-a.txt"),
+            uri="file:///corpus/doc-a.txt",
+            content_hash="hash-a",
+            indexed_at=_LAYER_RECORDED_AT,
+            pipeline="index-text",
+            status=SourceStatus.ACTIVE,
+            stats=SourceStats(leaves=3, characters=300, tokens=1100, tokenizer="t"),
+        )
+    )
+    registry = _query_registry()
+    registry.add(NodeStore, "sized-store", _serving(store), distribution="weft-store")
+    llm = LLMSection(
+        roles=LLMRoles(
+            roles={
+                "generate": RoleMapping(provider="scripted", context_tokens=272000),
+                "small": RoleMapping(provider="scripted", context_tokens=1000),
+            }
+        )
+    )
+
+    # Act
+    view = await eval_scoring_module._router_store_view(  # pyright: ignore[reportPrivateUsage]
+        registry=registry,
+        services=ServiceSelection(embed="fake-embed", store="sized-store"),
+        llm=llm,
+        target=None,
+    )
+
+    # Assert
+    assert view.corpus is not None
+    assert view.corpus.fits_context is True
+    assert view.corpus.fits_context_by_role == {"generate": True, "small": False}
 
 
 async def test_a_router_arm_over_a_store_that_lists_no_sources_is_handed_no_corpus_profile(

@@ -12,6 +12,7 @@ extends: graph-then-generate
 # by relevance, because distance is the only signal it has. A reranker breaks that tie against
 # the actual question, which a hop count alone cannot.
 vars:
+  route.requires-role: graph
   route.summary: >-
     `graph-then-generate`, with every retrieved node rescored against the question before the
     answer is written — breaks the ties a hop-distance score alone cannot, among nodes the walk

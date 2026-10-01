@@ -154,6 +154,9 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     import.** `weft eval pairwise --baseline/--arm` naming no arm of the document is "fix what
     you typed"; `UnrecordedAnswersError`, `pairwise`'s other refusal, is not a name and stays
     `OPERATION_FAILED`, `UnscoredMetricError`'s own footing one module over.
+    `weft_eval.pairwise.UnknownCriterionError`, carried repair R44.20a, joins it: `--criterion`
+    naming no criterion of the available set is the same "fix what you typed"; the file-shaped
+    `InvalidCriteriaError` is a document to repair and stays `OPERATION_FAILED`.
 
     **`weft_cli.eval_scoring.UnresolvableLabelError`/`AmbiguousLabelError`, task 16.5 — the
     same family, riding the same import.** A `--questions` file's `relevant_documents` label
@@ -185,7 +188,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
     from weft_cli.eval_scoring import AmbiguousLabelError, UnresolvableLabelError
     from weft_cli.route_ask import NoRouterPipelineError
     from weft_eval.offline import UnknownMetricNameError
-    from weft_eval.pairwise import UnknownArmError
+    from weft_eval.pairwise import UnknownArmError, UnknownCriterionError
     from weft_eval.replay import UnscoredMetricError
 
     if isinstance(
@@ -199,6 +202,7 @@ def exit_code_for(exc: WeftError) -> ExitCode:
             UnknownMetricNameError,
             UnscoredMetricError,
             UnknownArmError,
+            UnknownCriterionError,
             UnresolvableLabelError,
             AmbiguousLabelError,
         ),

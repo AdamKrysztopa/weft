@@ -139,6 +139,7 @@ def test_every_feature_a_real_profile_emits_is_declared() -> None:
         layers={"enrich-with-questions": LayerState(built=1, of=2, ready=False)},
         fully_enriched=False,
         fits_context=True,
+        fits_context_by_role={"small": False},
     )
 
     # Act
@@ -155,3 +156,20 @@ def test_a_misspelt_feature_is_not_declared() -> None:
     assert not is_declared_feature("corpus.fits_contxt")
     assert not is_declared_feature("query.cue.nonsense")
     assert not is_declared_feature("corpus.layer..ready")
+
+
+def test_a_per_role_fit_is_declared_by_shape_and_an_empty_role_is_not() -> None:
+    from weft_retrieve.profile import is_declared_feature
+
+    assert is_declared_feature("corpus.fits_context.generate")
+    assert is_declared_feature("corpus.fits_context.long-context")
+    assert not is_declared_feature("corpus.fits_context.")
+
+
+def test_the_role_a_fit_feature_is_about_is_read_from_its_name() -> None:
+    from weft_retrieve.profile import fits_context_role
+
+    assert fits_context_role("corpus.fits_context") == "generate"
+    assert fits_context_role("corpus.fits_context.long-context") == "long-context"
+    assert fits_context_role("corpus.leaf_tokens") is None
+    assert fits_context_role("corpus.fits_context.") is None

@@ -9,19 +9,31 @@ a paired interval over questions.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from weft_eval import Settings, register
 from weft_eval.pairwise import (
+    COMPREHENSIVENESS,
+    DIVERSITY,
+    EMPOWERMENT,
+    SHIPPED_CRITERIA,
+    Criterion,
+    InvalidCriteriaError,
     PairwiseChoice,
-    PairwiseCriterion,
     PairwiseVerdict,
     Position,
     Preference,
+    UnknownCriterionError,
+    check_criteria,
     judge_pair,
+    load_criteria,
     reconcile,
+    resolve_criterion,
     summarise,
 )
 from weft_eval.prompts import PairwiseJudgePrompt
@@ -78,12 +90,13 @@ def _text(rendered: Rendered) -> str:
 
 def test_the_criteria_are_graphrag_s_three_targets_and_its_control() -> None:
     # Assert
-    assert {criterion.value for criterion in PairwiseCriterion} == {
+    assert [criterion.name for criterion in SHIPPED_CRITERIA] == [
         "comprehensiveness",
         "diversity",
         "empowerment",
         "directness",
-    }
+    ]
+    assert all(criterion.definition for criterion in SHIPPED_CRITERIA)
 
 
 @pytest.mark.parametrize(
@@ -113,7 +126,7 @@ async def test_a_consistent_preference_wins_and_each_order_is_asked() -> None:
         question="What themes recur across the collection?",
         answer_a="ANSWER-ALPHA covers dependence and redundancy.",
         answer_b="ANSWER-BETA covers only redundancy.",
-        criterion=PairwiseCriterion.COMPREHENSIVENESS,
+        criterion=COMPREHENSIVENESS,
         ctx=_ctx(llm),
     )
 
@@ -138,7 +151,7 @@ async def test_an_order_dependent_judgement_is_a_tie() -> None:
         question="Which papers disagree about redundancy?",
         answer_a="ANSWER-ALPHA",
         answer_b="ANSWER-BETA",
-        criterion=PairwiseCriterion.DIVERSITY,
+        criterion=DIVERSITY,
         ctx=_ctx(llm),
     )
 
@@ -158,7 +171,7 @@ async def test_an_unreadable_judgement_fails_rather_than_counting_as_a_tie() -> 
         question="q",
         answer_a="a",
         answer_b="b",
-        criterion=PairwiseCriterion.EMPOWERMENT,
+        criterion=EMPOWERMENT,
         ctx=_ctx(llm),
     )
 
@@ -169,7 +182,7 @@ async def test_an_unreadable_judgement_fails_rather_than_counting_as_a_tie() -> 
 def _verdict(question_id: str, outcome: Preference) -> PairwiseVerdict:
     return PairwiseVerdict(
         question_id=question_id,
-        criterion=PairwiseCriterion.COMPREHENSIVENESS,
+        criterion=COMPREHENSIVENESS.name,
         first=outcome,
         swapped=outcome,
         outcome=outcome,
@@ -228,3 +241,120 @@ def test_no_verdicts_have_no_win_rate() -> None:
     assert summary.n == 0
     assert summary.win_rate_b is None
     assert summary.low is None and summary.high is None
+
+
+async def test_a_criterion_a_pack_wrote_reaches_the_judge_by_name_and_definition() -> None:
+    # Arrange — a criterion Weft does not ship.
+    grounded = Criterion(
+        name="groundedness", definition="how well each claim is supported by what was retrieved"
+    )
+    llm = _ScriptedLLM([_choice(Position.SECOND), _choice(Position.FIRST)])
+
+    # Act
+    outcome = await judge_pair(
+        question_id="g-1",
+        question="q",
+        answer_a="ANSWER-ALPHA",
+        answer_b="ANSWER-BETA",
+        criterion=grounded,
+        ctx=_ctx(llm),
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.criterion == "groundedness"
+    assert outcome.value.outcome is Preference.B
+    for sent in llm.sent:
+        assert "groundedness" in _text(sent)
+        assert "how well each claim is supported by what was retrieved" in _text(sent)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"name": "", "definition": "d"},
+        {"name": "Has Space", "definition": "d"},
+        {"name": "9-leading-digit", "definition": "d"},
+        {"name": "ok", "definition": ""},
+        {"name": "ok", "definition": "   "},
+        {"name": "ok", "definition": "d", "weight": "2"},
+    ],
+)
+def test_a_malformed_criterion_is_refused(fields: Mapping[str, str]) -> None:
+    # Act / Assert
+    with pytest.raises(ValidationError):
+        Criterion.model_validate(fields)
+
+
+def test_a_criterion_named_twice_or_none_at_all_is_refused() -> None:
+    # Act / Assert
+    with pytest.raises(InvalidCriteriaError, match="'diversity' is named more than once"):
+        check_criteria((DIVERSITY, COMPREHENSIVENESS, DIVERSITY))
+    with pytest.raises(InvalidCriteriaError, match="no criterion to judge"):
+        check_criteria(())
+
+
+def test_a_criteria_file_is_read_in_file_order(tmp_path: Path) -> None:
+    # Arrange
+    path = tmp_path / "criteria.toml"
+    path.write_text(
+        '[[criterion]]\nname = "groundedness"\ndefinition = "supported by what was retrieved"\n\n'
+        '[[criterion]]\nname = "tone"\ndefinition = "how measured the register is"\n',
+        encoding="utf-8",
+    )
+
+    # Act
+    criteria = load_criteria(path)
+
+    # Assert
+    assert [criterion.name for criterion in criteria] == ["groundedness", "tone"]
+    assert criteria[1].definition == "how measured the register is"
+
+
+@pytest.mark.parametrize(
+    ("text", "claim"),
+    [
+        ("this is = not toml", "cannot be read"),
+        ("title = 'no tables'\n", "declares no `[[criterion]]` table"),
+        ('[[criterion]]\nname = "tone"\ndefinition = ""\n', "holds a bad criterion"),
+        ('[[criterion]]\nname = "tone"\n', "holds a bad criterion"),
+        (
+            '[[criterion]]\nname = "tone"\ndefinition = "a"\n\n'
+            '[[criterion]]\nname = "tone"\ndefinition = "b"\n',
+            "'tone' is named more than once",
+        ),
+    ],
+)
+def test_a_malformed_criteria_file_is_refused_naming_the_file(
+    tmp_path: Path, text: str, claim: str
+) -> None:
+    # Arrange
+    path = tmp_path / "criteria.toml"
+    path.write_text(text, encoding="utf-8")
+
+    # Act / Assert
+    with pytest.raises(InvalidCriteriaError, match=re.escape(claim)) as refused:
+        load_criteria(path)
+    assert str(path) in str(refused.value) or "named more than once" in str(refused.value)
+
+
+def test_a_missing_criteria_file_is_refused_rather_than_raising_os_error(tmp_path: Path) -> None:
+    # Act / Assert
+    with pytest.raises(InvalidCriteriaError, match="cannot be read"):
+        load_criteria(tmp_path / "absent.toml")
+
+
+def test_an_unknown_criterion_name_is_refused_naming_the_valid_ones() -> None:
+    # Act
+    with pytest.raises(UnknownCriterionError) as refused:
+        resolve_criterion("groundedness", SHIPPED_CRITERIA)
+
+    # Assert
+    assert refused.value.valid_options == (
+        "comprehensiveness",
+        "diversity",
+        "empowerment",
+        "directness",
+    )
+    assert refused.value.criterion == "groundedness"
+    assert resolve_criterion("diversity", SHIPPED_CRITERIA) is DIVERSITY

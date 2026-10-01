@@ -19,12 +19,14 @@ from weft_cli.render import render_outcome
 from weft_cli.route_explain import RouteExplainArgs, RouteExplainCommand
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
+from weft_engine.llm_roles import LLMRoles, LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Produced, SourceId
 from weft_kernel.registry import Registry
+from weft_llm.roles import RoleMapping
 from weft_retrieve.payload import Query, Route, RuleOutcome, Scorecard
 from weft_store import NodeStore, SourceRecord, SourceStats
 from weft_store.memory import MemoryStore
@@ -40,7 +42,7 @@ def _embedder(config: object) -> object:
     return object()
 
 
-def _ctx() -> Context:
+def _ctx(llm: LLMSection | None = None) -> Context:
     registry = Registry()
     registry.add(NodeStore, "memory", _memory, distribution="weft-store")
     registry.add(Embedder, "hash", _embedder, distribution="weft-embed")
@@ -48,6 +50,7 @@ def _ctx() -> Context:
         registry=registry,
         reports=(PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),),
         services=ServiceSelection(store="memory"),
+        llm=llm or LLMSection(),
     )
     ctx = Context(tenant_id="tenant-a", run_id="run-1", trace_id="trace-1", locale="en")
     ctx.services.add(Dependencies, deps)
@@ -132,6 +135,40 @@ async def test_the_json_output_is_one_object_with_both_profiles_and_the_route(
     assert document["route"]["pipeline"] == "retrieve-then-generate"
     assert document["corpus_profile"]["documents"] == 1
     assert "query.word_count" in document["query_profile"]
+
+
+async def test_the_corpus_profile_fits_each_declared_role_by_its_own_window(
+    monkeypatch: pytest.MonkeyPatch, explained: list[str]
+) -> None:
+    # Arrange — R44.20b: a 1,100-token corpus, `generate` declaring 272,000 and `small` 1,000.
+    async def _sized(deps: object, target: object) -> Produced[tuple[SourceRecord, ...]]:
+        del deps, target
+        sized = _records()[0].model_copy(
+            update={"stats": SourceStats(leaves=4, characters=400, tokens=1100, tokenizer="t")}
+        )
+        return Produced(value=(sized,))
+
+    monkeypatch.setattr(route_explain_module, "source_records", _sized)
+    llm = LLMSection(
+        roles=LLMRoles(
+            roles={
+                "generate": RoleMapping(provider="scripted", context_tokens=272000),
+                "small": RoleMapping(provider="scripted", context_tokens=1000),
+                "unsized": RoleMapping(provider="scripted"),
+            }
+        )
+    )
+
+    # Act
+    outcome = await RouteExplainCommand().run(
+        RouteExplainArgs(question="How many looms are there?"), _ctx(llm)
+    )
+    document = json.loads(render_outcome(outcome, as_json=True).stdout or "")
+
+    # Assert
+    assert explained
+    assert document["corpus_profile"]["fits_context"] is True
+    assert document["corpus_profile"]["fits_context_by_role"] == {"generate": True, "small": False}
 
 
 def test_the_command_only_reads() -> None:

@@ -84,7 +84,7 @@ from weft_engine.run_services import (
     selected_role_instances,
 )
 from weft_engine.service_roles import RoleTable
-from weft_engine.services import DEFAULT_ROUTER, ServiceSelection
+from weft_engine.services import DEFAULT_ROUTER, ServiceSelection, UnknownServiceKeyError
 from weft_engine.targets import bind_store
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
@@ -93,7 +93,7 @@ from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
 from weft_kernel.payload import Node, Produced
 from weft_kernel.pipeline import Pipeline
-from weft_kernel.registry import Registry
+from weft_kernel.registry import Registry, RegistryEntry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
 from weft_kernel.seam import aclose
@@ -102,6 +102,8 @@ from weft_retrieve.contract import RoutingPolicy
 from weft_retrieve.engine import (
     node_requirement_filter,
     node_requirements,
+    role_requirement_token,
+    role_requirements,
     roles_needed,
     route_catalogue,
 )
@@ -405,14 +407,15 @@ async def _router_and_prepared_runner(
     (`_offerable_rung_roles`, which raises `UnmappedLLMRoleError` before any call — repair
     **R43.30**), and the assembled `PreparedRunner` both callers run stages against.
 
-    `ready_layers` is folded together with `_ready_layers_including_nodes` before either of
-    those two — carried repair **R44.13b/c** — so a rung's `route.requires-nodes` reaches
-    both the up-front role check and the `RouteCatalogue` `_prepared_runner` registers as one
-    fact, asked of the store exactly once per call.
+    `ready_layers` is folded together with `with_satisfied_requirements` before either of
+    those two — carried repairs **R44.13b/c** and **R44.13e** — so a rung's `route.requires-nodes`
+    and `route.requires-role` reach both the up-front role check and the `RouteCatalogue`
+    `_prepared_runner` registers as one fact, asked of the store and of each role's service
+    exactly once per call.
     """
     catalogue = full_catalogue(reports=reports)
-    ready_layers = await _ready_layers_including_nodes(
-        ready_layers, catalogue, registry=registry, services=services, target=target
+    ready_layers = await with_satisfied_requirements(
+        ready_layers, catalogue, registry=registry, services=services, roles=roles, target=target
     )
     router_name = services.route
     router = catalogue.get(router_name)
@@ -1569,33 +1572,53 @@ async def run_named_rerank(
     )
 
 
-async def _ready_layers_including_nodes(
+async def with_satisfied_requirements(
     ready_layers: frozenset[str] | None,
     catalogue: Mapping[str, Pipeline],
     *,
     registry: Registry,
     services: ServiceSelection,
+    roles: RoleTable,
     target: str | None,
 ) -> frozenset[str] | None:
-    """`ready_layers`, plus every `route.requires-nodes` spec the configured store satisfies.
+    """`ready_layers`, plus every rung requirement the store or a role's service satisfies.
 
-    Carried repair **R44.13b/c**. `ready_layers=None` (told nothing) is returned untouched —
-    the store is never queried on that path, exactly as `weft_retrieve.engine._layer_ready`'s
-    own docstring says of a caller who asked for nothing filtered. Otherwise a fresh
-    `NodeStore` is built and bound to `target` the identical way `weft_engine.run_services.
-    build_services` binds its own, asked once for every distinct `route.requires-nodes` spec
-    `node_requirements` finds in `catalogue`, and closed again before this returns — the
-    router's own store, built next by `_prepared_runner`, is a separate instance.
+    Carried repairs **R44.13b/c** (`route.requires-nodes`, asked of the store) and **R44.13e**
+    (`route.requires-role`, asked of the service selected for the role).
+    `ready_layers=None` (told nothing) is returned untouched — nothing is queried on that path,
+    exactly as `weft_retrieve.engine._layer_ready`'s own docstring says of a caller who asked for
+    nothing filtered. Otherwise a fresh `NodeStore` is built and bound to `target` the identical
+    way `weft_engine.run_services.build_services` binds its own, asked once for every distinct
+    `route.requires-nodes` spec `node_requirements` finds in `catalogue`, and closed again before
+    this returns — the router's own store, built next by `_prepared_runner`, is a separate
+    instance.
     """
     if ready_layers is None:
         return None
+    satisfied = await _satisfied_in_store(
+        catalogue, registry=registry, services=services, target=target
+    )
+    satisfied |= await satisfied_role_requirements(
+        role_requirements(catalogue), registry=registry, services=services, roles=roles
+    )
+    return ready_layers | satisfied
+
+
+async def _satisfied_in_store(
+    catalogue: Mapping[str, Pipeline],
+    *,
+    registry: Registry,
+    services: ServiceSelection,
+    target: str | None,
+) -> frozenset[str]:
+    """Every `route.requires-nodes` spec in `catalogue` the configured store satisfies."""
     requirements = node_requirements(catalogue)
     if not requirements:
-        return ready_layers
+        return frozenset()
     entry = registry.entry(NodeStore, services.store)
     store = await bind_store(entry.factory(None), target, store_name=services.store)
     try:
-        satisfied = await satisfied_node_requirements(store, requirements)
+        return await satisfied_node_requirements(store, requirements)
     finally:
         await aclose(
             store,
@@ -1604,7 +1627,78 @@ async def _ready_layers_including_nodes(
             plugin=services.store,
             stage="route:requires-nodes",
         )
-    return ready_layers | satisfied
+
+
+class RoleNotProbeableError(PipelineResolutionError):
+    """A rung names a role whose selected service cannot say whether it holds anything.
+
+    Carried repair **R44.13e**. Neither offering the rung over a service that may be empty nor
+    withholding it from one that may not is an answer, so the router refuses before routing.
+    `weft_cli.route_ask.satisfied_role_requirements` raises it.
+    """
+
+
+async def satisfied_role_requirements(
+    requirements: frozenset[str],
+    *,
+    registry: Registry,
+    services: ServiceSelection,
+    roles: RoleTable,
+) -> frozenset[str]:
+    """Each role in `requirements` whose selected service holds data, as `role_requirement_token`.
+
+    Carried repair **R44.13e**: a role is satisfied when a plugin is selected for it and the
+    service built from that plugin answers `holds_data()` with `True`. A role nothing selects
+    holds nothing to read, so it is not satisfied. A role no installed pack declares raises
+    `UnknownServiceKeyError` naming the declared ones, and a selected service with no
+    `holds_data` raises `RoleNotProbeableError` naming the plugin. No requirements asks nothing.
+    """
+    satisfied: set[str] = set()
+    for key in sorted(requirements):
+        role = roles.roles.get(key)
+        if role is None:
+            raise UnknownServiceKeyError(
+                f"a rung's route.requires-role names '{key}', which no installed pack declares "
+                f"as a [services] role. Declared: {', '.join(roles.declared) or '(none)'}.",
+                valid_options=roles.declared,
+            )
+        plugin = services.selection_for(key)
+        if plugin is not None and await _role_holds_data(
+            registry.entry(role.contract, plugin), role.contract, key=key, plugin=plugin
+        ):
+            satisfied.add(role_requirement_token(key))
+    return frozenset(satisfied)
+
+
+def _holds_data_probe(service: object, *, key: str, plugin: str) -> Callable[[], Awaitable[bool]]:
+    holds = getattr(service, "holds_data", None)
+    if not callable(holds):
+        raise RoleNotProbeableError(
+            f"'{plugin}', the plugin selected for role '{key}', has no `holds_data()`, "
+            f"which a rung needs to know whether it holds anything.",
+            remedy=(
+                f"give '{plugin}' an `async def holds_data(self) -> bool`, or select a "
+                f"plugin for '{key}' that has one."
+            ),
+        )
+    return cast("Callable[[], Awaitable[bool]]", holds)
+
+
+async def _role_holds_data(
+    entry: RegistryEntry, contract: type[object], *, key: str, plugin: str
+) -> bool:
+    """Build `plugin`, ask it `holds_data()`, and close it again."""
+    service = entry.factory(None)
+    try:
+        return await _holds_data_probe(service, key=key, plugin=plugin)()
+    finally:
+        await aclose(
+            service,
+            distribution=entry.distribution,
+            contract=contract.__name__,
+            plugin=plugin,
+            stage="route:requires-role",
+        )
 
 
 async def satisfied_node_requirements(

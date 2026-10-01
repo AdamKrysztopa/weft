@@ -119,6 +119,7 @@ NAME_RESOLUTION_FAMILY: Final[frozenset[str]] = frozenset(
         "weft_eval.claims.UnknownClaimFeatureError",
         "weft_eval.claims_check.UnresolvedClaimArmError",
         "weft_eval.pairwise.UnknownArmError",
+        "weft_eval.pairwise.UnknownCriterionError",
         "weft_engine.services.UnknownServiceKeyError",
         "weft_cli.route_ask.UnroutedPipelineNameError",
         "weft_cli.route_ask.NoRouterPipelineError",
