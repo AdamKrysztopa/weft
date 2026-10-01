@@ -377,7 +377,24 @@ def pairing_reasons(a: RunRecord, b: RunRecord) -> tuple[str, ...]:
             f"question set differs ({a.question_set_digest[:12]}… vs {b.question_set_digest[:12]}…)"
         )
 
+    reasons.extend(_judge_prompt_reasons(a, b))
     return tuple(reasons)
+
+
+def _judge_prompt_reasons(a: RunRecord, b: RunRecord) -> list[str]:
+    """One reason per metric both records digested a judge prompt for, where the digests differ.
+
+    A record without `judge_prompts` (written before 44.4), or one with no digest for a metric, is
+    not a disagreement: only two digests over the same metric can be told apart.
+    """
+    if a.judge_prompts is None or b.judge_prompts is None:
+        return []
+    return [
+        f"judge prompt for '{metric}' differs ({a.judge_prompts[metric][:12]}… vs "
+        f"{b.judge_prompts[metric][:12]}…)"
+        for metric in sorted(set(a.judge_prompts) & set(b.judge_prompts))
+        if a.judge_prompts[metric] != b.judge_prompts[metric]
+    ]
 
 
 def _percentile(sorted_values: Sequence[float], pct: float) -> float:

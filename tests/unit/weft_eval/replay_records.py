@@ -72,6 +72,7 @@ def record_of(
     question_set_digest: str = "d" * 64,
     corpus_digest: str = "c" * 64,
     answers: Mapping[str, str] | None = None,
+    judge_prompts: Mapping[str, str] | None = None,
 ) -> RunRecord:
     produced = [score for score in scores.values() if score is not None]
     metrics = (
@@ -110,6 +111,7 @@ def record_of(
             repetition=repetition,
         ),
         question_answers=answers,
+        judge_prompts=judge_prompts,
     )
 
 
