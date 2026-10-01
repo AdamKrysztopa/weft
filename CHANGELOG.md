@@ -105,8 +105,8 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   features — documents, leaves, leaf tokens, whether the corpus fits the generate role's
   `context_tokens`, whether each layer is ready — from the source records the ask already reads,
   and `weft route explain` prints them. A feature whose value is not known is left out rather than
-  guessed. No shipped routing policy reads them yet: rules over them arrive with the
-  evidence-driven router.
+  guessed. One shipped router reads them: `route-by-evidence`, whose single rule tests
+  `corpus.base_complete`, `corpus.fits_context` and `corpus.leaf_tokens` (see *Changed* above).
 
 - **`weft index` records how big each source is.** Each source record carries `stats`: its leaf
   count, the characters in those leaves and, when a tokenizer is mapped, their tokens (tokens stay
