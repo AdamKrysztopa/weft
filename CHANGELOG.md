@@ -55,6 +55,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `constraints` and `policy`, the policy span gains `weft.route.claims`, `.fallback`, `.policy` and
   `.constraint.*`, and `weft route explain` prints them (`weft_retrieve` contract 1.6.0, optional
   fields).
+- **A router you derive is held to the evidence it cites.** `extends: route-by-evidence` and
+  `set:` a rule citing a claim that is unknown, not *worthwhile* on committed records, about another
+  rung, or whose regime the rule does not contain is now refused when the router loads, naming every
+  rule at fault, instead of passing because fitness function 38 only reads the shipped documents.
+  The wheel now carries the claim documents (`weft_eval/shipped_claims/`), and a project's own
+  `eval/claims/` adds to them. Nothing is recomputed per question.
 - **`route-by-evidence` ships one rule, not none.** The operations guide and this file said it
   shipped empty; it reads the whole corpus for a complete corpus of 200,000 to 260,000 tokens when
   you give it a budget, and is not the default.

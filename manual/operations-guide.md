@@ -575,11 +575,16 @@ or wait for the run to finish.
 the chosen rule cites, the facts it was judged on, any it could not state, the ceilings in force and
 a digest of the policy that decided; `weft eval claims check` recomputes those claims from the
 committed records, and `weft eval claims pin` records what they were validated against.
-**Where evidence is checked.** The shipped rule's claims are held to *worthwhile* and *valid* by
-the repository's gate (fitness function 38), not by the ask: a router never recomputes a claim, so a
-rule you write yourself in a derived router is not checked at ask time. Run `weft eval claims check`
-with `WEFT_DATABASE_URL` (or `weft.toml`'s store) set after changing a rung it cites; without a
-configured store the check cannot resolve the pipelines and reads every claim *possibly stale*.
+**Where evidence is checked.** A router is held to the claims it cites **when it is loaded**, once
+per ask or `weft route explain`, never per question: every cited claim must exist, be *worthwhile*
+on committed records, be about the rule's own rung, and have its regime contained in the rule's
+`when`. The same rules are fitness function 38's for the shipped router, so a router you derive
+cannot cite a positive effect below its margin; it is refused, naming every rule at fault. Claims
+come from the ones this install ships, plus any in the project's own `eval/claims/`. Loading does
+not recompute a claim or compare fingerprints: `weft eval claims check` does that from the run
+records, in a source checkout. Run it with `WEFT_DATABASE_URL` (or `weft.toml`'s store) set after
+changing a rung a claim cites; without a configured store it cannot resolve the pipelines and reads
+every claim *possibly stale*.
 If whole-corpus reading refuses at run time because the corpus counted past its bound, the ask is
 answered by `retrieve-then-generate` and the route says it fell back. To bypass the router for one
 question, `weft ask --pipeline <name>`.

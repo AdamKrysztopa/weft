@@ -3214,6 +3214,29 @@ stops at the first leaf past the bound. Raise `max_tokens` in a project document
 you accept paying for every token on every question; otherwise ask a retrieving pipeline. The
 corpus is never cut to fit: a cut corpus answers from whichever part happened to be read first.
 
+### `UnsupportedEvidenceError`
+
+**What it looks like** — a router you derived from `route-by-evidence` has a rule that cites
+evidence which does not support it, and `weft ask` or `weft route explain` refuses to load the
+router, naming every rule at fault:
+
+```text
+the router cites evidence that does not support its rules:
+  router 'route-bad' stage 'decide': rule 'raptor-when-global' cites 'raptor-and-leaves-rrf.global.answer-correctness', whose verdict is 'positive-below-margin' on 'records', not 'worthwhile' on records
+  router 'route-bad' stage 'decide': rule 'raptor-when-global' is a default and cites claims from 1 population(s); a default needs two
+Cite a claim that is 'worthwhile' on committed records, about the rule's own rung, whose regime the rule's `when` contains; `weft eval claims check` lists them.
+```
+
+**What to do:** read each line, since each names a different fault. A claim that is not
+*worthwhile* is a real effect below the margin it was measured against, so routing on it is
+refused, not warned about; cite a *worthwhile* claim, or leave that technique out of the router. A
+claim that is not known names the claims you could cite for that rung; one you wrote yourself
+belongs in the project's `eval/claims/`. A rule whose `when` does not contain the claim's regime
+(`corpus.base_complete`, a size range) would fire where nothing was measured, so add the
+predicate. A `defaults` rule needs claims from two populations; an `exceptions` rule needs one.
+`weft eval claims check` lists every claim with its verdict. The same checks hold the shipped router
+in the repository's gate, so nothing here is specific to a derived one.
+
 ### `ModelProviderMismatchError`
 
 **What it looks like** — a `[llm.roles]` entry's model string carries a provider prefix naming a

@@ -332,6 +332,24 @@ def pin_claim(path: Path, fingerprint: ClaimFingerprint) -> None:
     path.write_text(f"{body}\n\n{_fingerprint_block(fingerprint)}", encoding="utf-8")
 
 
+def shipped_claims_dir() -> Path:
+    """The claim documents this install carries: the wheel's copy, else the checkout's own.
+
+    `hatch_build.py` copies `eval/claims/*.toml` into `weft_eval/shipped_claims/` when it builds, so
+    an installed wheel holds them; a source checkout (editable, or running the tests) has no such
+    copy and reads `eval/claims/` at the repository root. Neither existing is refused by name, since
+    a router that cites evidence cannot be held to claims that are not there.
+    """
+    here = Path(__file__).resolve().parent
+    for candidate in (here / "shipped_claims", here.parents[3] / "eval" / "claims"):
+        if candidate.is_dir():
+            return candidate
+    raise ClaimDocumentError(
+        "this install carries no evidence claim documents: expected weft_eval/shipped_claims/ in a "
+        "built wheel or eval/claims/ in a source checkout."
+    )
+
+
 def load_claims(directory: Path) -> tuple[Claim, ...]:
     """Every `*.toml` claim in `directory`, in id order; two files sharing an id are refused."""
     if not directory.is_dir():
@@ -353,4 +371,5 @@ __all__ = [
     "load_claim",
     "load_claims",
     "pin_claim",
+    "shipped_claims_dir",
 ]

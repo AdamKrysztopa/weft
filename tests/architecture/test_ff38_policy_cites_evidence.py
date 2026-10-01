@@ -26,7 +26,6 @@ The waiver constant is pinned empty: a waiver is a visible act in a diff.
 
 from __future__ import annotations
 
-import math
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -40,13 +39,13 @@ from weft_cli.claims_live import live_evidence
 from weft_cli.pipeline_catalogue import full_catalogue
 from weft_cli.route_ask import resolve_in_catalogue
 from weft_engine import registry_bootstrap
+from weft_eval import eligibility
 from weft_eval.claims import Claim, load_claims
 from weft_eval.claims_check import check_claim
 from weft_eval.fingerprint import Staleness
 from weft_generate.generating_role import generating_role
-from weft_retrieve.policy import EvidencePolicyConfig, PolicyRule
-from weft_retrieve.profile import fits_context_role, is_declared_feature
-from weft_retrieve.routing import Comparison, Condition
+from weft_retrieve.policy import EvidencePolicyConfig
+from weft_retrieve.profile import fits_context_role
 
 from .conftest import REPO_ROOT, tracked_files
 
@@ -54,136 +53,6 @@ _RESOLUTION_ONLY_DSN: Final[str] = "postgresql://nobody@localhost:1/none"
 
 #: `(document stem, rule name)` pairs exempt from the check. Empty, and pinned empty below.
 RULES_WAIVED: Final[frozenset[tuple[str, str]]] = frozenset()
-
-type _Interval = tuple[float, bool, float, bool]
-
-
-def _interval(op: Comparison, value: float) -> _Interval:
-    """`(low, low_closed, high, high_closed)` of the numbers `x op value` admits."""
-    match op:
-        case Comparison.GTE:
-            return (value, True, math.inf, True)
-        case Comparison.GT:
-            return (value, False, math.inf, True)
-        case Comparison.LTE:
-            return (-math.inf, True, value, True)
-        case Comparison.LT:
-            return (-math.inf, True, value, False)
-        case Comparison.EQ:
-            return (value, True, value, True)
-        case Comparison.NE:
-            raise ValueError("'ne' admits no single interval")
-
-
-def _within(inner: _Interval, outer: _Interval) -> bool:
-    low_ok = inner[0] > outer[0] or (inner[0] == outer[0] and (outer[1] or not inner[1]))
-    high_ok = inner[2] < outer[2] or (inner[2] == outer[2] and (outer[3] or not inner[3]))
-    return low_ok and high_ok
-
-
-def _implies_discrete(rule: Condition, claim: Condition) -> bool:
-    """`eq`/`ne` against any value, which is all a boolean feature supports."""
-    equal = rule.value == claim.value
-    match claim.op:
-        case Comparison.EQ:
-            return rule.op is Comparison.EQ and equal
-        case Comparison.NE:
-            return (rule.op is Comparison.NE and equal) or (rule.op is Comparison.EQ and not equal)
-        case _:
-            return False
-
-
-def implies(rule: Condition, claim: Condition) -> bool:
-    """Whether `rule` holds only where `claim` holds: the same feature, equal or tighter."""
-    if rule.feature != claim.feature:
-        return False
-    discrete = (
-        isinstance(rule.value, bool)
-        or isinstance(claim.value, bool)
-        or Comparison.NE in {rule.op, claim.op}
-    )
-    if discrete:
-        return _implies_discrete(rule, claim)
-    return _within(_interval(rule.op, rule.value), _interval(claim.op, claim.value))
-
-
-def _fit_violations(
-    where: str, rule: PolicyRule, generating_roles: Mapping[str, str | None]
-) -> list[str]:
-    """A context-fit predicate must be about the role the rung's answer is written under."""
-    rung_role = generating_roles.get(rule.then)
-    found: list[str] = []
-    for condition in rule.when:
-        tested = fits_context_role(condition.feature)
-        if tested is None:
-            continue
-        if rung_role is None:
-            found.append(
-                f"{where} tests '{condition.feature}', but the generating role of its rung "
-                f"'{rule.then}' cannot be read"
-            )
-        elif tested != rung_role:
-            found.append(
-                f"{where} tests '{condition.feature}', the fit under role '{tested}', but its "
-                f"rung '{rule.then}' generates under '{rung_role}'"
-            )
-    return found
-
-
-def _claim_violations(
-    where: str, rule: PolicyRule, claim: Claim, not_valid: str | None
-) -> list[str]:
-    """What a rule's citation of one claim gets wrong: its standing, its rung, its regime."""
-    cited = claim.id
-    found: list[str] = []
-    if not claim.adoptable_for_routing:
-        found.append(
-            f"{where} cites '{cited}', whose verdict is '{claim.verdict}' on '{claim.basis}', "
-            f"not 'worthwhile' on records"
-        )
-    if not_valid is not None:
-        found.append(f"{where} cites '{cited}', which is {not_valid}")
-    if claim.rung != rule.then:
-        found.append(
-            f"{where} routes to '{rule.then}' but cites '{cited}', a claim about '{claim.rung}'"
-        )
-    found.extend(
-        f"{where} does not carry the regime of '{cited}': {predicate.feature} {predicate.op} "
-        f"{predicate.value}"
-        for predicate in claim.regime
-        if not any(implies(condition, predicate) for condition in rule.when)
-    )
-    return found
-
-
-def _rule_violations(
-    document: str,
-    rule: PolicyRule,
-    *,
-    default: bool,
-    claims: Mapping[str, Claim],
-    generating_roles: Mapping[str, str | None],
-    not_valid: Mapping[str, str],
-) -> list[str]:
-    where = f"{document}: rule '{rule.name}'"
-    found: list[str] = _fit_violations(where, rule, generating_roles)
-    for condition in rule.when:
-        if not is_declared_feature(condition.feature):
-            found.append(f"{where} tests '{condition.feature}', which no profiler declares")
-    populations: set[frozenset[str]] = set()
-    for cited in rule.cites:
-        claim = claims.get(cited)
-        if claim is None:
-            found.append(f"{where} cites '{cited}', which is not in eval/claims/")
-            continue
-        populations.add(frozenset(claim.population.question_sets))
-        found.extend(_claim_violations(where, rule, claim, not_valid.get(cited)))
-    if default and len(populations) < 2 and all(cited in claims for cited in rule.cites):
-        found.append(
-            f"{where} is a default and cites claims from {len(populations)} population(s); a "
-            f"default needs two"
-        )
-    return found
 
 
 def policy_violations(
@@ -193,29 +62,14 @@ def policy_violations(
     generating_roles: Mapping[str, str | None],
     not_valid: Mapping[str, str],
 ) -> list[str]:
-    """Every way a shipped evidence-policy document's rules fail to be supported.
-
-    `not_valid` maps a claim id to why it is not `valid` against the running tree, and omits the
-    ones that are.
-    """
-    by_id = {claim.id: claim for claim in claims}
-    found: list[str] = []
-    for document, config in sorted(documents.items()):
-        for rules, default in ((config.exceptions, False), (config.defaults, True)):
-            for rule in rules:
-                if (document, rule.name) in RULES_WAIVED:
-                    continue
-                found.extend(
-                    _rule_violations(
-                        document,
-                        rule,
-                        default=default,
-                        claims=by_id,
-                        generating_roles=generating_roles,
-                        not_valid=not_valid,
-                    )
-                )
-    return found
+    """`eligibility.policy_violations` with this gate's waivers, which are pinned empty."""
+    return eligibility.policy_violations(
+        documents,
+        claims,
+        generating_roles=generating_roles,
+        not_valid=not_valid,
+        waived=RULES_WAIVED,
+    )
 
 
 def shipped_policy_documents() -> dict[str, EvidencePolicyConfig]:
@@ -416,7 +270,7 @@ def test_the_check_can_actually_fail() -> None:
     assert "which is definitely-stale: rung changed" in _found(
         _config(), [one, two], not_valid={"c.two": "definitely-stale: rung changed"}
     )
-    assert "not in eval/claims" in _found(_config(cites=("c.nope",)), [one, two])
+    assert "not a known claim" in _found(_config(cites=("c.nope",)), [one, two])
     assert "not 'worthwhile'" in _found(
         _config(),
         [one, _claim("c.two", status="no-gain", verdict="benefit-ruled-out", sets=("b.toml",))],

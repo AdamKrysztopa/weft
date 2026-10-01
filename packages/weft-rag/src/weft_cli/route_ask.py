@@ -65,10 +65,12 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import cast
 
 from weft_cli.closing import CloseTarget, close_each
 from weft_cli.compile import RefusedStagePluginError, contracts_for, to_specs
+from weft_cli.evidence_guard import guard_router
 from weft_cli.pipeline_catalogue import (
     DEFAULT_PIPELINES_DIR,
     UnknownPipelineNameError,
@@ -434,6 +436,16 @@ async def _router_and_prepared_runner(
             ),
         )
 
+    guard_router(
+        resolve_in_catalogue(
+            router,
+            registry=registry,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        ),
+        root=Path.cwd(),
+    )
     rung_roles = _offerable_rung_roles(
         router,
         catalogue=catalogue,

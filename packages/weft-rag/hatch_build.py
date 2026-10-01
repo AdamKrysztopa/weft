@@ -4,6 +4,11 @@ A wheel built for distribution has no `.git`, so `weft_cli.provenance.source_rev
 nothing to ask once installed. This hook writes `git rev-parse HEAD` and whether the tree was
 dirty into `weft_eval/_build_revision.json` at build time — for the sdist and, when a checkout
 is directly available, the wheel too — so an installed wheel still names the commit it came from.
+
+It also carries the evidence claim documents (`eval/claims/*.toml`) into
+`weft_eval/shipped_claims/`, so an installed wheel can hold a router a project derives to the claims
+it cites (`weft_cli.evidence_guard`). They are authored once, in the repository, and copied at build
+time rather than kept twice.
 """
 
 from __future__ import annotations
@@ -18,6 +23,7 @@ from typing import Any
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
 _STAMP_NAME = "_build_revision.json"
+_CLAIMS_RELATIVE = Path("eval") / "claims"
 
 
 class BuildRevisionStampHook(BuildHookInterface[Any]):
@@ -35,6 +41,7 @@ class BuildRevisionStampHook(BuildHookInterface[Any]):
         if version == "editable":
             return
 
+        self._include_claims(build_data)
         commit = self._run_git("rev-parse", "HEAD")
         if commit is None:
             return
@@ -49,6 +56,21 @@ class BuildRevisionStampHook(BuildHookInterface[Any]):
 
         prefix = "src/" if self.target_name == "sdist" else ""
         build_data["force_include"][str(stamp_path)] = f"{prefix}weft_eval/{_STAMP_NAME}"
+
+    def _include_claims(self, build_data: dict[str, Any]) -> None:
+        """Add every `eval/claims/*.toml` of the checkout, or nothing when this build has none.
+
+        An unpacked sdist has no `eval/` above it, and by then it already carries the claims as
+        package files, which the wheel's own `packages` selection picks up unchanged.
+        """
+        source = Path(self.root).resolve().parents[1] / _CLAIMS_RELATIVE
+        if not source.is_dir():
+            return
+        prefix = "src/" if self.target_name == "sdist" else ""
+        for claim in sorted(source.glob("*.toml")):
+            build_data["force_include"][str(claim)] = (
+                f"{prefix}weft_eval/shipped_claims/{claim.name}"
+            )
 
     def _run_git(self, *args: str) -> str | None:
         """`git -C self.root <args>`'s stdout, or `None` when git is missing or fails."""

@@ -2116,7 +2116,10 @@ All checks run in CI, before tests.
     later, `L28.90`), and
     whose `rung` is the rule's `then`; the rule's `when` contains every regime predicate of each cited claim, equal or
     tighter; it tests only declared profiler features; and a `defaults` rule cites claims from two
-    distinct populations (D9). The waiver is pinned empty. Planted, each of those fails.
+    distinct populations (D9). The waiver is pinned empty. Planted, each of those fails. Every rule
+    but staleness and the generating-role check is `weft_eval.eligibility.policy_violations`, which
+    `weft_cli.evidence_guard` also runs over a router a project derives when it is loaded, so the
+    gate and the runtime cannot disagree about what a rule may cite.
     `tests/architecture/test_ff38_policy_cites_evidence.py`.
 39. **A router's fallback can always answer.** Added 2026-09-30 (task 44.24). The fallback of every
     shipped evidence-policy router is a tracked first-party pipeline document that carries a
