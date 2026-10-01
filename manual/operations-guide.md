@@ -533,9 +533,37 @@ free**: `RoutingPolicy` takes a `Scorecard`, and their scorer, `query-scorer`, c
 per question on the `route` role. `route`'s policy, `nearest-description`, does not read the scores
 it paid for.
 
-Only a pipeline an installed pack **contributed** can be named here — not a document in your own
-`pipelines/` directory. A name nothing contributed is refused by listing every router that is
-contributed, so a typo names its own alternatives.
+Any pipeline in the catalogue can be named here: one an installed pack contributed, or a document
+in your own `pipelines/` directory, which is how a router you derived is selected. A name nothing
+holds is refused by listing every router that is contributed, so a typo names its own alternatives.
+
+### Letting the evidence decide
+
+`route-by-evidence` carries one rule today: when the corpus fits the `generate` role's context and
+counts 200,000 to 260,000 tokens, read all of it into one prompt, because two measurements found
+that better than one search (`manual/evidence.md` §3). It costs about 170 times the prompt tokens,
+so the shipped router is given a budget of 0 and answers through `retrieve-then-generate` until you
+set one. Declare `context_tokens` on the `generate` role (`[llm.roles]`) so the router can see
+whether the corpus fits, then give it a budget in a document of your own:
+
+```yaml
+# pipelines/route-with-budget.yaml
+name: route-with-budget
+extends: route-by-evidence
+set:
+  - {id: decide, with: {constraints: {max_prompt_tokens: 300000}}}
+```
+
+```toml
+[services]
+route = "route-with-budget"
+```
+
+`weft route explain "<question>"` prints the decision, the rules it skipped and why, and the claims
+the chosen rule cites; `weft eval claims check` recomputes those claims from the committed records.
+If whole-corpus reading refuses at run time because the corpus counted past its bound, the ask is
+answered by `retrieve-then-generate` and the route says it fell back. To bypass the router for one
+question, `weft ask --pipeline <name>`.
 
 > *(Added 2026-09-05 at ledger task 8.3, and it is a repair rather than a feature. Until then the
 > router's name was a constant inside `weft-cli`, which made it the one pipeline nothing could
