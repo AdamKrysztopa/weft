@@ -75,7 +75,9 @@ from weft_retrieve.payload import (
 #: two-audience row "Add an optional field to a returned model", minor for both audiences.
 #: **`1.3.0` → `1.4.0` at task 44.22** — `Route.reasons`, `claims` and `fallback` are added, each
 #: optional: the same row, minor for both audiences.
-RETRIEVE_CONTRACT_VERSION = "1.4.0"
+#: **`1.4.0` → `1.5.0` at task 44.23** — `RuleOutcome.FELL_BACK` is added: `09`'s "Add a member
+#: to an `Enum` implementers only store and return, and test by named member", minor for both.
+RETRIEVE_CONTRACT_VERSION = "1.5.0"
 
 
 @runtime_checkable

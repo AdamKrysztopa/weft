@@ -105,8 +105,9 @@ from weft_retrieve.engine import (
     roles_needed,
     route_catalogue,
 )
-from weft_retrieve.payload import Passages, Query, QuerySet, Ranking, Route
+from weft_retrieve.payload import Passages, Query, QuerySet, Ranking, Route, RuleOutcome
 from weft_retrieve.profile import CorpusProfile
+from weft_retrieve.whole_corpus import CorpusOverTokenBoundError
 from weft_store import Filter, NodeStore, Page
 
 #: `route.yaml`'s own `name:` field, and **the default rather than the law** since ledger task
@@ -490,6 +491,38 @@ async def _run_router(
     return _require(route, Route, pipeline=router_name, produced_by="routing")
 
 
+async def answer_with_fallback[T](
+    route: Route, run: Callable[[str], Awaitable[T]]
+) -> tuple[Route, T]:
+    """Run `route.pipeline`; if it refuses over a corpus too large, run `route.fallback` instead.
+
+    Only `CorpusOverTokenBoundError` is a fallback: `whole-corpus` raises it while running, after
+    the router has already decided, so the decision could not have known the bound. Any other
+    failure — and a cancellation — reaches the caller, and so does the refusal itself when the
+    policy named no fallback. The returned route says which rung answered and why.
+    """
+    try:
+        return route, await run(route.pipeline)
+    except CorpusOverTokenBoundError as refusal:
+        if route.fallback is None:
+            raise
+        reason = (
+            f"'{route.pipeline}' refused at run time ({refusal}); answered by "
+            f"'{route.fallback}' instead"
+        )
+        fell_back = route.model_copy(
+            update={
+                "pipeline": route.fallback,
+                "outcome": RuleOutcome.FELL_BACK,
+                "rule": "",
+                "claims": (),
+                "fallback": None,
+                "reasons": (*route.reasons, reason),
+            }
+        )
+        return fell_back, await run(route.fallback)
+
+
 async def _route_and_answer(
     question: str,
     router: Pipeline,
@@ -518,38 +551,42 @@ async def _route_and_answer(
     )
 
     query = Query(text=question)
-    selected_pipeline = catalogue.get(route.pipeline)
-    if selected_pipeline is None:
-        options = tuple(sorted(catalogue))
-        raise UnroutedPipelineNameError(
-            f"the router selected '{route.pipeline}', which the pipeline catalogue does "
-            f"not hold. Catalogue: {options}.",
-            valid_options=options,
-            pipeline=route.pipeline,
-            remedy=(
-                "the RoutingPolicy that produced this Route selected a name outside its "
-                "own RouteCatalogue — that is a defect in the policy plugin, not in this "
-                "question."
-            ),
-        )
     query_set = QuerySet(origin=query, queries=(query,))
-    answer = await _run_pipeline(
-        selected_pipeline,
-        query_set,
-        sink=sink,
-        entry_type=QuerySet,
-        registry=registry,
-        runner=built.runner,
-        ctx=built.ctx,
-        store=built.store,
-        store_name=services.store,
-        table=built.table,
-        selected=built.selected,
-        names=services.roles,
-        catalogue=catalogue,
-        reports=reports,
-        contributions=contributions,
-    )
+
+    async def run(name: str) -> object:
+        selected_pipeline = catalogue.get(name)
+        if selected_pipeline is None:
+            options = tuple(sorted(catalogue))
+            raise UnroutedPipelineNameError(
+                f"the router selected '{name}', which the pipeline catalogue does "
+                f"not hold. Catalogue: {options}.",
+                valid_options=options,
+                pipeline=name,
+                remedy=(
+                    "the RoutingPolicy that produced this Route selected a name outside its "
+                    "own RouteCatalogue — that is a defect in the policy plugin, not in this "
+                    "question."
+                ),
+            )
+        return await _run_pipeline(
+            selected_pipeline,
+            query_set,
+            sink=sink,
+            entry_type=QuerySet,
+            registry=registry,
+            runner=built.runner,
+            ctx=built.ctx,
+            store=built.store,
+            store_name=services.store,
+            table=built.table,
+            selected=built.selected,
+            names=services.roles,
+            catalogue=catalogue,
+            reports=reports,
+            contributions=contributions,
+        )
+
+    route, answer = await answer_with_fallback(route, run)
     answer = _require(
         answer,
         Answer,

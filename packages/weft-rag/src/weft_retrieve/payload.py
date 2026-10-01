@@ -453,6 +453,8 @@ class RuleOutcome(StrEnum):
     MATCHED = "matched"
     FELL_THROUGH = "fell-through"
     NEAREST = "nearest"
+    #: The chosen pipeline refused at run time and the route's fallback answered (44.23).
+    FELL_BACK = "fell-back"
 
 
 class Route(BaseModel):
