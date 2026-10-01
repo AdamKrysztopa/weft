@@ -166,7 +166,7 @@ interval. The records and tables are committed, and every number regenerates fro
 | question | what was tried | result against one search |
 |---|---|---|
 | Corpus-wide ("what themes recur across these papers?"), 80 questions over 16 papers | read everything · RAPTOR tree over the corpus · summarise retrieved passages · graph of extracted facts | reading everything **+0.059** [+0.030, +0.089], worth it at ~160× the tokens · RAPTOR +0.025 [0.000, +0.051], below the margin · summarise no gain · graph **−0.080**, worse |
-| Routing, 107 questions | the shipped model router and score router, against always one search | no gain (−0.000, +0.012); the model router doubles p95 latency |
+| Routing, 107 questions | the shipped model router and score router, against always one search | no gain (−0.000, +0.012); the model router doubles p95 latency. Re-run once its rungs with nothing to read were withheld: +0.022 [−0.001, +0.046], inconclusive at the +0.03 margin, 3× the p50 latency |
 | Multi-hop (MuSiQue), 600 questions | iterative retrieval, hybrid, multi-query, broad-and-refined | nothing clears +0.05; iterative +0.018 |
 | One long document (QASPER, QuALITY) | adjacent chunks, context construction | nothing clears +0.05; on QuALITY that holds even though the right document is found 99% of the time |
 

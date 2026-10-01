@@ -58,6 +58,7 @@ from uuid import uuid4
 import psycopg
 from pgvector import Vector as PgVector
 from pgvector.psycopg import register_vector_async
+from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
@@ -89,6 +90,7 @@ from weft_llm.contract import LLM, LLMRole
 from weft_prompts.cascade import execute as cascade_execute
 from weft_prompts.contract import Prompt
 from weft_store.contract import (
+    DEFAULT_TARGET,
     Cursor,
     EmbeddingIdentity,
     GenerationId,
@@ -112,10 +114,11 @@ from weft_store.contract import (
     source_stats,
     source_status,
 )
-from weft_store.pg_targets import PgTargetLayout
+from weft_store.pg_targets import PgTargetLayout, home_table, target_schema
 from weft_store.pg_targets import claim_embedding as _pg_claim_embedding
 from weft_store.pg_targets import drop_target as _pg_drop_target
 from weft_store.pg_targets import promote as _pg_promote
+from weft_store.pg_targets import read_live_target as _pg_read_live_target
 from weft_store.pg_targets import register_target_if_needed as _pg_register_target_if_needed
 from weft_store.pg_targets import resolve_active_target as _pg_resolve_active_target
 from weft_store.pg_targets import rollback as _pg_rollback
@@ -2630,6 +2633,58 @@ async def resolve_target_connection(
     return conn, home_schema, target
 
 
+async def live_graph_holds_entities(dsn: str) -> bool:
+    """Whether the live target holds at least one entity, asked without writing anything.
+
+    Carried repair **R44.13f**. `resolve_target_connection` creates extensions, catalogue tables
+    and every `kg_*` table, which a question about whether a graph exists must not do to a
+    project that only routes. This reads the live pointer if the catalogue exists (else the
+    default target), and answers `False` the moment the target's `kg_entities` is absent.
+    """
+    conn = await psycopg.AsyncConnection[dict[str, Any]].connect(
+        dsn, autocommit=True, row_factory=dict_row, prepare_threshold=None
+    )
+    try:
+        return await _live_graph_holds_entities(conn)
+    finally:
+        await conn.close()
+
+
+async def _live_graph_holds_entities(conn: "psycopg.AsyncConnection[dict[str, Any]]") -> bool:
+    async with conn.cursor() as cur:
+        await cur.execute("SELECT current_schema() AS schema")
+        row = await cur.fetchone()
+    home_schema = cast(str, row["schema"]) if row is not None else "public"
+    live_table = home_table(home_schema, _TARGET_LAYOUT.live_target_table)
+    if await _regclass_exists(conn, live_table):
+        target = await _pg_read_live_target(_TARGET_LAYOUT, conn, home_schema)
+    else:
+        target = DEFAULT_TARGET
+    schema = (
+        sql.Identifier(home_schema)
+        if target == DEFAULT_TARGET
+        else target_schema(_TARGET_LAYOUT, target)
+    )
+    entities = sql.SQL(".").join([schema, sql.Identifier("kg_entities")])
+    if not await _regclass_exists(conn, entities):
+        return False
+    async with conn.cursor() as cur:
+        await cur.execute(sql.SQL("SELECT EXISTS (SELECT 1 FROM {}) AS held").format(entities))
+        held = await cur.fetchone()
+    return held is not None and bool(held["held"])
+
+
+async def _regclass_exists(
+    conn: "psycopg.AsyncConnection[dict[str, Any]]", qualified: sql.Composable
+) -> bool:
+    async with conn.cursor() as cur:
+        await cur.execute(
+            "SELECT to_regclass(%s) IS NOT NULL AS present", (qualified.as_string(conn),)
+        )
+        row = await cur.fetchone()
+    return row is not None and bool(row["present"])
+
+
 __all__ = [
     "KG_SCHEMA_SURFACE",
     "KG_SCHEMA_VERSION",
@@ -2642,4 +2697,5 @@ __all__ = [
     "GraphTargetTableMissingError",
     "SchemaPresence",
     "UnhandledSameEntityVerdictError",
+    "live_graph_holds_entities",
 ]

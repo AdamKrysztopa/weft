@@ -38,7 +38,12 @@ import psycopg
 
 from weft_kernel.payload import NodeId
 from weft_kg.contract import Entity, EntityId
-from weft_kg.store import GraphSettings, require_dsn, resolve_target_connection
+from weft_kg.store import (
+    GraphSettings,
+    live_graph_holds_entities,
+    require_dsn,
+    resolve_target_connection,
+)
 
 
 class GraphWalk:
@@ -89,13 +94,10 @@ class GraphWalk:
 
         Not part of `GraphTraversal`: what the router asks before it offers a graph rung
         (`weft_cli.route_ask.satisfied_role_requirements`). One entity is the least a walk can
-        seed from; nodes alone are not a graph.
+        seed from; nodes alone are not a graph. It opens its own short connection and writes
+        nothing — carried repair **R44.13f**.
         """
-        conn = await self._connection()
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT EXISTS (SELECT 1 FROM kg_entities) AS held")
-            row = await cur.fetchone()
-        return row is not None and bool(row["held"])
+        return await live_graph_holds_entities(require_dsn(self._settings))
 
     async def entities_by_name(self, names: Sequence[str]) -> tuple[Entity, ...]:
         """The distinct canonical entities the named aliases currently point at.

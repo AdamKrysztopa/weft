@@ -1,0 +1,27 @@
+[experiment]
+schema = 1
+name = "route-shipped-en-r44-13"
+questions = ["<repo>/eval/questions/fetch.toml", "<repo>/eval/questions/operator.toml"]
+corpus = "<repo>/corpus/validation-en"
+manifest = "<repo>/corpus/manifest.toml"
+repeats = 2
+top_k = 5
+metrics = ["answer_correctness", "token_recall"]
+minimum_detectable_effect = 0.08
+
+[decision]
+metric = "answer_correctness"
+margin = 0.03
+direction = "higher-is-better"
+
+[[arm]]
+name = "fixed"
+pipeline = "index-openai-large-pdf"
+router = "route-fixed"
+repeats = 1
+
+[[arm]]
+name = "route"
+pipeline = "index-openai-large-pdf"
+router = "route"
+repeats = 1

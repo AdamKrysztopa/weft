@@ -52,10 +52,14 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
 from collections.abc import AsyncIterator, Mapping
+from datetime import UTC, datetime
 
 import psycopg
 import pytest
+from psycopg import sql
+from psycopg.conninfo import make_conninfo
 from pydantic import SecretStr
 
 from weft_kernel.context import Context, ServiceRegistry
@@ -77,7 +81,7 @@ from weft_kg.store import (
 from weft_kg.traversal import GraphWalk
 from weft_llm.contract import LLM
 from weft_llm.payload import Completion, Rendered
-from weft_store.contract import ReconcileMode
+from weft_store.contract import Promotion, ReconcileMode, target_name
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 
@@ -227,6 +231,74 @@ async def test_a_walk_holds_data_only_once_an_entity_exists(
     # Assert — nodes alone are not a graph; the first entity is.
     assert before is False
     assert after is True
+
+
+@pytest.fixture
+async def fresh_database() -> AsyncIterator[str]:
+    """A DSN onto a database nothing has ever provisioned, dropped by its exact name after."""
+    name = f"r4413f_{uuid.uuid4().hex[:12]}"
+    admin = await psycopg.AsyncConnection.connect(_DSN, autocommit=True)
+    async with admin.cursor() as cur:
+        await cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    try:
+        yield make_conninfo(_DSN, dbname=name)
+    finally:
+        async with admin.cursor() as cur:
+            await cur.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))
+        await admin.close()
+
+
+async def test_asking_whether_a_walk_holds_data_provisions_nothing(fresh_database: str) -> None:
+    """Carried repair **R44.13f** — a readiness question reads, it does not write.
+
+    A project that selects the `graph` role and only routes must not find `kg_*` tables in its
+    database because `weft route explain` asked.
+    """
+    # Arrange
+    walk = GraphWalk(GraphSettings(dsn=SecretStr(fresh_database)))
+
+    # Act
+    held = await walk.holds_data()
+    await walk.aclose()
+
+    # Assert
+    conn = await psycopg.AsyncConnection.connect(fresh_database, autocommit=True)
+    async with conn.cursor() as cur:
+        await cur.execute("SELECT count(*) FROM pg_tables WHERE tablename LIKE 'kg\\_%'")
+        row = await cur.fetchone()
+    await conn.close()
+    assert held is False
+    assert row == (0,)
+
+
+async def test_a_walk_reads_the_live_target_when_asked_whether_it_holds_data(
+    fresh_database: str,
+) -> None:
+    """The graph a promoted target holds is the graph the router must see."""
+    # Arrange
+    settings = GraphSettings(dsn=SecretStr(fresh_database))
+    home = GraphStore(settings)
+    await home.count()
+    candidate = await home.bind_target(target_name("w1"))
+    node = _node("Chucri wrote about adRAP.", source="doc-a")
+    await candidate.add([node])
+    await candidate.put_entity(name="Chucri", nodes=[node.id])
+    before_walk = GraphWalk(settings)
+    before = await before_walk.holds_data()
+    await before_walk.aclose()
+    await home.promote(
+        Promotion(target="w1", at=datetime.now(UTC), by="test", evidence=(), without_evidence=True)
+    )
+
+    # Act
+    walk = GraphWalk(settings)
+    after = await walk.holds_data()
+
+    # Assert — the default target is empty; the promoted one holds an entity.
+    assert before is False
+    assert after is True
+    for handle in (candidate, home, walk):
+        await handle.aclose()
 
 
 async def test_nodes_for_entities_omits_an_id_the_store_does_not_hold(

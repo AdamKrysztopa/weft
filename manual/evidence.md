@@ -199,6 +199,15 @@ that recomputed it. Edit a claim file, never this block.
   search alone. One question it routed to `corrective-retrieve`, which kept three passages, so its
   @5 retrieval metrics are undefined; `answer_correctness` excludes none. Source:
   `eval/experiments/route-shipped-en/table.md`.
+- **Re-run after rungs with nothing to read were withheld (2026-10-01).** The router now offers a
+  rung only when the index holds what it reads, and `route` was run again against `route-fixed`
+  over the same 107 questions, one repetition each, same models, about $0.65 at most. It sent none
+  of them to a RAPTOR, graph or questions rung, and `answer_correctness` moved to +0.022 (95%
+  interval −0.001 to +0.046, `inconclusive` against the +0.03 margin, `route-fixed` at 0.661).
+  `token_recall` +0.012 (−0.006 to +0.029). p50 latency was 9.0 s against 3.0 s, p95 22.8 s against
+  8.2 s. One repetition of each is a single sample: it does not show `route` helps, and it does not
+  rule it out. Source: `eval/experiments/route-shipped-en-r44-13/table.md`; the document it ran
+  from is `as-run.toml` beside it, because its digest depends on where it ran.
 - **What it means for you.** Keep `route-fixed`, the default. Choosing among the shipped rungs by
   a model's reading of the question does not answer these questions better and costs a second
   model call and latency.
