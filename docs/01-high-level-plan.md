@@ -2106,6 +2106,20 @@ All checks run in CI, before tests.
     fails. At filing: 35 files, 408 imports, none unresolved. Replayed on `24e155a~1`, it names
     `check_questions`.
     `tests/architecture/test_ff37_scripts_import_standalone.py`.
+38. **Every rule of a shipped evidence-policy router cites evidence that holds.** Added 2026-09-30
+    (task 44.24; `fix-plans/23` MUST-3 named it FF40 before FF38 and FF39 were free). For every
+    tracked first-party pipeline document with an `evidence-policy` stage, each rule cites at least
+    one claim that exists in `eval/claims/`, whose `status` is `helps` and whose `rung` is the
+    rule's `then`; the rule's `when` contains every regime predicate of each cited claim, equal or
+    tighter; it tests only declared profiler features; and a `defaults` rule cites claims from two
+    distinct populations (D9). The waiver is pinned empty. Planted, each of those fails.
+    `tests/architecture/test_ff38_policy_cites_evidence.py`.
+39. **A router's fallback can always answer.** Added 2026-09-30 (task 44.24). The fallback of every
+    shipped evidence-policy router is a tracked first-party pipeline document that carries a
+    `route.summary` and names no `route.requires` or `route.requires-nodes`, directly or through
+    `extends`. That it needs no model role beyond `generate` is **not** checked: a document does
+    not declare its stages' roles.
+    `tests/architecture/test_ff39_a_safe_fallback.py`.
 
 > **Corrected 2026-08-10 — fitness function 1, and the preamble.** This section previously opened
 > *"the single best thing in a codebase examined during design is its AST boundary checker"* and
