@@ -30,7 +30,11 @@ METRIC = "answer_correctness"
 
 
 def experiment_of(
-    directory: Path, arms: Sequence[str], *, name: str = "replay-fixture"
+    directory: Path,
+    arms: Sequence[str],
+    *,
+    name: str = "replay-fixture",
+    direction: str | None = None,
 ) -> Experiment:
     arm_tables = "".join(
         f'\n[[arm]]\nname = "{arm}"\npipeline = "index"\nquery_pipeline = "rung-{arm}"\n'
@@ -40,7 +44,13 @@ def experiment_of(
     path.write_text(
         f'[experiment]\nschema = {EXPERIMENT_SCHEMA_VERSION}\nname = "{name}"\n'
         'questions = "questions.toml"\ncorpus = "corpus"\nrepeats = 2\ntop_k = 5\n'
-        f'metrics = ["{METRIC}"]\nminimum_detectable_effect = 0.05\n' + arm_tables,
+        f'metrics = ["{METRIC}"]\nminimum_detectable_effect = 0.05\n'
+        + (
+            f'\n[decision]\nmetric = "{METRIC}"\nmargin = 0.05\ndirection = "{direction}"\n'
+            if direction is not None
+            else ""
+        )
+        + arm_tables,
         encoding="utf-8",
     )
     return load_experiment(path)

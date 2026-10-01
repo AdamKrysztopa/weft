@@ -28,7 +28,7 @@ from collections.abc import Mapping, Sequence
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft_eval.evidence import select_invocation
-from weft_eval.experiment import Experiment, ExperimentArm
+from weft_eval.experiment import Direction, Experiment, ExperimentArm
 from weft_eval.falsify import (
     PairedDifference,
     UnpairableRecordsError,
@@ -169,23 +169,29 @@ def _row(
     )
 
 
-def _oracle_scores(produced_by_arm: Mapping[str, Mapping[str, float]]) -> dict[str, float]:
+def _oracle_scores(
+    produced_by_arm: Mapping[str, Mapping[str, float]], *, lower_is_better: bool
+) -> dict[str, float]:
     """Each question's best score among the arms that scored it."""
+    best = min if lower_is_better else max
     keys: set[str] = set()
     for scores in produced_by_arm.values():
         keys.update(scores)
     return {
-        key: max(scores[key] for scores in produced_by_arm.values() if key in scores)
+        key: best(scores[key] for scores in produced_by_arm.values() if key in scores)
         for key in keys
     }
 
 
-def _self_oracle_scores(rep1: Mapping[str, float], rep2: Mapping[str, float]) -> dict[str, float]:
+def _self_oracle_scores(
+    rep1: Mapping[str, float], rep2: Mapping[str, float], *, lower_is_better: bool
+) -> dict[str, float]:
     """Each question's better score between the best arm's repetition 1 and repetition 2."""
+    best = min if lower_is_better else max
     result: dict[str, float] = {}
     for key in set(rep1) | set(rep2):
         candidates = [scores[key] for scores in (rep1, rep2) if key in scores]
-        result[key] = max(candidates)
+        result[key] = best(candidates)
     return result
 
 
@@ -200,6 +206,16 @@ def _arm_rows(
         for arm in experiment.arms
         if arm.name in produced_by_arm
     ]
+
+
+def _lower_is_better(experiment: Experiment, metric: str) -> bool:
+    """Whether the experiment's own decision on `metric` says a lower score is better (R44.19)."""
+    decision = experiment.decision
+    return (
+        decision is not None
+        and decision.metric == metric
+        and decision.direction is Direction.LOWER_IS_BETTER
+    )
 
 
 def replay(
@@ -235,19 +251,23 @@ def replay(
             valid_options=valid_options,
         )
 
-    best_arm_name = max(
+    lower = _lower_is_better(experiment, metric)
+    best_arm_name = sorted(
         produced_by_arm,
         key=lambda name: sum(produced_by_arm[name].values()) / len(produced_by_arm[name]),
-    )
+        reverse=not lower,
+    )[0]
     best_scores = produced_by_arm[best_arm_name]
 
     rows = _arm_rows(experiment, produced_by_arm, metric, best_scores)
-    rows.append(_row("oracle", _oracle_scores(produced_by_arm), metric, best_scores))
+    rows.append(
+        _row("oracle", _oracle_scores(produced_by_arm, lower_is_better=lower), metric, best_scores)
+    )
 
     best_arm = next(arm for arm in experiment.arms if arm.name == best_arm_name)
     if experiment.repeats_for(best_arm) >= 2:
         rep2_scores = _produced_scores(by_key[(best_arm_name, 2)], metric)
-        self_oracle_scores = _self_oracle_scores(best_scores, rep2_scores)
+        self_oracle_scores = _self_oracle_scores(best_scores, rep2_scores, lower_is_better=lower)
         if self_oracle_scores:
             rows.append(_row("self-oracle", self_oracle_scores, metric, best_scores))
 

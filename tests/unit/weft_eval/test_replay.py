@@ -79,6 +79,39 @@ def test_a_question_no_arm_scored_is_excluded_from_every_row_and_counted(tmp_pat
     assert {row.n for row in table.rows} == {2}
 
 
+def test_a_lower_is_better_decision_makes_the_oracle_and_the_best_arm_the_lowest(
+    tmp_path: Path,
+) -> None:
+    # Arrange — R44.19: a cost-like metric. a is always low, b always high, so a is better.
+    experiment = experiment_of(tmp_path, ("a", "b"), direction="lower-is-better")
+    records = records_of(experiment, {"a": {"q1": 0.1, "q2": 0.3}, "b": {"q1": 0.9, "q2": 0.2}})
+
+    # Act
+    table = replay(experiment, records, metric=METRIC)
+
+    # Assert
+    rows = _rows(table.rows)
+    assert table.best_arm == "a"
+    assert rows["oracle"].mean == pytest.approx((0.1 + 0.2) / 2)
+    oracle_delta = rows["oracle"].delta
+    assert oracle_delta is not None
+    assert oracle_delta.mean == pytest.approx((0.0 + -0.1) / 2)
+
+
+def test_with_no_decision_the_oracle_still_takes_the_highest(
+    tmp_path: Path,
+) -> None:
+    # Arrange — nothing declares a direction, so higher is better as before.
+    experiment = experiment_of(tmp_path, ("a", "b"))
+    records = records_of(experiment, {"a": {"q1": 0.1, "q2": 0.3}, "b": {"q1": 0.9, "q2": 0.2}})
+
+    # Act
+    table = replay(experiment, records, metric=METRIC)
+
+    # Assert
+    assert _rows(table.rows)["oracle"].mean == pytest.approx((0.9 + 0.3) / 2)
+
+
 def test_always_x_replays_to_exactly_arm_x(tmp_path: Path) -> None:
     # Arrange
     experiment = experiment_of(tmp_path, ("a", "b"))
