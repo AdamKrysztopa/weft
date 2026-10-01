@@ -11,6 +11,10 @@ what the records say today.
 the wrong thing, or was never run — so a claim stating one is reported as asserted rather than
 checked. A `basis = "ledger"` claim has no records to recompute and is reported as such.
 
+A rung or baseline is resolved against the experiment's own arms and never taken from a task
+line (`L28.86`); a pipeline run by more than one arm is refused until the claim names one with
+`arm`/`baseline_arm`, never resolved to the last (`L28.87`).
+
 **Staleness** is a warning, never a refusal: a claim whose records were written by a different major
 version of `weft-rag` than the one running is marked, so a reader knows the evidence predates the
 code. A pipeline-identity and default-model comparison is not made here.

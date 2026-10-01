@@ -53,7 +53,8 @@ def rendered() -> str:
     return render_claims_table(entries, shipped_rungs=_shipped_rungs())
 
 
-# Each of the claims bootstraps its interval from its records; 60 s does not cover them all.
+# Each of the claims bootstraps its interval from its records; 60 s does not cover them all
+# (L28.88).
 @pytest.mark.timeout(300)
 def test_the_rung_table_equals_the_render_of_the_claims() -> None:
     # Act
