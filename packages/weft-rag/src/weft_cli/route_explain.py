@@ -5,6 +5,12 @@ query profile, the corpus profile (from the one `list_sources()` read an ask mak
 `Route`. It reads only and answers nothing; under `--json` it is one object with `query_profile`,
 `corpus_profile` and `route`.
 
+The query profile is what the configured router's own scorer measured (the `Scorecard`'s features
+without the `corpus.*` ones, which the corpus profile prints) — never a profile recomputed with
+Weft's default cues, which would show an operator's own cue lexicon, or a third party's scorer, as
+something it is not (R44.17). A scorer that emits scores and no features, such as `query-scorer`,
+shows an empty profile.
+
 **Reads only, on purpose.** The identical footing `weft_cli.eval_replay.EvalReplayCommand`
 already holds: `permission_class` is `READ`, and every value this command prints comes from
 `weft_cli.route_ask.explain_route`, which never runs the rung the router names.
@@ -30,7 +36,7 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Outcome, Produced
 from weft_retrieve.payload import RouteView
-from weft_retrieve.profile import CorpusProfile, corpus_profile, profile_query
+from weft_retrieve.profile import CorpusProfile, corpus_profile
 from weft_store.coverage import layer_coverage_of, ready_layers
 
 _ROUTE_EXPLAIN_HELP = (
@@ -120,7 +126,11 @@ class RouteExplainCommand:
         return Produced(
             value=RouteExplainCommandResult(
                 question=explain_args.question,
-                query_profile=profile_query(explain_args.question, locale=ctx.locale).features(),
+                query_profile={
+                    name: value
+                    for name, value in route.scorecard.features.items()
+                    if not name.startswith("corpus.")
+                },
                 corpus_profile=corpus,
                 route=route.view(),
             )

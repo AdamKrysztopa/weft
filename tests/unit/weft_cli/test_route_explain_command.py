@@ -13,7 +13,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from tests.unit.weft_cli.routed import routed_to
 from weft_cli import route_explain as route_explain_module
 from weft_cli.exit_codes import ExitCode
 from weft_cli.render import render_outcome
@@ -26,7 +25,7 @@ from weft_kernel.context import Context
 from weft_kernel.discovery import PackReport, PackStatus
 from weft_kernel.payload import Produced, SourceId
 from weft_kernel.registry import Registry
-from weft_retrieve.payload import Route
+from weft_retrieve.payload import Query, Route, RuleOutcome, Scorecard
 from weft_store import NodeStore, SourceRecord, SourceStats
 from weft_store.memory import MemoryStore
 
@@ -68,13 +67,30 @@ def _records() -> tuple[SourceRecord, ...]:
     )
 
 
+def _route_measuring(features: dict[str, int | float | bool]) -> Route:
+    """A `Route` whose scorer measured exactly `features` — what the router itself saw."""
+    return Route(
+        pipeline="retrieve-then-generate",
+        outcome=RuleOutcome.MATCHED,
+        rule="always",
+        scorecard=Scorecard(query=Query(text="q"), scores={}, features=features),
+    )
+
+
+_MEASURED: dict[str, int | float | bool] = {
+    "query.word_count": 5,
+    "query.cue.comparison": False,
+    "corpus.documents": 1,
+}
+
+
 @pytest.fixture
 def explained(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     asked: list[str] = []
 
     async def _explain(question: str, **_kwargs: object) -> Route:
         asked.append(question)
-        return routed_to("retrieve-then-generate")
+        return _route_measuring(_MEASURED)
 
     async def _records_read(deps: object, target: object) -> Produced[tuple[SourceRecord, ...]]:
         del deps, target
@@ -122,3 +138,42 @@ def test_the_command_only_reads() -> None:
     # Assert
     assert RouteExplainCommand.permission_class is PermissionClass.READ
     assert RouteExplainCommand.help
+
+
+async def _json_of(monkeypatch: pytest.MonkeyPatch, route: Route) -> dict[str, object]:
+    async def _explain(question: str, **_kwargs: object) -> Route:
+        del question
+        return route
+
+    async def _records_read(deps: object, target: object) -> Produced[tuple[SourceRecord, ...]]:
+        del deps, target
+        return Produced(value=_records())
+
+    monkeypatch.setattr(route_explain_module, "explain_route", _explain)
+    monkeypatch.setattr(route_explain_module, "source_records", _records_read)
+    outcome = await RouteExplainCommand().run(RouteExplainArgs(question="q"), _ctx())
+    return json.loads(render_outcome(outcome, as_json=True).stdout or "")
+
+
+async def test_the_query_profile_is_what_the_routers_own_scorer_measured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R44.17: a custom cue set or a third-party scorer is shown as itself."""
+    # Arrange — a scorer emitting a feature no default profiler knows, beside the corpus ones.
+    route = _route_measuring({"query.word_count": 9, "acme.risk": 0.9, "corpus.documents": 1})
+
+    # Act
+    document = await _json_of(monkeypatch, route)
+
+    # Assert
+    assert document["query_profile"] == {"query.word_count": 9, "acme.risk": 0.9}
+
+
+async def test_a_router_whose_scorer_measures_no_feature_shows_an_empty_query_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Act — an LLM scorer emits scores, not features: Weft's defaults are not its measurement.
+    document = await _json_of(monkeypatch, _route_measuring({}))
+
+    # Assert
+    assert document["query_profile"] == {}
