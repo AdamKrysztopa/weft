@@ -58,7 +58,7 @@ from pathlib import PurePath
 from types import MappingProxyType
 from typing import Any, Final, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from weft_cli.ask import run_ask
 from weft_cli.progress import ScoringProgress, ScoringStage
@@ -125,7 +125,7 @@ from weft_llm.errors import LLMGenerationLoopError
 from weft_llm.usage import UsageEntry, record_usage, recording_usage
 from weft_prompts.typed_prompt import TypedPrompt, prompt_digest
 from weft_retrieve.payload import Passage, Query, Ranking, RouteView
-from weft_retrieve.profile import PROFILER_VERSION, profile_query
+from weft_retrieve.profile import PROFILER_VERSION, CorpusProfile, corpus_profile, profile_query
 from weft_store import NodeStore, Scored, SourceRecord
 from weft_store.coverage import layer_coverage_of, ready_layers
 
@@ -1026,7 +1026,7 @@ async def _routed_question_hits(
     generation_samples: list[tuple[str, GenerationSample]],
     contributors: dict[str, tuple[str, ...]],
     question_routes: dict[str, RouteView],
-    ready_layers: frozenset[str],
+    store_view: RouterStoreView,
     target: str | None = None,
 ) -> Sequence[Scored[Node]]:
     """Answer one question through `router` and return its hits — ledger task **44.5**.
@@ -1039,7 +1039,7 @@ async def _routed_question_hits(
     as a named generating rung's does. Raises `PipelineDidNotProduceError`/`weft_llm.errors.
     LLMGenerationLoopError` unchanged, for the caller's own per-question exclusion.
 
-    `ready_layers` — ledger task **R44.13a** — is `_router_ready_layers`'s one read for this
+    `ready_layers` — ledger task **R44.13a** — is `_router_store_view`'s one read for this
     whole scoring run, threaded straight through to `run_routed_ask` so this arm never offers a
     rung `weft ask` would withhold.
     """
@@ -1055,7 +1055,8 @@ async def _routed_question_hits(
         sink=sink if sink is not None else NullSink(),
         contributions=contributions,
         roles=roles if roles is not None else RoleTable(),
-        ready_layers=ready_layers,
+        ready_layers=store_view.ready_layers,
+        corpus=store_view.corpus,
         target=target,
     )
     question_routes[question.id] = route.view()
@@ -1346,7 +1347,8 @@ async def read_source_records(
     `None` when `store` carries no `list_sources` at all — `weft_cli.commands.
     _read_sources_by_store`'s own "skipped, not refused" reading. Shared by
     `weft_cli.eval_commands._refuse_layers_not_as_named` (ledger task **44.55a**) and
-    `_router_ready_layers` below (ledger task **R44.13a**), so this store-reading walk exists once.
+    `_router_store_view` below (ledger tasks **R44.13a**, **R44.16**), so this store-reading walk
+    exists once.
     """
     entry = registry.entry(NodeStore, store_name)
     if not hasattr(store, "list_sources"):
@@ -1385,13 +1387,32 @@ async def read_source_records(
     return listed.value
 
 
-async def _router_ready_layers(
-    *, registry: Registry, services: ServiceSelection | None, target: str | None
-) -> frozenset[str]:
-    """The layers `[services] store` has built everywhere, read once for a whole scoring run.
+class RouterStoreView(BaseModel):
+    """What a router arm reads of the store, read once for a whole scoring run.
+
+    The two facts `weft ask` hands a router before every ask: which layers are built everywhere
+    (`ready_layers`, R44.13a) and the corpus's own shape (`corpus`, R44.16). `corpus` is `None`
+    where the store lists no sources, so a policy testing a `corpus.*` feature sees it unknown.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
+
+    ready_layers: frozenset[str]
+    corpus: CorpusProfile | None
+
+
+async def _router_store_view(
+    *,
+    registry: Registry,
+    services: ServiceSelection | None,
+    llm: LLMSection | None,
+    target: str | None,
+) -> RouterStoreView:
+    """The layers `[services] store` has built everywhere and its corpus profile, read once.
 
     The walk `weft ask` takes before every ask, so a router arm is offered what `weft ask` would
-    offer (R44.13a). A store with no `list_sources` has no layer ready, as `weft ask` reads it.
+    offer (R44.13a) and tests the features `weft ask` would give it (R44.16). A store with no
+    `list_sources` has no layer ready and no corpus profile, as `weft ask` reads it.
     """
     resolved_services = services if services is not None else ServiceSelection()
     store = await bind_store(
@@ -1401,8 +1422,15 @@ async def _router_ready_layers(
     )
     records = await read_source_records(registry, store, store_name=resolved_services.store)
     if records is None:
-        return frozenset()
-    return ready_layers(layer_coverage_of(records))
+        return RouterStoreView(ready_layers=frozenset(), corpus=None)
+    generate_role = llm.roles.roles.get("generate") if llm is not None else None
+    return RouterStoreView(
+        ready_layers=ready_layers(layer_coverage_of(records)),
+        corpus=corpus_profile(
+            records,
+            context_tokens=generate_role.context_tokens if generate_role is not None else None,
+        ),
+    )
 
 
 async def _question_hits(
@@ -1426,7 +1454,7 @@ async def _question_hits(
     contributors: dict[str, tuple[str, ...]],
     question_pools: dict[str, tuple[PoolChunk, ...]],
     question_routes: dict[str, RouteView],
-    ready_layers: frozenset[str],
+    store_view: RouterStoreView,
     capture_pool: bool,
     top_k: int,
     embed_stage: ResolvedStage,
@@ -1449,7 +1477,7 @@ async def _question_hits(
             generation_samples=generation_samples,
             contributors=contributors,
             question_routes=question_routes,
-            ready_layers=ready_layers,
+            store_view=store_view,
             target=target,
         )
     if query_pipeline is not None and generates:
@@ -1554,7 +1582,7 @@ async def _answered_question(
     contributors: dict[str, tuple[str, ...]],
     question_pools: dict[str, tuple[PoolChunk, ...]],
     question_routes: dict[str, RouteView],
-    ready_layers: frozenset[str],
+    store_view: RouterStoreView,
     capture_pool: bool,
     top_k: int,
     embed_stage: ResolvedStage,
@@ -1591,7 +1619,7 @@ async def _answered_question(
                 sink=sink,
                 contributions=contributions,
                 generation_samples=generation_samples,
-                ready_layers=ready_layers,
+                store_view=store_view,
                 contributors=contributors,
                 question_pools=question_pools,
                 question_routes=question_routes,
@@ -2010,10 +2038,10 @@ async def score_pipeline(
 
     # Ledger task R44.13a — one read for the whole run, never per question; a query-pipeline
     # or no-query-rung run offers no router arm, so it reads no source records for this at all.
-    router_ready_layers = (
-        await _router_ready_layers(registry=registry, services=services, target=target)
+    router_store_view = (
+        await _router_store_view(registry=registry, services=services, llm=llm, target=target)
         if router is not None
-        else frozenset[str]()
+        else RouterStoreView(ready_layers=frozenset(), corpus=None)
     )
 
     # Task 38.11 — `weft_eval.question_set.Question.id` is required, so every question has an
@@ -2092,7 +2120,7 @@ async def score_pipeline(
                     contributors=contributors,
                     question_pools=question_pools,
                     question_routes=question_routes,
-                    ready_layers=router_ready_layers,
+                    store_view=router_store_view,
                     capture_pool=capture_pool,
                     top_k=top_k,
                     embed_stage=embed_stage,

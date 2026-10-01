@@ -67,6 +67,7 @@ from weft_llm.client import NullSink
 from weft_prompts.contract import Prompt
 from weft_retrieve import ContextPacker, Fuser, NoRetrieval, Repack, Retriever, SingleList
 from weft_retrieve.payload import RouteView, RuleOutcome
+from weft_retrieve.profile import CorpusProfile
 from weft_store import LayerRecord, LayerStatus, NodeStore, SourceRecord, SourceStatus
 from weft_store.memory import MemoryStore
 
@@ -667,6 +668,66 @@ async def test_a_router_arm_is_offered_only_the_layers_the_store_has_built(
     # Assert
     assert offered_built == [frozenset({"enrich-x"})]
     assert offered_failed == [frozenset()]
+
+
+async def _corpus_offered(
+    monkeypatch: pytest.MonkeyPatch, registry: Registry, store: str
+) -> list[object]:
+    """Score one question through a router and return the `corpus` each ask was handed."""
+    monkeypatch.setattr(
+        route_ask_module,
+        "full_catalogue",
+        _stub_catalogue({"router-x": _query_document(name="router-x")}),
+    )
+    offered: list[object] = []
+
+    async def _routed(question: str, **kwargs: object) -> tuple[object, object]:
+        del question
+        offered.append(kwargs.get("corpus", "not passed"))
+        return routed_to("rung-a"), _FakeAnswer(used=())
+
+    monkeypatch.setattr(eval_scoring_module, "run_routed_ask", _routed)
+    monkeypatch.setattr(eval_scoring_module, "score_retrieval_gate_subset", _no_metrics)
+    await score_pipeline(
+        registry=registry,
+        resolved_pipeline=_ingest_resolved(),
+        questions=(_question("q-1", "why"),),
+        top_k=3,
+        ctx=_ctx(),
+        router="router-x",
+        services=ServiceSelection(embed="fake-embed", store=store),
+        corpus_document_ids=("doc-a",),
+    )
+    return offered
+
+
+async def test_a_router_arm_is_handed_the_corpus_profile_weft_ask_hands_a_router(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R44.16: a measured router must be the shipped one once a policy reads `corpus.*`."""
+    # Arrange
+    built = await _store_with_layer(LayerStatus.ACTIVE)
+    registry = _query_registry()
+    registry.add(NodeStore, "built-store", _serving(built), distribution="weft-store")
+
+    # Act
+    (corpus,) = await _corpus_offered(monkeypatch, registry, "built-store")
+
+    # Assert
+    assert isinstance(corpus, CorpusProfile)
+    assert corpus.documents == 1
+    assert corpus.layers["enrich-x"].ready is True
+    assert corpus.features()["corpus.documents"] == 1
+
+
+async def test_a_router_arm_over_a_store_that_lists_no_sources_is_handed_no_corpus_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Act
+    offered = await _corpus_offered(monkeypatch, _query_registry(), "fake-store")
+
+    # Assert
+    assert offered == [None]
 
 
 async def test_a_router_arm_over_a_store_that_lists_no_sources_is_offered_no_layer(
