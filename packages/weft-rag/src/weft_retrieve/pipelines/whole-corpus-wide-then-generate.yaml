@@ -14,6 +14,9 @@ vars:
   route.summary: >-
     Reads every leaf of the corpus into one prompt — for a corpus that fits the model's context,
     and questions that need the whole of it.
+  # It counts every leaf against `max_tokens` with the `generate` role's provider, so the router
+  # offers it only when that provider can.
+  route.requires-token-counting: generate
 
 set:
   - {id: retrieve, with: {max_tokens: 260000}}

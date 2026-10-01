@@ -25,7 +25,12 @@ import yaml
 
 from .conftest import REPO_ROOT, tracked_files
 
-_REQUIRES = ("route.requires", "route.requires-nodes", "route.requires-role")
+_REQUIRES = (
+    "route.requires",
+    "route.requires-nodes",
+    "route.requires-role",
+    "route.requires-token-counting",
+)
 _SUMMARY = "route.summary"
 
 

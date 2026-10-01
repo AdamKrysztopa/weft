@@ -35,6 +35,19 @@ class _Catalogue:
         return frozenset({WHOLE, DENSE})
 
 
+class _WithheldWhole:
+    """A catalogue that left the whole-corpus rung out and kept the reason."""
+
+    def candidates(self) -> tuple[RouteCandidate, ...]:
+        return (RouteCandidate(name=DENSE),)
+
+    def names(self) -> frozenset[str]:
+        return frozenset({DENSE})
+
+    def withheld_reason(self, name: str) -> str | None:
+        return "its 'generate' role's provider cannot count tokens" if name == WHOLE else None
+
+
 def _config(budget: int | None = None) -> EvidencePolicyConfig:
     loaded: Any = yaml.safe_load(DOCUMENT.read_text(encoding="utf-8"))
     decide = next(stage for stage in loaded["stages"] if stage["id"] == "decide")
@@ -44,9 +57,9 @@ def _config(budget: int | None = None) -> EvidencePolicyConfig:
     return EvidencePolicyConfig.model_validate(config)
 
 
-def _ctx() -> Context:
+def _ctx(catalogue: RouteCatalogue | None = None) -> Context:
     services = ServiceRegistry()
-    services.add(RouteCatalogue, _Catalogue())
+    services.add(RouteCatalogue, _Catalogue() if catalogue is None else catalogue)
     return Context(tenant_id="t", run_id="r", trace_id="x", locale="en", services=services)
 
 
@@ -181,3 +194,18 @@ async def test_the_partial_corpus_becomes_eligible_the_moment_it_completes() -> 
     # Assert
     assert before_route[0] == DENSE
     assert after_route[0] == WHOLE
+
+
+async def test_a_rung_the_catalogue_withheld_is_skipped_with_the_reason_it_kept() -> None:
+    # Arrange — everything holds; only the provider's missing count keeps the rung out.
+    ctx = _ctx(_WithheldWhole())
+
+    # Act
+    outcome = await EvidencePolicy(_config(budget=300_000)).run(_card(tokens=253_408), ctx)
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert (outcome.value.pipeline, outcome.value.outcome) == (DENSE, RuleOutcome.FELL_THROUGH)
+    reasons = " ".join(outcome.value.reasons)
+    assert f"rung '{WHOLE}' is not offered" in reasons
+    assert "provider cannot count tokens" in reasons

@@ -585,6 +585,9 @@ not recompute a claim or compare fingerprints: `weft eval claims check` does tha
 records, in a source checkout. Run it with `WEFT_DATABASE_URL` (or `weft.toml`'s store) set after
 changing a rung a claim cites; without a configured store it cannot resolve the pipelines and reads
 every claim *possibly stale*.
+The whole-corpus rung is offered only when the `generate` role's provider can count tokens, which
+is asked before routing and makes no model call; otherwise the rule is skipped, the route says the
+provider cannot count, and the ask is answered by `retrieve-then-generate`.
 If whole-corpus reading refuses at run time because the corpus counted past its bound, the ask is
 answered by `retrieve-then-generate` and the route says it fell back. To bypass the router for one
 question, `weft ask --pipeline <name>`.

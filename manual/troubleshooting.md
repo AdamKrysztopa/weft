@@ -2294,7 +2294,8 @@ The answer then says under it how far the layer has got.
 
 ```text
 'my-rung' sets 'route.require', which the router does not read. A routable document reads:
-route.cost, route.requires, route.requires-nodes, route.requires-role, route.summary.
+route.cost, route.requires, route.requires-nodes, route.requires-role,
+route.requires-token-counting, route.summary.
 ```
 
 **Why** — a misspelt key would be ignored: `route.require` would leave a rung offered over a
@@ -3196,6 +3197,12 @@ count would silently over- or under-fill a budgeted prompt, so this is refused r
 An `openai-compatible` account never counts, whatever `[packs.openai-compatible] stream_usage`
 says — its model names are not the vendor's, and the vendor's encoder would count an aliased model
 wrongly.
+
+A router no longer reaches this error by choosing `whole-corpus-wide-then-generate`: that rung
+declares `route.requires-token-counting: generate`, so it is left out of what the router may offer
+when the `generate` role's provider cannot count, and `weft route explain` says so ("rung … is not
+offered, because its 'generate' role's provider cannot count tokens"). The error is still what you
+get from `weft ask --pipeline` naming such a rung directly, which no router stands in front of.
 
 ### `CorpusOverTokenBoundError`
 

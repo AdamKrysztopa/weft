@@ -107,13 +107,14 @@ class EvidencePolicy:
         )
         if unknown is not None:
             return Failed(reason=unknown_name_reason(EVIDENCE_POLICY_NAME, unknown, payload))
-        offered = ctx.require(RouteCatalogue).names()
+        catalogue = ctx.require(RouteCatalogue)
+        offered = catalogue.names()
         receipt = self._receipt(payload)
         skipped: list[str] = []
         for rule in self._rules:
             if not all(condition_holds(condition, payload) for condition in rule.when):
                 continue
-            problem = self._problem_with(rule, payload, offered)
+            problem = self._problem_with(rule, payload, offered, catalogue)
             if problem is not None:
                 skipped.append(f"rule '{rule.name}' held but was skipped: {problem}")
                 continue
@@ -164,10 +165,12 @@ class EvidencePolicy:
         return fallback if fallback != chosen and fallback in offered else None
 
     def _problem_with(
-        self, rule: PolicyRule, card: Scorecard, offered: frozenset[str]
+        self, rule: PolicyRule, card: Scorecard, offered: frozenset[str], catalogue: RouteCatalogue
     ) -> str | None:
         if rule.then not in offered:
-            return f"rung '{rule.then}' is not offered"
+            return (
+                f"rung '{rule.then}' is not offered{self._withheld_because(catalogue, rule.then)}"
+            )
         ceiling = self._config.constraints.max_prompt_tokens
         if ceiling is not None and rule.prompt_tokens is not None:
             cost = self._prompt_cost(rule.prompt_tokens, card)
@@ -179,6 +182,17 @@ class EvidencePolicy:
         if calls is not None and rule.model_calls is not None and rule.model_calls > calls:
             return f"its {rule.model_calls} model calls exceed max_model_calls {calls}"
         return None
+
+    @staticmethod
+    def _withheld_because(catalogue: RouteCatalogue, rung: str) -> str:
+        """`: <reason>` when the catalogue kept one for leaving `rung` out, else nothing.
+
+        `withheld_reason` is an optional capability of a catalogue, read the way a policy reads any
+        optional one, so the `RouteCatalogue` contract and its version do not move.
+        """
+        why = getattr(catalogue, "withheld_reason", None)
+        reason = why(rung) if callable(why) else None
+        return f", because {reason}" if isinstance(reason, str) else ""
 
     @staticmethod
     def _prompt_cost(cost: int | PromptCost, card: Scorecard) -> int | None:

@@ -99,7 +99,9 @@ from weft_kernel.registry import Registry, RegistryEntry
 from weft_kernel.resolution import Contribution, ResolvedPipeline, resolve
 from weft_kernel.runner import PipelineResolutionError, Runner, StageSpec
 from weft_kernel.seam import aclose
+from weft_llm.client import llm_service
 from weft_llm.contract import LLMProvider, TokenSink
+from weft_llm.errors import TokenCountUnavailableError
 from weft_retrieve.contract import RoutingPolicy
 from weft_retrieve.engine import (
     node_requirement_filter,
@@ -108,6 +110,8 @@ from weft_retrieve.engine import (
     role_requirements,
     roles_needed,
     route_catalogue,
+    token_counting_requirement_token,
+    token_counting_requirements,
 )
 from weft_retrieve.payload import Passages, Query, QuerySet, Ranking, Route, RuleOutcome
 from weft_retrieve.profile import CorpusProfile
@@ -417,7 +421,13 @@ async def _router_and_prepared_runner(
     """
     catalogue = full_catalogue(reports=reports)
     ready_layers = await with_satisfied_requirements(
-        ready_layers, catalogue, registry=registry, services=services, roles=roles, target=target
+        ready_layers,
+        catalogue,
+        registry=registry,
+        services=services,
+        roles=roles,
+        target=target,
+        llm=llm,
     )
     router_name = services.route
     router = catalogue.get(router_name)
@@ -1592,8 +1602,9 @@ async def with_satisfied_requirements(
     services: ServiceSelection,
     roles: RoleTable,
     target: str | None,
+    llm: LLMSection | None = None,
 ) -> frozenset[str] | None:
-    """`ready_layers`, plus every rung requirement the store or a role's service satisfies.
+    """`ready_layers`, plus every rung requirement the store, a role's service or provider meets.
 
     Carried repairs **R44.13b/c** (`route.requires-nodes`, asked of the store) and **R44.13e**
     (`route.requires-role`, asked of the service selected for the role).
@@ -1613,7 +1624,44 @@ async def with_satisfied_requirements(
     satisfied |= await satisfied_role_requirements(
         role_requirements(catalogue), registry=registry, services=services, roles=roles
     )
+    counting = token_counting_requirements(catalogue)
+    if counting:
+        if llm is None:
+            raise ValueError(
+                "a rung names route.requires-token-counting, so `llm` (the [llm] section) is "
+                "needed to ask its role's provider whether it counts."
+            )
+        satisfied |= await satisfied_token_counting(counting, registry=registry, llm=llm)
     return ready_layers | satisfied
+
+
+async def satisfied_token_counting(
+    requirements: frozenset[str], *, registry: Registry, llm: LLMSection
+) -> frozenset[str]:
+    """Each role in `requirements` whose provider counts its model, as `counts:<role>`.
+
+    The question `whole-corpus` asks while it runs, asked before the rung is offered. Counting is
+    local to the provider's encoder, so this makes no model call. A role `[llm.roles]` does not map
+    is left unsatisfied rather than refused: the router's own role check already names it, and
+    only `TokenCountUnavailableError` means "cannot count" — any other failure is not that.
+    """
+    mapped = [role for role in sorted(requirements) if role in llm.roles.roles]
+    if not mapped:
+        return frozenset()
+    client = llm_service(
+        registry=registry, roles=llm.roles, retry=llm.retry, loop_guard=llm.loop_guard
+    )
+    satisfied: set[str] = set()
+    try:
+        for role in mapped:
+            try:
+                await client.count_tokens(role, "x")
+            except TokenCountUnavailableError:
+                continue
+            satisfied.add(token_counting_requirement_token(role))
+    finally:
+        await client.close()
+    return frozenset(satisfied)
 
 
 async def _satisfied_in_store(

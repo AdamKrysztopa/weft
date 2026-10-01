@@ -61,6 +61,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   rule at fault, instead of passing because fitness function 38 only reads the shipped documents.
   The wheel now carries the claim documents (`weft_eval/shipped_claims/`), and a project's own
   `eval/claims/` adds to them. Nothing is recomputed per question.
+- **A router no longer chooses a rung it cannot run for want of a token count.** The whole-corpus
+  rung declares `route.requires-token-counting: generate` and is offered only when that role's
+  provider counts tokens, asked before routing with no model call. Over a provider that cannot, a
+  budgeted `route-by-evidence` answered by the rung and then failed with `TokenCountUnavailableError`;
+  it now skips the rule, says why in the route's reasons, and answers through `retrieve-then-generate`.
+  `weft route explain` also prints the `facts` the decision turned on.
 - **`route-by-evidence` ships one rule, not none.** The operations guide and this file said it
   shipped empty; it reads the whole corpus for a complete corpus of 200,000 to 260,000 tokens when
   you give it a budget, and is not the default.

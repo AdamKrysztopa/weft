@@ -76,6 +76,11 @@ _ROUTE_REQUIRES_NODES_VAR = "route.requires-nodes"
 #: traversal) names the `[services]` role key here. It is offered only when the plugin selected
 #: for that role reports it holds data (`weft_cli.route_ask.satisfied_role_requirements`).
 _ROUTE_REQUIRES_ROLE_VAR = "route.requires-role"
+#: A rung that reads under a token bound (`whole-corpus`) names the `[llm.roles]` role whose
+#: provider must count tokens. It is offered only when that provider counts the role's model
+#: (`weft_cli.route_ask.satisfied_token_counting`), so a provider that cannot is found out before
+#: routing, not after the rung was chosen.
+_ROUTE_REQUIRES_COUNTING_VAR = "route.requires-token-counting"
 #: Carried repair **R43.13** — every `route.` var a routable document may write, sorted:
 #: `UnknownRouteVarError`'s own `valid_options`, derived rather than restated so the four
 #: constants above stay the one place this set is spelled.
@@ -87,6 +92,7 @@ _ROUTE_VARS: tuple[str, ...] = tuple(
             _ROUTE_REQUIRES_VAR,
             _ROUTE_REQUIRES_NODES_VAR,
             _ROUTE_REQUIRES_ROLE_VAR,
+            _ROUTE_REQUIRES_COUNTING_VAR,
         )
     )
 )
@@ -167,6 +173,8 @@ def _check_route_vars(name: str, pipeline: Pipeline) -> None:
         _validated_node_requirement(name, pipeline.vars[_ROUTE_REQUIRES_NODES_VAR])
     if _ROUTE_REQUIRES_ROLE_VAR in pipeline.vars:
         _validated_role_requirement(name, pipeline.vars[_ROUTE_REQUIRES_ROLE_VAR])
+    if _ROUTE_REQUIRES_COUNTING_VAR in pipeline.vars:
+        _validated_counting_requirement(name, pipeline.vars[_ROUTE_REQUIRES_COUNTING_VAR])
 
 
 def _validated_node_requirement(name: str, value: object) -> str:
@@ -192,6 +200,31 @@ def _validated_role_requirement(name: str, value: object) -> str:
             pipeline=name,
         )
     return value.strip()
+
+
+def _validated_counting_requirement(name: str, value: object) -> str:
+    """`value`, as an LLM role key, once it has proven itself a non-blank string."""
+    if not isinstance(value, str) or not value.strip():
+        raise MalformedRouteRequirementError(
+            f"'{name}' sets route.requires-token-counting to {value!r}, which is not an "
+            f"`[llm.roles]` role key — for example 'generate'.",
+            pipeline=name,
+        )
+    return value.strip()
+
+
+def token_counting_requirement_token(role: str) -> str:
+    """The entry a role whose provider counts tokens adds to the ready set."""
+    return f"counts:{role}"
+
+
+def token_counting_requirements(catalogue: Mapping[str, Pipeline]) -> frozenset[str]:
+    """Every distinct LLM role key a `route.requires-token-counting` names in `catalogue`."""
+    return frozenset(
+        _validated_counting_requirement(name, pipeline.vars[_ROUTE_REQUIRES_COUNTING_VAR])
+        for name, pipeline in catalogue.items()
+        if _ROUTE_REQUIRES_COUNTING_VAR in pipeline.vars
+    )
 
 
 def role_requirement_token(role: str) -> str:
@@ -516,8 +549,14 @@ class PipelineRouteCatalogue:
     ) -> None:
         candidates: list[RouteCandidate] = []
         self._missing_roles = missing_roles(rung_roles or {}, mapped_roles)
+        self._withheld: dict[str, str] = {}
         for name, pipeline in sorted(catalogue.items()):
             _check_route_vars(name, pipeline)
+            if ready_layers is not None and not _counts_tokens(pipeline, ready_layers):
+                self._withheld[name] = (
+                    f"its '{pipeline.vars[_ROUTE_REQUIRES_COUNTING_VAR]}' role's provider cannot "
+                    f"count tokens, which it needs to read under a token bound"
+                )
             if (
                 _ROUTE_SUMMARY_VAR in pipeline.vars
                 and _layer_ready(pipeline, ready_layers)
@@ -539,6 +578,10 @@ class PipelineRouteCatalogue:
     def names(self) -> frozenset[str]:
         """The names of every pipeline in `candidates`."""
         return frozenset(candidate.name for candidate in self._candidates)
+
+    def withheld_reason(self, name: str) -> str | None:
+        """Why `name` was left out for want of a token count, or `None` when that is not why."""
+        return self._withheld.get(name)
 
     def missing_roles(self) -> Mapping[str, tuple[str, ...]]:
         """Each document left out for an unmapped role, to every role it lacks, sorted."""
@@ -581,9 +624,18 @@ def _layer_ready(pipeline: Pipeline, ready_layers: frozenset[str] | None) -> boo
     if required_nodes is not None and str(required_nodes) not in ready_layers:
         return False
     required_role = pipeline.vars.get(_ROUTE_REQUIRES_ROLE_VAR)
-    return (
-        required_role is None or role_requirement_token(str(required_role).strip()) in ready_layers
-    )
+    if (
+        required_role is not None
+        and role_requirement_token(str(required_role).strip()) not in ready_layers
+    ):
+        return False
+    return _counts_tokens(pipeline, ready_layers)
+
+
+def _counts_tokens(pipeline: Pipeline, ready_layers: frozenset[str]) -> bool:
+    """Whether the role `pipeline` needs a token count under has a provider that counts."""
+    role = pipeline.vars.get(_ROUTE_REQUIRES_COUNTING_VAR)
+    return role is None or token_counting_requirement_token(str(role).strip()) in ready_layers
 
 
 def route_requirements(catalogue: Mapping[str, Pipeline]) -> dict[str, str]:

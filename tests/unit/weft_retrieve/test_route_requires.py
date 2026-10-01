@@ -102,6 +102,7 @@ def test_an_unknown_route_key_is_refused_naming_the_document_and_the_keys(
         "route.requires",
         "route.requires-nodes",
         "route.requires-role",
+        "route.requires-token-counting",
         "route.summary",
     )
 
