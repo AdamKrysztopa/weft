@@ -1581,7 +1581,7 @@ Two things run **always**, opted in or not, and they carry most of the practical
   > surface* has the narrowed promise and the argument in full.
 - **`weft plugins doctor` flags packs that are not direct dependencies.** Deriving trust from the
   dependency graph was considered as the *mechanism* and rejected: installed metadata does not record
-  which distributions a human named, `uv` knows and `pip` does not, and `uvx weft` has no project
+  which distributions a human named, `uv` knows and `pip` does not, and `uvx --from weft-rag weft` has no project
   manifest at all — so the fallback would be "open", and a control that evaporates when a file is
   absent is one nobody can reason about. Demoted to reporting, its unreliability is harmless:
   *"cannot determine, no manifest"* is a fine thing for a report to say and an unacceptable thing for
