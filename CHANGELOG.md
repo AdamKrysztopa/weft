@@ -34,6 +34,8 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-02
+
 ### Changed
 
 - **Evidence-based routing no longer applies evidence outside the conditions it was measured in.**
