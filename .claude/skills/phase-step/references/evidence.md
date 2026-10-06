@@ -150,7 +150,11 @@ as *"three distributions and two source roots"*, which **G19 falsified three day
 folding every pack into one wheel — a sentence inside a check, about the tree, that the check
 cannot make fail (`L16.1`). So: **re-run the measurement when you act on a count, before you act on
 it, however many places agree** — and when a gate changes the tree's shape, the sentences
-*justifying* a check's subjects are as stale as any assertion. **A count offered as a decision's
+*justifying* a check's subjects are as stale as any assertion. **Re-measure the population the
+sentence names, not the nearest one** (`L28.94`): `R44.22` filed `eval/questions/fetch.toml`'s
+*"rejected 4 of 287"* as contradicted by 136 `[[question]]` entries; the sentence counts the
+drafting agents' quotes, its two sibling copies say *"quotes"*, and the first fix deleted a real
+measurement to satisfy a misread one. **A count offered as a decision's
 price is measured before the question is asked** (`L22.23`): Phase 33's recorder was priced at
 *"at most 45 kernel lines"* from its field list and approved on that number, and the honest build
 measured +87 under FF3's own counter. Sketch it and count it with the project's counter and type

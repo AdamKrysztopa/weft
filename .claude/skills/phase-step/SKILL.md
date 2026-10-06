@@ -63,7 +63,9 @@ for once; the accounts are in `references/evidence.md` → *Claims about the tre
 
 - A count is re-measured when you act on it, however many places repeat it, because the copies
   share one source; when a gate changes the tree's shape, the sentences justifying a check's
-  subjects are as stale as any assertion (`L16.2`, `L16.1`). A count offered as a decision's price
+  subjects are as stale as any assertion (`L16.2`, `L16.1`). Re-measure the population the count's
+  own sentence and its sibling copies name; a count that disagrees with a different population is
+  not stale (`L28.94`). A count offered as a decision's price
   is sketched and counted with the project's own counter and type checker before the question is
   asked (`L22.23`).
 - A claim about code placed in a question to the owner is read against the code's callers first,
