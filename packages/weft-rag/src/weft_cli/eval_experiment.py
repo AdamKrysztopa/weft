@@ -18,7 +18,9 @@ resolved *ingest* pipeline each arm names) — comparing every arm against the f
 and refuses at the first one that differs, naming it. A model-version key only one of the two
 arms carries is not a difference: an experiment typically varies exactly one slot (a hybrid arm's
 own `Retriever`, a rung's own summarising model) and every other slot present on one side and
-absent on the other is what the experiment is testing, not a reason to refuse it.
+absent on the other is what the experiment is testing, not a reason to refuse it. An `Embedder`
+stage's model differing is likewise the experiment, unless the two arms read one target — then
+they would embed questions against one index with two embedders, and it is refused (task 20.12).
 
 **Every arm indexes into a target derived from its (index pipeline, corpus) — ledger task
 20.11 — so arms embedding differently coexist; arms naming one pipeline and corpus share one
@@ -128,8 +130,10 @@ from weft_store.contract import TargetName, target_name
 _EVAL_EXPERIMENT_HELP = (
     "run every arm of an experiment document (eval/experiments/*.toml) for every repetition, "
     "through the identical index-and-score path 'weft eval run' uses, and persist one run "
-    "record per arm and repetition — refuses before indexing anything if two arms are not "
-    "comparable by corpus digest, question-set digest, pool manifest or model version"
+    "record per arm and repetition; each arm's questions are embedded by its own ingest "
+    "pipeline's embedder, so arms may compare embedders — refuses before indexing anything if "
+    "two arms are not comparable by corpus digest, question-set digest, pool manifest or model "
+    "version (an embedder's only where two arms share a target)"
 )
 
 
@@ -137,7 +141,8 @@ class IncomparableArmsError(WeftError):
     """Refuse an experiment whose arms are not comparable.
 
     An experiment document named two arms that are not comparable — a different corpus, a
-    different question set, or one model slot at two versions. See the module docstring's own
+    different question set, or one model slot at two versions (an embedder's only between arms
+    that read one target). See the module docstring's own
     paragraph for exactly what is compared and why absence on one side is not a difference.
 
     Raised before any arm is indexed or scored: `arm` is the first arm (after the baseline, the
@@ -333,6 +338,9 @@ class _ArmIdentity:
     question_set_digest: str
     model_versions: dict[str, str]
     pool_manifest: str | None
+    #: Ledger **20.12** — the target this arm is scored against; `None` for a replay arm whose
+    #: manifest predates 20.11, meaning the live target.
+    target: str | None
     #: Ledger **44.55a** — `corpus_documents`' own tail specs, reused by the pre-flight that
     #: composes an arm's `layers` (`_refuse_unknown_layers`) rather than walking the corpus a
     #: second time. `()` for a replay arm, which never calls `corpus_documents` at all.
@@ -373,6 +381,7 @@ async def _arm_identity(
                 )
             ),
             pool_manifest=pool.sha256,
+            target=pool.manifest.target,
         )
     resolved, specs, documents = corpus_documents(
         experiment.corpus_for(arm),
@@ -393,7 +402,25 @@ async def _arm_identity(
             )
         ),
         pool_manifest=None,
+        target=_experiment_target(arm.pipeline, experiment.corpus_for(arm)),
         specs=specs,
+    )
+
+
+def _is_embedder_stage(resolved: ResolvedPipeline, stage_id: str) -> bool:
+    return any(stage.id == stage_id and stage.contract == "Embedder" for stage in resolved.stages)
+
+
+def _is_compared_embedder(baseline: _ArmIdentity, candidate: _ArmIdentity, key: str) -> bool:
+    """Whether `key` is an embedder the two arms are meant to differ in — task 20.12.
+
+    Arms reading two targets embed their questions each by their own ingest embedder, so the
+    embedder is what such an experiment compares; arms reading one target must agree on it.
+    """
+    return (
+        candidate.target != baseline.target
+        and _is_embedder_stage(baseline.resolved, key)
+        and _is_embedder_stage(candidate.resolved, key)
     )
 
 
@@ -427,6 +454,8 @@ def _arm_incomparable_reasons(
         )
     shared = sorted(set(baseline.model_versions) & set(candidate.model_versions))
     for key in shared:
+        if _is_compared_embedder(baseline, candidate, key):
+            continue
         baseline_value = baseline.model_versions[key]
         candidate_value = candidate.model_versions[key]
         if baseline_value != candidate_value:
@@ -1026,11 +1055,7 @@ async def _run_arms(
                 ),
                 on_progress=on_progress,
                 layers=arm.layers if pool is None else None,
-                target=(
-                    _experiment_target(arm.pipeline, corpus_path)
-                    if pool is None
-                    else pool.manifest.target
-                ),
+                target=identities[arm.name].target,
             )
             if pool is None:
                 indexed_keys.add(index_key)

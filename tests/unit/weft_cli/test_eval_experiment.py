@@ -123,6 +123,26 @@ class _FakeEmbedderWithModel:
         return EmbeddingModel(model=self._model, width=(await self._hash.embedding_model()).width)
 
 
+class _ModelledChunkerConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    model: str = "chunk-small"
+
+
+class _ModelledChunker:
+    """Chunks as `fixed-size` does and names a model, as a model-backed chunker would."""
+
+    config_model: ClassVar[type[_ModelledChunkerConfig]] = _ModelledChunkerConfig
+    destroys: tuple[type, ...] = ()
+
+    def __init__(self, config: _ModelledChunkerConfig | None = None) -> None:
+        del config
+        self._chunker = FixedSizeChunker()
+
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        return await self._chunker.run(payload, ctx)
+
+
 _STORE: list[MemoryStore] = []
 
 
@@ -139,6 +159,7 @@ def _registry() -> Registry:
     registrar.commit()
     registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
     registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
+    registry.add(Chunker, "modelled", _ModelledChunker, distribution="test")
     registry.add(Embedder, "hash", HashEmbedder, distribution="weft-embed")
     registry.add(Embedder, "fake-openai", _FakeEmbedderWithModel, distribution="test")
     registry.add(NodeStore, "pgvector", _shared_store, distribution="weft-store")
@@ -147,12 +168,14 @@ def _registry() -> Registry:
     return registry
 
 
-def _document(name: str, *, embed: StageDeclaration | None = None) -> Pipeline:
+def _document(
+    name: str, *, embed: StageDeclaration | None = None, chunk: StageDeclaration | None = None
+) -> Pipeline:
     return Pipeline(
         name=name,
         stages=(
             StageDeclaration(id="extract", use="text"),
-            StageDeclaration(id="chunk", use="fixed-size"),
+            chunk if chunk is not None else StageDeclaration(id="chunk", use="fixed-size"),
             embed if embed is not None else StageDeclaration(id="embed", use="hash"),
             StageDeclaration(id="store", use="pgvector"),
         ),
@@ -174,6 +197,13 @@ def _catalogue() -> dict[str, Pipeline]:
             embed=StageDeclaration(
                 id="embed", use="fake-openai", config={"model": "text-embedding-3-large"}
             ),
+        ),
+        "index-chunk-small": _document(
+            "index-chunk-small", chunk=StageDeclaration(id="chunk", use="modelled")
+        ),
+        "index-chunk-large": _document(
+            "index-chunk-large",
+            chunk=StageDeclaration(id="chunk", use="modelled", config={"model": "chunk-large"}),
         ),
     }
 
@@ -390,12 +420,36 @@ async def test_an_arm_scored_on_a_different_question_set_is_refused(
     assert calls == []
 
 
-async def test_two_arms_naming_one_model_slot_at_two_versions_are_refused_naming_both(
+async def test_two_arms_embedding_with_two_models_into_two_targets_are_compared(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger task 20.12: each arm's questions are embedded by its own pipeline, in its own target.
+
+    Until 20.12 an embedder difference between arms was refused like any other model slot, because
+    every arm's questions were embedded by one `[services] embed`.
+    """
+    # Arrange
+    path = _experiment(
+        tmp_path, _arm("small", "index-small-model") + _arm("large", "index-large-model")
+    )
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert len(calls) == 4
+    assert len({call["target"] for call in calls}) == 2
+
+
+async def test_two_arms_naming_a_shared_non_embedder_slot_at_two_versions_are_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Arrange
     path = _experiment(
-        tmp_path, _arm("small", "index-small-model") + _arm("large", "index-large-model")
+        tmp_path, _arm("small", "index-chunk-small") + _arm("large", "index-chunk-large")
     )
     calls: list[dict[str, object]] = []
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
@@ -406,8 +460,8 @@ async def test_two_arms_naming_one_model_slot_at_two_versions_are_refused_naming
 
     # Assert
     reasons = " ".join(caught.value.reasons)
-    assert "text-embedding-3-small" in reasons
-    assert "text-embedding-3-large" in reasons
+    assert "chunk-small" in reasons
+    assert "chunk-large" in reasons
     assert calls == []
 
 
@@ -1131,6 +1185,35 @@ async def test_two_arms_replaying_different_pools_are_refused_before_anything_ru
     # Assert
     assert caught.value.arm == "again"
     assert any("pool manifest differs" in reason for reason in caught.value.reasons)
+    assert calls == []
+
+
+async def test_two_replay_arms_reading_one_target_with_two_embedders_are_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger task 20.12: both arms read the manifest's one target, which holds one embedder."""
+    # Arrange
+    _, manifest = await _captured(tmp_path, monkeypatch)
+    replay = _replay_document(tmp_path, manifest)
+    text = replay.read_text(encoding="utf-8")
+    text = text.replace(
+        'name = "identity"\npipeline = "index"', 'name = "identity"\npipeline = "index-small-model"'
+    )
+    text = text.replace(
+        'name = "again"\npipeline = "index"', 'name = "again"\npipeline = "index-large-model"'
+    )
+    replay.write_text(text, encoding="utf-8")
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub(calls))
+
+    # Act
+    with pytest.raises(IncomparableArmsError) as caught:
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(replay)), _ctx())
+
+    # Assert
+    reasons = " ".join(caught.value.reasons)
+    assert "text-embedding-3-small" in reasons
+    assert "text-embedding-3-large" in reasons
     assert calls == []
 
 

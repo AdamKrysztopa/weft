@@ -1938,6 +1938,12 @@ def _render_trace(result: TraceCommandResult) -> Rendered:
         f"pipeline: {record.resolved_pipeline.name}",
         f"corpus: '{record.corpus.name}' ({record.corpus.digest[:12]}…)",
         f"query rung: {_query_rung_text(record.query_rung)}",
+        "question embedder: "
+        + (
+            render_embedding_identity(record.query_embedding)
+            if record.query_embedding is not None
+            else "(not recorded)"
+        ),
         f"model versions: {dict(record.model_versions) or '(none recorded)'}",
         f"active distributions: {', '.join(record.active_distributions) or '(none)'}",
         f"distribution versions: {_distribution_versions_text(record.distribution_versions)}",

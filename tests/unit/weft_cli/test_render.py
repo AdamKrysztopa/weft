@@ -1210,6 +1210,29 @@ def test_render_trace_distinguishes_a_named_rung_from_a_run_that_named_none() ->
     assert "query rung: (no query rung was named" in none_named.stdout
 
 
+def test_render_trace_names_the_embedder_a_records_questions_were_embedded_by() -> None:
+    """Ledger task 20.12; a record written before it says so rather than printing nothing."""
+    from weft_cli.eval_commands import TraceCommandResult
+    from weft_store.contract import EmbeddingIdentity
+
+    # Arrange
+    identity = EmbeddingIdentity(plugin="hash", distribution="weft-embed", model="hash", width=32)
+    recorded = TraceCommandResult(
+        run_id="run-1", record=_run_record().model_copy(update={"query_embedding": identity})
+    )
+    older = TraceCommandResult(run_id="run-2", record=_run_record())
+
+    # Act
+    named = render.render_outcome(Produced(value=recorded))
+    unnamed = render.render_outcome(Produced(value=older))
+
+    # Assert
+    assert named.stdout is not None
+    assert "question embedder: 'hash' (model hash, width 32)" in named.stdout
+    assert unnamed.stdout is not None
+    assert "question embedder: (not recorded)" in unnamed.stdout
+
+
 def test_render_trace_prints_the_versions_a_record_measured() -> None:
     """Task **16.3**.
 

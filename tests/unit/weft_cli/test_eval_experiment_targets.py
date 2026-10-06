@@ -33,7 +33,7 @@ from weft_cli.eval_experiment import (
 from weft_cli.eval_scoring import ScoredRun
 from weft_cli.ingest import IndexResult, run_index_for
 from weft_embed import Embedder
-from weft_embed.hash_embedder import HashEmbedder
+from weft_embed.hash_embedder import HashEmbedder, HashEmbedderConfig
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
 from weft_engine.targets import StoreHoldsNoTargetsError
@@ -49,9 +49,10 @@ from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import NothingToProduce, Outcome, Produced
 from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
+from weft_kernel.resolution import ResolvedPipeline
 from weft_retrieve import ContextPacker
 from weft_store import NodeStore
-from weft_store.contract import DEFAULT_TARGET, target_name
+from weft_store.contract import DEFAULT_TARGET, EmbeddingIdentity, target_name
 from weft_store.memory import MemoryStore
 
 _WIDE = 64
@@ -267,6 +268,41 @@ async def test_two_arms_embedding_at_two_widths_run_in_one_invocation(
     }
     for record in records.values():
         assert catalogue[record.target] == record.target_embedding
+
+
+async def test_each_record_names_the_embedder_its_questions_were_embedded_by(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger task 20.12: the record persists what scoring says embedded the questions."""
+    # Arrange
+    store = MemoryStore()
+    path = _experiment(tmp_path, _arm("wide", "index-wide") + _arm("narrow", "index-narrow"))
+    embedded_by = {
+        width: EmbeddingIdentity(
+            plugin="hash", distribution="weft-embed", model="hash", width=width
+        )
+        for width in (_WIDE, _NARROW)
+    }
+
+    async def _fake(**kwargs: Any) -> ScoredRun:
+        stage = next(
+            stage
+            for stage in cast("ResolvedPipeline", kwargs["resolved_pipeline"]).stages
+            if stage.id == "embed"
+        )
+        width = cast("HashEmbedderConfig", stage.config).dimension
+        questions = cast("tuple[Question, ...]", kwargs["questions"])
+        return _scored(questions, query_embedding=embedded_by[width])
+
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _fake)
+
+    # Act
+    result = await _run(path, store)
+
+    # Assert
+    records = _records(result)
+    assert records["wide"].query_embedding == embedded_by[_WIDE]
+    assert records["narrow"].query_embedding == embedded_by[_NARROW]
 
 
 async def test_two_arms_naming_one_pipeline_and_corpus_index_once_into_one_target(

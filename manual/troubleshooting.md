@@ -3990,9 +3990,12 @@ arm 'planted' is not comparable to 'dense': corpus differs ('dense' d3b18b20c967
 Every arm is compared with the first on three things: the digest of the documents its pipeline reads
 from its corpus, the digest of its question set, and any model slot both arms name at two
 different versions. An arm using a model slot the other lacks is not a difference — that is most
-of what an experiment varies. **What to do:** point the arm at the same corpus and questions, or
-run it as its own experiment; a difference in the corpus is a different measurement, not a
-comparison.
+of what an experiment varies. Two embedders are not a difference either when the arms name
+different ingest pipelines: each pipeline indexes into its own target and embeds its own arm's
+questions, so comparing embedders is an experiment like any other. Two arms that replay one pool
+read one target, and are still refused an embedder difference. **What to do:** point the arm at the
+same corpus and questions, or run it as its own experiment; a difference in the corpus is a
+different measurement, not a comparison.
 
 ### `IncompleteExperimentError`
 

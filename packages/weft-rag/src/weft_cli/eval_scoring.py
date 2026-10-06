@@ -75,8 +75,8 @@ from weft_cli.route_ask import (
 from weft_embed import Embedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.service_roles import RoleTable
-from weft_engine.services import ServiceSelection
-from weft_engine.targets import bind_store
+from weft_engine.services import ServiceSelection, embed_config_for
+from weft_engine.targets import bind_store, embedding_identity_of
 from weft_eval.aggregate import MetricAggregate
 from weft_eval.contract import (
     GenerationMetric,
@@ -132,6 +132,7 @@ from weft_retrieve.profile import (
     profile_query,
 )
 from weft_store import NodeStore, Scored, SourceRecord
+from weft_store.contract import EmbeddingIdentity
 from weft_store.coverage import layer_coverage_of, ready_layers
 
 
@@ -651,6 +652,9 @@ class ScoredRun:
     #: each answered question's `GenerationSample.prediction`, skipping a question that reached
     #: `generation_samples` with no prediction to evaluate.
     question_answers: Mapping[str, str] | None = None
+    #: Task **20.12** — the identity the questions were embedded with; `None` when that embedder
+    #: states no identity.
+    query_embedding: EmbeddingIdentity | None = None
 
 
 def _merge_generation_scores(
@@ -1356,6 +1360,45 @@ def _retrieval_stages_of(
     return embed_stage, store_stage
 
 
+def _services_embedding_as_ingested(
+    services: ServiceSelection | None, embed_stage: ResolvedStage
+) -> ServiceSelection:
+    """`services` with its embedder replaced by the ingest pipeline's own `Embedder` stage.
+
+    `exclude_unset` because an embedder such as `OpenAIEmbedder` decides its model by
+    `model_fields_set` (R22.1): dumping defaults would embed questions as a stage that named one.
+    """
+    config = embed_stage.config
+    return (services if services is not None else ServiceSelection()).model_copy(
+        update={
+            "embed": embed_stage.use,
+            "embed_config": (
+                config.model_dump(exclude_unset=True) if isinstance(config, BaseModel) else {}
+            ),
+        }
+    )
+
+
+async def _query_embedding_identity(
+    registry: Registry, services: ServiceSelection, *, stage: str
+) -> EmbeddingIdentity | None:
+    """What `services.embed` embeds with, from an instance built as `build_services` builds one."""
+    entry = registry.entry(Embedder, services.embed)
+    instance = entry.factory(embed_config_for(registry, services))
+    try:
+        return await embedding_identity_of(
+            instance, plugin=services.embed, distribution=entry.distribution
+        )
+    finally:
+        await aclose(
+            instance,
+            distribution=entry.distribution,
+            contract="Embedder",
+            plugin=services.embed,
+            stage=stage,
+        )
+
+
 async def read_source_records(
     registry: Registry, store: NodeStore, *, store_name: str
 ) -> tuple[SourceRecord, ...] | None:
@@ -1884,10 +1927,12 @@ async def score_pipeline(
     a `Ranking` and `run_named_retrieve` refuses it, the refusal `weft eval experiment` makes
     before any index for the same reason. `run_named_ask` requires an `Answer` and refused a
     packer-ending rung outright, which is what left an experiment's earlier arms with orphaned
-    records once a later arm named one. `reports`/`llm`/`services`/`contributions` are only
-    read on this path — `weft_cli.eval_commands.index_and_score` already has all four in scope
-    from its own `Dependencies`, the identical set `run_named_ask`'s other caller, `AskCommand`,
-    already threads through. `sink` is not the CLI's printing sink (R33.0).
+    records once a later arm named one. The query side's embedder comes from the ingest
+    pipeline's own `Embedder` stage, never from `services.embed` (ledger task 20.12).
+    `reports`/`llm`/`services`/`contributions` are only read on this path —
+    `weft_cli.eval_commands.index_and_score` already has all four in scope from its own
+    `Dependencies`, the identical set `run_named_ask`'s other caller, `AskCommand`, already
+    threads through. `sink` is not the CLI's printing sink (R33.0).
 
     **Task 16.1 — one resolution answers for both the run and the record.** When `query_pipeline`
     is given, it is resolved exactly once, before the question loop, through
@@ -2039,6 +2084,8 @@ async def score_pipeline(
     resolved_cutoffs = _resolved_cutoffs(cutoffs, top_k=top_k)
 
     embed_stage, store_stage = _retrieval_stages_of(resolved_pipeline)
+    services = _services_embedding_as_ingested(services, embed_stage)
+    query_embedding = await _query_embedding_identity(registry, services, stage=embed_stage.id)
 
     query_rung, generates = _resolved_query_rung(
         query_pipeline,
@@ -2219,6 +2266,7 @@ async def score_pipeline(
         question_answers=_question_answers(
             generation_samples, is_generating_rung=is_generating_rung
         ),
+        query_embedding=query_embedding,
     )
 
 

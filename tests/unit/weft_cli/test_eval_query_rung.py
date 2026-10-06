@@ -112,7 +112,8 @@ def _ingest_resolved() -> ResolvedPipeline:
     """The smallest ingest pipeline `score_pipeline` accepts: an `embed` stage and a `store` stage.
 
     The *ingest* pipeline a run was corroborated over — it must carry an `Embedder` and a
-    `NodeStore`, because `score_pipeline` refuses one that does not.
+    `NodeStore`, because `score_pipeline` refuses one that does not. Its embedder is the one
+    every registry here registers, since the questions are embedded by it (ledger task 20.12).
     """
     return ResolvedPipeline(
         name="index-text",
@@ -120,7 +121,7 @@ def _ingest_resolved() -> ResolvedPipeline:
             ResolvedStage(
                 id="embed",
                 contract=Embedder.__name__,
-                use="hash",
+                use="fake-embed",
                 distribution="weft-rag",
                 provenance="index-text",
             ),

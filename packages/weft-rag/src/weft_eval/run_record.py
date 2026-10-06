@@ -481,6 +481,10 @@ class RunRecord(BaseModel):
     #: two conditions `target` above is: no `TargetHolding` store, or a record written before
     #: this task.
     target_embedding: EmbeddingIdentity | None = None
+    #: Task **20.12** — the identity the run's questions were embedded with. `None` means *not
+    #: recorded*: every record written before this task, a run that scored no questions, or an
+    #: embedder that states no identity.
+    query_embedding: EmbeddingIdentity | None = None
     #: Task **44.4** — the git revision of the checkout the installed `weft_eval` package was
     #: loaded from, never of the working directory. `None` means *not recorded*: every record
     #: written before this task. `SourceRevision(commit=None, dirty=None)` is the different fact
@@ -538,6 +542,7 @@ def build_run_record(
     experiment: ExperimentRun | None = None,
     target: str | None = None,
     target_embedding: EmbeddingIdentity | None = None,
+    query_embedding: EmbeddingIdentity | None = None,
     source_revision: SourceRevision | None = None,
     judge_prompts: Mapping[str, str] | None = None,
     question_tokens: Mapping[str, Mapping[str, RoleTokens]] | None = None,
@@ -638,6 +643,7 @@ def build_run_record(
         experiment=experiment,
         target=target,
         target_embedding=target_embedding,
+        query_embedding=query_embedding,
         source_revision=source_revision,
         judge_prompts=judge_prompts,
         question_tokens=question_tokens,

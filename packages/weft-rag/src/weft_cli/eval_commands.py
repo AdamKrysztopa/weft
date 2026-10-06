@@ -283,6 +283,7 @@ from weft_llm.client import NullSink
 from weft_llm.roles import LLMRoles
 from weft_retrieve.payload import RouteView
 from weft_store import NodeStore, SourceRecord, SourceStatus
+from weft_store.contract import EmbeddingIdentity
 from weft_store.coverage import layer_coverage_of, ready_layers
 
 #: `EvalRunArgs.top_k` default — `weft ask`'s own default depth, task 4.9's own retrieval
@@ -1878,6 +1879,7 @@ async def index_and_score(
     question_profiles: Mapping[str, Mapping[str, int | float | bool]] | None = None
     profiler_version: str | None = None
     question_answers: Mapping[str, str] | None = None
+    query_embedding: EmbeddingIdentity | None = None
     if questions is not None:
         scored = await score_pipeline(
             registry=deps.registry,
@@ -1923,6 +1925,7 @@ async def index_and_score(
         question_profiles = scored.question_profiles
         profiler_version = scored.profiler_version
         question_answers = scored.question_answers
+        query_embedding = scored.query_embedding
     query_seconds = time.monotonic() - query_started
 
     resolved_corpus_name = corpus_name if corpus_name is not None else str(path)
@@ -1968,6 +1971,7 @@ async def index_and_score(
         question_profiles=question_profiles,
         profiler_version=profiler_version,
         question_answers=question_answers,
+        query_embedding=query_embedding,
     )
     run_id = str(uuid.uuid4())
     write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
