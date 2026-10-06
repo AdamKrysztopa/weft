@@ -59,8 +59,8 @@ async def test_recall_at_k_with_no_relevant_ids_is_nothing_to_produce() -> None:
     assert isinstance(outcome, NothingToProduce)
 
 
-async def test_recall_at_k_finds_every_relevant_id_within_the_window() -> None:
-    # Arrange — both relevant ids sit inside the top 3.
+async def test_recall_at_k_counts_only_the_relevant_ids_inside_the_window() -> None:
+    # Arrange
     metric = RecallAtK(TopKConfig(k=3))
     sample = _sample(("a", "b", "c", "d"), frozenset({"b", "d"}))
 

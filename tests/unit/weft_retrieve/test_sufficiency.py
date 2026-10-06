@@ -69,7 +69,7 @@ class _StubLLM:
 
     async def complete(self, rendered: Rendered, *, role: str, ctx: Context) -> Outcome[Completion]:
         del role, ctx
-        self.last_prompt = rendered.conversation.messages[-1].content
+        self.last_prompt = "\n".join(m.content for m in rendered.conversation.messages)
         reply = self._replies[min(self.calls, len(self._replies) - 1)]
         self.calls += 1
         if isinstance(reply, Failed):
@@ -193,6 +193,30 @@ async def test_driving_llm_sufficiency_through_the_seam_produces_an_assessment()
     # Assert
     assert isinstance(outcome, Produced)
     assert isinstance(signal, Sufficiency)
+
+
+async def test_judging_fewer_than_were_packed_judges_the_best_ranked_in_packed_order() -> None:
+    # Arrange — `R44.22`: `refine-on-uncertainty` hands this plugin the packed `Passages`, and
+    # `repack`'s default `reverse` puts the best passage last (`R32.2`).
+    worst, middle, best = (
+        _passage("worst passage").model_copy(update={"rank": 2, "label": "1"}),
+        _passage("middle passage").model_copy(update={"rank": 1, "label": "2"}),
+        _passage("best passage").model_copy(update={"rank": 0, "label": "3"}),
+    )
+    question = _asked()
+    evidence = Passages(origin=question, passages=(worst, middle, best))
+    llm = _StubLLM(['{"sufficient": true, "confidence": 0.9, "missing": []}'])
+
+    # Act
+    outcome = await LlmSufficiency(LlmSufficiencyConfig(max_evidence=2)).assess(
+        question, evidence, None, _ctx(_services(llm))
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert "[2] middle passage" in llm.last_prompt
+    assert "[3] best passage" in llm.last_prompt
+    assert "worst passage" not in llm.last_prompt
 
 
 def test_the_declared_cost_bound_is_fixed_at_one() -> None:

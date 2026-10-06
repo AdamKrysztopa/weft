@@ -34,6 +34,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+### Fixed
+
+- **`llm-sufficiency` judges the best-ranked evidence, not the first in packed order.** Handed more
+  than `max_evidence` packed passages, as `refine-on-uncertainty` does, it read a prefix, and
+  `repack`'s default `reverse` puts the best passage last, so the judge read the worst of what the
+  draft was grounded in. It now reads `Passages.best_ranked`, as the draft does.
+
 ## [3.1.0] - 2026-10-02
 
 ### Changed

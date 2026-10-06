@@ -19,9 +19,10 @@ protocol.** Four tracked assertions of an open gate, none of them true, the olde
 - `docs/06-phase-0-build.md` — *"Phase 0 has to do things that G2 owns and **G2 is open**"*. G2
   settled 2026-08-16.
 
-**What it cost, which is the part that makes this worth machinery.** The conformance-kit refusal in
-`tests/integration/test_store_conformance.py:34 "A third reason stood here and expired"` gave three
-reasons, and the third was G9's openness. `12-roadmap.md`
+**What it cost, which is the part that makes this worth machinery.** The conformance-kit refusal
+that `tests/integration/test_store_conformance.py`'s docstring carried until task 26.4 published the
+assertions (the paragraph was removed in `R44.22`) gave three reasons, and the third was G9's
+openness. `12-roadmap.md`
 then inherited that refusal **by reference** — *"proposed at a Phase 2 task and refused"* — so an
 expired premise became load-bearing in a second document, and Phase 26b was scheduled to inherit it
 a third time without anyone re-reading the original. This is `L18.7` one level up: there a roadmap

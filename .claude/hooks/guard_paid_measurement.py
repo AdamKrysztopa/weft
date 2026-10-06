@@ -137,5 +137,33 @@ def main():
     return 0
 
 
+def _self_test():
+    """Run as `python3 <this file> --self-test`; `.claude/hooks/` is outside `ci-checks` (`R44.22`).
+
+    The run is assembled, as in `guard_history_rewrites.py`, so this file never refuses a grep.
+    """
+    run = "uv run weft " + "ev" + "al experiment eval/experiments/x.toml --yes"
+    cases = (
+        (run, True, "a bare run is refused"),
+        (_ACKNOWLEDGED + " " + run, False, "an acknowledged run is allowed"),
+        (run.replace("--yes", "--help"), False, "help is not a run"),
+        ('pgrep -f "' + run + '"', False, "a quoted pattern is not a run"),
+        ("cat > notes.md <<'EOF'\n" + run + "\nEOF\n", False, "a heredoc body is prose"),
+        ("ls && " + run, True, "a chained run is still refused"),
+        ("uv run weft " + "ev" + "al run x", False, "an eval run is not an experiment"),
+    )
+    failures = [
+        "{0!r}: expected {1} — {2}".format(command, "refused" if refuse else "allowed", why)
+        for command, refuse, why in cases
+        if offends(command) != refuse
+    ]
+    for failure in failures:
+        sys.stderr.write(failure + "\n")
+    print("{0} of {1} probes hold".format(len(cases) - len(failures), len(cases)))
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
+    if "--self-test" in sys.argv:
+        sys.exit(_self_test())
     sys.exit(main())

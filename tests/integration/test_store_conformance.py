@@ -17,26 +17,14 @@ stores a row per node, keyed by the node's own content digest, and can be asked
 for text ranking. Qdrant stores a point keyed by a UUID (its ids are integers or
 UUIDs, never a sha256 string), fixes a collection's vector width at creation,
 holds source records in a second, vector-less collection, and offers no scored
-lexical ranking at all. The one test below that names a backend is the one whose
-subject *is* that asymmetry.
+lexical ranking at all. The tests below that name a backend are the ones whose subject *is*
+that asymmetry.
 
-**Recorded rather than hidden: this is a repository asset, not a published one.** A third
-party writing a store cannot import these assertions — they live under `tests/`, so they
-are in no distribution, and adding a third backend means an entry in the `store` fixture's
-parameters here rather than a factory of their own. `01` → *Runtime shape* names a
-conformance kit and pack authors' unit tests as two consumers of the same **in-memory
-store**; it does not settle whether the assertions themselves ship, and neither
-`.phase2-design.md` nor any ledger task does. Publishing them would mean deciding what a
-`weft_store.conformance` module may depend on — `weft_pdf`'s `ExtModel`, `weft_cli`'s run
-assembler and `weft_retrieve`'s payload types are all imported below and none of them may
-become a `weft-store` dependency. That is a design decision, and it is left as one.
-
-**A third reason stood here and expired.** It read *"and what its own version means while G9 is
-Open"* — and **G9 settled 2026-08-21**, four days after this docstring was written, with
-per-contract semver bound to the distribution version. So that question has an answer and is no
-longer a reason for anything; the two reasons above are the whole refusal. It stood for eight
-phases, and `12-roadmap.md` inherited the refusal *by reference* in the meantime, which is how an
-expired premise becomes load-bearing in a second document (`docs/internal/lessons.md` `L19.2`).
+**The assertions themselves are published** (ledger task **26.4**): they live in
+`weft_store.conformance`, inside the `weft-rag` wheel, so a third party writing a store imports
+them rather than copying this file. What stays here is what is a claim about **this checkout**
+rather than about the contract — the two containers, the DSNs, the collection setup and teardown,
+the skips, and the tests whose subject is the pgvector/Qdrant asymmetry. `L6.25` draws that line.
 
 **Against the real containers, skipped with a reason when they are absent** —
 `docs/06-phase-0-build.md` step 8's discipline, applied per backend rather than
@@ -44,14 +32,6 @@ per module, so an operator with only Postgres up still gets the pgvector half.
 `docker compose up -d` brings Postgres; `docker compose --profile conformance up
 -d qdrant` brings the other, which sits behind a profile because `compose.yaml`'s
 opening line promises one container.
-
-*(**Ledger task 26.4 moved the assertions out.** Twenty-five of the twenty-seven checks now live in
-`weft_store.conformance`, published inside the `weft-rag` wheel so a third party writing a store can
-import them — which is what four documents had promised and this file could not deliver. What stays
-here is everything that is a claim about **this checkout** rather than about the contract: the two
-containers, the DSNs, the collection setup and teardown, the skips, and the two tests whose subject
-**is** the pgvector/Qdrant asymmetry. `L6.25` draws that line — `tests/integration` is about the
-code and this half is about the environment it runs in.)*
 
 """
 

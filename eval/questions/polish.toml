@@ -12,7 +12,7 @@
 # quoted beside it, and was checked by a second, independent agent; `notes` carries the
 # per-question detail. This is not human-expert ground truth and must not be reported as
 # though it were — those agents verified their own quotes, and a mechanical re-check still
-# rejected 4 of 287 as appearing nowhere in the file they named.
+# rejected 4 of the 287 quotes they drafted as appearing nowhere in the file they named.
 
 [[question]]
 id = "polish-001"

@@ -113,7 +113,7 @@ class LlmSufficiency:
         llm = ctx.require(LLM)
         lookup = ctx.require(StageLookup)
         prompt = await lookup.build_capability(Prompt, self._config.prompt)
-        offered = evidence.passages[: self._config.max_evidence]
+        offered = evidence.best_ranked(self._config.max_evidence)
         request = SufficiencyCheckRequest(
             question=question.text, evidence=_offer(offered), draft=draft or ""
         )

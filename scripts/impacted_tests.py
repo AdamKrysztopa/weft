@@ -227,7 +227,7 @@ def select(changed: frozenset[str]) -> Selection:
         elif name.startswith("examples/"):
             examples_changed = True
         elif name.startswith(("scripts/", "eval/")):
-            paths.add("tests/unit/eval")
+            paths.add("tests/unit/scripts")
 
     return Selection(
         paths=_prune(paths),
