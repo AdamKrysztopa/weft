@@ -2266,5 +2266,6 @@ async def test_eval_refuses_to_score_a_corpus_missing_a_source_that_failed_earli
     # Act / Assert
     with pytest.raises(CorpusHasFailedSourcesError) as excinfo:
         await EvalRunCommand().run(EvalRunArgs(path=str(tmp_path), pipeline="index"), _ctx(deps))
-    assert "weft index --retry-failed" in str(excinfo.value)
+    assert "--pipeline index" in str(excinfo.value)
+    assert "--retry-failed" in str(excinfo.value)
     assert not (tmp_path / "runs").exists()

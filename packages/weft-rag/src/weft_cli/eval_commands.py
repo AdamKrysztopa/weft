@@ -1538,6 +1538,50 @@ async def _stored_corpus(
     )
 
 
+def _retry_remedy(path: Path, *, pipeline: str, target: str | None) -> str:
+    """The `weft index` command that repairs the target this run indexes into."""
+    into = "" if target is None else f" --target {target}"
+    return f"`weft index {path} --pipeline {pipeline}{into} --retry-failed`"
+
+
+async def _refuse_sources_failed_in_this_run(
+    deps: Dependencies,
+    *,
+    document_ids: tuple[str, ...],
+    path: Path,
+    remedy: str,
+    target: str | None,
+) -> None:
+    """Refuse when the store records a source of this run's corpus as `FAILED`.
+
+    A batch the stage answers `Failed` is recorded against its source and the run goes on, so only
+    the store knows it did not index. A store without `list_sources` records nothing to read.
+
+    Raises:
+        CorpusHasFailedSourcesError: A source this run indexed was recorded failed.
+    """
+    store = await bind_store(
+        deps.registry.entry(NodeStore, deps.services.store).factory(None),
+        target,
+        store_name=deps.services.store,
+    )
+    records = await read_source_records(deps.registry, store, store_name=deps.services.store)
+    if records is None:
+        return
+    indexed = set(document_ids)
+    failed = sorted(
+        str(record.id)
+        for record in records
+        if record.status is SourceStatus.FAILED and str(record.id) in indexed
+    )
+    if failed:
+        raise CorpusHasFailedSourcesError(
+            f"{len(failed)} source(s) under '{path}' failed while this run indexed them, so it "
+            f"would score a smaller corpus than its record names (first: {failed[0]}). Fix what "
+            f"failed, then run {remedy} and run this again."
+        )
+
+
 async def _freshly_indexed_corpus(
     deps: Dependencies,
     *,
@@ -1555,7 +1599,8 @@ async def _freshly_indexed_corpus(
 
     Raises:
         EmptyCorpusError: Indexing `path` produced nothing.
-        CorpusHasFailedSourcesError: An earlier index recorded sources under `path` failed.
+        CorpusHasFailedSourcesError: An earlier index recorded sources under `path` failed, or one
+            failed while this run indexed it.
     """
     # Task 4.7, V5's wall-clock half: measured around the real work, never estimated.
     started = time.monotonic()
@@ -1584,6 +1629,7 @@ async def _freshly_indexed_corpus(
             path=str(path),
             pipeline=pipeline,
         )
+    remedy = _retry_remedy(path, pipeline=pipeline, target=target)
     skipped = sorted(
         source for source, change in result.source_changes.items() if change is SourceChange.FAILED
     )
@@ -1591,9 +1637,12 @@ async def _freshly_indexed_corpus(
         raise CorpusHasFailedSourcesError(
             f"{len(skipped)} source(s) under '{path}' were recorded failed by an earlier "
             f"index and were skipped, so this run would score a smaller corpus than its record "
-            f"names (first: {skipped[0]}). Run `weft index --retry-failed` over it first, or "
-            "remove them with `weft delete`."
+            f"names (first: {skipped[0]}). Fix what failed, then run {remedy} and run this "
+            "again."
         )
+    await _refuse_sources_failed_in_this_run(
+        deps, document_ids=result.document_ids, path=path, remedy=remedy, target=target
+    )
     # `run_index` always sets `resolved_pipeline` on the `pipeline=` path — see
     # `weft_cli.ingest.IndexResult`'s own docstring — and `pipeline` is required above.
     return _IndexedCorpus(

@@ -4860,21 +4860,25 @@ abandons it.
 
 ### `CorpusHasFailedSourcesError`
 
-**What it looks like** — `weft eval run` or `weft eval experiment` over a corpus where an earlier
-`weft index` recorded a document as failed:
+**What it looks like** — `weft eval run` or `weft eval experiment` over a corpus where a document is
+recorded as failed, either by an earlier `weft index` or while this run was indexing it:
 
 ```text
-1 source(s) under 'corpus' were recorded failed by an earlier index and were skipped, so this run
-would score a smaller corpus than its record names (first: file:///…/bad.txt). Run `weft index
---retry-failed` over it first, or remove them with `weft delete`.
+1 source(s) under 'corpus' were recorded failed by an earlier index and were skipped, so this run would score a smaller corpus than its record names (first: file:///…/bad.txt). Fix what failed, then run `weft index corpus --pipeline index-openai-large --target exp_5d1f464a4ebef703dd4492f303137bbb --retry-failed` and run this again.
 ```
 
-**Why** — a failed document is skipped rather than retried unasked. An evaluation over the rest
-would score a smaller corpus while its record names the whole one, so two runs could compare as
-the same corpus when one of them never saw that document.
+The second form says the source(s) *failed while this run indexed them* — a server that stopped
+answering mid-batch, or a stage that refused a document.
 
-**What to do:** fix the document and run `weft index --retry-failed`, or remove it with `weft
-delete <source-id>`; `weft sources list --status failed` names each one.
+**Why** — a failed document has no vectors, while the record's corpus identity covers it. Scored
+anyway, the run would count every question about that document as a miss and still name the whole
+corpus, so two runs could compare as the same corpus when one of them never saw that document.
+
+**What to do:** fix the cause (start the server, or fix the document), then run the printed
+command — it names the pipeline and, for an experiment arm, the `exp_` target the arm indexes into,
+so the retry repairs that target rather than the live one — and run the evaluation again. `weft
+delete <source-id>` removes a document you do not want instead; `weft sources list --status failed`
+names each one.
 
 ### `UnknownSourceFailureError`
 
