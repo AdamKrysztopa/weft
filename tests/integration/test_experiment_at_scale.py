@@ -35,6 +35,7 @@ from typing import Any, cast
 
 import psycopg
 import pytest
+from pydantic import SecretStr
 
 from weft_cli import eval_scoring as eval_scoring_module
 from weft_cli.eval_experiment import (
@@ -42,14 +43,18 @@ from weft_cli.eval_experiment import (
     EvalExperimentCommand,
     EvalExperimentCommandResult,
 )
+from weft_cli.eval_scoring import ForeignDocumentRetrievedError
+from weft_cli.ingest import run_index_for
 from weft_cli.route_ask import PipelineDidNotProduceError, run_named_retrieve
 from weft_engine.registry_bootstrap import Dependencies, build_dependencies
 from weft_eval.evidence import evidence_table
 from weft_eval.experiment import load_experiment
-from weft_eval.pool import PoolIntegrityError
-from weft_eval.run_record import load_run_record
+from weft_eval.pool import PoolIntegrityError, load_pool_manifest
+from weft_eval.run_record import RunRecord, load_run_record
 from weft_kernel.context import Context
 from weft_kernel.payload import Produced
+from weft_store.contract import target_name
+from weft_store.pgvector_store import PgVectorSettings, PgVectorStore
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 _DOCUMENTS = 60
@@ -151,7 +156,9 @@ async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
     """A project holding the corpus, the questions and the experiment document.
 
     See the module docstring for why the skip below is the one every test in this directory
-    takes.
+    takes. Since ledger task **20.11** an experiment indexes into targets derived from each
+    pipeline and corpus, and a corpus here lives under `tmp_path`, so every target a test created
+    is dropped afterwards by the exact name the catalogue gives, never by pattern.
     """
     reason = await _database_reachable()
     if reason is not None:
@@ -171,7 +178,24 @@ async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
         f'[packs.store]\ndsn = "{_DSN}"\n\n[services]\nembed = "hash"\n', encoding="utf-8"
     )
     monkeypatch.chdir(tmp_path)
+    before = await _catalogued()
     yield tmp_path
+    created = await _catalogued() - before
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(_DSN)))
+    try:
+        for name in sorted(created):
+            await store.drop_target(target_name(name))
+    finally:
+        await store.aclose()
+
+
+async def _catalogued() -> set[str]:
+    """Every target the store's catalogue names — what a test drops by exact name afterwards."""
+    store = PgVectorStore(PgVectorSettings(dsn=SecretStr(_DSN)))
+    try:
+        return {record.name for record in (await store.target_catalogue()).targets}
+    finally:
+        await store.aclose()
 
 
 def _ctx(deps: Dependencies) -> Context:
@@ -374,3 +398,138 @@ async def test_a_manifest_whose_chunk_hash_was_changed_is_refused_naming_the_chu
     # Assert
     assert chunk["node_id"] in str(caught.value)
     assert sorted(Path("runs").glob("*.json")) == before, "a refused replay writes no record"
+
+
+@pytest.mark.timeout(180)
+async def test_a_captured_manifest_names_the_target_the_replay_hydrates_from(
+    pool_project: Path,
+) -> None:
+    # Arrange
+    captured = await _pool_run(pool_project, "capture.toml")
+    (manifest,) = (pool_project / "runs" / "pools").glob("*.json")
+    (pool_project / "replay.toml").write_text(
+        _pool_experiment("replay", _replay_arms(manifest)), encoding="utf-8"
+    )
+
+    # Act
+    replayed = await _pool_run(pool_project, "replay.toml")
+
+    # Assert
+    assert load_pool_manifest(manifest).manifest.target == captured["dense"].target
+    assert {record.target for record in replayed.values()} == {captured["dense"].target}
+
+
+# --- Task 20.11 — arms indexed by two embedders, in one invocation, on the real store.
+#
+# The unit tests hold the runner's choice of target against `MemoryStore`. What only pgvector
+# answers is whether a schema per derived target keeps two widths apart in one database with real
+# scoring reading each arm's own target, and whether a document planted inside an arm's own target
+# is still refused when retrieved.
+
+_WIDTH_QUESTIONS = """[question_set]
+schema = 2
+absent = ["kind", "difficulty", "quote", "reference_answer", "notes"]
+absent_reason = "a two-embedder fixture"
+axes = []
+
+[[question]]
+id = "q-1"
+text = "what does the kestrel hunt"
+language = "en"
+relevant_documents = ["one.md"]
+
+[[question]]
+id = "q-2"
+text = "where does the heron wait"
+language = "en"
+relevant_documents = ["two.md"]
+"""
+
+_WIDTH_EXPERIMENT = """[experiment]
+schema = 1
+name = "two-widths"
+questions = "width-questions.toml"
+corpus = "width-corpus"
+repeats = 2
+top_k = 1
+metrics = ["recall@1"]
+minimum_detectable_effect = 0.05
+
+[[arm]]
+name = "wide"
+pipeline = "index-wide"
+repeats = 1
+
+[[arm]]
+name = "narrow"
+pipeline = "index-narrow"
+repeats = 1
+"""
+
+
+def _width_index(name: str, dimension: int) -> str:
+    return (
+        f"name: {name}\nextends: index-text\nreplace:\n"
+        f"  - {{id: embed, use: hash, with: {{dimension: {dimension}}}}}\n"
+    )
+
+
+@pytest.fixture
+def widths_project(project: Path) -> Path:
+    """`project`, with two documents and two index pipelines embedding at 64 and 32 wide."""
+    corpus = project / "width-corpus"
+    corpus.mkdir()
+    (corpus / "one.md").write_text("The kestrel hunts voles over open fields.\n")
+    (corpus / "two.md").write_text("The heron waits in shallow water for fish.\n")
+    (project / "pipelines").mkdir()
+    (project / "pipelines" / "index-wide.yaml").write_text(_width_index("index-wide", 64))
+    (project / "pipelines" / "index-narrow.yaml").write_text(_width_index("index-narrow", 32))
+    (project / "width-questions.toml").write_text(_WIDTH_QUESTIONS, encoding="utf-8")
+    (project / "widths.toml").write_text(_WIDTH_EXPERIMENT, encoding="utf-8")
+    return project
+
+
+async def _widths_run(project: Path) -> dict[str, RunRecord]:
+    return cast("dict[str, RunRecord]", await _pool_run(project, "widths.toml"))
+
+
+@pytest.mark.timeout(120)
+async def test_two_arms_embedding_at_two_widths_are_scored_in_one_invocation(
+    widths_project: Path,
+) -> None:
+    # Act
+    records = await _widths_run(widths_project)
+
+    # Assert
+    widths = {"wide": 64, "narrow": 32}
+    for arm, record in records.items():
+        assert record.target_embedding is not None, arm
+        assert record.target_embedding.width == widths[arm], arm
+        assert record.question_scores is not None, arm
+        for scores in record.question_scores.values():
+            assert set(scores.scores) == {"q-1", "q-2"}, arm
+            assert all(isinstance(score, Produced) for score in scores.scores.values()), arm
+    assert records["wide"].target != records["narrow"].target
+
+
+@pytest.mark.timeout(120)
+async def test_a_document_planted_in_an_arms_own_target_is_refused_when_retrieved(
+    widths_project: Path,
+) -> None:
+    # Arrange — a document outside the corpus, worded as a question, written into wide's target.
+    first = await _widths_run(widths_project)
+    planted = widths_project / "foreign"
+    planted.mkdir()
+    (planted / "planted.md").write_text("what does the kestrel hunt\n")
+    deps = build_dependencies(widths_project / "weft.toml")
+    await run_index_for(
+        deps, planted, ctx=_ctx(deps), pipeline="index-wide", target=first["wide"].target
+    )
+
+    # Act
+    with pytest.raises(ForeignDocumentRetrievedError) as caught:
+        await _widths_run(widths_project)
+
+    # Assert
+    assert "planted.md" in str(caught.value)
+    assert f"target '{first['wide'].target}'" in str(caught.value)

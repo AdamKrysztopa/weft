@@ -170,11 +170,12 @@ class ExperimentArm(BaseModel):
     both — see `_router_and_query_pipeline_are_exclusive`.
 
     `layers` (task **44.55a**) names the layer pipelines this arm reads — a RAPTOR rung's summary
-    tier, built by `weft index --layers` after the base index. Every arm shares one store and a
-    layer once built stays in it for every arm scored after, so an arm naming fewer layers than an
-    earlier one would read summaries it never asked for; `Experiment`'s own validator refuses a
-    document whose arms do not name layers in a non-decreasing order. Empty for an arm reading
-    none, and refused together with `pool`, since a replay reads a captured pool and no index.
+    tier, built by `weft index --layers` after the base index. Every arm over one pipeline and
+    corpus shares one target and a layer once built stays in it for every arm scored after, so an
+    arm naming fewer layers than an earlier one would read summaries it never asked for;
+    `Experiment`'s own validator refuses a document whose arms do not name layers in a
+    non-decreasing order. Empty for an arm reading none, and refused together with `pool`, since
+    a replay reads a captured pool and no index.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -343,26 +344,28 @@ class Experiment(BaseModel):
     def _layers_only_grow_across_arms(self) -> Experiment:
         """Refuse an arm naming fewer layers than an earlier arm — ledger task **44.55a**.
 
-        Every non-pool arm shares one store, and a layer once built stays there for every arm
-        scored after it — `vector-top-k` does not filter derived nodes out. So walking the arms
-        in document order, the set of layers named must only grow; an arm falling short of an
-        earlier arm's layers would read a layer it never asked for.
+        Every non-pool arm over one pipeline and corpus shares one target, and a layer once built
+        stays there for every arm scored after it — `vector-top-k` does not filter derived nodes
+        out. So walking the arms in document order, the set of layers named over each pipeline and
+        corpus must only grow; an arm falling short of an earlier one's would read a layer it never
+        asked for.
         """
-        built_by: dict[str, str] = {}
+        built_by: dict[tuple[str, Path], dict[str, str]] = {}
         for arm in self.arms:
             if arm.pool is not None:
                 continue
+            target = built_by.setdefault((arm.pipeline, self.corpus_for(arm)), {})
             named = set(arm.layers)
-            for layer, earlier in built_by.items():
+            for layer, earlier in target.items():
                 if layer not in named:
                     raise ValueError(
                         f"arm '{arm.name}' does not name layer '{layer}', which arm "
-                        f"'{earlier}' builds before it — arms share one store, so every arm "
-                        f"reads every layer already built there. Order the arms so the layers "
-                        f"each names only grow."
+                        f"'{earlier}' builds before it — arms over one pipeline and corpus "
+                        f"share one target, so every arm reads every layer already built there. "
+                        f"Order the arms so the layers each names only grow."
                     )
             for layer in arm.layers:
-                built_by.setdefault(layer, arm.name)
+                target.setdefault(layer, arm.name)
         return self
 
     def corpus_for(self, arm: ExperimentArm) -> Path:

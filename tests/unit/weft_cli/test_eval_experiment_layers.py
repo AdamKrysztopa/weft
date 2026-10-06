@@ -56,6 +56,7 @@ from weft_kernel.pipeline import Pipeline, StageDeclaration
 from weft_kernel.registry import Registry
 from weft_kernel.runner import RunSummary
 from weft_store import LayerRecord, LayerStatus, NodeStore, SourceRecord, SourceStatus
+from weft_store.contract import target_name
 from weft_store.memory import MemoryStore
 
 _WHEN = datetime(2026, 9, 29, 12, 0, tzinfo=UTC)
@@ -185,13 +186,6 @@ def _layer(name: str, status: LayerStatus) -> LayerRecord:
     return LayerRecord(name=name, pipeline_identity="x", status=status, attempts=1, at=_WHEN)
 
 
-def _refs(deps: Dependencies, directory: Path) -> tuple[SourceRef, ...]:
-    _resolved, _specs, refs = corpus_documents(
-        directory, pipeline="index", registry=deps.registry, reports=()
-    )
-    return refs
-
-
 async def _record_layers(
     store: MemoryStore, ref: SourceRef, names: Sequence[str], status: LayerStatus
 ) -> None:
@@ -217,9 +211,11 @@ def _layering_index(
         resolved, _specs, refs = corpus_documents(
             directory, pipeline=str(kwargs["pipeline"]), registry=deps.registry, reports=()
         )
+        target = kwargs.get("target")
+        written = store if target is None else await store.bind_target(target_name(target))
         for ref in refs:
             status = LayerStatus.FAILED if ref.path.name in failing else LayerStatus.ACTIVE
-            await _record_layers(store, ref, kwargs.get("layers", ()), status)
+            await _record_layers(written, ref, kwargs.get("layers", ()), status)
         return IndexResult(
             summary=RunSummary(),
             stored_count=len(refs),
@@ -266,8 +262,9 @@ async def test_a_layer_is_built_once_after_the_base_and_each_record_names_what_i
     store = MemoryStore()
     path = _experiment(tmp_path, _arm("dense") + _layered("raptor") + _layered("raptor-again"))
     indexed: list[dict[str, Any]] = []
+    scored: list[dict[str, object]] = []
     monkeypatch.setattr(eval_commands_module, "run_index_for", _layering_index(indexed, store))
-    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(scored))
 
     # Act
     outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx(store))
@@ -276,6 +273,9 @@ async def test_a_layer_is_built_once_after_the_base_and_each_record_names_what_i
     assert isinstance(outcome, Produced)
     assert [tuple(call.get("layers", ())) for call in indexed] == [(), (_LAYER,)]
     assert all(call["reprocess"] is False for call in indexed)
+    targets = {call["target"] for call in indexed} | {call["target"] for call in scored}
+    assert len(targets) == 1
+    assert None not in targets
     result = cast("EvalExperimentCommandResult", outcome.value)
     read: dict[str, set[tuple[str, ...]]] = {}
     for run in result.runs:
@@ -311,19 +311,23 @@ async def test_a_layer_already_in_the_store_that_an_arm_does_not_name_is_refused
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A completed invocation leaves its layer behind; a fresh one would read it silently."""
-    # Arrange
+    # Arrange — an earlier experiment built the layer into this pipeline's target.
     store = MemoryStore()
-    path = _experiment(tmp_path, _arm("dense") + _arm("other"))
-    ctx = _ctx(store)
-    for ref in _refs(ctx.require(Dependencies), path.parent / "corpus"):
-        await store.put_source(_record(ref, (_layer(_LAYER, LayerStatus.ACTIVE),)))
-    scored: list[dict[str, object]] = []
+    earlier = _experiment(tmp_path, _arm("dense") + _layered("raptor"))
     monkeypatch.setattr(eval_commands_module, "run_index_for", _layering_index([], store))
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+    await EvalExperimentCommand().run(EvalExperimentArgs(path=str(earlier)), _ctx(store))
+    path = earlier.with_name("unlayered.toml")
+    path.write_text(
+        earlier.read_text(encoding="utf-8").split("\n[[arm]]")[0] + _arm("dense") + _arm("other"),
+        encoding="utf-8",
+    )
+    scored: list[dict[str, object]] = []
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(scored))
 
     # Act
     with pytest.raises(LayersNotAsNamedError) as caught:
-        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), ctx)
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx(store))
 
     # Assert
     assert caught.value.arm == "dense"
@@ -339,10 +343,11 @@ async def test_a_named_layer_built_on_only_part_of_the_corpus_is_refused_unscore
     store = MemoryStore()
     path = _experiment(tmp_path, _arm("dense") + _layered("raptor"), repeats=2)
     scored: list[dict[str, object]] = []
+    indexed: list[dict[str, Any]] = []
     monkeypatch.setattr(
         eval_commands_module,
         "run_index_for",
-        _layering_index([], store, failing=frozenset({"two.txt"})),
+        _layering_index(indexed, store, failing=frozenset({"two.txt"})),
     )
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(scored))
 
@@ -355,6 +360,9 @@ async def test_a_named_layer_built_on_only_part_of_the_corpus_is_refused_unscore
     assert caught.value.unbuilt == (_LAYER,)
     assert "built on 1 of 2 source(s)" in str(caught.value)
     assert f"--layers {_LAYER} --layers-only --retry-failed" in str(caught.value)
+    assert f"--target {indexed[-1]['target']} " in str(caught.value), (
+        "the remedy must reach the arm's target"
+    )
     assert len(scored) == 2, "only the dense arm's two repetitions were scored"
 
 

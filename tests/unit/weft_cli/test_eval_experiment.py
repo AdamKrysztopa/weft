@@ -11,6 +11,7 @@ imported, that file's precedent.
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, ClassVar, cast
@@ -19,6 +20,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 from weft_chunk import Chunker
+from weft_chunk.fixed_size import FixedSizeChunker
 from weft_cli import eval_commands as eval_commands_module
 from weft_cli import ingest as ingest_module
 from weft_cli import route_ask as route_ask_module
@@ -42,6 +44,8 @@ from weft_cli.render import render_outcome, render_refusal
 from weft_cli.route_ask import NoRouterPipelineError
 from weft_command.permission import PermissionClass
 from weft_embed import Embedder
+from weft_embed.contract import EmbeddingModel
+from weft_embed.hash_embedder import HashEmbedder
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
@@ -70,6 +74,7 @@ from weft_eval.question_set import (
 )
 from weft_eval.run_record import NoQueryRung, PerQuestionScores, QuestionKey, load_run_record
 from weft_extract import Extractor
+from weft_extract.text import TextExtractor
 from weft_generate import Generator
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
@@ -79,6 +84,7 @@ from weft_kernel.registry import Registry
 from weft_llm.roles import LLMRoles, RoleMapping, UnmappedLLMRoleError
 from weft_retrieve import ContextPacker, RoutingPolicy
 from weft_store import NodeStore
+from weft_store.memory import MemoryStore
 
 
 class _PassThroughStage:
@@ -95,26 +101,6 @@ class _PassThroughStage:
         return Produced(value=payload)
 
 
-class _FakeStore:
-    def __init__(self, config: object) -> None:
-        del config
-        self.added: list[Node] = []
-
-    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
-        del ctx
-        self.added.extend(payload)
-        return Produced(value=payload)
-
-    async def add(self, nodes: Sequence[Node]) -> None:
-        self.added.extend(nodes)
-
-    async def flush(self) -> None:
-        return
-
-    async def count(self) -> int:
-        return len(self.added)
-
-
 class _FakeEmbedderModelConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -122,14 +108,28 @@ class _FakeEmbedderModelConfig(BaseModel):
 
 
 class _FakeEmbedderWithModel:
+    """Embeds as `hash` does and states the model its config names, as an API embedder does."""
+
     config_model: ClassVar[type[_FakeEmbedderModelConfig]] = _FakeEmbedderModelConfig
 
     def __init__(self, config: _FakeEmbedderModelConfig) -> None:
-        del config
+        self._model = config.model
+        self._hash = HashEmbedder()
 
-    async def run(self, payload: Sequence[object], ctx: Context) -> Outcome[Sequence[object]]:
-        del ctx
-        return Produced(value=payload)
+    async def run(self, payload: Sequence[Node], ctx: Context) -> Outcome[Sequence[Node]]:
+        return await self._hash.run(payload, ctx)
+
+    async def embedding_model(self) -> EmbeddingModel:
+        return EmbeddingModel(model=self._model, width=(await self._hash.embedding_model()).width)
+
+
+_STORE: list[MemoryStore] = []
+
+
+def _shared_store(config: object) -> MemoryStore:
+    """The one store every factory call in a test reaches, as one database is."""
+    del config
+    return _STORE[0]
 
 
 def _registry() -> Registry:
@@ -137,11 +137,11 @@ def _registry() -> Registry:
     registrar = PackRegistrar(registry, distribution="weft-eval")
     register(registrar, Settings())
     registrar.commit()
-    registry.add(Extractor, "text", _PassThroughStage, distribution="weft-extract")
-    registry.add(Chunker, "fixed-size", _PassThroughStage, distribution="weft-chunk")
-    registry.add(Embedder, "hash", _PassThroughStage, distribution="weft-embed")
+    registry.add(Extractor, "text", TextExtractor, distribution="weft-extract")
+    registry.add(Chunker, "fixed-size", FixedSizeChunker, distribution="weft-chunk")
+    registry.add(Embedder, "hash", HashEmbedder, distribution="weft-embed")
     registry.add(Embedder, "fake-openai", _FakeEmbedderWithModel, distribution="test")
-    registry.add(NodeStore, "pgvector", _FakeStore, distribution="weft-store")
+    registry.add(NodeStore, "pgvector", _shared_store, distribution="weft-store")
     registry.add(ContextPacker, "repack", _PassThroughStage, distribution="weft-retrieve")
     registry.add(RoutingPolicy, "always-route", _PassThroughStage, distribution="weft-retrieve")
     return registry
@@ -165,6 +165,9 @@ def _catalogue() -> dict[str, Pipeline]:
         "index-other": _document("index-other"),
         "index-small-model": _document(
             "index-small-model", embed=StageDeclaration(id="embed", use="fake-openai")
+        ),
+        "index-dense-slot": _document(
+            "index-dense-slot", embed=StageDeclaration(id="embed-dense", use="fake-openai")
         ),
         "index-large-model": _document(
             "index-large-model",
@@ -264,6 +267,7 @@ def _scoring_stub(calls: list[dict[str, object]]) -> Callable[..., Any]:
 
 @pytest.fixture(autouse=True)
 def in_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys.modules[__name__], "_STORE", [MemoryStore()])
     run_dir = tmp_path / "cwd"
     run_dir.mkdir()
     monkeypatch.chdir(run_dir)
@@ -416,7 +420,7 @@ async def test_arms_that_use_different_models_in_different_slots_are_not_refused
     one arm has a slot the other lacks, which is most of what an experiment varies.
     """
     # Arrange
-    path = _experiment(tmp_path, _arm("hash", "index") + _arm("modelled", "index-small-model"))
+    path = _experiment(tmp_path, _arm("hash", "index") + _arm("modelled", "index-dense-slot"))
     calls: list[dict[str, object]] = []
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
 

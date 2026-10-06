@@ -20,11 +20,13 @@ arms carries is not a difference: an experiment typically varies exactly one slo
 own `Retriever`, a rung's own summarising model) and every other slot present on one side and
 absent on the other is what the experiment is testing, not a reason to refuse it.
 
-**Arms share one store, so a passage from another arm's corpus is a real risk, not a hypothetical
-one.** Every call into `index_and_score` below passes `refuse_foreign_documents=True`
-(`weft_cli.eval_scoring.score_pipeline`'s own task-38.0 guard): a retrieved hit naming a document
-outside the arm's own corpus refuses loudly rather than scoring as a silent miss, which is exactly
-what would make a shared store read as a worse pipeline.
+**Every arm indexes into a target derived from its (index pipeline, corpus) — ledger task
+20.11 — so arms embedding differently coexist; arms naming one pipeline and corpus share one
+target, whatever their layers or names.** A passage from a document the scored corpus lacks is
+still a real risk, not a hypothetical one. Every call into `index_and_score` below passes
+`refuse_foreign_documents=True` (`weft_cli.eval_scoring.score_pipeline`'s own task-38.0 guard): a
+retrieved hit naming a document outside the arm's own corpus refuses loudly rather than scoring as
+a silent miss, which is exactly what would make a shared target read as a worse pipeline.
 
 **Every distinct ingest pipeline and corpus is indexed once, in bounded batches — repair R38.2.**
 Three arms naming one ingest pipeline over one corpus used to index it three times: `reuse_index`
@@ -55,14 +57,15 @@ resolved path, applied here to what a run record persists: two checkouts of one 
 at two absolute paths must still write one corpus identity, or `weft eval compare` cannot pair them.
 
 **An arm naming `layers` is indexed once per `(pipeline, corpus, layers)` — ledger task 44.55a.**
-Arms share one store and `vector-top-k` filters no derived node out, so `weft_eval.experiment`
-refuses a document whose layers do not only grow from arm to arm. Here an unknown layer is refused
-before anything is indexed, and `index_and_score` refuses to score an arm unless the store holds
-exactly the layers it names.
+Layers grow inside the arm's target and `vector-top-k` filters no derived node out, so
+`weft_eval.experiment` refuses a document whose layers do not only grow from arm to arm. Here an
+unknown layer is refused before anything is indexed, and `index_and_score` refuses to score an arm
+unless the store holds exactly the layers it names.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 import uuid
@@ -120,6 +123,7 @@ from weft_kernel.resolution import ResolvedPipeline
 from weft_kernel.runner import StageSpec
 from weft_llm.roles import LLMRoles, UnmappedLLMRoleError
 from weft_retrieve.intent_and_anchors import find_anchors
+from weft_store.contract import TargetName, target_name
 
 _EVAL_EXPERIMENT_HELP = (
     "run every arm of an experiment document (eval/experiments/*.toml) for every repetition, "
@@ -528,6 +532,12 @@ def _corpus_name_for(document_root: Path, corpus_path: Path) -> str:
     return Path(os.path.relpath(corpus_path, start=document_root)).as_posix()
 
 
+def _experiment_target(pipeline: str, corpus: Path) -> TargetName:
+    """The target one (index pipeline, corpus) indexes into; layers and arm names are not in it."""
+    key = f"{pipeline}\n{corpus.resolve().as_posix()}"
+    return target_name("exp_" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:32])
+
+
 def _write_arm_pool(
     experiment: Experiment,
     arm: ExperimentArm,
@@ -564,6 +574,7 @@ def _write_arm_pool(
         model_versions=dict(identity.model_versions),
         store=store,
         store_rows=result.store_rows,
+        target=result.record.target,
         document_ids=result.document_ids,
         questions=tuple(
             PoolQuestion(
@@ -1015,6 +1026,11 @@ async def _run_arms(
                 ),
                 on_progress=on_progress,
                 layers=arm.layers if pool is None else None,
+                target=(
+                    _experiment_target(arm.pipeline, corpus_path)
+                    if pool is None
+                    else pool.manifest.target
+                ),
             )
             if pool is None:
                 indexed_keys.add(index_key)

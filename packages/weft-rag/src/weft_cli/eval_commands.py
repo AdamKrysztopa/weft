@@ -355,10 +355,11 @@ class CorpusHasFailedSourcesError(WeftError):
 class LayersNotAsNamedError(WeftError):
     """Refuse to score when the store does not hold exactly the layers an arm names.
 
-    Every arm shares one store and `vector-top-k` filters no derived node out, so a layer left
-    behind by another arm or an earlier invocation (`unnamed`), or one `weft index --layers`
-    only reached part of the corpus (`unbuilt`), would be read without the record saying so —
-    ledger task **44.55a**. Raised before `score_pipeline` runs, never after.
+    Every arm over one pipeline and corpus shares one target and `vector-top-k` filters no
+    derived node out, so a layer left behind by another arm or an earlier invocation (`unnamed`),
+    or one `weft index --layers` only reached part of the corpus (`unbuilt`), would be read
+    without the record saying so — ledger task **44.55a**. Raised before `score_pipeline` runs,
+    never after.
     """
 
     def __init__(
@@ -1637,6 +1638,7 @@ def _refuse_unbuilt_layers(
     arm: str | None,
     path: Path,
     pipeline: str,
+    target: str | None,
 ) -> None:
     """Refuse when a named layer is not yet built on every source — ledger task **44.55a**."""
     coverage = {one.name: one for one in layer_coverage_of(records)}
@@ -1648,11 +1650,12 @@ def _refuse_unbuilt_layers(
     found = coverage.get(name)
     active = sum(1 for record in records if record.status is SourceStatus.ACTIVE)
     built, of = (found.built, found.of) if found is not None else (0, active)
+    into = "" if target is None else f" --target {target}"
     raise LayersNotAsNamedError(
         f"{_layer_subject(arm)} names layer '{name}', built on {built} of {of} source(s), so "
         f"it would read part of a layer. Finish it with `weft index {path} --pipeline "
-        f"{pipeline} --layers {name} --layers-only --retry-failed`, then run the experiment "
-        "again.",
+        f"{pipeline}{into} --layers {name} --layers-only --retry-failed`, then run the "
+        "experiment again.",
         arm=arm,
         named=layers,
         unnamed=(),
@@ -1692,7 +1695,9 @@ async def _refuse_layers_not_as_named(
             unbuilt=layers,
         )
     _refuse_unnamed_layers(records, layers=layers, arm=arm)
-    _refuse_unbuilt_layers(records, layers=layers, arm=arm, path=path, pipeline=pipeline)
+    _refuse_unbuilt_layers(
+        records, layers=layers, arm=arm, path=path, pipeline=pipeline, target=target
+    )
 
 
 async def index_and_score(
@@ -1787,7 +1792,7 @@ async def index_and_score(
     `corpus_documents` even walks the directory — and every question is then scored against it
     (`score_pipeline`'s own `target`). Without `reuse_index`, `target` reaches `run_index_for`
     unchanged, building a candidate beside the live target exactly as `weft index --target`
-    does.
+    does. `weft_cli.eval_experiment` passes each arm's derived target.
 
     **The persisted record names the target it scored — ledger task 34.7.** After the run,
     `weft_engine.targets.scored_target` is asked what `[services] store` actually holds for

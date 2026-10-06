@@ -129,6 +129,9 @@ class PoolManifest(BaseModel):
     model_versions: Mapping[str, str]
     store: str
     store_rows: int
+    #: The target the pool was captured in; `None` for a manifest written before ledger task 20.11
+    #: (it reads the live target).
+    target: str | None = None
     #: Every corpus document id the capturing run resolved labels against — task **40.2**'s
     #: second half, `weft_cli.eval_scoring.score_pipeline`'s own `corpus_document_ids`, so a
     #: replay's `refuse_foreign_documents` check has the identical set the capture run had,

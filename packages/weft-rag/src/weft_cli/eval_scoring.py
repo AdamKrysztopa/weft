@@ -172,17 +172,26 @@ class ForeignDocumentRetrievedError(WeftError):
     `refuse_foreign_documents=True` and a retrieved passage names a document outside the
     corpus this run scored — task **38.0**'s own guard for `weft eval experiment`.
 
-    An experiment's arms share one store: two arms pointed at two different corpora directories
-    still both index into it, so a passage from a document the *other* arm indexed can surface
-    for this one's questions. Scored as a normal miss, that reads as a worse pipeline rather than
-    what it is — a foreign document nothing here judged at all — so this refuses outright the
-    moment one is seen, before it ever reaches `_deduplicated_by_document`.
+    An experiment's arms over one pipeline and corpus share a target, and a target the scored
+    corpus did not fill alone can hold another corpus's documents, so a foreign passage can
+    surface for this one's questions. Scored as a normal miss, that reads as a worse pipeline
+    rather than what it is — a foreign document nothing here judged at all — so this refuses
+    outright the moment one is seen, before it ever reaches `_deduplicated_by_document`.
+    `target` names the target that was scored, `None` for the live one.
     """
 
-    def __init__(self, message: str, *, document: str, corpus_documents: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        document: str,
+        corpus_documents: tuple[str, ...],
+        target: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.document = document
         self.corpus_documents = corpus_documents
+        self.target = target
 
 
 class AmbiguousLabelError(WeftError, UnresolvedNameError):
@@ -379,7 +388,7 @@ def _document_id_of(hit: Scored[Node]) -> str:
 
 
 def _refuse_foreign_documents(
-    hits: Sequence[Scored[Node]], *, corpus_document_ids: Sequence[str]
+    hits: Sequence[Scored[Node]], *, corpus_document_ids: Sequence[str], target: str | None
 ) -> None:
     """Refuse any hit whose document lies outside the scored corpus.
 
@@ -391,11 +400,13 @@ def _refuse_foreign_documents(
     for hit in hits:
         document = _document_id_of(hit)
         if document not in known:
+            holder = "the store" if target is None else f"target '{target}'"
             raise ForeignDocumentRetrievedError(
-                f"a retrieved passage names document '{document}', which the store holds but "
+                f"a retrieved passage names document '{document}', which {holder} holds but "
                 f"the scored corpus does not ({len(known)} document(s)).",
                 document=document,
                 corpus_documents=tuple(sorted(known)),
+                target=target,
             )
 
 
@@ -1747,6 +1758,7 @@ def _record_attempt_outcome(
     seconds: dict[str, float],
     refuse_foreign_documents: bool,
     corpus_document_ids: Sequence[str],
+    target: str | None,
     top_k: int,
     resolved_document_id: Callable[[str], str],
 ) -> None:
@@ -1757,7 +1769,7 @@ def _record_attempt_outcome(
     hits = cast("Sequence[Scored[Node]]", attempt.hits)
     seconds[question_key] = attempt.elapsed
     if refuse_foreign_documents:
-        _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids)
+        _refuse_foreign_documents(hits, corpus_document_ids=corpus_document_ids, target=target)
     samples.append(
         RetrievalSample(
             query=question_text,
@@ -1854,10 +1866,10 @@ async def score_pipeline(
 
     **`refuse_foreign_documents`, task 38.0.** `False` (the default) is exactly today's
     behaviour, unchanged: `weft eval run` scores whatever a hit names. `True` — asked only by
-    `weft eval experiment`, whose arms share one store — raises `ForeignDocumentRetrievedError`
-    the moment a retrieved hit's own document is not in `corpus_document_ids`, before it ever
-    reaches `_deduplicated_by_document`: see that error's own docstring for why a hit from
-    another arm's corpus must not silently score as a miss.
+    `weft eval experiment`, whose arms over one pipeline and corpus share a target — raises
+    `ForeignDocumentRetrievedError` the moment a retrieved hit's own document is not in
+    `corpus_document_ids`, before it ever reaches `_deduplicated_by_document`: see that error's
+    own docstring for why a hit from another arm's corpus must not silently score as a miss.
 
     **`query_pipeline`, ledger task 7.5 — the query rung Phase 8's exit needed measurable.**
     `None` (the default) is exactly today's behaviour, unchanged: `run_ask`, plain vector
@@ -2141,6 +2153,7 @@ async def score_pipeline(
                     seconds=seconds,
                     refuse_foreign_documents=refuse_foreign_documents,
                     corpus_document_ids=corpus_document_ids,
+                    target=target,
                     top_k=top_k,
                     resolved_document_id=_resolved_document_id,
                 )

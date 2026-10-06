@@ -4118,20 +4118,22 @@ pipeline's own vector search.
 
 ### `ForeignDocumentRetrievedError`
 
-**What it looks like** — an experiment arm retrieving a passage from a document the store holds
+**What it looks like** — an experiment arm retrieving a passage from a document its target holds
 and the arm's corpus does not:
 
 ```text
-$ weft index foreign
-$ weft eval experiment experiment.toml --yes ; echo $?
-a retrieved passage names document '/tmp/exp/foreign/saffron.txt', which the store holds but the scored corpus does not (2 document(s)).
+$ weft index foreign --pipeline index-wide --target exp_563574f8a97ecb0b6e0f9b8bab1e41b3
+$ weft eval experiment widths.toml --yes ; echo $?
+a retrieved passage names document '/tmp/exp/foreign/planted.md', which target 'exp_563574f8a97ecb0b6e0f9b8bab1e41b3' holds but the scored corpus does not (2 document(s)).
 1
 ```
 
-Scored, that passage would count as a miss against questions that never judged it, and the arm
-would read as worse than it is. `weft eval run` still scores such a store; the experiment runner
-refuses it. **What to do:** give the experiment a store holding only its corpus — a fresh database
-in `[packs.store] dsn`, or a new `[packs.qdrant] collection`.
+An experiment indexes each pipeline and corpus into a target of its own, `exp_` and a digest of
+the two, listed by `weft target list`; arms naming the same pipeline and corpus share it. Scored,
+the passage would count as a miss against questions that never judged it, and the arm would read
+as worse than it is. `weft eval run` still scores such a store; the experiment runner refuses it.
+**What to do:** drop the target the message names, `weft target drop <target> --yes`, and run the
+experiment again; it rebuilds that target from the corpus alone.
 
 ### `LayersNotAsNamedError`
 
@@ -4143,16 +4145,16 @@ the store holds layer(s) enrich-with-raptor-corpus, which arm 'dense' does not n
 ```
 
 ```text
-arm 'raptor' names layer 'enrich-with-raptor-corpus', built on 14 of 16 source(s), so it would read part of a layer. Finish it with `weft index <corpus> --pipeline index-with-graph --layers enrich-with-raptor-corpus --layers-only --retry-failed`, then run the experiment again.
+arm 'raptor' names layer 'enrich-with-raptor-corpus', built on 14 of 16 source(s), so it would read part of a layer. Finish it with `weft index <corpus> --pipeline index-with-graph --target <target> --layers enrich-with-raptor-corpus --layers-only --retry-failed`, then run the experiment again.
 ```
 
-Every arm shares one store, and a query rung's search reads every node there, a layer's summaries
-included. A layer left by an earlier invocation would be read by an arm that never named it, and a
-layer that failed on some sources would be read in part, while each record said otherwise. The
-check runs after an arm's index and before it is scored, so nothing is recorded for that arm.
-**What to do:** for a layer the arm does not name, give the experiment a fresh store, as for
-`ForeignDocumentRetrievedError`. For a partly built one, run the printed command; the experiment
-resumes at that arm.
+Every arm over one pipeline and corpus shares one target, and a query rung's search reads every
+node there, a layer's summaries included. A layer left by an earlier invocation would be read by an
+arm that never named it, and a layer that failed on some sources would be read in part, while each
+record said otherwise. The check runs after an arm's index and before it is scored, so nothing is
+recorded for that arm. **What to do:** for a layer the arm does not name, drop the arm's target as
+for `ForeignDocumentRetrievedError`. For a partly built one, run the printed command, which names
+the arm's target; the experiment resumes at that arm.
 
 ### `CorpusManifestError`
 
