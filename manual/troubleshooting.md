@@ -2878,10 +2878,8 @@ $ weft index corpus --pipeline bge-512 ; echo $?
 1
 ```
 
-The refused run has already recorded width 512 against the target it was writing, so indexing
-again without `dimensions` into the same target is refused with `EmbeddingIdentityMismatchError`.
-Index into a new target with `--target`; a candidate target the refused run created can be dropped
-with `weft target drop <name> --yes` first.
+On a target's first write the refusal comes before anything is recorded against it (carried
+repair `R20.1`), so the same run without `dimensions` then indexes.
 
 ### `UnembeddableNodeError`
 
@@ -5499,6 +5497,24 @@ every query against the target answer "nothing found" instead of reporting a fai
 
 **What to do:** drop the target and build it again from its corpus. If the target is live, promote
 or roll back to another target first.
+
+### `EmbeddingProbeFailedError`
+
+**What it looks like** — the first `weft index` into a target that records no embedder yet stops
+before writing anything, because the embedder answered a one-line probe with a failure rather than
+a vector:
+
+```text
+the 'my-embedder' embedder did not embed a probe before the first write into target 'default': <the embedder's reason>. Nothing was claimed or written.
+```
+
+**Why:** a target records the embedder that built it the first time anything is written to it, and
+a later run with a different embedder is refused. Before carried repair `R20.1` that record was
+made before anything was embedded, so a first run the embedder then refused left the target
+recording an embedder that had written nothing, and the run you would make next was refused for
+disagreeing with it. The probe goes first so a refusal comes before the record. An embedder that
+raises its own error, as `openai-embeddings` does, shows that error instead of this one. **What to
+do:** fix what the reason names and index again; nothing was recorded against the target.
 
 ### `EmbeddingIdentityMismatchError`
 

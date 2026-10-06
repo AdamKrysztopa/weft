@@ -158,7 +158,7 @@ from weft_index.payload import ExpansionDegraded
 from weft_kernel.context import Context, UnresolvedServiceError
 from weft_kernel.discovery import PackReport
 from weft_kernel.errors import UnresolvedNameError, WeftError
-from weft_kernel.payload import Node, SourceId
+from weft_kernel.payload import MediaType, Node, Outcome, Produced, SourceId
 from weft_kernel.registry import Registry
 from weft_kernel.resolution import (
     Contribution,
@@ -174,7 +174,7 @@ from weft_kernel.runner import (
     RunSummary,
     StageSpec,
 )
-from weft_kernel.seam import OutcomeKind, StageRecord, recording
+from weft_kernel.seam import OutcomeKind, StageRecord, recording, wrap
 from weft_llm.client import NullSink
 from weft_llm.contract import LLM, TokenCounter, TokenSink
 from weft_store import NodeStore
@@ -373,6 +373,10 @@ class BatchScopedStageError(WeftError):
     does not join `NAME_RESOLUTION_FAMILY`, on `ConflictingIndexModeError`'s own footing
     (`weft_cli/commands.py:331 'class ConflictingIndexModeError(WeftError):'`).
     """
+
+
+class EmbeddingProbeFailedError(WeftError):
+    """Refusal when the probe embedded before a first claim is not answered `Produced` (R20.1)."""
 
 
 def index_specs(
@@ -1508,7 +1512,12 @@ async def run_index(
     effective_batch_size, whole_corpus_for = _batch_plan(batch_size, default_batch_size, runnable)
     embedder_instance = _embedder_instance_of(specs, runnable)
     await _claim_embedding_for_stores(
-        specs, runnable, registry=registry, embedder_instance=embedder_instance, target=target
+        specs,
+        runnable,
+        registry=registry,
+        embedder_instance=embedder_instance,
+        target=target,
+        ctx=ctx,
     )
     # Ledger task **9.0** — every contract a stage in this resolved `specs` already fills is
     # excluded from the ambient role set `build_index_services` would otherwise register; see
@@ -1916,6 +1925,7 @@ async def _claim_embedding_for_stores(
     registry: Registry,
     embedder_instance: Embedder | None,
     target: str | None = None,
+    ctx: Context,
 ) -> None:
     """Let a later query detect it was embedded with a different model than the store holds.
 
@@ -1939,16 +1949,80 @@ async def _claim_embedding_for_stores(
         embedder_instance, plugin=plugin, distribution=registry.entry(Embedder, plugin).distribution
     )
     by_id = {stage.id: stage.instance for stage in runnable.stages}
-    for store_id in _store_stage_ids_of(tuple(specs)):
-        store_instance = by_id.get(store_id)
-        if store_instance is not None:
-            await claim_embedding_for_write(
-                store_instance,
-                identity,
-                plugin=plugin,
-                required=target is not None,
-                target=target,
-            )
+    store_instances = [
+        instance
+        for store_id in _store_stage_ids_of(tuple(specs))
+        if (instance := by_id.get(store_id)) is not None
+    ]
+    await _probe_before_first_claim(
+        store_instances,
+        wrap(
+            embedder_instance.run,
+            distribution=registry.entry(Embedder, plugin).distribution,
+            contract=Embedder.__name__,
+            plugin=plugin,
+            stage=embed_spec.id,
+            position=embed_spec.id,
+        ),
+        plugin=plugin,
+        target=target,
+        ctx=ctx,
+    )
+    for store_instance in store_instances:
+        await claim_embedding_for_write(
+            store_instance,
+            identity,
+            plugin=plugin,
+            required=target is not None,
+            target=target,
+        )
+
+
+async def _records_no_identity(store: object, target: str | None) -> str | None:
+    """The target name `store`'s catalogue holds with no identity, or `None` when it holds one."""
+    if not isinstance(store, TargetHolding):
+        return None
+    catalogue = await store.target_catalogue()
+    name = target if target is not None else catalogue.live
+    record = next((record for record in catalogue.targets if record.name == name), None)
+    return name if record is None or record.embedding is None else None
+
+
+async def _probe_before_first_claim(
+    stores: Sequence[object],
+    embed: Callable[[Sequence[Node], Context], Awaitable[Outcome[Sequence[Node]]]],
+    *,
+    plugin: str,
+    target: str | None,
+    ctx: Context,
+) -> None:
+    """Embed one probe through the run's embedder when a target records no identity — **R20.1**.
+
+    `embed` is the run's embedder through `weft_kernel.seam.wrap`, as the runner calls a stage.
+    A claim made before anything is embedded outlives an embedder that then refuses the batch,
+    and a live target holding a claim over nothing cannot be dropped. The probe moves the
+    refusal ahead of the claim; an embedder that raises propagates unchanged, one that answers
+    anything but `Produced` is `EmbeddingProbeFailedError`, and in both nothing is claimed.
+    """
+    unrecorded = None
+    for store in stores:
+        unrecorded = await _records_no_identity(store, target)
+        if unrecorded is not None:
+            break
+    if unrecorded is None:
+        return
+    probe = Node.synthetic(
+        content="weft embedding probe",
+        media_type=MediaType.TEXT,
+        reason="identity probe before a first claim (R20.1)",
+    )
+    outcome = await embed([probe], ctx)
+    if isinstance(outcome, Produced):
+        return
+    raise EmbeddingProbeFailedError(
+        f"the '{plugin}' embedder did not embed a probe before the first write into target "
+        f"'{unrecorded}': {outcome.reason}. Nothing was claimed or written."
+    )
 
 
 def _store_instance_for_corpus_readers(
