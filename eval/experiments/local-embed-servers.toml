@@ -1,0 +1,32 @@
+# Phase 20b task 20.8b (fix-plans/29): do TEI and Ollama serve BAAI/bge-m3 alike, on TechQA?
+# A **server gap** is a paired mrr@5 interval of (ollama − tei) that excludes zero with |mean| at
+# least 0.02 — stated here because the five-way verdict reads superiority, not a two-sided gap; a
+# gap fires the `weft-sentence-transformers` row (O6). No `[decision]`: this reads a gap, not a win.
+# Routing (amends O7 so the Ollama index the decisive TechQA run built is reused): Ollama is reached
+# through `[packs.openai-compatible]` (pipeline `index-openai-compatible`), TEI through
+# `[packs.openai]` pointed at the local TEI (pipeline `index-openai`, so its record names
+# `openai-embeddings:BAAI/bge-m3`). TEI 1.9.4, native Metal, float16; Ollama 0.6.2, F16.
+
+[experiment]
+schema = 1
+name = "local-embed-servers"
+questions = "../../corpus/techqa-questions.toml"
+corpus = "../../corpus/techqa"
+manifest = "../../corpus/techqa.toml"
+repeats = 2
+top_k = 5
+metrics = ["mrr@5", "recall@5", "ndcg@5"]
+minimum_detectable_effect = 0.02
+index_batch_size = 250
+
+[[arm]]
+name = "ollama"
+pipeline = "index-openai-compatible"
+query_pipeline = "vector-retrieve"
+repeats = 1
+
+[[arm]]
+name = "tei"
+pipeline = "index-openai"
+query_pipeline = "vector-retrieve"
+repeats = 1

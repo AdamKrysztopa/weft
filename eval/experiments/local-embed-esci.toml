@@ -1,0 +1,40 @@
+# Phase 20b task 20.8b (fix-plans/29): is BAAI/bge-m3, served locally, within the margin of
+# text-embedding-3-large? ESCI, reported beside TechQA: an openai `worthwhile` here is stated as a limit, not a verdict on local.
+# bge-m3 is `arms[0]` and served by Ollama (owner O10); the paired interval of (openai − bge-m3) is
+# read through `benefit-ruled-out`: its upper bound below the margin is "local is sufficient" (O5).
+# The margin was fixed from the blinded pilot's paired sd, before any run of this document. Both arms are deterministic: run once (`esci-pool.toml`'s precedent); the
+# pilot's `bge-m3-again` arm is the determinism control for the Ollama path.
+# Power, stated before any run (O8, O11): the blinded pilot paired bge-m3 via Ollama against
+# text-embedding-3-large on TechQA, n 610, and printed only the sd of the paired mrr@5
+# differences, 0.3310, a 95% half-width of 0.0263; margin 0.04 reads `benefit-ruled-out` about 80%
+# of the time if the two are equal. Price (O9): the openai-large index is 9,957,714 tokens, $1.29
+# at $0.13 per million, approved with the other two corpora at $8.87.
+
+[experiment]
+schema = 1
+name = "local-embed-esci"
+questions = "../../corpus/esci-questions.toml"
+corpus = "../../corpus/esci"
+manifest = "../../corpus/esci.toml"
+repeats = 2
+top_k = 5
+metrics = ["mrr@5", "recall@5", "ndcg@5"]
+minimum_detectable_effect = 0.04
+index_batch_size = 250
+
+[decision]
+metric = "mrr@5"
+margin = 0.04
+direction = "higher-is-better"
+
+[[arm]]
+name = "bge-m3"
+pipeline = "index-openai-compatible"
+query_pipeline = "vector-retrieve"
+repeats = 1
+
+[[arm]]
+name = "openai-large"
+pipeline = "index-openai-large"
+query_pipeline = "vector-retrieve"
+repeats = 1
