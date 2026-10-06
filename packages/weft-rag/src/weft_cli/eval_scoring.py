@@ -155,7 +155,8 @@ class UnresolvableLabelError(WeftError, UnresolvedNameError):
     Refused rather than scored, which is this project's own scar: an early RAPTOR run read
     `0.000` at every cutoff because ground truth named manifest ids and hits are attributed by
     resolved path, and a `0.000` meaning *the harness is wrong* cannot be told from a `0.000`
-    meaning *the architecture fails* (`docs/internal/build-ledger.md:5528 'an early run read'`).
+    meaning *the architecture fails*
+    (`docs/internal/done/build-ledger.md:5395 'an early run read'`).
     A question whose ground truth names nothing is a broken input, not a hard question.
     """
 

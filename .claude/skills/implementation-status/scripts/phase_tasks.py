@@ -39,6 +39,7 @@ try:
         PHASE_IN_STATUS,
         REPAIR_LINE,
         find_ledger,
+        full_text,
         parse,
         status_block,
     )
@@ -138,7 +139,7 @@ def collect(ledger: Path, wanted: str) -> dict:
     Returns:
         The report as a JSON-ready mapping, or an empty one when no phase has that id.
     """
-    tasks, phases = parse(ledger.read_text(encoding="utf-8"))
+    tasks, phases = parse(full_text(ledger))
     titles = [t for t in phases if phase_number(t) == wanted]
     if not titles:
         return {}
@@ -173,7 +174,7 @@ def collect(ledger: Path, wanted: str) -> dict:
             }
         )
     open_repairs = []
-    for match in REPAIR_LINE.finditer(ledger.read_text(encoding="utf-8")):
+    for match in REPAIR_LINE.finditer(full_text(ledger)):
         if match.group(1) == " ":
             identifier = match.group("identifier")
             open_repairs.append(

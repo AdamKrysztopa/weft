@@ -19,7 +19,7 @@ What this writes is derivable, and therefore re-derivable by anyone:
 - **Labels as corpus-relative paths** — `arxiv/1304.7717v2.pdf`, the manifest's own `path` — which
   is what `16.5` made resolvable on any machine. Before it, a label was a manifest id and matched
   nothing, and an early run of this very rig read `0.000` at every cutoff without anyone noticing
-  (`docs/internal/build-ledger.md:5528 "an early run read"`).
+  (`docs/internal/done/build-ledger.md:5395 "an early run read"`).
 - **`language` and `id` carried through**, because `16.8` made a language a scored fact and `16.4`
   keys per-question scores on an id. Both now enter the question-set digest `16.6` records, so two
   runs scored on this file are provably scored on the same questions.

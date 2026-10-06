@@ -532,6 +532,9 @@ boundary skipped is a boundary skipped silently. Accounts in `references/evidenc
    because the next phase is about to be routed off it.
 9. **`docs/internal/README.md`'s Status block is edited to the new position** — phase, blocked-by, next
    action, open-decision count.
+10. **`python3 .claude/skills/phase-step/scripts/sort_internal.py`** moves the closed phase's ledger
+    section, roadmap row and section, checklist, settled sessions and fix-plan into
+    `docs/internal/done/`, and anything left conditional into `ideas/`. Then run `--check-live` again.
 
    **One commit per task, pushed as they are; never squash the phase.** `git blame -w` on a ticked
    ledger box is how a task is traced to its commit, and a squash makes every box in the phase

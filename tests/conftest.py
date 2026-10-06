@@ -88,6 +88,22 @@ def untracked_reason(repo_relative: str) -> str | None:
     )
 
 
+def internal_text(repo_relative: str) -> str:
+    """A `docs/internal/` file followed by its namesakes under `done/` and `ideas/`.
+
+    `sort_internal.py` moves finished and conditional units there unedited, so a check over the
+    whole record reads all three. Called only after `untracked_reason` has found the live file.
+    """
+    live = _UNTRACKED_ROOT / repo_relative
+    parts = [live.read_text(encoding="utf-8")]
+    parts.extend(
+        sibling.read_text(encoding="utf-8")
+        for sibling in (live.parent / bucket / live.name for bucket in ("done", "ideas"))
+        if sibling.is_file()
+    )
+    return "\n".join(parts)
+
+
 class SkipCause(Enum):
     """Why a test may skip. A skip whose reason names none of these fails the run, everywhere.
 

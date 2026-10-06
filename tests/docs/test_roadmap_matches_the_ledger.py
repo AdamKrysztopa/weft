@@ -33,7 +33,7 @@ from typing import Final
 
 import pytest
 
-from tests.conftest import untracked_reason
+from tests.conftest import internal_text, untracked_reason
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 _LEDGER: Final[Path] = _REPO_ROOT / "docs" / "internal" / "build-ledger.md"
@@ -73,7 +73,7 @@ def _ticks_by_phase() -> dict[str, tuple[int, int]]:
     found: dict[str, list[int]] = {}
     phase: str | None = None
     fenced = False
-    for line in _LEDGER.read_text(encoding="utf-8").splitlines():
+    for line in internal_text("docs/internal/build-ledger.md").splitlines():
         if line.startswith("```"):
             fenced = not fenced
             continue
@@ -114,9 +114,9 @@ def test_a_dissolved_phase_does_not_still_read_should() -> None:
     to catch a neighbouring one.
     """
     # Arrange
-    ledger = _LEDGER.read_text(encoding="utf-8")
+    ledger = internal_text("docs/internal/build-ledger.md")
     ticked = {match.group(1) for match in _TICKED_TASK.finditer(ledger)}
-    roadmap = _ROADMAP.read_text(encoding="utf-8").splitlines()
+    roadmap = internal_text("docs/internal/12-roadmap.md").splitlines()
 
     # Act
     stale: list[str] = []
@@ -144,7 +144,7 @@ def test_a_fully_built_phase_reads_done_in_the_roadmap() -> None:
     ticks = _ticks_by_phase()
     rows = [
         (match.group(1), match.group(2))
-        for line in _ROADMAP.read_text(encoding="utf-8").splitlines()
+        for line in internal_text("docs/internal/12-roadmap.md").splitlines()
         if (match := _ROW.match(line))
     ]
     assert rows, (
@@ -299,7 +299,7 @@ def test_every_live_row_points_at_a_section_arguing_it() -> None:
     **3** — 17, 26b and 16b.
     """
     # Arrange
-    roadmap = _ROADMAP.read_text(encoding="utf-8")
+    roadmap = internal_text("docs/internal/12-roadmap.md")
 
     # Act
     unargued = _rows_owing_a_section(roadmap)
@@ -321,7 +321,7 @@ def test_the_section_walk_is_not_vacuous() -> None:
     section walk finds the sections, and a planted row with no section is reported.
     """
     # Arrange
-    roadmap = _ROADMAP.read_text(encoding="utf-8")
+    roadmap = internal_text("docs/internal/12-roadmap.md")
 
     # Assert — both walks see a real population.
     assert len(_SECTION.findall(roadmap)) >= 8, "the section walk found almost nothing"
@@ -351,7 +351,7 @@ def test_every_section_arguing_a_phase_has_a_row_in_the_table() -> None:
     coverage of both. Walks 13 sections today and fails 0.
     """
     # Arrange
-    roadmap = _ROADMAP.read_text(encoding="utf-8")
+    roadmap = internal_text("docs/internal/12-roadmap.md")
 
     # Act — every row id, not `_verdicts`: that walk keys on a verdict spelled `[A-Z' ]+` and so
     # cannot see `WON'T yet`, which is deliberate where a verdict is being judged and wrong here,

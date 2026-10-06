@@ -25,7 +25,7 @@ from typing import Final
 
 import pytest
 
-from tests.conftest import untracked_reason
+from tests.conftest import internal_text, untracked_reason
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 LEDGER: Final[Path] = REPO_ROOT / "docs" / "internal" / "build-ledger.md"
@@ -54,7 +54,7 @@ def _task_blocks() -> list[tuple[str, bool, str]]:
     The fence matters: *How to read a task line* holds an example inside one, and a sweep that
     reads it reports a task that does not exist.
     """
-    text = LEDGER.read_text(encoding="utf-8")
+    text = internal_text("docs/internal/build-ledger.md")
     kept: list[str] = []
     in_fence = False
     for line in text.splitlines(keepends=True):
@@ -249,7 +249,7 @@ def test_this_parser_and_next_task_agree_on_which_tasks_exist() -> None:
 
     # Act
     theirs: set[str] = set()
-    for line in LEDGER.read_text(encoding="utf-8").splitlines():
+    for line in internal_text("docs/internal/build-ledger.md").splitlines():
         start = next_task.TASK_START.match(line)
         if start is None:
             continue

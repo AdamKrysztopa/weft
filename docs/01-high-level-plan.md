@@ -853,7 +853,7 @@ the ingest path — a blob store and a describer — and today every path assemb
 hand-written list (`weft_engine/run_services.py:383 "for posi"`, `:407`; the command path in `weft_cli.cli`) against
 three fixed keys (`weft_engine/services.py:161 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
-(`docs/internal/build-ledger.md:4364-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
+(`docs/internal/done/build-ledger.md:4231-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing
 instance Phase 7 measured, this phase's two services, and Phase 11's traversal contract on the query
 path — and it sits here only because this phase is the first in the owner's order of 2026-09-06 to
 need it. Phase 10 (RAPTOR) builds directly on the nodes this phase produces: a table's index text and a
@@ -1082,7 +1082,7 @@ the graph as a shipped pack, is deliberately not here: it is blocked on three de
 that owns the capability without G4's second backend, with family membership deferred on a named
 trigger; and the seam through which a pack's store is named for a run is built once, as Phase 9's
 task **9.0**, from two consumers and the failing instance Phase 7's close filed
-(`build-ledger.md:4367-4371 "the clos"`) — **this phase inherits it and does not build it.** The third — where
+(`docs/internal/done/build-ledger.md:4234-4371 "the clos"`) — **this phase inherits it and does not build it.** The third — where
 a corpus-wide, revisable pass runs — **was settled by G15 on 2026-09-08**, and the tasks that
 depend on it keep their ⚠ as a record of what was once undecided rather than as a block; this
 sentence called it open until 2026-09-09, which is the Gate bullet below it saying the opposite

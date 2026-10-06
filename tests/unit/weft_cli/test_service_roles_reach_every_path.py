@@ -4,7 +4,8 @@ Properties (i), (ii) and (iii) each hold in isolation in their own files. This o
 sentence the task line actually makes: *a pack that publishes a run-wide service is reachable by
 `ctx.require` on every path — command, query, ingest — with no edit to `weft-cli`.* Each of the
 three assemblers is a separate opportunity to leave a path out, and leaving one out is exactly the
-failure this task exists to close: `docs/internal/build-ledger.md:4370-4366 'emits prose'` records
+failure this task exists to close: `docs/internal/done/build-ledger.md:4237-4366 'emits prose'`
+records
 Phase 7's close finding that `run_command` registers four contracts and a pack needing the
 configured store or embedder "still cannot reach one". The seam was repaired for the four contracts
 the agent happened to need.

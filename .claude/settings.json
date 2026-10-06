@@ -68,6 +68,15 @@
         ]
       },
       {
+        "matcher": "Read|Grep|Glob|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_archive_reads.py\""
+          }
+        ]
+      },
+      {
         "matcher": "Agent|Task",
         "hooks": [
           {

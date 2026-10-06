@@ -51,7 +51,7 @@ from typing import Final
 
 import pytest
 
-from tests.conftest import untracked_reason
+from tests.conftest import internal_text, untracked_reason
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
@@ -140,11 +140,7 @@ def ledger_task_states() -> dict[str, bool]:
     """
     states: dict[str, bool] = {}
     in_fence = False
-    for line in (
-        (REPO_ROOT / "docs" / "internal" / "build-ledger.md")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ):
+    for line in internal_text("docs/internal/build-ledger.md").splitlines():
         if line.startswith("```"):
             in_fence = not in_fence
             continue

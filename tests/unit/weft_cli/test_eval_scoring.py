@@ -294,7 +294,7 @@ def test_a_label_naming_no_document_is_refused_rather_than_scored_zero() -> None
     """A mistyped label cannot pass as a real `0.000` score; the harness fails instead.
 
     The defect this rule exists for, and the ledger records it as a scar
-    (`docs/internal/build-ledger.md:5528 "an early run read"`): *"an early run read `0.000` at
+    (`docs/internal/done/build-ledger.md:5395 "an early run read"`): *"an early run read `0.000` at
     every cutoff and was not reported as a finding — ground truth names a `SourceDoc.source_id`,
     and bare filenames match nothing."* A `0.000` meaning *the harness is wrong* and a `0.000`
     meaning *the architecture fails* are indistinguishable in a report.

@@ -11,6 +11,12 @@ reference documents under `docs/` are tracked and are what a reader of the code 
 only input is one of those eight files skip when it is absent, naming it —
 `tests/conftest.py`'s `UNTRACKED_BY_DESIGN` is the one list they all read.
 
+**`docs/internal/` holds live work only** (2026-10-06). Finished work is in `done/`, conditional or
+unopened work in `ideas/`, superseded drafts in `obsolete/`. Each file there keeps the name of the
+live file it left, and `phase-step`'s `sort_internal.py` does the moving at every phase close.
+**Answer a question about the plan from the live files and `ideas/`.** Reading `done/` or
+`obsolete/` asks the owner first (`guard_archive_reads.py`), so ask only when the answer needs history.
+
 Weft is a RAG engine built as a **microkernel**: a small kernel that knows nothing about PDFs,
 chunking, embeddings or graphs, where every capability is a plugin discovered through Python entry
 points, pipelines are data derivable from other pipelines, and built-ins are held to the same public

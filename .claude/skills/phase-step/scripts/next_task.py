@@ -344,6 +344,20 @@ def last_unticked_in_phase(tasks: list[Task], index: int) -> bool:
     return not any(t.phase == phase and not t.checked for t in tasks[index + 1 :])
 
 
+def full_text(path: Path) -> str:
+    """`path` followed by its namesakes under `done/` and `ideas/`.
+
+    `sort_internal.py` moves finished and conditional units there; the three are the whole record.
+    """
+    parts = [path.read_text(encoding="utf-8")]
+    parts.extend(
+        sibling.read_text(encoding="utf-8")
+        for sibling in (path.parent / bucket / path.name for bucket in ("done", "ideas"))
+        if sibling.is_file()
+    )
+    return "\n".join(parts)
+
+
 def find_ledger(explicit: str | None) -> Path:
     """Locate the build ledger, preferring the path given on the command line.
 
@@ -410,7 +424,7 @@ def _repair_count_failures(path: Path, status: dict[str, str]) -> list[str]:
             f"{status['Carried repairs'][:60]!r}"
         )
         return failures
-    text = find_ledger(None).read_text(encoding="utf-8")
+    text = full_text(find_ledger(None))
     states = [match.group(1).strip() for match in REPAIR_LINE.finditer(text)]
     counted_open = sum(1 for state in states if not state)
     counted_closed = sum(1 for state in states if state)
@@ -473,7 +487,7 @@ def _fix_plan_row_failures(path: Path) -> list[str]:
     roadmap_path = path.parent / "12-roadmap.md"
     if not plans.is_dir() or not roadmap_path.is_file():
         return []
-    roadmap = roadmap_path.read_text(encoding="utf-8")
+    roadmap = full_text(roadmap_path)
     missing = []
     for plan in sorted(plans.glob("[0-9][0-9]-phase-*.md")):
         match = re.match(r"^[0-9]{2}-phase-([0-9]+[a-z]?)-", plan.name)
@@ -498,7 +512,7 @@ def _repair_failures(identifier: str) -> list[str]:
     kind of target: the row names something done, and a reader routed by it starts on finished
     work. A repair the ledger does not hold at all is a pointer nobody can follow.
     """
-    text = find_ledger(None).read_text(encoding="utf-8")
+    text = full_text(find_ledger(None))
     for state, found in ((m.group(1), m.group("identifier")) for m in REPAIR_LINE.finditer(text)):
         if found != identifier:
             continue
@@ -767,7 +781,7 @@ def report(path: Path, *, as_json: bool) -> int:
         is ticked; 3 when the ledger cannot be read or parsed.
     """
     try:
-        ledger = path.read_text(encoding="utf-8")
+        ledger = full_text(path)
     except OSError as exc:
         print(f"cannot read the ledger at {path}: {exc}", file=sys.stderr)
         return 3
@@ -971,7 +985,7 @@ def _live_check_failures(
     live_depth = len(QUEUE_ENTRY.findall(queue_section(path.parent / "lessons.md")))
     #: Same reasoning one row over (`L12.2`): the clause reads the real ledger, so the fixture
     #: states whatever that file currently holds and the assertion under test is agreement.
-    live_states = [m.group(1).strip() for m in REPAIR_LINE.finditer(path.read_text("utf-8"))]
+    live_states = [m.group(1).strip() for m in REPAIR_LINE.finditer(full_text(path))]
     live_open = sum(1 for state in live_states if not state)
     live_closed = sum(1 for state in live_states if state)
     agreeing = {
@@ -1054,7 +1068,7 @@ def _repair_clause_failures(
     first, at complexity 13.
     """
     failures: list[str] = []
-    live_states = [m.group(1).strip() for m in REPAIR_LINE.finditer(path.read_text("utf-8"))]
+    live_states = [m.group(1).strip() for m in REPAIR_LINE.finditer(full_text(path))]
     live_open = sum(1 for state in live_states if not state)
 
     # `docs/internal/lessons.md` L12.2, planted both ways, exactly as L8.15 is planted above — the
@@ -1138,7 +1152,7 @@ def check_live(path: Path) -> int:
     most damage because the next phase is about to be routed off it.
     """
     try:
-        ledger = path.read_text(encoding="utf-8")
+        ledger = full_text(path)
     except OSError as exc:
         print(f"cannot read the ledger at {path}: {exc}", file=sys.stderr)
         return 3

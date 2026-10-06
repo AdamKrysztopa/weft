@@ -62,7 +62,7 @@ from typing import Final
 import pytest
 
 from tests.architecture.conftest import tracked_files
-from tests.conftest import untracked_reason
+from tests.conftest import internal_text, untracked_reason
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 _LOG: Final[Path] = _REPO_ROOT / "docs" / "internal" / "README.md"
@@ -117,7 +117,7 @@ _QUOTED: Final[re.Pattern[str]] = re.compile(
 
 
 def _settled_gates() -> frozenset[str]:
-    return frozenset(_SETTLED.findall(_LOG.read_text(encoding="utf-8")))
+    return frozenset(_SETTLED.findall(internal_text("docs/internal/README.md")))
 
 
 def _files() -> list[Path]:
