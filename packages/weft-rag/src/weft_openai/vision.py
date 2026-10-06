@@ -36,7 +36,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_openai.embedder import DEFAULT_ACCOUNT
-from weft_openai.settings import Settings
+from weft_openai.settings import Settings, credential_line
 
 #: The ceiling `prepared_image` resizes down to. **This provider's cost and limit, not a fact about
 #: describing images** — which is why it is a constant in this module rather than a field on the
@@ -148,10 +148,9 @@ class OpenAIVisionDescriber:
         if not self._settings.api_key.get_secret_value():
             raise MissingApiKeyError(
                 f"no credential is configured for the '{self._account}' account, so the "
-                f"'{self._account}-vision' describer has nothing to authenticate with. Set "
-                f"[packs.{self._account}] api_key in weft.toml (the usual spelling is "
-                'api_key = "${env:OPENAI_API_KEY}"), or remove the stage that describes '
-                "figures from this pipeline."
+                f"'{self._account}-vision' describer has nothing to authenticate with. Add "
+                f"{credential_line(self._account)} to weft.toml, or remove the stage that "
+                "describes figures from this pipeline."
             )
         prepared = await asyncio.to_thread(prepared_image, data, media_type)
         try:

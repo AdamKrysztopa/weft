@@ -212,7 +212,7 @@ dsn = "${env:WEFT_DATABASE_URL}"
 # once your server accepts the field. Carried repair `R33.1`.
 #
 # stream_usage = false
-# api_key = "${env:LOCAL_API_KEY}"
+# api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"
 # base_url = "http://localhost:11434/v1"
 # organization = "org-..."
 # project = "proj_..."

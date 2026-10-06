@@ -2833,6 +2833,10 @@ says — add the settings block. `weft-openai` deliberately does *not* read `OPE
 own the way the vendor SDK would, so that a project that runs on one machine runs on every machine,
 and so that this message can name a file that was actually consulted.
 
+Under `[packs.openai-compatible]` the message names a variable of that account's own,
+`${env:OPENAI_COMPATIBLE_API_KEY}`, and says that a server checking no key accepts any value: Ollama
+and a local TEI check none, and the vendor's key has no business reaching a server the project runs.
+
 ### `EmbeddingRequestFailedError`
 
 **What it looks like** — the API refused the call, or could not be reached. Reproduced with a
@@ -2852,11 +2856,32 @@ credential, `429` is a rate or quota limit, `400` is the request itself — for 
 the network. Rate limits, timeouts, connection failures and `5xx` are marked `transient`, so a
 caller that retries knows which ones are worth retrying; the rest will refuse identically forever.
 
-The model and `dimensions` are *not* things to check here, because nothing in `weft.toml` can set
-them: `weft index` and `weft ask` run this pack's defaults until a pipeline document reaches them
-(see [`manual/operations-guide.md`](operations-guide.md) → *Choosing an embedder*). A `400` naming
-a model that does not exist means a library caller built `OpenAIEmbedderConfig` by hand, or the
-`base_url` in `[packs.openai]` points at a server that does not serve that model.
+A server that never answered is named by its address instead — here a local TEI that was not
+running:
+
+```text
+$ weft ask --retrieve-only "what carries the weft?" ; echo $?
+could not reach http://127.0.0.1:8099/v1 for a batch of 1 for model 'BAAI/bge-m3': Connection error. — is the server running? [packs.openai-compatible] base_url names this address.
+1
+```
+
+A `400` naming a model that does not exist means `[packs.*] embedding_model`, or a stage's own
+`with: {model: ...}`, names one the server at `base_url` does not serve.
+
+**A server that does not shorten the model.** A stage asking for `dimensions` is refused when the
+vectors come back at another width, rather than stored under a width they do not have. Against
+Ollama serving `bge-m3`, which answers 1024 whatever is asked:
+
+```text
+$ weft index corpus --pipeline bge-512 ; echo $?
+`dimensions = 512` asked model 'bge-m3' for vectors of width 512, and the endpoint answered width 1024: it does not shorten this model's vectors, so remove `dimensions` from the embed stage's `with:` block to store its native width.
+1
+```
+
+The refused run has already recorded width 512 against the target it was writing, so indexing
+again without `dimensions` into the same target is refused with `EmbeddingIdentityMismatchError`.
+Index into a new target with `--target`; a candidate target the refused run created can be dropped
+with `weft target drop <name> --yes` first.
 
 ### `UnembeddableNodeError`
 

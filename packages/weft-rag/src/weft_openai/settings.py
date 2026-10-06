@@ -28,6 +28,23 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 #: own defaults from the environment — see `weft_openai.embedder.build_client`.
 _DEFAULT_MAX_RETRIES = 2
 
+_VENDOR_ACCOUNT = "openai"
+
+
+def credential_line(account: str) -> str:
+    """The `weft.toml` line a missing-credential refusal tells an operator to add.
+
+    Only the vendor's own account names `OPENAI_API_KEY`. Any other account points at a server
+    the project chose, and a remedy naming the vendor's key would send it there (ledger 20.8a).
+    """
+    if account == _VENDOR_ACCOUNT:
+        return f'`[packs.{account}] api_key = "${{env:OPENAI_API_KEY}}"`'
+    variable = f"{account.upper().replace('-', '_')}_API_KEY"
+    return (
+        f'`[packs.{account}] api_key = "${{env:{variable}}}"` (a server that checks no key '
+        "accepts any value)"
+    )
+
 
 class Settings(BaseModel):
     """One OpenAI account: the credential, where to reach it, and how patient to be."""

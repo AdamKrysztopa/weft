@@ -753,7 +753,7 @@ named for the protocol rather than for where the server is, because it is true e
 api_key = "${env:OPENAI_API_KEY}"
 
 [packs.openai-compatible]
-api_key = "${env:LOCAL_API_KEY}"
+api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"
 base_url = "http://localhost:11434/v1"
 
 [services]
@@ -784,10 +784,14 @@ vendor's catalogue, so pointing `base_url` at it is half the job:
 
 ```toml
 [packs.openai-compatible]
-api_key = "${env:LOCAL_API_KEY}"
+api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"
 base_url = "http://localhost:11434/v1"
 embedding_model = "nomic-embed-text"
 ```
+
+A server that checks no key, as Ollama and a local TEI do not, accepts any value, but the
+variable must be set: the account refuses to run with no credential at all, and its message names
+this variable rather than your vendor key, which has no business reaching a server you run.
 
 `embedding_model` is the account's answer for *"which model, when nobody says otherwise"*, and
 **both sides of a corpus read it**: `weft index` embeds the chunks and `weft ask` embeds the
@@ -816,6 +820,63 @@ schema-in-the-prompt tier and falls to the last, a plain answer parsed as best i
 once the server is known to accept the field; Ollama, vLLM and llama.cpp serve it. It changes how
 every typed answer is asked, so a comparison of runs either side of the switch is a comparison of
 two askings, not of two models. (Repair `R41.5`, 2026-09-21.)
+
+**Serving `BAAI/bge-m3` locally — TEI or Ollama.** Both were run on 2026-10-06 against the built
+wheel from a directory outside this repository, indexing and answering through
+`openai-compatible-embeddings`. The model is MIT-licensed (its model card's `license: mit`), TEI is
+Apache-2.0 and Ollama MIT; read the terms of whichever registry a server downloads from before it
+does. The two servers answer to different names, so `embedding_model` differs:
+
+```toml
+# Text Embeddings Inference 1.9.4, built natively for Apple silicon:
+#   cargo install --path router -F metal
+#   text-embeddings-router --model-id BAAI/bge-m3 --port 8080 --hostname 127.0.0.1 \
+#     --max-client-batch-size 128
+[packs.openai-compatible]
+api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"
+base_url = "http://127.0.0.1:8080/v1"
+embedding_model = "BAAI/bge-m3"
+```
+
+```toml
+# Ollama: ollama pull bge-m3
+[packs.openai-compatible]
+api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"
+base_url = "http://localhost:11434/v1"
+embedding_model = "bge-m3"
+```
+
+**TEI takes 32 inputs per request unless told otherwise, and Weft sends up to 128.** Without
+`--max-client-batch-size 128` the first full batch is refused, which a corpus small enough to fit
+in one request never shows:
+
+```text
+the embeddings API refused a batch of 75 for model 'BAAI/bge-m3': Error code: 422 - {'message': 'batch size 75 > maximum allowed batch size 32', 'code': 422, 'type': 'Validation'}
+```
+
+Starting TEI with the flag is the fix; a pipeline's `with: {batch_size: 32}` also works, but only
+for runs that name that document. TEI binds to every interface (`0.0.0.0`) unless `--hostname`
+says otherwise.
+
+**How fast, measured.** On a fixed sample of 1,000 TechQA chunks (Weft's `text` extractor and
+`fixed-size` chunker at their defaults, the first 1,000 chunks of the files in name order, sample
+sha256 `0a5e2bd8…`), through `openai-compatible-embeddings` with its default four concurrent
+requests, on an Apple M4 Pro with 24 GB: **Ollama 29.8 chunks/s** at the default batch of 128, and
+**TEI 5.0 chunks/s** at a batch of 32 — about 0.9 and 5.6 hours per 100,000 chunks. Three timed
+passes each, medians quoted, on a host whose one-minute load was 2.7–4.5 throughout, so read them
+to ±10%. TEI's native Metal build is the slower of the two here by a factor of six; the cause was not
+isolated.
+
+Both serve 1024-wide vectors at float16 — TEI's `/info` reports `model_dtype: float16` on Metal,
+and Ollama's model reports `F16`. **Leave `dimensions` unset for this model.** It was not trained
+to be shortened, and the two servers disagree about the request: Ollama ignores it and answers
+1024, which Weft refuses rather than store under a width the vectors do not have
+(`manual/troubleshooting.md` → `EmbeddingRequestFailedError`), while TEI cuts the vector to the
+width asked for. A target records the model name the account sends, not the server: with the two
+names above, an index built through one server is refused when asked through the other. TEI
+answers whatever name it is sent, so naming `bge-m3` against TEI would make the two
+indistinguishable — keep each server's own name, because two servers are two measurements until
+one has compared them.
 
 **A wrong `base_url` fails at the first call, not at startup.** Nothing here reaches the network,
 so `weft plugins doctor` reports the pack `active` whether or not the address answers; the error

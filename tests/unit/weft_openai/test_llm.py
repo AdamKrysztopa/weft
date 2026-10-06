@@ -291,6 +291,19 @@ async def test_complete_without_a_credential_names_the_configuration_line_that_s
     assert raised.value.model == "gpt-4o-mini"
 
 
+async def test_a_second_account_without_a_credential_is_not_pointed_at_the_vendor_key() -> None:
+    """Ledger task 20.8a: the embedder's remedy, rendered by the same helper here."""
+    # Arrange
+    provider = OpenAILLMProvider(Settings(), account="openai-compatible")
+
+    # Act / Assert
+    with pytest.raises(LLMAuthenticationError) as raised:
+        await provider.complete(_conversation("hello"), model="qwen2.5", ctx=_ctx())
+    message = str(raised.value)
+    assert '[packs.openai-compatible] api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"' in message
+    assert "env:OPENAI_API_KEY" not in message
+
+
 async def test_a_configured_temperature_and_max_tokens_reach_the_underlying_api_call() -> None:
     """Task 2.30's repair: configured generation knobs reach the chat call instead of being dropped.
 

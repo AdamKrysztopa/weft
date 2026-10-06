@@ -69,6 +69,7 @@ from weft_kernel.payload import Node, NothingToProduce, Outcome, Produced, Vecto
 from weft_kernel.seam import current_stage
 from weft_llm.payload import TokenUsage
 from weft_llm.usage import UsageEntry, record_usage
+from weft_openai.settings import credential_line
 
 if TYPE_CHECKING:
     from weft_openai.settings import Settings
@@ -346,10 +347,7 @@ class OpenAIEmbedder:
                 input=list(texts), model=model, dimensions=dimensions
             )
         except APIError as exc:
-            raise EmbeddingRequestFailedError(
-                f"the embeddings API refused a batch of {len(texts)} for model '{model}': {exc}",
-                transient=isinstance(exc, _TRANSIENT),
-            ) from exc
+            raise self._error_for_api_failure(exc, texts, model) from exc
         record_usage(
             UsageEntry(
                 role=_USAGE_ROLE,
@@ -371,7 +369,26 @@ class OpenAIEmbedder:
                 f"zero, is what this stage pairs onto its nodes, and there is no safe way to "
                 f"guess which node a missing or unexpected index belonged to."
             )
-        return [Vector(values=tuple(by_index[position].embedding)) for position in expected]
+        vectors = [Vector(values=tuple(by_index[position].embedding)) for position in expected]
+        if config.dimensions is not None:
+            _refuse_unshortened(vectors, asked=config.dimensions, model=model)
+        return vectors
+
+    def _error_for_api_failure(
+        self, exc: APIError, texts: Sequence[str], model: str
+    ) -> EmbeddingRequestFailedError:
+        """An unreachable endpoint is named by its address; any other failure relays the refusal."""
+        if isinstance(exc, APIConnectionError):
+            url = self._settings.base_url or VENDOR_BASE_URL
+            return EmbeddingRequestFailedError(
+                f"could not reach {url} for a batch of {len(texts)} for model '{model}': {exc} — "
+                f"is the server running? [packs.{self._account}] base_url names this address.",
+                transient=True,
+            )
+        return EmbeddingRequestFailedError(
+            f"the embeddings API refused a batch of {len(texts)} for model '{model}': {exc}",
+            transient=isinstance(exc, _TRANSIENT),
+        )
 
     async def _connected(self) -> EmbeddingsClient:
         """The client, built on first use — off the loop, and refusing without a credential."""
@@ -382,7 +399,7 @@ class OpenAIEmbedder:
             raise MissingApiKeyError(
                 f"no credential is configured for the '{self._account}' account, so the "
                 f"'{self._account}-embeddings' embedder has nothing to authenticate with. Add "
-                f'`[packs.{self._account}] api_key = "${{env:OPENAI_API_KEY}}"` to weft.toml — '
+                f"{credential_line(self._account)} to weft.toml — "
                 "the settings loader interpolates `${env:...}`, so the key stays in the "
                 "environment and out of the file."
             )
@@ -477,6 +494,22 @@ def build_client(settings: "Settings") -> EmbeddingsClient:
     client.organization = settings.organization
     client.project = settings.project
     return client
+
+
+def _refuse_unshortened(vectors: Sequence[Vector], *, asked: int, model: str) -> None:
+    """Refuse vectors wider or narrower than `dimensions` asked for — ledger task 20.8a.
+
+    A server that does not shorten a model answers at its native width without saying so (Ollama
+    serving `bge-m3`, measured), and the target would record `asked` over vectors of another width.
+    """
+    answered = sorted({len(vector.values) for vector in vectors} - {asked})
+    if answered:
+        widths = ", ".join(f"width {width}" for width in answered)
+        raise EmbeddingRequestFailedError(
+            f"`dimensions = {asked}` asked model '{model}' for vectors of width {asked}, and the "
+            f"endpoint answered {widths}: it does not shorten this model's vectors, so "
+            "remove `dimensions` from the embed stage's `with:` block to store its native width."
+        )
 
 
 def _text_of(node: Node) -> str:

@@ -152,6 +152,23 @@ async def test_no_credential_is_refused_at_use_naming_the_line_that_fixes_it() -
         await describer.describe(_png(), "image/png", "Describe.")
 
 
+async def test_a_second_account_without_a_credential_is_not_pointed_at_the_vendor_key() -> None:
+    """Ledger task 20.8a: the embedder's remedy, rendered by the same helper here."""
+    # Arrange
+    from weft_openai.vision import MissingApiKeyError
+
+    describer = OpenAIVisionDescriber(
+        Settings(), OpenAIVisionConfig(), client=_RecordingClient(), account="openai-compatible"
+    )
+
+    # Act / Assert
+    with pytest.raises(MissingApiKeyError) as raised:
+        await describer.describe(_png(), "image/png", "Describe.")
+    message = str(raised.value)
+    assert '[packs.openai-compatible] api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"' in message
+    assert "env:OPENAI_API_KEY" not in message
+
+
 def test_an_oversized_image_is_resized_and_re_encoded_as_png() -> None:
     """The one resize invariant: always PNG, bounded max pixels. In the plugin, not the contract."""
     # Arrange
@@ -278,7 +295,7 @@ def test_the_plugin_name_is_registered_under_the_describer_contract() -> None:
 # Three green suites, a green gate and `weft plugins doctor` reporting the pack `active`.
 #
 # `weft_openai.embedder.build_client` is awaited through `asyncio.to_thread` at both of its
-# other call sites — `embedder.py:389 'asyncio.to_thread'` and `llm.py:443 'client ='` — and
+# other call sites — `embedder.py:409 'asyncio.to_thread'` and `llm.py:443 'client ='` — and
 # `llm.py`'s own docstring says why: *"The client is built off the event loop, for the same
 # measured reason."* This plugin was the third caller and the only one that did not.
 # `docs/internal/lessons.md` L8.24.

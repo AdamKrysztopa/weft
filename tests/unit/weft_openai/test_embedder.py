@@ -267,6 +267,46 @@ async def test_a_connection_failure_is_marked_transient() -> None:
     assert raised.value.transient is True
 
 
+async def test_an_unreachable_endpoint_is_named_by_its_url() -> None:
+    """Ledger task 20.8a: with the server stopped, the refusal said only "Connection error."."""
+    # Arrange
+    import httpx2
+    from openai import APIConnectionError
+
+    base_url = "http://127.0.0.1:8099/v1"
+    request = httpx2.Request("POST", f"{base_url}/embeddings")
+    client = _Client(embeddings=_Embeddings(error=APIConnectionError(request=request)))
+    settings = Settings(api_key=SecretStr("unused"), base_url=base_url)
+    embedder = OpenAIEmbedder(settings, client=client, account="openai-compatible")
+
+    # Act / Assert
+    with pytest.raises(EmbeddingRequestFailedError) as raised:
+        await embedder.run([_node("hello")], _ctx())
+    message = str(raised.value)
+    assert f"could not reach {base_url}" in message
+    assert "[packs.openai-compatible] base_url" in message
+    assert raised.value.transient is True
+
+
+async def test_a_refusal_with_an_answer_still_relays_the_status() -> None:
+    """The unreachable wording is for no answer at all; a 401 is still the API refusing."""
+    # Arrange
+    import httpx2
+    from openai import AuthenticationError
+
+    request = httpx2.Request("POST", "https://api.openai.com/v1/embeddings")
+    response = httpx2.Response(401, request=request)
+    error = AuthenticationError("Incorrect API key provided", response=response, body=None)
+    client = _Client(embeddings=_Embeddings(error=error))
+    embedder = OpenAIEmbedder(_settings(), client=client)
+
+    # Act / Assert
+    with pytest.raises(EmbeddingRequestFailedError) as raised:
+        await embedder.run([_node("hello")], _ctx())
+    assert "refused a batch of 1" in str(raised.value)
+    assert "could not reach" not in str(raised.value)
+
+
 async def test_a_response_missing_a_vector_is_refused_rather_than_paired_by_position() -> None:
     # Arrange — a stand-in that answers one item short. Pairing what arrived onto the first
     # nodes would attach the wrong meaning to every node after the gap and lose the last
@@ -285,6 +325,42 @@ async def test_a_response_missing_a_vector_is_refused_rather_than_paired_by_posi
     with pytest.raises(EmbeddingRequestFailedError) as raised:
         await embedder.run([_node("first"), _node("second")], _ctx())
     assert "1 vector(s) for 2 input(s)" in str(raised.value)
+
+
+async def test_a_server_that_ignores_the_requested_dimensions_is_refused_naming_both_widths() -> (
+    None
+):
+    """Ledger task 20.8a: Ollama answers `bge-m3` at 1024 whatever `dimensions` asks for.
+
+    Stored as they came, those vectors sat in a target recording width 512, found by running
+    the binary against a local server.
+    """
+    # Arrange
+    client = _Client(embeddings=_Embeddings(width=1024))
+    embedder = OpenAIEmbedder(_settings(), OpenAIEmbedderConfig(dimensions=512), client=client)
+
+    # Act / Assert
+    with pytest.raises(EmbeddingRequestFailedError) as raised:
+        await embedder.run([_node("hello")], _ctx())
+    message = str(raised.value)
+    assert "width 512" in message
+    assert "width 1024" in message
+    assert "remove `dimensions`" in message
+    assert raised.value.transient is False
+
+
+async def test_a_second_account_without_a_credential_is_not_pointed_at_the_vendor_key() -> None:
+    """Ledger task 20.8a: the remedy must not send the vendor's key to a server a project runs."""
+    # Arrange
+    embedder = OpenAIEmbedder(Settings(), account="openai-compatible")
+
+    # Act / Assert
+    with pytest.raises(MissingApiKeyError) as raised:
+        await embedder.run([_node("hello")], _ctx())
+    message = str(raised.value)
+    assert '[packs.openai-compatible] api_key = "${env:OPENAI_COMPATIBLE_API_KEY}"' in message
+    assert "env:OPENAI_API_KEY" not in message
+    assert "accepts any value" in message
 
 
 async def test_aclose_closes_the_client_it_built() -> None:

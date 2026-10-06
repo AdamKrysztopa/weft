@@ -80,6 +80,7 @@ from weft_llm.errors import (
 )
 from weft_llm.payload import Completion, Conversation, TokenUsage
 from weft_openai.embedder import build_client
+from weft_openai.settings import credential_line
 
 if TYPE_CHECKING:
     from weft_openai.settings import Settings
@@ -519,7 +520,7 @@ class OpenAILLMProvider:
             raise LLMAuthenticationError(
                 f"no credential is configured for the '{self._account}' account, so the "
                 f"'{self._account}' provider has nothing to authenticate with. Add "
-                f'`[packs.{self._account}] api_key = "${{env:OPENAI_API_KEY}}"` to weft.toml — '
+                f"{credential_line(self._account)} to weft.toml — "
                 "the settings loader interpolates `${env:...}`, so the key stays in the "
                 "environment and out of the file.",
                 provider=self._account,
