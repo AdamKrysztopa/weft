@@ -26,3 +26,11 @@ regimes = [
   "corpora other than validation-en",
   "a corpus the routers do not send to a different rung than route-fixed",
 ]
+
+[claim.fingerprint]
+rung = "a2b47c5214c2f8b375443efeaefdb638"
+baseline = "56dda85b78a77c8691d4e531b971f934"
+index = "3d94928db46b2a4dd36ca9406a32e1af"
+baseline_index = "3d94928db46b2a4dd36ca9406a32e1af"
+judge = "ee0647c30769bd5855ef9396a004af76b3111fde9472c81f1df34a175d35df23"
+profiler = "1"

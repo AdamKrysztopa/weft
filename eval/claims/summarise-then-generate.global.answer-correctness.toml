@@ -26,3 +26,10 @@ regimes = [
   "language other than en",
   "multi-hop questions, which graph retrieval was built for",
 ]
+
+[claim.fingerprint]
+rung = "cc67c68fedde5d248afbdcac6610fc57"
+baseline = "e9eeb3e1cf0e411fb0b14712d10d2059"
+index = "0222c3657f96ed2cda3b4d209cfbcab2"
+baseline_index = "0222c3657f96ed2cda3b4d209cfbcab2"
+judge = "ee0647c30769bd5855ef9396a004af76b3111fde9472c81f1df34a175d35df23"
