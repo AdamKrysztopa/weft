@@ -385,3 +385,21 @@ def embed_config_for(registry: Registry, selection: ServiceSelection) -> object:
             ),
             valid_options=fields,
         ) from exc
+
+
+class UnchosenEmbedderError(WeftError):
+    """`weft ask` was about to rank by vectors from an embedder nobody chose — repair R20.6.
+
+    G21 keeps `hash` the default so `weft index` and the gate run offline; a ranking from it looks
+    plausible and means nothing, so a query embedded by it is refused unless `weft.toml` chose it.
+    """
+
+
+def unchosen_embedder_message(embedder: str) -> str:
+    """The refusal `UnchosenEmbedderError` carries: what is wrong, and the three ways on."""
+    return (
+        f"weft ask will not rank by '{embedder}' vectors nobody chose — '{embedder}' is the "
+        f"default embedder. {DEFAULT_EMBEDDER_MEANING} To search with no account and no model, "
+        f"ask with `--retrieve-only --pipeline lexical-retrieve`; to keep '{embedder}' as a smoke "
+        f'test, write `embed = "{embedder}"` in weft.toml, under [services].'
+    )

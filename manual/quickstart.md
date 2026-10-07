@@ -108,7 +108,7 @@ only for what moved.
 ```
 
 ```bash id=ask
-weft ask "what does the weft do" --retrieve-only
+weft ask "what does the weft do" --pipeline lexical-retrieve --retrieve-only
 ```
 
 ```text
@@ -120,24 +120,34 @@ chunking, embeddings or graphs. Every capability is a plugin discovered
 through Python entry points.
 ```
 
-**`weft ask` routes to a generated, cited answer by default** — a `QueryScorer` and a
-`RoutingPolicy`, both discovered from the registry, pick a pipeline and run it through to prose.
-That needs a real model, named in `weft.toml`'s `[llm.roles]` table (`manual/operations-guide.md`
-covers wiring one), which this five-minute walkthrough deliberately has not asked you to set up
-yet — with nothing configured, routing refuses loudly rather than guessing at a provider.
-`--retrieve-only` is what you see above instead: Phase 0's own contract, still exactly this —
-nearest passage first by vector distance against your indexed content, no LLM call, and no
-citation to compose because there is no generated sentence to attach one to. **Under the default
-`hash` embedder that distance is over digests, so the two results above are in the order a hash
-happened to produce** — the loom passage is not first because it is a better match, and running
-this against your own files will look equally plausible and mean equally little. Configure `[llm.roles]`
-and drop `--retrieve-only` to get the routed, cited answer this same command produces by default.
+That is the store's **text arm**: a lexical ranking, `ts_rank_cd` in pgvector by default, over the
+words of the question. `lexical-retrieve` is a shipped pipeline that ends at retrieval, so
+`--retrieve-only` runs it with no model and no account.
 
-## 5. Make the ranking mean something — first, with no account at all
+**Asking by meaning needs an embedder you chose, and `weft ask` says so.** Drop `--pipeline` and
+`--retrieve-only` ranks by vector distance — and the default embedder, `hash`, derives each vector
+from a digest of the text, so that order would be the order a hash happened to produce, plausible
+and meaningless. With nothing in `weft.toml` choosing it, `weft ask` refuses rather than print it:
 
-Everything above is the smoke test. The corpus is indexed and the machinery ran; the *order* is a
-hash's. The cheapest way to get an order that means something needs no account, no model and no
-download — ask the store for the literal words instead of for a direction in space:
+```text
+$ weft ask "what does the weft do" --retrieve-only ; echo $?
+weft ask will not rank by 'hash' vectors nobody chose — 'hash' is the default embedder. 'hash' carries no semantic meaning — it digests the text, so a ranking built from it says the pipeline ran and nothing about relevance. Set [services] embed in weft.toml to change it: 'openai-embeddings' for the vendor, or 'openai-compatible-embeddings' pointed at an OpenAI-compatible server you run, which needs no account. To search with no account and no model, ask with `--retrieve-only --pipeline lexical-retrieve`; to keep 'hash' as a smoke test, write `embed = "hash"` in weft.toml, under [services].
+1
+```
+
+`weft index` ran on `hash` without asking, because indexing is the smoke test: it proves extract,
+chunk, embed and store work on your machine. **`weft ask` routes to a generated, cited answer by
+default** — a `QueryScorer` and a `RoutingPolicy`, both discovered from the registry, pick a
+pipeline and run it through to prose. That needs a real model, named in `weft.toml`'s
+`[llm.roles]` table (`manual/operations-guide.md` covers wiring one), which this walkthrough has
+not asked you to set up — with nothing configured, routing refuses loudly rather than guessing at
+a provider.
+
+## 5. A lexical answer to an exact token
+
+The lexical ranking is the honest answer to *"can this thing find anything"* on a machine with no
+model. A question that turns on an exact token — a name, an identifier, an error code — is
+answered correctly, right now:
 
 ```bash id=lexical
 weft ask "microkernel" --pipeline lexical-retrieve --retrieve-only
@@ -148,13 +158,6 @@ weft ask "microkernel" --pipeline lexical-retrieve --retrieve-only
 chunking, embeddings or graphs. Every capability is a plugin discovered
 through Python entry points.
 ```
-
-That is the store's **text arm** — a real lexical ranking, `ts_rank_cd` in pgvector by default —
-reached through `lexical-retrieve`, a shipped pipeline that ends at retrieval rather than at a
-generated answer, which is why `--retrieve-only` can run it with nothing configured. It is the
-honest answer to *"can this thing find anything"* on a machine with no model: a question that turns
-on an exact token — a name, an identifier, an error code — is answered correctly, right now, and
-the same question through the default `--retrieve-only` above is answered by a hash.
 
 What it cannot do is find a passage that says the same thing in different words. That is what an
 embedder is for, and the next section is the cheapest honest one.

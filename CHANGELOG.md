@@ -43,6 +43,12 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   `weft delete` and `weft reconcile` still reach the stores it wrote to. `weft eval compare` and
   `weft trace` take `--runs` to read an experiment's run ids. Records an earlier weft wrote to
   `runs/` are still found by passing `--runs runs`, which the refusal names.
+- **`weft ask` refuses to rank by an embedder nobody chose.** With `[services] embed` unset, the
+  default `hash` still indexes offline, but a query that would embed the question exits 1 with
+  `UnchosenEmbedderError`, naming `--pipeline lexical-retrieve`, a real embedder, or
+  `embed = "hash"` written down to keep the smoke-test ranking. A ranking by `hash` looks as
+  plausible as a real one and means nothing. The quickstart and README now ask through
+  `lexical-retrieve`.
 
 ### Fixed
 

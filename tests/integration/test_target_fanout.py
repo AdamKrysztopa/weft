@@ -56,7 +56,7 @@ async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
     blob_root = tmp_path / "blobs"
     (tmp_path / "weft.toml").write_text(
         f'[packs.store]\ndsn = "{dsn}"\n\n[packs.graph]\ndsn = "{dsn}"\n\n'
-        f'[packs.blob]\nroot = "{blob_root}"\n'
+        f'[packs.blob]\nroot = "{blob_root}"\n\n[services]\nembed = "hash"\n'
     )
     try:
         yield tmp_path

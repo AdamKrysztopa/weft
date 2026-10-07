@@ -850,7 +850,7 @@ expensive architecture is measured before it is built.
 
 **It runs first, and its first task is not multimodal.** Two of its tasks reach a run-wide service on
 the ingest path — a blob store and a describer — and today every path assembles its services from a
-hand-written list (`weft_engine/run_services.py:383 "for posi"`, `:407`; the command path in `weft_cli.cli`) against
+hand-written list (`weft_engine/run_services.py:390 "for posi"`, `:407`; the command path in `weft_cli.cli`) against
 three fixed keys (`weft_engine/services.py:161 "class Se"`), which is the requirement-1 failure Phase 7's close filed
 as design question *(a)* and said must not be settled from one instance
 (`docs/internal/done/build-ledger.md:4231-4360 ". **And "`). Task **9.0** is that repair. It has three consumers — the failing

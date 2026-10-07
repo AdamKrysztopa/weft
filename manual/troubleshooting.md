@@ -2386,6 +2386,27 @@ outcome that is not a policy question. **What to do:** either drop `--retrieve-o
 named pipeline generate, or name a pipeline that stops at retrieval — the refusal lists the ones
 installed. With neither flag, `weft ask` routes through the installed router by default.
 
+### `UnchosenEmbedderError`
+
+**What it looks like** — `weft ask` in a project whose `weft.toml` never set `[services] embed`,
+asked something that would embed the question:
+
+```text
+$ weft ask "what does the weft do" --retrieve-only ; echo $?
+weft ask will not rank by 'hash' vectors nobody chose — 'hash' is the default embedder. 'hash' carries no semantic meaning — it digests the text, so a ranking built from it says the pipeline ran and nothing about relevance. Set [services] embed in weft.toml to change it: 'openai-embeddings' for the vendor, or 'openai-compatible-embeddings' pointed at an OpenAI-compatible server you run, which needs no account. To search with no account and no model, ask with `--retrieve-only --pipeline lexical-retrieve`; to keep 'hash' as a smoke test, write `embed = "hash"` in weft.toml, under [services].
+1
+```
+
+**Why** — `hash` is the default so `weft index` and a clean checkout run offline, and a ranking by
+its vectors looks as plausible as a real one while meaning nothing. Under a routed or generating
+ask it would be the passages a model answers from. A query that embeds nothing, such as
+`lexical-retrieve`, is not refused; the refusal comes from the first stage that asks for a vector.
+
+**What to do:** ask through `--pipeline lexical-retrieve --retrieve-only` for a lexical ranking
+with no account; or set `[services] embed` to a real embedder and index again; or write
+`embed = "hash"` in `weft.toml`'s `[services]` table to keep the smoke-test ranking knowingly.
+(Repair `R20.6`, 2026-10-07.)
+
 ### `NotVectorSearchableError`
 
 **What it looks like** — the registered `NodeStore` named `"pgvector"` does not also satisfy

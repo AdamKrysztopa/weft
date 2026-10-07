@@ -45,7 +45,9 @@ async def project(tmp_path: Path) -> AsyncIterator[Path]:
     (corpus / "pumps.txt").write_text("Pumps move water uphill using a rotating impeller.")
     (corpus / "valves.txt").write_text("Valves control flow by opening and closing a passage.")
     dsn = f"{_DSN.rsplit('/', 1)[0]}/{name}"
-    (tmp_path / "weft.toml").write_text(f'[packs.store]\ndsn = "{dsn}"\n')
+    (tmp_path / "weft.toml").write_text(
+        f'[packs.store]\ndsn = "{dsn}"\n\n[services]\nembed = "hash"\n'
+    )
     try:
         yield tmp_path
     finally:

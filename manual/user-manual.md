@@ -784,8 +784,11 @@ corpus.mkdir()
 (corpus / "note.txt").write_text("The registration seam closes what a plugin opened.")
 
 # `weft.toml` names only what this walkthrough changes. The store's `dsn` comes from
-# `WEFT_DATABASE_URL`, the same environment variable `weft index` reads.
-(workspace / "weft.toml").write_text('[llm.roles]\ngenerate = { provider = "scripted" }\n')
+# `WEFT_DATABASE_URL`, the same environment variable `weft index` reads. `hash` is chosen in
+# writing because `ask` refuses to rank by an embedder nobody chose.
+(workspace / "weft.toml").write_text(
+    '[services]\nembed = "hash"\n\n[llm.roles]\ngenerate = { provider = "scripted" }\n'
+)
 
 
 async def main() -> None:
@@ -850,12 +853,15 @@ searchable at base speed and the enrichment catches up behind it. §2 states the
 section walks them once, with what each command printed.
 
 Every transcript below was run from the built `weft-rag` wheel, outside this repository, against a
-fresh database on the compose Postgres, with the default `hash` embedder. Paths are shortened to
-`…`, and the warning every `hash` run prints on stderr is left out. Where a stage needs a model,
-the project's `weft.toml` maps the role to `scripted`, the offline provider that answers without a
-network call:
+fresh database on the compose Postgres, with `hash` as the embedder. Paths are shortened to `…`.
+The project's `weft.toml` chooses `hash` in `[services]` — `weft ask` refuses to rank by a `hash`
+nobody chose — and, where a stage needs a model, maps the role to `scripted`, the offline provider
+that answers without a network call:
 
 ```toml
+[services]
+embed = "hash"
+
 [llm.roles]
 index    = { provider = "scripted" }
 generate = { provider = "scripted" }

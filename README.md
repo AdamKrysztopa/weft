@@ -37,8 +37,10 @@ whole thing runs offline, because the default embedder needs no account.
 derives each vector from a SHA-256 digest of the chunk's text, so it is deterministic and free
 and carries *no meaning at all* — two passages about the same subject are no closer together
 than two about different ones. What the four commands below prove is that the pipeline runs end
-to end on your machine: extract, chunk, embed, store, retrieve. They prove nothing whatever
-about retrieval quality, and the ranking you get is arbitrary. One line in `weft.toml` —
+to end on your machine: extract, chunk, embed and store, then a lexical search over the words
+themselves, which needs no embedder. `weft ask` will not rank by `hash` vectors unless
+`weft.toml` chose `hash`: asked to, it refuses and names the ways on, because an arbitrary ranking
+that looks plausible is worse than none. One line in `weft.toml` —
 `[services] embed = "openai-embeddings"`, or `"openai-compatible-embeddings"` pointed at a
 server you run — switches it for a real one, and then the results mean something. Measured on
 TechQA, a local `BAAI/bge-m3` trails OpenAI's `text-embedding-3-large` by 0.085 mrr@5
@@ -92,14 +94,13 @@ weft index corpus
 ```
 
 ```bash id=ask
-weft ask "what does the weft do" --retrieve-only
+weft ask "what does the weft do" --pipeline lexical-retrieve --retrieve-only
 ```
 
 `index` reports what it stored — `2 documents: 2 indexed, 0 unchanged. nodes now stored: 2.`
-— and `ask --retrieve-only` returns the passages it matched, each cited to the file it came from,
-in whatever order the hash distances happened to fall. With a real embedder that order is the
-answer; with `hash` it is only proof that the ranking machinery ran. That flag is what keeps this offline: it stops at retrieval. Drop it and Weft asks a language
-model to write an answer over those passages, which needs a provider mapped to a role in
+— and `ask` returns the passages whose words match the question, each cited to the file it came
+from, ranked by the store's own text search. `--retrieve-only` is what keeps this offline: it
+stops at retrieval. Drop it and Weft asks a language model to write an answer over those passages, which needs a provider mapped to a role in
 `weft.toml` — `weft ask` refuses by name until one is, rather than quietly answering from nothing.
 `manual/user-manual.md` has the two lines that map one.
 

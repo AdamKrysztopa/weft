@@ -249,7 +249,9 @@ some third party's pack registers is selectable by name the moment it is install
 content into a deterministic vector and understands nothing about it: two documents on unrelated
 topics are as "similar" to it as two ways of saying the same thing. It is what lets a clean checkout
 index, search and pass its whole test suite with no account and no model download, and it is the
-wrong thing to judge a retrieval result against. `weft-openai`'s `openai-embeddings` embedder
+wrong thing to judge a retrieval result against. So `weft ask` will not rank by it unless
+`weft.toml` chose it: with `[services] embed` unset, a query that would embed the question refuses
+(`UnchosenEmbedderError`), while `weft index` still runs on it. `weft-openai`'s `openai-embeddings` embedder
 calls
 `text-embedding-3-small` and produces vectors that do carry meaning; it needs a credential, and
 every embedding is a metered API call.
@@ -643,8 +645,10 @@ default provider a role silently falls back to. **`weft ask` routes and generate
 (task 3.11) — it runs the installed router, then whichever pipeline it selects, so the `route`
 and `generate` roles above are exactly what it reaches for. A clean checkout with no `[llm.roles]`
 table maps neither, so `weft ask` refuses loudly rather than guessing at a provider — configure
-this section, or run `weft ask --retrieve-only` for Phase 0's own contract, unchanged: nearest
-passages, no router, no model call. An unmapped role fails loudly by name, the same as it would
+this section, or run `weft ask --retrieve-only` for Phase 0's own contract: nearest passages, no
+router, no model call — by an embedder `[services] embed` chose, since under the defaulted `hash`
+it refuses (`UnchosenEmbedderError`) and names `--pipeline lexical-retrieve`, which ranks by the
+store's text search instead. An unmapped role fails loudly by name, the same as it would
 for any other pipeline stage.
 
 **A model string may name its provider, and a mismatch is refused rather than guessed.**

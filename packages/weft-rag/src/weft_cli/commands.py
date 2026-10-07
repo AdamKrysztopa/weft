@@ -178,7 +178,12 @@ from weft_engine.registry_bootstrap import (
     require_active,
     require_plugin,
 )
-from weft_engine.services import embed_config_for
+from weft_engine.services import (
+    DEFAULT_EMBEDDER,
+    UnchosenEmbedderError,
+    embed_config_for,
+    unchosen_embedder_message,
+)
 from weft_engine.targets import StoreHoldsNoTargetsError, bind_store, require_existing_target
 from weft_eval.run_record import (
     CorpusDigestBasis,
@@ -1187,6 +1192,13 @@ class PluginsDoctorCommandResult(CommandResult):
     defaulted_embedder: str | None = None
 
 
+def _unchosen_embedder(deps: Dependencies) -> str | None:
+    """The default embedder a query would rank by because `weft.toml` chose none — `R20.6`."""
+    if deps.embed_was_selected or deps.services.embed != DEFAULT_EMBEDDER:
+        return None
+    return deps.services.embed
+
+
 def _defaulted_embedder(deps: Dependencies, resolved: ResolvedPipeline | None) -> str | None:
     """The embedder a `weft index` run used without anyone choosing it, or `None` — `R17.6`.
 
@@ -1605,6 +1617,7 @@ class AskCommand:
             contributions=deps.contributions,
             roles=deps.roles,
             target=ask_args.target,
+            unchosen_embedder=_unchosen_embedder(deps),
         )
         return Produced(
             value=AskCommandResult(
@@ -1669,6 +1682,9 @@ class AskCommand:
                 setting="[services] store",
             )
         _raise_for_plugin_refusal(refusal)
+        unchosen = _unchosen_embedder(deps)
+        if unchosen is not None:
+            raise UnchosenEmbedderError(unchosen_embedder_message(unchosen))
         await _require_target_exists(deps, ask_args.target)
 
         results = await run_ask(
@@ -1859,6 +1875,7 @@ async def _ask_named_or_routed(
             target=ask_args.target,
             ready_layers=ready,
             corpus=corpus,
+            unchosen_embedder=_unchosen_embedder(deps),
         )
         return route.pipeline, route, answer
     pipeline_name = ask_args.pipeline
@@ -1878,6 +1895,7 @@ async def _ask_named_or_routed(
         # this query-path run, exactly as `deps.llm` above already does.
         roles=deps.roles,
         target=ask_args.target,
+        unchosen_embedder=_unchosen_embedder(deps),
     )
     return pipeline_name, None, answer
 

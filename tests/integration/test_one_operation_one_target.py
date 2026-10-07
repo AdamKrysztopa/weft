@@ -52,7 +52,9 @@ async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
         (tmp_path / directory).mkdir()
         for file_name, text in files.items():
             (tmp_path / directory / file_name).write_text(text, encoding="utf-8")
-    (tmp_path / "weft.toml").write_text(f'[packs.store]\ndsn = "{dsn}"\n')
+    (tmp_path / "weft.toml").write_text(
+        f'[packs.store]\ndsn = "{dsn}"\n\n[services]\nembed = "hash"\n'
+    )
     try:
         yield tmp_path
     finally:

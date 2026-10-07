@@ -499,7 +499,9 @@ async def test_ask_command_retrieve_only_ranks_hits_from_run_ask(
         PackReport(pack="embed", distribution="weft-embed", status=PackStatus.ACTIVE),
         PackReport(pack="store", distribution="weft-store", status=PackStatus.ACTIVE),
     )
-    deps = Dependencies(registry=registry, reports=reports, services=ServiceSelection())
+    deps = Dependencies(
+        registry=registry, reports=reports, services=ServiceSelection(), embed_was_selected=True
+    )
 
     node = Node.synthetic(content="a passage", media_type=MediaType.TEXT, reason="test")
     scored = Scored[Node](value=node, score=0.5)

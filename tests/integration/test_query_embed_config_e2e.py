@@ -53,7 +53,7 @@ async def test_a_wide_index_is_asked_once_the_query_embedder_is_configured_to_ma
         "name: wide\nextends: index-text\nset:\n  - id: embed\n    with: {dimension: 128}\n",
         encoding="utf-8",
     )
-    plain = f'[packs.store]\ndsn = "{dsn}"\n'
+    plain = f'[packs.store]\ndsn = "{dsn}"\n\n[services]\nembed = "hash"\n'
     (tmp_path / "weft.toml").write_text(plain)
     async with Weft.open(tmp_path / "weft.toml") as w:
         await w.run("index", {"path": "corpus", "pipeline": "wide"})

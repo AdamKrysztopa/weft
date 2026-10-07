@@ -6,7 +6,7 @@ be selected and aliased correctly and a stage's demand can still be validated ag
 instance, refused before aliasing could ever have helped.
 
 **The second enforcement point.** `check_store_capabilities`
-(`packages/weft-rag/src/weft_engine/run_services.py:137 'class MalformedNeed'`) validates every
+(`packages/weft-rag/src/weft_engine/run_services.py:144 'class MalformedNeed'`) validates every
 stage's `needs_store`
 against **the one configured store**, and its remedy names only `[services] store`. So a stage
 needing a capability that some *other* selected role provides is refused before assembly, with a
@@ -15,7 +15,7 @@ speaks only to refuse. Fixing one of the two points is not fixing the seam.
 
 **And the refusal has to name something an operator can type.** The one production call site passes
 `store_name=type(store).__name__`
-(`packages/weft-rag/src/weft_cli/route_ask.py:1096 'to turn '`), so
+(`packages/weft-rag/src/weft_cli/route_ask.py:1105 'to turn '`), so
 a live
 refusal reads *the configured store 'PgVectorStore'* while `[services] store` accepts `pgvector`.
 Every one of the six other call sites is a test passing a plausible plugin-shaped name by hand, so

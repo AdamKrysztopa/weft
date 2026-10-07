@@ -241,6 +241,7 @@ async def run_routed_ask(
     target: str | None = None,
     ready_layers: frozenset[str] | None,
     corpus: CorpusProfile | None = None,
+    unchosen_embedder: str | None = None,
 ) -> tuple[Route, Answer]:
     """`weft ask`'s default path: the router picks the pipeline, so the user need not name one.
 
@@ -304,6 +305,7 @@ async def run_routed_ask(
         target=target,
         ready_layers=ready_layers,
         corpus=corpus,
+        unchosen_embedder=unchosen_embedder,
     )
     in_flight: BaseException | None = None
     try:
@@ -404,6 +406,7 @@ async def _router_and_prepared_runner(
     target: str | None,
     ready_layers: frozenset[str] | None,
     corpus: CorpusProfile | None,
+    unchosen_embedder: str | None = None,
 ) -> tuple[dict[str, Pipeline], Pipeline, str, PreparedRunner]:
     """Resolve the configured router and assemble the services both callers run against.
 
@@ -477,6 +480,7 @@ async def _router_and_prepared_runner(
         ready_layers=ready_layers,
         rung_roles=rung_roles,
         corpus=corpus,
+        unchosen_embedder=unchosen_embedder,
     )
     return catalogue, router, router_name, built
 
@@ -787,6 +791,7 @@ async def run_named_ask(
     roles: RoleTable = _NO_ROLES,
     prepared: PreparedRunner | None = None,
     target: str | None = None,
+    unchosen_embedder: str | None = None,
 ) -> Answer:
     """Run `pipeline_name` directly against `question`, bypassing the router entirely.
 
@@ -843,6 +848,7 @@ async def run_named_ask(
             sink=sink,
             roles=roles,
             target=target,
+            unchosen_embedder=unchosen_embedder,
         )
     )
     in_flight: BaseException | None = None
@@ -921,6 +927,7 @@ async def run_named_retrieve(
     roles: RoleTable = _NO_ROLES,
     prepared: PreparedRunner | None = None,
     target: str | None = None,
+    unchosen_embedder: str | None = None,
 ) -> Passages:
     """`run_named_ask`'s retrieval-only twin — repair **R21.5**.
 
@@ -964,6 +971,7 @@ async def run_named_retrieve(
             sink=sink,
             roles=roles,
             target=target,
+            unchosen_embedder=unchosen_embedder,
         )
     )
     in_flight: BaseException | None = None
@@ -1078,6 +1086,7 @@ async def _prepared_runner(
     ready_layers: frozenset[str] | None = None,
     rung_roles: Mapping[str, frozenset[str]] | None = None,
     corpus: CorpusProfile | None = None,
+    unchosen_embedder: str | None = None,
 ) -> PreparedRunner:
     """Assemble the services, context, runner and store both ask paths share.
 
@@ -1131,6 +1140,7 @@ async def _prepared_runner(
         ready_layers=ready_layers,
         rung_roles=rung_roles,
         corpus=corpus,
+        unchosen_embedder=unchosen_embedder,
     )
     routed_ctx = replace(ctx, services=service_registry)
     runner = Runner(registry)

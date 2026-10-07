@@ -54,7 +54,7 @@ async def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
     )
     dsn = f"{_DSN.rsplit('/', 1)[0]}/{name}"
     (tmp_path / "weft.toml").write_text(
-        f'[packs.store]\ndsn = "{dsn}"\n\n[services]\nstore = "qdrant"\n\n'
+        f'[packs.store]\ndsn = "{dsn}"\n\n[services]\nstore = "qdrant"\nembed = "hash"\n\n'
         f'[packs.qdrant]\ncollection = "{collection}"\n'
     )
     try:

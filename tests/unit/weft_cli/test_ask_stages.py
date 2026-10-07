@@ -66,6 +66,7 @@ def _ctx() -> Context:
         registry=registry,
         reports=(),
         services=ServiceSelection(embed="hash", store="pgvector"),
+        embed_was_selected=True,
     )
     services = ServiceRegistry()
     services.add(Dependencies, deps)
