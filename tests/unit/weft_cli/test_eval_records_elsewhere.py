@@ -11,6 +11,7 @@ directory unannounced could print a table from records nobody meant.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -20,9 +21,9 @@ from tests.unit.weft_eval.replay_records import experiment_of, record_of
 from tests.unit.weft_eval.test_evidence import complete_records, fixture_experiment
 from weft_cli.eval_pairwise import EvalPairwiseArgs, EvalPairwiseCommand
 from weft_cli.eval_replay import EvalReplayArgs, EvalReplayCommand
-from weft_cli.eval_table import EvalTableArgs, EvalTableCommand
+from weft_cli.eval_table import EvalTableArgs, EvalTableCommand, EvalTableCommandResult
 from weft_eval.evidence import IncompleteExperimentError
-from weft_eval.run_record import write_run_record
+from weft_eval.run_record import RUN_RECORD_SCHEMA_VERSION, write_run_record
 from weft_kernel.context import Context, ServiceRegistry
 from weft_kernel.payload import Produced
 from weft_llm.contract import LLM
@@ -189,3 +190,31 @@ async def test_pairwise_refuses_before_judging_and_names_the_writers_runs(
     assert str(tmp_path / "replay-fixture" / "runs") in message
     assert "--runs runs" in message
     assert judge.sent == []
+
+
+async def test_table_reads_the_records_beside_a_newer_one_and_names_what_it_did_not_read(
+    tmp_path: Path,
+) -> None:
+    # Arrange — carried repair R20.4: a newer weft's record sits beside a complete invocation.
+    experiment = fixture_experiment(tmp_path)
+    runs = tmp_path / "experiment" / "runs"
+    records = complete_records(experiment)
+    for index, record in enumerate(records):
+        write_run_record(record, runs / f"run-{index}.json")
+    body = json.loads(records[0].model_dump_json())
+    body["schema_version"] = RUN_RECORD_SCHEMA_VERSION + 1
+    body["from_the_future"] = True
+    (runs / "run-newer.json").write_text(json.dumps(body), encoding="utf-8")
+
+    # Act
+    outcome = await EvalTableCommand().run(
+        EvalTableArgs(experiment=str(tmp_path / "experiment.toml")), _ctx()
+    )
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert isinstance(outcome.value, EvalTableCommandResult)
+    markdown = outcome.value.markdown
+    assert "| better |" in markdown
+    assert str(runs / "run-newer.json") in markdown
+    assert f"record schema {RUN_RECORD_SCHEMA_VERSION + 1}" in markdown

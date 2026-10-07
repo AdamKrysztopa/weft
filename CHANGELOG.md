@@ -50,6 +50,13 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
   plausible as a real one and means nothing. The quickstart and README now ask through
   `lexical-retrieve`.
 
+- **A run record states its record schema, and an older weft refuses a newer one by name.** Each
+  record carries `schema_version` (2; a record without one reads as 1), moved by every field
+  added to `RunRecord`. A newer record used to end every directory read with pydantic's
+  `extra_forbidden`; now `weft eval table`, `replay` and `pairwise` read the records beside it and
+  name it under their output, and the readers of a single record refuse with
+  `NewerRunRecordError`, naming the schema, the weft-rag that wrote it and the fields not known.
+
 ### Fixed
 
 - **The README's release sentence is generated from both `pyproject.toml`s.** It named

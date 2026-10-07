@@ -4041,6 +4041,34 @@ read one target, and are still refused an embedder difference. **What to do:** p
 same corpus and questions, or run it as its own experiment; a difference in the corpus is a
 different measurement, not a comparison.
 
+### `NewerRunRecordError`
+
+**What it looks like** — a run record written by a newer weft, read by this one:
+
+```text
+$ weft eval compare zz-newer 46ff2401-… --runs s/runs ; echo $?
+run record s/runs/zz-newer.json was written with record schema 3 by weft-rag 3.3.0; this weft reads record schemas up to 2, and does not know from_the_future. Upgrade weft-rag to read it.
+1
+```
+
+`weft eval table` over the same directory prints its table and then:
+
+```text
+Not read — written by a newer weft:
+
+- run record s/runs/zz-newer.json was written with record schema 3 by weft-rag 3.3.0; this weft reads record schemas up to 2, and does not know from_the_future. Upgrade weft-rag to read it.
+```
+
+**Why** — every field added to a run record moves its record schema, so an older weft knows it is
+looking at something newer rather than at a broken file. `weft eval table`, `replay` and
+`pairwise` read the other records in the directory and list each one they could not read under
+their output. `weft eval compare`, `weft trace`, an interrupted `weft eval experiment` and
+`weft delete` refuse instead: a run id names one record, a resumed experiment would pay again for
+a record it skipped, and a delete could leave data behind in a store only that record names.
+
+**What to do:** upgrade `weft-rag` to the version the message names, or read the records with the
+weft that wrote them. (Repair `R20.4`, 2026-10-07.)
+
 ### `IncompleteExperimentError`
 
 **What it looks like** — `weft eval table` asked for an experiment whose records under

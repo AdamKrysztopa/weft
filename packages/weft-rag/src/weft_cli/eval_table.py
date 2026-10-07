@@ -26,7 +26,7 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_cli.eval_records import records_of_experiment
+from weft_cli.eval_records import records_of_experiment, with_unread
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.evidence import evidence_table, render_evidence_table
@@ -100,9 +100,11 @@ class EvalTableCommand:
         del ctx
         table_args = cast(EvalTableArgs, args)
         experiment = load_experiment(Path(table_args.experiment))
-        records = records_of_experiment(experiment, Path(table_args.experiment), table_args.runs)
+        read = records_of_experiment(experiment, Path(table_args.experiment), table_args.runs)
+        records = [record for _, record in read.records]
         table = evidence_table(experiment, records, invocation=table_args.invocation)
-        return Produced(value=EvalTableCommandResult(markdown=render_evidence_table(table)))
+        markdown = with_unread(render_evidence_table(table), read)
+        return Produced(value=EvalTableCommandResult(markdown=markdown))
 
 
 def register_eval_table_command(registrar: PackRegistrar) -> None:

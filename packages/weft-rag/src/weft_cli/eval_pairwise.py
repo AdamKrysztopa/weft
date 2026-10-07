@@ -16,7 +16,7 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from weft_cli.eval_records import records_of_experiment
+from weft_cli.eval_records import records_of_experiment, with_unread
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
@@ -197,7 +197,8 @@ class EvalPairwiseCommand:
         }
         if pairwise_args.only is not None:
             questions = _restrict_to_named_questions(questions, Path(pairwise_args.only))
-        records = records_of_experiment(experiment, experiment_path, pairwise_args.runs)
+        read = records_of_experiment(experiment, experiment_path, pairwise_args.runs)
+        records = [record for _, record in read.records]
         record = await compare_arms(
             experiment,
             records,
@@ -217,7 +218,8 @@ class EvalPairwiseCommand:
         write_pairwise_record(record, record_path)
         return Produced(
             value=EvalPairwiseCommandResult(
-                markdown=render_pairwise_table(record), record_path=str(record_path)
+                markdown=with_unread(render_pairwise_table(record), read),
+                record_path=str(record_path),
             )
         )
 

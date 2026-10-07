@@ -72,20 +72,27 @@ reasoning `aggregate.py`'s own module docstring already gives for not registerin
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final
+from typing import Final, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from weft_eval.aggregate import MetricAggregate
 from weft_kernel.discovery import PackReport, PackStatus
+from weft_kernel.errors import WeftError
 from weft_kernel.payload import Failed, NothingToProduce, Outcome, Produced
 from weft_kernel.resolution import ResolvedPipeline
 from weft_retrieve.payload import RouteView
 from weft_store.contract import EmbeddingIdentity
+
+#: The record schema `write_run_record` writes — carried repair **R20.4**. Every field added to
+#: `RunRecord` moves it, `tests/architecture/test_run_record_schema_moves.py` holds the field set
+#: each number means, and a record that states no schema was written before this existed: 1.
+RUN_RECORD_SCHEMA_VERSION: Final[int] = 2
 
 _NO_MODEL_VERSIONS: Final[Mapping[str, str]] = MappingProxyType({})
 _NO_REPORTS: Final[tuple[PackReport, ...]] = ()
@@ -396,6 +403,7 @@ class RunRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    schema_version: int = Field(default=1, ge=1)
     recorded_at: str = Field(min_length=1)
     resolved_pipeline: ResolvedPipeline
     corpus: CorpusIdentity
@@ -623,6 +631,7 @@ def build_run_record(
     knows which arm generated which answer.
     """
     return RunRecord(
+        schema_version=RUN_RECORD_SCHEMA_VERSION,
         recorded_at=recorded_at,
         resolved_pipeline=resolved_pipeline,
         corpus=corpus,
@@ -671,6 +680,64 @@ def load_run_record(path: Path) -> RunRecord:
 
     Read a `RunRecord` back from `path` — the other half of "two runs can be diffed after
     the fact". Raises `pydantic.ValidationError`, naming the field, for a file that is not a
-    well-formed `RunRecord`; raises `FileNotFoundError` for a path nothing wrote to.
+    well-formed `RunRecord`; `NewerRunRecordError` for one written in a record schema newer than
+    `RUN_RECORD_SCHEMA_VERSION`, checked first; `FileNotFoundError` for a path nothing wrote to.
     """
-    return RunRecord.model_validate_json(path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8")
+    try:
+        body: object = json.loads(text)
+    except json.JSONDecodeError:
+        # Pydantic's own parse of the same text, so a malformed file raises the
+        # `ValidationError` every reader of a directory already handles.
+        return RunRecord.model_validate_json(text)
+    if isinstance(body, dict):
+        fields = cast("dict[str, object]", body)
+        schema = fields.get("schema_version", 1)
+        if isinstance(schema, int) and schema > RUN_RECORD_SCHEMA_VERSION:
+            raise NewerRunRecordError(_newer_record_message(path, schema, fields))
+    return RunRecord.model_validate(body)
+
+
+class NewerRunRecordError(WeftError):
+    """A run record a newer weft wrote, in a record schema this one cannot read — repair R20.4."""
+
+
+def _newer_record_message(path: Path, schema: int, body: dict[str, object]) -> str:
+    versions = body.get("distribution_versions")
+    writer = (
+        cast("dict[str, object]", versions).get("weft-rag") if isinstance(versions, dict) else None
+    )
+    unknown = sorted(set(body) - set(RunRecord.model_fields))
+    return (
+        f"run record {path} was written with record schema {schema} by "
+        f"{f'weft-rag {writer}' if writer else 'a weft that recorded no version'}; this weft "
+        f"reads record schemas up to {RUN_RECORD_SCHEMA_VERSION}, and does not know "
+        f"{', '.join(unknown) or 'none of its fields by name'}. Upgrade weft-rag to read it."
+    )
+
+
+class RunRecordsRead(BaseModel):
+    """What one directory of run records yielded, and what it held that this weft cannot read."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    records: tuple[tuple[str, RunRecord], ...]
+    unread: tuple[str, ...]
+
+
+def read_run_records(directory: Path) -> RunRecordsRead:
+    """Every record directly under `directory` by file stem, setting aside each a newer weft wrote.
+
+    A record in a newer schema is refused by name into `unread` rather than ending the read; any
+    other record that will not load still raises, as `load_run_record` does.
+    """
+    if not directory.is_dir():
+        return RunRecordsRead(records=(), unread=())
+    records: list[tuple[str, RunRecord]] = []
+    unread: list[str] = []
+    for path in sorted(directory.glob("*.json")):
+        try:
+            records.append((path.stem, load_run_record(path)))
+        except NewerRunRecordError as exc:
+            unread.append(str(exc))
+    return RunRecordsRead(records=tuple(records), unread=tuple(unread))

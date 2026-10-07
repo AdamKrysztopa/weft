@@ -24,7 +24,7 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from weft_cli.eval_records import records_of_experiment
+from weft_cli.eval_records import records_of_experiment, with_unread
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.experiment import load_experiment
@@ -98,10 +98,12 @@ class EvalReplayCommand:
         replay_args = cast(EvalReplayArgs, args)
         experiment_path = Path(replay_args.experiment)
         experiment = load_experiment(experiment_path)
-        records = records_of_experiment(experiment, experiment_path, replay_args.runs)
+        read = records_of_experiment(experiment, experiment_path, replay_args.runs)
+        records = [record for _, record in read.records]
         metric = replay_args.metric if replay_args.metric is not None else experiment.metrics[0]
         table = replay(experiment, records, metric=metric, invocation=replay_args.invocation)
-        return Produced(value=EvalReplayCommandResult(markdown=render_replay_table(table)))
+        markdown = with_unread(render_replay_table(table), read)
+        return Produced(value=EvalReplayCommandResult(markdown=markdown))
 
 
 def register_eval_replay_command(registrar: PackRegistrar) -> None:

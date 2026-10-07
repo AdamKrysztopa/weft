@@ -430,6 +430,15 @@ implement:
 | Add an optional field to a returned model | minor | minor | minor |
 | Add a behavioural obligation every implementer must now meet, with no new method (a store owing overlapping callers a serial run's answer, `43.27`) | — | **major** | **major** |
 
+**A persisted record has a third audience: an older weft reading what a newer one wrote.** Settled
+by the owner on 2026-10-07 (repair `R20.4`). A field added to `RunRecord` moves its integer record
+schema, `weft_eval.run_record.RUN_RECORD_SCHEMA_VERSION`, whatever the distribution version does —
+`44.4`, `44.17`, `44.43a` and `20.12` each added one under an unchanged `weft 3.1.0`, so a version
+comparison could not have told the two records apart. The distribution takes a minor, as the
+returned-model row above. A reader checks the schema before anything else and refuses a newer
+record by name; `tests/architecture/test_run_record_schema_moves.py` pins the fields each number
+means.
+
 This makes `COMMAND_CONTRACT_VERSION` **1.1.0 a mis-recorded major**: task 3.2 added `help` to
 `required_declarations`, which breaks every `Command` that does not declare one. It is corrected to
 **2.0.0**, and correcting it is what the two-audience rule is for.
