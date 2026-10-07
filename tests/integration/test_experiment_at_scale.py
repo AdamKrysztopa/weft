@@ -239,7 +239,9 @@ async def test_an_experiment_over_three_hundred_questions_holds_every_property_a
         ("lexical", 2),
     }
     records = {
-        (run.arm, run.repetition): load_run_record(Path("runs") / f"{run.run_id}.json")
+        (run.arm, run.repetition): load_run_record(
+            project / "experiment" / "runs" / f"{run.run_id}.json"
+        )
         for run in result.runs
     }
     total = _DOCUMENTS * _QUESTIONS_PER_DOCUMENT
@@ -345,7 +347,8 @@ async def _pool_run(project: Path, document: str) -> dict[str, Any]:
     )
     assert isinstance(outcome, Produced)
     result = cast("EvalExperimentCommandResult", outcome.value)
-    return {run.arm: load_run_record(Path("runs") / f"{run.run_id}.json") for run in result.runs}
+    runs = (project / document).with_suffix("") / "runs"
+    return {run.arm: load_run_record(runs / f"{run.run_id}.json") for run in result.runs}
 
 
 def _scores(record: Any, metric: str) -> dict[str, object]:
@@ -359,7 +362,7 @@ async def test_an_identity_replay_of_a_captured_pool_scores_what_the_capture_sco
 ) -> None:
     # Arrange
     captured = await _pool_run(pool_project, "capture.toml")
-    (manifest,) = (pool_project / "runs" / "pools").glob("*.json")
+    (manifest,) = (pool_project / "capture" / "runs" / "pools").glob("*.json")
     shutil.rmtree(pool_project / "corpus")
     (pool_project / "replay.toml").write_text(
         _pool_experiment("replay", _replay_arms(manifest)), encoding="utf-8"
@@ -380,7 +383,7 @@ async def test_a_manifest_whose_chunk_hash_was_changed_is_refused_naming_the_chu
 ) -> None:
     # Arrange
     await _pool_run(pool_project, "capture.toml")
-    (manifest,) = (pool_project / "runs" / "pools").glob("*.json")
+    (manifest,) = (pool_project / "capture" / "runs" / "pools").glob("*.json")
     body = json.loads(manifest.read_text(encoding="utf-8"))
     chunk = body["questions"][0]["chunks"][0]
     chunk["content_sha256"] = "0" * 64
@@ -389,7 +392,7 @@ async def test_a_manifest_whose_chunk_hash_was_changed_is_refused_naming_the_chu
     (pool_project / "replay.toml").write_text(
         _pool_experiment("replay", _replay_arms(corrupt)), encoding="utf-8"
     )
-    before = sorted(Path("runs").glob("*.json"))
+    before = sorted((pool_project / "replay" / "runs").glob("*.json"))
 
     # Act
     with pytest.raises(PoolIntegrityError) as caught:
@@ -397,7 +400,9 @@ async def test_a_manifest_whose_chunk_hash_was_changed_is_refused_naming_the_chu
 
     # Assert
     assert chunk["node_id"] in str(caught.value)
-    assert sorted(Path("runs").glob("*.json")) == before, "a refused replay writes no record"
+    assert sorted((pool_project / "replay" / "runs").glob("*.json")) == before, (
+        "a refused replay writes no record"
+    )
 
 
 @pytest.mark.timeout(180)
@@ -406,7 +411,7 @@ async def test_a_captured_manifest_names_the_target_the_replay_hydrates_from(
 ) -> None:
     # Arrange
     captured = await _pool_run(pool_project, "capture.toml")
-    (manifest,) = (pool_project / "runs" / "pools").glob("*.json")
+    (manifest,) = (pool_project / "capture" / "runs" / "pools").glob("*.json")
     (pool_project / "replay.toml").write_text(
         _pool_experiment("replay", _replay_arms(manifest)), encoding="utf-8"
     )

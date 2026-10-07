@@ -34,6 +34,16 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+### Changed
+
+- **`weft eval experiment` writes its records beside the document.** `foo.toml`'s records go to
+  `foo/runs/`, where `weft eval table`, `replay` and `pairwise` already read them, rather than to
+  `runs/` in whatever directory the command ran from; `--runs` overrides it on the writer as on
+  the readers. Each arm that indexed also leaves its record in the project's `runs/index/`, so
+  `weft delete` and `weft reconcile` still reach the stores it wrote to. `weft eval compare` and
+  `weft trace` take `--runs` to read an experiment's run ids. Records an earlier weft wrote to
+  `runs/` are still found by passing `--runs runs`, which the refusal names.
+
 ### Fixed
 
 - **`llm-sufficiency` judges the best-ranked evidence, not the first in packed order.** Handed more

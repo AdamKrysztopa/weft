@@ -1,9 +1,10 @@
-"""Where an experiment's records are read from, and what is said when none are there — repair R20.3.
+"""Where an experiment's records live, and what is said when none are there — repairs R20.3, R20.5.
 
-`weft eval experiment` writes to `DEFAULT_RUNS_DIR`, relative to the directory it ran from; since
-R44.3 `weft eval table`, `replay` and `pairwise` read `<document>/runs`. A reader that quietly fell
-back to the writer's directory could print a table from records nobody meant, so the default stays
-and the refusal says where it looked and, when the writer's directory holds this experiment's
+`weft eval experiment` writes to `<document>/runs` — the document's path without its suffix — and
+`weft eval table`, `replay` and `pairwise` read from there, so a writer and its readers agree with
+both defaulted. A weft before `R20.5` wrote to `DEFAULT_RUNS_DIR` relative to the directory it ran
+from; a reader that quietly fell back to that directory could print a table from records nobody
+meant, so the refusal says where it looked and, when that directory holds this experiment's
 records, which `--runs` reads them.
 """
 
@@ -17,6 +18,11 @@ from weft_cli.eval_commands import DEFAULT_RUNS_DIR
 from weft_eval.evidence import IncompleteExperimentError
 from weft_eval.experiment import Experiment
 from weft_eval.run_record import RunRecord, load_run_record
+
+
+def experiment_runs_dir(experiment_path: Path, runs: str | None) -> Path:
+    """The `--runs` the operator gave, or `<document>/runs` beside the document."""
+    return Path(runs) if runs is not None else experiment_path.with_suffix("") / "runs"
 
 
 def records_of_experiment(
@@ -36,7 +42,7 @@ def records_of_experiment(
         IncompleteExperimentError: no record read belongs to this experiment's digest, naming
             the directory searched.
     """
-    runs_dir = Path(runs) if runs is not None else experiment_path.with_suffix("") / "runs"
+    runs_dir = experiment_runs_dir(experiment_path, runs)
     records = _read_records(runs_dir, strict=True)
     if any(_is_of(record, experiment) for record in records):
         return records
@@ -50,8 +56,9 @@ def records_of_experiment(
         )
         if elsewhere:
             message += (
-                f"; '{DEFAULT_RUNS_DIR}' holds {elsewhere} record(s) of it, where `weft eval "
-                f"experiment` writes them — pass `--runs {DEFAULT_RUNS_DIR}`"
+                f"; '{DEFAULT_RUNS_DIR}' holds {elsewhere} record(s) of it, where an earlier "
+                f"weft wrote them relative to the directory it ran from — pass "
+                f"`--runs {DEFAULT_RUNS_DIR}`"
             )
     raise IncompleteExperimentError(message + ".")
 

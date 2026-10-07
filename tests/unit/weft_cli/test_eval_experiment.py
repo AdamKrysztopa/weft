@@ -21,10 +21,17 @@ from pydantic import BaseModel, ConfigDict
 
 from weft_chunk import Chunker
 from weft_chunk.fixed_size import FixedSizeChunker
+from weft_cli import cli
 from weft_cli import eval_commands as eval_commands_module
 from weft_cli import ingest as ingest_module
 from weft_cli import route_ask as route_ask_module
-from weft_cli.eval_commands import EvalCompareArgs, EvalCompareCommand, IncomparableRunsError
+from weft_cli.eval_commands import (
+    EvalCompareArgs,
+    EvalCompareCommand,
+    IncomparableRunsError,
+    TraceArgs,
+    TraceCommand,
+)
 from weft_cli.eval_experiment import (
     EvalExperimentArgs,
     EvalExperimentCommand,
@@ -36,8 +43,10 @@ from weft_cli.eval_experiment import (
     UnscorableArmError,
 )
 from weft_cli.eval_scoring import ScoredRun
+from weft_cli.eval_table import EvalTableArgs, EvalTableCommand
 from weft_cli.exit_codes import ExitCode
 from weft_cli.ingest import IndexResult, run_index_for
+from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR, load_run_records
 from weft_cli.pipeline_catalogue import UnknownPipelineNameError
 from weft_cli.progress import ExperimentProgress, ScoringProgress, ScoringStage
 from weft_cli.render import render_outcome, render_refusal
@@ -46,6 +55,7 @@ from weft_command.permission import PermissionClass
 from weft_embed import Embedder
 from weft_embed.contract import EmbeddingModel
 from weft_embed.hash_embedder import HashEmbedder
+from weft_engine.contract_reference import discover_for_reference
 from weft_engine.llm_roles import LLMSection
 from weft_engine.registry_bootstrap import Dependencies
 from weft_engine.services import ServiceSelection
@@ -276,6 +286,11 @@ def _experiment(
     return path
 
 
+def _runs(document: Path) -> Path:
+    """Where `weft eval table` reads a document's records when no `--runs` is given."""
+    return document.with_suffix("") / "runs"
+
+
 def _scoring_stub(calls: list[dict[str, object]]) -> Callable[..., Any]:
     async def _fake(**kwargs: object) -> ScoredRun:
         calls.append(kwargs)
@@ -331,7 +346,7 @@ async def test_every_arm_runs_every_repetition_and_persists_one_record_each(
         ("rung", 1),
         ("rung", 2),
     }
-    records = [load_run_record(Path("runs") / f"{run.run_id}.json") for run in result.runs]
+    records = [load_run_record(_runs(path) / f"{run.run_id}.json") for run in result.runs]
     experiments = [record.experiment for record in records]
     assert all(experiment is not None for experiment in experiments)
     assert {experiment.digest for experiment in experiments if experiment} == {result.digest}
@@ -395,7 +410,7 @@ async def test_an_arm_naming_a_different_corpus_is_refused_by_the_digest_before_
     assert "corpus" in reasons
     assert "planted" in str(caught.value)
     assert calls == []
-    assert not Path("runs").exists()
+    assert not _runs(path).exists()
 
 
 async def test_an_arm_scored_on_a_different_question_set_is_refused(
@@ -547,7 +562,7 @@ async def test_an_arm_naming_an_unknown_query_pipeline_is_refused_before_any_rec
 
     # Assert
     assert calls == []
-    assert not Path("runs").exists()
+    assert not _runs(path).exists()
 
 
 async def test_an_arm_whose_query_pipeline_ends_in_neither_a_generator_nor_a_packer_is_refused(
@@ -573,7 +588,7 @@ async def test_an_arm_whose_query_pipeline_ends_in_neither_a_generator_nor_a_pac
     assert "retrieval-ends-in-a-retriever" in str(caught.value)
     assert "Embedder" in str(caught.value)
     assert calls == []
-    assert not Path("runs").exists()
+    assert not _runs(path).exists()
 
 
 # --- Repair R38.2 — one index per ingest pipeline and corpus, and no paid run on a name no run
@@ -681,9 +696,7 @@ async def test_a_record_names_its_corpus_as_the_document_wrote_it(
     # Assert
     assert isinstance(outcome, Produced)
     result = cast("EvalExperimentCommandResult", outcome.value)
-    names = {
-        load_run_record(Path("runs") / f"{run.run_id}.json").corpus.name for run in result.runs
-    }
+    names = {load_run_record(_runs(path) / f"{run.run_id}.json").corpus.name for run in result.runs}
     assert names == {"corpus"}
 
 
@@ -754,7 +767,7 @@ async def test_rerunning_an_interrupted_experiment_scores_only_what_it_had_not_w
     )
     with pytest.raises(_InterruptedError):
         await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
-    written = [load_run_record(record) for record in sorted(Path("runs").glob("*.json"))]
+    written = [load_run_record(record) for record in sorted(_runs(path).glob("*.json"))]
     assert len(written) == 2
 
     # Act — the same document, run again.
@@ -774,7 +787,7 @@ async def test_rerunning_an_interrupted_experiment_scores_only_what_it_had_not_w
         ("rung", 1),
         ("rung", 2),
     }
-    assert len(list(Path("runs").glob("*.json"))) == 4
+    assert len(list(_runs(path).glob("*.json"))) == 4
 
 
 async def test_rerunning_a_completed_experiment_starts_a_new_invocation(
@@ -839,7 +852,7 @@ async def test_the_plan_states_each_arms_size_and_runs_nothing(
     ]
     assert [(corpus.pipeline, corpus.documents) for corpus in plan.corpora] == [("index", 1)]
     assert scored == [], "a plan scores nothing"
-    assert not list(Path("runs").glob("*.json")), "a plan writes no record"
+    assert not list(_runs(path).glob("*.json")), "a plan writes no record"
 
 
 def test_the_plan_command_only_reads() -> None:
@@ -1012,7 +1025,7 @@ async def test_an_arm_marked_to_capture_writes_its_pool_beside_its_record(
     assert isinstance(outcome, Produced)
     result = cast("EvalExperimentCommandResult", outcome.value)
     by_arm = {run.arm: run.run_id for run in result.runs}
-    manifests = sorted(Path("runs", "pools").glob("*.json"))
+    manifests = sorted((_runs(path) / "pools").glob("*.json"))
     assert [p.name for p in manifests] == [f"{by_arm['dense']}.json"]
     loaded = load_pool_manifest(manifests[0]).manifest
     assert (loaded.arm, loaded.query_pipeline, loaded.store_rows) == ("dense", "some-rung", 11)
@@ -1070,7 +1083,7 @@ async def test_a_captured_pool_is_not_read_back_as_a_run_record(
 
     # Assert
     assert isinstance(again, Produced)
-    assert list(Path("runs").glob("*.pool.json")) == []
+    assert list(_runs(path).glob("*.pool.json")) == []
 
 
 # --- Task 40.2 — an arm naming a pool replays it and reads no corpus.
@@ -1085,7 +1098,7 @@ async def _captured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Pa
     )
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub([]))
     await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
-    (manifest,) = Path("runs", "pools").glob("*.json")
+    (manifest,) = (_runs(path) / "pools").glob("*.json")
     return path, manifest.resolve()
 
 
@@ -1130,7 +1143,7 @@ async def test_an_arm_naming_a_pool_replays_it_without_indexing_or_reading_the_c
     loaded = load_pool_manifest(manifest)
     assert {cast("LoadedPool", call["pool"]).sha256 for call in calls} == {loaded.sha256}
     for run in result.runs:
-        record = load_run_record(Path("runs") / f"{run.run_id}.json")
+        record = load_run_record(_runs(replay) / f"{run.run_id}.json")
         assert record.experiment is not None
         assert record.experiment.pool_manifest == loaded.sha256
         assert record.corpus.digest == loaded.manifest.corpus_digest
@@ -1325,7 +1338,7 @@ async def test_every_arm_of_a_two_file_document_is_scored_on_the_union_in_the_or
     for call in calls:
         questions = cast("tuple[Question, ...]", call["questions"])
         assert [question.id for question in questions] == ["q-1", "q-2", "op-1", "op-2", "op-3"]
-    records = [load_run_record(Path("runs") / f"{run.run_id}.json") for run in result.runs]
+    records = [load_run_record(_runs(path) / f"{run.run_id}.json") for run in result.runs]
     assert len({record.question_set_digest for record in records}) == 1
 
 
@@ -1350,7 +1363,7 @@ async def test_a_question_id_in_two_named_files_stops_the_experiment_before_anyt
     assert "operator.toml" in message
     assert "in both" in message
     assert calls == []
-    assert not list(Path("runs").glob("*.json"))
+    assert not list(_runs(path).glob("*.json"))
 
 
 # --- Task 43.50 — an experiment scores the judge its `metrics` name, and says what it will cost.
@@ -1452,7 +1465,7 @@ async def test_an_experiment_naming_a_judge_hands_it_to_every_arms_scoring(
         (ANSWER_CORRECTNESS_NAME,)
     }
     first = {
-        run.arm: load_run_record(Path("runs") / f"{run.run_id}.json")
+        run.arm: load_run_record(_runs(path) / f"{run.run_id}.json")
         for run in result.runs
         if run.repetition == 1
     }
@@ -1503,12 +1516,13 @@ async def test_records_judged_by_two_different_models_are_refused_by_compare(
     # Act
     with pytest.raises(IncomparableRunsError) as caught:
         await EvalCompareCommand().run(
-            EvalCompareArgs(a=first_runs[0].run_id, b=second_runs[0].run_id), first_ctx
+            EvalCompareArgs(a=first_runs[0].run_id, b=second_runs[0].run_id, runs=str(_runs(path))),
+            first_ctx,
         )
 
     # Assert
     for run in first_runs:
-        record = load_run_record(Path("runs") / f"{run.run_id}.json")
+        record = load_run_record(_runs(path) / f"{run.run_id}.json")
         assert record.model_versions[f"role:{_GRADE}"] == "scripted:judge-a"
     differing = [reason for reason in caught.value.reasons if "model versions differ" in reason]
     assert differing, caught.value.reasons
@@ -1545,7 +1559,7 @@ async def test_a_judge_whose_role_is_unmapped_is_refused_before_anything_is_inde
     assert caught.value.valid_options == ("generate", "index")
     assert indexed == []
     assert calls == []
-    assert not Path("runs").exists()
+    assert not _runs(path).exists()
 
 
 async def test_the_plan_states_the_judge_calls_of_every_answering_arm(
@@ -1669,7 +1683,7 @@ async def test_an_arm_naming_something_that_is_not_a_router_is_refused_before_an
     # Assert
     assert "some-router" in refused.value.valid_options
     assert calls == []
-    assert not Path("runs").exists()
+    assert not _runs(path).exists()
 
 
 # --- Carried repair R43.58 — each arm and repetition's progress reaches the sink, labelled.
@@ -1754,6 +1768,145 @@ async def test_a_sink_without_progress_runs_the_experiment_unchanged(
 
     # Act
     outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+
+
+# --- Carried repair R20.5 — the writer puts records where its readers look by default.
+
+
+async def test_records_land_beside_the_document_and_not_in_the_directory_it_ran_from(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(tmp_path, _arm("dense", "index") + _arm("wide", "index"), repeats=2)
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    assert {record.stem for record in _runs(path).glob("*.json")} == {
+        run.run_id for run in result.runs
+    }
+    assert list(Path("runs").glob("*.json")) == []
+
+
+async def test_the_table_reads_what_the_experiment_wrote_with_both_defaulted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(tmp_path, _arm("dense", "index") + _arm("wide", "index"), repeats=2)
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+    written = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+    assert isinstance(written, Produced)
+
+    # Act
+    table = await EvalTableCommand().run(EvalTableArgs(experiment=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(table, Produced)
+
+
+async def test_runs_given_on_the_command_line_is_where_the_records_are_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(tmp_path, _arm("dense", "index") + _arm("wide", "index"), repeats=2)
+    elsewhere = tmp_path / "elsewhere"
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+    parsed = cli.build_parser(discover_for_reference()).parse_args(
+        ["eval", "experiment", str(path), "--runs", str(elsewhere)]
+    )
+    args = EvalExperimentArgs(
+        **{name: getattr(parsed, name) for name in EvalExperimentArgs.model_fields}
+    )
+
+    # Act
+    outcome = await EvalExperimentCommand().run(args, _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    result = cast("EvalExperimentCommandResult", outcome.value)
+    assert {record.stem for record in elsewhere.glob("*.json")} == {
+        run.run_id for run in result.runs
+    }
+    assert not _runs(path).exists()
+
+
+async def test_a_rerun_resumes_from_the_records_beside_the_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — the first run dies after two of four records, from another directory.
+    path = _experiment(tmp_path, _arm("dense", "index") + _arm("wide", "index"), repeats=2)
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _interrupting_stub([], survive=2))
+    with pytest.raises(_InterruptedError):
+        await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+    elsewhere = tmp_path / "another-cwd"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub(calls))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert len(calls) == 2, "a record written from another directory was paid for again"
+
+
+async def test_each_arm_that_indexed_leaves_its_record_where_participation_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — two ingest pipelines, so two indexing calls across six records.
+    path = _experiment(
+        tmp_path, _arm("a", "index") + _arm("b", "index-other") + _arm("c", "index"), repeats=2
+    )
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    traces = load_run_records(DEFAULT_INDEX_RUNS_DIR)
+    assert sorted(record.resolved_pipeline.name for record in traces) == ["index", "index-other"]
+    assert {record.experiment.name for record in traces if record.experiment} == {"fixture"}
+
+
+async def test_a_replay_arm_that_indexed_nothing_leaves_no_index_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    _, manifest = await _captured(tmp_path, monkeypatch)
+    before = load_run_records(DEFAULT_INDEX_RUNS_DIR)
+    replay = _replay_document(tmp_path, manifest)
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub([]))
+
+    # Act
+    outcome = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(replay)), _ctx())
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert load_run_records(DEFAULT_INDEX_RUNS_DIR) == before
+
+
+async def test_trace_reads_an_experiment_run_from_the_runs_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    path = _experiment(tmp_path, _arm("dense", "index") + _arm("wide", "index"), repeats=2)
+    monkeypatch.setattr(eval_commands_module, "score_pipeline", _scoring_stub([]))
+    written = await EvalExperimentCommand().run(EvalExperimentArgs(path=str(path)), _ctx())
+    assert isinstance(written, Produced)
+    run_id = cast("EvalExperimentCommandResult", written.value).runs[0].run_id
+
+    # Act
+    outcome = await TraceCommand().run(TraceArgs(run_id=run_id, runs=str(_runs(path))), _ctx())
 
     # Assert
     assert isinstance(outcome, Produced)

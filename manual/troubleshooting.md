@@ -4022,8 +4022,8 @@ different measurement, not a comparison.
 
 ### `IncompleteExperimentError`
 
-**What it looks like** — `weft eval table` asked for an experiment whose records under `runs/` do
-not hold every arm and repetition of one invocation:
+**What it looks like** — `weft eval table` asked for an experiment whose records under
+`<document>/runs` do not hold every arm and repetition of one invocation:
 
 ```text
 $ weft eval table experiment.toml ; echo $?
@@ -4035,18 +4035,19 @@ With no record of the document at all it names where it looked:
 
 ```text
 $ weft eval table local-embed-smoke.toml ; echo $?
-no records of experiment 'local-embed-smoke' (00b5a5f8cc37…) were found under 'local-embed-smoke/runs'; 'runs' holds 2 record(s) of it, where `weft eval experiment` writes them — pass `--runs runs`.
+no records of experiment 'local-embed-smoke' (00b5a5f8cc37…) were found under 'local-embed-smoke/runs'; 'runs' holds 2 record(s) of it, where an earlier weft wrote them relative to the directory it ran from — pass `--runs runs`.
 1
 ```
 
-`weft eval table`, `replay` and `pairwise` read `<document>/runs` unless told otherwise, beside the
-document file without its suffix, which is where committed evidence keeps its records; `weft eval
-experiment` writes to `runs/` in the directory it ran from. The second clause appears only when that
-`runs/` holds records of this document. A table is computed from one complete invocation or not at
+`weft eval experiment` writes to `<document>/runs`, beside the document file without its suffix,
+and `weft eval table`, `replay` and `pairwise` read from there unless told otherwise; `--runs` moves
+both. A weft before repair `R20.5` wrote to `runs/` in the directory it ran from instead, and the
+second clause appears only when that `runs/` holds records of this document. A table is computed from one complete invocation or not at
 all, because a cell from a partial run would read as a result. The digest is the document's bytes:
 records written before the document was edited belong to a different experiment and are not
 counted. **What to do:** pass the `--runs` the message names, or run the experiment to completion
-with `weft eval experiment`. (Repair `R20.3`, 2026-10-07: the message named no directory.)
+with `weft eval experiment`. (Repair `R20.3`, 2026-10-07: the message named no directory. Repair
+`R20.5`, 2026-10-07: the writer moved to where its readers look.)
 
 ### `AmbiguousInvocationError`
 

@@ -88,8 +88,10 @@ from weft_cli.eval_commands import (
     model_versions_of,
     stated_embedding_models,
 )
+from weft_cli.eval_records import experiment_runs_dir
 from weft_cli.ingest import content_hashes_of, corpus_documents
 from weft_cli.layers import compose_layers
+from weft_cli.participation import DEFAULT_INDEX_RUNS_DIR
 from weft_cli.progress import ExperimentProgress, ExperimentProgressReporter, ScoringProgress
 from weft_cli.route_ask import NoRouterPipelineError, resolve_named_pipeline
 from weft_command.contract import Command, CommandResult
@@ -300,6 +302,13 @@ class EvalExperimentArgs(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     path: str = Field(description="the experiment document")
+    runs: str | None = Field(
+        default=None,
+        description=(
+            "the directory to write run records to; `<document>/runs`, beside the document "
+            "without its suffix, when omitted — where `weft eval table` reads them"
+        ),
+    )
 
 
 class ExperimentRunRef(BaseModel):
@@ -575,6 +584,7 @@ def _write_arm_pool(
     result: IndexAndScoreResult,
     *,
     store: str,
+    runs_dir: Path,
 ) -> None:
     """Write `arm`'s captured pool beside `result`'s own run record — ledger task **40.2**.
 
@@ -617,7 +627,7 @@ def _write_arm_pool(
             if question.id in pools
         ),
     )
-    write_pool_manifest(manifest, DEFAULT_RUNS_DIR / "pools" / f"{result.run_id}.json")
+    write_pool_manifest(manifest, runs_dir / "pools" / f"{result.run_id}.json")
 
 
 class EvalPlanArgs(BaseModel):
@@ -858,7 +868,8 @@ class EvalExperimentCommand:
         experiment_args = cast(EvalExperimentArgs, args)
         deps = ctx.require(Dependencies)
         experiment = load_experiment(Path(experiment_args.path))
-        resumed = _incomplete_invocation(experiment)
+        runs_dir = experiment_runs_dir(Path(experiment_args.path), experiment_args.runs)
+        resumed = _incomplete_invocation(experiment, directory=runs_dir)
         invocation, written = resumed if resumed is not None else (uuid.uuid4().hex, {})
 
         document_labels = (
@@ -909,6 +920,7 @@ class EvalExperimentCommand:
             identities=identities,
             document_labels=document_labels,
             document_root=document_root,
+            runs_dir=runs_dir,
         )
 
         return Produced(
@@ -992,8 +1004,14 @@ async def _run_arms(
     identities: Mapping[str, _ArmIdentity],
     document_labels: Mapping[str, str] | None,
     document_root: Path,
+    runs_dir: Path,
 ) -> list[ExperimentRunRef]:
-    """Run every arm × repetition not already written, in arm-then-repetition order."""
+    """Run every arm × repetition not already written, in arm-then-repetition order.
+
+    A call that indexed also leaves its record in `DEFAULT_INDEX_RUNS_DIR`, where `weft delete`
+    and `weft reconcile` look for the stores a run reached: `runs_dir` sits beside the document,
+    outside the project they read (repair `R20.5`).
+    """
     judge_metrics = tuple(
         sorted(judge_plugin_names(experiment.metrics, registry=deps.registry).values())
     )
@@ -1056,6 +1074,8 @@ async def _run_arms(
                 on_progress=on_progress,
                 layers=arm.layers if pool is None else None,
                 target=identities[arm.name].target,
+                runs_dir=runs_dir,
+                index_runs_dir=DEFAULT_INDEX_RUNS_DIR,
             )
             if pool is None:
                 indexed_keys.add(index_key)
@@ -1068,6 +1088,7 @@ async def _run_arms(
                     identities[arm.name],
                     result,
                     store=deps.services.store,
+                    runs_dir=runs_dir,
                 )
     return runs
 

@@ -279,7 +279,7 @@ async def test_a_layer_is_built_once_after_the_base_and_each_record_names_what_i
     result = cast("EvalExperimentCommandResult", outcome.value)
     read: dict[str, set[tuple[str, ...]]] = {}
     for run in result.runs:
-        record = load_run_record(Path("runs") / f"{run.run_id}.json")
+        record = load_run_record(path.with_suffix("") / "runs" / f"{run.run_id}.json")
         assert record.experiment is not None
         read.setdefault(run.arm, set()).add(record.experiment.layers)
     assert read == {"dense": {()}, "raptor": {(_LAYER,)}, "raptor-again": {(_LAYER,)}}

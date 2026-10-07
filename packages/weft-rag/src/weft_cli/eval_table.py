@@ -57,8 +57,7 @@ class EvalTableArgs(BaseModel):
         default=None,
         description=(
             "the directory of run records; `<document>/runs`, beside the document without its "
-            "suffix, when omitted — `weft eval experiment` writes to `runs/` in the directory it "
-            "ran from"
+            "suffix, when omitted — where `weft eval experiment` writes them"
         ),
     )
     invocation: str | None = Field(

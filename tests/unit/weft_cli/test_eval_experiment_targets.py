@@ -222,8 +222,9 @@ async def _run(path: Path, store: object) -> EvalExperimentCommandResult:
     return cast("EvalExperimentCommandResult", outcome.value)
 
 
-def _records(result: EvalExperimentCommandResult) -> dict[str, Any]:
-    return {run.arm: load_run_record(Path("runs") / f"{run.run_id}.json") for run in result.runs}
+def _records(result: EvalExperimentCommandResult, document: Path) -> dict[str, Any]:
+    runs = document.with_suffix("") / "runs"
+    return {run.arm: load_run_record(runs / f"{run.run_id}.json") for run in result.runs}
 
 
 async def _target_names(store: MemoryStore) -> set[str]:
@@ -253,7 +254,7 @@ async def test_two_arms_embedding_at_two_widths_run_in_one_invocation(
     result = await _run(path, store)
 
     # Assert
-    records = _records(result)
+    records = _records(result, path)
     widths = {"wide": _WIDE, "narrow": _NARROW}
     for arm, record in records.items():
         assert record.target_embedding is not None, arm
@@ -300,7 +301,7 @@ async def test_each_record_names_the_embedder_its_questions_were_embedded_by(
     result = await _run(path, store)
 
     # Assert
-    records = _records(result)
+    records = _records(result, path)
     assert records["wide"].query_embedding == embedded_by[_WIDE]
     assert records["narrow"].query_embedding == embedded_by[_NARROW]
 
@@ -323,7 +324,7 @@ async def test_two_arms_naming_one_pipeline_and_corpus_index_once_into_one_targe
     result = await _run(path, store)
 
     # Assert
-    records = _records(result)
+    records = _records(result, path)
     assert records["dense"].target == records["again"].target
     assert sorted(str(call["pipeline"]) for call in indexed) == ["index-narrow", "index-wide"]
     assert len({call["target"] for call in indexed}) == 2
@@ -349,8 +350,8 @@ async def test_the_target_is_derived_from_the_pipeline_and_corpus_never_from_an_
     )
 
     # Act
-    by_first = _records(await _run(first, store))
-    by_second = _records(await _run(second, store))
+    by_first = _records(await _run(first, store), first)
+    by_second = _records(await _run(second, store), second)
 
     # Assert
     assert by_first["alpha"].target == by_second["gamma"].target
@@ -374,7 +375,7 @@ async def test_every_arm_is_scored_refusing_foreign_documents_in_its_own_target(
     result = await _run(path, store)
 
     # Assert
-    records = _records(result)
+    records = _records(result, path)
     by_target = {call["target"]: call for call in calls}
     for record in records.values():
         call = by_target[record.target]
@@ -417,7 +418,7 @@ async def test_a_resumed_invocation_scores_into_the_targets_the_first_one_made(
     assert [run.arm for run in result.runs] == ["wide", "narrow"]
     assert len(calls) == 1
     assert await _target_names(store) == made
-    narrow = _records(result)["narrow"]
+    narrow = _records(result, path)["narrow"]
     assert narrow.target in made
     assert narrow.target_embedding is not None
     assert narrow.target_embedding.width == _NARROW
@@ -440,7 +441,7 @@ async def test_an_experiment_against_a_store_holding_no_targets_is_refused_writi
     # Assert
     assert "TargetHolding" in str(caught.value)
     assert calls == []
-    assert list(Path("runs").glob("*.json")) == []
+    assert list((path.with_suffix("") / "runs").glob("*.json")) == []
 
 
 # --- A pool names the target it was captured in, and a replay reads that target.
@@ -509,13 +510,14 @@ async def test_a_captured_pool_names_its_target_and_every_replay_arm_reads_it(
     )
     (path.parent / "questions.toml").write_text(_ANCHORED_QUESTIONS, encoding="utf-8")
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub([]))
-    captured = _records(await _run(path, store))
-    (manifest,) = Path("runs", "pools").glob("*.json")
+    captured = _records(await _run(path, store), path)
+    (manifest,) = (path.with_suffix("") / "runs" / "pools").glob("*.json")
     calls: list[dict[str, Any]] = []
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub(calls))
 
     # Act
-    replayed = _records(await _run(_replay(tmp_path, manifest.resolve()), store))
+    replay = _replay(tmp_path, manifest.resolve())
+    replayed = _records(await _run(replay, store), replay)
 
     # Assert
     loaded = load_pool_manifest(manifest).manifest
@@ -537,7 +539,7 @@ async def test_a_pool_captured_before_targets_were_recorded_replays_against_the_
     (path.parent / "questions.toml").write_text(_ANCHORED_QUESTIONS, encoding="utf-8")
     monkeypatch.setattr(eval_commands_module, "score_pipeline", _capturing_stub([]))
     await _run(path, store)
-    (manifest,) = Path("runs", "pools").glob("*.json")
+    (manifest,) = (path.with_suffix("") / "runs" / "pools").glob("*.json")
     older = manifest.with_name("older.json")
     body = json.loads(manifest.read_text(encoding="utf-8"))
     body.pop("target", None)

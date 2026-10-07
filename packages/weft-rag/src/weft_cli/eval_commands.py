@@ -608,6 +608,15 @@ class EvalCompareArgs(BaseModel):
         ),
     )
 
+    runs: str | None = Field(
+        default=None,
+        description=(
+            "the directory the run records are read from; 'runs/' in the current directory when "
+            "omitted, where 'weft eval run' writes — an experiment's records sit in "
+            "'<document>/runs'"
+        ),
+    )
+
     @model_validator(mode="after")
     def _slice_and_kind_are_exclusive(self) -> EvalCompareArgs:
         if self.slice is not None and self.kind is not None:
@@ -624,6 +633,14 @@ class TraceArgs(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     run_id: str = Field(description="the run id 'weft eval run' printed")
+    runs: str | None = Field(
+        default=None,
+        description=(
+            "the directory the run records are read from; 'runs/' in the current directory when "
+            "omitted, where 'weft eval run' writes — an experiment's records sit in "
+            "'<document>/runs'"
+        ),
+    )
 
 
 class EvalMetricsArgs(BaseModel):
@@ -1083,6 +1100,10 @@ def all_run_records(directory: Path = DEFAULT_RUNS_DIR) -> tuple[tuple[str, RunR
     if not directory.is_dir():
         return ()
     return tuple((path.stem, load_run_record(path)) for path in sorted(directory.glob("*.json")))
+
+
+def _runs_dir(runs: str | None) -> Path:
+    return Path(runs) if runs is not None else DEFAULT_RUNS_DIR
 
 
 def load_or_refuse_run(run_id: str, *, directory: Path = DEFAULT_RUNS_DIR) -> RunRecord:
@@ -1774,6 +1795,8 @@ async def index_and_score(
     router: str | None = None,
     on_progress: Callable[[ScoringProgress], Awaitable[None]] | None = None,
     layers: tuple[str, ...] | None = None,
+    runs_dir: Path = DEFAULT_RUNS_DIR,
+    index_runs_dir: Path | None = None,
 ) -> IndexAndScoreResult:
     """Keep `weft eval run` and `weft eval experiment` scoring through one identical path.
 
@@ -1802,7 +1825,7 @@ async def index_and_score(
     `wall_clock_seconds`/`durations.ingest_seconds` are both `0.0` on this branch, a measurement
     rather than a placeholder — this call spent no time ingesting.
 
-    Mints a fresh `uuid4` run id and writes the record to `DEFAULT_RUNS_DIR/<run_id>.json` before
+    Mints a fresh `uuid4` run id and writes the record to `runs_dir/<run_id>.json` before
     returning — the two steps `EvalRunCommand.run` always performed, now performed once.
 
     **`reprocess`/`batch_size` — repair R38.2.** `EvalRunCommand` still calls this with neither
@@ -1875,6 +1898,10 @@ async def index_and_score(
     nothing. Given, as `weft_cli.eval_experiment._run_arms` does for every non-pool arm, a fresh
     index builds those layers, and before scoring `_refuse_layers_not_as_named` refuses unless
     the store holds exactly them, each built on every source.
+
+    **`runs_dir`/`index_runs_dir` — carried repair R20.5.** The record goes to `runs_dir`; a call
+    that indexed — neither `reuse_index` nor `pool` — also writes it to `index_runs_dir` when one
+    is given, which `weft eval experiment` does so `weft delete` still finds the stores it reached.
     """
     indexed = await _indexed_corpus(
         deps,
@@ -2023,7 +2050,9 @@ async def index_and_score(
         query_embedding=query_embedding,
     )
     run_id = str(uuid.uuid4())
-    write_run_record(record, DEFAULT_RUNS_DIR / f"{run_id}.json")
+    write_run_record(record, runs_dir / f"{run_id}.json")
+    if index_runs_dir is not None and not reuse_index and pool is None:
+        write_run_record(record, index_runs_dir / f"{run_id}.json")
     return IndexAndScoreResult(
         run_id=run_id,
         record=record,
@@ -2297,8 +2326,8 @@ class EvalCompareCommand:
         if a_is_file or b_is_file:
             return _compare_baseline_reports(compare_args, a_is_file=a_is_file, b_is_file=b_is_file)
 
-        record_a = load_or_refuse_run(compare_args.a)
-        record_b = load_or_refuse_run(compare_args.b)
+        record_a = load_or_refuse_run(compare_args.a, directory=_runs_dir(compare_args.runs))
+        record_b = load_or_refuse_run(compare_args.b, directory=_runs_dir(compare_args.runs))
 
         reasons = incomparable_reasons(record_a, record_b)
         if reasons:
@@ -2400,7 +2429,7 @@ class TraceCommand:
         """
         del ctx
         trace_args = cast(TraceArgs, args)
-        record = load_or_refuse_run(trace_args.run_id)
+        record = load_or_refuse_run(trace_args.run_id, directory=_runs_dir(trace_args.runs))
         return Produced(value=TraceCommandResult(run_id=trace_args.run_id, record=record))
 
 

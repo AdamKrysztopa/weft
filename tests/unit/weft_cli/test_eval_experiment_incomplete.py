@@ -204,7 +204,7 @@ async def test_a_document_that_fails_in_this_run_is_refused_before_scoring(
     assert re.search(r"--target exp_[0-9a-f]{32}", message) is not None
     assert "--retry-failed" in message
     assert calls == []
-    assert list(Path("runs").glob("*.json")) == []
+    assert list((path.with_suffix("") / "runs").glob("*.json")) == []
 
 
 async def test_after_an_outage_the_printed_remedy_lets_the_experiment_finish(

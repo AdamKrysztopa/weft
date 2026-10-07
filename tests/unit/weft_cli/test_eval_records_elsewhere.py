@@ -1,12 +1,12 @@
 """The readers of an experiment's records name where they looked — carried repair **R20.3**.
 
-`weft eval experiment` writes its records to `runs/` in the directory it ran from; since `R44.3`,
-`weft eval table`, `replay` and `pairwise` read `<document>/runs`, where committed evidence lives.
+Since `R44.3`, `weft eval table`, `replay` and `pairwise` read `<document>/runs`, where committed
+evidence lives; until `R20.5`, `weft eval experiment` wrote to `runs/` in the directory it ran from.
 Found running the built wheel at Phase 20b's exit: a stranger's experiment finished, and `weft eval
 table` on the same document said only *"no records … were found"*, naming no directory. Each reader
-now names the directory it searched and, when the writer's `runs/` holds records of that
-experiment, the `--runs` that reads them. The default does not move: a reader that fell back to
-another directory unannounced could print a table from records nobody meant.
+now names the directory it searched and, when the current directory's `runs/` holds records of that
+experiment — an earlier weft's — the `--runs` that reads them. A reader that fell back to another
+directory unannounced could print a table from records nobody meant.
 """
 
 from __future__ import annotations
