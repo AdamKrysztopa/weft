@@ -1,0 +1,36 @@
+# text-embedding-3-large against BAAI/bge-m3 served locally by Ollama, mrr@5 on open-ragbench.
+
+[claim]
+schema = 2
+id = "index-openai-large.orb.mrr-at-5"
+rung = "index-openai-large"
+baseline = "index-openai-compatible"
+arm = "openai-large"
+baseline_arm = "bge-m3"
+metric = "mrr@5"
+status = "no-gain"
+verdict = "benefit-ruled-out"
+basis = "records"
+margin = 0.04
+
+[claim.population]
+benchmark = "open-ragbench"
+language = "en"
+question_sets = ["corpus/open-ragbench-questions/dev.toml"]
+
+[claim.source]
+experiment = "eval/experiments/local-embed-orb.toml"
+invocation = "a2e269c777e24cdbb1d0d12c1bfc44c7"
+
+[claim.untested]
+regimes = [
+  "language other than en",
+  "bge-m3 served by TEI, or at a precision other than Ollama's float16",
+  "a hybrid or reranked pipeline: both arms are dense retrieval alone",
+]
+
+[claim.fingerprint]
+rung = "69f285901001b6d2b44965dffbefa3c9"
+baseline = "69f285901001b6d2b44965dffbefa3c9"
+index = "75fbbbe0afe7a3b7103a54bf680d5c02"
+baseline_index = "32329c2d497e32fb6ade34d5feadc3c8"

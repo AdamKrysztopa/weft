@@ -878,6 +878,40 @@ answers whatever name it is sent, so naming `bge-m3` against TEI would make the 
 indistinguishable — keep each server's own name, because two servers are two measurements until
 one has compared them.
 
+**How well bge-m3 retrieves, measured — behind `text-embedding-3-large` where it decides.** Phase
+20b put bge-m3, served by Ollama, against `text-embedding-3-large` at its full width, both arms
+dense retrieval alone (`vector-retrieve`, top 5), on three corpora, with the rule fixed in writing
+before any run: mrr@5, a margin of 0.04 taken from a blinded pilot, and TechQA the corpus that
+decides (`eval/experiments/local-embed-*.toml`). Each arm ran once; both embed deterministically.
+
+| corpus | questions | bge-m3 mrr@5 | `text-embedding-3-large` | paired difference (95% interval) | reading | claim |
+|---|---|---|---|---|---|---|
+| TechQA | 610 | 0.526 | 0.611 | +0.085 (+0.059 to +0.112) | the paid model is worth it | `index-openai-large.techqa.mrr-at-5` |
+| ESCI | 830 | 0.728 | 0.837 | +0.109 (+0.087 to +0.132) | the paid model is worth it | `index-openai-large.esci.mrr-at-5` |
+| open-ragbench dev | 1,548 | 0.934 | 0.952 | +0.018 (+0.007 to +0.029) | a benefit of 0.04 is ruled out | `index-openai-large.orb.mrr-at-5` |
+
+So bge-m3 is **not** a drop-in for `text-embedding-3-large` on technical support questions or
+product search: on both, the whole interval sits above the margin. It is close enough on
+open-ragbench, where dense retrieval is already near its ceiling (recall@5 0.977 against 0.989), so
+that reading says little about a corpus with headroom. What bge-m3 buys is no key, no per-token
+bill and no data leaving the machine, and on these runs a faster query: a median of 0.22–0.65 s
+against 0.83–1.34 s, retrieval included, on an Apple M4 Pro against the public API. None of this
+moves a default: `hash` stays the shipped embedder, and `openai-embeddings` still asks for
+`text-embedding-3-small` unless told otherwise.
+Untested: languages other than English, a hybrid or reranked pipeline, and bge-m3 at any precision
+other than float16.
+
+**TEI and Ollama serve bge-m3 alike.** The same model through both servers, on TechQA's 610
+questions, reads mrr@5 0.526 through Ollama and 0.528 through TEI: a paired difference of +0.002
+(95% interval −0.001 to +0.005), with 7 questions ranked differently
+(`eval/experiments/local-embed-servers/table.md`). Choose between them on operation, not quality.
+**Send TEI one request at a time.** TEI computes one batch after another and holds a permit per
+input, 512 by default, so Weft's four concurrent requests of 128 only queue there: on a long index
+each took 92–114 s end to end, and a request timeout below that abandons batches TEI goes on
+computing, while every retry is refused `no permits available`. Leave `timeout_seconds` unset (the
+SDK waits 600 s) or set it above the measured time, and set `max_concurrent_requests = 1` on the
+account that reaches TEI; it loses nothing, at about 5 chunks/s either way.
+
 **A wrong `base_url` fails at the first call, not at startup.** Nothing here reaches the network,
 so `weft plugins doctor` reports the pack `active` whether or not the address answers; the error
 arrives from the first stage that calls out, naming the model and the endpoint. That entry in

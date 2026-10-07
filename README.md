@@ -40,7 +40,10 @@ than two about different ones. What the four commands below prove is that the pi
 to end on your machine: extract, chunk, embed, store, retrieve. They prove nothing whatever
 about retrieval quality, and the ranking you get is arbitrary. One line in `weft.toml` —
 `[services] embed = "openai-embeddings"`, or `"openai-compatible-embeddings"` pointed at a
-server you run — switches it for a real one, and then the results mean something.
+server you run — switches it for a real one, and then the results mean something. Measured on
+TechQA, a local `BAAI/bge-m3` trails OpenAI's `text-embedding-3-large` by 0.085 mrr@5
+(`eval/claims/index-openai-large.techqa.mrr-at-5.toml`); `manual/operations-guide.md` has the
+other two corpora and the trade-off.
 
 ```bash id=install
 uv add weft-rag
