@@ -224,6 +224,10 @@ cmd = "python scripts/sync_licence_files.py"
 help = "Task 6.7: every sdist carries what the checkout has, and the suite passes from them."
 cmd = "python scripts/check_sdists.py"
 
+[tool.poe.tasks.golden-path]
+help = "Repair R20.8: the built wheels, a clean venv and a fresh database, driven as a stranger would."
+cmd = "python scripts/check_golden_path.py"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

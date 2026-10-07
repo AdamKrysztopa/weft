@@ -260,3 +260,42 @@ jobs:
         run: uv run python scripts/check_sdists.py --run-tests
         env:
           WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
+
+  # Repair R20.8. Builds the wheels, installs them into a clean virtualenv and drives the installed
+  # `weft` from outside the checkout against a database of its own: the path a stranger takes, as
+  # one external process rather than the commands' unit tests.
+  golden-path:
+    name: a stranger's first hour, from the built wheels
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: weft
+          POSTGRES_PASSWORD: weft
+          POSTGRES_DB: weft
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U weft -d weft"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync
+        run: uv sync --frozen
+
+      - name: Install the wheels and walk doctor, index, ask, eval experiment and eval table
+        run: uv run python scripts/check_golden_path.py
+        env:
+          WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft

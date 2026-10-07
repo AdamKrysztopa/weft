@@ -268,7 +268,10 @@ facts about a file or the index, and the script says so rather than pretending t
    release, and the wheel is built from the tag rather than from the desk.
 7. **The binary has been run from outside this repository**, through its shipped entry point,
    including a failure path, and what it printed has been read. All four of Phase 3's repairs were
-   found this way and none by its 1,513 tests.
+   found this way and none by its 1,513 tests. CI's `golden-path` job (`scripts/check_golden_path.py`,
+   repair `R20.8`) walks one stranger's path from the built wheels on every push — doctor, index,
+   lexical ask, the defaulted-`hash` refusal, an embedder chosen, vector ask, `eval experiment`,
+   `eval table` — which is the floor of this condition, not a substitute for reading the output.
 8. **PyPI's cooling window is clear.** `.github/workflows/release.yml`'s `cooling-off` job refuses
    the run if a previous Release run failed inside twelve hours, because the project-creation
    limiter counts **attempts** over a rolling window (`lessons.md` L7.3, L7.9). It is enforced
