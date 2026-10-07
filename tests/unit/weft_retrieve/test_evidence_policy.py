@@ -150,6 +150,61 @@ async def test_no_rule_holding_routes_to_the_fallback_as_fell_through() -> None:
     assert outcome.value.fallback is None
 
 
+async def test_a_rule_that_did_not_hold_names_the_condition_it_failed_and_the_value_seen() -> None:
+    # Arrange
+    config = _config(
+        defaults=[
+            _rule("sized", WHOLE, feature="corpus.leaf_tokens", op="gte", value=200000),
+        ]
+    )
+
+    # Act
+    outcome = await _route(config, _card({"corpus.leaf_tokens": 64}))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.outcome is RuleOutcome.FELL_THROUGH
+    failed = [reason for reason in outcome.value.reasons if "'sized'" in reason]
+    assert len(failed) == 1
+    assert "did not hold" in failed[0]
+    assert "corpus.leaf_tokens is 64" in failed[0]
+    assert "gte 200000" in failed[0]
+
+
+async def test_a_rule_that_did_not_hold_on_an_unstated_fact_says_the_fact_is_unknown() -> None:
+    # Arrange
+    config = _config(
+        defaults=[_rule("sized", WHOLE, feature="corpus.leaf_tokens", op="lte", value=1)]
+    )
+
+    # Act
+    outcome = await _route(config, _card({"corpus.fits_context": True}))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    failed = [reason for reason in outcome.value.reasons if "'sized'" in reason]
+    assert len(failed) == 1
+    assert "corpus.leaf_tokens is unknown" in failed[0]
+
+
+async def test_a_rule_that_held_but_was_skipped_is_not_contradicted_by_the_fallback_line() -> None:
+    # Arrange
+    config = _config(
+        defaults=[_rule("costly", WHOLE, prompt_tokens="corpus")],
+        constraints={"max_prompt_tokens": 0},
+    )
+
+    # Act
+    outcome = await _route(config, _card({"corpus.fits_context": True, "corpus.leaf_tokens": 64}))
+
+    # Assert
+    assert isinstance(outcome, Produced)
+    assert outcome.value.outcome is RuleOutcome.FELL_THROUGH
+    assert any("held but was skipped" in reason for reason in outcome.value.reasons)
+    assert not any("no rule held" in reason for reason in outcome.value.reasons)
+    assert f"'{DENSE}'" in outcome.value.reasons[-1]
+
+
 async def test_a_rule_whose_rung_is_not_offered_is_skipped_and_says_so() -> None:
     # Arrange — the rung is named by the first rule and absent from the catalogue.
     config = _config(

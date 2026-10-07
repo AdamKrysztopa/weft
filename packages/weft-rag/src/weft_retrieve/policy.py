@@ -35,6 +35,13 @@ EVIDENCE_POLICY_NAME = "evidence-policy"
 CORPUS_LEAF_TOKENS = "corpus.leaf_tokens"
 
 
+def _unmet(condition: Condition, card: Scorecard) -> str:
+    name = condition.feature
+    observed = card.scores.get(name, card.features.get(name))
+    seen = "unknown" if observed is None else str(observed)
+    return f"{name} is {seen}, the rule needs {condition.op} {condition.value}"
+
+
 class PromptCost(StrEnum):
     """A rung's prompt cost that is not a fixed number."""
 
@@ -112,7 +119,9 @@ class EvidencePolicy:
         receipt = self._receipt(payload)
         skipped: list[str] = []
         for rule in self._rules:
-            if not all(condition_holds(condition, payload) for condition in rule.when):
+            failed = next((c for c in rule.when if not condition_holds(c, payload)), None)
+            if failed is not None:
+                skipped.append(f"rule '{rule.name}' did not hold: {_unmet(failed, payload)}")
                 continue
             problem = self._problem_with(rule, payload, offered, catalogue)
             if problem is not None:
@@ -145,7 +154,7 @@ class EvidencePolicy:
                 pipeline=fallback,
                 outcome=RuleOutcome.FELL_THROUGH,
                 scorecard=payload,
-                reasons=(*skipped, f"no rule held, so the fallback '{fallback}'"),
+                reasons=(*skipped, f"no rule was usable, so the fallback '{fallback}' answers"),
                 **receipt,
             )
         )
