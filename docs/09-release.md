@@ -260,7 +260,10 @@ facts about a file or the index, and the script says so rather than pretending t
    upload succeeds and the defect is visible only on a page nobody in this repository reads.
 5. **`uv run poe ci-checks` is green in the environment the release runs in** — the committed
    lockfile, the container up, every skip naming a known cause, the lint cache cold. `CLAUDE.md` → *Quality
-   gates* owns why each of those four is named separately.
+   gates* owns why each of those four is named separately. The gate includes the README's release
+   sentence: after a version bump, `uv run python scripts/generate_readme_release.py` rewrites it
+   from both `pyproject.toml`s, and `tests/docs/test_readme_release_line.py` fails until it has
+   (repair `R20.7`: the README named `weft-rag 2.7.0` at `3.1.0`).
 6. **The working tree is committed.** A tag points at a commit; anything uncommitted is not in the
    release, and the wheel is built from the tag rather than from the desk.
 7. **The binary has been run from outside this repository**, through its shipped entry point,

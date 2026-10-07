@@ -52,6 +52,9 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Fixed
 
+- **The README's release sentence is generated from both `pyproject.toml`s.** It named
+  `weft-rag 2.7.0` / `weft-kernel 0.2.1` at `3.1.0` / `0.3.0`; a docs check now fails a version
+  bump that did not regenerate it, or a README naming either distribution's version anywhere else.
 - **`llm-sufficiency` judges the best-ranked evidence, not the first in packed order.** Handed more
   than `max_evidence` packed passages, as `refine-on-uncertainty` does, it read a prefix, and
   `repack`'s default `reverse` puts the best passage last, so the judge read the worst of what the
