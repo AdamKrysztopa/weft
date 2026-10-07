@@ -16,6 +16,7 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from weft_cli.eval_records import records_of_experiment
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.experiment import Experiment, ExperimentArm, load_experiment
@@ -29,7 +30,6 @@ from weft_eval.pairwise import (
     write_pairwise_record,
 )
 from weft_eval.question_set import read_question_sets
-from weft_eval.run_record import load_run_record
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Outcome, Produced
@@ -75,7 +75,9 @@ class EvalPairwiseArgs(BaseModel):
     runs: str | None = Field(
         default=None,
         description=(
-            "the directory of run records; the runs directory beside the document when omitted"
+            "the directory of run records; `<document>/runs`, beside the document without its "
+            "suffix, when omitted — `weft eval experiment` writes to `runs/` in the directory it "
+            "ran from"
         ),
     )
     invocation: str | None = Field(
@@ -196,16 +198,7 @@ class EvalPairwiseCommand:
         }
         if pairwise_args.only is not None:
             questions = _restrict_to_named_questions(questions, Path(pairwise_args.only))
-        runs_dir = (
-            Path(pairwise_args.runs)
-            if pairwise_args.runs is not None
-            else experiment_path.with_suffix("") / "runs"
-        )
-        records = (
-            [load_run_record(path) for path in sorted(runs_dir.glob("*.json"))]
-            if runs_dir.is_dir()
-            else []
-        )
+        records = records_of_experiment(experiment, experiment_path, pairwise_args.runs)
         record = await compare_arms(
             experiment,
             records,

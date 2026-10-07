@@ -24,11 +24,11 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_cli.eval_records import records_of_experiment
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.experiment import load_experiment
 from weft_eval.replay import render_replay_table, replay
-from weft_eval.run_record import load_run_record
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Outcome, Produced
@@ -57,7 +57,9 @@ class EvalReplayArgs(BaseModel):
     runs: str | None = Field(
         default=None,
         description=(
-            "the directory of run records; the runs directory beside the document when omitted"
+            "the directory of run records; `<document>/runs`, beside the document without its "
+            "suffix, when omitted — `weft eval experiment` writes to `runs/` in the directory it "
+            "ran from"
         ),
     )
     invocation: str | None = Field(
@@ -97,16 +99,7 @@ class EvalReplayCommand:
         replay_args = cast(EvalReplayArgs, args)
         experiment_path = Path(replay_args.experiment)
         experiment = load_experiment(experiment_path)
-        runs_dir = (
-            Path(replay_args.runs)
-            if replay_args.runs is not None
-            else experiment_path.with_suffix("") / "runs"
-        )
-        records = (
-            [load_run_record(path) for path in sorted(runs_dir.glob("*.json"))]
-            if runs_dir.is_dir()
-            else []
-        )
+        records = records_of_experiment(experiment, experiment_path, replay_args.runs)
         metric = replay_args.metric if replay_args.metric is not None else experiment.metrics[0]
         table = replay(experiment, records, metric=metric, invocation=replay_args.invocation)
         return Produced(value=EvalReplayCommandResult(markdown=render_replay_table(table)))

@@ -26,11 +26,11 @@ from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from weft_cli.eval_records import records_of_experiment
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
 from weft_eval.evidence import evidence_table, render_evidence_table
 from weft_eval.experiment import load_experiment
-from weft_eval.run_record import load_run_record
 from weft_kernel.context import Context
 from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Outcome, Produced
@@ -56,8 +56,9 @@ class EvalTableArgs(BaseModel):
     runs: str | None = Field(
         default=None,
         description=(
-            "the directory of run records to read; the runs directory beside the document "
-            "when omitted"
+            "the directory of run records; `<document>/runs`, beside the document without its "
+            "suffix, when omitted — `weft eval experiment` writes to `runs/` in the directory it "
+            "ran from"
         ),
     )
     invocation: str | None = Field(
@@ -100,16 +101,7 @@ class EvalTableCommand:
         del ctx
         table_args = cast(EvalTableArgs, args)
         experiment = load_experiment(Path(table_args.experiment))
-        runs_dir = (
-            Path(table_args.runs)
-            if table_args.runs is not None
-            else Path(table_args.experiment).with_suffix("") / "runs"
-        )
-        records = (
-            [load_run_record(path) for path in sorted(runs_dir.glob("*.json"))]
-            if runs_dir.is_dir()
-            else []
-        )
+        records = records_of_experiment(experiment, Path(table_args.experiment), table_args.runs)
         table = evidence_table(experiment, records, invocation=table_args.invocation)
         return Produced(value=EvalTableCommandResult(markdown=render_evidence_table(table)))
 
