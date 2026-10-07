@@ -43,6 +43,12 @@ REASON = """Refused: a measurement starts only after these are answered.
 1c. Progress: what does the command print between its start and its first record? A run that
    prints nothing is watched through open sockets; `weft eval experiment` wrote no line for 25
    minutes of a paid run (L28.66).
+1d. Bounded and timed: the run goes through the measurement runner in batches (`--batch-size`),
+   never by hand as one batch — a hand-launched `weft eval run` held 227,425 chunks in one batch,
+   hung on a dropped request and kept nothing (L28.101). Each account's request timeout is set
+   above the per-request latency measured at the run's own concurrency and batch size, on the
+   server that will answer: a round 120 s against TEI's 92-114 s queue abandoned every batch it
+   timed out (L28.102).
 2. Priced in three units: dollars, wall hours (calls / concurrency x seconds per call) and peak
    memory (nodes per batch x vector width) — all three in the approval. Memory on Apple silicon is
    read with `footprint`, never RSS, which misses Metal buffers by ~10x (L28.5); a served model's
@@ -63,9 +69,12 @@ REASON = """Refused: a measurement starts only after these are answered.
    +-5-10% on every throughput figure (L28.6).
 6. First record: n against the question count, excluded and why, tokens, peak memory — read before
    the rest runs, and the run stopped if any is not what the plan expects.
-7. The query side matches the index side: `[services] embed` names the index pipeline's embedder and
-   model. A free smoke on `hash` uses one default for both, so it cannot catch this — and the paid
-   run fails at its first question, after the embedding is paid for (L25.4).
+7. The query side matches the index side. For `weft ask`, `[services] embed` names the index
+   pipeline's embedder and model: a free smoke on `hash` uses one default for both, so it cannot
+   catch this, and the paid run fails at its first question, after the embedding is paid for
+   (L25.4). `weft eval run` and `weft eval experiment` embed each arm's questions with that arm's
+   own ingest `Embedder` stage since 20.12, so there the item is the record's `query_embedding`,
+   read on the first record (L28.98).
 7b. The served model's identity is its name and every setting that changes its numbers — dtype,
    maximum input length, backend — read from the server and recorded with the run. A Metal build
    defaulted to float16 where the same version's container served float32 (L28.5).

@@ -69,7 +69,10 @@ for once; the accounts are in `references/evidence.md` → *Claims about the tre
   is sketched and counted with the project's own counter and type checker before the question is
   asked (`L22.23`).
 - A claim about code placed in a question to the owner is read against the code's callers first,
-  never its name or docstring (`L28.54`); a pipeline's cost is every stage of its resolved form,
+  never its name or docstring (`L28.54`): that a guard, lock or transaction covers a call is read
+  along that call's path to where it is acquired (`L28.99`), and an option naming an instrument is
+  traced to the call that decides whether the tree can run it, or says it cannot and prices the
+  work (`L28.95`). A pipeline's cost is every stage of its resolved form,
   never the stage it is named for (`L28.68`). A plan that puts several arms on one store lists,
   per arm, every kind of node that arm's retriever reads there, derived layers included, against
   the retriever's default filter (`L28.82`).
@@ -459,8 +462,13 @@ A task is not done until all of these are true. Accounts in `references/evidence
      docstring lets pass quietly (`L14.6`);
    - whether the promised behaviour actually *fired* — both halves of a seam existing is not either
      one being reached (`L9.12`, `L9.45`, `L9.67`, `L9.69`, `L5.15`);
-   - every branch that only fires sometimes — a fan-out, a retry, a fallback, a rare input — because
-     one such branch once hid two defects behind each other (`L8.11`);
+   - every branch that only fires sometimes — a fan-out, a retry, a fallback, a rare input, a full
+     batch — because one such branch once hid two defects behind each other (`L8.11`); a batched
+     stage gets a corpus larger than its default batch, since three documents in one request never
+     met TEI's batch limit (`L28.100`);
+   - a reader verb on what its writer verb just wrote, both with defaults, from one directory that
+     is not the repository: `weft eval table` refused a finished experiment's records because the
+     two defaulted to different directories (`L28.103`);
    - a control with the fix removed; a check whose control also passes does not reach the defect
      (`L28.47`).
 

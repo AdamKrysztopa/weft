@@ -60,9 +60,10 @@ prompt to the user rather than a silent block, with `permissionDecisionReason` w
 human reader. Multiple `PreToolUse` hooks can fire on the same matcher (`guard_readonly.py` does,
 on the identical `Edit|Write|NotebookEdit` matcher) and precedence across them is
 deny > defer > ask > allow, so a read-only-path write this hook would otherwise `ask` about stays
-blocked if `guard_readonly.py` also denies it. `_ASK_IS_SUPPORTED` below is the one flag to flip
-back to `False` — falling back to `deny` with the same human-directed reason — should a future
-harness revision drop `ask` for this event.
+blocked if `guard_readonly.py` also denies it. `_ASK_IS_SUPPORTED` below is `False` since 2026-10-07
+(`docs/internal/lessons.md` L28.96): auto mode answers an `ask` itself, so the human-directed
+reason reached no human and the edit went through. It now denies, telling the agent to put the
+question to the user with `AskUserQuestion`.
 
 **A gate file written through `Bash` is read after the fact** (`docs/internal/lessons.md`
 `L28.49`). A per-file-ignore reached `pyproject.toml` through a Python script run by `Bash`, where
@@ -117,7 +118,7 @@ LIMIT_ENV_VAR: Final[str] = "WEFT_GATE_GUARD_LIMIT"
 
 #: See the module docstring's "On the hook contract" paragraph. Flip this to `False` — no other
 #: code change needed — if a future harness revision drops `ask` as a `PreToolUse` value.
-_ASK_IS_SUPPORTED: Final[bool] = True
+_ASK_IS_SUPPORTED: Final[bool] = False
 
 _SUPPRESSION_SCOPE: Final[tuple[str, ...]] = (
     "packages",
@@ -648,8 +649,9 @@ def _human_reason(findings: list[_Finding], count: int, target: Path) -> str:
 def _fallback_reason(findings: list[_Finding], count: int, target: Path) -> str:
     """Used only if `_ASK_IS_SUPPORTED` is flipped off — see the module docstring."""
     return (
-        "Stop here and put the following to the user directly, in your very next message, "
-        f"before making this edit: {_human_reason(findings, count, target)}"
+        "Stop here and put the following to the user with AskUserQuestion before making this "
+        f"edit; a permission mode does not answer it for them: "
+        f"{_human_reason(findings, count, target)}"
     )
 
 

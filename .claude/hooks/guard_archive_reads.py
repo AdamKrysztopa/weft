@@ -1,4 +1,4 @@
-"""PreToolUse guard: reading `docs/internal/done/` or `obsolete/` asks the owner first.
+"""PreToolUse guard: reading `docs/internal/done/` or `obsolete/` needs the owner's yes first.
 
 Those two folders hold finished work (closed phases, settled gates, closed plans) and superseded
 drafts, moved out by `.claude/skills/phase-step/scripts/sort_internal.py` so that a question about
@@ -8,6 +8,10 @@ question read it. Reading the archive is still allowed, but the owner approves i
 Asked about: a `Read`, `Grep` or `Glob` whose path or pattern points into either folder, or a
 `Grep`/`Glob` over `docs/internal` itself (which recurses into them); a `Bash` command naming
 either folder, or a recursive grep/rg/find over `docs/internal`. `ideas/` is not gated.
+
+It denies rather than returning `ask` (`docs/internal/lessons.md` L28.96): auto mode answers an
+`ask` itself, so the owner was never prompted. The agent asks with `AskUserQuestion`; on a yes it
+reads through `Bash` with `WEFT_ARCHIVE_READ_APPROVED=1` leading the command, which this passes.
 Runs under bare `python3` (3.9). `--self-test` checks the matcher.
 """
 
@@ -24,8 +28,10 @@ _RECURSIVE_OVER_ROOT = re.compile(
 REASON = (
     "This reads docs/internal/done/ or obsolete/: finished phases, settled gates, closed plans "
     "and superseded drafts. The live files (README.md, build-ledger.md, 12-roadmap.md, ideas/) "
-    "answer questions about the plan. Allow reading the archive?"
+    "answer questions about the plan. Ask the owner with AskUserQuestion whether to read it; "
+    "only on a yes, read it through Bash with WEFT_ARCHIVE_READ_APPROVED=1 leading the command."
 )
+_APPROVED = re.compile(r"^\s*WEFT_ARCHIVE_READ_APPROVED=1\s")
 
 
 def targets_archive(tool_name, tool_input):
@@ -40,6 +46,8 @@ def targets_archive(tool_name, tool_input):
     """
     if tool_name == "Bash":
         command = tool_input.get("command", "")
+        if _APPROVED.match(command):
+            return False
         return bool(_ARCHIVE.search(command) or _RECURSIVE_OVER_ROOT.search(command))
     fields = [str(tool_input.get(key, "")) for key in ("file_path", "path", "pattern", "glob")]
     if any(_ARCHIVE.search(value) for value in fields):
@@ -63,6 +71,7 @@ def self_test():
         ("Grep", {"pattern": "R44", "path": "docs/internal/ideas"}),
         ("Bash", {"command": "python3 .claude/skills/phase-step/scripts/next_task.py"}),
         ("Bash", {"command": "grep -n Status docs/internal/README.md"}),
+        ("Bash", {"command": "WEFT_ARCHIVE_READ_APPROVED=1 sed -n 1,9p docs/internal/done/x.md"}),
     ]
     wrong = [call for call in asked if not targets_archive(*call)]
     wrong += [call for call in passed if targets_archive(*call)]
@@ -73,7 +82,7 @@ def self_test():
 
 
 def main():
-    """Ask the owner before a call that reads the archive; stay silent otherwise.
+    """Deny a call that reads the archive until the owner says yes; stay silent otherwise.
 
     Returns:
         0 always; the decision travels in the JSON on stdout.
@@ -85,7 +94,7 @@ def main():
         decision = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": "ask",
+                "permissionDecision": "deny",
                 "permissionDecisionReason": REASON,
             }
         }
