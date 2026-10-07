@@ -34,7 +34,36 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-10-07
+
+### Added
+
+- **One experiment can compare embedders.** Each distinct (index pipeline, corpus) pair indexes
+  into a target of its own, `exp_` and a digest of the pair, and every arm is scored against the
+  target it was indexed into, so arms indexed by two embedders no longer refuse each other with
+  `EmbeddingIdentityMismatchError`. Arms naming the same pair share one target and its layers. A
+  pool manifest names the target it was captured in. `LayersNotAsNamedError`'s command carries
+  `--target`, and `ForeignDocumentRetrievedError` names the target it found the passage in.
+- **An arm's questions are embedded by its own index pipeline's embedder**, not by the
+  invocation's `[services] embed`. `RunRecord.query_embedding` records the identity the questions
+  were embedded with, and `weft trace` prints it, or *(not recorded)* for an older record.
+- **Local embeddings, measured.** `BAAI/bge-m3` served by TEI or by Ollama runs through the shipped
+  `openai-compatible-embeddings`. Against `text-embedding-3-large` it trails by 0.085 mrr@5 on
+  TechQA, also trails on product search, and shows no worthwhile difference on open-ragbench
+  (`manual/operations-guide.md`, `manual/evidence.md`).
+
 ### Changed
+
+- **A routing receipt says why each rule did not hold.** A `route-by-evidence` decision that
+  falls through lists, per rule, the condition it failed and the value the profile gave —
+  `corpus.leaf_tokens is 64, the rule needs gte 200000` — and its last line reads *no rule was
+  usable* rather than *no rule held*, which was false when a rule held and was skipped for its
+  cost.
+- **An embedder mismatch names the way out.** Indexing with a new embedder into a target built by
+  another now names `--target <name>` followed by `weft target promote <name> --without-evidence
+  --yes`; the query-side refusal names `weft target list` and the same promote. Moving off the
+  offline `hash` default used to meet three refusals in a row, since `weft target drop` refuses
+  the live target.
 
 - **`weft eval experiment` writes its records beside the document.** `foo.toml`'s records go to
   `foo/runs/`, where `weft eval table`, `replay` and `pairwise` already read them, rather than to
@@ -59,6 +88,19 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ### Fixed
 
+- **A first index the embedding server refused no longer leaves the target claiming it.** A target
+  with no recorded identity is now probed with one short embedding through the run's own embedder
+  before any claim, so a refused `dimensions` or a server that is down records nothing.
+- **An embedder that does not shorten its vectors is refused.** A server answering 1024-wide
+  vectors to `dimensions = 512` was stored under a target recording width 512; the vector width is
+  now checked against the one asked for. An unreachable endpoint is named by its address and the
+  setting that names it, and a keyless server is no longer told to use the vendor's API key.
+- **An evaluation never scores a corpus that failed to index in the same run.** A document whose
+  batch failed during the run is refused with `CorpusHasFailedSourcesError`, as one an earlier
+  index recorded failed already was, and the remedy names the corpus, `--pipeline` and `--target`.
+- **A reader that finds no records says where it looked.** `weft eval table`, `replay` and
+  `pairwise` name the directory searched and, when the writer's `runs/` holds the experiment's
+  records, the `--runs` that reads them.
 - **The README's release sentence is generated from both `pyproject.toml`s.** It named
   `weft-rag 2.7.0` / `weft-kernel 0.2.1` at `3.1.0` / `0.3.0`; a docs check now fails a version
   bump that did not regenerate it, or a README naming either distribution's version anywhere else.

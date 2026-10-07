@@ -1,7 +1,10 @@
 # weft-rag
 
-Weft — a RAG engine built as a microkernel. This is the default install: the packs that index a
-directory and answer a question about it, and the `weft` command.
+Weft packages selectable RAG pipelines with reproducible comparisons, executable claims and
+inspectable routing decisions. This is the default install: the packs that index a directory and
+answer a question about it, and the `weft` command. What each pipeline was measured to buy over
+plain dense retrieval, at what cost, is on the
+[project page](https://github.com/AdamKrysztopa/weft#what-extra-rag-bought-on-corpus-wide-questions).
 
 **The distribution is `weft-rag`; the command is `weft`** — the name `weft` belongs to an unrelated
 project on PyPI, so what you install and what you run are spelled differently:
@@ -12,7 +15,7 @@ uvx --from weft-rag weft --help
 
 ## What is in it, and what is not
 
-Twenty-one packs ship here and each keeps its own identity: `weft plugins list` prints one row per
+Twenty-three packs ship here and each keeps its own identity: `weft plugins list` prints one row per
 pack, and `weft.toml` configures one at a time — `[packs.store]`, not `[packs.weft-rag]`.
 
 One distribution publishes **beside** this one, and it is separate for a single reason:

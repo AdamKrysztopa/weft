@@ -59,7 +59,7 @@ from *Try it*, with the configuration under *A real answer, with citations*.
 > **Status.** Indexing, retrieval, generation, evaluation, the graph pack, index layers and
 > evidence-driven routing all run end to end from the published wheels. `weft-kernel` and `weft-rag`
 > are on PyPI, and
-> <!-- weft-release:begin -->this README describes `weft-rag 3.1.0` / `weft-kernel 0.3.0`<!-- weft-release:end -->.
+> <!-- weft-release:begin -->this README describes `weft-rag 3.2.0` / `weft-kernel 0.3.1`<!-- weft-release:end -->.
 > The four names published 2026-09-05 (`weft-generate`, `weft-embed`, `weft-command`, `weft-llm`)
 > are yanked; their code ships inside `weft-rag`. The phase record, the decision log and the lessons
 > queue are kept locally by the developer, not in this repository. *Layout* explains what that means
