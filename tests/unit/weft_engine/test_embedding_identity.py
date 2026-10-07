@@ -83,6 +83,8 @@ async def test_writing_with_another_identity_into_a_target_is_refused_naming_bot
     assert "width 64" in message
     assert "width 128" in message
     assert "'default'" in message
+    assert "--target <name>" in message
+    assert "weft target promote <name> --without-evidence --yes" in message
 
 
 async def test_an_anonymous_embedder_is_refused_where_a_target_is_required() -> None:
@@ -133,6 +135,8 @@ async def test_a_query_embedding_another_way_than_the_target_was_built_is_refuse
     assert "'w128'" in message
     assert "width 64" in message
     assert "width 128" in message
+    assert "weft target list" in message
+    assert "weft target promote <name> --without-evidence --yes" in message
 
 
 async def test_a_query_agreeing_with_the_target_or_against_an_unrecorded_one_passes() -> None:

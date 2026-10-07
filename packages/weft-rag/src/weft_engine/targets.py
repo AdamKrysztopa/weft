@@ -129,8 +129,10 @@ class EmbeddingIdentityMismatchError(WeftError):
         return cls(
             f"this query embeds with {render_embedding_identity(other)}, and target "
             f"{target!r} was built with {render_embedding_identity(held)} — vectors from two "
-            f"embedders cannot be compared. Set the embedder to match the target, or query "
-            f"another target (`weft target rollback` restores the previous one).",
+            f"embedders cannot be compared. Set the embedder to match the target, or make a "
+            f"target built with this embedder live: `weft target list` shows each target's "
+            f"embedder, `weft target promote <name> --without-evidence --yes` makes one live, and "
+            f"`weft target rollback` restores the previous one.",
             held=held,
             other=other,
             target=target,
@@ -153,7 +155,8 @@ class EmbeddingIdentityMismatchError(WeftError):
         return cls(
             f"this index embeds with {render_embedding_identity(other)} into target "
             f"{target!r}, which was built with {render_embedding_identity(held)} — a target "
-            f"holds one embedder's vectors. Index into a new target with --target, or set "
+            f"holds one embedder's vectors. Index into a new target with `--target <name>`, then "
+            f"make it live with `weft target promote <name> --without-evidence --yes`; or set "
             f"the embedder back to match.",
             held=held,
             other=other,

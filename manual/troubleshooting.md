@@ -5587,7 +5587,9 @@ do:** fix what the reason names and index again; nothing was recorded against th
 ```text
 this query embeds with 'hash' (model hash, width 64), and target 'w128' was built with 'hash'
 (model hash, width 128) — vectors from two embedders cannot be compared. Set the embedder to
-match the target, or query another target (`weft target rollback` restores the previous one).
+match the target, or make a target built with this embedder live: `weft target list` shows each
+target's embedder, `weft target promote <name> --without-evidence --yes` makes one live, and
+`weft target rollback` restores the previous one.
 ```
 
 or an index that would mix two embedders in one target:
@@ -5595,7 +5597,8 @@ or an index that would mix two embedders in one target:
 ```text
 this index embeds with 'hash' (model hash, width 128) into target 'default', which was built with
 'hash' (model hash, width 64) — a target holds one embedder's vectors. Index into a new target
-with --target, or set the embedder back to match.
+with `--target <name>`, then make it live with `weft target promote <name> --without-evidence
+--yes`; or set the embedder back to match.
 ```
 
 **Why:** each target records the embedder that made its first write: the plugin, its distribution,
@@ -5605,8 +5608,11 @@ refuses before any vector is compared.
 
 **What to do:** configure the embedder that built the target. That means `[services] embed`, the
 stage's `with: model:`, or `[packs.openai] embedding_model`, whichever set it. To move to a new
-embedder, build a new target with `weft index --target`, compare it with the live one, and promote
-it.
+embedder, build a new target with `weft index --target <name>`, then promote it. Promotion asks for
+evidence by default — `--evidence <live-run> <candidate-run>`, two scored runs over one corpus and
+one question set — and `--without-evidence` records that you promoted on your own judgement
+instead. `weft target drop` refuses the live target and the previous one, which a rollback needs,
+so moving off the offline `hash` default goes through a second target rather than a drop.
 
 ### `EmbedderStatesNoIdentityError`
 
