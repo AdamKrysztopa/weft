@@ -1203,7 +1203,7 @@ metrics: (none recorded — 'weft eval run' was not given --questions)
 
 **One active distribution is the normal answer, not a stripped-down install.** This transcript
 was taken from an install of both published wheels; **G19** folded every first-party pack into
-`weft-rag`, so the twenty-one packs a full install activates all report that one distribution
+`weft-rag`, so every pack a full install activates reports that one distribution
 name and the set records it once (`weft_eval.run_record.active_distribution_set`). A list of
 thirteen names here, as this page showed until 2026-09-12, described the pre-G19 tree.
 

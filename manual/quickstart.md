@@ -20,7 +20,7 @@ container Weft's store needs — Postgres with the `pgvector` extension).
 uv add weft-rag
 ```
 
-`weft-rag` is the default install: twenty-one packs and the CLI in one wheel — the extractor, the
+`weft-rag` is the default install: twenty-three packs and the CLI in one wheel — the extractor, the
 chunker, the embedder and the pgvector store among them — so this is the only install command;
 nothing else to add. **The distribution is `weft-rag` and the command is `weft`**: `weft` on PyPI
 is an unrelated project, so what you install and what you run are spelled differently.

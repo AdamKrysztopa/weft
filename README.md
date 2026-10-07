@@ -1,33 +1,69 @@
 # Weft
 
-A RAG engine built as a microkernel. The kernel knows nothing about PDFs, chunking, embeddings or
+Weft packages selectable RAG pipelines with reproducible comparisons, executable claims and
+inspectable routing decisions. Dense, lexical and hybrid retrieval, reranking, query rewriting,
+context construction, RAPTOR trees, a fact graph and whole-corpus reading each ship as a named
+pipeline. Weft measures them against plain dense retrieval and commits every result with its run
+records, including the null and negative ones. Its evidence router picks a costlier pipeline only
+when one of those measured claims supports it.
+
+Underneath, Weft is a microkernel. The kernel knows nothing about PDFs, chunking, embeddings or
 graphs: every capability is a plugin discovered through Python entry points, pipelines are data
 derivable from other pipelines, and built-in packs are held to the same public contract as anything
 a third party writes.
 
 The warp is the fixed frame on a loom; the weft is every thread through it.
 
-> **Status: built and running.** The walking skeleton (Phase 0) and every build phase since are
-> closed, through Phase 44a: retrieval, generation, the CLI, evaluation, release, the agent pack,
-> the product ladder, multimodal nodes, RAPTOR, the graph pack and index layers. Phase 44b,
-> evidence-driven routing, is built: a query and corpus profiler, executable evidence (claims
-> recomputed from committed run records, pinned against the pipelines they measured), an evidence
-> policy, and `route-by-evidence`, a router whose every rule cites a worthwhile measured claim and
-> that records why it chose what it chose. It is deliberately conservative, with one rule today, and
-> it is opt-in, not the default, because no measured rung beats one search by enough to justify the
-> price. Not every rung Weft implements is eligible for routing. Indexing, retrieval,
-> generation, evaluation and a graph pack all run end to end, proven from outside this repository.
-> Every architectural decision this project has taken was argued at a recorded gate, and no gate
-> open today blocks anything that ships. (The log itself is developer-local, so this page states
-> the property and not a count of it — a number here could only ever be right on the day it was
-> written.) **The one debt every closed phase shared — a stranger installing the release from a
-> real package index rather than a checkout — is discharged:** `weft-kernel` and `weft-rag` are on
-> PyPI, first published 2026-09-11, and
-> <!-- weft-release:begin -->this README describes `weft-rag 3.1.0` / `weft-kernel 0.3.0`<!-- weft-release:end -->. The four
-> names published 2026-09-05 (`weft-generate`, `weft-embed`, `weft-command`, `weft-llm`) are yanked;
-> the code they named ships inside `weft-rag` now. The phase-by-phase record, the decision log and the lessons queue are
-> developer-local and not in this repository — see *Layout* for what that means when a
-> docstring cites one of them by id.
+## What extra RAG bought on corpus-wide questions
+
+80 synthesis questions ("what themes recur across these papers?") over 16 papers, one run per arm,
+answer correctness judged by an LLM, Weft's own implementation of each method. Each row is paired
+question by question against dense retrieval (`retrieve-then-generate`):
+
+| Weft pipeline | change in answer correctness vs dense | 95% interval | generation tokens per question |
+|---|---|---|---|
+| dense retrieval (baseline) | — | — | 1,673 |
+| read the whole corpus (`whole-corpus-wide-then-generate`) | **+0.059** | +0.030 to +0.089 | 262,128 (about 157×) |
+| summarise the retrieved passages (`summarise-then-generate`) | −0.018 | −0.049 to +0.010 | 7,879 (477 answering, 7,402 summarising) |
+| fact graph fused with vectors (`graph-and-vector-rrf`) | **−0.080** | −0.111 to −0.049 | 1,034 |
+
+Tokens are counted per question at answer time, so building the fact graph is not included.
+Reading everything was better, at about 157 times the generation tokens. Summarising gained nothing,
+and our graph pipeline did worse. That is a result about these implementations on this corpus, not
+about GraphRAG methods in general. RAPTOR ran as a separate experiment with its own dense baseline:
++0.025 [0.000, +0.051], below the +0.05 margin the experiment set before it ran
+([table](eval/experiments/global-synthesis-raptor/table.md)). Records, configurations and
+limitations: [`eval/experiments/global-synthesis/table.md`](eval/experiments/global-synthesis/table.md)
+and [`manual/evidence.md`](manual/evidence.md) §4. Each row is a claim in `eval/claims/` that
+`weft eval claims check` recomputes from those records.
+
+**So the default stays conservative.** `route-by-evidence` routes to whole-corpus reading only when
+the corpus is the size it was measured at and you have given it a prompt-token budget that holds
+the corpus. With no budget, it explains why it fell back:
+
+```text
+$ weft route explain "what themes recur across these documents?"
+…
+route: retrieve-then-generate (fell-through)
+  facts: corpus.base_complete=True, corpus.fits_context=True, corpus.leaf_tokens=64
+  constraints: max_prompt_tokens=0
+  policy: e6dbca5bec067724
+  reasons:
+    rule 'whole-corpus-when-it-fits' did not hold: corpus.leaf_tokens is 64, the rule needs gte 200000
+    no rule was usable, so the fallback 'retrieve-then-generate' answers
+```
+
+The quoted output comes from the release wheel, run outside this repository on the two-file corpus
+from *Try it*, with the configuration under *A real answer, with citations*.
+
+> **Status.** Indexing, retrieval, generation, evaluation, the graph pack, index layers and
+> evidence-driven routing all run end to end from the published wheels. `weft-kernel` and `weft-rag`
+> are on PyPI, and
+> <!-- weft-release:begin -->this README describes `weft-rag 3.1.0` / `weft-kernel 0.3.0`<!-- weft-release:end -->.
+> The four names published 2026-09-05 (`weft-generate`, `weft-embed`, `weft-command`, `weft-llm`)
+> are yanked; their code ships inside `weft-rag`. The phase record, the decision log and the lessons
+> queue are kept locally by the developer, not in this repository. *Layout* explains what that means
+> when a docstring cites one of them by id.
 
 ## Try it
 
@@ -104,6 +140,59 @@ from, ranked by the store's own text search. `--retrieve-only` is what keeps thi
 stops at retrieval. Drop it and Weft asks a language model to write an answer over those passages, which needs a provider mapped to a role in
 `weft.toml` — `weft ask` refuses by name until one is, rather than quietly answering from nothing.
 `manual/user-manual.md` has the two lines that map one.
+
+### A real answer, with citations
+
+The offline path above proves the plumbing. For search by meaning and a generated answer, install
+the OpenAI extra, export `OPENAI_API_KEY`, and put this `weft.toml` beside `corpus/`:
+
+```bash
+uv add "weft-rag[openai]"
+```
+
+```toml
+[services]
+embed = "openai-embeddings"
+route = "route-by-evidence"
+
+[llm.roles]
+generate = { provider = "openai", model = "gpt-5.6-luna", context_tokens = 272000 }
+
+[packs.openai]
+api_key = "${env:OPENAI_API_KEY}"
+```
+
+A target holds one embedder's vectors, and the `hash` run above already filled the live one. Index
+into a second target and make it live. Promoting normally asks for two scored runs as evidence;
+`--without-evidence` records that you promoted on your own judgement:
+
+```text
+$ weft index corpus --target semantic
+batch 1/1 · 2/2 documents queryable · 0.3 s since start · 0.0 MB
+indexing into target 'semantic' (candidate; live is 'default').
+2 documents: 2 indexed, 0 unchanged. nodes now stored: 2.
+mode 'repair' — 1 participant(s):
+  pgvector (weft-rag): examined 0, removed 0, backfilled 0
+
+$ weft target promote semantic --without-evidence --yes
+promoted 'semantic' on pgvector (previous live: 'default')
+```
+
+On a fresh database, a plain `weft index corpus` is enough. Then ask a question that shares no
+words with the passage that answers it:
+
+```text
+$ weft ask "which part of the loom stays still while weaving?"
+The warp stays still while weaving. [2]
+routed to: retrieve-then-generate
+  [2] file:///…/corpus/loom.md — 05616bbb13dffd67d04cb5cab4fa3eafd4e5f231a0ca34a046b26869d6626270
+```
+
+The answer cites the file and the content digest of the passage it used. `weft route explain` with
+the same question prints the routing receipt shown at the top of this page. `weft ask --explain`
+adds the score, every route that was not offered and why, and the time each stage took. These
+transcripts were run from the built `weft-rag` wheel, outside this repository, straight after the
+offline path above. Model output varies from run to run. Every call is a metered OpenAI API call.
 
 **A pack is how you change any of that.** Swapping the chunker, adding a PDF backend or putting a
 graph store beside the vector one is installing a distribution, not editing this one. `weft plugins
@@ -218,7 +307,7 @@ alone and importing it, rather than by a script that walks the source.
 
 ```text
 packages/weft-kernel     registry, discovery, pipeline model, payload types
-packages/weft-rag        the release set: twenty-three top-level packages, twenty-one packs, one wheel
+packages/weft-rag        the release set: twenty-six top-level packages, twenty-three packs, one wheel
   src/weft_cli/          the only driving adapter, and the only asyncio.run in the tree
   src/weft_extract/      first-party pack: publishes the Extractor contract
   src/weft_chunk/        first-party pack: publishes the Chunker contract
@@ -228,14 +317,14 @@ testing/weft-canary      test-only distribution, proves refused packs are never 
 tests/architecture       the fitness functions
 ```
 
-**Two published names, and only two.** `weft-rag` ships twenty-three top-level packages and
-registers twenty-one of them as packs; each keeps its own identity — its `weft.packs` entry-point
+**Two published names, and only two.** `weft-rag` ships twenty-six top-level packages and
+registers twenty-three of them as packs; each keeps its own identity — its `weft.packs` entry-point
 name — which is what `weft plugins list` prints and what a `[packs.store]` block in `weft.toml`
 configures. `weft-kernel` stays separate because installing it alone and importing it is what
-proves it names no capability. Six of the twenty-one packs carry a dependency somebody may
-decline: `pdf`, `openai`, `qdrant`, `otel` and `docling` are each behind an extra —
-`pip install weft-rag[pdf]`, `[openai]`, `[qdrant]`, `[otel]`, `[docling]`, or `[all]` for every one
-at once — and the sixth, `agent`, needs no extra because it imports nothing outside this wheel.
+proves it names no capability. A pack whose outside library somebody may decline sits behind an
+extra — `pip install weft-rag[pdf]`, `[openai]`, `[qdrant]`, `[otel]`, `[docling]`,
+`[cross-encoder]`, or `[all]` for every one at once — and `agent` needs no extra because it imports
+nothing outside this wheel.
 `weft-openai`, `weft-pdf`, `weft-qdrant`, `weft-otel`, `weft-docling`, `weft-agent` and `weft-kg`
 are not distributions and are not published; the code they name ships inside `weft-rag`.
 
