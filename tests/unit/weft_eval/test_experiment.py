@@ -236,8 +236,22 @@ def test_a_missing_document_is_refused_naming_its_path(tmp_path: Path) -> None:
     with pytest.raises(ExperimentDocumentError) as caught:
         load_experiment(tmp_path / "absent.toml")
 
+    # Assert — task 45.6: the whole path searched, not its last component.
+    assert f"no experiment document at '{tmp_path / 'absent.toml'}'" in str(caught.value)
+
+
+def test_a_missing_relative_document_names_where_it_was_looked_for(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+
+    # Act
+    with pytest.raises(ExperimentDocumentError) as caught:
+        load_experiment(Path("eval/experiments/absent.toml"))
+
     # Assert
-    assert "absent.toml" in str(caught.value)
+    assert str(tmp_path / "eval" / "experiments" / "absent.toml") in str(caught.value)
 
 
 # --- Repair R38.2.

@@ -127,6 +127,13 @@ fitness function 38. A router recomputes and compares nothing when it loads: it 
 its claims' committed verdicts, `weft eval claims check` recomputes them, and fitness function 38
 keeps the shipped rule's claims valid.
 
+**What `weft eval claims check` needs.** A source checkout, as the directory you run it from or as
+`--root`: a wheel carries the claim files but not the run records they cite, so outside a checkout
+a claim is refused naming the experiment document it looked for. The `pdf`, `openai` and
+`cross-encoder` extras (`weft-rag[pdf,openai,cross-encoder]`), because the pipelines the claims
+rest on name plugins those packs provide; without one, each claim that needs it reads *possibly
+stale* and names that extra. No database and no model call: the pipelines are resolved, never run.
+
 | Changes the fingerprint (invalidates) | Does not |
 |---|---|
 | The stages of the rung or the baseline: a plugin, a stage's configuration, a stage added or removed | A comment, a rename, or a `vars` entry no stage reads (`route.summary`) |

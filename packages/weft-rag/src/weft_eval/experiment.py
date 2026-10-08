@@ -505,10 +505,11 @@ def load_experiment(path: Path) -> Experiment:
 
     Raises `ExperimentDocumentError` for a missing file, malformed TOML, an unknown key, or a
     value that cannot be run; `ExperimentSchemaError` (a subclass) for a schema this release does
-    not read. Every refusal names `path.name` and the field, key or schema version that is wrong.
+    not read. A missing file is named by its absolute path; every other refusal names `path.name`
+    and the field, key or schema version that is wrong.
     """
     if not path.is_file():
-        raise ExperimentDocumentError(f"no experiment document at '{path.name}'.")
+        raise ExperimentDocumentError(f"no experiment document at '{path.absolute()}'.")
 
     raw_bytes = path.read_bytes()
     digest = hashlib.sha256(raw_bytes).hexdigest()
