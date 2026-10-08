@@ -31,7 +31,6 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final, cast
-from unittest import mock
 
 import yaml
 
@@ -48,8 +47,6 @@ from weft_retrieve.policy import EvidencePolicyConfig
 from weft_retrieve.profile import fits_context_role
 
 from .conftest import REPO_ROOT, tracked_files
-
-_RESOLUTION_ONLY_DSN: Final[str] = "postgresql://nobody@localhost:1/none"
 
 #: `(document stem, rule name)` pairs exempt from the check. Empty, and pinned empty below.
 RULES_WAIVED: Final[frozenset[tuple[str, str]]] = frozenset()
@@ -136,23 +133,12 @@ def shipped_staleness(
     }
     by_id = {claim.id: claim for claim in claims}
     not_valid: dict[str, str] = {}
-    with tempfile.TemporaryDirectory() as scratch:
-        config_path = Path(scratch) / "weft.toml"
-        config_path.write_text("", encoding="utf-8")
-        previous = Path.cwd()
-        os.chdir(scratch)
-        patcher = mock.patch.dict(os.environ, {"WEFT_DATABASE_URL": _RESOLUTION_ONLY_DSN})
-        patcher.start()
-        try:
-            deps = registry_bootstrap.build_dependencies(config_path=config_path)
-            for name in sorted(cited & set(by_id)):
-                live = live_evidence(by_id[name], root=REPO_ROOT, deps=deps)
-                check = check_claim(by_id[name], root=REPO_ROOT, live=live)
-                if check.staleness is not Staleness.VALID:
-                    not_valid[name] = f"{check.staleness}: {check.stale}"
-        finally:
-            patcher.stop()
-            os.chdir(previous)
+    deps = registry_bootstrap.resolution_dependencies()
+    for name in sorted(cited & set(by_id)):
+        live = live_evidence(by_id[name], root=REPO_ROOT, deps=deps)
+        check = check_claim(by_id[name], root=REPO_ROOT, live=live)
+        if check.staleness is not Staleness.VALID:
+            not_valid[name] = f"{check.staleness}: {check.stale}"
     return not_valid
 
 

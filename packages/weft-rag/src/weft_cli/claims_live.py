@@ -3,7 +3,9 @@
 `weft_eval.fingerprint` says what a claim's numbers depend on; this resolves those things for the
 tree that is running now, the way a run would, so `weft eval claims check` and `pin` and fitness
 function 38 all read one function. Nothing here reads the machine: no `weft.toml` role, no account
-setting, no store. A claim must not look stale because of whose laptop checked it.
+setting, no store. A claim must not look stale because of whose laptop checked it. The registry it
+is handed is `registry_bootstrap.resolution_dependencies()`: installed packs only, no `weft.toml`,
+no environment, no store connection.
 
 An experiment's own pipelines live beside it (`eval/experiments/pipelines`), so the catalogue a
 claim's arms are resolved against is the shipped pipelines plus those, never the current directory's

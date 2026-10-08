@@ -109,7 +109,7 @@ import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Final, cast
 
 from weft_command.render import ExitCode
 from weft_engine.llm_roles import LLMRoles, LLMSection, llm_section_from_config
@@ -151,6 +151,12 @@ DEFAULT_CONFIG_PATH = Path("weft.toml")
 
 #: `.env.example`'s own name for the one connection string Phase 0 needs.
 _DATABASE_URL_VAR = "WEFT_DATABASE_URL"
+
+# Nothing constructs the store from these settings; they exist so `pgvector` registers for
+# resolution. `.invalid` is a reserved TLD that never resolves.
+_RESOLUTION_ONLY_PACK_SETTINGS: Final[dict[str, dict[str, object]]] = {
+    "store": {"dsn": "postgresql://resolution-only.invalid/none"}
+}
 
 
 class ConfigFileError(WeftError):
@@ -310,6 +316,27 @@ def build_dependencies(
         reconcile_policy=reconcile_policy,
         index_policy=index_policy,
         token_sink=sink,
+        contributions=contributions_from(reports),
+    )
+
+
+def resolution_dependencies() -> Dependencies:
+    """Every installed pack registered for resolving a pipeline, and nothing of the machine.
+
+    Reads no `weft.toml` (no allow-list, pins or pack settings) and no environment variable, so a
+    claim's pipelines resolve identically wherever it is checked. Resolution reads metadata off
+    factories and never constructs a plugin, so the store's resolution-only settings never connect
+    and never enter a pipeline's identity.
+    """
+    registry = Registry()
+    reports = discover(registry, allow=None, pack_settings=_RESOLUTION_ONLY_PACK_SETTINGS)
+    _register_ext_models(reports)
+    roles = role_table_from_reports(reports)
+    return Dependencies(
+        registry=registry,
+        reports=reports,
+        services=service_selection_from_config(None, table=roles),
+        roles=roles,
         contributions=contributions_from(reports),
     )
 

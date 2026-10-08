@@ -5,10 +5,7 @@ The rung and baseline are resolved against the shipped pipelines and the experim
 from a machine's own `weft.toml`: a claim must not look stale because of whose laptop checked it.
 """
 
-import os
-from collections.abc import Iterator
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -21,24 +18,11 @@ from weft_retrieve.profile import PROFILER_VERSION
 
 REPO = Path(__file__).resolve().parents[3]
 CLAIMS = REPO / "eval" / "claims"
-_DSN = "postgresql://nobody@localhost:1/none"
 
 
 @pytest.fixture(scope="module")
-def deps(tmp_path_factory: pytest.TempPathFactory) -> Iterator[registry_bootstrap.Dependencies]:
-    scratch = tmp_path_factory.mktemp("claims-live")
-    config = scratch / "weft.toml"
-    config.write_text("", encoding="utf-8")
-    previous = Path.cwd()
-    os.chdir(scratch)
-    # An index pipeline's store stage validates its settings when resolved; nothing connects.
-    patcher = mock.patch.dict(os.environ, {"WEFT_DATABASE_URL": _DSN})
-    patcher.start()
-    try:
-        yield registry_bootstrap.build_dependencies(config_path=config)
-    finally:
-        patcher.stop()
-        os.chdir(previous)
+def deps() -> registry_bootstrap.Dependencies:
+    return registry_bootstrap.resolution_dependencies()
 
 
 def test_the_whole_corpus_claim_is_fingerprinted_from_the_pipelines_it_names(

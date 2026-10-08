@@ -32,6 +32,7 @@ from weft_engine.registry_bootstrap import (
 from weft_kernel.discovery import InertPluginPinError, PackFailureKind, PackReport, PackStatus
 from weft_kernel.errors import WeftError
 from weft_kernel.registry import Registry
+from weft_store.contract import NodeStore
 
 
 def _report(
@@ -828,3 +829,54 @@ def test_every_pack_report_a_real_discovery_produces_can_be_written_down() -> No
         f"`PackReport.ext_models` for the shape. Until then `weft --json plugins list` exits 1 "
         f"printing nothing."
     )
+
+
+# --- Task 45.3 — claims resolve against installed packs, never against the machine.
+
+
+def test_resolution_dependencies_register_the_store_with_no_database_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WEFT_DATABASE_URL", raising=False)
+
+    # Act
+    deps = registry_bootstrap.resolution_dependencies()
+
+    # Assert
+    assert "pgvector" in deps.registry.names_for(NodeStore)
+
+
+def test_resolution_dependencies_are_the_same_with_and_without_a_database_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WEFT_DATABASE_URL", raising=False)
+    without = registry_bootstrap.resolution_dependencies()
+    monkeypatch.setenv("WEFT_DATABASE_URL", "postgresql://someone@db.example:5432/project")
+
+    # Act
+    with_url = registry_bootstrap.resolution_dependencies()
+
+    # Assert
+    assert with_url.registry.names_for(NodeStore) == without.registry.names_for(NodeStore)
+    assert {(r.pack, r.status) for r in with_url.reports} == {
+        (r.pack, r.status) for r in without.reports
+    }
+
+
+def test_resolution_dependencies_do_not_read_the_project_weft_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — a project that allows only the CLI pack would otherwise drop the store.
+    (tmp_path / "weft.toml").write_text('[packs]\nallow = ["cli"]\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WEFT_DATABASE_URL", raising=False)
+
+    # Act
+    deps = registry_bootstrap.resolution_dependencies()
+
+    # Assert
+    assert "pgvector" in deps.registry.names_for(NodeStore)

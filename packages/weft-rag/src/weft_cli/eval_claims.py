@@ -28,7 +28,7 @@ from weft_cli.claims_live import live_evidence
 from weft_cli.pipeline_catalogue import load_contributed
 from weft_command.contract import Command, CommandResult
 from weft_command.permission import PermissionClass
-from weft_engine.registry_bootstrap import Dependencies
+from weft_engine.registry_bootstrap import Dependencies, resolution_dependencies
 from weft_eval.claims import Claim, ClaimDocumentError, load_claims, pin_claim
 from weft_eval.claims_check import ClaimCheck, ClaimMismatchError, check_claim
 from weft_eval.claims_render import render_claims_table
@@ -86,7 +86,8 @@ class EvalClaimsCheckCommand:
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         """Check every claim in the directory; raise one error naming every mismatch."""
-        entries = _checked(cast(EvalClaimsCheckArgs, args), ctx.require(Dependencies))
+        del ctx
+        entries = _checked(cast(EvalClaimsCheckArgs, args), resolution_dependencies())
         header = "| claim | stated | checked | paired difference | note |\n|---|---|---|---|---|"
         rows = [_row(check) for _, check in entries]
         return Produced(value=EvalClaimsCheckResult(markdown="\n".join([header, *rows])))
@@ -113,9 +114,9 @@ def _checked(args: EvalClaimsCheckArgs, deps: Dependencies) -> list[tuple[Claim,
     return entries
 
 
-def _shipped_rungs(ctx: Context) -> tuple[str, ...]:
+def _shipped_rungs(deps: Dependencies) -> tuple[str, ...]:
     """Every pipeline an active pack contributed — the rungs a claim can be about."""
-    return tuple(sorted(load_contributed(ctx.require(Dependencies).reports)))
+    return tuple(sorted(load_contributed(deps.reports)))
 
 
 class EvalClaimsRenderCommand:
@@ -134,8 +135,10 @@ class EvalClaimsRenderCommand:
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         """Render the table; a claim its records do not support refuses it, as `check` does."""
-        entries = _checked(cast(EvalClaimsCheckArgs, args), ctx.require(Dependencies))
-        table = render_claims_table(entries, shipped_rungs=_shipped_rungs(ctx))
+        del ctx
+        deps = resolution_dependencies()
+        entries = _checked(cast(EvalClaimsCheckArgs, args), deps)
+        table = render_claims_table(entries, shipped_rungs=_shipped_rungs(deps))
         return Produced(value=EvalClaimsCheckResult(markdown=table))
 
 
@@ -163,6 +166,7 @@ class EvalClaimsPinCommand:
 
     async def run(self, args: BaseModel, ctx: Context) -> Outcome[CommandResult]:
         """Pin one claim; refuse, writing nothing, if it is unsupported or cannot be resolved."""
+        del ctx
         typed = cast(EvalClaimsPinArgs, args)
         claims = {claim.id: claim for claim in _claims_of(typed)}
         if typed.claim not in claims:
@@ -172,7 +176,7 @@ class EvalClaimsPinCommand:
             )
         claim = claims[typed.claim]
         root = Path(typed.root)
-        live = live_evidence(claim, root=root, deps=ctx.require(Dependencies))
+        live = live_evidence(claim, root=root, deps=resolution_dependencies())
         check_claim(claim, root=root, live=live)
         if live.fingerprint is None:
             raise ClaimMismatchError(f"claim '{claim.id}' cannot be pinned: {live.unresolved}")

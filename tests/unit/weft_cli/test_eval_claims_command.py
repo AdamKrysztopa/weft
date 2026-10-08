@@ -325,9 +325,13 @@ def test_the_claims_renderer_arrives_through_the_public_registration_seam() -> N
     assert EvalClaimsCheckResult in {offer.result_type for offer in registrar.renderers}
 
 
-def _weft(cwd: Path, *argv: str) -> subprocess.CompletedProcess[str]:
+def _weft(
+    cwd: Path, *argv: str, database_url: str | None = None
+) -> subprocess.CompletedProcess[str]:
     """`weft` as a person runs it, from a directory that is not the checkout."""
-    environment = {**os.environ, "WEFT_DATABASE_URL": "postgresql://nobody@localhost:1/none"}
+    environment = {key: value for key, value in os.environ.items() if key != "WEFT_DATABASE_URL"}
+    if database_url is not None:
+        environment["WEFT_DATABASE_URL"] = database_url
     return subprocess.run(  # noqa: S603 - sys.executable, fixed argv, no shell, no user input
         [sys.executable, "-m", "weft_cli.cli", *argv],
         cwd=cwd,
@@ -405,3 +409,29 @@ def test_render_and_pin_from_outside_the_checkout_print_for_a_person(
     assert rendered.stdout.startswith("| rung |")
     assert pinned.returncode == 0, pinned.stderr
     assert pinned.stdout.startswith("pinned `a.one` to `")
+
+
+def test_a_pinned_claim_reads_valid_the_same_with_and_without_a_database_url(
+    root: Path, elsewhere: Path
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "helps"), encoding="utf-8")
+    pinned = _weft(elsewhere, "eval", "claims", "pin", "a.one", "--root", str(root), "--yes")
+    assert pinned.returncode == 0, pinned.stdout + pinned.stderr
+
+    # Act
+    without = _weft(elsewhere, "eval", "claims", "check", "--root", str(root))
+    with_url = _weft(
+        elsewhere,
+        "eval",
+        "claims",
+        "check",
+        "--root",
+        str(root),
+        database_url="postgresql://someone@db.example:5432/project",
+    )
+
+    # Assert
+    assert without.returncode == 0, without.stderr
+    assert "stale" not in without.stdout
+    assert without.stdout == with_url.stdout

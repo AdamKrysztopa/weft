@@ -9,14 +9,11 @@ the page cannot quietly keep a status the records no longer give. Regenerate wit
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Final
-from unittest import mock
 
 import pytest
 
@@ -54,30 +51,11 @@ def block_of(text: str) -> str | None:
 
 def rendered() -> str:
     claims = load_claims(_ROOT / "eval" / "claims")
-    with tempfile.TemporaryDirectory() as scratch:
-        config = Path(scratch) / "weft.toml"
-        config.write_text("", encoding="utf-8")
-        previous = Path.cwd()
-        os.chdir(scratch)
-        # Resolving an index pipeline validates its store's settings; nothing connects.
-        patcher = mock.patch.dict(
-            os.environ, {"WEFT_DATABASE_URL": "postgresql://nobody@localhost:1/none"}
-        )
-        patcher.start()
-        try:
-            deps = registry_bootstrap.build_dependencies(config_path=config)
-            entries = [
-                (
-                    claim,
-                    check_claim(
-                        claim, root=_ROOT, live=live_evidence(claim, root=_ROOT, deps=deps)
-                    ),
-                )
-                for claim in claims
-            ]
-        finally:
-            patcher.stop()
-            os.chdir(previous)
+    deps = registry_bootstrap.resolution_dependencies()
+    entries = [
+        (claim, check_claim(claim, root=_ROOT, live=live_evidence(claim, root=_ROOT, deps=deps)))
+        for claim in claims
+    ]
     return render_claims_table(entries, shipped_rungs=_shipped_rungs())
 
 
