@@ -21,17 +21,23 @@ Each run used a fresh database, dropped after. The harness is `run_exit_a.sh`, i
 
 | clock | pgvector, median of 5 (min–max) | Qdrant, 1 run |
 |---|---|---|
-| first document queryable | **30.0 s** (29.8–31.0) | 25.4 s |
-| first correct, cited answer | **34.2 s** (34.0–43.4) | 27.2 s |
-| all 100 queryable | **127.2 s** (126.4–127.8) | 107.8 s |
+| first batch queryable (25 of 100) | **30.0 s** (29.8–31.0) | 25.4 s |
+| first answer citing the expected paper | **34.2 s** (34.0–43.4) | 27.2 s |
+| base index complete, all 100 queryable | **127.2 s** (126.4–127.8) | 107.8 s |
 | `weft ask` p95, during indexing | 3.87 s (3.48–4.25) | 4.37 s |
 | `weft ask` p95, after indexing | 3.65 s (3.42–4.04) | 3.98 s |
 
 **What it shows:**
-- A question about the first batch gets a correct, cited answer about 34 s after `weft index`
-  starts, while the other 75 documents are still being embedded.
+- A question about the first batch gets an answer citing the paper that holds it about 34 s
+  after `weft index` starts, while the other 75 documents are still being embedded. The check is
+  `analyse_exit_a.py`'s: the output names that paper's file and carries a `[` citation marker.
+  Nothing judged whether the answer was correct.
 - A question about a document not yet indexed is answered *"the corpus does not answer this — N
-  sources are not yet indexed"*, not with a guess. Once its batch lands, it is answered.
+  sources are not yet indexed"*, not with a guess, in all six runs. Whether it is answered once
+  its batch lands was not observed: `last_question_cited_at_s` is null in every run, and the ask
+  loop stops 6 s after `weft index` exits.
+- The clocks end at the base index. `index-openai-large-pdf` builds no layer, so enrichment was
+  not part of this run and is untimed.
 - Asking during indexing costs no latency the measurement can see: p95 during is 0.93–1.11× p95
   after, across all six runs.
 

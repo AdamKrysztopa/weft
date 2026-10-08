@@ -377,14 +377,17 @@ moves a pipeline's identity by definition. Those stay unpinned until their exper
   asking slow down while it runs?
 - **Data.** 100 arXiv PDFs from Open RAGBench (243 MB), through `index-openai-large-pdf`
   (`text-embedding-3-large`), default batch 25. Five runs on pgvector and one on Qdrant, each from
-  the built wheel into a fresh database, with `weft ask` running every 5 s in a second shell.
-  About $2 in total.
-- **Result.** The first document is queryable at **30.0 s** (median; 29.8–31.0), and a correct,
-  cited answer about it arrives at **34.2 s**. All 100 are queryable at **127.2 s** (126.4–127.8).
-  Before this phase the same run returned nothing until **226.8 s**. `weft ask` p95 is 3.87 s
-  during indexing against 3.65 s after, a ratio of 0.93–1.11 across runs. A question about a
-  document not yet reached is told so rather than answered from the rest. Qdrant (one run): 25.4 s,
-  27.2 s and 107.8 s. Source: `eval/fast-ingest/table.md`, from `exit-a-summary.jsonl`.
+  the `weft-rag 2.10.0` wheel on one Apple Silicon laptop (12 cores, 24 GB) into a fresh
+  database, with `weft ask` running every 5 s in a second shell. About $2 in total.
+- **Result.** The first batch, 25 of the 100, is queryable at **30.0 s** (median; 29.8–31.0),
+  and an answer citing the paper that holds it arrives at **34.2 s**: the harness checks the
+  paper's file and a citation marker in the output, not whether the answer is correct. The base
+  index is complete, all 100 queryable, at **127.2 s** (126.4–127.8). No enrichment layer ran, so
+  none was timed. Before this phase the same run returned nothing until **226.8 s**. `weft ask`
+  p95 is 3.87 s during indexing against 3.65 s after, a ratio of 0.93–1.11 across runs. A question
+  about a document not yet reached is told so rather than answered from the rest; no run recorded
+  it answered after its batch landed. Qdrant (one run): 25.4 s, 27.2 s and 107.8 s. Source:
+  `eval/fast-ingest/table.md`, from `exit-a-summary.jsonl`.
 - **What it means for you.** Point `weft index` at a folder and start asking at once. The answer
   footer says how many documents are not yet indexed, so a missing answer can be told apart from
   a missing document.

@@ -223,19 +223,25 @@ own page rather than left to inference.
 ## Ask while it indexes
 
 `weft index` writes a folder in batches of 25, and each batch is searchable the moment it lands, so
-you can start asking in a second shell straight away. Measured from the release wheel on 100 arXiv
-PDFs (243 MB) with `text-embedding-3-large` and pgvector, median of five runs on one Apple Silicon
-laptop:
+you can start asking in a second shell straight away. Measured on 2026-09-22 from that day's
+release wheel, outside this repository, on 100 arXiv PDFs (243 MB) through `pdf-text` extraction,
+`text-embedding-3-large` and pgvector with no enrichment layer. Median of five runs, range in
+brackets, on one Apple Silicon laptop (12 cores, 24 GB):
 
 | | seconds after `weft index` starts |
 |---|---|
-| first document queryable | **30** |
-| first correct, cited answer about it | **34** |
-| all 100 queryable | **127** (227 before batching, with nothing queryable until the end) |
+| first batch searchable (25 of 100 documents) | **30.0** (29.8–31.0) |
+| first answer citing the source paper, asked about that batch | **34.2** (34.0–43.4) |
+| base index complete, all 100 searchable | **127.2** (126.4–127.8); one earlier unbatched run, 226.8, had nothing searchable until the end |
 
-Asking while indexing runs is no slower than asking after: p95 3.9 s during, 3.7 s after. A
-question about a document not yet reached gets *"the corpus does not answer this — N sources are
-not yet indexed"*, not a guess. The runs, the harness and the Qdrant figures are in
+A second shell asked two questions in turn, pausing 5 s after each pair. An answer counted when
+its output named the expected paper's file and carried a citation marker; nothing judged whether
+the answer was correct. The clocks stop at
+the base index: a layer built afterwards (below) was not timed. `weft ask` p95 was 3.87 s during
+indexing and 3.65 s after, a per-run ratio of 0.93–1.11. In every run, a question about a paper in
+the last batch was answered *"the corpus does not answer this — N sources are not yet indexed"*
+while that batch was pending, not with a guess. No run recorded that question answered after its
+batch landed. The version measured, the runs, the harness and one Qdrant run are in
 [`eval/fast-ingest/table.md`](eval/fast-ingest/table.md).
 
 ## Enrich it later, without re-indexing
