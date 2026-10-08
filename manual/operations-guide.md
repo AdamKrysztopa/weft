@@ -590,8 +590,9 @@ cannot cite a positive effect below its margin; it is refused, naming every rule
 come from the ones this install ships, plus any in the project's own `eval/claims/`. Loading does
 not recompute a claim or compare fingerprints: `weft eval claims check` does that from the run
 records, in a source checkout. Run it after changing a rung a claim cites. It resolves the
-pipelines against the installed packs alone, reading neither `weft.toml` nor `WEFT_DATABASE_URL`,
-so a claim reads the same on every machine with the same install.
+pipelines against the installed packs `weft.toml`'s `[packs] allow` permits, and reads neither its
+pack settings nor `WEFT_DATABASE_URL`, so a claim reads the same on every machine with the same
+install.
 The whole-corpus rung is offered only when the `generate` role's provider can count tokens, which
 is asked before routing and makes no model call; otherwise the rule is skipped, the route says the
 provider cannot count, and the ask is answered by `retrieve-then-generate`.

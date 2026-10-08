@@ -30,6 +30,7 @@ from weft_cli.compile import (
     to_specs,
 )
 from weft_cli.exit_codes import ExitCode, exit_code_for
+from weft_engine import pack_attribution
 from weft_generate.contract import Generator
 from weft_generate.payload import Answer
 from weft_kernel.context import Context
@@ -967,6 +968,39 @@ def test_pgvector_in_a_base_only_install_is_named_as_the_store_settings_never_an
     # Act
     message = _refusal_for("pgvector")
 
-    # Assert
+    # Assert — six extras are missing, so "no installed distribution is missing" would be false.
     assert "pip install" not in message
     assert "'store' settings failed validation: dsn Field required" in message
+    assert "No installed distribution is missing" not in message
+    assert "No missing extra provides 'pgvector'" in message
+
+
+def test_a_third_party_plugin_still_gets_its_own_packs_install_hint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arrange — the table covers first-party packs only; a stranger's extra comes from its own
+    # metadata, as before task 45.4.
+    acme = _report(
+        "acme",
+        PackStatus.FAILED,
+        reason="No module named 'acme_sdk'",
+        failure_kind=PackFailureKind.IMPORT,
+    ).model_copy(update={"distribution": "acme-rag"})
+    real_hint = pack_attribution.install_hint
+
+    def _hint(report: PackReport) -> str | None:
+        return "pip install acme-rag[acme]" if report.pack == "acme" else real_hint(report)
+
+    monkeypatch.setattr(pack_attribution, "install_hint", _hint)
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="extract", use="acme-search"),))
+
+    # Act
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(
+            pipeline, registry=_registry(), reports=(*_base_only_install(), acme), parents={}
+        )
+
+    # Assert
+    message = str(caught.value)
+    assert "acme-rag[acme]" in message
+    assert re.findall(r"weft-rag\[([a-z-]+)\]", message) == []

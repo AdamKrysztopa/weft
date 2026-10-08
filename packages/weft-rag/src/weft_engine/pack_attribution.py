@@ -26,6 +26,7 @@ made before task 24.1 moved this module here, and is now true of every module in
 
 from __future__ import annotations
 
+import functools
 import importlib.metadata
 import textwrap
 from collections.abc import Mapping, Sequence
@@ -120,8 +121,9 @@ def attribute_to_packs(
       stays `None` regardless of the `valid_options` argument: a refused pack is never
       imported, so nothing here can honestly claim what it would have registered — see
       `PluginRefusal`'s own docstring for the identical reasoning stated at the field.
-    - **Some `silent` report has an `install_hint`, and is the pack that provides `name` per
-      `PLUGINS_BEHIND_EXTRAS`** — `ExitCode.RESOLUTION_FAILED`, leading
+    - **Some `silent` report that may provide `name` has an `install_hint`** — the tabled
+      provider for a name `PLUGINS_BEHIND_EXTRAS` holds, else any pack it does not speak for;
+      `ExitCode.RESOLUTION_FAILED`, leading
       with the missing extra rather than any settings failure among the same reports:
       **carried repair R34.2**, found running `weft index` where `store` and `blob` both
       failed on their own settings while `qdrant` sat silent on a missing extra — the
@@ -170,9 +172,8 @@ def attribute_to_packs(
         return PluginRefusal(
             exit_code=ExitCode.RESOLUTION_FAILED,
             message=_compose(
-                f"{subject}. No installed distribution is missing — {listed} imported "
-                f"cleanly and then failed on its own settings, which is why '{name}' does "
-                f"not resolve:",
+                f"{subject}. No missing extra provides '{name}' — {listed} imported cleanly "
+                f"and then failed on its own settings, which is why '{name}' does not resolve:",
                 _diagnostic_detail(silent, name=name),
                 registered,
             ),
@@ -215,13 +216,30 @@ def _refused_refusal(
     )
 
 
-def _installable(silent: Sequence[PackReport], name: str) -> tuple[tuple[PackReport, str], ...]:
-    """Each `silent` pack with an install hint providing `name`; `()` if `name` is untabled."""
+@functools.cache
+def _first_party_extras() -> frozenset[str]:
+    """`weft-rag`'s extras, from its own metadata: the packs `PLUGINS_BEHIND_EXTRAS` speaks for."""
+    try:
+        distribution = importlib.metadata.distribution("weft-rag")
+    except importlib.metadata.PackageNotFoundError:
+        return frozenset()
+    return frozenset(distribution.metadata.get_all("Provides-Extra") or ())
+
+
+def _may_provide(report: PackReport, name: str) -> bool:
+    """Whether `report`'s pack may be the one that provides `name`, per `PLUGINS_BEHIND_EXTRAS`."""
     provider = PLUGINS_BEHIND_EXTRAS.get(name)
+    if provider is not None:
+        return report.pack == provider
+    return not (report.distribution == "weft-rag" and report.pack in _first_party_extras())
+
+
+def _installable(silent: Sequence[PackReport], name: str) -> tuple[tuple[PackReport, str], ...]:
+    """Each `silent` pack that may provide `name` (`_may_provide`) and has an install hint."""
     return tuple(
         (report, hint)
         for report in sorted(silent, key=_label_of)
-        if report.pack == provider and (hint := install_hint(report)) is not None
+        if _may_provide(report, name) and (hint := install_hint(report)) is not None
     )
 
 
@@ -388,7 +406,7 @@ def _diagnostic_detail(silent: Sequence[PackReport], *, name: str) -> str:
         if not report.reason:
             continue
         block = f"{_label_of(report)}:\n{textwrap.indent(report.reason, '    ')}"
-        hint = install_hint(report) if report.pack == PLUGINS_BEHIND_EXTRAS.get(name) else None
+        hint = install_hint(report) if _may_provide(report, name) else None
         if hint is not None:
             block += f"\n{textwrap.indent(hint, '    ')}"
         blocks.append(block)

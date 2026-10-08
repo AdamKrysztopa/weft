@@ -320,16 +320,20 @@ def build_dependencies(
     )
 
 
-def resolution_dependencies() -> Dependencies:
-    """Every installed pack registered for resolving a pipeline, and nothing of the machine.
+def resolution_dependencies(config_path: Path = DEFAULT_CONFIG_PATH) -> Dependencies:
+    """Every pack the project permits, registered for resolving a pipeline, and nothing more.
 
-    Reads no `weft.toml` (no allow-list, pins or pack settings) and no environment variable, so a
-    claim's pipelines resolve identically wherever it is checked. Resolution reads metadata off
+    Reads only `[packs] allow` and `[plugins]` pins from `config_path`, which decide what code runs,
+    never pack settings or an environment variable, which describe a machine; so a claim's pipelines
+    resolve identically wherever the same install checks them. Resolution reads metadata off
     factories and never constructs a plugin, so the store's resolution-only settings never connect
     and never enter a pipeline's identity.
     """
-    registry = Registry()
-    reports = discover(registry, allow=None, pack_settings=_RESOLUTION_ONLY_PACK_SETTINGS)
+    document = document_at(config_path)
+    allow = None if document is None else allow_list_from_config(document)
+    pins = {} if document is None else plugin_pins_from_config(document)
+    registry = Registry(plugin_pins=pins)
+    reports = discover(registry, allow=allow, pack_settings=_RESOLUTION_ONLY_PACK_SETTINGS)
     _register_ext_models(reports)
     roles = role_table_from_reports(reports)
     return Dependencies(

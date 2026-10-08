@@ -15,7 +15,7 @@ from typing import Final
 import pytest
 
 _ROOT: Final[Path] = Path(__file__).resolve().parents[2]
-_RATIO: Final[re.Pattern[str]] = re.compile(r"(?:about|~) ?\d+(?:×| times)")
+_RATIO: Final[re.Pattern[str]] = re.compile(r"(?:about|~) ?\d+(?:×| times)", re.IGNORECASE)
 _EXPERIMENTS: Final[frozenset[str]] = frozenset(
     path.stem for path in (_ROOT / "eval" / "experiments").glob("*.toml")
 )

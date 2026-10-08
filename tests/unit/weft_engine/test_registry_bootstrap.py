@@ -867,11 +867,28 @@ def test_resolution_dependencies_are_the_same_with_and_without_a_database_url(
     }
 
 
-def test_resolution_dependencies_do_not_read_the_project_weft_toml(
+def test_resolution_dependencies_honour_the_projects_allow_list(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Arrange — a project that allows only the CLI pack would otherwise drop the store.
-    (tmp_path / "weft.toml").write_text('[packs]\nallow = ["cli"]\n', encoding="utf-8")
+    # Arrange — `[packs] allow` decides which code runs, so a claim check obeys it too.
+    (tmp_path / "weft.toml").write_text('[packs]\nallow = ["weft-rag"]\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WEFT_DATABASE_URL", raising=False)
+
+    # Act
+    deps = registry_bootstrap.resolution_dependencies()
+
+    # Assert
+    canary = {report.status for report in deps.reports if report.distribution == "weft-canary"}
+    assert canary == {PackStatus.REFUSED}
+    assert "pgvector" in deps.registry.names_for(NodeStore)
+
+
+def test_resolution_dependencies_ignore_the_projects_pack_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — a store setting the project got wrong is a fact about its database, not its code.
+    (tmp_path / "weft.toml").write_text('[packs.store]\nprecision = "int8"\n', encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("WEFT_DATABASE_URL", raising=False)
 
