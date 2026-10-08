@@ -87,6 +87,7 @@ from weft_cli.commands import (
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
 from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import build_error_envelope
+from weft_cli.eval_claims import EvalClaimsCheckResult
 from weft_cli.eval_commands import (
     BaselineSelection,
     EvalCompareCommandResult,
@@ -2022,6 +2023,11 @@ def _render_eval_table(result: EvalTableCommandResult) -> Rendered:
     return Rendered(stdout=result.markdown.rstrip("\n"), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_eval_claims(result: EvalClaimsCheckResult) -> Rendered:
+    """`weft eval claims check`, `render` and `pin` — task **45.1**."""
+    return Rendered(stdout=result.markdown.rstrip("\n"), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 def _render_eval_replay(result: EvalReplayCommandResult) -> Rendered:
     """`weft eval replay` — task **44.6a**.
 
@@ -2260,6 +2266,10 @@ def _dispatch_eval_table(result: object) -> Rendered:
     return _render_eval_table(cast(EvalTableCommandResult, result))
 
 
+def _dispatch_eval_claims(result: object) -> Rendered:
+    return _render_eval_claims(cast(EvalClaimsCheckResult, result))
+
+
 def _dispatch_eval_replay(result: object) -> Rendered:
     return _render_eval_replay(cast(EvalReplayCommandResult, result))
 
@@ -2319,6 +2329,7 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(EvalExperimentCommandResult, _dispatch_eval_experiment)
     registrar.add_renderer(EvalPlanCommandResult, _dispatch_eval_plan)
     registrar.add_renderer(EvalTableCommandResult, _dispatch_eval_table)
+    registrar.add_renderer(EvalClaimsCheckResult, _dispatch_eval_claims)
     registrar.add_renderer(EvalReplayCommandResult, _dispatch_eval_replay)
     registrar.add_renderer(RouteExplainCommandResult, _dispatch_route_explain)
     registrar.add_renderer(EvalPairwiseCommandResult, _dispatch_eval_pairwise)

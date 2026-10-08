@@ -1,13 +1,21 @@
-"""Task 44.31 — `weft eval claims check`: a row per claim, every mismatch refused at once."""
+"""Task 44.31 — `weft eval claims check`: a row per claim, every mismatch refused at once.
 
+Task 45.1 — the three claims commands print for a person in normal mode and still print one object
+carrying `markdown` under `--json`.
+"""
+
+import json
 import os
 import shutil
+import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
+from weft_cli import commands, render
 from weft_cli.eval_claims import (
     EvalClaimsCheckArgs,
     EvalClaimsCheckCommand,
@@ -22,7 +30,9 @@ from weft_engine import registry_bootstrap
 from weft_eval.claims import ClaimDocumentError, load_claim
 from weft_eval.claims_check import ClaimMismatchError
 from weft_kernel.context import Context, ServiceRegistry
+from weft_kernel.discovery import PackRegistrar
 from weft_kernel.payload import Outcome, Produced
+from weft_kernel.registry import Registry
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -268,3 +278,130 @@ async def test_pinning_a_claim_that_does_not_exist_names_the_ones_that_do(
         await EvalClaimsPinCommand().run(
             EvalClaimsPinArgs(root=str(root), claim="a.two"), _ctx(deps)
         )
+
+
+async def test_check_prints_its_markdown_for_a_person_and_one_object_for_a_script(
+    root: Path, deps: registry_bootstrap.Dependencies
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "helps"), encoding="utf-8")
+    outcome = await EvalClaimsCheckCommand().run(EvalClaimsCheckArgs(root=str(root)), _ctx(deps))
+
+    # Act
+    person = render.render_outcome(outcome)
+    script = render.render_outcome(outcome, as_json=True)
+
+    # Assert
+    assert person.stdout == _markdown(outcome).rstrip("\n")
+    assert person.exit_code == 0
+    assert script.stdout is not None
+    assert json.loads(script.stdout)["markdown"] == _markdown(outcome)
+
+
+async def test_pin_prints_its_confirmation_sentence_for_a_person(
+    root: Path, deps: registry_bootstrap.Dependencies
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "helps"), encoding="utf-8")
+    pin_args = EvalClaimsPinArgs(root=str(root), claim="a.one")
+    outcome = await EvalClaimsPinCommand().run(pin_args, _ctx(deps))
+
+    # Act
+    rendered = render.render_outcome(outcome)
+
+    # Assert
+    assert rendered.stdout is not None
+    assert rendered.stdout.startswith("pinned `a.one` to `")
+
+
+def test_the_claims_renderer_arrives_through_the_public_registration_seam() -> None:
+    # Arrange
+    registrar = PackRegistrar(Registry(), distribution="weft-cli")
+
+    # Act
+    commands.register(registrar, commands.Settings())
+
+    # Assert
+    assert EvalClaimsCheckResult in {offer.result_type for offer in registrar.renderers}
+
+
+def _weft(cwd: Path, *argv: str) -> subprocess.CompletedProcess[str]:
+    """`weft` as a person runs it, from a directory that is not the checkout."""
+    environment = {**os.environ, "WEFT_DATABASE_URL": "postgresql://nobody@localhost:1/none"}
+    return subprocess.run(  # noqa: S603 - sys.executable, fixed argv, no shell, no user input
+        [sys.executable, "-m", "weft_cli.cli", *argv],
+        cwd=cwd,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.fixture
+def elsewhere(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("elsewhere")
+
+
+def test_check_from_outside_the_checkout_prints_markdown_and_warns_a_stale_claim_at_0(
+    root: Path, elsewhere: Path
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "helps"), encoding="utf-8")
+
+    # Act
+    result = _weft(elsewhere, "eval", "claims", "check", "--root", str(root))
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.startswith("| claim | stated | checked | paired difference | note |")
+    assert "| `a.one` | helps (worthwhile) |" in result.stdout
+    assert "possibly-stale: no evidence fingerprint is pinned" in result.stdout
+
+
+def test_check_under_json_prints_one_object_carrying_markdown_after_the_stream_events(
+    root: Path, elsewhere: Path
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "helps"), encoding="utf-8")
+
+    # Act
+    result = _weft(elsewhere, "--json", "eval", "claims", "check", "--root", str(root))
+
+    # Assert
+    lines = [json.loads(line) for line in result.stdout.splitlines()]
+    assert result.returncode == 0, result.stderr
+    assert all(line.get("kind") == "stream-event" for line in lines[:-1])
+    assert "| `a.one` | helps (worthwhile) |" in lines[-1]["markdown"]
+
+
+@pytest.mark.parametrize("mode", [(), ("--json",)], ids=["normal", "json"])
+def test_a_mismatch_still_refuses_at_exit_1_in_either_format(
+    root: Path, elsewhere: Path, mode: tuple[str, ...]
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "harms"), encoding="utf-8")
+
+    # Act
+    result = _weft(elsewhere, *mode, "eval", "claims", "check", "--root", str(root))
+
+    # Assert
+    assert result.returncode == 1
+    assert "'a.one'" in result.stdout + result.stderr
+
+
+def test_render_and_pin_from_outside_the_checkout_print_for_a_person(
+    root: Path, elsewhere: Path
+) -> None:
+    # Arrange
+    (root / "eval/claims/a.one.toml").write_text(_claim_text("a.one", "helps"), encoding="utf-8")
+
+    # Act
+    rendered = _weft(elsewhere, "eval", "claims", "render", "--root", str(root))
+    pinned = _weft(elsewhere, "eval", "claims", "pin", "a.one", "--root", str(root), "--yes")
+
+    # Assert
+    assert rendered.returncode == 0, rendered.stderr
+    assert rendered.stdout.startswith("| rung |")
+    assert pinned.returncode == 0, pinned.stderr
+    assert pinned.stdout.startswith("pinned `a.one` to `")

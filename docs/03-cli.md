@@ -874,23 +874,11 @@ under `--json` they arrive as the result's `stages` field. The milliseconds depe
 and are never compared against a threshold. This is not `weft trace`, which prints a *persisted*
 run record. `--explain` describes the one call in front of you and writes nothing.
 
-> **What `--json` does not do today, stated because this section promised it did.** It swaps the
-> **sink** — the stream of tokens a generating stage emits — and nothing else. The command's
-> *result* is still rendered by the same prose renderer a human gets, so stdout under `--json` is
-> one JSON stream event followed by lines like `2 documents: 2 indexed, 0 unchanged. nodes now
-> stored: 2.` or `agent (weft-rag): active (2 contributed)`. It parses as neither one JSON
-> document nor as newline-delimited JSON, and this is true of every command, not a gap in a few:
-> measured 2026-09-12 against the shipped binary for `index`, `plugins list`, `config get` and
-> `pipeline list`. So *"the scripting contract: same events, no parsing of prose"* described an
-> intention rather than a behaviour, and a script written against this page would have broken on
-> its first result.
->
-> **The design is not what is missing.** A `Command` returns a typed result and never writes to a
-> stream (§*The command surface*), which is exactly the property a JSON renderer needs; what does
-> not exist is the renderer. It is owed by **Phase 24a**, the embeddable Python API, because a
-> typed result a program can consume and a machine-readable result a script can consume are the
-> same question asked at two boundaries, and answering one without the other would leave this
-> sentence false for another phase. Carried repair `R17.18` is the record.
+> **Under `--json` the result is the output** (task 24.5, carried repair `R17.18`). stdout is
+> newline-delimited JSON: the stream events the sink wrote, then one object — the result model's
+> dump, or `weft ask`'s versioned answer envelope — and a refusal is the error envelope. A
+> registered renderer is for a person (`R18.3`): under `--json` it decides only the exit code, never
+> the text.
 
 **A generator that refuses says so, on both paths.** A `Generator` may answer that the corpus does
 not support an answer — `weft_generate.payload.AnswerStance.NOT_IN_CORPUS`, which `cited-answer`

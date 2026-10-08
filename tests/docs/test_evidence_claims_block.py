@@ -4,7 +4,7 @@ The block between the `claims:begin` and `claims:end` markers must equal what
 `weft_eval.claims_render.render_claims_table` produces from `eval/claims/` today, with every claim
 recomputed from its committed records. A claim edited, added or made stale changes the render, so
 the page cannot quietly keep a status the records no longer give. Regenerate with
-`weft eval claims render` and paste its `markdown` between the markers.
+`weft eval claims render` and paste what it prints between the markers.
 """
 
 from __future__ import annotations
