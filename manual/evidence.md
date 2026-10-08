@@ -57,9 +57,9 @@ those same questions.
   per question rather than per server, it ran once, and every slice of it is underpowered.
 - **For a question about the whole corpus, read all of it when it fits.** On 80 corpus-wide
   questions, `whole-corpus-then-generate` beat one search by +0.059 answer correctness
-  [+0.030, +0.089], at about 160× the prompt tokens. A corpus-wide RAPTOR tree gained +0.025
-  [0.000, +0.051], under the margin; summarising retrieved passages gained nothing; and the
-  graph rung over extracted facts did worse, −0.080 (§4, Phase 44).
+  [+0.030, +0.089], at about 157× the prompt tokens (`global-synthesis`). A corpus-wide RAPTOR
+  tree gained +0.025 [0.000, +0.051], under the margin; summarising retrieved passages gained
+  nothing; and the graph rung over extracted facts did worse, −0.080 (§4, Phase 44).
 - **Keep the fixed router.** The model-driven `route` and `route-by-score` tied always using one
   search on the 107 English questions, and `route` more than doubled p95 latency (§4, Phase 44).
 - **Most shipped settings are unmeasured defaults**, not tuned values: chunk size 512 with overlap
@@ -123,7 +123,9 @@ recomputes it and writes the fingerprint of what it was validated against. `weft
 then reads each claim as **valid** (every pinned component matches the running tree),
 **definitely stale** (one has changed, and the row names it) or **possibly stale** (not pinned, or
 not resolvable here). A rule of a shipped router that cites anything but a *valid* claim fails
-fitness function 38.
+fitness function 38. A router recomputes and compares nothing when it loads: it holds each rule to
+its claims' committed verdicts, `weft eval claims check` recomputes them, and fitness function 38
+keeps the shipped rule's claims valid.
 
 | Changes the fingerprint (invalidates) | Does not |
 |---|---|
@@ -200,7 +202,7 @@ moves a pipeline's identity by definition. Those stay unpinned until their exper
   store of its own, so that no arm read another arm's layer. About $9 of the $10 approved.
 - **Result.** Against the pre-registered +0.05 `answer_correctness` margin:
   - `whole-corpus-then-generate`: **+0.059** (95% interval +0.030 to +0.089), `worthwhile`,
-    at about 160× the generation prompt tokens (262k against 1.7k).
+    at about 157× the generation prompt tokens (262k against 1.7k in `global-synthesis`).
   - `raptor-and-leaves-rrf` over a corpus-wide tree: +0.025 (0.000 to +0.051),
     `positive-below-margin`.
   - `summarise-then-generate`: −0.018 (−0.049 to +0.010), `benefit-ruled-out`.

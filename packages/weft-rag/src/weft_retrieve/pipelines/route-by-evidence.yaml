@@ -5,7 +5,8 @@ name: route-by-evidence
 # `eval/claims/`, `weft eval claims check`). One rule ships: reading the whole corpus, for a corpus
 # in the size range it was measured in — about 250,000 tokens, which fits the generate role's
 # context. It is taken only when the operator has set a prompt-token budget that holds the corpus,
-# because it costs about 170 times the prompt tokens of one search (`manual/evidence.md` §3). The
+# because it costs about 170 times the prompt tokens of one search in `whole-corpus-en`
+# (`manual/evidence.md` §3). The
 # shipped budget is 0, so a router that has not been given one answers through the fallback,
 # `retrieve-then-generate`, exactly as `route-fixed` does; `query-profile` calls no model.
 #

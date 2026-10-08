@@ -20,7 +20,7 @@ The warp is the fixed frame on a loom; the weft is every thread through it.
 answer correctness judged by an LLM, Weft's own implementation of each method. Each row is paired
 question by question against dense retrieval (`retrieve-then-generate`):
 
-| Weft pipeline | change in answer correctness vs dense | 95% interval | generation tokens per question |
+| Weft pipeline | change in answer correctness vs dense | 95% interval | generation tokens per question (`global-synthesis`) |
 |---|---|---|---|
 | dense retrieval (baseline) | — | — | 1,673 |
 | read the whole corpus (`whole-corpus-wide-then-generate`) | **+0.059** | +0.030 to +0.089 | 262,128 (about 157×) |
@@ -28,8 +28,8 @@ question by question against dense retrieval (`retrieve-then-generate`):
 | fact graph fused with vectors (`graph-and-vector-rrf`) | **−0.080** | −0.111 to −0.049 | 1,034 |
 
 Tokens are counted per question at answer time, so building the fact graph is not included.
-Reading everything was better, at about 157 times the generation tokens. Summarising gained nothing,
-and our graph pipeline did worse. That is a result about these implementations on this corpus, not
+Reading everything was better, at about 157 times the generation tokens (`global-synthesis`).
+Summarising gained nothing, and our graph pipeline did worse. That is a result about these implementations on this corpus, not
 about GraphRAG methods in general. RAPTOR ran as a separate experiment with its own dense baseline:
 +0.025 [0.000, +0.051], below the +0.05 margin the experiment set before it ran
 ([table](eval/experiments/global-synthesis-raptor/table.md)). Records, configurations and
@@ -273,7 +273,7 @@ token bound. Measured on Weft's own 107 English questions over 16 papers (253k t
 | | `retrieve-then-generate` | `whole-corpus-then-generate` |
 |---|---|---|
 | answer correctness (LLM judge) | 0.672 | **0.743**, paired 95% interval **+0.039 to +0.117** |
-| prompt tokens per question | 1,541 | 261,498 (~170×) |
+| prompt tokens per question (`whole-corpus-en`) | 1,541 | 261,498 (~170×) |
 | p50 latency | 3.7 s | 5.5 s |
 
 It is a better answer at a very different price, so the router does not pick it for you: ask it
@@ -288,7 +288,7 @@ interval. The records and tables are committed, and every number regenerates fro
 
 | question | what was tried | result against one search |
 |---|---|---|
-| Corpus-wide ("what themes recur across these papers?"), 80 questions over 16 papers | read everything · RAPTOR tree over the corpus · summarise retrieved passages · graph of extracted facts | reading everything **+0.059** [+0.030, +0.089], worth it at ~160× the tokens · RAPTOR +0.025 [0.000, +0.051], below the margin · summarise no gain · graph **−0.080**, worse |
+| Corpus-wide ("what themes recur across these papers?"), 80 questions over 16 papers | read everything · RAPTOR tree over the corpus · summarise retrieved passages · graph of extracted facts | reading everything **+0.059** [+0.030, +0.089], worth it at ~157× the tokens (`global-synthesis`) · RAPTOR +0.025 [0.000, +0.051], below the margin · summarise no gain · graph **−0.080**, worse |
 | Routing, 107 questions | the shipped model router and score router, against always one search | no gain (−0.000, +0.012); the model router doubles p95 latency. Re-run once its rungs with nothing to read were withheld: +0.022 [−0.001, +0.046], inconclusive at the +0.03 margin, 3× the p50 latency |
 | Multi-hop (MuSiQue), 600 questions | iterative retrieval, hybrid, multi-query, broad-and-refined | nothing clears +0.05; iterative +0.018 |
 | One long document (QASPER, QuALITY) | adjacent chunks, context construction | nothing clears +0.05; on QuALITY that holds even though the right document is found 99% of the time |

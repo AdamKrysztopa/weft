@@ -543,8 +543,8 @@ holds is refused by listing every router that is contributed, so a typo names it
 
 `route-by-evidence` carries one rule today: when the corpus fits the `generate` role's context and
 counts 200,000 to 260,000 tokens, read all of it into one prompt, because two measurements found
-that better than one search (`manual/evidence.md` §3). It costs about 170 times the prompt tokens,
-so the shipped router is given a budget of 0 and answers through `retrieve-then-generate` until you
+that better than one search (`manual/evidence.md` §3). It costs about 170 times the prompt tokens
+of one search (261,498 against 1,541 a question in `whole-corpus-en`), so the shipped router is given a budget of 0 and answers through `retrieve-then-generate` until you
 set one. Declare `context_tokens` on the `generate` role (`[llm.roles]`) so the router can see
 whether the corpus fits, then give it a budget in a document of your own:
 
@@ -561,9 +561,14 @@ set:
 route = "route-with-budget"
 ```
 
+`max_prompt_tokens` bounds the prompt cost the rule declares for its rung on one ask. It is not a cap
+on what a deployment spends, and the fallback's own cost is not counted against it.
+
 The query profile, the corpus profile, executable evidence and the policy are all implemented:
-a router reads what the question and the corpus look like, applies only rules whose cited claim is
-a recomputed, pinned, **worthwhile** measurement, and stays inside the ceilings you set. It is
+a router reads what the question and the corpus look like, applies only rules whose cited claims are
+**worthwhile** on committed records, and stays inside the ceilings you set. `weft eval claims check`
+is what recomputes those claims, and fitness function 38 is what keeps the shipped rule's claims
+pinned and unchanged; a router does neither when it loads. It is
 deliberately conservative. One rule ships, and not every rung Weft implements is eligible for
 routing: a rung is eligible only once an experiment has measured a worthwhile gain for it.
 
