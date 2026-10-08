@@ -100,7 +100,7 @@ WHOLE_CORPUS_CLAIMS: Final[frozenset[str]] = frozenset(
     {"whole-corpus.fetch-operator.answer-correctness", "whole-corpus.global.answer-correctness"}
 )
 
-#: `validation-en`'s leaves and tokens on `gpt-5.6-luna`'s encoding, and the README's declared
+#: `validation-en`'s leaves and tokens as task 43.52 counted them, and the README's declared
 #: `generate` window — a profile, simulated, not an index.
 SIMULATED_TOKENS: Final[int] = 253_408
 SIMULATED_LEAVES: Final[int] = 1_725
@@ -238,7 +238,7 @@ def simulated_profile() -> CorpusProfile:
             leaves=SIMULATED_LEAVES,
             characters=0,
             tokens=SIMULATED_TOKENS,
-            tokenizer="gpt-5.6-luna",
+            tokenizer="simulated",
         ),
     )
     return corpus_profile((record,), context_tokens=SIMULATED_WINDOW)
@@ -454,15 +454,19 @@ async def _drifted(venv: Path, project: Path) -> list[CaseResult]:
         problem = (f"{DRIFTED_DOCUMENT} does not carry {SHIPPED_BOUND!r} exactly once",)
         return [CaseResult(name="drift edit", problems=problem, output=shipped)]
     try:
-        document.write_text(shipped.replace(SHIPPED_BOUND, DRIFTED_BOUND), encoding="utf-8")
-        return [
-            await _claims_check(
-                venv, project, stale=WHOLE_CORPUS_CLAIMS, label="drifted claims check"
-            ),
-            await _ff38(venv, project, expect_failure=True),
-        ]
+        return await _checks_while_drifted(venv, project, document, shipped)
     finally:
         document.write_text(shipped, encoding="utf-8")
+
+
+async def _checks_while_drifted(
+    venv: Path, project: Path, document: Path, shipped: str
+) -> list[CaseResult]:
+    document.write_text(shipped.replace(SHIPPED_BOUND, DRIFTED_BOUND), encoding="utf-8")
+    return [
+        await _claims_check(venv, project, stale=WHOLE_CORPUS_CLAIMS, label="drifted claims check"),
+        await _ff38(venv, project, expect_failure=True),
+    ]
 
 
 async def drift_case(venv: Path, project: Path) -> CaseResult:
