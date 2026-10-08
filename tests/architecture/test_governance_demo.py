@@ -230,3 +230,26 @@ def test_the_check_can_actually_fail() -> None:
 
     # Assert
     assert verdicts == (True, False)
+
+
+def test_the_budget_command_takes_the_ceilings_a_participant_names() -> None:
+    # Act
+    default = check_governance_demo.budget_ceilings(["--budget"])
+    named = check_governance_demo.budget_ceilings(["--budget", "250000", "300000"])
+
+    # Assert
+    assert default == check_governance_demo.CEILINGS
+    assert named == (250_000, 300_000)
+
+
+def test_a_ceiling_that_is_not_a_token_count_is_refused_by_name() -> None:
+    # Act
+    try:
+        check_governance_demo.budget_ceilings(["--budget", "lots"])
+    except SystemExit as refused:
+        message = str(refused)
+    else:
+        message = ""
+
+    # Assert
+    assert "'lots' is not a prompt-token ceiling" in message

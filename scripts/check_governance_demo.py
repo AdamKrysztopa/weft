@@ -242,9 +242,18 @@ def simulated_profile() -> CorpusProfile:
     return corpus_profile((record,), context_tokens=SIMULATED_WINDOW)
 
 
-def _write_budgets(directory: Path) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
-    for ceiling in CEILINGS:
+def budget_ceilings(argv: Sequence[str]) -> tuple[int, ...]:
+    """The ceilings after `--budget`, or the demo's four when none is named."""
+    named: list[int] = []
+    for value in argv[1:]:
+        if not value.isdigit():
+            raise SystemExit(f"{value!r} is not a prompt-token ceiling; name whole numbers")
+        named.append(int(value))
+    return tuple(named) or CEILINGS
+
+
+def _write_budgets(directory: Path, ceilings: Sequence[int]) -> None:
+    for ceiling in ceilings:
         (directory / f"route-with-budget-{ceiling}.yaml").write_text(
             f"name: route-with-budget-{ceiling}\nextends: {ROUTER}\nset:\n"
             f"  - {{id: decide, with: {{constraints: {{max_prompt_tokens: {ceiling}}}}}}}\n",
@@ -284,27 +293,26 @@ async def _route(
     )
 
 
-async def budget_routes(project: Path) -> list[BudgetRoute]:
-    """The shipped policy's route under each ceiling, resolved as a project document would be."""
-    _write_budgets(project / "pipelines")
-    deps = resolution_dependencies(config_path=project / "weft.toml")
-    catalogue = full_catalogue(directory=project / "pipelines", reports=deps.reports)
-    return [
-        await _route(
-            catalogue[f"route-with-budget-{ceiling}"], ceiling, catalogue=catalogue, deps=deps
-        )
-        for ceiling in CEILINGS
-    ]
+async def budget_routes(ceilings: Sequence[int]) -> list[BudgetRoute]:
+    """The shipped policy's route under each ceiling, resolved as a project document would be.
+
+    The derived documents go to a directory of their own, so a run from a checkout leaves it clean.
+    """
+    with tempfile.TemporaryDirectory(prefix="weft-budget-") as scratch:
+        project = Path(scratch)
+        _write_budgets(project, ceilings)
+        deps = resolution_dependencies(config_path=project / "weft.toml")
+        catalogue = full_catalogue(directory=project, reports=deps.reports)
+        return [
+            await _route(
+                catalogue[f"route-with-budget-{ceiling}"], ceiling, catalogue=catalogue, deps=deps
+            )
+            for ceiling in ceilings
+        ]
 
 
-async def _print_budget_routes() -> int:
-    import weft_retrieve
-
-    installed = Path(weft_retrieve.__file__).resolve()
-    if not installed.is_relative_to(Path(sys.prefix).resolve()):
-        print(f"weft_retrieve resolved from {installed}, not this environment", file=sys.stderr)
-        return 2
-    for route in await budget_routes(Path.cwd()):
+async def _print_budget_routes(ceilings: Sequence[int]) -> int:
+    for route in await budget_routes(ceilings):
         print(route.model_dump_json())
     return 0
 
@@ -391,6 +399,7 @@ async def claims_case(venv: Path, project: Path) -> CaseResult:
 
 async def budget_case(venv: Path, project: Path) -> CaseResult:
     """The shipped policy over the simulated profile, through the installed packs."""
+    await installed_package(venv, project)
     python = venv / "bin" / "python"
     completed = await _run([python, Path(__file__).resolve(), "--budget"], cwd=project)
     name = "budget (simulated profile)"
@@ -416,15 +425,23 @@ async def _ff38(venv: Path, project: Path, *, expect_failure: bool) -> CaseResul
     return CaseResult(name="FF38", problems=tuple(problems), output=output)
 
 
-async def installed_document(venv: Path, project: Path) -> Path:
-    """The pipeline document the scratch interpreter resolves, refused unless it is installed."""
+async def installed_package(venv: Path, project: Path) -> Path:
+    """Where the scratch interpreter resolves `weft_retrieve`, refused unless it is the install."""
     python = venv / "bin" / "python"
     completed = await _run(
         [python, "-c", "import weft_retrieve; print(weft_retrieve.__file__)"], cwd=project
     )
-    document = Path(completed.stdout.strip()).resolve().parent / "pipelines" / DRIFTED_DOCUMENT
-    if not document.is_relative_to(venv.resolve()) or not document.is_file():
-        raise SystemExit(f"the scratch interpreter resolves {document}, not the install's copy")
+    package = Path(completed.stdout.strip()).resolve().parent
+    if not package.is_relative_to(venv.resolve()):
+        raise SystemExit(f"the scratch interpreter resolves {package}, not the install's copy")
+    return package
+
+
+async def installed_document(venv: Path, project: Path) -> Path:
+    """The installed copy of the pipeline document the drift case edits."""
+    document = await installed_package(venv, project) / "pipelines" / DRIFTED_DOCUMENT
+    if not document.is_file():
+        raise SystemExit(f"the scratch install carries no {document}")
     return document
 
 
@@ -507,8 +524,14 @@ async def replay() -> int:
 
 
 def main(argv: Sequence[str]) -> int:
-    """The script's one bridge into async: the replay, or under `--budget` the policy's routes."""
-    return asyncio.run(_print_budget_routes() if list(argv) == ["--budget"] else replay())
+    """The script's one bridge into async: the replay, or under `--budget` the policy's routes.
+
+    `--budget [CEILING ...]` prints the route under each ceiling and asserts nothing, so a
+    participant reads the receipt themselves.
+    """
+    if argv[:1] == ["--budget"]:
+        return asyncio.run(_print_budget_routes(budget_ceilings(argv)))
+    return asyncio.run(replay())
 
 
 if __name__ == "__main__":
