@@ -299,3 +299,26 @@ jobs:
         run: uv run python scripts/check_golden_path.py
         env:
           WEFT_DATABASE_URL: postgresql://weft:weft@localhost:5433/weft
+
+  # Task 46.2. Builds the wheels, installs them into a clean virtualenv and replays the governance
+  # demo from outside the checkout: the global-synthesis table, four claims, the shipped evidence
+  # policy over a simulated profile, and a drift edit to the install's copy that FF38 must refuse.
+  governance-demo:
+    name: the governance demo, replayed from the built wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Sync
+        run: uv sync --frozen
+
+      - name: Replay the table, claims, budget and drift cases
+        run: uv run python scripts/check_governance_demo.py

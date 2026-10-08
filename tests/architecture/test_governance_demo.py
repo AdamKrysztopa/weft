@@ -1,16 +1,21 @@
-"""The governance demo's readings — task **46.1**.
+"""The governance demo exists, runs in CI, and reads what it must — tasks **46.1** and **46.2**.
 
 `scripts/check_governance_demo.py` replays three committed cases from the built wheels. Exit 0 alone
 proves nothing — a claims directory holding no claims still prints a table header — so each case is
-read for the facts it must carry, and these tests watch each reading refuse the near miss.
+read for the facts it must carry, and these tests watch each reading refuse the near miss. The
+script builds wheels and a virtualenv, so it cannot sit in the `ci-checks` composite; a check
+outside the composite is one that can ship and never run (fitness function 0), so this file, which
+is in it, pins the poe task and the CI job that run it.
 """
 
 from __future__ import annotations
 
 import ast
+import tomllib
+from typing import Any, cast
 
 import check_governance_demo
-from check_governance_demo import BudgetRoute
+from check_governance_demo import BudgetRoute, CaseResult
 
 from .conftest import REPO_ROOT
 
@@ -193,3 +198,35 @@ def test_the_script_imports_nothing_from_tests() -> None:
     # Assert
     assert modules
     assert not [module for module in modules if module.split(".")[0] == "tests"]
+
+
+def test_the_governance_demo_is_a_poe_task_and_a_ci_job() -> None:
+    # Arrange
+    with (REPO_ROOT / "pyproject.toml").open("rb") as handle:
+        tasks = cast("dict[str, Any]", tomllib.load(handle)["tool"]["poe"]["tasks"])
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    # Act
+    task = tasks.get("governance-demo")
+
+    # Assert
+    assert task is not None, "`pyproject.toml` declares no `governance-demo` task"
+    assert "scripts/check_governance_demo.py" in str(task)
+    assert "scripts/check_governance_demo.py" in workflow, "no CI job runs the governance demo"
+
+
+def test_the_check_can_actually_fail() -> None:
+    # Arrange — one case read clean, and the same case carrying the problem its reading found.
+    clean = check_governance_demo.claims_problems(_table(), stale=frozenset())
+    moved = check_governance_demo.claims_problems(
+        _table(graph="-0.070 (-0.101 to -0.039)"), stale=frozenset()
+    )
+
+    # Act
+    verdicts = (
+        CaseResult(name="claims", problems=tuple(clean), output="").passed,
+        CaseResult(name="claims", problems=tuple(moved), output="").passed,
+    )
+
+    # Assert
+    assert verdicts == (True, False)

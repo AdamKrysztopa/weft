@@ -50,9 +50,12 @@ _EXPECTED_PATH: Final[Path] = REPO_ROOT / "packages" / "weft-rag" / "src" / "wef
 
 
 #: Harnesses outside every package that bridge into the library as an application would, each
-#: named by the owner: the Phase 43e soak holds a store handle open across a publish (`01` item 7).
+#: named by the owner: the Phase 43e soak holds a store handle open across a publish (`01` item 7),
+#: and the Phase 46 governance demo runs the shipped routing policy from the installed wheels.
 #: Equality below keeps it live — a waived file that stops calling `asyncio.run` fails too.
-HARNESS_WAIVER: Final[frozenset[Path]] = frozenset({REPO_ROOT / "scripts" / "soak_layers.py"})
+HARNESS_WAIVER: Final[frozenset[Path]] = frozenset(
+    {REPO_ROOT / "scripts" / "soak_layers.py", REPO_ROOT / "scripts" / "check_governance_demo.py"}
+)
 
 
 def test_asyncio_run_appears_exactly_once_at_the_cli_entry_point() -> None:
