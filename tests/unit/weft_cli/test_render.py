@@ -16,8 +16,9 @@ Task **3.11** folds `weft route`'s own retired `RouteCommandResult`/`_render_rou
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Collection, Mapping
-from typing import cast
+from collections.abc import Callable, Collection, Iterable, Mapping
+from pathlib import Path
+from typing import ClassVar, cast
 
 import pytest
 
@@ -33,11 +34,16 @@ from weft_cli.commands import (
 )
 from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import ENVELOPE_VERSION
+from weft_cli.eval_baseline import EvalBaselineCommandResult
 from weft_cli.exit_codes import ExitCode
 from weft_cli.output import AskFormat
+from weft_cli.pack_new import PackNewCommandResult
 from weft_cli.reconcile import ReconcileEstimateOutcome, ReconcileOutcome
 from weft_cli.render import render_applies_to
-from weft_command.contract import CommandResult
+from weft_command.contract import Command, CommandResult
+from weft_command.permission import PermissionClass
+from weft_engine import registry_bootstrap
+from weft_eval.baseline import load_baseline_report
 from weft_eval.run_record import PerQuestionScores, ScoredQueryRung
 from weft_generate.payload import Answer, AnswerStance, Citation
 from weft_kernel.discovery import PackRegistrar, PackReport, PackStatus
@@ -48,10 +54,13 @@ from weft_kernel.registry import (
     DuplicateRegistrationError,
     Registry,
     UnknownPluginError,
+    unwrap_factory,
 )
 from weft_kernel.runner import RunSummary
 from weft_retrieve.payload import Query
 from weft_store import ReconcileEstimate, ReconcileMode, ReconcileReport
+
+_REPO = Path(__file__).resolve().parents[3]
 
 
 def test_render_index_counts_documents_and_says_that_is_what_it_counted() -> None:
@@ -2269,3 +2278,117 @@ def test_explain_prints_each_record_a_stage_left_on_what_it_packed() -> None:
     assert "records:\n  anchor-promote: branch: promoted, anchors 1, hits promoted 1" in (
         rendered.stdout
     )
+
+
+# --- Task 45.2 — no first-party command result reaches the structured dump in normal mode.
+
+#: First-party commands whose result may reach the structured dump in normal mode. Pinned empty:
+#: G13 keeps the dump as the floor for a third party's results, never for this tree's own.
+_UNRENDERED_FIRST_PARTY: frozenset[str] = frozenset()
+
+_FIRST_PARTY: frozenset[str] = frozenset({"weft-rag", "weft-kernel"})
+
+
+def _unrendered_first_party(registry: Registry, reports: Iterable[PackReport]) -> set[str]:
+    """Every first-party command whose `result_model` no reported renderer claims."""
+    offered = {offer.result_type for report in reports for offer in report.renderers}
+    unrendered: set[str] = set()
+    for name in registry.names_for(Command):
+        entry = registry.entry(Command, name)
+        if entry.distribution not in _FIRST_PARTY:
+            continue
+        result_model = cast(
+            "type[CommandResult] | None",
+            getattr(unwrap_factory(entry.factory), "result_model", None),
+        )
+        if result_model is None or not any(base in offered for base in result_model.__mro__):
+            unrendered.add(name)
+    return unrendered
+
+
+def test_every_first_party_command_result_has_a_renderer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    config = tmp_path / "weft.toml"
+    config.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("WEFT_DATABASE_URL", raising=False)
+    deps = registry_bootstrap.build_dependencies(config_path=config)
+    first_party = {
+        name
+        for name in deps.registry.names_for(Command)
+        if deps.registry.entry(Command, name).distribution in _FIRST_PARTY
+    }
+
+    # Act
+    unrendered = _unrendered_first_party(deps.registry, deps.reports)
+
+    # Assert
+    assert {"index", "eval claims check", "pack new", "eval baseline"} <= first_party
+    assert unrendered == _UNRENDERED_FIRST_PARTY
+
+
+class _PlantedResult(CommandResult):
+    note: str
+
+
+class _PlantedCommand:
+    result_model: ClassVar[type[CommandResult]] = _PlantedResult
+    permission_class: ClassVar[PermissionClass] = PermissionClass.READ
+    help: ClassVar[str] = "a command whose result nothing renders"
+
+
+def test_the_check_can_actually_fail() -> None:
+    # Arrange
+    registry = Registry()
+    registry.add(Command, "planted", _PlantedCommand, distribution="weft-rag")
+    registry.add(Command, "stranger", _PlantedCommand, distribution="acme-pack")
+
+    # Act
+    unrendered = _unrendered_first_party(registry, ())
+
+    # Assert
+    assert unrendered == {"planted"}
+
+
+def test_pack_new_prints_where_the_pack_went_its_files_and_the_install_step() -> None:
+    # Arrange
+    files = ("README.md", "pyproject.toml", "src/demo_pack/__init__.py", "tests/test_demo_pack.py")
+    result = PackNewCommandResult(path="/work/demo-pack", files=files)
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stdout is not None
+    lines = rendered.stdout.splitlines()
+    assert rendered.exit_code is ExitCode.SUCCESS
+    assert "pack: /work/demo-pack" in lines
+    assert all(f"  {file}" in lines for file in files)
+    assert "pip install -e /work/demo-pack" in rendered.stdout
+
+
+def test_eval_baseline_prints_where_the_report_went_and_every_metric_with_its_interval() -> None:
+    # Arrange
+    report = load_baseline_report(_REPO / "eval/baselines/8854c33f71ea-2026-09-21.json")
+    result = EvalBaselineCommandResult(path="baselines/mine.json", report=report)
+
+    # Act
+    rendered = render.render_outcome(Produced(value=result))
+
+    # Assert
+    assert rendered.stdout is not None
+    lines = rendered.stdout.splitlines()
+    assert rendered.exit_code is ExitCode.SUCCESS
+    assert "baseline: baselines/mine.json" in lines
+    corpus = next(line for line in lines if line.startswith("corpus: "))
+    assert f"corpus: {report.corpus_name}" in corpus
+    assert f"{len(report.documents)} documents" in corpus
+    assert f"{len(report.questions)} questions" in corpus
+    assert f"{report.repeats} repeats" in corpus
+    for metric in report.metrics:
+        row = next(line for line in lines if line.startswith(f"  {metric.metric}: "))
+        assert f"{metric.mean:.4f} [{metric.low:.4f}, {metric.high:.4f}]" in row
+        assert f"n {metric.n_scored}" in row
+        assert f"excluded {metric.n_excluded}" in row

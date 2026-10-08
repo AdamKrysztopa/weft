@@ -87,6 +87,7 @@ from weft_cli.commands import (
 from weft_cli.config_commands import ConfigGetCommandResult, ConfigSetCommandResult
 from weft_cli.deletion import ParticipantOutcome
 from weft_cli.error_envelope import build_error_envelope
+from weft_cli.eval_baseline import EvalBaselineCommandResult
 from weft_cli.eval_claims import EvalClaimsCheckResult
 from weft_cli.eval_commands import (
     BaselineSelection,
@@ -104,6 +105,7 @@ from weft_cli.eval_table import EvalTableCommandResult
 from weft_cli.exit_codes import exit_code_for
 from weft_cli.ingest import SourceChange
 from weft_cli.output import AskFormat
+from weft_cli.pack_new import PackNewCommandResult
 from weft_cli.pipeline_commands import (
     PipelineDeriveCommandResult,
     PipelineDiffCommandResult,
@@ -2028,6 +2030,35 @@ def _render_eval_claims(result: EvalClaimsCheckResult) -> Rendered:
     return Rendered(stdout=result.markdown.rstrip("\n"), stderr=None, exit_code=ExitCode.SUCCESS)
 
 
+def _render_pack_new(result: PackNewCommandResult) -> Rendered:
+    """`weft pack new` — task **45.2**."""
+    lines = [f"pack: {result.path}", *(f"  {file}" for file in result.files)]
+    lines.append(f"next: pip install -e {result.path}, then weft plugins doctor")
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
+def _render_eval_baseline(result: EvalBaselineCommandResult) -> Rendered:
+    """`weft eval baseline` — task **45.2**."""
+    report = result.report
+    lines = [
+        f"baseline: {result.path}",
+        f"corpus: {report.corpus_name} (tiers {', '.join(report.tiers)}), "
+        f"{len(report.documents)} documents, {len(report.questions)} questions, "
+        f"{report.repeats} repeats, {report.wall_clock_seconds:.1f}s",
+        *(
+            f"  {m.metric}: {m.mean:.4f} [{m.low:.4f}, {m.high:.4f}], "
+            f"n {m.n_scored}, excluded {m.n_excluded}"
+            for m in report.metrics
+        ),
+    ]
+    if report.excluded:
+        lines.append(
+            f"excluded: {len(report.excluded)} measurement(s) produced no value; "
+            f"the reasons are in {result.path}"
+        )
+    return Rendered(stdout="\n".join(lines), stderr=None, exit_code=ExitCode.SUCCESS)
+
+
 def _render_eval_replay(result: EvalReplayCommandResult) -> Rendered:
     """`weft eval replay` — task **44.6a**.
 
@@ -2270,6 +2301,14 @@ def _dispatch_eval_claims(result: object) -> Rendered:
     return _render_eval_claims(cast(EvalClaimsCheckResult, result))
 
 
+def _dispatch_pack_new(result: object) -> Rendered:
+    return _render_pack_new(cast(PackNewCommandResult, result))
+
+
+def _dispatch_eval_baseline(result: object) -> Rendered:
+    return _render_eval_baseline(cast(EvalBaselineCommandResult, result))
+
+
 def _dispatch_eval_replay(result: object) -> Rendered:
     return _render_eval_replay(cast(EvalReplayCommandResult, result))
 
@@ -2330,6 +2369,8 @@ def register_renderers(registrar: PackRegistrar) -> None:
     registrar.add_renderer(EvalPlanCommandResult, _dispatch_eval_plan)
     registrar.add_renderer(EvalTableCommandResult, _dispatch_eval_table)
     registrar.add_renderer(EvalClaimsCheckResult, _dispatch_eval_claims)
+    registrar.add_renderer(PackNewCommandResult, _dispatch_pack_new)
+    registrar.add_renderer(EvalBaselineCommandResult, _dispatch_eval_baseline)
     registrar.add_renderer(EvalReplayCommandResult, _dispatch_eval_replay)
     registrar.add_renderer(RouteExplainCommandResult, _dispatch_route_explain)
     registrar.add_renderer(EvalPairwiseCommandResult, _dispatch_eval_pairwise)
