@@ -34,6 +34,45 @@ ships inside `weft-rag` now, and all four are **yanked** as of this release (see
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-10-08
+
+`weft-kernel` is republished as 0.3.2 with no change, because the release set publishes both
+distributions and 0.3.1 is already on the index.
+
+### Added
+
+- **`registry_bootstrap.resolution_dependencies()`** builds the registry the claims commands
+  resolve against: the packs `[packs] allow` permits, with `[plugins]` pins, and no pack settings
+  or environment, so a claim reads the same on every machine with the same install.
+
+### Changed
+
+- **The claims commands print for a person.** `weft eval claims check` and `render` print their
+  Markdown table and `pin` prints `pinned <claim> to <digest>`, where all three printed a JSON
+  object. `--json` still prints one object carrying `markdown`; a mismatch still exits 1 and a
+  stale claim still warns at exit 0.
+- **`weft pack new` and `weft eval baseline` print prose**: the pack's path, its files and the
+  install step; the report's path, its corpus and every metric with the interval its repetitions
+  spanned. Every first-party command now has a renderer, and a test fails on one that does not.
+- **Claims resolve without a database.** `weft eval claims check` no longer needs
+  `WEFT_DATABASE_URL`: with it unset, claims resting on an index pipeline used to read *possibly
+  stale* because the store could not register. Its output is now byte-identical with and without.
+- **A claim that cannot be resolved carries its whole cause**, not the first line of it, and an
+  install hint names only the extra that provides the missing plugin: `weft-rag[pdf]` for
+  `pdf-text`, never six extras at once, and none for `pgvector`, whose cause is the store's
+  settings. The refusal no longer says *"No installed distribution is missing"* when extras are.
+- **A missing experiment document is named by its absolute path.**
+- `manual/evidence.md` says what `weft eval claims check` needs (a checkout, and the `pdf`,
+  `openai` and `cross-encoder` extras); the evidence pages say a router recomputes nothing when it
+  loads, that `max_prompt_tokens` bounds a rule's declared prompt cost and not deployment spend,
+  and which experiment each cost ratio comes from.
+- **The README and quickstart run from an empty directory** (`uv init --bare` before `uv add`),
+  and every repair message names a published install: the OTLP fallback named `weft-otel[otlp]`
+  and `bertscore` named `weft-eval`'s extra.
+- **The Fast Track evidence says what its records hold**: the first *batch* searchable and the
+  first answer *citing the expected paper*, not judged correct; the claim that a last-batch
+  question is answered once its batch lands is withdrawn.
+
 ## [3.2.0] - 2026-10-07
 
 ### Added
