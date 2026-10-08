@@ -870,8 +870,9 @@ def test_resolution_dependencies_are_the_same_with_and_without_a_database_url(
 def test_resolution_dependencies_honour_the_projects_allow_list(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Arrange — `[packs] allow` decides which code runs, so a claim check obeys it too.
-    (tmp_path / "weft.toml").write_text('[packs]\nallow = ["weft-rag"]\n', encoding="utf-8")
+    # Arrange — `[packs] allow` decides which code runs, so a claim check obeys it too. An empty
+    # allow-list refuses every pack, whatever this environment has installed.
+    (tmp_path / "weft.toml").write_text("[packs]\nallow = []\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("WEFT_DATABASE_URL", raising=False)
 
@@ -879,9 +880,9 @@ def test_resolution_dependencies_honour_the_projects_allow_list(
     deps = registry_bootstrap.resolution_dependencies()
 
     # Assert
-    canary = {report.status for report in deps.reports if report.distribution == "weft-canary"}
-    assert canary == {PackStatus.REFUSED}
-    assert "pgvector" in deps.registry.names_for(NodeStore)
+    assert deps.reports
+    assert {report.status for report in deps.reports} == {PackStatus.REFUSED}
+    assert "pgvector" not in deps.registry.names_for(NodeStore)
 
 
 def test_resolution_dependencies_ignore_the_projects_pack_settings(

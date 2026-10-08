@@ -31,7 +31,9 @@ def registered_behind_extras() -> dict[str, str]:
             continue
         registry = Registry()
         (report,) = discover(registry, entry_points=[cast("EntryPointLike", entry_point)])
-        assert report.status is PackStatus.ACTIVE, (
+        # PARTIAL is a pack that registered and declared a surface unavailable, as `docling` does
+        # where its model weights are absent (CI); its names are still in the registry.
+        assert report.status in {PackStatus.ACTIVE, PackStatus.PARTIAL}, (
             f"'{entry_point.name}' did not register here ({report.status.value}: {report.reason}); "
             "this check needs every extra installed, as `uv sync` installs them"
         )
