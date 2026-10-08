@@ -11,6 +11,7 @@ is in it, pins the poe task and the CI job that run it.
 from __future__ import annotations
 
 import ast
+import pathlib
 import tomllib
 from typing import Any, cast
 
@@ -253,3 +254,19 @@ def test_a_ceiling_that_is_not_a_token_count_is_refused_by_name() -> None:
 
     # Assert
     assert "'lots' is not a prompt-token ceiling" in message
+
+
+async def test_a_checkout_reading_outside_git_is_refused_not_read_as_unchanged(
+    tmp_path: pathlib.Path,
+) -> None:
+    # Act — two readings of a directory git cannot read would otherwise compare equal.
+    try:
+        await check_governance_demo.checkout_state(tmp_path)
+    except SystemExit as refused:
+        message = str(refused)
+    else:
+        message = ""
+
+    # Assert
+    assert "git status" in message
+    assert "exited" in message

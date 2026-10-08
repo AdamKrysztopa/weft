@@ -9,7 +9,9 @@ and fails the repository gate. Each case is replayed from committed material by 
 - **claims** — `weft eval claims check` over four claims reads each verdict at its interval;
 - **budget** — the shipped `route-by-evidence`, given ceilings the way its own comments say to (a
   derived document), routes a *simulated* corpus profile: the policy is real, the profile is not
-  an index, and a ceiling bounds the rule's declared prompt cost, nothing else;
+  an index, a ceiling bounds the rule's declared prompt cost and nothing else, and every rung is
+  offered — a real run leaves `whole-corpus-wide-then-generate` out when `generate` is unmapped or
+  its provider cannot count tokens (`weft_retrieve.engine.route_catalogue`);
 - **drift** — the install's copy of `whole-corpus-wide-then-generate` edited 260000 → 250000 makes
   both whole-corpus claims definitely-stale; `claims check` still exits 0, because staleness warns,
   and fitness function 38 fails by name; restored, both read clean.
@@ -477,11 +479,25 @@ async def drift_case(venv: Path, project: Path) -> CaseResult:
     )
 
 
-async def checkout_state() -> str:
-    """The checkout's status and a digest of its diff, so two readings compare as one string."""
-    status = await _run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=REPO_ROOT)
-    diff = await _run(["git", "diff", "HEAD", "--binary"], cwd=REPO_ROOT)
-    return status.stdout + hashlib.sha256(diff.stdout.encode()).hexdigest()
+async def checkout_state(root: Path = REPO_ROOT) -> str:
+    """The checkout's status and a digest of its diff, so two readings compare as one string.
+
+    Refused where git cannot read `root`: two empty readings would otherwise compare as unchanged.
+    """
+    readings: list[str] = []
+    for argv in (
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        ["git", "diff", "HEAD", "--binary"],
+    ):
+        completed = await _run(argv, cwd=root)
+        if completed.returncode != 0:
+            command = " ".join(argv)
+            raise SystemExit(
+                f"{command} exited {completed.returncode} in {root}:\n{completed.stderr}"
+            )
+        readings.append(completed.stdout)
+    status, diff = readings
+    return status + hashlib.sha256(diff.encode()).hexdigest()
 
 
 def write_project(project: Path) -> None:
