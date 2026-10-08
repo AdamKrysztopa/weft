@@ -161,8 +161,10 @@ usually needs something smaller.
 
 **Before writing a new file, read which `tests/architecture/` checks walk its directory.** A file
 under `scripts/`, `eval/` or `examples/` meets whole-tree checks no task line mentions, and finding
-out afterwards costs a rewrite; each check's docstring says which roots it walks (`L12.17`). The
-account is in `references/evidence.md` → *Orient*.
+out afterwards costs a rewrite; each check's docstring says which roots it walks (`L12.17`). A
+grep for the directory finds only the checks that name it: those walking every tracked `.py` (FF36,
+the pinned-facts check) reach it too, so a new file runs `uv run pytest tests/architecture` once,
+whatever the per-task gate (`L28.118`). The account is in `references/evidence.md` → *Orient*.
 
 ## Red — you write the test
 
