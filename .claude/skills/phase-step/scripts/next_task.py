@@ -190,7 +190,8 @@ def _split_fields(text: str) -> dict[str, str]:
     for chunk in text.split(SEPARATOR)[1:]:
         chunk = chunk.strip()
         for key in ("owner", "turns on", "sha"):
-            if chunk.lower().startswith(key):
+            # A whole word, so a note opening "shape …" is not read as the sha field (L28.113).
+            if re.match(rf"{key}(?:\s|$)", chunk, re.IGNORECASE) and key not in out:
                 out[key] = chunk[len(key) :].strip()
                 break
     return out
@@ -1123,6 +1124,10 @@ def self_test() -> int:
     failures = _fixture_failures(tasks, phases, first_unticked, ids)
     failures += _live_check_failures(tasks, phases, first_unticked)
     failures += _worktree_clause_failures()
+
+    noted = _split_fields("**9.9** x · owner `a` · sha `1234567` · shape settled first: sha —")
+    if noted.get("sha") != "`1234567`":
+        failures.append(f"a note after the sha field replaced it: read {noted.get('sha')!r}")
 
     # 9.2 has 9.3 unticked behind it; 9.3 is the phase's last. Both directions, so neither a
     # hardwired True nor a hardwired False would pass.

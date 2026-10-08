@@ -263,7 +263,9 @@ facts about a file or the index, and the script says so rather than pretending t
    gates* owns why each of those four is named separately. The gate includes the README's release
    sentence: after a version bump, `uv run python scripts/generate_readme_release.py` rewrites it
    from both `pyproject.toml`s, and `tests/docs/test_readme_release_line.py` fails until it has
-   (repair `R20.7`: the README named `weft-rag 2.7.0` at `3.1.0`).
+   (repair `R20.7`: the README named `weft-rag 2.7.0` at `3.1.0`). `manual/evidence.md` §3's
+   claims block prints the running version in every unpinned row, so the same bump regenerates it
+   with `weft eval claims render` (`L28.108`).
 6. **The working tree is committed.** A tag points at a commit; anything uncommitted is not in the
    release, and the wheel is built from the tag rather than from the desk.
 7. **The binary has been run from outside this repository**, through its shipped entry point,

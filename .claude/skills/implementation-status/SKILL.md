@@ -13,6 +13,10 @@ This is the deliberate exception to the standing instruction not to produce stat
 instruction exists to stop *unrequested* progress reports padding an answer about something else.
 Here the report **is** what was asked for, so it is given in the densest form there is: a table.
 
+**Invoked while a turn is mid-flight, the table ends that turn** (`L28.104`): print it as the last
+message, built from `phase_tasks.py`, and let background jobs resume the work on their own
+notifications. A table printed between two tool calls scrolls away unread.
+
 Every row is derived from the repository, now, in this invocation. Not from memory of an earlier
 turn, not from a phase document's plan, not from what the last commit message said. `docs/` is a
 living plan that changes several times a day, and a status table quoted from memory is confidently

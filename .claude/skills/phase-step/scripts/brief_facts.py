@@ -284,12 +284,30 @@ def _print_groups(groups: dict[tuple[str, str], int]) -> None:
         )
 
 
+def _drift(owner: Path, text: str) -> str:
+    """Where a citation's quoted fragment sits today: the slack an edit above it has (L28.112)."""
+    try:
+        lines = owner.read_text(encoding="utf-8").split("\n")
+    except OSError:
+        return ""
+    for match in _CITATION.finditer(text):
+        fragment = (match.group(3) or match.group(4) or "").replace('"', "")
+        if not fragment or not ("/" + str(owner)).endswith("/" + match.group(1).lstrip("./")):
+            continue
+        at = int(match.group(2))
+        hits = [n for n, body in enumerate(lines, start=1) if fragment in body.replace('"', "")]
+        if hits:
+            now = min(hits, key=lambda n: abs(n - at))
+            return f"  [fragment now at :{now}, off {now - at:+d}]"
+    return ""
+
+
 def _print_citations(owners: list[str]) -> None:
     for owner, lines in citations(owners).items():
         print()
         print(f"Citations into {owner}: {len(lines)}")
         for line in lines:
-            print("- " + line[:160])
+            print("- " + line[:160] + _drift(Path(owner), line))
     if owners and any(citations(owners).values()):
         print()
         print("Say in the brief who re-points each citation the change moves (L23.15).")

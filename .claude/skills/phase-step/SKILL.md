@@ -100,7 +100,9 @@ for once; the accounts are in `references/evidence.md` → *Claims about the tre
   structurally rather than textually.
 - A measured number is quoted with the invocation that produced it, flags included, and names the
   input it was measured on, format and corpus; before a number or a proposed stage enters a task
-  line, re-read the cited line and the code path it assumes (`L28.26`, `L28.32`).
+  line, re-read the cited line and the code path it assumes (`L28.26`, `L28.32`). A metric's label
+  names the predicate its analyser computes, and a claim whose recorded field is null is withdrawn,
+  never paraphrased (`L28.111`).
 - A fix-plan, a review, a decision brief and an amendment are unexecuted text. Treat a plan's
   *recommended* option as the clause most worth attacking (`L17.16`). A clause prescribing what
   code must do is read against the function it would change (`L23.19`); a clause quoting a vendor
@@ -239,6 +241,11 @@ paid for once; the accounts are in `references/evidence.md` → *Red*.
   fails without it (`L28.81`).
 - A check looping over a committed population is parametrised per member when it is written, so
   its timeout does not grow with the population (`L28.84`, recurring `L26.6`).
+- A test whose subject is what is installed builds that population itself or asserts only what
+  holds in every CI job the suite runs in; a pack the development venv happens to have (a canary, a
+  model-weights extra) is not a fact about the tree (`L28.115`).
+- A red that flips an existing assertion to its negation names, in the test, the population that
+  loses the behaviour, because that sentence is the regression's own description (`L28.114`).
 - A copied-and-extended fixture is constructed once, standing alone, before an assertion is
   written around it, and a double already carrying the field you add is grepped for first
   (`L18.3`). When a change starts writing a type down that nothing wrote down before, the test
@@ -455,7 +462,9 @@ A task is not done until all of these are true. Accounts in `references/evidence
    all four of Phase 3's repairs were found this way and none by its 1,513 tests. Make each of these
    execute, each named by a defect it cost:
    - the remedy the failure path prints — a remedy the system refuses is a second defect
-     (`L23.25`);
+     (`L23.25`), and it is followed until the user is unstuck, not one command deep; a walk that
+     checks a configuration change uses a value that differs from the default in that dimension
+     (`L28.105`);
    - a new check, through the input it will really be handed (`L23.12`);
    - the default, flagless invocation (`L9.64`); the platform this runs on (`L9.82`); the path where
      a plugin constructs its own dependency for real (`L9.87`); the neighbours of a case some
@@ -480,7 +489,9 @@ A task is not done until all of these are true. Accounts in `references/evidence
    stale build (`L11.37`). Point the run at a database the suite cannot touch
    (`CREATE DATABASE <name>`), and stop services the change should not need, then run again
    (`L11.21`). A page whose job is a transcript is run whole, against the artefact it names; a block
-   you did not run is marked as a shape (`L22.10`).
+   you did not run is marked as a shape (`L22.10`). An install block starts from `mkdir` with no
+   venv, the state the page promises; "outside the repository" with an existing venv is weaker and
+   does not count (`L28.109`).
 
 8. **The ledger box is ticked with its commit sha**, `docs/internal/README.md`'s Status block still reads
    true, and any document whose content the work changed is edited **in the same commit**. The plan
