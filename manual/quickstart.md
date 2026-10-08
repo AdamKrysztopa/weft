@@ -12,13 +12,23 @@ trade this page makes to run offline in five minutes. `manual/operations-guide.m
 the results start meaning something.
 
 **What you need:** Python 3.12+, [`uv`](https://docs.astral.sh/uv/), and Docker (for the one
-container Weft's store needs — Postgres with the `pgvector` extension).
+container Weft's store needs — Postgres with the `pgvector` extension). Nothing on this page needs
+an account; §6 is the first step that needs a model, and it is served by a server you run.
+
+Start in an empty directory; every command below runs from it.
 
 ## 1. Install
 
 ```bash id=install
+uv init --bare --python 3.12
 uv add weft-rag
+source .venv/bin/activate
 ```
+
+`uv init` makes the directory a project for `uv add` to add to; skip it where a `pyproject.toml`
+already exists, and `--python 3.12` records the floor `weft-rag` declares. Activating the
+environment puts `weft` on your `PATH` for this shell (`.venv\Scripts\activate` on Windows);
+without it, prefix each `weft` below with `uv run`.
 
 `weft-rag` is the default install: twenty-three packs and the CLI in one wheel — the extractor, the
 chunker, the embedder and the pgvector store among them — so this is the only install command;
@@ -40,11 +50,20 @@ the one block it does not run and nothing read the prose beside it — `R17.15`,
 
 ## 2. Point it at a database
 
-Bring up Postgres with `pgvector` — this project ships a `compose.yaml` at the repository root for
-exactly that: run `docker compose up -d` from there — and tell Weft where it is:
+Bring up Postgres with `pgvector`. This project's `compose.yaml` runs `pgvector/pgvector:pg16` on
+port 5433, with user, password and database all `weft`; its other services sit behind profiles and
+stay off. You do not need a clone for it — fetch the one file into this directory:
+
+```bash id=database
+curl -fsSLO https://raw.githubusercontent.com/AdamKrysztopa/weft/main/compose.yaml
+docker compose up -d --wait
+```
 
 > [`manual/operations-guide.md`](operations-guide.md) covers bringing the container up, wiring
 > `weft.toml`, `doctor`'s statuses and the exit codes in full; this page stays to the one path.
+
+Then tell Weft where it is. For a Postgres of your own, put its URL here instead; the `vector`
+extension must be available on it:
 
 ```bash id=env
 export WEFT_DATABASE_URL="postgresql://weft:weft@localhost:5433/weft"

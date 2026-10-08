@@ -52,18 +52,19 @@ README: Final[Path] = REPO_ROOT / "README.md"
 
 _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:5433/weft")
 
-#: `08` §3's ratchet, one entry, for the reason `test_quickstart.py`'s own carries one:
+#: `08` §3's ratchet, for the reason `test_quickstart.py`'s own carries its entries:
 #: installing resolves against a package index and this gate makes no network call.
 #:
 #: *(Corrected 2026-09-12 with its sibling. Both comments justified the waiver on nothing being
 #: published, which stopped being true at `26.2`; the waiver is still right and its stated
 #: reason was not. `R17.14`, `L17.10`.)*
-BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset({"install"})
+#: `database` joined it at `R20.14`: it downloads `compose.yaml` and starts a container.
+BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset({"install", "database"})
 
 #: The newcomer path's blocks, in the order a reader meets them. Named rather than discovered:
 #: a page that stopped carrying one of these would otherwise pass by having fewer blocks to run,
 #: which is the vacuous shape this file's own floor test refuses.
-REQUIRED_BLOCKS: Final[tuple[str, ...]] = ("install", "env", "files", "index", "ask")
+REQUIRED_BLOCKS: Final[tuple[str, ...]] = ("install", "database", "env", "files", "index", "ask")
 
 _FENCE: Final[re.Pattern[str]] = re.compile(
     r"^```bash(?:\s+id=(?P<id>\S+))?\n(?P<body>.*?)^```\s*$", re.MULTILINE | re.DOTALL
@@ -122,6 +123,32 @@ def test_the_readme_carries_the_whole_newcomer_path() -> None:
         f"`README.md` has no {missing} block. `09` §5.2: a newcomer installs, indexes and asks "
         f"from the README alone — a page that sends them to `docs/` or to another document for "
         f"any of those steps has not done it."
+    )
+
+
+def test_the_install_block_starts_from_an_empty_directory() -> None:
+    """`R20.14`: `uv add weft-rag` alone exits 2 in an empty directory, with no `pyproject.toml`.
+
+    Measured from PyPI on 2026-10-08. After `uv init` and `uv add`, `weft` was still not on `PATH`.
+    The block is waived from execution, so its order is what this reads. Whether `uv init` still
+    behaves this way is not something a pattern can see.
+    """
+    # Arrange
+    install = dict(_bash_blocks(README.read_text(encoding="utf-8")))["install"]
+    lines = [line.strip() for line in install.splitlines() if line.strip()]
+
+    # Act
+    init = next((i for i, line in enumerate(lines) if line.startswith("uv init")), None)
+    add = next((i for i, line in enumerate(lines) if line.startswith("uv add weft-rag")), None)
+    activate = next((i for i, line in enumerate(lines) if "/bin/activate" in line), None)
+
+    # Assert
+    assert add is not None, f"the install block installs nothing:\n{install}"
+    assert init is not None and init < add, (
+        f"the install block runs `uv add` with no `uv init` before it:\n{install}"
+    )
+    assert activate is not None and activate > add, (
+        f"nothing in the install block puts `weft` on PATH after installing it:\n{install}"
     )
 
 

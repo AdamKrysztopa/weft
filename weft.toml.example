@@ -572,8 +572,9 @@ dsn = "${env:WEFT_DATABASE_URL}"
 
 # [packs.otel]
 # Where spans go. `exporter = "none"` (the default) records nothing beyond the process;
-# "console" prints them; "otlp" sends them to `endpoint`, and without an endpoint or the
-# `weft-rag[otel]` extra it falls back to "console", loudly, rather than failing a run.
+# "console" prints them; "otlp" sends them to `endpoint`, and needs both the `weft-rag[otel]`
+# extra and `opentelemetry-exporter-otlp-proto-http`, which no extra installs. Without either,
+# or without an endpoint, it falls back to "console", loudly, rather than failing a run.
 # `service_name` is the
 # `service.name` every span carries, worth setting even for the console exporter so two
 # projects' spans stay distinguishable. `api_key` is sent as the literal `Authorization`

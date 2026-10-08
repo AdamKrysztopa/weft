@@ -2448,7 +2448,7 @@ installed in the environment you asked from:
 ```text
 ReferenceFormatterUnavailableError: the contract reference is formatted with `ruff` and it could
 not be run (Command '[...]' returned non-zero exit status 1.). `ruff` is an optional dependency of
-weft-cli because nothing on the index-and-ask path needs it: install `weft-cli[reference]` to
+weft-cli because nothing on the index-and-ask path needs it: install `weft-rag[reference]` to
 generate the reference.
 ```
 
@@ -3876,7 +3876,7 @@ Not a name-resolution failure — the name was valid, and there is no alternativ
 this maps to `OPERATION_FAILED` (exit `1`), the identical footing `EmptyCorpusError`/
 `IncomparableRunsError` already have, never exit `4`. `bertscore` answers the identical way for a
 different reason: "needs the optional 'bert_score' package and a downloaded BERT checkpoint on
-first use — install weft-eval's 'bertscore' extra to run this metric outside the gate." **What to
+first use — install 'weft-rag[bertscore]' to run this metric outside the gate." **What to
 do:** the message already names what would permit it — configure a real provider for an LLM
 judge, or install the named extra for `bertscore`. This is by design, not a bug: the whole point
 of `runs_in_gate` is that these metrics never quietly score something meaningless in `poe

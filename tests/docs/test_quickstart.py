@@ -58,7 +58,11 @@ _DSN = os.environ.get("WEFT_DATABASE_URL", "postgresql://weft:weft@localhost:543
 #: exactly the reason above. It was written **because the binary refused** — the harness runs in a
 #: workspace where `openai` is already installed and could never have seen it; a clean venv with
 #: `weft-rag` alone exits `4` naming `hash` as the only registered Embedder.)*
-BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset({"install", "local-install"})
+#: *(A third from `R20.14`: `database` downloads `compose.yaml` and starts a container, and this
+#: gate neither reaches the network nor starts the container it already requires.)*
+BLOCKS_WAIVED_FROM_EXECUTION: Final[frozenset[str]] = frozenset(
+    {"install", "local-install", "database"}
+)
 
 #: The environment variable that names a local OpenAI-compatible embeddings server — ledger task
 #: **28.6**, **G21** position 1. Named `WEFT_LIVE_*` on `WEFT_LIVE_API_TESTS`'s own footing: it is

@@ -67,13 +67,13 @@ from *Try it*, with the configuration under *A real answer, with citations*.
 
 ## Try it
 
-Weft indexes a directory of documents and answers questions about them. Four commands, and the
-whole thing runs offline, because the default embedder needs no account.
+Weft indexes a directory of documents and answers questions about them. The path below starts in
+an empty directory and needs no account and no model, because the default embedder needs neither.
 
 **Read that last clause carefully: the default is a smoke test, not a search engine.** `hash`
 derives each vector from a SHA-256 digest of the chunk's text, so it is deterministic and free
 and carries *no meaning at all* — two passages about the same subject are no closer together
-than two about different ones. What the four commands below prove is that the pipeline runs end
+than two about different ones. What the commands below prove is that the pipeline runs end
 to end on your machine: extract, chunk, embed and store, then a lexical search over the words
 themselves, which needs no embedder. `weft ask` will not rank by `hash` vectors unless
 `weft.toml` chose `hash`: asked to, it refuses and names the ways on, because an arbitrary ranking
@@ -84,9 +84,20 @@ TechQA, a local `BAAI/bge-m3` trails OpenAI's `text-embedding-3-large` by 0.085 
 (`eval/claims/index-openai-large.techqa.mrr-at-5.toml`); `manual/operations-guide.md` has the
 other two corpora and the trade-off.
 
+**What you need:** Python 3.12 or newer, [`uv`](https://docs.astral.sh/uv/), and Postgres with
+the `pgvector` extension — Docker brings one up below. Nothing else for the offline path. The
+cited answer under *A real answer, with citations* also needs an OpenAI API key, and each of its
+calls is metered.
+
 ```bash id=install
+uv init --bare --python 3.12
 uv add weft-rag
+source .venv/bin/activate
 ```
+
+`uv init` makes the directory a project for `uv add` to add to; skip it where a `pyproject.toml`
+already exists. Activating the environment puts `weft` on your `PATH` for this shell
+(`.venv\Scripts\activate` on Windows); without it, prefix each `weft` below with `uv run`.
 
 `weft-rag` is the release set: one exactly-tested combination of the kernel, the CLI and every
 first-party pack a working install needs — the extractor, the chunker, the embedder and the
@@ -97,8 +108,17 @@ distribution's own.
 > That resolves against PyPI. To install an unreleased checkout instead — testing a change before
 > its own release, say — use `uv pip install -e packages/weft-rag`; everything below is unchanged.
 
-You need Postgres with pgvector. `compose.yaml` in this repository brings one up with
-`docker compose up -d`, or point Weft at your own:
+Then the database. This repository's `compose.yaml` runs `pgvector/pgvector:pg16` on port 5433,
+with user, password and database all `weft`; its other services sit behind profiles and stay off.
+Fetch it into the same directory and start it:
+
+```bash id=database
+curl -fsSLO https://raw.githubusercontent.com/AdamKrysztopa/weft/main/compose.yaml
+docker compose up -d --wait
+```
+
+Tell Weft where it is. For a Postgres of your own, put its URL here instead; the `vector`
+extension must be available on it:
 
 ```bash id=env
 export WEFT_DATABASE_URL="postgresql://weft:weft@localhost:5433/weft"

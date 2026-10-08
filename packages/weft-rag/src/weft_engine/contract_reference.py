@@ -304,7 +304,7 @@ class ReferenceFormatterUnavailableError(WeftError):
     The formatter is an **extra** (`weft-rag[reference]`), not a base dependency: a user who
     indexes and asks never reaches this module, and shipping a formatter to all of them to
     serve a document generator would be the wrong trade — the shape `weft-rag[bertscore]`
-    and `weft-otel[otlp]` already have. Before task 6.7 it was declared nowhere at all and
+    already has. Before task 6.7 it was declared nowhere at all and
     worked only because the *workspace root's* dev group carries `ruff`, which is invisible
     to an import probe: `import weft_cli` never reaches a subprocess call, so task 6.6's
     install-alone-and-import check was green on a module that could not run

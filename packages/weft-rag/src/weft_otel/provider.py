@@ -6,7 +6,7 @@ without ever touching `opentelemetry.trace`'s real, process-global, set-once pro
 `docs/02-extension-model.md` §1 -> *Capability is derived, never declared* states the rule
 this module applies to an exporter instead of a plugin: "a pack probing its optional
 dependencies and registering only what works." **Declaration and verification are one act**
-here means `build_tracer_provider` does not merely check that `weft-otel[otlp]` is
+here means `build_tracer_provider` does not merely check that the OTLP exporter is
 `pip`-installed; it checks that there is an `endpoint` to send to, because an OTLP exporter
 built with no endpoint is not a working exporter, it is a `TypeError` waiting for the first
 span. Neither check reaches the network — this function stays as fast and side-effect-free
@@ -30,8 +30,9 @@ from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProces
 
 from weft_otel.settings import OtelExporter, OtelSettings
 
-#: The optional `weft-otel[otlp]` extra's own module path — named once so `otlp_exporter`
-#: and its docstring cannot drift from each other or from `pyproject.toml`'s own extra name.
+#: No extra installs it: `weft-rag[otel]` carries only the SDK, so the fallback names this
+#: distribution beside the extra.
+OTLP_DISTRIBUTION = "opentelemetry-exporter-otlp-proto-http"
 _OTLP_MODULE = "opentelemetry.exporter.otlp.proto.http.trace_exporter"
 
 
@@ -76,8 +77,8 @@ def otlp_exporter(settings: OtelSettings) -> SpanExporter | None:
     """The OTLP exporter, or `None` when it cannot run yet — never raises.
 
     Two independent reasons return `None`, and both are ordinary, not exceptional: the
-    optional `weft-otel[otlp]` extra is not installed (`ImportError`), or `endpoint` was
-    never set. Checked in this order so an operator who installed the extra but forgot the
+    optional `OTLP_DISTRIBUTION` is not installed (`ImportError`), or `endpoint` was
+    never set. Checked in this order so an operator who installed it but forgot the
     endpoint gets the identical, unsurprising fallback as one who never installed it at all —
     there is exactly one fallback behaviour, not two.
 

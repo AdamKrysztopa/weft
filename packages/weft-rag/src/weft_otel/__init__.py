@@ -40,7 +40,7 @@ import sys
 from opentelemetry import trace
 
 from weft_kernel.discovery import Disclosure, PackRegistrar
-from weft_otel.provider import build_tracer_provider
+from weft_otel.provider import OTLP_DISTRIBUTION, build_tracer_provider
 from weft_otel.settings import OtelExporter, OtelSettings
 
 #: The one name a `weft.toml` `[packs]` block or a doctor report ever needs for this pack —
@@ -92,8 +92,9 @@ def register(registrar: PackRegistrar, settings: OtelSettings) -> None:
     provider, actual = build_tracer_provider(settings)
     if actual is not settings.exporter:
         print(
-            f"weft-otel: exporter '{settings.exporter.value}' requested but not usable "
-            f"(install the 'weft-otel[otlp]' extra and set [packs.otel] endpoint) — "
+            f"otel: exporter '{settings.exporter.value}' requested but not usable "
+            f"(install 'weft-rag[otel]' and '{OTLP_DISTRIBUTION}', and set [packs.otel] "
+            f"endpoint) — "
             f"falling back to '{actual.value}'. See `weft plugins doctor`.",
             file=sys.stderr,
         )

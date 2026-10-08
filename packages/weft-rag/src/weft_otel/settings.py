@@ -57,8 +57,8 @@ class OtelExporter(StrEnum):
     #: `[packs.otel] exporter = "console"`.
     CONSOLE = "console"
     #: `opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter`, from the
-    #: optional `weft-otel[otlp]` extra. Falls back to `CONSOLE`, loudly, when the extra is
-    #: not installed or `endpoint` is unset — `weft_otel.provider`'s own docstring.
+    #: optional `opentelemetry-exporter-otlp-proto-http`. Falls back to `CONSOLE`, loudly, when
+    #: that is not installed or `endpoint` is unset — `weft_otel.provider`'s own docstring.
     OTLP = "otlp"
 
 

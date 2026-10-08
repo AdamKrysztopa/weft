@@ -20,6 +20,7 @@ is the shape §3's floor rule exists for.
 
 from __future__ import annotations
 
+import ast
 import re
 import tomllib
 from dataclasses import dataclass
@@ -533,6 +534,73 @@ def test_the_prose_beside_a_waived_block_names_only_what_exists() -> None:
         + "\n  ".join(wrong)
         + f"\n\nDistributions read from {[str(p.relative_to(REPO_ROOT)) for p in _MANIFESTS]}: "
         + f"{sorted(_published_names())}; extras: {sorted(_published_extras())}"
+    )
+
+
+_INSTALLED_NAME: Final[re.Pattern[str]] = re.compile(
+    r"\binstall\s+(?:the\s+)?[`'\"]?(?P<name>weft-[a-z][a-z0-9-]*)"
+)
+_NAMED_EXTRA: Final[re.Pattern[str]] = re.compile(
+    r"\b(?P<name>weft-[a-z][a-z0-9-]*)\[(?P<extras>[a-z][a-z0-9, -]*)\]"
+)
+
+
+def _shipped_strings(path: Path) -> list[tuple[int, str]]:
+    """Each string literal in `path` a user can be shown — a bare string statement never is."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    bare = {
+        id(node.value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+    }
+    return [
+        (node.lineno, node.value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in bare
+    ]
+
+
+def _unpublished_names_in(text: str) -> list[str]:
+    """Each install `text` asks for that names a distribution or extra nothing publishes."""
+    wrong = [
+        f"installs `{match.group('name')}`"
+        for match in _INSTALLED_NAME.finditer(text)
+        if match.group("name") not in _published_names()
+    ]
+    for match in _NAMED_EXTRA.finditer(text):
+        extras = {extra.strip() for extra in match.group("extras").split(",")}
+        if match.group("name") not in _published_names() or not extras <= _published_extras():
+            wrong.append(f"names `{match.group(0)}`")
+    return wrong
+
+
+def test_a_shipped_repair_message_installs_only_what_exists() -> None:
+    """`R20.14`: the OTLP fallback told an operator to install `weft-otel[otlp]` from 3.2.0.
+
+    Neither the distribution nor the extra exists, and `bertscore`'s refusal named
+    `weft-eval`'s extra. The prose check above reads pages; these strings reach a terminal.
+    """
+    # Arrange
+    sources = sorted(
+        path
+        for path in map(Path, tracked_files())
+        if path.parts[0] == "packages" and "src" in path.parts and path.suffix == ".py"
+    )
+    assert sources, "no shipped source was read — nothing below could have failed"
+
+    # Act
+    wrong = [
+        f"{source}:{line}: {problem}"
+        for source in sources
+        for line, text in _shipped_strings(REPO_ROOT / source)
+        for problem in _unpublished_names_in(text)
+    ]
+
+    # Assert
+    assert not wrong, (
+        "a message the binary prints names an install that does not exist:\n  "
+        + "\n  ".join(wrong)
+        + f"\n\nDistributions: {sorted(_published_names())}; extras: {sorted(_published_extras())}"
     )
 
 

@@ -106,7 +106,7 @@ class BERTScore:
     #: already has — never required, only read when present.
     gate_unsafe_reason: ClassVar[str] = (
         "needs the optional 'bert_score' package and a downloaded BERT checkpoint on first "
-        "use — install weft-eval's 'bertscore' extra to run this metric outside the gate"
+        "use — install 'weft-rag[bertscore]' to run this metric outside the gate"
     )
 
     def __init__(self, config: NoConfig | None = None) -> None:
@@ -131,7 +131,7 @@ class BERTScore:
         if not BERT_SCORE_AVAILABLE:
             return Failed(
                 reason="bertscore needs the optional 'bert_score' package, which is not "
-                "installed — install weft-eval's 'bertscore' extra to run this metric"
+                "installed — install 'weft-rag[bertscore]' to run this metric"
             )
 
         import bert_score
