@@ -120,6 +120,11 @@ LIMIT_ENV_VAR: Final[str] = "WEFT_GATE_GUARD_LIMIT"
 #: code change needed — if a future harness revision drops `ask` as a `PreToolUse` value.
 _ASK_IS_SUPPORTED: Final[bool] = False
 
+#: Leads a `Bash` command that applies a gate change the owner approved through `AskUserQuestion`
+#: (`docs/internal/lessons.md` L28.117): the deny above reaches no human, so without it an approved
+#: waiver had no route but the owner's own keyboard. `guard_archive_reads.py`'s L28.96 shape.
+_APPROVED: Final[re.Pattern[str]] = re.compile(r"^\s*WEFT_GATE_CHANGE_APPROVED=1\s")
+
 _SUPPRESSION_SCOPE: Final[tuple[str, ...]] = (
     "packages",
     "tests",
@@ -651,7 +656,9 @@ def _fallback_reason(findings: list[_Finding], count: int, target: Path) -> str:
     return (
         "Stop here and put the following to the user with AskUserQuestion before making this "
         f"edit; a permission mode does not answer it for them: "
-        f"{_human_reason(findings, count, target)}"
+        f"{_human_reason(findings, count, target)} This tool will keep refusing it; only on the "
+        f"owner's yes, apply exactly that edit through Bash with WEFT_GATE_CHANGE_APPROVED=1 "
+        f"leading the command (docs/internal/lessons.md L28.117)."
     )
 
 
@@ -809,6 +816,8 @@ def main() -> int:
     tool_name = payload.get("tool_name")
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
+        return 0
+    if tool_name == "Bash" and _APPROVED.match(str(tool_input.get("command", ""))):
         return 0
     if tool_name == "Bash" and payload.get("hook_event_name") in _AFTER_EVENTS:
         _guard_bash_after(payload)

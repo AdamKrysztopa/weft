@@ -156,7 +156,9 @@ PYTHONPATH = "examples/weft-example-blob/src:examples/weft-example-describer/src
 # A `shell` task rather than a `cmd` one because the change set is computed by `git` and piped in:
 # a script under `scripts/` is shipped-shaped code that `ruff`'s `S` rules apply to in full, so
 # every `subprocess.run` in this tree carries a `# noqa: S603`, and a script that spawns nothing
-# needs none.
+# needs none. The write guard refuses a new one: a script that already has its one `asyncio.run`
+# spawns through `asyncio.create_subprocess_exec`, which S603 does not cover, and any other asks
+# the owner first (`docs/internal/lessons.md` L28.116).
 [tool.poe.tasks.test-impacted]
 help = "Only the tests a diff can have affected. A fast local/PR signal, never the gate."
 shell = """
