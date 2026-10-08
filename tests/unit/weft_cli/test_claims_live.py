@@ -12,8 +12,11 @@ import pytest
 from weft_cli.claims_live import live_evidence
 from weft_cli.route_ask import resolve_named_pipeline
 from weft_engine import registry_bootstrap
+from weft_engine.pack_attribution import attribute_to_packs
 from weft_eval.claims import load_claim, load_claims
 from weft_eval.fingerprint import stage_identity
+from weft_kernel.discovery import PackFailureKind, PackReport, PackStatus
+from weft_kernel.errors import WeftError
 from weft_retrieve.profile import PROFILER_VERSION
 
 REPO = Path(__file__).resolve().parents[3]
@@ -112,3 +115,39 @@ def test_every_committed_records_claim_resolves_or_says_why_not(
     assert lives["whole-corpus.fetch-operator.answer-correctness"].fingerprint is not None
     assert lives["whole-corpus.global.answer-correctness"].fingerprint is not None
     assert all(reason for reason in unresolved.values())
+
+
+def test_an_unresolved_claim_carries_its_whole_cause_on_one_line(
+    deps: registry_bootstrap.Dependencies, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange — task 45.4: the reason after the headline's colon was being dropped.
+    pdf = PackReport(
+        pack="pdf",
+        distribution="weft-rag",
+        status=PackStatus.FAILED,
+        reason="No module named 'pypdf'",
+        failure_kind=PackFailureKind.IMPORT,
+    )
+    cause = attribute_to_packs(
+        (pdf,),
+        name="pdf-text",
+        subject="stage 'extract' names plugin 'pdf-text'",
+        not_found=", and no installed distribution registered it.",
+        registered="Installed plugin names: markdown, text.",
+        valid_options=("markdown", "text"),
+    ).message
+
+    def _unresolvable(*_args: object, **_kwargs: object) -> None:
+        raise WeftError(cause)
+
+    monkeypatch.setattr("weft_cli.claims_live._resolved_components", _unresolvable)
+    claim = load_claim(CLAIMS / "whole-corpus.fetch-operator.answer-correctness.toml")
+
+    # Act
+    live = live_evidence(claim, root=REPO, deps=deps)
+
+    # Assert
+    assert live.unresolved is not None
+    assert "\n" not in live.unresolved
+    assert "No module named 'pypdf'" in live.unresolved
+    assert "Installed plugin names: markdown, text." in live.unresolved

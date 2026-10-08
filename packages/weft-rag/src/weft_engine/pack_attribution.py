@@ -28,8 +28,9 @@ from __future__ import annotations
 
 import importlib.metadata
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Final
 
 from weft_command.render import ExitCode
 from weft_kernel.discovery import PackFailureKind, PackReport, PackStatus
@@ -43,6 +44,20 @@ _CONTRIBUTED_INCOMPLETELY = (
     PackStatus.PARTIAL,
     PackStatus.ALLOWED_NOT_INSTALLED,
 )
+
+#: Each plugin a first-party pack behind an extra registers, to that pack — what an install hint
+#: is narrowed by. Checked against the packs' real registrations by
+#: `tests/architecture/test_plugins_behind_extras.py`.
+PLUGINS_BEHIND_EXTRAS: Final[Mapping[str, str]] = {
+    "cross-encoder-rerank": "cross-encoder",
+    "openai": "openai",
+    "openai-embeddings": "openai",
+    "openai-vision": "openai",
+    "pdf-layout": "pdf",
+    "pdf-layout-model": "docling",
+    "pdf-text": "pdf",
+    "qdrant": "qdrant",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +120,8 @@ def attribute_to_packs(
       stays `None` regardless of the `valid_options` argument: a refused pack is never
       imported, so nothing here can honestly claim what it would have registered — see
       `PluginRefusal`'s own docstring for the identical reasoning stated at the field.
-    - **Some `silent` report has an `install_hint`** — `ExitCode.RESOLUTION_FAILED`, leading
+    - **Some `silent` report has an `install_hint`, and is the pack that provides `name` per
+      `PLUGINS_BEHIND_EXTRAS`** — `ExitCode.RESOLUTION_FAILED`, leading
       with the missing extra rather than any settings failure among the same reports:
       **carried repair R34.2**, found running `weft index` where `store` and `blob` both
       failed on their own settings while `qdrant` sat silent on a missing extra — the
@@ -144,7 +160,7 @@ def attribute_to_packs(
             message=_compose(
                 f"{subject}. A pack it may need is not installed — {listed} — which is why "
                 f"'{name}' may not resolve:",
-                _diagnostic_detail(silent),
+                _diagnostic_detail(silent, name=name),
                 registered,
             ),
             valid_options=valid_options,
@@ -157,7 +173,7 @@ def attribute_to_packs(
                 f"{subject}. No installed distribution is missing — {listed} imported "
                 f"cleanly and then failed on its own settings, which is why '{name}' does "
                 f"not resolve:",
-                _diagnostic_detail(silent),
+                _diagnostic_detail(silent, name=name),
                 registered,
             ),
             valid_options=valid_options,
@@ -165,6 +181,7 @@ def attribute_to_packs(
     if silent:
         return _silent_refusal(
             silent,
+            name=name,
             subject=subject,
             not_found=not_found,
             registered=registered,
@@ -199,19 +216,19 @@ def _refused_refusal(
 
 
 def _installable(silent: Sequence[PackReport], name: str) -> tuple[tuple[PackReport, str], ...]:
-    """Each `silent` pack with an install hint — narrowed to the pack named `name`, if one is."""
-    installable = tuple(
+    """Each `silent` pack with an install hint providing `name`; `()` if `name` is untabled."""
+    provider = PLUGINS_BEHIND_EXTRAS.get(name)
+    return tuple(
         (report, hint)
         for report in sorted(silent, key=_label_of)
-        if (hint := install_hint(report)) is not None
+        if report.pack == provider and (hint := install_hint(report)) is not None
     )
-    named = tuple((report, hint) for report, hint in installable if report.pack == name)
-    return named or installable
 
 
 def _silent_refusal(
     silent: Sequence[PackReport],
     *,
+    name: str,
     subject: str,
     not_found: str,
     registered: str,
@@ -228,7 +245,7 @@ def _silent_refusal(
             f"These packs contributed nothing, or only part of what they publish, "
             f"and one of them may be the one that provides it: {listed}.",
             registered,
-            _diagnostic_detail(silent),
+            _diagnostic_detail(silent, name=name),
         ),
         valid_options=valid_options,
     )
@@ -353,7 +370,7 @@ def _label_of(report: PackReport) -> str:
     return report.pack or report.distribution
 
 
-def _diagnostic_detail(silent: Sequence[PackReport]) -> str:
+def _diagnostic_detail(silent: Sequence[PackReport], *, name: str) -> str:
     """The raw reason each `silent` pack gave, as its own block under the pack.
 
     A Pydantic validation dump, for `weft-store`'s own `FAILED` case — as its own block, indented
@@ -371,7 +388,7 @@ def _diagnostic_detail(silent: Sequence[PackReport]) -> str:
         if not report.reason:
             continue
         block = f"{_label_of(report)}:\n{textwrap.indent(report.reason, '    ')}"
-        hint = install_hint(report)
+        hint = install_hint(report) if report.pack == PLUGINS_BEHIND_EXTRAS.get(name) else None
         if hint is not None:
             block += f"\n{textwrap.indent(hint, '    ')}"
         blocks.append(block)

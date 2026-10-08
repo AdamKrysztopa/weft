@@ -17,6 +17,8 @@ reranker before the retriever — are asserted to raise `StageCompositionError` 
 kernel with no pack-side inspector anywhere.
 """
 
+import re
+
 import pytest
 from pydantic import BaseModel, ConfigDict
 
@@ -829,20 +831,20 @@ def test_two_failed_packs_in_one_distribution_are_told_apart_in_the_message() ->
             failure_kind=PackFailureKind.IMPORT,
         ),
     )
-    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="qdrant"),))
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="store", use="acme-store"),))
 
     # Act / Assert
     with pytest.raises(UnknownStagePluginError) as caught:
         contracts_for(pipeline, registry=registry, reports=reports, parents={})
     message = str(caught.value)
-    assert "qdrant" in message
-    assert "pdf" in message
+    assert "qdrant (failed)" in message
+    assert "pdf (failed)" in message
     # The distribution alone would render both rows as the identical string, which is what
     # `PackReport`'s own docstring says a report carrying only that fact can no longer do:
     # "tell fourteen rows apart".
     assert "weft-rag (failed); weft-rag (failed)" not in message
-    assert "weft-rag[qdrant]" in message
-    assert "weft-rag[pdf]" in message
+    # Task 45.4: no first-party extra provides 'acme-store', so none is offered.
+    assert "pip install" not in message
 
 
 def test_a_document_naming_an_unavailable_plugin_is_refused_with_the_reason_discovery_gave() -> (
@@ -910,3 +912,61 @@ def test_an_unavailable_surface_of_a_pack_a_document_does_not_name_is_not_mentio
     # Act / Assert — resolves, because nothing it names is unavailable.
     contracts = contracts_for(pipeline, registry=registry, reports=reports, parents={})
     assert "retrieve" in contracts
+
+
+# --- Task 45.4 — an install hint names only the extra that provides the unresolved plugin.
+
+_EXTRA_BACKED: tuple[tuple[str, str], ...] = (
+    ("cross-encoder", "No module named 'sentence_transformers'"),
+    ("docling", "No module named 'docling'"),
+    ("openai", "No module named 'openai'"),
+    ("otel", "No module named 'opentelemetry.sdk'"),
+    ("pdf", "No module named 'pypdf'"),
+    ("qdrant", "No module named 'qdrant_client'"),
+)
+
+
+def _base_only_install() -> tuple[PackReport, ...]:
+    """What discovery reports in an install of `weft-rag` with no extra and no database URL."""
+    failed = tuple(
+        _report(pack, PackStatus.FAILED, reason=reason, failure_kind=PackFailureKind.IMPORT)
+        for pack, reason in _EXTRA_BACKED
+    )
+    store = _report(
+        "store",
+        PackStatus.FAILED,
+        reason="'store' settings failed validation: dsn Field required",
+        failure_kind=PackFailureKind.SETTINGS,
+    )
+    return (*failed, store)
+
+
+def _refusal_for(plugin: str) -> str:
+    pipeline = Pipeline(name="q", stages=(StageDeclaration(id="extract", use=plugin),))
+    with pytest.raises(UnknownStagePluginError) as caught:
+        contracts_for(pipeline, registry=_registry(), reports=_base_only_install(), parents={})
+    return str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("plugin", "extra"),
+    [("pdf-text", "pdf"), ("pdf-layout-model", "docling"), ("openai-embeddings", "openai")],
+)
+def test_a_base_only_install_names_only_the_extra_that_provides_the_plugin(
+    plugin: str, extra: str
+) -> None:
+    # Act
+    message = _refusal_for(plugin)
+
+    # Assert
+    offered = set(re.findall(r"weft-rag\[([a-z-]+)\]", message))
+    assert offered == {extra}
+
+
+def test_pgvector_in_a_base_only_install_is_named_as_the_store_settings_never_an_extra() -> None:
+    # Act
+    message = _refusal_for("pgvector")
+
+    # Assert
+    assert "pip install" not in message
+    assert "'store' settings failed validation: dsn Field required" in message

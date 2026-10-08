@@ -87,7 +87,7 @@ def live_evidence(claim: Claim, *, root: Path, deps: Dependencies) -> LiveEviden
             claim, root / claim.source.experiment, deps
         )
     except WeftError as unresolved:
-        return LiveEvidence(fingerprint=None, unresolved=str(unresolved).splitlines()[0])
+        return LiveEvidence(fingerprint=None, unresolved=" ".join(str(unresolved).split()))
     judge = judge_prompt_digests(deps.registry, _metric_names(deps)).get(claim.metric)
     reads_a_profile = bool(claim.regime) or rung_arm.router or base_arm.router
     return LiveEvidence(
